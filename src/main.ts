@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import './lib/supabaseClient';
 import { GameScene } from './scenes/GameScene';
 
 new Phaser.Game({

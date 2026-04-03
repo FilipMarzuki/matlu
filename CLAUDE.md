@@ -25,6 +25,17 @@ The **rex virtual joystick** plugin is loaded from the official CDN in `preload(
 - Plugin type: `VirtualJoystickPlugin` from `phaser3-rex-plugins/plugins/virtualjoystick-plugin`
 - Joystick instance type: `VirtualJoyStick` from `phaser3-rex-plugins/plugins/virtualjoystick`
 
+## Supabase
+
+The app includes **`@supabase/supabase-js`** and a shared client in `src/lib/supabaseClient.ts`. Vite exposes credentials via:
+
+- `VITE_SUPABASE_URL` — project API URL (Settings → API)
+- `VITE_SUPABASE_ANON_KEY` — anon (legacy JWT) or **publishable** key (`sb_publishable_…`)
+
+Copy `.env.example` to **`.env`** locally and paste values from the [Supabase dashboard](https://supabase.com/dashboard). The `.env` file is gitignored.
+
+For **CI**, the workflow sets placeholder `VITE_*` variables so `vite build` succeeds without storing secrets in the repo. For **production** (for example Vercel), add the same two variables in the host’s environment settings.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude/**`, and on pull requests targeting `main`. It uses Node 20, `npm ci`, then `npm run typecheck` and `npm run build`.
