@@ -27,7 +27,7 @@ The **rex virtual joystick** plugin is loaded from the official CDN in `preload(
 
 ## Supabase
 
-The app includes **`@supabase/supabase-js`** and a shared client in `src/lib/supabaseClient.ts`. Vite exposes credentials via:
+The app includes **`@supabase/supabase-js`** and a shared client in `src/lib/supabaseClient.ts` (`createClient<Database>`). Vite exposes credentials via:
 
 - `VITE_SUPABASE_URL` — project API URL (Settings → API)
 - `VITE_SUPABASE_ANON_KEY` — anon (legacy JWT) or **publishable** key (`sb_publishable_…`)
@@ -35,6 +35,14 @@ The app includes **`@supabase/supabase-js`** and a shared client in `src/lib/sup
 Copy `.env.example` to **`.env`** locally and paste values from the [Supabase dashboard](https://supabase.com/dashboard). The `.env` file is gitignored.
 
 For **CI**, the workflow sets placeholder `VITE_*` variables so `vite build` succeeds without storing secrets in the repo. For **production** (for example Vercel), add the same two variables in the host’s environment settings.
+
+### Cursor Supabase MCP (schema + types)
+
+DDL should go through **`apply_migration`** (not ad-hoc DDL in `execute_sql`). Example migration already applied: **`create_matlu_runs`** — table `public.matlu_runs` with RLS so **anon** and **authenticated** can **select** and **insert**.
+
+After changing the schema, run **`generate_typescript_types`** and merge the result into `src/types/database.types.ts` (this repo currently types the Matlu table only; the live DB may also contain other tables).
+
+Helpers for the Matlu table live in `src/lib/matluRuns.ts` (`insertMatluRun`, `fetchMatluLeaderboard`).
 
 ## CI
 
