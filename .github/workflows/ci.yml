@@ -15,7 +15,7 @@ jobs:
     env:
       # Placeholder values so Vite can bundle without repo secrets. Override in deploy (e.g. Vercel env vars).
       VITE_SUPABASE_URL: https://example.supabase.co
-      VITE_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-key
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
     steps:
       - uses: actions/checkout@v4
 
