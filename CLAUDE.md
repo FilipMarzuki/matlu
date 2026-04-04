@@ -1,33 +1,81 @@
 # Matlu — Phaser 3 + TypeScript + Vite
 
-Small Phaser 3 game used to practice dev workflows. The stack is **Phaser 3**, **TypeScript** (strict), and **Vite** for bundling and dev server.
+Top-down vehicle game built with Phaser 3 + TypeScript. A vehicle drives on a 2D map controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
+
+Primary platform: Android tablet (Chrome). Keyboard also supported.
+Deployed to: Vercel (auto-deploy on push to main)
+Database: Supabase (leaderboard via `matlu_runs` table)
+
+## Tech stack
+
+- **Phaser 3** + **TypeScript** (strict)
+- **Vite** (bundler, dev server on port 3000)
+- **Supabase** (`@supabase/supabase-js`, browser client)
+- **rex-virtual-joystick** plugin (mobile controls, loaded from CDN)
 
 ## Scripts
 
-| Command            | Description                                      |
-| ------------------ | ------------------------------------------------ |
-| `npm run dev`      | Vite dev server on **port 3000**                 |
-| `npm run build`    | `tsc` then `vite build` (typecheck + bundle)     |
-| `npm run typecheck`| `tsc --noEmit` only                              |
-| `npm run preview`  | Preview production build                         |
+| Command             | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `npm run dev`       | Vite dev server on **port 3000**             |
+| `npm run build`     | `tsc` then `vite build` (typecheck + bundle) |
+| `npm run typecheck` | `tsc --noEmit` only                          |
+| `npm run preview`   | Preview production build                     |
 
-## Project layout
+## Project structure
 
-- `index.html` — HTML shell; loads `src/main.ts`
-- `src/main.ts` — Phaser game config (800×600, arcade physics, FIT scaling)
-- `src/scenes/GameScene.ts` — main scene: map, vehicle, Rex virtual joystick
-- `vite.config.ts` — Vite options (dev port 3000)
+```
+index.html              # HTML shell; loads src/main.ts
+src/
+  main.ts               # Phaser game config (800×600, arcade physics, FIT scaling)
+  scenes/
+    GameScene.ts        # Main scene: map, vehicle, joystick, physics
+  lib/
+    supabaseClient.ts   # Shared Supabase browser client (createClient<Database>)
+    matluRuns.ts        # insertMatluRun, fetchMatluLeaderboard helpers
+  types/
+    database.types.ts   # Generated Supabase TypeScript types (Matlu table)
+  vite-env.d.ts         # Vite env type declarations
+vite.config.ts          # Vite options (dev port 3000)
+```
+
+## Coding conventions
+
+- Mobile-first controls — virtual joystick is the primary input
+- Design for landscape tablet (800×600 minimum)
+- Keep game logic in scene classes; don't add abstractions speculatively
+- Run `npm run typecheck` and `npm run build` before pushing
+
+## Current milestone
+
+Milestone 1 — vehicle moving on a map with joystick controls ✓
+
+## Task management
+
+- Open GitHub issues are the task backlog
+- Label `ready` = approved for autonomous pickup
+- Label `in-progress` = currently being worked on
+- Do NOT pick up issues without the `ready` label
+- After implementing: open a PR, comment on the issue, remove `ready` label
+
+## When implementing a task
+
+1. Read the relevant existing files before writing anything
+2. Keep changes small and focused on the issue
+3. Don't refactor things outside the scope of the task
+4. Run `npm run build` and `npm run typecheck` before opening a PR
+5. If anything is unclear, open a PR with a plan and ask rather than guessing
 
 ## Rex virtual joystick
 
-The **rex virtual joystick** plugin is loaded from the official CDN in `preload()` so the runtime matches the documented minified build. TypeScript types and instance typing come from the **`phaser3-rex-plugins`** package:
+Loaded from CDN in `preload()` so the runtime matches the documented minified build. TypeScript types come from `phaser3-rex-plugins`:
 
 - Plugin type: `VirtualJoystickPlugin` from `phaser3-rex-plugins/plugins/virtualjoystick-plugin`
 - Joystick instance type: `VirtualJoyStick` from `phaser3-rex-plugins/plugins/virtualjoystick`
 
 ## Supabase
 
-The app includes **`@supabase/supabase-js`** and a shared client in `src/lib/supabaseClient.ts` (`createClient<Database>`). This is a **Vite SPA** (Phaser), not Next.js: there is **no** `@supabase/ssr`, cookie-based server client, or Next middleware. Session persistence and token refresh use the browser client with `persistSession` and `autoRefreshToken` (no extra middleware file required).
+This is a **Vite SPA** (Phaser), not Next.js — there is **no** `@supabase/ssr`, cookie-based server client, or Next middleware. Session persistence uses the browser client with `persistSession` and `autoRefreshToken`.
 
 Vite exposes credentials via **`VITE_*`** env vars (not `NEXT_PUBLIC_*`):
 
@@ -35,24 +83,24 @@ Vite exposes credentials via **`VITE_*`** env vars (not `NEXT_PUBLIC_*`):
 - `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY` — default **publishable** key (`sb_publishable_…`), preferred
 - `VITE_SUPABASE_ANON_KEY` — optional legacy anon JWT if publishable is not set
 
-Copy `.env.example` to **`.env`** or **`.env.local`** and paste values from the [Supabase dashboard](https://supabase.com/dashboard). Those files are gitignored.
+Copy `.env.example` to **`.env`** or **`.env.local`** and paste values from the Supabase dashboard. Those files are gitignored.
 
-For **CI**, the workflow sets placeholder `VITE_*` variables so `vite build` succeeds without storing secrets in the repo. For **production** (for example Vercel), add the same variables in the host’s environment settings.
+For **CI**, the workflow sets placeholder `VITE_*` variables so `vite build` succeeds without storing secrets. For **production** (Vercel), add the same variables in the host's environment settings.
 
-### Cursor Supabase MCP (schema + types)
+### Schema migrations
 
-DDL should go through **`apply_migration`** (not ad-hoc DDL in `execute_sql`). Example migration already applied: **`create_matlu_runs`** — table `public.matlu_runs` with RLS so **anon** and **authenticated** can **select** and **insert**.
+DDL should go through **`apply_migration`** (not ad-hoc DDL in `execute_sql`). Migration already applied: **`create_matlu_runs`** — table `public.matlu_runs` with RLS so `anon` and `authenticated` can `select` and `insert`.
 
-After changing the schema, run **`generate_typescript_types`** and merge the result into `src/types/database.types.ts` (this repo currently types the Matlu table only; the live DB may also contain other tables).
-
-Helpers for the Matlu table live in `src/lib/matluRuns.ts` (`insertMatluRun`, `fetchMatluLeaderboard`).
+After changing the schema, run **`generate_typescript_types`** and merge the result into `src/types/database.types.ts`.
 
 ### Agent skills (optional)
 
-The repo can include Supabase’s **`supabase-postgres-best-practices`** skill under **`.agents/skills/`**, tracked with **`skills-lock.json`**. Reinstall with:
+The repo can include Supabase's **`supabase-postgres-best-practices`** skill under `.agents/skills/`, tracked with `skills-lock.json`. Reinstall with:
 
-`npx skills add supabase/agent-skills -y`
+```
+npx skills add supabase/agent-skills -y
+```
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude/**`, and on pull requests targeting `main`. It uses Node 20, `npm ci`, then `npm run typecheck` and `npm run build`.
+GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude/**`, and on pull requests targeting `main`. Uses Node 20, `npm ci`, then `npm run typecheck` and `npm run build`.
