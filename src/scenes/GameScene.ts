@@ -9,6 +9,12 @@ const REX_PLUGIN_CDN =
 export class GameScene extends Phaser.Scene {
   private vehicle!: Phaser.GameObjects.Rectangle;
   private joystick!: VirtualJoyStick;
+  // Phaser's built-in cursor key object covers arrow keys + shift/space.
+  // We keep a reference so update() can poll it each frame.
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  // addKeys() accepts a comma-separated string and returns a Record keyed by
+  // the same names — we cast to a typed object for IDE autocompletion.
+  private wasd!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
 
   constructor() {
     super({ key: 'GameScene' });
@@ -45,13 +51,43 @@ export class GameScene extends Phaser.Scene {
     this.vehicle.setDepth(10);
     base.setDepth(20);
     thumb.setDepth(21);
+
+    // createCursorKeys() returns an object with .left/.right/.up/.down/.shift/.space,
+    // each being a Phaser.Input.Keyboard.Key that tracks isDown automatically.
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    // addKeys() lets us register arbitrary keys by name. The non-null assertion
+    // (!) is safe here because we always run inside a Phaser scene with a keyboard
+    // input manager present.
+    this.wasd = this.input.keyboard!.addKeys('W,A,S,D') as typeof this.wasd;
   }
 
   update(): void {
     const body = this.vehicle.body as Phaser.Physics.Arcade.Body;
+
+    // Joystick takes priority: if the player is actively using it, use its
+    // direction. This avoids fighting between two simultaneous inputs.
     if (this.joystick.force > 10) {
       this.physics.velocityFromRotation(this.joystick.rotation, 200, body.velocity);
       this.vehicle.setRotation(this.joystick.rotation);
+      return;
+    }
+
+    // Build a direction vector from whichever keys are held.
+    // dx/dy are in the range [-1, 1]; combining two axes gives 8-directional movement.
+    const left  = this.cursors.left.isDown  || this.wasd.A.isDown;
+    const right = this.cursors.right.isDown || this.wasd.D.isDown;
+    const up    = this.cursors.up.isDown    || this.wasd.W.isDown;
+    const down  = this.cursors.down.isDown  || this.wasd.S.isDown;
+
+    const dx = (right ? 1 : 0) - (left ? 1 : 0);
+    const dy = (down  ? 1 : 0) - (up   ? 1 : 0);
+
+    if (dx !== 0 || dy !== 0) {
+      // Math.atan2(y, x) converts a 2-D vector into an angle in radians,
+      // which is exactly what velocityFromRotation expects.
+      const angle = Math.atan2(dy, dx);
+      this.physics.velocityFromRotation(angle, 200, body.velocity);
+      this.vehicle.setRotation(angle);
     } else {
       body.setVelocity(0, 0);
     }
