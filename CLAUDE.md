@@ -66,6 +66,20 @@ Milestone 1 — vehicle moving on a map with joystick controls ✓
 4. Run `npm run build` and `npm run typecheck` before opening a PR
 5. If anything is unclear, open a PR with a plan and ask rather than guessing
 
+## PR descriptions
+
+Write PR descriptions as a learning resource for someone new to this tech stack. Include:
+
+- What was built and why
+- Key Phaser/TypeScript concepts used
+- Any important decisions made and the alternatives considered
+- Links to relevant Phaser docs if applicable
+- Anything surprising or worth knowing
+
+## Code comments
+
+Add educational comments to non-obvious code. The owner is learning Phaser, TypeScript, and game dev — briefly explain **why** things are done a certain way, not just what the code does.
+
 ## Rex virtual joystick
 
 Loaded from CDN in `preload()` so the runtime matches the documented minified build. TypeScript types come from `phaser3-rex-plugins`:
