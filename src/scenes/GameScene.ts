@@ -6,9 +6,15 @@ const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 const REX_PLUGIN_CDN =
   'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js';
 
+const VEHICLE_SPEED = 200;
+
 export class GameScene extends Phaser.Scene {
   private vehicle!: Phaser.GameObjects.Rectangle;
   private joystick!: VirtualJoyStick;
+  // Arrow keys
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  // WASD keys
+  private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -42,6 +48,16 @@ export class GameScene extends Phaser.Scene {
       thumb,
     });
 
+    // Register keyboard inputs so arrow keys and WASD both drive the vehicle.
+    // createCursorKeys() covers arrow keys + shift + space.
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.wasd = this.input.keyboard!.addKeys({
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      down: Phaser.Input.Keyboard.KeyCodes.S,
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      right: Phaser.Input.Keyboard.KeyCodes.D,
+    }) as Record<string, Phaser.Input.Keyboard.Key>;
+
     this.vehicle.setDepth(10);
     base.setDepth(20);
     thumb.setDepth(21);
@@ -49,9 +65,33 @@ export class GameScene extends Phaser.Scene {
 
   update(): void {
     const body = this.vehicle.body as Phaser.Physics.Arcade.Body;
+
+    // Joystick takes priority when actively pushed.
     if (this.joystick.force > 10) {
-      this.physics.velocityFromRotation(this.joystick.rotation, 200, body.velocity);
+      this.physics.velocityFromRotation(this.joystick.rotation, VEHICLE_SPEED, body.velocity);
       this.vehicle.setRotation(this.joystick.rotation);
+      return;
+    }
+
+    // Resolve a direction vector from whichever keys are held.
+    const right =
+      this.cursors.right.isDown || this.wasd['right'].isDown ? 1 : 0;
+    const left =
+      this.cursors.left.isDown || this.wasd['left'].isDown ? 1 : 0;
+    const down =
+      this.cursors.down.isDown || this.wasd['down'].isDown ? 1 : 0;
+    const up =
+      this.cursors.up.isDown || this.wasd['up'].isDown ? 1 : 0;
+
+    const dx = right - left;
+    const dy = down - up;
+
+    if (dx !== 0 || dy !== 0) {
+      // atan2(y, x) gives the angle in Phaser's coordinate system where
+      // right = 0, down = PI/2, left = ±PI, up = -PI/2.
+      const angle = Math.atan2(dy, dx);
+      this.physics.velocityFromRotation(angle, VEHICLE_SPEED, body.velocity);
+      this.vehicle.setRotation(angle);
     } else {
       body.setVelocity(0, 0);
     }
