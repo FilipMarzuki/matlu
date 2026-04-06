@@ -6,9 +6,20 @@ const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 const REX_PLUGIN_CDN =
   'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js';
 
+// Obstacle definitions: placed in the four grass quadrants, away from roads.
+// Roads span cx±44 (x 356–444) and cy±44 (y 256–344).
+const OBSTACLE_DEFS: Array<{ x: number; y: number; w: number; h: number }> = [
+  { x: 160,  y: 130,  w: 56, h: 40 }, // top-left crate
+  { x: 630,  y: 145,  w: 40, h: 56 }, // top-right tall crate
+  { x: 140,  y: 470,  w: 48, h: 48 }, // bottom-left square crate
+  { x: 640,  y: 460,  w: 64, h: 36 }, // bottom-right wide crate
+  { x: 230,  y: 200,  w: 36, h: 36 }, // extra crate near top-left road edge
+];
+
 export class GameScene extends Phaser.Scene {
   private vehicle!: Phaser.GameObjects.Rectangle;
   private joystick!: VirtualJoyStick;
+  private obstacles!: Phaser.Physics.Arcade.StaticGroup;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -20,12 +31,16 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.drawMap();
+    this.createObstacles();
 
     this.vehicle = this.add.rectangle(400, 300, 40, 24, 0xff2222);
     this.vehicle.setStrokeStyle(2, 0x880000);
     this.physics.add.existing(this.vehicle);
     const body = this.vehicle.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
+
+    // Collide the vehicle with every static obstacle.
+    this.physics.add.collider(this.vehicle, this.obstacles);
 
     const joystickPlugin = this.plugins.get(
       REX_VIRTUAL_JOYSTICK_PLUGIN_KEY
@@ -55,6 +70,22 @@ export class GameScene extends Phaser.Scene {
     } else {
       body.setVelocity(0, 0);
     }
+  }
+
+  // Each obstacle is a brown crate-style rectangle added to a static physics
+  // group so Arcade physics treats it as an immovable solid.
+  private createObstacles(): void {
+    this.obstacles = this.physics.add.staticGroup();
+
+    for (const def of OBSTACLE_DEFS) {
+      // Wood-brown fill with a dark outline to look intentional.
+      const box = this.add.rectangle(def.x, def.y, def.w, def.h, 0x7a4a1e);
+      box.setStrokeStyle(2, 0x3d2008);
+      this.obstacles.add(box);
+    }
+
+    // Sync all static bodies with their game object positions.
+    this.obstacles.refresh();
   }
 
   private drawMap(): void {
