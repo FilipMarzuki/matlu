@@ -13,9 +13,11 @@
     "@sentry/browser": "^10.47.0",
     "@supabase/supabase-js": "^2.101.1",
     "phaser": "^3.85.2",
-    "phaser3-rex-plugins": "^1.80.10"
+    "phaser3-rex-plugins": "^1.80.10",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "@types/sharp": "^0.31.1",
     "typescript": "^6.0.2",
     "vite": "^8.0.3"
   }
