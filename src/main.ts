@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import * as Sentry from '@sentry/browser';
 import './lib/supabaseClient';
+import { AttractionScene } from './scenes/AttractionScene';
 import { GameScene } from './scenes/GameScene';
 
 Sentry.init({
@@ -29,5 +30,6 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [GameScene],
+  // AttractionScene is the default entry point; it launches GameScene on demand
+  scene: [AttractionScene, GameScene],
 });
