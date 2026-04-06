@@ -5,6 +5,7 @@ import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
 import { createSolidGroup } from '../environment/SolidObject';
+import { InteractiveObject } from '../environment/InteractiveObject';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 const REX_PLUGIN_CDN =
@@ -69,6 +70,7 @@ export class GameScene extends Phaser.Scene {
   private joystick!: VirtualJoyStick;
   private obstacles!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
+  private interactiveObjects!: InteractiveObject[];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -104,6 +106,7 @@ export class GameScene extends Phaser.Scene {
     this.createObstacles();
     this.createDecorations();
     this.createSolidObjects();
+    this.createInteractiveObjects();
     this.createPlayer();
 
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -495,6 +498,44 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Place interactive trees that shake when the player touches them (FIL-30).
+   * Uses the same placeholder texture as solid trees.
+   */
+  private createInteractiveObjects(): void {
+    const ensureTexture = (key: string, w: number, h: number, colour: number): void => {
+      if (!this.textures.exists(key)) {
+        const rt = this.add.renderTexture(0, 0, w, h);
+        rt.fill(colour, 1);
+        rt.saveTexture(key);
+        rt.destroy();
+      }
+    };
+    ensureTexture('tree-interactive', 24, 40, 0x3a7a28);
+
+    const shakingTreeDefs = [
+      { x: 460, y: 760 },
+      { x: 460, y: 1250 },
+    ];
+
+    this.interactiveObjects = shakingTreeDefs.map(({ x, y }) => {
+      const tree = new InteractiveObject(this, x, y, 'tree-interactive', {
+        trigger: 'player-touch',
+        colliderWidth: 10,
+        colliderHeight: 8,
+        colliderOffsetY: -2,
+      });
+      this.physics.add.existing(tree, true);
+      const body = tree.body as Phaser.Physics.Arcade.StaticBody;
+      body.setSize(tree.colliderWidth, tree.colliderHeight);
+      body.setOffset(
+        (tree.displayWidth - tree.colliderWidth) / 2,
+        tree.displayHeight - tree.colliderHeight - 2,
+      );
+      return tree;
+    });
+  }
+
   private createPlayer(): void {
     // Use the placeholder character sprite (16×32px scaled up 3×) if loaded,
     // otherwise fall back to the coloured circle placeholder.
@@ -523,6 +564,13 @@ export class GameScene extends Phaser.Scene {
     body.setCircle(BODY_RADIUS);
 
     this.physics.add.collider(this.player, this.obstacles);
+
+    // Wire interactive object overlaps
+    for (const obj of this.interactiveObjects) {
+      if (obj.interactionTrigger === 'player-touch') {
+        this.physics.add.overlap(this.player, obj, () => obj.react());
+      }
+    }
   }
 
   private createObstacles(): void {
