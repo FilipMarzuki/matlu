@@ -83,6 +83,9 @@ export class GameScene extends Phaser.Scene {
       box.setStrokeStyle(2, 0x3d2008);
       this.obstacles.add(box);
     }
+
+    // Sync all static bodies with their game object positions.
+    this.obstacles.refresh();
   }
 
   private drawMap(): void {
