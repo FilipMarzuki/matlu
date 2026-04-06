@@ -4,6 +4,7 @@ import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
+import { createSolidGroup } from '../environment/SolidObject';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 const REX_PLUGIN_CDN =
@@ -67,6 +68,7 @@ export class GameScene extends Phaser.Scene {
   private playerIndicator!: Phaser.GameObjects.Rectangle;
   private joystick!: VirtualJoyStick;
   private obstacles!: Phaser.Physics.Arcade.StaticGroup;
+  private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -99,6 +101,7 @@ export class GameScene extends Phaser.Scene {
     this.drawMap();
     this.createObstacles();
     this.createDecorations();
+    this.createSolidObjects();
     this.createPlayer();
 
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -565,6 +568,41 @@ export class GameScene extends Phaser.Scene {
 
     // Keep TypeScript happy — WorldObject is imported for future use
     void (WorldObject);
+  }
+
+  /**
+   * Place placeholder SolidObject trees and rocks in the grass quadrants.
+   * Uses tinted RenderTextures as stand-ins until real sprites are ready.
+   * Collision boxes are narrow (trunk only) so the player can walk behind trees.
+   */
+  private createSolidObjects(): void {
+    // Generate placeholder textures on first call
+    const ensureTexture = (key: string, w: number, h: number, colour: number): void => {
+      if (!this.textures.exists(key)) {
+        const rt = this.add.renderTexture(0, 0, w, h);
+        rt.fill(colour, 1);
+        rt.saveTexture(key);
+        rt.destroy();
+      }
+    };
+    ensureTexture('tree-placeholder', 24, 40, 0x2d5c1e);  // dark green
+    ensureTexture('rock-placeholder', 18, 14, 0x7a7265);  // grey
+
+    const treeDefs = [
+      { x: 180, y: 720 }, { x: 320, y: 680 }, { x: 520, y: 700 }, { x: 700, y: 730 },
+      { x: 140, y: 1300 }, { x: 280, y: 1350 }, { x: 560, y: 1310 }, { x: 720, y: 1280 },
+    ];
+    const rockDefs = [
+      { x: 240, y: 800 }, { x: 660, y: 810 },
+      { x: 200, y: 1230 }, { x: 640, y: 1260 },
+    ];
+
+    this.solidObjects = createSolidGroup(this, [
+      ...treeDefs.map(p => ({ ...p, texture: 'tree-placeholder', options: { colliderWidth: 10, colliderHeight: 8, colliderOffsetY: -2 } })),
+      ...rockDefs.map(p => ({ ...p, texture: 'rock-placeholder', options: { colliderWidth: 16, colliderHeight: 10 } })),
+    ]);
+
+    this.physics.add.collider(this.player, this.solidObjects);
   }
 
   private drawMap(): void {
