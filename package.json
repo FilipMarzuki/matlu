@@ -16,6 +16,8 @@
     "phaser3-rex-plugins": "^1.80.10"
   },
   "devDependencies": {
+    "@types/sharp": "^0.31.1",
+    "sharp": "^0.34.5",
     "typescript": "^6.0.2",
     "vite": "^8.0.3"
   }
