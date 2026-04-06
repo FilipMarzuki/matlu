@@ -52,11 +52,11 @@ Milestone 1 — vehicle moving on a map with joystick controls ✓
 
 ## Task management
 
-- Open GitHub issues are the task backlog
-- Label `ready` = approved for autonomous pickup
-- Label `in-progress` = currently being worked on
-- Do NOT pick up issues without the `ready` label
-- After implementing: open a PR, comment on the issue, remove `ready` label
+Tasks are tracked in **Linear** (project: Matlu, assignee: Filip Marzuki).
+
+- Pick the highest-priority issue in **Backlog** or **Todo** state
+- Move the issue to **In Progress** when starting
+- After implementing: open a PR, post the PR link as a comment on the Linear issue, mark it **Done**
 
 ## When implementing a task
 
