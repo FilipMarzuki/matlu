@@ -26,15 +26,40 @@ const INDICATOR_H = 6;
 // Obstacle definitions: placed in the four grass quadrants, away from roads.
 // Roads span cx±44 (x 356–444) and cy±44 (y 956–1044) in world space.
 const OBSTACLE_DEFS: Array<{ x: number; y: number; w: number; h: number }> = [
-  { x: 160,  y: 870,  w: 56, h: 40 },
-  { x: 630,  y: 885,  w: 40, h: 56 },
-  { x: 140,  y: 1170, w: 48, h: 48 },
-  { x: 640,  y: 1160, w: 64, h: 36 },
-  { x: 230,  y: 900,  w: 36, h: 36 },
+  { x: 160, y: 870, w: 56, h: 40 },
+  { x: 630, y: 885, w: 40, h: 56 },
+  { x: 140, y: 1170, w: 48, h: 48 },
+  { x: 640, y: 1160, w: 64, h: 36 },
+  { x: 230, y: 900, w: 36, h: 36 },
 ];
 
+/** FIL-9 / FIL-10: one cleanse unit per defeated rabbit */
+const RABBIT_COUNT = 10;
+const RABBIT_SIZE = 18;
+const SPAWN_CLEAR = 320;
+const CHASE_RANGE = 200;
+const ROAM_SPEED = 40;
+const CHASE_SPEED = 70;
+const FLEE_SPEED = 120;
+const FLEE_MS = 1500;
+
+/** FIL-8: swipe toward pointer */
+const SWIPE_COOLDOWN_MS = 400;
+const SWIPE_RANGE = 120;
+const SWIPE_ARC = Phaser.Math.DegToRad(120);
+
+/** FIL-11: portal in world space (Linear: ~x 2100) */
+const PORTAL_X = 2100;
+const PORTAL_Y = 220;
+const PORTAL_RADIUS = 44;
+
+const HUD_BAR_W = 200;
+const HUD_BAR_H = 14;
+const HUD_PAD = 14;
+
+type RabbitState = 'roaming' | 'chasing' | 'fleeing';
+
 export class GameScene extends Phaser.Scene {
-  // Player is a container holding a circle body + facing indicator
   private player!: Phaser.GameObjects.Container;
   private playerBody!: Phaser.GameObjects.Arc;
   private playerIndicator!: Phaser.GameObjects.Rectangle;
@@ -42,6 +67,17 @@ export class GameScene extends Phaser.Scene {
   private obstacles!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
+
+  private rabbits!: Phaser.Physics.Arcade.Group;
+  private kills = 0;
+  private lastSwipeAt = 0;
+
+  private cleanseFill!: Phaser.GameObjects.Rectangle;
+  private overlay!: Phaser.GameObjects.Rectangle;
+  private portal!: Phaser.GameObjects.Arc;
+  private portalActive = false;
+  private portalGfx!: Phaser.GameObjects.Graphics;
+  private levelCompleteLogged = false;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -56,14 +92,12 @@ export class GameScene extends Phaser.Scene {
       Sentry.captureException(err, { tags: { scene: this.scene.key } });
     });
 
-    // Expand world bounds to the full map size
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
 
     this.drawMap();
     this.createObstacles();
     this.createPlayer();
 
-    // Camera follows player and is clamped to world bounds
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
@@ -74,7 +108,6 @@ export class GameScene extends Phaser.Scene {
     const base = this.add.circle(0, 0, 50, 0x444444, 0.45);
     const thumb = this.add.circle(0, 0, 22, 0xcccccc, 0.55);
 
-    // Joystick is fixed to camera (setScrollFactor(0) not needed; use fixed=true or position by cam)
     this.joystick = joystickPlugin.add(this, {
       x: 120,
       y: 480,
@@ -84,7 +117,6 @@ export class GameScene extends Phaser.Scene {
       fixed: true,
     });
 
-    // Register keyboard inputs so arrow keys and WASD both move the player.
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys({
       up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -93,67 +125,127 @@ export class GameScene extends Phaser.Scene {
       right: Phaser.Input.Keyboard.KeyCodes.D,
     }) as Record<string, Phaser.Input.Keyboard.Key>;
 
-    base.setDepth(20);
-    thumb.setDepth(21);
-  }
+    this.rabbits = this.physics.add.group();
+    this.spawnRabbits();
+    this.physics.add.collider(this.rabbits, this.obstacles);
 
-  // Call when a corruption zone is cleansed
-  protected onZoneCleansed(type: string, x: number, y: number): void {
-    Sentry.addBreadcrumb({
-      category: 'game',
-      message: `Zone cleansed: corruption type ${type} at (${x}, ${y})`,
-      level: 'info',
+    this.createHudAndOverlay();
+    this.createPortal();
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.leftButtonDown()) {
+        this.trySwipe(pointer);
+      }
     });
-  }
 
-  // Call on FSM state transitions
-  protected onFsmTransition(oldState: string, newState: string): void {
-    Sentry.addBreadcrumb({
-      category: 'entity',
-      message: `${this.constructor.name} FSM: ${oldState} → ${newState}`,
-      level: 'debug',
+    this.events.on('cleanse-updated', (percent: number) => {
+      this.applyWorldTint(percent);
+      if (percent >= 50 && !this.portalActive) {
+        this.revealPortal();
+      }
     });
+
+    base.setDepth(200);
+    thumb.setDepth(201);
   }
 
-  // Call when height-based movement is blocked
-  protected onHeightBlocked(diff: number, toX: number, toY: number): void {
-    Sentry.addBreadcrumb({
-      category: 'movement',
-      message: `Blocked: height diff ${diff} at (${toX}, ${toY})`,
-      level: 'debug',
-    });
+  update(time: number): void {
+    this.updatePlayerMovement();
+    this.updateRabbits(time);
+    if (this.portalActive) {
+      this.portalGfx.rotation += 0.03;
+    }
   }
 
-  update(): void {
+  private spawnRabbits(): void {
+    let spawned = 0;
+    while (spawned < RABBIT_COUNT) {
+      const x = Phaser.Math.Between(80, WORLD_W - 80);
+      const y = Phaser.Math.Between(80, WORLD_H - 80);
+      if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) {
+        continue;
+      }
+      const r = this.add.rectangle(x, y, RABBIT_SIZE, RABBIT_SIZE, 0x4a3558);
+      r.setStrokeStyle(1, 0x221122);
+      this.physics.add.existing(r);
+      const b = r.body as Phaser.Physics.Arcade.Body;
+      b.setCollideWorldBounds(true);
+      b.setDrag(40, 40);
+      this.rabbits.add(r);
+      r.setData('state', 'roaming' satisfies RabbitState);
+      r.setData('roamNext', this.time.now + Phaser.Math.Between(1500, 3500));
+      r.setData('fleeUntil', 0);
+      spawned += 1;
+    }
+  }
+
+  private updateRabbits(time: number): void {
+    const px = this.player.x;
+    const py = this.player.y;
+
+    for (const child of this.rabbits.getChildren()) {
+      const r = child as Phaser.GameObjects.Rectangle;
+      const b = r.body as Phaser.Physics.Arcade.Body;
+      const state = r.getData('state') as RabbitState;
+      const fleeUntil = r.getData('fleeUntil') as number;
+      const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
+
+      if (state === 'fleeing' && time < fleeUntil) {
+        const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
+        this.physics.velocityFromRotation(away, FLEE_SPEED, b.velocity);
+        continue;
+      }
+      if (state === 'fleeing' && time >= fleeUntil) {
+        r.setData('state', 'roaming' satisfies RabbitState);
+        r.setData('roamNext', time + Phaser.Math.Between(1500, 3500));
+      }
+
+      let next: RabbitState = state === 'fleeing' ? 'roaming' : state;
+      if (dist < CHASE_RANGE && state !== 'fleeing') {
+        next = 'chasing';
+      } else if (state === 'chasing' && dist > CHASE_RANGE + 40) {
+        next = 'roaming';
+      }
+
+      r.setData('state', next);
+
+      if (next === 'chasing') {
+        const ang = Phaser.Math.Angle.Between(r.x, r.y, px, py);
+        this.physics.velocityFromRotation(ang, CHASE_SPEED, b.velocity);
+      } else if (next === 'roaming') {
+        if (time > (r.getData('roamNext') as number)) {
+          const wander = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          this.physics.velocityFromRotation(wander, ROAM_SPEED, b.velocity);
+          r.setData('roamNext', time + Phaser.Math.Between(2000, 4000));
+        }
+      }
+    }
+  }
+
+  private updatePlayerMovement(): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     let dx = 0;
     let dy = 0;
 
-    // Joystick takes priority when actively pushed.
     if (this.joystick.force > 10) {
-      // Decompose joystick angle into a normalised vector (force is already normalised by radius)
       dx = Math.cos(this.joystick.rotation);
       dy = Math.sin(this.joystick.rotation);
     } else {
-      // 8-directional keyboard movement
       const right = this.cursors.right.isDown || this.wasd['right'].isDown ? 1 : 0;
-      const left  = this.cursors.left.isDown  || this.wasd['left'].isDown  ? 1 : 0;
-      const down  = this.cursors.down.isDown  || this.wasd['down'].isDown  ? 1 : 0;
-      const up    = this.cursors.up.isDown    || this.wasd['up'].isDown    ? 1 : 0;
+      const left = this.cursors.left.isDown || this.wasd['left'].isDown ? 1 : 0;
+      const down = this.cursors.down.isDown || this.wasd['down'].isDown ? 1 : 0;
+      const up = this.cursors.up.isDown || this.wasd['up'].isDown ? 1 : 0;
       dx = right - left;
       dy = down - up;
     }
 
     if (dx !== 0 || dy !== 0) {
-      // Normalise so diagonal speed matches cardinal speed
       const len = Math.sqrt(dx * dx + dy * dy);
       body.setVelocity((dx / len) * PLAYER_SPEED, (dy / len) * PLAYER_SPEED);
     } else {
       body.setVelocity(0, 0);
     }
 
-    // Player container always rotates to face the mouse cursor (worldX/worldY
-    // accounts for camera scroll)
     const angle = Phaser.Math.Angle.Between(
       this.player.x,
       this.player.y,
@@ -163,12 +255,242 @@ export class GameScene extends Phaser.Scene {
     this.player.setRotation(angle);
   }
 
+  private trySwipe(pointer: Phaser.Input.Pointer): void {
+    const now = this.time.now;
+    if (now - this.lastSwipeAt < SWIPE_COOLDOWN_MS) {
+      return;
+    }
+    this.lastSwipeAt = now;
+
+    const px = this.player.x;
+    const py = this.player.y;
+    const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
+    const half = SWIPE_ARC / 2;
+
+    for (const child of [...this.rabbits.getChildren()]) {
+      const r = child as Phaser.GameObjects.Rectangle;
+      const d = Phaser.Math.Distance.Between(px, py, r.x, r.y);
+      if (d > SWIPE_RANGE) {
+        continue;
+      }
+      const toR = Math.atan2(r.y - py, r.x - px);
+      let delta = toR - aim;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      if (Math.abs(delta) > half) {
+        continue;
+      }
+      this.applySwipeHit(r);
+      break;
+    }
+  }
+
+  private applySwipeHit(rabbit: Phaser.GameObjects.Rectangle): void {
+    const state = rabbit.getData('state') as RabbitState;
+    if (state === 'fleeing') {
+      return;
+    }
+
+    if (Math.random() < 0.5) {
+      this.killRabbit(rabbit);
+    } else {
+      const body = rabbit.body as Phaser.Physics.Arcade.Body;
+      const away = Phaser.Math.Angle.Between(this.player.x, this.player.y, rabbit.x, rabbit.y);
+      rabbit.setData('state', 'fleeing' satisfies RabbitState);
+      rabbit.setData('fleeUntil', this.time.now + FLEE_MS);
+      this.physics.velocityFromRotation(away, FLEE_SPEED, body.velocity);
+    }
+  }
+
+  private killRabbit(rabbit: Phaser.GameObjects.Rectangle): void {
+    const rx = rabbit.x;
+    const ry = rabbit.y;
+    this.spawnEnergyBurst(rx, ry, this.player.x, this.player.y);
+    rabbit.destroy();
+    this.kills += 1;
+    const percent = (this.kills / RABBIT_COUNT) * 100;
+    this.setCleanseHud(percent);
+    this.events.emit('cleanse-updated', percent);
+    Sentry.addBreadcrumb({
+      category: 'game',
+      message: `Rabbit defeated (${this.kills}/${RABBIT_COUNT})`,
+      level: 'info',
+    });
+    this.onZoneCleansed('rabbit', rx, ry);
+  }
+
+  private spawnEnergyBurst(sx: number, sy: number, ex: number, ey: number): void {
+    const midX = (sx + ex) / 2;
+    const midY = Math.min(sy, ey) - 60;
+    const curve = new Phaser.Curves.CubicBezier(
+      new Phaser.Math.Vector2(sx, sy),
+      new Phaser.Math.Vector2(midX, midY),
+      new Phaser.Math.Vector2(midX + 20, midY),
+      new Phaser.Math.Vector2(ex, ey)
+    );
+
+    const count = 7;
+    for (let i = 0; i < count; i++) {
+      const delay = i * 45;
+      const dot = this.add.circle(sx, sy, 3, 0xffffcc, 1);
+      dot.setDepth(60);
+      const tObj = { t: 0 };
+      const isLast = i === count - 1;
+      this.tweens.add({
+        delay,
+        targets: tObj,
+        t: 1,
+        duration: 420,
+        ease: 'Sine.easeInOut',
+        onUpdate: () => {
+          const p = curve.getPoint(tObj.t);
+          dot.setPosition(p.x, p.y);
+        },
+        onComplete: () => {
+          dot.destroy();
+          if (isLast) {
+            this.tweens.add({
+              targets: this.player,
+              scaleX: 1.06,
+              scaleY: 1.06,
+              yoyo: true,
+              duration: 90,
+              onComplete: () => {
+                this.player.setScale(1);
+              },
+            });
+          }
+        },
+      });
+    }
+  }
+
+  private createHudAndOverlay(): void {
+    const w = HUD_BAR_W;
+    const h = HUD_BAR_H;
+    const pad = HUD_PAD;
+
+    this.add
+      .text(pad, pad - 2, 'HP', { fontSize: '11px', color: '#ffffff' })
+      .setScrollFactor(0)
+      .setDepth(300);
+    this.add.rectangle(pad + w / 2, pad + 10, w, h, 0x111111, 0.9).setScrollFactor(0).setDepth(299);
+    this.add
+      .rectangle(pad + 2, pad + 10, w - 4, h - 4, 0xff3333)
+      .setOrigin(0, 0.5)
+      .setScrollFactor(0)
+      .setDepth(300);
+
+    this.add
+      .text(800 - pad - w, pad - 2, 'Cleanse', { fontSize: '11px', color: '#ffffff' })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(300);
+    this.add
+      .rectangle(800 - pad - w / 2, pad + 10, w, h, 0x111111, 0.9)
+      .setScrollFactor(0)
+      .setDepth(299);
+    this.cleanseFill = this.add
+      .rectangle(800 - pad - w + 2, pad + 10, 0, h - 4, 0xaaff66)
+      .setOrigin(0, 0.5)
+      .setScrollFactor(0)
+      .setDepth(300);
+
+    this.overlay = this.add
+      .rectangle(400, 300, 800, 600, 0x8899aa, 0.38)
+      .setScrollFactor(0)
+      .setDepth(50);
+
+    this.setCleanseHud(0);
+  }
+
+  private setCleanseHud(percent: number): void {
+    const inner = HUD_BAR_W - 4;
+    const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
+    this.cleanseFill.width = inner * ratio;
+    const murky = Phaser.Display.Color.ValueToColor(0x334433);
+    const bright = Phaser.Display.Color.ValueToColor(0x88ff99);
+    const c = Phaser.Display.Color.Interpolate.ColorWithColor(
+      murky,
+      bright,
+      100,
+      Math.floor(ratio * 100)
+    );
+    const hex = Phaser.Display.Color.GetColor(c.r, c.g, c.b);
+    this.cleanseFill.setFillStyle(hex);
+  }
+
+  private applyWorldTint(percent: number): void {
+    const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
+    this.overlay.setAlpha(0.38 * (1 - ratio));
+  }
+
+  private createPortal(): void {
+    this.portal = this.add.circle(PORTAL_X, PORTAL_Y, PORTAL_RADIUS, 0x6644ff, 0.35);
+    this.portal.setStrokeStyle(3, 0xffffff, 0.6);
+    this.portal.setAlpha(0);
+    this.portal.setDepth(25);
+    this.physics.add.existing(this.portal, true);
+    const pb = this.portal.body as Phaser.Physics.Arcade.StaticBody;
+    pb.setCircle(PORTAL_RADIUS);
+
+    this.portalGfx = this.add.graphics({ x: PORTAL_X, y: PORTAL_Y });
+    this.portalGfx.setDepth(24);
+
+    this.physics.add.overlap(this.player, this.portal, () => {
+      if (!this.portalActive || this.levelCompleteLogged) {
+        return;
+      }
+      console.log('Level complete');
+      this.levelCompleteLogged = true;
+    });
+  }
+
+  private revealPortal(): void {
+    this.portalActive = true;
+    this.drawPortalRing();
+    this.tweens.add({
+      targets: this.portal,
+      alpha: 1,
+      duration: 900,
+      ease: 'Sine.easeOut',
+    });
+  }
+
+  private drawPortalRing(): void {
+    this.portalGfx.clear();
+    this.portalGfx.lineStyle(4, 0xaa77ff, 0.9);
+    this.portalGfx.strokeCircle(0, 0, PORTAL_RADIUS + 6);
+  }
+
+  protected onZoneCleansed(type: string, x: number, y: number): void {
+    Sentry.addBreadcrumb({
+      category: 'game',
+      message: `Zone cleansed: corruption type ${type} at (${x}, ${y})`,
+      level: 'info',
+    });
+  }
+
+  protected onFsmTransition(oldState: string, newState: string): void {
+    Sentry.addBreadcrumb({
+      category: 'entity',
+      message: `${this.constructor.name} FSM: ${oldState} → ${newState}`,
+      level: 'debug',
+    });
+  }
+
+  protected onHeightBlocked(diff: number, toX: number, toY: number): void {
+    Sentry.addBreadcrumb({
+      category: 'movement',
+      message: `Blocked: height diff ${diff} at (${toX}, ${toY})`,
+      level: 'debug',
+    });
+  }
+
   private createPlayer(): void {
-    // Circle for the body
     this.playerBody = this.add.circle(0, 0, BODY_RADIUS, 0x4466ff);
     this.playerBody.setStrokeStyle(2, 0x2233aa);
 
-    // Small rectangle offset forward (along +x before rotation) to indicate facing direction
     this.playerIndicator = this.add.rectangle(
       BODY_RADIUS + INDICATOR_W / 2,
       0,
@@ -177,26 +499,18 @@ export class GameScene extends Phaser.Scene {
       0xffffff
     );
 
-    // Container lets us rotate both child objects together around the player centre
-    this.player = this.add.container(SPAWN_X, SPAWN_Y, [
-      this.playerBody,
-      this.playerIndicator,
-    ]);
+    this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
     this.player.setDepth(10);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
-    // Circle collider matching the visual radius
     body.setCircle(BODY_RADIUS);
 
-    // Collide the player with every static obstacle.
     this.physics.add.collider(this.player, this.obstacles);
   }
 
-  // Each obstacle is a brown crate-style rectangle added to a static physics
-  // group so Arcade physics treats it as an immovable solid.
   private createObstacles(): void {
     this.obstacles = this.physics.add.staticGroup();
 
@@ -212,11 +526,9 @@ export class GameScene extends Phaser.Scene {
   private drawMap(): void {
     const g = this.add.graphics();
 
-    // Grass background
     g.fillStyle(0x2d6b2e, 1);
     g.fillRect(0, 0, WORLD_W, WORLD_H);
 
-    // Cross-roads centred roughly at (400, 1000) in the expanded world
     const roadW = 88;
     const cx = 400;
     const cy = 1000;
@@ -224,7 +536,6 @@ export class GameScene extends Phaser.Scene {
     g.fillRect(0, cy - roadW / 2, WORLD_W, roadW);
     g.fillRect(cx - roadW / 2, 0, roadW, WORLD_H);
 
-    // Dashed centre lines
     g.lineStyle(3, 0xffdd00, 1);
     const dash = 18;
     const gap = 14;
@@ -235,7 +546,6 @@ export class GameScene extends Phaser.Scene {
       g.lineBetween(cx, y, cx, Math.min(y + dash, WORLD_H - 20));
     }
 
-    // Road outlines
     g.lineStyle(2, 0xffcc00, 1);
     g.strokeRect(0, cy - roadW / 2, WORLD_W, roadW);
     g.strokeRect(cx - roadW / 2, 0, roadW, WORLD_H);
