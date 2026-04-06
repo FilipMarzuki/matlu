@@ -6,6 +6,8 @@ import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
+import { WorldClock } from '../world/WorldClock';
+import type { DayPhase } from '../world/WorldClock';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 const REX_PLUGIN_CDN =
@@ -71,6 +73,9 @@ export class GameScene extends Phaser.Scene {
   private obstacles!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
   private interactiveObjects!: InteractiveObject[];
+  worldClock!: WorldClock;
+  private dayNightOverlay!: Phaser.GameObjects.Rectangle;
+  private currentPhase: DayPhase = 'dawn';
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -101,6 +106,9 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
+
+    // Level 1 starts at dawn (FIL-37)
+    this.worldClock = new WorldClock({ startPhase: 'dawn' });
 
     this.drawMap();
     this.createObstacles();
@@ -153,14 +161,20 @@ export class GameScene extends Phaser.Scene {
       this.applyWorldTint(percent);
       if (percent >= 50 && !this.portalActive) {
         this.revealPortal();
+        // Big cleanse milestone — slow the day cycle (world breathes out)
+        this.worldClock.slowDown(30);
       }
     });
 
     base.setDepth(200);
     thumb.setDepth(201);
+
+    this.createDayNightOverlay();
   }
 
-  update(time: number): void {
+  update(time: number, delta: number): void {
+    this.worldClock.update(delta);
+    this.updateDayNight();
     this.updatePlayerMovement();
     this.updateRabbits(time);
     if (this.portalActive) {
@@ -472,6 +486,37 @@ export class GameScene extends Phaser.Scene {
     this.portalGfx.clear();
     this.portalGfx.lineStyle(4, 0xaa77ff, 0.9);
     this.portalGfx.strokeCircle(0, 0, PORTAL_RADIUS + 6);
+  }
+
+  // ─── Day/Night cycle (FIL-37) ───────────────────────────────────────────────
+
+  private createDayNightOverlay(): void {
+    // Full-world rectangle sitting above all world objects but below HUD
+    this.dayNightOverlay = this.add
+      .rectangle(WORLD_W / 2, WORLD_H / 2, WORLD_W, WORLD_H, 0x000000, 0)
+      .setDepth(48)
+      .setScrollFactor(1);
+    // Apply the initial phase immediately (no tween on first frame)
+    const ov = this.worldClock.overlay;
+    const colour = Phaser.Display.Color.GetColor(ov.r, ov.g, ov.b);
+    this.dayNightOverlay.setFillStyle(colour, ov.alpha);
+    this.currentPhase = this.worldClock.phase;
+  }
+
+  private updateDayNight(): void {
+    const newPhase = this.worldClock.phase;
+    if (newPhase === this.currentPhase) return;
+    this.currentPhase = newPhase;
+
+    const ov = this.worldClock.overlay;
+    const colour = Phaser.Display.Color.GetColor(ov.r, ov.g, ov.b);
+    this.dayNightOverlay.setFillStyle(colour);
+    this.tweens.add({
+      targets: this.dayNightOverlay,
+      alpha: ov.alpha,
+      duration: 8000,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   protected onZoneCleansed(type: string, x: number, y: number): void {

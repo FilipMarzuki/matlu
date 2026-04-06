@@ -1,6 +1,12 @@
 import { LivingEntity, LivingEntityConfig } from './LivingEntity';
+import type { WorldClock } from '../world/WorldClock';
 
-export type AnimalState = 'idle' | 'roaming' | 'fleeing' | 'resting';
+export type AnimalState = 'idle' | 'roaming' | 'fleeing' | 'resting' | 'sleeping';
+
+/** Scenes that expose a WorldClock can implement this interface. */
+export interface WorldClockScene extends Phaser.Scene {
+  worldClock: WorldClock;
+}
 
 export interface WildlifeAnimalConfig extends LivingEntityConfig {
   roamRadius: number;
@@ -39,7 +45,26 @@ export abstract class WildlifeAnimal extends LivingEntity {
   override update(delta: number): void {
     if (!this.isAlive) return;
     this.animalStateTimer -= delta;
+    this.checkDayNight();
     this.updateFSM(delta);
+  }
+
+  /**
+   * Read the WorldClock from the scene (if present) and adjust FSM.
+   * Animals sleep at night and wake at dawn.
+   */
+  private checkDayNight(): void {
+    const clock = (this.scene as Partial<WorldClockScene>).worldClock;
+    if (!clock) return;
+
+    const isNight = clock.isNight;
+    const isDawn  = clock.isDawn;
+
+    if (isNight && this.animalState !== 'sleeping') {
+      this.setAnimalState('sleeping', Infinity);
+    } else if (isDawn && this.animalState === 'sleeping') {
+      this.setAnimalState('idle', 2000);
+    }
   }
 
   /** Transition to a new FSM state. */

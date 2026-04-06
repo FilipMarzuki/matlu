@@ -38,6 +38,10 @@ export abstract class GroundAnimal extends WildlifeAnimal {
           this.setAnimalState('idle', Phaser.Math.Between(1000, 3000));
         }
         break;
+
+      case 'sleeping':
+        // Dormant — WorldClock will wake the animal at dawn via checkDayNight()
+        break;
     }
   }
 }
