@@ -40,6 +40,10 @@ export abstract class Bird extends WildlifeAnimal {
           this.setAnimalState('idle', Phaser.Math.Between(1000, 2000));
         }
         break;
+
+      case 'sleeping':
+        // Dormant — WorldClock will wake the bird at dawn via checkDayNight()
+        break;
     }
   }
 }
