@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { execSync } from 'child_process';
 
 export default defineConfig({
   server: {
@@ -6,5 +7,16 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+  },
+  define: {
+    'import.meta.env.VITE_GIT_SHA': JSON.stringify(
+      (() => {
+        try {
+          return execSync('git rev-parse --short HEAD').toString().trim();
+        } catch {
+          return 'unknown';
+        }
+      })()
+    ),
   },
 });

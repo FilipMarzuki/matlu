@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import * as Sentry from '@sentry/browser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 
@@ -34,6 +35,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.sys.game.events.on('error', (err: Error) => {
+      Sentry.captureException(err, { tags: { scene: this.scene.key } });
+    });
+
     this.drawMap();
     this.createObstacles();
 
@@ -74,6 +79,33 @@ export class GameScene extends Phaser.Scene {
     this.vehicle.setDepth(10);
     base.setDepth(20);
     thumb.setDepth(21);
+  }
+
+  // Call when a corruption zone is cleansed
+  protected onZoneCleansed(type: string, x: number, y: number): void {
+    Sentry.addBreadcrumb({
+      category: 'game',
+      message: `Zone cleansed: corruption type ${type} at (${x}, ${y})`,
+      level: 'info',
+    });
+  }
+
+  // Call on FSM state transitions
+  protected onFsmTransition(oldState: string, newState: string): void {
+    Sentry.addBreadcrumb({
+      category: 'entity',
+      message: `${this.constructor.name} FSM: ${oldState} → ${newState}`,
+      level: 'debug',
+    });
+  }
+
+  // Call when height-based movement is blocked
+  protected onHeightBlocked(diff: number, toX: number, toY: number): void {
+    Sentry.addBreadcrumb({
+      category: 'movement',
+      message: `Blocked: height diff ${diff} at (${toX}, ${toY})`,
+      level: 'debug',
+    });
   }
 
   update(): void {
