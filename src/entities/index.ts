@@ -1,0 +1,9 @@
+export { Entity } from './Entity';
+export { LivingEntity } from './LivingEntity';
+export type { LivingEntityConfig } from './LivingEntity';
+export { WildlifeAnimal } from './WildlifeAnimal';
+export type { WildlifeAnimalConfig, AnimalState } from './WildlifeAnimal';
+export { Bird } from './Bird';
+export { GroundAnimal } from './GroundAnimal';
+export { Enemy } from './Enemy';
+export type { EnemyConfig } from './Enemy';
