@@ -89,6 +89,8 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     this.load.plugin(REX_VIRTUAL_JOYSTICK_PLUGIN_KEY, REX_PLUGIN_CDN, true);
+    // CC0 placeholder character sprite (16×32px, scaled up 3× in createPlayer)
+    this.load.image('player-character', 'assets/sprites/player/character.png');
   }
 
   create(): void {
@@ -494,18 +496,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPlayer(): void {
-    this.playerBody = this.add.circle(0, 0, BODY_RADIUS, 0x4466ff);
-    this.playerBody.setStrokeStyle(2, 0x2233aa);
+    // Use the placeholder character sprite (16×32px scaled up 3×) if loaded,
+    // otherwise fall back to the coloured circle placeholder.
+    if (this.textures.exists('player-character')) {
+      const sprite = this.add.sprite(0, 0, 'player-character');
+      sprite.setScale(3);
+      // Keep a small invisible circle for the facing indicator position
+      this.playerBody = this.add.circle(0, 0, 1, 0x000000, 0);
+      this.playerIndicator = this.add.rectangle(BODY_RADIUS + INDICATOR_W / 2, 0, INDICATOR_W, INDICATOR_H, 0xffffff, 0);
+      this.player = this.add.container(SPAWN_X, SPAWN_Y, [sprite, this.playerBody, this.playerIndicator]);
+    } else {
+      this.playerBody = this.add.circle(0, 0, BODY_RADIUS, 0x4466ff);
+      this.playerBody.setStrokeStyle(2, 0x2233aa);
+      this.playerIndicator = this.add.rectangle(
+        BODY_RADIUS + INDICATOR_W / 2, 0, INDICATOR_W, INDICATOR_H, 0xffffff
+      );
+      this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerBody, this.playerIndicator]);
+    }
 
-    this.playerIndicator = this.add.rectangle(
-      BODY_RADIUS + INDICATOR_W / 2,
-      0,
-      INDICATOR_W,
-      INDICATOR_H,
-      0xffffff
-    );
-
-    this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
     this.player.setDepth(10);
 
