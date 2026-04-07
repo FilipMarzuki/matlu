@@ -8,6 +8,13 @@ import { t } from '../lib/i18n';
 // import type { ChunkDef as _ChunkDef } from '../world/ChunkDef';
 import { SolidObject as _SolidObject } from '../environment/SolidObject';
 import { insertMatluRun } from '../lib/matluRuns';
+import { NPC } from '../entities/NPC';
+import type { NpcDialogData } from '../scenes/NpcDialogScene';
+import {
+  GRANNEN_CONFIG, GRANNEN_X, GRANNEN_Y,
+  VANDRAREN_CONFIG, VANDRAREN_X, VANDRAREN_Y,
+  AGAREN_CONFIG, AGAREN_X, AGAREN_Y, AGAREN_DIALOG,
+} from '../world/Level1Npcs';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
@@ -162,6 +169,7 @@ export class GameScene extends Phaser.Scene {
   private rabbits!: Phaser.Physics.Arcade.Group;
   private groundAnimals!: Phaser.Physics.Arcade.Group;
   private birds: BirdObject[] = [];
+  private npcs: NPC[] = [];
   private kills = 0;
   private lastSwipeAt = 0;
 
@@ -283,6 +291,9 @@ export class GameScene extends Phaser.Scene {
       right: Phaser.Input.Keyboard.KeyCodes.D,
     }) as Record<string, Phaser.Input.Keyboard.Key>;
 
+    // Interact with nearby NPC (E key)
+    this.input.keyboard?.on('keydown-E', () => this.tryInteractNpc());
+
     // Open credits overlay (C key)
     this.input.keyboard?.on('keydown-C', () => {
       this.scene.pause();
@@ -296,6 +307,7 @@ export class GameScene extends Phaser.Scene {
     this.groundAnimals = this.physics.add.group();
     this.spawnGroundAnimals();
     this.spawnBirds();
+    this.spawnLevel1Npcs();
 
     this.createHudAndOverlay();
     this.createPortal();
@@ -344,6 +356,7 @@ export class GameScene extends Phaser.Scene {
     this.updateRabbits(time);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
+    this.updateNpcs(delta);
     if (this.portalActive) {
       this.portalGfx.rotation += 0.03;
     }
@@ -1180,6 +1193,58 @@ export class GameScene extends Phaser.Scene {
    * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
    * Uses this.runSeed for deterministic output (same seed → same map).
    */
+  // ─── Level 1 NPCs (FIL-38) ──────────────────────────────────────────────────
+
+  /** Spawn the three Level 1 NPCs at their world positions. */
+  private spawnLevel1Npcs(): void {
+    const grannen   = new NPC(this, GRANNEN_X,   GRANNEN_Y,   GRANNEN_CONFIG);
+    const vandraren = new NPC(this, VANDRAREN_X, VANDRAREN_Y, VANDRAREN_CONFIG);
+    const agaren    = new NPC(this, AGAREN_X,    AGAREN_Y,    AGAREN_CONFIG);
+    this.npcs.push(grannen, vandraren, agaren);
+
+    // When important NPCs are interacted with, launch the JRPG dialog scene
+    this.events.on(NPC.EVENT_INTERACT, ({ callerKey }: { npc: NPC; callerKey: string }) => {
+      if (this.attractMode) return;
+      const data: NpcDialogData = {
+        nodes:    AGAREN_DIALOG,
+        startId:  'found-0',
+        callerKey,
+      };
+      this.scene.pause();
+      this.scene.launch('NpcDialogScene', data as unknown as object);
+    });
+  }
+
+  /**
+   * Tick all NPCs every frame.
+   * Passes player position, clock phase, and zone corruption so each NPC
+   * can independently react to the world state.
+   */
+  private updateNpcs(delta: number): void {
+    if (this.npcs.length === 0) return;
+    const px = this.player.x;
+    const py = this.player.y;
+    // WorldState stores cleanse 0-100; invert to get corruption fraction 0-1
+    const zoneCorruption = Math.max(0, 1 - this.worldState.getCleansePercent('zone-main') / 100);
+    const phase = this.worldClock.phase;
+    for (const npc of this.npcs) {
+      npc.tick(delta, px, py, phase, zoneCorruption);
+    }
+  }
+
+  /**
+   * E-key handler: find the nearest interactable NPC and trigger interaction.
+   */
+  private tryInteractNpc(): void {
+    if (this.attractMode) return;
+    for (const npc of this.npcs) {
+      if (npc.interactable) {
+        npc.interact(this.scene.key);
+        return;
+      }
+    }
+  }
+
   private drawProceduralTerrain(): void {
     const noise    = new ValueNoise2D(this.runSeed);
     const detNoise = new ValueNoise2D(this.runSeed ^ 0xb5ad4ecb);
