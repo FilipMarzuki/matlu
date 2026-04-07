@@ -20,6 +20,8 @@ import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
+import { PathSystem } from '../world/PathSystem';
+import { loadLevel1Paths } from '../world/Level1Paths';
 import { WorldClock } from '../world/WorldClock';
 import type { DayPhase } from '../world/WorldClock';
 import { WorldState } from '../world/WorldState';
@@ -188,6 +190,10 @@ export class GameScene extends Phaser.Scene {
   private levelCompleteLogged = false;
   private runSeed = 0;
 
+  // ─── Path system ──────────────────────────────────────────────────────────────
+  pathSystem!: PathSystem;
+  private pathDegradeAccum = 0; // ms accumulator for periodic condition degradation
+
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
   private attractTargets: Phaser.GameObjects.GameObject[] = [];
@@ -308,6 +314,10 @@ export class GameScene extends Phaser.Scene {
     this.spawnGroundAnimals();
     this.spawnBirds();
     this.spawnLevel1Npcs();
+
+    // Register Level 1 path segments so speed multipliers are available from frame 1.
+    this.pathSystem = new PathSystem();
+    loadLevel1Paths(this.pathSystem);
 
     this.createHudAndOverlay();
     this.createPortal();
@@ -453,7 +463,11 @@ export class GameScene extends Phaser.Scene {
 
     if (moving) {
       const len = Math.sqrt(dx * dx + dy * dy);
-      body.setVelocity((dx / len) * PLAYER_SPEED, (dy / len) * PLAYER_SPEED);
+      // Path system adjusts speed based on road type and condition.
+      // Off-path = 1.0×, paved at full health = 1.35×, degraded dirt in rain = 0.72× etc.
+      const pathMult = this.pathSystem.getSpeedMultiplier(this.player.x, this.player.y);
+      const spd = PLAYER_SPEED * pathMult;
+      body.setVelocity((dx / len) * spd, (dy / len) * spd);
     } else {
       body.setVelocity(0, 0);
     }
@@ -555,6 +569,8 @@ export class GameScene extends Phaser.Scene {
     this.events.emit('cleanse-updated', percent);
     // Also propagate through WorldState so systems can react to zone cleansing
     this.worldState.setCleansePercent('zone-main', percent);
+    // Each cleanse event nudges nearby path segments back toward full condition.
+    this.pathSystem.restoreConditionInArea(rx, ry, 200, 2);
     this.onZoneCleansed('rabbit', rx, ry);
   }
 
@@ -1123,8 +1139,19 @@ export class GameScene extends Phaser.Scene {
         const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
         this.physics.velocityFromRotation(away, def.fleeSpeed, b.velocity);
       } else if (this.time.now > (r.getData('roamNext') as number)) {
-        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        this.physics.velocityFromRotation(angle, def.roamSpeed, b.velocity);
+        // Pick the roam direction that leads to the highest animal-affinity terrain.
+        // Sample 4 candidate angles and weight them by path affinity so animals
+        // naturally gravitate toward animal trails and avoid paved roads.
+        let bestAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        let bestScore = -Infinity;
+        for (let k = 0; k < 4; k++) {
+          const a   = (Math.PI * 2 * k) / 4 + Phaser.Math.FloatBetween(0, Math.PI / 4);
+          const tx  = r.x + Math.cos(a) * 80;
+          const ty  = r.y + Math.sin(a) * 80;
+          const score = this.pathSystem.getAnimalAffinity(tx, ty) + Math.random() * 0.3;
+          if (score > bestScore) { bestScore = score; bestAngle = a; }
+        }
+        this.physics.velocityFromRotation(bestAngle, def.roamSpeed, b.velocity);
         r.setData('roamNext', this.time.now + Phaser.Math.Between(3000, 8000));
       }
     }
@@ -1229,6 +1256,18 @@ export class GameScene extends Phaser.Scene {
     const phase = this.worldClock.phase;
     for (const npc of this.npcs) {
       npc.tick(delta, px, py, phase, zoneCorruption);
+    }
+
+    // Degrade path condition every 5 s while corruption is above 0.
+    // High corruption crumbles roads faster; each path type has its own decay rate.
+    this.pathDegradeAccum += delta;
+    if (this.pathDegradeAccum >= 5000 && zoneCorruption > 0) {
+      this.pathDegradeAccum = 0;
+      for (const seg of this.pathSystem.getSegments().values()) {
+        this.pathSystem.degradeCondition(seg.id, zoneCorruption);
+      }
+    } else if (this.pathDegradeAccum >= 5000) {
+      this.pathDegradeAccum = 0;
     }
   }
 
