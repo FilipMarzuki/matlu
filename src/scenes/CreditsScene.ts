@@ -3,7 +3,7 @@ import { t } from '../lib/i18n';
 /**
  * CreditsScene — displays asset pack credits and contributors.
  *
- * Accessible by pressing C on the AttractionScene, or via the credits
+ * Accessible by pressing C on the WilderviewScene, or via the credits
  * button if one is added to the UI. Press Escape or click to dismiss.
  */
 
@@ -140,7 +140,7 @@ export class CreditsScene extends Phaser.Scene {
 
   private close(): void {
     this.scene.stop();
-    // Resume the scene that launched credits (AttractionScene or GameScene)
+    // Resume the scene that launched credits (WilderviewScene or GameScene)
     const callerKey = (this.scene.settings.data as unknown as string) ?? 'GameScene';
     this.scene.resume(callerKey);
   }
