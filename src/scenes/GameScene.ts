@@ -187,6 +187,8 @@ export class GameScene extends Phaser.Scene {
   private portalGfx!: Phaser.GameObjects.Graphics;
   private levelCompleteLogged = false;
   private runSeed = 0;
+  /** Whether the audio system is functional — false in headless CI environments */
+  private audioAvailable = false;
 
   // ─── Path system ──────────────────────────────────────────────────────────────
   private pathSystem!: PathSystem;
@@ -233,6 +235,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // Detect audio availability early — WebAudio is unavailable in headless CI.
+    // We use this flag to skip all sound.play() calls and avoid Phaser internals crash.
+    this.load.once('complete', () => {
+      this.audioAvailable = this.cache.audio.has('forest-ambience');
+    });
+
     // ── Audio ──────────────────────────────────────────────────────────────────
     // Phaser tries each format in order and picks the first the browser supports.
     // .ogg is smaller and preferred; .mp3 is the fallback for Safari.
@@ -398,10 +406,8 @@ export class GameScene extends Phaser.Scene {
 
     this.createDayNightOverlay();
 
-    // Ambient forest sound — only start if the asset actually loaded.
-    // In headless CI (Playwright) WebAudio may be unavailable and the key won't
-    // be in the cache; guard against that to avoid a runtime crash.
-    if (this.cache.audio.has('forest-ambience')) {
+    // Ambient forest sound — skipped entirely when audio is unavailable (CI).
+    if (this.audioAvailable) {
       this.ambienceSound = this.sound.add('forest-ambience', {
         loop: true,
         volume: 0.25,
@@ -544,7 +550,7 @@ export class GameScene extends Phaser.Scene {
     if (moving && this.time.now - this.lastFootstepAt > this.FOOTSTEP_INTERVAL_MS) {
       // Pick a random variant (0–4) each step so it never sounds repetitive.
       const variant = Phaser.Math.Between(0, 4);
-      this.sound.play(`footstep-grass-${variant}`, { volume: 0.45 });
+      if (this.audioAvailable) this.sound.play(`footstep-grass-${variant}`, { volume: 0.45 });
       this.lastFootstepAt = this.time.now;
     }
 
@@ -1218,7 +1224,7 @@ export class GameScene extends Phaser.Scene {
         // Play rustle only on the frame the animal starts fleeing, not every frame.
         // This is the "state transition" pattern: prev was not fleeing, now it is.
         if (prevState !== 'fleeing') {
-          this.sound.play('animal-rustle', { volume: 0.5 });
+          if (this.audioAvailable) this.sound.play('animal-rustle', { volume: 0.5 });
         }
       } else if (state === 'fleeing' && dist > def.fleeRange + 80) {
         state = 'roaming';
