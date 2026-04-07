@@ -12,6 +12,15 @@ import type { DayPhase } from '../world/WorldClock';
 import { WorldState } from '../world/WorldState';
 import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
+<<<<<<< Updated upstream
+=======
+import {
+  ZONES, ITEMS, PATH_CHOICES, PARENT_DIALOG_LINES,
+  PARENT_TRIGGER_X, PARENT_TRIGGER_Y, PARENT_TRIGGER_RADIUS,
+  ITEM_PICKUP_RADIUS, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
+} from '../world/Level1';
+import type { DialogData } from './DialogScene';
+>>>>>>> Stashed changes
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
@@ -167,6 +176,23 @@ export class GameScene extends Phaser.Scene {
   private levelCompleteLogged = false;
   private runSeed = 0;
 
+<<<<<<< Updated upstream
+=======
+  // ─── Level 1 (FIL-35) ────────────────────────────────────────────────────────
+  /** Per-zone tint overlays — one rectangle per ZoneDef */
+  private zoneOverlays: Phaser.GameObjects.Rectangle[] = [];
+  /** Item glow circles keyed by item id */
+  private level1ItemObjects: Map<string, Phaser.GameObjects.Arc> = new Map();
+  /** Which of the three things the player has found */
+  private foundItems: Set<string> = new Set();
+  /** Prevent triggering the parent meeting more than once */
+  private parentMeetingDone = false;
+  /** Passive cleanse % accumulated from standing in Zone 3 (used by createLevel1Zones) */
+  private passiveCleansePercent = 0;
+  /** Path chosen by the player at the end of Level 1. Null until the parent meeting is done. */
+  chosenPath: string | null = null;
+
+>>>>>>> Stashed changes
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
   private attractTargets: Phaser.GameObjects.GameObject[] = [];

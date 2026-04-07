@@ -4,6 +4,7 @@ import './lib/supabaseClient';
 import { WilderviewScene } from './scenes/WilderviewScene';
 import { GameScene } from './scenes/GameScene';
 import { CreditsScene } from './scenes/CreditsScene';
+import { DialogScene } from './scenes/DialogScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -34,7 +35,7 @@ const game = new Phaser.Game({
     ],
   },
   // WilderviewScene is the default entry point; it launches GameScene on demand
-  scene: [WilderviewScene, GameScene, CreditsScene],
+  scene: [WilderviewScene, GameScene, CreditsScene, DialogScene],
 });
 
 // Expose game instance for Playwright tests and dev tooling
