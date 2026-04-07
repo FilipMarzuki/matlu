@@ -175,6 +175,7 @@ export class GameScene extends Phaser.Scene {
   private attractLabel!: Phaser.GameObjects.Text;
   private attractNameDisplay!: Phaser.GameObjects.Text;
   private attractName = '';
+  private attractThoughtBubble!: Phaser.GameObjects.Text;
 
   // Set when the player types their name on the attract screen; used for leaderboard.
   playerName = '';
@@ -859,6 +860,19 @@ export class GameScene extends Phaser.Scene {
     const cx = this.scale.width / 2;
     const by = this.scale.height - 20;
 
+    // Thought bubble — shows the focused animal's type and current state at the top of the screen.
+    // Text is updated every frame in updateAttractMode().
+    this.attractThoughtBubble = this.add
+      .text(cx, 20, '', {
+        fontSize: '16px',
+        color: '#ffffff',
+        backgroundColor: '#00000088',
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(500);
+
     // Prompt label above the input field
     this.attractLabel = this.add
       .text(cx, by - 46, t('attract.tap_to_play'), {
@@ -915,6 +929,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateAttractMode(time: number): void {
+    // Update thought bubble every frame with the current animal's live state.
+    this.updateThoughtBubble();
+
     if (time < this.attractNextAt || this.attractTargets.length === 0) return;
 
     this.attractIdx = (this.attractIdx + 1) % this.attractTargets.length;
@@ -926,6 +943,28 @@ export class GameScene extends Phaser.Scene {
     this.attractNextAt = time + 10000 + Phaser.Math.Between(-2000, 4000);
   }
 
+  /**
+   * Reads the focused animal's type and state from its Phaser data store and
+   * updates the thought bubble text at the top of the screen.
+   * Called every frame during attract mode so it reacts immediately to state changes.
+   */
+  private updateThoughtBubble(): void {
+    if (this.attractTargets.length === 0) return;
+    const target = this.attractTargets[this.attractIdx] as Phaser.GameObjects.GameObject;
+    const type  = (target.getData('animalType')  as string | undefined) ?? 'animal';
+    const state = (target.getData('animalState') as string | undefined) ?? 'roaming';
+
+    // Map internal state identifiers to readable descriptions.
+    const stateLabel: Record<string, string> = {
+      roaming:  'looking for food',
+      fleeing:  'fleeing!',
+      chasing:  'chasing',
+    };
+
+    const label = `${type} — ${stateLabel[state] ?? state}`;
+    this.attractThoughtBubble.setText(label);
+  }
+
   private exitAttractMode(): void {
     if (!this.attractMode) return;
     this.attractMode = false;
@@ -933,6 +972,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown', this.onAttractKey, this);
     this.attractLabel.destroy();
     this.attractNameDisplay.destroy();
+    this.attractThoughtBubble.destroy();
     this.player.setAlpha(1);
     (this.player.body as Phaser.Physics.Arcade.Body).setEnable(true);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
