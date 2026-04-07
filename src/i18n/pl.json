@@ -1,0 +1,10 @@
+{
+  "hud.hp": "HP",
+  "hud.cleanse": "Oczyszczanie",
+  "attract.tap_to_play": "Dotknij lub naciśnij Spację, aby grać",
+  "credits.title": "Autorzy",
+  "credits.asset_packs_heading": "Pakiety graficzne",
+  "credits.game_code_by": "Kod gry: Filip Marzuki",
+  "credits.close_hint": "Naciśnij Escape lub kliknij, aby zamknąć",
+  "credits.attribution_required": " ★ wymagane oznaczenie autora"
+}

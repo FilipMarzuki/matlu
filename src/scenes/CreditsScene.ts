@@ -1,3 +1,5 @@
+import { t } from '../lib/i18n';
+
 /**
  * CreditsScene — displays asset pack credits and contributors.
  *
@@ -65,7 +67,7 @@ export class CreditsScene extends Phaser.Scene {
     let y = 60;
 
     this.add
-      .text(width / 2, y, 'Credits', {
+      .text(width / 2, y, t('credits.title'), {
         fontSize: '22px',
         color: '#f0ead6',
         fontStyle: 'bold',
@@ -77,7 +79,7 @@ export class CreditsScene extends Phaser.Scene {
     y += 40;
 
     this.add
-      .text(width / 2, y, 'Asset Packs', {
+      .text(width / 2, y, t('credits.asset_packs_heading'), {
         fontSize: '13px',
         color: '#90b8e8',
         fontStyle: 'bold',
@@ -89,7 +91,7 @@ export class CreditsScene extends Phaser.Scene {
     y += 26;
 
     for (const entry of CREDITS) {
-      const attribution = entry.attributionRequired ? ' ★ attribution required' : '';
+      const attribution = entry.attributionRequired ? t('credits.attribution_required') : '';
       this.add
         .text(40, y, `${entry.pack}  —  ${entry.author}${attribution}`, {
           fontSize: '12px',
@@ -115,7 +117,7 @@ export class CreditsScene extends Phaser.Scene {
 
     y += 16;
     this.add
-      .text(width / 2, y, 'Game code by Filip Marzuki', {
+      .text(width / 2, y, t('credits.game_code_by'), {
         fontSize: '11px',
         color: '#666666',
       })
@@ -125,7 +127,7 @@ export class CreditsScene extends Phaser.Scene {
 
     y += 24;
     this.add
-      .text(width / 2, y, 'Press Escape or click anywhere to close', {
+      .text(width / 2, y, t('credits.close_hint'), {
         fontSize: '11px',
         color: '#555555',
       })
