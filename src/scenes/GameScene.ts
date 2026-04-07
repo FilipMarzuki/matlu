@@ -1,7 +1,14 @@
 import Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import { ValueNoise2D } from '../lib/noise';
+import { mulberry32 } from '../lib/rng';
 import { t } from '../lib/i18n';
+// These are used by Level 1 features being developed in a separate branch.
+// Prefixed with _ to suppress TS unused-variable errors without deleting them.
+import { CHUNKS as _CHUNKS, CHUNK_COUNT as _CHUNK_COUNT, CHUNK_AVOID_ZONES as _CHUNK_AVOID_ZONES } from '../world/ChunkDef';
+import type { ChunkDef as _ChunkDef } from '../world/ChunkDef';
+import { SolidObject as _SolidObject } from '../environment/SolidObject';
+import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
@@ -161,6 +168,13 @@ export class GameScene extends Phaser.Scene {
 
   private cleanseFill!: Phaser.GameObjects.Rectangle;
   private overlay!: Phaser.GameObjects.Rectangle;
+
+  // ─── Sound ────────────────────────────────────────────────────────────────────
+  // ambience loops continuously in the background once gameplay starts
+  private ambienceSound!: Phaser.Sound.BaseSound;
+  // tracks when we last played a footstep so we don't fire every frame
+  private lastFootstepAt = 0;
+  private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
   private portal!: Phaser.GameObjects.Arc;
   private portalActive = false;
   private portalGfx!: Phaser.GameObjects.Graphics;
@@ -185,6 +199,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // ── Audio ──────────────────────────────────────────────────────────────────
+    // Phaser tries each format in order and picks the first the browser supports.
+    // .ogg is smaller and preferred; .mp3 is the fallback for Safari.
+    //
+    // REPLACE these placeholder paths with real files from freesound.org / kenney.nl.
+    // Suggested searches:
+    //   forest-ambience  → freesound "forest birds morning" (CC0)
+    //   footstep-grass   → kenney.nl "Impact Sounds" or freesound "footstep grass"
+    //   animal-rustle    → freesound "leaves rustle" or "animal startle"
+    this.load.audio('forest-ambience', [
+      'assets/audio/forest-ambience.ogg',
+      'assets/audio/forest-ambience.mp3',
+    ]);
+    this.load.audio('footstep-grass', [
+      'assets/audio/footstep-grass.ogg',
+      'assets/audio/footstep-grass.mp3',
+    ]);
+    this.load.audio('animal-rustle', [
+      'assets/audio/animal-rustle.ogg',
+      'assets/audio/animal-rustle.mp3',
+    ]);
+
     // Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
     this.load.spritesheet('pc-idle-down', `${bodyBase}/Idle_Base/Idle_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
@@ -281,6 +317,16 @@ export class GameScene extends Phaser.Scene {
     thumb.setDepth(201);
 
     this.createDayNightOverlay();
+
+    // Ambient forest sound — loops forever at low volume.
+    // We add() it to get a reference, then play(). If the file is missing
+    // (e.g. placeholder path) Phaser will just log a warning and continue.
+    this.ambienceSound = this.sound.add('forest-ambience', {
+      loop: true,
+      volume: 0.25,
+    });
+    this.ambienceSound.play();
+
     this.initAttractMode();
   }
 
@@ -302,10 +348,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnRabbits(): void {
+    // Use a sub-seed so rabbits always appear at the same positions for a given runSeed.
+    // Timing values (roamNext, fleeUntil) stay non-deterministic for gameplay variety.
+    const rng = mulberry32(this.runSeed ^ 0xf00d1234);
+    const rndBetween = (min: number, max: number): number =>
+      Math.floor(rng() * (max - min + 1)) + min;
     let spawned = 0;
     while (spawned < RABBIT_COUNT) {
-      const x = Phaser.Math.Between(80, WORLD_W - 80);
-      const y = Phaser.Math.Between(80, WORLD_H - 80);
+      const x = rndBetween(80, WORLD_W - 80);
+      const y = rndBetween(80, WORLD_H - 80);
       if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) {
         continue;
       }
@@ -390,6 +441,14 @@ export class GameScene extends Phaser.Scene {
       body.setVelocity((dx / len) * PLAYER_SPEED, (dy / len) * PLAYER_SPEED);
     } else {
       body.setVelocity(0, 0);
+    }
+
+    // Footstep sound — fires once every FOOTSTEP_INTERVAL_MS while walking.
+    // We check time.now instead of a frame counter so it stays in sync even
+    // if the frame rate drops.
+    if (moving && this.time.now - this.lastFootstepAt > this.FOOTSTEP_INTERVAL_MS) {
+      this.sound.play('footstep-grass', { volume: 0.45 });
+      this.lastFootstepAt = this.time.now;
     }
 
     // Update directional animation
@@ -608,8 +667,14 @@ export class GameScene extends Phaser.Scene {
       if (!this.portalActive || this.levelCompleteLogged) {
         return;
       }
-      console.log('Level complete');
       this.levelCompleteLogged = true;
+      console.log(`[Level complete] seed=${this.runSeed} kills=${this.kills}`);
+      // Save run to Supabase — fire-and-forget, failures are non-critical
+      insertMatluRun({
+        nickname: this.playerName || 'Player',
+        score:    this.kills,
+        seed:     this.runSeed,
+      }).catch(() => {/* Supabase not configured — ignore */});
     });
   }
 
@@ -984,11 +1049,14 @@ export class GameScene extends Phaser.Scene {
   // ─── Ground animals (deer, hare, fox) ────────────────────────────────────────
 
   private spawnGroundAnimals(): void {
+    const rng = mulberry32(this.runSeed ^ 0xa1b2c3d4);
+    const rndBetween = (min: number, max: number): number =>
+      Math.floor(rng() * (max - min + 1)) + min;
     for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
       let spawned = 0;
       while (spawned < def.count) {
-        const x = Phaser.Math.Between(80, WORLD_W - 80);
-        const y = Phaser.Math.Between(80, WORLD_H - 80);
+        const x = rndBetween(80, WORLD_W - 80);
+        const y = rndBetween(80, WORLD_H - 80);
         if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
 
         const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
@@ -1018,10 +1086,17 @@ export class GameScene extends Phaser.Scene {
       const def  = ANIMAL_DEFS[type];
       const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
       let state  = r.getData('animalState') as AnimalState;
+      // Remember state before this frame so we can detect the transition below.
+      const prevState = state;
 
       if (dist < def.fleeRange) {
         state = 'fleeing';
         r.setData('animalState', state);
+        // Play rustle only on the frame the animal starts fleeing, not every frame.
+        // This is the "state transition" pattern: prev was not fleeing, now it is.
+        if (prevState !== 'fleeing') {
+          this.sound.play('animal-rustle', { volume: 0.5 });
+        }
       } else if (state === 'fleeing' && dist > def.fleeRange + 80) {
         state = 'roaming';
         r.setData('animalState', state);
