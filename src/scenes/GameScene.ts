@@ -9,6 +9,9 @@ import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
 import { WorldClock } from '../world/WorldClock';
 import type { DayPhase } from '../world/WorldClock';
+import { WorldState } from '../world/WorldState';
+import { emptyLdtkLevel } from '../world/MapData';
+import type { LdtkLevel } from '../world/MapData';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
@@ -143,6 +146,8 @@ export class GameScene extends Phaser.Scene {
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
   private interactiveObjects!: InteractiveObject[];
   worldClock!: WorldClock;
+  worldState!: WorldState;
+  mapData!: LdtkLevel;
   private dayNightOverlay!: Phaser.GameObjects.Rectangle;
   private currentPhase: DayPhase = 'dawn';
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -193,6 +198,12 @@ export class GameScene extends Phaser.Scene {
 
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
+    this.worldState = new WorldState(this, this.worldClock);
+    // Placeholder map data — replaced by parseLdtkLevel() once LDtk export exists
+    this.mapData = emptyLdtkLevel(WORLD_W, WORLD_H, TILE_SIZE);
+
+    // Tear down WorldState when scene shuts down
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.worldState.destroy());
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
     this.drawProceduralTerrain();
@@ -269,6 +280,7 @@ export class GameScene extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     this.worldClock.update(delta);
+    this.worldState.update(delta);
     this.updateDayNight();
     if (this.attractMode) {
       this.updateAttractMode(time);
@@ -459,6 +471,8 @@ export class GameScene extends Phaser.Scene {
     const percent = (this.kills / RABBIT_COUNT) * 100;
     this.setCleanseHud(percent);
     this.events.emit('cleanse-updated', percent);
+    // Also propagate through WorldState so systems can react to zone cleansing
+    this.worldState.setCleansePercent('zone-main', percent);
     this.onZoneCleansed('rabbit', rx, ry);
   }
 
