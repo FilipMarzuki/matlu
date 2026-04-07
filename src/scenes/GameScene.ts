@@ -5,6 +5,7 @@ import { mulberry32, poissonDisk } from '../lib/rng';
 import { t } from '../lib/i18n';
 import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES } from '../world/ChunkDef';
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
+import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
@@ -345,6 +346,7 @@ export class GameScene extends Phaser.Scene {
     this.createDecorations();
     this.createSolidObjects();
     this.stampProceduralChunks();
+    this.stampDecorationScatter();
     this.createInteractiveObjects();
     this.createPlayer();
 
@@ -1559,6 +1561,39 @@ export class GameScene extends Phaser.Scene {
 
       placed.push({ x, y, r: chunk.radius });
       this.stampChunk(chunk, x, y);
+    }
+  }
+
+  /**
+   * Scatter noise-driven detail decorations (flowers, mushrooms, stones, grass tufts)
+   * across open terrain. Called after stampProceduralChunks() so chunk avoid-zones
+   * are already defined and can be passed to generateDecorations().
+   *
+   * Decorations are placed at depth 2 — above terrain (0) and paths (1), below
+   * animals and the player (3+).
+   */
+  private stampDecorationScatter(): void {
+    // Convert CHUNK_AVOID_ZONES circles → conservative bounding rects for the
+    // rect-based avoid check inside generateDecorations().
+    const avoidRects = CHUNK_AVOID_ZONES.map(az => ({
+      x: az.x - az.r, y: az.y - az.r,
+      w: az.r * 2,    h: az.r * 2,
+    }));
+
+    const decors = generateDecorations(
+      this.runSeed,
+      WORLD_W, WORLD_H, TILE_SIZE,
+      avoidRects,
+      800,
+    );
+
+    for (const d of decors) {
+      const texture = decorTexture(d.type, d.variant);
+      const sprite = this.add.image(d.x, d.y, texture);
+      sprite.setScale(d.scale);
+      // Sort by y so decorations further down the screen render in front —
+      // the standard "painter's algorithm" for top-down 2D.
+      sprite.setDepth(2 + d.y / WORLD_H);
     }
   }
 
