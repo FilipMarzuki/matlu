@@ -148,6 +148,33 @@ function terrainColor(val: number, detail: number): number {
   return detail > 0.5 ? 0x1e3c10 : 0x162e0a;
 }
 
+/**
+ * Maps a biome value + detail value to a PostApocalypse background tileset frame.
+ *
+ * Each tileset is 384×272 with 16×16 tiles (24 columns × 17 rows).
+ * The first row (frames 0–23) has the base repeating ground patterns;
+ * further-right frames within the row add variation (slightly different tones,
+ * subtle surface detail). Using 2 variants per biome driven by `detail` noise
+ * prevents obvious tiling without needing a large atlas.
+ *
+ * Biome mapping (mirrors terrainColor breakpoints):
+ *   < 0.28  water/shore  → solid color, no texture (free water sheets not available)
+ *   < 0.37  wet shore    → terrain-yellow (sandy/dry ground)
+ *   < 0.65  meadow       → terrain-green light
+ *   < 0.73  tall grass   → terrain-green mid (slightly different shade)
+ *   < 0.81  forest edge  → terrain-green dark
+ *   ≥ 0.81  dense forest → terrain-dark (dark-green sheet)
+ */
+function terrainTileFrame(val: number, detail: number): { key: string; frame: number } {
+  // Pick between 2 frames per biome using detail noise — breaks up visible tiling
+  const v = detail > 0.55 ? 1 : 0;
+  if      (val < 0.37) return { key: 'terrain-yellow', frame: v };      // shore
+  else if (val < 0.65) return { key: 'terrain-green',  frame: v };      // light meadow
+  else if (val < 0.73) return { key: 'terrain-green',  frame: v + 2 };  // tall grass
+  else if (val < 0.81) return { key: 'terrain-green',  frame: v + 4 };  // forest edge
+  else                 return { key: 'terrain-dark',   frame: v };      // dense forest
+}
+
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private playerBody!: Phaser.GameObjects.Arc;
@@ -272,6 +299,15 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('animal-rustle', [
       'assets/audio/animal-rustle.mp3',
     ]);
+
+    // ── Terrain tilesets (PostApocalypse background sheets, FIL-53) ──────────────
+    // Three 384×272 spritesheets, 16×16 tiles (24 cols × 17 rows).
+    // Used in drawProceduralTerrain() to replace flat-color blocks with textured ground.
+    // Water biome has no usable free tile — stays as solid color.
+    const paTiles = 'assets/packs/PostApocalypse_AssetPack_v1.1.2/Tiles';
+    this.load.spritesheet('terrain-green',  `${paTiles}/Background_Green_TileSet.png`,       { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('terrain-dark',   `${paTiles}/Background_Dark-Green_TileSet.png`,   { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('terrain-yellow', `${paTiles}/Background_Bleak-Yellow_TileSet.png`, { frameWidth: 16, frameHeight: 16 });
 
     // ── Nature sprites (PostApocalypse AssetPack) ──────────────────────────────
     // Used by procedural scatter and chunk stamping (FIL-51/52/67).
@@ -1454,28 +1490,57 @@ export class GameScene extends Phaser.Scene {
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
     const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
 
-    const g = this.add.graphics();
-    g.setDepth(0);
+    // Water tiles and the spawn clearing still use solid-colour Graphics —
+    // the free Mystic Woods water sheets are behind a premium paywall.
+    const colorGfx = this.add.graphics().setDepth(0);
+
+    // Land tiles are drawn as a pre-baked RenderTexture (one GPU draw call at runtime).
+    // During create() we issue many rt.draw() calls — ~50 000 for an 8000×8000 world —
+    // but this happens once. From then on the RT is a static texture at depth 0.
+    const terrainRt = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setDepth(0);
+
+    // Reuse a single off-screen Image to draw scaled (32×32) tiles from the
+    // 16×16 tileset frames. setTexture() changes which frame is rendered without
+    // creating a new object each iteration.
+    const tileImg = this.add.image(-9999, -9999, 'terrain-green', 0)
+      .setScale(2)        // 16px → 32px to match TILE_SIZE
+      .setVisible(false);
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
-        const base   = noise.fbm(tx * BASE_SCALE,   ty * BASE_SCALE,   4, 0.5);
-        const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
+        const base   = noise.fbm(tx * BASE_SCALE,     ty * BASE_SCALE,     4, 0.5);
+        const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE,   2, 0.6);
         const val    = base * 0.78 + detail * 0.22;
 
-        g.fillStyle(terrainColor(val, detail), 1);
-        g.fillRect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        const wx = tx * TILE_SIZE;
+        const wy = ty * TILE_SIZE;
+
+        if (val < 0.28) {
+          // Water — solid colour, no usable free texture available
+          colorGfx.fillStyle(terrainColor(val, detail), 1);
+          colorGfx.fillRect(wx, wy, TILE_SIZE, TILE_SIZE);
+        } else {
+          // Land — draw the matching tileset frame scaled 2× to fill the 32×32 tile.
+          // rt.draw(image, x, y) centres the image on (x, y), so we pass the tile
+          // centre (wx + 16, wy + 16) to align top-left to (wx, wy).
+          const { key, frame } = terrainTileFrame(val, detail);
+          tileImg.setTexture(key, frame);
+          terrainRt.draw(tileImg, wx + 16, wy + 16);
+        }
       }
     }
 
-    // Dirt clearing at spawn so the player starts on a recognisable landmark
+    tileImg.destroy();
+
+    // Dirt clearing at spawn — drawn on colorGfx so it sits above any water tiles
+    // and gives the player a recognisable landmark to start from.
     const sx = Math.floor(SPAWN_X / TILE_SIZE);
     const sy = Math.floor(SPAWN_Y / TILE_SIZE);
-    g.fillStyle(0xc4a472, 1);
+    colorGfx.fillStyle(0xc4a472, 1);
     for (let dy = -3; dy <= 3; dy++) {
       for (let dx = -3; dx <= 3; dx++) {
         if (dx * dx + dy * dy <= 7) {
-          g.fillRect((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          colorGfx.fillRect((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE, TILE_SIZE, TILE_SIZE);
         }
       }
     }
