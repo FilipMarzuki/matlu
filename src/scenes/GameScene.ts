@@ -18,6 +18,8 @@ import type { DayPhase } from '../world/WorldClock';
 import { WorldState } from '../world/WorldState';
 import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
+import { PathSystem } from '../world/PathSystem';
+import { LEVEL1_PATHS } from '../world/Level1Paths';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
@@ -182,6 +184,11 @@ export class GameScene extends Phaser.Scene {
   private levelCompleteLogged = false;
   private runSeed = 0;
 
+  // ─── Path system ──────────────────────────────────────────────────────────────
+  private pathSystem!: PathSystem;
+  // Next time (ms) we run path condition degradation — runs every 5 s
+  private nextPathDegradeAt = 0;
+
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
   private attractTargets: Phaser.GameObjects.GameObject[] = [];
@@ -253,7 +260,9 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.worldState.destroy());
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
+    this.pathSystem = new PathSystem(LEVEL1_PATHS.map(s => ({ ...s })));
     this.drawProceduralTerrain();
+    this.drawPaths();
     this.createObstacles();
     this.createDecorations();
     this.createSolidObjects();
@@ -350,6 +359,12 @@ export class GameScene extends Phaser.Scene {
     if (this.portalActive) {
       this.portalGfx.rotation += 0.03;
     }
+    // Degrade path conditions every 5 s when corruption is above 0.
+    if (time > this.nextPathDegradeAt) {
+      const corruption = this.worldState.getCleansePercent('zone-main');
+      this.pathSystem.degradeAll(Math.max(0, 100 - corruption));
+      this.nextPathDegradeAt = time + 5000;
+    }
   }
 
   private spawnRabbits(): void {
@@ -443,7 +458,11 @@ export class GameScene extends Phaser.Scene {
 
     if (moving) {
       const len = Math.sqrt(dx * dx + dy * dy);
-      body.setVelocity((dx / len) * PLAYER_SPEED, (dy / len) * PLAYER_SPEED);
+      // Multiply base speed by the path multiplier so roads feel faster/slower.
+      // Off-road returns 1.0 (no change); paved road at full condition returns 1.35.
+      const speedMult = this.pathSystem.getSpeedMultiplier(this.player.x, this.player.y);
+      const speed = PLAYER_SPEED * speedMult;
+      body.setVelocity((dx / len) * speed, (dy / len) * speed);
     } else {
       body.setVelocity(0, 0);
     }
@@ -545,6 +564,8 @@ export class GameScene extends Phaser.Scene {
     this.events.emit('cleanse-updated', percent);
     // Also propagate through WorldState so systems can react to zone cleansing
     this.worldState.setCleansePercent('zone-main', percent);
+    // Each rabbit kill nudges nearby road conditions back toward health.
+    this.pathSystem.restoreNear(rx, ry, 300, 3);
     this.onZoneCleansed('rabbit', rx, ry);
   }
 
@@ -1138,8 +1159,19 @@ export class GameScene extends Phaser.Scene {
         const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
         this.physics.velocityFromRotation(away, def.fleeSpeed, b.velocity);
       } else if (this.time.now > (r.getData('roamNext') as number)) {
-        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        this.physics.velocityFromRotation(angle, def.roamSpeed, b.velocity);
+        // Sample 4 candidate directions and pick the one with the highest path
+        // affinity score. This makes animals naturally gravitate toward animal
+        // trails (+1) and avoid paved roads (−1) without explicit waypoints.
+        let bestAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        let bestScore = -Infinity;
+        for (let c = 0; c < 4; c++) {
+          const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          const tx = r.x + Math.cos(a) * 80;
+          const ty = r.y + Math.sin(a) * 80;
+          const score = this.pathSystem.getAffinityScore(tx, ty) + Math.random() * 0.4;
+          if (score > bestScore) { bestScore = score; bestAngle = a; }
+        }
+        this.physics.velocityFromRotation(bestAngle, def.roamSpeed, b.velocity);
         r.setData('roamNext', this.time.now + Phaser.Math.Between(3000, 8000));
       }
     }
@@ -1240,5 +1272,16 @@ export class GameScene extends Phaser.Scene {
         }
       }
     }
+  }
+
+  /**
+   * Draw path segments as semi-transparent overlays on top of the terrain.
+   * Depth 1 puts them just above the terrain (depth 0) but below decorations.
+   * Each path type has its own color defined in PathSystem.PATH_DEFS.
+   */
+  private drawPaths(): void {
+    const g = this.add.graphics();
+    g.setDepth(1);
+    this.pathSystem.drawPaths(g);
   }
 }
