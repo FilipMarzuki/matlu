@@ -15,9 +15,9 @@ import type { LdtkLevel } from '../world/MapData';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
-// World dimensions (tile-based 2400×2000 map)
-const WORLD_W = 2400;
-const WORLD_H = 2000;
+// World dimensions — large enough that the camera has room to roam in attract mode
+const WORLD_W = 8000;
+const WORLD_H = 8000;
 
 // Terrain tile size in pixels
 const TILE_SIZE = 32;
@@ -48,7 +48,7 @@ const OBSTACLE_DEFS: Array<{ x: number; y: number; w: number; h: number }> = [
 ];
 
 /** FIL-9 / FIL-10: one cleanse unit per defeated rabbit */
-const RABBIT_COUNT = 10;
+const RABBIT_COUNT = 25;
 const RABBIT_SIZE = 18;
 const SPAWN_CLEAR = 320;
 const CHASE_RANGE = 200;
@@ -80,12 +80,12 @@ interface AnimalDef {
 }
 
 const ANIMAL_DEFS: Record<string, AnimalDef> = {
-  deer: { w: 22, h: 14, color: 0xc8a060, stroke: 0x9a7840, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 6  },
-  hare: { w: 12, h:  9, color: 0xd0c8a8, stroke: 0xa09880, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 10 },
-  fox:  { w: 16, h: 11, color: 0xe07828, stroke: 0xb05018, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 4  },
+  deer: { w: 22, h: 14, color: 0xc8a060, stroke: 0x9a7840, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18 },
+  hare: { w: 12, h:  9, color: 0xd0c8a8, stroke: 0xa09880, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
+  fox:  { w: 16, h: 11, color: 0xe07828, stroke: 0xb05018, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 10 },
 };
 
-const BIRD_COUNT      = 12;
+const BIRD_COUNT      = 30;
 const BIRD_SHADOW_DX  = 7;
 const BIRD_SHADOW_DY  = 5;
 
