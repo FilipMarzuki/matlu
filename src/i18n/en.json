@@ -1,7 +1,7 @@
 {
   "hud.hp": "HP",
   "hud.cleanse": "Cleanse",
-  "attract.tap_to_play": "Tap or press Space to play",
+  "attract.tap_to_play": "Type your name, then press Enter to start",
   "credits.title": "Credits",
   "credits.asset_packs_heading": "Asset Packs",
   "credits.game_code_by": "Game code by Filip Marzuki",

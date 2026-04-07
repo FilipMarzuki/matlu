@@ -173,6 +173,11 @@ export class GameScene extends Phaser.Scene {
   private attractIdx = 0;
   private attractNextAt = 0;
   private attractLabel!: Phaser.GameObjects.Text;
+  private attractNameDisplay!: Phaser.GameObjects.Text;
+  private attractName = '';
+
+  // Set when the player types their name on the attract screen; used for leaderboard.
+  playerName = '';
 
   constructor() {
     super({ key: 'GameScene' });
@@ -224,7 +229,7 @@ export class GameScene extends Phaser.Scene {
 
     this.joystick = joystickPlugin.add(this, {
       x: 120,
-      y: 480,
+      y: this.scale.height - 120,
       radius: 50,
       base,
       thumb,
@@ -526,6 +531,9 @@ export class GameScene extends Phaser.Scene {
     const w = HUD_BAR_W;
     const h = HUD_BAR_H;
     const pad = HUD_PAD;
+    // Use actual viewport dimensions so HUD works at any resolution.
+    const sw = this.scale.width;
+    const sh = this.scale.height;
 
     this.add
       .text(pad, pad - 2, t('hud.hp'), { fontSize: '11px', color: '#ffffff' })
@@ -539,22 +547,23 @@ export class GameScene extends Phaser.Scene {
       .setDepth(300);
 
     this.add
-      .text(800 - pad - w, pad - 2, t('hud.cleanse'), { fontSize: '11px', color: '#ffffff' })
+      .text(sw - pad - w, pad - 2, t('hud.cleanse'), { fontSize: '11px', color: '#ffffff' })
       .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(300);
     this.add
-      .rectangle(800 - pad - w / 2, pad + 10, w, h, 0x111111, 0.9)
+      .rectangle(sw - pad - w / 2, pad + 10, w, h, 0x111111, 0.9)
       .setScrollFactor(0)
       .setDepth(299);
     this.cleanseFill = this.add
-      .rectangle(800 - pad - w + 2, pad + 10, 0, h - 4, 0xaaff66)
+      .rectangle(sw - pad - w + 2, pad + 10, 0, h - 4, 0xaaff66)
       .setOrigin(0, 0.5)
       .setScrollFactor(0)
       .setDepth(300);
 
+    // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
-      .rectangle(400, 300, 800, 600, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -847,9 +856,12 @@ export class GameScene extends Phaser.Scene {
     }
     this.attractNextAt = this.time.now + 12000;
 
-    // Play prompt
+    const cx = this.scale.width / 2;
+    const by = this.scale.height - 20;
+
+    // Prompt label above the input field
     this.attractLabel = this.add
-      .text(400, 558, t('attract.tap_to_play'), {
+      .text(cx, by - 46, t('attract.tap_to_play'), {
         fontSize: '15px',
         color: '#ffffff',
         backgroundColor: '#00000066',
@@ -859,18 +871,47 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(500);
 
+    // Shows the characters the player has typed so far, with a blinking cursor
+    this.attractName = '';
+    this.attractNameDisplay = this.add
+      .text(cx, by, '_', {
+        fontSize: '22px',
+        color: '#ffe066',
+        backgroundColor: '#00000099',
+        padding: { x: 18, y: 8 },
+      })
+      .setOrigin(0.5, 1)
+      .setScrollFactor(0)
+      .setDepth(500);
+
     this.tweens.add({
       targets: this.attractLabel,
-      alpha: 0.35,
-      duration: 1100,
+      alpha: 0.5,
+      duration: 900,
       yoyo: true,
       repeat: -1,
     });
 
-    // Any input exits attract mode
-    this.input.once('pointerdown', () => this.exitAttractMode());
-    this.input.keyboard?.once('keydown-SPACE', () => this.exitAttractMode());
-    this.input.keyboard?.once('keydown-ENTER', () => this.exitAttractMode());
+    // Capture typed characters; ENTER starts the game when a name has been entered.
+    this.input.keyboard?.on('keydown', this.onAttractKey, this);
+  }
+
+  /**
+   * Handles keystrokes during attract mode to build the player's name.
+   * Printable single characters are appended (max 20); Backspace removes the last;
+   * Enter submits when at least one character has been typed.
+   */
+  private onAttractKey(event: KeyboardEvent): void {
+    if (!this.attractMode) return;
+    if (event.key === 'Enter') {
+      if (this.attractName.length > 0) this.exitAttractMode();
+    } else if (event.key === 'Backspace') {
+      this.attractName = this.attractName.slice(0, -1);
+    } else if (event.key.length === 1 && this.attractName.length < 20) {
+      this.attractName += event.key;
+    }
+    // Show current input with a cursor placeholder
+    this.attractNameDisplay.setText((this.attractName || '') + '_');
   }
 
   private updateAttractMode(time: number): void {
@@ -888,7 +929,10 @@ export class GameScene extends Phaser.Scene {
   private exitAttractMode(): void {
     if (!this.attractMode) return;
     this.attractMode = false;
+    this.playerName = this.attractName || 'Player';
+    this.input.keyboard?.off('keydown', this.onAttractKey, this);
     this.attractLabel.destroy();
+    this.attractNameDisplay.destroy();
     this.player.setAlpha(1);
     (this.player.body as Phaser.Physics.Arcade.Body).setEnable(true);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);

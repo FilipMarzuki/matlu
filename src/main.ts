@@ -7,8 +7,6 @@ import { CreditsScene } from './scenes/CreditsScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
   parent: 'game-container',
   backgroundColor: 0x2d6b2e,
   physics: {
@@ -18,8 +16,10 @@ const game = new Phaser.Game({
       debug: false,
     },
   },
+  // RESIZE makes the canvas fill the full viewport — no letterboxing.
+  // UI elements must use this.scale.width/height instead of hardcoded 800×600.
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   // Register the rex virtual joystick plugin from npm rather than CDN so it
