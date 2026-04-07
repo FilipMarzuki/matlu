@@ -36,6 +36,9 @@ test('pressing W key moves the player upward', async ({ page }) => {
     { timeout: SCENE_READY_MS },
   );
 
+  // Click the canvas to give the page keyboard focus before typing
+  await page.click('#game-container canvas');
+
   // Attract mode requires a name before Enter works — type one character then submit
   await page.keyboard.press('a');
   await page.keyboard.press('Enter');
