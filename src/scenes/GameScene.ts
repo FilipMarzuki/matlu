@@ -167,6 +167,8 @@ export class GameScene extends Phaser.Scene {
 
   private cleanseFill!: Phaser.GameObjects.Rectangle;
   private overlay!: Phaser.GameObjects.Rectangle;
+  // All HUD elements (bars + labels) collected so they can be hidden during attract mode
+  private hudObjects: Phaser.GameObjects.GameObject[] = [];
 
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
@@ -188,7 +190,7 @@ export class GameScene extends Phaser.Scene {
   private attractLabel!: Phaser.GameObjects.Text;
   private attractNameDisplay!: Phaser.GameObjects.Text;
   private attractName = '';
-  private attractThoughtBubble!: Phaser.GameObjects.Text;
+  private attractTitle!: Phaser.GameObjects.Text;
 
   // Set when the player types their name on the attract screen; used for leaderboard.
   playerName = '';
@@ -599,31 +601,37 @@ export class GameScene extends Phaser.Scene {
     const sw = this.scale.width;
     const sh = this.scale.height;
 
-    this.add
-      .text(pad, pad - 2, t('hud.hp'), { fontSize: '11px', color: '#ffffff' })
-      .setScrollFactor(0)
-      .setDepth(300);
-    this.add.rectangle(pad + w / 2, pad + 10, w, h, 0x111111, 0.9).setScrollFactor(0).setDepth(299);
-    this.add
-      .rectangle(pad + 2, pad + 10, w - 4, h - 4, 0xff3333)
-      .setOrigin(0, 0.5)
-      .setScrollFactor(0)
-      .setDepth(300);
+    // Collect all HUD elements so they can be hidden during attract/wilderview mode.
+    this.hudObjects = [];
 
-    this.add
-      .text(sw - pad - w, pad - 2, t('hud.cleanse'), { fontSize: '11px', color: '#ffffff' })
-      .setOrigin(1, 0)
-      .setScrollFactor(0)
-      .setDepth(300);
-    this.add
-      .rectangle(sw - pad - w / 2, pad + 10, w, h, 0x111111, 0.9)
-      .setScrollFactor(0)
-      .setDepth(299);
+    this.hudObjects.push(
+      this.add
+        .text(pad, pad - 2, t('hud.hp'), { fontSize: '11px', color: '#ffffff' })
+        .setScrollFactor(0)
+        .setDepth(300),
+      this.add.rectangle(pad + w / 2, pad + 10, w, h, 0x111111, 0.9).setScrollFactor(0).setDepth(299),
+      this.add
+        .rectangle(pad + 2, pad + 10, w - 4, h - 4, 0xff3333)
+        .setOrigin(0, 0.5)
+        .setScrollFactor(0)
+        .setDepth(300),
+      this.add
+        .text(sw - pad - w, pad - 2, t('hud.cleanse'), { fontSize: '11px', color: '#ffffff' })
+        .setOrigin(1, 0)
+        .setScrollFactor(0)
+        .setDepth(300),
+      this.add
+        .rectangle(sw - pad - w / 2, pad + 10, w, h, 0x111111, 0.9)
+        .setScrollFactor(0)
+        .setDepth(299),
+    );
+
     this.cleanseFill = this.add
       .rectangle(sw - pad - w + 2, pad + 10, 0, h - 4, 0xaaff66)
       .setOrigin(0, 0.5)
       .setScrollFactor(0)
       .setDepth(300);
+    this.hudObjects.push(this.cleanseFill);
 
     // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
@@ -927,17 +935,19 @@ export class GameScene extends Phaser.Scene {
     }
     this.attractNextAt = this.time.now + 12000;
 
+    // Hide HUD bars — they belong to gameplay, not the wilderview screen.
+    for (const obj of this.hudObjects) {
+      (obj as Phaser.GameObjects.GameObject & { setVisible: (v: boolean) => void }).setVisible(false);
+    }
+
     const cx = this.scale.width / 2;
     const by = this.scale.height - 20;
 
-    // Thought bubble — shows the focused animal's type and current state at the top of the screen.
-    // Text is updated every frame in updateAttractMode().
-    this.attractThoughtBubble = this.add
-      .text(cx, 20, '', {
+    // Simple title at the top of the wilderview screen.
+    this.attractTitle = this.add
+      .text(cx, 18, 'matlu wilderview', {
         fontSize: '16px',
-        color: '#ffffff',
-        backgroundColor: '#00000088',
-        padding: { x: 16, y: 8 },
+        color: '#ffffffb3',
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
@@ -1032,8 +1042,10 @@ export class GameScene extends Phaser.Scene {
       flying:   'soaring',
     };
 
-    const label = `${type} — ${stateLabel[state] ?? state}`;
-    this.attractThoughtBubble.setText(label);
+    // Keep the title visible but update it with the current animal's state
+    // so the viewer knows what they're watching.
+    const label = `matlu wilderview  ·  ${type} — ${stateLabel[state] ?? state}`;
+    this.attractTitle.setText(label);
   }
 
   private exitAttractMode(): void {
@@ -1043,7 +1055,11 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown', this.onAttractKey, this);
     this.attractLabel.destroy();
     this.attractNameDisplay.destroy();
-    this.attractThoughtBubble.destroy();
+    this.attractTitle.destroy();
+    // Restore HUD bars now that gameplay is starting.
+    for (const obj of this.hudObjects) {
+      (obj as Phaser.GameObjects.GameObject & { setVisible: (v: boolean) => void }).setVisible(true);
+    }
     this.player.setAlpha(1);
     (this.player.body as Phaser.Physics.Arcade.Body).setEnable(true);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
