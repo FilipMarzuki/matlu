@@ -3,11 +3,9 @@ import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 import { ValueNoise2D } from '../lib/noise';
 import { mulberry32 } from '../lib/rng';
 import { t } from '../lib/i18n';
-// These are used by Level 1 features being developed in a separate branch.
-// Prefixed with _ to suppress TS unused-variable errors without deleting them.
-import { CHUNKS as _CHUNKS, CHUNK_COUNT as _CHUNK_COUNT, CHUNK_AVOID_ZONES as _CHUNK_AVOID_ZONES } from '../world/ChunkDef';
-import type { ChunkDef as _ChunkDef } from '../world/ChunkDef';
-import { SolidObject as _SolidObject } from '../environment/SolidObject';
+import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES } from '../world/ChunkDef';
+import type { ChunkDef } from '../world/ChunkDef';
+import { SolidObject } from '../environment/SolidObject';
 import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
@@ -252,6 +250,7 @@ export class GameScene extends Phaser.Scene {
     this.createObstacles();
     this.createDecorations();
     this.createSolidObjects();
+    this.stampProceduralChunks();
     this.createInteractiveObjects();
     this.createPlayer();
 
@@ -742,6 +741,147 @@ export class GameScene extends Phaser.Scene {
    * Place interactive trees that shake when the player touches them (FIL-30).
    * Uses the same placeholder texture as solid trees.
    */
+  // ─── Procedural chunk stamping (FIL-45) ──────────────────────────────────────
+
+  /**
+   * Pick CHUNK_COUNT seeded positions and stamp pre-defined ChunkDefs into the world.
+   * Same seed always produces the same chunk layout. Uses a separate sub-seed
+   * (runSeed ^ 0xc01dc0de) so chunk placement doesn't affect terrain noise.
+   */
+  private stampProceduralChunks(): void {
+    const rng = mulberry32(this.runSeed ^ 0xc01dc0de);
+    const rndFloat = rng;
+    const rndBetween = (min: number, max: number): number =>
+      Math.floor(rng() * (max - min + 1)) + min;
+
+    // Weighted random chunk selection — higher weight = more common
+    const totalWeight = CHUNKS.reduce((s, c) => s + c.weight, 0);
+    const pickChunk = (): ChunkDef => {
+      let r = rndFloat() * totalWeight;
+      for (const chunk of CHUNKS) {
+        r -= chunk.weight;
+        if (r <= 0) return chunk;
+      }
+      return CHUNKS[CHUNKS.length - 1]!;
+    };
+
+    // Placeholder textures may not exist yet if chunks are stamped before createSolidObjects
+    const ensureTexture = (key: string, w: number, h: number, colour: number): void => {
+      if (!this.textures.exists(key)) {
+        const rt = this.add.renderTexture(0, 0, w, h);
+        rt.fill(colour, 1);
+        rt.saveTexture(key);
+        rt.destroy();
+      }
+    };
+    ensureTexture('tree-placeholder', 24, 40, 0x2d5c1e);
+    ensureTexture('rock-placeholder', 18, 14, 0x7a7265);
+
+    const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+    const margin = 80; // minimum gap between chunk bounding boxes
+    let attempts = 0;
+    let stamped  = 0;
+
+    while (stamped < CHUNK_COUNT && attempts < CHUNK_COUNT * 20) {
+      attempts++;
+      const def = pickChunk();
+      const cx  = rndBetween(200, WORLD_W - 200 - def.w);
+      const cy  = rndBetween(200, WORLD_H - 200 - def.h);
+      const chunkCx = cx + def.w / 2;
+      const chunkCy = cy + def.h / 2;
+
+      // Reject positions that are too close to reserved zones
+      const blocked = CHUNK_AVOID_ZONES.some(zone =>
+        Phaser.Math.Distance.Between(chunkCx, chunkCy, zone.x, zone.y) <
+          zone.r + Math.max(def.w, def.h) / 2
+      );
+      if (blocked) continue;
+
+      // Reject if bounding box would overlap a previously placed chunk
+      const overlaps = placed.some(p =>
+        cx < p.x + p.w + margin &&
+        cx + def.w + margin > p.x &&
+        cy < p.y + p.h + margin &&
+        cy + def.h + margin > p.y
+      );
+      if (overlaps) continue;
+
+      this.stampChunk(def, cx, cy, ensureTexture);
+      placed.push({ x: cx, y: cy, w: def.w, h: def.h });
+      stamped++;
+    }
+
+    console.log(`[Chunks] stamped=${stamped}/${CHUNK_COUNT} seed=${this.runSeed}`);
+    // Must refresh after adding all new static bodies
+    this.solidObjects.refresh();
+    this.obstacles.refresh();
+  }
+
+  /**
+   * Place all objects from a ChunkDef at world position (ox, oy).
+   * Trees/rocks go into this.solidObjects, structures into this.obstacles,
+   * and decorations are standalone Decoration instances.
+   */
+  private stampChunk(
+    def: ChunkDef,
+    ox: number,
+    oy: number,
+    ensureTexture: (key: string, w: number, h: number, colour: number) => void,
+  ): void {
+    for (const item of def.items) {
+      const wx = ox + item.x;
+      const wy = oy + item.y;
+
+      switch (item.kind) {
+        case 'tree': {
+          const obj = new SolidObject(this, wx, wy, 'tree-placeholder', {
+            colliderWidth: 10, colliderHeight: 8, colliderOffsetY: -2,
+          });
+          this.solidObjects.add(obj);
+          const body = obj.body as Phaser.Physics.Arcade.StaticBody;
+          body.setSize(obj.colliderWidth, obj.colliderHeight);
+          body.setOffset(
+            (obj.displayWidth - obj.colliderWidth) / 2,
+            obj.displayHeight - obj.colliderHeight - 2,
+          );
+          break;
+        }
+        case 'rock': {
+          const obj = new SolidObject(this, wx, wy, 'rock-placeholder', {
+            colliderWidth: 16, colliderHeight: 10,
+          });
+          this.solidObjects.add(obj);
+          const body = obj.body as Phaser.Physics.Arcade.StaticBody;
+          body.setSize(obj.colliderWidth, obj.colliderHeight);
+          body.setOffset(
+            (obj.displayWidth - obj.colliderWidth) / 2,
+            obj.displayHeight - obj.colliderHeight,
+          );
+          break;
+        }
+        case 'structure': {
+          const sw = item.w ?? 40;
+          const sh = item.h ?? 14;
+          const color = item.color ?? 0x7a7265;
+          const box = this.add.rectangle(wx + sw / 2, wy + sh / 2, sw, sh, color);
+          box.setStrokeStyle(1, 0x3a3028);
+          box.setDepth(5);
+          this.physics.add.existing(box, true);
+          this.obstacles.add(box);
+          break;
+        }
+        case 'decoration': {
+          // Each distinct color gets its own texture key so tints stay accurate
+          const decKey = `dec-chunk-${(item.color ?? 0).toString(16)}`;
+          ensureTexture(decKey, 8, 8, item.color ?? 0xff88cc);
+          const dec = new Decoration(this, wx, wy, decKey);
+          dec.setDepth(2);
+          break;
+        }
+      }
+    }
+  }
+
   private createInteractiveObjects(): void {
     const ensureTexture = (key: string, w: number, h: number, colour: number): void => {
       if (!this.textures.exists(key)) {

@@ -26,6 +26,8 @@ export type Database = {
           id: string;
           nickname: string;
           score: number;
+          /** Procedural map seed — added by migration 20260407_add_seed_to_runs */
+          seed: number | null;
         };
         Insert: {
           created_at?: string;
@@ -33,6 +35,7 @@ export type Database = {
           id?: string;
           nickname?: string;
           score?: number;
+          seed?: number | null;
         };
         Update: {
           created_at?: string;
@@ -40,6 +43,7 @@ export type Database = {
           id?: string;
           nickname?: string;
           score?: number;
+          seed?: number | null;
         };
         Relationships: [];
       };
