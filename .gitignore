@@ -8,3 +8,6 @@ dist
 
 # Claude Code symlink tree from `npx skills add` (canonical files: .agents/skills)
 .claude/
+
+# Uncompressed audio — commit OGG/MP3 only; WAVs are too large for git
+*.wav
