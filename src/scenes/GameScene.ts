@@ -89,14 +89,17 @@ type RabbitState = 'roaming' | 'chasing' | 'fleeing';
 type AnimalState = 'roaming' | 'fleeing';
 
 interface AnimalDef {
-  w: number; h: number; color: number; stroke: number;
+  /** Physics body size (smaller than the visual sprite). */
+  w: number; h: number;
   fleeRange: number; fleeSpeed: number; roamSpeed: number; count: number;
+  /** Pixel scale applied to the 16×16 sprite to reach the desired display size. */
+  scale: number;
 }
 
 const ANIMAL_DEFS: Record<string, AnimalDef> = {
-  deer: { w: 22, h: 14, color: 0xc8a060, stroke: 0x9a7840, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18 },
-  hare: { w: 12, h:  9, color: 0xd0c8a8, stroke: 0xa09880, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
-  fox:  { w: 16, h: 11, color: 0xe07828, stroke: 0xb05018, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 10 },
+  deer: { w: 22, h: 14, scale: 2.0, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18 },
+  hare: { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
+  fox:  { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 10 },
 };
 
 const BIRD_COUNT      = 30;
@@ -111,42 +114,6 @@ interface BirdObject {
   nextDirChange: number;
 }
 
-/**
- * Maps a combined noise value (0–1) and a detail noise value (0–1) to a
- * spring-Sweden terrain colour. Breakpoints tuned for fBm output (mean ≈ 0.5).
- *
- *   < 0.28  — water (small ponds)
- *   < 0.37  — shore / wet grass
- *   < 0.54  — light spring meadow
- *   < 0.65  — meadow
- *   < 0.73  — tall grass / dark meadow
- *   < 0.81  — forest edge (birch / mixed)
- *   < 0.90  — pine / spruce forest
- *   ≥ 0.90  — dense forest interior
- */
-function terrainColor(val: number, detail: number): number {
-  if (val < 0.28) return detail > 0.5 ? 0x5a91cc : 0x4a7fbf;
-
-  if (val < 0.37) return detail > 0.5 ? 0x92c85a : 0x82b84a;
-
-  if (val < 0.54) {
-    const v = [0x7ac04a, 0x88cc52, 0x6eb844] as const;
-    return v[Math.min(Math.floor(detail * 3), 2)];
-  }
-
-  if (val < 0.65) {
-    const v = [0x68a838, 0x72b240, 0x609830] as const;
-    return v[Math.min(Math.floor(detail * 3), 2)];
-  }
-
-  if (val < 0.73) return detail > 0.55 ? 0x508a28 : 0x487820;
-
-  if (val < 0.81) return detail > 0.5 ? 0x3a6a20 : 0x2e5e18;
-
-  if (val < 0.90) return detail > 0.5 ? 0x28541a : 0x1e4412;
-
-  return detail > 0.5 ? 0x1e3c10 : 0x162e0a;
-}
 
 /**
  * Maps a biome value + detail value to a PostApocalypse background tileset frame.
@@ -158,7 +125,7 @@ function terrainColor(val: number, detail: number): number {
  * prevents obvious tiling without needing a large atlas.
  *
  * Biome mapping (mirrors terrainColor breakpoints):
- *   < 0.28  water/shore  → solid color, no texture (free water sheets not available)
+ *   < 0.28  water        → terrain-water (Mystic Woods 2.2 water-sheet, FIL-74)
  *   < 0.37  wet shore    → terrain-yellow (sandy/dry ground)
  *   < 0.65  meadow       → terrain-green light
  *   < 0.73  tall grass   → terrain-green mid (slightly different shade)
@@ -168,7 +135,8 @@ function terrainColor(val: number, detail: number): number {
 function terrainTileFrame(val: number, detail: number): { key: string; frame: number } {
   // Pick between 2 frames per biome using detail noise — breaks up visible tiling
   const v = detail > 0.55 ? 1 : 0;
-  if      (val < 0.37) return { key: 'terrain-yellow', frame: v };      // shore
+  if      (val < 0.28) return { key: 'terrain-water',  frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 };  // water (3 variants)
+  else if (val < 0.37) return { key: 'terrain-yellow', frame: v };      // shore
   else if (val < 0.65) return { key: 'terrain-green',  frame: v };      // light meadow
   else if (val < 0.73) return { key: 'terrain-green',  frame: v + 2 };  // tall grass
   else if (val < 0.81) return { key: 'terrain-green',  frame: v + 4 };  // forest edge
@@ -346,6 +314,22 @@ export class GameScene extends Phaser.Scene {
     this.load.image('puddle-grass-2', `${paW}/Puddle_On-Grass_2_Grass_Green.png`);
     this.load.image('puddle-grass-3', `${paW}/Puddle_On-Grass_3_Grass_Green.png`);
 
+    // ── Water terrain tiles (Mystic Woods 2.2, FIL-74) ────────────────────────────
+    // water-sheet.png is 480×48 with 16×16 tiles (30 cols × 3 rows).
+    // We use 3 frame variants in row 0 driven by detail noise to prevent obvious tiling.
+    this.load.spritesheet('terrain-water', 'assets/packs/mystic_woods_2.2/sprites/tilesets/water-sheet.png', { frameWidth: 16, frameHeight: 16 });
+
+    // ── Craftpix top-down animal sprites (FIL-73) ─────────────────────────────────
+    // Each sheet uses 16×16 px tiles. The TMX animation data shows even-column frames
+    // are the actual animation frames (0,2,4,6 for idle; 0,2,4,6,8,10 for walk).
+    const craftpixBase = 'assets/packs/craftpix-net-789196-free-top-down-hunt-animals-pixel-sprite-pack/PNG/Without_shadow';
+    this.load.spritesheet('deer-idle', `${craftpixBase}/Deer/Deer_Idle.png`, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('deer-walk', `${craftpixBase}/Deer/Deer_Walk.png`, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('hare-idle', `${craftpixBase}/Hare/Hare_Idle.png`, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('hare-walk', `${craftpixBase}/Hare/Hare_Walk.png`, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('fox-idle',  `${craftpixBase}/Fox/Fox_Idle.png`,   { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('fox-walk',  `${craftpixBase}/Fox/Fox_walk.png`,   { frameWidth: 16, frameHeight: 16 });
+
     // ── Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
     this.load.spritesheet('pc-idle-down', `${bodyBase}/Idle_Base/Idle_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
@@ -422,6 +406,7 @@ export class GameScene extends Phaser.Scene {
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.obstacles);
 
+    this.createAnimalAnimations();
     this.groundAnimals = this.physics.add.group();
     this.spawnGroundAnimals();
     this.spawnBirds();
@@ -452,7 +437,7 @@ export class GameScene extends Phaser.Scene {
     this.createDayNightOverlay();
 
     // Ambient forest sound — skipped entirely when audio is unavailable (CI).
-    if (this.audioAvailable) {
+    if (this.audioAvailable && this.cache.audio.has('forest-ambience')) {
       this.ambienceSound = this.sound.add('forest-ambience', {
         loop: true,
         volume: 0.25,
@@ -633,7 +618,8 @@ export class GameScene extends Phaser.Scene {
     if (moving && this.time.now - this.lastFootstepAt > this.FOOTSTEP_INTERVAL_MS) {
       // Pick a random variant (0–4) each step so it never sounds repetitive.
       const variant = Phaser.Math.Between(0, 4);
-      if (this.audioAvailable) this.sound.play(`footstep-grass-${variant}`, { volume: 0.45 });
+      const footKey = `footstep-grass-${variant}`;
+      if (this.audioAvailable && this.cache.audio.has(footKey)) this.sound.play(footKey, { volume: 0.45 });
       this.lastFootstepAt = this.time.now;
     }
 
@@ -1263,6 +1249,37 @@ export class GameScene extends Phaser.Scene {
   // ─── Ground animals (deer, hare, fox) ────────────────────────────────────────
 
   /**
+   * Register Phaser animations for all ground animal sprites (FIL-73).
+   *
+   * The craftpix spritesheet layout (from the Tiled TMX metadata):
+   *   - Each sheet has 8 or 12 columns of 16×16 tiles.
+   *   - Even-indexed columns (0,2,4,…) are the actual animation frames;
+   *     odd columns carry supplemental data (e.g. highlight layer) that we skip.
+   *   - Idle sheets (128×128): 4 frames → cols 0,2,4,6
+   *   - Walk sheets (160–192×128): 6 frames → cols 0,2,4,6,8,10
+   */
+  private createAnimalAnimations(): void {
+    const defs: Array<[key: string, texture: string, frames: number[], frameRate: number]> = [
+      ['deer-idle-anim', 'deer-idle', [0, 2, 4, 6],          6],
+      ['deer-walk-anim', 'deer-walk', [0, 2, 4, 6, 8, 10],   8],
+      ['hare-idle-anim', 'hare-idle', [0, 2, 4, 6],         8],
+      // Hare_Walk.png is 160×128 (10 cols) so only 5 even-column frames fit in row 0.
+      // Deer/fox walk sheets are 192px wide (12 cols) and can hold 6.
+      ['hare-walk-anim', 'hare-walk', [0, 2, 4, 6, 8],    12],
+      ['fox-idle-anim',  'fox-idle',  [0, 2, 4, 6],          6],
+      ['fox-walk-anim',  'fox-walk',  [0, 2, 4, 6, 8, 10],   8],
+    ];
+    for (const [key, texture, frames, frameRate] of defs) {
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(texture, { frames }),
+        frameRate,
+        repeat: -1,
+      });
+    }
+  }
+
+  /**
    * Spawn ground animals using cluster-based Poisson disk sampling.
    *
    * Instead of placing animals one-by-one at random positions (which looks
@@ -1355,19 +1372,27 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Create a single ground animal rectangle at world position (x, y). */
+  /**
+   * Create a single ground animal sprite at world position (x, y).
+   * Uses craftpix 16×16 pixel-art sheets (FIL-73), scaled up to def.scale × 16px.
+   * The physics body is set to def.w × def.h so collisions feel tight despite
+   * the larger visual.
+   */
   private placeGroundAnimal(type: string, def: AnimalDef, x: number, y: number): void {
-    const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
-    rect.setStrokeStyle(1, def.stroke);
-    rect.setDepth(3);
-    this.physics.add.existing(rect);
-    const b = rect.body as Phaser.Physics.Arcade.Body;
+    const sprite = this.add.sprite(x, y, `${type}-idle`, 0);
+    sprite.setScale(def.scale);
+    sprite.setDepth(3);
+    sprite.play(`${type}-idle-anim`);
+    this.physics.add.existing(sprite);
+    const b = sprite.body as Phaser.Physics.Arcade.Body;
     b.setCollideWorldBounds(true);
     b.setDrag(60, 60);
-    this.groundAnimals.add(rect);
-    rect.setData('animalType', type);
-    rect.setData('animalState', 'roaming' satisfies AnimalState);
-    rect.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+    // Keep the physics body compact so it matches the logical animal size
+    b.setSize(def.w, def.h);
+    this.groundAnimals.add(sprite);
+    sprite.setData('animalType', type);
+    sprite.setData('animalState', 'roaming' satisfies AnimalState);
+    sprite.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
   }
 
   private updateGroundAnimals(): void {
@@ -1375,7 +1400,8 @@ export class GameScene extends Phaser.Scene {
     const py = this.player.y;
 
     for (const child of this.groundAnimals.getChildren()) {
-      const r  = child as Phaser.GameObjects.Rectangle;
+      // Ground animals are now sprites (FIL-73); cast accordingly.
+      const r  = child as Phaser.GameObjects.Sprite;
       const b  = r.body as Phaser.Physics.Arcade.Body;
       const type = r.getData('animalType') as string;
       const def  = ANIMAL_DEFS[type];
@@ -1390,12 +1416,16 @@ export class GameScene extends Phaser.Scene {
         // Play rustle only on the frame the animal starts fleeing, not every frame.
         // This is the "state transition" pattern: prev was not fleeing, now it is.
         if (prevState !== 'fleeing') {
-          if (this.audioAvailable) this.sound.play('animal-rustle', { volume: 0.5 });
+          if (this.audioAvailable && this.cache.audio.has('animal-rustle')) this.sound.play('animal-rustle', { volume: 0.5 });
+          // Switch to walk animation when fleeing starts — faster-looking movement.
+          r.play(`${type}-walk-anim`);
         }
       } else if (state === 'fleeing' && dist > def.fleeRange + 80) {
         state = 'roaming';
         r.setData('animalState', state);
         r.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 5000));
+        // Return to idle animation once safely away from the player.
+        r.play(`${type}-idle-anim`);
       }
 
       if (state === 'fleeing') {
@@ -1490,13 +1520,9 @@ export class GameScene extends Phaser.Scene {
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
     const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
 
-    // Water tiles and the spawn clearing still use solid-colour Graphics —
-    // the free Mystic Woods water sheets are behind a premium paywall.
-    const colorGfx = this.add.graphics().setDepth(0);
-
-    // Land tiles are drawn as a pre-baked RenderTexture (one GPU draw call at runtime).
-    // We use beginDraw() + batchDraw() + endDraw() to flush the WebGL batch only ONCE
-    // instead of once per tile (~62 500 flushes), which is ~100× faster in practice.
+    // All tiles (including water) are drawn into a pre-baked RenderTexture so the
+    // entire terrain costs one GPU draw call at runtime — ~100× faster than per-tile flushes.
+    // We use beginDraw() + batchDraw() + endDraw() to flush the WebGL batch only ONCE.
     const terrainRt = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setDepth(0);
 
     // Reuse a single off-screen Image to draw scaled (32×32) tiles from the
@@ -1518,18 +1544,11 @@ export class GameScene extends Phaser.Scene {
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
 
-        if (val < 0.28) {
-          // Water — solid colour, no usable free texture available.
-          // colorGfx draws to the scene, not the RT, so it's unaffected by the batch.
-          colorGfx.fillStyle(terrainColor(val, detail), 1);
-          colorGfx.fillRect(wx, wy, TILE_SIZE, TILE_SIZE);
-        } else {
-          // Land — draw the matching tileset frame scaled 2× to fill the 32×32 tile.
-          // batchDraw() uses the image's own position — no per-tile batch flush.
-          const { key, frame } = terrainTileFrame(val, detail);
-          tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
-          terrainRt.batchDraw(tileImg);
-        }
+        // Draw the matching tileset frame (including water) scaled 2× to fill the 32×32 tile.
+        // batchDraw() uses the image's own position — no per-tile batch flush.
+        const { key, frame } = terrainTileFrame(val, detail);
+        tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
+        terrainRt.batchDraw(tileImg);
       }
     }
 
@@ -1537,8 +1556,9 @@ export class GameScene extends Phaser.Scene {
 
     tileImg.destroy();
 
-    // Dirt clearing at spawn — drawn on colorGfx so it sits above any water tiles
+    // Dirt clearing at spawn — drawn on a Graphics object so it sits above terrain tiles
     // and gives the player a recognisable landmark to start from.
+    const colorGfx = this.add.graphics().setDepth(0);
     const sx = Math.floor(SPAWN_X / TILE_SIZE);
     const sy = Math.floor(SPAWN_Y / TILE_SIZE);
     colorGfx.fillStyle(0xc4a472, 1);
