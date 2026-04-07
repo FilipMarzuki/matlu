@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import { ValueNoise2D } from '../lib/noise';
+import { t } from '../lib/i18n';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
@@ -486,7 +487,7 @@ export class GameScene extends Phaser.Scene {
     const pad = HUD_PAD;
 
     this.add
-      .text(pad, pad - 2, 'HP', { fontSize: '11px', color: '#ffffff' })
+      .text(pad, pad - 2, t('hud.hp'), { fontSize: '11px', color: '#ffffff' })
       .setScrollFactor(0)
       .setDepth(300);
     this.add.rectangle(pad + w / 2, pad + 10, w, h, 0x111111, 0.9).setScrollFactor(0).setDepth(299);
@@ -497,7 +498,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(300);
 
     this.add
-      .text(800 - pad - w, pad - 2, 'Cleanse', { fontSize: '11px', color: '#ffffff' })
+      .text(800 - pad - w, pad - 2, t('hud.cleanse'), { fontSize: '11px', color: '#ffffff' })
       .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(300);
@@ -808,7 +809,7 @@ export class GameScene extends Phaser.Scene {
 
     // Play prompt
     this.attractLabel = this.add
-      .text(400, 558, 'Tap or press Space to play', {
+      .text(400, 558, t('attract.tap_to_play'), {
         fontSize: '15px',
         color: '#ffffff',
         backgroundColor: '#00000066',
