@@ -135,6 +135,9 @@ export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private playerBody!: Phaser.GameObjects.Arc;
   private playerIndicator!: Phaser.GameObjects.Rectangle;
+  private playerSprite!: Phaser.GameObjects.Sprite;
+  private playerLastDir: 'down' | 'up' | 'side' = 'down';
+  private playerMoving = false;
   private joystick!: VirtualJoyStick;
   private obstacles!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
@@ -171,8 +174,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // CC0 placeholder character sprite (16×32px, scaled up 3× in createPlayer)
-    this.load.image('player-character', 'assets/sprites/player/character.png');
+    // Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
+    const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
+    this.load.spritesheet('pc-idle-down', `${bodyBase}/Idle_Base/Idle_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('pc-idle-up',   `${bodyBase}/Idle_Base/Idle_Up-Sheet.png`,    { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('pc-idle-side', `${bodyBase}/Idle_Base/Idle_Side-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('pc-walk-down', `${bodyBase}/Walk_Base/Walk_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('pc-walk-up',   `${bodyBase}/Walk_Base/Walk_Up-Sheet.png`,    { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('pc-walk-side', `${bodyBase}/Walk_Base/Walk_Side-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
   }
 
   create(): void {
@@ -356,20 +365,41 @@ export class GameScene extends Phaser.Scene {
       dy = down - up;
     }
 
-    if (dx !== 0 || dy !== 0) {
+    const moving = dx !== 0 || dy !== 0;
+
+    if (moving) {
       const len = Math.sqrt(dx * dx + dy * dy);
       body.setVelocity((dx / len) * PLAYER_SPEED, (dy / len) * PLAYER_SPEED);
     } else {
       body.setVelocity(0, 0);
     }
 
-    const angle = Phaser.Math.Angle.Between(
-      this.player.x,
-      this.player.y,
-      this.input.activePointer.worldX,
-      this.input.activePointer.worldY
-    );
-    this.player.setRotation(angle);
+    // Update directional animation
+    this.updatePlayerAnimation(dx, dy, moving);
+  }
+
+  private updatePlayerAnimation(dx: number, dy: number, moving: boolean): void {
+    // Determine dominant direction
+    let dir: 'down' | 'up' | 'side' = this.playerLastDir;
+    let flipX = false;
+
+    if (moving) {
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        dir = dy > 0 ? 'down' : 'up';
+      } else {
+        dir = 'side';
+        flipX = dx < 0;
+      }
+      this.playerLastDir = dir;
+    }
+
+    const animKey = moving ? `pc-walk-${dir}` : `pc-idle-${this.playerLastDir}`;
+
+    if (this.playerSprite.anims.currentAnim?.key !== animKey || this.playerMoving !== moving) {
+      this.playerSprite.play(animKey);
+    }
+    this.playerSprite.setFlipX(dir === 'side' ? flipX : false);
+    this.playerMoving = moving;
   }
 
   private trySwipe(pointer: Phaser.Input.Pointer): void {
@@ -658,24 +688,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPlayer(): void {
-    // Use the placeholder character sprite (16×32px scaled up 3×) if loaded,
-    // otherwise fall back to the coloured circle placeholder.
-    if (this.textures.exists('player-character')) {
-      const sprite = this.add.sprite(0, 0, 'player-character');
-      sprite.setScale(3);
-      // Keep a small invisible circle for the facing indicator position
-      this.playerBody = this.add.circle(0, 0, 1, 0x000000, 0);
-      this.playerIndicator = this.add.rectangle(BODY_RADIUS + INDICATOR_W / 2, 0, INDICATOR_W, INDICATOR_H, 0xffffff, 0);
-      this.player = this.add.container(SPAWN_X, SPAWN_Y, [sprite, this.playerBody, this.playerIndicator]);
-    } else {
-      this.playerBody = this.add.circle(0, 0, BODY_RADIUS, 0x4466ff);
-      this.playerBody.setStrokeStyle(2, 0x2233aa);
-      this.playerIndicator = this.add.rectangle(
-        BODY_RADIUS + INDICATOR_W / 2, 0, INDICATOR_W, INDICATOR_H, 0xffffff
-      );
-      this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerBody, this.playerIndicator]);
-    }
+    // Register directional animations from Pixel Crawler Free Pack Body_A sheets
+    this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
+    this.anims.create({ key: 'pc-idle-up',   frames: this.anims.generateFrameNumbers('pc-idle-up',   {}), frameRate: 6, repeat: -1 });
+    this.anims.create({ key: 'pc-idle-side', frames: this.anims.generateFrameNumbers('pc-idle-side', {}), frameRate: 6, repeat: -1 });
+    this.anims.create({ key: 'pc-walk-down', frames: this.anims.generateFrameNumbers('pc-walk-down', {}), frameRate: 9, repeat: -1 });
+    this.anims.create({ key: 'pc-walk-up',   frames: this.anims.generateFrameNumbers('pc-walk-up',   {}), frameRate: 9, repeat: -1 });
+    this.anims.create({ key: 'pc-walk-side', frames: this.anims.generateFrameNumbers('pc-walk-side', {}), frameRate: 9, repeat: -1 });
 
+    this.playerSprite = this.add.sprite(0, 0, 'pc-idle-down');
+    this.playerSprite.setScale(1);
+    this.playerSprite.play('pc-idle-down');
+
+    // Invisible circle + indicator kept for physics sizing / pointer aim
+    this.playerBody = this.add.circle(0, 0, 1, 0x000000, 0);
+    this.playerIndicator = this.add.rectangle(BODY_RADIUS + INDICATOR_W / 2, 0, INDICATOR_W, INDICATOR_H, 0xffffff, 0);
+
+    this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
     this.player.setDepth(10);
 
