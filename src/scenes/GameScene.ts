@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import { FbmNoise } from '../lib/noise';
-import { mulberry32 } from '../lib/rng';
+import { mulberry32, poissonDisk } from '../lib/rng';
 import { t } from '../lib/i18n';
 import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES } from '../world/ChunkDef';
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
@@ -1224,37 +1224,112 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Ground animals (deer, hare, fox) ────────────────────────────────────────
 
+  /**
+   * Spawn ground animals using cluster-based Poisson disk sampling.
+   *
+   * Instead of placing animals one-by-one at random positions (which looks
+   * artificial), we first pick cluster centres and then scatter each cluster's
+   * animals with Poisson disk sampling. This mimics real animal behaviour:
+   *   - Deer move in herds — 3–5 tight clusters of 4–7 animals
+   *   - Hares live in warrens — 8–12 dense colonies of 3–5
+   *   - Foxes are solitary — placed individually, minDist 300px apart
+   *
+   * Each cluster centre is also filtered through spawnBias() (FIL-61) so herds
+   * appear in ecologically plausible terrain even before individual points are placed.
+   */
   private spawnGroundAnimals(): void {
     const rng = mulberry32(this.runSeed ^ 0xa1b2c3d4);
-    const rndBetween = (min: number, max: number): number =>
-      Math.floor(rng() * (max - min + 1)) + min;
+    const rndBetween = (lo: number, hi: number): number =>
+      Math.floor(rng() * (hi - lo + 1)) + lo;
+
+    // ── Cluster config per species ─────────────────────────────────────────────
+    // clusters: how many herds/warrens to place
+    // perCluster: animals per herd [min, max]
+    // clusterR: Poisson minDist within a cluster (tight or loose?)
+    // clusterMinDist: minimum distance between cluster centres
+    const CLUSTER_CONFIG: Record<string, {
+      clusters: [number, number];
+      perCluster: [number, number];
+      clusterR: number;
+      clusterMinDist: number;
+    }> = {
+      deer: { clusters: [3, 5],  perCluster: [4, 7], clusterR: 60,  clusterMinDist: 600 },
+      hare: { clusters: [8, 12], perCluster: [3, 5], clusterR: 30,  clusterMinDist: 300 },
+      fox:  { clusters: [1, 1],  perCluster: [1, 1], clusterR: 300, clusterMinDist: 300 },
+      // fox: one "cluster" of 1 — effectively solo placement with Poisson spacing
+    };
+
     for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
-      // type is one of 'deer' | 'hare' | 'fox' — all valid spawnBias keys
       const biasType = type as 'deer' | 'hare' | 'fox';
-      for (let i = 0; i < def.count; i++) {
-        // 3 attempts per slot — accept the first position whose biome matches.
-        let accepted = false;
-        for (let attempt = 0; attempt < 3 && !accepted; attempt++) {
-          const x = rndBetween(80, WORLD_W - 80);
-          const y = rndBetween(80, WORLD_H - 80);
+      const cfg = CLUSTER_CONFIG[type];
+      if (!cfg) continue;
+
+      const numClusters = rndBetween(cfg.clusters[0], cfg.clusters[1]);
+
+      // For foxes, run a single Poisson field across the whole world so they
+      // maintain territory spacing. For herding animals, pick cluster centres
+      // first, then scatter individuals within each cluster.
+      if (type === 'fox') {
+        // Global Poisson field, one point per fox
+        const totalFoxes = def.count;
+        const foxPoints = poissonDisk(rng, WORLD_W - 160, WORLD_H - 160, cfg.clusterR, totalFoxes * 3);
+        let placed = 0;
+        for (const pt of foxPoints) {
+          if (placed >= totalFoxes) break;
+          const x = pt.x + 80;
+          const y = pt.y + 80;
           if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
           if (rng() >= this.spawnBias(x, y, biasType)) continue;
+          this.placeGroundAnimal(type, def, x, y);
+          placed++;
+        }
+      } else {
+        // Pick cluster centres, then Poisson-scatter animals within each cluster
+        const clusterCentres = poissonDisk(rng, WORLD_W - 400, WORLD_H - 400, cfg.clusterMinDist, numClusters * 4);
+        let clustersPlaced = 0;
 
-          const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
-          rect.setStrokeStyle(1, def.stroke);
-          rect.setDepth(3);
-          this.physics.add.existing(rect);
-          const b = rect.body as Phaser.Physics.Arcade.Body;
-          b.setCollideWorldBounds(true);
-          b.setDrag(60, 60);
-          this.groundAnimals.add(rect);
-          rect.setData('animalType', type);
-          rect.setData('animalState', 'roaming' satisfies AnimalState);
-          rect.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
-          accepted = true;
+        for (const centre of clusterCentres) {
+          if (clustersPlaced >= numClusters) break;
+          const cx = centre.x + 200;
+          const cy = centre.y + 200;
+
+          // Reject cluster centres in the wrong biome or near spawn
+          if (Phaser.Math.Distance.Between(cx, cy, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR + 100) continue;
+          if (this.spawnBias(cx, cy, biasType) < 0.5) continue;
+
+          const clusterSize = rndBetween(cfg.perCluster[0], cfg.perCluster[1]);
+          // Poisson disk within a small area around the cluster centre
+          const clusterArea = cfg.clusterR * 4;
+          const localPoints = poissonDisk(rng, clusterArea, clusterArea, cfg.clusterR, clusterSize * 3);
+
+          let animalCount = 0;
+          for (const lp of localPoints) {
+            if (animalCount >= clusterSize) break;
+            const x = cx + lp.x - clusterArea / 2;
+            const y = cy + lp.y - clusterArea / 2;
+            if (x < 80 || x > WORLD_W - 80 || y < 80 || y > WORLD_H - 80) continue;
+            this.placeGroundAnimal(type, def, x, y);
+            animalCount++;
+          }
+          clustersPlaced++;
         }
       }
     }
+  }
+
+  /** Create a single ground animal rectangle at world position (x, y). */
+  private placeGroundAnimal(type: string, def: AnimalDef, x: number, y: number): void {
+    const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
+    rect.setStrokeStyle(1, def.stroke);
+    rect.setDepth(3);
+    this.physics.add.existing(rect);
+    const b = rect.body as Phaser.Physics.Arcade.Body;
+    b.setCollideWorldBounds(true);
+    b.setDrag(60, 60);
+    this.groundAnimals.add(rect);
+    rect.setData('animalType', type);
+    rect.setData('animalState', 'roaming' satisfies AnimalState);
+    rect.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
   }
 
   private updateGroundAnimals(): void {
