@@ -70,6 +70,30 @@ const HUD_BAR_H = 14;
 const HUD_PAD = 14;
 
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
+type AnimalState = 'roaming' | 'fleeing';
+
+interface AnimalDef {
+  w: number; h: number; color: number; stroke: number;
+  fleeRange: number; fleeSpeed: number; roamSpeed: number; count: number;
+}
+
+const ANIMAL_DEFS: Record<string, AnimalDef> = {
+  deer: { w: 22, h: 14, color: 0xc8a060, stroke: 0x9a7840, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 6  },
+  hare: { w: 12, h:  9, color: 0xd0c8a8, stroke: 0xa09880, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 10 },
+  fox:  { w: 16, h: 11, color: 0xe07828, stroke: 0xb05018, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 4  },
+};
+
+const BIRD_COUNT      = 12;
+const BIRD_SHADOW_DX  = 7;
+const BIRD_SHADOW_DY  = 5;
+
+interface BirdObject {
+  body:          Phaser.GameObjects.Ellipse;
+  shadow:        Phaser.GameObjects.Ellipse;
+  vx:            number;
+  vy:            number;
+  nextDirChange: number;
+}
 
 /**
  * Maps a combined noise value (0–1) and a detail noise value (0–1) to a
@@ -123,6 +147,8 @@ export class GameScene extends Phaser.Scene {
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
   private rabbits!: Phaser.Physics.Arcade.Group;
+  private groundAnimals!: Phaser.Physics.Arcade.Group;
+  private birds: BirdObject[] = [];
   private kills = 0;
   private lastSwipeAt = 0;
 
@@ -193,6 +219,10 @@ export class GameScene extends Phaser.Scene {
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.obstacles);
 
+    this.groundAnimals = this.physics.add.group();
+    this.spawnGroundAnimals();
+    this.spawnBirds();
+
     this.createHudAndOverlay();
     this.createPortal();
 
@@ -222,6 +252,8 @@ export class GameScene extends Phaser.Scene {
     this.updateDayNight();
     this.updatePlayerMovement();
     this.updateRabbits(time);
+    this.updateGroundAnimals();
+    this.updateBirds(time, delta);
     if (this.portalActive) {
       this.portalGfx.rotation += 0.03;
     }
@@ -732,6 +764,119 @@ export class GameScene extends Phaser.Scene {
     ]);
 
     this.physics.add.collider(this.player, this.solidObjects);
+  }
+
+  // ─── Ground animals (deer, hare, fox) ────────────────────────────────────────
+
+  private spawnGroundAnimals(): void {
+    for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
+      let spawned = 0;
+      while (spawned < def.count) {
+        const x = Phaser.Math.Between(80, WORLD_W - 80);
+        const y = Phaser.Math.Between(80, WORLD_H - 80);
+        if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
+
+        const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
+        rect.setStrokeStyle(1, def.stroke);
+        rect.setDepth(3);
+        this.physics.add.existing(rect);
+        const b = rect.body as Phaser.Physics.Arcade.Body;
+        b.setCollideWorldBounds(true);
+        b.setDrag(60, 60);
+        this.groundAnimals.add(rect);
+        rect.setData('animalType', type);
+        rect.setData('animalState', 'roaming' satisfies AnimalState);
+        rect.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+        spawned++;
+      }
+    }
+  }
+
+  private updateGroundAnimals(): void {
+    const px = this.player.x;
+    const py = this.player.y;
+
+    for (const child of this.groundAnimals.getChildren()) {
+      const r  = child as Phaser.GameObjects.Rectangle;
+      const b  = r.body as Phaser.Physics.Arcade.Body;
+      const type = r.getData('animalType') as string;
+      const def  = ANIMAL_DEFS[type];
+      const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
+      let state  = r.getData('animalState') as AnimalState;
+
+      if (dist < def.fleeRange) {
+        state = 'fleeing';
+        r.setData('animalState', state);
+      } else if (state === 'fleeing' && dist > def.fleeRange + 80) {
+        state = 'roaming';
+        r.setData('animalState', state);
+        r.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 5000));
+      }
+
+      if (state === 'fleeing') {
+        const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
+        this.physics.velocityFromRotation(away, def.fleeSpeed, b.velocity);
+      } else if (this.time.now > (r.getData('roamNext') as number)) {
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        this.physics.velocityFromRotation(angle, def.roamSpeed, b.velocity);
+        r.setData('roamNext', this.time.now + Phaser.Math.Between(3000, 8000));
+      }
+    }
+  }
+
+  // ─── Birds ────────────────────────────────────────────────────────────────────
+
+  private spawnBirds(): void {
+    for (let i = 0; i < BIRD_COUNT; i++) {
+      const x = Phaser.Math.Between(50, WORLD_W - 50);
+      const y = Phaser.Math.Between(50, WORLD_H - 50);
+
+      const isCrow = i < 4;          // first 4 are crow-sized, rest are small songbirds
+      const w      = isCrow ? 10 : 6;
+      const h      = isCrow ?  5 : 3;
+      const color  = isCrow ? 0x1a1a1a : 0x3a3a50;
+
+      const shadow = this.add.ellipse(x + BIRD_SHADOW_DX, y + BIRD_SHADOW_DY, w, h, 0x000000, 0.2);
+      shadow.setDepth(1);
+
+      const body = this.add.ellipse(x, y, w, h, color);
+      body.setDepth(7);
+
+      const speed = Phaser.Math.Between(55, 95);
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+
+      this.birds.push({
+        body, shadow,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        nextDirChange: this.time.now + Phaser.Math.Between(6000, 14000),
+      });
+    }
+  }
+
+  private updateBirds(time: number, delta: number): void {
+    const dt = delta / 1000;
+
+    for (const bird of this.birds) {
+      // Gently nudge direction every so often — birds don't fly perfectly straight
+      if (time > bird.nextDirChange) {
+        const speed    = Math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy);
+        const newAngle = Math.atan2(bird.vy, bird.vx) + Phaser.Math.FloatBetween(-0.5, 0.5);
+        bird.vx = Math.cos(newAngle) * speed;
+        bird.vy = Math.sin(newAngle) * speed;
+        bird.nextDirChange = time + Phaser.Math.Between(6000, 14000);
+      }
+
+      let nx = bird.body.x + bird.vx * dt;
+      let ny = bird.body.y + bird.vy * dt;
+
+      // Bounce off world edges
+      if (nx < 40 || nx > WORLD_W - 40) { bird.vx = -bird.vx; nx = Phaser.Math.Clamp(nx, 40, WORLD_W - 40); }
+      if (ny < 40 || ny > WORLD_H - 40) { bird.vy = -bird.vy; ny = Phaser.Math.Clamp(ny, 40, WORLD_H - 40); }
+
+      bird.body.setPosition(nx, ny);
+      bird.shadow.setPosition(nx + BIRD_SHADOW_DX, ny + BIRD_SHADOW_DY);
+    }
   }
 
   /**
