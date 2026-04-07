@@ -38,12 +38,14 @@ test('pressing W key moves the player upward', async ({ page }) => {
 
   // Dispatch keydown events directly on window so Phaser's keyboard plugin
   // receives them regardless of page focus state in headless Chrome.
-  // Attract mode needs at least one character typed before Enter works.
+  // Phaser uses event.keyCode (not event.key) for key matching, so keyCode must
+  // be set correctly. Attract mode needs at least one character typed before Enter.
   await page.evaluate(() => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', bubbles: true }));
-    window.dispatchEvent(new KeyboardEvent('keyup',   { key: 'a', code: 'KeyA', bubbles: true }));
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-    window.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', code: 'Enter', bubbles: true }));
+    // 'A' keyCode = 65, 'Enter' keyCode = 13
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', keyCode: 65, bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup',   { key: 'a', code: 'KeyA', keyCode: 65, bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
   });
 
   // Poll until attract mode has exited (body enabled and attractMode = false)
@@ -70,12 +72,13 @@ test('pressing W key moves the player upward', async ({ page }) => {
   expect(initialY).not.toBeNull();
 
   // Dispatch W keydown directly on window, hold for ~300ms, then keyup.
+  // 'W' keyCode = 87 — Phaser looks up keys by keyCode, not by key string.
   await page.evaluate(() => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', code: 'KeyW', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
   });
   await page.waitForTimeout(300);
   await page.evaluate(() => {
-    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', code: 'KeyW', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
   });
 
   const afterY = await page.evaluate(() => {
