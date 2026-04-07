@@ -3,7 +3,7 @@ import './lib/supabaseClient';
 import { AttractionScene } from './scenes/AttractionScene';
 import { GameScene } from './scenes/GameScene';
 
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   width: 800,
   height: 600,
@@ -23,3 +23,8 @@ new Phaser.Game({
   // AttractionScene is the default entry point; it launches GameScene on demand
   scene: [AttractionScene, GameScene],
 });
+
+// Expose game instance for Playwright tests and dev tooling
+if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
+  (window as unknown as Record<string, unknown>)['__game'] = game;
+}
