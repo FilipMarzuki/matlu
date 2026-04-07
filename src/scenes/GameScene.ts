@@ -5,7 +5,6 @@ import { mulberry32 } from '../lib/rng';
 import { t } from '../lib/i18n';
 import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES } from '../world/ChunkDef';
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
-import { SolidObject as _SolidObject } from '../environment/SolidObject';
 import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
@@ -19,6 +18,12 @@ import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
 import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
+import {
+  ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
+  meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
+} from '../world/Level1';
+import type { PathChoice } from '../world/Level1';
+import type { NpcDialogData } from './NpcDialogScene';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
@@ -185,8 +190,29 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Path system ──────────────────────────────────────────────────────────────
   private pathSystem!: PathSystem;
+  // Graphics object kept alive so drawPaths() can redraw after condition changes
+  private pathGraphics!: Phaser.GameObjects.Graphics;
   // Next time (ms) we run path condition degradation — runs every 5 s
   private nextPathDegradeAt = 0;
+
+  // ─── Terrain noise ────────────────────────────────────────────────────────────
+  // Created once in create() so both drawProceduralTerrain() and stampProceduralChunks()
+  // share the same instance instead of each constructing their own FbmNoise.
+  private baseNoise!: FbmNoise;
+
+  // ─── Level 1 ──────────────────────────────────────────────────────────────────
+  // Semi-transparent zone tint overlays — one per zone, faded on collectible pickup
+  private zoneOverlays: Map<string, Phaser.GameObjects.Rectangle> = new Map();
+  // Set of collected item IDs
+  private collectedItems: Set<string> = new Set();
+  // Collectible circle sprites (live objects, removed on pickup)
+  private collectibleSprites: Map<string, Phaser.GameObjects.Arc> = new Map();
+  // Whether the parent meeting dialog has fired yet
+  private meetingTriggered = false;
+  // Path chosen at the end of the meeting dialog (no gameplay effect in Level 1)
+  chosenPath: PathChoice | null = null;
+  // How much passive cleanse has accrued from standing in Zone 3
+  private passiveCleanseTotal = 0;
 
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
@@ -296,6 +322,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.worldState.destroy());
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
+    this.baseNoise = new FbmNoise(this.runSeed);
     this.pathSystem = new PathSystem(LEVEL1_PATHS.map(s => ({ ...s })));
     this.drawProceduralTerrain();
     this.drawPaths();
@@ -348,6 +375,8 @@ export class GameScene extends Phaser.Scene {
 
     this.createHudAndOverlay();
     this.createPortal();
+    this.createLevel1Zones();
+    this.createLevel1Collectibles();
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) {
@@ -389,6 +418,7 @@ export class GameScene extends Phaser.Scene {
       this.updateAttractMode(time);
     } else {
       this.updatePlayerMovement();
+      this.updateLevel1(delta);
     }
     this.updateRabbits(time);
     this.updateGroundAnimals();
@@ -400,6 +430,8 @@ export class GameScene extends Phaser.Scene {
     if (time > this.nextPathDegradeAt) {
       const corruption = this.worldState.getCleansePercent('zone-main');
       this.pathSystem.degradeAll(Math.max(0, 100 - corruption));
+      // Redraw paths so worn segments visually fade toward gray over time
+      this.pathSystem.drawPaths(this.pathGraphics);
       this.nextPathDegradeAt = time + 5000;
     }
   }
@@ -1278,7 +1310,7 @@ export class GameScene extends Phaser.Scene {
    * Uses this.runSeed for deterministic output (same seed → same map).
    */
   private drawProceduralTerrain(): void {
-    const noise    = new FbmNoise(this.runSeed);
+    const noise    = this.baseNoise;
     const detNoise = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
 
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
@@ -1317,9 +1349,9 @@ export class GameScene extends Phaser.Scene {
    * Each path type has its own color defined in PathSystem.PATH_DEFS.
    */
   private drawPaths(): void {
-    const g = this.add.graphics();
-    g.setDepth(1);
-    this.pathSystem.drawPaths(g);
+    this.pathGraphics = this.add.graphics();
+    this.pathGraphics.setDepth(1);
+    this.pathSystem.drawPaths(this.pathGraphics);
   }
 
   // ─── Procedural chunk stamping (FIL-67) ──────────────────────────────────────
@@ -1336,17 +1368,19 @@ export class GameScene extends Phaser.Scene {
    * Using mulberry32(seed ^ 0xc01dc0de) keeps placement deterministic per run.
    */
   private stampProceduralChunks(): void {
-    const rng = mulberry32(this.runSeed ^ 0xc01dc0de);
+    const rng       = mulberry32(this.runSeed ^ 0xc01dc0de);
+    // Reuse baseNoise — same instance as drawProceduralTerrain() so biome values
+    // correspond exactly to the colours the player sees underfoot.
+    const biomeNoise = this.baseNoise;
 
-    // Build cumulative weight table for weighted random selection.
-    // Example: weights [4, 3, 2, 2] → cumulative [4, 7, 9, 11], total 11.
-    // To pick: draw r in [0, total), find first entry where cumulative > r.
-    const cumulative: number[] = [];
-    let total = 0;
-    for (const chunk of CHUNKS) {
-      total += chunk.weight;
-      cumulative.push(total);
-    }
+    /** Pick a chunk from a pool using weighted random. */
+    const weightedPick = (pool: typeof CHUNKS): typeof CHUNKS[0] => {
+      let t = 0;
+      for (const c of pool) t += c.weight;
+      let r = rng() * t;
+      for (const c of pool) { r -= c.weight; if (r <= 0) return c; }
+      return pool[pool.length - 1];
+    };
 
     const placed: Array<{ x: number; y: number; r: number }> = [];
     let attempts = 0;
@@ -1355,14 +1389,25 @@ export class GameScene extends Phaser.Scene {
     while (placed.length < CHUNK_COUNT && attempts < maxAttempts) {
       attempts++;
 
-      // Pick chunk type using weighted random
-      const roll = rng() * total;
-      const chunkIdx = cumulative.findIndex(c => roll < c);
-      const chunk = CHUNKS[chunkIdx];
-
       // Random world position (keep away from world edges)
       const x = 200 + rng() * (WORLD_W - 400);
       const y = 200 + rng() * (WORLD_H - 400);
+
+      // Sample terrain noise at this position to determine the biome.
+      // Matches the scale used by drawProceduralTerrain() so the noise value
+      // corresponds to the actual terrain colour the player will see underfoot.
+      const biomeVal = biomeNoise.fbm(x * BASE_SCALE, y * BASE_SCALE);
+
+      // Filter chunk pool to types whose biome range covers this position.
+      // Falls back to the full pool if nothing matches (e.g. mid-range terrain
+      // that sits between two defined biomes).
+      const eligible = CHUNKS.filter(c => {
+        const lo = c.biomeMin ?? 0;
+        const hi = c.biomeMax ?? 1;
+        return biomeVal >= lo && biomeVal <= hi;
+      });
+      const pool = eligible.length > 0 ? eligible : CHUNKS;
+      const chunk = weightedPick(pool);
 
       // Reject if inside an avoid zone
       const inAvoid = CHUNK_AVOID_ZONES.some(
@@ -1422,5 +1467,210 @@ export class GameScene extends Phaser.Scene {
       sprite.setOrigin(0.5, 1);
       sprite.setDepth(item.kind === 'puddle' ? 2 : wy); // puddles below sprites
     }
+  }
+
+  // ─── Level 1 ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Create semi-transparent zone tint overlays at depth 3 (above terrain + paths,
+   * below decorations). Each zone starts at its initial tintAlpha.
+   * On collectible pickup, the corresponding zone's overlay fades out.
+   */
+  private createLevel1Zones(): void {
+    for (const zone of ZONES) {
+      const overlay = this.add
+        .rectangle(
+          zone.x + zone.w / 2,
+          zone.y + zone.h / 2,
+          zone.w,
+          zone.h,
+          zone.tintColor,
+          zone.tintAlpha,
+        )
+        .setDepth(3)
+        .setScrollFactor(1); // scrolls with the world
+      this.zoneOverlays.set(zone.id, overlay);
+    }
+  }
+
+  /**
+   * Create collectible circles — small pulsing discs, one per zone.
+   * No map marker; found by exploration.
+   */
+  private createLevel1Collectibles(): void {
+    for (const col of COLLECTIBLES) {
+      const circle = this.add
+        .circle(col.x, col.y, 10, 0xffffff, 0.9)
+        .setStrokeStyle(2, 0xffffff, 1)
+        .setDepth(20);
+
+      // Pulsing scale tween — draws the eye without being obtrusive
+      this.tweens.add({
+        targets: circle,
+        scaleX: 1.4,
+        scaleY: 1.4,
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      this.collectibleSprites.set(col.id, circle);
+    }
+  }
+
+  /**
+   * Called every frame during gameplay.
+   * Checks collectible pickups, passive cleanse in Zone 3, and meeting trigger.
+   */
+  private updateLevel1(delta: number): void {
+    const px = this.player.x;
+    const py = this.player.y;
+
+    // ── Collectible pickup ────────────────────────────────────────────────────
+    for (const col of COLLECTIBLES) {
+      if (this.collectedItems.has(col.id)) continue;
+      const sprite = this.collectibleSprites.get(col.id);
+      if (!sprite) continue;
+
+      const dist = Phaser.Math.Distance.Between(px, py, col.x, col.y);
+      if (dist > 40) continue;
+
+      this.collectItem(col.id, col.label, col.x, col.y, col.zoneId);
+    }
+
+    // ── Passive cleanse in Zone 3 ─────────────────────────────────────────────
+    const zone3 = ZONES.find(z => z.id === 'zone-plateau');
+    if (zone3) {
+      const inZone3 =
+        px >= zone3.x && px <= zone3.x + zone3.w &&
+        py >= zone3.y && py <= zone3.y + zone3.h;
+
+      if (inZone3 && this.passiveCleanseTotal < PASSIVE_CLEANSE_CAP) {
+        const gain = PASSIVE_CLEANSE_RATE * delta;
+        this.passiveCleanseTotal = Math.min(PASSIVE_CLEANSE_CAP, this.passiveCleanseTotal + gain);
+        // Add to the main cleanse percent (on top of rabbit kills)
+        const rabbitPercent = (this.kills / RABBIT_COUNT) * 100;
+        const total = Math.min(100, rabbitPercent + this.passiveCleanseTotal);
+        this.setCleanseHud(total);
+        this.events.emit('cleanse-updated', total);
+      }
+    }
+
+    // ── Parent meeting trigger ────────────────────────────────────────────────
+    if (!this.meetingTriggered) {
+      const distToMeeting = Phaser.Math.Distance.Between(
+        px, py, MEETING_POINT.x, MEETING_POINT.y
+      );
+      if (distToMeeting < MEETING_RADIUS) {
+        this.meetingTriggered = true;
+        this.triggerMeetingDialog();
+      }
+    }
+  }
+
+  /**
+   * Handle picking up a collectible item.
+   * 1. Remove the circle sprite
+   * 2. Fly a label text toward the player
+   * 3. Fade the zone's corruption overlay
+   * 4. Play the first-cleanse ring on the first pickup
+   */
+  private collectItem(
+    id: string, label: string, ix: number, iy: number, zoneId: string
+  ): void {
+    this.collectedItems.add(id);
+
+    const sprite = this.collectibleSprites.get(id);
+    if (sprite) {
+      this.tweens.killTweensOf(sprite);
+      // Fly item toward player then destroy
+      this.tweens.add({
+        targets: sprite,
+        x: this.player.x,
+        y: this.player.y,
+        alpha: 0,
+        duration: 350,
+        ease: 'Sine.easeIn',
+        onComplete: () => sprite.destroy(),
+      });
+    }
+
+    // Floating label
+    const floatText = this.add
+      .text(ix, iy, label, {
+        fontSize: '13px',
+        color: '#ffffaa',
+        backgroundColor: '#00000066',
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(50);
+
+    this.tweens.add({
+      targets: floatText,
+      y: iy - 60,
+      alpha: 0,
+      duration: 1800,
+      ease: 'Sine.easeOut',
+      onComplete: () => floatText.destroy(),
+    });
+
+    // Fade zone corruption overlay
+    const overlay = this.zoneOverlays.get(zoneId);
+    if (overlay) {
+      this.tweens.add({
+        targets: overlay,
+        alpha: overlay.fillAlpha * 0.4,
+        duration: 1200,
+        ease: 'Sine.easeOut',
+      });
+    }
+
+    // First pickup — expanding green ring (the tutorial moment: world reacts without text)
+    if (this.collectedItems.size === 1) {
+      this.playFirstCleanseRing(ix, iy);
+    }
+  }
+
+  /**
+   * Expanding green ring effect on first collectible pickup.
+   * No text — the visual reaction IS the tutorial.
+   */
+  private playFirstCleanseRing(x: number, y: number): void {
+    const ring = this.add.circle(x, y, 10, 0x00ff88, 0).setStrokeStyle(3, 0x00ff88, 0.9).setDepth(30);
+    this.tweens.add({
+      targets: ring,
+      displayWidth:  300,
+      displayHeight: 300,
+      strokeAlpha: 0,
+      duration: 1200,
+      ease: 'Sine.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  /**
+   * Launch NpcDialogScene with the parent meeting dialog.
+   * Opening line varies by number of collectibles found.
+   * After the dialog, the chosen path is stored in `this.chosenPath`.
+   */
+  private triggerMeetingDialog(): void {
+    const openingLine = meetingOpeningLine(this.collectedItems.size);
+
+    const dialogData: NpcDialogData = {
+      callerKey: this.scene.key,
+      text: openingLine,
+      choices: PATH_CHOICES.map(c => ({ id: c.id, label: c.label })),
+    };
+
+    // Listen for the choice result before pausing (event arrives after resume)
+    this.events.once('dialog-choice', (choiceId: string) => {
+      this.chosenPath = choiceId as PathChoice;
+      console.log(`[Level1] Path chosen: ${this.chosenPath}`);
+    });
+
+    this.scene.pause();
+    this.scene.launch('NpcDialogScene', dialogData as unknown as object);
   }
 }

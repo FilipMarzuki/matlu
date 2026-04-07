@@ -142,13 +142,31 @@ export class PathSystem {
 
   /**
    * Draw all path segments as semi-transparent rectangles onto a Graphics object.
-   * Call once during scene creation; the Graphics object lives in the world (scrollFactor 1).
+   * Can be called repeatedly — clears before redrawing, so condition changes are reflected.
+   *
+   * Color fades toward muted gray (0x888888) as condition drops from 100 → 0, giving
+   * the player a subtle visual cue that roads are degrading under corruption.
    */
   drawPaths(graphics: Phaser.GameObjects.Graphics): void {
     graphics.clear();
     for (const seg of this.segments) {
       const def = PATH_DEFS[seg.type];
-      graphics.fillStyle(def.drawColor, def.drawAlpha);
+      const t = seg.condition / 100; // 1 = full health, 0 = worn out
+
+      // Lerp each channel toward gray (0x88, 0x88, 0x88) as condition degrades
+      const r0 = (def.drawColor >> 16) & 0xff;
+      const g0 = (def.drawColor >>  8) & 0xff;
+      const b0 =  def.drawColor        & 0xff;
+      const gray = 0x88;
+      const r = Math.round(r0 * t + gray * (1 - t));
+      const g = Math.round(g0 * t + gray * (1 - t));
+      const b = Math.round(b0 * t + gray * (1 - t));
+      const blendedColor = (r << 16) | (g << 8) | b;
+
+      // Also reduce alpha when worn — barely visible paths feel abandoned
+      const alpha = def.drawAlpha * (0.5 + t * 0.5);
+
+      graphics.fillStyle(blendedColor, alpha);
       graphics.fillRect(seg.x, seg.y, seg.w, seg.h);
     }
   }

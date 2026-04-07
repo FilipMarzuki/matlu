@@ -26,7 +26,8 @@ test('pressing W key moves the player upward', async ({ page }) => {
   // Wait for canvas to appear (WilderviewScene is running)
   await expect(page.locator('#game-container canvas')).toBeVisible({ timeout: GAME_BOOT_MS });
 
-  // Skip WilderviewScene by pressing Enter → starts GameScene
+  // Attract mode requires a name before Enter works — type one character then submit
+  await page.keyboard.press('a');
   await page.keyboard.press('Enter');
 
   // Give GameScene time to boot

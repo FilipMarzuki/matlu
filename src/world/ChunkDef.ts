@@ -147,6 +147,7 @@ const WATERING_HOLE: ChunkDef = {
   id: 'watering_hole',
   weight: 2,
   radius: 130,
+  biomeMin: 0.0, biomeMax: 0.44,  // water → wet shore
   items: [
     // Puddles (no physics — purely visual)
     { kind: 'puddle', dx:   0, dy:   0, texture: 'puddle-grass-1', scale: 2.5 },
@@ -175,6 +176,9 @@ export const CHUNK_COUNT = 16;
  * Player spawn, portal, and a buffer around the start area.
  */
 export const CHUNK_AVOID_ZONES: Array<{ x: number; y: number; r: number }> = [
-  { x: 400,  y: 1000, r: 200 },  // player spawn
+  { x:  400, y: 1000, r: 200 },  // player spawn
   { x: 2100, y:  220, r: 150 },  // portal
+  { x:  800, y:  800, r: 160 },  // collectible zone 1
+  { x: 1400, y:  600, r: 160 },  // collectible zone 2
+  { x: 1900, y:  400, r: 160 },  // collectible zone 3
 ];
