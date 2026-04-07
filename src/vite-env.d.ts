@@ -6,6 +6,10 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY?: string;
   /** Legacy anon JWT; used if publishable key is unset. */
   readonly VITE_SUPABASE_ANON_KEY?: string;
+  /** Optional; set in deploy (e.g. Vercel) for build metadata if you need it. */
+  readonly VITE_GIT_SHA?: string;
+  /** Better Stack — browser / edge logging when you wire a client. */
+  readonly VITE_BETTERSTACK_DSN?: string;
 }
 
 interface ImportMeta {

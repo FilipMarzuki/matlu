@@ -1,17 +1,7 @@
 import Phaser from 'phaser';
-import * as Sentry from '@sentry/browser';
 import './lib/supabaseClient';
 import { AttractionScene } from './scenes/AttractionScene';
 import { GameScene } from './scenes/GameScene';
-
-Sentry.init({
-  dsn: import.meta.env.VITE_BETTERSTACK_DSN,
-  tunnel: 'https://ingest.sentry.io',
-  environment: import.meta.env.MODE,
-  release: import.meta.env.VITE_GIT_SHA,
-  tracesSampleRate: 0.2,
-  replaysOnErrorSampleRate: 1.0,
-});
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,

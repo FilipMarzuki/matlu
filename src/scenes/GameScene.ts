@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import * as Sentry from '@sentry/browser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
+import { ValueNoise2D } from '../lib/noise';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
@@ -16,6 +16,12 @@ const REX_PLUGIN_CDN =
 // World dimensions (tile-based 2400×2000 map)
 const WORLD_W = 2400;
 const WORLD_H = 2000;
+
+// Terrain tile size in pixels
+const TILE_SIZE = 32;
+// Noise scales: BASE drives large biome regions, DETAIL adds local colour variation
+const BASE_SCALE   = 0.07;
+const DETAIL_SCALE = 0.22;
 
 // Player spawn position: center-left on the dirt path
 const SPAWN_X = 400;
@@ -64,6 +70,67 @@ const HUD_BAR_H = 14;
 const HUD_PAD = 14;
 
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
+type AnimalState = 'roaming' | 'fleeing';
+
+interface AnimalDef {
+  w: number; h: number; color: number; stroke: number;
+  fleeRange: number; fleeSpeed: number; roamSpeed: number; count: number;
+}
+
+const ANIMAL_DEFS: Record<string, AnimalDef> = {
+  deer: { w: 22, h: 14, color: 0xc8a060, stroke: 0x9a7840, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 6  },
+  hare: { w: 12, h:  9, color: 0xd0c8a8, stroke: 0xa09880, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 10 },
+  fox:  { w: 16, h: 11, color: 0xe07828, stroke: 0xb05018, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 4  },
+};
+
+const BIRD_COUNT      = 12;
+const BIRD_SHADOW_DX  = 7;
+const BIRD_SHADOW_DY  = 5;
+
+interface BirdObject {
+  body:          Phaser.GameObjects.Ellipse;
+  shadow:        Phaser.GameObjects.Ellipse;
+  vx:            number;
+  vy:            number;
+  nextDirChange: number;
+}
+
+/**
+ * Maps a combined noise value (0–1) and a detail noise value (0–1) to a
+ * spring-Sweden terrain colour. Breakpoints tuned for fBm output (mean ≈ 0.5).
+ *
+ *   < 0.28  — water (small ponds)
+ *   < 0.37  — shore / wet grass
+ *   < 0.54  — light spring meadow
+ *   < 0.65  — meadow
+ *   < 0.73  — tall grass / dark meadow
+ *   < 0.81  — forest edge (birch / mixed)
+ *   < 0.90  — pine / spruce forest
+ *   ≥ 0.90  — dense forest interior
+ */
+function terrainColor(val: number, detail: number): number {
+  if (val < 0.28) return detail > 0.5 ? 0x5a91cc : 0x4a7fbf;
+
+  if (val < 0.37) return detail > 0.5 ? 0x92c85a : 0x82b84a;
+
+  if (val < 0.54) {
+    const v = [0x7ac04a, 0x88cc52, 0x6eb844] as const;
+    return v[Math.min(Math.floor(detail * 3), 2)];
+  }
+
+  if (val < 0.65) {
+    const v = [0x68a838, 0x72b240, 0x609830] as const;
+    return v[Math.min(Math.floor(detail * 3), 2)];
+  }
+
+  if (val < 0.73) return detail > 0.55 ? 0x508a28 : 0x487820;
+
+  if (val < 0.81) return detail > 0.5 ? 0x3a6a20 : 0x2e5e18;
+
+  if (val < 0.90) return detail > 0.5 ? 0x28541a : 0x1e4412;
+
+  return detail > 0.5 ? 0x1e3c10 : 0x162e0a;
+}
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
@@ -80,6 +147,8 @@ export class GameScene extends Phaser.Scene {
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
   private rabbits!: Phaser.Physics.Arcade.Group;
+  private groundAnimals!: Phaser.Physics.Arcade.Group;
+  private birds: BirdObject[] = [];
   private kills = 0;
   private lastSwipeAt = 0;
 
@@ -89,6 +158,14 @@ export class GameScene extends Phaser.Scene {
   private portalActive = false;
   private portalGfx!: Phaser.GameObjects.Graphics;
   private levelCompleteLogged = false;
+  private runSeed = 0;
+
+  // ─── Attract mode ─────────────────────────────────────────────────────────────
+  private attractMode = true;
+  private attractTargets: Phaser.GameObjects.GameObject[] = [];
+  private attractIdx = 0;
+  private attractNextAt = 0;
+  private attractLabel!: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -102,7 +179,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.sys.game.events.on('error', (err: Error) => {
-      Sentry.captureException(err, { tags: { scene: this.scene.key } });
+      console.error(`[${this.scene.key}]`, err);
     });
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -110,7 +187,8 @@ export class GameScene extends Phaser.Scene {
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
 
-    this.drawMap();
+    this.runSeed = Math.floor(Math.random() * 0xffffffff);
+    this.drawProceduralTerrain();
     this.createObstacles();
     this.createDecorations();
     this.createSolidObjects();
@@ -118,7 +196,6 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer();
 
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
     const joystickPlugin = this.plugins.get(
       REX_VIRTUAL_JOYSTICK_PLUGIN_KEY
@@ -148,6 +225,10 @@ export class GameScene extends Phaser.Scene {
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.obstacles);
 
+    this.groundAnimals = this.physics.add.group();
+    this.spawnGroundAnimals();
+    this.spawnBirds();
+
     this.createHudAndOverlay();
     this.createPortal();
 
@@ -170,13 +251,20 @@ export class GameScene extends Phaser.Scene {
     thumb.setDepth(201);
 
     this.createDayNightOverlay();
+    this.initAttractMode();
   }
 
   update(time: number, delta: number): void {
     this.worldClock.update(delta);
     this.updateDayNight();
-    this.updatePlayerMovement();
+    if (this.attractMode) {
+      this.updateAttractMode(time);
+    } else {
+      this.updatePlayerMovement();
+    }
     this.updateRabbits(time);
+    this.updateGroundAnimals();
+    this.updateBirds(time, delta);
     if (this.portalActive) {
       this.portalGfx.rotation += 0.03;
     }
@@ -281,6 +369,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private trySwipe(pointer: Phaser.Input.Pointer): void {
+    if (this.attractMode) return;
     const now = this.time.now;
     if (now - this.lastSwipeAt < SWIPE_COOLDOWN_MS) {
       return;
@@ -336,11 +425,6 @@ export class GameScene extends Phaser.Scene {
     const percent = (this.kills / RABBIT_COUNT) * 100;
     this.setCleanseHud(percent);
     this.events.emit('cleanse-updated', percent);
-    Sentry.addBreadcrumb({
-      category: 'game',
-      message: `Rabbit defeated (${this.kills}/${RABBIT_COUNT})`,
-      level: 'info',
-    });
     this.onZoneCleansed('rabbit', rx, ry);
   }
 
@@ -519,28 +603,16 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  protected onZoneCleansed(type: string, x: number, y: number): void {
-    Sentry.addBreadcrumb({
-      category: 'game',
-      message: `Zone cleansed: corruption type ${type} at (${x}, ${y})`,
-      level: 'info',
-    });
+  protected onZoneCleansed(_type: string, _x: number, _y: number): void {
+    // Hook for subclasses / future telemetry (Better Stack, etc.)
   }
 
-  protected onFsmTransition(oldState: string, newState: string): void {
-    Sentry.addBreadcrumb({
-      category: 'entity',
-      message: `${this.constructor.name} FSM: ${oldState} → ${newState}`,
-      level: 'debug',
-    });
+  protected onFsmTransition(_oldState: string, _newState: string): void {
+    // Hook for subclasses
   }
 
-  protected onHeightBlocked(diff: number, toX: number, toY: number): void {
-    Sentry.addBreadcrumb({
-      category: 'movement',
-      message: `Blocked: height diff ${diff} at (${toX}, ${toY})`,
-      level: 'debug',
-    });
+  protected onHeightBlocked(_diff: number, _toX: number, _toY: number): void {
+    // Hook for subclasses
   }
 
   /**
@@ -706,31 +778,224 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.solidObjects);
   }
 
-  private drawMap(): void {
+  // ─── Attract mode ─────────────────────────────────────────────────────────────
+
+  private initAttractMode(): void {
+    // Hide player and disable its physics body until gameplay starts
+    this.player.setAlpha(0);
+    (this.player.body as Phaser.Physics.Arcade.Body).setEnable(false);
+
+    // Build target list from ground animals; shuffle for variety
+    this.attractTargets = Phaser.Utils.Array.Shuffle([
+      ...this.groundAnimals.getChildren(),
+    ]);
+
+    // Start camera at world centre, then let it pan to the first target
+    this.cameras.main.centerOn(WORLD_W / 2, WORLD_H / 2);
+    if (this.attractTargets.length > 0) {
+      this.cameras.main.startFollow(
+        this.attractTargets[0] as Phaser.GameObjects.GameObject,
+        true, 0.03, 0.03,
+      );
+    }
+    this.attractNextAt = this.time.now + 12000;
+
+    // Play prompt
+    this.attractLabel = this.add
+      .text(400, 558, 'Tap or press Space to play', {
+        fontSize: '15px',
+        color: '#ffffff',
+        backgroundColor: '#00000066',
+        padding: { x: 14, y: 7 },
+      })
+      .setOrigin(0.5, 1)
+      .setScrollFactor(0)
+      .setDepth(500);
+
+    this.tweens.add({
+      targets: this.attractLabel,
+      alpha: 0.35,
+      duration: 1100,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Any input exits attract mode
+    this.input.once('pointerdown', () => this.exitAttractMode());
+    this.input.keyboard?.once('keydown-SPACE', () => this.exitAttractMode());
+    this.input.keyboard?.once('keydown-ENTER', () => this.exitAttractMode());
+  }
+
+  private updateAttractMode(time: number): void {
+    if (time < this.attractNextAt || this.attractTargets.length === 0) return;
+
+    this.attractIdx = (this.attractIdx + 1) % this.attractTargets.length;
+    this.cameras.main.startFollow(
+      this.attractTargets[this.attractIdx] as Phaser.GameObjects.GameObject,
+      true, 0.03, 0.03,
+    );
+    // Dwell for 10–14 s on each animal
+    this.attractNextAt = time + 10000 + Phaser.Math.Between(-2000, 4000);
+  }
+
+  private exitAttractMode(): void {
+    if (!this.attractMode) return;
+    this.attractMode = false;
+    this.attractLabel.destroy();
+    this.player.setAlpha(1);
+    (this.player.body as Phaser.Physics.Arcade.Body).setEnable(true);
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+  }
+
+  // ─── Ground animals (deer, hare, fox) ────────────────────────────────────────
+
+  private spawnGroundAnimals(): void {
+    for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
+      let spawned = 0;
+      while (spawned < def.count) {
+        const x = Phaser.Math.Between(80, WORLD_W - 80);
+        const y = Phaser.Math.Between(80, WORLD_H - 80);
+        if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
+
+        const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
+        rect.setStrokeStyle(1, def.stroke);
+        rect.setDepth(3);
+        this.physics.add.existing(rect);
+        const b = rect.body as Phaser.Physics.Arcade.Body;
+        b.setCollideWorldBounds(true);
+        b.setDrag(60, 60);
+        this.groundAnimals.add(rect);
+        rect.setData('animalType', type);
+        rect.setData('animalState', 'roaming' satisfies AnimalState);
+        rect.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+        spawned++;
+      }
+    }
+  }
+
+  private updateGroundAnimals(): void {
+    const px = this.player.x;
+    const py = this.player.y;
+
+    for (const child of this.groundAnimals.getChildren()) {
+      const r  = child as Phaser.GameObjects.Rectangle;
+      const b  = r.body as Phaser.Physics.Arcade.Body;
+      const type = r.getData('animalType') as string;
+      const def  = ANIMAL_DEFS[type];
+      const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
+      let state  = r.getData('animalState') as AnimalState;
+
+      if (dist < def.fleeRange) {
+        state = 'fleeing';
+        r.setData('animalState', state);
+      } else if (state === 'fleeing' && dist > def.fleeRange + 80) {
+        state = 'roaming';
+        r.setData('animalState', state);
+        r.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 5000));
+      }
+
+      if (state === 'fleeing') {
+        const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
+        this.physics.velocityFromRotation(away, def.fleeSpeed, b.velocity);
+      } else if (this.time.now > (r.getData('roamNext') as number)) {
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        this.physics.velocityFromRotation(angle, def.roamSpeed, b.velocity);
+        r.setData('roamNext', this.time.now + Phaser.Math.Between(3000, 8000));
+      }
+    }
+  }
+
+  // ─── Birds ────────────────────────────────────────────────────────────────────
+
+  private spawnBirds(): void {
+    for (let i = 0; i < BIRD_COUNT; i++) {
+      const x = Phaser.Math.Between(50, WORLD_W - 50);
+      const y = Phaser.Math.Between(50, WORLD_H - 50);
+
+      const isCrow = i < 4;          // first 4 are crow-sized, rest are small songbirds
+      const w      = isCrow ? 10 : 6;
+      const h      = isCrow ?  5 : 3;
+      const color  = isCrow ? 0x1a1a1a : 0x3a3a50;
+
+      const shadow = this.add.ellipse(x + BIRD_SHADOW_DX, y + BIRD_SHADOW_DY, w, h, 0x000000, 0.2);
+      shadow.setDepth(1);
+
+      const body = this.add.ellipse(x, y, w, h, color);
+      body.setDepth(7);
+
+      const speed = Phaser.Math.Between(55, 95);
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+
+      this.birds.push({
+        body, shadow,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        nextDirChange: this.time.now + Phaser.Math.Between(6000, 14000),
+      });
+    }
+  }
+
+  private updateBirds(time: number, delta: number): void {
+    const dt = delta / 1000;
+
+    for (const bird of this.birds) {
+      // Gently nudge direction every so often — birds don't fly perfectly straight
+      if (time > bird.nextDirChange) {
+        const speed    = Math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy);
+        const newAngle = Math.atan2(bird.vy, bird.vx) + Phaser.Math.FloatBetween(-0.5, 0.5);
+        bird.vx = Math.cos(newAngle) * speed;
+        bird.vy = Math.sin(newAngle) * speed;
+        bird.nextDirChange = time + Phaser.Math.Between(6000, 14000);
+      }
+
+      let nx = bird.body.x + bird.vx * dt;
+      let ny = bird.body.y + bird.vy * dt;
+
+      // Bounce off world edges
+      if (nx < 40 || nx > WORLD_W - 40) { bird.vx = -bird.vx; nx = Phaser.Math.Clamp(nx, 40, WORLD_W - 40); }
+      if (ny < 40 || ny > WORLD_H - 40) { bird.vy = -bird.vy; ny = Phaser.Math.Clamp(ny, 40, WORLD_H - 40); }
+
+      bird.body.setPosition(nx, ny);
+      bird.shadow.setPosition(nx + BIRD_SHADOW_DX, ny + BIRD_SHADOW_DY);
+    }
+  }
+
+  /**
+   * Generates and draws a noise-based spring-Sweden landscape:
+   * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
+   * Uses this.runSeed for deterministic output (same seed → same map).
+   */
+  private drawProceduralTerrain(): void {
+    const noise    = new ValueNoise2D(this.runSeed);
+    const detNoise = new ValueNoise2D(this.runSeed ^ 0xb5ad4ecb);
+
+    const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
+    const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
+
     const g = this.add.graphics();
+    g.setDepth(0);
 
-    g.fillStyle(0x2d6b2e, 1);
-    g.fillRect(0, 0, WORLD_W, WORLD_H);
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const base   = noise.fbm(tx * BASE_SCALE,   ty * BASE_SCALE,   4, 0.5);
+        const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
+        const val    = base * 0.78 + detail * 0.22;
 
-    const roadW = 88;
-    const cx = 400;
-    const cy = 1000;
-    g.fillStyle(0x3a3a3a, 1);
-    g.fillRect(0, cy - roadW / 2, WORLD_W, roadW);
-    g.fillRect(cx - roadW / 2, 0, roadW, WORLD_H);
-
-    g.lineStyle(3, 0xffdd00, 1);
-    const dash = 18;
-    const gap = 14;
-    for (let x = 20; x < WORLD_W; x += dash + gap) {
-      g.lineBetween(x, cy, Math.min(x + dash, WORLD_W - 20), cy);
-    }
-    for (let y = 20; y < WORLD_H; y += dash + gap) {
-      g.lineBetween(cx, y, cx, Math.min(y + dash, WORLD_H - 20));
+        g.fillStyle(terrainColor(val, detail), 1);
+        g.fillRect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      }
     }
 
-    g.lineStyle(2, 0xffcc00, 1);
-    g.strokeRect(0, cy - roadW / 2, WORLD_W, roadW);
-    g.strokeRect(cx - roadW / 2, 0, roadW, WORLD_H);
+    // Dirt clearing at spawn so the player starts on a recognisable landmark
+    const sx = Math.floor(SPAWN_X / TILE_SIZE);
+    const sy = Math.floor(SPAWN_Y / TILE_SIZE);
+    g.fillStyle(0xc4a472, 1);
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        if (dx * dx + dy * dy <= 7) {
+          g.fillRect((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
   }
 }

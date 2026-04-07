@@ -8,10 +8,10 @@
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
+    "assets:manifest": "node scripts/generate-assets-manifest.mjs",
     "test": "npx playwright test"
   },
   "dependencies": {
-    "@sentry/browser": "^10.47.0",
     "@supabase/supabase-js": "^2.101.1",
     "phaser": "^3.85.2",
     "phaser3-rex-plugins": "^1.80.10"

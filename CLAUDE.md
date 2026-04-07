@@ -15,12 +15,19 @@ Database: Supabase (leaderboard via `matlu_runs` table)
 
 ## Scripts
 
-| Command             | Description                                  |
-| ------------------- | -------------------------------------------- |
-| `npm run dev`       | Vite dev server on **port 3000**             |
-| `npm run build`     | `tsc` then `vite build` (typecheck + bundle) |
-| `npm run typecheck` | `tsc --noEmit` only                          |
-| `npm run preview`   | Preview production build                     |
+| Command                   | Description                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| `npm run dev`             | Vite dev server on **port 3000**                                                 |
+| `npm run build`           | `tsc` then `vite build` (typecheck + bundle)                                       |
+| `npm run typecheck`       | `tsc --noEmit` only                                                              |
+| `npm run preview`         | Preview production build                                                         |
+| `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
+
+## Pixel art assets
+
+Put each source pack in its **own folder** under **`public/assets/packs/<pack-name>/`** (sprites, audio, tilemaps, etc. as shipped). Vite serves `public/` at the site root, so URLs look like `/assets/packs/<pack-name>/...`.
+
+After adding or renaming files, run **`npm run assets:manifest`**. That writes **`public/assets/manifest.json`** — a flat catalog grouped by pack (`id`, `path`, `assets[]` with `relative` and `url`) so agents can pick files without walking the tree.
 
 ## Project structure
 
