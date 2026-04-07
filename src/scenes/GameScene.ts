@@ -3,10 +3,9 @@ import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 import { ValueNoise2D } from '../lib/noise';
 import { mulberry32 } from '../lib/rng';
 import { t } from '../lib/i18n';
-// These are used by Level 1 features being developed in a separate branch.
-// Prefixed with _ to suppress TS unused-variable errors without deleting them.
-import { CHUNKS as _CHUNKS, CHUNK_COUNT as _CHUNK_COUNT, CHUNK_AVOID_ZONES as _CHUNK_AVOID_ZONES } from '../world/ChunkDef';
-import type { ChunkDef as _ChunkDef } from '../world/ChunkDef';
+// ChunkDef imports used by Level 1 features in another branch — file not yet on main.
+// import { CHUNKS as _CHUNKS, CHUNK_COUNT as _CHUNK_COUNT, CHUNK_AVOID_ZONES as _CHUNK_AVOID_ZONES } from '../world/ChunkDef';
+// import type { ChunkDef as _ChunkDef } from '../world/ChunkDef';
 import { SolidObject as _SolidObject } from '../environment/SolidObject';
 import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
@@ -673,7 +672,6 @@ export class GameScene extends Phaser.Scene {
       insertMatluRun({
         nickname: this.playerName || 'Player',
         score:    this.kills,
-        seed:     this.runSeed,
       }).catch(() => {/* Supabase not configured — ignore */});
     });
   }

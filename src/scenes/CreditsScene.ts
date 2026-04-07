@@ -19,6 +19,20 @@ interface CreditEntry {
 
 const CREDITS: CreditEntry[] = [
   {
+    pack: 'calm forest 0852 AM 240320_0695',
+    author: 'klankbeeld',
+    contact: 'https://freesound.org/s/737961/',
+    attributionRequired: true,
+    notes: 'Forest ambience loop. License: CC Attribution 4.0',
+  },
+  {
+    pack: 'leaves.mp3',
+    author: 'DSOADigital',
+    contact: 'https://freesound.org/s/362253/',
+    attributionRequired: false,
+    notes: 'Animal rustle / leaves sound. License: CC0 (public domain)',
+  },
+  {
     pack: 'Pixel Crawler - Fairy Forest 1.7',
     author: 'Anokolisa',
     contact: 'AnomalyPixel@gmail.com',
