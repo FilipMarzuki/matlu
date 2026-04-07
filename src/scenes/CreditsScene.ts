@@ -26,6 +26,13 @@ const CREDITS: CreditEntry[] = [
     notes: 'Forest ambience loop. License: CC Attribution 4.0',
   },
   {
+    pack: 'Impact Sounds (1.0)',
+    author: 'Kenney',
+    contact: 'www.kenney.nl',
+    attributionRequired: false,
+    notes: 'Footstep sounds. License: CC0 (public domain)',
+  },
+  {
     pack: 'leaves.mp3',
     author: 'DSOADigital',
     contact: 'https://freesound.org/s/362253/',

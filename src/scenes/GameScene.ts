@@ -211,12 +211,15 @@ export class GameScene extends Phaser.Scene {
       'assets/audio/forest-ambience.ogg',
       'assets/audio/forest-ambience.mp3',
     ]);
-    this.load.audio('footstep-grass', [
-      'assets/audio/footstep-grass.ogg',
-      'assets/audio/footstep-grass.mp3',
-    ]);
+    // Load all 5 grass variants from the Kenney Impact Sounds pack (CC0).
+    // Using multiple variants and picking one randomly each step prevents the
+    // "machine gun" effect — identical sounds repeating feel unnatural.
+    const grassBase = 'assets/audio/kenney_impact-sounds/Audio';
+    for (let i = 0; i < 5; i++) {
+      this.load.audio(`footstep-grass-${i}`, `${grassBase}/footstep_grass_00${i}.ogg`);
+    }
+
     this.load.audio('animal-rustle', [
-      'assets/audio/animal-rustle.ogg',
       'assets/audio/animal-rustle.mp3',
     ]);
 
@@ -446,7 +449,9 @@ export class GameScene extends Phaser.Scene {
     // We check time.now instead of a frame counter so it stays in sync even
     // if the frame rate drops.
     if (moving && this.time.now - this.lastFootstepAt > this.FOOTSTEP_INTERVAL_MS) {
-      this.sound.play('footstep-grass', { volume: 0.45 });
+      // Pick a random variant (0–4) each step so it never sounds repetitive.
+      const variant = Phaser.Math.Between(0, 4);
+      this.sound.play(`footstep-grass-${variant}`, { volume: 0.45 });
       this.lastFootstepAt = this.time.now;
     }
 
