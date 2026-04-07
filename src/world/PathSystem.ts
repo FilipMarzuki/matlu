@@ -126,6 +126,27 @@ export class PathSystem {
   }
 
   /**
+   * Degrade segment conditions using per-position local corruption intensity.
+   * Accepts a callback so PathSystem stays decoupled from CorruptionField.
+   *
+   * `getLocalCorruption(cx, cy)` should return a 0–1 value for the segment
+   * centre. Segments deep inside a corruption hotspot degrade faster than
+   * segments in cleaner areas, giving roads organic wear patterns.
+   *
+   * @param getLocalCorruption  Function returning 0–1 intensity at (cx, cy)
+   */
+  degradeLocal(getLocalCorruption: (cx: number, cy: number) => number): void {
+    for (const seg of this.segments) {
+      const cx = seg.x + seg.w / 2;
+      const cy = seg.y + seg.h / 2;
+      const factor = getLocalCorruption(cx, cy);
+      if (factor <= 0) continue;
+      const decay = factor * PATH_DEFS[seg.type].conditionDecayRate * 2;
+      seg.condition = Math.max(0, seg.condition - decay);
+    }
+  }
+
+  /**
    * Restore condition for all segments within `radius` pixels of (wx, wy).
    * Call on player actions (rabbit kill, item pickup).
    */
