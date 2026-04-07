@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import './lib/supabaseClient';
 import { AttractionScene } from './scenes/AttractionScene';
 import { GameScene } from './scenes/GameScene';
+import { CreditsScene } from './scenes/CreditsScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -21,7 +22,7 @@ const game = new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   // AttractionScene is the default entry point; it launches GameScene on demand
-  scene: [AttractionScene, GameScene],
+  scene: [AttractionScene, GameScene, CreditsScene],
 });
 
 // Expose game instance for Playwright tests and dev tooling

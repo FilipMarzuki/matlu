@@ -221,6 +221,12 @@ export class GameScene extends Phaser.Scene {
       right: Phaser.Input.Keyboard.KeyCodes.D,
     }) as Record<string, Phaser.Input.Keyboard.Key>;
 
+    // Open credits overlay (C key)
+    this.input.keyboard?.on('keydown-C', () => {
+      this.scene.pause();
+      this.scene.launch('CreditsScene', this.scene.key as unknown as object);
+    });
+
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.obstacles);
