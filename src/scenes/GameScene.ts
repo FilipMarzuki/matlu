@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import * as Sentry from '@sentry/browser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
@@ -102,7 +101,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.sys.game.events.on('error', (err: Error) => {
-      Sentry.captureException(err, { tags: { scene: this.scene.key } });
+      console.error(`[${this.scene.key}]`, err);
     });
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
@@ -336,11 +335,6 @@ export class GameScene extends Phaser.Scene {
     const percent = (this.kills / RABBIT_COUNT) * 100;
     this.setCleanseHud(percent);
     this.events.emit('cleanse-updated', percent);
-    Sentry.addBreadcrumb({
-      category: 'game',
-      message: `Rabbit defeated (${this.kills}/${RABBIT_COUNT})`,
-      level: 'info',
-    });
     this.onZoneCleansed('rabbit', rx, ry);
   }
 
@@ -519,28 +513,16 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  protected onZoneCleansed(type: string, x: number, y: number): void {
-    Sentry.addBreadcrumb({
-      category: 'game',
-      message: `Zone cleansed: corruption type ${type} at (${x}, ${y})`,
-      level: 'info',
-    });
+  protected onZoneCleansed(_type: string, _x: number, _y: number): void {
+    // Hook for subclasses / future telemetry (Better Stack, etc.)
   }
 
-  protected onFsmTransition(oldState: string, newState: string): void {
-    Sentry.addBreadcrumb({
-      category: 'entity',
-      message: `${this.constructor.name} FSM: ${oldState} → ${newState}`,
-      level: 'debug',
-    });
+  protected onFsmTransition(_oldState: string, _newState: string): void {
+    // Hook for subclasses
   }
 
-  protected onHeightBlocked(diff: number, toX: number, toY: number): void {
-    Sentry.addBreadcrumb({
-      category: 'movement',
-      message: `Blocked: height diff ${diff} at (${toX}, ${toY})`,
-      level: 'debug',
-    });
+  protected onHeightBlocked(_diff: number, _toX: number, _toY: number): void {
+    // Hook for subclasses
   }
 
   /**
