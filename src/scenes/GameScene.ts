@@ -5,7 +5,6 @@ import { mulberry32 } from '../lib/rng';
 import { t } from '../lib/i18n';
 import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES } from '../world/ChunkDef';
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
-import { SolidObject as _SolidObject } from '../environment/SolidObject';
 import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
@@ -191,8 +190,15 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Path system ──────────────────────────────────────────────────────────────
   private pathSystem!: PathSystem;
+  // Graphics object kept alive so drawPaths() can redraw after condition changes
+  private pathGraphics!: Phaser.GameObjects.Graphics;
   // Next time (ms) we run path condition degradation — runs every 5 s
   private nextPathDegradeAt = 0;
+
+  // ─── Terrain noise ────────────────────────────────────────────────────────────
+  // Created once in create() so both drawProceduralTerrain() and stampProceduralChunks()
+  // share the same instance instead of each constructing their own FbmNoise.
+  private baseNoise!: FbmNoise;
 
   // ─── Level 1 ──────────────────────────────────────────────────────────────────
   // Semi-transparent zone tint overlays — one per zone, faded on collectible pickup
@@ -316,6 +322,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.worldState.destroy());
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
+    this.baseNoise = new FbmNoise(this.runSeed);
     this.pathSystem = new PathSystem(LEVEL1_PATHS.map(s => ({ ...s })));
     this.drawProceduralTerrain();
     this.drawPaths();
@@ -423,6 +430,8 @@ export class GameScene extends Phaser.Scene {
     if (time > this.nextPathDegradeAt) {
       const corruption = this.worldState.getCleansePercent('zone-main');
       this.pathSystem.degradeAll(Math.max(0, 100 - corruption));
+      // Redraw paths so worn segments visually fade toward gray over time
+      this.pathSystem.drawPaths(this.pathGraphics);
       this.nextPathDegradeAt = time + 5000;
     }
   }
@@ -1301,7 +1310,7 @@ export class GameScene extends Phaser.Scene {
    * Uses this.runSeed for deterministic output (same seed → same map).
    */
   private drawProceduralTerrain(): void {
-    const noise    = new FbmNoise(this.runSeed);
+    const noise    = this.baseNoise;
     const detNoise = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
 
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
@@ -1340,9 +1349,9 @@ export class GameScene extends Phaser.Scene {
    * Each path type has its own color defined in PathSystem.PATH_DEFS.
    */
   private drawPaths(): void {
-    const g = this.add.graphics();
-    g.setDepth(1);
-    this.pathSystem.drawPaths(g);
+    this.pathGraphics = this.add.graphics();
+    this.pathGraphics.setDepth(1);
+    this.pathSystem.drawPaths(this.pathGraphics);
   }
 
   // ─── Procedural chunk stamping (FIL-67) ──────────────────────────────────────
@@ -1360,9 +1369,9 @@ export class GameScene extends Phaser.Scene {
    */
   private stampProceduralChunks(): void {
     const rng       = mulberry32(this.runSeed ^ 0xc01dc0de);
-    // Re-create the same terrain noise used in drawProceduralTerrain() so we can
-    // sample the biome value at each candidate position without storing it as a field.
-    const biomeNoise = new FbmNoise(this.runSeed);
+    // Reuse baseNoise — same instance as drawProceduralTerrain() so biome values
+    // correspond exactly to the colours the player sees underfoot.
+    const biomeNoise = this.baseNoise;
 
     /** Pick a chunk from a pool using weighted random. */
     const weightedPick = (pool: typeof CHUNKS): typeof CHUNKS[0] => {
