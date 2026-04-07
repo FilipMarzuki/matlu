@@ -3,9 +3,8 @@ import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 import { FbmNoise } from '../lib/noise';
 import { mulberry32 } from '../lib/rng';
 import { t } from '../lib/i18n';
-// ChunkDef imports used by Level 1 features in another branch — file not yet on main.
-// import { CHUNKS as _CHUNKS, CHUNK_COUNT as _CHUNK_COUNT, CHUNK_AVOID_ZONES as _CHUNK_AVOID_ZONES } from '../world/ChunkDef';
-// import type { ChunkDef as _ChunkDef } from '../world/ChunkDef';
+import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES } from '../world/ChunkDef';
+import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
 import { SolidObject as _SolidObject } from '../environment/SolidObject';
 import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
@@ -233,7 +232,44 @@ export class GameScene extends Phaser.Scene {
       'assets/audio/animal-rustle.mp3',
     ]);
 
-    // Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
+    // ── Nature sprites (PostApocalypse AssetPack) ──────────────────────────────
+    // Used by procedural scatter and chunk stamping (FIL-51/52/67).
+    // Two sub-folders: Green (trees, grass, bushes) and Flowers_Mashrooms_Other.
+    const pa    = 'assets/packs/PostApocalypse_AssetPack_v1.1.2/Objects/Nature';
+    const paGrn = `${pa}/Green`;
+    const paFMO = `${pa}/Flowers_Mashrooms_Other-nature-stuff`;
+
+    this.load.image('tree-spruce',     `${paGrn}/Tree_1_Spruce_Green.png`);
+    this.load.image('tree-spruce-2',   `${paGrn}/Tree_2_Spruce-Sparse_Green.png`);
+    this.load.image('tree-normal',     `${paGrn}/Tree_3_Normal_Green.png`);
+    this.load.image('tree-big',        `${paGrn}/Tree_5_Big_Green.png`);
+    this.load.image('tree-pine',       `${paGrn}/Tree_6_Pine_Big_Green.png`);
+    this.load.image('tree-birch',      `${paGrn}/Tree_7_Birch_Green.png`);
+    this.load.image('tree-birch-2',    `${paGrn}/Tree_8_Birch_Green.png`);
+    this.load.image('tree-oak-small',  `${paGrn}/Tree_9_Small-oak_Green.png`);
+    this.load.image('tree-oak',        `${paGrn}/Tree_10_Small-oak_Green.png`);
+
+    for (let i = 1; i <= 5; i++) {
+      this.load.image(`grass-tuft-${i}`, `${paGrn}/Grass_${i}_Green.png`);
+    }
+    this.load.image('bush-1',   `${paGrn}/Bush_1_Green.png`);
+    this.load.image('bush-2',   `${paGrn}/Bush_2_Green.png`);
+    this.load.image('rock-grass', `${paGrn}/Rocks/Rock-grass.png`);
+
+    this.load.image('flower-1-yellow', `${paFMO}/Flower_1_yellow.png`);
+    this.load.image('flower-1-red',    `${paFMO}/Flower_1_red.png`);
+    this.load.image('flower-1-blue',   `${paFMO}/Flower_1_blue.png`);
+    this.load.image('flower-1-purple', `${paFMO}/Flower_1_purple.png`);
+    this.load.image('mushroom',        `${paFMO}/Mushroom.png`);
+    this.load.image('mushrooms-yellow',`${paFMO}/Mushrooms_1_Yellow.png`);
+    this.load.image('mushrooms-red',   `${paFMO}/Mushrooms_2_Red.png`);
+
+    const paW = `${paFMO}/Puddles-And-Water-Anim`;
+    this.load.image('puddle-grass-1', `${paW}/Puddle_On-Grass_1_Grass_Green.png`);
+    this.load.image('puddle-grass-2', `${paW}/Puddle_On-Grass_2_Grass_Green.png`);
+    this.load.image('puddle-grass-3', `${paW}/Puddle_On-Grass_3_Grass_Green.png`);
+
+    // ── Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
     this.load.spritesheet('pc-idle-down', `${bodyBase}/Idle_Base/Idle_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('pc-idle-up',   `${bodyBase}/Idle_Base/Idle_Up-Sheet.png`,    { frameWidth: 64, frameHeight: 64 });
@@ -266,6 +302,7 @@ export class GameScene extends Phaser.Scene {
     this.createObstacles();
     this.createDecorations();
     this.createSolidObjects();
+    this.stampProceduralChunks();
     this.createInteractiveObjects();
     this.createPlayer();
 
@@ -1283,5 +1320,107 @@ export class GameScene extends Phaser.Scene {
     const g = this.add.graphics();
     g.setDepth(1);
     this.pathSystem.drawPaths(g);
+  }
+
+  // ─── Procedural chunk stamping (FIL-67) ──────────────────────────────────────
+
+  /**
+   * Place CHUNK_COUNT hand-authored set pieces at seeded random positions.
+   *
+   * Algorithm:
+   *  1. Build a weighted-random selector from CHUNKS[].weight
+   *  2. Try up to CHUNK_COUNT × 20 candidate positions
+   *  3. Reject if the position overlaps an avoid zone or an already-placed chunk
+   *  4. Accept and stamp the chunk by creating Phaser objects at world coords
+   *
+   * Using mulberry32(seed ^ 0xc01dc0de) keeps placement deterministic per run.
+   */
+  private stampProceduralChunks(): void {
+    const rng = mulberry32(this.runSeed ^ 0xc01dc0de);
+
+    // Build cumulative weight table for weighted random selection.
+    // Example: weights [4, 3, 2, 2] → cumulative [4, 7, 9, 11], total 11.
+    // To pick: draw r in [0, total), find first entry where cumulative > r.
+    const cumulative: number[] = [];
+    let total = 0;
+    for (const chunk of CHUNKS) {
+      total += chunk.weight;
+      cumulative.push(total);
+    }
+
+    const placed: Array<{ x: number; y: number; r: number }> = [];
+    let attempts = 0;
+    const maxAttempts = CHUNK_COUNT * 20;
+
+    while (placed.length < CHUNK_COUNT && attempts < maxAttempts) {
+      attempts++;
+
+      // Pick chunk type using weighted random
+      const roll = rng() * total;
+      const chunkIdx = cumulative.findIndex(c => roll < c);
+      const chunk = CHUNKS[chunkIdx];
+
+      // Random world position (keep away from world edges)
+      const x = 200 + rng() * (WORLD_W - 400);
+      const y = 200 + rng() * (WORLD_H - 400);
+
+      // Reject if inside an avoid zone
+      const inAvoid = CHUNK_AVOID_ZONES.some(
+        az => Math.sqrt((x - az.x) ** 2 + (y - az.y) ** 2) < az.r + chunk.radius
+      );
+      if (inAvoid) continue;
+
+      // Reject if too close to an already-placed chunk (80px gap between radii)
+      const tooClose = placed.some(
+        p => Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2) < p.r + chunk.radius + 80
+      );
+      if (tooClose) continue;
+
+      placed.push({ x, y, r: chunk.radius });
+      this.stampChunk(chunk, x, y);
+    }
+  }
+
+  /**
+   * Stamp a single chunk at world position (cx, cy).
+   *
+   * Each item's dx/dy offset is added to (cx, cy) to get the world position.
+   * Trees and rocks are added to the existing solidObjects StaticGroup so the
+   * single collider registered in createPlayer() covers them automatically.
+   * Decorations and puddles are non-physics sprites.
+   */
+  private stampChunk(chunk: ChunkDef, cx: number, cy: number): void {
+    for (const item of chunk.items) {
+      const wx = cx + item.dx;
+      const wy = cy + item.dy;
+      this.stampChunkItem(item, wx, wy);
+    }
+  }
+
+  private stampChunkItem(item: ChunkItem, wx: number, wy: number): void {
+    if (item.kind === 'tree' || item.kind === 'rock') {
+      // Re-use the existing solidObjects group so the player collider covers these too.
+      const obj = this.physics.add.staticImage(wx, wy, item.texture);
+      if (item.scale !== undefined) obj.setScale(item.scale);
+      obj.setDepth(wy); // y-sorting: lower on screen = in front
+      obj.setOrigin(0.5, 1);
+      this.solidObjects.add(obj);
+
+      const body = obj.body as Phaser.Physics.Arcade.StaticBody;
+      const cw = item.colliderWidth  ?? 12;
+      const ch = item.colliderHeight ?? 10;
+      const offsetY = item.colliderOffsetY ?? 0;
+      body.setSize(cw, ch);
+      body.setOffset(
+        (obj.displayWidth  - cw) / 2,
+        obj.displayHeight  - ch + offsetY,
+      );
+    } else {
+      // decoration / puddle — no physics, just a sprite
+      const sprite = this.add.image(wx, wy, item.texture);
+      if (item.scale !== undefined) sprite.setScale(item.scale);
+      sprite.setOrigin(0.5, 1);
+      sprite.setDepth(item.kind === 'puddle' ? 2 : wy); // puddles below sprites
+    }
   }
 }
