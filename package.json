@@ -14,7 +14,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
     "phaser": "^3.85.2",
-    "phaser3-rex-plugins": "^1.80.10"
+    "phaser3-rex-plugins": "^1.80.10",
+    "simplex-noise": "^4.0.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

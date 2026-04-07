@@ -1,54 +1,36 @@
+import { createNoise2D } from 'simplex-noise';
 import { mulberry32 } from './rng';
 
-const GRID = 64; // must be a power of 2
-
 /**
- * 2D value noise with fractional Brownian motion (fBm) support.
- * Fully deterministic given the same seed.
+ * FbmNoise — seeded 2D fractional Brownian motion noise.
+ *
+ * Backed by simplex-noise v4 (createNoise2D) instead of the old value-noise
+ * grid. Simplex noise avoids the axis-aligned grid artifacts that value noise
+ * produces at low frequencies, giving smoother and more organic terrain.
+ *
+ * The public API is identical to the old ValueNoise2D:
+ *   - sample(x, y)                 → single-octave value in [0, 1]
+ *   - fbm(x, y, octaves, persist)  → multi-octave sum in [0, 1]
+ *
+ * `simplex-noise` v4 takes a PRNG (() => number) instead of a seed integer,
+ * so we thread our mulberry32 generator in directly — the result stays fully
+ * deterministic for a given runSeed.
  */
-export class ValueNoise2D {
-  private readonly table: Float32Array;
+export class FbmNoise {
+  private readonly noise2D: (x: number, y: number) => number;
 
   constructor(seed: number) {
-    const rng = mulberry32(seed);
-    this.table = new Float32Array(GRID * GRID);
-    for (let i = 0; i < this.table.length; i++) {
-      this.table[i] = rng();
-    }
+    // mulberry32 returns a () => number closure — exactly what createNoise2D expects.
+    this.noise2D = createNoise2D(mulberry32(seed));
   }
 
-  private at(xi: number, yi: number): number {
-    return this.table[((yi & (GRID - 1)) * GRID) + (xi & (GRID - 1))];
-  }
-
-  private static smooth(t: number): number {
-    return t * t * (3 - 2 * t); // smoothstep
-  }
-
-  private static lerp(a: number, b: number, t: number): number {
-    return a + t * (b - a);
-  }
-
-  /** Bilinear sample at (x, y). Returns value in [0, 1]. */
+  /**
+   * Single-octave simplex sample at (x, y).
+   * Simplex noise returns [-1, 1]; we remap to [0, 1] to match the old API
+   * and keep terrain-color thresholds valid.
+   */
   sample(x: number, y: number): number {
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    const xf = x - xi;
-    const yf = y - yi;
-
-    const v00 = this.at(xi,     yi    );
-    const v10 = this.at(xi + 1, yi    );
-    const v01 = this.at(xi,     yi + 1);
-    const v11 = this.at(xi + 1, yi + 1);
-
-    const u = ValueNoise2D.smooth(xf);
-    const v = ValueNoise2D.smooth(yf);
-
-    return ValueNoise2D.lerp(
-      ValueNoise2D.lerp(v00, v10, u),
-      ValueNoise2D.lerp(v01, v11, u),
-      v,
-    );
+    return (this.noise2D(x, y) + 1) * 0.5;
   }
 
   /**
@@ -57,10 +39,10 @@ export class ValueNoise2D {
    * @param persistence  Amplitude multiplier per octave (0.5 = halves each layer)
    */
   fbm(x: number, y: number, octaves = 4, persistence = 0.5): number {
-    let value = 0;
+    let value     = 0;
     let amplitude = 1;
     let frequency = 1;
-    let maxValue = 0;
+    let maxValue  = 0;
 
     for (let i = 0; i < octaves; i++) {
       value    += this.sample(x * frequency, y * frequency) * amplitude;
@@ -72,3 +54,9 @@ export class ValueNoise2D {
     return value / maxValue;
   }
 }
+
+/**
+ * @deprecated Use FbmNoise. This alias exists only to ease migration of any
+ * code that still imports ValueNoise2D by name.
+ */
+export const ValueNoise2D = FbmNoise;

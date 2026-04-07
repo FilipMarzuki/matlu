@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
-import { ValueNoise2D } from '../lib/noise';
+import { FbmNoise } from '../lib/noise';
 import { mulberry32 } from '../lib/rng';
 import { t } from '../lib/i18n';
 // ChunkDef imports used by Level 1 features in another branch — file not yet on main.
@@ -1209,8 +1209,8 @@ export class GameScene extends Phaser.Scene {
    * Uses this.runSeed for deterministic output (same seed → same map).
    */
   private drawProceduralTerrain(): void {
-    const noise    = new ValueNoise2D(this.runSeed);
-    const detNoise = new ValueNoise2D(this.runSeed ^ 0xb5ad4ecb);
+    const noise    = new FbmNoise(this.runSeed);
+    const detNoise = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
 
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
     const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
