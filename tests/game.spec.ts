@@ -23,10 +23,10 @@ test('game canvas renders without crashing', async ({ page }) => {
 test('pressing W key moves the player upward', async ({ page }) => {
   await page.goto('/');
 
-  // Wait for canvas to appear (AttractionScene is running)
+  // Wait for canvas to appear (WilderviewScene is running)
   await expect(page.locator('#game-container canvas')).toBeVisible({ timeout: GAME_BOOT_MS });
 
-  // Skip AttractionScene by pressing Enter → starts GameScene
+  // Skip WilderviewScene by pressing Enter → starts GameScene
   await page.keyboard.press('Enter');
 
   // Give GameScene time to boot

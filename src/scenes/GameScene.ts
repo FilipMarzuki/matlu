@@ -90,7 +90,7 @@ const BIRD_SHADOW_DX  = 7;
 const BIRD_SHADOW_DY  = 5;
 
 interface BirdObject {
-  body:          Phaser.GameObjects.Ellipse;
+  body:          Phaser.GameObjects.Sprite;
   shadow:        Phaser.GameObjects.Ellipse;
   vx:            number;
   vy:            number;
@@ -192,6 +192,19 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('pc-walk-down', `${bodyBase}/Walk_Base/Walk_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('pc-walk-up',   `${bodyBase}/Walk_Base/Walk_Up-Sheet.png`,    { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('pc-walk-side', `${bodyBase}/Walk_Base/Walk_Side-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
+
+    // Blue tit bird sprite sheets (16×16 px frames)
+    this.load.spritesheet('bird-fly',  'assets/sprites/environment/bird-bluetit-fly.png',  { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('bird-idle', 'assets/sprites/environment/bird-bluetit-idle.png', { frameWidth: 16, frameHeight: 16 });
+
+    // PostApocalypse Green — individual tree and rock PNGs
+    const pa = 'assets/packs/PostApocalypse_AssetPack_v1.1.2/Objects/Nature';
+    this.load.image('tree-normal',  `${pa}/Green/Tree_3_Normal_Green.png`);
+    this.load.image('tree-birch',   `${pa}/Green/Tree_7_Birch_Green.png`);
+    this.load.image('tree-spruce',  `${pa}/Green/Tree_1_Spruce_Green.png`);
+    this.load.image('rock-1',       `${pa}/Flowers_Mashrooms_Other-nature-stuff/Rocks/Rock_1.png`);
+    this.load.image('rock-2',       `${pa}/Flowers_Mashrooms_Other-nature-stuff/Rocks/Rock_2.png`);
+    this.load.image('rock-3',       `${pa}/Flowers_Mashrooms_Other-nature-stuff/Rocks/Rock_3.png`);
   }
 
   create(): void {
@@ -677,23 +690,13 @@ export class GameScene extends Phaser.Scene {
    * Uses the same placeholder texture as solid trees.
    */
   private createInteractiveObjects(): void {
-    const ensureTexture = (key: string, w: number, h: number, colour: number): void => {
-      if (!this.textures.exists(key)) {
-        const rt = this.add.renderTexture(0, 0, w, h);
-        rt.fill(colour, 1);
-        rt.saveTexture(key);
-        rt.destroy();
-      }
-    };
-    ensureTexture('tree-interactive', 24, 40, 0x3a7a28);
-
     const shakingTreeDefs = [
       { x: 460, y: 760 },
       { x: 460, y: 1250 },
     ];
 
     this.interactiveObjects = shakingTreeDefs.map(({ x, y }) => {
-      const tree = new InteractiveObject(this, x, y, 'tree-interactive', {
+      const tree = new InteractiveObject(this, x, y, 'tree-normal', {
         trigger: 'player-touch',
         colliderWidth: 10,
         colliderHeight: 8,
@@ -712,6 +715,10 @@ export class GameScene extends Phaser.Scene {
 
   private createPlayer(): void {
     // Register directional animations from Pixel Crawler Free Pack Body_A sheets
+    // Bird animations (4-frame fly loop, 2-frame idle)
+    this.anims.create({ key: 'bird-fly',  frames: this.anims.generateFrameNumbers('bird-fly',  {}), frameRate: 8, repeat: -1 });
+    this.anims.create({ key: 'bird-idle', frames: this.anims.generateFrameNumbers('bird-idle', {}), frameRate: 4, repeat: -1 });
+
     this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
     this.anims.create({ key: 'pc-idle-up',   frames: this.anims.generateFrameNumbers('pc-idle-up',   {}), frameRate: 6, repeat: -1 });
     this.anims.create({ key: 'pc-idle-side', frames: this.anims.generateFrameNumbers('pc-idle-side', {}), frameRate: 6, repeat: -1 });
@@ -805,30 +812,29 @@ export class GameScene extends Phaser.Scene {
    * Collision boxes are narrow (trunk only) so the player can walk behind trees.
    */
   private createSolidObjects(): void {
-    // Generate placeholder textures on first call
-    const ensureTexture = (key: string, w: number, h: number, colour: number): void => {
-      if (!this.textures.exists(key)) {
-        const rt = this.add.renderTexture(0, 0, w, h);
-        rt.fill(colour, 1);
-        rt.saveTexture(key);
-        rt.destroy();
-      }
-    };
-    ensureTexture('tree-placeholder', 24, 40, 0x2d5c1e);  // dark green
-    ensureTexture('rock-placeholder', 18, 14, 0x7a7265);  // grey
-
-    const treeDefs = [
-      { x: 180, y: 720 }, { x: 320, y: 680 }, { x: 520, y: 700 }, { x: 700, y: 730 },
-      { x: 140, y: 1300 }, { x: 280, y: 1350 }, { x: 560, y: 1310 }, { x: 720, y: 1280 },
+    // Mix of tree types for visual variety — PostApocalypse Green pack sprites
+    const treeDefs: Array<{ x: number; y: number; texture: string }> = [
+      { x: 180, y: 720,  texture: 'tree-normal'  },
+      { x: 320, y: 680,  texture: 'tree-birch'   },
+      { x: 520, y: 700,  texture: 'tree-spruce'  },
+      { x: 700, y: 730,  texture: 'tree-normal'  },
+      { x: 140, y: 1300, texture: 'tree-birch'   },
+      { x: 280, y: 1350, texture: 'tree-spruce'  },
+      { x: 560, y: 1310, texture: 'tree-normal'  },
+      { x: 720, y: 1280, texture: 'tree-birch'   },
     ];
+    // Rock types cycle through the three variants
+    const rockTextures = ['rock-1', 'rock-2', 'rock-3'];
     const rockDefs = [
-      { x: 240, y: 800 }, { x: 660, y: 810 },
-      { x: 200, y: 1230 }, { x: 640, y: 1260 },
+      { x: 240, y: 800  },
+      { x: 660, y: 810  },
+      { x: 200, y: 1230 },
+      { x: 640, y: 1260 },
     ];
 
     this.solidObjects = createSolidGroup(this, [
-      ...treeDefs.map(p => ({ ...p, texture: 'tree-placeholder', options: { colliderWidth: 10, colliderHeight: 8, colliderOffsetY: -2 } })),
-      ...rockDefs.map(p => ({ ...p, texture: 'rock-placeholder', options: { colliderWidth: 16, colliderHeight: 10 } })),
+      ...treeDefs.map(p => ({ ...p, options: { colliderWidth: 6, colliderHeight: 6, colliderOffsetY: -2 } })),
+      ...rockDefs.map((p, i) => ({ ...p, texture: rockTextures[i % rockTextures.length], options: { colliderWidth: 6, colliderHeight: 4 } })),
     ]);
 
     this.physics.add.collider(this.player, this.solidObjects);
@@ -1003,16 +1009,19 @@ export class GameScene extends Phaser.Scene {
       const x = Phaser.Math.Between(50, WORLD_W - 50);
       const y = Phaser.Math.Between(50, WORLD_H - 50);
 
-      const isCrow = i < 4;          // first 4 are crow-sized, rest are small songbirds
-      const w      = isCrow ? 10 : 6;
-      const h      = isCrow ?  5 : 3;
-      const color  = isCrow ? 0x1a1a1a : 0x3a3a50;
+      // First 4 are crow-sized (scale 1.4), rest are songbird-sized (scale 1)
+      const isCrow = i < 4;
+      const scale  = isCrow ? 1.4 : 1.0;
+      const shadowW = isCrow ? 14 : 10;
+      const shadowH = isCrow ? 5  : 3;
 
-      const shadow = this.add.ellipse(x + BIRD_SHADOW_DX, y + BIRD_SHADOW_DY, w, h, 0x000000, 0.2);
+      const shadow = this.add.ellipse(x + BIRD_SHADOW_DX, y + BIRD_SHADOW_DY, shadowW, shadowH, 0x000000, 0.18);
       shadow.setDepth(1);
 
-      const body = this.add.ellipse(x, y, w, h, color);
+      const body = this.add.sprite(x, y, 'bird-fly');
+      body.setScale(scale);
       body.setDepth(7);
+      body.play('bird-fly');
 
       const speed = Phaser.Math.Between(55, 95);
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -1048,6 +1057,8 @@ export class GameScene extends Phaser.Scene {
 
       bird.body.setPosition(nx, ny);
       bird.shadow.setPosition(nx + BIRD_SHADOW_DX, ny + BIRD_SHADOW_DY);
+      // Flip sprite to face direction of travel
+      bird.body.setFlipX(bird.vx < 0);
     }
   }
 
