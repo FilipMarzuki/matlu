@@ -223,6 +223,42 @@ export class GameScene extends Phaser.Scene {
       'assets/audio/animal-rustle.mp3',
     ]);
 
+    // ── Nature sprites (PostApocalypse Asset Pack) ─────────────────────────────
+    // These are tiny pixel-art files (8–39px). We scale them up in createSolidObjects
+    // and createDecorations — pixelArt: true in main.ts keeps them crisp.
+    const pa     = 'assets/packs/PostApocalypse_AssetPack_v1.1.2/Objects/Nature';
+    const paGrn  = `${pa}/Green`;
+    const paFMO  = `${pa}/Flowers_Mashrooms_Other-nature-stuff`;
+
+    // Trees — native sizes ~16–39px wide; scaled 2.5–3× in world
+    this.load.image('tree-spruce',        `${paGrn}/Tree_1_Spruce_Green.png`);
+    this.load.image('tree-spruce-sparse', `${paGrn}/Tree_2_Spruce-Sparse_Green.png`);
+    this.load.image('tree-normal',        `${paGrn}/Tree_3_Normal_Green.png`);
+    this.load.image('tree-big',           `${paGrn}/Tree_5_Big_Green.png`);
+    this.load.image('tree-pine',          `${paGrn}/Tree_6_Pine_Big_Green.png`);
+    this.load.image('tree-birch',         `${paGrn}/Tree_7_Birch_Green.png`);
+    this.load.image('tree-birch-2',       `${paGrn}/Tree_8_Birch_Green.png`);
+    this.load.image('tree-oak',           `${paGrn}/Tree_9_Small-oak_Green.png`);
+    this.load.image('tree-oak-2',         `${paGrn}/Tree_10_Small-oak_Green.png`);
+
+    // Ground scatter — grass tufts and bushes
+    for (let i = 1; i <= 5; i++) {
+      this.load.image(`grass-tuft-${i}`, `${paGrn}/Grass_${i}_Green.png`);
+    }
+    this.load.image('bush-1', `${paGrn}/Bush_1_Green.png`);
+    this.load.image('bush-2', `${paGrn}/Bush_2_Green.png`);
+    this.load.image('rock-grass', `${paGrn}/Rocks/Rock-grass.png`);
+
+    // Flowers, mushrooms, rocks, sticks
+    for (const color of ['blue', 'purple', 'red', 'yellow']) {
+      this.load.image(`flower-${color}`, `${paFMO}/Flower_1_${color}.png`);
+    }
+    for (let i = 1; i <= 7; i++) {
+      this.load.image(`rock-${i}`, `${paFMO}/Rocks/Rock_${i}.png`);
+    }
+    this.load.image('mushroom',     `${paFMO}/Mushroom.png`);
+    this.load.image('stick-leaves', `${paFMO}/Stick_leaves.png`);
+
     // Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
     this.load.spritesheet('pc-idle-down', `${bodyBase}/Idle_Base/Idle_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
@@ -828,78 +864,158 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Place placeholder Decoration objects in the four grass quadrants.
-   * Textures will be replaced with real sprites when assets are ready —
-   * for now we use Phaser's built-in '__WHITE' texture tinted to colour.
+   * Scatter hundreds of ground decorations (grass tufts, flowers, rocks, bushes)
+   * across the world using the same noise that drives terrain colours.
    *
-   * Three decoration types as placeholders:
-   *   flower  — small pink circle (8×8)
-   *   rock    — grey square (12×12)
-   *   grass   — thin green rect (4×14)
+   * HOW IT WORKS:
+   * We sample on a regular grid (SCATTER_STEP px apart) with random jitter so
+   * objects don't line up in a grid. At each sample point we read the terrain
+   * noise value and decide what (if anything) to place there. This means:
+   *   meadow tiles  → grass tufts and wildflowers
+   *   forest edge   → bushes and mossy rocks
+   *   shore tiles   → sticks and pebbles
+   * Everything uses the run seed so the same seed always produces the same world.
    */
   private createDecorations(): void {
-    // [x, y, type] — spread across grass areas away from roads (cx 400, cy 1000)
-    const defs: Array<[number, number, 'flower' | 'rock' | 'grass']> = [
-      [120, 780, 'flower'], [200, 820, 'grass'],  [300, 750, 'rock'],
-      [560, 800, 'flower'], [680, 760, 'grass'],  [750, 850, 'rock'],
-      [100, 1200, 'rock'],  [220, 1250, 'grass'], [350, 1180, 'flower'],
-      [580, 1220, 'grass'], [700, 1180, 'rock'],  [760, 1240, 'flower'],
-    ];
+    const noise    = new ValueNoise2D(this.runSeed);
+    const detNoise = new ValueNoise2D(this.runSeed ^ 0xb5ad4ecb);
+    // Use a different seed offset from createSolidObjects so they don't share state
+    const rng = mulberry32(this.runSeed ^ 0xdeadbeef);
 
-    const colourMap = { flower: 0xff88cc, rock: 0x8a8a8a, grass: 0x4ab84a };
-    const sizeMap  = { flower: [8, 8],   rock: [12, 12],  grass: [4, 14] };
+    const SCATTER_STEP = 64; // pixels between sample points — ~2 tiles
+    const stepsX = Math.floor(WORLD_W / SCATTER_STEP);
+    const stepsY = Math.floor(WORLD_H / SCATTER_STEP);
 
-    for (const [x, y, type] of defs) {
-      // Decoration extends Phaser.GameObjects.Sprite which requires a texture.
-      // We generate a tiny coloured RenderTexture as the stand-in sprite.
-      const [w, h] = sizeMap[type];
-      const key = `dec-${type}`;
-      if (!this.textures.exists(key)) {
-        const rt = this.add.renderTexture(0, 0, w, h);
-        rt.fill(colourMap[type], 1);
-        rt.saveTexture(key);
-        rt.destroy();
+    const flowerColors = ['blue', 'purple', 'red', 'yellow'] as const;
+
+    for (let gx = 0; gx < stepsX; gx++) {
+      for (let gy = 0; gy < stepsY; gy++) {
+        // Jitter each sample point so objects don't form a grid
+        const wx = gx * SCATTER_STEP + (rng() - 0.5) * SCATTER_STEP * 0.8;
+        const wy = gy * SCATTER_STEP + (rng() - 0.5) * SCATTER_STEP * 0.8;
+
+        // Skip the dirt clearing around spawn so it stays open
+        if (Phaser.Math.Distance.Between(wx, wy, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
+
+        // Sample terrain noise at this position (same formula as drawProceduralTerrain)
+        const tx   = wx / TILE_SIZE;
+        const ty   = wy / TILE_SIZE;
+        const base = noise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const det  = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
+        const val  = base * 0.78 + det * 0.22;
+
+        const roll = rng(); // random number for this position
+
+        let key: string | null = null;
+        let scale = 3.5;
+
+        if (val >= 0.28 && val < 0.37) {
+          // Shore — sparse sticks and pebbles near water
+          if (roll < 0.12) { key = 'stick-leaves'; scale = 3; }
+          else if (roll < 0.20) { key = `rock-${Math.ceil(rng() * 7)}`; scale = 3; }
+
+        } else if (val >= 0.37 && val < 0.54) {
+          // Open meadow — dense grass and wildflowers
+          if (roll < 0.40) { key = `grass-tuft-${Math.ceil(rng() * 5)}`; }
+          else if (roll < 0.58) { key = `flower-${flowerColors[Math.floor(rng() * 4)]}`; }
+          else if (roll < 0.63) { key = `rock-${Math.ceil(rng() * 7)}`; scale = 3; }
+
+        } else if (val >= 0.54 && val < 0.65) {
+          // Transitional meadow — slightly less dense
+          if (roll < 0.28) { key = `grass-tuft-${Math.ceil(rng() * 5)}`; }
+          else if (roll < 0.38) { key = `flower-${flowerColors[Math.floor(rng() * 4)]}`; }
+          else if (roll < 0.42) { key = 'mushroom'; scale = 3; }
+
+        } else if (val >= 0.65 && val < 0.73) {
+          // Forest edge — bushes, mossy rocks, occasional mushroom
+          if (roll < 0.38) { key = rng() < 0.55 ? 'bush-1' : 'bush-2'; scale = 3; }
+          else if (roll < 0.52) { key = 'rock-grass'; scale = 3; }
+          else if (roll < 0.58) { key = 'mushroom'; scale = 3; }
+        }
+
+        if (key) {
+          const dec = new Decoration(this, wx, wy, key);
+          dec.setScale(scale);
+          dec.sortDepth();
+        }
       }
-      const dec = new Decoration(this, x, y, key);
-      dec.sortDepth();
     }
 
-    // Keep TypeScript happy — WorldObject is imported for future use
-    void (WorldObject);
+    void (WorldObject); // WorldObject imported for future use
   }
 
   /**
-   * Place placeholder SolidObject trees and rocks in the grass quadrants.
-   * Uses tinted RenderTextures as stand-ins until real sprites are ready.
-   * Collision boxes are narrow (trunk only) so the player can walk behind trees.
+   * Distribute trees across the world using terrain noise to decide where
+   * forests grow. Different tree species appear at different noise thresholds,
+   * matching the terrain colour zones from drawProceduralTerrain():
+   *
+   *   val ≥ 0.81  dense forest  → spruce / pine (packed tight)
+   *   val 0.73–0.81  forest     → normal trees / birch
+   *   val 0.65–0.73  forest edge → birch / oak (sparser)
+   *
+   * Rocks are scattered across mid-value zones where boulders would naturally sit.
    */
   private createSolidObjects(): void {
-    // Generate placeholder textures on first call
-    const ensureTexture = (key: string, w: number, h: number, colour: number): void => {
-      if (!this.textures.exists(key)) {
-        const rt = this.add.renderTexture(0, 0, w, h);
-        rt.fill(colour, 1);
-        rt.saveTexture(key);
-        rt.destroy();
+    const noise    = new ValueNoise2D(this.runSeed);
+    const detNoise = new ValueNoise2D(this.runSeed ^ 0xb5ad4ecb);
+    const rng      = mulberry32(this.runSeed ^ 0xcafebabe);
+
+    // Coarser grid than decorations — trees need more space between them
+    const TREE_STEP = 88;
+    const stepsX    = Math.floor(WORLD_W / TREE_STEP);
+    const stepsY    = Math.floor(WORLD_H / TREE_STEP);
+
+    // Small trees (16–21 px native): scale 3 → ~50–60 px on screen
+    // Large trees (39 px native):    scale 2.5 → ~97 px on screen
+    const DENSE_TREES  = ['tree-spruce', 'tree-pine', 'tree-spruce-sparse'] as const;
+    const FOREST_TREES = ['tree-normal', 'tree-big', 'tree-birch', 'tree-birch-2'] as const;
+    const EDGE_TREES   = ['tree-birch', 'tree-oak', 'tree-oak-2'] as const;
+
+    const defs: Array<{ x: number; y: number; texture: string; options: { scale: number; colliderWidth: number; colliderHeight: number; colliderOffsetY: number } }> = [];
+
+    for (let gx = 0; gx < stepsX; gx++) {
+      for (let gy = 0; gy < stepsY; gy++) {
+        const wx = gx * TREE_STEP + (rng() - 0.5) * TREE_STEP * 0.6;
+        const wy = gy * TREE_STEP + (rng() - 0.5) * TREE_STEP * 0.6;
+
+        // Keep spawn area clear
+        if (Phaser.Math.Distance.Between(wx, wy, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR + 80) continue;
+
+        const tx   = wx / TILE_SIZE;
+        const ty   = wy / TILE_SIZE;
+        const base = noise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const det  = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
+        const val  = base * 0.78 + det * 0.22;
+
+        const roll = rng();
+
+        let texture: string | null = null;
+        let scale = 3;
+
+        if (val >= 0.81 && roll < 0.78) {
+          // Dense forest — packed spruce/pine
+          texture = DENSE_TREES[Math.floor(rng() * DENSE_TREES.length)];
+          scale = 3;
+        } else if (val >= 0.73 && val < 0.81 && roll < 0.58) {
+          // Forest — mixed species
+          texture = FOREST_TREES[Math.floor(rng() * FOREST_TREES.length)];
+          // Birch/big trees are wider (39px), use smaller scale to keep proportions
+          scale = texture === 'tree-birch' || texture === 'tree-birch-2' ? 2.5 : 3;
+        } else if (val >= 0.65 && val < 0.73 && roll < 0.35) {
+          // Forest edge — sparse birch and oak
+          texture = EDGE_TREES[Math.floor(rng() * EDGE_TREES.length)];
+          scale = 2.5;
+        }
+
+        if (texture) {
+          // Trunk collider is narrow so player can walk behind the canopy.
+          // colliderOffsetY pushes the box to the base of the sprite.
+          defs.push({ x: wx, y: wy, texture, options: { scale, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 } });
+        }
       }
-    };
-    ensureTexture('tree-placeholder', 24, 40, 0x2d5c1e);  // dark green
-    ensureTexture('rock-placeholder', 18, 14, 0x7a7265);  // grey
+    }
 
-    const treeDefs = [
-      { x: 180, y: 720 }, { x: 320, y: 680 }, { x: 520, y: 700 }, { x: 700, y: 730 },
-      { x: 140, y: 1300 }, { x: 280, y: 1350 }, { x: 560, y: 1310 }, { x: 720, y: 1280 },
-    ];
-    const rockDefs = [
-      { x: 240, y: 800 }, { x: 660, y: 810 },
-      { x: 200, y: 1230 }, { x: 640, y: 1260 },
-    ];
-
-    this.solidObjects = createSolidGroup(this, [
-      ...treeDefs.map(p => ({ ...p, texture: 'tree-placeholder', options: { colliderWidth: 10, colliderHeight: 8, colliderOffsetY: -2 } })),
-      ...rockDefs.map(p => ({ ...p, texture: 'rock-placeholder', options: { colliderWidth: 16, colliderHeight: 10 } })),
-    ]);
-
+    this.solidObjects = createSolidGroup(this, defs);
     this.physics.add.collider(this.player, this.solidObjects);
   }
 

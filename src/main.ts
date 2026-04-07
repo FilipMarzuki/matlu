@@ -9,6 +9,8 @@ const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game-container',
   backgroundColor: 0x2d6b2e,
+  // Disable anti-aliasing so pixel-art sprites render crisp rather than blurry.
+  render: { pixelArt: true },
   physics: {
     default: 'arcade',
     arcade: {
