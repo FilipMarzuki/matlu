@@ -191,6 +191,7 @@ export class GameScene extends Phaser.Scene {
   private attractNameDisplay!: Phaser.GameObjects.Text;
   private attractName = '';
   private attractTitle!: Phaser.GameObjects.Text;
+  private attractThoughtBubble!: Phaser.GameObjects.Text;
 
   // Set when the player types their name on the attract screen; used for leaderboard.
   playerName = '';
@@ -943,11 +944,24 @@ export class GameScene extends Phaser.Scene {
     const cx = this.scale.width / 2;
     const by = this.scale.height - 20;
 
-    // Simple title at the top of the wilderview screen.
+    // Static title at the top of the wilderview screen.
     this.attractTitle = this.add
       .text(cx, 18, 'matlu wilderview', {
         fontSize: '16px',
         color: '#ffffffb3',
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(500);
+
+    // Thought bubble — shows the focused animal's type and state just below the title.
+    // Text is updated every frame in updateThoughtBubble().
+    this.attractThoughtBubble = this.add
+      .text(cx, 46, '', {
+        fontSize: '13px',
+        color: '#ffffff',
+        backgroundColor: '#00000066',
+        padding: { x: 12, y: 6 },
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
@@ -1042,10 +1056,7 @@ export class GameScene extends Phaser.Scene {
       flying:   'soaring',
     };
 
-    // Keep the title visible but update it with the current animal's state
-    // so the viewer knows what they're watching.
-    const label = `matlu wilderview  ·  ${type} — ${stateLabel[state] ?? state}`;
-    this.attractTitle.setText(label);
+    this.attractThoughtBubble.setText(`${type} — ${stateLabel[state] ?? state}`);
   }
 
   private exitAttractMode(): void {
@@ -1056,6 +1067,7 @@ export class GameScene extends Phaser.Scene {
     this.attractLabel.destroy();
     this.attractNameDisplay.destroy();
     this.attractTitle.destroy();
+    this.attractThoughtBubble.destroy();
     // Restore HUD bars now that gameplay is starting.
     for (const obj of this.hudObjects) {
       (obj as Phaser.GameObjects.GameObject & { setVisible: (v: boolean) => void }).setVisible(true);
