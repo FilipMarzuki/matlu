@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 /**
  * AttractionScene — the first thing players see at the Vercel URL.
  *
