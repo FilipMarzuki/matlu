@@ -1495,16 +1495,19 @@ export class GameScene extends Phaser.Scene {
     const colorGfx = this.add.graphics().setDepth(0);
 
     // Land tiles are drawn as a pre-baked RenderTexture (one GPU draw call at runtime).
-    // During create() we issue many rt.draw() calls — ~50 000 for an 8000×8000 world —
-    // but this happens once. From then on the RT is a static texture at depth 0.
+    // We use beginDraw() + batchDraw() + endDraw() to flush the WebGL batch only ONCE
+    // instead of once per tile (~62 500 flushes), which is ~100× faster in practice.
     const terrainRt = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setDepth(0);
 
     // Reuse a single off-screen Image to draw scaled (32×32) tiles from the
-    // 16×16 tileset frames. setTexture() changes which frame is rendered without
+    // 16×16 tileset frames. setTexture() + setPosition() change state without
     // creating a new object each iteration.
     const tileImg = this.add.image(-9999, -9999, 'terrain-green', 0)
       .setScale(2)        // 16px → 32px to match TILE_SIZE
       .setVisible(false);
+
+    // Open a single batch for the entire terrain — no WebGL flush per tile.
+    terrainRt.beginDraw();
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
@@ -1516,19 +1519,21 @@ export class GameScene extends Phaser.Scene {
         const wy = ty * TILE_SIZE;
 
         if (val < 0.28) {
-          // Water — solid colour, no usable free texture available
+          // Water — solid colour, no usable free texture available.
+          // colorGfx draws to the scene, not the RT, so it's unaffected by the batch.
           colorGfx.fillStyle(terrainColor(val, detail), 1);
           colorGfx.fillRect(wx, wy, TILE_SIZE, TILE_SIZE);
         } else {
           // Land — draw the matching tileset frame scaled 2× to fill the 32×32 tile.
-          // rt.draw(image, x, y) centres the image on (x, y), so we pass the tile
-          // centre (wx + 16, wy + 16) to align top-left to (wx, wy).
+          // batchDraw() uses the image's own position — no per-tile batch flush.
           const { key, frame } = terrainTileFrame(val, detail);
-          tileImg.setTexture(key, frame);
-          terrainRt.draw(tileImg, wx + 16, wy + 16);
+          tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
+          terrainRt.batchDraw(tileImg);
         }
       }
     }
+
+    terrainRt.endDraw();
 
     tileImg.destroy();
 

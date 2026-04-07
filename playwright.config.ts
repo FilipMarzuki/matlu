@@ -6,6 +6,8 @@ export default defineConfig({
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
   workers: 1,
+  // GameScene.create() renders ~62 500 terrain tiles — allow generous timeout in CI.
+  timeout: process.env['CI'] ? 120_000 : 30_000,
   reporter: process.env['CI'] ? 'github' : 'list',
 
   use: {
@@ -25,6 +27,6 @@ export default defineConfig({
     command: 'npm run preview',
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env['CI'],
-    timeout: 60_000,
+    timeout: 120_000,
   },
 });
