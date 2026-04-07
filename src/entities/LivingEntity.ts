@@ -5,10 +5,10 @@ export interface LivingEntityConfig {
 }
 
 /**
- * LivingEntity — allt som har HP och kan dö.
+ * LivingEntity — anything that has HP and can die.
  *
- * Spelare, djur och fiender ärver alla härifrån. Klassen hanterar
- * HP-räkning, skadelogik och dödslivscykeln via hooks.
+ * Player, animals and enemies all inherit from here. The class handles
+ * HP tracking, damage logic and the death lifecycle via hooks.
  */
 export abstract class LivingEntity extends Entity {
   readonly maxHp: number;

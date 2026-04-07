@@ -1,5 +1,5 @@
 /**
- * Generates placeholder 16×16px sprite sheets for the Blåmes (blue tit).
+ * Generates placeholder 16×16px sprite sheets for the blue tit (Blåmes).
  * Each animation is a horizontal strip of 16×16 frames.
  *
  * Palette colours used:
@@ -173,4 +173,4 @@ await writeSheet('bird-bluetit-idle.png',  [IDLE_1, IDLE_2]);
 await writeSheet('bird-bluetit-drink.png', DRINK_FRAMES);
 await writeSheet('bird-bluetit-hop.png',   HOP_FRAMES);
 
-console.log('\nAll Blåmes sprite sheets generated.');
+console.log('\nAll blue tit sprite sheets generated.');

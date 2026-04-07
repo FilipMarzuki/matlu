@@ -11,14 +11,13 @@ export interface SolidObjectOptions {
 }
 
 /**
- * SolidObject — miljöobjekt med kollision som blockerar rörelse.
+ * SolidObject — environment object with a collision body that blocks movement.
  *
- * Träd, klippor och väggar ärver detta. Instansieras via
- * createSolidGroup() så att en enda physics.add.collider()-rad
- * täcker alla instanser i gruppen.
+ * Trees, rocks and walls inherit from this. Instantiated via createSolidGroup()
+ * so that a single physics.add.collider() call covers all instances in the group.
  *
- * Kollisionsboxen är avsiktligt smal (stammen på ett träd, inte
- * hela kronan) så att spelaren kan gå bakom träd naturligt.
+ * The collision box is intentionally narrow (trunk of a tree, not the full canopy)
+ * so the player can walk behind trees naturally.
  */
 export class SolidObject extends WorldObject {
   readonly colliderWidth: number;
@@ -61,7 +60,7 @@ export function createSolidGroup(
     const obj = new SolidObject(scene, x, y, texture, options);
     group.add(obj);
 
-    // Narrow the collision box to the trunk/base, not the full sprite crown
+    // Narrow the collision box to the trunk/base, not the full sprite canopy
     const body = obj.body as Phaser.Physics.Arcade.StaticBody;
     body.setSize(obj.colliderWidth, obj.colliderHeight);
     body.setOffset(

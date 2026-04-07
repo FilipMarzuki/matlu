@@ -1,10 +1,10 @@
 import { WildlifeAnimal, WildlifeAnimalConfig } from './WildlifeAnimal';
 
 /**
- * GroundAnimal — subklass av WildlifeAnimal för marklevande djur.
+ * GroundAnimal — WildlifeAnimal subclass for ground-dwelling animals.
  *
- * Markdjur påverkas av terrängen och kan inte flyga över hinder.
- * Konkreta arter (t.ex. kanin, igelkott) ärver härifrån.
+ * Ground animals are affected by terrain and cannot fly over obstacles.
+ * Concrete species (e.g. rabbit, hedgehog) inherit from here.
  */
 export abstract class GroundAnimal extends WildlifeAnimal {
   constructor(scene: Phaser.Scene, x: number, y: number, config: WildlifeAnimalConfig) {
@@ -40,7 +40,7 @@ export abstract class GroundAnimal extends WildlifeAnimal {
         break;
 
       case 'sleeping':
-        // Dormant — WorldClock will wake the animal at dawn via checkDayNight()
+        // Dormant — WorldClock wakes the animal at dawn via checkDayNight()
         break;
     }
   }

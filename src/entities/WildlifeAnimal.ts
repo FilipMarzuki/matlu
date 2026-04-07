@@ -15,11 +15,11 @@ export interface WildlifeAnimalConfig extends LivingEntityConfig {
 }
 
 /**
- * WildlifeAnimal — basklass för alla vilda djur.
+ * WildlifeAnimal — base class for all wildlife.
  *
- * Implementerar ett enkelt FSM (finite state machine) med fyra tillstånd:
- * idle → roaming → fleeing → resting. Subklasser (Bird, GroundAnimal)
- * specialiserar rörelselogiken utan att ändra FSM-strukturen.
+ * Implements a simple FSM with states: idle → roaming → fleeing → resting → sleeping.
+ * Subclasses (Bird, GroundAnimal) specialise movement logic without changing the
+ * FSM structure.
  */
 export abstract class WildlifeAnimal extends LivingEntity {
   protected animalState: AnimalState = 'idle';
@@ -50,7 +50,7 @@ export abstract class WildlifeAnimal extends LivingEntity {
   }
 
   /**
-   * Read the WorldClock from the scene (if present) and adjust FSM.
+   * Read the WorldClock from the scene (if present) and adjust the FSM.
    * Animals sleep at night and wake at dawn.
    */
   private checkDayNight(): void {

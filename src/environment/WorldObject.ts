@@ -1,12 +1,12 @@
 /**
- * WorldObject — basklass för alla statiska miljöobjekt.
+ * WorldObject — base class for all static environment objects.
  *
- * Till skillnad från Entity har WorldObject ingen update()-loop —
- * den placeras en gång och lever sedan passivt i världen.
+ * Unlike Entity, WorldObject has no update() loop — it is placed once
+ * and lives passively in the world.
  *
- * Djupsortering: origin(0.5, 1) förankrar i botten så att
- * setDepth(this.y) ger korrekt overlap — objekt längre ner
- * renderas framför objekt längre upp.
+ * Depth sorting: origin(0.5, 1) anchors the sprite at its bottom centre so
+ * that setDepth(this.y) produces correct overlap — objects further down the
+ * screen render in front of objects further up.
  */
 export abstract class WorldObject extends Phaser.GameObjects.Sprite {
   constructor(

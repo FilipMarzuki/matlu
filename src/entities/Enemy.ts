@@ -7,11 +7,11 @@ export interface EnemyConfig extends LivingEntityConfig {
 }
 
 /**
- * Enemy — basklass för alla fiender.
+ * Enemy — base class for all enemies.
  *
- * Skiljer sig från WildlifeAnimal i att fiender aktivt jagar och attackerar
- * spelaren. Konkreta fiender (t.ex. ZombieRabbit) ärver härifrån och
- * implementerar sina sprites och specifika attackmönster.
+ * Unlike WildlifeAnimal, enemies actively hunt and attack the player.
+ * Concrete enemies (e.g. ZombieRabbit) inherit from here and implement
+ * their sprites and specific attack patterns.
  */
 export abstract class Enemy extends LivingEntity {
   readonly aggroRadius: number;

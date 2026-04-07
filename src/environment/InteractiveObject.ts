@@ -2,26 +2,26 @@
 import { SolidObject, SolidObjectOptions } from './SolidObject';
 
 export type InteractionTrigger =
-  | 'player-touch'   // spelaren rör kollisionsboxen
-  | 'player-nearby'  // spelaren inom triggerRadius
-  | 'event';         // lyssnar på ett scene-event
+  | 'player-touch'   // player overlaps the collision box
+  | 'player-nearby'  // player is within triggerRadius
+  | 'event';         // listens for a scene event
 
 export interface InteractiveObjectOptions extends SolidObjectOptions {
   trigger?: InteractionTrigger;
-  /** px — används om trigger = 'player-nearby' */
+  /** px — used when trigger = 'player-nearby' */
   triggerRadius?: number;
-  /** scene-event att lyssna på, används om trigger = 'event' */
+  /** scene event to listen for, used when trigger = 'event' */
   eventName?: string;
 }
 
 /**
- * InteractiveObject — statiska miljöobjekt som reagerar på spelaren
- * eller världshändelser.
+ * InteractiveObject — static environment objects that react to the player
+ * or world events.
  *
- * Träd som skakar vid beröring, blommor som öppnar sig på dagen,
- * buskar som gömmer djur.
+ * Trees that shake on touch, flowers that open during daytime,
+ * bushes that hide animals.
  *
- * @example Skakande träd (player-touch)
+ * @example Shaking tree (player-touch)
  * ```ts
  * const tree = new InteractiveObject(scene, 400, 300, 'tree-oak', {
  *   trigger: 'player-touch',
@@ -37,7 +37,7 @@ export interface InteractiveObjectOptions extends SolidObjectOptions {
  *   trigger: 'event',
  *   eventName: 'enemy-killed',
  * });
- * // Lyssnar automatiskt — ingen extra setup krävs
+ * // Listens automatically — no extra setup required
  * ```
  */
 export class InteractiveObject extends SolidObject {
@@ -62,8 +62,8 @@ export class InteractiveObject extends SolidObject {
   }
 
   /**
-   * Trigga reaktionen — kallas av scenen vid kollision/overlap/event.
-   * Ignorerar om en reaktion redan pågår.
+   * Trigger the reaction — called by the scene on collision/overlap/event.
+   * No-ops if a reaction is already in progress.
    */
   react(): void {
     if (this._reacting) return;
@@ -71,8 +71,8 @@ export class InteractiveObject extends SolidObject {
   }
 
   /**
-   * Hook — override i subklass för specifikt beteende.
-   * Standard: enkel skak-tween (passar träd och buskar).
+   * Hook — override in subclasses for specific behaviour.
+   * Default: simple shake tween (suitable for trees and bushes).
    */
   protected onReact(): void {
     this._reacting = true;

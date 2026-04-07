@@ -1,11 +1,11 @@
 import { WorldObject } from './WorldObject';
 
 /**
- * Decoration — ren dekoration utan kollision.
+ * Decoration — pure visual decoration with no collision.
  *
- * Blommor, gräs, löv, stenar som syns i världen men som spelaren
- * går igenom. Prestanda: hundratals instanser är OK eftersom de
- * inte har fysik eller update-loopar.
+ * Flowers, grass, leaves, stones that appear in the world but that the player
+ * walks through. Performance: hundreds of instances are fine since they have
+ * no physics bodies or update loops.
  */
 export class Decoration extends WorldObject {
   constructor(

@@ -1,10 +1,10 @@
 import { WildlifeAnimal, WildlifeAnimalConfig } from './WildlifeAnimal';
 
 /**
- * Bird — subklass av WildlifeAnimal för flygande fåglar.
+ * Bird — WildlifeAnimal subclass for flying birds.
  *
- * Fåglar rör sig i luften och kan flyga över hinder. Konkreta fågelarter
- * (t.ex. BlueTit / Blåmes) ärver härifrån och lägger till sprite och ljud.
+ * Birds move through the air and can pass over obstacles. Concrete species
+ * (e.g. BlueTit) inherit from here and add sprites and sounds.
  */
 export abstract class Bird extends WildlifeAnimal {
   constructor(scene: Phaser.Scene, x: number, y: number, config: WildlifeAnimalConfig) {
@@ -42,7 +42,7 @@ export abstract class Bird extends WildlifeAnimal {
         break;
 
       case 'sleeping':
-        // Dormant — WorldClock will wake the bird at dawn via checkDayNight()
+        // Dormant — WorldClock wakes the bird at dawn via checkDayNight()
         break;
     }
   }

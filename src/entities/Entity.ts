@@ -1,9 +1,9 @@
 /**
- * Entity — basklass för alla spelentiteter med position och livscykel.
+ * Entity — base class for all game entities with position and lifecycle.
  *
- * Alla rörliga objekt i Matlu ärver härifrån: spelare, djur, fiender.
- * Klassen hanterar bara position och grundläggande Phaser-integration —
- * inget beteende läggs till här.
+ * Every moving object in Matlu inherits from here: player, animals, enemies.
+ * The class only handles position and basic Phaser integration — no behaviour
+ * is added at this level.
  */
 export abstract class Entity extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -12,8 +12,8 @@ export abstract class Entity extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Kallas varje frame av Phaser's game loop.
-   * Subklasser implementerar sin specifika logik här.
+   * Called every frame by Phaser's game loop.
+   * Subclasses implement their specific logic here.
    */
   abstract update(delta: number): void;
 }
