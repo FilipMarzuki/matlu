@@ -178,7 +178,7 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
-  private ambienceSound!: Phaser.Sound.BaseSound;
+  private ambienceSound: Phaser.Sound.BaseSound | undefined;
   // tracks when we last played a footstep so we don't fire every frame
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
@@ -398,14 +398,16 @@ export class GameScene extends Phaser.Scene {
 
     this.createDayNightOverlay();
 
-    // Ambient forest sound — loops forever at low volume.
-    // We add() it to get a reference, then play(). If the file is missing
-    // (e.g. placeholder path) Phaser will just log a warning and continue.
-    this.ambienceSound = this.sound.add('forest-ambience', {
-      loop: true,
-      volume: 0.25,
-    });
-    this.ambienceSound.play();
+    // Ambient forest sound — only start if the asset actually loaded.
+    // In headless CI (Playwright) WebAudio may be unavailable and the key won't
+    // be in the cache; guard against that to avoid a runtime crash.
+    if (this.cache.audio.has('forest-ambience')) {
+      this.ambienceSound = this.sound.add('forest-ambience', {
+        loop: true,
+        volume: 0.25,
+      });
+      this.ambienceSound.play();
+    }
 
     this.initAttractMode();
   }
