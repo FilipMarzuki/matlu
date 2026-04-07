@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import './lib/supabaseClient';
 import { AttractionScene } from './scenes/AttractionScene';
 import { GameScene } from './scenes/GameScene';
@@ -20,6 +21,17 @@ const game = new Phaser.Game({
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  // Register the rex virtual joystick plugin from npm rather than CDN so it
+  // works reliably in production (raw.githubusercontent.com is not dependable).
+  plugins: {
+    global: [
+      {
+        key: 'rexvirtualjoystickplugin',
+        plugin: VirtualJoystickPlugin,
+        start: true,
+      },
+    ],
   },
   // AttractionScene is the default entry point; it launches GameScene on demand
   scene: [AttractionScene, GameScene, CreditsScene],

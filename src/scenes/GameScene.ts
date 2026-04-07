@@ -11,8 +11,6 @@ import { WorldClock } from '../world/WorldClock';
 import type { DayPhase } from '../world/WorldClock';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
-const REX_PLUGIN_CDN =
-  'https://raw.githubusercontent.com/rexrainbow/phaser3-rex-notes/master/dist/rexvirtualjoystickplugin.min.js';
 
 // World dimensions (tile-based 2400×2000 map)
 const WORLD_W = 2400;
@@ -173,7 +171,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.plugin(REX_VIRTUAL_JOYSTICK_PLUGIN_KEY, REX_PLUGIN_CDN, true);
     // CC0 placeholder character sprite (16×32px, scaled up 3× in createPlayer)
     this.load.image('player-character', 'assets/sprites/player/character.png');
   }
