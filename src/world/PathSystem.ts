@@ -1,0 +1,159 @@
+/**
+ * PathSystem — typed road segments that affect player speed and animal routing.
+ *
+ * ## Core idea
+ * Roads are invisible axis-aligned rectangles with a "type" (dirt, forest path,
+ * animal trail, paved) and a live "condition" value (0–100). Two things use them:
+ *
+ *  1. **Player speed** — `getSpeedMultiplier(x, y)` returns a 0.7–1.35 multiplier
+ *     based on which segment the player is standing on and how worn it is.
+ *
+ *  2. **Animal affinity** — `getAffinityScore(x, y)` returns a positive score for
+ *     animal trails (+1) and a negative score for paved roads (−1). Ground animals
+ *     sample a few candidate roam directions and pick the highest-scoring one,
+ *     so wildlife naturally clusters on paths without explicit waypoints.
+ *
+ * ## Why axis-aligned rects instead of tile lists?
+ * The map is procedurally generated without a Tiled/LDtk path layer, so we define
+ * roads as simple { x, y, w, h } bounding boxes in world coordinates. Lookup is a
+ * linear scan over ~15 segments per frame — negligible cost.
+ *
+ * ## Condition degradation
+ * Condition decreases slowly while zone corruption is high, recovers when the player
+ * acts (kills a rabbit, picks up a collectible). Call `degradeAll(corruptionPct)` on
+ * a timer and `restoreNear(x, y, radius, amount)` on player actions.
+ */
+
+export type PathType = 'dirt' | 'forest' | 'animal' | 'paved';
+
+/** Static config for a path type — does not change at runtime. */
+interface PathDefinition {
+  /** Base speed multiplier at 100% condition */
+  baseSpeedMult: number;
+  /**
+   * Animal affinity score. Positive → animals prefer this path.
+   * Negative → animals avoid it. Used to bias roam direction selection.
+   */
+  animalAffinity: number;
+  /**
+   * How fast condition degrades per corruption-weighted tick.
+   * Higher = crumbles faster. Animal trails (unpaved) crumble fastest.
+   */
+  conditionDecayRate: number;
+  /** Color used when drawing the path on the terrain (as a Graphics overlay). */
+  drawColor: number;
+  drawAlpha: number;
+}
+
+const PATH_DEFS: Record<PathType, PathDefinition> = {
+  dirt:   { baseSpeedMult: 1.10, animalAffinity:  0.3, conditionDecayRate: 1.0, drawColor: 0xb8905a, drawAlpha: 0.35 },
+  forest: { baseSpeedMult: 0.90, animalAffinity:  0.5, conditionDecayRate: 1.1, drawColor: 0x507838, drawAlpha: 0.25 },
+  animal: { baseSpeedMult: 1.00, animalAffinity:  1.0, conditionDecayRate: 1.3, drawColor: 0xa87848, drawAlpha: 0.20 },
+  paved:  { baseSpeedMult: 1.35, animalAffinity: -1.0, conditionDecayRate: 0.7, drawColor: 0x989888, drawAlpha: 0.40 },
+};
+
+/** A single road segment — one axis-aligned rectangle in world space. */
+export interface PathSegment {
+  id: string;
+  type: PathType;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** 0–100. Lower = worn-out road, slower and less animal-friendly. */
+  condition: number;
+}
+
+export class PathSystem {
+  private segments: PathSegment[];
+
+  constructor(segments: PathSegment[]) {
+    this.segments = segments;
+  }
+
+  /** Return the segment the point (wx, wy) falls inside, or null. */
+  getSegmentAt(wx: number, wy: number): PathSegment | null {
+    for (const seg of this.segments) {
+      if (wx >= seg.x && wx <= seg.x + seg.w &&
+          wy >= seg.y && wy <= seg.y + seg.h) {
+        return seg;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Speed multiplier for a player standing at (wx, wy).
+   * Off-road returns 1.0 (base speed, no bonus or penalty).
+   *
+   * Formula: baseSpeedMult × conditionFactor
+   * conditionFactor = 0.5 + (condition / 100) × 0.5
+   * → At 100% condition: full base mult (1.35 for paved)
+   * → At   0% condition: half the base mult (0.675 for paved)
+   */
+  getSpeedMultiplier(wx: number, wy: number): number {
+    const seg = this.getSegmentAt(wx, wy);
+    if (!seg) return 1.0;
+    const def = PATH_DEFS[seg.type];
+    const conditionFactor = 0.5 + (seg.condition / 100) * 0.5;
+    return def.baseSpeedMult * conditionFactor;
+  }
+
+  /**
+   * Animal affinity score at (wx, wy).
+   * Used by ground animals to bias their roam direction.
+   * Returns 0 off-road, positive on animal trails, negative on paved roads.
+   */
+  getAffinityScore(wx: number, wy: number): number {
+    const seg = this.getSegmentAt(wx, wy);
+    if (!seg) return 0;
+    return PATH_DEFS[seg.type].animalAffinity;
+  }
+
+  /**
+   * Degrade all segment conditions based on current corruption level.
+   * Call this every ~5 seconds while corruption > 0.
+   *
+   * @param corruptionPct 0–100
+   */
+  degradeAll(corruptionPct: number): void {
+    if (corruptionPct <= 0) return;
+    const factor = corruptionPct / 100;
+    for (const seg of this.segments) {
+      const decay = factor * PATH_DEFS[seg.type].conditionDecayRate * 2;
+      seg.condition = Math.max(0, seg.condition - decay);
+    }
+  }
+
+  /**
+   * Restore condition for all segments within `radius` pixels of (wx, wy).
+   * Call on player actions (rabbit kill, item pickup).
+   */
+  restoreNear(wx: number, wy: number, radius: number, amount: number): void {
+    for (const seg of this.segments) {
+      const cx = seg.x + seg.w / 2;
+      const cy = seg.y + seg.h / 2;
+      const dist = Math.sqrt((cx - wx) ** 2 + (cy - wy) ** 2);
+      if (dist <= radius) {
+        seg.condition = Math.min(100, seg.condition + amount);
+      }
+    }
+  }
+
+  /**
+   * Draw all path segments as semi-transparent rectangles onto a Graphics object.
+   * Call once during scene creation; the Graphics object lives in the world (scrollFactor 1).
+   */
+  drawPaths(graphics: Phaser.GameObjects.Graphics): void {
+    graphics.clear();
+    for (const seg of this.segments) {
+      const def = PATH_DEFS[seg.type];
+      graphics.fillStyle(def.drawColor, def.drawAlpha);
+      graphics.fillRect(seg.x, seg.y, seg.w, seg.h);
+    }
+  }
+
+  getSegments(): PathSegment[] {
+    return this.segments;
+  }
+}
