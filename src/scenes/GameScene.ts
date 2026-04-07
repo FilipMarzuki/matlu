@@ -160,6 +160,13 @@ export class GameScene extends Phaser.Scene {
   private levelCompleteLogged = false;
   private runSeed = 0;
 
+  // ─── Attract mode ─────────────────────────────────────────────────────────────
+  private attractMode = true;
+  private attractTargets: Phaser.GameObjects.GameObject[] = [];
+  private attractIdx = 0;
+  private attractNextAt = 0;
+  private attractLabel!: Phaser.GameObjects.Text;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -189,7 +196,6 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer();
 
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
     const joystickPlugin = this.plugins.get(
       REX_VIRTUAL_JOYSTICK_PLUGIN_KEY
@@ -245,12 +251,17 @@ export class GameScene extends Phaser.Scene {
     thumb.setDepth(201);
 
     this.createDayNightOverlay();
+    this.initAttractMode();
   }
 
   update(time: number, delta: number): void {
     this.worldClock.update(delta);
     this.updateDayNight();
-    this.updatePlayerMovement();
+    if (this.attractMode) {
+      this.updateAttractMode(time);
+    } else {
+      this.updatePlayerMovement();
+    }
     this.updateRabbits(time);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
@@ -358,6 +369,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private trySwipe(pointer: Phaser.Input.Pointer): void {
+    if (this.attractMode) return;
     const now = this.time.now;
     if (now - this.lastSwipeAt < SWIPE_COOLDOWN_MS) {
       return;
@@ -764,6 +776,75 @@ export class GameScene extends Phaser.Scene {
     ]);
 
     this.physics.add.collider(this.player, this.solidObjects);
+  }
+
+  // ─── Attract mode ─────────────────────────────────────────────────────────────
+
+  private initAttractMode(): void {
+    // Hide player and disable its physics body until gameplay starts
+    this.player.setAlpha(0);
+    (this.player.body as Phaser.Physics.Arcade.Body).setEnable(false);
+
+    // Build target list from ground animals; shuffle for variety
+    this.attractTargets = Phaser.Utils.Array.Shuffle([
+      ...this.groundAnimals.getChildren(),
+    ]);
+
+    // Start camera at world centre, then let it pan to the first target
+    this.cameras.main.centerOn(WORLD_W / 2, WORLD_H / 2);
+    if (this.attractTargets.length > 0) {
+      this.cameras.main.startFollow(
+        this.attractTargets[0] as Phaser.GameObjects.GameObject,
+        true, 0.03, 0.03,
+      );
+    }
+    this.attractNextAt = this.time.now + 12000;
+
+    // Play prompt
+    this.attractLabel = this.add
+      .text(400, 558, 'Tap or press Space to play', {
+        fontSize: '15px',
+        color: '#ffffff',
+        backgroundColor: '#00000066',
+        padding: { x: 14, y: 7 },
+      })
+      .setOrigin(0.5, 1)
+      .setScrollFactor(0)
+      .setDepth(500);
+
+    this.tweens.add({
+      targets: this.attractLabel,
+      alpha: 0.35,
+      duration: 1100,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Any input exits attract mode
+    this.input.once('pointerdown', () => this.exitAttractMode());
+    this.input.keyboard?.once('keydown-SPACE', () => this.exitAttractMode());
+    this.input.keyboard?.once('keydown-ENTER', () => this.exitAttractMode());
+  }
+
+  private updateAttractMode(time: number): void {
+    if (time < this.attractNextAt || this.attractTargets.length === 0) return;
+
+    this.attractIdx = (this.attractIdx + 1) % this.attractTargets.length;
+    this.cameras.main.startFollow(
+      this.attractTargets[this.attractIdx] as Phaser.GameObjects.GameObject,
+      true, 0.03, 0.03,
+    );
+    // Dwell for 10–14 s on each animal
+    this.attractNextAt = time + 10000 + Phaser.Math.Between(-2000, 4000);
+  }
+
+  private exitAttractMode(): void {
+    if (!this.attractMode) return;
+    this.attractMode = false;
+    this.attractLabel.destroy();
+    this.player.setAlpha(1);
+    (this.player.body as Phaser.Physics.Arcade.Body).setEnable(true);
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
   }
 
   // ─── Ground animals (deer, hare, fox) ────────────────────────────────────────
