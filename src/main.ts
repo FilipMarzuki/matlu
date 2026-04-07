@@ -4,11 +4,14 @@ import './lib/supabaseClient';
 import { WilderviewScene } from './scenes/WilderviewScene';
 import { GameScene } from './scenes/GameScene';
 import { CreditsScene } from './scenes/CreditsScene';
+import { NpcDialogScene } from './scenes/NpcDialogScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game-container',
   backgroundColor: 0x2d6b2e,
+  // Disable anti-aliasing so pixel-art sprites render crisp rather than blurry.
+  render: { pixelArt: true },
   physics: {
     default: 'arcade',
     arcade: {
@@ -34,7 +37,7 @@ const game = new Phaser.Game({
     ],
   },
   // WilderviewScene is the default entry point; it launches GameScene on demand
-  scene: [WilderviewScene, GameScene, CreditsScene],
+  scene: [WilderviewScene, GameScene, CreditsScene, NpcDialogScene],
 });
 
 // Expose game instance for Playwright tests and dev tooling
