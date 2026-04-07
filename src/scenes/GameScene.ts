@@ -842,17 +842,19 @@ export class GameScene extends Phaser.Scene {
     this.player.setAlpha(0);
     (this.player.body as Phaser.Physics.Arcade.Body).setEnable(false);
 
-    // Build target list from ground animals; shuffle for variety
-    this.attractTargets = Phaser.Utils.Array.Shuffle([
-      ...this.groundAnimals.getChildren(),
-    ]);
+    // Mix birds (first) and ground animals so Wilderview always opens on a bird in flight.
+    const birdBodies = this.birds.map(b => b.body);
+    const groundBodies = this.groundAnimals.getChildren() as Phaser.GameObjects.GameObject[];
+    this.attractTargets = [
+      ...Phaser.Utils.Array.Shuffle(birdBodies),
+      ...Phaser.Utils.Array.Shuffle(groundBodies),
+    ];
 
-    // Start camera at world centre, then let it pan to the first target
-    this.cameras.main.centerOn(WORLD_W / 2, WORLD_H / 2);
+    // Start camera following the first bird immediately — no initial pan from world centre.
     if (this.attractTargets.length > 0) {
       this.cameras.main.startFollow(
         this.attractTargets[0] as Phaser.GameObjects.GameObject,
-        true, 0.03, 0.03,
+        true, 0.06, 0.06,
       );
     }
     this.attractNextAt = this.time.now + 12000;
@@ -959,6 +961,7 @@ export class GameScene extends Phaser.Scene {
       roaming:  'looking for food',
       fleeing:  'fleeing!',
       chasing:  'chasing',
+      flying:   'soaring',
     };
 
     const label = `${type} — ${stateLabel[state] ?? state}`;
@@ -1053,6 +1056,9 @@ export class GameScene extends Phaser.Scene {
 
       const body = this.add.ellipse(x, y, w, h, color);
       body.setDepth(7);
+      // Tag so the Wilderview thought bubble can identify and describe the bird.
+      body.setData('animalType', isCrow ? 'crow' : 'songbird');
+      body.setData('animalState', 'flying');
 
       const speed = Phaser.Math.Between(55, 95);
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
