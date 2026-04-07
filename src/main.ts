@@ -40,7 +40,6 @@ const game = new Phaser.Game({
   scene: [WilderviewScene, GameScene, CreditsScene, NpcDialogScene],
 });
 
-// Expose game instance for Playwright tests and dev tooling
-if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
-  (window as unknown as Record<string, unknown>)['__game'] = game;
-}
+// Expose game instance for Playwright tests and dev tooling.
+// Always set so that preview-mode Playwright tests can access it.
+(window as unknown as Record<string, unknown>)['__game'] = game;
