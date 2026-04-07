@@ -437,7 +437,7 @@ export class GameScene extends Phaser.Scene {
     this.createDayNightOverlay();
 
     // Ambient forest sound — skipped entirely when audio is unavailable (CI).
-    if (this.audioAvailable) {
+    if (this.audioAvailable && this.cache.audio.has('forest-ambience')) {
       this.ambienceSound = this.sound.add('forest-ambience', {
         loop: true,
         volume: 0.25,
@@ -618,7 +618,8 @@ export class GameScene extends Phaser.Scene {
     if (moving && this.time.now - this.lastFootstepAt > this.FOOTSTEP_INTERVAL_MS) {
       // Pick a random variant (0–4) each step so it never sounds repetitive.
       const variant = Phaser.Math.Between(0, 4);
-      if (this.audioAvailable) this.sound.play(`footstep-grass-${variant}`, { volume: 0.45 });
+      const footKey = `footstep-grass-${variant}`;
+      if (this.audioAvailable && this.cache.audio.has(footKey)) this.sound.play(footKey, { volume: 0.45 });
       this.lastFootstepAt = this.time.now;
     }
 
@@ -1261,8 +1262,10 @@ export class GameScene extends Phaser.Scene {
     const defs: Array<[key: string, texture: string, frames: number[], frameRate: number]> = [
       ['deer-idle-anim', 'deer-idle', [0, 2, 4, 6],          6],
       ['deer-walk-anim', 'deer-walk', [0, 2, 4, 6, 8, 10],   8],
-      ['hare-idle-anim', 'hare-idle', [0, 2, 4, 6],          8],
-      ['hare-walk-anim', 'hare-walk', [0, 2, 4, 6, 8, 10],  12],
+      ['hare-idle-anim', 'hare-idle', [0, 2, 4, 6],         8],
+      // Hare_Walk.png is 160×128 (10 cols) so only 5 even-column frames fit in row 0.
+      // Deer/fox walk sheets are 192px wide (12 cols) and can hold 6.
+      ['hare-walk-anim', 'hare-walk', [0, 2, 4, 6, 8],    12],
       ['fox-idle-anim',  'fox-idle',  [0, 2, 4, 6],          6],
       ['fox-walk-anim',  'fox-walk',  [0, 2, 4, 6, 8, 10],   8],
     ];
@@ -1413,7 +1416,7 @@ export class GameScene extends Phaser.Scene {
         // Play rustle only on the frame the animal starts fleeing, not every frame.
         // This is the "state transition" pattern: prev was not fleeing, now it is.
         if (prevState !== 'fleeing') {
-          if (this.audioAvailable) this.sound.play('animal-rustle', { volume: 0.5 });
+          if (this.audioAvailable && this.cache.audio.has('animal-rustle')) this.sound.play('animal-rustle', { volume: 0.5 });
           // Switch to walk animation when fleeing starts — faster-looking movement.
           r.play(`${type}-walk-anim`);
         }
