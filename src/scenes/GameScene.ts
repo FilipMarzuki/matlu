@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
+import { ValueNoise2D } from '../lib/noise';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { Decoration } from '../environment/Decoration';
 import { WorldObject } from '../environment/WorldObject';
@@ -15,6 +16,12 @@ const REX_PLUGIN_CDN =
 // World dimensions (tile-based 2400×2000 map)
 const WORLD_W = 2400;
 const WORLD_H = 2000;
+
+// Terrain tile size in pixels
+const TILE_SIZE = 32;
+// Noise scales: BASE drives large biome regions, DETAIL adds local colour variation
+const BASE_SCALE   = 0.07;
+const DETAIL_SCALE = 0.22;
 
 // Player spawn position: center-left on the dirt path
 const SPAWN_X = 400;
@@ -64,6 +71,43 @@ const HUD_PAD = 14;
 
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
 
+/**
+ * Maps a combined noise value (0–1) and a detail noise value (0–1) to a
+ * spring-Sweden terrain colour. Breakpoints tuned for fBm output (mean ≈ 0.5).
+ *
+ *   < 0.28  — water (small ponds)
+ *   < 0.37  — shore / wet grass
+ *   < 0.54  — light spring meadow
+ *   < 0.65  — meadow
+ *   < 0.73  — tall grass / dark meadow
+ *   < 0.81  — forest edge (birch / mixed)
+ *   < 0.90  — pine / spruce forest
+ *   ≥ 0.90  — dense forest interior
+ */
+function terrainColor(val: number, detail: number): number {
+  if (val < 0.28) return detail > 0.5 ? 0x5a91cc : 0x4a7fbf;
+
+  if (val < 0.37) return detail > 0.5 ? 0x92c85a : 0x82b84a;
+
+  if (val < 0.54) {
+    const v = [0x7ac04a, 0x88cc52, 0x6eb844] as const;
+    return v[Math.min(Math.floor(detail * 3), 2)];
+  }
+
+  if (val < 0.65) {
+    const v = [0x68a838, 0x72b240, 0x609830] as const;
+    return v[Math.min(Math.floor(detail * 3), 2)];
+  }
+
+  if (val < 0.73) return detail > 0.55 ? 0x508a28 : 0x487820;
+
+  if (val < 0.81) return detail > 0.5 ? 0x3a6a20 : 0x2e5e18;
+
+  if (val < 0.90) return detail > 0.5 ? 0x28541a : 0x1e4412;
+
+  return detail > 0.5 ? 0x1e3c10 : 0x162e0a;
+}
+
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private playerBody!: Phaser.GameObjects.Arc;
@@ -88,6 +132,7 @@ export class GameScene extends Phaser.Scene {
   private portalActive = false;
   private portalGfx!: Phaser.GameObjects.Graphics;
   private levelCompleteLogged = false;
+  private runSeed = 0;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -109,7 +154,8 @@ export class GameScene extends Phaser.Scene {
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
 
-    this.drawMap();
+    this.runSeed = Math.floor(Math.random() * 0xffffffff);
+    this.drawProceduralTerrain();
     this.createObstacles();
     this.createDecorations();
     this.createSolidObjects();
@@ -688,31 +734,42 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.solidObjects);
   }
 
-  private drawMap(): void {
+  /**
+   * Generates and draws a noise-based spring-Sweden landscape:
+   * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
+   * Uses this.runSeed for deterministic output (same seed → same map).
+   */
+  private drawProceduralTerrain(): void {
+    const noise    = new ValueNoise2D(this.runSeed);
+    const detNoise = new ValueNoise2D(this.runSeed ^ 0xb5ad4ecb);
+
+    const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
+    const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
+
     const g = this.add.graphics();
+    g.setDepth(0);
 
-    g.fillStyle(0x2d6b2e, 1);
-    g.fillRect(0, 0, WORLD_W, WORLD_H);
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const base   = noise.fbm(tx * BASE_SCALE,   ty * BASE_SCALE,   4, 0.5);
+        const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
+        const val    = base * 0.78 + detail * 0.22;
 
-    const roadW = 88;
-    const cx = 400;
-    const cy = 1000;
-    g.fillStyle(0x3a3a3a, 1);
-    g.fillRect(0, cy - roadW / 2, WORLD_W, roadW);
-    g.fillRect(cx - roadW / 2, 0, roadW, WORLD_H);
-
-    g.lineStyle(3, 0xffdd00, 1);
-    const dash = 18;
-    const gap = 14;
-    for (let x = 20; x < WORLD_W; x += dash + gap) {
-      g.lineBetween(x, cy, Math.min(x + dash, WORLD_W - 20), cy);
-    }
-    for (let y = 20; y < WORLD_H; y += dash + gap) {
-      g.lineBetween(cx, y, cx, Math.min(y + dash, WORLD_H - 20));
+        g.fillStyle(terrainColor(val, detail), 1);
+        g.fillRect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      }
     }
 
-    g.lineStyle(2, 0xffcc00, 1);
-    g.strokeRect(0, cy - roadW / 2, WORLD_W, roadW);
-    g.strokeRect(cx - roadW / 2, 0, roadW, WORLD_H);
+    // Dirt clearing at spawn so the player starts on a recognisable landmark
+    const sx = Math.floor(SPAWN_X / TILE_SIZE);
+    const sy = Math.floor(SPAWN_Y / TILE_SIZE);
+    g.fillStyle(0xc4a472, 1);
+    for (let dy = -3; dy <= 3; dy++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        if (dx * dx + dy * dy <= 7) {
+          g.fillRect((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
   }
 }
