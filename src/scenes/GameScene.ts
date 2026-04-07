@@ -18,6 +18,7 @@ import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
 import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
+import { CorruptionField } from '../world/CorruptionField';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
   meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
@@ -190,6 +191,11 @@ export class GameScene extends Phaser.Scene {
   /** Whether the audio system is functional — false in headless CI environments */
   private audioAvailable = false;
 
+  // ─── Corruption field ─────────────────────────────────────────────────────────
+  // Per-position corruption intensity — gives corruption organic geography instead
+  // of uniform zone-wide darkening. Sampled each degradation tick.
+  private corruptionField!: CorruptionField;
+
   // ─── Path system ──────────────────────────────────────────────────────────────
   private pathSystem!: PathSystem;
   // Graphics object kept alive so drawPaths() can redraw after condition changes
@@ -331,6 +337,7 @@ export class GameScene extends Phaser.Scene {
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
     this.baseNoise = new FbmNoise(this.runSeed);
+    this.corruptionField = new CorruptionField(this.runSeed);
     this.pathSystem = new PathSystem(LEVEL1_PATHS.map(s => ({ ...s })));
     this.drawProceduralTerrain();
     this.drawPaths();
@@ -436,10 +443,16 @@ export class GameScene extends Phaser.Scene {
     }
     // Degrade path conditions every 5 s when corruption is above 0.
     if (time > this.nextPathDegradeAt) {
-      const corruption = this.worldState.getCleansePercent('zone-main');
-      this.pathSystem.degradeAll(Math.max(0, 100 - corruption));
-      // Redraw paths so worn segments visually fade toward gray over time
-      this.pathSystem.drawPaths(this.pathGraphics);
+      const cleanse = this.worldState.getCleansePercent('zone-main');
+      const globalCorruption01 = Math.max(0, 100 - cleanse) / 100;
+      if (globalCorruption01 > 0) {
+        // Sample corruptionField at each segment centre so roads inside
+        // corruption hotspots degrade faster than roads in cleaner areas.
+        this.pathSystem.degradeLocal((cx, cy) =>
+          this.corruptionField.sample(cx, cy, globalCorruption01)
+        );
+        this.pathSystem.drawPaths(this.pathGraphics);
+      }
       this.nextPathDegradeAt = time + 5000;
     }
   }
