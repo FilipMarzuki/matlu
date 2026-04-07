@@ -444,30 +444,62 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Returns a 0–1 acceptance probability for spawning `type` at world position (wx, wy).
+   * Samples baseNoise (same instance as terrain rendering) so values correspond exactly
+   * to the biome the player will see. Values outside the preferred range still get a small
+   * non-zero chance so the world isn't completely empty in the wrong biome.
+   *
+   * Breakpoints mirror terrainColor():
+   *   < 0.28  deep water  (nothing spawns here)
+   *   < 0.37  shore/wet
+   *   < 0.65  open meadow
+   *   < 0.73  tall grass
+   *   < 0.81  forest edge
+   *   ≥ 0.81  dense forest
+   */
+  private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit'): number {
+    const v = this.baseNoise.fbm(wx * BASE_SCALE, wy * BASE_SCALE);
+    if (v < 0.28) return 0; // never spawn in open water
+    switch (type) {
+      case 'deer':   return v > 0.37 && v < 0.73 ? 1.0 : 0.2;  // meadow & tall grass
+      case 'hare':   return v > 0.28 && v < 0.65 ? 1.0 : 0.3;  // shore through meadow
+      case 'fox':    return v > 0.54 && v < 0.90 ? 1.0 : 0.15; // forest fringe
+      case 'rabbit': return v > 0.28 && v < 0.54 ? 1.0 : 0.2;  // wet shore through light meadow
+      default:       return 1.0;
+    }
+  }
+
   private spawnRabbits(): void {
     // Use a sub-seed so rabbits always appear at the same positions for a given runSeed.
     // Timing values (roamNext, fleeUntil) stay non-deterministic for gameplay variety.
     const rng = mulberry32(this.runSeed ^ 0xf00d1234);
     const rndBetween = (min: number, max: number): number =>
       Math.floor(rng() * (max - min + 1)) + min;
-    let spawned = 0;
-    while (spawned < RABBIT_COUNT) {
-      const x = rndBetween(80, WORLD_W - 80);
-      const y = rndBetween(80, WORLD_H - 80);
-      if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) {
-        continue;
+
+    for (let i = 0; i < RABBIT_COUNT; i++) {
+      // Try up to 3 candidate positions — accept the first one whose biome matches.
+      // If all 3 fail the bias check, skip this rabbit rather than forcing it into
+      // the wrong terrain. In practice < 5% of slots are skipped at these settings.
+      let accepted = false;
+      for (let attempt = 0; attempt < 3 && !accepted; attempt++) {
+        const x = rndBetween(80, WORLD_W - 80);
+        const y = rndBetween(80, WORLD_H - 80);
+        if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
+        if (rng() >= this.spawnBias(x, y, 'rabbit')) continue;
+
+        const r = this.add.rectangle(x, y, RABBIT_SIZE, RABBIT_SIZE, 0x4a3558);
+        r.setStrokeStyle(1, 0x221122);
+        this.physics.add.existing(r);
+        const b = r.body as Phaser.Physics.Arcade.Body;
+        b.setCollideWorldBounds(true);
+        b.setDrag(40, 40);
+        this.rabbits.add(r);
+        r.setData('state', 'roaming' satisfies RabbitState);
+        r.setData('roamNext', this.time.now + Phaser.Math.Between(1500, 3500));
+        r.setData('fleeUntil', 0);
+        accepted = true;
       }
-      const r = this.add.rectangle(x, y, RABBIT_SIZE, RABBIT_SIZE, 0x4a3558);
-      r.setStrokeStyle(1, 0x221122);
-      this.physics.add.existing(r);
-      const b = r.body as Phaser.Physics.Arcade.Body;
-      b.setCollideWorldBounds(true);
-      b.setDrag(40, 40);
-      this.rabbits.add(r);
-      r.setData('state', 'roaming' satisfies RabbitState);
-      r.setData('roamNext', this.time.now + Phaser.Math.Between(1500, 3500));
-      r.setData('fleeUntil', 0);
-      spawned += 1;
     }
   }
 
@@ -913,6 +945,9 @@ export class GameScene extends Phaser.Scene {
     body.setCircle(BODY_RADIUS);
 
     this.physics.add.collider(this.player, this.obstacles);
+    // Register solid-objects collider here (not in createSolidObjects) because
+    // this.player is undefined until createPlayer() runs.
+    this.physics.add.collider(this.player, this.solidObjects);
 
     // Wire interactive object overlaps
     for (const obj of this.interactiveObjects) {
@@ -1006,8 +1041,7 @@ export class GameScene extends Phaser.Scene {
       ...treeDefs.map(p => ({ ...p, texture: 'tree-placeholder', options: { colliderWidth: 10, colliderHeight: 8, colliderOffsetY: -2 } })),
       ...rockDefs.map(p => ({ ...p, texture: 'rock-placeholder', options: { colliderWidth: 16, colliderHeight: 10 } })),
     ]);
-
-    this.physics.add.collider(this.player, this.solidObjects);
+    // Collider with player registered in createPlayer() after this.player is initialized.
   }
 
   // ─── Attract mode ─────────────────────────────────────────────────────────────
@@ -1182,24 +1216,30 @@ export class GameScene extends Phaser.Scene {
     const rndBetween = (min: number, max: number): number =>
       Math.floor(rng() * (max - min + 1)) + min;
     for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
-      let spawned = 0;
-      while (spawned < def.count) {
-        const x = rndBetween(80, WORLD_W - 80);
-        const y = rndBetween(80, WORLD_H - 80);
-        if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
+      // type is one of 'deer' | 'hare' | 'fox' — all valid spawnBias keys
+      const biasType = type as 'deer' | 'hare' | 'fox';
+      for (let i = 0; i < def.count; i++) {
+        // 3 attempts per slot — accept the first position whose biome matches.
+        let accepted = false;
+        for (let attempt = 0; attempt < 3 && !accepted; attempt++) {
+          const x = rndBetween(80, WORLD_W - 80);
+          const y = rndBetween(80, WORLD_H - 80);
+          if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
+          if (rng() >= this.spawnBias(x, y, biasType)) continue;
 
-        const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
-        rect.setStrokeStyle(1, def.stroke);
-        rect.setDepth(3);
-        this.physics.add.existing(rect);
-        const b = rect.body as Phaser.Physics.Arcade.Body;
-        b.setCollideWorldBounds(true);
-        b.setDrag(60, 60);
-        this.groundAnimals.add(rect);
-        rect.setData('animalType', type);
-        rect.setData('animalState', 'roaming' satisfies AnimalState);
-        rect.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
-        spawned++;
+          const rect = this.add.rectangle(x, y, def.w, def.h, def.color);
+          rect.setStrokeStyle(1, def.stroke);
+          rect.setDepth(3);
+          this.physics.add.existing(rect);
+          const b = rect.body as Phaser.Physics.Arcade.Body;
+          b.setCollideWorldBounds(true);
+          b.setDrag(60, 60);
+          this.groundAnimals.add(rect);
+          rect.setData('animalType', type);
+          rect.setData('animalState', 'roaming' satisfies AnimalState);
+          rect.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+          accepted = true;
+        }
       }
     }
   }
