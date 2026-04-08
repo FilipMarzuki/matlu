@@ -45,6 +45,14 @@ const SPAWN_Y = 2650;
 // Player movement speed in px/s
 const PLAYER_SPEED = 180;
 
+// ── Dash mechanic (FIL-123) ───────────────────────────────────────────────────
+// Short burst of high speed with invincibility frames. Double-tap the joystick
+// or press Shift to dash in the current movement direction.
+const DASH_SPEED        = 520;  // px/s during the burst
+const DASH_DURATION_MS  = 180;  // how long the velocity override lasts
+const DASH_COOLDOWN_MS  = 600;  // minimum gap between consecutive dashes
+const DASH_AFTERIMAGE_N = 4;    // ghost sprites left in the wake
+
 // Player shape dimensions
 const BODY_RADIUS = 16;
 const INDICATOR_W = 10;
@@ -217,6 +225,19 @@ export class GameScene extends Phaser.Scene {
   private hpFill!: Phaser.GameObjects.Rectangle;
   // Timestamp of last player hit — prevents instant death from rapid rabbit taps
   private lastDamagedAt = 0;
+
+  // ─── Dash state (FIL-123) ─────────────────────────────────────────────────────
+  // dashingUntil: game-time (ms) when the current dash expires (0 = not dashing).
+  // Invincibility is active for the full duration — rabbits can't damage the player
+  // mid-dash, which rewards skilful dodge timing.
+  private dashingUntil   = 0;
+  private lastDashAt     = 0;   // cooldown gating
+  private dashDx         = 0;   // normalised direction held for the burst
+  private dashDy         = 0;
+  // Joystick double-tap detection: record when joystick goes idle so a quick
+  // re-engagement within 220 ms triggers a dash.
+  private joystickWasActive   = false;
+  private joystickReleasedAt  = 0;
 
   // ─── Run timing ───────────────────────────────────────────────────────────────
   // Set when the player exits attract mode (name entered) so the timer reflects
@@ -534,6 +555,9 @@ export class GameScene extends Phaser.Scene {
       if (!this.npcDialogActive) this.openPauseMenu();
     });
 
+    // Dash on Shift key — same action as joystick double-tap (FIL-123)
+    this.input.keyboard?.on('keydown-SHIFT', () => this.tryDash());
+
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.mountainWalls);
@@ -544,6 +568,8 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.rabbits, () => {
       if (this.gameEnded || this.attractMode) return;
       const now = this.time.now;
+      // Player is invincible while dashing — reward the dodge
+      if (now < this.dashingUntil) return;
       if (now - this.lastDamagedAt < 1500) return;
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - 20);
@@ -758,6 +784,17 @@ export class GameScene extends Phaser.Scene {
 
   private updatePlayerMovement(): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const now = this.time.now;
+
+    // ── Dash override ─────────────────────────────────────────────────────────
+    // While dashingUntil hasn't elapsed, force the pre-calculated direction at
+    // DASH_SPEED and skip the normal movement read entirely.
+    if (now < this.dashingUntil) {
+      body.setVelocity(this.dashDx * DASH_SPEED, this.dashDy * DASH_SPEED);
+      this.updatePlayerAnimation(this.dashDx, this.dashDy, true);
+      return;
+    }
+
     let dx = 0;
     let dy = 0;
 
@@ -772,6 +809,20 @@ export class GameScene extends Phaser.Scene {
       dx = right - left;
       dy = down - up;
     }
+
+    // ── Joystick double-tap detection ─────────────────────────────────────────
+    // Detect when the joystick goes from active → idle → active within 220 ms
+    // and treat it as a dash trigger (the mobile equivalent of pressing Shift).
+    const joystickActive = this.joystick.force > 10;
+    if (this.joystickWasActive && !joystickActive) {
+      this.joystickReleasedAt = now;
+    }
+    if (!this.joystickWasActive && joystickActive && this.joystickReleasedAt > 0) {
+      if (now - this.joystickReleasedAt < 220) {
+        this.tryDash();
+      }
+    }
+    this.joystickWasActive = joystickActive;
 
     const moving = dx !== 0 || dy !== 0;
 
@@ -1049,6 +1100,89 @@ export class GameScene extends Phaser.Scene {
     // in parallel so the frozen world stays visible behind it.
     this.scene.pause();
     this.scene.launch('PauseMenuScene');
+  }
+
+  // ── Dash mechanic (FIL-123) ─────────────────────────────────────────────────
+
+  /**
+   * Initiates a dash in the current movement direction (or last-known facing
+   * direction if the player is standing still).
+   *
+   * Called from the Shift keydown listener and from the joystick double-tap
+   * path in updatePlayerMovement(). Guards: attract mode, game ended, cooldown.
+   */
+  private tryDash(): void {
+    if (this.attractMode || this.gameEnded) return;
+    const now = this.time.now;
+    if (now - this.lastDashAt < DASH_COOLDOWN_MS) return;
+
+    // Resolve dash direction — prefer live input, fall back to last facing.
+    let dx = 0;
+    let dy = 0;
+
+    if (this.joystick.force > 10) {
+      dx = Math.cos(this.joystick.rotation);
+      dy = Math.sin(this.joystick.rotation);
+    } else {
+      const right = this.cursors.right.isDown || this.wasd['right'].isDown ? 1 : 0;
+      const left  = this.cursors.left.isDown  || this.wasd['left'].isDown  ? 1 : 0;
+      const down  = this.cursors.down.isDown  || this.wasd['down'].isDown  ? 1 : 0;
+      const up    = this.cursors.up.isDown    || this.wasd['up'].isDown    ? 1 : 0;
+      dx = right - left;
+      dy = down - up;
+    }
+
+    // If no directional input, use the last known facing direction so standing
+    // dashes still feel intentional (dash "away" from last movement).
+    if (dx === 0 && dy === 0) {
+      if (this.playerLastDir === 'up')   { dy = -1; }
+      else if (this.playerLastDir === 'down') { dy =  1; }
+      else { dx = this.playerSprite.flipX ? -1 : 1; }
+    }
+
+    const len = Math.sqrt(dx * dx + dy * dy);
+    this.dashDx = dx / len;
+    this.dashDy = dy / len;
+    this.lastDashAt   = now;
+    this.dashingUntil = now + DASH_DURATION_MS;
+
+    this.spawnDashAfterimages();
+
+    // Reuse swipe SFX at a higher pitch for a distinct whoosh feel.
+    if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
+      this.sound.play('sfx-swipe', { volume: 0.22, rate: 1.6 });
+    }
+  }
+
+  /**
+   * Drops DASH_AFTERIMAGE_N semi-transparent ghost circles staggered over the
+   * first ~120 ms of the dash. Each ghost spawns at the player's live position
+   * at the moment of spawn, so earlier ghosts trail further behind — the trail
+   * appears to grow behind the player as they dash forward.
+   */
+  private spawnDashAfterimages(): void {
+    for (let i = 0; i < DASH_AFTERIMAGE_N; i++) {
+      // Stagger spawns: i=0 is immediate (start position), i=N-1 is near dash end.
+      this.time.delayedCall(i * 30, () => {
+        const ghost = this.add.arc(
+          this.player.x, this.player.y,
+          BODY_RADIUS,
+          0, 360, false,
+          0xa8d8ff,
+          // Earlier ghosts (lower i) are more transparent — they lag further
+          // behind the player so a softer echo suits them visually.
+          0.50 - i * 0.08,
+        );
+        ghost.setDepth(4); // just below the player sprite (player container is depth 5)
+        this.tweens.add({
+          targets:  ghost,
+          alpha:    0,
+          duration: 280,
+          ease:     'Power2',
+          onComplete: () => ghost.destroy(),
+        });
+      });
+    }
   }
 
   private createHudAndOverlay(): void {
