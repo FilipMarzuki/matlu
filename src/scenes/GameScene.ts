@@ -88,6 +88,13 @@ const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
 const HUD_PAD = 14;
 
+/** NPC dialog lines — one per settlement, shown when the player presses E nearby. */
+const NPC_DIALOG: Record<string, string> = {
+  strandviken:  'Havet var annorlunda förr. Nu luktar det annorlunda vid tidvattnet.',
+  skogsglanten: 'Skogen minner om saker. Lyssna när vinden vänder.',
+  klippbyn:     'Det är kallt här uppe. Men utsikten — den ljuger aldrig.',
+};
+
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
 type AnimalState = 'roaming' | 'fleeing' | 'chasing';
 
@@ -239,6 +246,15 @@ export class GameScene extends Phaser.Scene {
   chosenPath: PathChoice | null = null;
   // How much passive cleanse has accrued from standing in Zone 3
   private passiveCleanseTotal = 0;
+
+  // ─── Settlements Ph5 ──────────────────────────────────────────────────────────
+  // Warm glow circles under each building — fade in at dusk/night via tween.
+  private settlementGlows: Phaser.GameObjects.Arc[] = [];
+  // Standing NPC figures — checked each frame for proximity interaction.
+  private settlementNpcs: Phaser.GameObjects.Image[] = [];
+  // True while the NpcDialogScene is open so we don't re-trigger on the same frame.
+  private npcDialogActive = false;
+  private interactKey?: Phaser.Input.Keyboard.Key;
 
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
@@ -398,6 +414,7 @@ export class GameScene extends Phaser.Scene {
     this.stampProceduralChunks();
     this.stampDecorationScatter();
     this.stampSettlementBuildings();
+    this.spawnSettlementNpcs();
     this.createInteractiveObjects();
     this.createPlayer();
 
@@ -429,6 +446,11 @@ export class GameScene extends Phaser.Scene {
       left: Phaser.Input.Keyboard.KeyCodes.A,
       right: Phaser.Input.Keyboard.KeyCodes.D,
     }) as Record<string, Phaser.Input.Keyboard.Key>;
+
+    // E key for NPC interaction (FIL-80)
+    this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    // Reset dialog-active flag when NpcDialogScene returns control to GameScene
+    this.events.on(Phaser.Scenes.Events.RESUME, () => { this.npcDialogActive = false; });
 
     // Open credits overlay (C key)
     this.input.keyboard?.on('keydown-C', () => {
@@ -492,6 +514,7 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.updatePlayerMovement();
       this.updateLevel1(delta);
+      this.updateNpcProximity();
     }
     this.updateRabbits(time);
     this.updateGroundAnimals();
@@ -974,6 +997,12 @@ export class GameScene extends Phaser.Scene {
         duration: 8000,
         ease: 'Sine.easeInOut',
       });
+    }
+
+    // Settlement window glow — warm at dusk/night, off during daylight (FIL-80)
+    const glowAlpha = (newPhase === 'dusk' || newPhase === 'night') ? 0.18 : 0;
+    for (const glow of this.settlementGlows) {
+      this.tweens.add({ targets: glow, alpha: glowAlpha, duration: 8000, ease: 'Sine.easeInOut' });
     }
   }
 
@@ -2169,6 +2198,12 @@ export class GameScene extends Phaser.Scene {
         img.setScale(sprScale);
         img.setDepth(3.5);
 
+        // Warm glow circle — lights up at dusk/night via ADD blend (FIL-80).
+        // Starts at alpha 0 (invisible) and is tweened by updateDayNight().
+        const glow = this.add.circle(bx, by, Math.max(bw, img.height * sprScale) * 0.55, 0xffaa33, 0);
+        glow.setDepth(3.4).setBlendMode(Phaser.BlendModes.ADD);
+        this.settlementGlows.push(glow);
+
         // Invisible physics body sized to the sprite's actual displayed footprint.
         // 'rock-grass' is always preloaded — any always-available texture works here.
         const physRect = this.physics.add.staticImage(bx, by, 'rock-grass');
@@ -2403,6 +2438,53 @@ export class GameScene extends Phaser.Scene {
       ease: 'Sine.easeOut',
       onComplete: () => ring.destroy(),
     });
+  }
+
+  /**
+   * Place standing NPC figures inside each settlement clearing (FIL-80).
+   * Uses pc-idle-down frame 0 scaled small — no animation, just a visible
+   * humanoid silhouette that signals "something to interact with here".
+   */
+  private spawnSettlementNpcs(): void {
+    for (const s of SETTLEMENTS) {
+      const count = s.type === 'village' ? 2 : 1;
+      for (let i = 0; i < count; i++) {
+        // Spread NPCs evenly around the inner clearing using equal-angle sectors
+        const angle = (i / count) * Math.PI * 2;
+        const r = s.radius * 0.25;
+        const nx = s.x + Math.cos(angle) * r;
+        const ny = s.y + Math.sin(angle) * r;
+        const npc = this.add.image(nx, ny, 'pc-idle-down', 0);
+        // Scale 0.35 makes the 64×64 frame appear at ~22 px — readable at zoom 2
+        npc.setScale(0.35);
+        npc.setDepth(2 + ny / WORLD_H);
+        npc.setData('settlementId', s.id);
+        this.settlementNpcs.push(npc);
+      }
+    }
+  }
+
+  /**
+   * Check whether the player is close enough to any NPC to interact (FIL-80).
+   * Shows a prompt when within 80 px; E key launches NpcDialogScene and pauses.
+   */
+  private updateNpcProximity(): void {
+    if (this.npcDialogActive) return;
+    for (const npc of this.settlementNpcs) {
+      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y) < 80) {
+        if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+          this.npcDialogActive = true;
+          const sid = npc.getData('settlementId') as string;
+          const dialogData: NpcDialogData = {
+            callerKey: this.scene.key,
+            text: NPC_DIALOG[sid] ?? 'Välkommen.',
+          };
+          this.scene.pause();
+          this.scene.launch('NpcDialogScene', dialogData as unknown as object);
+        }
+        return; // only the nearest NPC counts per frame
+      }
+    }
   }
 
   /**
