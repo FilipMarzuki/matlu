@@ -1997,6 +1997,21 @@ export class GameScene extends Phaser.Scene {
       // Sort by y so decorations further down the screen render in front —
       // the standard "painter's algorithm" for top-down 2D.
       sprite.setDepth(2 + d.y / WORLD_H);
+
+      // Grass tufts sway gently — a sine-eased angle tween rocks each tuft ±3°.
+      // Duration and delay are derived from world position so adjacent tufts
+      // don't oscillate in lockstep; coprime multipliers prevent axis-aligned banding.
+      if (d.type === 'tuft') {
+        this.tweens.add({
+          targets: sprite,
+          angle: { from: -3, to: 3 },
+          ease: 'Sine.easeInOut',
+          duration: 1200 + (Math.abs(d.x + d.y) % 600), // 1.2–1.8 s cycle
+          yoyo: true,
+          repeat: -1,
+          delay: Math.abs(d.x * 3 + d.y * 7) % 1500,  // 0–1.5 s stagger
+        });
+      }
     }
   }
 
