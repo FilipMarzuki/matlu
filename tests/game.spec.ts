@@ -24,15 +24,25 @@ test('game canvas renders without crashing', async ({ page }) => {
 test('pressing W key moves the player upward', async ({ page }) => {
   await page.goto('/');
 
-  // Wait for canvas to appear (WilderviewScene is running)
+  // Wait for canvas to appear (MainMenuScene is running)
   await expect(page.locator('#game-container canvas')).toBeVisible({ timeout: GAME_BOOT_MS });
+
+  // The game now boots into MainMenuScene. Bypass it programmatically so the
+  // test doesn't depend on clicking a Phaser canvas button. We wait until the
+  // Phaser game object is available on window, then start GameScene directly.
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown | null>)['__game'],
+    { timeout: GAME_BOOT_MS },
+  );
+  await page.evaluate(() => {
+    const game = (window as unknown as Record<string, { scene?: { start?: (k: string) => void } }>)['__game'];
+    game?.scene?.start?.('GameScene');
+  });
 
   // GameScene.create() does heavy work (terrain, chunks, animals).
   // Poll until the player object exists before interacting with keyboard.
-  // This avoids a race where we press Enter before the keydown listener is set up.
   await page.waitForFunction(
-    () => !!(window as unknown as Record<string, unknown | null>)['__game']
-      && !!((window as unknown as Record<string, { scene?: { getScene?: (k: string) => { player?: unknown } | null } }>)['__game']?.scene?.getScene?.('GameScene')?.player),
+    () => !!((window as unknown as Record<string, { scene?: { getScene?: (k: string) => { player?: unknown } | null } }>)['__game']?.scene?.getScene?.('GameScene')?.player),
     { timeout: SCENE_READY_MS },
   );
 
