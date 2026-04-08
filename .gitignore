@@ -13,6 +13,8 @@ dist
 *.wav
 # Shapeforms preview pack — 130 MB of WAVs + promo materials, not game-ready assets
 public/assets/audio/Shapeforms Audio Free Sound Effects/
+# Duplicate download of Kenney Impact Sounds (macOS/Windows appends " (1)" on re-download)
+public/assets/audio/kenney_impact-sounds (1)/
 
 # Playwright test output
 test-results/
