@@ -154,15 +154,17 @@ interface BirdObject {
  *   ≥ 0.80  Highland rock — bare granite, gnarled mountain birch
  */
 function terrainTileFrame(val: number, detail: number): { key: string; frame: number } {
-  // Spread across 12 frames (2 full rows) per biome using detail noise.
-  // detail is orthogonal to the biome noise so the pattern looks non-repetitive.
-  const v12 = Math.floor(detail * 11.99);
+  // Stay within a single row (6 columns) per biome — v12 across 2 rows caused
+  // coastal tiles to visibly cycle as detail noise oscillated between rows.
+  // plains.png rows: 0 = earthy shingle, 2 = light meadow, 4 = birch-spruce,
+  //                  6 = dark spruce,    8 = bare granite
+  const v6 = Math.floor(detail * 5.99); // 0–5, one row of plains.png
   if      (val < 0.25) return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 }; // sea / lake
-  else if (val < 0.33) return { key: 'mw-plains', frame: v12 };        // rocky shore — rows 0–1
-  else if (val < 0.48) return { key: 'mw-plains', frame: 12 + v12 };   // coastal heath — rows 2–3
-  else if (val < 0.65) return { key: 'mw-plains', frame: 24 + v12 };   // mixed birch-spruce — rows 4–5
-  else if (val < 0.80) return { key: 'mw-plains', frame: 36 + v12 };   // dense spruce forest — rows 6–7
-  else                 return { key: 'mw-plains', frame: 48 + v12 };   // highland granite — rows 8–9
+  else if (val < 0.30) return { key: 'mw-plains', frame: v6 };         // rocky shore        — row 0
+  else if (val < 0.42) return { key: 'mw-plains', frame: 12 + v6 };    // coastal heath      — row 2
+  else if (val < 0.62) return { key: 'mw-plains', frame: 24 + v6 };    // mixed birch-spruce — row 4
+  else if (val < 0.78) return { key: 'mw-plains', frame: 36 + v6 };    // dense spruce       — row 6
+  else                 return { key: 'mw-plains', frame: 48 + v6 };    // highland granite   — row 8
 }
 
 export class GameScene extends Phaser.Scene {
@@ -411,8 +413,8 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
     // Zoom in so pixel-art sprites read clearly on a tablet screen.
-    // At zoom 2 the viewport shows half the world area, but sprites appear twice as large.
-    this.cameras.main.setZoom(2);
+    // 2.5× gives a tighter, more intimate view than the previous 2×.
+    this.cameras.main.setZoom(2.5);
 
     const joystickPlugin = this.plugins.get(
       REX_VIRTUAL_JOYSTICK_PLUGIN_KEY
@@ -429,6 +431,15 @@ export class GameScene extends Phaser.Scene {
       thumb,
       fixed: true,
     });
+
+    // Hide the joystick on non-touch devices (desktop with mouse/keyboard).
+    // navigator.maxTouchPoints > 0 covers phones, tablets, and touch-screen laptops.
+    // The joystick object still exists so this.joystick.force checks remain safe.
+    const isTouchDevice = navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) {
+      base.setVisible(false);
+      thumb.setVisible(false);
+    }
 
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys({
