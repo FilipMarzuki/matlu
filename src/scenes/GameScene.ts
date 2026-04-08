@@ -195,6 +195,13 @@ export class GameScene extends Phaser.Scene {
   // All HUD elements (bars + labels) collected so they can be hidden during attract mode
   private hudObjects: Phaser.GameObjects.GameObject[] = [];
 
+  // ─── Particle effects ─────────────────────────────────────────────────────────
+  // Phase-gated emitters — created once in spawnParticleEffects(), toggled by
+  // applyParticlePhase() on every day/night transition.
+  private leavesEmitter?:  Phaser.GameObjects.Particles.ParticleEmitter;
+  private pollenEmitter?:  Phaser.GameObjects.Particles.ParticleEmitter;
+  private fireflyEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
   private ambienceSound: Phaser.Sound.BaseSound | undefined;
@@ -398,6 +405,7 @@ export class GameScene extends Phaser.Scene {
     this.stampProceduralChunks();
     this.stampDecorationScatter();
     this.stampSettlementBuildings();
+    this.spawnParticleEffects();
     this.createInteractiveObjects();
     this.createPlayer();
 
@@ -498,6 +506,11 @@ export class GameScene extends Phaser.Scene {
     this.updateBirds(time, delta);
     if (this.portalActive) {
       this.portalGfx.rotation += 0.03;
+    }
+    // Firefly emitter follows the player so particles always appear near the
+    // camera centre. Updated every frame — cheap since it's just a position copy.
+    if (this.fireflyEmitter) {
+      this.fireflyEmitter.setPosition(this.player.x, this.player.y);
     }
     // Degrade path conditions every 5 s when corruption is above 0.
     if (time > this.nextPathDegradeAt) {
@@ -975,6 +988,7 @@ export class GameScene extends Phaser.Scene {
         ease: 'Sine.easeInOut',
       });
     }
+    this.applyParticlePhase(newPhase);
   }
 
   /** Ambience volume target for each day phase. */
@@ -2074,6 +2088,113 @@ export class GameScene extends Phaser.Scene {
         });
       }
     }
+  }
+
+  // ─── Particle effects (FIL-57) ───────────────────────────────────────────────
+
+  /**
+   * Create particle textures and emitters for all three phase-gated effects:
+   *   dawn/dusk   → falling leaves
+   *   day phases  → drifting pollen
+   *   night       → fireflies near the player
+   *
+   * Textures are generated programmatically — no external sprite sheet needed.
+   * All emitters start paused; applyParticlePhase() activates the right one on
+   * each day/night transition.
+   *
+   * Phaser 3.60+ particle API: this.add.particles(x, y, key, config) returns a
+   * ParticleEmitter directly. setEmitting(false) starts it in a paused state.
+   */
+  private spawnParticleEffects(): void {
+    // Generate tiny particle textures with Graphics — avoids any load dependency.
+    // generateTexture() bakes the Graphics commands into a named cache entry.
+    // add.graphics() + setVisible(false) keeps it off-screen; generateTexture()
+    // works on any Graphics object regardless of display-list membership.
+    const g = this.add.graphics().setVisible(false);
+
+    // Leaf: muted green-brown oval (falling autumn/spring leaf)
+    g.fillStyle(0x6a8a40, 1);
+    g.fillEllipse(4, 3, 8, 6);
+    g.generateTexture('particle-leaf', 8, 6);
+    g.clear();
+
+    // Pollen: tiny pale-yellow dot
+    g.fillStyle(0xffee88, 1);
+    g.fillCircle(1.5, 1.5, 1.5);
+    g.generateTexture('particle-pollen', 3, 3);
+    g.clear();
+
+    // Firefly: soft warm-white circle — small enough to feel like a point of light
+    g.fillStyle(0xffffaa, 1);
+    g.fillCircle(2.5, 2.5, 2.5);
+    g.generateTexture('particle-firefly', 5, 5);
+    g.destroy();
+
+    // ── Leaves (screen-space, depth 3) ───────────────────────────────────────
+    // setScrollFactor(0) pins them to the camera so they always rain across the
+    // visible viewport regardless of world position.
+    // Slow fall speed + rotation gives a natural tumbling leaf feel.
+    this.leavesEmitter = this.add.particles(0, -10, 'particle-leaf', {
+      x:        { min: 0, max: 800 },
+      speedY:   { min: 25, max: 70 },
+      speedX:   { min: -20, max: 20 },
+      rotate:   { min: 0, max: 360 },
+      alpha:    { start: 0.7, end: 0 },
+      scale:    { min: 0.8, max: 1.6 },
+      lifespan: 9000,
+      frequency: 300,
+      quantity:  1,
+      emitting: false,
+    }).setScrollFactor(0).setDepth(3);
+
+    // ── Pollen (screen-space, depth 3) ───────────────────────────────────────
+    // Slow upward drift with slight horizontal wobble — spring pollen in sunlight.
+    this.pollenEmitter = this.add.particles(0, 0, 'particle-pollen', {
+      x:        { min: 0, max: 800 },
+      y:        { min: 0, max: 600 },
+      speedY:   { min: -12, max: -4 },
+      speedX:   { min: -8, max: 8 },
+      alpha:    { start: 0.5, end: 0 },
+      scale:    { min: 0.6, max: 1.2 },
+      lifespan: 7000,
+      frequency: 500,
+      quantity:  1,
+      emitting: false,
+    }).setScrollFactor(0).setDepth(3);
+
+    // ── Fireflies (world-space, depth 3.5) ───────────────────────────────────
+    // World-space so they appear to exist in the environment rather than on the HUD.
+    // Position is updated each frame in update() to follow the player, keeping
+    // fireflies visible in the camera's current view without flooding the whole world.
+    // Fade-in / hold / fade-out lifecycle creates a natural blink effect.
+    this.fireflyEmitter = this.add.particles(SPAWN_X, SPAWN_Y, 'particle-firefly', {
+      x:        { min: -350, max: 350 },
+      y:        { min: -250, max: 250 },
+      speedX:   { min: -8, max: 8 },
+      speedY:   { min: -8, max: 8 },
+      alpha:    { start: 0.85, end: 0 },
+      scale:    { min: 0.4, max: 1.0 },
+      lifespan: 3500,
+      frequency: 600,
+      quantity:  1,
+      emitting: false,
+    }).setDepth(3.5);
+
+    // Set initial emitter state for the phase the clock starts in
+    this.applyParticlePhase(this.currentPhase);
+  }
+
+  /**
+   * Start/stop the right particle emitters for the current day phase.
+   * Called once on startup (spawnParticleEffects) and again on every transition
+   * (updateDayNight) so the effects always match the visible sky tint.
+   */
+  private applyParticlePhase(phase: DayPhase): void {
+    // Optional chaining guards the brief window before create() assigns the emitters.
+    // ParticleEmitter.emitting is a writable boolean — true = actively emitting.
+    if (this.leavesEmitter)  this.leavesEmitter.emitting  = phase === 'dawn' || phase === 'dusk';
+    if (this.pollenEmitter)  this.pollenEmitter.emitting   = phase === 'morning' || phase === 'midday' || phase === 'afternoon';
+    if (this.fireflyEmitter) this.fireflyEmitter.emitting  = phase === 'night';
   }
 
   // ─── Settlement buildings (FIL-78 / FIL-79) ─────────────────────────────────
