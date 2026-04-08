@@ -10,6 +10,6 @@ export class WilderviewScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('GameScene');
+    this.scene.start('MainMenuScene');
   }
 }
