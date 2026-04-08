@@ -1695,19 +1695,56 @@ export class GameScene extends Phaser.Scene {
    * Depth 4: above terrain (0), paths (1), and corruption overlays (3) so the
    * settlement boundary stays readable even inside a heavily corrupted zone.
    */
+  /**
+   * Draw settlement markers: soft fill, path spur, dashed circle boundary,
+   * center icon, and name label.
+   *
+   * Draw order within each settlement (painter's algorithm on a single Graphics):
+   *   1. Fill  — large soft disc; must come first so later strokes render on top
+   *   2. Spur  — dirt-track line connecting to the nearest PathSystem segment
+   *   3. Dashed circle — boundary ring
+   *   4. House icon — small roof+base silhouette at center
+   */
   private drawSettlementMarkers(): void {
     const gfx = this.add.graphics();
     gfx.setDepth(4);
 
     for (const s of SETTLEMENTS) {
-      // Warm tan for villages, muted grey-brown for hamlets
+      // Warm tan for villages, muted grey-brown for hamlets — used by stroke and icon
       const strokeColor = s.type === 'village' ? 0xd4b483 : 0xa08870;
-      gfx.lineStyle(2, strokeColor, 0.9);
 
+      // ── 1. Soft fill ──────────────────────────────────────────────────────────
+      // Low-alpha disc tints the terrain underneath without obscuring it.
+      const fillColor = s.type === 'village' ? 0xe8c878 : 0xc8b898;
+      gfx.fillStyle(fillColor, s.type === 'village' ? 0.10 : 0.08);
+      gfx.fillCircle(s.x, s.y, s.radius);
+
+      // ── 2. Path spur ──────────────────────────────────────────────────────────
+      // Find the nearest point on any PathSystem segment (each segment is an
+      // axis-aligned rect — clamp the settlement centre into the rect to get
+      // the closest point). Draw a dirt-coloured line from there to the centre.
+      let nearestDist = Infinity, nearestX = s.x, nearestY = s.y;
+      for (const seg of this.pathSystem.getSegments()) {
+        const nx = Phaser.Math.Clamp(s.x, seg.x, seg.x + seg.w);
+        const ny = Phaser.Math.Clamp(s.y, seg.y, seg.y + seg.h);
+        const d  = Phaser.Math.Distance.Between(s.x, s.y, nx, ny);
+        if (d < nearestDist) { nearestDist = d; nearestX = nx; nearestY = ny; }
+      }
+      // Only draw a spur if the settlement isn't already sitting on a path
+      if (nearestDist > s.radius * 0.5) {
+        gfx.lineStyle(3, 0xb8905a, 0.35); // matches dirt-path colour in PathSystem
+        gfx.beginPath();
+        gfx.moveTo(nearestX, nearestY);
+        gfx.lineTo(s.x, s.y);
+        gfx.strokePath();
+      }
+
+      // ── 3. Dashed circle boundary ─────────────────────────────────────────────
       // 20 dash + 20 gap segments evenly distributed around the full circle.
       // dashAngle = angle spanned by one dash; gap is the same size.
-      const dashCount  = 20;
-      const dashAngle  = Math.PI / dashCount; // π/20 ≈ 9° per dash
+      gfx.lineStyle(2, strokeColor, 0.9);
+      const dashCount = 20;
+      const dashAngle = Math.PI / dashCount; // π/20 ≈ 9° per dash
       for (let i = 0; i < dashCount; i++) {
         const startAngle = i * dashAngle * 2;
         // Approximate the arc as a 4-segment polyline
@@ -1722,7 +1759,21 @@ export class GameScene extends Phaser.Scene {
         gfx.strokePoints(pts, false);
       }
 
-      // Name label — centred just above the circle, serif font for a map-like feel
+      // ── 4. Center icon (house silhouette) ─────────────────────────────────────
+      // A minimal house shape: triangle roof + rectangle base. Drawn in the same
+      // colour as the dashed boundary so it reads as part of the same marker.
+      const ic = 10; // half-width of the icon
+      gfx.fillStyle(strokeColor, 0.9);
+      // Roof — isoceles triangle above the base
+      gfx.fillTriangle(
+        s.x,       s.y - ic,         // apex
+        s.x - ic,  s.y - ic * 0.3,  // bottom-left
+        s.x + ic,  s.y - ic * 0.3,  // bottom-right
+      );
+      // Base — slightly narrower rectangle
+      gfx.fillRect(s.x - ic * 0.65, s.y - ic * 0.3, ic * 1.3, ic * 0.9);
+
+      // ── Name label ────────────────────────────────────────────────────────────
       this.add.text(s.x, s.y - s.radius - 10, s.name, {
         fontFamily: 'Georgia, serif',
         fontSize: '13px',
