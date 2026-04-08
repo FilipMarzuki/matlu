@@ -73,7 +73,7 @@ const FOREST_COPSE: ChunkDef = {
   id: 'forest_copse',
   weight: 4,
   radius: 120,
-  biomeMin: 0.54, biomeMax: 1.0,  // meadow → dense forest
+  biomeMin: 0.42, biomeMax: 1.0,  // birch-spruce → dense forest (wider forest eligibility)
   items: [
     { kind: 'tree', dx:   0, dy:   0, texture: 'tree-spruce',     scale: 2.8, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
     { kind: 'tree', dx:  60, dy: -20, texture: 'tree-pine',       scale: 2.5, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
@@ -93,7 +93,7 @@ const CLEARING: ChunkDef = {
   id: 'clearing',
   weight: 3,
   radius: 150,
-  biomeMin: 0.37, biomeMax: 0.73,  // light meadow → tall grass
+  biomeMin: 0.30, biomeMax: 0.65,  // coastal heath → birch-spruce
   items: [
     // Border trees
     { kind: 'tree', dx: -100, dy:   0, texture: 'tree-birch',     scale: 2.5, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
@@ -169,7 +169,7 @@ const WATERING_HOLE: ChunkDef = {
 export const CHUNKS: ChunkDef[] = [FOREST_COPSE, CLEARING, RUINS, WATERING_HOLE];
 
 /** How many chunks to place across the world */
-export const CHUNK_COUNT = 16;
+export const CHUNK_COUNT = 28;
 
 /**
  * Positions that must remain clear of chunks.
