@@ -17,5 +17,9 @@
   "settings.title": "Inställningar",
   "settings.sound_on": "Ljud på",
   "settings.sound_off": "Ljud av",
-  "settings.language_label": "Språk"
+  "settings.language_label": "Språk",
+  "pause.title": "Pausad",
+  "pause.resume": "Fortsätt",
+  "pause.settings": "Inställningar",
+  "pause.quit": "Tillbaka till menyn"
 }

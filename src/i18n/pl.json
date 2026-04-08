@@ -17,5 +17,9 @@
   "settings.title": "Ustawienia",
   "settings.sound_on": "Dźwięk włączony",
   "settings.sound_off": "Dźwięk wyłączony",
-  "settings.language_label": "Język"
+  "settings.language_label": "Język",
+  "pause.title": "Pauza",
+  "pause.resume": "Wznów",
+  "pause.settings": "Ustawienia",
+  "pause.quit": "Menu główne"
 }

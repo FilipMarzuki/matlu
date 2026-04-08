@@ -205,6 +205,10 @@ export class GameScene extends Phaser.Scene {
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
   private ambienceSound: Phaser.Sound.BaseSound | undefined;
+  // Background music track for the current day phase (crossfades on transition)
+  private musicTrack: Phaser.Sound.BaseSound | undefined;
+  // Key of the currently-playing music track (avoid restarting the same track)
+  private currentMusicKey = '';
   // tracks when we last played a footstep so we don't fire every frame
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
@@ -288,6 +292,25 @@ export class GameScene extends Phaser.Scene {
       'assets/audio/forest-ambience.ogg',
       'assets/audio/forest-ambience.mp3',
     ]);
+    // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
+    // Mapped: dawn → Sunlight Through Leaves, morning/midday/afternoon → Whispering Woods,
+    // dusk → Evening Harmony, night → Polar Lights.
+    const cozyBase = 'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks';
+    this.load.audio('music-dawn',  [`${cozyBase}/Sunlight Through Leaves.ogg`]);
+    this.load.audio('music-day',   [`${cozyBase}/Whispering Woods.ogg`]);
+    this.load.audio('music-dusk',  [`${cozyBase}/Evening Harmony.ogg`]);
+    this.load.audio('music-night', [`${cozyBase}/Polar Lights.ogg`]);
+
+    // ── Event SFX ─────────────────────────────────────────────────────────────────
+    // Collectible pickup: warm pizzicato jingle (Kenney Music Jingles, CC0)
+    this.load.audio('sfx-pickup',  ['assets/audio/kenney_music-jingles/Audio/Pizzicato jingles/jingles_PIZZI05.ogg']);
+    // Portal reveal: crystalline steel jingle (Kenney Music Jingles, CC0)
+    this.load.audio('sfx-portal',  ['assets/audio/kenney_music-jingles/Audio/Steel jingles/jingles_STEEL05.ogg']);
+    // Cleanse swipe: arcane wind-chime whoosh (Shapeforms, free preview)
+    this.load.audio('sfx-swipe',   ['assets/audio/Shapeforms Audio Free Sound Effects/Arcane Activations Preview/AUDIO/Arcane Wind Chime Gust.wav']);
+    // Corruption presence: ominous drone (Cozy Tunes Pro sound effect)
+    this.load.audio('sfx-corruption', ['assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/shadow.ogg']);
+
     // Load all 5 variants for three terrain surfaces from the Kenney Impact Sounds
     // pack (CC0). Multiple variants prevent the "machine gun" effect (identical
     // sounds repeating feel unnatural). Three surfaces map to terrain biome values:
@@ -469,6 +492,14 @@ export class GameScene extends Phaser.Scene {
       this.scene.launch('CreditsScene', this.scene.key as unknown as object);
     });
 
+    // Open pause menu (Escape or P) — only when no dialog is already blocking input
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (!this.npcDialogActive) this.openPauseMenu();
+    });
+    this.input.keyboard?.on('keydown-P', () => {
+      if (!this.npcDialogActive) this.openPauseMenu();
+    });
+
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.mountainWalls);
@@ -512,6 +543,9 @@ export class GameScene extends Phaser.Scene {
       });
       this.ambienceSound.play();
     }
+
+    // Start background music for the initial day phase
+    this.startPhaseMusic(this.currentPhase, 0);
 
     this.initAttractMode();
   }
@@ -762,6 +796,11 @@ export class GameScene extends Phaser.Scene {
     }
     this.lastSwipeAt = now;
 
+    // Swipe whoosh SFX — plays regardless of whether a rabbit is hit
+    if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
+      this.sound.play('sfx-swipe', { volume: 0.35 });
+    }
+
     const px = this.player.x;
     const py = this.player.y;
     const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
@@ -864,6 +903,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private openPauseMenu(): void {
+    // Pause this scene (freezes update + physics) then launch the pause overlay
+    // in parallel so the frozen world stays visible behind it.
+    this.scene.pause();
+    this.scene.launch('PauseMenuScene');
+  }
+
   private createHudAndOverlay(): void {
     const w = HUD_BAR_W;
     const h = HUD_BAR_H;
@@ -903,6 +949,24 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(300);
     this.hudObjects.push(this.cleanseFill);
+
+    // Pause button — top-centre, between the two HUD bars.
+    // Small and unobtrusive on tablet; tapping or clicking it opens the pause menu.
+    const pauseBtn = this.add
+      .text(sw / 2, pad + 4, '  ⏸  ', {
+        fontSize: '12px',
+        color: '#7a9a7a',
+        backgroundColor: '#00000044',
+        padding: { x: 6, y: 3 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(300)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover',  () => pauseBtn.setStyle({ color: '#f0ead6' }))
+      .on('pointerout',   () => pauseBtn.setStyle({ color: '#7a9a7a' }))
+      .on('pointerdown',  () => this.openPauseMenu());
+    this.hudObjects.push(pauseBtn);
 
     // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
@@ -963,6 +1027,10 @@ export class GameScene extends Phaser.Scene {
   private revealPortal(): void {
     this.portalActive = true;
     this.drawPortalRing();
+    // Steel jingle marks the portal unlocking — distinct from the pickup pizzicato
+    if (this.audioAvailable && this.cache.audio.has('sfx-portal')) {
+      this.sound.play('sfx-portal', { volume: 0.6 });
+    }
     this.tweens.add({
       targets: this.portal,
       alpha: 1,
@@ -1018,12 +1086,92 @@ export class GameScene extends Phaser.Scene {
       });
     }
     this.applyParticlePhase(newPhase);
+    this.crossfadeMusic(newPhase, 8000);
 
     // Settlement window glow — warm at dusk/night, off during daylight (FIL-80)
     const glowAlpha = (newPhase === 'dusk' || newPhase === 'night') ? 0.18 : 0;
     for (const glow of this.settlementGlows) {
       this.tweens.add({ targets: glow, alpha: glowAlpha, duration: 8000, ease: 'Sine.easeInOut' });
     }
+  }
+
+  /** Music track key for each day phase. */
+  private phaseMusicKey(phase: DayPhase): string {
+    switch (phase) {
+      case 'dawn':      return 'music-dawn';
+      case 'morning':   return 'music-day';
+      case 'midday':    return 'music-day';
+      case 'afternoon': return 'music-day';
+      case 'dusk':      return 'music-dusk';
+      case 'night':     return 'music-night';
+    }
+  }
+
+  /** Music volume target for each day phase (music is softer than ambience). */
+  private phaseMusicVolume(phase: DayPhase): number {
+    switch (phase) {
+      case 'dawn':      return 0.20;
+      case 'morning':   return 0.30;
+      case 'midday':    return 0.28;
+      case 'afternoon': return 0.25;
+      case 'dusk':      return 0.18;
+      case 'night':     return 0.15;
+    }
+  }
+
+  /**
+   * Start the music track for the given phase immediately at the given volume.
+   * Used for the first frame so we don't cross-fade from silence every session.
+   * `fadeDuration` = 0 means instant start.
+   */
+  private startPhaseMusic(phase: DayPhase, fadeDuration: number): void {
+    if (!this.audioAvailable) return;
+    const key = this.phaseMusicKey(phase);
+    if (!this.cache.audio.has(key)) return;
+    this.currentMusicKey = key;
+    this.musicTrack = this.sound.add(key, { loop: true, volume: 0 });
+    this.musicTrack.play();
+    if (fadeDuration > 0) {
+      this.tweens.add({ targets: this.musicTrack, volume: this.phaseMusicVolume(phase), duration: fadeDuration, ease: 'Sine.easeInOut' });
+    } else {
+      (this.musicTrack as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound).setVolume(this.phaseMusicVolume(phase));
+    }
+  }
+
+  /**
+   * Crossfade from the current music track to the one matching `newPhase`.
+   * If the track key hasn't changed (e.g. morning → midday both use music-day)
+   * we skip the transition to avoid an audible restart.
+   */
+  private crossfadeMusic(newPhase: DayPhase, duration: number): void {
+    if (!this.audioAvailable) return;
+    const nextKey = this.phaseMusicKey(newPhase);
+    if (nextKey === this.currentMusicKey) return;
+
+    // Fade out old track
+    if (this.musicTrack) {
+      const old = this.musicTrack;
+      this.tweens.add({
+        targets: old,
+        volume: 0,
+        duration,
+        ease: 'Sine.easeInOut',
+        onComplete: () => old.stop(),
+      });
+    }
+
+    // Fade in new track
+    if (!this.cache.audio.has(nextKey)) return;
+    this.currentMusicKey = nextKey;
+    const next = this.sound.add(nextKey, { loop: true, volume: 0 });
+    next.play();
+    this.musicTrack = next;
+    this.tweens.add({
+      targets: next,
+      volume: this.phaseMusicVolume(newPhase),
+      duration,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   /** Ambience volume target for each day phase. */
@@ -2610,6 +2758,11 @@ export class GameScene extends Phaser.Scene {
     id: string, label: string, ix: number, iy: number, zoneId: string
   ): void {
     this.collectedItems.add(id);
+
+    // Collectible pickup jingle
+    if (this.audioAvailable && this.cache.audio.has('sfx-pickup')) {
+      this.sound.play('sfx-pickup', { volume: 0.55 });
+    }
 
     const sprite = this.collectibleSprites.get(id);
     if (sprite) {

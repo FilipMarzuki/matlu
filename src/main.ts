@@ -7,6 +7,7 @@ import { GameScene } from './scenes/GameScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { NpcDialogScene } from './scenes/NpcDialogScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { PauseMenuScene } from './scenes/PauseMenuScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -40,7 +41,7 @@ const game = new Phaser.Game({
   },
   // MainMenuScene is the entry point (first in array = auto-started).
   // WilderviewScene is kept for compatibility but now redirects to MainMenuScene.
-  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene],
+  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene],
 });
 
 // Restore mute preference saved by SettingsScene.

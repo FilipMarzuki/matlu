@@ -17,5 +17,9 @@
   "settings.title": "Settings",
   "settings.sound_on": "Sound on",
   "settings.sound_off": "Sound off",
-  "settings.language_label": "Language"
+  "settings.language_label": "Language",
+  "pause.title": "Paused",
+  "pause.resume": "Resume",
+  "pause.settings": "Settings",
+  "pause.quit": "Main Menu"
 }
