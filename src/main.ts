@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import './lib/supabaseClient';
+import { MainMenuScene } from './scenes/MainMenuScene';
 import { WilderviewScene } from './scenes/WilderviewScene';
 import { GameScene } from './scenes/GameScene';
 import { CreditsScene } from './scenes/CreditsScene';
@@ -36,8 +37,9 @@ const game = new Phaser.Game({
       },
     ],
   },
-  // WilderviewScene is the default entry point; it launches GameScene on demand
-  scene: [WilderviewScene, GameScene, CreditsScene, NpcDialogScene],
+  // MainMenuScene is the entry point (first in array = auto-started).
+  // WilderviewScene is kept for compatibility but now redirects to MainMenuScene.
+  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene],
 });
 
 // Expose game instance for Playwright tests and dev tooling.
