@@ -256,27 +256,28 @@ export class GameScene extends Phaser.Scene {
     // ── Audio ──────────────────────────────────────────────────────────────────
     // Phaser tries each format in order and picks the first the browser supports.
     // .ogg is smaller and preferred; .mp3 is the fallback for Safari.
-    //
-    // REPLACE these placeholder paths with real files from freesound.org / kenney.nl.
-    // Suggested searches:
-    //   forest-ambience  → freesound "forest birds morning" (CC0)
-    //   footstep-grass   → kenney.nl "Impact Sounds" or freesound "footstep grass"
-    //   animal-rustle    → freesound "leaves rustle" or "animal startle"
     this.load.audio('forest-ambience', [
       'assets/audio/forest-ambience.ogg',
       'assets/audio/forest-ambience.mp3',
     ]);
-    // Load all 5 grass variants from the Kenney Impact Sounds pack (CC0).
-    // Using multiple variants and picking one randomly each step prevents the
-    // "machine gun" effect — identical sounds repeating feel unnatural.
-    const grassBase = 'assets/audio/kenney_impact-sounds/Audio';
+    // Load all 5 variants for three terrain surfaces from the Kenney Impact Sounds
+    // pack (CC0). Multiple variants prevent the "machine gun" effect (identical
+    // sounds repeating feel unnatural). Three surfaces map to terrain biome values:
+    //   grass    → meadow / forest floor (biome 0.33–0.80)
+    //   concrete → rocky shore and highland rock (biome 0.25–0.33 and ≥0.80)
+    //   wood     → dense forest (biome 0.65–0.80, same range as dark terrain)
+    const kenney = 'assets/audio/kenney_impact-sounds/Audio';
     for (let i = 0; i < 5; i++) {
-      this.load.audio(`footstep-grass-${i}`, `${grassBase}/footstep_grass_00${i}.ogg`);
+      this.load.audio(`footstep-grass-${i}`,    `${kenney}/footstep_grass_00${i}.ogg`);
+      this.load.audio(`footstep-concrete-${i}`, `${kenney}/footstep_concrete_00${i}.ogg`);
+      this.load.audio(`footstep-wood-${i}`,     `${kenney}/footstep_wood_00${i}.ogg`);
     }
 
-    this.load.audio('animal-rustle', [
-      'assets/audio/animal-rustle.mp3',
-    ]);
+    // Animal rustle — soft impact sound plays when an animal starts fleeing.
+    // Using Kenney impactSoft (CC0) as a convincing "sudden movement" sound.
+    for (let i = 0; i < 5; i++) {
+      this.load.audio(`animal-rustle-${i}`, `${kenney}/impactSoft_medium_00${i}.ogg`);
+    }
 
     // ── Terrain tilesets (PostApocalypse background sheets, FIL-53) ──────────────
     // Three 384×272 spritesheets, 16×16 tiles (24 cols × 17 rows).
@@ -641,10 +642,34 @@ export class GameScene extends Phaser.Scene {
     // We check time.now instead of a frame counter so it stays in sync even
     // if the frame rate drops.
     if (moving && this.time.now - this.lastFootstepAt > this.FOOTSTEP_INTERVAL_MS) {
-      // Pick a random variant (0–4) each step so it never sounds repetitive.
-      const variant = Phaser.Math.Between(0, 4);
-      const footKey = `footstep-grass-${variant}`;
-      if (this.audioAvailable && this.cache.audio.has(footKey)) this.sound.play(footKey, { volume: 0.45 });
+      // Sample the biome noise at the player's tile position to pick the right
+      // surface sound. BASE_SCALE and baseNoise match drawProceduralTerrain() exactly,
+      // so the value corresponds to the terrain colour the player sees underfoot.
+      const tx = this.player.x / TILE_SIZE;
+      const ty = this.player.y / TILE_SIZE;
+      const biomeVal = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+      // Apply the same coastal gradient that drawProceduralTerrain() uses so shore
+      // and highland biome thresholds align with the visible terrain.
+      const coastBias = Math.pow(Math.max(0, this.player.x / WORLD_W - 0.55), 1.8) * 2.0;
+      const biome = Math.min(1, biomeVal + coastBias);
+
+      // Suppress footsteps on open water (nothing to step on).
+      // Map remaining biome ranges to surface keys matching the terrain colours:
+      //   rocky shore  (0.25–0.33) → concrete (gravel / stone shingle)
+      //   meadow/heath (0.33–0.65) → grass
+      //   forest       (0.65–0.80) → wood (forest floor, muffled)
+      //   highland     (≥ 0.80)    → concrete (bare granite plateau)
+      if (biome >= 0.25) {
+        let surface: string;
+        if      (biome < 0.33) surface = 'concrete';
+        else if (biome < 0.65) surface = 'grass';
+        else if (biome < 0.80) surface = 'wood';
+        else                   surface = 'concrete';
+
+        const variant = Phaser.Math.Between(0, 4);
+        const footKey = `footstep-${surface}-${variant}`;
+        if (this.audioAvailable && this.cache.audio.has(footKey)) this.sound.play(footKey, { volume: 0.45 });
+      }
       this.lastFootstepAt = this.time.now;
     }
 
@@ -1539,7 +1564,8 @@ export class GameScene extends Phaser.Scene {
         // Play rustle only on the frame the animal starts fleeing, not every frame.
         // This is the "state transition" pattern: prev was not fleeing, now it is.
         if (prevState !== 'fleeing') {
-          if (this.audioAvailable && this.cache.audio.has('animal-rustle')) this.sound.play('animal-rustle', { volume: 0.5 });
+          const rustleKey = `animal-rustle-${Phaser.Math.Between(0, 4)}`;
+        if (this.audioAvailable && this.cache.audio.has(rustleKey)) this.sound.play(rustleKey, { volume: 0.5 });
           // Switch to walk animation when fleeing starts — faster-looking movement.
           r.play(`${type}-walk-anim`);
         }
