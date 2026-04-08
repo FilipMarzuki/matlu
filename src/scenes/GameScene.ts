@@ -376,6 +376,7 @@ export class GameScene extends Phaser.Scene {
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampDecorationScatter();
+    this.stampSettlementBuildings();
     this.createInteractiveObjects();
     this.createPlayer();
 
@@ -1838,6 +1839,100 @@ export class GameScene extends Phaser.Scene {
       // Sort by y so decorations further down the screen render in front —
       // the standard "painter's algorithm" for top-down 2D.
       sprite.setDepth(2 + d.y / WORLD_H);
+    }
+  }
+
+  // ─── Settlement buildings (FIL-78) ───────────────────────────────────────────
+
+  /**
+   * Scatter rectangular building footprints inside each settlement boundary.
+   *
+   * Buildings are placed via rejection sampling in the annulus between a small
+   * central clearing and the settlement edge, using a deterministic per-settlement
+   * RNG so the layout is identical on every load.
+   *
+   * Each building gets:
+   *  - A Graphics fillRect (roof tint) + strokeRect (wall outline) at depth 3.5
+   *  - An invisible staticImage added to solidObjects so the player collides with it
+   */
+  private stampSettlementBuildings(): void {
+    const gfx = this.add.graphics();
+    gfx.setDepth(3.5);
+
+    for (const s of SETTLEMENTS) {
+      // Hash the settlement id string to a numeric seed (djb2-style multiplicative hash)
+      let seed = 0;
+      for (let i = 0; i < s.id.length; i++) {
+        seed = (Math.imul(seed, 31) + s.id.charCodeAt(i)) >>> 0;
+      }
+      const rng = mulberry32(seed);
+
+      const count = s.type === 'hamlet'
+        ? 3 + Math.floor(rng() * 3)   // 3–5
+        : 8 + Math.floor(rng() * 7);  // 8–14
+
+      // Style: warm ochre roof for village, muted grey for hamlet
+      const roofColor  = s.type === 'village' ? 0xd4a855 : 0x9a8878;
+      const wallColor  = s.type === 'village' ? 0xd4b483 : 0xa08870;
+
+      // Keep a small clearing at the settlement centre (e.g. a market square)
+      const clearR = s.radius * 0.2;
+
+      // Track placed AABBs for overlap rejection
+      const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+      let placed_count = 0;
+      const maxAttempts = count * 20;
+
+      for (let attempt = 0; attempt < maxAttempts && placed_count < count; attempt++) {
+        // Uniform random point in annulus [clearR, radius-20] using sqrt trick
+        const angle = rng() * Math.PI * 2;
+        const dist  = clearR + Math.sqrt(rng()) * (s.radius - clearR - 20);
+        const bx = s.x + Math.cos(angle) * dist;
+        const by = s.y + Math.sin(angle) * dist;
+
+        const bw = 24 + Math.floor(rng() * 20); // 24–43 px
+        const bh = 18 + Math.floor(rng() * 16); // 18–33 px
+
+        // AABB overlap check against already-placed buildings (4 px gap)
+        const gap = 4;
+        const left   = bx - bw / 2 - gap;
+        const right  = bx + bw / 2 + gap;
+        const top    = by - bh / 2 - gap;
+        const bottom = by + bh / 2 + gap;
+
+        let overlaps = false;
+        for (const p of placed) {
+          if (right  > p.x - p.w / 2 &&
+              left   < p.x + p.w / 2 &&
+              bottom > p.y - p.h / 2 &&
+              top    < p.y + p.h / 2) {
+            overlaps = true;
+            break;
+          }
+        }
+        if (overlaps) continue;
+
+        placed.push({ x: bx, y: by, w: bw, h: bh });
+        placed_count++;
+
+        // Roof fill — semi-transparent coloured rectangle
+        gfx.fillStyle(roofColor, 0.25);
+        gfx.fillRect(bx - bw / 2, by - bh / 2, bw, bh);
+
+        // Wall outline — opaque stroke
+        gfx.lineStyle(1.5, wallColor, 0.8);
+        gfx.strokeRect(bx - bw / 2, by - bh / 2, bw, bh);
+
+        // Invisible physics body so the player bounces off the building walls.
+        // 'rock-grass' is always preloaded — any always-available texture works here.
+        const physRect = this.physics.add.staticImage(bx, by, 'rock-grass');
+        physRect.setVisible(false);
+        const body = physRect.body as Phaser.Physics.Arcade.StaticBody;
+        body.setSize(bw, bh);
+        body.reset(bx, by);
+        this.solidObjects.add(physRect);
+      }
     }
   }
 
