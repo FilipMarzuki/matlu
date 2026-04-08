@@ -459,10 +459,11 @@ export class GameScene extends Phaser.Scene {
     this.createDayNightOverlay();
 
     // Ambient forest sound — skipped entirely when audio is unavailable (CI).
+    // Initial volume matches the starting phase so it doesn't snap on first transition.
     if (this.audioAvailable && this.cache.audio.has('forest-ambience')) {
       this.ambienceSound = this.sound.add('forest-ambience', {
         loop: true,
-        volume: 0.25,
+        volume: this.phaseAmbienceVolume(this.currentPhase),
       });
       this.ambienceSound.play();
     }
@@ -927,6 +928,29 @@ export class GameScene extends Phaser.Scene {
       duration: 8000,
       ease: 'Sine.easeInOut',
     });
+
+    // Fade the ambient sound to a phase-appropriate volume over the same 8-second
+    // window as the visual overlay transition. Night is silent; dawn/dusk are quiet.
+    if (this.ambienceSound) {
+      this.tweens.add({
+        targets: this.ambienceSound,
+        volume: this.phaseAmbienceVolume(newPhase),
+        duration: 8000,
+        ease: 'Sine.easeInOut',
+      });
+    }
+  }
+
+  /** Ambience volume target for each day phase. */
+  private phaseAmbienceVolume(phase: DayPhase): number {
+    switch (phase) {
+      case 'dawn':      return 0.10; // forest waking slowly
+      case 'morning':   return 0.25; // full birdsong
+      case 'midday':    return 0.25;
+      case 'afternoon': return 0.20; // settling toward evening
+      case 'dusk':      return 0.08; // last light fading
+      case 'night':     return 0.00; // silent except wind
+    }
   }
 
   protected onZoneCleansed(_type: string, _x: number, _y: number): void {
