@@ -6,5 +6,12 @@
   "credits.asset_packs_heading": "Tillgångspaket",
   "credits.game_code_by": "Spelkod av Filip Marzuki",
   "credits.close_hint": "Tryck Escape eller klicka för att stänga",
-  "credits.attribution_required": " ★ attribution krävs"
+  "credits.attribution_required": " ★ attribution krävs",
+  "menu.play": "Spela",
+  "menu.credits": "Credits",
+  "menu.settings": "Inställningar",
+  "menu.lore": "Värld",
+  "menu.stats": "Statistik",
+  "menu.subtitle": "en rensningsberättelse",
+  "menu.hint": "tryck eller klicka"
 }

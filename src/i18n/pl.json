@@ -6,5 +6,12 @@
   "credits.asset_packs_heading": "Pakiety graficzne",
   "credits.game_code_by": "Kod gry: Filip Marzuki",
   "credits.close_hint": "Naciśnij Escape lub kliknij, aby zamknąć",
-  "credits.attribution_required": " ★ wymagane oznaczenie autora"
+  "credits.attribution_required": " ★ wymagane oznaczenie autora",
+  "menu.play": "Graj",
+  "menu.credits": "Autorzy",
+  "menu.settings": "Ustawienia",
+  "menu.lore": "Świat",
+  "menu.stats": "Statystyki",
+  "menu.subtitle": "opowieść o oczyszczaniu",
+  "menu.hint": "dotknij lub kliknij"
 }
