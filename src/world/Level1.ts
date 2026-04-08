@@ -67,25 +67,25 @@ export interface Collectible {
 
 export const ZONES: Zone[] = [
   {
-    // Stranden — the rocky shore. Heavy corruption from whatever arrived with the tide.
+    // Stranden — rocky shore near the SW spawn. Heavy corruption.
     id: 'zone-start',
-    x: 0, y: 700, w: 600, h: 600,
+    x: 0, y: 2200, w: 700, h: 800,
     corruption: 65,
     tintColor: 0x303030,
     tintAlpha: 0.30,
   },
   {
-    // Skuleskogen — the boreal forest. Ancient spruce and birch, spring still waking.
+    // Skuleskogen — boreal forest mid-corridor. Medium corruption.
     id: 'zone-forest',
-    x: 600, y: 500, w: 1000, h: 850,
+    x: 1600, y: 1000, w: 1100, h: 900,
     corruption: 35,
     tintColor: 0x2a3a28,
     tintAlpha: 0.18,
   },
   {
-    // Klipptoppen — the granite summit. Barely touched; the high rock stays clean.
+    // Klipptoppen — granite summit near the NE portal. Near-clean.
     id: 'zone-plateau',
-    x: 1600, y: 100, w: 900, h: 800,
+    x: 3400, y: 100, w: 1100, h: 900,
     corruption: 5,
     tintColor: 0x506070,
     tintAlpha: 0.06,
@@ -97,21 +97,21 @@ export const ZONES: Zone[] = [
 export const COLLECTIBLES: Collectible[] = [
   {
     id: 'item-start',
-    x: 350, y: 1020,
+    x: 400, y: 2600,
     // A smooth wave-worn stone from the shingle beach — still cold from the sea.
     label: 'Strandstenen',
     zoneId: 'zone-start',
   },
   {
     id: 'item-forest',
-    x: 980, y: 830,
+    x: 2200, y: 1450,
     // A fragment of resin-amber still smelling of old spruce — the forest's memory.
     label: 'Skogsminnet',
     zoneId: 'zone-forest',
   },
   {
     id: 'item-plateau',
-    x: 2050, y: 430,
+    x: 3900, y: 500,
     // A shard of grey lichen-spotted granite from the highest point of the coast.
     label: 'Klippfragmentet',
     zoneId: 'zone-plateau',
@@ -124,7 +124,7 @@ export const COLLECTIBLES: Collectible[] = [
 export const MEETING_RADIUS = 100;
 
 /** World position of the meeting trigger, just before the portal */
-export const MEETING_POINT = { x: 2100, y: 370 };
+export const MEETING_POINT = { x: 3800, y: 480 };
 
 /**
  * Three paths — each a different relationship with this coastal landscape.
@@ -186,8 +186,8 @@ export const SETTLEMENTS: Settlement[] = [
     // Placed below the shore zone at a natural water-edge position.
     id: 'strandviken',
     name: 'Strandviken',
-    x: 180,
-    y: 1150,
+    x: 450,
+    y: 2820,
     radius: 120,
     type: 'hamlet',
   },
@@ -197,8 +197,8 @@ export const SETTLEMENTS: Settlement[] = [
     // Placed at the trail junction around (700, 700) inside the Skuleskogen zone.
     id: 'skogsglanten',
     name: 'Skogsgläntan',
-    x: 1050,
-    y: 730,
+    x: 2300,
+    y: 1400,
     radius: 180,
     type: 'village',
   },
@@ -208,8 +208,8 @@ export const SETTLEMENTS: Settlement[] = [
     // Placed on the lower slope of Klipptoppen, west of the portal.
     id: 'klippbyn',
     name: 'Klippbyn',
-    x: 1850,
-    y: 580,
+    x: 3900,
+    y: 620,
     radius: 100,
     type: 'hamlet',
   },

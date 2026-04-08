@@ -1,73 +1,109 @@
 /**
  * Level 1 path segment layout.
  *
- * The world is 8000×8000. Player spawns near (400, 1000), portal is at (2100, 220).
- * Segments are defined as axis-aligned rects in world coordinates.
+ * The world is 4500×3000, diagonal SW→NE corridor.
+ * Player spawns near (300, 2650); portal is at (4100, 350).
+ * Segments are axis-aligned rects that approximate the diagonal route.
  *
  * Layout narrative:
- *  - Dirt road  : connects spawn area east toward the forest (main travel route)
- *  - Animal trail: winds from the forest meadow north-east toward the plateau
- *  - Forest path : narrow gap through the dense forest belt
- *  - Paved road  : short stretch on the plateau approaching the portal
+ *  - Dirt road    : coastal track from spawn NE through the shore zone
+ *  - Animal trail : meanders mid-corridor through the forest belt
+ *  - Forest path  : narrow gap through dense spruce (mid-NE)
+ *  - Paved road   : old stone track approaching the portal plateau
  */
 
 import type { PathSegment } from './PathSystem';
 
 export const LEVEL1_PATHS: PathSegment[] = [
-  // ── Dirt road — runs east from spawn toward the forest ──────────────────────
+  // ── Dirt road — from SW spawn up the diagonal toward the first settlement ───
   {
-    id: 'dirt-east-1',
+    id: 'dirt-sw-1',
     type: 'dirt',
-    x: 300, y: 960, w: 600, h: 80,
+    x: 200, y: 2600, w: 80, h: 300,   // heading north from spawn
     condition: 80,
   },
   {
-    id: 'dirt-east-2',
+    id: 'dirt-sw-2',
     type: 'dirt',
-    x: 900, y: 900, w: 500, h: 80,
-    condition: 75,
+    x: 200, y: 2330, w: 400, h: 80,   // dog-leg east toward corridor
+    condition: 78,
+  },
+  {
+    id: 'dirt-sw-3',
+    type: 'dirt',
+    x: 580, y: 2100, w: 80, h: 310,   // heading north again
+    condition: 76,
+  },
+  {
+    id: 'dirt-sw-4',
+    type: 'dirt',
+    x: 580, y: 2100, w: 500, h: 70,   // east leg toward forest
+    condition: 74,
   },
 
-  // ── Animal trail — meanders from the meadow toward the plateau ───────────────
-  // Animals use this to cross between Zone 1 and Zone 2; wildlife clusters here.
+  // ── Animal trail — cuts diagonally mid-corridor through the boreal forest ───
   {
     id: 'animal-trail-1',
     type: 'animal',
-    x: 700, y: 700, w: 60, h: 350,
+    x: 1050, y: 1950, w: 60, h: 350,
     condition: 90,
   },
   {
     id: 'animal-trail-2',
     type: 'animal',
-    x: 700, y: 500, w: 400, h: 60,
+    x: 1050, y: 1650, w: 500, h: 60,
     condition: 88,
   },
   {
     id: 'animal-trail-3',
     type: 'animal',
-    x: 1060, y: 300, w: 60, h: 260,
-    condition: 85,
+    x: 1500, y: 1350, w: 60, h: 360,
+    condition: 86,
+  },
+  {
+    id: 'animal-trail-4',
+    type: 'animal',
+    x: 1500, y: 1350, w: 500, h: 60,
+    condition: 84,
+  },
+  {
+    id: 'animal-trail-5',
+    type: 'animal',
+    x: 1950, y: 1100, w: 60, h: 310,
+    condition: 82,
   },
 
-  // ── Forest path — narrow gap through the dense tree belt ───────────────────
+  // ── Forest path — narrow gap through the dense spruce belt ─────────────────
   {
     id: 'forest-path-1',
     type: 'forest',
-    x: 1400, y: 600, w: 300, h: 60,
-    condition: 70,
+    x: 2400, y: 1100, w: 500, h: 60,
+    condition: 72,
   },
   {
     id: 'forest-path-2',
     type: 'forest',
-    x: 1650, y: 350, w: 60, h: 310,
+    x: 2850, y: 820, w: 60, h: 340,
+    condition: 70,
+  },
+  {
+    id: 'forest-path-3',
+    type: 'forest',
+    x: 2850, y: 820, w: 500, h: 60,
     condition: 68,
   },
 
-  // ── Paved road — approaches the portal on the plateau ──────────────────────
+  // ── Paved road — old stone track approaching the NE portal plateau ──────────
   {
     id: 'paved-plateau-1',
     type: 'paved',
-    x: 1700, y: 180, w: 500, h: 100,
+    x: 3300, y: 620, w: 500, h: 80,
+    condition: 92,
+  },
+  {
+    id: 'paved-plateau-2',
+    type: 'paved',
+    x: 3750, y: 380, w: 450, h: 80,
     condition: 95,
   },
 ];

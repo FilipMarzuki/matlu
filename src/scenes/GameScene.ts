@@ -28,9 +28,9 @@ import type { NpcDialogData } from './NpcDialogScene';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
-// World dimensions — large enough that the camera has room to roam in attract mode
-const WORLD_W = 8000;
-const WORLD_H = 8000;
+// World dimensions — diagonal SW→NE corridor. 4500×3000 at zoom 3.
+const WORLD_W = 4500;
+const WORLD_H = 3000;
 
 // Terrain tile size in pixels
 const TILE_SIZE = 32;
@@ -38,9 +38,9 @@ const TILE_SIZE = 32;
 const BASE_SCALE   = 0.07;
 const DETAIL_SCALE = 0.22;
 
-// Player spawn position: center-left on the dirt path
-const SPAWN_X = 400;
-const SPAWN_Y = 1000;
+// Player spawn at the SW end of the diagonal corridor (rocky shore)
+const SPAWN_X = 300;
+const SPAWN_Y = 2650;
 
 // Player movement speed in px/s
 const PLAYER_SPEED = 180;
@@ -50,15 +50,6 @@ const BODY_RADIUS = 16;
 const INDICATOR_W = 10;
 const INDICATOR_H = 6;
 
-// Obstacle definitions: placed in the four grass quadrants, away from roads.
-// Roads span cx±44 (x 356–444) and cy±44 (y 956–1044) in world space.
-const OBSTACLE_DEFS: Array<{ x: number; y: number; w: number; h: number }> = [
-  { x: 160, y: 870, w: 56, h: 40 },
-  { x: 630, y: 885, w: 40, h: 56 },
-  { x: 140, y: 1170, w: 48, h: 48 },
-  { x: 640, y: 1160, w: 64, h: 36 },
-  { x: 230, y: 900, w: 36, h: 36 },
-];
 
 /** FIL-9 / FIL-10: one cleanse unit per defeated rabbit */
 const RABBIT_COUNT = 25;
@@ -79,9 +70,9 @@ const SWIPE_COOLDOWN_MS = 400;
 const SWIPE_RANGE = 120;
 const SWIPE_ARC = Phaser.Math.DegToRad(120);
 
-/** FIL-11: portal in world space (Linear: ~x 2100) */
-const PORTAL_X = 2100;
-const PORTAL_Y = 220;
+/** Portal at the NE end of the diagonal corridor */
+const PORTAL_X = 4100;
+const PORTAL_Y = 350;
 const PORTAL_RADIUS = 44;
 
 const HUD_BAR_W = 200;
@@ -182,7 +173,7 @@ export class GameScene extends Phaser.Scene {
   private playerLastDir: 'down' | 'up' | 'side' = 'down';
   private playerMoving = false;
   private joystick!: VirtualJoyStick;
-  private obstacles!: Phaser.Physics.Arcade.StaticGroup;
+  private mountainWalls!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
   private interactiveObjects!: InteractiveObject[];
   worldClock!: WorldClock;
@@ -418,7 +409,7 @@ export class GameScene extends Phaser.Scene {
     this.drawProceduralTerrain();
     this.drawPaths();
     this.drawSettlementMarkers();
-    this.createObstacles();
+    this.createMountainWalls();
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampDecorationScatter();
@@ -432,7 +423,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
     // Zoom in so pixel-art sprites read clearly on a tablet screen.
     // 2.5× gives a tighter, more intimate view than the previous 2×.
-    this.cameras.main.setZoom(2.5);
+    this.cameras.main.setZoom(3);
 
     const joystickPlugin = this.plugins.get(
       REX_VIRTUAL_JOYSTICK_PLUGIN_KEY
@@ -480,7 +471,7 @@ export class GameScene extends Phaser.Scene {
 
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
-    this.physics.add.collider(this.rabbits, this.obstacles);
+    this.physics.add.collider(this.rabbits, this.mountainWalls);
 
     this.createAnimalAnimations();
     this.groundAnimals = this.physics.add.group();
@@ -578,9 +569,11 @@ export class GameScene extends Phaser.Scene {
    */
   private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit'): number {
     const raw = this.baseNoise.fbm(wx * BASE_SCALE, wy * BASE_SCALE);
-    // Apply the same coastal gradient used in terrain rendering
-    const coastBias = Math.pow(Math.max(0, wx / WORLD_W - 0.55), 1.8) * 2.0;
-    const v = Math.max(0, raw - coastBias);
+    // Mirror the diagonal terrain gradient from drawProceduralTerrain()
+    const spawnPerp = (wx / WORLD_W - (1 - wy / WORLD_H)) / 2;
+    const spawnMtB  = Math.pow(Math.max(0, -spawnPerp - 0.10), 1.5) * 4.0;
+    const spawnOcB  = Math.pow(Math.max(0, spawnPerp  - 0.15), 1.5) * 3.0;
+    const v = Math.max(0, Math.min(1.2, raw * 0.70 + spawnMtB - spawnOcB));
     if (v < 0.25) return 0; // never spawn in open water
     switch (type) {
       case 'deer':   return v > 0.33 && v < 0.65 ? 1.0 : 0.2;  // heath through mixed birch-spruce
@@ -707,10 +700,11 @@ export class GameScene extends Phaser.Scene {
       const tx = this.player.x / TILE_SIZE;
       const ty = this.player.y / TILE_SIZE;
       const biomeVal = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
-      // Apply the same coastal gradient that drawProceduralTerrain() uses so shore
-      // and highland biome thresholds align with the visible terrain.
-      const coastBias = Math.pow(Math.max(0, this.player.x / WORLD_W - 0.55), 1.8) * 2.0;
-      const biome = Math.min(1, biomeVal + coastBias);
+      // Mirror the diagonal gradient so surface sound matches the tile colour underfoot.
+      const fsPerp = (this.player.x / WORLD_W - (1 - this.player.y / WORLD_H)) / 2;
+      const fsMtB  = Math.pow(Math.max(0, -fsPerp - 0.10), 1.5) * 4.0;
+      const fsOcB  = Math.pow(Math.max(0, fsPerp  - 0.15), 1.5) * 3.0;
+      const biome = Math.max(0, Math.min(1.2, biomeVal * 0.70 + fsMtB - fsOcB));
 
       // Suppress footsteps on open water (nothing to step on).
       // Map remaining biome ranges to surface keys matching the terrain colours:
@@ -1072,8 +1066,8 @@ export class GameScene extends Phaser.Scene {
     ensureTexture('tree-interactive', 24, 40, 0x3a7a28);
 
     const shakingTreeDefs = [
-      { x: 460, y: 760 },
-      { x: 460, y: 1250 },
+      { x: 460, y: 2560 },
+      { x: 460, y: 2750 },
     ];
 
     this.interactiveObjects = shakingTreeDefs.map(({ x, y }) => {
@@ -1120,7 +1114,7 @@ export class GameScene extends Phaser.Scene {
     body.setCollideWorldBounds(true);
     body.setCircle(BODY_RADIUS);
 
-    this.physics.add.collider(this.player, this.obstacles);
+    this.physics.add.collider(this.player, this.mountainWalls);
     // Register solid-objects collider here (not in createSolidObjects) because
     // this.player is undefined until createPlayer() runs.
     this.physics.add.collider(this.player, this.solidObjects);
@@ -1133,21 +1127,36 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private createObstacles(): void {
-    this.obstacles = this.physics.add.staticGroup();
+  /**
+   * Invisible static physics bodies along the diagonal mountain boundary.
+   *
+   * The NW triangle is mountain territory (perpDiag < -0.10). We approximate
+   * the boundary with vertical column slabs. Boundary formula:
+   *   boundaryY/WORLD_H = 0.80 - wx/WORLD_W  (from perpDiag = -0.10)
+   * A 6%-height margin keeps the invisible wall inside visible granite.
+   */
+  private createMountainWalls(): void {
+    this.mountainWalls = this.physics.add.staticGroup();
 
-    for (const def of OBSTACLE_DEFS) {
-      // rock-grass.png is 13×9 px. Scale 4.5 → ~58×40 px boulder, readable at zoom 2.
-      // The StaticGroup auto-sizes the physics body to displayWidth × displayHeight,
-      // so collision coverage matches what the player sees without any manual setSize().
-      // Depth = def.y follows the scene's y-sorting convention (further down = in front).
-      const rock = this.add.image(def.x, def.y, 'rock-grass')
-        .setScale(4.5)
-        .setDepth(def.y);
-      this.obstacles.add(rock);
+    const COLS = 22;
+    const colW = Math.ceil(WORLD_W / COLS) + 2; // slight overlap prevents gaps
+
+    for (let i = 0; i < COLS; i++) {
+      const wx = i * Math.ceil(WORLD_W / COLS);
+      const boundaryFrac = 0.74 - wx / WORLD_W; // 0.80 - 0.06 margin - wx/WORLD_W
+      if (boundaryFrac <= 0) break;
+
+      const boundaryY = boundaryFrac * WORLD_H;
+      const rect = this.add.rectangle(
+        wx + colW / 2, boundaryY / 2,
+        colW, boundaryY,
+        0x000000, 0,
+      );
+      this.physics.add.existing(rect, true);
+      this.mountainWalls.add(rect);
     }
 
-    this.obstacles.refresh();
+    this.mountainWalls.refresh();
   }
 
   /**
@@ -1169,12 +1178,13 @@ export class GameScene extends Phaser.Scene {
     ensureTexture('rock-placeholder', 18, 14, 0x7a7265);  // grey
 
     const treeDefs = [
-      { x: 180, y: 720 }, { x: 320, y: 680 }, { x: 520, y: 700 }, { x: 700, y: 730 },
-      { x: 140, y: 1300 }, { x: 280, y: 1350 }, { x: 560, y: 1310 }, { x: 720, y: 1280 },
+      // Trees near SW spawn (300, 2650) — flanking the shore clearing
+      { x: 160, y: 2520 }, { x: 420, y: 2480 }, { x: 560, y: 2510 }, { x: 680, y: 2540 },
+      { x: 140, y: 2800 }, { x: 380, y: 2830 }, { x: 540, y: 2810 }, { x: 720, y: 2780 },
     ];
     const rockDefs = [
-      { x: 240, y: 800 }, { x: 660, y: 810 },
-      { x: 200, y: 1230 }, { x: 640, y: 1260 },
+      { x: 220, y: 2590 }, { x: 600, y: 2600 },
+      { x: 190, y: 2750 }, { x: 620, y: 2730 },
     ];
 
     this.solidObjects = createSolidGroup(this, [
@@ -1840,13 +1850,12 @@ export class GameScene extends Phaser.Scene {
         const base   = noise.fbm(tx * BASE_SCALE,     ty * BASE_SCALE,     4, 0.5);
         const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE,   2, 0.6);
 
-        // Höga Kusten coastal gradient: the eastern portion of the world slopes
-        // down to the Gulf of Bothnia. A power-curve bias pulls high-x tiles toward
-        // sea level — the farther east, the more likely they become open water.
-        // This creates a natural coastline, offshore islands (noise peaks that
-        // survive the bias), and inland lakes (noise troughs away from the coast).
-        const coastBias = Math.pow(Math.max(0, tx / tilesX - 0.55), 1.8) * 2.0;
-        const val = Math.max(0, base * 0.78 + detail * 0.22 - coastBias);
+        // Diagonal SW→NE corridor gradient. perpDiag<0 = NW mountains, perpDiag>0 = SE ocean.
+        // Power-curve biases push flanks to extreme biomes (mountain >0.90, ocean <0.25).
+        const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -2302,8 +2311,10 @@ export class GameScene extends Phaser.Scene {
         const tx = wx / TILE_SIZE;
         const ty = wy / TILE_SIZE;
         const base       = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
-        const coastBias  = Math.pow(Math.max(0, wx / WORLD_W - 0.55), 1.8) * 2.0;
-        const biome      = Math.min(1, base - coastBias);
+        const perpD = (wx / WORLD_W - (1 - wy / WORLD_H)) / 2;
+        const mtB   = Math.pow(Math.max(0, -perpD - 0.10), 1.5) * 4.0;
+        const ocB   = Math.pow(Math.max(0, perpD  - 0.15), 1.5) * 3.0;
+        const biome = Math.max(0, Math.min(1.2, base * 0.70 + mtB - ocB));
         if (biome < 0.33 || biome > 0.65) continue;
 
         // Randomise actual position within the grid cell

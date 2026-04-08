@@ -169,16 +169,19 @@ const WATERING_HOLE: ChunkDef = {
 export const CHUNKS: ChunkDef[] = [FOREST_COPSE, CLEARING, RUINS, WATERING_HOLE];
 
 /** How many chunks to place across the world */
-export const CHUNK_COUNT = 28;
+export const CHUNK_COUNT = 22;
 
 /**
  * Positions that must remain clear of chunks.
  * Player spawn, portal, and a buffer around the start area.
  */
 export const CHUNK_AVOID_ZONES: Array<{ x: number; y: number; r: number }> = [
-  { x:  400, y: 1000, r: 200 },  // player spawn
-  { x: 2100, y:  220, r: 150 },  // portal
-  { x:  800, y:  800, r: 160 },  // collectible zone 1
-  { x: 1400, y:  600, r: 160 },  // collectible zone 2
-  { x: 1900, y:  400, r: 160 },  // collectible zone 3
+  { x:  300, y: 2650, r: 220 },  // player spawn (SW)
+  { x: 4100, y:  350, r: 160 },  // portal (NE)
+  { x:  450, y: 2820, r: 160 },  // Strandviken settlement
+  { x: 2300, y: 1400, r: 200 },  // Skogsgläntan settlement
+  { x: 3900, y:  620, r: 140 },  // Klippbyn settlement
+  { x:  400, y: 2600, r: 120 },  // collectible 1
+  { x: 2200, y: 1450, r: 120 },  // collectible 2
+  { x: 3900, y:  500, r: 120 },  // collectible 3
 ];
