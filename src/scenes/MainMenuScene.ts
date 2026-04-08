@@ -4,14 +4,14 @@ import { t } from '../lib/i18n';
  * MainMenuScene — the game's entry point and navigation hub.
  *
  * Displays the game title and buttons for each major screen.
- * Settings, Lore, and Stats are shown but disabled until their scenes
- * are implemented in FIL-83, FIL-85, and FIL-86.
+ * Lore and Stats are shown but disabled until their scenes are implemented
+ * in FIL-85 and FIL-86.
  *
  * ## Scene transitions
  * - Play: camera fade-out → scene.start('GameScene')
  * - Credits: pause this scene, launch CreditsScene as an overlay
- *   (CreditsScene resumes the caller on close, matching its existing pattern)
- * - Others: no-op for now
+ * - Settings: pause this scene, launch SettingsScene as an overlay
+ *   (both overlay scenes call scene.resume(callerKey) on close)
  */
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -55,10 +55,10 @@ export class MainMenuScene extends Phaser.Scene {
 
     this.makeButton(cx, buttonStartY,              t('menu.play'),     false, () => this.startGame());
     this.makeButton(cx, buttonStartY + buttonGap,  t('menu.credits'),  false, () => this.openCredits());
-    // Coming soon — greyed out until FIL-83/85/86 are implemented
-    this.makeButton(cx, buttonStartY + buttonGap * 2, t('menu.settings'), true);
-    this.makeButton(cx, buttonStartY + buttonGap * 3, t('menu.lore'),     true);
-    this.makeButton(cx, buttonStartY + buttonGap * 4, t('menu.stats'),    true);
+    this.makeButton(cx, buttonStartY + buttonGap * 2, t('menu.settings'), false, () => this.openSettings());
+    // Coming soon — greyed out until FIL-85/86 are implemented
+    this.makeButton(cx, buttonStartY + buttonGap * 3, t('menu.lore'),  true);
+    this.makeButton(cx, buttonStartY + buttonGap * 4, t('menu.stats'), true);
 
     // ── Hint ─────────────────────────────────────────────────────────────────
 
@@ -125,5 +125,10 @@ export class MainMenuScene extends Phaser.Scene {
     // on close, which restores MainMenuScene — no extra wiring needed.
     this.scene.pause();
     this.scene.launch('CreditsScene', this.scene.key as unknown as object);
+  }
+
+  private openSettings(): void {
+    this.scene.pause();
+    this.scene.launch('SettingsScene', this.scene.key as unknown as object);
   }
 }

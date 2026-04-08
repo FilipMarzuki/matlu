@@ -13,5 +13,9 @@
   "menu.lore": "Värld",
   "menu.stats": "Statistik",
   "menu.subtitle": "en rensningsberättelse",
-  "menu.hint": "tryck eller klicka"
+  "menu.hint": "tryck eller klicka",
+  "settings.title": "Inställningar",
+  "settings.sound_on": "Ljud på",
+  "settings.sound_off": "Ljud av",
+  "settings.language_label": "Språk"
 }
