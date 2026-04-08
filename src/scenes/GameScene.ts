@@ -1207,24 +1207,21 @@ export class GameScene extends Phaser.Scene {
   private onAttractKey(event: KeyboardEvent): void {
     if (!this.attractMode) return;
 
-    // Navigation keys are handled via isDown polling in updateAttractControl.
-    // Treat them as "mapped" here so they don't trigger a cycle or name append.
-    const isNavKey = event.key === 'ArrowUp' || event.key === 'ArrowDown'
-                  || event.key === 'ArrowLeft' || event.key === 'ArrowRight'
-                  || event.code === 'KeyW' || event.code === 'KeyA'
-                  || event.code === 'KeyS' || event.code === 'KeyD';
+    // Arrow keys drive the focused animal via isDown polling in updateAttractControl.
+    // They should not append to the name or trigger a cycle — just fall through silently.
+    // WASD are printable single chars so they fall into the name-append branch below;
+    // movement still happens because updateAttractControl polls isDown every frame.
+    const isArrowKey = event.key === 'ArrowUp' || event.key === 'ArrowDown'
+                    || event.key === 'ArrowLeft' || event.key === 'ArrowRight';
 
     if (event.key === 'Enter') {
       if (this.attractName.length > 0) this.exitAttractMode();
     } else if (event.key === 'Backspace') {
       this.attractName = this.attractName.slice(0, -1);
-    } else if (isNavKey) {
-      // Navigation — animal movement handled via isDown polling, nothing to do here.
-      return;
     } else if (event.key.length === 1 && this.attractName.length < 20) {
       this.attractName += event.key;
-    } else {
-      // Key has no current mapping — cycle immediately to the next animal.
+    } else if (!isArrowKey) {
+      // Non-printable, non-arrow key — cycle to the next animal.
       this.cycleAttractTarget(this.time.now);
     }
 
