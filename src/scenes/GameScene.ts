@@ -1690,6 +1690,16 @@ export class GameScene extends Phaser.Scene {
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
     const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
 
+    // 4-frame water ripple animation played by live sprites overlaid on the baked terrain.
+    // frameRate 4 → one 1-second cycle; subtle enough not to distract from gameplay.
+    // Created here so it is ready when we call sprite.play() after the bake loop.
+    this.anims.create({
+      key: 'water-anim',
+      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1, 2, 3] }),
+      frameRate: 4,
+      repeat: -1,
+    });
+
     // All tiles (including water) are drawn into a pre-baked RenderTexture so the
     // entire terrain costs one GPU draw call at runtime — ~100× faster than per-tile flushes.
     // We use beginDraw() + batchDraw() + endDraw() to flush the WebGL batch only ONCE.
@@ -1701,6 +1711,10 @@ export class GameScene extends Phaser.Scene {
     const tileImg = this.add.image(-9999, -9999, 'terrain-green', 0)
       .setScale(2)        // 16px → 32px to match TILE_SIZE
       .setVisible(false);
+
+    // Collect water tile centres for the animated sprite pass below.
+    // stride 2 (tx & ty both even) → 1/4 of water tiles; cap 1500 keeps mobile GPU load small.
+    const waterCentres: number[] = []; // flat [cx0, cy0, cx1, cy1, ...]
 
     // Open a single batch for the entire terrain — no WebGL flush per tile.
     terrainRt.beginDraw();
@@ -1726,6 +1740,11 @@ export class GameScene extends Phaser.Scene {
         const { key, frame } = terrainTileFrame(val, detail);
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
         terrainRt.batchDraw(tileImg);
+
+        // Mark every 2nd water tile (in both axes) for the animated overlay pass.
+        if (key === 'terrain-water' && tx % 2 === 0 && ty % 2 === 0 && waterCentres.length < 3000) {
+          waterCentres.push(wx + 16, wy + 16);
+        }
       }
     }
 
@@ -1748,6 +1767,17 @@ export class GameScene extends Phaser.Scene {
 
     terrainRt.endDraw();
     tileImg.destroy();
+
+    // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
+    // but below decorations (2+). Each sprite covers the baked water tile underneath.
+    // Stagger start frames (0-3) so adjacent tiles don't flash in sync.
+    const waterAnim = this.anims.get('water-anim');
+    for (let i = 0; i < waterCentres.length; i += 2) {
+      const spr = this.add.sprite(waterCentres[i], waterCentres[i + 1], 'terrain-water');
+      spr.setScale(2).setDepth(0.5);
+      spr.play('water-anim');
+      spr.anims.setCurrentFrame(waterAnim.frames[(i / 2) % 4]);
+    }
   }
 
   /**
