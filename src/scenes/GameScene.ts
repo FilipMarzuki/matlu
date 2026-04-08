@@ -134,14 +134,16 @@ interface BirdObject {
  * Tilesets (all Mystic Woods 2.2, 16×16 tiles):
  *   terrain-water  — water-sheet.png  480×48,  30 cols × 3 rows  (animated overlay)
  *   mw-plains      — plains.png       96×192,   6 cols × 12 rows
- *                    Row 0  (frames  0– 5): earthy shore / shingle
- *                    Row 2  (frames 12–17): light forest floor
- *                    Row 4  (frames 24–29): dense forest green
- *                    Row 8  (frames 48–53): stone / highland rock
- *   mw-grass       — grass.png        16×16,   single tile — spring meadow
  *
- * Using 6 frame variants per biome (full row width of mw-plains) driven by
- * detail noise gives more variety than the previous 2-variant approach.
+ * Each ground biome maps to a consecutive row-pair (12 frames per biome).
+ * detail noise spreads across all 12 frames so no two adjacent tiles repeat:
+ *
+ *   Biome            val range   rows   frames
+ *   Rocky shore      0.25–0.33   0–1     0–11   earthy shingle
+ *   Coastal heath    0.33–0.48   2–3    12–23   open ground / heather
+ *   Mixed forest     0.48–0.65   4–5    24–35   birch-spruce floor
+ *   Dense forest     0.65–0.80   6–7    36–47   dark spruce interior
+ *   Highland rock    ≥ 0.80      8–9    48–59   granite / stone
  *
  * Biome mapping (mirrors coastal terrain breakpoints used in spawnBias):
  *   < 0.25  Bottenhavet — the Gulf of Bothnia / inland lakes
@@ -152,14 +154,15 @@ interface BirdObject {
  *   ≥ 0.80  Highland rock — bare granite, gnarled mountain birch
  */
 function terrainTileFrame(val: number, detail: number): { key: string; frame: number } {
-  // Spread across all 6 columns of mw-plains using detail noise for variety
-  const v6 = Math.floor(detail * 5.99);
+  // Spread across 12 frames (2 full rows) per biome using detail noise.
+  // detail is orthogonal to the biome noise so the pattern looks non-repetitive.
+  const v12 = Math.floor(detail * 11.99);
   if      (val < 0.25) return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 }; // sea / lake
-  else if (val < 0.33) return { key: 'mw-plains', frame: v6 };       // rocky shore — earthy shingle (row 0)
-  else if (val < 0.48) return { key: 'mw-grass',  frame: 0 };        // coastal heath — bright spring grass
-  else if (val < 0.65) return { key: 'mw-plains', frame: 12 + v6 };  // mixed birch-spruce (row 2)
-  else if (val < 0.80) return { key: 'mw-plains', frame: 24 + v6 };  // dense spruce forest (row 4)
-  else                 return { key: 'mw-plains', frame: 48 + v6 };  // highland granite (row 8)
+  else if (val < 0.33) return { key: 'mw-plains', frame: v12 };        // rocky shore — rows 0–1
+  else if (val < 0.48) return { key: 'mw-plains', frame: 12 + v12 };   // coastal heath — rows 2–3
+  else if (val < 0.65) return { key: 'mw-plains', frame: 24 + v12 };   // mixed birch-spruce — rows 4–5
+  else if (val < 0.80) return { key: 'mw-plains', frame: 36 + v12 };   // dense spruce forest — rows 6–7
+  else                 return { key: 'mw-plains', frame: 48 + v12 };   // highland granite — rows 8–9
 }
 
 export class GameScene extends Phaser.Scene {
@@ -288,14 +291,12 @@ export class GameScene extends Phaser.Scene {
     ]);
 
     // ── Terrain tilesets (Mystic Woods 2.2, preferred for Level 1) ───────────────
-    // plains.png  — 96×192, 16×16 tiles (6 cols × 12 rows)
-    //               Used for rocky shore (row 0), forest floors (rows 2 & 4),
-    //               and highland stone (row 8).
-    // grass.png   — 16×16, single tile; used for coastal heath / open meadow.
+    // plains.png  — 96×192, 16×16 tiles (6 cols × 12 rows = 72 frames)
+    //   Each ground biome maps to a consecutive row-pair (12 frames of variety).
+    //   See terrainTileFrame() for the exact row-to-biome mapping.
     // water-sheet — loaded separately below; 30-frame animated water.
     const mwTiles = 'assets/packs/mystic_woods_2.2/sprites/tilesets';
     this.load.spritesheet('mw-plains', `${mwTiles}/plains.png`, { frameWidth: 16, frameHeight: 16 });
-    this.load.spritesheet('mw-grass',  `${mwTiles}/grass.png`,  { frameWidth: 16, frameHeight: 16 });
 
     // ── Nature sprites (PostApocalypse AssetPack) ──────────────────────────────
     // Used by procedural scatter and chunk stamping (FIL-51/52/67).
