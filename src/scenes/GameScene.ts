@@ -23,6 +23,7 @@ import { CorruptionField } from '../world/CorruptionField';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
   meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
+  SETTLEMENTS,
 } from '../world/Level1';
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
@@ -362,6 +363,7 @@ export class GameScene extends Phaser.Scene {
     this.pathSystem = new PathSystem(LEVEL1_PATHS.map(s => ({ ...s })));
     this.drawProceduralTerrain();
     this.drawPaths();
+    this.drawSettlementMarkers();
     this.createObstacles();
     this.createDecorations();
     this.createSolidObjects();
@@ -1580,6 +1582,59 @@ export class GameScene extends Phaser.Scene {
     this.pathGraphics = this.add.graphics();
     this.pathGraphics.setDepth(1);
     this.pathSystem.drawPaths(this.pathGraphics);
+  }
+
+  // ─── Settlement markers (FIL-76) ─────────────────────────────────────────────
+
+  /**
+   * Draw a dashed circle boundary and name label for each settlement.
+   *
+   * Phaser's Graphics object has no native dashed-stroke, so we simulate it
+   * by drawing 20 short polyline arcs around the circle with gaps between them.
+   * Each arc is approximated by 4 line segments — enough smoothness at this scale.
+   *
+   * Depth 4: above terrain (0), paths (1), and corruption overlays (3) so the
+   * settlement boundary stays readable even inside a heavily corrupted zone.
+   */
+  private drawSettlementMarkers(): void {
+    const gfx = this.add.graphics();
+    gfx.setDepth(4);
+
+    for (const s of SETTLEMENTS) {
+      // Warm tan for villages, muted grey-brown for hamlets
+      const strokeColor = s.type === 'village' ? 0xd4b483 : 0xa08870;
+      gfx.lineStyle(2, strokeColor, 0.9);
+
+      // 20 dash + 20 gap segments evenly distributed around the full circle.
+      // dashAngle = angle spanned by one dash; gap is the same size.
+      const dashCount  = 20;
+      const dashAngle  = Math.PI / dashCount; // π/20 ≈ 9° per dash
+      for (let i = 0; i < dashCount; i++) {
+        const startAngle = i * dashAngle * 2;
+        // Approximate the arc as a 4-segment polyline
+        const pts: { x: number; y: number }[] = [];
+        for (let j = 0; j <= 4; j++) {
+          const a = startAngle + dashAngle * (j / 4);
+          pts.push({
+            x: s.x + Math.cos(a) * s.radius,
+            y: s.y + Math.sin(a) * s.radius,
+          });
+        }
+        gfx.strokePoints(pts, false);
+      }
+
+      // Name label — centred just above the circle, serif font for a map-like feel
+      this.add.text(s.x, s.y - s.radius - 10, s.name, {
+        fontFamily: 'Georgia, serif',
+        fontSize: '13px',
+        color: s.type === 'village' ? '#d4b483' : '#b09878',
+        stroke: '#111111',
+        strokeThickness: 3,
+        align: 'center',
+      })
+        .setOrigin(0.5, 1)
+        .setDepth(4);
+    }
   }
 
   // ─── Procedural chunk stamping (FIL-67) ──────────────────────────────────────
