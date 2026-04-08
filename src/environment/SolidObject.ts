@@ -8,6 +8,8 @@ export interface SolidObjectOptions {
   colliderHeight?: number;
   /** Vertical offset for the collision box relative to the sprite bottom — defaults to 0. */
   colliderOffsetY?: number;
+  /** Uniform scale applied to the sprite before sizing the collision body. */
+  scale?: number;
 }
 
 /**
@@ -58,6 +60,8 @@ export function createSolidGroup(
 
   for (const { x, y, texture, options } of objects) {
     const obj = new SolidObject(scene, x, y, texture, options);
+    // Scale before body sizing so displayWidth/displayHeight are correct
+    if (options?.scale !== undefined) obj.setScale(options.scale);
     group.add(obj);
 
     // Narrow the collision box to the trunk/base, not the full sprite canopy
