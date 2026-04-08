@@ -124,15 +124,26 @@ interface BirdObject {
 
 
 /**
- * Maps a biome value + detail value to a background tileset frame.
+ * Maps a biome value + detail value to a Mystic Woods tileset frame.
  *
  * Setting: Höga Kusten (Swedish High Coast), early spring.
  * The landscape rises steeply from the Gulf of Bothnia. Biomes run from
  * open sea through rocky shore, coastal heath, and boreal forest up to
  * the bare granite of the highland summits.
  *
- * Each tileset is 384×272 with 16×16 tiles (24 cols × 17 rows).
- * Using 2–3 frame variants per biome driven by detail noise breaks up tiling.
+ * Tilesets (all Mystic Woods 2.2, 16×16 tiles):
+ *   terrain-water  — water-sheet.png  480×48,  30 cols × 3 rows  (animated overlay)
+ *   mw-plains      — plains.png       96×192,   6 cols × 12 rows
+ *
+ * Each ground biome maps to a consecutive row-pair (12 frames per biome).
+ * detail noise spreads across all 12 frames so no two adjacent tiles repeat:
+ *
+ *   Biome            val range   rows   frames
+ *   Rocky shore      0.25–0.33   0–1     0–11   earthy shingle
+ *   Coastal heath    0.33–0.48   2–3    12–23   open ground / heather
+ *   Mixed forest     0.48–0.65   4–5    24–35   birch-spruce floor
+ *   Dense forest     0.65–0.80   6–7    36–47   dark spruce interior
+ *   Highland rock    ≥ 0.80      8–9    48–59   granite / stone
  *
  * Biome mapping (mirrors coastal terrain breakpoints used in spawnBias):
  *   < 0.25  Bottenhavet — the Gulf of Bothnia / inland lakes
@@ -143,14 +154,15 @@ interface BirdObject {
  *   ≥ 0.80  Highland rock — bare granite, gnarled mountain birch
  */
 function terrainTileFrame(val: number, detail: number): { key: string; frame: number } {
-  // Toggle between 2 frame variants using detail noise to break up repetition
-  const v = detail > 0.55 ? 1 : 0;
-  if      (val < 0.25) return { key: 'terrain-water',  frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 }; // sea / lake
-  else if (val < 0.33) return { key: 'terrain-yellow', frame: v };      // rocky shore / shingle
-  else if (val < 0.48) return { key: 'terrain-green',  frame: v };      // coastal heath (spring)
-  else if (val < 0.65) return { key: 'terrain-green',  frame: v + 2 };  // mixed birch-spruce
-  else if (val < 0.80) return { key: 'terrain-green',  frame: v + 4 };  // dense spruce forest
-  else                 return { key: 'terrain-dark',   frame: v };      // highland granite
+  // Spread across 12 frames (2 full rows) per biome using detail noise.
+  // detail is orthogonal to the biome noise so the pattern looks non-repetitive.
+  const v12 = Math.floor(detail * 11.99);
+  if      (val < 0.25) return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 }; // sea / lake
+  else if (val < 0.33) return { key: 'mw-plains', frame: v12 };        // rocky shore — rows 0–1
+  else if (val < 0.48) return { key: 'mw-plains', frame: 12 + v12 };   // coastal heath — rows 2–3
+  else if (val < 0.65) return { key: 'mw-plains', frame: 24 + v12 };   // mixed birch-spruce — rows 4–5
+  else if (val < 0.80) return { key: 'mw-plains', frame: 36 + v12 };   // dense spruce forest — rows 6–7
+  else                 return { key: 'mw-plains', frame: 48 + v12 };   // highland granite — rows 8–9
 }
 
 export class GameScene extends Phaser.Scene {
@@ -279,14 +291,13 @@ export class GameScene extends Phaser.Scene {
       this.load.audio(`animal-rustle-${i}`, `${kenney}/impactSoft_medium_00${i}.ogg`);
     }
 
-    // ── Terrain tilesets (PostApocalypse background sheets, FIL-53) ──────────────
-    // Three 384×272 spritesheets, 16×16 tiles (24 cols × 17 rows).
-    // Used in drawProceduralTerrain() to replace flat-color blocks with textured ground.
-    // Water biome has no usable free tile — stays as solid color.
-    const paTiles = 'assets/packs/PostApocalypse_AssetPack_v1.1.2/Tiles';
-    this.load.spritesheet('terrain-green',  `${paTiles}/Background_Green_TileSet.png`,       { frameWidth: 16, frameHeight: 16 });
-    this.load.spritesheet('terrain-dark',   `${paTiles}/Background_Dark-Green_TileSet.png`,   { frameWidth: 16, frameHeight: 16 });
-    this.load.spritesheet('terrain-yellow', `${paTiles}/Background_Bleak-Yellow_TileSet.png`, { frameWidth: 16, frameHeight: 16 });
+    // ── Terrain tilesets (Mystic Woods 2.2, preferred for Level 1) ───────────────
+    // plains.png  — 96×192, 16×16 tiles (6 cols × 12 rows = 72 frames)
+    //   Each ground biome maps to a consecutive row-pair (12 frames of variety).
+    //   See terrainTileFrame() for the exact row-to-biome mapping.
+    // water-sheet — loaded separately below; 30-frame animated water.
+    const mwTiles = 'assets/packs/mystic_woods_2.2/sprites/tilesets';
+    this.load.spritesheet('mw-plains', `${mwTiles}/plains.png`, { frameWidth: 16, frameHeight: 16 });
 
     // ── Nature sprites (PostApocalypse AssetPack) ──────────────────────────────
     // Used by procedural scatter and chunk stamping (FIL-51/52/67).
@@ -1758,7 +1769,7 @@ export class GameScene extends Phaser.Scene {
     // Reuse a single off-screen Image to draw scaled (32×32) tiles from the
     // 16×16 tileset frames. setTexture() + setPosition() change state without
     // creating a new object each iteration.
-    const tileImg = this.add.image(-9999, -9999, 'terrain-green', 0)
+    const tileImg = this.add.image(-9999, -9999, 'mw-plains', 0)
       .setScale(2)        // 16px → 32px to match TILE_SIZE
       .setVisible(false);
 
@@ -1798,17 +1809,17 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Spawn clearing — stamp shore/shingle tiles (terrain-yellow) over the underlying
+    // Spawn clearing — stamp earthy shore tiles (mw-plains row 0) over the underlying
     // biome in a circular patch so the player has a recognisable gravel landmark.
     // Done inside beginDraw()/endDraw() so it costs zero extra GPU draw calls.
-    // Alternating frame 0/1 breaks up the tiling pattern just like the main terrain.
+    // Cycling frames 0–5 uses the full row width to break up visible tiling.
     const sx = Math.floor(SPAWN_X / TILE_SIZE);
     const sy = Math.floor(SPAWN_Y / TILE_SIZE);
     for (let dy = -3; dy <= 3; dy++) {
       for (let dx = -3; dx <= 3; dx++) {
         if (dx * dx + dy * dy <= 7) {
-          const frame = (Math.abs(dx) + Math.abs(dy)) % 2;
-          tileImg.setTexture('terrain-yellow', frame)
+          const frame = (Math.abs(dx) * 2 + Math.abs(dy)) % 6;
+          tileImg.setTexture('mw-plains', frame)
                  .setPosition((sx + dx) * TILE_SIZE + 16, (sy + dy) * TILE_SIZE + 16);
           terrainRt.batchDraw(tileImg);
         }
