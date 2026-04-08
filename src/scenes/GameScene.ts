@@ -8,8 +8,6 @@ import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
 import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
-import { Decoration } from '../environment/Decoration';
-import { WorldObject } from '../environment/WorldObject';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
 import { WorldClock } from '../world/WorldClock';
@@ -363,7 +361,6 @@ export class GameScene extends Phaser.Scene {
     this.drawProceduralTerrain();
     this.drawPaths();
     this.createObstacles();
-    this.createDecorations();
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampDecorationScatter();
@@ -1007,47 +1004,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Place placeholder Decoration objects in the four grass quadrants.
-   * Textures will be replaced with real sprites when assets are ready —
-   * for now we use Phaser's built-in '__WHITE' texture tinted to colour.
-   *
-   * Three decoration types as placeholders:
-   *   flower  — small pink circle (8×8)
-   *   rock    — grey square (12×12)
-   *   grass   — thin green rect (4×14)
-   */
-  private createDecorations(): void {
-    // [x, y, type] — spread across grass areas away from roads (cx 400, cy 1000)
-    const defs: Array<[number, number, 'flower' | 'rock' | 'grass']> = [
-      [120, 780, 'flower'], [200, 820, 'grass'],  [300, 750, 'rock'],
-      [560, 800, 'flower'], [680, 760, 'grass'],  [750, 850, 'rock'],
-      [100, 1200, 'rock'],  [220, 1250, 'grass'], [350, 1180, 'flower'],
-      [580, 1220, 'grass'], [700, 1180, 'rock'],  [760, 1240, 'flower'],
-    ];
-
-    const colourMap = { flower: 0xff88cc, rock: 0x8a8a8a, grass: 0x4ab84a };
-    const sizeMap  = { flower: [8, 8],   rock: [12, 12],  grass: [4, 14] };
-
-    for (const [x, y, type] of defs) {
-      // Decoration extends Phaser.GameObjects.Sprite which requires a texture.
-      // We generate a tiny coloured RenderTexture as the stand-in sprite.
-      const [w, h] = sizeMap[type];
-      const key = `dec-${type}`;
-      if (!this.textures.exists(key)) {
-        const rt = this.add.renderTexture(0, 0, w, h);
-        rt.fill(colourMap[type], 1);
-        rt.saveTexture(key);
-        rt.destroy();
-      }
-      const dec = new Decoration(this, x, y, key);
-      dec.sortDepth();
-    }
-
-    // Keep TypeScript happy — WorldObject is imported for future use
-    void (WorldObject);
-  }
-
-  /**
    * Place placeholder SolidObject trees and rocks in the grass quadrants.
    * Uses tinted RenderTextures as stand-ins until real sprites are ready.
    * Collision boxes are narrow (trunk only) so the player can walk behind trees.
@@ -1674,7 +1630,7 @@ export class GameScene extends Phaser.Scene {
       this.runSeed,
       WORLD_W, WORLD_H, TILE_SIZE,
       avoidRects,
-      800,
+      1500,
     );
 
     for (const d of decors) {

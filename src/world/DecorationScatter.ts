@@ -27,7 +27,7 @@
 import { FbmNoise } from '../lib/noise';
 import { mulberry32 } from '../lib/rng';
 
-export type DecorationType = 'flower' | 'mushroom' | 'stone' | 'tuft';
+export type DecorationType = 'flower' | 'mushroom' | 'stone' | 'tuft' | 'bush';
 
 export interface ScatteredDecor {
   x: number;
@@ -101,17 +101,17 @@ export function generateDecorations(
       }
 
       // Assign type based on biome so the right things grow in the right places:
-      //   shore/wet  (0.28–0.37): grass tufts (reeds, sedge)
-      //   meadow     (0.37–0.65): flowers (open sun → colourful)
-      //   tall grass (0.65–0.73): flowers + tufts mix
-      //   forest edge(0.73–0.81): mushrooms (shade-loving)
-      //   dense forest(≥ 0.81) : mushrooms + stones (deep shade, mossy rocks)
+      //   shore/wet   (0.28–0.37): grass tufts (reeds, sedge)
+      //   meadow      (0.37–0.65): mostly flowers, occasional bush breaks up the colour
+      //   tall grass  (0.65–0.73): flowers + tufts + sparse bush
+      //   forest edge (0.73–0.81): bushes dominant, mushrooms in shade
+      //   dense forest(≥ 0.81)  : mushrooms + stones + sparse bush understory
       let type: DecorationType;
       if      (biome < 0.37) type = 'tuft';
-      else if (biome < 0.65) type = 'flower';
-      else if (biome < 0.73) type = rng() < 0.6 ? 'flower' : 'tuft';
-      else if (biome < 0.81) type = 'mushroom';
-      else                   type = rng() < 0.55 ? 'mushroom' : 'stone';
+      else if (biome < 0.65) type = rng() < 0.88 ? 'flower' : 'bush';
+      else if (biome < 0.73) type = rng() < 0.50 ? 'flower' : rng() < 0.75 ? 'tuft' : 'bush';
+      else if (biome < 0.81) type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'bush' : 'stone';
+      else                   type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'stone' : 'bush';
 
       // Variant 0–3 for texture/colour selection; slight scale jitter for variety
       const variant = Math.floor(rng() * 4);
@@ -138,5 +138,6 @@ export function decorTexture(type: DecorationType, variant: number): string {
     case 'mushroom': return (['mushroom', 'mushrooms-yellow', 'mushrooms-red', 'mushroom'] as const)[variant % 4];
     case 'stone':    return 'rock-grass';
     case 'tuft':     return `grass-tuft-${(variant % 5) + 1}`;
+    case 'bush':     return variant % 2 === 0 ? 'bush-1' : 'bush-2';
   }
 }
