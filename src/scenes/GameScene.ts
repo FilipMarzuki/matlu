@@ -420,6 +420,7 @@ export class GameScene extends Phaser.Scene {
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampDecorationScatter();
+    this.spawnButterfliesAndBees();
     this.stampSettlementBuildings();
     this.spawnParticleEffects();
     this.spawnSettlementNpcs();
@@ -2224,6 +2225,102 @@ export class GameScene extends Phaser.Scene {
     if (this.leavesEmitter)  this.leavesEmitter.emitting  = phase === 'dawn' || phase === 'dusk';
     if (this.pollenEmitter)  this.pollenEmitter.emitting   = phase === 'morning' || phase === 'midday' || phase === 'afternoon';
     if (this.fireflyEmitter) this.fireflyEmitter.emitting  = phase === 'night';
+  }
+
+  // ─── Butterflies and bees (FIL-59) ──────────────────────────────────────────
+
+  /**
+   * Place small ambient butterfly and bee creatures in meadow/heath areas.
+   *
+   * No sprite sheets are available for insects, so textures are generated from
+   * Graphics: butterflies as two overlapping ellipses (wings) plus a thin body,
+   * bees as a striped oval. Both are tiny — 10×7 and 6×4 px respectively.
+   *
+   * Each creature gets two tweens:
+   *  1. Wing flutter — angle ±8° at 180 ms cycle (same sine-yoyo pattern as grass
+   *     sway, just faster and wider).
+   *  2. Drift — tweens x/y to a random target within 120 px, picks a new target on
+   *     completion, repeating indefinitely.
+   *
+   * Placement uses baseNoise + the same coastal gradient as drawProceduralTerrain()
+   * so creatures only appear in biome range 0.33–0.65 (coastal heath → mixed forest
+   * = flower zones). A mulberry32 RNG keyed on runSeed makes placement deterministic.
+   */
+  private spawnButterfliesAndBees(): void {
+    // ── Generate textures ────────────────────────────────────────────────────
+    const g = this.add.graphics().setVisible(false);
+
+    // Butterfly: two wing ellipses side-by-side + narrow dark body
+    g.fillStyle(0xe87c3e, 1); g.fillEllipse(3, 3.5, 5, 5);   // left wing
+    g.fillStyle(0xf4a940, 1); g.fillEllipse(7, 3.5, 5, 5);   // right wing
+    g.fillStyle(0x3a2a1a, 1); g.fillRect(4.5, 1, 1, 6);       // body
+    g.generateTexture('butterfly-tex', 10, 7);
+    g.clear();
+
+    // Bee: yellow oval with dark stripe bands
+    g.fillStyle(0xf5c518, 1); g.fillEllipse(3, 2, 6, 4);      // body
+    g.fillStyle(0x2a1a00, 1); g.fillRect(2, 1, 1, 2);          // stripe 1
+    g.fillStyle(0x2a1a00, 1); g.fillRect(4, 1, 1, 2);          // stripe 2
+    g.generateTexture('bee-tex', 6, 4);
+    g.destroy();
+
+    // ── Placement ────────────────────────────────────────────────────────────
+    const rng = mulberry32(this.runSeed ^ 0xbee5f1a7);
+    const rand = () => rng();
+
+    // Drift helper — picks a new random target within 120 px and tweens to it,
+    // then calls itself again on completion for continuous ambient movement.
+    const drift = (img: Phaser.GameObjects.Image) => {
+      const nx = Phaser.Math.Clamp(img.x + (rand() - 0.5) * 240, 0, WORLD_W);
+      const ny = Phaser.Math.Clamp(img.y + (rand() - 0.5) * 240, 0, WORLD_H);
+      this.tweens.add({
+        targets: img, x: nx, y: ny,
+        duration: 3000 + rand() * 3000,
+        ease: 'Sine.easeInOut',
+        onComplete: () => drift(img),
+      });
+    };
+
+    const STEP = 160; // sample grid spacing — balances coverage vs candidate count
+    let placed = 0;
+
+    for (let wy = STEP / 2; wy < WORLD_H && placed < 60; wy += STEP) {
+      for (let wx = STEP / 2; wx < WORLD_W && placed < 60; wx += STEP) {
+        // Biome check — identical to drawProceduralTerrain() so placement aligns
+        // with the visible ground type. Skip water and highland biomes.
+        const tx = wx / TILE_SIZE;
+        const ty = wy / TILE_SIZE;
+        const base       = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const coastBias  = Math.pow(Math.max(0, wx / WORLD_W - 0.55), 1.8) * 2.0;
+        const biome      = Math.min(1, base - coastBias);
+        if (biome < 0.33 || biome > 0.65) continue;
+
+        // Randomise actual position within the grid cell
+        const jx = (rand() - 0.5) * STEP;
+        const jy = (rand() - 0.5) * STEP;
+        const x  = Phaser.Math.Clamp(wx + jx, 0, WORLD_W);
+        const y  = Phaser.Math.Clamp(wy + jy, 0, WORLD_H);
+
+        // 60 % butterflies, 40 % bees (matches approximate flower/clover split)
+        const key = rand() < 0.6 ? 'butterfly-tex' : 'bee-tex';
+        const img = this.add.image(x, y, key);
+        img.setDepth(2 + y / WORLD_H).setScale(1.5);
+
+        // Wing flutter — ±8° at 180 ms; butterflies slightly faster than bees
+        this.tweens.add({
+          targets: img,
+          angle: { from: -8, to: 8 },
+          ease: 'Sine.easeInOut',
+          duration: key === 'butterfly-tex' ? 160 : 220,
+          yoyo: true,
+          repeat: -1,
+          delay: rand() * 300,
+        });
+
+        drift(img);
+        placed++;
+      }
+    }
   }
 
   // ─── Settlement buildings (FIL-78 / FIL-79) ─────────────────────────────────
