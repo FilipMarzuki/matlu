@@ -2297,6 +2297,73 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Maps a biome value to a WebGL tint colour applied to each terrain tile.
+   * Tinting multiplies per-channel so tile pixel detail is preserved — only
+   * the dominant hue shifts. Bright tint components (≥ 0x90) keep tiles
+   * readable; dark components deepen shadows naturally.
+   *
+   * Breakpoints mirror terrainTileFrame() so tint matches the tile type:
+   *   sea          < 0.25  → deep blue
+   *   rocky shore  < 0.30  → warm sandy stone
+   *   coastal heath< 0.42  → light olive
+   *   mixed forest < 0.62  → fresh mid-green
+   *   dense forest < 0.78  → deep forest green
+   *   highland     ≥ 0.78  → cool granite grey
+   */
+  private biomeTint(val: number): number {
+    if (val < 0.25) return 0x7ab0d8; // sea — blue
+    if (val < 0.30) return 0xd4a86a; // rocky shore — warm sandy
+    if (val < 0.42) return 0xb8d480; // coastal heath — light olive
+    if (val < 0.62) return 0x80c068; // mixed forest — fresh green
+    if (val < 0.78) return 0x50904a; // dense forest — deep green
+    return 0xb8b4ac;                  // highland — cool grey
+  }
+
+  /**
+   * Draws a per-tile biome colour wash at depth 0.1 — just above the baked terrain.
+   * Tiles are grouped by biome colour before drawing so all tiles of the same hue
+   * are issued as one fillStyle + N fillRect calls, minimising GPU state changes.
+   * Per-tile resolution (32×32 px) means there are no visible seams at biome
+   * boundaries — the noise gradient produces smooth organic edges.
+   */
+  private drawBiomeColorWash(noise: FbmNoise, tilesX: number, tilesY: number): void {
+
+    // First pass: collect every non-water tile position, grouped by biome tint.
+    // Using a flat array per tint avoids repeated map lookups during the draw pass.
+    const groups = new Map<number, number[]>(); // tint → flat [x0, y0, x1, y1, ...]
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        // Use ONLY the low-frequency base noise here — omitting detail noise keeps
+        // biome colour regions large and smoothly-edged. The terrain tile below still
+        // uses detail noise for fine texture; the wash is purely about zone identity.
+        const base   = noise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
+
+        if (val < 0.25) continue; // water already has identity from animated sprites
+
+        const tint = this.biomeTint(val);
+        let arr = groups.get(tint);
+        if (!arr) { arr = []; groups.set(tint, arr); }
+        arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
+      }
+    }
+
+    // Second pass: one fillStyle() per biome colour, then fillRect for every tile of that colour.
+    // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
+    const gfx = this.add.graphics().setDepth(0.1);
+    for (const [tint, coords] of groups) {
+      gfx.fillStyle(tint, 0.45);
+      for (let i = 0; i < coords.length; i += 2) {
+        gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
+      }
+    }
+  }
+
+  /**
    * Generates and draws a noise-based spring-Sweden landscape:
    * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
    * Uses this.runSeed for deterministic output (same seed → same map).
@@ -2354,6 +2421,9 @@ export class GameScene extends Phaser.Scene {
 
         // Draw the matching tileset frame (including water) scaled 2× to fill the 32×32 tile.
         // batchDraw() uses the image's own position — no per-tile batch flush.
+        // Biome tint multiplies with each tile's pixel colours so the tile detail
+        // stays visible while each region gets a distinct dominant hue — the same
+        // technique CrossCode uses to give each zone a clear visual identity.
         const { key, frame } = terrainTileFrame(val, detail);
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
         terrainRt.batchDraw(tileImg);
@@ -2369,6 +2439,7 @@ export class GameScene extends Phaser.Scene {
     // biome in a circular patch so the player has a recognisable gravel landmark.
     // Done inside beginDraw()/endDraw() so it costs zero extra GPU draw calls.
     // Cycling frames 0–5 uses the full row width to break up visible tiling.
+    // Spawn clearing stamps plain shore tiles — no tint needed here.
     const sx = Math.floor(SPAWN_X / TILE_SIZE);
     const sy = Math.floor(SPAWN_Y / TILE_SIZE);
     for (let dy = -3; dy <= 3; dy++) {
@@ -2384,6 +2455,14 @@ export class GameScene extends Phaser.Scene {
 
     terrainRt.endDraw();
     tileImg.destroy();
+
+    // ── Biome colour wash (depth 0.1) ────────────────────────────────────────
+    // A coarse-grid Graphics layer drawn at low alpha over the terrain texture.
+    // Gives each biome region a distinct dominant hue — the same visual technique
+    // CrossCode uses so players instantly read "I'm in the forest / shore / highlands".
+    // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
+    // matching the noise gradient closely enough to look organic at play zoom.
+    this.drawBiomeColorWash(noise, tilesX, tilesY);
 
     // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
     // but below decorations (2+). Each sprite covers the baked water tile underneath.

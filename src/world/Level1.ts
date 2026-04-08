@@ -72,7 +72,7 @@ export const ZONES: Zone[] = [
     x: 0, y: 2200, w: 700, h: 800,
     corruption: 65,
     tintColor: 0x303030,
-    tintAlpha: 0.30,
+    tintAlpha: 0.04, // was 0.30 — big flat rectangles looked like debug hitboxes
   },
   {
     // Skuleskogen — boreal forest mid-corridor. Medium corruption.
@@ -80,7 +80,7 @@ export const ZONES: Zone[] = [
     x: 1600, y: 1000, w: 1100, h: 900,
     corruption: 35,
     tintColor: 0x2a3a28,
-    tintAlpha: 0.18,
+    tintAlpha: 0.02, // was 0.18
   },
   {
     // Klipptoppen — granite summit near the NE portal. Near-clean.
@@ -88,7 +88,7 @@ export const ZONES: Zone[] = [
     x: 3400, y: 100, w: 1100, h: 900,
     corruption: 5,
     tintColor: 0x506070,
-    tintAlpha: 0.06,
+    tintAlpha: 0.01, // was 0.06
   },
 ];
 
