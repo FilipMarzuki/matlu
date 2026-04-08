@@ -347,6 +347,12 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('pc-walk-down', `${bodyBase}/Walk_Base/Walk_Down-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('pc-walk-up',   `${bodyBase}/Walk_Base/Walk_Up-Sheet.png`,    { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('pc-walk-side', `${bodyBase}/Walk_Base/Walk_Side-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
+
+    // ── Pixel Crawler building roofs (FIL-79) ─────────────────────────────────────
+    // Single 400×400 sheet; named frames are registered in stampSettlementBuildings()
+    // via this.textures.get().add() rather than a JSON atlas (none is bundled).
+    const pcBuildings = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Environment/Structures/Buildings';
+    this.load.image('building-roofs', `${pcBuildings}/Roofs.png`);
   }
 
   create(): void {
@@ -1893,22 +1899,32 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // ─── Settlement buildings (FIL-78) ───────────────────────────────────────────
+  // ─── Settlement buildings (FIL-78 / FIL-79) ─────────────────────────────────
 
   /**
-   * Scatter rectangular building footprints inside each settlement boundary.
+   * Scatter building sprites inside each settlement boundary.
    *
    * Buildings are placed via rejection sampling in the annulus between a small
    * central clearing and the settlement edge, using a deterministic per-settlement
    * RNG so the layout is identical on every load.
    *
    * Each building gets:
-   *  - A Graphics fillRect (roof tint) + strokeRect (wall outline) at depth 3.5
+   *  - A Pixel Crawler Roofs.png sprite scaled to fit the footprint (depth 3.5)
    *  - An invisible staticImage added to solidObjects so the player collides with it
+   *
+   * Named frames are registered once from the Roofs.png sheet using
+   * this.textures.get().add() — Phaser's way of defining atlas frames at runtime
+   * when the source pack doesn't ship a JSON atlas.
    */
   private stampSettlementBuildings(): void {
-    const gfx = this.add.graphics();
-    gfx.setDepth(3.5);
+    // Register named crop-regions on the already-loaded 'building-roofs' texture.
+    // Coordinates measured from the 400×400 Roofs.png sheet (white-background sprite atlas).
+    const roofTex = this.textures.get('building-roofs');
+    roofTex.add('roof-brown-large',   0,   0,   0, 120,  70); // large brown gabled roof
+    roofTex.add('roof-green-large',   0, 130,   0, 120,  70); // large green tiled roof
+    roofTex.add('roof-blue',          0, 270,   0,  90,  70); // blue glass/striped roof
+    roofTex.add('roof-brown-small',   0,   0, 210,  60,  50); // small brown peaked roof
+    roofTex.add('roof-green-complex', 0, 140,  80, 120, 110); // green hall with base
 
     for (const s of SETTLEMENTS) {
       // Hash the settlement id string to a numeric seed (djb2-style multiplicative hash)
@@ -1921,10 +1937,6 @@ export class GameScene extends Phaser.Scene {
       const count = s.type === 'hamlet'
         ? 3 + Math.floor(rng() * 3)   // 3–5
         : 8 + Math.floor(rng() * 7);  // 8–14
-
-      // Style: warm ochre roof for village, muted grey for hamlet
-      const roofColor  = s.type === 'village' ? 0xd4a855 : 0x9a8878;
-      const wallColor  = s.type === 'village' ? 0xd4b483 : 0xa08870;
 
       // Keep a small clearing at the settlement centre (e.g. a market square)
       const clearR = s.radius * 0.2;
@@ -1942,8 +1954,8 @@ export class GameScene extends Phaser.Scene {
         const bx = s.x + Math.cos(angle) * dist;
         const by = s.y + Math.sin(angle) * dist;
 
-        const bw = 24 + Math.floor(rng() * 20); // 24–43 px
-        const bh = 18 + Math.floor(rng() * 16); // 18–33 px
+        const bw = 24 + Math.floor(rng() * 20); // 24–43 px — drives sprite scale + overlap check
+        const bh = 18 + Math.floor(rng() * 16); // 18–33 px — used for overlap check only
 
         // AABB overlap check against already-placed buildings (4 px gap)
         const gap = 4;
@@ -1967,20 +1979,25 @@ export class GameScene extends Phaser.Scene {
         placed.push({ x: bx, y: by, w: bw, h: bh });
         placed_count++;
 
-        // Roof fill — semi-transparent coloured rectangle
-        gfx.fillStyle(roofColor, 0.25);
-        gfx.fillRect(bx - bw / 2, by - bh / 2, bw, bh);
+        // Pick a roof sprite frame appropriate to the settlement type.
+        // Hamlet gets rustic brown frames; village gets tiled green frames.
+        const frameKey = s.type === 'hamlet'
+          ? (rng() < 0.6 ? 'roof-brown-large' : 'roof-brown-small')
+          : (rng() < 0.5 ? 'roof-green-large' : rng() < 0.5 ? 'roof-blue' : 'roof-green-complex');
 
-        // Wall outline — opaque stroke
-        gfx.lineStyle(1.5, wallColor, 0.8);
-        gfx.strokeRect(bx - bw / 2, by - bh / 2, bw, bh);
+        // Scale the sprite uniformly so its display-width equals bw;
+        // height follows naturally from the frame's aspect ratio.
+        const img = this.add.image(bx, by, 'building-roofs', frameKey);
+        const sprScale = bw / img.width;
+        img.setScale(sprScale);
+        img.setDepth(3.5);
 
-        // Invisible physics body so the player bounces off the building walls.
+        // Invisible physics body sized to the sprite's actual displayed footprint.
         // 'rock-grass' is always preloaded — any always-available texture works here.
         const physRect = this.physics.add.staticImage(bx, by, 'rock-grass');
         physRect.setVisible(false);
         const body = physRect.body as Phaser.Physics.Arcade.StaticBody;
-        body.setSize(bw, bh);
+        body.setSize(bw, img.height * sprScale);
         body.reset(bx, by);
         this.solidObjects.add(physRect);
       }
