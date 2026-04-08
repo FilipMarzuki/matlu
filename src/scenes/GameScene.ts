@@ -70,6 +70,10 @@ const ROAM_SPEED = 40;
 const CHASE_SPEED = 70;
 const FLEE_SPEED = 120;
 const FLEE_MS = 1500;
+/** Speed (px/s) when player drives an animal in attract/wilderview mode — slightly below FLEE_SPEED for comfort. */
+const POSSESS_SPEED = 100;
+/** Milliseconds between automatic animal cycles in attract/wilderview mode. */
+const ATTRACT_CYCLE_MS = 600_000;
 
 /** FIL-8: swipe toward pointer */
 const SWIPE_COOLDOWN_MS = 400;
@@ -107,40 +111,44 @@ const BIRD_SHADOW_DX  = 7;
 const BIRD_SHADOW_DY  = 5;
 
 interface BirdObject {
-  body:          Phaser.GameObjects.Ellipse;
-  shadow:        Phaser.GameObjects.Ellipse;
-  vx:            number;
-  vy:            number;
-  nextDirChange: number;
+  body:            Phaser.GameObjects.Sprite;
+  shadow:          Phaser.GameObjects.Ellipse;
+  vx:              number;
+  vy:              number;
+  nextDirChange:   number;
+  /** True while the player is driving this bird via nav keys in attract mode. */
+  playerControlled?: boolean;
 }
 
 
 /**
- * Maps a biome value + detail value to a PostApocalypse background tileset frame.
+ * Maps a biome value + detail value to a background tileset frame.
  *
- * Each tileset is 384×272 with 16×16 tiles (24 columns × 17 rows).
- * The first row (frames 0–23) has the base repeating ground patterns;
- * further-right frames within the row add variation (slightly different tones,
- * subtle surface detail). Using 2 variants per biome driven by `detail` noise
- * prevents obvious tiling without needing a large atlas.
+ * Setting: Höga Kusten (Swedish High Coast), early spring.
+ * The landscape rises steeply from the Gulf of Bothnia. Biomes run from
+ * open sea through rocky shore, coastal heath, and boreal forest up to
+ * the bare granite of the highland summits.
  *
- * Biome mapping (mirrors terrainColor breakpoints):
- *   < 0.28  water        → terrain-water (Mystic Woods 2.2 water-sheet, FIL-74)
- *   < 0.37  wet shore    → terrain-yellow (sandy/dry ground)
- *   < 0.65  meadow       → terrain-green light
- *   < 0.73  tall grass   → terrain-green mid (slightly different shade)
- *   < 0.81  forest edge  → terrain-green dark
- *   ≥ 0.81  dense forest → terrain-dark (dark-green sheet)
+ * Each tileset is 384×272 with 16×16 tiles (24 cols × 17 rows).
+ * Using 2–3 frame variants per biome driven by detail noise breaks up tiling.
+ *
+ * Biome mapping (mirrors coastal terrain breakpoints used in spawnBias):
+ *   < 0.25  Bottenhavet — the Gulf of Bothnia / inland lakes
+ *   < 0.33  Rocky shore — wave-smoothed granite and shingle beach
+ *   < 0.48  Coastal heath — heather, crow-berries, early spring flowers
+ *   < 0.65  Mixed birch-spruce forest — the main boreal belt
+ *   < 0.80  Dense spruce forest — dark interior forest
+ *   ≥ 0.80  Highland rock — bare granite, gnarled mountain birch
  */
 function terrainTileFrame(val: number, detail: number): { key: string; frame: number } {
-  // Pick between 2 frames per biome using detail noise — breaks up visible tiling
+  // Toggle between 2 frame variants using detail noise to break up repetition
   const v = detail > 0.55 ? 1 : 0;
-  if      (val < 0.28) return { key: 'terrain-water',  frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 };  // water (3 variants)
-  else if (val < 0.37) return { key: 'terrain-yellow', frame: v };      // shore
-  else if (val < 0.65) return { key: 'terrain-green',  frame: v };      // light meadow
-  else if (val < 0.73) return { key: 'terrain-green',  frame: v + 2 };  // tall grass
-  else if (val < 0.81) return { key: 'terrain-green',  frame: v + 4 };  // forest edge
-  else                 return { key: 'terrain-dark',   frame: v };      // dense forest
+  if      (val < 0.25) return { key: 'terrain-water',  frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 }; // sea / lake
+  else if (val < 0.33) return { key: 'terrain-yellow', frame: v };      // rocky shore / shingle
+  else if (val < 0.48) return { key: 'terrain-green',  frame: v };      // coastal heath (spring)
+  else if (val < 0.65) return { key: 'terrain-green',  frame: v + 2 };  // mixed birch-spruce
+  else if (val < 0.80) return { key: 'terrain-green',  frame: v + 4 };  // dense spruce forest
+  else                 return { key: 'terrain-dark',   frame: v };      // highland granite
 }
 
 export class GameScene extends Phaser.Scene {
@@ -329,6 +337,8 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('hare-walk', `${craftpixBase}/Hare/Hare_Walk.png`, { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fox-idle',  `${craftpixBase}/Fox/Fox_Idle.png`,   { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fox-walk',  `${craftpixBase}/Fox/Fox_walk.png`,   { frameWidth: 16, frameHeight: 16 });
+    // Black grouse flight sheet (192×128, 12 cols × 8 rows at 16×16 px) — used for all flying birds.
+    this.load.spritesheet('grouse-fly', `${craftpixBase}/Black_grouse/Black_grouse_Flight.png`, { frameWidth: 16, frameHeight: 16 });
 
     // ── Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
@@ -371,6 +381,9 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer();
 
     this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
+    // Zoom in so pixel-art sprites read clearly on a tablet screen.
+    // At zoom 2 the viewport shows half the world area, but sprites appear twice as large.
+    this.cameras.main.setZoom(2);
 
     const joystickPlugin = this.plugins.get(
       REX_VIRTUAL_JOYSTICK_PLUGIN_KEY
@@ -481,27 +494,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Returns a 0–1 acceptance probability for spawning `type` at world position (wx, wy).
-   * Samples baseNoise (same instance as terrain rendering) so values correspond exactly
-   * to the biome the player will see. Values outside the preferred range still get a small
-   * non-zero chance so the world isn't completely empty in the wrong biome.
+   * Returns a 0–1 spawn-acceptance probability for `type` at world position (wx, wy).
    *
-   * Breakpoints mirror terrainColor():
-   *   < 0.28  deep water  (nothing spawns here)
-   *   < 0.37  shore/wet
-   *   < 0.65  open meadow
-   *   < 0.73  tall grass
-   *   < 0.81  forest edge
-   *   ≥ 0.81  dense forest
+   * Uses the same coastal gradient as drawProceduralTerrain so spawn density
+   * matches the visible biome — animals in the sea would look wrong.
+   * Breakpoints mirror the terrainTileFrame() biome thresholds:
+   *   < 0.25  sea / lake          (nothing spawns here)
+   *   < 0.33  rocky shore
+   *   < 0.48  coastal heath
+   *   < 0.65  mixed birch-spruce  (main forest belt)
+   *   < 0.80  dense spruce
+   *   ≥ 0.80  highland granite
    */
   private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit'): number {
-    const v = this.baseNoise.fbm(wx * BASE_SCALE, wy * BASE_SCALE);
-    if (v < 0.28) return 0; // never spawn in open water
+    const raw = this.baseNoise.fbm(wx * BASE_SCALE, wy * BASE_SCALE);
+    // Apply the same coastal gradient used in terrain rendering
+    const coastBias = Math.pow(Math.max(0, wx / WORLD_W - 0.55), 1.8) * 2.0;
+    const v = Math.max(0, raw - coastBias);
+    if (v < 0.25) return 0; // never spawn in open water
     switch (type) {
-      case 'deer':   return v > 0.37 && v < 0.73 ? 1.0 : 0.2;  // meadow & tall grass
-      case 'hare':   return v > 0.28 && v < 0.65 ? 1.0 : 0.3;  // shore through meadow
-      case 'fox':    return v > 0.54 && v < 0.90 ? 1.0 : 0.15; // forest fringe
-      case 'rabbit': return v > 0.28 && v < 0.54 ? 1.0 : 0.2;  // wet shore through light meadow
+      case 'deer':   return v > 0.33 && v < 0.65 ? 1.0 : 0.2;  // heath through mixed birch-spruce
+      case 'hare':   return v > 0.25 && v < 0.48 ? 1.0 : 0.3;  // shore through coastal heath
+      case 'fox':    return v > 0.48 && v < 0.85 ? 1.0 : 0.15; // forest belt into highland
+      case 'rabbit': return v > 0.25 && v < 0.48 ? 1.0 : 0.2;  // shore through coastal heath
       default:       return 1.0;
     }
   }
@@ -998,9 +1013,14 @@ export class GameScene extends Phaser.Scene {
     this.obstacles = this.physics.add.staticGroup();
 
     for (const def of OBSTACLE_DEFS) {
-      const box = this.add.rectangle(def.x, def.y, def.w, def.h, 0x7a4a1e);
-      box.setStrokeStyle(2, 0x3d2008);
-      this.obstacles.add(box);
+      // rock-grass.png is 13×9 px. Scale 4.5 → ~58×40 px boulder, readable at zoom 2.
+      // The StaticGroup auto-sizes the physics body to displayWidth × displayHeight,
+      // so collision coverage matches what the player sees without any manual setSize().
+      // Depth = def.y follows the scene's y-sorting convention (further down = in front).
+      const rock = this.add.image(def.x, def.y, 'rock-grass')
+        .setScale(4.5)
+        .setDepth(def.y);
+      this.obstacles.add(rock);
     }
 
     this.obstacles.refresh();
@@ -1103,7 +1123,7 @@ export class GameScene extends Phaser.Scene {
         true, 0.06, 0.06,
       );
     }
-    this.attractNextAt = this.time.now + 12000;
+    this.attractNextAt = this.time.now + ATTRACT_CYCLE_MS;
 
     // Hide HUD bars — they belong to gameplay, not the wilderview screen.
     for (const obj of this.hudObjects) {
@@ -1174,36 +1194,139 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Handles keystrokes during attract mode to build the player's name.
-   * Printable single characters are appended (max 20); Backspace removes the last;
-   * Enter submits when at least one character has been typed.
+   * Handles keystrokes during attract mode.
+   *
+   * Mapped keys:
+   *   - Printable single chars  → append to player name (max 20)
+   *   - Backspace               → remove last name character
+   *   - Enter                   → submit name and start game
+   *   - Arrow / WASD            → drive the focused animal (handled in updateAttractControl)
+   *
+   * Any key that falls outside these mappings immediately cycles to the next animal.
    */
   private onAttractKey(event: KeyboardEvent): void {
     if (!this.attractMode) return;
+
+    // Navigation keys are handled via isDown polling in updateAttractControl.
+    // Treat them as "mapped" here so they don't trigger a cycle or name append.
+    const isNavKey = event.key === 'ArrowUp' || event.key === 'ArrowDown'
+                  || event.key === 'ArrowLeft' || event.key === 'ArrowRight'
+                  || event.code === 'KeyW' || event.code === 'KeyA'
+                  || event.code === 'KeyS' || event.code === 'KeyD';
+
     if (event.key === 'Enter') {
       if (this.attractName.length > 0) this.exitAttractMode();
     } else if (event.key === 'Backspace') {
       this.attractName = this.attractName.slice(0, -1);
+    } else if (isNavKey) {
+      // Navigation — animal movement handled via isDown polling, nothing to do here.
+      return;
     } else if (event.key.length === 1 && this.attractName.length < 20) {
       this.attractName += event.key;
+    } else {
+      // Key has no current mapping — cycle immediately to the next animal.
+      this.cycleAttractTarget(this.time.now);
     }
+
     // Show current input with a cursor placeholder
-    this.attractNameDisplay.setText((this.attractName || '') + '_');
+    this.attractNameDisplay.setText(this.attractName + '_');
   }
 
   private updateAttractMode(time: number): void {
     // Update thought bubble every frame with the current animal's live state.
     this.updateThoughtBubble();
+    // Allow player to drive the focused animal via nav keys.
+    this.updateAttractControl();
 
     if (time < this.attractNextAt || this.attractTargets.length === 0) return;
+    this.cycleAttractTarget(time);
+  }
 
+  /**
+   * Advances the wilderview to the next animal in the list and resets the dwell timer.
+   * Called by the auto-cycle timer and by unmapped key presses.
+   */
+  private cycleAttractTarget(time: number): void {
+    if (this.attractTargets.length === 0) return;
+    // Release possession on the current target before moving on.
+    this.releaseAttractControl();
     this.attractIdx = (this.attractIdx + 1) % this.attractTargets.length;
     this.cameras.main.startFollow(
       this.attractTargets[this.attractIdx] as Phaser.GameObjects.GameObject,
       true, 0.03, 0.03,
     );
-    // Dwell for 10–14 s on each animal
-    this.attractNextAt = time + 10000 + Phaser.Math.Between(-2000, 4000);
+    this.attractNextAt = time + ATTRACT_CYCLE_MS;
+  }
+
+  /**
+   * Called every frame during attract mode.
+   * If a navigation key (arrow or WASD) is held, the player drives the focused animal.
+   * The moment all nav keys are released the animal immediately resumes its own AI.
+   *
+   * Speed is tuned to feel responsive without being faster than the animal normally flees.
+   */
+  private updateAttractControl(): void {
+    if (!this.attractMode || this.attractTargets.length === 0) return;
+
+    const right = (this.cursors.right.isDown || this.wasd['right'].isDown) ? 1 : 0;
+    const left  = (this.cursors.left.isDown  || this.wasd['left'].isDown)  ? 1 : 0;
+    const down  = (this.cursors.down.isDown  || this.wasd['down'].isDown)  ? 1 : 0;
+    const up    = (this.cursors.up.isDown    || this.wasd['up'].isDown)    ? 1 : 0;
+
+    const target = this.attractTargets[this.attractIdx];
+
+    if (!right && !left && !down && !up) {
+      // No nav input — hand control back to AI.
+      this.releaseAttractControl();
+      return;
+    }
+
+    // Player is actively driving the focused animal.
+    const dx = right - left;
+    const dy = down - up;
+
+    const s = target as Phaser.GameObjects.Sprite;
+    if (s.getData('animalState') === 'flying') {
+      // Bird — steer by setting vx/vy directly (birds aren't in the physics group).
+      const bird = this.birds.find(b => b.body === s);
+      if (bird) {
+        bird.vx = dx * POSSESS_SPEED;
+        bird.vy = dy * POSSESS_SPEED;
+        // Suppress the autonomous direction-nudge while the player steers.
+        bird.nextDirChange = this.time.now + 500;
+        bird.playerControlled = true;
+      }
+    } else {
+      // Ground animal — steer via physics body.
+      const body = s.body as Phaser.Physics.Arcade.Body;
+      const type = s.getData('animalType') as string;
+      body.setVelocity(dx * POSSESS_SPEED, dy * POSSESS_SPEED);
+      // Flip the sprite so it faces the direction of travel.
+      if (dx !== 0) s.setFlipX(dx < 0);
+      s.setData('playerControlled', true);
+      // Keep the walk animation running while the player drives.
+      if (!s.anims.isPlaying || s.anims.currentAnim?.key !== `${type}-walk-anim`) {
+        s.play(`${type}-walk-anim`);
+      }
+    }
+  }
+
+  /** Clears the player-control flag on whichever target is currently focused. */
+  private releaseAttractControl(): void {
+    if (this.attractTargets.length === 0) return;
+    const target = this.attractTargets[this.attractIdx];
+    const s = target as Phaser.GameObjects.Sprite;
+    if (s.getData('animalState') === 'flying') {
+      const bird = this.birds.find(b => b.body === s);
+      if (bird) bird.playerControlled = false;
+    } else {
+      if (s.getData('playerControlled') as boolean) {
+        s.setData('playerControlled', false);
+        const type = s.getData('animalType') as string;
+        // Return to idle animation; AI will switch to walk again if needed.
+        s.play(`${type}-idle-anim`);
+      }
+    }
   }
 
   /**
@@ -1268,6 +1391,8 @@ export class GameScene extends Phaser.Scene {
       ['hare-walk-anim', 'hare-walk', [0, 2, 4, 6, 8],    12],
       ['fox-idle-anim',  'fox-idle',  [0, 2, 4, 6],          6],
       ['fox-walk-anim',  'fox-walk',  [0, 2, 4, 6, 8, 10],   8],
+      // Black grouse flight — even-numbered frames from row 0 of the 192×128 sheet.
+      ['grouse-fly-anim', 'grouse-fly', [0, 2, 4, 6, 8, 10], 10],
     ];
     for (const [key, texture, frames, frameRate] of defs) {
       this.anims.create({
@@ -1405,6 +1530,8 @@ export class GameScene extends Phaser.Scene {
       const b  = r.body as Phaser.Physics.Arcade.Body;
       const type = r.getData('animalType') as string;
       const def  = ANIMAL_DEFS[type];
+      // While the player is driving this animal in attract mode, skip AI entirely.
+      if (r.getData('playerControlled') as boolean) continue;
       const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
       let state  = r.getData('animalState') as AnimalState;
       // Remember state before this frame so we can detect the transition below.
@@ -1458,18 +1585,25 @@ export class GameScene extends Phaser.Scene {
       const y = Phaser.Math.Between(50, WORLD_H - 50);
 
       const isCrow = i < 4;          // first 4 are crow-sized, rest are small songbirds
-      const w      = isCrow ? 10 : 6;
-      const h      = isCrow ?  5 : 3;
-      const color  = isCrow ? 0x1a1a1a : 0x3a3a50;
+      // Shadow dimensions match the approximate visual footprint at each scale.
+      const w = isCrow ? 10 : 6;
+      const h = isCrow ?  5 : 3;
 
       const shadow = this.add.ellipse(x + BIRD_SHADOW_DX, y + BIRD_SHADOW_DY, w, h, 0x000000, 0.2);
       shadow.setDepth(1);
 
-      const body = this.add.ellipse(x, y, w, h, color);
+      // Replace the old ellipse with a sprite using the black grouse flight sheet.
+      // Crows are drawn at 0.7× scale (~11 px), songbirds at 0.45× (~7 px) —
+      // small enough to read as distant birds without overwhelming the landscape.
+      const scale = isCrow ? 0.7 : 0.45;
+      const body  = this.add.sprite(x, y, 'grouse-fly', 0);
+      body.setScale(scale);
       body.setDepth(7);
       // Tag so the Wilderview thought bubble can identify and describe the bird.
+      // animalState 'flying' also distinguishes birds from ground animals in attract mode.
       body.setData('animalType', isCrow ? 'crow' : 'songbird');
       body.setData('animalState', 'flying');
+      body.play('grouse-fly-anim');
 
       const speed = Phaser.Math.Between(55, 95);
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -1487,8 +1621,9 @@ export class GameScene extends Phaser.Scene {
     const dt = delta / 1000;
 
     for (const bird of this.birds) {
-      // Gently nudge direction every so often — birds don't fly perfectly straight
-      if (time > bird.nextDirChange) {
+      // Gently nudge direction every so often — birds don't fly perfectly straight.
+      // Skip this when the player is steering the bird in attract mode.
+      if (!bird.playerControlled && time > bird.nextDirChange) {
         const speed    = Math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy);
         const newAngle = Math.atan2(bird.vy, bird.vx) + Phaser.Math.FloatBetween(-0.5, 0.5);
         bird.vx = Math.cos(newAngle) * speed;
@@ -1505,6 +1640,8 @@ export class GameScene extends Phaser.Scene {
 
       bird.body.setPosition(nx, ny);
       bird.shadow.setPosition(nx + BIRD_SHADOW_DX, ny + BIRD_SHADOW_DY);
+      // Flip the sprite so it always faces the direction it's flying.
+      if (bird.vx !== 0) bird.body.setFlipX(bird.vx < 0);
     }
   }
 
@@ -1539,7 +1676,14 @@ export class GameScene extends Phaser.Scene {
       for (let tx = 0; tx < tilesX; tx++) {
         const base   = noise.fbm(tx * BASE_SCALE,     ty * BASE_SCALE,     4, 0.5);
         const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE,   2, 0.6);
-        const val    = base * 0.78 + detail * 0.22;
+
+        // Höga Kusten coastal gradient: the eastern portion of the world slopes
+        // down to the Gulf of Bothnia. A power-curve bias pulls high-x tiles toward
+        // sea level — the farther east, the more likely they become open water.
+        // This creates a natural coastline, offshore islands (noise peaks that
+        // survive the bias), and inland lakes (noise troughs away from the coast).
+        const coastBias = Math.pow(Math.max(0, tx / tilesX - 0.55), 1.8) * 2.0;
+        const val = Math.max(0, base * 0.78 + detail * 0.22 - coastBias);
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -1552,23 +1696,25 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    terrainRt.endDraw();
-
-    tileImg.destroy();
-
-    // Dirt clearing at spawn — drawn on a Graphics object so it sits above terrain tiles
-    // and gives the player a recognisable landmark to start from.
-    const colorGfx = this.add.graphics().setDepth(0);
+    // Spawn clearing — stamp shore/shingle tiles (terrain-yellow) over the underlying
+    // biome in a circular patch so the player has a recognisable gravel landmark.
+    // Done inside beginDraw()/endDraw() so it costs zero extra GPU draw calls.
+    // Alternating frame 0/1 breaks up the tiling pattern just like the main terrain.
     const sx = Math.floor(SPAWN_X / TILE_SIZE);
     const sy = Math.floor(SPAWN_Y / TILE_SIZE);
-    colorGfx.fillStyle(0xc4a472, 1);
     for (let dy = -3; dy <= 3; dy++) {
       for (let dx = -3; dx <= 3; dx++) {
         if (dx * dx + dy * dy <= 7) {
-          colorGfx.fillRect((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          const frame = (Math.abs(dx) + Math.abs(dy)) % 2;
+          tileImg.setTexture('terrain-yellow', frame)
+                 .setPosition((sx + dx) * TILE_SIZE + 16, (sy + dy) * TILE_SIZE + 16);
+          terrainRt.batchDraw(tileImg);
         }
       }
     }
+
+    terrainRt.endDraw();
+    tileImg.destroy();
   }
 
   /**
