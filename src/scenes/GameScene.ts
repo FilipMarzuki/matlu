@@ -89,7 +89,7 @@ const HUD_BAR_H = 14;
 const HUD_PAD = 14;
 
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
-type AnimalState = 'roaming' | 'fleeing';
+type AnimalState = 'roaming' | 'fleeing' | 'chasing';
 
 interface AnimalDef {
   /** Physics body size (smaller than the visual sprite). */
@@ -104,6 +104,9 @@ const ANIMAL_DEFS: Record<string, AnimalDef> = {
   hare: { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
   fox:  { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 10 },
 };
+
+/** Fox detects hares within this radius and enters chase state. */
+const FOX_CHASE_RANGE = 220;
 
 const BIRD_COUNT      = 30;
 const BIRD_SHADOW_DX  = 7;
@@ -1486,6 +1489,13 @@ export class GameScene extends Phaser.Scene {
     const px = this.player.x;
     const py = this.player.y;
 
+    // Pre-filter typed lists for predator/prey checks — cheaper than O(n²) getData calls.
+    // Player-controlled animals skip AI entirely, so exclude them here too.
+    const foxSprites  = (this.groundAnimals.getChildren() as Phaser.GameObjects.Sprite[])
+      .filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'fox');
+    const hareSprites = (this.groundAnimals.getChildren() as Phaser.GameObjects.Sprite[])
+      .filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'hare');
+
     for (const child of this.groundAnimals.getChildren()) {
       // Ground animals are now sprites (FIL-73); cast accordingly.
       const r  = child as Phaser.GameObjects.Sprite;
@@ -1517,9 +1527,70 @@ export class GameScene extends Phaser.Scene {
         r.play(`${type}-idle-anim`);
       }
 
+      // ── Predator/prey: fox chases hare ─────────────────────────────────────────
+      // Player-flee takes priority — a fox that is already fleeing the player won't
+      // simultaneously chase a hare. Once the player retreats the fox will resume.
+      if (type === 'fox' && state !== 'fleeing') {
+        let nearestHare: Phaser.GameObjects.Sprite | null = null;
+        let nearestDist = FOX_CHASE_RANGE;
+        for (const hare of hareSprites) {
+          const d = Phaser.Math.Distance.Between(r.x, r.y, hare.x, hare.y);
+          if (d < nearestDist) { nearestDist = d; nearestHare = hare; }
+        }
+        if (nearestHare) {
+          if (state !== 'chasing') {
+            state = 'chasing';
+            r.setData('animalState', state);
+            r.play('fox-walk-anim');
+          }
+          r.setData('chaseTarget', nearestHare); // refreshed each frame to track movement
+        } else if (state === 'chasing') {
+          state = 'roaming';
+          r.setData('animalState', state);
+          r.setData('chaseTarget', null);
+          r.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 5000));
+          r.play('fox-idle-anim');
+        }
+      }
+
+      // Hares flee from nearby foxes using the same mechanism as player-flee.
+      // 'fleeFromX/Y' is set each frame so the hare always tracks the closest threat.
+      if (type === 'hare') {
+        let nearestFox: Phaser.GameObjects.Sprite | null = null;
+        let nearestFoxDist = def.fleeRange;
+        for (const fox of foxSprites) {
+          const d = Phaser.Math.Distance.Between(r.x, r.y, fox.x, fox.y);
+          if (d < nearestFoxDist) { nearestFoxDist = d; nearestFox = fox; }
+        }
+        if (nearestFox) {
+          if (state !== 'fleeing') {
+            state = 'fleeing';
+            r.setData('animalState', state);
+            r.play('hare-walk-anim');
+          }
+          r.setData('fleeFromX', nearestFox.x);
+          r.setData('fleeFromY', nearestFox.y);
+        } else {
+          // No fox nearby — default flee origin is the player.
+          r.setData('fleeFromX', px);
+          r.setData('fleeFromY', py);
+        }
+      }
+
       if (state === 'fleeing') {
-        const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
+        // Hares store their flee origin (fox or player); all others flee the player.
+        const ftx = type === 'hare' ? (r.getData('fleeFromX') as number) : px;
+        const fty = type === 'hare' ? (r.getData('fleeFromY') as number) : py;
+        const away = Phaser.Math.Angle.Between(ftx, fty, r.x, r.y);
         this.physics.velocityFromRotation(away, def.fleeSpeed, b.velocity);
+      } else if (state === 'chasing') {
+        const target = r.getData('chaseTarget') as Phaser.GameObjects.Sprite | null;
+        if (target?.active) {
+          const toward = Phaser.Math.Angle.Between(r.x, r.y, target.x, target.y);
+          this.physics.velocityFromRotation(toward, def.fleeSpeed, b.velocity);
+          // Flip sprite so the fox faces the direction it is running.
+          r.setFlipX(Math.cos(toward) < 0);
+        }
       } else if (this.time.now > (r.getData('roamNext') as number)) {
         // Sample 4 candidate directions and pick the one with the highest path
         // affinity score. This makes animals naturally gravitate toward animal
