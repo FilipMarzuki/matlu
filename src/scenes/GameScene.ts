@@ -205,6 +205,11 @@ export class GameScene extends Phaser.Scene {
   private playerGold = 0;
   private goldText!: Phaser.GameObjects.Text;
 
+  // ─── Cleanse milestones ───────────────────────────────────────────────────────
+  // Tracks which threshold percentages have already triggered so they don't
+  // repeat if the cleanse-updated event fires multiple times near a boundary.
+  private milestonesHit: Set<number> = new Set();
+
   // ─── Player health ────────────────────────────────────────────────────────────
   private playerHp = 100;
   private readonly playerMaxHp = 100;
@@ -570,6 +575,19 @@ export class GameScene extends Phaser.Scene {
         this.revealPortal();
         // Big cleanse milestone — slow the day cycle (world breathes out)
         this.worldClock.slowDown(30);
+      }
+      // Show a toast for each 25 % milestone, once each.
+      // The messages give the player a sense of progress without a numeric readout.
+      for (const [threshold, key] of [
+        [25,  'cleanse.milestone_25'],
+        [50,  'cleanse.milestone_50'],
+        [75,  'cleanse.milestone_75'],
+        [100, 'cleanse.milestone_100'],
+      ] as [number, string][]) {
+        if (percent >= threshold && !this.milestonesHit.has(threshold)) {
+          this.milestonesHit.add(threshold);
+          this.showCleanseToast(t(key));
+        }
       }
     });
 
@@ -1076,6 +1094,21 @@ export class GameScene extends Phaser.Scene {
       .setDepth(300);
     this.hudObjects.push(this.cleanseFill);
 
+    // Milestone tick marks at 25 %, 50 %, 75 % on the cleanse bar.
+    // Drawn with a Graphics object in screen-space so they render above the fill.
+    // These give the player visual targets to aim for without displaying a number.
+    const ticks = this.add.graphics().setScrollFactor(0).setDepth(301);
+    ticks.lineStyle(1, 0xffffff, 0.4);
+    const barLeft = sw - pad - w;
+    const barTop  = pad + 10 - h / 2;
+    for (const frac of [0.25, 0.5, 0.75]) {
+      const tx = barLeft + w * frac;
+      ticks.moveTo(tx, barTop);
+      ticks.lineTo(tx, barTop + h);
+    }
+    ticks.strokePath();
+    this.hudObjects.push(ticks);
+
     // Gold counter — sits below the HP bar in the top-left.
     // Updates in resolveDrops() each time a reward is collected.
     this.goldText = this.add
@@ -1134,6 +1167,46 @@ export class GameScene extends Phaser.Scene {
     );
     const hex = Phaser.Display.Color.GetColor(c.r, c.g, c.b);
     this.cleanseFill.setFillStyle(hex);
+  }
+
+  /**
+   * Show a brief toast message at the bottom-centre of the screen.
+   * Used for cleanse milestones — keeps the player informed without a permanent UI element.
+   * Uses scrollFactor(0) so the text stays in screen-space regardless of camera position.
+   */
+  private showCleanseToast(message: string): void {
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height - 80;
+    const toast = this.add
+      .text(cx, cy + 20, message, {
+        fontSize: '14px',
+        color: '#88ffaa',
+        stroke: '#000000',
+        strokeThickness: 2,
+        backgroundColor: '#00000088',
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(600)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: toast,
+      alpha: 1,
+      y: cy,
+      duration: 400,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: toast,
+          alpha: 0,
+          delay: 2200,
+          duration: 600,
+          ease: 'Sine.easeIn',
+          onComplete: () => toast.destroy(),
+        });
+      },
+    });
   }
 
   private applyWorldTint(percent: number): void {
