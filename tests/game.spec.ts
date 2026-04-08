@@ -49,7 +49,7 @@ test('pressing W key moves the player upward', async ({ page }) => {
   // Dispatch keydown events directly on window so Phaser's keyboard plugin
   // receives them regardless of page focus state in headless Chrome.
   // Phaser uses event.keyCode (not event.key) for key matching, so keyCode must
-  // be set correctly. Attract mode needs at least one character typed before Enter.
+  // be set correctly. GameScene attract mode needs at least one character before Enter.
   await page.evaluate(() => {
     // 'A' keyCode = 65, 'Enter' keyCode = 13
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', keyCode: 65, bubbles: true }));

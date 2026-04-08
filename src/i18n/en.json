@@ -13,5 +13,9 @@
   "menu.lore": "Lore",
   "menu.stats": "Stats",
   "menu.subtitle": "a cleansing tale",
-  "menu.hint": "touch or click"
+  "menu.hint": "touch or click",
+  "settings.title": "Settings",
+  "settings.sound_on": "Sound on",
+  "settings.sound_off": "Sound off",
+  "settings.language_label": "Language"
 }

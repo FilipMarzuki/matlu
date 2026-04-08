@@ -6,6 +6,7 @@ import { WilderviewScene } from './scenes/WilderviewScene';
 import { GameScene } from './scenes/GameScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { NpcDialogScene } from './scenes/NpcDialogScene';
+import { SettingsScene } from './scenes/SettingsScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -39,8 +40,14 @@ const game = new Phaser.Game({
   },
   // MainMenuScene is the entry point (first in array = auto-started).
   // WilderviewScene is kept for compatibility but now redirects to MainMenuScene.
-  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene],
+  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene],
 });
+
+// Restore mute preference saved by SettingsScene.
+// Must run after the game is created so the sound manager exists.
+if (typeof localStorage !== 'undefined' && localStorage.getItem('matlu_muted') === 'true') {
+  game.sound.setMute(true);
+}
 
 // Expose game instance for Playwright tests and dev tooling.
 // Always set so that preview-mode Playwright tests can access it.
