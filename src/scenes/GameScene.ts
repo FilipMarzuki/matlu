@@ -89,6 +89,17 @@ const NPC_DIALOG: Record<string, string> = {
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
 type AnimalState = 'roaming' | 'fleeing' | 'chasing';
 
+// ── Drop tables ───────────────────────────────────────────────────────────────
+// Extensible config — add new entity keys as more enemy types are introduced (FIL-106).
+// Gold range is kept small early-game; the economy will be balanced when the
+// shop (FIL-93) and loot containers (FIL-92) are implemented.
+interface DropTable {
+  gold?: { min: number; max: number };
+}
+const DROP_TABLES: Record<string, DropTable> = {
+  zombieRabbit: { gold: { min: 1, max: 4 } },
+};
+
 interface AnimalDef {
   /** Physics body size (smaller than the visual sprite). */
   w: number; h: number;
@@ -189,6 +200,10 @@ export class GameScene extends Phaser.Scene {
   private birds: BirdObject[] = [];
   private kills = 0;
   private lastSwipeAt = 0;
+
+  // ─── Economy ──────────────────────────────────────────────────────────────────
+  private playerGold = 0;
+  private goldText!: Phaser.GameObjects.Text;
 
   // ─── Player health ────────────────────────────────────────────────────────────
   private playerHp = 100;
@@ -884,6 +899,51 @@ export class GameScene extends Phaser.Scene {
     // Each rabbit kill nudges nearby road conditions back toward health.
     this.pathSystem.restoreNear(rx, ry, 300, 3);
     this.onZoneCleansed('rabbit', rx, ry);
+    // Resolve drop table — award gold and show floating feedback text
+    this.resolveDrops('zombieRabbit', rx, ry);
+  }
+
+  /**
+   * Resolve an entity's drop table and apply rewards to the player.
+   *
+   * Keyed by entity type so new enemies (FIL-106) just need an entry in
+   * DROP_TABLES — no other code changes required.
+   */
+  private resolveDrops(entityType: string, x: number, y: number): void {
+    const table = DROP_TABLES[entityType];
+    if (!table) return;
+
+    if (table.gold) {
+      const amount = Phaser.Math.Between(table.gold.min, table.gold.max);
+      this.playerGold += amount;
+      this.goldText.setText(`${t('hud.gold')}: ${this.playerGold}`);
+      // Floating "+N gold" feedback in world-space — rises and fades like collectible labels
+      this.spawnFloatText(x, y, `+${amount} ${t('hud.gold')}`, '#ffe066');
+    }
+  }
+
+  /**
+   * Spawn a floating text label at world coordinates that rises 60px and fades out.
+   * Used for drop rewards and other instant feedback in the game world.
+   */
+  private spawnFloatText(x: number, y: number, text: string, color: string): void {
+    const label = this.add
+      .text(x, y - 20, text, {
+        fontSize: '13px',
+        color,
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setDepth(500)
+      .setOrigin(0.5, 1);
+    this.tweens.add({
+      targets: label,
+      y: y - 80,
+      alpha: 0,
+      duration: 1400,
+      ease: 'Sine.easeOut',
+      onComplete: () => label.destroy(),
+    });
   }
 
   private spawnEnergyBurst(sx: number, sy: number, ex: number, ey: number): void {
@@ -1015,6 +1075,17 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(300);
     this.hudObjects.push(this.cleanseFill);
+
+    // Gold counter — sits below the HP bar in the top-left.
+    // Updates in resolveDrops() each time a reward is collected.
+    this.goldText = this.add
+      .text(pad, pad + h + 12, `${t('hud.gold')}: 0`, {
+        fontSize: '11px',
+        color: '#ffe066',
+      })
+      .setScrollFactor(0)
+      .setDepth(300);
+    this.hudObjects.push(this.goldText);
 
     // Pause button — top-centre, between the two HUD bars.
     // Small and unobtrusive on tablet; tapping or clicking it opens the pause menu.
