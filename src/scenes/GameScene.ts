@@ -190,6 +190,21 @@ export class GameScene extends Phaser.Scene {
   private kills = 0;
   private lastSwipeAt = 0;
 
+  // ─── Player health ────────────────────────────────────────────────────────────
+  private playerHp = 100;
+  private readonly playerMaxHp = 100;
+  // Filled rect that shrinks as HP drops — same pattern as cleanseFill
+  private hpFill!: Phaser.GameObjects.Rectangle;
+  // Timestamp of last player hit — prevents instant death from rapid rabbit taps
+  private lastDamagedAt = 0;
+
+  // ─── Run timing ───────────────────────────────────────────────────────────────
+  // Set when the player exits attract mode (name entered) so the timer reflects
+  // actual gameplay time, not time spent on the attract/name-entry screen.
+  private gameStartedAt = 0;
+  // Guard flag — prevents onPlayerDeath / onLevelComplete firing more than once
+  private gameEnded = false;
+
   private cleanseFill!: Phaser.GameObjects.Rectangle;
   private overlay!: Phaser.GameObjects.Rectangle;
   // All HUD elements (bars + labels) collected so they can be hidden during attract mode
@@ -215,7 +230,6 @@ export class GameScene extends Phaser.Scene {
   private portal!: Phaser.GameObjects.Arc;
   private portalActive = false;
   private portalGfx!: Phaser.GameObjects.Graphics;
-  private levelCompleteLogged = false;
   private runSeed = 0;
   /** Whether the audio system is functional — false in headless CI environments */
   private audioAvailable = false;
@@ -503,6 +517,21 @@ export class GameScene extends Phaser.Scene {
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.mountainWalls);
+
+    // Corrupted rabbits deal damage when they touch the player.
+    // lastDamagedAt provides 1.5 s of invincibility frames so a single contact
+    // doesn't drain the full HP bar instantly.
+    this.physics.add.overlap(this.player, this.rabbits, () => {
+      if (this.gameEnded || this.attractMode) return;
+      const now = this.time.now;
+      if (now - this.lastDamagedAt < 1500) return;
+      this.lastDamagedAt = now;
+      this.playerHp = Math.max(0, this.playerHp - 20);
+      this.setHpHud(this.playerHp);
+      // Quick alpha flash to signal the hit visually
+      this.tweens.add({ targets: this.playerSprite, alpha: 0.25, yoyo: true, duration: 120, repeat: 2 });
+      if (this.playerHp <= 0) this.onPlayerDeath();
+    });
 
     this.createAnimalAnimations();
     this.groundAnimals = this.physics.add.group();
@@ -903,6 +932,40 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private onPlayerDeath(): void {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+    const durationMs = this.gameStartedAt > 0
+      ? Math.round(this.time.now - this.gameStartedAt)
+      : 0;
+    const cleanse = Math.round((this.kills / RABBIT_COUNT) * 100);
+    // Record the run — fire-and-forget, failures are non-critical
+    insertMatluRun({
+      nickname: this.playerName || 'Player',
+      score:    this.kills,
+      duration_ms: durationMs,
+    }).catch(() => {});
+    // Freeze the world and overlay the game-over screen
+    this.scene.pause();
+    this.scene.launch('GameOverScene', { cleanse, kills: this.kills, durationMs } as unknown as object);
+  }
+
+  private onLevelComplete(): void {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+    const durationMs = this.gameStartedAt > 0
+      ? Math.round(this.time.now - this.gameStartedAt)
+      : 0;
+    const cleanse = Math.round((this.kills / RABBIT_COUNT) * 100);
+    insertMatluRun({
+      nickname: this.playerName || 'Player',
+      score:    this.kills,
+      duration_ms: durationMs,
+    }).catch(() => {});
+    this.scene.pause();
+    this.scene.launch('LevelCompleteScene', { cleanse, kills: this.kills, durationMs } as unknown as object);
+  }
+
   private openPauseMenu(): void {
     // Pause this scene (freezes update + physics) then launch the pause overlay
     // in parallel so the frozen world stays visible behind it.
@@ -921,17 +984,20 @@ export class GameScene extends Phaser.Scene {
     // Collect all HUD elements so they can be hidden during attract/wilderview mode.
     this.hudObjects = [];
 
+    // HP fill is stored separately so setHpHud() can resize it on damage
+    this.hpFill = this.add
+      .rectangle(pad + 2, pad + 10, w - 4, h - 4, 0xff3333)
+      .setOrigin(0, 0.5)
+      .setScrollFactor(0)
+      .setDepth(300);
+
     this.hudObjects.push(
       this.add
         .text(pad, pad - 2, t('hud.hp'), { fontSize: '11px', color: '#ffffff' })
         .setScrollFactor(0)
         .setDepth(300),
       this.add.rectangle(pad + w / 2, pad + 10, w, h, 0x111111, 0.9).setScrollFactor(0).setDepth(299),
-      this.add
-        .rectangle(pad + 2, pad + 10, w - 4, h - 4, 0xff3333)
-        .setOrigin(0, 0.5)
-        .setScrollFactor(0)
-        .setDepth(300),
+      this.hpFill,
       this.add
         .text(sw - pad - w, pad - 2, t('hud.cleanse'), { fontSize: '11px', color: '#ffffff' })
         .setOrigin(1, 0)
@@ -977,6 +1043,12 @@ export class GameScene extends Phaser.Scene {
     this.setCleanseHud(0);
   }
 
+  private setHpHud(hp: number): void {
+    // Resize the red fill bar proportionally — mirrors how cleanseFill works
+    const ratio = Phaser.Math.Clamp(hp / this.playerMaxHp, 0, 1);
+    this.hpFill.width = (HUD_BAR_W - 4) * ratio;
+  }
+
   private setCleanseHud(percent: number): void {
     const inner = HUD_BAR_W - 4;
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
@@ -1011,16 +1083,8 @@ export class GameScene extends Phaser.Scene {
     this.portalGfx.setDepth(24);
 
     this.physics.add.overlap(this.player, this.portal, () => {
-      if (!this.portalActive || this.levelCompleteLogged) {
-        return;
-      }
-      this.levelCompleteLogged = true;
-      console.log(`[Level complete] seed=${this.runSeed} kills=${this.kills}`);
-      // Save run to Supabase — fire-and-forget, failures are non-critical
-      insertMatluRun({
-        nickname: this.playerName || 'Player',
-        score:    this.kills,
-      }).catch(() => {/* Supabase not configured — ignore */});
+      if (!this.portalActive) return;
+      this.onLevelComplete();
     });
   }
 
@@ -1593,6 +1657,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.attractMode) return;
     this.attractMode = false;
     this.playerName = this.attractName || 'Player';
+    // Start the run timer now — this.time.now is ms since the Phaser game started
+    this.gameStartedAt = this.time.now;
     this.input.keyboard?.off('keydown', this.onAttractKey, this);
     this.attractLabel.destroy();
     this.attractNameDisplay.destroy();

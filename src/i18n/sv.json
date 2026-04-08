@@ -21,5 +21,19 @@
   "pause.title": "Pausad",
   "pause.resume": "Fortsätt",
   "pause.settings": "Inställningar",
-  "pause.quit": "Tillbaka till menyn"
+  "pause.quit": "Tillbaka till menyn",
+  "gameover.title": "Du blev korrumperad",
+  "gameover.subtitle": "Mörkret tog dig",
+  "gameover.cleanse": "Rensat",
+  "gameover.kills": "Besegrade fiender",
+  "gameover.time": "Tid",
+  "gameover.try_again": "Försök igen",
+  "gameover.main_menu": "Huvudmeny",
+  "levelcomplete.title": "Skogen andas igen",
+  "levelcomplete.subtitle": "Nivå klar!",
+  "levelcomplete.cleanse": "Rensat",
+  "levelcomplete.kills": "Besegrade fiender",
+  "levelcomplete.time": "Tid",
+  "levelcomplete.play_again": "Spela igen",
+  "levelcomplete.main_menu": "Huvudmeny"
 }

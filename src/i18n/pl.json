@@ -21,5 +21,19 @@
   "pause.title": "Pauza",
   "pause.resume": "Wznów",
   "pause.settings": "Ustawienia",
-  "pause.quit": "Menu główne"
+  "pause.quit": "Menu główne",
+  "gameover.title": "Zostałeś skażony",
+  "gameover.subtitle": "Ciemność cię pochłonęła",
+  "gameover.cleanse": "Oczyszczono",
+  "gameover.kills": "Pokonani wrogowie",
+  "gameover.time": "Czas",
+  "gameover.try_again": "Spróbuj ponownie",
+  "gameover.main_menu": "Menu główne",
+  "levelcomplete.title": "Las oddycha znowu",
+  "levelcomplete.subtitle": "Poziom ukończony!",
+  "levelcomplete.cleanse": "Oczyszczono",
+  "levelcomplete.kills": "Pokonani wrogowie",
+  "levelcomplete.time": "Czas",
+  "levelcomplete.play_again": "Zagraj ponownie",
+  "levelcomplete.main_menu": "Menu główne"
 }

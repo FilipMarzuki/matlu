@@ -21,5 +21,19 @@
   "pause.title": "Paused",
   "pause.resume": "Resume",
   "pause.settings": "Settings",
-  "pause.quit": "Main Menu"
+  "pause.quit": "Main Menu",
+  "gameover.title": "You were corrupted",
+  "gameover.subtitle": "The darkness claimed you",
+  "gameover.cleanse": "Cleansed",
+  "gameover.kills": "Enemies defeated",
+  "gameover.time": "Time",
+  "gameover.try_again": "Try Again",
+  "gameover.main_menu": "Main Menu",
+  "levelcomplete.title": "The forest breathes again",
+  "levelcomplete.subtitle": "Level complete!",
+  "levelcomplete.cleanse": "Cleansed",
+  "levelcomplete.kills": "Enemies defeated",
+  "levelcomplete.time": "Time",
+  "levelcomplete.play_again": "Play Again",
+  "levelcomplete.main_menu": "Main Menu"
 }
