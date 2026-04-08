@@ -11,3 +11,8 @@ dist
 
 # Uncompressed audio — commit OGG/MP3 only; WAVs are too large for git
 *.wav
+# Shapeforms preview pack — 130 MB of WAVs + promo materials, not game-ready assets
+public/assets/audio/Shapeforms Audio Free Sound Effects/
+
+# Playwright test output
+test-results/
