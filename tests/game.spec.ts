@@ -24,8 +24,23 @@ test('game canvas renders without crashing', async ({ page }) => {
 test('pressing W key moves the player upward', async ({ page }) => {
   await page.goto('/');
 
-  // Wait for canvas to appear (WilderviewScene is running)
+  // Wait for canvas to appear (MainMenuScene is the entry point)
   await expect(page.locator('#game-container canvas')).toBeVisible({ timeout: GAME_BOOT_MS });
+
+  // MainMenuScene must be ready before we can trigger Play.
+  // The menu is click-driven — calling startGame() programmatically is more
+  // reliable than coordinate-based clicking and matches how we bypass attract mode.
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game']
+      ?.scene?.getScene?.('MainMenuScene'),
+    { timeout: GAME_BOOT_MS },
+  );
+  await page.evaluate(() => {
+    const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
+    // startGame() is private in TypeScript but accessible at runtime
+    const menu = game?.scene?.getScene('MainMenuScene') as unknown as Record<string, () => void>;
+    menu?.['startGame']?.();
+  });
 
   // GameScene.create() does heavy work (terrain, chunks, animals).
   // Poll until the player object exists before interacting with keyboard.
@@ -39,7 +54,7 @@ test('pressing W key moves the player upward', async ({ page }) => {
   // Dispatch keydown events directly on window so Phaser's keyboard plugin
   // receives them regardless of page focus state in headless Chrome.
   // Phaser uses event.keyCode (not event.key) for key matching, so keyCode must
-  // be set correctly. Attract mode needs at least one character typed before Enter.
+  // be set correctly. GameScene attract mode needs at least one character before Enter.
   await page.evaluate(() => {
     // 'A' keyCode = 65, 'Enter' keyCode = 13
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', keyCode: 65, bubbles: true }));
