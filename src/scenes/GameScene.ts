@@ -758,45 +758,6 @@ export class GameScene extends Phaser.Scene {
 
     this.createDevMenu();
     this.initAttractMode();
-    this.createDevMenu();
-  }
-
-  /**
-   * Persistent bottom-bar dev menu — lets us switch between WilderView and
-   * the Combat Arena at any time without restarting the whole game.
-   * Pinned to the viewport via setScrollFactor(0) so it's always visible.
-   */
-  private createDevMenu(): void {
-    const W    = this.scale.width;
-    const barY = this.scale.height - 11;
-
-    this.add
-      .rectangle(W / 2, barY, W, 22, 0x000000, 0.65)
-      .setScrollFactor(0).setDepth(1000);
-
-    const items = [
-      { label: 'WilderView', active: true,  target: '' },
-      { label: 'Arena',      active: false, target: 'CombatArenaScene' },
-    ];
-
-    items.forEach(({ label, active, target }, i) => {
-      const x   = W / 2 - 55 + i * 110;
-      const txt = this.add
-        .text(x, barY, label, {
-          fontSize: '11px',
-          color:    active ? '#aaffaa' : '#667766',
-          padding:  { x: 8, y: 3 },
-        })
-        .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(1001);
-
-      if (!active) {
-        txt
-          .setInteractive({ useHandCursor: true })
-          .on('pointerup',   () => this.scene.start(target))
-          .on('pointerover', () => txt.setColor('#99bb99'))
-          .on('pointerout',  () => txt.setColor('#667766'));
-      }
-    });
   }
 
   update(time: number, delta: number): void {
