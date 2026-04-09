@@ -116,6 +116,47 @@ export const COLLECTIBLES: Collectible[] = [
     label: 'Klippfragmentet',
     zoneId: 'zone-plateau',
   },
+  // ── Secrets (FIL-129) — no zone association, no map marker ───────────────────
+  {
+    id: 'secret-1',
+    x: 750, y: 1600,
+    // An ancient runestone almost swallowed by moss — bears marks no one alive can read.
+    label: 'Vittnesstenen',
+    zoneId: '',  // sentinel: secret collectibles don't belong to any zone
+  },
+  {
+    id: 'secret-2',
+    x: 3100, y: 2100,
+    // The crumbled stump of a watchtower — someone once climbed this to see the sea.
+    label: 'Ödestornet',
+    zoneId: '',
+  },
+];
+
+// ── Secrets and zone markers (FIL-129) ────────────────────────────────────────
+
+/**
+ * Positions of secret collectibles — used to stamp HIDDEN_HOLLOW chunks and
+ * to add a faint golden hint circle during world generation.
+ *
+ * These are separate from COLLECTIBLES so GameScene can iterate them without
+ * filtering the full collectibles array.
+ */
+export const SECRET_POSITIONS: Array<{ x: number; y: number; label: string }> = [
+  { x:  750, y: 1600, label: 'Vittnesstenen' },
+  { x: 3100, y: 2100, label: 'Ödestornet'   },
+];
+
+/**
+ * Positions where biome zones transition — marked with WAYMARKER_STONE chunks
+ * so the player gets a subtle spatial cue that the character of the land is changing.
+ *
+ *   (1400, 1800) — shore → forest: where the coastal heath gives way to spruce
+ *   (3100, 1000) — forest → plateau: where the treeline thins toward open granite
+ */
+export const ZONE_BOUNDARY_MARKERS: Array<{ x: number; y: number }> = [
+  { x: 1400, y: 1800 },
+  { x: 3100, y: 1000 },
 ];
 
 // ── Parent meeting ─────────────────────────────────────────────────────────────
