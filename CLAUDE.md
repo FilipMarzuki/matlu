@@ -22,6 +22,14 @@ Database: Supabase (leaderboard via `matlu_runs` table)
 | `npm run typecheck`       | `tsc --noEmit` only                                                              |
 | `npm run preview`         | Preview production build                                                         |
 | `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
+| `npm run screenshot`      | Capture game screenshots to `screenshots/` for visual review                     |
+
+## Visual review
+
+Run `npm run screenshot` to capture the current game state as PNGs in `screenshots/`.
+Must run with a display available (uses `--headed` Playwright so WebGL renders correctly).
+Read the files in `screenshots/` before doing any visual/UI work — they show the actual
+rendered game, not just code. `screenshots/manifest.json` lists each file and what it shows.
 
 ## Pixel art assets
 
