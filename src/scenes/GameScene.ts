@@ -68,6 +68,14 @@ const CHASE_RANGE = 200;
 const ROAM_SPEED = 40;
 const CHASE_SPEED = 70;
 const FLEE_SPEED = 120;
+
+// ── FIL-127: distance-based difficulty zones ──────────────────────────────────
+// Corridor: spawn (300, 2650) → portal (~4100, 350), total ≈ 4 442 px.
+// Zone A  0–30%  (< 1 333 px) → ×1.0 (normal)
+// Zone B 30–65%  (< 2 887 px) → ×1.3
+// Zone C 65–100% (≥ 2 887 px) → ×1.5
+const ZONE_A_END = 1333;
+const ZONE_B_END = 2887;
 const FLEE_MS = 1500;
 /** Speed (px/s) when player drives an animal in attract/wilderview mode — slightly below FLEE_SPEED for comfort. */
 const POSSESS_SPEED = 100;
@@ -764,6 +772,14 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** FIL-127: return a speed multiplier based on distance from spawn. */
+  private getZoneMultiplier(x: number, y: number): number {
+    const dist = Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y);
+    if (dist < ZONE_A_END) return 1.0;
+    if (dist < ZONE_B_END) return 1.3;
+    return 1.5;
+  }
+
   private spawnRabbits(): void {
     // Use a sub-seed so rabbits always appear at the same positions for a given runSeed.
     // Timing values (roamNext, fleeUntil) stay non-deterministic for gameplay variety.
@@ -792,6 +808,10 @@ export class GameScene extends Phaser.Scene {
         r.setData('state', 'roaming' satisfies RabbitState);
         r.setData('roamNext', this.time.now + Phaser.Math.Between(1500, 3500));
         r.setData('fleeUntil', 0);
+        // FIL-127: scale speeds by zone so rabbits near the portal are harder.
+        const mult = this.getZoneMultiplier(x, y);
+        r.setData('chaseSpeed', Math.round(CHASE_SPEED * mult));
+        r.setData('fleeSpeed',  Math.round(FLEE_SPEED  * mult));
         accepted = true;
       }
     }
@@ -810,7 +830,7 @@ export class GameScene extends Phaser.Scene {
 
       if (state === 'fleeing' && time < fleeUntil) {
         const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
-        this.physics.velocityFromRotation(away, FLEE_SPEED, b.velocity);
+        this.physics.velocityFromRotation(away, (r.getData('fleeSpeed') ?? FLEE_SPEED) as number, b.velocity);
         continue;
       }
       if (state === 'fleeing' && time >= fleeUntil) {
@@ -829,7 +849,7 @@ export class GameScene extends Phaser.Scene {
 
       if (next === 'chasing') {
         const ang = Phaser.Math.Angle.Between(r.x, r.y, px, py);
-        this.physics.velocityFromRotation(ang, CHASE_SPEED, b.velocity);
+        this.physics.velocityFromRotation(ang, (r.getData('chaseSpeed') ?? CHASE_SPEED) as number, b.velocity);
       } else if (next === 'roaming') {
         if (time > (r.getData('roamNext') as number)) {
           const wander = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -959,6 +979,43 @@ export class GameScene extends Phaser.Scene {
     this.playerMoving = moving;
   }
 
+  /**
+   * FIL-105: draw a faint swipe-arc pie-slice at the player, aimed at pointer.
+   * alpha 0.45 is used on the first-ever swipe so it reads as a hint;
+   * normal gameplay can also call this at full alpha for future feedback.
+   */
+  private drawSwipeArc(pointer: Phaser.Input.Pointer, alpha = 1): void {
+    const px  = this.player.x;
+    const py  = this.player.y;
+    const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
+    const r   = this.effectiveSwipeRange;
+    const half = SWIPE_ARC / 2;
+
+    const gfx = this.add.graphics();
+    gfx.setDepth(50);
+    gfx.fillStyle(0x88ddff, alpha);
+    gfx.beginPath();
+    gfx.moveTo(px, py);
+    // strokeArcTo is not available on Phaser.GameObjects.Graphics;
+    // we approximate the arc with small line segments.
+    const STEPS = 16;
+    for (let i = 0; i <= STEPS; i++) {
+      const a = (aim - half) + (SWIPE_ARC * i) / STEPS;
+      gfx.lineTo(px + Math.cos(a) * r, py + Math.sin(a) * r);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    // Fade out and destroy over 350 ms.
+    this.tweens.add({
+      targets:  gfx,
+      alpha:    0,
+      duration: 350,
+      ease:     'Sine.easeIn',
+      onComplete: () => gfx.destroy(),
+    });
+  }
+
   private trySwipe(pointer: Phaser.Input.Pointer): void {
     if (this.attractMode) return;
     const now = this.time.now;
@@ -966,6 +1023,24 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.lastSwipeAt = now;
+
+    // FIL-105: on the very first swipe, show the arc visually so the player
+    // discovers the mechanic, then return early (no damage this once).
+    const isFirstSwipe = !localStorage.getItem('matlu_swipe_discovered');
+    if (isFirstSwipe) {
+      localStorage.setItem('matlu_swipe_discovered', '1');
+      this.drawSwipeArc(pointer, 0.45);
+      return;
+    }
+
+    // FIL-132: white-flash + micro scale-pulse on every swipe attempt.
+    this.playerSprite.setTint(0xffffff);
+    this.time.delayedCall(90, () => this.playerSprite.clearTint());
+    this.tweens.add({
+      targets: this.playerSprite,
+      scaleX: 1.18, scaleY: 1.18,
+      duration: 75, yoyo: true, ease: 'Sine.easeOut',
+    });
 
     // Swipe whoosh SFX — plays regardless of whether a rabbit is hit
     if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
@@ -1157,9 +1232,20 @@ export class GameScene extends Phaser.Scene {
       score:    this.kills,
       duration_ms: durationMs,
     }).catch(() => {});
-    // Freeze the world and overlay the game-over screen
-    this.scene.pause();
-    this.scene.launch('GameOverScene', { cleanse, kills: this.kills, durationMs } as unknown as object);
+    // FIL-132: dissolve the player sprite before showing game-over.
+    // The scene stays running during the tween so the camera/HUD remain visible.
+    this.tweens.add({
+      targets:  this.playerSprite,
+      alpha:    0,
+      scaleX:   1.5,
+      scaleY:   0.15,
+      duration: 350,
+      ease:     'Cubic.easeIn',
+      onComplete: () => {
+        this.scene.pause();
+        this.scene.launch('GameOverScene', { cleanse, kills: this.kills, durationMs } as unknown as object);
+      },
+    });
   }
 
   private onLevelComplete(): void {
@@ -1228,6 +1314,23 @@ export class GameScene extends Phaser.Scene {
     this.dashDy = dy / len;
     this.lastDashAt   = now;
     this.dashingUntil = now + this.effectiveDashDuration;
+
+    // FIL-132: squish the sprite in the dominant dash direction, then pop back.
+    const horiz = Math.abs(this.dashDx) >= Math.abs(this.dashDy);
+    this.tweens.add({
+      targets:  this.playerSprite,
+      scaleX:   horiz ? 1.4 : 0.75,
+      scaleY:   horiz ? 0.75 : 1.4,
+      duration: this.effectiveDashDuration,
+      ease:     'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: this.playerSprite,
+          scaleX: 1, scaleY: 1,
+          duration: 80, ease: 'Back.easeOut',
+        });
+      },
+    });
 
     this.spawnDashAfterimages();
 
@@ -1609,6 +1712,9 @@ export class GameScene extends Phaser.Scene {
       r.setData('state',    'roaming' satisfies RabbitState);
       r.setData('roamNext', this.time.now + Phaser.Math.Between(500, 1500));
       r.setData('fleeUntil', 0);
+      // Boss is near the portal — always Zone C speeds.
+      r.setData('chaseSpeed', Math.round(CHASE_SPEED * 1.5));
+      r.setData('fleeSpeed',  Math.round(FLEE_SPEED  * 1.5));
       r.setDepth(r.y);
       this.rabbits.add(r);
     }
