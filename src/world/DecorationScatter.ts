@@ -1,31 +1,32 @@
 /**
- * DecorationScatter — noise-driven detail decoration placement.
+ * DecorationScatter — decoration placement via Poisson disk sampling.
  *
  * Scatters small visual details (flowers, mushrooms, rocks, grass tufts)
- * across the map using high-frequency simplex noise. The result is deterministic
- * per seed and avoids avoid-zones and open water automatically.
+ * across the map. The result is deterministic per seed and avoids avoid-zones
+ * and open water automatically.
  *
  * ## Algorithm
- * 1. Step every `stride` tiles across the world (stride 2 → ~15 000 candidates
- *    for an 8000×8000 world with 32px tiles — manageable without being sparse).
+ * 1. Generate candidate positions via Bridson's Poisson disk algorithm — no two
+ *    points are closer than MIN_DIST, eliminating the grid-aligned clustering that
+ *    the old stride-walk produced.
  * 2. At each candidate, sample two noise layers:
  *    - `biomeNoise` (same seed as terrain rendering) to reject water (< 0.28)
  *      and to pick terrain-appropriate decoration types.
  *    - `detailNoise` (high-frequency, XOR seed) as the "does something grow here?"
- *      threshold. Only tiles where detailNoise > THRESHOLD get a decoration.
- * 3. Skip if the tile falls inside any avoid-rect (chunk centres, spawn, portal).
+ *      threshold — creates natural clearings within the Poisson distribution.
+ * 3. Skip if the point falls inside any avoid-rect (chunk centres, spawn, portal).
  * 4. Assign decoration type based on biome value ranges so the right things
  *    grow in the right places — flowers in meadows, mushrooms in forest shade.
  *
- * ## Why separate biome and detail noise?
- * Using a single noise layer for both "where" and "what type" would mean
- * all flowers are at the same biome value — no variety. Two orthogonal layers
- * give independence: the detail layer decides placement, the biome layer
- * decides species.
+ * ## Why Poisson disk instead of stride walk?
+ * The old STRIDE=2 tile walk sampled on a regular grid, which created subtle
+ * grid-aligned rows and columns of decorations visible at certain zoom levels.
+ * Poisson disk guarantees minimum spacing while remaining random — like how
+ * mushrooms in a real forest maintain distance without forming a grid.
  */
 
 import { FbmNoise } from '../lib/noise';
-import { mulberry32 } from '../lib/rng';
+import { mulberry32, poissonDisk } from '../lib/rng';
 
 export type DecorationType = 'flower' | 'mushroom' | 'stone' | 'tuft' | 'bush';
 
@@ -41,10 +42,19 @@ export interface ScatteredDecor {
 
 /** Noise frequency for detail scatter — higher = finer, more varied patches. */
 const DETAIL_FREQ  = 0.18;
-/** Detail noise threshold — only tiles above this get a decoration. */
-const DETAIL_THRESHOLD = 0.72;
-/** Step size in tiles — stride 2 samples every other tile. */
-const STRIDE = 2;
+/**
+ * Detail noise threshold — only candidates above this get a decoration.
+ * Creates natural clearings within the Poisson distribution (lower than the old
+ * stride-walk value of 0.72 because Poisson already provides good spacing, so
+ * we need fewer rejections to reach the target decoration count).
+ */
+const DETAIL_THRESHOLD = 0.60;
+/**
+ * Minimum distance between any two decorations in pixels.
+ * 48px ≈ 1.5 tiles — tighter than the old stride-2 grid (64px) but with no
+ * grid ghost, so density feels similar while distribution looks more natural.
+ */
+const MIN_DIST = 48;
 /** Base noise scale, matching GameScene's BASE_SCALE. */
 const BASE_SCALE = 0.07;
 
@@ -73,56 +83,56 @@ export function generateDecorations(
   // PRNG for variant/scale jitter — deterministic per seed
   const rng = mulberry32(seed ^ 0x1a2b3c4d);
 
-  const tilesX = Math.ceil(worldW / tileSize);
-  const tilesY = Math.ceil(worldH / tileSize);
   const result: ScatteredDecor[] = [];
 
+  // Generate candidate positions. We request maxDecorations * 4 so that biome
+  // and detail filtering have enough candidates to fill the cap — Poisson disk
+  // will stop early if it runs out of space for new points.
+  const candidates = poissonDisk(rng, worldW, worldH, MIN_DIST, maxDecorations * 4);
+
   outer:
-  for (let ty = 0; ty < tilesY; ty += STRIDE) {
-    for (let tx = 0; tx < tilesX; tx += STRIDE) {
-      if (result.length >= maxDecorations) break outer;
+  for (const { x: wx, y: wy } of candidates) {
+    if (result.length >= maxDecorations) break outer;
 
-      // World-space centre of this tile
-      const wx = tx * tileSize + tileSize * 0.5;
-      const wy = ty * tileSize + tileSize * 0.5;
+    // Convert world coords to fractional tile coords for noise sampling.
+    // This matches the scale used in GameScene's terrain rendering loop exactly.
+    const tx = wx / tileSize;
+    const ty = wy / tileSize;
 
-      // Detail threshold: only a fraction of tiles get a decoration
-      const detail = detailNoise.fbm(tx * DETAIL_FREQ, ty * DETAIL_FREQ, 2, 0.6);
-      if (detail <= DETAIL_THRESHOLD) continue;
+    // Detail threshold: creates natural clearings within the Poisson distribution.
+    // Not every candidate location gets a decoration — same patchy effect as before.
+    const detail = detailNoise.fbm(tx * DETAIL_FREQ, ty * DETAIL_FREQ, 2, 0.6);
+    if (detail <= DETAIL_THRESHOLD) continue;
 
-      // Biome: exclude open water and determine species
-      const biome = biomeNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
-      if (biome < 0.28) continue; // open water — nothing grows here
+    // Biome: exclude open water and determine species
+    const biome = biomeNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+    if (biome < 0.28) continue; // open water — nothing grows here
 
-      // Avoid-rect check — skip tiles inside any excluded zone
-      for (const rect of avoidRects) {
-        if (wx >= rect.x && wx <= rect.x + rect.w &&
-            wy >= rect.y && wy <= rect.y + rect.h) continue outer;
-      }
-
-      // Assign type based on biome so the right things grow in the right places:
-      //   shore/wet   (0.28–0.37): grass tufts (reeds, sedge)
-      //   meadow      (0.37–0.65): mostly flowers, occasional bush breaks up the colour
-      //   tall grass  (0.65–0.73): flowers + tufts + sparse bush
-      //   forest edge (0.73–0.81): bushes dominant, mushrooms in shade
-      //   dense forest(≥ 0.81)  : mushrooms + stones + sparse bush understory
-      let type: DecorationType;
-      if      (biome < 0.37) type = 'tuft';
-      else if (biome < 0.65) type = rng() < 0.88 ? 'flower' : 'bush';
-      else if (biome < 0.73) type = rng() < 0.50 ? 'flower' : rng() < 0.75 ? 'tuft' : 'bush';
-      else if (biome < 0.81) type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'bush' : 'stone';
-      else                   type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'stone' : 'bush';
-
-      // Variant 0–3 for texture/colour selection; slight scale jitter for variety
-      const variant = Math.floor(rng() * 4);
-      const scale   = 1.2 + rng() * 0.6; // 1.2–1.8×
-
-      // Sub-tile jitter so decorations aren't grid-aligned
-      const jx = (rng() - 0.5) * tileSize * STRIDE;
-      const jy = (rng() - 0.5) * tileSize * STRIDE;
-
-      result.push({ x: wx + jx, y: wy + jy, type, variant, scale });
+    // Avoid-rect check — skip points inside any excluded zone
+    for (const rect of avoidRects) {
+      if (wx >= rect.x && wx <= rect.x + rect.w &&
+          wy >= rect.y && wy <= rect.y + rect.h) continue outer;
     }
+
+    // Assign type based on biome so the right things grow in the right places:
+    //   shore/wet   (0.28–0.37): grass tufts (reeds, sedge)
+    //   meadow      (0.37–0.65): mostly flowers, occasional bush breaks up the colour
+    //   tall grass  (0.65–0.73): flowers + tufts + sparse bush
+    //   forest edge (0.73–0.81): bushes dominant, mushrooms in shade
+    //   dense forest(≥ 0.81)  : mushrooms + stones + sparse bush understory
+    let type: DecorationType;
+    if      (biome < 0.37) type = 'tuft';
+    else if (biome < 0.65) type = rng() < 0.88 ? 'flower' : 'bush';
+    else if (biome < 0.73) type = rng() < 0.50 ? 'flower' : rng() < 0.75 ? 'tuft' : 'bush';
+    else if (biome < 0.81) type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'bush' : 'stone';
+    else                   type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'stone' : 'bush';
+
+    // Variant 0–3 for texture/colour selection; slight scale jitter for variety.
+    // No position jitter needed — Poisson disk positions are already non-grid-aligned.
+    const variant = Math.floor(rng() * 4);
+    const scale   = 1.2 + rng() * 0.6; // 1.2–1.8×
+
+    result.push({ x: wx, y: wy, type, variant, scale });
   }
 
   return result;
