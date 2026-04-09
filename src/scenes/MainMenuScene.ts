@@ -1,18 +1,14 @@
+import Phaser from 'phaser';
 import { t } from '../lib/i18n';
 import { CombatArenaScene } from './CombatArenaScene';
 
 /**
- * MainMenuScene — the game's entry point and navigation hub.
+ * MainMenuScene — the game's entry point.
  *
- * Displays the game title and buttons for each major screen.
- * Lore and Stats are shown but disabled until their scenes are implemented
- * in FIL-85 and FIL-86.
- *
- * ## Scene transitions
- * - Play: camera fade-out → scene.start('GameScene')
- * - Credits: pause this scene, launch CreditsScene as an overlay
- * - Settings: pause this scene, launch SettingsScene as an overlay
- *   (both overlay scenes call scene.resume(callerKey) on close)
+ * Three buttons on the right-side panel over a live arena background:
+ *   - Wilderview → fade out → GameScene
+ *   - Arena      → fade out → stop this scene, arena continues full-screen
+ *   - Credits    → overlay CreditsScene
  */
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -50,7 +46,6 @@ export class MainMenuScene extends Phaser.Scene {
     const cx = width - panelW / 2;   // horizontal center of the panel
 
     // Semi-transparent dark panel — slight green tint echoes the game palette.
-    // Alpha 0.92 keeps the arena subtly visible behind the panel edges.
     this.add
       .rectangle(cx, height / 2, panelW, height, 0x0a130a)
       .setAlpha(0.92)
@@ -77,33 +72,23 @@ export class MainMenuScene extends Phaser.Scene {
 
     // ── Buttons ──────────────────────────────────────────────────────────────
 
-    const buttonStartY = height * 0.46;
+    const buttonStartY = height * 0.50;
     const buttonGap    = 52;
 
-    // Collect active (non-disabled) buttons so keyboard nav can cycle through them.
-    // Each entry pairs the Text object with the action it triggers.
+    // Collect active buttons so keyboard nav can cycle through them.
     const activeButtons: Array<{ btn: Phaser.GameObjects.Text; action: () => void }> = [];
     let focusIndex = 0;
 
-    // Gold colour used for normal (unfocused) buttons
     const COLOR_NORMAL  = '#ffe066';
-    // White used for both hover AND keyboard focus — visually consistent
     const COLOR_FOCUSED = '#ffffff';
 
-    /**
-     * Move keyboard focus to the button at index i.
-     * Resets the previously focused button to normal styling and highlights the new one.
-     */
     const setFocus = (i: number): void => {
-      // Reset old
       const old = activeButtons[focusIndex];
       if (old) {
         old.btn.setStyle({ color: COLOR_NORMAL });
-        // Strip the "> " prefix added when the button gained focus
         old.btn.setText(old.btn.text.replace(/^> /, ''));
       }
       focusIndex = i;
-      // Highlight new
       const cur = activeButtons[focusIndex];
       if (cur) {
         cur.btn.setStyle({ color: COLOR_FOCUSED });
@@ -115,18 +100,16 @@ export class MainMenuScene extends Phaser.Scene {
       if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
     };
 
-    const addActive = (btn: Phaser.GameObjects.Text, action: () => void): void => {
-      activeButtons.push({ btn, action });
+    const addBtn = (label: string, action: () => void): void => {
+      const y = buttonStartY + activeButtons.length * buttonGap;
+      activeButtons.push({ btn: this.makeButton(cx, y, label, action), action });
     };
 
-    addActive(this.makeButton(cx, buttonStartY,                 t('menu.play'),     false, () => this.startGame()),   () => this.startGame());
-    addActive(this.makeButton(cx, buttonStartY + buttonGap,     t('menu.credits'),  false, () => this.openCredits()), () => this.openCredits());
-    addActive(this.makeButton(cx, buttonStartY + buttonGap * 2, t('menu.settings'), false, () => this.openSettings()),() => this.openSettings());
-    // Coming soon — greyed out until FIL-85/86 are implemented
-    this.makeButton(cx, buttonStartY + buttonGap * 3, t('menu.lore'),  true);
-    this.makeButton(cx, buttonStartY + buttonGap * 4, t('menu.stats'), true);
+    addBtn('Wilderview', () => this.startWilderview());
+    addBtn('Arena',      () => this.openArena());
+    addBtn(t('menu.credits'), () => this.openCredits());
 
-    // Start with Play focused
+    // Start with first button focused
     setFocus(0);
 
     // ── Keyboard navigation ───────────────────────────────────────────────────
@@ -148,11 +131,6 @@ export class MainMenuScene extends Phaser.Scene {
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => menuMusic.stop());
     }
 
-    // Stop the arena when this scene shuts down (navigating to GameScene, etc.)
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scene.stop(CombatArenaScene.KEY);
-    });
-
     // ── Hint ─────────────────────────────────────────────────────────────────
 
     this.add
@@ -164,72 +142,63 @@ export class MainMenuScene extends Phaser.Scene {
       .setDepth(1);
   }
 
-  /**
-   * Create a single menu button.
-   *
-   * Phaser text objects support backgroundColor and padding natively,
-   * so no separate background rectangle is needed — the text itself IS the button.
-   * setInteractive() makes the text object receive pointer events.
-   *
-   * @param disabled - When true, the button is greyed out and non-interactive
-   */
   private makeButton(
     x: number,
     y: number,
     label: string,
-    disabled: boolean,
-    onClick?: () => void,
+    onClick: () => void,
   ): Phaser.GameObjects.Text {
     const btn = this.add
       .text(x, y, label, {
         fontSize: '16px',
-        // Gold for active, grey for disabled — matches NpcDialogScene choice buttons
-        color: disabled ? '#555544' : '#ffe066',
-        backgroundColor: disabled ? '#1a1a0066' : '#333300aa',
+        color: '#ffe066',
+        backgroundColor: '#333300aa',
         padding: { x: 14, y: 8 },
         fixedWidth: 180,
         align: 'center',
       })
       .setOrigin(0.5)
-      .setDepth(1);
-
-    if (!disabled && onClick) {
-      btn
-        .setInteractive({ useHandCursor: true })
-        .on('pointerover',  () => btn.setStyle({ color: '#ffffff' }))
-        .on('pointerout',   () => btn.setStyle({ color: '#ffe066' }))
-        .on('pointerdown',  () => {
-          if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
-          onClick();
-        });
-    }
-
+      .setDepth(1)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover',  () => btn.setStyle({ color: '#ffffff' }))
+      .on('pointerout',   () => btn.setStyle({ color: '#ffe066' }))
+      .on('pointerdown',  () => {
+        if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
+        onClick();
+      });
     return btn;
   }
 
-  private startGame(): void {
-    // Fade music out alongside the camera fade so there's no audio pop
+  private fadeMusicOut(): void {
     const music = this.sound.getAll('music-menu')[0] as Phaser.Sound.BaseSound | undefined;
     if (music) {
       this.tweens.add({ targets: music, volume: 0, duration: 400, ease: 'Sine.easeIn' });
     }
-    // Fade to black before switching scenes — feels cleaner than a hard cut
+  }
+
+  private startWilderview(): void {
+    this.fadeMusicOut();
+    // Stop the arena background before entering the world to free resources.
+    this.scene.stop(CombatArenaScene.KEY);
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start('GameScene');
     });
   }
 
-  private openCredits(): void {
-    // Overlay pattern: pause this scene so it stays rendered in the background,
-    // then launch CreditsScene on top. CreditsScene calls scene.resume(callerKey)
-    // on close, which restores MainMenuScene — no extra wiring needed.
-    this.scene.pause();
-    this.scene.launch('CreditsScene', this.scene.key as unknown as object);
+  private openArena(): void {
+    this.fadeMusicOut();
+    // CombatArenaScene is already running as the background — stop this scene
+    // to reveal it full-screen.  No need to stop the arena.
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.stop();
+    });
   }
 
-  private openSettings(): void {
+  private openCredits(): void {
+    // Overlay pattern: pause so the arena stays rendered behind CreditsScene.
     this.scene.pause();
-    this.scene.launch('SettingsScene', this.scene.key as unknown as object);
+    this.scene.launch('CreditsScene', this.scene.key as unknown as object);
   }
 }
