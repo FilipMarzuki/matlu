@@ -2843,10 +2843,9 @@ export class GameScene extends Phaser.Scene {
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
-        // Use ONLY the low-frequency base noise here — omitting detail noise keeps
-        // biome colour regions large and smoothly-edged. The terrain tile below still
-        // uses detail noise for fine texture; the wash is purely about zone identity.
-        const base   = noise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        // Use domain-warped base noise (same call as drawProceduralTerrain) so the
+        // colour wash regions match the tile biomes exactly — no seam between tint and tile.
+        const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
@@ -2943,7 +2942,11 @@ export class GameScene extends Phaser.Scene {
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
-        const base   = noise.fbm(tx * BASE_SCALE,     ty * BASE_SCALE,     4, 0.5);
+        // Domain-warped base noise (FIL-153) — displaces the sample point by a
+        // low-frequency noise offset before sampling, making biome borders fold and
+        // warp organically (fjord-like coastlines, irregular forest edges) rather than
+        // following mathematically smooth noise contours.
+        const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
         const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE,   2, 0.6);
 
         // Diagonal SW→NE corridor gradient. perpDiag<0 = NW mountains, perpDiag>0 = SE ocean.
