@@ -27,7 +27,13 @@
  *
  *   this.load.aseprite('skald', 'path/to/skald.png', 'path/to/skald.json');
  *   this.anims.createFromAseprite('skald');
- *   sprite.anims.play('walk_south');
+ *   sprite.anims.play('skald_walk_south');   // ← prefixed with character ID
+ *
+ * ## Animation key format
+ *
+ *   Animation keys are namespaced as `{characterId}_{animId}_{direction}` so
+ *   multiple characters can coexist in the same Phaser animation manager without
+ *   key collisions. e.g. skald_idle_south, spider_walk_north, crow_attack_east.
  *
  * ## Character spritesheet layout
  *
@@ -198,7 +204,9 @@ async function assembleCharacter(charSpec, rawDir, dryRun) {
       const matching = frameList.filter(f => f._animId === animId && f._direction === dir);
       if (matching.length === 0) continue;
       frameTags.push({
-        name: `${animId}_${dir}`,
+        // Prefix with character ID to avoid key collisions when multiple
+        // characters are registered in the same Phaser animation manager.
+        name: `${charSpec.id}_${animId}_${dir}`,
         from: matching[0]._globalIndex,
         to:   matching[matching.length - 1]._globalIndex,
         direction: 'forward',

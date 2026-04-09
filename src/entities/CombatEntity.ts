@@ -44,6 +44,14 @@ export interface CombatEntityConfig extends EnemyConfig {
   dashSpeedMultiplier?: number;
   /** How long the dash lasts in ms. Default: 180. */
   dashDurationMs?: number;
+
+  // ── Sprite (optional) ─────────────────────────────────────────────────────
+  /**
+   * Aseprite spritesheet key (must be preloaded and createFromAseprite'd by the scene).
+   * Expected animation tags: idle_south, walk_south, attack_south, death_south … ×4 dirs.
+   * When provided the placeholder rectangle is hidden and the sprite is shown instead.
+   */
+  spriteKey?: string;
 }
 
 // ── Base class ────────────────────────────────────────────────────────────────
@@ -98,6 +106,27 @@ export abstract class CombatEntity extends Enemy {
   private   readonly projectileSpeed:  number;
   private   readonly projectileColor:  number;
 
+  // ── Sprite animation state ────────────────────────────────────────────────
+  private spriteObj?: Phaser.GameObjects.Sprite;
+  /**
+   * Last resolved facing direction — persists when the entity stops moving.
+   * Only right-side and cardinal directions are stored; the left-side directions
+   * (south-west, west, north-west) are rendered by mirroring their right-side
+   * counterparts via sprite.setFlipX(true).
+   *
+   * Stored value is always the ANIMATION key direction (never a mirrored one):
+   *   south-west → 'south-east' + flipX
+   *   west       → 'east'       + flipX
+   *   north-west → 'north-east' + flipX
+   */
+  private lastDir: 'south'|'south-east'|'east'|'north-east'|'north' = 'south';
+  /** Whether the current lastDir requires a horizontal flip. */
+  private lastFlipX = false;
+  /** Remaining ms to hold the attack animation before returning to idle/walk. */
+  private attackAnimTimer = 0;
+  /** How long to hold the attack animation = 40% of the attack cooldown. */
+  private readonly attackAnimDuration: number;
+
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     super(scene, x, y, config);
     this.meleeRange       = config.meleeRange;
@@ -110,6 +139,8 @@ export abstract class CombatEntity extends Enemy {
     this.projectileSpeed  = config.projectileSpeed  ?? 260;
     this.projectileColor  = config.projectileColor  ?? 0xffffff;
 
+    this.attackAnimDuration = config.attackCooldownMs * 0.4;
+
     // ── Visuals (all children of this Container) ──────────────────────────
     //
     // scene.add.X() creates the object AND adds it to the scene display list.
@@ -118,19 +149,35 @@ export abstract class CombatEntity extends Enemy {
 
     // Body rectangle — centered at Container origin (0, 0).
     // Stored as a field so onHitBy() can flash it white on hit, then restore.
+    // Hidden when a spriteKey is provided (sprite is used instead).
     this.bodyColor = config.color;
     this.bodyRect  = scene.add.rectangle(0, 0, ENTITY_SIZE, ENTITY_SIZE, config.color);
     this.add(this.bodyRect);
 
+    // HP bar sits above the entity. For sprites (canvas ~48px tall, origin at
+    // center) the bar is pushed higher so it clears the top of the sprite.
+    const barY = config.spriteKey ? -30 : BAR_Y;
+
     // HP bar background (dark red, full width).
-    const hpBarBg = scene.add.rectangle(0, BAR_Y, BAR_W, BAR_H, 0x661111);
+    const hpBarBg = scene.add.rectangle(0, barY, BAR_W, BAR_H, 0x661111);
     this.add(hpBarBg);
 
     // HP bar fill (green, shrinks left-to-right as HP drops).
     // Origin at (0, 0.5) so it anchors at the left edge while scaleX shrinks it.
-    this.hpBarFill = scene.add.rectangle(-BAR_W / 2, BAR_Y, BAR_W, BAR_H, 0x44cc44);
+    this.hpBarFill = scene.add.rectangle(-BAR_W / 2, barY, BAR_W, BAR_H, 0x44cc44);
     this.hpBarFill.setOrigin(0, 0.5);
     this.add(this.hpBarFill);
+
+    // ── Sprite (replaces placeholder rectangle when spriteKey provided) ────
+    if (config.spriteKey) {
+      this.bodyRect.setVisible(false);
+      const spr = scene.add.sprite(0, 0, config.spriteKey);
+      this.add(spr);
+      this.spriteObj = spr;
+      // HP bar renders on top of the sprite.
+      this.bringToTop(hpBarBg);
+      this.bringToTop(this.hpBarFill);
+    }
 
     // Build the behavior tree after all config is stored so subclass trees
     // can safely reference `this` fields.
@@ -219,6 +266,8 @@ export abstract class CombatEntity extends Enemy {
         // Apply hit feedback (flash + knockback) from this entity's position.
         target.onHitBy(this.x, this.y);
         this.attackTimer = this.attackCooldownMs;
+        // Hold the attack animation for 40% of the cooldown duration.
+        this.attackAnimTimer = this.attackAnimDuration;
       },
 
       wander: (_d) => {
@@ -267,6 +316,67 @@ export abstract class CombatEntity extends Enemy {
 
     this.behaviorTree.tick(ctx, delta);
     this.refreshHpBar();
+    this.updateSpriteAnimation(delta);
+  }
+
+  /**
+   * Update the Aseprite sprite animation based on current velocity and state.
+   * No-op when no spriteKey was provided (rectangle entity).
+   *
+   * Priority: attack > walk > idle.
+   * Direction is derived from the dominant velocity axis and remembered when
+   * the entity stops so the facing direction persists during idle.
+   */
+  private updateSpriteAnimation(delta: number): void {
+    if (!this.spriteObj) return;
+
+    this.attackAnimTimer = Math.max(0, this.attackAnimTimer - delta);
+
+    const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const vx   = body?.velocity.x ?? 0;
+    const vy   = body?.velocity.y ?? 0;
+    const spd  = Math.sqrt(vx * vx + vy * vy);
+
+    // Resolve the 8-direction facing from the velocity vector.
+    // Left-side directions (SW, W, NW) are mirrored right-side directions — the
+    // sprite is flipped horizontally and the right-side animation key is used.
+    if (spd > 5) {
+      const angle = Math.atan2(vy, vx); // −π to π, 0 = east
+      // Divide the circle into 8 × 45° sectors, offset by 22.5°.
+      const sector = Math.round(angle / (Math.PI / 4)); // −4 to 4
+      // Map sector to a canonical right-side direction + flipX flag.
+      // Sector:  0=E  1=SE  2=S  3=SW  4/-4=W  -3=NW  -2=N  -1=NE
+      type CanonDir = 'south'|'south-east'|'east'|'north-east'|'north';
+      const DIR_MAP: Record<number, [CanonDir, boolean]> = {
+         0: ['east',       false],
+         1: ['south-east', false],
+         2: ['south',      false],
+         3: ['south-east', true ],   // SW → mirror SE
+         4: ['east',       true ],   // W  → mirror E
+        '-4': ['east',       true ],
+        '-3': ['north-east', true ],  // NW → mirror NE
+        '-2': ['north',      false],
+        '-1': ['north-east', false],
+      };
+      const [dir, flip] = DIR_MAP[sector] ?? ['south', false];
+      this.lastDir   = dir;
+      this.lastFlipX = flip;
+    }
+
+    // Apply flip — must be set every frame, not just on direction change.
+    this.spriteObj.setFlipX(this.lastFlipX);
+
+    const state  = this.attackAnimTimer > 0 ? 'attack'
+                 : spd > 5                  ? 'walk'
+                 :                            'idle';
+    // Animation keys are namespaced as {textureKey}_{state}_{dir} to avoid
+    // collisions between characters sharing the global AnimationManager.
+    const tag = `${this.spriteObj.texture.key}_${state}_${this.lastDir}`;
+
+    // Only call play() when the tag changes to avoid restarting mid-loop.
+    if (this.spriteObj.anims.currentAnim?.key !== tag) {
+      this.spriteObj.play(tag, true);
+    }
   }
 
   /** Returns the closest living opponent, or null when none remain. */
@@ -328,7 +438,23 @@ export abstract class CombatEntity extends Enemy {
   protected override onDeath(): void {
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
     physBody?.setVelocity(0, 0);
-    this.setAlpha(0.3);
+
+    if (this.spriteObj) {
+      this.spriteObj.setFlipX(this.lastFlipX);
+      const deathKey = `${this.spriteObj.texture.key}_death_${this.lastDir}`;
+      if (this.scene.anims.exists(deathKey)) {
+        // Play directional death animation; fade out once it completes.
+        this.spriteObj.play(deathKey, true);
+        this.spriteObj.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+          if (this.active) this.setAlpha(0.3);
+        });
+      } else {
+        // No death animation for this sprite (e.g. quadruped) — fade immediately.
+        this.setAlpha(0.3);
+      }
+    } else {
+      this.setAlpha(0.3);
+    }
 
     // Death burst: 6 small white arcs radiate outward and fade over 200 ms.
     // Using Arc objects + tweens avoids any dependency on a preloaded particle texture.
@@ -379,7 +505,7 @@ export class Skald extends CombatEntity {
       speed:              80,
       aggroRadius:        400,
       attackDamage:       12,
-      color:              0x3366ee,   // blue
+      color:              0x3366ee,   // blue (fallback if sprite not loaded)
       meleeRange:         34,
       attackCooldownMs:   800,
       // Ranged
@@ -389,6 +515,8 @@ export class Skald extends CombatEntity {
       // Dash
       dashSpeedMultiplier: 4.5,
       dashDurationMs:     180,
+      // Sprite
+      spriteKey:          'skald',
     });
   }
 
@@ -518,35 +646,31 @@ export class Skald extends CombatEntity {
 }
 
 /**
- * Draugr — undead Earth enemy, slower but hits harder.
+ * Spider — fast contaminated spider, swarms in groups.
  *
  * Behavior tree (priority order):
- *   1. Melee      — attack + stop when within 34px
- *   2. Bone Shard — fire projectile (1.8s cooldown) when at 80–280px
- *   3. Chase      — move toward hero
- *   4. Wander     — random drift (fallback)
+ *   1. Melee  — bite attack + stop when within 28px
+ *   2. Chase  — rush toward nearest opponent
+ *   3. Wander — random drift (fallback)
+ *
+ * Sprite: assembled from spider spritesheet once ready; currently a rectangle.
  */
-export class Draugr extends CombatEntity {
+export class Spider extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
-      maxHp:            80,
-      speed:            60,
-      aggroRadius:      350,
-      attackDamage:     18,
-      color:            0xaa3311,   // dark red
-      meleeRange:       34,
-      attackCooldownMs: 1200,
-      // Ranged
-      projectileDamage: 10,
-      projectileSpeed:  220,
-      projectileColor:  0xccbb88,   // bone-white shard
+      maxHp:            30,
+      speed:            110,    // fastest enemy — swarm rushers
+      aggroRadius:      400,
+      attackDamage:     8,
+      color:            0x994422,   // rust-brown (fallback)
+      meleeRange:       28,
+      attackCooldownMs: 600,
+      spriteKey:        'spider',
     });
   }
 
   protected buildTree(): BtNode {
-    const MELEE_R    = this.meleeRange;   // 34px
-    const BONE_MIN   = 80;
-    const BONE_MAX   = 280;
+    const MELEE_R = this.meleeRange;   // 28px
 
     return new BtSelector([
 
@@ -564,20 +688,176 @@ export class Draugr extends CombatEntity {
         }),
       ]),
 
-      // ── 2. Bone Shard (ranged) ────────────────────────────────────────────
+      // ── 2. Chase ──────────────────────────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
+      // ── 3. Wander (fallback) ──────────────────────────────────────────────
+      new BtAction((ctx, d) => {
+        ctx.wander(d);
+        return 'running';
+      }),
+    ]);
+  }
+}
+
+/**
+ * Skag — feral ranged scavenger. Keeps distance and hurls debris.
+ *
+ * Behavior tree (priority order):
+ *   1. Flee       — back away when opponent is too close (< 55px)
+ *   2. Throw      — hurl debris (900ms cooldown) at 70–220px
+ *   3. Move in    — close to preferred throwing range when too far
+ *   4. Wander     — random drift (fallback)
+ *
+ * Sprite: assembled from skag spritesheet once ready; currently a rectangle.
+ */
+export class Skag extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:            40,
+      speed:            70,
+      aggroRadius:      350,
+      attackDamage:     5,      // low melee damage (discourages getting close)
+      color:            0x776655,   // ragged grey-brown (fallback)
+      meleeRange:       28,
+      attackCooldownMs: 800,
+      // Ranged — throws rust debris
+      projectileDamage: 12,
+      projectileSpeed:  200,
+      projectileColor:  0xaa8866,   // rust-orange shard
+      // Sprite
+      spriteKey:        'skag',
+    });
+  }
+
+  protected buildTree(): BtNode {
+    const TOO_CLOSE   = 55;    // flee distance
+    const THROW_MIN   = 70;
+    const THROW_MAX   = 220;
+
+    return new BtSelector([
+
+      // ── 1. Flee when the opponent closes in ───────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx => {
+          if (!ctx.opponent) return false;
+          return Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y)
+            < TOO_CLOSE;
+        }),
+        new BtAction(ctx => {
+          // Move directly away from the opponent.
+          const fleeX = ctx.x + (ctx.x - ctx.opponent!.x);
+          const fleeY = ctx.y + (ctx.y - ctx.opponent!.y);
+          ctx.moveToward(fleeX, fleeY);
+          return 'running';
+        }),
+      ]),
+
+      // ── 2. Throw debris from preferred range ──────────────────────────────
       new BtCooldown(
         new BtSequence([
           new BtCondition(ctx => {
             if (!ctx.opponent) return false;
             const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
-            return d >= BONE_MIN && d <= BONE_MAX;
+            return d >= THROW_MIN && d <= THROW_MAX;
           }),
           new BtAction(ctx => {
             ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y);
+            ctx.stop();
             return 'success';
           }),
         ]),
-        1800,   // 1.8s cooldown between bone shards
+        900,
+      ),
+
+      // ── 3. Reposition into throwing range ─────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
+      // ── 4. Wander (fallback) ──────────────────────────────────────────────
+      new BtAction((ctx, d) => {
+        ctx.wander(d);
+        return 'running';
+      }),
+    ]);
+  }
+}
+
+/**
+ * Crow — large mutant crow, swoops in and dives to attack.
+ *
+ * Behavior tree (priority order):
+ *   1. Melee       — talon strike + stop when within 30px
+ *   2. Dive (dash) — burst toward target (2.5s cooldown) when at 40–300px
+ *   3. Chase       — close to melee range
+ *   4. Wander      — random drift (fallback)
+ *
+ * Sprite: assembled from crow spritesheet once ready; currently a rectangle.
+ */
+export class Crow extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:              50,
+      speed:              95,
+      aggroRadius:        400,
+      attackDamage:       14,
+      color:              0x222211,   // near-black (fallback)
+      meleeRange:         30,
+      attackCooldownMs:   1000,
+      // Dive dash — fast, brief burst
+      dashSpeedMultiplier: 5.5,
+      dashDurationMs:      160,
+      // Sprite
+      spriteKey:          'crow',
+    });
+  }
+
+  protected buildTree(): BtNode {
+    const MELEE_R  = this.meleeRange;   // 30px
+    const DIVE_MIN = 40;
+    const DIVE_MAX = 300;
+
+    return new BtSelector([
+
+      // ── 1. Melee (talon strike) ───────────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y)
+            < MELEE_R,
+        ),
+        new BtAction(ctx => {
+          ctx.attack();
+          ctx.stop();
+          return 'success';
+        }),
+      ]),
+
+      // ── 2. Dive (gap-closing dash) ─────────────────────────────────────────
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d >= DIVE_MIN && d <= DIVE_MAX;
+          }),
+          new BtAction(ctx => {
+            ctx.dash(ctx.opponent!.x, ctx.opponent!.y);
+            return 'success';
+          }),
+        ]),
+        2500,   // 2.5s between dives
       ),
 
       // ── 3. Chase ──────────────────────────────────────────────────────────

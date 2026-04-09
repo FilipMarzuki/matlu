@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CombatEntity, Skald, Draugr } from '../entities/CombatEntity';
+import { CombatEntity, Skald, Spider, Skag, Crow } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 
 // ── Wave & hero type definitions ──────────────────────────────────────────────
@@ -51,9 +51,11 @@ const HERO_ROSTER: HeroConfig[] = [
  * hero classes exist.
  */
 const WAVE_SEQUENCE: WaveConfig[] = [
-  { label: 'Earth Minion',     enemies: [Draugr] },
-  { label: 'Earth Minions ×2', enemies: [Draugr, Draugr] },
-  { label: 'Earth Minions ×3', enemies: [Draugr, Draugr, Draugr] },
+  { label: 'Spider Den',      enemies: [Spider, Spider] },
+  { label: 'Spider + Skag',   enemies: [Spider, Skag] },
+  { label: 'Skag Pack',       enemies: [Skag, Skag] },
+  { label: 'Crow Dive',       enemies: [Crow, Crow] },
+  { label: 'Horde',           enemies: [Spider, Spider, Skag, Crow] },
 ];
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
@@ -95,6 +97,29 @@ export class CombatArenaScene extends Phaser.Scene {
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
 
+  preload(): void {
+    this.load.aseprite(
+      'skald',
+      'assets/sprites/characters/earth/heroes/skald/skald.png',
+      'assets/sprites/characters/earth/heroes/skald/skald.json',
+    );
+    this.load.aseprite(
+      'spider',
+      'assets/sprites/characters/earth/enemies/spider/spider.png',
+      'assets/sprites/characters/earth/enemies/spider/spider.json',
+    );
+    this.load.aseprite(
+      'skag',
+      'assets/sprites/characters/earth/enemies/skag/skag.png',
+      'assets/sprites/characters/earth/enemies/skag/skag.json',
+    );
+    this.load.aseprite(
+      'crow',
+      'assets/sprites/characters/earth/enemies/crow/crow.png',
+      'assets/sprites/characters/earth/enemies/crow/crow.json',
+    );
+  }
+
   create(): void {
     this.heroIndex  = 0;
     this.waveIndex  = 0;
@@ -102,6 +127,11 @@ export class CombatArenaScene extends Phaser.Scene {
     this.projectiles = [];
 
     this.buildArena();
+    // Register Aseprite animation tags so sprite.play('walk_south') works.
+    this.anims.createFromAseprite('skald');
+    this.anims.createFromAseprite('spider');
+    this.anims.createFromAseprite('skag');
+    this.anims.createFromAseprite('crow');
     this.startWave();
   }
 

@@ -7,6 +7,14 @@
     "detail": "medium detail",
     "characterSize": 32,
     "tileSize": 16,
+    "directions": {
+      "humanoid": 5,
+      "symmetric": 4,
+      "_humanoidDirs": ["south", "south-east", "east", "north-east", "north"],
+      "_mirroredInCode": "south-west=south-east+flipX, west=east+flipX, north-west=north-east+flipX",
+      "_symmetricDirs": ["south", "north", "east", "west"],
+      "_note": "Humanoids/birds: generate 5 right-side directions only (S, SE, E, NE, N) and mirror the left side in code — saves ~37% animation credits vs full 8. Symmetric creatures (spider): 4 cardinal directions, no mirroring needed."
+    },
     "notes": "Pixel art, top-down RPG. Muted earthy palette per world. No neon. Match Mystic Woods / Pixel Crawler Free Pack aesthetic."
   },
   "palettes": {
@@ -31,7 +39,9 @@
       "pixellab": {
         "description": "Norse warrior hero, one-handed sword in right hand, round wooden shield in left hand, leather armor with metal trim and rivets, scarred weathered face, short dark hair, determined expression, muted military green and brown tones, top-down pixel art RPG style",
         "size": 32,
-        "n_directions": 4,
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW are mirrored in code via sprite.setFlipX(true)",
         "view": "low top-down",
         "outline": "single color black outline",
         "shading": "basic shading",
@@ -63,16 +73,104 @@
       "outputDir": "public/assets/sprites/characters/earth/heroes/skald"
     },
     {
-      "id": "draugr",
-      "name": "Draugr",
+      "id": "spider",
+      "name": "Contaminated Spider",
       "world": "earth",
       "faction": "enemy",
-      "status": "pending",
-      "_comment": "Undead Norse warrior. First enemy in CombatArenaScene wave sequence.",
+      "status": "done",
+      "_pixellabCharacterId": "24a6d704-ea71-4c0d-bcaa-7d78b0f76ee4",
+      "_comment": "Wave 1 melee enemy. Small, fast, comes in groups. Quadruped body type — animation templates must be verified after create_character (check get_character for available templates).",
       "pixellab": {
-        "description": "Undead Norse warrior minion, rotting plate armor fused to decayed body, glowing blue corruption cracks running through the armor, hollow eye sockets with dim blue glow, hunched shambling posture, missing lower jaw, dark iron and bone color tones",
-        "size": 32,
+        "description": "small mutant spider, 8 legs radiating from bloated round abdomen, rust-orange and dark brown carapace, glowing infected green eyes, jagged mandibles, contaminated post-apocalyptic creature, military earth tones, top-down pixel art RPG",
+        "size": 20,
+        "body_type": "quadruped",
+        "template": "dog",
         "n_directions": 4,
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
+      },
+      "_animNote": "Quadruped dog template has no death animation. Death is handled in code (fade + scale to 0). Available templates: bark, fast-walk, idle, running-4-frames, running-6-frames, running-8-frames, sneaking, walk-4-frames, walk-6-frames, walk-8-frames",
+      "animations": [
+        {
+          "id": "idle",
+          "template": "idle",
+          "frameDurationMs": 200
+        },
+        {
+          "id": "walk",
+          "template": "walk-4-frames",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "attack",
+          "template": "bark",
+          "frameDurationMs": 80
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/earth/enemies/spider"
+    },
+    {
+      "id": "skag",
+      "name": "Skag",
+      "world": "earth",
+      "faction": "enemy",
+      "status": "done",
+      "_pixellabCharacterId": "9fd9f2d5-b584-44ed-94e7-8986b234b492",
+      "_comment": "Wave 2 ranged enemy. Small feral scavenger that hurls debris. Stays at distance, low HP.",
+      "pixellab": {
+        "description": "small gaunt feral scavenger, hunched posture, oversized head, hollow sunken eyes, ragged military surplus rags, clutches sharp metal debris ready to throw, rust and dirt-stained, post-apocalyptic earth tones",
+        "size": 24,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW are mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 180
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "attack",
+          "template": "throw-object",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/earth/enemies/skag"
+    },
+    {
+      "id": "crow",
+      "name": "Mutant Crow",
+      "world": "earth",
+      "faction": "enemy",
+      "status": "done",
+      "_pixellabCharacterId": "af868172-6caa-452d-b5ce-450cb5b9b2a5",
+      "_comment": "Wave 3 flying enemy. Swoops in from outside combat zone, dives to attack, retreats. Humanoid rig — arm animations become wing flaps naturally.",
+      "pixellab": {
+        "description": "large mutant crow, wide black wings spread wide viewed from above, sharp curved talons, bloated infected red eyes, matted greasy feathers with rust-orange patches, predatory bird, post-apocalyptic contaminated, dark military tones",
+        "size": 24,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW are mirrored in code via sprite.setFlipX(true)",
         "view": "low top-down",
         "outline": "single color black outline",
         "shading": "basic shading",
@@ -83,17 +181,17 @@
         {
           "id": "idle",
           "template": "fight-stance-idle-8-frames",
-          "frameDurationMs": 200
+          "frameDurationMs": 120
         },
         {
           "id": "walk",
-          "template": "scary-walk",
-          "frameDurationMs": 150
+          "template": "walking-4-frames",
+          "frameDurationMs": 110
         },
         {
           "id": "attack",
-          "template": "cross-punch",
-          "frameDurationMs": 80
+          "template": "flying-kick",
+          "frameDurationMs": 70
         },
         {
           "id": "death",
@@ -101,7 +199,7 @@
           "frameDurationMs": 120
         }
       ],
-      "outputDir": "public/assets/sprites/characters/earth/enemies/draugr"
+      "outputDir": "public/assets/sprites/characters/earth/enemies/crow"
     }
   ],
   "tilesets": [

@@ -39,7 +39,7 @@ Call `create_character` using the parameters in `character.pixellab`:
 ```
 description:   character.pixellab.description
 size:          character.pixellab.size
-n_directions:  character.pixellab.n_directions    (always 4)
+n_directions:  character.pixellab.n_directions
 view:          character.pixellab.view
 outline:       character.pixellab.outline
 shading:       character.pixellab.shading
@@ -47,9 +47,42 @@ detail:        character.pixellab.detail
 proportions:   character.pixellab.proportions
 ```
 
-Note the `character_id` from the response.
+**Choosing `n_directions`:**
+
+| Value | When to use | Directions to generate |
+|-------|-------------|------------------------|
+| **5** | Default for humanoids, birds, any left-right symmetric character | `south, south-east, east, north-east, north` |
+| **4** | Radially symmetric creatures (spiders, blobs) where diagonal = cardinal rotated | `south, north, east, west` |
+
+**Why 5 for humanoids?** All humanoid/bird sprites are left-right symmetric. The engine mirrors the right-side directions to produce the left-side: SW = SE flipped, W = E flipped, NW = NE flipped. This gives full 8-direction coverage at ~37% lower credit cost than generating all 8.
+
+When calling `create_character`, pass the specific `directions` list from `character.pixellab.directions` (not just the count). When calling `animate_character`, pass the same `directions` list.
+
+If the spec entry does not have `directions` set, apply the defaults above based on `body_type`. Update `asset-spec.json` before creating the character.
+
+Note the `character_id` from the response. Store it as `_pixellabCharacterId` in `asset-spec.json` immediately so it survives if the session is interrupted.
+
+### 2a′. Human approval (required before animations)
+
+**STOP and get human approval before queuing any animations.**
+
+Base character generation costs ~4 credits. Animations cost 4 credits per animation × N animations — potentially 16–64+ credits per character. Do not spend these without approval.
+
+1. Call `get_character(character_id, include_preview: true)`
+2. Show the user the preview image — it displays all 4 directions side by side
+3. Ask: *"Does this character look right? Approve to proceed with animations, or describe what to change."*
+4. **If approved** → proceed to step 2b
+5. **If rejected / needs changes**:
+   - Note the feedback
+   - Call `delete_character(character_id)` to free the slot
+   - Update the description in `asset-spec.json`
+   - Return to step 2a with the revised description
+
+This step is skipped only if the user has explicitly given blanket approval ("generate everything unattended").
 
 ### 2b. Queue animations
+
+**Quadruped characters**: Animation templates differ from humanoid. Check `get_character` after creation — the response lists all available template animations for that body type. Update `asset-spec.json` with the correct template names before queueing (replace `"TBD — check get_character after creation"` entries).
 
 The account has **8 concurrent job slots**. The base character uses 4 slots (one per direction),
 leaving 4 slots — enough for exactly one animation at a time.
