@@ -36,11 +36,11 @@ export class MainMenuScene extends Phaser.Scene {
     // ── Arena background ─────────────────────────────────────────────────────
 
     // Run the combat arena behind this scene as a live background.
-    // sendToBack() ensures CombatArenaScene renders first (underneath).
-    // Stop any stale instance before launching so create() runs fresh.
-    this.scene.stop(CombatArenaScene.KEY);
+    // launch() already handles re-starting a running scene internally, so no
+    // explicit stop() is needed. bringToTop() ensures MainMenuScene always
+    // renders on top of the arena regardless of scene ordering.
     this.scene.launch(CombatArenaScene.KEY);
-    this.scene.sendToBack(CombatArenaScene.KEY);
+    this.scene.bringToTop();
 
     // ── Right-side panel ──────────────────────────────────────────────────────
 
