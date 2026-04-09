@@ -186,6 +186,7 @@ function terrainTileFrame(val: number, detail: number): { key: string; frame: nu
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private playerBody!: Phaser.GameObjects.Arc;
   private playerIndicator!: Phaser.GameObjects.Rectangle;
   private playerSprite!: Phaser.GameObjects.Sprite;
@@ -193,6 +194,7 @@ export class GameScene extends Phaser.Scene {
   private playerMoving = false;
   private joystick!: VirtualJoyStick;
   private mountainWalls!: Phaser.Physics.Arcade.StaticGroup;
+  private navigationBarriers!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
   private interactiveObjects!: InteractiveObject[];
   worldClock!: WorldClock;
@@ -491,6 +493,8 @@ export class GameScene extends Phaser.Scene {
     this.drawPaths();
     this.drawSettlementMarkers();
     this.createMountainWalls();
+    this.createNavigationBarriers();
+    this.createNavigationBarrierVisuals();
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampDecorationScatter();
@@ -652,6 +656,13 @@ export class GameScene extends Phaser.Scene {
       this.updateLevel1(delta);
       this.updateNpcProximity();
     }
+    // Y-sort player every frame — depth = world-Y matches the raw-Y system used by
+    // chunk-placed trees so the player correctly occludes them based on position.
+    // Done outside the attractMode branch so it runs whether or not input is active.
+    this.player.setDepth(this.player.y);
+    this.playerShadow.setPosition(this.player.x + 6, this.player.y + 8);
+    this.playerShadow.setDepth(this.player.y - 1);
+
     this.updateRabbits(time);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
@@ -1176,7 +1187,9 @@ export class GameScene extends Phaser.Scene {
           // behind the player so a softer echo suits them visually.
           0.50 - i * 0.08,
         );
-        ghost.setDepth(4); // just below the player sprite (player container is depth 5)
+        // Use the player's live Y as depth so the ghost renders just behind the player
+        // in the same raw-Y system used by chunk trees and ground animals.
+        ghost.setDepth(this.player.y - 1);
         this.tweens.add({
           targets:  ghost,
           alpha:    0,
@@ -1600,7 +1613,14 @@ export class GameScene extends Phaser.Scene {
 
     this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
-    this.player.setDepth(10);
+    // Initial depth matches spawn Y so the first frame renders correctly.
+    // Updated every frame in update() using the same raw-Y system as chunk trees.
+    this.player.setDepth(SPAWN_Y);
+
+    // Drop shadow — oval offset SE from the player's feet, depth just below the player.
+    // Same pattern as bird shadows (add.ellipse at offset position, low alpha).
+    this.playerShadow = this.add.ellipse(SPAWN_X + 6, SPAWN_Y + 8, 22, 10, 0x000000, 0.22);
+    this.playerShadow.setDepth(SPAWN_Y - 1);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -1608,6 +1628,7 @@ export class GameScene extends Phaser.Scene {
     body.setCircle(BODY_RADIUS);
 
     this.physics.add.collider(this.player, this.mountainWalls);
+    this.physics.add.collider(this.player, this.navigationBarriers);
     // Register solid-objects collider here (not in createSolidObjects) because
     // this.player is undefined until createPlayer() runs.
     this.physics.add.collider(this.player, this.solidObjects);
@@ -1650,6 +1671,107 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.mountainWalls.refresh();
+  }
+
+  /**
+   * Three horizontal impassable strips that divide the world into four navigable zones,
+   * creating a guided SW→NE experience:
+   *
+   *   Zone 4 — Highland / Portal         (y < 830)
+   *   ─── Highland Rim ───────────────── gap at x 2830–2930
+   *   Zone 3 — Skogsgläntan area         (y 830–1240)
+   *   ─── Forest Belt ────────────────── gaps at x 1930–2020 and x 2380–2470
+   *   Zone 2 — Boreal mid-corridor       (y 1240–2060)
+   *   ─── Southern River ─────────────── ford gap at x 530–680
+   *   Zone 1 — Coastal / Strandviken     (y 2060–3000) ← spawn here
+   *
+   * The gap positions are chosen to align with existing path segments in Level1Paths.ts
+   * so the player naturally discovers the crossings while following the dirt / animal /
+   * forest / paved route from spawn to portal.
+   */
+  private createNavigationBarriers(): void {
+    this.navigationBarriers = this.physics.add.staticGroup();
+
+    // Thin helper — adds one invisible static collision rectangle to the group.
+    const addBlock = (x: number, y: number, w: number, h: number): void => {
+      const rect = this.add.rectangle(x + w / 2, y + h / 2, w, h, 0x000000, 0);
+      this.physics.add.existing(rect, true);
+      this.navigationBarriers.add(rect);
+    };
+
+    // ── Southern River (y 2060–2160) — ford gap at x 530–680 ────────────────
+    // Gap aligns with dirt-sw-3 (x:580, w:80) from Level1Paths.ts.
+    addBlock(0,    2060, 530,  100);
+    addBlock(680,  2060, 3820, 100);
+
+    // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
+    // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
+    addBlock(0,    1240, 1930, 100);
+    addBlock(2020, 1240, 360,  100);
+    addBlock(2470, 1240, 2030, 100);
+
+    // ── Highland Rim (y 830–920) — gap at x 2830–2930 ────────────────────────
+    // Gap aligns with forest-path-2 / paved-plateau-1 junction.
+    addBlock(0,    830,  2830, 90);
+    addBlock(2930, 830,  1570, 90);
+
+    this.navigationBarriers.refresh();
+  }
+
+  /**
+   * Cosmetic visuals that make each navigation barrier legible to the player.
+   * The physics bodies (createNavigationBarriers) do the actual blocking —
+   * these sprites just signal "you can't walk here" in a natural-feeling way.
+   */
+  private createNavigationBarrierVisuals(): void {
+    // Fixed seed so placement is identical on every run regardless of runSeed.
+    const rng = mulberry32(0xba771e75);
+
+    // ── River: tiled water strip (frame 0 of terrain-water is a 16×16 water tile) ──
+    const riverY    = 2060;
+    const riverH    = 100;
+    const riverMidY = riverY + riverH / 2;
+    this.add.tileSprite(265,              riverMidY, 530,  riverH, 'terrain-water', 0).setDepth(1.5);
+    this.add.tileSprite(680 + 3820 / 2,  riverMidY, 3820, riverH, 'terrain-water', 0).setDepth(1.5);
+
+    // ── Forest Belt: dense tree scatter across all three belt segments ────────
+    const treeTex = ['tree-spruce', 'tree-spruce-2', 'tree-normal', 'tree-big', 'tree-pine', 'tree-birch', 'tree-birch-2'];
+    const forestSegments: [number, number, number, number][] = [
+      [0,    1240, 1930, 100],
+      [2020, 1240, 360,  100],
+      [2470, 1240, 2030, 100],
+    ];
+    for (const [sx, sy, sw, sh] of forestSegments) {
+      for (let tx = sx + 14; tx < sx + sw - 14; tx += 28) {
+        for (let ty = sy + 14; ty < sy + sh - 14; ty += 28) {
+          const ox  = (rng() - 0.5) * 18;
+          const oy  = (rng() - 0.5) * 18;
+          const key = treeTex[Math.floor(rng() * treeTex.length)];
+          // Raw Y depth so trees Y-sort with the player — when the player passes
+          // through a gap and stands north of the belt, trees (depth ~1245–1335)
+          // correctly render in front of the player (depth = player.y < 1240).
+          this.add.image(tx + ox, ty + oy, key).setScale(0.5).setDepth(ty + oy);
+        }
+      }
+    }
+
+    // ── Highland Rim: rock scatter along the two rim segments ─────────────────
+    const rimSegments: [number, number, number, number][] = [
+      [0,    830, 2830, 90],
+      [2930, 830, 1570, 90],
+    ];
+    for (const [sx, sy, sw, sh] of rimSegments) {
+      for (let tx = sx + 14; tx < sx + sw - 14; tx += 28) {
+        for (let ty = sy + 12; ty < sy + sh - 12; ty += 28) {
+          const ox = (rng() - 0.5) * 18;
+          const oy = (rng() - 0.5) * 18;
+          // Raw Y depth — same rationale as forest-belt trees above.
+          this.add.image(tx + ox, ty + oy, 'rock-grass')
+            .setScale(0.5 + rng() * 0.5)
+            .setDepth(ty + oy);
+        }
+      }
+    }
   }
 
   /**
@@ -2119,6 +2241,9 @@ export class GameScene extends Phaser.Scene {
     for (const child of this.groundAnimals.getChildren()) {
       // Ground animals are now sprites (FIL-73); cast accordingly.
       const r  = child as Phaser.GameObjects.Sprite;
+      // Y-sort with the same raw-Y system as chunk-placed trees so animals
+      // correctly pass behind/in-front of trees and the player as they move.
+      r.setDepth(r.y);
       const b  = r.body as Phaser.Physics.Arcade.Body;
       const type = r.getData('animalType') as string;
       const def  = ANIMAL_DEFS[type];
@@ -2367,6 +2492,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Draws a thin dark shadow strip on the south face of every highland tile that
+   * borders a lower biome. This fakes a vertical cliff face in top-down view —
+   * the same trick used in Stardew Valley and CrossCode to convey elevation without
+   * any actual 3D geometry. Depth 0.45 sits between the biome wash (0.1) and paths
+   * (1) so the edge is visible but doesn't overpower the terrain texture below.
+   */
+  private drawCliffEdges(biomeGrid: Float32Array, tilesX: number, tilesY: number): void {
+    const HIGHLAND = 0.78;
+    const gfx = this.add.graphics().setDepth(0.45);
+
+    gfx.fillStyle(0x000000, 0.40);
+    for (let ty = 0; ty < tilesY - 1; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const val  = biomeGrid[ty       * tilesX + tx];
+        const valS = biomeGrid[(ty + 1) * tilesX + tx];
+        // South-facing cliff: highland tile above, lower biome below.
+        if (val >= HIGHLAND && valS < HIGHLAND) {
+          gfx.fillRect(tx * TILE_SIZE, (ty + 1) * TILE_SIZE, TILE_SIZE, 10);
+        }
+      }
+    }
+  }
+
+  /**
    * Generates and draws a noise-based spring-Sweden landscape:
    * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
    * Uses this.runSeed for deterministic output (same seed → same map).
@@ -2404,6 +2553,10 @@ export class GameScene extends Phaser.Scene {
     // stride 2 (tx & ty both even) → 1/4 of water tiles; cap 1500 keeps mobile GPU load small.
     const waterCentres: number[] = []; // flat [cx0, cy0, cx1, cy1, ...]
 
+    // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
+    // Float32Array is cheap (~52 KB for 141×94 tiles) and avoids re-sampling the noise.
+    const biomeGrid = new Float32Array(tilesX * tilesY);
+
     // Open a single batch for the entire terrain — no WebGL flush per tile.
     terrainRt.beginDraw();
 
@@ -2418,6 +2571,8 @@ export class GameScene extends Phaser.Scene {
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
         const val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
+
+        biomeGrid[ty * tilesX + tx] = val;
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -2466,6 +2621,8 @@ export class GameScene extends Phaser.Scene {
     // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
     // matching the noise gradient closely enough to look organic at play zoom.
     this.drawBiomeColorWash(noise, tilesX, tilesY);
+    // Cliff-edge shadows (depth 0.45) render on top of the colour wash but below paths.
+    this.drawCliffEdges(biomeGrid, tilesX, tilesY);
 
     // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
     // but below decorations (2+). Each sprite covers the baked water tile underneath.

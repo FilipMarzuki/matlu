@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 /**
- * Passthrough — immediately starts GameScene, which owns its own attract mode
- * (camera cycling through animals before the player presses play).
+ * Passthrough — routes immediately to MainMenuScene.
+ * Kept for compatibility; MainMenuScene is the true entry point.
  */
 export class WilderviewScene extends Phaser.Scene {
   constructor() {
