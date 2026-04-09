@@ -204,9 +204,12 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── HUD ───────────────────────────────────────────────────────────────────
-    this.hudWave.setText(`Wave ${this.waveNumber}`);
-    this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`);
-    this.hudKills.setText(`Kills: ${this.killCount}`);
+    // HUD objects only exist when bgMode=false; skip in background mode.
+    if (!this.bgMode) {
+      this.hudWave.setText(`Wave ${this.waveNumber}`);
+      this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`);
+      this.hudKills.setText(`Kills: ${this.killCount}`);
+    }
   }
 
   // ── Arena layout ─────────────────────────────────────────────────────────────
