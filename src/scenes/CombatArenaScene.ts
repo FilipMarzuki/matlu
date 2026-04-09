@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CombatEntity, Skald, Spider, Skag, Crow } from '../entities/CombatEntity';
+import { CombatEntity, Tinkerer, Spider, Skag, Crow } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 
 // ── Wave & hero type definitions ──────────────────────────────────────────────
@@ -32,8 +32,7 @@ interface HeroConfig {
  * hero takes over from Wave 1. Extend as new hero classes are implemented.
  */
 const HERO_ROSTER: HeroConfig[] = [
-  { name: 'Skald',  build: (s, x, y) => new Skald(s, x, y) },
-  // { name: 'Valkyrie', build: (s, x, y) => new Valkyrie(s, x, y) },
+  { name: 'Tinkerer', build: (s, x, y) => new Tinkerer(s, x, y) },
 ];
 
 /**
@@ -99,9 +98,9 @@ export class CombatArenaScene extends Phaser.Scene {
 
   preload(): void {
     this.load.aseprite(
-      'skald',
-      'assets/sprites/characters/earth/heroes/skald/skald.png',
-      'assets/sprites/characters/earth/heroes/skald/skald.json',
+      'tinkerer',
+      'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
+      'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json',
     );
     this.load.aseprite(
       'spider',
@@ -127,8 +126,8 @@ export class CombatArenaScene extends Phaser.Scene {
     this.projectiles = [];
 
     this.buildArena();
-    // Register Aseprite animation tags so sprite.play('walk_south') works.
-    this.anims.createFromAseprite('skald');
+    // Register Aseprite animation tags so sprite.play('tinkerer_walk_south') etc. works.
+    this.anims.createFromAseprite('tinkerer');
     this.anims.createFromAseprite('spider');
     this.anims.createFromAseprite('skag');
     this.anims.createFromAseprite('crow');

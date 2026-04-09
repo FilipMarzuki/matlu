@@ -126,6 +126,13 @@ export abstract class CombatEntity extends Enemy {
   private attackAnimTimer = 0;
   /** How long to hold the attack animation = 40% of the attack cooldown. */
   private readonly attackAnimDuration: number;
+  /**
+   * The animation state name to use while attackAnimTimer > 0.
+   * Defaults to 'attack' (single-attack entities: Skald, Spider, Crow, Skag).
+   * Override in buildTree() actions to use different states per attack type
+   * (e.g. Tinkerer sets 'attack_melee' or 'attack_ranged' before calling ctx.attack/shootAt).
+   */
+  protected attackAnimId = 'attack';
 
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     super(scene, x, y, config);
@@ -366,7 +373,7 @@ export abstract class CombatEntity extends Enemy {
     // Apply flip — must be set every frame, not just on direction change.
     this.spriteObj.setFlipX(this.lastFlipX);
 
-    const state  = this.attackAnimTimer > 0 ? 'attack'
+    const state  = this.attackAnimTimer > 0 ? this.attackAnimId
                  : spd > 5                  ? 'walk'
                  :                            'idle';
     // Animation keys are namespaced as {textureKey}_{state}_{dir} to avoid
@@ -870,6 +877,117 @@ export class Crow extends CombatEntity {
       ]),
 
       // ── 4. Wander (fallback) ──────────────────────────────────────────────
+      new BtAction((ctx, d) => {
+        ctx.wander(d);
+        return 'running';
+      }),
+    ]);
+  }
+}
+
+/**
+ * Tinkerer — post-apocalyptic mechanic hero. Melee bash + pistol shot + dash.
+ *
+ * Behavior tree (priority order):
+ *   1. Melee bash  — stop and punch when within 36px
+ *   2. Dash        — gap-close burst (3s cooldown) when at 40–300px
+ *   3. Ranged shot — pistol shot (750ms cooldown) when at 60–230px
+ *   4. Chase       — close to preferred combat range
+ *   5. Wander      — random drift (no opponent)
+ *
+ * Uses two distinct animation states ('attack_melee', 'attack_ranged') so the
+ * spritesheet's separate punch and pistol-aim animations play on the right action.
+ */
+export class Tinkerer extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:              100,
+      speed:              80,
+      aggroRadius:        400,
+      attackDamage:       15,
+      color:              0x996633,   // olive/rust (fallback if sprite not loaded)
+      meleeRange:         36,
+      attackCooldownMs:   700,
+      // Pistol shot
+      projectileDamage:   18,
+      projectileSpeed:    300,
+      projectileColor:    0xffbb44,   // warm muzzle-flash yellow
+      // Dash
+      dashSpeedMultiplier: 4.5,
+      dashDurationMs:     180,
+      // Sprite
+      spriteKey:          'tinkerer',
+    });
+  }
+
+  protected buildTree(): BtNode {
+    const MELEE_R    = this.meleeRange;   // 36px
+    const DASH_MIN   = MELEE_R;
+    const DASH_MAX   = 300;
+    const RANGED_MIN = 60;
+    const RANGED_MAX = 230;
+
+    return new BtSelector([
+
+      // ── 1. Melee bash ────────────────────────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y)
+            < MELEE_R,
+        ),
+        new BtAction(ctx => {
+          this.attackAnimId = 'attack_melee';
+          ctx.attack();
+          ctx.stop();
+          return 'success';
+        }),
+      ]),
+
+      // ── 2. Dash (gap-closer) ─────────────────────────────────────────────────
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d > DASH_MIN && d < DASH_MAX;
+          }),
+          new BtAction(ctx => {
+            ctx.dash(ctx.opponent!.x, ctx.opponent!.y);
+            return 'success';
+          }),
+        ]),
+        3000,   // 3s between dashes
+      ),
+
+      // ── 3. Ranged (pistol shot) ──────────────────────────────────────────────
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d >= RANGED_MIN && d <= RANGED_MAX;
+          }),
+          new BtAction(ctx => {
+            this.attackAnimId = 'attack_ranged';
+            ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y);
+            ctx.stop();
+            return 'success';
+          }),
+        ]),
+        750,    // 750ms between shots
+      ),
+
+      // ── 4. Chase ─────────────────────────────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
+      // ── 5. Wander (fallback) ─────────────────────────────────────────────────
       new BtAction((ctx, d) => {
         ctx.wander(d);
         return 'running';
