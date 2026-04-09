@@ -91,6 +91,12 @@ const SWIPE_COOLDOWN_MS = 400;
 const SWIPE_RANGE = 120;
 const SWIPE_ARC = Phaser.Math.DegToRad(120);
 
+/** FIL-126: ranged cleanse bolt — second combat tool fired with right-click or R key */
+const RANGED_COOLDOWN_MS = 1200;
+const RANGED_SPEED       =  280; // px/s
+const RANGED_RANGE       =  250; // max travel distance in pixels
+const RANGED_RADIUS      =    6; // hit-detection radius in pixels
+
 /** Portal at the NE end of the diagonal corridor */
 const PORTAL_X = 4100;
 const PORTAL_Y = 350;
@@ -261,7 +267,15 @@ export class GameScene extends Phaser.Scene {
   private groundAnimals!: Phaser.Physics.Arcade.Group;
   private birds: BirdObject[] = [];
   private kills = 0;
-  private lastSwipeAt = 0;
+  private lastSwipeAt   = 0;
+  private lastRangedAt  = 0;
+  /** Live ranged bolts — each is a teal Arc travelling toward pointer position. */
+  private rangedProjectiles: Array<{
+    arc:  Phaser.GameObjects.Arc;
+    vx:   number;
+    vy:   number;
+    dist: number;
+  }> = [];
 
   // ─── Economy ──────────────────────────────────────────────────────────────────
   private playerGold = 0;
@@ -713,7 +727,14 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) {
         this.trySwipe(pointer);
+      } else if (pointer.rightButtonDown()) {
+        this.tryRangedAttack(pointer);
       }
+    });
+
+    // Keyboard shortcut for ranged attack — fires toward the last known pointer position.
+    this.input.keyboard?.on('keydown-R', () => {
+      this.tryRangedAttack(this.input.activePointer);
     });
 
     this.events.on('cleanse-updated', (percent: number) => {
@@ -780,6 +801,7 @@ export class GameScene extends Phaser.Scene {
     this.playerShadow.setDepth(this.player.y - 1);
 
     this.updateRabbits(time);
+    this.updateRangedProjectiles(delta);
     if (this.bossAlive && this.boss) this.boss.update(delta);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
@@ -1168,6 +1190,90 @@ export class GameScene extends Phaser.Scene {
       rabbit.setData('fleeUntil', this.time.now + FLEE_MS);
       this.physics.velocityFromRotation(away, FLEE_SPEED, body.velocity);
     }
+  }
+
+  /**
+   * FIL-126: Fire a ranged cleanse bolt toward the pointer position.
+   *
+   * The bolt travels in a straight line, hits the first rabbit or boss it
+   * reaches within RANGED_RANGE px, and applies the same kill/flee logic as
+   * the melee swipe. Visually it's a small teal arc (circle) that differs
+   * clearly from the blue swipe arc.
+   *
+   * Input: right-click or keyboard R.
+   * Cooldown: RANGED_COOLDOWN_MS (1200ms — slower than swipe to feel secondary).
+   */
+  private tryRangedAttack(pointer: Phaser.Input.Pointer): void {
+    if (this.attractMode || this.gameEnded) return;
+    const now = this.time.now;
+    if (now - this.lastRangedAt < RANGED_COOLDOWN_MS) return;
+    this.lastRangedAt = now;
+
+    const px    = this.player.x;
+    const py    = this.player.y;
+    const angle = Math.atan2(pointer.worldY - py, pointer.worldX - px);
+
+    // Teal bolt — distinct colour from the blue swipe arc (0x88ddff).
+    const arc = this.add.arc(px, py, RANGED_RADIUS, 0, 360, false, 0x44ddcc)
+      .setDepth(50)
+      .setStrokeStyle(1, 0xaaffee);
+
+    this.rangedProjectiles.push({
+      arc,
+      vx:   Math.cos(angle) * RANGED_SPEED,
+      vy:   Math.sin(angle) * RANGED_SPEED,
+      dist: 0,
+    });
+
+    // White flash on player — same feedback as swipe so the action feels responsive.
+    this.playerSprite.setTint(0xffffff);
+    this.time.delayedCall(90, () => this.playerSprite.clearTint());
+  }
+
+  /**
+   * Advance all live ranged bolts and check for hits.
+   * Called every frame from update() — O(n × m) where n is typically 1–2 bolts.
+   */
+  private updateRangedProjectiles(delta: number): void {
+    if (this.rangedProjectiles.length === 0) return;
+    const dt = delta / 1000;
+
+    this.rangedProjectiles = this.rangedProjectiles.filter(p => {
+      // Advance position.
+      p.arc.x  += p.vx * dt;
+      p.arc.y  += p.vy * dt;
+      p.dist   += Math.hypot(p.vx, p.vy) * dt;
+
+      // Expire when max range is exceeded.
+      if (p.dist >= RANGED_RANGE) {
+        p.arc.destroy();
+        return false;
+      }
+
+      // Boss hit — slightly larger radius since it's a 40×40 target.
+      if (this.bossAlive && this.boss) {
+        if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, this.boss.x, this.boss.y) < RANGED_RADIUS + 20) {
+          this.boss.takeDamage(1);
+          this.boss.onHitBy(p.arc.x, p.arc.y);
+          this.cameras.main.shake(200, 0.006);
+          this.updateBossHud();
+          p.arc.destroy();
+          return false;
+        }
+      }
+
+      // Rabbit hit — reuse applySwipeHit for consistent kill/flee logic.
+      for (const child of [...this.rabbits.getChildren()]) {
+        const r = child as Phaser.GameObjects.Rectangle;
+        if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, r.x, r.y) < RANGED_RADIUS + 8) {
+          this.applySwipeHit(r);
+          p.arc.destroy();
+          return false;
+        }
+      }
+
+      return true; // still travelling
+    });
   }
 
   private killRabbit(rabbit: Phaser.GameObjects.Rectangle): void {
