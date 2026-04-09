@@ -22,12 +22,39 @@ Database: Supabase (leaderboard via `matlu_runs` table)
 | `npm run typecheck`       | `tsc --noEmit` only                                                              |
 | `npm run preview`         | Preview production build                                                         |
 | `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
+| `npm run screenshot`      | Capture game screenshots to `screenshots/` for visual review                     |
+
+## Visual review
+
+Run `npm run screenshot` to capture the current game state as PNGs in `screenshots/`.
+Must run with a display available (uses `--headed` Playwright so WebGL renders correctly).
+Read the files in `screenshots/` before doing any visual/UI work — they show the actual
+rendered game, not just code. `screenshots/manifest.json` lists each file and what it shows.
 
 ## Pixel art assets
 
 Put each source pack in its **own folder** under **`public/assets/packs/<pack-name>/`** (sprites, audio, tilemaps, etc. as shipped). Vite serves `public/` at the site root, so URLs look like `/assets/packs/<pack-name>/...`.
 
 After adding or renaming files, run **`npm run assets:manifest`**. That writes **`public/assets/manifest.json`** — a flat catalog grouped by pack (`id`, `path`, `assets[]` with `relative` and `url`) so agents can pick files without walking the tree.
+
+## AI asset generation (PixelLab)
+
+Custom pixel art is generated via the **PixelLab MCP** (available in this project via `.mcp.json`).
+
+| File | Purpose |
+| ---- | ------- |
+| `src/ai/asset-spec.json` | Declarative spec — what to generate, PixelLab params, output paths |
+| `src/ai/AGENTS.md` | **Full step-by-step protocol** for generating assets autonomously |
+
+| Command | Description |
+| ------- | ----------- |
+| `npm run sprites:status` | Show pending / done assets |
+| `npm run sprites:assemble` | Assemble raw frames → spritesheets + JSON |
+| `npm run sprites:assemble -- --id skald` | Assemble one asset only |
+| `npm run sprites:assemble -- --dry-run` | Preview without writing |
+
+**To generate pending assets:** read `src/ai/AGENTS.md` and follow the protocol.
+Raw frames go in `public/assets/sprites/_raw/` (gitignored). Assembled spritesheets go in `public/assets/sprites/` and are committed to git.
 
 ## Project structure
 

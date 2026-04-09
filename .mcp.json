@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "linear": {
+      "type": "http",
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "pixellab": {
+      "type": "http",
+      "url": "https://api.pixellab.ai/mcp"
+    },
+    "betterstack": {
+      "type": "http",
+      "url": "https://mcp.betterstack.com"
+    }
+  }
+}

@@ -25,6 +25,7 @@ import {
 } from '../world/Level1';
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
+import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
@@ -52,9 +53,6 @@ const DASH_SPEED        = 520;  // px/s during the burst
 const DASH_DURATION_MS  = 180;  // how long the velocity override lasts
 const DASH_COOLDOWN_MS  = 600;  // minimum gap between consecutive dashes
 const DASH_AFTERIMAGE_N = 4;    // ghost sprites left in the wake
-// i-frame window: rabbits cannot start a chase during this window so the dash
-// feels like an escape tool even when the velocity burst has already faded.
-const DASH_INVINCIBLE_MS = 250; // ms — slightly longer than DASH_DURATION_MS
 
 // Player shape dimensions
 const BODY_RADIUS = 16;
@@ -86,6 +84,12 @@ const PORTAL_X = 4100;
 const PORTAL_Y = 350;
 const PORTAL_RADIUS = 44;
 
+/** Corrupted Guardian boss spawn point — slightly SW of portal */
+const BOSS_X = 3800;
+const BOSS_Y = 520;
+/** Distance at which the boss entrance camera pan triggers */
+const BOSS_ENTRANCE_RADIUS = 500;
+
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
 const HUD_PAD = 14;
@@ -108,7 +112,8 @@ interface DropTable {
   gold?: { min: number; max: number };
 }
 const DROP_TABLES: Record<string, DropTable> = {
-  zombieRabbit: { gold: { min: 1, max: 4 } },
+  zombieRabbit:       { gold: { min: 1,  max: 4  } },
+  corruptedGuardian:  { gold: { min: 60, max: 80 } },
 };
 
 interface AnimalDef {
@@ -189,6 +194,7 @@ function terrainTileFrame(val: number, detail: number): { key: string; frame: nu
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private playerBody!: Phaser.GameObjects.Arc;
   private playerIndicator!: Phaser.GameObjects.Rectangle;
   private playerSprite!: Phaser.GameObjects.Sprite;
@@ -196,6 +202,7 @@ export class GameScene extends Phaser.Scene {
   private playerMoving = false;
   private joystick!: VirtualJoyStick;
   private mountainWalls!: Phaser.Physics.Arcade.StaticGroup;
+  private navigationBarriers!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
   private interactiveObjects!: InteractiveObject[];
   worldClock!: WorldClock;
@@ -223,7 +230,13 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Player health ────────────────────────────────────────────────────────────
   private playerHp = 100;
-  private readonly playerMaxHp = 100;
+  private playerMaxHp = 100;
+  // Upgrade-adjusted stats — initialised in applyUpgrades() called from create().
+  // Each field shadows a module-level constant so upgrades don't mutate shared state.
+  private effectiveMaxHp        = 100;
+  private effectiveSpeed        = PLAYER_SPEED;
+  private effectiveDashDuration = DASH_DURATION_MS;
+  private effectiveSwipeRange   = SWIPE_RANGE;
   // Filled rect that shrinks as HP drops — same pattern as cleanseFill
   private hpFill!: Phaser.GameObjects.Rectangle;
   // Timestamp of last player hit — prevents instant death from rapid rabbit taps
@@ -237,8 +250,6 @@ export class GameScene extends Phaser.Scene {
   private lastDashAt     = 0;   // cooldown gating
   private dashDx         = 0;   // normalised direction held for the burst
   private dashDy         = 0;
-  // game-time (ms) when dash i-frames expire (0 = not invincible)
-  private dashInvincibleUntil = 0;
   // Joystick double-tap detection: record when joystick goes idle so a quick
   // re-engagement within 220 ms triggers a dash.
   private joystickWasActive   = false;
@@ -276,6 +287,21 @@ export class GameScene extends Phaser.Scene {
   private portal!: Phaser.GameObjects.Arc;
   private portalActive = false;
   private portalGfx!: Phaser.GameObjects.Graphics;
+
+  // ── Boss (FIL-125) ──────────────────────────────────────────────────────────
+  private boss?: CorruptedGuardian;
+  private bossAlive         = false;
+  private bossEntranceDone  = false;
+  /** HP bar fill rectangle in the boss HUD — scaleX tracks boss HP. */
+  private bossHudFill?: Phaser.GameObjects.Rectangle;
+  /** Wrapper destroyed on boss death so all HUD elements go at once. */
+  private bossHudContainer?: Phaser.GameObjects.Container;
+
+  // ── Upgrade shrine (FIL-130) ──────────────────────────────────────────────────
+  private readonly shrinePos       = { x: 380, y: 2760 };
+  private shrineDialogActive       = false;
+  private shrinePromptText?: Phaser.GameObjects.Text;
+
   private runSeed = 0;
   /** Whether the audio system is functional — false in headless CI environments */
   private audioAvailable = false;
@@ -496,6 +522,8 @@ export class GameScene extends Phaser.Scene {
     this.drawPaths();
     this.drawSettlementMarkers();
     this.createMountainWalls();
+    this.createNavigationBarriers();
+    this.createNavigationBarrierVisuals();
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampDecorationScatter();
@@ -546,8 +574,17 @@ export class GameScene extends Phaser.Scene {
 
     // E key for NPC interaction (FIL-80)
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    // Reset dialog-active flag when NpcDialogScene returns control to GameScene
-    this.events.on(Phaser.Scenes.Events.RESUME, () => { this.npcDialogActive = false; });
+    // Reset dialog-active flags when any overlay returns control to GameScene
+    this.events.on(Phaser.Scenes.Events.RESUME, () => {
+      this.npcDialogActive    = false;
+      this.shrineDialogActive = false;
+    });
+    // Deduct gold when UpgradeScene confirms a purchase (GameScene is paused, not sleeping,
+    // so its event bus still processes emits from the overlay scene).
+    this.events.on('upgrade-purchased', (cost: number) => {
+      this.playerGold = Math.max(0, this.playerGold - cost);
+      this.refreshGoldText();
+    });
 
     // Open credits overlay (C key)
     this.input.keyboard?.on('keydown-C', () => {
@@ -582,8 +619,9 @@ export class GameScene extends Phaser.Scene {
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - 20);
       this.setHpHud(this.playerHp);
-      // Quick alpha flash to signal the hit visually
-      this.tweens.add({ targets: this.playerSprite, alpha: 0.25, yoyo: true, duration: 120, repeat: 2 });
+      // Red tint flash — more readable than alpha blink, same intent.
+      this.playerSprite.setTint(0xff4444);
+      this.time.delayedCall(200, () => this.playerSprite.clearTint());
       if (this.playerHp <= 0) this.onPlayerDeath();
     });
 
@@ -594,8 +632,11 @@ export class GameScene extends Phaser.Scene {
 
     this.createHudAndOverlay();
     this.createPortal();
+    this.createBoss();
     this.createLevel1Zones();
     this.createLevel1Collectibles();
+    this.createShrine();
+    this.applyUpgrades();
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) {
@@ -656,8 +697,17 @@ export class GameScene extends Phaser.Scene {
       this.updatePlayerMovement();
       this.updateLevel1(delta);
       this.updateNpcProximity();
+      this.updateShrine();
     }
+    // Y-sort player every frame — depth = world-Y matches the raw-Y system used by
+    // chunk-placed trees so the player correctly occludes them based on position.
+    // Done outside the attractMode branch so it runs whether or not input is active.
+    this.player.setDepth(this.player.y);
+    this.playerShadow.setPosition(this.player.x + 6, this.player.y + 8);
+    this.playerShadow.setDepth(this.player.y - 1);
+
     this.updateRabbits(time);
+    if (this.bossAlive && this.boss) this.boss.update(delta);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
     if (this.portalActive) {
@@ -770,13 +820,6 @@ export class GameScene extends Phaser.Scene {
 
       let next: RabbitState = state === 'fleeing' ? 'roaming' : state;
       if (dist < CHASE_RANGE && state !== 'fleeing') {
-        // During dash i-frames, blast nearby rabbits away instead of chasing.
-        // This makes the dash feel like an escape tool when surrounded (FIL-123).
-        if (time < this.dashInvincibleUntil) {
-          r.setData('state', 'fleeing' satisfies RabbitState);
-          r.setData('fleeUntil', time + FLEE_MS);
-          continue;
-        }
         next = 'chasing';
       } else if (state === 'chasing' && dist > CHASE_RANGE + 40) {
         next = 'roaming';
@@ -846,7 +889,7 @@ export class GameScene extends Phaser.Scene {
       // Multiply base speed by the path multiplier so roads feel faster/slower.
       // Off-road returns 1.0 (no change); paved road at full condition returns 1.35.
       const speedMult = this.pathSystem.getSpeedMultiplier(this.player.x, this.player.y);
-      const speed = PLAYER_SPEED * speedMult;
+      const speed = this.effectiveSpeed * speedMult;
       body.setVelocity((dx / len) * speed, (dy / len) * speed);
     } else {
       body.setVelocity(0, 0);
@@ -934,10 +977,25 @@ export class GameScene extends Phaser.Scene {
     const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
     const half = SWIPE_ARC / 2;
 
+    // ── Boss hit check (priority over rabbits) ────────────────────────────────
+    //
+    // The boss is a large 40×40 entity; use a slightly wider range (1.5×) so
+    // it's satisfying to hit. Swipe is consumed if the boss is in range.
+    if (this.bossAlive && this.boss) {
+      const db = Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y);
+      if (db <= this.effectiveSwipeRange * 1.5) {
+        this.boss.takeDamage(1);
+        this.boss.onHitBy(px, py);
+        this.cameras.main.shake(200, 0.006);
+        this.updateBossHud();
+        return;
+      }
+    }
+
     for (const child of [...this.rabbits.getChildren()]) {
       const r = child as Phaser.GameObjects.Rectangle;
       const d = Phaser.Math.Distance.Between(px, py, r.x, r.y);
-      if (d > SWIPE_RANGE) {
+      if (d > this.effectiveSwipeRange) {
         continue;
       }
       const toR = Math.atan2(r.y - py, r.x - px);
@@ -957,6 +1015,9 @@ export class GameScene extends Phaser.Scene {
     if (state === 'fleeing') {
       return;
     }
+
+    // Camera shake on every successful hit — same intensity as the arena (FIL-124).
+    this.cameras.main.shake(150, 0.004);
 
     if (Math.random() < 0.5) {
       this.killRabbit(rabbit);
@@ -998,12 +1059,19 @@ export class GameScene extends Phaser.Scene {
     if (!table) return;
 
     if (table.gold) {
-      const amount = Phaser.Math.Between(table.gold.min, table.gold.max);
+      // Lucky strike upgrade multiplies all gold drops by 1.5 (rounded).
+      const boughtUpgrades = JSON.parse(localStorage.getItem('matlu_upgrades') ?? '{}') as Record<string, boolean>;
+      const goldMult = boughtUpgrades['lucky_strike'] ? 1.5 : 1;
+      const amount = Math.round(Phaser.Math.Between(table.gold.min, table.gold.max) * goldMult);
       this.playerGold += amount;
-      this.goldText.setText(`${t('hud.gold')}: ${this.playerGold}`);
+      this.refreshGoldText();
       // Floating "+N gold" feedback in world-space — rises and fades like collectible labels
       this.spawnFloatText(x, y, `+${amount} ${t('hud.gold')}`, '#ffe066');
     }
+  }
+
+  private refreshGoldText(): void {
+    this.goldText.setText(`${t('hud.gold')}: ${this.playerGold}`);
   }
 
   /**
@@ -1158,9 +1226,8 @@ export class GameScene extends Phaser.Scene {
     const len = Math.sqrt(dx * dx + dy * dy);
     this.dashDx = dx / len;
     this.dashDy = dy / len;
-    this.lastDashAt          = now;
-    this.dashingUntil        = now + DASH_DURATION_MS;
-    this.dashInvincibleUntil = now + DASH_INVINCIBLE_MS;
+    this.lastDashAt   = now;
+    this.dashingUntil = now + this.effectiveDashDuration;
 
     this.spawnDashAfterimages();
 
@@ -1189,7 +1256,9 @@ export class GameScene extends Phaser.Scene {
           // behind the player so a softer echo suits them visually.
           0.50 - i * 0.08,
         );
-        ghost.setDepth(4); // just below the player sprite (player container is depth 5)
+        // Use the player's live Y as depth so the ghost renders just behind the player
+        // in the same raw-Y system used by chunk trees and ground animals.
+        ghost.setDepth(this.player.y - 1);
         this.tweens.add({
           targets:  ghost,
           alpha:    0,
@@ -1403,6 +1472,174 @@ export class GameScene extends Phaser.Scene {
     this.portalGfx.strokeCircle(0, 0, PORTAL_RADIUS + 6);
   }
 
+  // ─── Boss fight (FIL-125) ────────────────────────────────────────────────────
+
+  /**
+   * Spawn the Corrupted Guardian boss near the portal zone and wire up all
+   * event listeners and physics interactions.
+   */
+  private createBoss(): void {
+    this.boss = new CorruptedGuardian(this, BOSS_X, BOSS_Y);
+    this.boss.setDepth(BOSS_Y);   // raw-Y depth so it sorts with other objects
+    // Provide a player position getter — boss uses this to aim charges.
+    this.boss.setTarget(() => ({ x: this.player.x, y: this.player.y }));
+
+    // Attach arcade physics so the boss can move and be overlapped.
+    this.physics.add.existing(this.boss);
+    (this.boss.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+
+    this.bossAlive = true;
+
+    // Boss contact damages the player — same invincibility window as rabbits.
+    this.physics.add.overlap(this.player, this.boss, () => {
+      if (this.gameEnded || this.attractMode || !this.bossAlive) return;
+      const now = this.time.now;
+      if (now < this.dashingUntil) return;           // dash invincibility
+      if (now - this.lastDamagedAt < 1500) return;   // hit cooldown
+      this.lastDamagedAt = now;
+      this.playerHp = Math.max(0, this.playerHp - 25);
+      this.setHpHud(this.playerHp);
+      this.playerSprite.setTint(0xff4444);
+      this.time.delayedCall(200, () => this.playerSprite.clearTint());
+      if (this.playerHp <= 0) this.onPlayerDeath();
+    });
+
+    // Phase 2+: boss requests rabbit spawns via scene events.
+    this.events.on('boss-spawn-rabbits', (bx: number, by: number) => {
+      this.spawnBossRabbits(bx, by);
+    });
+
+    // Boss defeated.
+    this.events.once('boss-died', () => this.onBossDied());
+
+    this.createBossHud();
+  }
+
+  /**
+   * Fixed-to-screen HUD showing the boss name and HP bar at the top centre.
+   * Uses setScrollFactor(0) so it stays in place as the camera moves.
+   */
+  private createBossHud(): void {
+    const cx = this.scale.width / 2;
+
+    // Background bar
+    const bg = this.add
+      .rectangle(cx, 22, 220, 14, 0x220033, 0.85)
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    // HP fill (purple) — scaleX tracks boss HP fraction.
+    this.bossHudFill = this.add
+      .rectangle(cx - 108, 22, 216, 10, 0xaa44ff)
+      .setScrollFactor(0)
+      .setDepth(101)
+      .setOrigin(0, 0.5);
+
+    // Label above the bar.
+    const label = this.add
+      .text(cx, 10, 'Corrupted Guardian', {
+        fontSize: '11px',
+        color: '#cc88ff',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(101);
+
+    // Group into a Container so onBossDied() can destroy it all at once.
+    // Note: these are already on the display list; Container.add() moves them.
+    this.bossHudContainer = this.add.container(0, 0, [bg, this.bossHudFill, label]);
+    this.bossHudContainer.setScrollFactor(0).setDepth(100);
+  }
+
+  /**
+   * Update boss HP bar fill width to match current HP fraction.
+   * Called every frame while the boss is alive.
+   */
+  private updateBossHud(): void {
+    if (!this.boss || !this.bossHudFill) return;
+    this.bossHudFill.scaleX = Math.max(0, this.boss.hpFraction);
+  }
+
+  /**
+   * Entrance cinematic: stop camera follow, pan to the boss, hold, pan back,
+   * resume follow. The boss pulses in scale to signal its presence.
+   */
+  private triggerBossEntrance(): void {
+    this.bossEntranceDone = true;
+    const cam = this.cameras.main;
+    cam.stopFollow();
+
+    // Pan to boss (1.2 s).
+    cam.pan(BOSS_X, BOSS_Y, 1200, 'Sine.easeInOut');
+
+    // Boss scale-pulse during the reveal.
+    if (this.boss) {
+      this.tweens.add({
+        targets:  this.boss,
+        scaleX:   { from: 0.8, to: 1.4 },
+        scaleY:   { from: 0.8, to: 1.4 },
+        yoyo:     true,
+        duration: 700,
+        ease:     'Sine.easeInOut',
+      });
+    }
+
+    // Hold on boss for ~1.8 s, then pan back to player (0.8 s).
+    this.time.delayedCall(3000, () => {
+      cam.pan(this.player.x, this.player.y, 800, 'Sine.easeInOut');
+    });
+
+    // Resume follow after the full sequence (~4 s total).
+    this.time.delayedCall(3800, () => {
+      cam.startFollow(this.player, true, 0.1, 0.1);
+    });
+  }
+
+  /**
+   * Spawn two zombie rabbits near the boss position (phase 2 ability).
+   * Uses the same pattern as spawnRabbits() but places them close to the boss.
+   */
+  private spawnBossRabbits(bx: number, by: number): void {
+    for (let i = 0; i < 2; i++) {
+      const offsetX = (i === 0 ? -1 : 1) * Phaser.Math.Between(30, 60);
+      const offsetY = Phaser.Math.Between(-40, 40);
+      const r = this.add.rectangle(bx + offsetX, by + offsetY, 18, 18, 0x993333);
+      this.physics.add.existing(r);
+      (r.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+      r.setData('state',    'roaming' satisfies RabbitState);
+      r.setData('roamNext', this.time.now + Phaser.Math.Between(500, 1500));
+      r.setData('fleeUntil', 0);
+      r.setDepth(r.y);
+      this.rabbits.add(r);
+    }
+  }
+
+  /**
+   * Boss defeated: award drops, fill cleanse bar, reveal portal, destroy HUD.
+   */
+  private onBossDied(): void {
+    this.bossAlive = false;
+
+    // Large camera shake — bigger than a regular hit.
+    this.cameras.main.shake(300, 0.008);
+
+    // Gold drop + floating text.
+    if (this.boss) {
+      this.resolveDrops('corruptedGuardian', this.boss.x, this.boss.y);
+    }
+
+    // Fill cleanse bar to 100% and trigger portal reveal.
+    this.events.emit('cleanse-updated', 100);
+    if (!this.portalActive) this.revealPortal();
+
+    // Destroy the boss HUD after a short pause so the player can see it reach 0.
+    this.time.delayedCall(600, () => {
+      this.bossHudContainer?.destroy();
+      this.bossHudContainer = undefined;
+      this.bossHudFill      = undefined;
+    });
+  }
+
   // ─── Day/Night cycle (FIL-37) ───────────────────────────────────────────────
 
   private createDayNightOverlay(): void {
@@ -1613,7 +1850,14 @@ export class GameScene extends Phaser.Scene {
 
     this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
-    this.player.setDepth(10);
+    // Initial depth matches spawn Y so the first frame renders correctly.
+    // Updated every frame in update() using the same raw-Y system as chunk trees.
+    this.player.setDepth(SPAWN_Y);
+
+    // Drop shadow — oval offset SE from the player's feet, depth just below the player.
+    // Same pattern as bird shadows (add.ellipse at offset position, low alpha).
+    this.playerShadow = this.add.ellipse(SPAWN_X + 6, SPAWN_Y + 8, 22, 10, 0x000000, 0.22);
+    this.playerShadow.setDepth(SPAWN_Y - 1);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -1621,6 +1865,7 @@ export class GameScene extends Phaser.Scene {
     body.setCircle(BODY_RADIUS);
 
     this.physics.add.collider(this.player, this.mountainWalls);
+    this.physics.add.collider(this.player, this.navigationBarriers);
     // Register solid-objects collider here (not in createSolidObjects) because
     // this.player is undefined until createPlayer() runs.
     this.physics.add.collider(this.player, this.solidObjects);
@@ -1663,6 +1908,107 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.mountainWalls.refresh();
+  }
+
+  /**
+   * Three horizontal impassable strips that divide the world into four navigable zones,
+   * creating a guided SW→NE experience:
+   *
+   *   Zone 4 — Highland / Portal         (y < 830)
+   *   ─── Highland Rim ───────────────── gap at x 2830–2930
+   *   Zone 3 — Skogsgläntan area         (y 830–1240)
+   *   ─── Forest Belt ────────────────── gaps at x 1930–2020 and x 2380–2470
+   *   Zone 2 — Boreal mid-corridor       (y 1240–2060)
+   *   ─── Southern River ─────────────── ford gap at x 530–680
+   *   Zone 1 — Coastal / Strandviken     (y 2060–3000) ← spawn here
+   *
+   * The gap positions are chosen to align with existing path segments in Level1Paths.ts
+   * so the player naturally discovers the crossings while following the dirt / animal /
+   * forest / paved route from spawn to portal.
+   */
+  private createNavigationBarriers(): void {
+    this.navigationBarriers = this.physics.add.staticGroup();
+
+    // Thin helper — adds one invisible static collision rectangle to the group.
+    const addBlock = (x: number, y: number, w: number, h: number): void => {
+      const rect = this.add.rectangle(x + w / 2, y + h / 2, w, h, 0x000000, 0);
+      this.physics.add.existing(rect, true);
+      this.navigationBarriers.add(rect);
+    };
+
+    // ── Southern River (y 2060–2160) — ford gap at x 530–680 ────────────────
+    // Gap aligns with dirt-sw-3 (x:580, w:80) from Level1Paths.ts.
+    addBlock(0,    2060, 530,  100);
+    addBlock(680,  2060, 3820, 100);
+
+    // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
+    // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
+    addBlock(0,    1240, 1930, 100);
+    addBlock(2020, 1240, 360,  100);
+    addBlock(2470, 1240, 2030, 100);
+
+    // ── Highland Rim (y 830–920) — gap at x 2830–2930 ────────────────────────
+    // Gap aligns with forest-path-2 / paved-plateau-1 junction.
+    addBlock(0,    830,  2830, 90);
+    addBlock(2930, 830,  1570, 90);
+
+    this.navigationBarriers.refresh();
+  }
+
+  /**
+   * Cosmetic visuals that make each navigation barrier legible to the player.
+   * The physics bodies (createNavigationBarriers) do the actual blocking —
+   * these sprites just signal "you can't walk here" in a natural-feeling way.
+   */
+  private createNavigationBarrierVisuals(): void {
+    // Fixed seed so placement is identical on every run regardless of runSeed.
+    const rng = mulberry32(0xba771e75);
+
+    // ── River: tiled water strip (frame 0 of terrain-water is a 16×16 water tile) ──
+    const riverY    = 2060;
+    const riverH    = 100;
+    const riverMidY = riverY + riverH / 2;
+    this.add.tileSprite(265,              riverMidY, 530,  riverH, 'terrain-water', 0).setDepth(1.5);
+    this.add.tileSprite(680 + 3820 / 2,  riverMidY, 3820, riverH, 'terrain-water', 0).setDepth(1.5);
+
+    // ── Forest Belt: dense tree scatter across all three belt segments ────────
+    const treeTex = ['tree-spruce', 'tree-spruce-2', 'tree-normal', 'tree-big', 'tree-pine', 'tree-birch', 'tree-birch-2'];
+    const forestSegments: [number, number, number, number][] = [
+      [0,    1240, 1930, 100],
+      [2020, 1240, 360,  100],
+      [2470, 1240, 2030, 100],
+    ];
+    for (const [sx, sy, sw, sh] of forestSegments) {
+      for (let tx = sx + 14; tx < sx + sw - 14; tx += 28) {
+        for (let ty = sy + 14; ty < sy + sh - 14; ty += 28) {
+          const ox  = (rng() - 0.5) * 18;
+          const oy  = (rng() - 0.5) * 18;
+          const key = treeTex[Math.floor(rng() * treeTex.length)];
+          // Raw Y depth so trees Y-sort with the player — when the player passes
+          // through a gap and stands north of the belt, trees (depth ~1245–1335)
+          // correctly render in front of the player (depth = player.y < 1240).
+          this.add.image(tx + ox, ty + oy, key).setScale(0.5).setDepth(ty + oy);
+        }
+      }
+    }
+
+    // ── Highland Rim: rock scatter along the two rim segments ─────────────────
+    const rimSegments: [number, number, number, number][] = [
+      [0,    830, 2830, 90],
+      [2930, 830, 1570, 90],
+    ];
+    for (const [sx, sy, sw, sh] of rimSegments) {
+      for (let tx = sx + 14; tx < sx + sw - 14; tx += 28) {
+        for (let ty = sy + 12; ty < sy + sh - 12; ty += 28) {
+          const ox = (rng() - 0.5) * 18;
+          const oy = (rng() - 0.5) * 18;
+          // Raw Y depth — same rationale as forest-belt trees above.
+          this.add.image(tx + ox, ty + oy, 'rock-grass')
+            .setScale(0.5 + rng() * 0.5)
+            .setDepth(ty + oy);
+        }
+      }
+    }
   }
 
   /**
@@ -2132,6 +2478,9 @@ export class GameScene extends Phaser.Scene {
     for (const child of this.groundAnimals.getChildren()) {
       // Ground animals are now sprites (FIL-73); cast accordingly.
       const r  = child as Phaser.GameObjects.Sprite;
+      // Y-sort with the same raw-Y system as chunk-placed trees so animals
+      // correctly pass behind/in-front of trees and the player as they move.
+      r.setDepth(r.y);
       const b  = r.body as Phaser.Physics.Arcade.Body;
       const type = r.getData('animalType') as string;
       const def  = ANIMAL_DEFS[type];
@@ -2380,6 +2729,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Draws a thin dark shadow strip on the south face of every highland tile that
+   * borders a lower biome. This fakes a vertical cliff face in top-down view —
+   * the same trick used in Stardew Valley and CrossCode to convey elevation without
+   * any actual 3D geometry. Depth 0.45 sits between the biome wash (0.1) and paths
+   * (1) so the edge is visible but doesn't overpower the terrain texture below.
+   */
+  private drawCliffEdges(biomeGrid: Float32Array, tilesX: number, tilesY: number): void {
+    const HIGHLAND = 0.78;
+    const gfx = this.add.graphics().setDepth(0.45);
+
+    gfx.fillStyle(0x000000, 0.40);
+    for (let ty = 0; ty < tilesY - 1; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const val  = biomeGrid[ty       * tilesX + tx];
+        const valS = biomeGrid[(ty + 1) * tilesX + tx];
+        // South-facing cliff: highland tile above, lower biome below.
+        if (val >= HIGHLAND && valS < HIGHLAND) {
+          gfx.fillRect(tx * TILE_SIZE, (ty + 1) * TILE_SIZE, TILE_SIZE, 10);
+        }
+      }
+    }
+  }
+
+  /**
    * Generates and draws a noise-based spring-Sweden landscape:
    * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
    * Uses this.runSeed for deterministic output (same seed → same map).
@@ -2417,6 +2790,10 @@ export class GameScene extends Phaser.Scene {
     // stride 2 (tx & ty both even) → 1/4 of water tiles; cap 1500 keeps mobile GPU load small.
     const waterCentres: number[] = []; // flat [cx0, cy0, cx1, cy1, ...]
 
+    // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
+    // Float32Array is cheap (~52 KB for 141×94 tiles) and avoids re-sampling the noise.
+    const biomeGrid = new Float32Array(tilesX * tilesY);
+
     // Open a single batch for the entire terrain — no WebGL flush per tile.
     terrainRt.beginDraw();
 
@@ -2431,6 +2808,8 @@ export class GameScene extends Phaser.Scene {
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
         const val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
+
+        biomeGrid[ty * tilesX + tx] = val;
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -2479,6 +2858,8 @@ export class GameScene extends Phaser.Scene {
     // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
     // matching the noise gradient closely enough to look organic at play zoom.
     this.drawBiomeColorWash(noise, tilesX, tilesY);
+    // Cliff-edge shadows (depth 0.45) render on top of the colour wash but below paths.
+    this.drawCliffEdges(biomeGrid, tilesX, tilesY);
 
     // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
     // but below decorations (2+). Each sprite covers the baked water tile underneath.
@@ -3184,6 +3565,17 @@ export class GameScene extends Phaser.Scene {
         this.triggerMeetingDialog();
       }
     }
+
+    // ── Boss: entrance pan + HUD update ──────────────────────────────────────
+    if (this.bossAlive && this.boss) {
+      if (!this.bossEntranceDone) {
+        const distToBoss = Phaser.Math.Distance.Between(px, py, BOSS_X, BOSS_Y);
+        if (distToBoss < BOSS_ENTRANCE_RADIUS) {
+          this.triggerBossEntrance();
+        }
+      }
+      this.updateBossHud();
+    }
   }
 
   /**
@@ -3316,6 +3708,72 @@ export class GameScene extends Phaser.Scene {
         }
         return; // only the nearest NPC counts per frame
       }
+    }
+  }
+
+  // ── Upgrade shrine (FIL-130) ────────────────────────────────────────────────
+
+  /**
+   * Spawn the upgrade shrine visual at shrinePos — a gold circle with a label.
+   * Interact prompt is hidden until the player walks within 80 px.
+   */
+  private createShrine(): void {
+    this.add
+      .arc(this.shrinePos.x, this.shrinePos.y, 10, 0, 360, false, 0xffe066)
+      .setDepth(this.shrinePos.y);
+
+    this.add
+      .text(this.shrinePos.x, this.shrinePos.y - 24, 'Upgrade Shrine', {
+        fontSize: '10px',
+        color: '#ffe066',
+      })
+      .setOrigin(0.5)
+      .setDepth(this.shrinePos.y + 1);
+
+    this.shrinePromptText = this.add
+      .text(this.shrinePos.x, this.shrinePos.y - 42, 'E: Upgrade', {
+        fontSize: '10px',
+        color: '#f0ead6',
+        backgroundColor: '#00000088',
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5)
+      .setDepth(this.shrinePos.y + 2)
+      .setVisible(false);
+  }
+
+  /**
+   * Read purchased upgrades from localStorage and apply stat bonuses.
+   * Called once in create() after the HUD is built so the HP bar reflects
+   * the correct max-HP immediately.
+   */
+  private applyUpgrades(): void {
+    const bought = JSON.parse(localStorage.getItem('matlu_upgrades') ?? '{}') as Record<string, boolean>;
+    if (bought['hardened'])        this.effectiveMaxHp += 25;
+    if (bought['fleet_footed'])    this.effectiveSpeed        = Math.round(PLAYER_SPEED       * 1.15);
+    if (bought['longer_dash'])     this.effectiveDashDuration = Math.round(DASH_DURATION_MS   * 1.5);
+    if (bought['cleanse_mastery']) this.effectiveSwipeRange   = Math.round(SWIPE_RANGE        * 1.2);
+    // lucky_strike is checked at drop-time in resolveDrops()
+    this.playerMaxHp = this.effectiveMaxHp;
+    this.playerHp    = this.effectiveMaxHp;
+  }
+
+  /**
+   * Show/hide the E-key prompt when the player is near the shrine.
+   * Pressing E pauses the game and launches UpgradeScene.
+   */
+  private updateShrine(): void {
+    if (this.shrineDialogActive) return;
+    const dist = Phaser.Math.Distance.Between(
+      this.player.x, this.player.y,
+      this.shrinePos.x, this.shrinePos.y,
+    );
+    const near = dist < 80;
+    this.shrinePromptText?.setVisible(near);
+    if (near && this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.shrineDialogActive = true;
+      this.scene.pause();
+      this.scene.launch('UpgradeScene', { callerKey: this.scene.key, gold: this.playerGold } as unknown as object);
     }
   }
 

@@ -1,0 +1,273 @@
+{
+  "_readme": "Declarative spec for all AI-generated pixel art assets. Edit this file to add or update assets. Run 'npm run sprites:assemble' after raw frames are downloaded to build spritesheets. See scripts/assemble-sprites.mjs for the raw file naming convention.",
+  "styleGuide": {
+    "view": "low top-down",
+    "outline": "single color black outline",
+    "shading": "basic shading",
+    "detail": "medium detail",
+    "characterSize": 32,
+    "tileSize": 16,
+    "directions": {
+      "humanoid": 5,
+      "symmetric": 4,
+      "_humanoidDirs": ["south", "south-east", "east", "north-east", "north"],
+      "_mirroredInCode": "south-west=south-east+flipX, west=east+flipX, north-west=north-east+flipX",
+      "_symmetricDirs": ["south", "north", "east", "west"],
+      "_note": "Humanoids/birds: generate 5 right-side directions only (S, SE, E, NE, N) and mirror the left side in code — saves ~37% animation credits vs full 8. Symmetric creatures (spider): 4 cardinal directions, no mirroring needed."
+    },
+    "notes": "Pixel art, top-down RPG. Muted earthy palette per world. No neon. Match Mystic Woods / Pixel Crawler Free Pack aesthetic."
+  },
+  "palettes": {
+    "earth": "military greens, grays, rust orange, drab iron — post-apocalyptic industrial",
+    "spinolandet": "deep purple, acid green, amber, bioluminescent teal — organic alien biology",
+    "vatten": "jade green, teal, white, soft gold, bamboo brown — Asian fantasy water magic"
+  },
+  "_rawNamingConvention": {
+    "_doc": "When downloading PixelLab output, save frames to public/assets/sprites/_raw/[asset-id]/ using these filename patterns:",
+    "characterBase": "base_{direction}.png — static base sprite per direction (south/north/east/west)",
+    "animationFrame": "anim_{animName}_{direction}_{frameIndex}.png — e.g. anim_walk_south_0.png",
+    "tilesetSheet": "tileset.png — the full tileset sheet as returned by PixelLab"
+  },
+  "characters": [
+    {
+      "id": "skald",
+      "name": "Skald",
+      "world": "earth",
+      "faction": "hero",
+      "status": "done",
+      "_comment": "Norse warrior hero. Currently a placeholder rectangle in CombatArenaScene.",
+      "pixellab": {
+        "description": "Norse warrior hero, one-handed sword in right hand, round wooden shield in left hand, leather armor with metal trim and rivets, scarred weathered face, short dark hair, determined expression, muted military green and brown tones, top-down pixel art RPG style",
+        "size": 32,
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW are mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "attack",
+          "template": "lead-jab",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/earth/heroes/skald"
+    },
+    {
+      "id": "spider",
+      "name": "Contaminated Spider",
+      "world": "earth",
+      "faction": "enemy",
+      "status": "done",
+      "_pixellabCharacterId": "24a6d704-ea71-4c0d-bcaa-7d78b0f76ee4",
+      "_comment": "Wave 1 melee enemy. Small, fast, comes in groups. Quadruped body type — animation templates must be verified after create_character (check get_character for available templates).",
+      "pixellab": {
+        "description": "small mutant spider, 8 legs radiating from bloated round abdomen, rust-orange and dark brown carapace, glowing infected green eyes, jagged mandibles, contaminated post-apocalyptic creature, military earth tones, top-down pixel art RPG",
+        "size": 20,
+        "body_type": "quadruped",
+        "template": "dog",
+        "n_directions": 4,
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
+      },
+      "_animNote": "Quadruped dog template has no death animation. Death is handled in code (fade + scale to 0). Available templates: bark, fast-walk, idle, running-4-frames, running-6-frames, running-8-frames, sneaking, walk-4-frames, walk-6-frames, walk-8-frames",
+      "animations": [
+        {
+          "id": "idle",
+          "template": "idle",
+          "frameDurationMs": 200
+        },
+        {
+          "id": "walk",
+          "template": "walk-4-frames",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "attack",
+          "template": "bark",
+          "frameDurationMs": 80
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/earth/enemies/spider"
+    },
+    {
+      "id": "skag",
+      "name": "Skag",
+      "world": "earth",
+      "faction": "enemy",
+      "status": "done",
+      "_pixellabCharacterId": "9fd9f2d5-b584-44ed-94e7-8986b234b492",
+      "_comment": "Wave 2 ranged enemy. Small feral scavenger that hurls debris. Stays at distance, low HP.",
+      "pixellab": {
+        "description": "small gaunt feral scavenger, hunched posture, oversized head, hollow sunken eyes, ragged military surplus rags, clutches sharp metal debris ready to throw, rust and dirt-stained, post-apocalyptic earth tones",
+        "size": 24,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW are mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 180
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "attack",
+          "template": "throw-object",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/earth/enemies/skag"
+    },
+    {
+      "id": "crow",
+      "name": "Mutant Crow",
+      "world": "earth",
+      "faction": "enemy",
+      "status": "done",
+      "_pixellabCharacterId": "af868172-6caa-452d-b5ce-450cb5b9b2a5",
+      "_comment": "Wave 3 flying enemy. Swoops in from outside combat zone, dives to attack, retreats. Humanoid rig — arm animations become wing flaps naturally.",
+      "pixellab": {
+        "description": "large mutant crow, wide black wings spread wide viewed from above, sharp curved talons, bloated infected red eyes, matted greasy feathers with rust-orange patches, predatory bird, post-apocalyptic contaminated, dark military tones",
+        "size": 24,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW are mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "fight-stance-idle-8-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 110
+        },
+        {
+          "id": "attack",
+          "template": "flying-kick",
+          "frameDurationMs": 70
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/earth/enemies/crow"
+    }
+  ],
+  "tilesets": [
+    {
+      "id": "arena_floor_earth",
+      "name": "Earth Arena Floor",
+      "world": "earth",
+      "status": "pending",
+      "_comment": "Stone floor for the Earth third of the combat arena. Dark, battle-worn, ancient.",
+      "pixellab": {
+        "lower_description": "dark cracked stone floor, ancient fortress flagstone, worn and battle-scarred",
+        "upper_description": "smooth dark stone slab, old fortress floor, dimly lit",
+        "transition_description": "cracked stone edges, grit and dust between slabs",
+        "transition_size": 0.25,
+        "tile_size": {
+          "width": 16,
+          "height": 16
+        },
+        "view": "high top-down",
+        "shading": "basic shading",
+        "outline": "selective outline",
+        "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/tilesets/arena"
+    },
+    {
+      "id": "arena_floor_spinolandet",
+      "name": "Spinolandet Arena Floor",
+      "world": "spinolandet",
+      "status": "pending",
+      "_comment": "Chitinous shell-plate floor for the Spinolandet third of the arena.",
+      "pixellab": {
+        "lower_description": "dark organic chitinous floor, segmented insect shell plates, alien biology",
+        "upper_description": "smooth amber chitin shell plate, bioluminescent veins glowing faintly teal",
+        "transition_description": "cracked chitin edges, organic fluid between plates",
+        "transition_size": 0.25,
+        "tile_size": {
+          "width": 16,
+          "height": 16
+        },
+        "view": "high top-down",
+        "shading": "basic shading",
+        "outline": "selective outline",
+        "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/tilesets/arena"
+    },
+    {
+      "id": "arena_floor_vatten",
+      "name": "Vattenpandalandet Arena Floor",
+      "world": "vatten",
+      "status": "pending",
+      "_comment": "Jade tile floor for the Vattenpandalandet third of the arena.",
+      "pixellab": {
+        "lower_description": "dark mossy stone floor, ancient water temple, wet patches",
+        "upper_description": "smooth jade tile floor, Asian temple, carved geometric patterns, faint gold trim",
+        "transition_description": "water-worn stone edges, moss and mineral deposits",
+        "transition_size": 0.25,
+        "tile_size": {
+          "width": 16,
+          "height": 16
+        },
+        "view": "high top-down",
+        "shading": "basic shading",
+        "outline": "selective outline",
+        "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/tilesets/arena"
+    }
+  ]
+}

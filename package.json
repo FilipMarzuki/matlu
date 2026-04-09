@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "assets:manifest": "node scripts/generate-assets-manifest.mjs",
-    "test": "npx playwright test"
+    "test": "npx playwright test",
+    "screenshot": "npx playwright test tests/screenshot.spec.ts --reporter=list --headed",
+    "sprites:assemble": "node scripts/assemble-sprites.mjs",
+    "sprites:status": "node scripts/assemble-sprites.mjs --status"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
@@ -22,6 +25,7 @@
     "@types/sharp": "^0.31.1",
     "sharp": "^0.34.5",
     "typescript": "^6.0.2",
+    "unzipper": "^0.12.3",
     "vite": "^8.0.3"
   }
 }
