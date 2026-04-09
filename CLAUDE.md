@@ -37,6 +37,25 @@ Put each source pack in its **own folder** under **`public/assets/packs/<pack-na
 
 After adding or renaming files, run **`npm run assets:manifest`**. That writes **`public/assets/manifest.json`** — a flat catalog grouped by pack (`id`, `path`, `assets[]` with `relative` and `url`) so agents can pick files without walking the tree.
 
+## AI asset generation (PixelLab)
+
+Custom pixel art is generated via the **PixelLab MCP** (available in this project via `.mcp.json`).
+
+| File | Purpose |
+| ---- | ------- |
+| `src/ai/asset-spec.json` | Declarative spec — what to generate, PixelLab params, output paths |
+| `src/ai/AGENTS.md` | **Full step-by-step protocol** for generating assets autonomously |
+
+| Command | Description |
+| ------- | ----------- |
+| `npm run sprites:status` | Show pending / done assets |
+| `npm run sprites:assemble` | Assemble raw frames → spritesheets + JSON |
+| `npm run sprites:assemble -- --id skald` | Assemble one asset only |
+| `npm run sprites:assemble -- --dry-run` | Preview without writing |
+
+**To generate pending assets:** read `src/ai/AGENTS.md` and follow the protocol.
+Raw frames go in `public/assets/sprites/_raw/` (gitignored). Assembled spritesheets go in `public/assets/sprites/` and are committed to git.
+
 ## Project structure
 
 ```
