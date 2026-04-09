@@ -25,6 +25,7 @@ import {
 } from '../world/Level1';
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
+import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
@@ -83,6 +84,12 @@ const PORTAL_X = 4100;
 const PORTAL_Y = 350;
 const PORTAL_RADIUS = 44;
 
+/** Corrupted Guardian boss spawn point — slightly SW of portal */
+const BOSS_X = 3800;
+const BOSS_Y = 520;
+/** Distance at which the boss entrance camera pan triggers */
+const BOSS_ENTRANCE_RADIUS = 500;
+
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
 const HUD_PAD = 14;
@@ -105,7 +112,8 @@ interface DropTable {
   gold?: { min: number; max: number };
 }
 const DROP_TABLES: Record<string, DropTable> = {
-  zombieRabbit: { gold: { min: 1, max: 4 } },
+  zombieRabbit:       { gold: { min: 1,  max: 4  } },
+  corruptedGuardian:  { gold: { min: 60, max: 80 } },
 };
 
 interface AnimalDef {
@@ -273,6 +281,15 @@ export class GameScene extends Phaser.Scene {
   private portal!: Phaser.GameObjects.Arc;
   private portalActive = false;
   private portalGfx!: Phaser.GameObjects.Graphics;
+
+  // ── Boss (FIL-125) ──────────────────────────────────────────────────────────
+  private boss?: CorruptedGuardian;
+  private bossAlive         = false;
+  private bossEntranceDone  = false;
+  /** HP bar fill rectangle in the boss HUD — scaleX tracks boss HP. */
+  private bossHudFill?: Phaser.GameObjects.Rectangle;
+  /** Wrapper destroyed on boss death so all HUD elements go at once. */
+  private bossHudContainer?: Phaser.GameObjects.Container;
   private runSeed = 0;
   /** Whether the audio system is functional — false in headless CI environments */
   private audioAvailable = false;
@@ -594,6 +611,7 @@ export class GameScene extends Phaser.Scene {
 
     this.createHudAndOverlay();
     this.createPortal();
+    this.createBoss();
     this.createLevel1Zones();
     this.createLevel1Collectibles();
 
@@ -665,6 +683,7 @@ export class GameScene extends Phaser.Scene {
     this.playerShadow.setDepth(this.player.y - 1);
 
     this.updateRabbits(time);
+    if (this.bossAlive && this.boss) this.boss.update(delta);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
     if (this.portalActive) {
@@ -933,6 +952,21 @@ export class GameScene extends Phaser.Scene {
     const py = this.player.y;
     const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
     const half = SWIPE_ARC / 2;
+
+    // ── Boss hit check (priority over rabbits) ────────────────────────────────
+    //
+    // The boss is a large 40×40 entity; use a slightly wider range (1.5×) so
+    // it's satisfying to hit. Swipe is consumed if the boss is in range.
+    if (this.bossAlive && this.boss) {
+      const db = Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y);
+      if (db <= SWIPE_RANGE * 1.5) {
+        this.boss.takeDamage(1);
+        this.boss.onHitBy(px, py);
+        this.cameras.main.shake(200, 0.006);
+        this.updateBossHud();
+        return;
+      }
+    }
 
     for (const child of [...this.rabbits.getChildren()]) {
       const r = child as Phaser.GameObjects.Rectangle;
@@ -1405,6 +1439,174 @@ export class GameScene extends Phaser.Scene {
     this.portalGfx.clear();
     this.portalGfx.lineStyle(4, 0xaa77ff, 0.9);
     this.portalGfx.strokeCircle(0, 0, PORTAL_RADIUS + 6);
+  }
+
+  // ─── Boss fight (FIL-125) ────────────────────────────────────────────────────
+
+  /**
+   * Spawn the Corrupted Guardian boss near the portal zone and wire up all
+   * event listeners and physics interactions.
+   */
+  private createBoss(): void {
+    this.boss = new CorruptedGuardian(this, BOSS_X, BOSS_Y);
+    this.boss.setDepth(BOSS_Y);   // raw-Y depth so it sorts with other objects
+    // Provide a player position getter — boss uses this to aim charges.
+    this.boss.setTarget(() => ({ x: this.player.x, y: this.player.y }));
+
+    // Attach arcade physics so the boss can move and be overlapped.
+    this.physics.add.existing(this.boss);
+    (this.boss.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+
+    this.bossAlive = true;
+
+    // Boss contact damages the player — same invincibility window as rabbits.
+    this.physics.add.overlap(this.player, this.boss, () => {
+      if (this.gameEnded || this.attractMode || !this.bossAlive) return;
+      const now = this.time.now;
+      if (now < this.dashingUntil) return;           // dash invincibility
+      if (now - this.lastDamagedAt < 1500) return;   // hit cooldown
+      this.lastDamagedAt = now;
+      this.playerHp = Math.max(0, this.playerHp - 25);
+      this.setHpHud(this.playerHp);
+      this.playerSprite.setTint(0xff4444);
+      this.time.delayedCall(200, () => this.playerSprite.clearTint());
+      if (this.playerHp <= 0) this.onPlayerDeath();
+    });
+
+    // Phase 2+: boss requests rabbit spawns via scene events.
+    this.events.on('boss-spawn-rabbits', (bx: number, by: number) => {
+      this.spawnBossRabbits(bx, by);
+    });
+
+    // Boss defeated.
+    this.events.once('boss-died', () => this.onBossDied());
+
+    this.createBossHud();
+  }
+
+  /**
+   * Fixed-to-screen HUD showing the boss name and HP bar at the top centre.
+   * Uses setScrollFactor(0) so it stays in place as the camera moves.
+   */
+  private createBossHud(): void {
+    const cx = this.scale.width / 2;
+
+    // Background bar
+    const bg = this.add
+      .rectangle(cx, 22, 220, 14, 0x220033, 0.85)
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    // HP fill (purple) — scaleX tracks boss HP fraction.
+    this.bossHudFill = this.add
+      .rectangle(cx - 108, 22, 216, 10, 0xaa44ff)
+      .setScrollFactor(0)
+      .setDepth(101)
+      .setOrigin(0, 0.5);
+
+    // Label above the bar.
+    const label = this.add
+      .text(cx, 10, 'Corrupted Guardian', {
+        fontSize: '11px',
+        color: '#cc88ff',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(101);
+
+    // Group into a Container so onBossDied() can destroy it all at once.
+    // Note: these are already on the display list; Container.add() moves them.
+    this.bossHudContainer = this.add.container(0, 0, [bg, this.bossHudFill, label]);
+    this.bossHudContainer.setScrollFactor(0).setDepth(100);
+  }
+
+  /**
+   * Update boss HP bar fill width to match current HP fraction.
+   * Called every frame while the boss is alive.
+   */
+  private updateBossHud(): void {
+    if (!this.boss || !this.bossHudFill) return;
+    this.bossHudFill.scaleX = Math.max(0, this.boss.hpFraction);
+  }
+
+  /**
+   * Entrance cinematic: stop camera follow, pan to the boss, hold, pan back,
+   * resume follow. The boss pulses in scale to signal its presence.
+   */
+  private triggerBossEntrance(): void {
+    this.bossEntranceDone = true;
+    const cam = this.cameras.main;
+    cam.stopFollow();
+
+    // Pan to boss (1.2 s).
+    cam.pan(BOSS_X, BOSS_Y, 1200, 'Sine.easeInOut');
+
+    // Boss scale-pulse during the reveal.
+    if (this.boss) {
+      this.tweens.add({
+        targets:  this.boss,
+        scaleX:   { from: 0.8, to: 1.4 },
+        scaleY:   { from: 0.8, to: 1.4 },
+        yoyo:     true,
+        duration: 700,
+        ease:     'Sine.easeInOut',
+      });
+    }
+
+    // Hold on boss for ~1.8 s, then pan back to player (0.8 s).
+    this.time.delayedCall(3000, () => {
+      cam.pan(this.player.x, this.player.y, 800, 'Sine.easeInOut');
+    });
+
+    // Resume follow after the full sequence (~4 s total).
+    this.time.delayedCall(3800, () => {
+      cam.startFollow(this.player, true, 0.1, 0.1);
+    });
+  }
+
+  /**
+   * Spawn two zombie rabbits near the boss position (phase 2 ability).
+   * Uses the same pattern as spawnRabbits() but places them close to the boss.
+   */
+  private spawnBossRabbits(bx: number, by: number): void {
+    for (let i = 0; i < 2; i++) {
+      const offsetX = (i === 0 ? -1 : 1) * Phaser.Math.Between(30, 60);
+      const offsetY = Phaser.Math.Between(-40, 40);
+      const r = this.add.rectangle(bx + offsetX, by + offsetY, 18, 18, 0x993333);
+      this.physics.add.existing(r);
+      (r.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+      r.setData('state',    'roaming' satisfies RabbitState);
+      r.setData('roamNext', this.time.now + Phaser.Math.Between(500, 1500));
+      r.setData('fleeUntil', 0);
+      r.setDepth(r.y);
+      this.rabbits.add(r);
+    }
+  }
+
+  /**
+   * Boss defeated: award drops, fill cleanse bar, reveal portal, destroy HUD.
+   */
+  private onBossDied(): void {
+    this.bossAlive = false;
+
+    // Large camera shake — bigger than a regular hit.
+    this.cameras.main.shake(300, 0.008);
+
+    // Gold drop + floating text.
+    if (this.boss) {
+      this.resolveDrops('corruptedGuardian', this.boss.x, this.boss.y);
+    }
+
+    // Fill cleanse bar to 100% and trigger portal reveal.
+    this.events.emit('cleanse-updated', 100);
+    if (!this.portalActive) this.revealPortal();
+
+    // Destroy the boss HUD after a short pause so the player can see it reach 0.
+    this.time.delayedCall(600, () => {
+      this.bossHudContainer?.destroy();
+      this.bossHudContainer = undefined;
+      this.bossHudFill      = undefined;
+    });
   }
 
   // ─── Day/Night cycle (FIL-37) ───────────────────────────────────────────────
@@ -3331,6 +3533,17 @@ export class GameScene extends Phaser.Scene {
         this.meetingTriggered = true;
         this.triggerMeetingDialog();
       }
+    }
+
+    // ── Boss: entrance pan + HUD update ──────────────────────────────────────
+    if (this.bossAlive && this.boss) {
+      if (!this.bossEntranceDone) {
+        const distToBoss = Phaser.Math.Distance.Between(px, py, BOSS_X, BOSS_Y);
+        if (distToBoss < BOSS_ENTRANCE_RADIUS) {
+          this.triggerBossEntrance();
+        }
+      }
+      this.updateBossHud();
     }
   }
 
