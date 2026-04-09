@@ -1,94 +1,93 @@
 import Phaser from 'phaser';
-import { CombatEntity, Tinkerer, Spider, Skag, Crow } from '../entities/CombatEntity';
+import {
+  CombatEntity,
+  Tinkerer,
+  SporeHusk,
+  AcidLancer,
+  BruteCarapace,
+  ParasiteFlyer,
+  WarriorBug,
+} from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 
-// ── Wave & hero type definitions ──────────────────────────────────────────────
+// ── Wave group definitions ────────────────────────────────────────────────────
 
-/**
- * Describes one round of combat: what enemies spawn.
- * The arena handles positioning and physics — WaveConfig only defines *what*.
- *
- * To add a new wave, push an entry to WAVE_SEQUENCE below.
- */
-interface WaveConfig {
-  label: string;
-  /** Constructor list — one entry per enemy to spawn. Order doesn't matter. */
-  enemies: (new (scene: Phaser.Scene, x: number, y: number) => CombatEntity)[];
+type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
+
+interface WaveGroup {
+  label:   string;
+  enemies: EnemyCtor[];
 }
 
 /**
- * A hero that takes a turn in the arena.
- * Add new heroes to HERO_ROSTER as they are implemented.
+ * Ordered groups that cycle indefinitely.
+ * Each full cycle adds extra SporeHusk padding so difficulty scales.
+ *
+ * Main spawn fires the next group every 10→5 s (shrinks each wave).
+ * Trickle WarriorBugs start at wave 2.
  */
-interface HeroConfig {
-  name: string;
-  build(scene: Phaser.Scene, x: number, y: number): CombatEntity;
-}
-
-// ── Rosters ───────────────────────────────────────────────────────────────────
-
-/**
- * Heroes cycle through in order. When a hero finishes all waves, the next
- * hero takes over from Wave 1. Extend as new hero classes are implemented.
- */
-const HERO_ROSTER: HeroConfig[] = [
-  { name: 'Tinkerer', build: (s, x, y) => new Tinkerer(s, x, y) },
+const WAVE_GROUPS: WaveGroup[] = [
+  { label: 'Husk Scout',      enemies: [SporeHusk, SporeHusk, SporeHusk] },
+  { label: 'Lancer Advance',  enemies: [SporeHusk, SporeHusk, AcidLancer] },
+  { label: 'Brute Emergence', enemies: [BruteCarapace, SporeHusk] },
+  { label: 'Flyer Strike',    enemies: [ParasiteFlyer, ParasiteFlyer, AcidLancer] },
+  { label: 'Bio Surge',       enemies: [BruteCarapace, ParasiteFlyer, SporeHusk] },
+  { label: 'Horde',           enemies: [BruteCarapace, BruteCarapace, AcidLancer, ParasiteFlyer] },
 ];
 
-/**
- * Ordered wave sequence. Each hero runs through every wave before handing
- * off to the next hero.
- *
- * Design intent (to fill in as roster grows):
- *   - Waves 1–N:   one hero vs escalating groups of low-level minions
- *   - Waves N+1–M: hero vs level-1 heroes 1v1
- *   - Waves M+1–K: hero vs higher-tier minions in groups
- *   - Waves K+1–Z: hero vs higher-tier heroes 1v1
- *
- * For now we have Draugr as the only minion, so the sequence is three
- * escalating Draugr waves. Hero-vs-hero rounds are added once more
- * hero classes exist.
- */
-const WAVE_SEQUENCE: WaveConfig[] = [
-  { label: 'Spider Den',      enemies: [Spider, Spider] },
-  { label: 'Spider + Skag',   enemies: [Spider, Skag] },
-  { label: 'Skag Pack',       enemies: [Skag, Skag] },
-  { label: 'Crow Dive',       enemies: [Crow, Crow] },
-  { label: 'Horde',           enemies: [Spider, Spider, Skag, Crow] },
-];
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const SPAWN_X_OFFSET  = 80;   // px from arena right edge
+const SPAWN_MARGIN_Y  = 80;   // min px from arena top/bottom for spawns
+const MAX_ALIVE       = 20;   // total alive enemy cap
+const MAX_ALIVE_BUGS  = 8;    // separate cap for WarriorBugs
+const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
 /**
- * CombatArenaScene — structured combat simulation used as the main-menu backdrop.
+ * CombatArenaScene — continuous bio-wave combat sandbox.
  *
- * One hero fights through a fixed wave sequence. When all waves are done the
- * next hero begins, cycling indefinitely. Each wave ends when:
- *   - the hero dies, OR
- *   - all enemies are defeated.
+ * The Tinkerer fights an endless escalating stream of spinolandet enemies:
+ *   - Main timer:    fires a WaveGroup every 10→5 s (speeds up each wave).
+ *   - Trickle timer: drops 1–2 WarriorBugs every 1.5→0.9 s from wave 2 onward.
+ *   - Enemies accumulate — no reset between waves.
+ *   - Tinkerer respawns at full HP after HERO_RESPAWN_MS if killed.
  *
- * Both outcomes are treated the same — the next wave starts after 1.5 s.
- * The hero always spawns fresh (full HP) at the start of each wave.
+ * Dev menu at the bottom bar switches to GameScene (WilderView).
  */
 export class CombatArenaScene extends Phaser.Scene {
   static readonly KEY = 'CombatArenaScene';
 
-  private hero!:   CombatEntity;
-  private enemies: CombatEntity[] = [];
+  private hero!:         CombatEntity;
+  private heroAlive    = true;
+  private aliveEnemies: CombatEntity[] = [];
+  private projectiles:  Projectile[]   = [];
 
-  private heroIndex = 0;
-  private waveIndex = 0;
+  private waveGroupIndex = 0;
+  private waveNumber     = 0;
+  private killCount      = 0;
+
+  private mainSpawnTimer = 3000;  // first group fires after 3 s
+  private trickleTimer   = 0;
+  private trickleActive  = false;
+
+  // Arena bounds — set in buildArena(), used by spawn helpers.
+  private arenaX = 0;
+  private arenaY = 0;
+  private arenaW = 0;
+  private arenaH = 0;
+
+  private hudWave!:  Phaser.GameObjects.Text;
+  private hudAlive!: Phaser.GameObjects.Text;
+  private hudKills!: Phaser.GameObjects.Text;
 
   /**
-   * 'active'    — wave is running, update() ticks all combatants.
-   * 'resolving' — wave just ended, waiting for the inter-wave delay.
+   * When true the scene is running as a menu background — HUD and dev bar are
+   * hidden so they don't overlap the menu panel rendered on top.
+   * Set via `this.scene.launch(CombatArenaScene.KEY, { background: true })`.
    */
-  private waveState: 'active' | 'resolving' = 'resolving';
-
-  /** In-flight projectiles — ticked each frame, pruned when expired. */
-  private projectiles: Projectile[] = [];
-
-  private labelText!: Phaser.GameObjects.Text;
+  private bgMode = false;
 
   constructor() {
     super({ key: CombatArenaScene.KEY });
@@ -96,12 +95,18 @@ export class CombatArenaScene extends Phaser.Scene {
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
 
+  init(data?: { background?: boolean }): void {
+    this.bgMode = data?.background ?? false;
+  }
+
   preload(): void {
     this.load.aseprite(
       'tinkerer',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json',
     );
+    // Spider/skag/crow are used as tinted placeholders for the spinolandet enemies
+    // until dedicated sprites are generated.
     this.load.aseprite(
       'spider',
       'assets/sprites/characters/earth/enemies/spider/spider.png',
@@ -120,179 +125,274 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.heroIndex  = 0;
-    this.waveIndex  = 0;
-    this.enemies    = [];
-    this.projectiles = [];
+    this.aliveEnemies    = [];
+    this.projectiles     = [];
+    this.waveGroupIndex  = 0;
+    this.waveNumber      = 0;
+    this.killCount       = 0;
+    this.mainSpawnTimer  = 3000;
+    this.trickleTimer    = 0;
+    this.trickleActive   = false;
+    this.heroAlive       = true;
 
     this.buildArena();
-    // Register Aseprite animation tags so sprite.play('tinkerer_walk_south') etc. works.
+
     this.anims.createFromAseprite('tinkerer');
     this.anims.createFromAseprite('spider');
     this.anims.createFromAseprite('skag');
     this.anims.createFromAseprite('crow');
-    this.startWave();
-  }
 
-  override update(_time: number, delta: number): void {
-    if (this.waveState !== 'active') return;
-
-    this.hero.update(delta);
-    for (const e of this.enemies) e.update(delta);
-
-    // Tick all in-flight projectiles, then prune ones that have expired.
-    for (const p of this.projectiles) p.tick(delta);
-    this.projectiles = this.projectiles.filter(p => !p.isExpired);
-
-    // Resolve when the hero falls OR the last enemy is defeated.
-    const heroDead     = !this.hero.isAlive;
-    const allEnemyDead = this.enemies.length > 0 && this.enemies.every(e => !e.isAlive);
-
-    if (heroDead || allEnemyDead) {
-      this.waveState = 'resolving';
-      // Short pause so the viewer can see the outcome before the next wave.
-      this.time.delayedCall(1500, () => this.advanceWave());
-    }
-  }
-
-  // ── Arena setup ──────────────────────────────────────────────────────────────
-
-  private buildArena(): void {
-    const W = this.scale.width;
-    const H = this.scale.height;
-    const margin = 60;
-
-    const arenaX = margin;
-    const arenaY = margin;
-    const arenaW = W - margin * 2;
-    const arenaH = H - margin * 2;
-    const cx     = arenaX + arenaW / 2;
-    const cy     = arenaY + arenaH / 2;
-
-    // Dark stone floor.
-    this.add.rectangle(cx, cy, arenaW, arenaH, 0x1a1a2a);
-
-    // Grey border + corner accents.
-    const gfx = this.add.graphics();
-    gfx.lineStyle(3, 0x666677, 1);
-    gfx.strokeRect(arenaX, arenaY, arenaW, arenaH);
-
-    const cornerLen = 16;
-    gfx.lineStyle(2, 0x9999aa, 0.7);
-    for (const [cx2, cy2] of [
-      [arenaX, arenaY], [arenaX + arenaW, arenaY],
-      [arenaX, arenaY + arenaH], [arenaX + arenaW, arenaY + arenaH],
-    ] as [number, number][]) {
-      const sx = cx2 === arenaX ? 1 : -1;
-      const sy = cy2 === arenaY ? 1 : -1;
-      gfx.lineBetween(cx2, cy2, cx2 + sx * cornerLen, cy2);
-      gfx.lineBetween(cx2, cy2, cx2, cy2 + sy * cornerLen);
-    }
-
-    this.physics.world.setBounds(arenaX + 10, arenaY + 10, arenaW - 20, arenaH - 20);
-    this.cameras.main.setBackgroundColor(0x0d0d18);
-    this.cameras.main.centerOn(cx, cy);
-
-    // Label: "HeroName • Wave label" — updated at the start of each wave.
-    this.labelText = this.add
-      .text(cx, arenaY + 16, '', {
-        fontSize: '12px',
-        color: '#9999bb',
-        backgroundColor: '#00000055',
-        padding: { x: 8, y: 4 },
-      })
-      .setOrigin(0.5)
-      .setDepth(2);
-  }
-
-  // ── Wave lifecycle ────────────────────────────────────────────────────────────
-
-  /** Spawn fresh hero + enemies for the current heroIndex / waveIndex. */
-  private startWave(): void {
-    const heroConfig = HERO_ROSTER[this.heroIndex];
-    const waveConfig = WAVE_SEQUENCE[this.waveIndex];
-
-    this.labelText.setText(`${heroConfig.name}  •  ${waveConfig.label}`);
-
-    const W = this.scale.width;
-    const H = this.scale.height;
-
-    // Hero always on the left; enemies spread across the right side.
-    this.hero = heroConfig.build(this, W * 0.2, H * 0.5);
-    this.addPhysics(this.hero);
-
-    const enemyX    = W * 0.72;
-    const enemyYs   = this.spreadY(waveConfig.enemies.length, H);
-
-    this.enemies = waveConfig.enemies.map((EnemyClass, i) => {
-      const e = new EnemyClass(this, enemyX, enemyYs[i]);
-      this.addPhysics(e);
-      // Each enemy targets the hero exclusively.
-      e.setOpponent(this.hero);
-      return e;
-    });
-
-    // Hero targets all enemies; BT picks the nearest living one each frame.
-    this.hero.setOpponents(this.enemies);
-
-    // Collect projectiles spawned by any combatant's shootAt() closure.
-    // Entities emit 'projectile-spawned' on the scene event bus; we own the
-    // list and tick each projectile manually in update().
+    // Projectile listener lives for the whole scene — enemies and hero both fire.
     this.events.on('projectile-spawned', (p: Projectile) => {
       this.projectiles.push(p);
     });
 
-    // Camera shake on kill — short burst so the arena feels impactful.
-    // intensity 0.004 ≈ 4 px at the default zoom; duration 150 ms.
-    this.events.on('combatant-died', () => {
-      this.cameras.main.shake(150, 0.004);
-    });
-
-    this.waveState = 'active';
+    this.spawnHero();
+    if (!this.bgMode) this.buildHud();
+    if (!this.bgMode) this.buildDevMenu();
   }
 
-  /**
-   * Tear down current wave and advance the counters.
-   * Wave index increments first; when exhausted the next hero begins from Wave 1.
-   */
-  private advanceWave(): void {
-    // Destroy projectiles BEFORE entities so no in-flight projectile ticks
-    // against an entity that has just been destroyed.
-    for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
-    this.projectiles = [];
-    this.events.off('projectile-spawned');
-    this.events.off('combatant-died');
-
-    this.hero.destroy();
-    for (const e of this.enemies) e.destroy();
-    this.enemies = [];
-
-    this.waveIndex++;
-    if (this.waveIndex >= WAVE_SEQUENCE.length) {
-      this.waveIndex = 0;
-      this.heroIndex = (this.heroIndex + 1) % HERO_ROSTER.length;
+  override update(_time: number, delta: number): void {
+    // ── Hero ──────────────────────────────────────────────────────────────────
+    if (this.heroAlive) {
+      this.hero.update(delta);
+      if (!this.hero.isAlive) {
+        this.heroAlive = false;
+        this.cameras.main.shake(300, 0.008);
+        this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero());
+      }
     }
 
-    this.startWave();
+    // ── Enemies ───────────────────────────────────────────────────────────────
+    for (const e of this.aliveEnemies) e.update(delta);
+
+    // ── Projectiles ───────────────────────────────────────────────────────────
+    for (const p of this.projectiles) p.tick(delta);
+    this.projectiles = this.projectiles.filter(p => !p.isExpired);
+
+    // ── Prune enemies that just died ──────────────────────────────────────────
+    const justDied = this.aliveEnemies.filter(e => !e.isAlive);
+    if (justDied.length > 0) {
+      this.aliveEnemies = this.aliveEnemies.filter(e => e.isAlive);
+      this.killCount += justDied.length;
+      this.cameras.main.shake(120, 0.003);
+      for (const e of justDied) {
+        this.time.delayedCall(1500, () => { if (e.active) e.destroy(); });
+      }
+      if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    }
+
+    // ── Main wave spawn timer ─────────────────────────────────────────────────
+    if (this.aliveEnemies.length < MAX_ALIVE) {
+      this.mainSpawnTimer -= delta;
+      if (this.mainSpawnTimer <= 0) {
+        this.spawnWaveGroup();
+        this.mainSpawnTimer = this.nextMainInterval();
+      }
+    }
+
+    // ── Trickle spawn timer ───────────────────────────────────────────────────
+    if (this.trickleActive) {
+      const bugCount = this.aliveEnemies.filter(e => e instanceof WarriorBug).length;
+      if (bugCount < MAX_ALIVE_BUGS && this.aliveEnemies.length < MAX_ALIVE) {
+        this.trickleTimer -= delta;
+        if (this.trickleTimer <= 0) {
+          this.spawnBug();
+          this.trickleTimer = this.nextTrickleInterval();
+        }
+      }
+    }
+
+    // ── HUD ───────────────────────────────────────────────────────────────────
+    this.hudWave.setText(`Wave ${this.waveNumber}`);
+    this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`);
+    this.hudKills.setText(`Kills: ${this.killCount}`);
+  }
+
+  // ── Arena layout ─────────────────────────────────────────────────────────────
+
+  private buildArena(): void {
+    const W      = this.scale.width;
+    const H      = this.scale.height;
+    const margin = 60;
+
+    this.arenaX = margin;
+    this.arenaY = margin;
+    this.arenaW = W - margin * 2;
+    this.arenaH = H - margin * 2;
+    const cx    = this.arenaX + this.arenaW / 2;
+    const cy    = this.arenaY + this.arenaH / 2;
+
+    // Bio floor — dark organic green-black.
+    this.add.rectangle(cx, cy, this.arenaW, this.arenaH, 0x070f07);
+
+    // Spinolandet-palette border (acid-green accents).
+    const gfx = this.add.graphics();
+    gfx.lineStyle(3, 0x336633, 1);
+    gfx.strokeRect(this.arenaX, this.arenaY, this.arenaW, this.arenaH);
+
+    const cornerLen = 16;
+    gfx.lineStyle(2, 0x44aa44, 0.7);
+    for (const [px, py] of [
+      [this.arenaX,              this.arenaY             ],
+      [this.arenaX + this.arenaW, this.arenaY             ],
+      [this.arenaX,              this.arenaY + this.arenaH],
+      [this.arenaX + this.arenaW, this.arenaY + this.arenaH],
+    ] as [number, number][]) {
+      const sx = px === this.arenaX ? 1 : -1;
+      const sy = py === this.arenaY ? 1 : -1;
+      gfx.lineBetween(px, py, px + sx * cornerLen, py);
+      gfx.lineBetween(px, py, px, py + sy * cornerLen);
+    }
+
+    this.physics.world.setBounds(
+      this.arenaX + 10, this.arenaY + 10,
+      this.arenaW - 20, this.arenaH - 20,
+    );
+    this.cameras.main.setBackgroundColor(0x020702);
+    this.cameras.main.centerOn(cx, cy);
+  }
+
+  // ── Hero ─────────────────────────────────────────────────────────────────────
+
+  private spawnHero(): void {
+    const heroX = this.arenaX + this.arenaW * 0.2;
+    const heroY = this.arenaY + this.arenaH * 0.5;
+    this.hero = new Tinkerer(this, heroX, heroY);
+    this.addPhysics(this.hero);
+    this.hero.setOpponents(this.aliveEnemies);
+    this.heroAlive = true;
+  }
+
+  private respawnHero(): void {
+    for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
+    this.projectiles = [];
+    if (this.hero.active) this.hero.destroy();
+    this.spawnHero();
+    for (const e of this.aliveEnemies) e.setOpponent(this.hero);
+  }
+
+  // ── Enemy spawning ────────────────────────────────────────────────────────────
+
+  private spawnWaveGroup(): void {
+    this.waveNumber++;
+    if (this.waveNumber >= 2) this.trickleActive = true;
+
+    const group = WAVE_GROUPS[this.waveGroupIndex];
+    this.waveGroupIndex = (this.waveGroupIndex + 1) % WAVE_GROUPS.length;
+
+    // Extra SporeHusks every full cycle (capped at +3).
+    const cycle  = Math.floor((this.waveNumber - 1) / WAVE_GROUPS.length);
+    const ctors: EnemyCtor[] = [...group.enemies];
+    for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(SporeHusk);
+
+    const spawnX = this.arenaX + this.arenaW - SPAWN_X_OFFSET;
+    const ys     = this.spreadY(ctors.length);
+
+    for (let i = 0; i < ctors.length; i++) {
+      const e = new ctors[i](this, spawnX, ys[i]);
+      this.addPhysics(e);
+      e.setOpponent(this.hero);
+      this.aliveEnemies.push(e);
+    }
+
+    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+  }
+
+  private spawnBug(): void {
+    const spawnX = this.arenaX + this.arenaW - SPAWN_X_OFFSET;
+    const count  = this.waveNumber >= 4 && Math.random() < 0.4 ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const y = Phaser.Math.Between(
+        this.arenaY + SPAWN_MARGIN_Y,
+        this.arenaY + this.arenaH - SPAWN_MARGIN_Y,
+      );
+      const bug = new WarriorBug(this, spawnX, y);
+      this.addPhysics(bug);
+      bug.setOpponent(this.hero);
+      this.aliveEnemies.push(bug);
+    }
+    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+  }
+
+  // ── Wave timing ───────────────────────────────────────────────────────────────
+
+  /** 10 s base, −400 ms per wave, min 5 s. */
+  private nextMainInterval(): number {
+    return Math.max(5000, 10000 - this.waveNumber * 400);
+  }
+
+  /** 1.5 s until wave 4, then 0.9 s. */
+  private nextTrickleInterval(): number {
+    return this.waveNumber >= 4 ? 900 : 1500;
+  }
+
+  // ── HUD ───────────────────────────────────────────────────────────────────────
+
+  private buildHud(): void {
+    const base = {
+      fontSize:        '13px',
+      backgroundColor: '#00000077',
+      padding:         { x: 6, y: 3 },
+    };
+    this.hudWave = this.add
+      .text(this.scale.width - 12, 12, 'Wave 0', { ...base, color: '#99ddff' })
+      .setOrigin(1, 0).setScrollFactor(0).setDepth(2);
+    this.hudAlive = this.add
+      .text(12, 12, 'Alive: 0', { ...base, color: '#aaffaa' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+    this.hudKills = this.add
+      .text(12, 32, 'Kills: 0', { ...base, color: '#ffcc88' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+  }
+
+  // ── Dev menu ─────────────────────────────────────────────────────────────────
+
+  private buildDevMenu(): void {
+    const W    = this.scale.width;
+    const barY = this.scale.height - 11;
+
+    this.add
+      .rectangle(W / 2, barY, W, 22, 0x000000, 0.6)
+      .setScrollFactor(0).setDepth(1000);
+
+    const items = [
+      { label: 'WilderView', active: false, target: 'GameScene' },
+      { label: 'Arena',      active: true,  target: '' },
+    ];
+
+    items.forEach(({ label, active, target }, i) => {
+      const x   = W / 2 - 55 + i * 110;
+      const txt = this.add
+        .text(x, barY, label, {
+          fontSize: '11px',
+          color:    active ? '#aaffaa' : '#667766',
+          padding:  { x: 8, y: 3 },
+        })
+        .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(1001);
+
+      if (!active) {
+        txt
+          .setInteractive({ useHandCursor: true })
+          .on('pointerup',   () => this.scene.start(target))
+          .on('pointerover', () => txt.setColor('#99bb99'))
+          .on('pointerout',  () => txt.setColor('#667766'));
+      }
+    });
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
-  /** Attach arcade physics to a CombatEntity and keep it inside the arena bounds. */
   private addPhysics(entity: CombatEntity): void {
     this.physics.add.existing(entity);
     (entity.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
   }
 
-  /**
-   * Distribute `count` Y positions evenly across the usable arena height.
-   * A single combatant is placed at vertical center.
-   * Multiple combatants are spread with equal spacing and a top/bottom margin.
-   */
-  private spreadY(count: number, H: number): number[] {
-    if (count === 1) return [H * 0.5];
-    const margin = H * 0.2;
-    const step   = (H - margin * 2) / (count - 1);
-    return Array.from({ length: count }, (_, i) => margin + i * step);
+  private spreadY(count: number): number[] {
+    const mid = this.arenaY + this.arenaH / 2;
+    if (count === 1) return [mid];
+    const margin = this.arenaH * 0.15;
+    const step   = (this.arenaH - margin * 2) / (count - 1);
+    return Array.from({ length: count }, (_, i) => this.arenaY + margin + i * step);
   }
 }

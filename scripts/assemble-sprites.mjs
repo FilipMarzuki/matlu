@@ -54,7 +54,7 @@ const ROOT      = join(__dirname, '..');
 const RAW_DIR   = join(ROOT, 'public/assets/sprites/_raw');
 const SPEC_PATH = join(ROOT, 'src/ai/asset-spec.json');
 
-const DIRECTIONS = ['south', 'north', 'east', 'west'];
+const DIRECTIONS = ['south', 'south-east', 'north-east', 'north', 'east', 'west'];
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -124,7 +124,7 @@ console.log(`\n✅ Done. Processed: ${processed}, Skipped: ${skipped}`);
 
 async function assembleCharacter(charSpec, rawDir, dryRun) {
   const files     = await readdir(rawDir);
-  const animFiles = files.filter(f => f.match(/^anim_.+_(south|north|east|west)_\d+\.png$/));
+  const animFiles = files.filter(f => f.match(/^anim_.+_(south-east|north-east|south-west|north-west|south|north|east|west)_\d+\.png$/));
 
   if (animFiles.length === 0) {
     throw new Error('No anim_*.png files found in raw dir');
@@ -133,7 +133,7 @@ async function assembleCharacter(charSpec, rawDir, dryRun) {
 
   // Parse frame filenames
   const parsed = animFiles.map(f => {
-    const m = f.match(/^anim_(.+)_(south|north|east|west)_(\d+)\.png$/);
+    const m = f.match(/^anim_(.+)_(south-east|north-east|south-west|north-west|south|north|east|west)_(\d+)\.png$/);
     if (!m) throw new Error(`Unexpected filename: ${f}`);
     return { file: f, animId: m[1], direction: m[2], frameIndex: parseInt(m[3]) };
   });
