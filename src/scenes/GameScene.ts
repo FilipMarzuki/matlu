@@ -756,8 +756,8 @@ export class GameScene extends Phaser.Scene {
     // Start background music for the initial day phase
     this.startPhaseMusic(this.currentPhase, 0);
 
-    this.initAttractMode();
     this.createDevMenu();
+    this.initAttractMode();
   }
 
   update(time: number, delta: number): void {
@@ -3045,6 +3045,52 @@ export class GameScene extends Phaser.Scene {
           const frame = (Math.abs(dx) * 2 + Math.abs(dy)) % 6;
           tileImg.setTexture('mw-plains', frame)
                  .setPosition((sx + dx) * TILE_SIZE + 16, (sy + dy) * TILE_SIZE + 16);
+          terrainRt.batchDraw(tileImg);
+        }
+      }
+    }
+
+    // ── FIL-151: Biome transition dithering ──────────────────────────────────
+    // Second pass over biomeGrid — at each tile we check its east and south
+    // neighbours. When the biome values differ by more than a threshold (i.e. a
+    // biome boundary crosses here), we draw an extra tile between the two using a
+    // position-seeded bit-hash to alternate between the two biome frames.
+    // This is "dithered blending" — the same technique many 16-bit era RPGs used
+    // to smooth hard tile edges without explicit transition tile assets.
+    //
+    // We check only east + south (not west + north) to avoid drawing any transition
+    // tile twice. Reusing tileImg + batchDraw means zero extra GPU draw calls.
+    const TRANSITION_THRESHOLD = 0.12; // min biome difference to trigger blending
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const here = biomeGrid[ty * tilesX + tx];
+
+        // East and south neighbours — stay in bounds
+        const neighbours: Array<{ nx: number; ny: number; nVal: number }> = [];
+        if (tx + 1 < tilesX) neighbours.push({ nx: tx + 1, ny: ty,     nVal: biomeGrid[ty * tilesX + (tx + 1)] });
+        if (ty + 1 < tilesY) neighbours.push({ nx: tx,     ny: ty + 1, nVal: biomeGrid[(ty + 1) * tilesX + tx] });
+
+        for (const { nx, ny, nVal } of neighbours) {
+          if (Math.abs(here - nVal) < TRANSITION_THRESHOLD) continue;
+
+          // Position-seeded hash: same (tx,ty) always picks the same frame.
+          // Two large primes give good bit-mixing across the grid.
+          const hashBit = ((tx * 2654435761 ^ ty * 2246822519) >>> 0) & 1;
+          // Alternate between the two neighbouring biome elevations for dither effect
+          const blendElev = hashBit === 0 ? here : nVal;
+          // High-frequency detail from position hash for frame variety within the row
+          const blendDetail = ((tx * 1664525 ^ ny * 1013904223) >>> 0) / 0xffffffff;
+
+          // Resample temp + moist at the neighbour tile for correct biome lookup
+          const blendTemp  = this.tempNoise.fbm(nx * TEMP_SCALE,  ny * TEMP_SCALE,  3, 0.5);
+          const blendMoist = this.moistNoise.fbm(nx * MOIST_SCALE, ny * MOIST_SCALE, 3, 0.5);
+
+          const { key, frame } = terrainTileFrame(blendElev, blendTemp, blendMoist, blendDetail);
+          // Position the tile at the midpoint between the two neighbours
+          tileImg.setTexture(key, frame).setPosition(
+            ((tx + nx) / 2) * TILE_SIZE + 16,
+            ((ty + ny) / 2) * TILE_SIZE + 16,
+          );
           terrainRt.batchDraw(tileImg);
         }
       }
