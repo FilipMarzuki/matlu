@@ -3,7 +3,7 @@ import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 import { FbmNoise } from '../lib/noise';
 import { mulberry32, poissonDisk } from '../lib/rng';
 import { t } from '../lib/i18n';
-import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES } from '../world/ChunkDef';
+import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES, CORRUPTED_CLEARING, CORRUPTED_LANDMARKS } from '../world/ChunkDef';
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
 import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
@@ -612,6 +612,7 @@ export class GameScene extends Phaser.Scene {
     this.createNavigationBarrierVisuals();
     this.createSolidObjects();
     this.stampProceduralChunks();
+    this.stampCorruptedLandmarks();
     this.stampDecorationScatter();
     this.spawnButterfliesAndBees();
     this.stampSettlementBuildings();
@@ -3413,6 +3414,25 @@ export class GameScene extends Phaser.Scene {
 
       placed.push({ x, y, r: chunk.radius });
       this.stampChunk(chunk, x, y);
+    }
+  }
+
+  /**
+   * FIL-128: Place hand-authored corrupted landmark clearings at fixed world positions.
+   *
+   * Each landmark gets:
+   *   - A CORRUPTED_CLEARING chunk (scattered rocks + dark mushrooms).
+   *   - A dark low-alpha aura circle to visually signal "dead zone" to the player.
+   *
+   * Landmarks are intentional and findable — they tell the world's environmental story
+   * rather than being purely decorative scatter.
+   */
+  private stampCorruptedLandmarks(): void {
+    for (const lm of CORRUPTED_LANDMARKS) {
+      this.stampChunk(CORRUPTED_CLEARING, lm.x, lm.y);
+      // Dark purple aura — very low alpha so it doesn't dominate the palette,
+      // but creates a clear "something happened here" visual signal.
+      this.add.circle(lm.x, lm.y, 90, 0x220022, 0.18).setDepth(0.05);
     }
   }
 
