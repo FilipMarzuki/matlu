@@ -1,6 +1,5 @@
 {
   "_readme": "Declarative spec for all AI-generated pixel art assets. Edit this file to add or update assets. Run 'npm run sprites:assemble' after raw frames are downloaded to build spritesheets. See scripts/assemble-sprites.mjs for the raw file naming convention.",
-
   "styleGuide": {
     "view": "low top-down",
     "outline": "single color black outline",
@@ -10,27 +9,24 @@
     "tileSize": 16,
     "notes": "Pixel art, top-down RPG. Muted earthy palette per world. No neon. Match Mystic Woods / Pixel Crawler Free Pack aesthetic."
   },
-
   "palettes": {
-    "earth":       "military greens, grays, rust orange, drab iron — post-apocalyptic industrial",
+    "earth": "military greens, grays, rust orange, drab iron — post-apocalyptic industrial",
     "spinolandet": "deep purple, acid green, amber, bioluminescent teal — organic alien biology",
-    "vatten":      "jade green, teal, white, soft gold, bamboo brown — Asian fantasy water magic"
+    "vatten": "jade green, teal, white, soft gold, bamboo brown — Asian fantasy water magic"
   },
-
   "_rawNamingConvention": {
     "_doc": "When downloading PixelLab output, save frames to public/assets/sprites/_raw/[asset-id]/ using these filename patterns:",
     "characterBase": "base_{direction}.png — static base sprite per direction (south/north/east/west)",
     "animationFrame": "anim_{animName}_{direction}_{frameIndex}.png — e.g. anim_walk_south_0.png",
     "tilesetSheet": "tileset.png — the full tileset sheet as returned by PixelLab"
   },
-
   "characters": [
     {
       "id": "skald",
       "name": "Skald",
       "world": "earth",
       "faction": "hero",
-      "status": "pending",
+      "status": "done",
       "_comment": "Norse warrior hero. Currently a placeholder rectangle in CombatArenaScene.",
       "pixellab": {
         "description": "Norse warrior hero, one-handed sword in right hand, round wooden shield in left hand, leather armor with metal trim and rivets, scarred weathered face, short dark hair, determined expression, muted military green and brown tones, top-down pixel art RPG style",
@@ -43,10 +39,26 @@
         "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
       },
       "animations": [
-        { "id": "idle",   "template": "breathing-idle",    "frameDurationMs": 150 },
-        { "id": "walk",   "template": "walking-4-frames",  "frameDurationMs": 120 },
-        { "id": "attack", "template": "lead-jab",          "frameDurationMs": 80  },
-        { "id": "death",  "template": "falling-back-death","frameDurationMs": 120 }
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "attack",
+          "template": "lead-jab",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
       ],
       "outputDir": "public/assets/sprites/characters/earth/heroes/skald"
     },
@@ -68,15 +80,30 @@
         "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
       },
       "animations": [
-        { "id": "idle",   "template": "fight-stance-idle-8-frames", "frameDurationMs": 200 },
-        { "id": "walk",   "template": "scary-walk",                 "frameDurationMs": 150 },
-        { "id": "attack", "template": "cross-punch",                "frameDurationMs": 80  },
-        { "id": "death",  "template": "falling-back-death",         "frameDurationMs": 120 }
+        {
+          "id": "idle",
+          "template": "fight-stance-idle-8-frames",
+          "frameDurationMs": 200
+        },
+        {
+          "id": "walk",
+          "template": "scary-walk",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "attack",
+          "template": "cross-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
       ],
       "outputDir": "public/assets/sprites/characters/earth/enemies/draugr"
     }
   ],
-
   "tilesets": [
     {
       "id": "arena_floor_earth",
@@ -89,7 +116,10 @@
         "upper_description": "smooth dark stone slab, old fortress floor, dimly lit",
         "transition_description": "cracked stone edges, grit and dust between slabs",
         "transition_size": 0.25,
-        "tile_size": { "width": 16, "height": 16 },
+        "tile_size": {
+          "width": 16,
+          "height": 16
+        },
         "view": "high top-down",
         "shading": "basic shading",
         "outline": "selective outline",
@@ -108,7 +138,10 @@
         "upper_description": "smooth amber chitin shell plate, bioluminescent veins glowing faintly teal",
         "transition_description": "cracked chitin edges, organic fluid between plates",
         "transition_size": 0.25,
-        "tile_size": { "width": 16, "height": 16 },
+        "tile_size": {
+          "width": 16,
+          "height": 16
+        },
         "view": "high top-down",
         "shading": "basic shading",
         "outline": "selective outline",
@@ -127,7 +160,10 @@
         "upper_description": "smooth jade tile floor, Asian temple, carved geometric patterns, faint gold trim",
         "transition_description": "water-worn stone edges, moss and mineral deposits",
         "transition_size": 0.25,
-        "tile_size": { "width": 16, "height": 16 },
+        "tile_size": {
+          "width": 16,
+          "height": 16
+        },
         "view": "high top-down",
         "shading": "basic shading",
         "outline": "selective outline",

@@ -72,24 +72,31 @@ A character typically takes 5–8 minutes total.
 
 ### 2d. Download raw frames
 
-From the `get_character` response, for each direction (south/north/east/west),
-for each animation, download every frame image and save it to:
+Once all animations show `completed`, download the character ZIP and extract it:
 
-```
-public/assets/sprites/_raw/[character.id]/anim_[animName]_[direction]_[frameIndex].png
-```
-
-`animName` comes from `character.animations[i].id` (not the template name).
-`direction` is the direction string from PixelLab (south/north/east/west).
-`frameIndex` is 0-based.
-
-Download with curl or fetch:
 ```bash
-curl -L -o "public/assets/sprites/_raw/skald/anim_idle_south_0.png" "[url]"
+node scripts/extract-character.mjs --id <characterId> --zip-url <zipUrl>
 ```
 
-If PixelLab returns a ZIP URL, download and extract it, then rename files to match the
-convention above. Inspect the ZIP structure first with `unzip -l` to understand filenames.
+The ZIP URL comes from `get_character()` → "Download as ZIP".
+
+The script reads `metadata.json` inside the ZIP and maps PixelLab's internal folder
+names to the project's `animId` names. It uses:
+1. Known prefix patterns (e.g. `jab_attack-…` → `lead-jab` → `attack`)
+2. Pixel variance fallback for generic `animating-<hash>` folders (higher variance = more motion = walk/run)
+
+**If automatic mapping fails**, you can manually specify the mapping via `src/ai/asset-lock.json`:
+
+```json
+{
+  "<character.id>": {
+    "animating-<hash>": "<animId>",
+    "animating-<hash2>": "<animId2>"
+  }
+}
+```
+
+Run with `--inspect` first to see what folder names are in the ZIP before committing to extraction.
 
 ---
 
