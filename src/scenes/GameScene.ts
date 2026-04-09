@@ -581,8 +581,9 @@ export class GameScene extends Phaser.Scene {
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - 20);
       this.setHpHud(this.playerHp);
-      // Quick alpha flash to signal the hit visually
-      this.tweens.add({ targets: this.playerSprite, alpha: 0.25, yoyo: true, duration: 120, repeat: 2 });
+      // Red tint flash — more readable than alpha blink, same intent.
+      this.playerSprite.setTint(0xff4444);
+      this.time.delayedCall(200, () => this.playerSprite.clearTint());
       if (this.playerHp <= 0) this.onPlayerDeath();
     });
 
@@ -956,6 +957,9 @@ export class GameScene extends Phaser.Scene {
     if (state === 'fleeing') {
       return;
     }
+
+    // Camera shake on every successful hit — same intensity as the arena (FIL-124).
+    this.cameras.main.shake(150, 0.004);
 
     if (Math.random() < 0.5) {
       this.killRabbit(rabbit);

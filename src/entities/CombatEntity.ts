@@ -80,6 +80,10 @@ export abstract class CombatEntity extends Enemy {
   private wanderAngle = Math.random() * Math.PI * 2;
   private wanderTimer = 0;
   private readonly hpBarFill: Phaser.GameObjects.Rectangle;
+  /** Coloured rectangle at Container origin — used for hit-flash. */
+  private readonly bodyRect:  Phaser.GameObjects.Rectangle;
+  /** Original fill colour — restored after a white-flash on hit. */
+  private readonly bodyColor: number;
 
   // ── Dash state ──────────────────────────────────────────────────────────────
   private isDashing  = false;
@@ -113,8 +117,10 @@ export abstract class CombatEntity extends Enemy {
     // Container children are rendered by the Container, not the scene directly.
 
     // Body rectangle — centered at Container origin (0, 0).
-    const bodyRect = scene.add.rectangle(0, 0, ENTITY_SIZE, ENTITY_SIZE, config.color);
-    this.add(bodyRect);
+    // Stored as a field so onHitBy() can flash it white on hit, then restore.
+    this.bodyColor = config.color;
+    this.bodyRect  = scene.add.rectangle(0, 0, ENTITY_SIZE, ENTITY_SIZE, config.color);
+    this.add(this.bodyRect);
 
     // HP bar background (dark red, full width).
     const hpBarBg = scene.add.rectangle(0, BAR_Y, BAR_W, BAR_H, 0x661111);
@@ -210,6 +216,8 @@ export abstract class CombatEntity extends Enemy {
       attack: () => {
         if (this.attackTimer > 0 || !target) return;
         target.takeDamage(this.attackDamage);
+        // Apply hit feedback (flash + knockback) from this entity's position.
+        target.onHitBy(this.x, this.y);
         this.attackTimer = this.attackCooldownMs;
       },
 
@@ -276,6 +284,40 @@ export abstract class CombatEntity extends Enemy {
     return nearest;
   }
 
+  // ── Hit feedback API ──────────────────────────────────────────────────────
+
+  /**
+   * Called by the attacker immediately after dealing damage.
+   *
+   * Applies two feedback effects:
+   *   - White-flash tint on the body rectangle for 80 ms
+   *   - Knockback velocity impulse (~80 px) away from the attacker for 100 ms
+   *
+   * Both effects are skipped if the entity is already dead (e.g. killed by
+   * the same hit that triggered this call).
+   */
+  onHitBy(fromX: number, fromY: number): void {
+    if (!this.isAlive) return;
+
+    // Flash the body rect white; restore original fill colour after 80 ms.
+    // Rectangle uses setFillStyle, not setTint (which is for Image/Sprite).
+    this.bodyRect.setFillStyle(0xffffff);
+    this.scene.time.delayedCall(80, () => {
+      if (this.active) this.bodyRect.setFillStyle(this.bodyColor);
+    });
+
+    // Knockback: brief velocity burst away from attacker.
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    if (physBody) {
+      const angle = Math.atan2(this.y - fromY, this.x - fromX);
+      physBody.setVelocity(Math.cos(angle) * 80, Math.sin(angle) * 80);
+      this.scene.time.delayedCall(100, () => {
+        // Guard: don't zero velocity if the entity has been destroyed by then.
+        if (this.active && this.isAlive) physBody.setVelocity(0, 0);
+      });
+    }
+  }
+
   // ── LivingEntity hook ──────────────────────────────────────────────────────
 
   /**
@@ -287,6 +329,25 @@ export abstract class CombatEntity extends Enemy {
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
     physBody?.setVelocity(0, 0);
     this.setAlpha(0.3);
+
+    // Death burst: 6 small white arcs radiate outward and fade over 200 ms.
+    // Using Arc objects + tweens avoids any dependency on a preloaded particle texture.
+    const BURST_COUNT = 6;
+    for (let i = 0; i < BURST_COUNT; i++) {
+      const angle = (i / BURST_COUNT) * Math.PI * 2;
+      const dot = this.scene.add.arc(this.x, this.y, 3, 0, 360, false, 0xffffff);
+      dot.setDepth(this.depth + 1);
+      this.scene.tweens.add({
+        targets:  dot,
+        x:        this.x + Math.cos(angle) * 30,
+        y:        this.y + Math.sin(angle) * 30,
+        alpha:    { from: 1, to: 0 },
+        duration: 200,
+        ease:     'Cubic.easeOut',
+        onComplete: () => dot.destroy(),
+      });
+    }
+
     // Do NOT call super.onDeath() — that would call this.destroy() immediately.
     this.scene.events.emit('combatant-died', this);
   }

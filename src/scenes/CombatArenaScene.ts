@@ -213,6 +213,12 @@ export class CombatArenaScene extends Phaser.Scene {
       this.projectiles.push(p);
     });
 
+    // Camera shake on kill — short burst so the arena feels impactful.
+    // intensity 0.004 ≈ 4 px at the default zoom; duration 150 ms.
+    this.events.on('combatant-died', () => {
+      this.cameras.main.shake(150, 0.004);
+    });
+
     this.waveState = 'active';
   }
 
@@ -226,6 +232,7 @@ export class CombatArenaScene extends Phaser.Scene {
     for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
     this.projectiles = [];
     this.events.off('projectile-spawned');
+    this.events.off('combatant-died');
 
     this.hero.destroy();
     for (const e of this.enemies) e.destroy();
