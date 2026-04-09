@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { t } from '../lib/i18n';
 
 /**
@@ -74,6 +75,13 @@ export class CreditsScene extends Phaser.Scene {
   }
 
   create(): void {
+    // FIL-113: Duck audio when credits open over GameScene (C key during gameplay).
+    // CreditsScene can also be launched from MainMenuScene — isPaused() guards that case.
+    if (this.scene.isPaused('GameScene')) {
+      type DuckableScene = Phaser.Scene & { duckAudio?: (tweens: Phaser.Tweens.TweenManager) => void };
+      (this.scene.get('GameScene') as DuckableScene).duckAudio?.(this.tweens);
+    }
+
     const { width, height } = this.cameras.main;
 
     // Semi-transparent backdrop

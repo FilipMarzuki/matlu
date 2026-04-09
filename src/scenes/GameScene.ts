@@ -339,6 +339,10 @@ export class GameScene extends Phaser.Scene {
   private musicTrack: Phaser.Sound.BaseSound | undefined;
   // Key of the currently-playing music track (avoid restarting the same track)
   private currentMusicKey = '';
+  // FIL-113: Volumes saved before ducking so onSceneResume() can restore them exactly.
+  // Stored here (not in the overlay) so GameScene owns the full duck/restore lifecycle.
+  private preDuckMusicVol    = 0;
+  private preDuckAmbienceVol = 0;
   // tracks when we last played a footstep so we don't fire every frame
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
@@ -779,6 +783,11 @@ export class GameScene extends Phaser.Scene {
 
     // Start background music for the initial day phase
     this.startPhaseMusic(this.currentPhase, 0);
+
+    // FIL-113: When this scene resumes after a pause (any overlay closes), tween audio
+    // back up. Phaser sets active=true BEFORE emitting 'resume', so our tween manager
+    // is running again by the time this fires — safe to add new tweens here.
+    this.events.on('resume', this.onSceneResume, this);
 
     this.createDevMenu();
     this.initAttractMode();
@@ -2058,6 +2067,52 @@ export class GameScene extends Phaser.Scene {
       case 'afternoon': return 0.20; // settling toward evening
       case 'dusk':      return 0.08; // last light fading
       case 'night':     return 0.00; // silent except wind
+    }
+  }
+
+  // ── FIL-113: Audio ducking ────────────────────────────────────────────────────
+
+  /**
+   * Duck music and ambience by 50% when an overlay opens (pause menu, NPC dialog, etc.).
+   *
+   * **Why accept a `tweens` parameter instead of using `this.tweens`?**
+   * When Phaser pauses a scene it freezes that scene's tween manager — any tween
+   * added to a paused scene's manager never ticks. The overlay scene (PauseMenuScene,
+   * UpgradeScene, etc.) is still *running*, so its tween manager works fine. We ask
+   * callers to pass their own `this.tweens` so the tween actually executes.
+   *
+   * **Why 50% and 300 ms?**
+   * Half volume is clearly lower but still audible (reassures the player audio is live).
+   * 300 ms is just long enough to feel intentional without making you wait.
+   *
+   * @param tweens - The overlay scene's (running) tween manager.
+   */
+  public duckAudio(tweens: Phaser.Tweens.TweenManager): void {
+    if (!this.audioAvailable) return;
+    // `BaseSound` doesn't expose `volume` in TypeScript types; both concrete
+    // implementations (WebAudioSound, HTML5AudioSound) do, so the cast is safe.
+    type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    if (this.musicTrack) {
+      this.preDuckMusicVol = (this.musicTrack as AudibleSound).volume;
+      tweens.add({ targets: this.musicTrack, volume: this.preDuckMusicVol * 0.5, duration: 300, ease: 'Sine.easeInOut' });
+    }
+    if (this.ambienceSound) {
+      this.preDuckAmbienceVol = (this.ambienceSound as AudibleSound).volume;
+      tweens.add({ targets: this.ambienceSound, volume: this.preDuckAmbienceVol * 0.5, duration: 300, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  /**
+   * FIL-113: Called when the scene resumes (any overlay closed via scene.resume()).
+   * Phaser activates the scene *before* emitting 'resume', so this.tweens is live again.
+   */
+  private onSceneResume(): void {
+    if (!this.audioAvailable) return;
+    if (this.musicTrack && this.preDuckMusicVol > 0) {
+      this.tweens.add({ targets: this.musicTrack, volume: this.preDuckMusicVol, duration: 300, ease: 'Sine.easeInOut' });
+    }
+    if (this.ambienceSound && this.preDuckAmbienceVol > 0) {
+      this.tweens.add({ targets: this.ambienceSound, volume: this.preDuckAmbienceVol, duration: 300, ease: 'Sine.easeInOut' });
     }
   }
 

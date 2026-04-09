@@ -62,6 +62,12 @@ export class NpcDialogScene extends Phaser.Scene {
   }
 
   create(): void {
+    // FIL-113: Duck audio when dialog opens over GameScene.
+    if (this.scene.isPaused('GameScene')) {
+      type DuckableScene = Phaser.Scene & { duckAudio?: (tweens: Phaser.Tweens.TweenManager) => void };
+      (this.scene.get('GameScene') as DuckableScene).duckAudio?.(this.tweens);
+    }
+
     const { width, height } = this.cameras.main;
     const panelW = Math.min(width * 0.8, 600);
     const panelH = 180;
