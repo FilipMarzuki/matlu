@@ -230,7 +230,13 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Player health ────────────────────────────────────────────────────────────
   private playerHp = 100;
-  private readonly playerMaxHp = 100;
+  private playerMaxHp = 100;
+  // Upgrade-adjusted stats — initialised in applyUpgrades() called from create().
+  // Each field shadows a module-level constant so upgrades don't mutate shared state.
+  private effectiveMaxHp        = 100;
+  private effectiveSpeed        = PLAYER_SPEED;
+  private effectiveDashDuration = DASH_DURATION_MS;
+  private effectiveSwipeRange   = SWIPE_RANGE;
   // Filled rect that shrinks as HP drops — same pattern as cleanseFill
   private hpFill!: Phaser.GameObjects.Rectangle;
   // Timestamp of last player hit — prevents instant death from rapid rabbit taps
@@ -290,6 +296,12 @@ export class GameScene extends Phaser.Scene {
   private bossHudFill?: Phaser.GameObjects.Rectangle;
   /** Wrapper destroyed on boss death so all HUD elements go at once. */
   private bossHudContainer?: Phaser.GameObjects.Container;
+
+  // ── Upgrade shrine (FIL-130) ──────────────────────────────────────────────────
+  private readonly shrinePos       = { x: 380, y: 2760 };
+  private shrineDialogActive       = false;
+  private shrinePromptText?: Phaser.GameObjects.Text;
+
   private runSeed = 0;
   /** Whether the audio system is functional — false in headless CI environments */
   private audioAvailable = false;
@@ -562,8 +574,17 @@ export class GameScene extends Phaser.Scene {
 
     // E key for NPC interaction (FIL-80)
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    // Reset dialog-active flag when NpcDialogScene returns control to GameScene
-    this.events.on(Phaser.Scenes.Events.RESUME, () => { this.npcDialogActive = false; });
+    // Reset dialog-active flags when any overlay returns control to GameScene
+    this.events.on(Phaser.Scenes.Events.RESUME, () => {
+      this.npcDialogActive    = false;
+      this.shrineDialogActive = false;
+    });
+    // Deduct gold when UpgradeScene confirms a purchase (GameScene is paused, not sleeping,
+    // so its event bus still processes emits from the overlay scene).
+    this.events.on('upgrade-purchased', (cost: number) => {
+      this.playerGold = Math.max(0, this.playerGold - cost);
+      this.refreshGoldText();
+    });
 
     // Open credits overlay (C key)
     this.input.keyboard?.on('keydown-C', () => {
@@ -614,6 +635,8 @@ export class GameScene extends Phaser.Scene {
     this.createBoss();
     this.createLevel1Zones();
     this.createLevel1Collectibles();
+    this.createShrine();
+    this.applyUpgrades();
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) {
@@ -674,6 +697,7 @@ export class GameScene extends Phaser.Scene {
       this.updatePlayerMovement();
       this.updateLevel1(delta);
       this.updateNpcProximity();
+      this.updateShrine();
     }
     // Y-sort player every frame — depth = world-Y matches the raw-Y system used by
     // chunk-placed trees so the player correctly occludes them based on position.
@@ -865,7 +889,7 @@ export class GameScene extends Phaser.Scene {
       // Multiply base speed by the path multiplier so roads feel faster/slower.
       // Off-road returns 1.0 (no change); paved road at full condition returns 1.35.
       const speedMult = this.pathSystem.getSpeedMultiplier(this.player.x, this.player.y);
-      const speed = PLAYER_SPEED * speedMult;
+      const speed = this.effectiveSpeed * speedMult;
       body.setVelocity((dx / len) * speed, (dy / len) * speed);
     } else {
       body.setVelocity(0, 0);
@@ -959,7 +983,7 @@ export class GameScene extends Phaser.Scene {
     // it's satisfying to hit. Swipe is consumed if the boss is in range.
     if (this.bossAlive && this.boss) {
       const db = Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y);
-      if (db <= SWIPE_RANGE * 1.5) {
+      if (db <= this.effectiveSwipeRange * 1.5) {
         this.boss.takeDamage(1);
         this.boss.onHitBy(px, py);
         this.cameras.main.shake(200, 0.006);
@@ -971,7 +995,7 @@ export class GameScene extends Phaser.Scene {
     for (const child of [...this.rabbits.getChildren()]) {
       const r = child as Phaser.GameObjects.Rectangle;
       const d = Phaser.Math.Distance.Between(px, py, r.x, r.y);
-      if (d > SWIPE_RANGE) {
+      if (d > this.effectiveSwipeRange) {
         continue;
       }
       const toR = Math.atan2(r.y - py, r.x - px);
@@ -1035,12 +1059,19 @@ export class GameScene extends Phaser.Scene {
     if (!table) return;
 
     if (table.gold) {
-      const amount = Phaser.Math.Between(table.gold.min, table.gold.max);
+      // Lucky strike upgrade multiplies all gold drops by 1.5 (rounded).
+      const boughtUpgrades = JSON.parse(localStorage.getItem('matlu_upgrades') ?? '{}') as Record<string, boolean>;
+      const goldMult = boughtUpgrades['lucky_strike'] ? 1.5 : 1;
+      const amount = Math.round(Phaser.Math.Between(table.gold.min, table.gold.max) * goldMult);
       this.playerGold += amount;
-      this.goldText.setText(`${t('hud.gold')}: ${this.playerGold}`);
+      this.refreshGoldText();
       // Floating "+N gold" feedback in world-space — rises and fades like collectible labels
       this.spawnFloatText(x, y, `+${amount} ${t('hud.gold')}`, '#ffe066');
     }
+  }
+
+  private refreshGoldText(): void {
+    this.goldText.setText(`${t('hud.gold')}: ${this.playerGold}`);
   }
 
   /**
@@ -1196,7 +1227,7 @@ export class GameScene extends Phaser.Scene {
     this.dashDx = dx / len;
     this.dashDy = dy / len;
     this.lastDashAt   = now;
-    this.dashingUntil = now + DASH_DURATION_MS;
+    this.dashingUntil = now + this.effectiveDashDuration;
 
     this.spawnDashAfterimages();
 
@@ -3677,6 +3708,72 @@ export class GameScene extends Phaser.Scene {
         }
         return; // only the nearest NPC counts per frame
       }
+    }
+  }
+
+  // ── Upgrade shrine (FIL-130) ────────────────────────────────────────────────
+
+  /**
+   * Spawn the upgrade shrine visual at shrinePos — a gold circle with a label.
+   * Interact prompt is hidden until the player walks within 80 px.
+   */
+  private createShrine(): void {
+    this.add
+      .arc(this.shrinePos.x, this.shrinePos.y, 10, 0, 360, false, 0xffe066)
+      .setDepth(this.shrinePos.y);
+
+    this.add
+      .text(this.shrinePos.x, this.shrinePos.y - 24, 'Upgrade Shrine', {
+        fontSize: '10px',
+        color: '#ffe066',
+      })
+      .setOrigin(0.5)
+      .setDepth(this.shrinePos.y + 1);
+
+    this.shrinePromptText = this.add
+      .text(this.shrinePos.x, this.shrinePos.y - 42, 'E: Upgrade', {
+        fontSize: '10px',
+        color: '#f0ead6',
+        backgroundColor: '#00000088',
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5)
+      .setDepth(this.shrinePos.y + 2)
+      .setVisible(false);
+  }
+
+  /**
+   * Read purchased upgrades from localStorage and apply stat bonuses.
+   * Called once in create() after the HUD is built so the HP bar reflects
+   * the correct max-HP immediately.
+   */
+  private applyUpgrades(): void {
+    const bought = JSON.parse(localStorage.getItem('matlu_upgrades') ?? '{}') as Record<string, boolean>;
+    if (bought['hardened'])        this.effectiveMaxHp += 25;
+    if (bought['fleet_footed'])    this.effectiveSpeed        = Math.round(PLAYER_SPEED       * 1.15);
+    if (bought['longer_dash'])     this.effectiveDashDuration = Math.round(DASH_DURATION_MS   * 1.5);
+    if (bought['cleanse_mastery']) this.effectiveSwipeRange   = Math.round(SWIPE_RANGE        * 1.2);
+    // lucky_strike is checked at drop-time in resolveDrops()
+    this.playerMaxHp = this.effectiveMaxHp;
+    this.playerHp    = this.effectiveMaxHp;
+  }
+
+  /**
+   * Show/hide the E-key prompt when the player is near the shrine.
+   * Pressing E pauses the game and launches UpgradeScene.
+   */
+  private updateShrine(): void {
+    if (this.shrineDialogActive) return;
+    const dist = Phaser.Math.Distance.Between(
+      this.player.x, this.player.y,
+      this.shrinePos.x, this.shrinePos.y,
+    );
+    const near = dist < 80;
+    this.shrinePromptText?.setVisible(near);
+    if (near && this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.shrineDialogActive = true;
+      this.scene.pause();
+      this.scene.launch('UpgradeScene', { callerKey: this.scene.key, gold: this.playerGold } as unknown as object);
     }
   }
 
