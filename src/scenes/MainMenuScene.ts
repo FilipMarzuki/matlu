@@ -18,6 +18,17 @@ export class MainMenuScene extends Phaser.Scene {
     super({ key: 'MainMenuScene' });
   }
 
+  preload(): void {
+    // Piano menu theme (Free Orchestral Music Pack, CC0)
+    this.load.audio('music-menu', [
+      'assets/audio/Free Orchestral Music Pack/Lost Kingdom (Piano Menu).wav',
+    ]);
+    // Cassette button click SFX (Shapeforms, free preview)
+    this.load.audio('sfx-click', [
+      'assets/audio/Shapeforms Audio Free Sound Effects/Cassette Preview/AUDIO/BUTTON_05.wav',
+    ]);
+  }
+
   create(): void {
     const { width, height } = this.cameras.main;
     const cx = width / 2;
@@ -59,6 +70,17 @@ export class MainMenuScene extends Phaser.Scene {
     // Coming soon — greyed out until FIL-85/86 are implemented
     this.makeButton(cx, buttonStartY + buttonGap * 3, t('menu.lore'),  true);
     this.makeButton(cx, buttonStartY + buttonGap * 4, t('menu.stats'), true);
+
+    // ── Music ────────────────────────────────────────────────────────────────
+
+    // Start menu music only if the audio context is available (not in headless CI)
+    if (this.cache.audio.has('music-menu')) {
+      const menuMusic = this.sound.add('music-menu', { loop: true, volume: 0 });
+      menuMusic.play();
+      this.tweens.add({ targets: menuMusic, volume: 0.25, duration: 1500, ease: 'Sine.easeIn' });
+      // Stop and destroy when this scene shuts down so it doesn't bleed into GameScene
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => menuMusic.stop());
+    }
 
     // ── Hint ─────────────────────────────────────────────────────────────────
 
@@ -105,13 +127,21 @@ export class MainMenuScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .on('pointerover',  () => btn.setStyle({ color: '#ffffff' }))
         .on('pointerout',   () => btn.setStyle({ color: '#ffe066' }))
-        .on('pointerdown',  onClick);
+        .on('pointerdown',  () => {
+          if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
+          onClick();
+        });
     }
 
     return btn;
   }
 
   private startGame(): void {
+    // Fade music out alongside the camera fade so there's no audio pop
+    const music = this.sound.getAll('music-menu')[0] as Phaser.Sound.BaseSound | undefined;
+    if (music) {
+      this.tweens.add({ targets: music, volume: 0, duration: 400, ease: 'Sine.easeIn' });
+    }
     // Fade to black before switching scenes — feels cleaner than a hard cut
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {

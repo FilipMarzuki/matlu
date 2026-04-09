@@ -45,6 +45,14 @@ const SPAWN_Y = 2650;
 // Player movement speed in px/s
 const PLAYER_SPEED = 180;
 
+// ── Dash mechanic (FIL-123) ───────────────────────────────────────────────────
+// Short burst of high speed with invincibility frames. Double-tap the joystick
+// or press Shift to dash in the current movement direction.
+const DASH_SPEED        = 520;  // px/s during the burst
+const DASH_DURATION_MS  = 180;  // how long the velocity override lasts
+const DASH_COOLDOWN_MS  = 600;  // minimum gap between consecutive dashes
+const DASH_AFTERIMAGE_N = 4;    // ghost sprites left in the wake
+
 // Player shape dimensions
 const BODY_RADIUS = 16;
 const INDICATOR_W = 10;
@@ -88,6 +96,17 @@ const NPC_DIALOG: Record<string, string> = {
 
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
 type AnimalState = 'roaming' | 'fleeing' | 'chasing';
+
+// ── Drop tables ───────────────────────────────────────────────────────────────
+// Extensible config — add new entity keys as more enemy types are introduced (FIL-106).
+// Gold range is kept small early-game; the economy will be balanced when the
+// shop (FIL-93) and loot containers (FIL-92) are implemented.
+interface DropTable {
+  gold?: { min: number; max: number };
+}
+const DROP_TABLES: Record<string, DropTable> = {
+  zombieRabbit: { gold: { min: 1, max: 4 } },
+};
 
 interface AnimalDef {
   /** Physics body size (smaller than the visual sprite). */
@@ -190,6 +209,43 @@ export class GameScene extends Phaser.Scene {
   private kills = 0;
   private lastSwipeAt = 0;
 
+  // ─── Economy ──────────────────────────────────────────────────────────────────
+  private playerGold = 0;
+  private goldText!: Phaser.GameObjects.Text;
+
+  // ─── Cleanse milestones ───────────────────────────────────────────────────────
+  // Tracks which threshold percentages have already triggered so they don't
+  // repeat if the cleanse-updated event fires multiple times near a boundary.
+  private milestonesHit: Set<number> = new Set();
+
+  // ─── Player health ────────────────────────────────────────────────────────────
+  private playerHp = 100;
+  private readonly playerMaxHp = 100;
+  // Filled rect that shrinks as HP drops — same pattern as cleanseFill
+  private hpFill!: Phaser.GameObjects.Rectangle;
+  // Timestamp of last player hit — prevents instant death from rapid rabbit taps
+  private lastDamagedAt = 0;
+
+  // ─── Dash state (FIL-123) ─────────────────────────────────────────────────────
+  // dashingUntil: game-time (ms) when the current dash expires (0 = not dashing).
+  // Invincibility is active for the full duration — rabbits can't damage the player
+  // mid-dash, which rewards skilful dodge timing.
+  private dashingUntil   = 0;
+  private lastDashAt     = 0;   // cooldown gating
+  private dashDx         = 0;   // normalised direction held for the burst
+  private dashDy         = 0;
+  // Joystick double-tap detection: record when joystick goes idle so a quick
+  // re-engagement within 220 ms triggers a dash.
+  private joystickWasActive   = false;
+  private joystickReleasedAt  = 0;
+
+  // ─── Run timing ───────────────────────────────────────────────────────────────
+  // Set when the player exits attract mode (name entered) so the timer reflects
+  // actual gameplay time, not time spent on the attract/name-entry screen.
+  private gameStartedAt = 0;
+  // Guard flag — prevents onPlayerDeath / onLevelComplete firing more than once
+  private gameEnded = false;
+
   private cleanseFill!: Phaser.GameObjects.Rectangle;
   private overlay!: Phaser.GameObjects.Rectangle;
   // All HUD elements (bars + labels) collected so they can be hidden during attract mode
@@ -205,13 +261,16 @@ export class GameScene extends Phaser.Scene {
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
   private ambienceSound: Phaser.Sound.BaseSound | undefined;
+  // Background music track for the current day phase (crossfades on transition)
+  private musicTrack: Phaser.Sound.BaseSound | undefined;
+  // Key of the currently-playing music track (avoid restarting the same track)
+  private currentMusicKey = '';
   // tracks when we last played a footstep so we don't fire every frame
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
   private portal!: Phaser.GameObjects.Arc;
   private portalActive = false;
   private portalGfx!: Phaser.GameObjects.Graphics;
-  private levelCompleteLogged = false;
   private runSeed = 0;
   /** Whether the audio system is functional — false in headless CI environments */
   private audioAvailable = false;
@@ -288,6 +347,25 @@ export class GameScene extends Phaser.Scene {
       'assets/audio/forest-ambience.ogg',
       'assets/audio/forest-ambience.mp3',
     ]);
+    // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
+    // Mapped: dawn → Sunlight Through Leaves, morning/midday/afternoon → Whispering Woods,
+    // dusk → Evening Harmony, night → Polar Lights.
+    const cozyBase = 'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks';
+    this.load.audio('music-dawn',  [`${cozyBase}/Sunlight Through Leaves.ogg`]);
+    this.load.audio('music-day',   [`${cozyBase}/Whispering Woods.ogg`]);
+    this.load.audio('music-dusk',  [`${cozyBase}/Evening Harmony.ogg`]);
+    this.load.audio('music-night', [`${cozyBase}/Polar Lights.ogg`]);
+
+    // ── Event SFX ─────────────────────────────────────────────────────────────────
+    // Collectible pickup: warm pizzicato jingle (Kenney Music Jingles, CC0)
+    this.load.audio('sfx-pickup',  ['assets/audio/kenney_music-jingles/Audio/Pizzicato jingles/jingles_PIZZI05.ogg']);
+    // Portal reveal: crystalline steel jingle (Kenney Music Jingles, CC0)
+    this.load.audio('sfx-portal',  ['assets/audio/kenney_music-jingles/Audio/Steel jingles/jingles_STEEL05.ogg']);
+    // Cleanse swipe: arcane wind-chime whoosh (Shapeforms, free preview)
+    this.load.audio('sfx-swipe',   ['assets/audio/Shapeforms Audio Free Sound Effects/Arcane Activations Preview/AUDIO/Arcane Wind Chime Gust.wav']);
+    // Corruption presence: ominous drone (Cozy Tunes Pro sound effect)
+    this.load.audio('sfx-corruption', ['assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/shadow.ogg']);
+
     // Load all 5 variants for three terrain surfaces from the Kenney Impact Sounds
     // pack (CC0). Multiple variants prevent the "machine gun" effect (identical
     // sounds repeating feel unnatural). Three surfaces map to terrain biome values:
@@ -400,7 +478,10 @@ export class GameScene extends Phaser.Scene {
     this.mapData = emptyLdtkLevel(WORLD_W, WORLD_H, TILE_SIZE);
 
     // Tear down WorldState when scene shuts down
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.worldState.destroy());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.musicTrack?.stop();
+      this.worldState.destroy();
+    });
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
     this.baseNoise = new FbmNoise(this.runSeed);
@@ -469,9 +550,37 @@ export class GameScene extends Phaser.Scene {
       this.scene.launch('CreditsScene', this.scene.key as unknown as object);
     });
 
+    // Open pause menu (Escape or P) — only when no dialog is already blocking input
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (!this.npcDialogActive) this.openPauseMenu();
+    });
+    this.input.keyboard?.on('keydown-P', () => {
+      if (!this.npcDialogActive) this.openPauseMenu();
+    });
+
+    // Dash on Shift key — same action as joystick double-tap (FIL-123)
+    this.input.keyboard?.on('keydown-SHIFT', () => this.tryDash());
+
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.mountainWalls);
+
+    // Corrupted rabbits deal damage when they touch the player.
+    // lastDamagedAt provides 1.5 s of invincibility frames so a single contact
+    // doesn't drain the full HP bar instantly.
+    this.physics.add.overlap(this.player, this.rabbits, () => {
+      if (this.gameEnded || this.attractMode) return;
+      const now = this.time.now;
+      // Player is invincible while dashing — reward the dodge
+      if (now < this.dashingUntil) return;
+      if (now - this.lastDamagedAt < 1500) return;
+      this.lastDamagedAt = now;
+      this.playerHp = Math.max(0, this.playerHp - 20);
+      this.setHpHud(this.playerHp);
+      // Quick alpha flash to signal the hit visually
+      this.tweens.add({ targets: this.playerSprite, alpha: 0.25, yoyo: true, duration: 120, repeat: 2 });
+      if (this.playerHp <= 0) this.onPlayerDeath();
+    });
 
     this.createAnimalAnimations();
     this.groundAnimals = this.physics.add.group();
@@ -496,6 +605,19 @@ export class GameScene extends Phaser.Scene {
         // Big cleanse milestone — slow the day cycle (world breathes out)
         this.worldClock.slowDown(30);
       }
+      // Show a toast for each 25 % milestone, once each.
+      // The messages give the player a sense of progress without a numeric readout.
+      for (const [threshold, key] of [
+        [25,  'cleanse.milestone_25'],
+        [50,  'cleanse.milestone_50'],
+        [75,  'cleanse.milestone_75'],
+        [100, 'cleanse.milestone_100'],
+      ] as [number, string][]) {
+        if (percent >= threshold && !this.milestonesHit.has(threshold)) {
+          this.milestonesHit.add(threshold);
+          this.showCleanseToast(t(key));
+        }
+      }
     });
 
     base.setDepth(200);
@@ -512,6 +634,9 @@ export class GameScene extends Phaser.Scene {
       });
       this.ambienceSound.play();
     }
+
+    // Start background music for the initial day phase
+    this.startPhaseMusic(this.currentPhase, 0);
 
     this.initAttractMode();
   }
@@ -662,6 +787,17 @@ export class GameScene extends Phaser.Scene {
 
   private updatePlayerMovement(): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const now = this.time.now;
+
+    // ── Dash override ─────────────────────────────────────────────────────────
+    // While dashingUntil hasn't elapsed, force the pre-calculated direction at
+    // DASH_SPEED and skip the normal movement read entirely.
+    if (now < this.dashingUntil) {
+      body.setVelocity(this.dashDx * DASH_SPEED, this.dashDy * DASH_SPEED);
+      this.updatePlayerAnimation(this.dashDx, this.dashDy, true);
+      return;
+    }
+
     let dx = 0;
     let dy = 0;
 
@@ -676,6 +812,20 @@ export class GameScene extends Phaser.Scene {
       dx = right - left;
       dy = down - up;
     }
+
+    // ── Joystick double-tap detection ─────────────────────────────────────────
+    // Detect when the joystick goes from active → idle → active within 220 ms
+    // and treat it as a dash trigger (the mobile equivalent of pressing Shift).
+    const joystickActive = this.joystick.force > 10;
+    if (this.joystickWasActive && !joystickActive) {
+      this.joystickReleasedAt = now;
+    }
+    if (!this.joystickWasActive && joystickActive && this.joystickReleasedAt > 0) {
+      if (now - this.joystickReleasedAt < 220) {
+        this.tryDash();
+      }
+    }
+    this.joystickWasActive = joystickActive;
 
     const moving = dx !== 0 || dy !== 0;
 
@@ -762,6 +912,11 @@ export class GameScene extends Phaser.Scene {
     }
     this.lastSwipeAt = now;
 
+    // Swipe whoosh SFX — plays regardless of whether a rabbit is hit
+    if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
+      this.sound.play('sfx-swipe', { volume: 0.35 });
+    }
+
     const px = this.player.x;
     const py = this.player.y;
     const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
@@ -816,6 +971,51 @@ export class GameScene extends Phaser.Scene {
     // Each rabbit kill nudges nearby road conditions back toward health.
     this.pathSystem.restoreNear(rx, ry, 300, 3);
     this.onZoneCleansed('rabbit', rx, ry);
+    // Resolve drop table — award gold and show floating feedback text
+    this.resolveDrops('zombieRabbit', rx, ry);
+  }
+
+  /**
+   * Resolve an entity's drop table and apply rewards to the player.
+   *
+   * Keyed by entity type so new enemies (FIL-106) just need an entry in
+   * DROP_TABLES — no other code changes required.
+   */
+  private resolveDrops(entityType: string, x: number, y: number): void {
+    const table = DROP_TABLES[entityType];
+    if (!table) return;
+
+    if (table.gold) {
+      const amount = Phaser.Math.Between(table.gold.min, table.gold.max);
+      this.playerGold += amount;
+      this.goldText.setText(`${t('hud.gold')}: ${this.playerGold}`);
+      // Floating "+N gold" feedback in world-space — rises and fades like collectible labels
+      this.spawnFloatText(x, y, `+${amount} ${t('hud.gold')}`, '#ffe066');
+    }
+  }
+
+  /**
+   * Spawn a floating text label at world coordinates that rises 60px and fades out.
+   * Used for drop rewards and other instant feedback in the game world.
+   */
+  private spawnFloatText(x: number, y: number, text: string, color: string): void {
+    const label = this.add
+      .text(x, y - 20, text, {
+        fontSize: '13px',
+        color,
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setDepth(500)
+      .setOrigin(0.5, 1);
+    this.tweens.add({
+      targets: label,
+      y: y - 80,
+      alpha: 0,
+      duration: 1400,
+      ease: 'Sine.easeOut',
+      onComplete: () => label.destroy(),
+    });
   }
 
   private spawnEnergyBurst(sx: number, sy: number, ex: number, ey: number): void {
@@ -864,6 +1064,130 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private onPlayerDeath(): void {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+    const durationMs = this.gameStartedAt > 0
+      ? Math.round(this.time.now - this.gameStartedAt)
+      : 0;
+    const cleanse = Math.round((this.kills / RABBIT_COUNT) * 100);
+    // Record the run — fire-and-forget, failures are non-critical
+    insertMatluRun({
+      nickname: this.playerName || 'Player',
+      score:    this.kills,
+      duration_ms: durationMs,
+    }).catch(() => {});
+    // Freeze the world and overlay the game-over screen
+    this.scene.pause();
+    this.scene.launch('GameOverScene', { cleanse, kills: this.kills, durationMs } as unknown as object);
+  }
+
+  private onLevelComplete(): void {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+    const durationMs = this.gameStartedAt > 0
+      ? Math.round(this.time.now - this.gameStartedAt)
+      : 0;
+    const cleanse = Math.round((this.kills / RABBIT_COUNT) * 100);
+    insertMatluRun({
+      nickname: this.playerName || 'Player',
+      score:    this.kills,
+      duration_ms: durationMs,
+    }).catch(() => {});
+    this.scene.pause();
+    this.scene.launch('LevelCompleteScene', { cleanse, kills: this.kills, durationMs } as unknown as object);
+  }
+
+  private openPauseMenu(): void {
+    // Pause this scene (freezes update + physics) then launch the pause overlay
+    // in parallel so the frozen world stays visible behind it.
+    this.scene.pause();
+    this.scene.launch('PauseMenuScene');
+  }
+
+  // ── Dash mechanic (FIL-123) ─────────────────────────────────────────────────
+
+  /**
+   * Initiates a dash in the current movement direction (or last-known facing
+   * direction if the player is standing still).
+   *
+   * Called from the Shift keydown listener and from the joystick double-tap
+   * path in updatePlayerMovement(). Guards: attract mode, game ended, cooldown.
+   */
+  private tryDash(): void {
+    if (this.attractMode || this.gameEnded) return;
+    const now = this.time.now;
+    if (now - this.lastDashAt < DASH_COOLDOWN_MS) return;
+
+    // Resolve dash direction — prefer live input, fall back to last facing.
+    let dx = 0;
+    let dy = 0;
+
+    if (this.joystick.force > 10) {
+      dx = Math.cos(this.joystick.rotation);
+      dy = Math.sin(this.joystick.rotation);
+    } else {
+      const right = this.cursors.right.isDown || this.wasd['right'].isDown ? 1 : 0;
+      const left  = this.cursors.left.isDown  || this.wasd['left'].isDown  ? 1 : 0;
+      const down  = this.cursors.down.isDown  || this.wasd['down'].isDown  ? 1 : 0;
+      const up    = this.cursors.up.isDown    || this.wasd['up'].isDown    ? 1 : 0;
+      dx = right - left;
+      dy = down - up;
+    }
+
+    // If no directional input, use the last known facing direction so standing
+    // dashes still feel intentional (dash "away" from last movement).
+    if (dx === 0 && dy === 0) {
+      if (this.playerLastDir === 'up')   { dy = -1; }
+      else if (this.playerLastDir === 'down') { dy =  1; }
+      else { dx = this.playerSprite.flipX ? -1 : 1; }
+    }
+
+    const len = Math.sqrt(dx * dx + dy * dy);
+    this.dashDx = dx / len;
+    this.dashDy = dy / len;
+    this.lastDashAt   = now;
+    this.dashingUntil = now + DASH_DURATION_MS;
+
+    this.spawnDashAfterimages();
+
+    // Reuse swipe SFX at a higher pitch for a distinct whoosh feel.
+    if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
+      this.sound.play('sfx-swipe', { volume: 0.22, rate: 1.6 });
+    }
+  }
+
+  /**
+   * Drops DASH_AFTERIMAGE_N semi-transparent ghost circles staggered over the
+   * first ~120 ms of the dash. Each ghost spawns at the player's live position
+   * at the moment of spawn, so earlier ghosts trail further behind — the trail
+   * appears to grow behind the player as they dash forward.
+   */
+  private spawnDashAfterimages(): void {
+    for (let i = 0; i < DASH_AFTERIMAGE_N; i++) {
+      // Stagger spawns: i=0 is immediate (start position), i=N-1 is near dash end.
+      this.time.delayedCall(i * 30, () => {
+        const ghost = this.add.arc(
+          this.player.x, this.player.y,
+          BODY_RADIUS,
+          0, 360, false,
+          0xa8d8ff,
+          // Earlier ghosts (lower i) are more transparent — they lag further
+          // behind the player so a softer echo suits them visually.
+          0.50 - i * 0.08,
+        );
+        ghost.setDepth(4); // just below the player sprite (player container is depth 5)
+        this.tweens.add({
+          targets:  ghost,
+          alpha:    0,
+          duration: 280,
+          ease:     'Power2',
+          onComplete: () => ghost.destroy(),
+        });
+      });
+    }
+  }
+
   private createHudAndOverlay(): void {
     const w = HUD_BAR_W;
     const h = HUD_BAR_H;
@@ -875,17 +1199,20 @@ export class GameScene extends Phaser.Scene {
     // Collect all HUD elements so they can be hidden during attract/wilderview mode.
     this.hudObjects = [];
 
+    // HP fill is stored separately so setHpHud() can resize it on damage
+    this.hpFill = this.add
+      .rectangle(pad + 2, pad + 10, w - 4, h - 4, 0xff3333)
+      .setOrigin(0, 0.5)
+      .setScrollFactor(0)
+      .setDepth(300);
+
     this.hudObjects.push(
       this.add
         .text(pad, pad - 2, t('hud.hp'), { fontSize: '11px', color: '#ffffff' })
         .setScrollFactor(0)
         .setDepth(300),
       this.add.rectangle(pad + w / 2, pad + 10, w, h, 0x111111, 0.9).setScrollFactor(0).setDepth(299),
-      this.add
-        .rectangle(pad + 2, pad + 10, w - 4, h - 4, 0xff3333)
-        .setOrigin(0, 0.5)
-        .setScrollFactor(0)
-        .setDepth(300),
+      this.hpFill,
       this.add
         .text(sw - pad - w, pad - 2, t('hud.cleanse'), { fontSize: '11px', color: '#ffffff' })
         .setOrigin(1, 0)
@@ -904,6 +1231,50 @@ export class GameScene extends Phaser.Scene {
       .setDepth(300);
     this.hudObjects.push(this.cleanseFill);
 
+    // Milestone tick marks at 25 %, 50 %, 75 % on the cleanse bar.
+    // Drawn with a Graphics object in screen-space so they render above the fill.
+    // These give the player visual targets to aim for without displaying a number.
+    const ticks = this.add.graphics().setScrollFactor(0).setDepth(301);
+    ticks.lineStyle(1, 0xffffff, 0.4);
+    const barLeft = sw - pad - w;
+    const barTop  = pad + 10 - h / 2;
+    for (const frac of [0.25, 0.5, 0.75]) {
+      const tx = barLeft + w * frac;
+      ticks.moveTo(tx, barTop);
+      ticks.lineTo(tx, barTop + h);
+    }
+    ticks.strokePath();
+    this.hudObjects.push(ticks);
+
+    // Gold counter — sits below the HP bar in the top-left.
+    // Updates in resolveDrops() each time a reward is collected.
+    this.goldText = this.add
+      .text(pad, pad + h + 12, `${t('hud.gold')}: 0`, {
+        fontSize: '11px',
+        color: '#ffe066',
+      })
+      .setScrollFactor(0)
+      .setDepth(300);
+    this.hudObjects.push(this.goldText);
+
+    // Pause button — top-centre, between the two HUD bars.
+    // Small and unobtrusive on tablet; tapping or clicking it opens the pause menu.
+    const pauseBtn = this.add
+      .text(sw / 2, pad + 4, '  ⏸  ', {
+        fontSize: '12px',
+        color: '#7a9a7a',
+        backgroundColor: '#00000044',
+        padding: { x: 6, y: 3 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(300)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover',  () => pauseBtn.setStyle({ color: '#f0ead6' }))
+      .on('pointerout',   () => pauseBtn.setStyle({ color: '#7a9a7a' }))
+      .on('pointerdown',  () => this.openPauseMenu());
+    this.hudObjects.push(pauseBtn);
+
     // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
       .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
@@ -911,6 +1282,12 @@ export class GameScene extends Phaser.Scene {
       .setDepth(50);
 
     this.setCleanseHud(0);
+  }
+
+  private setHpHud(hp: number): void {
+    // Resize the red fill bar proportionally — mirrors how cleanseFill works
+    const ratio = Phaser.Math.Clamp(hp / this.playerMaxHp, 0, 1);
+    this.hpFill.width = (HUD_BAR_W - 4) * ratio;
   }
 
   private setCleanseHud(percent: number): void {
@@ -927,6 +1304,46 @@ export class GameScene extends Phaser.Scene {
     );
     const hex = Phaser.Display.Color.GetColor(c.r, c.g, c.b);
     this.cleanseFill.setFillStyle(hex);
+  }
+
+  /**
+   * Show a brief toast message at the bottom-centre of the screen.
+   * Used for cleanse milestones — keeps the player informed without a permanent UI element.
+   * Uses scrollFactor(0) so the text stays in screen-space regardless of camera position.
+   */
+  private showCleanseToast(message: string): void {
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height - 80;
+    const toast = this.add
+      .text(cx, cy + 20, message, {
+        fontSize: '14px',
+        color: '#88ffaa',
+        stroke: '#000000',
+        strokeThickness: 2,
+        backgroundColor: '#00000088',
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(600)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: toast,
+      alpha: 1,
+      y: cy,
+      duration: 400,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: toast,
+          alpha: 0,
+          delay: 2200,
+          duration: 600,
+          ease: 'Sine.easeIn',
+          onComplete: () => toast.destroy(),
+        });
+      },
+    });
   }
 
   private applyWorldTint(percent: number): void {
@@ -947,22 +1364,18 @@ export class GameScene extends Phaser.Scene {
     this.portalGfx.setDepth(24);
 
     this.physics.add.overlap(this.player, this.portal, () => {
-      if (!this.portalActive || this.levelCompleteLogged) {
-        return;
-      }
-      this.levelCompleteLogged = true;
-      console.log(`[Level complete] seed=${this.runSeed} kills=${this.kills}`);
-      // Save run to Supabase — fire-and-forget, failures are non-critical
-      insertMatluRun({
-        nickname: this.playerName || 'Player',
-        score:    this.kills,
-      }).catch(() => {/* Supabase not configured — ignore */});
+      if (!this.portalActive) return;
+      this.onLevelComplete();
     });
   }
 
   private revealPortal(): void {
     this.portalActive = true;
     this.drawPortalRing();
+    // Steel jingle marks the portal unlocking — distinct from the pickup pizzicato
+    if (this.audioAvailable && this.cache.audio.has('sfx-portal')) {
+      this.sound.play('sfx-portal', { volume: 0.6 });
+    }
     this.tweens.add({
       targets: this.portal,
       alpha: 1,
@@ -1018,12 +1431,92 @@ export class GameScene extends Phaser.Scene {
       });
     }
     this.applyParticlePhase(newPhase);
+    this.crossfadeMusic(newPhase, 8000);
 
     // Settlement window glow — warm at dusk/night, off during daylight (FIL-80)
     const glowAlpha = (newPhase === 'dusk' || newPhase === 'night') ? 0.18 : 0;
     for (const glow of this.settlementGlows) {
       this.tweens.add({ targets: glow, alpha: glowAlpha, duration: 8000, ease: 'Sine.easeInOut' });
     }
+  }
+
+  /** Music track key for each day phase. */
+  private phaseMusicKey(phase: DayPhase): string {
+    switch (phase) {
+      case 'dawn':      return 'music-dawn';
+      case 'morning':   return 'music-day';
+      case 'midday':    return 'music-day';
+      case 'afternoon': return 'music-day';
+      case 'dusk':      return 'music-dusk';
+      case 'night':     return 'music-night';
+    }
+  }
+
+  /** Music volume target for each day phase (music is softer than ambience). */
+  private phaseMusicVolume(phase: DayPhase): number {
+    switch (phase) {
+      case 'dawn':      return 0.20;
+      case 'morning':   return 0.30;
+      case 'midday':    return 0.28;
+      case 'afternoon': return 0.25;
+      case 'dusk':      return 0.18;
+      case 'night':     return 0.15;
+    }
+  }
+
+  /**
+   * Start the music track for the given phase immediately at the given volume.
+   * Used for the first frame so we don't cross-fade from silence every session.
+   * `fadeDuration` = 0 means instant start.
+   */
+  private startPhaseMusic(phase: DayPhase, fadeDuration: number): void {
+    if (!this.audioAvailable) return;
+    const key = this.phaseMusicKey(phase);
+    if (!this.cache.audio.has(key)) return;
+    this.currentMusicKey = key;
+    this.musicTrack = this.sound.add(key, { loop: true, volume: 0 });
+    this.musicTrack.play();
+    if (fadeDuration > 0) {
+      this.tweens.add({ targets: this.musicTrack, volume: this.phaseMusicVolume(phase), duration: fadeDuration, ease: 'Sine.easeInOut' });
+    } else {
+      (this.musicTrack as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound).setVolume(this.phaseMusicVolume(phase));
+    }
+  }
+
+  /**
+   * Crossfade from the current music track to the one matching `newPhase`.
+   * If the track key hasn't changed (e.g. morning → midday both use music-day)
+   * we skip the transition to avoid an audible restart.
+   */
+  private crossfadeMusic(newPhase: DayPhase, duration: number): void {
+    if (!this.audioAvailable) return;
+    const nextKey = this.phaseMusicKey(newPhase);
+    if (nextKey === this.currentMusicKey) return;
+
+    // Fade out old track
+    if (this.musicTrack) {
+      const old = this.musicTrack;
+      this.tweens.add({
+        targets: old,
+        volume: 0,
+        duration,
+        ease: 'Sine.easeInOut',
+        onComplete: () => old.stop(),
+      });
+    }
+
+    // Fade in new track
+    if (!this.cache.audio.has(nextKey)) return;
+    this.currentMusicKey = nextKey;
+    const next = this.sound.add(nextKey, { loop: true, volume: 0 });
+    next.play();
+    this.musicTrack = next;
+    this.tweens.add({
+      targets: next,
+      volume: this.phaseMusicVolume(newPhase),
+      duration,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   /** Ambience volume target for each day phase. */
@@ -1445,6 +1938,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.attractMode) return;
     this.attractMode = false;
     this.playerName = this.attractName || 'Player';
+    // Start the run timer now — this.time.now is ms since the Phaser game started
+    this.gameStartedAt = this.time.now;
     this.input.keyboard?.off('keydown', this.onAttractKey, this);
     this.attractLabel.destroy();
     this.attractNameDisplay.destroy();
@@ -1805,6 +2300,73 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Maps a biome value to a WebGL tint colour applied to each terrain tile.
+   * Tinting multiplies per-channel so tile pixel detail is preserved — only
+   * the dominant hue shifts. Bright tint components (≥ 0x90) keep tiles
+   * readable; dark components deepen shadows naturally.
+   *
+   * Breakpoints mirror terrainTileFrame() so tint matches the tile type:
+   *   sea          < 0.25  → deep blue
+   *   rocky shore  < 0.30  → warm sandy stone
+   *   coastal heath< 0.42  → light olive
+   *   mixed forest < 0.62  → fresh mid-green
+   *   dense forest < 0.78  → deep forest green
+   *   highland     ≥ 0.78  → cool granite grey
+   */
+  private biomeTint(val: number): number {
+    if (val < 0.25) return 0x7ab0d8; // sea — blue
+    if (val < 0.30) return 0xd4a86a; // rocky shore — warm sandy
+    if (val < 0.42) return 0xb8d480; // coastal heath — light olive
+    if (val < 0.62) return 0x80c068; // mixed forest — fresh green
+    if (val < 0.78) return 0x50904a; // dense forest — deep green
+    return 0xb8b4ac;                  // highland — cool grey
+  }
+
+  /**
+   * Draws a per-tile biome colour wash at depth 0.1 — just above the baked terrain.
+   * Tiles are grouped by biome colour before drawing so all tiles of the same hue
+   * are issued as one fillStyle + N fillRect calls, minimising GPU state changes.
+   * Per-tile resolution (32×32 px) means there are no visible seams at biome
+   * boundaries — the noise gradient produces smooth organic edges.
+   */
+  private drawBiomeColorWash(noise: FbmNoise, tilesX: number, tilesY: number): void {
+
+    // First pass: collect every non-water tile position, grouped by biome tint.
+    // Using a flat array per tint avoids repeated map lookups during the draw pass.
+    const groups = new Map<number, number[]>(); // tint → flat [x0, y0, x1, y1, ...]
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        // Use ONLY the low-frequency base noise here — omitting detail noise keeps
+        // biome colour regions large and smoothly-edged. The terrain tile below still
+        // uses detail noise for fine texture; the wash is purely about zone identity.
+        const base   = noise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
+
+        if (val < 0.25) continue; // water already has identity from animated sprites
+
+        const tint = this.biomeTint(val);
+        let arr = groups.get(tint);
+        if (!arr) { arr = []; groups.set(tint, arr); }
+        arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
+      }
+    }
+
+    // Second pass: one fillStyle() per biome colour, then fillRect for every tile of that colour.
+    // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
+    const gfx = this.add.graphics().setDepth(0.1);
+    for (const [tint, coords] of groups) {
+      gfx.fillStyle(tint, 0.45);
+      for (let i = 0; i < coords.length; i += 2) {
+        gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
+      }
+    }
+  }
+
+  /**
    * Generates and draws a noise-based spring-Sweden landscape:
    * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
    * Uses this.runSeed for deterministic output (same seed → same map).
@@ -1862,6 +2424,9 @@ export class GameScene extends Phaser.Scene {
 
         // Draw the matching tileset frame (including water) scaled 2× to fill the 32×32 tile.
         // batchDraw() uses the image's own position — no per-tile batch flush.
+        // Biome tint multiplies with each tile's pixel colours so the tile detail
+        // stays visible while each region gets a distinct dominant hue — the same
+        // technique CrossCode uses to give each zone a clear visual identity.
         const { key, frame } = terrainTileFrame(val, detail);
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
         terrainRt.batchDraw(tileImg);
@@ -1877,6 +2442,7 @@ export class GameScene extends Phaser.Scene {
     // biome in a circular patch so the player has a recognisable gravel landmark.
     // Done inside beginDraw()/endDraw() so it costs zero extra GPU draw calls.
     // Cycling frames 0–5 uses the full row width to break up visible tiling.
+    // Spawn clearing stamps plain shore tiles — no tint needed here.
     const sx = Math.floor(SPAWN_X / TILE_SIZE);
     const sy = Math.floor(SPAWN_Y / TILE_SIZE);
     for (let dy = -3; dy <= 3; dy++) {
@@ -1892,6 +2458,14 @@ export class GameScene extends Phaser.Scene {
 
     terrainRt.endDraw();
     tileImg.destroy();
+
+    // ── Biome colour wash (depth 0.1) ────────────────────────────────────────
+    // A coarse-grid Graphics layer drawn at low alpha over the terrain texture.
+    // Gives each biome region a distinct dominant hue — the same visual technique
+    // CrossCode uses so players instantly read "I'm in the forest / shore / highlands".
+    // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
+    // matching the noise gradient closely enough to look organic at play zoom.
+    this.drawBiomeColorWash(noise, tilesX, tilesY);
 
     // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
     // but below decorations (2+). Each sprite covers the baked water tile underneath.
@@ -2610,6 +3184,11 @@ export class GameScene extends Phaser.Scene {
     id: string, label: string, ix: number, iy: number, zoneId: string
   ): void {
     this.collectedItems.add(id);
+
+    // Collectible pickup jingle
+    if (this.audioAvailable && this.cache.audio.has('sfx-pickup')) {
+      this.sound.play('sfx-pickup', { volume: 0.55 });
+    }
 
     const sprite = this.collectibleSprites.get(id);
     if (sprite) {
