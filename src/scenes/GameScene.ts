@@ -394,6 +394,9 @@ export class GameScene extends Phaser.Scene {
   private npcDialogActive = false;
   private interactKey?: Phaser.Input.Keyboard.Key;
 
+  // Dev mode switcher — 'wilderview' for terrain/world, 'arena' for combat/Tinkerer
+  private gameMode: 'wilderview' | 'arena' = 'wilderview';
+
   // ─── Attract mode ─────────────────────────────────────────────────────────────
   private attractMode = true;
   private attractTargets: Phaser.GameObjects.GameObject[] = [];
@@ -410,6 +413,12 @@ export class GameScene extends Phaser.Scene {
 
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  // Phaser calls init() before preload()/create() with data from scene.start/restart.
+  // This is where we read the requested game mode so preload() can branch on it.
+  init(data?: { mode?: 'wilderview' | 'arena' }): void {
+    this.gameMode = data?.mode ?? 'wilderview';
   }
 
   preload(): void {
@@ -541,6 +550,17 @@ export class GameScene extends Phaser.Scene {
     // via this.textures.get().add() rather than a JSON atlas (none is bundled).
     const pcBuildings = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Environment/Structures/Buildings';
     this.load.image('building-roofs', `${pcBuildings}/Roofs.png`);
+
+    // ── Arena mode: Tinkerer hero (48×48 px PixelLab atlas) ───────────────────────
+    // Only loaded in arena mode — avoids a needless download in wilderview.
+    // Directions: south=down, north=up, east=side-right (west mirrored in code).
+    if (this.gameMode === 'arena') {
+      this.load.atlas(
+        'tinkerer',
+        'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
+        'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json',
+      );
+    }
   }
 
   create(): void {
@@ -737,6 +757,7 @@ export class GameScene extends Phaser.Scene {
     this.startPhaseMusic(this.currentPhase, 0);
 
     this.initAttractMode();
+    this.createDevMenu();
   }
 
   update(time: number, delta: number): void {
@@ -1982,17 +2003,34 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPlayer(): void {
-    // Register directional animations from Pixel Crawler Free Pack Body_A sheets
-    this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
-    this.anims.create({ key: 'pc-idle-up',   frames: this.anims.generateFrameNumbers('pc-idle-up',   {}), frameRate: 6, repeat: -1 });
-    this.anims.create({ key: 'pc-idle-side', frames: this.anims.generateFrameNumbers('pc-idle-side', {}), frameRate: 6, repeat: -1 });
-    this.anims.create({ key: 'pc-walk-down', frames: this.anims.generateFrameNumbers('pc-walk-down', {}), frameRate: 9, repeat: -1 });
-    this.anims.create({ key: 'pc-walk-up',   frames: this.anims.generateFrameNumbers('pc-walk-up',   {}), frameRate: 9, repeat: -1 });
-    this.anims.create({ key: 'pc-walk-side', frames: this.anims.generateFrameNumbers('pc-walk-side', {}), frameRate: 9, repeat: -1 });
-
-    this.playerSprite = this.add.sprite(0, 0, 'pc-idle-down');
-    this.playerSprite.setScale(1);
-    this.playerSprite.play('pc-idle-down');
+    if (this.gameMode === 'arena') {
+      // Tinkerer hero (earth path, tier 2) — PixelLab-generated 48×48 px atlas.
+      // Registers animations under the same pc-* keys so updatePlayerAnimation()
+      // works unchanged. South = facing camera (down), north = away, east = right.
+      // West-facing is handled by setFlipX(true) on the east animation in updatePlayerAnimation().
+      const tkFrames = (anim: string, dir: string, n: number) =>
+        Array.from({ length: n }, (_, i) => ({ key: 'tinkerer', frame: `${anim}_${dir}_${i}` }));
+      this.anims.create({ key: 'pc-idle-down', frames: tkFrames('idle', 'south', 4), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-idle-up',   frames: tkFrames('idle', 'north', 4), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-idle-side', frames: tkFrames('idle', 'east',  4), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-down', frames: tkFrames('walk', 'south', 4), frameRate: 9, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-up',   frames: tkFrames('walk', 'north', 4), frameRate: 9, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-side', frames: tkFrames('walk', 'east',  4), frameRate: 9, repeat: -1 });
+      this.playerSprite = this.add.sprite(0, 0, 'tinkerer', 'idle_south_0');
+      this.playerSprite.setScale(1);
+      this.playerSprite.play('pc-idle-down');
+    } else {
+      // WilderView: Pixel Crawler Free Pack Body_A character (64×64 px sheets)
+      this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-idle-up',   frames: this.anims.generateFrameNumbers('pc-idle-up',   {}), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-idle-side', frames: this.anims.generateFrameNumbers('pc-idle-side', {}), frameRate: 6, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-down', frames: this.anims.generateFrameNumbers('pc-walk-down', {}), frameRate: 9, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-up',   frames: this.anims.generateFrameNumbers('pc-walk-up',   {}), frameRate: 9, repeat: -1 });
+      this.anims.create({ key: 'pc-walk-side', frames: this.anims.generateFrameNumbers('pc-walk-side', {}), frameRate: 9, repeat: -1 });
+      this.playerSprite = this.add.sprite(0, 0, 'pc-idle-down');
+      this.playerSprite.setScale(1);
+      this.playerSprite.play('pc-idle-down');
+    }
 
     // Invisible circle + indicator kept for physics sizing / pointer aim
     this.playerBody = this.add.circle(0, 0, 1, 0x000000, 0);
@@ -2855,10 +2893,9 @@ export class GameScene extends Phaser.Scene {
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
-        // Low-frequency base noise only — omitting detail keeps colour regions
-        // large and smooth. The terrain tile below uses detail for fine texture.
-        const base   = noise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        // Domain-warped base noise (FIL-153) so colour wash regions match tile biomes exactly.
         // FIL-154: sample temp + moist so tint matches the biome tile exactly.
+        const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
         const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
         const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
@@ -2957,7 +2994,11 @@ export class GameScene extends Phaser.Scene {
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
-        const base   = noise.fbm(tx * BASE_SCALE,     ty * BASE_SCALE,     4, 0.5);
+        // Domain-warped base noise (FIL-153) — displaces the sample point by a
+        // low-frequency noise offset before sampling, making biome borders fold and
+        // warp organically (fjord-like coastlines, irregular forest edges) rather than
+        // following mathematically smooth noise contours.
+        const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
         const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE,   2, 0.6);
         // FIL-154: temperature and moisture vary independently of elevation.
         const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
@@ -3962,5 +4003,53 @@ export class GameScene extends Phaser.Scene {
 
     this.scene.pause();
     this.scene.launch('NpcDialogScene', dialogData as unknown as object);
+  }
+
+  // ─── Dev menu ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Persistent mode-switcher bar pinned to the bottom of the viewport.
+   * Always visible regardless of game state — click the inactive label to restart
+   * the scene in that mode.
+   *
+   * WilderView — terrain generation, world seeding, animals, day/night cycle.
+   * Arena      — combat testing with Tinkerer (earth path tier 2) as the player.
+   */
+  private createDevMenu(): void {
+    const barY = 590;
+
+    // Semi-transparent strip along the bottom edge
+    this.add.rectangle(400, barY, 800, 22, 0x000000, 0.6)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    const modes: Array<{ key: 'wilderview' | 'arena'; label: string }> = [
+      { key: 'wilderview', label: 'WilderView' },
+      { key: 'arena',      label: 'Arena' },
+    ];
+
+    modes.forEach(({ key, label }, i) => {
+      const x = 400 - 55 + i * 110;
+      const active = this.gameMode === key;
+
+      const txt = this.add
+        .text(x, barY, label, {
+          fontSize: '11px',
+          // Active mode: bright green; inactive: muted
+          color: active ? '#aaffaa' : '#667766',
+          padding: { x: 8, y: 3 },
+        })
+        .setOrigin(0.5, 0.5)
+        .setScrollFactor(0)
+        .setDepth(1001);
+
+      if (!active) {
+        // Clicking the inactive label restarts the scene in that mode
+        txt.setInteractive({ useHandCursor: true })
+          .on('pointerup', () => this.scene.restart({ mode: key }))
+          .on('pointerover', () => txt.setColor('#99bb99'))
+          .on('pointerout',  () => txt.setColor('#667766'));
+      }
+    });
   }
 }
