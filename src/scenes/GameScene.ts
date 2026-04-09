@@ -52,6 +52,9 @@ const DASH_SPEED        = 520;  // px/s during the burst
 const DASH_DURATION_MS  = 180;  // how long the velocity override lasts
 const DASH_COOLDOWN_MS  = 600;  // minimum gap between consecutive dashes
 const DASH_AFTERIMAGE_N = 4;    // ghost sprites left in the wake
+// i-frame window: rabbits cannot start a chase during this window so the dash
+// feels like an escape tool even when the velocity burst has already faded.
+const DASH_INVINCIBLE_MS = 250; // ms — slightly longer than DASH_DURATION_MS
 
 // Player shape dimensions
 const BODY_RADIUS = 16;
@@ -234,6 +237,8 @@ export class GameScene extends Phaser.Scene {
   private lastDashAt     = 0;   // cooldown gating
   private dashDx         = 0;   // normalised direction held for the burst
   private dashDy         = 0;
+  // game-time (ms) when dash i-frames expire (0 = not invincible)
+  private dashInvincibleUntil = 0;
   // Joystick double-tap detection: record when joystick goes idle so a quick
   // re-engagement within 220 ms triggers a dash.
   private joystickWasActive   = false;
@@ -765,6 +770,13 @@ export class GameScene extends Phaser.Scene {
 
       let next: RabbitState = state === 'fleeing' ? 'roaming' : state;
       if (dist < CHASE_RANGE && state !== 'fleeing') {
+        // During dash i-frames, blast nearby rabbits away instead of chasing.
+        // This makes the dash feel like an escape tool when surrounded (FIL-123).
+        if (time < this.dashInvincibleUntil) {
+          r.setData('state', 'fleeing' satisfies RabbitState);
+          r.setData('fleeUntil', time + FLEE_MS);
+          continue;
+        }
         next = 'chasing';
       } else if (state === 'chasing' && dist > CHASE_RANGE + 40) {
         next = 'roaming';
@@ -1146,8 +1158,9 @@ export class GameScene extends Phaser.Scene {
     const len = Math.sqrt(dx * dx + dy * dy);
     this.dashDx = dx / len;
     this.dashDy = dy / len;
-    this.lastDashAt   = now;
-    this.dashingUntil = now + DASH_DURATION_MS;
+    this.lastDashAt          = now;
+    this.dashingUntil        = now + DASH_DURATION_MS;
+    this.dashInvincibleUntil = now + DASH_INVINCIBLE_MS;
 
     this.spawnDashAfterimages();
 
