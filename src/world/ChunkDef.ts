@@ -178,6 +178,36 @@ const WATERING_HOLE: ChunkDef = {
   ],
 };
 
+/**
+ * FIL-128: Corrupted clearing — used only at hand-authored CORRUPTED_LANDMARKS
+ * positions (weight 0 means it's never placed by stampProceduralChunks).
+ * Rocks and dark mushrooms suggest a "dead zone" where corruption lingers.
+ */
+export const CORRUPTED_CLEARING: ChunkDef = {
+  id: 'corrupted_clearing',
+  weight: 0,  // manual placement only
+  radius: 80,
+  items: [
+    { kind: 'rock', dx: -40, dy: -20, texture: 'rock-grass', scale: 2.0, colliderWidth: 14, colliderHeight: 8 },
+    { kind: 'rock', dx:  30, dy:  10, texture: 'rock-grass', scale: 1.8, colliderWidth: 12, colliderHeight: 8 },
+    { kind: 'rock', dx:   0, dy:  40, texture: 'rock-grass', scale: 2.2, colliderWidth: 14, colliderHeight: 9 },
+    { kind: 'rock', dx:  55, dy: -35, texture: 'rock-grass', scale: 1.6, colliderWidth: 10, colliderHeight: 7 },
+    { kind: 'decoration', dx:  10, dy: -10, texture: 'mushrooms-red', scale: 1.8 },
+    { kind: 'decoration', dx: -20, dy:  20, texture: 'mushroom',      scale: 1.6 },
+    { kind: 'decoration', dx:  35, dy:  45, texture: 'grass-tuft-1',  scale: 1.4 },
+  ],
+};
+
+/**
+ * FIL-128: Three hand-placed corrupted landmark positions along the SW→NE corridor.
+ * Each gets a CORRUPTED_CLEARING chunk + a dark aura circle to signal "dead zone".
+ */
+export const CORRUPTED_LANDMARKS: Array<{ x: number; y: number; label: string }> = [
+  { x: 1200, y: 2200, label: 'Fallen Grove'    },
+  { x: 2600, y: 1800, label: 'Bleached Hollow' },
+  { x: 3400, y:  900, label: 'Ash Ring'        },
+];
+
 export const CHUNKS: ChunkDef[] = [FOREST_COPSE, CLEARING, RUINS, WATERING_HOLE];
 
 /** How many chunks to place across the world */
