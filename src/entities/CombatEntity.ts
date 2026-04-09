@@ -52,6 +52,8 @@ export interface CombatEntityConfig extends EnemyConfig {
    * When provided the placeholder rectangle is hidden and the sprite is shown instead.
    */
   spriteKey?: string;
+  spriteTint?: number;
+  spriteScale?: number;
 }
 
 // ── Base class ────────────────────────────────────────────────────────────────
@@ -179,6 +181,8 @@ export abstract class CombatEntity extends Enemy {
     if (config.spriteKey) {
       this.bodyRect.setVisible(false);
       const spr = scene.add.sprite(0, 0, config.spriteKey);
+      if (config.spriteTint  !== undefined) spr.setTint(config.spriteTint);
+      if (config.spriteScale !== undefined) spr.setScale(config.spriteScale);
       this.add(spr);
       this.spriteObj = spr;
       // HP bar renders on top of the sprite.
@@ -992,6 +996,111 @@ export class Tinkerer extends CombatEntity {
         ctx.wander(d);
         return 'running';
       }),
+    ]);
+  }
+}
+
+// ── Spinolandet (bio / evolution) enemies ─────────────────────────────────────
+
+export class SporeHusk extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp: 45, speed: 62, aggroRadius: 400, attackDamage: 10,
+      color: 0x664466, meleeRange: 30, attackCooldownMs: 950,
+      spriteKey: 'spider', spriteTint: 0xaa66dd,
+    });
+  }
+  protected override onDeath(): void {
+    super.onDeath();
+    const gfx = this.scene.add.graphics();
+    gfx.lineStyle(2, 0x44ddaa, 0.9);
+    gfx.strokeCircle(0, 0, 1);
+    gfx.setPosition(this.x, this.y).setDepth(this.depth + 2);
+    this.scene.tweens.add({ targets: gfx, scaleX: 40, scaleY: 40, alpha: { from: 0.8, to: 0 }, duration: 350, ease: 'Cubic.easeOut', onComplete: () => gfx.destroy() });
+  }
+  protected buildTree(): BtNode {
+    const R = this.meleeRange;
+    return new BtSelector([
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+export class AcidLancer extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp: 35, speed: 72, aggroRadius: 420, attackDamage: 6,
+      color: 0x88aa22, meleeRange: 28, attackCooldownMs: 900,
+      projectileDamage: 10, projectileSpeed: 190, projectileColor: 0x99dd00,
+      spriteKey: 'skag', spriteTint: 0x88ee22,
+    });
+  }
+  protected buildTree(): BtNode {
+    const TOO_CLOSE = 60, SHOOT_MIN = 80, SHOOT_MAX = 240;
+    return new BtSelector([
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < TOO_CLOSE), new BtAction(ctx => { const fx = ctx.x + (ctx.x - ctx.opponent!.x); const fy = ctx.y + (ctx.y - ctx.opponent!.y); ctx.moveToward(fx, fy); return 'running'; })]),
+      new BtCooldown(new BtSequence([new BtCondition(ctx => { if (!ctx.opponent) return false; const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y); return d >= SHOOT_MIN && d <= SHOOT_MAX; }), new BtAction(ctx => { ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y); ctx.stop(); return 'success'; })]), 900),
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+export class BruteCarapace extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp: 180, speed: 42, aggroRadius: 400, attackDamage: 25,
+      color: 0x221133, meleeRange: 38, attackCooldownMs: 1200,
+      dashSpeedMultiplier: 6.0, dashDurationMs: 240,
+    });
+  }
+  protected buildTree(): BtNode {
+    const R = this.meleeRange, CMAX = 380;
+    return new BtSelector([
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
+      new BtCooldown(new BtSequence([new BtCondition(ctx => { if (!ctx.opponent) return false; const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y); return d > R && d <= CMAX; }), new BtAction(ctx => { ctx.dash(ctx.opponent!.x, ctx.opponent!.y); return 'success'; })]), 5000),
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+export class ParasiteFlyer extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp: 45, speed: 88, aggroRadius: 450, attackDamage: 16,
+      color: 0x3399aa, meleeRange: 28, attackCooldownMs: 900,
+      dashSpeedMultiplier: 5.5, dashDurationMs: 160,
+      spriteKey: 'crow', spriteTint: 0x22ddcc,
+    });
+  }
+  protected buildTree(): BtNode {
+    const R = this.meleeRange, DMIN = 40, DMAX = 340;
+    return new BtSelector([
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
+      new BtCooldown(new BtSequence([new BtCondition(ctx => { if (!ctx.opponent) return false; const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y); return d >= DMIN && d <= DMAX; }), new BtAction(ctx => { ctx.dash(ctx.opponent!.x, ctx.opponent!.y); return 'success'; })]), 2000),
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+export class WarriorBug extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp: 8, speed: 132, aggroRadius: 500, attackDamage: 4,
+      color: 0x1a2a0a, meleeRange: 22, attackCooldownMs: 600,
+      spriteKey: 'spider', spriteTint: 0x44ee22, spriteScale: 0.55,
+    });
+  }
+  protected buildTree(): BtNode {
+    const R = this.meleeRange;
+    return new BtSelector([
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
+      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
     ]);
   }
 }
