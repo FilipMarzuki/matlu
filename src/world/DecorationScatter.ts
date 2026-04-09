@@ -57,6 +57,10 @@ const DETAIL_THRESHOLD = 0.60;
 const MIN_DIST = 48;
 /** Base noise scale, matching GameScene's BASE_SCALE. */
 const BASE_SCALE = 0.07;
+/** Temperature noise frequency — matches GameScene's TEMP_SCALE. */
+const TEMP_SCALE  = 0.04;
+/** Moisture noise frequency — matches GameScene's MOIST_SCALE. */
+const MOIST_SCALE = 0.06;
 
 /**
  * Generate decoration positions for a world of `worldW × worldH` pixels.
@@ -67,6 +71,8 @@ const BASE_SCALE = 0.07;
  * @param tileSize     Tile size in pixels (e.g. 32)
  * @param avoidRects   Areas to leave clear (chunk centres, spawn clearing, portal)
  * @param maxDecorations Hard cap — defaults to 800
+ * @param tempSeed       Seed for temperature noise — defaults to same XOR as GameScene
+ * @param moistSeed      Seed for moisture noise — defaults to same XOR as GameScene
  */
 export function generateDecorations(
   seed: number,
@@ -75,11 +81,16 @@ export function generateDecorations(
   tileSize: number,
   avoidRects: Array<{ x: number; y: number; w: number; h: number }>,
   maxDecorations = 800,
+  tempSeed  = seed ^ 0x74656d70,
+  moistSeed = seed ^ 0x6d6f6973,
 ): ScatteredDecor[] {
   // Same seed as GameScene.baseNoise → biome values are identical to terrain colours
   const biomeNoise  = new FbmNoise(seed);
   // High-frequency layer for scatter pattern — XOR keeps it independent of biome
   const detailNoise = new FbmNoise(seed ^ 0xf4c3b2a1);
+  // Temperature and moisture noise — XOR seeds match GameScene's tempNoise / moistNoise
+  const tempNoise   = new FbmNoise(tempSeed);
+  const moistNoise  = new FbmNoise(moistSeed);
   // PRNG for variant/scale jitter — deterministic per seed
   const rng = mulberry32(seed ^ 0x1a2b3c4d);
 
@@ -108,28 +119,51 @@ export function generateDecorations(
     const biome = biomeNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
     if (biome < 0.28) continue; // open water — nothing grows here
 
+    // Temperature [0–1] and moisture [0–1] at this point — same scale as GameScene.
+    // 2 octaves (not 4) keeps them smoother, producing broad regional variation rather
+    // than fine-grained noise that would fight the Poisson distribution.
+    const temp  = tempNoise.fbm(tx  * TEMP_SCALE,  ty * TEMP_SCALE,  2, 0.5);
+    const moist = moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 2, 0.5);
+
     // Avoid-rect check — skip points inside any excluded zone
     for (const rect of avoidRects) {
       if (wx >= rect.x && wx <= rect.x + rect.w &&
           wy >= rect.y && wy <= rect.y + rect.h) continue outer;
     }
 
-    // Assign type based on biome so the right things grow in the right places:
-    //   shore/wet   (0.28–0.37): grass tufts (reeds, sedge)
-    //   meadow      (0.37–0.65): mostly flowers, occasional bush breaks up the colour
-    //   tall grass  (0.65–0.73): flowers + tufts + sparse bush
-    //   forest edge (0.73–0.81): bushes dominant, mushrooms in shade
-    //   dense forest(≥ 0.81)  : mushrooms + stones + sparse bush understory
+    // Assign type using a 2-D biome × (temp, moisture) matrix so that the same biome
+    // band produces regional variation — e.g. a cold wet meadow grows mushrooms while
+    // a warm dry one stays flowery, rather than a single flat rule per biome.
     let type: DecorationType;
-    if      (biome < 0.37) type = 'tuft';
-    else if (biome < 0.65) type = rng() < 0.88 ? 'flower' : 'bush';
-    else if (biome < 0.73) type = rng() < 0.50 ? 'flower' : rng() < 0.75 ? 'tuft' : 'bush';
-    else if (biome < 0.81) type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'bush' : 'stone';
-    else                   type = rng() < 0.45 ? 'mushroom' : rng() < 0.70 ? 'stone' : 'bush';
+    if (biome < 0.37) {
+      // Shore/wet — moisture-split: tall reed tufts in wetter spots, stones on drier shore
+      type = moist > 0.55 ? 'tuft' : 'stone';
+    } else if (biome < 0.65) {
+      // Meadow — cold+wet patches grow mushrooms; warm/dry stays flowery
+      if (temp < 0.38 && moist > 0.62) type = 'mushroom';
+      else type = rng() < 0.85 ? 'flower' : 'bush';
+    } else if (biome < 0.73) {
+      // Tall-grass transition — wetter side tilts toward flowers/tufts; drier toward mushrooms/stone
+      if (moist > 0.58) type = rng() < 0.55 ? 'flower' : 'tuft';
+      else              type = rng() < 0.45 ? 'mushroom' : rng() < 0.75 ? 'bush' : 'stone';
+    } else if (biome < 0.81) {
+      // Forest edge — wet = mossy mushrooms; dry = stones + bush
+      type = moist > 0.50
+        ? (rng() < 0.55 ? 'mushroom' : 'bush')
+        : (rng() < 0.50 ? 'stone'    : 'bush');
+    } else {
+      // Dense forest — temperature drives ratio: cold = more mushrooms, warm = more stones
+      type = temp < 0.45
+        ? (rng() < 0.60 ? 'mushroom' : 'stone')
+        : (rng() < 0.50 ? 'stone'    : rng() < 0.70 ? 'bush' : 'mushroom');
+    }
 
     // Variant 0–3 for texture/colour selection; slight scale jitter for variety.
     // No position jitter needed — Poisson disk positions are already non-grid-aligned.
-    const variant = Math.floor(rng() * 4);
+    let variant = Math.floor(rng() * 4);
+    // Shore reeds: pin to grass-tuft-5 (the tallest, most reed-like sprite) when
+    // wet-shore tuft is selected — makes the waterline feel distinctly different.
+    if (type === 'tuft' && biome < 0.37 && moist > 0.55) variant = 4;
     const scale   = 1.2 + rng() * 0.6; // 1.2–1.8×
 
     result.push({ x: wx, y: wy, type, variant, scale });
