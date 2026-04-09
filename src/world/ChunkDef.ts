@@ -179,6 +179,42 @@ const WATERING_HOLE: ChunkDef = {
 };
 
 /**
+ * FIL-129: Hidden hollow — marks a secret collectible spot.
+ * weight:0 = manual placement only via stampSecretAreas().
+ * Three trees ring a small clearing; flowers and a mushroom hint at a sheltered,
+ * undisturbed place worth stopping at.
+ */
+export const HIDDEN_HOLLOW: ChunkDef = {
+  id: 'hidden_hollow',
+  weight: 0,  // manual placement only
+  radius: 60,
+  items: [
+    { kind: 'tree', dx: -50, dy: -20, texture: 'tree-oak-small', scale: 2.2, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx:  45, dy: -30, texture: 'tree-birch',     scale: 2.1, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx: -30, dy:  50, texture: 'tree-spruce',    scale: 2.0, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'decoration', dx:   5, dy:   5, texture: 'flower-1-purple', scale: 1.5 },
+    { kind: 'decoration', dx: -15, dy:  20, texture: 'mushroom',        scale: 1.4 },
+  ],
+};
+
+/**
+ * FIL-129: Stone waymarker — 2–3 upright rocks placed at zone transition points.
+ * weight:0 = manual placement only via stampZoneBoundaries().
+ * A cluster of rocks with a grass tuft — like an old trail marker worn down by time.
+ */
+export const WAYMARKER_STONE: ChunkDef = {
+  id: 'waymarker_stone',
+  weight: 0,  // manual placement only
+  radius: 50,
+  items: [
+    { kind: 'rock', dx:   0, dy:   0, texture: 'rock-grass', scale: 2.4, colliderWidth: 12, colliderHeight: 10 },
+    { kind: 'rock', dx:  30, dy:  15, texture: 'rock-grass', scale: 1.8, colliderWidth: 10, colliderHeight:  8 },
+    { kind: 'rock', dx: -25, dy:  20, texture: 'rock-grass', scale: 2.0, colliderWidth: 11, colliderHeight:  8 },
+    { kind: 'decoration', dx:  10, dy: -25, texture: 'grass-tuft-3', scale: 1.4 },
+  ],
+};
+
+/**
  * FIL-128: Corrupted clearing — used only at hand-authored CORRUPTED_LANDMARKS
  * positions (weight 0 means it's never placed by stampProceduralChunks).
  * Rocks and dark mushrooms suggest a "dead zone" where corruption lingers.
@@ -226,4 +262,6 @@ export const CHUNK_AVOID_ZONES: Array<{ x: number; y: number; r: number }> = [
   { x:  400, y: 2600, r: 120 },  // collectible 1
   { x: 2200, y: 1450, r: 120 },  // collectible 2
   { x: 3900, y:  500, r: 120 },  // collectible 3
+  { x:  750, y: 1600, r: 100 },  // FIL-129 secret-1 Vittnesstenen
+  { x: 3100, y: 2100, r: 100 },  // FIL-129 secret-2 Ödestornet
 ];

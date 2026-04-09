@@ -3,7 +3,7 @@ import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-p
 import { FbmNoise } from '../lib/noise';
 import { mulberry32, poissonDisk } from '../lib/rng';
 import { t } from '../lib/i18n';
-import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES, CORRUPTED_CLEARING, CORRUPTED_LANDMARKS } from '../world/ChunkDef';
+import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES, CORRUPTED_CLEARING, CORRUPTED_LANDMARKS, HIDDEN_HOLLOW, WAYMARKER_STONE } from '../world/ChunkDef';
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
 import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
@@ -21,7 +21,7 @@ import { CorruptionField } from '../world/CorruptionField';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
   meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
-  SETTLEMENTS,
+  SETTLEMENTS, SECRET_POSITIONS, ZONE_BOUNDARY_MARKERS,
 } from '../world/Level1';
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
@@ -613,6 +613,8 @@ export class GameScene extends Phaser.Scene {
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampCorruptedLandmarks();
+    this.stampSecretAreas();
+    this.stampZoneBoundaries();
     this.stampDecorationScatter();
     this.spawnButterfliesAndBees();
     this.stampSettlementBuildings();
@@ -3433,6 +3435,30 @@ export class GameScene extends Phaser.Scene {
       // Dark purple aura — very low alpha so it doesn't dominate the palette,
       // but creates a clear "something happened here" visual signal.
       this.add.circle(lm.x, lm.y, 90, 0x220022, 0.18).setDepth(0.05);
+    }
+  }
+
+  /**
+   * FIL-129: Place a HIDDEN_HOLLOW chunk + faint hint circle at each secret
+   * collectible position. The golden circle is very low alpha — enough to make a
+   * curious player stop, but easy to miss at a glance.
+   */
+  private stampSecretAreas(): void {
+    for (const sp of SECRET_POSITIONS) {
+      this.stampChunk(HIDDEN_HOLLOW, sp.x, sp.y);
+      // Faint golden glow — suggests "something worth finding here" without being obvious.
+      this.add.circle(sp.x, sp.y, 50, 0x998800, 0.10).setDepth(0.05);
+    }
+  }
+
+  /**
+   * FIL-129: Place a WAYMARKER_STONE chunk at each zone boundary transition.
+   * The stone clusters act as subtle spatial cues — like old trail markers — telling
+   * the player that the character of the land is about to change.
+   */
+  private stampZoneBoundaries(): void {
+    for (const m of ZONE_BOUNDARY_MARKERS) {
+      this.stampChunk(WAYMARKER_STONE, m.x, m.y);
     }
   }
 
