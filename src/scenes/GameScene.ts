@@ -38,6 +38,10 @@ const TILE_SIZE = 32;
 // Noise scales: BASE drives large biome regions, DETAIL adds local colour variation
 const BASE_SCALE   = 0.07;
 const DETAIL_SCALE = 0.22;
+// FIL-154: secondary noise layers — slower than BASE so they create large bands,
+// but independent so they vary orthogonally to elevation.
+const TEMP_SCALE  = 0.04; // temperature varies in broad N/S-ish bands
+const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
 
 // Player spawn at the SW end of the diagonal corridor (rocky shore)
 const SPAWN_X = 300;
@@ -186,18 +190,50 @@ interface BirdObject {
  *   < 0.80  Dense spruce forest — dark interior forest
  *   ≥ 0.80  Highland rock — bare granite, gnarled mountain birch
  */
-function terrainTileFrame(val: number, detail: number): { key: string; frame: number } {
-  // Stay within a single row (6 columns) per biome — v12 across 2 rows caused
-  // coastal tiles to visibly cycle as detail noise oscillated between rows.
-  // plains.png rows: 0 = earthy shingle, 2 = light meadow, 4 = birch-spruce,
-  //                  6 = dark spruce,    8 = bare granite
-  const v6 = Math.floor(detail * 5.99); // 0–5, one row of plains.png
-  if      (val < 0.25) return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 }; // sea / lake
-  else if (val < 0.30) return { key: 'mw-plains', frame: v6 };         // rocky shore        — row 0
-  else if (val < 0.42) return { key: 'mw-plains', frame: 12 + v6 };    // coastal heath      — row 2
-  else if (val < 0.62) return { key: 'mw-plains', frame: 24 + v6 };    // mixed birch-spruce — row 4
-  else if (val < 0.78) return { key: 'mw-plains', frame: 36 + v6 };    // dense spruce       — row 6
-  else                 return { key: 'mw-plains', frame: 48 + v6 };    // highland granite   — row 8
+/**
+ * Maps elevation, temperature, moisture, and detail noise to a Mystic Woods tile.
+ *
+ * FIL-154: biome is now a 2D function of (elevation × moisture) at mid-elevations
+ * and (elevation × temperature) at high elevations, rather than a single threshold.
+ *
+ * plains.png rows (16×16 px per frame, 6 cols per row):
+ *   row 0 (frames  0– 5) — earthy shingle / rocky shore
+ *   row 2 (frames 12–17) — coastal heath / light meadow
+ *   row 4 (frames 24–29) — mixed birch-spruce floor
+ *   row 6 (frames 36–41) — dense dark spruce
+ *   row 8 (frames 48–53) — bare highland granite
+ *
+ * @param elev   Elevation noise [0,1] — drives the main land/sea/mountain axis
+ * @param temp   Temperature noise [0,1] — higher = warmer; varies independently of elev
+ * @param moist  Moisture noise [0,1] — higher = wetter; varies independently of elev
+ * @param detail High-frequency detail noise [0,1] — picks frame within a biome row
+ */
+function terrainTileFrame(
+  elev: number, temp: number, moist: number, detail: number,
+): { key: string; frame: number } {
+  const v6 = Math.floor(detail * 5.99); // 0–5, selects one of 6 frames in the biome row
+
+  // ── Water & shore (elevation-only — moisture/temp don't change these) ─────────
+  if (elev < 0.25) return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 };
+  if (elev < 0.30) return { key: 'mw-plains', frame: v6 };                    // rocky shore
+
+  // ── Mid elevation: moisture determines vegetation density ──────────────────────
+  // A wet mid-slope grows dense birch-spruce; a dry one stays open heath/shingle.
+  if (elev < 0.62) {
+    if (moist > 0.60) return { key: 'mw-plains', frame: 24 + v6 };            // wet  → mixed forest
+    if (moist > 0.30) return { key: 'mw-plains', frame: 12 + v6 };            // mod  → coastal heath
+    return                   { key: 'mw-plains', frame: v6 };                 // dry  → rocky/shingle
+  }
+
+  // ── High elevation: temperature determines spruce vs bare granite ──────────────
+  // A warm highland grows dense dark spruce; cold exposed summits stay bare granite.
+  if (elev < 0.78) {
+    return temp > 0.50
+      ? { key: 'mw-plains', frame: 36 + v6 }  // warm high — dense spruce
+      : { key: 'mw-plains', frame: 48 + v6 }; // cold high — granite
+  }
+
+  return { key: 'mw-plains', frame: 48 + v6 }; // summit — bare granite always
 }
 
 export class GameScene extends Phaser.Scene {
@@ -330,6 +366,10 @@ export class GameScene extends Phaser.Scene {
   // Created once in create() so both drawProceduralTerrain() and stampProceduralChunks()
   // share the same instance instead of each constructing their own FbmNoise.
   private baseNoise!: FbmNoise;
+  // FIL-154: secondary noise layers for temperature and moisture — independent of
+  // elevation so the same height can produce different biomes depending on position.
+  private tempNoise!: FbmNoise;
+  private moistNoise!: FbmNoise;
 
   // ─── Level 1 ──────────────────────────────────────────────────────────────────
   // Semi-transparent zone tint overlays — one per zone, faded on collectible pickup
@@ -543,7 +583,11 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
-    this.baseNoise = new FbmNoise(this.runSeed);
+    this.baseNoise  = new FbmNoise(this.runSeed);
+    // XOR seeds keep temp and moist completely uncorrelated with elevation and each other.
+    // The hex literals spell 'temp' and 'mois' in ASCII for readability.
+    this.tempNoise  = new FbmNoise(this.runSeed ^ 0x74656d70);
+    this.moistNoise = new FbmNoise(this.runSeed ^ 0x6d6f6973);
     this.corruptionField = new CorruptionField(this.runSeed);
     this.pathSystem = new PathSystem(LEVEL1_PATHS.map(s => ({ ...s })));
     this.drawProceduralTerrain();
@@ -2819,13 +2863,19 @@ export class GameScene extends Phaser.Scene {
    *   dense forest < 0.78  → deep forest green
    *   highland     ≥ 0.78  → cool granite grey
    */
-  private biomeTint(val: number): number {
-    if (val < 0.25) return 0x7ab0d8; // sea — blue
-    if (val < 0.30) return 0xd4a86a; // rocky shore — warm sandy
-    if (val < 0.42) return 0xb8d480; // coastal heath — light olive
-    if (val < 0.62) return 0x80c068; // mixed forest — fresh green
-    if (val < 0.78) return 0x50904a; // dense forest — deep green
-    return 0xb8b4ac;                  // highland — cool grey
+  /** FIL-154: tint matches terrainTileFrame() biome logic exactly. */
+  private biomeTint(elev: number, temp: number, moist: number): number {
+    if (elev < 0.25) return 0x7ab0d8;  // sea — blue
+    if (elev < 0.30) return 0xd4a86a;  // rocky shore — warm sandy
+    if (elev < 0.62) {
+      if (moist > 0.60) return 0x80c068; // wet mid  — fresh mixed-forest green
+      if (moist > 0.30) return 0xb8d480; // mod mid  — light olive heath
+      return                  0xd4a86a;  // dry mid  — sandy/rocky
+    }
+    if (elev < 0.78) {
+      return temp > 0.50 ? 0x50904a : 0xb8b4ac; // warm → spruce; cold → granite
+    }
+    return 0xb8b4ac; // summit granite — cool grey
   }
 
   /**
@@ -2843,9 +2893,11 @@ export class GameScene extends Phaser.Scene {
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
-        // Use domain-warped base noise (same call as drawProceduralTerrain) so the
-        // colour wash regions match the tile biomes exactly — no seam between tint and tile.
+        // Domain-warped base noise (FIL-153) so colour wash regions match tile biomes exactly.
+        // FIL-154: sample temp + moist so tint matches the biome tile exactly.
         const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
+        const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
@@ -2853,7 +2905,7 @@ export class GameScene extends Phaser.Scene {
 
         if (val < 0.25) continue; // water already has identity from animated sprites
 
-        const tint = this.biomeTint(val);
+        const tint = this.biomeTint(val, temp, moist);
         let arr = groups.get(tint);
         if (!arr) { arr = []; groups.set(tint, arr); }
         arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
@@ -2948,6 +3000,9 @@ export class GameScene extends Phaser.Scene {
         // following mathematically smooth noise contours.
         const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
         const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE,   2, 0.6);
+        // FIL-154: temperature and moisture vary independently of elevation.
+        const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
+        const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
 
         // Diagonal SW→NE corridor gradient. perpDiag<0 = NW mountains, perpDiag>0 = SE ocean.
         // Power-curve biases push flanks to extreme biomes (mountain >0.90, ocean <0.25).
@@ -2966,7 +3021,7 @@ export class GameScene extends Phaser.Scene {
         // Biome tint multiplies with each tile's pixel colours so the tile detail
         // stays visible while each region gets a distinct dominant hue — the same
         // technique CrossCode uses to give each zone a clear visual identity.
-        const { key, frame } = terrainTileFrame(val, detail);
+        const { key, frame } = terrainTileFrame(val, temp, moist, detail);
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
         terrainRt.batchDraw(tileImg);
 
@@ -3174,18 +3229,20 @@ export class GameScene extends Phaser.Scene {
       const x = 200 + rng() * (WORLD_W - 400);
       const y = 200 + rng() * (WORLD_H - 400);
 
-      // Sample terrain noise at this position to determine the biome.
-      // Matches the scale used by drawProceduralTerrain() so the noise value
-      // corresponds to the actual terrain colour the player will see underfoot.
+      // Sample all three noise layers — matches drawProceduralTerrain() exactly so
+      // the chunk lands on the biome the player will see underfoot.
       const biomeVal = biomeNoise.fbm(x * BASE_SCALE, y * BASE_SCALE);
+      const tempVal  = this.tempNoise.fbm(x * TEMP_SCALE,  y * TEMP_SCALE,  3, 0.5);
+      const moistVal = this.moistNoise.fbm(x * MOIST_SCALE, y * MOIST_SCALE, 3, 0.5);
 
-      // Filter chunk pool to types whose biome range covers this position.
-      // Falls back to the full pool if nothing matches (e.g. mid-range terrain
-      // that sits between two defined biomes).
+      // Filter chunk pool by elevation, temperature, and moisture.
+      // temp/moist fields default to full range [0,1] so existing chunks without
+      // them set are unaffected — backward compatible.
       const eligible = CHUNKS.filter(c => {
-        const lo = c.biomeMin ?? 0;
-        const hi = c.biomeMax ?? 1;
-        return biomeVal >= lo && biomeVal <= hi;
+        const elevOk  = biomeVal >= (c.biomeMin          ?? 0) && biomeVal <= (c.biomeMax          ?? 1);
+        const tempOk  = tempVal  >= (c.temperatureMin    ?? 0) && tempVal  <= (c.temperatureMax    ?? 1);
+        const moistOk = moistVal >= (c.moistureMin       ?? 0) && moistVal <= (c.moistureMax       ?? 1);
+        return elevOk && tempOk && moistOk;
       });
       const pool = eligible.length > 0 ? eligible : CHUNKS;
       const chunk = weightedPick(pool);

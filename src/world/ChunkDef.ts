@@ -63,6 +63,18 @@ export interface ChunkDef {
    */
   biomeMin?: number;
   biomeMax?: number;
+  /**
+   * FIL-154: optional temperature and moisture constraints [0–1].
+   * When set, the chunk only spawns where temp/moist noise falls within this range.
+   * Omitting either field defaults to [0, 1] (no constraint) — backward compatible.
+   *
+   * Example: a RUINS chunk with moistureMin=0.5 only appears in wetter terrain,
+   * giving moss-covered ruins in damp forests vs dry-stone ruins elsewhere.
+   */
+  temperatureMin?: number;
+  temperatureMax?: number;
+  moistureMin?: number;
+  moistureMax?: number;
   items: ChunkItem[];
 }
 
