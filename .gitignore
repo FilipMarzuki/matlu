@@ -16,6 +16,9 @@ public/assets/audio/Shapeforms Audio Free Sound Effects/
 # Duplicate download of Kenney Impact Sounds (macOS/Windows appends " (1)" on re-download)
 public/assets/audio/kenney_impact-sounds (1)/
 
+# Cursor IDE config
+.cursor/
+
 # Playwright test output
 test-results/
 
