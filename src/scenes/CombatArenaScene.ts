@@ -122,6 +122,12 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/characters/earth/enemies/crow/crow.png',
       'assets/sprites/characters/earth/enemies/crow/crow.json',
     );
+    // Colosseum floor Wang tileset — 4x4 grid of 16x16 px tiles, 64x64 total.
+    this.load.spritesheet(
+      'colosseum_floor',
+      'assets/sprites/tilesets/arena/arena_floor_colosseum.png',
+      { frameWidth: 16, frameHeight: 16 },
+    );
   }
 
   create(): void {
@@ -204,12 +210,9 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── HUD ───────────────────────────────────────────────────────────────────
-    // HUD objects only exist when bgMode=false; skip in background mode.
-    if (!this.bgMode) {
-      this.hudWave.setText(`Wave ${this.waveNumber}`);
-      this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`);
-      this.hudKills.setText(`Kills: ${this.killCount}`);
-    }
+    this.hudWave.setText(`Wave ${this.waveNumber}`);
+    this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`);
+    this.hudKills.setText(`Kills: ${this.killCount}`);
   }
 
   // ── Arena layout ─────────────────────────────────────────────────────────────
@@ -226,34 +229,166 @@ export class CombatArenaScene extends Phaser.Scene {
     const cx    = this.arenaX + this.arenaW / 2;
     const cy    = this.arenaY + this.arenaH / 2;
 
-    // Bio floor — dark organic green-black.
-    this.add.rectangle(cx, cy, this.arenaW, this.arenaH, 0x070f07);
+    this.cameras.main.setBackgroundColor(0x120d08);
+    this.cameras.main.centerOn(cx, cy);
 
-    // Spinolandet-palette border (acid-green accents).
+    // ── Tiled colosseum floor ────────────────────────────────────────────────
+    // Wang tileset frames: 12 = clean pale travertine (wang_15, all-upper),
+    //                       6 = dark worn stone (wang_0, all-lower).
+    const TILE        = 16;
+    const FRAME_CLEAN = 12;
+    const FRAME_WORN  = 6;
+    const WALL_T      = 20;
+    const cols = Math.ceil(this.arenaW / TILE);
+    const rows = Math.ceil(this.arenaH / TILE);
+
+    const rt = this.add.renderTexture(this.arenaX, this.arenaY, this.arenaW, this.arenaH);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
+        const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
+        rt.stamp('colosseum_floor', frame, col * TILE + TILE / 2, row * TILE + TILE / 2);
+      }
+    }
+
+    // ── Ashlar stone walls ────────────────────────────────────────────────────
     const gfx = this.add.graphics();
-    gfx.lineStyle(3, 0x336633, 1);
-    gfx.strokeRect(this.arenaX, this.arenaY, this.arenaW, this.arenaH);
 
-    const cornerLen = 16;
-    gfx.lineStyle(2, 0x44aa44, 0.7);
-    for (const [px, py] of [
-      [this.arenaX,              this.arenaY             ],
-      [this.arenaX + this.arenaW, this.arenaY             ],
-      [this.arenaX,              this.arenaY + this.arenaH],
-      [this.arenaX + this.arenaW, this.arenaY + this.arenaH],
-    ] as [number, number][]) {
-      const sx = px === this.arenaX ? 1 : -1;
-      const sy = py === this.arenaY ? 1 : -1;
-      gfx.lineBetween(px, py, px + sx * cornerLen, py);
-      gfx.lineBetween(px, py, px, py + sy * cornerLen);
+    const drawAshlarRow = (bx: number, by: number, length: number, offset = 0): void => {
+      const BLOCK_W = 40;
+      const LIGHT   = 0xa08060;
+      const DARK    = 0x7a6248;
+      const MORTAR  = 0x4a3a2a;
+      let bx2 = bx;
+      let idx = offset;
+      while (bx2 < bx + length) {
+        const bw = Math.min(BLOCK_W, bx + length - bx2);
+        gfx.fillStyle(idx % 2 === 0 ? LIGHT : DARK, 1);
+        gfx.fillRect(bx2 + 1, by + 1, bw - 2, WALL_T - 2);
+        gfx.lineStyle(1, MORTAR, 0.9);
+        gfx.strokeRect(bx2, by, bw, WALL_T);
+        bx2 += bw;
+        idx++;
+      }
+    };
+
+    const drawAshlarCol = (bx: number, by: number, length: number, offset = 0): void => {
+      const BLOCK_H = 40;
+      const LIGHT   = 0xa08060;
+      const DARK    = 0x7a6248;
+      const MORTAR  = 0x4a3a2a;
+      let by2 = by;
+      let idx = offset;
+      while (by2 < by + length) {
+        const bh = Math.min(BLOCK_H, by + length - by2);
+        gfx.fillStyle(idx % 2 === 0 ? LIGHT : DARK, 1);
+        gfx.fillRect(bx + 1, by2 + 1, WALL_T - 2, bh - 2);
+        gfx.lineStyle(1, MORTAR, 0.9);
+        gfx.strokeRect(bx, by2, WALL_T, bh);
+        by2 += bh;
+        idx++;
+      }
+    };
+
+    drawAshlarRow(this.arenaX, this.arenaY, this.arenaW, 0);
+    drawAshlarRow(this.arenaX, this.arenaY + this.arenaH - WALL_T, this.arenaW, 1);
+    drawAshlarCol(this.arenaX, this.arenaY + WALL_T, this.arenaH - WALL_T * 2, 0);
+
+    const GATE_HALF = 36;
+    const gateTop   = cy - GATE_HALF;
+    const gateBot   = cy + GATE_HALF;
+    drawAshlarCol(
+      this.arenaX + this.arenaW - WALL_T,
+      this.arenaY + WALL_T,
+      gateTop - this.arenaY - WALL_T,
+      1,
+    );
+    drawAshlarCol(
+      this.arenaX + this.arenaW - WALL_T,
+      gateBot,
+      this.arenaY + this.arenaH - WALL_T - gateBot,
+      0,
+    );
+
+    gfx.fillStyle(0x1a0e08, 1);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T - 2, gateTop, WALL_T + 4, GATE_HALF * 2);
+    gfx.fillStyle(0xc0a080, 1);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateTop, WALL_T, 8);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateBot - 8, WALL_T, 8);
+
+    // ── Corner columns ────────────────────────────────────────────────────────
+    const COL_SIZE = WALL_T + 8;
+    const corners: [number, number][] = [
+      [this.arenaX,                          this.arenaY                         ],
+      [this.arenaX + this.arenaW - COL_SIZE, this.arenaY                         ],
+      [this.arenaX,                          this.arenaY + this.arenaH - COL_SIZE],
+      [this.arenaX + this.arenaW - COL_SIZE, this.arenaY + this.arenaH - COL_SIZE],
+    ];
+    for (const [colX, colY] of corners) {
+      gfx.fillStyle(0xb09070, 1);
+      gfx.fillRect(colX, colY, COL_SIZE, COL_SIZE);
+      gfx.lineStyle(2, 0x4a3a2a, 0.8);
+      gfx.strokeRect(colX, colY, COL_SIZE, COL_SIZE);
+      gfx.lineStyle(1, 0xd0b090, 0.5);
+      gfx.lineBetween(colX + 3, colY + 3, colX + COL_SIZE - 3, colY + 3);
+      gfx.lineBetween(colX + 3, colY + COL_SIZE - 3, colX + COL_SIZE - 3, colY + COL_SIZE - 3);
     }
 
     this.physics.world.setBounds(
-      this.arenaX + 10, this.arenaY + 10,
-      this.arenaW - 20, this.arenaH - 20,
+      this.arenaX + WALL_T, this.arenaY + WALL_T,
+      this.arenaW - WALL_T * 2, this.arenaH - WALL_T * 2,
     );
-    this.cameras.main.setBackgroundColor(0x020702);
-    this.cameras.main.centerOn(cx, cy);
+
+    // ── Torch glow pools ─────────────────────────────────────────────────────
+    const torchPositions: [number, number][] = [
+      [this.arenaX + 90,               this.arenaY + 55              ],
+      [this.arenaX + this.arenaW - 90, this.arenaY + 55              ],
+      [this.arenaX + 90,               this.arenaY + this.arenaH - 55],
+      [this.arenaX + this.arenaW - 90, this.arenaY + this.arenaH - 55],
+    ];
+    for (const [tx, ty] of torchPositions) {
+      const glowGfx = this.add.graphics();
+      glowGfx.fillStyle(0xff9933, 0.16);
+      glowGfx.fillCircle(tx, ty, 38);
+      this.tweens.add({
+        targets:  glowGfx,
+        alpha:    { from: 0.75, to: 1.0 },
+        duration: Phaser.Math.Between(420, 680),
+        yoyo:     true,
+        repeat:   -1,
+        ease:     'Sine.easeInOut',
+        delay:    Phaser.Math.Between(0, 300),
+      });
+    }
+
+    // ── Organic cracks (barely noticeable) ───────────────────────────────────
+    const crackGfx = this.add.graphics();
+    crackGfx.lineStyle(1, 0x1a5540, 0.11);
+    const crackSeeds: [number, number, number][] = [
+      [cx - 80, cy + 40,  1.1],
+      [cx + 120, cy - 60, 2.4],
+      [cx - 40,  cy - 90, 0.4],
+      [cx + 50,  cy + 70, 1.8],
+      [cx - 140, cy + 20, 3.0],
+    ];
+    for (const [sx, sy, angle] of crackSeeds) {
+      const len = 40 + ((sx * 7 + sy * 3) % 25);
+      crackGfx.lineBetween(sx, sy, sx + Math.cos(angle) * len, sy + Math.sin(angle) * len);
+      crackGfx.lineBetween(sx, sy, sx + Math.cos(angle + 0.4) * len * 0.5, sy + Math.sin(angle + 0.4) * len * 0.5);
+    }
+
+    // ── Bioluminescent node ───────────────────────────────────────────────────
+    const bioGfx = this.add.graphics();
+    bioGfx.fillStyle(0x00ffcc, 0.07);
+    bioGfx.fillCircle(cx - 120, cy + 60, 14);
+    this.tweens.add({
+      targets:  bioGfx,
+      alpha:    { from: 0.45, to: 1.0 },
+      duration: 2800,
+      yoyo:     true,
+      repeat:   -1,
+      ease:     'Sine.easeInOut',
+    });
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
@@ -284,7 +419,6 @@ export class CombatArenaScene extends Phaser.Scene {
     const group = WAVE_GROUPS[this.waveGroupIndex];
     this.waveGroupIndex = (this.waveGroupIndex + 1) % WAVE_GROUPS.length;
 
-    // Extra SporeHusks every full cycle (capped at +3).
     const cycle  = Math.floor((this.waveNumber - 1) / WAVE_GROUPS.length);
     const ctors: EnemyCtor[] = [...group.enemies];
     for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(SporeHusk);
@@ -320,12 +454,10 @@ export class CombatArenaScene extends Phaser.Scene {
 
   // ── Wave timing ───────────────────────────────────────────────────────────────
 
-  /** 10 s base, −400 ms per wave, min 5 s. */
   private nextMainInterval(): number {
     return Math.max(5000, 10000 - this.waveNumber * 400);
   }
 
-  /** 1.5 s until wave 4, then 0.9 s. */
   private nextTrickleInterval(): number {
     return this.waveNumber >= 4 ? 900 : 1500;
   }

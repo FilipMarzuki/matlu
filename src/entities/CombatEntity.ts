@@ -308,6 +308,8 @@ export abstract class CombatEntity extends Enemy {
         // Emit on the SCENE event bus (not this.emit) so CombatArenaScene can
         // listen with a single handler rather than per-entity listeners.
         this.scene.events.emit('projectile-spawned', p);
+        // Hold the ranged-attack animation for the same duration as a melee hit.
+        this.attackAnimTimer = this.attackAnimDuration;
       },
 
       // ── New: directional dash ──────────────────────────────────────────────
@@ -378,6 +380,7 @@ export abstract class CombatEntity extends Enemy {
     this.spriteObj.setFlipX(this.lastFlipX);
 
     const state  = this.attackAnimTimer > 0 ? this.attackAnimId
+                 : this.isDashing           ? 'dash'
                  : spd > 5                  ? 'walk'
                  :                            'idle';
     // Animation keys are namespaced as {textureKey}_{state}_{dir} to avoid

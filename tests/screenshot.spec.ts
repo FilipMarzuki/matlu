@@ -170,3 +170,30 @@ test('screenshot: pause menu', async ({ page }) => {
 
   await capture(page, '04-pause-menu.png', 'Pause menu overlay — backdrop, panel, Resume/Settings/Quit buttons');
 });
+
+// ── 5. Combat arena ───────────────────────────────────────────────────────────
+
+test('screenshot: combat arena', async ({ page }) => {
+  await bootGame(page);
+
+  // Switch directly to CombatArenaScene via the scene manager.
+  await page.evaluate(() => {
+    const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
+    game?.scene?.stop('MainMenuScene');
+    game?.scene?.start('CombatArenaScene');
+  });
+
+  // Wait for the arena to be active (hero spawned = scene is running).
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
+    },
+    { timeout: 10_000 },
+  );
+
+  // Let the first wave spawn and the hero start fighting.
+  await page.waitForTimeout(4_000);
+
+  await capture(page, '05-combat-arena.png', 'Combat arena — colosseum floor, ashlar walls, wave 1 enemies vs Tinkerer');
+});
