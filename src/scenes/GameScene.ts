@@ -20,6 +20,7 @@ import type { LdtkLevel } from '../world/MapData';
 import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { CorruptionField }   from '../world/CorruptionField';
+import { RIVER_BANDS }        from '../world/RiverData';
 import { CorruptionPostFX }  from '../shaders/CorruptionPostFX';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
@@ -674,6 +675,7 @@ export class GameScene extends Phaser.Scene {
     this.createMountainWalls();
     this.createNavigationBarriers();
     this.createNavigationBarrierVisuals();
+    this.createRiverCrossingVisuals();
     this.createSolidObjects();
     this.stampProceduralChunks();
     this.stampCorruptedLandmarks();
@@ -2381,10 +2383,12 @@ export class GameScene extends Phaser.Scene {
       this.navigationBarriers.add(rect);
     };
 
-    // ── Southern River (y 2060–2160) — ford gap at x 530–680 ────────────────
-    // Gap aligns with dirt-sw-3 (x:580, w:80) from Level1Paths.ts.
-    addBlock(0,    2060, 530,  100);
-    addBlock(680,  2060, 3820, 100);
+    // ── Southern River / River A (y 2060–2160) ──────────────────────────────
+    // FIL-100: two crossing gaps — wading ford (x 350–478) and bridge ford (x 540–668).
+    // Wading gap is new; bridge ford replaces the original single ford at x 530–680.
+    addBlock(0,   2060, 350,  100);  // west of wading gap
+    addBlock(478, 2060, 62,   100);  // between wading and bridge (478→540)
+    addBlock(668, 2060, 3832, 100);  // east of bridge ford
 
     // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
     // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
@@ -2396,6 +2400,14 @@ export class GameScene extends Phaser.Scene {
     // Gap aligns with forest-path-2 / paved-plateau-1 junction.
     addBlock(0,    830,  2830, 90);
     addBlock(2930, 830,  1570, 90);
+
+    // ── River B (FIL-100) — y 1472–1568 ─────────────────────────────────────
+    // Mid-corridor river between Forest Belt (y 1240–1340) and Southern River.
+    // Bridge ford (x 1500–1596) aligns with animal-trail-3 vertical path.
+    // Wading ford (x 1700–1828) is east of the bridge.
+    addBlock(0,    1472, 1500, 96);  // west of bridge gap
+    addBlock(1596, 1472, 104,  96);  // between bridge and wading (1596→1700)
+    addBlock(1828, 1472, 2672, 96);  // east of wading gap
 
     this.navigationBarriers.refresh();
   }
@@ -2409,12 +2421,8 @@ export class GameScene extends Phaser.Scene {
     // Fixed seed so placement is identical on every run regardless of runSeed.
     const rng = mulberry32(0xba771e75);
 
-    // ── River: tiled water strip (frame 0 of terrain-water is a 16×16 water tile) ──
-    const riverY    = 2060;
-    const riverH    = 100;
-    const riverMidY = riverY + riverH / 2;
-    this.add.tileSprite(265,              riverMidY, 530,  riverH, 'terrain-water', 0).setDepth(1.5);
-    this.add.tileSprite(680 + 3820 / 2,  riverMidY, 3820, riverH, 'terrain-water', 0).setDepth(1.5);
+    // River A tileSprite visual removed — terrain now generates actual water tiles
+    // via the RIVER_BANDS override in drawProceduralTerrain() (FIL-100).
 
     // ── Forest Belt: dense tree scatter across all three belt segments ────────
     const treeTex = ['tree-spruce', 'tree-spruce-2', 'tree-normal', 'tree-big', 'tree-pine', 'tree-birch', 'tree-birch-2'];
@@ -2452,6 +2460,53 @@ export class GameScene extends Phaser.Scene {
             .setScale(0.5 + rng() * 0.5)
             .setDepth(ty + oy);
         }
+      }
+    }
+  }
+
+  /**
+   * Bridge planks and wading-ford rocks for every river defined in RIVER_BANDS.
+   *
+   * ## Why two crossing types?
+   * A bridge gives the player a direct, fast crossing aligned with the road path.
+   * A wading ford offers an alternative that slows the player (PathType 'wading')
+   * — both teach the player that rivers are obstacles with discrete crossing points.
+   *
+   * ## Depths
+   * Bridge rectangle: depth 1.9 — above water animation sprites (0.5) and path
+   * overlay (1), but below any Y-sorted decoration (depth = world y > 800).
+   * Rocks-in-water: depth 1.8 — just below the bridge so they don't overlap planks.
+   */
+  private createRiverCrossingVisuals(): void {
+    const rng = mulberry32(0x71766572); // 'rivr' in ASCII — deterministic placement
+
+    for (const river of RIVER_BANDS) {
+      const riverCy = river.tyCentre * TILE_SIZE;
+      const bandH   = (river.halfTiles * 2 + 1) * TILE_SIZE;
+
+      // ── Bridge: dark wood-plank rectangle spanning the full river band height ──
+      // Sits on top of the water tiles so it looks like a crossing platform.
+      const bridgeCx = river.bridgeX + river.bridgeW / 2;
+      this.add.rectangle(bridgeCx, riverCy, river.bridgeW, bandH, 0x5c4033)
+        .setDepth(1.9);
+      // Two thin plank-line overlays for texture — lighter centre strip + dark edges
+      this.add.rectangle(bridgeCx, riverCy, river.bridgeW, 4, 0x8b6040)
+        .setDepth(1.91);
+      this.add.rectangle(bridgeCx, riverCy - bandH / 2 + 4, river.bridgeW, 4, 0x3a2010)
+        .setDepth(1.91);
+      this.add.rectangle(bridgeCx, riverCy + bandH / 2 - 4, river.bridgeW, 4, 0x3a2010)
+        .setDepth(1.91);
+
+      // ── Wading ford: scattered rocks-in-water sprites (Mystic Woods 2.2) ─────
+      // The 'rocks-in-water' spritesheet has 6 frames (frame 0–5). Placed at
+      // depth 1.8 (below bridge planks) and scaled ×2 to match TILE_SIZE = 32.
+      for (let i = 0; i < 5; i++) {
+        const rx    = river.wadingX + rng() * river.wadingW;
+        const ry    = riverCy - TILE_SIZE * 0.8 + rng() * TILE_SIZE * 1.6;
+        const frame = Math.floor(rng() * 6);
+        this.add.image(rx, ry, 'rocks-in-water', frame)
+          .setScale(2)
+          .setDepth(1.8);
       }
     }
   }
@@ -3189,7 +3244,13 @@ export class GameScene extends Phaser.Scene {
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
         const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
 
-        if (val < 0.25) continue; // water already has identity from animated sprites
+        // Skip water and river-band tiles — water has identity from animated sprites.
+        if (val < 0.25) continue;
+        let isRiverTile = false;
+        for (const river of RIVER_BANDS) {
+          if (Math.abs(ty - river.tyCentre) <= river.halfTiles) { isRiverTile = true; break; }
+        }
+        if (isRiverTile) continue;
 
         const tint = this.biomeTint(val, temp, moist);
         let arr = groups.get(tint);
@@ -3295,7 +3356,17 @@ export class GameScene extends Phaser.Scene {
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
-        const val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
+        let val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
+
+        // FIL-100: force water tiles across every row in a river band.
+        // detail-based jitter (×0.08) keeps the water surface visually varied
+        // while staying safely below the water threshold (< 0.25).
+        for (const river of RIVER_BANDS) {
+          if (Math.abs(ty - river.tyCentre) <= river.halfTiles) {
+            val = 0.15 + detail * 0.08;
+            break;
+          }
+        }
 
         biomeGrid[ty * tilesX + tx] = val;
 
