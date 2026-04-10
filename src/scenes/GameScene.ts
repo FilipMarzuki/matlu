@@ -349,6 +349,10 @@ export class GameScene extends Phaser.Scene {
   private musicTrack: Phaser.Sound.BaseSound | undefined;
   // Key of the currently-playing music track (avoid restarting the same track)
   private currentMusicKey = '';
+  // FIL-113: Volumes saved before ducking so onSceneResume() can restore them exactly.
+  // Stored here (not in the overlay) so GameScene owns the full duck/restore lifecycle.
+  private preDuckMusicVol    = 0;
+  private preDuckAmbienceVol = 0;
   // tracks when we last played a footstep so we don't fire every frame
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
@@ -824,6 +828,11 @@ export class GameScene extends Phaser.Scene {
     // Start background music for the initial day phase
     this.startPhaseMusic(this.currentPhase, 0);
 
+    // FIL-113: When this scene resumes after a pause (any overlay closes), tween audio
+    // back up. Phaser sets active=true BEFORE emitting 'resume', so our tween manager
+    // is running again by the time this fires — safe to add new tweens here.
+    this.events.on('resume', this.onSceneResume, this);
+
     this.launchNavPanel();
 
     // Mouse-wheel zoom — works in both free-cam and normal play.
@@ -844,7 +853,6 @@ export class GameScene extends Phaser.Scene {
       const pipe = this.cameras.main.getPostPipeline('CorruptionFX');
       this.corruptPipeline = Array.isArray(pipe) ? pipe[0] as CorruptionPostFX : pipe as CorruptionPostFX;
     }
-
     this.initAttractMode();
   }
 
@@ -1230,7 +1238,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    for (const child of [...this.rabbits.getChildren()]) {
+    // getChildren() already returns a plain array — no spread copy needed.
+    for (const child of this.rabbits.getChildren()) {
       const r = child as Phaser.GameObjects.Rectangle;
       const d = Phaser.Math.Distance.Between(px, py, r.x, r.y);
       if (d > this.effectiveSwipeRange) {
@@ -1339,7 +1348,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // Rabbit hit — reuse applySwipeHit for consistent kill/flee logic.
-      for (const child of [...this.rabbits.getChildren()]) {
+      for (const child of this.rabbits.getChildren()) {
         const r = child as Phaser.GameObjects.Rectangle;
         if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, r.x, r.y) < RANGED_RADIUS + 8) {
           this.applySwipeHit(r);
@@ -2134,6 +2143,52 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ── FIL-113: Audio ducking ────────────────────────────────────────────────────
+
+  /**
+   * Duck music and ambience by 50% when an overlay opens (pause menu, NPC dialog, etc.).
+   *
+   * **Why accept a `tweens` parameter instead of using `this.tweens`?**
+   * When Phaser pauses a scene it freezes that scene's tween manager — any tween
+   * added to a paused scene's manager never ticks. The overlay scene (PauseMenuScene,
+   * UpgradeScene, etc.) is still *running*, so its tween manager works fine. We ask
+   * callers to pass their own `this.tweens` so the tween actually executes.
+   *
+   * **Why 50% and 300 ms?**
+   * Half volume is clearly lower but still audible (reassures the player audio is live).
+   * 300 ms is just long enough to feel intentional without making you wait.
+   *
+   * @param tweens - The overlay scene's (running) tween manager.
+   */
+  public duckAudio(tweens: Phaser.Tweens.TweenManager): void {
+    if (!this.audioAvailable) return;
+    // `BaseSound` doesn't expose `volume` in TypeScript types; both concrete
+    // implementations (WebAudioSound, HTML5AudioSound) do, so the cast is safe.
+    type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    if (this.musicTrack) {
+      this.preDuckMusicVol = (this.musicTrack as AudibleSound).volume;
+      tweens.add({ targets: this.musicTrack, volume: this.preDuckMusicVol * 0.5, duration: 300, ease: 'Sine.easeInOut' });
+    }
+    if (this.ambienceSound) {
+      this.preDuckAmbienceVol = (this.ambienceSound as AudibleSound).volume;
+      tweens.add({ targets: this.ambienceSound, volume: this.preDuckAmbienceVol * 0.5, duration: 300, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  /**
+   * FIL-113: Called when the scene resumes (any overlay closed via scene.resume()).
+   * Phaser activates the scene *before* emitting 'resume', so this.tweens is live again.
+   */
+  private onSceneResume(): void {
+    if (!this.audioAvailable) return;
+    if (this.musicTrack && this.preDuckMusicVol > 0) {
+      this.tweens.add({ targets: this.musicTrack, volume: this.preDuckMusicVol, duration: 300, ease: 'Sine.easeInOut' });
+    }
+    if (this.ambienceSound && this.preDuckAmbienceVol > 0) {
+      this.tweens.add({ targets: this.ambienceSound, volume: this.preDuckAmbienceVol, duration: 300, ease: 'Sine.easeInOut' });
+    }
+  }
+
   protected onZoneCleansed(type: string, x: number, y: number): void {
     log.info('zone_cleansed', { corruption_type: type, x: Math.round(x), y: Math.round(y) });
   }
@@ -2850,14 +2905,13 @@ export class GameScene extends Phaser.Scene {
     const px = this.player.x;
     const py = this.player.y;
 
-    // Pre-filter typed lists for predator/prey checks — cheaper than O(n²) getData calls.
-    // Player-controlled animals skip AI entirely, so exclude them here too.
-    const foxSprites  = (this.groundAnimals.getChildren() as Phaser.GameObjects.Sprite[])
-      .filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'fox');
-    const hareSprites = (this.groundAnimals.getChildren() as Phaser.GameObjects.Sprite[])
-      .filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'hare');
+    // Cache once — getChildren() returns the same backing array each call, but
+    // calling it three times is wasteful and allocates the filter results twice.
+    const allAnimals  = this.groundAnimals.getChildren() as Phaser.GameObjects.Sprite[];
+    const foxSprites  = allAnimals.filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'fox');
+    const hareSprites = allAnimals.filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'hare');
 
-    for (const child of this.groundAnimals.getChildren()) {
+    for (const child of allAnimals) {
       // Ground animals are now sprites (FIL-73); cast accordingly.
       const r  = child as Phaser.GameObjects.Sprite;
       // Y-sort with the same raw-Y system as chunk-placed trees so animals
@@ -2895,6 +2949,13 @@ export class GameScene extends Phaser.Scene {
       // ── Predator/prey: fox chases hare ─────────────────────────────────────────
       // Player-flee takes priority — a fox that is already fleeing the player won't
       // simultaneously chase a hare. Once the player retreats the fox will resume.
+      //
+      // chaseTarget and fleeFromX/Y are only needed within this loop iteration, so
+      // use local variables instead of setData/getData (DataManager hashmap lookups).
+      let chaseTarget: Phaser.GameObjects.Sprite | null = null;
+      let fleeFromX = px; // default flee origin is the player
+      let fleeFromY = py;
+
       if (type === 'fox' && state !== 'fleeing') {
         let nearestHare: Phaser.GameObjects.Sprite | null = null;
         let nearestDist = FOX_CHASE_RANGE;
@@ -2903,23 +2964,21 @@ export class GameScene extends Phaser.Scene {
           if (d < nearestDist) { nearestDist = d; nearestHare = hare; }
         }
         if (nearestHare) {
+          chaseTarget = nearestHare;
           if (state !== 'chasing') {
             state = 'chasing';
             r.setData('animalState', state);
             r.play('fox-walk-anim');
           }
-          r.setData('chaseTarget', nearestHare); // refreshed each frame to track movement
         } else if (state === 'chasing') {
           state = 'roaming';
           r.setData('animalState', state);
-          r.setData('chaseTarget', null);
           r.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 5000));
           r.play('fox-idle-anim');
         }
       }
 
       // Hares flee from nearby foxes using the same mechanism as player-flee.
-      // 'fleeFromX/Y' is set each frame so the hare always tracks the closest threat.
       if (type === 'hare') {
         let nearestFox: Phaser.GameObjects.Sprite | null = null;
         let nearestFoxDist = def.fleeRange;
@@ -2928,30 +2987,24 @@ export class GameScene extends Phaser.Scene {
           if (d < nearestFoxDist) { nearestFoxDist = d; nearestFox = fox; }
         }
         if (nearestFox) {
+          fleeFromX = nearestFox.x;
+          fleeFromY = nearestFox.y;
           if (state !== 'fleeing') {
             state = 'fleeing';
             r.setData('animalState', state);
             r.play('hare-walk-anim');
           }
-          r.setData('fleeFromX', nearestFox.x);
-          r.setData('fleeFromY', nearestFox.y);
-        } else {
-          // No fox nearby — default flee origin is the player.
-          r.setData('fleeFromX', px);
-          r.setData('fleeFromY', py);
         }
+        // else fleeFromX/Y stays as player position (already set above)
       }
 
       if (state === 'fleeing') {
-        // Hares store their flee origin (fox or player); all others flee the player.
-        const ftx = type === 'hare' ? (r.getData('fleeFromX') as number) : px;
-        const fty = type === 'hare' ? (r.getData('fleeFromY') as number) : py;
-        const away = Phaser.Math.Angle.Between(ftx, fty, r.x, r.y);
+        // fleeFromX/Y is either the nearest fox (hare) or the player (everyone else).
+        const away = Phaser.Math.Angle.Between(fleeFromX, fleeFromY, r.x, r.y);
         this.physics.velocityFromRotation(away, def.fleeSpeed, b.velocity);
       } else if (state === 'chasing') {
-        const target = r.getData('chaseTarget') as Phaser.GameObjects.Sprite | null;
-        if (target?.active) {
-          const toward = Phaser.Math.Angle.Between(r.x, r.y, target.x, target.y);
+        if (chaseTarget?.active) {
+          const toward = Phaser.Math.Angle.Between(r.x, r.y, chaseTarget.x, chaseTarget.y);
           this.physics.velocityFromRotation(toward, def.fleeSpeed, b.velocity);
           // Flip sprite so the fox faces the direction it is running.
           r.setFlipX(Math.cos(toward) < 0);
