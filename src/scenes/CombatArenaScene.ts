@@ -64,6 +64,7 @@ export class CombatArenaScene extends Phaser.Scene {
   static readonly KEY = 'CombatArenaScene';
 
   private hero!:         CombatEntity;
+  private obstacles!:   Phaser.Physics.Arcade.StaticGroup;
   private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
@@ -275,178 +276,237 @@ export class CombatArenaScene extends Phaser.Scene {
     this.arenaY = margin;
     this.arenaW = rightEdge - margin;
     this.arenaH = H - margin * 2;
-    const cx    = this.arenaX + this.arenaW / 2;
-    const cy    = this.arenaY + this.arenaH / 2;
+    const cx = this.arenaX + this.arenaW / 2;
+    const cy = this.arenaY + this.arenaH / 2;
 
     this.cameras.main.setBackgroundColor(0x120d08);
     this.cameras.main.centerOn(cx, cy);
 
-    // ── Tiled colosseum floor ────────────────────────────────────────────────
-    // Wang tileset frames: 12 = clean pale travertine (wang_15, all-upper),
-    //                       6 = dark worn stone (wang_0, all-lower).
+    const WALL_T  = 22;
+    // CHAMFER: how many pixels the octagonal corners cut inward.
+    const CHAMFER = 42;
+
+    // Stone palette matching the floor tileset's warm travertine tones
+    const STONE_MID   = 0x9a7a58;
+    const STONE_LIGHT = 0xb8956e;
+    const STONE_DARK  = 0x6a5038;
+    const MORTAR_C    = 0x3a2818;
+
+    // ── Pillar positions (early — floor loop references them) ─────────────────
+    // Asymmetric placement: symmetric pairs feel staged; these feel like
+    // surviving ruins from a once-larger structure.
+    const pillarDefs: [number, number][] = [
+      [cx - 125, cy - 22],
+      [cx + 98,  cy + 38],
+    ];
+
+    // ── Tiled colosseum floor ─────────────────────────────────────────────────
+    // Wang tileset: frame 12 = pale travertine, frame 6 = dark worn stone.
+    // Tiles inside the four chamfered corner zones are skipped — the wall fill
+    // covers that area. Tiles near pillar bases have a higher worn probability,
+    // suggesting battle damage around the obstacles.
     const TILE        = 16;
     const FRAME_CLEAN = 12;
     const FRAME_WORN  = 6;
-    const WALL_T      = 20;
+
     const cols = Math.ceil(this.arenaW / TILE);
     const rows = Math.ceil(this.arenaH / TILE);
-
-    // Use individual Image objects instead of RenderTexture — Phaser batches
-    // same-texture sprites automatically so this is just as fast as stamping
-    // but avoids WebGL framebuffer issues with large RT stamp loops.
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
-        const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-        this.add
-          .image(
-            this.arenaX + col * TILE + TILE / 2,
-            this.arenaY + row * TILE + TILE / 2,
-            'colosseum_floor',
-            frame,
-          )
-          .setDepth(-1);
+        const wx = this.arenaX + col * TILE + TILE / 2;
+        const wy = this.arenaY + row * TILE + TILE / 2;
+        // Skip tiles that fall inside the chamfered corner zones
+        const nearL = wx < this.arenaX + CHAMFER;
+        const nearR = wx > this.arenaX + this.arenaW - CHAMFER;
+        const nearT = wy < this.arenaY + CHAMFER;
+        const nearB = wy > this.arenaY + this.arenaH - CHAMFER;
+        if ((nearL && nearT) || (nearR && nearT) || (nearL && nearB) || (nearR && nearB)) continue;
+
+        const hash = (col * 31 + row * 17 + col * row * 7) % 100;
+        let wornThreshold = 12; // base 12% worn
+        for (const [px, py] of pillarDefs) {
+          const d = Math.hypot(wx - px, wy - py);
+          if      (d < 36) wornThreshold += 45;
+          else if (d < 64) wornThreshold += 20;
+        }
+        const frame = hash < wornThreshold ? FRAME_WORN : FRAME_CLEAN;
+        this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
       }
     }
 
-    // ── Ashlar stone walls ────────────────────────────────────────────────────
+    // ── Stone pillar obstacles ────────────────────────────────────────────────
+    // Broken columns in 3/4 top-down perspective: a lighter top face (visible
+    // from above) sits over a darker front face (camera-facing side), with a
+    // cast shadow ellipse at the base.
+    this.obstacles = this.physics.add.staticGroup();
+
+    const PILLAR_W  = 28; // visual width
+    const PILLAR_FH = 22; // front face height (camera-facing)
+    const PILLAR_TH = 10; // top face height (foreshortened in 3/4 view)
+
+    for (const [px, py] of pillarDefs) {
+      const pg = this.add.graphics();
+
+      // Cast shadow
+      pg.fillStyle(0x000000, 0.28);
+      pg.fillEllipse(px + 5, py + PILLAR_FH / 2 + 5, PILLAR_W + 14, 9);
+
+      // Front face — darker, camera-facing stone
+      pg.fillStyle(STONE_DARK, 1);
+      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2, PILLAR_W, PILLAR_FH);
+
+      // Top face — lighter, angled away from camera
+      pg.fillStyle(STONE_LIGHT, 1);
+      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, PILLAR_W, PILLAR_TH);
+
+      // Left highlight — ambient light catch
+      pg.fillStyle(0xc8a880, 1);
+      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, 3, PILLAR_FH + PILLAR_TH);
+
+      // Right shadow — self-shadow
+      pg.fillStyle(0x3a2414, 1);
+      pg.fillRect(px + PILLAR_W / 2 - 3, py - PILLAR_FH / 2, 3, PILLAR_FH);
+
+      // Mortar lines on front face
+      pg.lineStyle(1, MORTAR_C, 0.7);
+      for (let i = 1; i < 3; i++) {
+        const ly = py - PILLAR_FH / 2 + (PILLAR_FH / 3) * i;
+        pg.lineBetween(px - PILLAR_W / 2, ly, px + PILLAR_W / 2, ly);
+      }
+      pg.lineBetween(px - PILLAR_W / 2, py - PILLAR_FH / 2, px + PILLAR_W / 2, py - PILLAR_FH / 2);
+
+      // Y-sort: depth = bottom of front face so the pillar occludes entities
+      // correctly — they walk behind the upper part, in front of the base.
+      pg.setDepth(py + PILLAR_FH / 2);
+
+      // Static physics body covering the pillar footprint
+      const zone = this.add.zone(px, py, PILLAR_W + 4, PILLAR_FH);
+      this.physics.add.existing(zone, true);
+      (zone.body as Phaser.Physics.Arcade.StaticBody).setSize(PILLAR_W - 4, PILLAR_FH - 4);
+      this.obstacles.add(zone);
+    }
+
+    // ── Octagonal wall border ─────────────────────────────────────────────────
+    // Wall drawn as 8 filled sections: 4 straight strips + 4 bevelled corner
+    // triangles. 3/4 perspective hints: top wall is thinner (lit top-face),
+    // bottom wall has an extra dark strip simulating visible front-face height.
     const gfx = this.add.graphics();
 
-    const drawAshlarRow = (bx: number, by: number, length: number, offset = 0): void => {
-      const BLOCK_W = 40;
-      const LIGHT   = 0xa08060;
-      const DARK    = 0x7a6248;
-      const MORTAR  = 0x4a3a2a;
-      let bx2 = bx;
-      let idx = offset;
-      while (bx2 < bx + length) {
-        const bw = Math.min(BLOCK_W, bx + length - bx2);
-        gfx.fillStyle(idx % 2 === 0 ? LIGHT : DARK, 1);
-        gfx.fillRect(bx2 + 1, by + 1, bw - 2, WALL_T - 2);
-        gfx.lineStyle(1, MORTAR, 0.9);
-        gfx.strokeRect(bx2, by, bw, WALL_T);
-        bx2 += bw;
-        idx++;
+    const ashlarH = (bx: number, by: number, w: number, h: number, offset: number): void => {
+      const BRICK_W = 38;
+      let x = bx; let idx = offset;
+      while (x < bx + w) {
+        const bw = Math.min(BRICK_W, bx + w - x);
+        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
+        gfx.fillRect(x + 1, by + 1, bw - 2, h - 2);
+        gfx.lineStyle(1, MORTAR_C, 1);
+        gfx.strokeRect(x, by, bw, h);
+        x += bw; idx++;
       }
     };
 
-    const drawAshlarCol = (bx: number, by: number, length: number, offset = 0): void => {
-      const BLOCK_H = 40;
-      const LIGHT   = 0xa08060;
-      const DARK    = 0x7a6248;
-      const MORTAR  = 0x4a3a2a;
-      let by2 = by;
-      let idx = offset;
-      while (by2 < by + length) {
-        const bh = Math.min(BLOCK_H, by + length - by2);
-        gfx.fillStyle(idx % 2 === 0 ? LIGHT : DARK, 1);
-        gfx.fillRect(bx + 1, by2 + 1, WALL_T - 2, bh - 2);
-        gfx.lineStyle(1, MORTAR, 0.9);
-        gfx.strokeRect(bx, by2, WALL_T, bh);
-        by2 += bh;
-        idx++;
+    const ashlarV = (bx: number, by: number, w: number, h: number, offset: number): void => {
+      const BRICK_H = 38;
+      let y = by; let idx = offset;
+      while (y < by + h) {
+        const bh = Math.min(BRICK_H, by + h - y);
+        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
+        gfx.fillRect(bx + 1, y + 1, w - 2, bh - 2);
+        gfx.lineStyle(1, MORTAR_C, 1);
+        gfx.strokeRect(bx, y, w, bh);
+        y += bh; idx++;
       }
     };
 
-    drawAshlarRow(this.arenaX, this.arenaY, this.arenaW, 0);
-    drawAshlarRow(this.arenaX, this.arenaY + this.arenaH - WALL_T, this.arenaW, 1);
-    drawAshlarCol(this.arenaX, this.arenaY + WALL_T, this.arenaH - WALL_T * 2, 0);
+    // Top wall — lit from above, no front-face depth needed
+    gfx.fillStyle(STONE_LIGHT, 1);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY, this.arenaW - CHAMFER * 2, WALL_T);
+    ashlarH(this.arenaX + CHAMFER, this.arenaY + 2, this.arenaW - CHAMFER * 2, WALL_T - 2, 0);
+    gfx.fillStyle(STONE_DARK, 0.45);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + WALL_T - 3, this.arenaW - CHAMFER * 2, 3);
 
-    const GATE_HALF = 36;
+    // Bottom wall — extra dark strip at top implies visible wall height in 3/4
+    const BOT_EXTRA = 8;
+    gfx.fillStyle(STONE_DARK, 1);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T - BOT_EXTRA, this.arenaW - CHAMFER * 2, BOT_EXTRA);
+    ashlarH(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T, this.arenaW - CHAMFER * 2, WALL_T, 1);
+    gfx.fillStyle(MORTAR_C, 0.8);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - 2, this.arenaW - CHAMFER * 2, 2);
+
+    // Left wall
+    ashlarV(this.arenaX, this.arenaY + CHAMFER, WALL_T, this.arenaH - CHAMFER * 2, 0);
+    gfx.fillStyle(STONE_LIGHT, 0.5);
+    gfx.fillRect(this.arenaX, this.arenaY + CHAMFER, WALL_T, 2);
+
+    // Right wall with gate opening
+    const GATE_HALF = 34;
     const gateTop   = cy - GATE_HALF;
     const gateBot   = cy + GATE_HALF;
-    drawAshlarCol(
-      this.arenaX + this.arenaW - WALL_T,
-      this.arenaY + WALL_T,
-      gateTop - this.arenaY - WALL_T,
-      1,
-    );
-    drawAshlarCol(
-      this.arenaX + this.arenaW - WALL_T,
-      gateBot,
-      this.arenaY + this.arenaH - WALL_T - gateBot,
-      0,
-    );
+    ashlarV(this.arenaX + this.arenaW - WALL_T, this.arenaY + CHAMFER, WALL_T, gateTop - this.arenaY - CHAMFER, 1);
+    ashlarV(this.arenaX + this.arenaW - WALL_T, gateBot, WALL_T, this.arenaY + this.arenaH - CHAMFER - gateBot, 0);
+    gfx.fillStyle(0x0a0604, 1);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T - 3, gateTop, WALL_T + 5, GATE_HALF * 2);
+    gfx.fillStyle(STONE_LIGHT, 1);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateTop, WALL_T, 7);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateBot - 7, WALL_T, 7);
 
-    gfx.fillStyle(0x1a0e08, 1);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T - 2, gateTop, WALL_T + 4, GATE_HALF * 2);
-    gfx.fillStyle(0xc0a080, 1);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateTop, WALL_T, 8);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateBot - 8, WALL_T, 8);
+    // Chamfered corner fills — triangles bridging the wall strips
+    gfx.fillStyle(STONE_MID, 1);
+    const ax = this.arenaX, ay = this.arenaY, aw = this.arenaW, ah = this.arenaH;
+    gfx.fillTriangle(ax,      ay,      ax + CHAMFER,      ay,      ax,           ay + CHAMFER);
+    gfx.fillTriangle(ax + aw, ay,      ax + aw - CHAMFER, ay,      ax + aw,      ay + CHAMFER);
+    gfx.fillTriangle(ax,      ay + ah, ax + CHAMFER,      ay + ah, ax,           ay + ah - CHAMFER);
+    gfx.fillTriangle(ax + aw, ay + ah, ax + aw - CHAMFER, ay + ah, ax + aw,      ay + ah - CHAMFER);
+    // Mortar seam along each diagonal cut
+    gfx.lineStyle(2, MORTAR_C, 0.9);
+    gfx.lineBetween(ax + CHAMFER,      ay,           ax,           ay + CHAMFER);
+    gfx.lineBetween(ax + aw - CHAMFER, ay,           ax + aw,      ay + CHAMFER);
+    gfx.lineBetween(ax,                ay + ah - CHAMFER, ax + CHAMFER,      ay + ah);
+    gfx.lineBetween(ax + aw,           ay + ah - CHAMFER, ax + aw - CHAMFER, ay + ah);
 
-    // ── Corner columns ────────────────────────────────────────────────────────
-    const COL_SIZE = WALL_T + 8;
-    const corners: [number, number][] = [
-      [this.arenaX,                          this.arenaY                         ],
-      [this.arenaX + this.arenaW - COL_SIZE, this.arenaY                         ],
-      [this.arenaX,                          this.arenaY + this.arenaH - COL_SIZE],
-      [this.arenaX + this.arenaW - COL_SIZE, this.arenaY + this.arenaH - COL_SIZE],
-    ];
-    for (const [colX, colY] of corners) {
-      gfx.fillStyle(0xb09070, 1);
-      gfx.fillRect(colX, colY, COL_SIZE, COL_SIZE);
-      gfx.lineStyle(2, 0x4a3a2a, 0.8);
-      gfx.strokeRect(colX, colY, COL_SIZE, COL_SIZE);
-      gfx.lineStyle(1, 0xd0b090, 0.5);
-      gfx.lineBetween(colX + 3, colY + 3, colX + COL_SIZE - 3, colY + 3);
-      gfx.lineBetween(colX + 3, colY + COL_SIZE - 3, colX + COL_SIZE - 3, colY + COL_SIZE - 3);
-    }
-
+    // ── Physics world bounds ──────────────────────────────────────────────────
     this.physics.world.setBounds(
       this.arenaX + WALL_T, this.arenaY + WALL_T,
       this.arenaW - WALL_T * 2, this.arenaH - WALL_T * 2,
     );
 
-    // ── Torch glow pools ─────────────────────────────────────────────────────
+    // ── Torch glow pools ──────────────────────────────────────────────────────
     const torchPositions: [number, number][] = [
-      [this.arenaX + 90,               this.arenaY + 55              ],
-      [this.arenaX + this.arenaW - 90, this.arenaY + 55              ],
-      [this.arenaX + 90,               this.arenaY + this.arenaH - 55],
-      [this.arenaX + this.arenaW - 90, this.arenaY + this.arenaH - 55],
+      [this.arenaX + CHAMFER + 26,               this.arenaY + CHAMFER + 20               ],
+      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + CHAMFER + 20               ],
+      [this.arenaX + CHAMFER + 26,               this.arenaY + this.arenaH - CHAMFER - 20 ],
+      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + this.arenaH - CHAMFER - 20 ],
     ];
     for (const [tx, ty] of torchPositions) {
       const glowGfx = this.add.graphics();
-      glowGfx.fillStyle(0xff9933, 0.16);
-      glowGfx.fillCircle(tx, ty, 38);
+      glowGfx.fillStyle(0xff9933, 0.18);
+      glowGfx.fillCircle(tx, ty, 40);
       this.tweens.add({
         targets:  glowGfx,
-        alpha:    { from: 0.75, to: 1.0 },
-        duration: Phaser.Math.Between(420, 680),
+        alpha:    { from: 0.7, to: 1.0 },
+        duration: Phaser.Math.Between(400, 700),
         yoyo:     true,
         repeat:   -1,
         ease:     'Sine.easeInOut',
-        delay:    Phaser.Math.Between(0, 300),
+        delay:    Phaser.Math.Between(0, 350),
       });
     }
 
-    // ── Organic cracks (barely noticeable) ───────────────────────────────────
+    // ── Floor cracks from pillar bases ────────────────────────────────────────
     const crackGfx = this.add.graphics();
-    crackGfx.lineStyle(1, 0x1a5540, 0.11);
-    const crackSeeds: [number, number, number][] = [
-      [cx - 80, cy + 40,  1.1],
-      [cx + 120, cy - 60, 2.4],
-      [cx - 40,  cy - 90, 0.4],
-      [cx + 50,  cy + 70, 1.8],
-      [cx - 140, cy + 20, 3.0],
-    ];
-    for (const [sx, sy, angle] of crackSeeds) {
-      const len = 40 + ((sx * 7 + sy * 3) % 25);
-      crackGfx.lineBetween(sx, sy, sx + Math.cos(angle) * len, sy + Math.sin(angle) * len);
-      crackGfx.lineBetween(sx, sy, sx + Math.cos(angle + 0.4) * len * 0.5, sy + Math.sin(angle + 0.4) * len * 0.5);
+    for (const [px, py] of pillarDefs) {
+      crackGfx.lineStyle(1, STONE_DARK, 0.18);
+      for (let i = 0; i < 4; i++) {
+        const angle = ((px * 3 + py * 7 + i * 73) % 628) / 100;
+        const len   = 28 + (i * 11) % 18;
+        crackGfx.lineBetween(px, py, px + Math.cos(angle) * len, py + Math.sin(angle) * len);
+        crackGfx.lineBetween(
+          px + Math.cos(angle) * len * 0.5, py + Math.sin(angle) * len * 0.5,
+          px + Math.cos(angle + 0.5) * len * 0.35, py + Math.sin(angle + 0.5) * len * 0.35,
+        );
+      }
     }
-
-    // ── Bioluminescent node ───────────────────────────────────────────────────
-    const bioGfx = this.add.graphics();
-    bioGfx.fillStyle(0x00ffcc, 0.07);
-    bioGfx.fillCircle(cx - 120, cy + 60, 14);
-    this.tweens.add({
-      targets:  bioGfx,
-      alpha:    { from: 0.45, to: 1.0 },
-      duration: 2800,
-      yoyo:     true,
-      repeat:   -1,
-      ease:     'Sine.easeInOut',
-    });
+    crackGfx.setDepth(-0.5);
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
@@ -675,6 +735,7 @@ export class CombatArenaScene extends Phaser.Scene {
   private addPhysics(entity: CombatEntity): void {
     this.physics.add.existing(entity);
     (entity.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+    this.physics.add.collider(entity, this.obstacles);
   }
 
   private spreadY(count: number): number[] {
