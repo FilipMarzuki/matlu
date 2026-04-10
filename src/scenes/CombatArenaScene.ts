@@ -104,8 +104,14 @@ export class CombatArenaScene extends Phaser.Scene {
   /** When true the player drives the hero with WASD/arrows + attack keys. */
   private heroPlayerMode = false;
   private moveKeys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private meleeKey!: Phaser.Input.Keyboard.Key;
-  private dashKey!:  Phaser.Input.Keyboard.Key;
+  private meleeKey!:  Phaser.Input.Keyboard.Key;
+  private dashKey!:   Phaser.Input.Keyboard.Key;
+  private shootKey!:  Phaser.Input.Keyboard.Key;
+
+  // ── Audio ───────────────────────────────────────────────────────────────────
+  private audioAvailable = false;
+  /** Round-robins through 3 gunshot variants to avoid repetition fatigue. */
+  private gunshotIndex   = 0;
 
   /** Width of the right-side nav panel. Arena is shrunk to not go behind it. */
   private static readonly PANEL_W = 160;
@@ -128,6 +134,13 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // Gunshot SFX — impactMetal_heavy pitched up gives a snappy, metallic crack.
+    // Three variants (000–002) are cycled on each shot to avoid repetition fatigue.
+    const ksfx = 'assets/audio/kenney_impact-sounds/Audio';
+    for (let i = 0; i < 3; i++) {
+      this.load.audio(`gunshot-${i}`, `${ksfx}/impactMetal_heavy_00${i}.ogg`);
+    }
+
     this.load.aseprite(
       'tinkerer',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
@@ -189,9 +202,41 @@ export class CombatArenaScene extends Phaser.Scene {
     this.anims.createFromAseprite('skag');
     this.anims.createFromAseprite('crow');
 
+    // Audio is unavailable in headless CI (WebAudio context never starts).
+    this.audioAvailable = this.cache.audio.has('gunshot-0');
+
     // Projectile listener lives for the whole scene — enemies and hero both fire.
     this.events.on('projectile-spawned', (p: Projectile) => {
       this.projectiles.push(p);
+    });
+
+    // Gunshot effects — emitted by the Tinkerer in both AI and player modes.
+    // Plays a metallic-crack SFX (pitched up), adds a micro camera shake for
+    // recoil feel, and briefly flashes a muzzle bloom at the shot origin.
+    this.events.on('hero-shot', (x: number, y: number, _angle: number) => {
+      // Recoil shake: very brief + subtle, just enough to feel the gun kick.
+      this.cameras.main.shake(60, 0.003);
+
+      // Muzzle bloom: bright oval that expands and fades in ~70 ms.
+      const bloom = this.add.arc(x, y, 10, 0, 360, false, 0xffffff);
+      bloom.setDepth(12).setAlpha(0.85);
+      this.tweens.add({
+        targets: bloom,
+        scaleX: 3, scaleY: 1.6,
+        alpha: 0,
+        duration: 70,
+        ease: 'Cubic.easeOut',
+        onComplete: () => bloom.destroy(),
+      });
+
+      // SFX: cycle through 3 variants, play at 2× rate for a sharp crack.
+      if (this.audioAvailable) {
+        const key = `gunshot-${this.gunshotIndex}`;
+        this.gunshotIndex = (this.gunshotIndex + 1) % 3;
+        if (this.cache.audio.has(key)) {
+          this.sound.play(key, { volume: 0.55, rate: 2.2 });
+        }
+      }
     });
 
     this.spawnHero();
@@ -204,8 +249,9 @@ export class CombatArenaScene extends Phaser.Scene {
         left:  Phaser.Input.Keyboard.KeyCodes.A,
         right: Phaser.Input.Keyboard.KeyCodes.D,
       }) as Record<string, Phaser.Input.Keyboard.Key>;
-      this.meleeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.dashKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+      this.meleeKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.dashKey   = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+      this.shootKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
 
       this.buildHud();
       this.launchNavPanel();
@@ -715,9 +761,14 @@ export class CombatArenaScene extends Phaser.Scene {
     const spd = 160; // px/s — comfortable player speed
     this.hero.setMoveVelocity(dx * spd, dy * spd);
 
-    // Attack — Space bar (just-pressed so it doesn't auto-repeat)
+    // Melee — Space (just-pressed, no auto-repeat)
     if (Phaser.Input.Keyboard.JustDown(this.meleeKey)) {
       this.hero.tryMelee();
+    }
+
+    // Ranged — F (just-pressed, targets nearest enemy)
+    if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
+      this.hero.tryRanged();
     }
 
     // Dash — Shift (just-pressed)

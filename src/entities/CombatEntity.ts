@@ -432,6 +432,30 @@ export abstract class CombatEntity extends Enemy {
   }
 
   /**
+   * Fire a ranged shot at the nearest living opponent.
+   * No-op if projectile damage isn't configured or the attack is on cooldown.
+   * Sets attack_ranged animation and emits 'hero-shot' so the scene can play
+   * sound + muzzle flash — same effect as the AI behavior tree path.
+   */
+  tryRanged(): void {
+    if (this.attackTimer > 0 || !this.projectileDamage) return;
+    const target = this.findNearestLivingOpponent();
+    if (!target) return;
+    const angle = Math.atan2(target.y - this.y, target.x - this.x);
+    const p = new Projectile(
+      this.scene, this.x, this.y, angle,
+      this.projectileSpeed, this.projectileDamage,
+      this.projectileColor,
+      this.opponents as unknown as Damageable[],
+    );
+    this.scene.events.emit('projectile-spawned', p);
+    this.attackAnimId    = 'attack_ranged';
+    this.attackAnimTimer = this.attackAnimDuration;
+    this.attackTimer     = this.attackCooldownMs;
+    this.scene.events.emit('hero-shot', this.x, this.y, angle);
+  }
+
+  /**
    * Start a dash in the direction (dx, dy). No-op if already dashing.
    * Uses the same speed multiplier and duration as the AI behavior tree.
    */
@@ -1078,8 +1102,8 @@ export class Tinkerer extends CombatEntity {
       meleeRange:         36,
       attackCooldownMs:   700,
       projectileDamage:   18,
-      projectileSpeed:    300,
-      projectileColor:    0xffbb44,
+      projectileSpeed:    420,   // faster than other projectiles — feels like a bullet
+      projectileColor:    0xfff8b0, // bright yellow-white muzzle colour
       dashSpeedMultiplier: 4.5,
       dashDurationMs:     180,
       spriteKey:          'tinkerer',
@@ -1173,8 +1197,11 @@ export class Tinkerer extends CombatEntity {
           }),
           new BtAction(ctx => {
             this.attackAnimId = 'attack_ranged';
+            const shotAngle = Math.atan2(ctx.opponent!.y - ctx.y, ctx.opponent!.x - ctx.x);
             ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y);
-            ctx.stop();
+            // No stop() — shoot while walking so the walk animation stays visible
+            // between bursts and the Tinkerer feels dynamic rather than static.
+            this.scene.events.emit('hero-shot', ctx.x, ctx.y, shotAngle);
             return 'success';
           }),
         ]),
