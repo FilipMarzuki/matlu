@@ -152,6 +152,12 @@ const ANIMAL_DEFS: Record<string, AnimalDef> = {
   // Grouse: small ground bird, lives in coveys of 2–4 in dense forest.
   // Slightly smaller display (scale 1.5) and flees faster than it roams.
   grouse: { w: 12, h:  9, scale: 1.5, fleeRange: 160, fleeSpeed: 130, roamSpeed: 28, count: 14 },
+  // ── Critters pack ──────────────────────────────────────────────────────────
+  // Source frames are larger (32–42 px) so scale is 1.0–1.2 rather than 2.0.
+  // SE-direction strips are loaded; sprite flips horizontally when moving left.
+  stag:   { w: 28, h: 18, scale: 1.2, fleeRange: 320, fleeSpeed: 105, roamSpeed: 18, count: 10 },
+  boar:   { w: 32, h: 16, scale: 1.0, fleeRange: 100, fleeSpeed:  88, roamSpeed: 26, count:  8 },
+  badger: { w: 22, h: 14, scale: 1.0, fleeRange: 160, fleeSpeed: 115, roamSpeed: 32, count: 12 },
 };
 
 /** Fox detects hares within this radius and enters chase state. */
@@ -589,6 +595,17 @@ export class GameScene extends Phaser.Scene {
     // Each sheet uses 16×16 px tiles. The TMX animation data shows even-column frames
     // are the actual animation frames (0,2,4,6 for idle; 0,2,4,6,8,10 for walk).
     const craftpixBase = 'assets/packs/craftpix-net-789196-free-top-down-hunt-animals-pixel-sprite-pack/PNG/Without_shadow';
+    // ── Critters pack ──────────────────────────────────────────────────────────
+    // SE-direction horizontal strips exported from Aseprite source files.
+    // Frame sizes come from the Aseprite canvas: stag 32×41, boar 41×25 (trimmed),
+    // badger 42×32. We load one direction and flip horizontally for leftward movement.
+    const critterBase = 'assets/packs/critters';
+    this.load.spritesheet('stag-idle',   `${critterBase}/stag/critter_stag_SE_idle.png`,    { frameWidth: 32, frameHeight: 41 });
+    this.load.spritesheet('stag-walk',   `${critterBase}/stag/critter_stag_SE_walk.png`,    { frameWidth: 32, frameHeight: 41 });
+    this.load.spritesheet('boar-idle',   `${critterBase}/boar/boar_SE_idle_strip.png`,      { frameWidth: 41, frameHeight: 25 });
+    this.load.spritesheet('boar-walk',   `${critterBase}/boar/boar_SE_run_strip.png`,       { frameWidth: 41, frameHeight: 25 });
+    this.load.spritesheet('badger-idle', `${critterBase}/badger/critter_badger_SE_idle.png`, { frameWidth: 42, frameHeight: 32 });
+    this.load.spritesheet('badger-walk', `${critterBase}/badger/critter_badger_SE_walk.png`, { frameWidth: 42, frameHeight: 32 });
     this.load.spritesheet('deer-idle', `${craftpixBase}/Deer/Deer_Idle.png`, { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('deer-walk', `${craftpixBase}/Deer/Deer_Walk.png`, { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('hare-idle', `${craftpixBase}/Hare/Hare_Idle.png`, { frameWidth: 16, frameHeight: 16 });
@@ -925,7 +942,7 @@ export class GameScene extends Phaser.Scene {
    *   < 0.80  dense spruce
    *   ≥ 0.80  highland granite
    */
-  private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit' | 'grouse'): number {
+  private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit' | 'grouse' | 'stag' | 'boar' | 'badger'): number {
     const raw = this.baseNoise.fbm(wx * BASE_SCALE, wy * BASE_SCALE);
     // Mirror the diagonal terrain gradient from drawProceduralTerrain()
     const spawnPerp = (wx / WORLD_W - (1 - wy / WORLD_H)) / 2;
@@ -939,6 +956,9 @@ export class GameScene extends Phaser.Scene {
       case 'fox':    return v > 0.48 && v < 0.85 ? 1.0 : 0.15; // forest belt into highland
       case 'rabbit': return v > 0.25 && v < 0.48 ? 1.0 : 0.2;  // shore through coastal heath
       case 'grouse': return v > 0.65 && v < 0.90 ? 1.0 : 0.1;  // dense spruce forest only
+      case 'stag':   return v > 0.40 && v < 0.72 ? 1.0 : 0.2;  // forest edge through mixed forest
+      case 'boar':   return v > 0.62 && v < 0.88 ? 1.0 : 0.1;  // dense forest interior
+      case 'badger': return v > 0.50 && v < 0.85 ? 1.0 : 0.2;  // forest belt
       default:       return 1.0;
     }
   }
@@ -2772,6 +2792,15 @@ export class GameScene extends Phaser.Scene {
       // Grouse ground animations — same even-frame convention as deer/hare/fox.
       ['grouse-idle-anim', 'grouse-idle', [0, 2, 4, 6],          7],
       ['grouse-walk-anim', 'grouse-walk', [0, 2, 4, 6, 8, 10],   9],
+      // ── Critters pack ────────────────────────────────────────────────────────
+      // Sequential frames (no skip columns unlike craftpix). Frame counts:
+      //   stag idle 24f / walk 11f; boar idle 7f / run 4f; badger idle 22f / walk 9f
+      ['stag-idle-anim',   'stag-idle',   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23], 12],
+      ['stag-walk-anim',   'stag-walk',   [0,1,2,3,4,5,6,7,8,9,10], 10],
+      ['boar-idle-anim',   'boar-idle',   [0,1,2,3,4,5,6],            8],
+      ['boar-walk-anim',   'boar-walk',   [0,1,2,3],                  10],
+      ['badger-idle-anim', 'badger-idle', [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21], 12],
+      ['badger-walk-anim', 'badger-walk', [0,1,2,3,4,5,6,7,8],        10],
     ];
     for (const [key, texture, frames, frameRate] of defs) {
       this.anims.create({
@@ -2818,10 +2847,14 @@ export class GameScene extends Phaser.Scene {
       // fox: one "cluster" of 1 — effectively solo placement with Poisson spacing
       // Grouse: small coveys of 2–4 birds, multiple coveys per forest zone
       grouse: { clusters: [4, 7],  perCluster: [2, 4], clusterR: 40,  clusterMinDist: 400 },
+      // Critters pack
+      stag:   { clusters: [2, 4],  perCluster: [2, 5], clusterR: 70,  clusterMinDist: 700 },
+      boar:   { clusters: [3, 5],  perCluster: [2, 4], clusterR: 50,  clusterMinDist: 500 },
+      badger: { clusters: [4, 7],  perCluster: [1, 3], clusterR: 40,  clusterMinDist: 350 },
     };
 
     for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
-      const biasType = type as 'deer' | 'hare' | 'fox' | 'grouse';
+      const biasType = type as 'deer' | 'hare' | 'fox' | 'grouse' | 'stag' | 'boar' | 'badger';
       const cfg = CLUSTER_CONFIG[type];
       if (!cfg) continue;
 
@@ -3024,6 +3057,12 @@ export class GameScene extends Phaser.Scene {
         }
         this.physics.velocityFromRotation(bestAngle, def.roamSpeed, b.velocity);
         r.setData('roamNext', this.time.now + Phaser.Math.Between(3000, 8000));
+      }
+
+      // Critters pack sprites face SE; flip horizontally when moving left so they
+      // face SW instead — a simple directional cue without needing all 4 direction strips.
+      if (type === 'stag' || type === 'boar' || type === 'badger') {
+        if (Math.abs(b.velocity.x) > 5) r.setFlipX(b.velocity.x < 0);
       }
     }
   }
