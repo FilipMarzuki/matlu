@@ -297,7 +297,8 @@
       "id": "arena_floor_earth",
       "name": "Earth Arena Floor",
       "world": "earth",
-      "status": "pending",
+      "status": "done",
+      "_pixellabTilesetId": "e4a2a865-a585-49bd-9ec5-4fe76963c99b",
       "_comment": "Stone floor for the Earth third of the combat arena. Dark, battle-worn, ancient.",
       "pixellab": {
         "lower_description": "dark cracked stone floor, ancient fortress flagstone, worn and battle-scarred",
@@ -319,7 +320,8 @@
       "id": "arena_floor_spinolandet",
       "name": "Spinolandet Arena Floor",
       "world": "spinolandet",
-      "status": "pending",
+      "status": "done",
+      "_pixellabTilesetId": "bbe68a00-6529-4551-b817-1d224071fba9",
       "_comment": "Chitinous shell-plate floor for the Spinolandet third of the arena.",
       "pixellab": {
         "lower_description": "dark organic chitinous floor, segmented insect shell plates, alien biology",
@@ -341,7 +343,8 @@
       "id": "arena_floor_vatten",
       "name": "Vattenpandalandet Arena Floor",
       "world": "vatten",
-      "status": "pending",
+      "status": "done",
+      "_pixellabTilesetId": "f44b6b2f-52e7-43cb-84d7-c056d86f920a",
       "_comment": "Jade tile floor for the Vattenpandalandet third of the arena.",
       "pixellab": {
         "lower_description": "dark mossy stone floor, ancient water temple, wet patches",
