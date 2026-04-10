@@ -244,18 +244,23 @@ export class CombatArenaScene extends Phaser.Scene {
     const cols = Math.ceil(this.arenaW / TILE);
     const rows = Math.ceil(this.arenaH / TILE);
 
-    // beginDraw/endDraw batch all stamps into a single RT draw pass so WebGL
-    // never flushes mid-way and leaves part of the floor unrendered.
-    const rt = this.add.renderTexture(this.arenaX, this.arenaY, this.arenaW, this.arenaH);
-    rt.beginDraw();
+    // Use individual Image objects instead of RenderTexture — Phaser batches
+    // same-texture sprites automatically so this is just as fast as stamping
+    // but avoids WebGL framebuffer issues with large RT stamp loops.
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
         const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-        rt.stamp('colosseum_floor', frame, col * TILE + TILE / 2, row * TILE + TILE / 2);
+        this.add
+          .image(
+            this.arenaX + col * TILE + TILE / 2,
+            this.arenaY + row * TILE + TILE / 2,
+            'colosseum_floor',
+            frame,
+          )
+          .setDepth(-1);
       }
     }
-    rt.endDraw();
 
     // ── Ashlar stone walls ────────────────────────────────────────────────────
     const gfx = this.add.graphics();
