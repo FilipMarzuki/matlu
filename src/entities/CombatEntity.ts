@@ -10,6 +10,7 @@ import {
   BtCooldown,
   CombatContext,
 } from '../ai/BehaviorTree';
+import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
@@ -85,6 +86,8 @@ export abstract class CombatEntity extends Enemy {
   protected readonly behaviorTree: BtNode;
   /** All combatants this entity should fight. Updated each wave by the arena. */
   protected opponents: CombatEntity[] = [];
+  /** When true the BT is bypassed — the scene drives velocity and attacks directly. */
+  protected playerControlled = false;
 
   private attackTimer = 0;
   private wanderAngle = Math.random() * Math.PI * 2;
@@ -135,6 +138,16 @@ export abstract class CombatEntity extends Enemy {
    * (e.g. Tinkerer sets 'attack_melee' or 'attack_ranged' before calling ctx.attack/shootAt).
    */
   protected attackAnimId = 'attack';
+
+  // ── Ally coordination (separation steering + blackboard) ──────────────────
+  /**
+   * Other combatants on the same team — set by the arena scene each frame.
+   * Used only for separation steering: each entity pushes away from nearby
+   * allies so groups spread naturally instead of piling up on one point.
+   */
+  private allyEntities: CombatEntity[] = [];
+  /** Shared arena state — set by the scene, read by individual enemy BTs. */
+  protected blackboard: ArenaBlackboard | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     super(scene, x, y, config);
@@ -207,6 +220,16 @@ export abstract class CombatEntity extends Enemy {
     this.opponents = [...es];
   }
 
+  /** Register allies for separation steering. Called by the arena on each spawn/death. */
+  setAllies(allies: CombatEntity[]): void {
+    this.allyEntities = allies;
+  }
+
+  /** Wire up the shared arena blackboard so BT nodes can coordinate. */
+  setBlackboard(bb: ArenaBlackboard): void {
+    this.blackboard = bb;
+  }
+
   // ── Abstract ───────────────────────────────────────────────────────────────
 
   /** Return this entity's behavior tree. Called once at end of constructor. */
@@ -245,8 +268,11 @@ export abstract class CombatEntity extends Enemy {
       }
     }
 
-    // Pick the nearest living opponent for this frame's BT tick.
-    const target = this.findNearestLivingOpponent();
+    // When player-controlled, skip the behavior tree — the arena scene drives
+    // movement and attacks directly via setMoveVelocity / tryMelee / tryDash.
+    if (!this.playerControlled) {
+    // Pick the target opponent for this frame's BT tick.
+    const target = this.findTargetOpponent();
 
     const ctx: CombatContext = {
       x:     this.x,
@@ -325,11 +351,85 @@ export abstract class CombatEntity extends Enemy {
         this.isDashing = true;
         physBody.setVelocity(this.dashVx, this.dashVy);
       },
+
+      steerAway: (fromX, fromY) => {
+        if (!physBody || this.isDashing) return;
+        const dx = this.x - fromX;
+        const dy = this.y - fromY;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        physBody.setVelocity((dx / len) * this.speed, (dy / len) * this.speed);
+      },
+
+      orbitAround: (cx, cy, radius, cw) => {
+        if (!physBody || this.isDashing) return;
+        // Advance the orbit angle so the entity moves along the arc at this.speed.
+        // arc speed = radius × angular_speed  →  angular_speed = speed / radius
+        const curAngle  = Math.atan2(this.y - cy, this.x - cx);
+        const angSpeed  = this.speed / Math.max(radius, 1);
+        const nextAngle = curAngle + (cw ? 1 : -1) * angSpeed * (delta / 1000);
+        const tx = cx + Math.cos(nextAngle) * radius;
+        const ty = cy + Math.sin(nextAngle) * radius;
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        physBody.setVelocity((dx / len) * this.speed, (dy / len) * this.speed);
+      },
     };
 
     this.behaviorTree.tick(ctx, delta);
+    this.applySeparationForce();
+    } // end !playerControlled
+
     this.refreshHpBar();
     this.updateSpriteAnimation(delta);
+  }
+
+  // ── Player-control API ────────────────────────────────────────────────────
+
+  /** Switch between AI control (false) and direct player control (true). */
+  setPlayerControlled(v: boolean): void { this.playerControlled = v; }
+
+  /**
+   * Set velocity directly for player-driven movement.
+   * No-op while a dash is in progress so the burst isn't cancelled.
+   */
+  setMoveVelocity(vx: number, vy: number): void {
+    if (this.isDashing) return;
+    (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(vx, vy);
+  }
+
+  /**
+   * Attempt a melee attack on the nearest living opponent.
+   * Uses the same cooldown and damage as the AI behavior tree.
+   */
+  tryMelee(): void {
+    if (this.attackTimer > 0) return;
+    const target = this.findNearestLivingOpponent();
+    if (!target) return;
+    const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
+    // 2.5× meleeRange gives a generous but fair player reach.
+    if (dist > this.meleeRange * 2.5) return;
+    target.takeDamage(this.attackDamage);
+    target.onHitBy(this.x, this.y);
+    this.attackTimer    = this.attackCooldownMs;
+    this.attackAnimTimer = this.attackAnimDuration;
+  }
+
+  /**
+   * Start a dash in the direction (dx, dy). No-op if already dashing.
+   * Uses the same speed multiplier and duration as the AI behavior tree.
+   */
+  tryDash(dx: number, dy: number): void {
+    if (this.isDashing) return;
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    if (!physBody) return;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const spd = this.speed * this.dashSpeedMultiplier;
+    this.dashVx    = (dx / len) * spd;
+    this.dashVy    = (dy / len) * spd;
+    this.dashTimer = this.dashDurationMs;
+    this.isDashing = true;
+    physBody.setVelocity(this.dashVx, this.dashVy);
   }
 
   /**
@@ -394,7 +494,7 @@ export abstract class CombatEntity extends Enemy {
   }
 
   /** Returns the closest living opponent, or null when none remain. */
-  private findNearestLivingOpponent(): CombatEntity | null {
+  protected findNearestLivingOpponent(): CombatEntity | null {
     let nearest: CombatEntity | null = null;
     let nearestDist = Infinity;
     for (const o of this.opponents) {
@@ -406,6 +506,15 @@ export abstract class CombatEntity extends Enemy {
       }
     }
     return nearest;
+  }
+
+  /**
+   * Which opponent to target this frame. Defaults to the nearest living one.
+   * Override in subclasses to apply threat-priority logic (e.g. Tinkerer prefers
+   * ranged enemies over melee ones at the same distance).
+   */
+  protected findTargetOpponent(): CombatEntity | null {
+    return this.findNearestLivingOpponent();
   }
 
   // ── Hit feedback API ──────────────────────────────────────────────────────
@@ -496,6 +605,58 @@ export abstract class CombatEntity extends Enemy {
 
   private refreshHpBar(): void {
     this.hpBarFill.scaleX = Math.max(0, this.hpFraction);
+  }
+
+  /**
+   * Steering separation — pushes this entity away from nearby allies.
+   *
+   * Applied as a velocity addend after the behavior tree runs, so the BT's
+   * intended movement direction is preserved while piling/stacking is prevented.
+   *
+   * Works like Reynolds' separation rule: sum unit vectors pointing away from
+   * each nearby ally, weighted linearly by how much the separation radius is
+   * violated. Closer = stronger push.
+   */
+  private applySeparationForce(): void {
+    if (this.allyEntities.length === 0 || this.isDashing) return;
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    if (!physBody) return;
+
+    const SEP_RADIUS   = 52;             // px — personal space bubble
+    const SEP_STRENGTH = this.speed * 0.8; // max separation impulse (px/s)
+
+    let fx = 0, fy = 0, count = 0;
+    for (const ally of this.allyEntities) {
+      // Skip self-reference and dead allies.
+      if ((ally as unknown) === (this as unknown) || !ally.isAlive) continue;
+      const dx   = this.x - ally.x;
+      const dy   = this.y - ally.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < SEP_RADIUS && dist > 0) {
+        // Linear falloff: 1.0 at overlap, 0.0 at SEP_RADIUS edge.
+        const t = 1 - dist / SEP_RADIUS;
+        fx += (dx / dist) * t;
+        fy += (dy / dist) * t;
+        count++;
+      }
+    }
+
+    if (count === 0) return;
+
+    const len    = Math.sqrt(fx * fx + fy * fy) || 1;
+    const cv     = physBody.velocity;
+    const newVx  = cv.x + (fx / len) * SEP_STRENGTH;
+    const newVy  = cv.y + (fy / len) * SEP_STRENGTH;
+
+    // Clamp so separation never accelerates beyond 1.5× normal speed.
+    const finalSpd = Math.sqrt(newVx * newVx + newVy * newVy);
+    const maxSpd   = this.speed * 1.5;
+    if (finalSpd > maxSpd) {
+      const s = maxSpd / finalSpd;
+      physBody.setVelocity(newVx * s, newVy * s);
+    } else {
+      physBody.setVelocity(newVx, newVy);
+    }
   }
 }
 
@@ -895,15 +1056,12 @@ export class Crow extends CombatEntity {
 /**
  * Tinkerer — post-apocalyptic mechanic hero. Melee bash + pistol shot + dash.
  *
- * Behavior tree (priority order):
- *   1. Melee bash  — stop and punch when within 36px
- *   2. Dash        — gap-close burst (3s cooldown) when at 40–300px
- *   3. Ranged shot — pistol shot (750ms cooldown) when at 60–230px
- *   4. Chase       — close to preferred combat range
- *   5. Wander      — random drift (no opponent)
- *
- * Uses two distinct animation states ('attack_melee', 'attack_ranged') so the
- * spritesheet's separate punch and pistol-aim animations play on the right action.
+ * Upgraded from a priority waterfall to utility-weighted decision making:
+ *   - Counts nearby enemies (swarm pressure) to gate and score each action.
+ *   - Escape dash fires toward arena center when overwhelmed AND low HP.
+ *   - Ranged attack targets the highest-threat enemy (AcidLancer > others),
+ *     not just the nearest one.
+ *   - Melee is suppressed when surrounded to avoid diving into a cluster.
  */
 export class Tinkerer extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -912,19 +1070,34 @@ export class Tinkerer extends CombatEntity {
       speed:              80,
       aggroRadius:        400,
       attackDamage:       15,
-      color:              0x996633,   // olive/rust (fallback if sprite not loaded)
+      color:              0x996633,
       meleeRange:         36,
       attackCooldownMs:   700,
-      // Pistol shot
       projectileDamage:   18,
       projectileSpeed:    300,
-      projectileColor:    0xffbb44,   // warm muzzle-flash yellow
-      // Dash
+      projectileColor:    0xffbb44,
       dashSpeedMultiplier: 4.5,
       dashDurationMs:     180,
-      // Sprite
       spriteKey:          'tinkerer',
     });
+  }
+
+  /**
+   * Target selection: prefer ranged threats (AcidLancer, ParasiteFlyer) over
+   * melee rushers at the same distance. Suppressing their projectile spam is
+   * more valuable than hitting the nearest enemy.
+   */
+  protected override findTargetOpponent(): CombatEntity | null {
+    const rangedThreats = this.opponents.filter(
+      o => o.isAlive && (o instanceof AcidLancer || o instanceof ParasiteFlyer),
+    );
+    if (rangedThreats.length > 0) {
+      return rangedThreats.reduce((best, o) =>
+        Phaser.Math.Distance.Between(this.x, this.y, o.x, o.y) <
+        Phaser.Math.Distance.Between(this.x, this.y, best.x, best.y) ? o : best,
+      );
+    }
+    return this.findNearestLivingOpponent();
   }
 
   protected buildTree(): BtNode {
@@ -933,16 +1106,51 @@ export class Tinkerer extends CombatEntity {
     const DASH_MAX   = 300;
     const RANGED_MIN = 60;
     const RANGED_MAX = 230;
+    const SWARM_R    = 130;   // radius for swarm pressure check
+    const SWARM_CAP  = 4;     // enemies within SWARM_R that triggers escape mode
+
+    /** Count living enemies within SWARM_R of the Tinkerer's current position. */
+    const swarmPressure = (cx: number, cy: number): number =>
+      this.opponents.filter(
+        o => o.isAlive && Phaser.Math.Distance.Between(cx, cy, o.x, o.y) < SWARM_R,
+      ).length;
 
     return new BtSelector([
 
-      // ── 1. Melee bash ────────────────────────────────────────────────────────
+      // ── 1. Escape dash — fires when overwhelmed AND low HP ────────────────────
+      // Dashes away from the enemy swarm centroid, not toward a target.
+      // A last-resort survival move before the hero goes down.
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            const near = swarmPressure(ctx.x, ctx.y);
+            return near >= SWARM_CAP && ctx.hp < ctx.maxHp * 0.40;
+          }),
+          new BtAction(ctx => {
+            // Compute the average position of nearby enemies and dash opposite.
+            const near = this.opponents.filter(
+              o => o.isAlive && Phaser.Math.Distance.Between(ctx.x, ctx.y, o.x, o.y) < SWARM_R,
+            );
+            const avgX = near.reduce((s, o) => s + o.x, 0) / near.length;
+            const avgY = near.reduce((s, o) => s + o.y, 0) / near.length;
+            const escX = ctx.x + (ctx.x - avgX) * 3;
+            const escY = ctx.y + (ctx.y - avgY) * 3;
+            ctx.dash(escX, escY);
+            return 'success';
+          }),
+        ]),
+        4000,
+      ),
+
+      // ── 2. Melee bash — suppressed when 3+ enemies are nearby ────────────────
+      // Melee into a swarm is suicidal; prefer ranged or dash instead.
       new BtSequence([
-        new BtCondition(ctx =>
-          ctx.opponent !== null &&
-          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y)
-            < MELEE_R,
-        ),
+        new BtCondition(ctx => {
+          if (!ctx.opponent) return false;
+          const d    = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+          const near = swarmPressure(ctx.x, ctx.y);
+          return d < MELEE_R && near < 3;
+        }),
         new BtAction(ctx => {
           this.attackAnimId = 'attack_melee';
           ctx.attack();
@@ -951,23 +1159,7 @@ export class Tinkerer extends CombatEntity {
         }),
       ]),
 
-      // ── 2. Dash (gap-closer) ─────────────────────────────────────────────────
-      new BtCooldown(
-        new BtSequence([
-          new BtCondition(ctx => {
-            if (!ctx.opponent) return false;
-            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
-            return d > DASH_MIN && d < DASH_MAX;
-          }),
-          new BtAction(ctx => {
-            ctx.dash(ctx.opponent!.x, ctx.opponent!.y);
-            return 'success';
-          }),
-        ]),
-        3000,   // 3s between dashes
-      ),
-
-      // ── 3. Ranged (pistol shot) ──────────────────────────────────────────────
+      // ── 3. Pistol — prioritises ranged threats (via findTargetOpponent) ──────
       new BtCooldown(
         new BtSequence([
           new BtCondition(ctx => {
@@ -982,10 +1174,26 @@ export class Tinkerer extends CombatEntity {
             return 'success';
           }),
         ]),
-        750,    // 750ms between shots
+        750,
       ),
 
-      // ── 4. Chase ─────────────────────────────────────────────────────────────
+      // ── 4. Gap-close dash ─────────────────────────────────────────────────────
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d > DASH_MIN && d < DASH_MAX;
+          }),
+          new BtAction(ctx => {
+            ctx.dash(ctx.opponent!.x, ctx.opponent!.y);
+            return 'success';
+          }),
+        ]),
+        3000,
+      ),
+
+      // ── 5. Chase priority target ──────────────────────────────────────────────
       new BtSequence([
         new BtCondition(ctx => ctx.opponent !== null),
         new BtAction(ctx => {
@@ -994,17 +1202,20 @@ export class Tinkerer extends CombatEntity {
         }),
       ]),
 
-      // ── 5. Wander (fallback) ─────────────────────────────────────────────────
-      new BtAction((ctx, d) => {
-        ctx.wander(d);
-        return 'running';
-      }),
+      // ── 6. Wander (fallback) ──────────────────────────────────────────────────
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
     ]);
   }
 }
 
 // ── Spinolandet (bio / evolution) enemies ─────────────────────────────────────
 
+/**
+ * SporeHusk — bloated fungal rusher. Slow but hits hard on contact.
+ * Approaches from a slightly offset angle (jitter) so multiple husks
+ * don't file in single-column. Separation steering (base class) handles
+ * the piling. Death triggers a spore-burst ring.
+ */
 export class SporeHusk extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -1013,24 +1224,60 @@ export class SporeHusk extends CombatEntity {
       spriteKey: 'spider', spriteTint: 0xaa66dd,
     });
   }
+
   protected override onDeath(): void {
     super.onDeath();
+    // Spore burst: expanding teal ring on death
     const gfx = this.scene.add.graphics();
     gfx.lineStyle(2, 0x44ddaa, 0.9);
     gfx.strokeCircle(0, 0, 1);
     gfx.setPosition(this.x, this.y).setDepth(this.depth + 2);
-    this.scene.tweens.add({ targets: gfx, scaleX: 40, scaleY: 40, alpha: { from: 0.8, to: 0 }, duration: 350, ease: 'Cubic.easeOut', onComplete: () => gfx.destroy() });
+    this.scene.tweens.add({
+      targets: gfx, scaleX: 40, scaleY: 40,
+      alpha: { from: 0.8, to: 0 }, duration: 350, ease: 'Cubic.easeOut',
+      onComplete: () => gfx.destroy(),
+    });
   }
+
   protected buildTree(): BtNode {
     const R = this.meleeRange;
+    // Bake a per-instance lateral offset so groups approach from slightly
+    // different angles — looks more organic than a perfect beeline.
+    const lateralOffset = (Math.random() - 0.5) * 44;
+
     return new BtSelector([
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+      // Melee when adjacent
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R,
+        ),
+        new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
+      ]),
+      // Chase with a lateral jitter so swarms fan out naturally
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          // Offset the target point perpendicularly to the approach vector.
+          const ox = ctx.opponent!.x, oy = ctx.opponent!.y;
+          const dx = ox - ctx.x, dy = oy - ctx.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          // Perpendicular unit vector (rotated 90°)
+          const px = -dy / len, py = dx / len;
+          ctx.moveToward(ox + px * lateralOffset, oy + py * lateralOffset);
+          return 'running';
+        }),
+      ]),
       new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
     ]);
   }
 }
 
+/**
+ * AcidLancer — insectoid kiter. Circle-strafes at medium range and fires
+ * acid globs. Retreats if the hero closes in. Reverses orbit direction
+ * after each shot to stay unpredictable.
+ */
 export class AcidLancer extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -1040,17 +1287,88 @@ export class AcidLancer extends CombatEntity {
       spriteKey: 'skag', spriteTint: 0x88ee22,
     });
   }
+
   protected buildTree(): BtNode {
-    const TOO_CLOSE = 60, SHOOT_MIN = 80, SHOOT_MAX = 240;
+    const TOO_CLOSE  = 70;    // flee threshold
+    const ORBIT_R    = 160;   // preferred orbit radius
+    const SHOOT_MIN  = 80;
+    const SHOOT_MAX  = 250;
+
+    // Randomly assigned orbit direction — reversed after each shot.
+    let orbitCw = Math.random() < 0.5;
+
     return new BtSelector([
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < TOO_CLOSE), new BtAction(ctx => { const fx = ctx.x + (ctx.x - ctx.opponent!.x); const fy = ctx.y + (ctx.y - ctx.opponent!.y); ctx.moveToward(fx, fy); return 'running'; })]),
-      new BtCooldown(new BtSequence([new BtCondition(ctx => { if (!ctx.opponent) return false; const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y); return d >= SHOOT_MIN && d <= SHOOT_MAX; }), new BtAction(ctx => { ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y); ctx.stop(); return 'success'; })]), 900),
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+
+      // 1. Flee if the hero is inside the danger radius
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < TOO_CLOSE,
+        ),
+        new BtAction(ctx => {
+          ctx.steerAway(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
+      // 2. Shoot while orbiting at preferred range
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d >= SHOOT_MIN && d <= SHOOT_MAX;
+          }),
+          new BtAction(ctx => {
+            // Keep strafing while firing — don't plant feet
+            ctx.orbitAround(ctx.opponent!.x, ctx.opponent!.y, ORBIT_R, orbitCw);
+            ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y);
+            // Reverse orbit so each burst comes from a different angle
+            orbitCw = !orbitCw;
+            return 'success';
+          }),
+        ]),
+        900,
+      ),
+
+      // 3. Orbit without shooting when in range but cooldown not ready
+      new BtSequence([
+        new BtCondition(ctx => {
+          if (!ctx.opponent) return false;
+          const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+          return d >= TOO_CLOSE && d <= SHOOT_MAX;
+        }),
+        new BtAction(ctx => {
+          ctx.orbitAround(ctx.opponent!.x, ctx.opponent!.y, ORBIT_R, orbitCw);
+          return 'running';
+        }),
+      ]),
+
+      // 4. Close in when too far away
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
       new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
     ]);
   }
 }
 
+/**
+ * BruteCarapace — massive beetle tank. Instead of dashing instantly, the
+ * Brute telegraphs its charge with a 0.8s windup (slow lurch + alpha pulse)
+ * so a skilled player can dodge. After the charge it's briefly stunned.
+ *
+ * State machine (managed via closure variables inside the BT action):
+ *   idle    → wander/melee normally; enters windup when charge is ready
+ *   windup  → slow shuffle toward target + visual pulse (0.8s)
+ *   charge  → ctx.dash() fires; recovery timer starts
+ *   recovery → stopped, stunned (0.5s)
+ */
 export class BruteCarapace extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -1059,17 +1377,90 @@ export class BruteCarapace extends CombatEntity {
       dashSpeedMultiplier: 6.0, dashDurationMs: 240,
     });
   }
+
   protected buildTree(): BtNode {
-    const R = this.meleeRange, CMAX = 380;
-    return new BtSelector([
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
-      new BtCooldown(new BtSequence([new BtCondition(ctx => { if (!ctx.opponent) return false; const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y); return d > R && d <= CMAX; }), new BtAction(ctx => { ctx.dash(ctx.opponent!.x, ctx.opponent!.y); return 'success'; })]), 5000),
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
-      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
-    ]);
+    const R    = this.meleeRange;
+    const CMAX = 380;
+
+    type Phase = 'idle' | 'windup' | 'recovery';
+    let phase: Phase = 'idle';
+    let phaseTimer   = 0;
+    let chargeCd     = 0;        // independent cooldown for the telegraph cycle
+    const WINDUP_MS   = 800;
+    const RECOVERY_MS = 500;
+    const CHARGE_CD   = 5000;
+
+    // Single BtAction owns the whole state machine — simpler than nesting
+    // multiple BtSequences for a multi-phase behaviour with cross-phase state.
+    return new BtAction((ctx, delta) => {
+      phaseTimer = Math.max(0, phaseTimer - delta);
+      chargeCd   = Math.max(0, chargeCd   - delta);
+
+      const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+
+      // ── Recovery: briefly stunned after the charge ────────────────────────
+      if (phase === 'recovery') {
+        ctx.stop();
+        if (phaseTimer <= 0) phase = 'idle';
+        return 'running';
+      }
+
+      // ── Windup: slow menacing lurch + visual pulse ────────────────────────
+      if (phase === 'windup') {
+        if (ctx.opponent && physBody) {
+          const dx  = ctx.opponent.x - ctx.x;
+          const dy  = ctx.opponent.y - ctx.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          // 30% speed during windup — slow lurch toward the target
+          physBody.setVelocity((dx / len) * this.speed * 0.3, (dy / len) * this.speed * 0.3);
+        }
+        if (phaseTimer <= 0) {
+          // Fire the charge
+          if (ctx.opponent) ctx.dash(ctx.opponent.x, ctx.opponent.y);
+          phase     = 'recovery';
+          phaseTimer = RECOVERY_MS;
+          chargeCd  = CHARGE_CD;
+        }
+        return 'running';
+      }
+
+      // ── Idle: normal behaviour ─────────────────────────────────────────────
+      if (!ctx.opponent) { ctx.wander(delta); return 'running'; }
+
+      const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+
+      // Melee strike if adjacent
+      if (d < R) { ctx.attack(); ctx.stop(); return 'success'; }
+
+      // Start windup if charge is cooled down and target is in range
+      if (d <= CMAX && chargeCd <= 0) {
+        phase      = 'windup';
+        phaseTimer = WINDUP_MS;
+        // Visual tell: rapid alpha flicker so the player sees the telegraph
+        this.scene.tweens.add({
+          targets:  this,
+          alpha:    { from: 1.0, to: 0.35 },
+          duration: 160,
+          yoyo:     true,
+          repeat:   2,
+        });
+        return 'running';
+      }
+
+      ctx.moveToward(ctx.opponent.x, ctx.opponent.y);
+      return 'running';
+    });
   }
 }
 
+/**
+ * ParasiteFlyer — winged dive-bomber. Uses a hawk attack pattern:
+ *   orbit  → circle at 220px, waiting for a dive window
+ *   dive   → dash at the hero (staggered via blackboard — no simultaneous swarms)
+ *   retreat → flee to safe distance for 700ms before orbiting again
+ *
+ * Orbit direction reverses after each dive so approach angle varies.
+ */
 export class ParasiteFlyer extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -1079,17 +1470,67 @@ export class ParasiteFlyer extends CombatEntity {
       spriteKey: 'crow', spriteTint: 0x22ddcc,
     });
   }
+
   protected buildTree(): BtNode {
-    const R = this.meleeRange, DMIN = 40, DMAX = 340;
+    const R          = this.meleeRange;
+    const ORBIT_R    = 220;
+    const RETREAT_MS = 700;
+    const DIVE_STAGGER_MS = 1800; // written to blackboard after each dive
+
+    type Phase = 'orbit' | 'retreating';
+    let phase:       Phase  = 'orbit';
+    let retreatTimer        = 0;
+    let orbitCw             = Math.random() < 0.5;
+
     return new BtSelector([
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
-      new BtCooldown(new BtSequence([new BtCondition(ctx => { if (!ctx.opponent) return false; const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y); return d >= DMIN && d <= DMAX; }), new BtAction(ctx => { ctx.dash(ctx.opponent!.x, ctx.opponent!.y); return 'success'; })]), 2000),
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
-      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+
+      // Strike if the dive landed close enough
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R,
+        ),
+        new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
+      ]),
+
+      // Hawk state machine
+      new BtAction((ctx, delta) => {
+        if (!ctx.opponent) { ctx.wander(delta); return 'running'; }
+        retreatTimer = Math.max(0, retreatTimer - delta);
+
+        // ── Retreat after a dive ─────────────────────────────────────────────
+        if (phase === 'retreating') {
+          ctx.steerAway(ctx.opponent.x, ctx.opponent.y);
+          if (retreatTimer <= 0) phase = 'orbit';
+          return 'running';
+        }
+
+        // ── Orbit: circle while waiting for dive window ─────────────────────
+        ctx.orbitAround(ctx.opponent.x, ctx.opponent.y, ORBIT_R, orbitCw);
+
+        // Only dive when the global flyer cooldown allows it.
+        // This prevents multiple flyers diving simultaneously (feels overwhelming
+        // and unreadable). The blackboard serialises the dives.
+        const bb = this.blackboard;
+        if (bb && bb.flyerDiveCooldown <= 0) {
+          bb.flyerDiveCooldown = DIVE_STAGGER_MS;
+          ctx.dash(ctx.opponent.x, ctx.opponent.y);
+          phase        = 'retreating';
+          retreatTimer = RETREAT_MS;
+          orbitCw      = !orbitCw;  // approach from opposite side next time
+        }
+
+        return 'running';
+      }),
     ]);
   }
 }
 
+/**
+ * WarriorBug — tiny arachnid swarmer. Individually trivial (8 HP), deadly
+ * in numbers. Boids-style separation (base class) keeps them spread so they
+ * look like a scuttling swarm rather than a blob. Fast direct rush.
+ */
 export class WarriorBug extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -1098,11 +1539,21 @@ export class WarriorBug extends CombatEntity {
       spriteKey: 'spider', spriteTint: 0x44ee22, spriteScale: 0.55,
     });
   }
+
   protected buildTree(): BtNode {
     const R = this.meleeRange;
     return new BtSelector([
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null && Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R), new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; })]),
-      new BtSequence([new BtCondition(ctx => ctx.opponent !== null), new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; })]),
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R,
+        ),
+        new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
+      ]),
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
+      ]),
       new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
     ]);
   }

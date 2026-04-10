@@ -7,6 +7,7 @@ import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES, CORRUPTED_CLEARING, CORRUPTED_L
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
 import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
+import { NavScene } from './NavScene';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
@@ -143,9 +144,12 @@ interface AnimalDef {
 }
 
 const ANIMAL_DEFS: Record<string, AnimalDef> = {
-  deer: { w: 22, h: 14, scale: 2.0, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18 },
-  hare: { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
-  fox:  { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 10 },
+  deer:   { w: 22, h: 14, scale: 2.0, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18 },
+  hare:   { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
+  fox:    { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 10 },
+  // Grouse: small ground bird, lives in coveys of 2–4 in dense forest.
+  // Slightly smaller display (scale 1.5) and flees faster than it roams.
+  grouse: { w: 12, h:  9, scale: 1.5, fleeRange: 160, fleeSpeed: 130, roamSpeed: 28, count: 14 },
 };
 
 /** Fox detects hares within this radius and enters chase state. */
@@ -422,6 +426,10 @@ export class GameScene extends Phaser.Scene {
   private attractTitle!: Phaser.GameObjects.Text;
   private attractThoughtBubble!: Phaser.GameObjects.Text;
 
+  // ─── Free-fly camera ──────────────────────────────────────────────────────────
+  /** When true, WASD pans the camera freely instead of following an animal. */
+  freeCamMode = false;
+
   // Set when the player types their name on the attract screen; used for leaderboard.
   playerName = '';
 
@@ -523,9 +531,24 @@ export class GameScene extends Phaser.Scene {
     this.load.image('flower-1-red',    `${paFMO}/Flower_1_red.png`);
     this.load.image('flower-1-blue',   `${paFMO}/Flower_1_blue.png`);
     this.load.image('flower-1-purple', `${paFMO}/Flower_1_purple.png`);
+    // Flowers_2 — taller, more upright meadow flowers (4 colour variants)
+    this.load.image('flowers-2-yellow', `${paFMO}/Flowers_2_yellow.png`);
+    this.load.image('flowers-2-red',    `${paFMO}/Flowers_2_red.png`);
+    this.load.image('flowers-2-blue',   `${paFMO}/Flowers_2_blue.png`);
+    this.load.image('flowers-2-purple', `${paFMO}/Flowers_2_purple.png`);
+    // Flowers_3 — small daisy-like flowers (4 colour variants)
+    this.load.image('flowers-3-yellow', `${paFMO}/Flowers_3_yellow.png`);
+    this.load.image('flowers-3-red',    `${paFMO}/Flowers_3_red.png`);
+    this.load.image('flowers-3-blue',   `${paFMO}/Flowers_3_blue.png`);
+    this.load.image('flowers-3-purple', `${paFMO}/Flowers_3_purple.png`);
     this.load.image('mushroom',        `${paFMO}/Mushroom.png`);
     this.load.image('mushrooms-yellow',`${paFMO}/Mushrooms_1_Yellow.png`);
     this.load.image('mushrooms-red',   `${paFMO}/Mushrooms_2_Red.png`);
+    // Stumps — fallen tree remnants for forest scatter and chunks
+    this.load.image('stump-1', `${paFMO}/Stump_1.png`);
+    this.load.image('stump-2', `${paFMO}/Stump_2_Mushrooms.png`);
+    // Stick — loose debris for shore/heath scatter
+    this.load.image('stick', `${paFMO}/Stick.png`);
 
     const paW = `${paFMO}/Puddles-And-Water-Anim`;
     this.load.image('puddle-grass-1', `${paW}/Puddle_On-Grass_1_Grass_Green.png`);
@@ -536,6 +559,21 @@ export class GameScene extends Phaser.Scene {
     // water-sheet.png is 480×48 with 16×16 tiles (30 cols × 3 rows).
     // We use 3 frame variants in row 0 driven by detail noise to prevent obvious tiling.
     this.load.spritesheet('terrain-water', 'assets/packs/mystic_woods_2.2/sprites/tilesets/water-sheet.png', { frameWidth: 16, frameHeight: 16 });
+
+    // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
+    // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
+    // water/land boundary and add natural-looking detail.
+    const mwObj = 'assets/packs/mystic_woods_2.2/sprites/objects';
+    const mwTl  = 'assets/packs/mystic_woods_2.2/sprites/tilesets';
+    // 6 lily pad variants in a single row — pick by frame index 0–5
+    this.load.spritesheet('water-lillies',  `${mwTl}/water_lillies.png`,          { frameWidth: 16, frameHeight: 16 });
+    // 6 rock-in-water variants in a single strip — same frame-pick pattern
+    this.load.spritesheet('rocks-in-water', `${mwObj}/rock_in_water_01-sheet.png`, { frameWidth: 16, frameHeight: 16 });
+
+    // ── Mystic Woods chests (for ABANDONED_CAMP chunk) ────────────────────────────
+    // 4-frame sheet; frame 0 = closed chest. Referenced in ChunkDef with frame: 0.
+    this.load.spritesheet('mw-chest-01', `${mwObj}/chest_01.png`, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('mw-chest-02', `${mwObj}/chest_02.png`, { frameWidth: 16, frameHeight: 16 });
 
     // ── Craftpix top-down animal sprites (FIL-73) ─────────────────────────────────
     // Each sheet uses 16×16 px tiles. The TMX animation data shows even-column frames
@@ -548,7 +586,10 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('fox-idle',  `${craftpixBase}/Fox/Fox_Idle.png`,   { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fox-walk',  `${craftpixBase}/Fox/Fox_walk.png`,   { frameWidth: 16, frameHeight: 16 });
     // Black grouse flight sheet (192×128, 12 cols × 8 rows at 16×16 px) — used for all flying birds.
-    this.load.spritesheet('grouse-fly', `${craftpixBase}/Black_grouse/Black_grouse_Flight.png`, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('grouse-fly',  `${craftpixBase}/Black_grouse/Black_grouse_Flight.png`, { frameWidth: 16, frameHeight: 16 });
+    // Grouse idle/walk — used for ground-walking coveys in dense forest (same frame convention as deer/hare/fox).
+    this.load.spritesheet('grouse-idle', `${craftpixBase}/Black_grouse/Black_grouse_Idle.png`,   { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('grouse-walk', `${craftpixBase}/Black_grouse/Black_grouse_Walk.png`,   { frameWidth: 16, frameHeight: 16 });
 
     // ── Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
@@ -616,6 +657,7 @@ export class GameScene extends Phaser.Scene {
     this.stampSecretAreas();
     this.stampZoneBoundaries();
     this.stampDecorationScatter();
+    this.stampWaterEdgeScatter();
     this.spawnButterfliesAndBees();
     this.stampSettlementBuildings();
     this.spawnParticleEffects();
@@ -780,7 +822,16 @@ export class GameScene extends Phaser.Scene {
     // Start background music for the initial day phase
     this.startPhaseMusic(this.currentPhase, 0);
 
-    this.createDevMenu();
+    this.launchNavPanel();
+
+    // Mouse-wheel zoom — works in both free-cam and normal play.
+    this.input.on('wheel',
+      (_ptr: unknown, _objs: unknown, _dx: number, dy: number) => {
+        const cam  = this.cameras.main;
+        const step = dy > 0 ? -0.15 : 0.15;
+        cam.setZoom(Phaser.Math.Clamp(cam.zoom + step, 0.2, 6));
+      },
+    );
     this.initAttractMode();
   }
 
@@ -789,7 +840,7 @@ export class GameScene extends Phaser.Scene {
     this.worldState.update(delta);
     this.updateDayNight();
     if (this.attractMode) {
-      this.updateAttractMode(time);
+      this.updateAttractMode(time, delta);
     } else {
       this.updatePlayerMovement();
       this.updateLevel1(delta);
@@ -845,7 +896,7 @@ export class GameScene extends Phaser.Scene {
    *   < 0.80  dense spruce
    *   ≥ 0.80  highland granite
    */
-  private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit'): number {
+  private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit' | 'grouse'): number {
     const raw = this.baseNoise.fbm(wx * BASE_SCALE, wy * BASE_SCALE);
     // Mirror the diagonal terrain gradient from drawProceduralTerrain()
     const spawnPerp = (wx / WORLD_W - (1 - wy / WORLD_H)) / 2;
@@ -858,6 +909,7 @@ export class GameScene extends Phaser.Scene {
       case 'hare':   return v > 0.25 && v < 0.48 ? 1.0 : 0.3;  // shore through coastal heath
       case 'fox':    return v > 0.48 && v < 0.85 ? 1.0 : 0.15; // forest belt into highland
       case 'rabbit': return v > 0.25 && v < 0.48 ? 1.0 : 0.2;  // shore through coastal heath
+      case 'grouse': return v > 0.65 && v < 0.90 ? 1.0 : 0.1;  // dense spruce forest only
       default:       return 1.0;
     }
   }
@@ -2471,9 +2523,16 @@ export class GameScene extends Phaser.Scene {
     this.attractNameDisplay.setText(this.attractName + '_');
   }
 
-  private updateAttractMode(time: number): void {
+  private updateAttractMode(time: number, delta: number): void {
     // Update thought bubble every frame with the current animal's live state.
     this.updateThoughtBubble();
+
+    if (this.freeCamMode) {
+      // Free-fly: WASD pans the camera; auto-cycle and animal control suspended.
+      this.updateFreeCam(delta);
+      return;
+    }
+
     // Allow player to drive the focused animal via nav keys.
     this.updateAttractControl();
 
@@ -2633,7 +2692,10 @@ export class GameScene extends Phaser.Scene {
       ['fox-idle-anim',  'fox-idle',  [0, 2, 4, 6],          6],
       ['fox-walk-anim',  'fox-walk',  [0, 2, 4, 6, 8, 10],   8],
       // Black grouse flight — even-numbered frames from row 0 of the 192×128 sheet.
-      ['grouse-fly-anim', 'grouse-fly', [0, 2, 4, 6, 8, 10], 10],
+      ['grouse-fly-anim',  'grouse-fly',  [0, 2, 4, 6, 8, 10], 10],
+      // Grouse ground animations — same even-frame convention as deer/hare/fox.
+      ['grouse-idle-anim', 'grouse-idle', [0, 2, 4, 6],          7],
+      ['grouse-walk-anim', 'grouse-walk', [0, 2, 4, 6, 8, 10],   9],
     ];
     for (const [key, texture, frames, frameRate] of defs) {
       this.anims.create({
@@ -2674,14 +2736,16 @@ export class GameScene extends Phaser.Scene {
       clusterR: number;
       clusterMinDist: number;
     }> = {
-      deer: { clusters: [3, 5],  perCluster: [4, 7], clusterR: 60,  clusterMinDist: 600 },
-      hare: { clusters: [8, 12], perCluster: [3, 5], clusterR: 30,  clusterMinDist: 300 },
-      fox:  { clusters: [1, 1],  perCluster: [1, 1], clusterR: 300, clusterMinDist: 300 },
+      deer:   { clusters: [3, 5],  perCluster: [4, 7], clusterR: 60,  clusterMinDist: 600 },
+      hare:   { clusters: [8, 12], perCluster: [3, 5], clusterR: 30,  clusterMinDist: 300 },
+      fox:    { clusters: [1, 1],  perCluster: [1, 1], clusterR: 300, clusterMinDist: 300 },
       // fox: one "cluster" of 1 — effectively solo placement with Poisson spacing
+      // Grouse: small coveys of 2–4 birds, multiple coveys per forest zone
+      grouse: { clusters: [4, 7],  perCluster: [2, 4], clusterR: 40,  clusterMinDist: 400 },
     };
 
     for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
-      const biasType = type as 'deer' | 'hare' | 'fox';
+      const biasType = type as 'deer' | 'hare' | 'fox' | 'grouse';
       const cfg = CLUSTER_CONFIG[type];
       if (!cfg) continue;
 
@@ -3510,6 +3574,65 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Scatter water lilies and rocks along the shoreline (biome 0.22–0.35).
+   * Placed between terrain rendering (depth 0) and ground decorations (depth 2)
+   * so they appear to rest on the water surface or at the water's edge.
+   *
+   * Uses the same baseNoise instance as terrain rendering so scatter positions
+   * align naturally with the visible shoreline — no separate noise setup needed.
+   *
+   * The mulberry32 seed is XOR'd with a different value from the decoration scatter
+   * seed so lily/rock positions are independent of flower/mushroom positions.
+   */
+  private stampWaterEdgeScatter(): void {
+    const rng = mulberry32(this.runSeed ^ 0x57617465); // 0x57617465 = 'Wate'
+    const STEP = 72; // sampling grid — roughly 2.25 tiles at 32px/tile
+    const MAX_LILIES = 100;
+    const MAX_ROCKS  = 70;
+    let lilyCount = 0;
+    let rockCount  = 0;
+
+    for (let wy = STEP / 2; wy < WORLD_H; wy += STEP) {
+      for (let wx = STEP / 2; wx < WORLD_W; wx += STEP) {
+        if (lilyCount >= MAX_LILIES && rockCount >= MAX_ROCKS) break;
+
+        const tx = wx / TILE_SIZE;
+        const ty = wy / TILE_SIZE;
+
+        // Same fbm call as DecorationScatter — gives biome values consistent with
+        // terrain colours and decoration placement, no warp math needed here.
+        const biome = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+
+        // Shore band: open water side (< 0.30) for lilies, land side (0.28–0.35) for rocks
+        if (biome < 0.22 || biome > 0.35) continue;
+
+        // Jitter within the grid cell so items don't form a grid pattern
+        const jx = (rng() - 0.5) * STEP * 0.9;
+        const jy = (rng() - 0.5) * STEP * 0.9;
+        const x = Phaser.Math.Clamp(wx + jx, 16, WORLD_W - 16);
+        const y = Phaser.Math.Clamp(wy + jy, 16, WORLD_H - 16);
+
+        if (biome < 0.29 && lilyCount < MAX_LILIES && rng() < 0.60) {
+          // Lily pads on open water — pick one of 6 variants by frame index
+          const frame = Math.floor(rng() * 6);
+          const img = this.add.image(x, y, 'water-lillies', frame);
+          img.setScale(2.0 + rng() * 0.5); // 2.0–2.5× so they read at game zoom
+          img.setDepth(0.5 + y / WORLD_H); // on the water surface, y-sorted
+          img.setAlpha(0.80 + rng() * 0.20);
+          lilyCount++;
+        } else if (biome >= 0.27 && rockCount < MAX_ROCKS && rng() < 0.50) {
+          // Rocks at the water's edge — 6 variants on the sheet
+          const frame = Math.floor(rng() * 6);
+          const img = this.add.image(x, y, 'rocks-in-water', frame);
+          img.setScale(2.0);
+          img.setDepth(1.0 + y / WORLD_H); // just above lily depth
+          rockCount++;
+        }
+      }
+    }
+  }
+
   // ─── Particle effects (FIL-57) ───────────────────────────────────────────────
 
   /**
@@ -3845,7 +3968,9 @@ export class GameScene extends Phaser.Scene {
   private stampChunkItem(item: ChunkItem, wx: number, wy: number): void {
     if (item.kind === 'tree' || item.kind === 'rock') {
       // Re-use the existing solidObjects group so the player collider covers these too.
-      const obj = this.physics.add.staticImage(wx, wy, item.texture);
+      // item.frame is undefined for single-image textures, which Phaser treats identically
+      // to omitting the argument — so this is backward compatible with all existing chunks.
+      const obj = this.physics.add.staticImage(wx, wy, item.texture, item.frame);
       if (item.scale !== undefined) obj.setScale(item.scale);
       obj.setDepth(wy); // y-sorting: lower on screen = in front
       obj.setOrigin(0.5, 1);
@@ -3861,8 +3986,10 @@ export class GameScene extends Phaser.Scene {
         obj.displayHeight  - ch + offsetY,
       );
     } else {
-      // decoration / puddle — no physics, just a sprite
-      const sprite = this.add.image(wx, wy, item.texture);
+      // decoration / puddle — no physics, just a sprite.
+      // Pass item.frame so chunks can reference a specific frame on a spritesheet
+      // (e.g. frame 0 = closed chest on mw-chest-01). Undefined = whole image.
+      const sprite = this.add.image(wx, wy, item.texture, item.frame);
       if (item.scale !== undefined) sprite.setScale(item.scale);
       sprite.setOrigin(0.5, 1);
       sprite.setDepth(item.kind === 'puddle' ? 2 : wy); // puddles below sprites
@@ -4203,51 +4330,63 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('NpcDialogScene', dialogData as unknown as object);
   }
 
-  // ─── Dev menu ─────────────────────────────────────────────────────────────────
+  // ─── Nav panel (NavScene overlay) ────────────────────────────────────────────
 
   /**
-   * Persistent mode-switcher bar pinned to the bottom of the viewport.
-   * Always visible regardless of game state — click the inactive label to restart
-   * the scene in that mode.
-   *
-   * WilderView — terrain generation, world seeding, animals, day/night cycle.
-   * Arena      — combat testing with Tinkerer (earth path tier 2) as the player.
+   * Launch NavScene as an overlay — it renders the nav panel in its own camera
+   * (no zoom) so its elements are never culled by the zoomed main camera.
+   * NavScene communicates back via game.events.
    */
-  private createDevMenu(): void {
-    const barY = 590;
+  private launchNavPanel(): void {
+    if (!this.scene.isActive(NavScene.KEY)) {
+      this.scene.launch(NavScene.KEY);
+    }
+    // Tell NavScene which mode is active so it highlights the right button.
+    this.game.events.emit('nav-mode-change', 'wilderview');
 
-    // Semi-transparent strip along the bottom edge
-    this.add.rectangle(400, barY, 800, 22, 0x000000, 0.6)
-      .setScrollFactor(0)
-      .setDepth(1000);
+    // NavScene button → goto arena.
+    this.game.events.on('nav-goto-arena', () => {
+      this.scene.stop(NavScene.KEY);
+      this.scene.start('CombatArenaScene');
+    }, this);
 
-    const modes: Array<{ key: 'wilderview' | 'arena'; label: string }> = [
-      { key: 'wilderview', label: 'WilderView' },
-      { key: 'arena',      label: 'Arena' },
-    ];
+    // NavScene button → toggle free cam.
+    this.game.events.on('nav-toggle-free-cam', () => {
+      this.toggleFreeCam();
+    }, this);
 
-    modes.forEach(({ key, label }, i) => {
-      const x = 400 - 55 + i * 110;
-      const active = this.gameMode === key;
-
-      const txt = this.add
-        .text(x, barY, label, {
-          fontSize: '11px',
-          // Active mode: bright green; inactive: muted
-          color: active ? '#aaffaa' : '#667766',
-          padding: { x: 8, y: 3 },
-        })
-        .setOrigin(0.5, 0.5)
-        .setScrollFactor(0)
-        .setDepth(1001);
-
-      if (!active) {
-        // Clicking the inactive label restarts the scene in that mode
-        txt.setInteractive({ useHandCursor: true })
-          .on('pointerup', () => this.scene.restart({ mode: key }))
-          .on('pointerover', () => txt.setColor('#99bb99'))
-          .on('pointerout',  () => txt.setColor('#667766'));
-      }
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('nav-goto-arena', undefined, this);
+      this.game.events.off('nav-toggle-free-cam', undefined, this);
     });
+  }
+
+  /** Toggle free-fly camera on/off. Notifies NavScene to update its button. */
+  toggleFreeCam(): void {
+    this.freeCamMode = !this.freeCamMode;
+    if (this.freeCamMode) {
+      this.cameras.main.stopFollow();
+    } else {
+      if (this.attractTargets.length > 0) {
+        this.cameras.main.startFollow(
+          this.attractTargets[this.attractIdx] as Phaser.GameObjects.GameObject,
+          true, 0.06, 0.06,
+        );
+      }
+    }
+    this.game.events.emit('nav-free-cam-changed', this.freeCamMode);
+  }
+
+  /** Pan the camera with WASD/arrows when in free-fly mode. */
+  private updateFreeCam(delta: number): void {
+    const right = (this.cursors.right.isDown || this.wasd['right'].isDown) ? 1 : 0;
+    const left  = (this.cursors.left.isDown  || this.wasd['left'].isDown)  ? 1 : 0;
+    const down  = (this.cursors.down.isDown  || this.wasd['down'].isDown)  ? 1 : 0;
+    const up    = (this.cursors.up.isDown    || this.wasd['up'].isDown)    ? 1 : 0;
+
+    const speed = 400 / this.cameras.main.zoom;
+    const cam   = this.cameras.main;
+    cam.scrollX += (right - left) * speed * (delta / 1000);
+    cam.scrollY += (down  - up)   * speed * (delta / 1000);
   }
 }

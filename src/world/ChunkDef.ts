@@ -30,6 +30,11 @@ export interface ChunkItem {
   texture: string;
   /** Uniform scale applied to the sprite */
   scale?: number;
+  /**
+   * Spritesheet frame index (0-based). Omit for single-image textures.
+   * Passed as the fourth argument to this.add.image(x, y, key, frame).
+   */
+  frame?: number;
   /** Collision box width (for tree/rock only) */
   colliderWidth?: number;
   /** Collision box height (for tree/rock only) */
@@ -244,10 +249,82 @@ export const CORRUPTED_LANDMARKS: Array<{ x: number; y: number; label: string }>
   { x: 3400, y:  900, label: 'Ash Ring'        },
 ];
 
-export const CHUNKS: ChunkDef[] = [FOREST_COPSE, CLEARING, RUINS, WATERING_HOLE];
+/**
+ * Birch shore — open coastal cluster of birch and oak trees with scattered flowers.
+ * Appears only in the rocky shore and coastal heath biomes, giving the shoreline
+ * distinct character vs the spruce-heavy interior.
+ */
+const BIRCH_SHORE: ChunkDef = {
+  id: 'birch_shore',
+  weight: 3,
+  radius: 110,
+  biomeMin: 0.25, biomeMax: 0.45,
+  items: [
+    { kind: 'tree', dx:   0, dy:   0, texture: 'tree-birch',     scale: 2.5, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx:  70, dy: -15, texture: 'tree-birch-2',   scale: 2.3, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx: -65, dy:  10, texture: 'tree-birch',     scale: 2.4, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx:  20, dy:  70, texture: 'tree-oak-small', scale: 2.1, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'decoration', dx: -20, dy:  30, texture: 'grass-tuft-5',    scale: 1.6 },
+    { kind: 'decoration', dx:  35, dy: -30, texture: 'flower-1-yellow', scale: 1.4 },
+    { kind: 'rock', dx: -40, dy: -40, texture: 'rock-grass', scale: 1.8, colliderWidth: 12, colliderHeight: 8 },
+  ],
+};
+
+/**
+ * Spruce highland — dense cluster of spruce and pine in the deep forest / highland edge.
+ * Only spawns at higher biome values so it feels like the dark interior of the forest,
+ * distinct from the mixed-tree clearings at lower elevations.
+ */
+const SPRUCE_HIGHLAND: ChunkDef = {
+  id: 'spruce_highland',
+  weight: 2,
+  radius: 100,
+  biomeMin: 0.65, biomeMax: 0.90,
+  temperatureMin: 0.40,  // warmer highland grows spruce; colder stays bare rock
+  items: [
+    { kind: 'tree', dx:   0, dy:   0, texture: 'tree-spruce',  scale: 3.0, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx:  65, dy: -25, texture: 'tree-pine',    scale: 2.8, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx: -60, dy:  20, texture: 'tree-spruce',  scale: 2.7, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx:  30, dy:  55, texture: 'tree-pine',    scale: 2.6, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx: -35, dy: -60, texture: 'tree-spruce',  scale: 2.5, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'decoration', dx:  10, dy:  15, texture: 'mushroom',   scale: 1.6 },
+    { kind: 'decoration', dx: -25, dy:  40, texture: 'stump-1',    scale: 2.4 },
+    { kind: 'rock', dx:  50, dy:  40, texture: 'rock-grass', scale: 2.2, colliderWidth: 14, colliderHeight: 9 },
+  ],
+};
+
+/**
+ * Abandoned camp — remnants of an old hunter's or traveller's camp.
+ * Chests (frame 0 = closed state) surrounded by overgrown vegetation.
+ * Rare — a special find worth investigating.
+ */
+const ABANDONED_CAMP: ChunkDef = {
+  id: 'abandoned_camp',
+  weight: 1,
+  radius: 90,
+  biomeMin: 0.33, biomeMax: 0.65,
+  items: [
+    // Two closed chests — frame 0 is the closed state on both sheets
+    { kind: 'decoration', dx:  30, dy: -10, texture: 'mw-chest-01', frame: 0, scale: 2.0 },
+    { kind: 'decoration', dx: -20, dy:  20, texture: 'mw-chest-02', frame: 0, scale: 2.0 },
+    // Nature reclaiming the site
+    { kind: 'decoration', dx: -30, dy: -30, texture: 'mushrooms-red',   scale: 1.6 },
+    { kind: 'decoration', dx:  40, dy:  40, texture: 'grass-tuft-2',    scale: 1.5 },
+    { kind: 'decoration', dx: -55, dy:  35, texture: 'flower-1-purple', scale: 1.4 },
+    { kind: 'decoration', dx:  60, dy: -35, texture: 'stump-1',         scale: 2.5 },
+    // Shelter trees
+    { kind: 'tree', dx: -80, dy: -40, texture: 'tree-birch', scale: 2.4, colliderWidth: 7, colliderHeight: 8, colliderOffsetY: -2 },
+    { kind: 'tree', dx:  80, dy:  30, texture: 'tree-oak',   scale: 2.3, colliderWidth: 8, colliderHeight: 8, colliderOffsetY: -2 },
+    // Rocks as firepit seats
+    { kind: 'rock', dx:  20, dy:  30, texture: 'rock-grass', scale: 1.8, colliderWidth: 10, colliderHeight: 8 },
+    { kind: 'rock', dx: -15, dy:  25, texture: 'rock-grass', scale: 1.6, colliderWidth: 10, colliderHeight: 7 },
+  ],
+};
+
+export const CHUNKS: ChunkDef[] = [FOREST_COPSE, CLEARING, RUINS, WATERING_HOLE, BIRCH_SHORE, SPRUCE_HIGHLAND, ABANDONED_CAMP];
 
 /** How many chunks to place across the world */
-export const CHUNK_COUNT = 22;
+export const CHUNK_COUNT = 28;
 
 /**
  * Positions that must remain clear of chunks.

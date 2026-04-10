@@ -58,6 +58,17 @@ export interface CombatContext {
    * velocity is not cancelled by other BT branches running on the same tick.
    */
   dash: (tx: number, ty: number) => void;
+  /**
+   * Move directly away from world position (fromX, fromY) at the entity's speed.
+   * Used by kiting enemies to retreat from a threat point.
+   */
+  steerAway: (fromX: number, fromY: number) => void;
+  /**
+   * Circle-strafe around world point (cx, cy) at the entity's speed.
+   * Advances the orbit angle each frame so the entity arcs smoothly.
+   * `cw` = true for clockwise, false for counter-clockwise.
+   */
+  orbitAround: (cx: number, cy: number, radius: number, cw: boolean) => void;
 }
 
 export interface BtNode {

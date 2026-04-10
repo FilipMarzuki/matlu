@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { NavScene } from './NavScene';
 import {
   CombatEntity,
   Tinkerer,
@@ -9,6 +10,7 @@ import {
   WarriorBug,
 } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
+import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -63,6 +65,7 @@ export class CombatArenaScene extends Phaser.Scene {
   private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
+  private readonly blackboard = new ArenaBlackboard();
 
   private waveGroupIndex = 0;
   private waveNumber     = 0;
@@ -82,8 +85,18 @@ export class CombatArenaScene extends Phaser.Scene {
   private hudAlive!: Phaser.GameObjects.Text;
   private hudKills!: Phaser.GameObjects.Text;
 
+  // ── Player control ──────────────────────────────────────────────────────────
+  /** When true the player drives the hero with WASD/arrows + attack keys. */
+  private heroPlayerMode = false;
+  private moveKeys!: Record<string, Phaser.Input.Keyboard.Key>;
+  private meleeKey!: Phaser.Input.Keyboard.Key;
+  private dashKey!:  Phaser.Input.Keyboard.Key;
+
+  /** Width of the right-side nav panel. Arena is shrunk to not go behind it. */
+  private static readonly PANEL_W = 160;
+
   /**
-   * When true the scene is running as a menu background — HUD and dev bar are
+   * When true the scene is running as a menu background — HUD and nav panel are
    * hidden so they don't overlap the menu panel rendered on top.
    * Set via `this.scene.launch(CombatArenaScene.KEY, { background: true })`.
    */
@@ -154,14 +167,33 @@ export class CombatArenaScene extends Phaser.Scene {
     });
 
     this.spawnHero();
-    if (!this.bgMode) this.buildHud();
-    if (!this.bgMode) this.buildDevMenu();
+
+    if (!this.bgMode) {
+      // Keyboard input for player-control mode.
+      this.moveKeys = this.input.keyboard!.addKeys({
+        up:    Phaser.Input.Keyboard.KeyCodes.W,
+        down:  Phaser.Input.Keyboard.KeyCodes.S,
+        left:  Phaser.Input.Keyboard.KeyCodes.A,
+        right: Phaser.Input.Keyboard.KeyCodes.D,
+      }) as Record<string, Phaser.Input.Keyboard.Key>;
+      this.meleeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.dashKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+
+      this.buildHud();
+      this.launchNavPanel();
+    }
   }
 
   override update(_time: number, delta: number): void {
+    this.blackboard.tick(delta);
+
     // ── Hero ──────────────────────────────────────────────────────────────────
     if (this.heroAlive) {
-      this.hero.update(delta);
+      if (this.heroPlayerMode && !this.bgMode) {
+        this.updatePlayerHeroInput(delta);
+      } else {
+        this.hero.update(delta);
+      }
       if (!this.hero.isAlive) {
         this.heroAlive = false;
         this.cameras.main.shake(300, 0.008);
@@ -186,6 +218,7 @@ export class CombatArenaScene extends Phaser.Scene {
         this.time.delayedCall(1500, () => { if (e.active) e.destroy(); });
       }
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+      this.syncEnemyCoordination();
     }
 
     // ── Main wave spawn timer ─────────────────────────────────────────────────
@@ -223,10 +256,12 @@ export class CombatArenaScene extends Phaser.Scene {
     const W      = this.scale.width;
     const H      = this.scale.height;
     const margin = 60;
+    // Reserve space for the right-side nav panel so the arena never goes behind it.
+    const rightEdge = this.bgMode ? W - margin : W - CombatArenaScene.PANEL_W - margin;
 
     this.arenaX = margin;
     this.arenaY = margin;
-    this.arenaW = W - margin * 2;
+    this.arenaW = rightEdge - margin;
     this.arenaH = H - margin * 2;
     const cx    = this.arenaX + this.arenaW / 2;
     const cy    = this.arenaY + this.arenaH / 2;
@@ -421,6 +456,21 @@ export class CombatArenaScene extends Phaser.Scene {
     for (const e of this.aliveEnemies) e.setOpponent(this.hero);
   }
 
+  /**
+   * After any spawn or death event, re-sync every living enemy with:
+   *   - the current aliveEnemies list (for separation steering), and
+   *   - the shared arena blackboard (for flyer-dive staggering).
+   *
+   * Called after spawnWaveGroup, spawnBug, and every prune-dead cycle so
+   * separation always reflects the current roster.
+   */
+  private syncEnemyCoordination(): void {
+    for (const e of this.aliveEnemies) {
+      e.setAllies(this.aliveEnemies);
+      e.setBlackboard(this.blackboard);
+    }
+  }
+
   // ── Enemy spawning ────────────────────────────────────────────────────────────
 
   private spawnWaveGroup(): void {
@@ -445,6 +495,7 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    this.syncEnemyCoordination();
   }
 
   private spawnBug(): void {
@@ -461,6 +512,7 @@ export class CombatArenaScene extends Phaser.Scene {
       this.aliveEnemies.push(bug);
     }
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    this.syncEnemyCoordination();
   }
 
   // ── Wave timing ───────────────────────────────────────────────────────────────
@@ -481,50 +533,116 @@ export class CombatArenaScene extends Phaser.Scene {
       backgroundColor: '#00000077',
       padding:         { x: 6, y: 3 },
     };
+    // HUD anchored left — keeps it away from the right-side nav panel.
     this.hudWave = this.add
-      .text(this.scale.width - 12, 12, 'Wave 0', { ...base, color: '#99ddff' })
-      .setOrigin(1, 0).setScrollFactor(0).setDepth(2);
+      .text(12, 12, 'Wave 0', { ...base, color: '#99ddff' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
     this.hudAlive = this.add
-      .text(12, 12, 'Alive: 0', { ...base, color: '#aaffaa' })
+      .text(12, 32, 'Alive: 0', { ...base, color: '#aaffaa' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
     this.hudKills = this.add
-      .text(12, 32, 'Kills: 0', { ...base, color: '#ffcc88' })
+      .text(12, 52, 'Kills: 0', { ...base, color: '#ffcc88' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
   }
 
-  // ── Dev menu ─────────────────────────────────────────────────────────────────
+  // ── Nav panel (NavScene overlay) ─────────────────────────────────────────────
 
-  private buildDevMenu(): void {
-    const W    = this.scale.width;
-    const barY = this.scale.height - 11;
+  /**
+   * Launch NavScene as a persistent overlay. NavScene renders in its own camera
+   * (no zoom) and communicates back via game.events.
+   */
+  private launchNavPanel(): void {
+    if (!this.scene.isActive(NavScene.KEY)) {
+      this.scene.launch(NavScene.KEY);
+    }
+    this.game.events.emit('nav-mode-change', 'arena');
 
-    this.add
-      .rectangle(W / 2, barY, W, 22, 0x000000, 0.6)
-      .setScrollFactor(0).setDepth(1000);
+    // NavScene button → goto wilderview.
+    this.game.events.on('nav-goto-wilderview', () => {
+      this.scene.stop(NavScene.KEY);
+      this.scene.start('GameScene');
+    }, this);
 
-    const items = [
-      { label: 'WilderView', active: false, target: 'GameScene' },
-      { label: 'Arena',      active: true,  target: '' },
-    ];
+    // NavScene button → toggle play mode.
+    this.game.events.on('nav-toggle-play-mode', () => {
+      this.toggleHeroPlayerMode();
+    }, this);
 
-    items.forEach(({ label, active, target }, i) => {
-      const x   = W / 2 - 55 + i * 110;
-      const txt = this.add
-        .text(x, barY, label, {
-          fontSize: '11px',
-          color:    active ? '#aaffaa' : '#667766',
-          padding:  { x: 8, y: 3 },
-        })
-        .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(1001);
+    // NavScene button → reset arena.
+    this.game.events.on('nav-reset-arena', () => {
+      this.resetArena();
+    }, this);
 
-      if (!active) {
-        txt
-          .setInteractive({ useHandCursor: true })
-          .on('pointerup',   () => this.scene.start(target))
-          .on('pointerover', () => txt.setColor('#99bb99'))
-          .on('pointerout',  () => txt.setColor('#667766'));
-      }
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('nav-goto-wilderview', undefined, this);
+      this.game.events.off('nav-toggle-play-mode', undefined, this);
+      this.game.events.off('nav-reset-arena', undefined, this);
     });
+  }
+
+  // ── Player mode ───────────────────────────────────────────────────────────────
+
+  toggleHeroPlayerMode(): void {
+    this.heroPlayerMode = !this.heroPlayerMode;
+    this.hero.setPlayerControlled(this.heroPlayerMode);
+    this.game.events.emit('nav-play-mode-changed', this.heroPlayerMode);
+  }
+
+  /**
+   * Drive the Tinkerer directly from keyboard input.
+   * Called every frame instead of hero.update() when heroPlayerMode is true.
+   */
+  private updatePlayerHeroInput(delta: number): void {
+    // Movement — WASD
+    const right = this.moveKeys['right'].isDown ? 1 : 0;
+    const left  = this.moveKeys['left'].isDown  ? 1 : 0;
+    const down  = this.moveKeys['down'].isDown  ? 1 : 0;
+    const up    = this.moveKeys['up'].isDown    ? 1 : 0;
+
+    const dx = right - left;
+    const dy = down  - up;
+    // Use the hero's own speed value via setMoveVelocity.
+    const spd = 160; // px/s — comfortable player speed
+    this.hero.setMoveVelocity(dx * spd, dy * spd);
+
+    // Attack — Space bar (just-pressed so it doesn't auto-repeat)
+    if (Phaser.Input.Keyboard.JustDown(this.meleeKey)) {
+      this.hero.tryMelee();
+    }
+
+    // Dash — Shift (just-pressed)
+    if (Phaser.Input.Keyboard.JustDown(this.dashKey) && (dx !== 0 || dy !== 0)) {
+      this.hero.tryDash(dx, dy);
+    }
+
+    // Let the entity tick its animation + dash physics + HP bar.
+    this.hero.update(delta);
+  }
+
+  /**
+   * Clear all enemies and projectiles, respawn the hero at default position,
+   * and reset wave counters — useful as a quick restart for player-mode testing.
+   */
+  resetArena(): void {
+    // Destroy all live enemies
+    for (const e of this.aliveEnemies) { if (e.active) e.destroy(); }
+    this.aliveEnemies = [];
+    // Destroy all projectiles
+    for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
+    this.projectiles = [];
+
+    // Reset wave counters
+    this.waveGroupIndex = 0;
+    this.waveNumber     = 0;
+    this.killCount      = 0;
+    this.mainSpawnTimer = 3000;
+    this.trickleTimer   = 0;
+    this.trickleActive  = false;
+
+    // Respawn the hero
+    if (this.hero.active) this.hero.destroy();
+    this.spawnHero();
+    this.hero.setPlayerControlled(this.heroPlayerMode);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────

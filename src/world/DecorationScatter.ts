@@ -28,7 +28,7 @@
 import { FbmNoise } from '../lib/noise';
 import { mulberry32, poissonDisk } from '../lib/rng';
 
-export type DecorationType = 'flower' | 'mushroom' | 'stone' | 'tuft' | 'bush';
+export type DecorationType = 'flower' | 'mushroom' | 'stone' | 'tuft' | 'bush' | 'stump' | 'flower2' | 'flower3' | 'stick';
 
 export interface ScatteredDecor {
   x: number;
@@ -136,26 +136,35 @@ export function generateDecorations(
     // a warm dry one stays flowery, rather than a single flat rule per biome.
     let type: DecorationType;
     if (biome < 0.37) {
-      // Shore/wet — moisture-split: tall reed tufts in wetter spots, stones on drier shore
-      type = moist > 0.55 ? 'tuft' : 'stone';
+      // Shore/wet — moisture-split: tall reed tufts in wetter spots, stones/sticks on drier shore
+      if (moist > 0.55) type = 'tuft';
+      else if (rng() < 0.18) type = 'stick';  // loose debris on bare shore
+      else type = 'stone';
     } else if (biome < 0.65) {
-      // Meadow — cold+wet patches grow mushrooms; warm/dry stays flowery
-      if (temp < 0.38 && moist > 0.62) type = 'mushroom';
-      else type = rng() < 0.85 ? 'flower' : 'bush';
+      // Meadow — cold+wet patches grow mushrooms; warm/dry mixes all three flower types
+      if (temp < 0.38 && moist > 0.62) {
+        type = 'mushroom';
+      } else {
+        const r2 = rng();
+        if (r2 < 0.45) type = 'flower';
+        else if (r2 < 0.65) type = 'flower2';  // taller meadow flowers
+        else if (r2 < 0.80) type = 'flower3';  // small daisy-like flowers
+        else type = 'bush';
+      }
     } else if (biome < 0.73) {
       // Tall-grass transition — wetter side tilts toward flowers/tufts; drier toward mushrooms/stone
       if (moist > 0.58) type = rng() < 0.55 ? 'flower' : 'tuft';
       else              type = rng() < 0.45 ? 'mushroom' : rng() < 0.75 ? 'bush' : 'stone';
     } else if (biome < 0.81) {
-      // Forest edge — wet = mossy mushrooms; dry = stones + bush
+      // Forest edge — wet = mossy mushrooms + stumps; dry = stones + bush + stumps
       type = moist > 0.50
-        ? (rng() < 0.55 ? 'mushroom' : 'bush')
-        : (rng() < 0.50 ? 'stone'    : 'bush');
+        ? (rng() < 0.45 ? 'mushroom' : rng() < 0.30 ? 'stump' : 'bush')
+        : (rng() < 0.40 ? 'stone'    : rng() < 0.25 ? 'stump' : 'bush');
     } else {
-      // Dense forest — temperature drives ratio: cold = more mushrooms, warm = more stones
+      // Dense forest — temperature drives ratio: cold = more mushrooms, warm = more stones; stumps throughout
       type = temp < 0.45
-        ? (rng() < 0.60 ? 'mushroom' : 'stone')
-        : (rng() < 0.50 ? 'stone'    : rng() < 0.70 ? 'bush' : 'mushroom');
+        ? (rng() < 0.50 ? 'mushroom' : rng() < 0.30 ? 'stump' : 'stone')
+        : (rng() < 0.40 ? 'stone'    : rng() < 0.30 ? 'stump' : rng() < 0.70 ? 'bush' : 'mushroom');
     }
 
     // Variant 0–3 for texture/colour selection; slight scale jitter for variety.
@@ -179,9 +188,13 @@ export function generateDecorations(
 export function decorTexture(type: DecorationType, variant: number): string {
   switch (type) {
     case 'flower':   return (['flower-1-yellow', 'flower-1-red', 'flower-1-blue', 'flower-1-purple'] as const)[variant % 4];
+    case 'flower2':  return (['flowers-2-yellow', 'flowers-2-red', 'flowers-2-blue', 'flowers-2-purple'] as const)[variant % 4];
+    case 'flower3':  return (['flowers-3-yellow', 'flowers-3-red', 'flowers-3-blue', 'flowers-3-purple'] as const)[variant % 4];
     case 'mushroom': return (['mushroom', 'mushrooms-yellow', 'mushrooms-red', 'mushroom'] as const)[variant % 4];
     case 'stone':    return 'rock-grass';
     case 'tuft':     return `grass-tuft-${(variant % 5) + 1}`;
     case 'bush':     return variant % 2 === 0 ? 'bush-1' : 'bush-2';
+    case 'stump':    return variant % 2 === 0 ? 'stump-1' : 'stump-2';
+    case 'stick':    return 'stick';
   }
 }
