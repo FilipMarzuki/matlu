@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
 import {
   CombatEntity,
@@ -208,6 +209,7 @@ export class CombatArenaScene extends Phaser.Scene {
         this.heroAlive = false;
         this.cameras.main.shake(300, 0.008);
         this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero());
+        log.info('hero_died', { wave: this.waveNumber, kills: this.killCount, alive_enemies: this.aliveEnemies.length });
       }
     }
 
@@ -503,6 +505,14 @@ export class CombatArenaScene extends Phaser.Scene {
       e.setOpponent(this.hero);
       this.aliveEnemies.push(e);
     }
+
+    log.info('wave_spawned', {
+      wave:        this.waveNumber,
+      group_label: group.label,
+      spawned:     ctors.length,
+      total_alive: this.aliveEnemies.length,
+      kills_so_far: this.killCount,
+    });
 
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();

@@ -236,20 +236,15 @@ export class MainMenuScene extends Phaser.Scene {
   private openArena(): void {
     this.fadeMusicOut();
     this.bgSwapTimer.remove();
-    // If the arena is the active background, just reveal it (stop menu only).
-    // If wilderview is active, stop it and launch the arena in foreground mode.
-    if (this.activeBgKey === CombatArenaScene.KEY) {
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.stop();
-      });
-    } else {
-      this.scene.stop(this.activeBgKey);
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start(CombatArenaScene.KEY);
-      });
-    }
+    // Always stop whichever background is running and restart the arena in
+    // foreground mode. Passing `{}` explicitly clears any stale bgMode init
+    // data that Phaser may have retained from the background launch.
+    const bgKey = this.activeBgKey;
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.stop(bgKey);
+      this.scene.start(CombatArenaScene.KEY, {});
+    });
   }
 
   private openCredits(): void {

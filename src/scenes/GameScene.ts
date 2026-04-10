@@ -7,6 +7,7 @@ import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES, CORRUPTED_CLEARING, CORRUPTED_L
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
 import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
+import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
 import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
 import { createSolidGroup } from '../environment/SolidObject';
@@ -624,10 +625,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.sys.game.events.on('error', (err: Error) => {
-      console.error(`[${this.scene.key}]`, err);
-    });
-
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
 
     // Level 1 starts at dawn (FIL-37)
@@ -2137,16 +2134,16 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  protected onZoneCleansed(_type: string, _x: number, _y: number): void {
-    // Hook for subclasses / future telemetry (Better Stack, etc.)
+  protected onZoneCleansed(type: string, x: number, y: number): void {
+    log.info('zone_cleansed', { corruption_type: type, x: Math.round(x), y: Math.round(y) });
   }
 
-  protected onFsmTransition(_oldState: string, _newState: string): void {
-    // Hook for subclasses
+  protected onFsmTransition(oldState: string, newState: string): void {
+    log.debug('fsm_transition', { entity: this.constructor.name, from: oldState, to: newState });
   }
 
-  protected onHeightBlocked(_diff: number, _toX: number, _toY: number): void {
-    // Hook for subclasses
+  protected onHeightBlocked(diff: number, toX: number, toY: number): void {
+    log.debug('height_blocked', { diff, x: Math.round(toX), y: Math.round(toY) });
   }
 
   /**

@@ -16,6 +16,8 @@ jobs:
       # Placeholder values so Vite can bundle without repo secrets. Override in deploy (e.g. Vercel env vars).
       VITE_SUPABASE_URL: https://example.supabase.co
       VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+      # Better Stack token — omitted in CI so logger falls back to console.
+      # VITE_BETTERSTACK_DSN is set in Vercel shared variables for production.
     steps:
       - uses: actions/checkout@v4
 

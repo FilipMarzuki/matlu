@@ -47,6 +47,11 @@ async function bootGame(page: import('@playwright/test').Page) {
 async function startGameScene(page: import('@playwright/test').Page) {
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
+    // Stop MainMenuScene and its background scenes before starting GameScene.
+    // CombatArenaScene runs as a background behind MainMenuScene; stopping it
+    // first frees GPU/CPU so GameScene.create() completes within the timeout.
+    game?.scene?.stop('CombatArenaScene');
+    game?.scene?.stop('WilderviewScene');
     game?.scene?.stop('MainMenuScene');
     game?.scene?.start('GameScene');
   });
@@ -176,20 +181,38 @@ test('screenshot: pause menu', async ({ page }) => {
 test('screenshot: combat arena', async ({ page }) => {
   await bootGame(page);
 
-  // Switch directly to CombatArenaScene via the scene manager.
+  // Wait for MainMenuScene to settle, then click the Arena button.
+  // This mirrors the real user flow and ensures CombatArenaScene starts in
+  // foreground mode (not as a background, which suppresses the HUD).
+  await page.waitForFunction(
+    () => {
+      const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!game?.scene?.getScene('MainMenuScene')?.sys?.settings?.active;
+    },
+    { timeout: BOOT_MS },
+  );
+  await page.waitForTimeout(1_000);
+
+  // Stop all background scenes and restart CombatArenaScene in foreground mode.
+  // Pass {} explicitly so Phaser doesn't reuse the stale { background: true }
+  // init data from the bgMode launch — that would suppress the HUD and nav panel.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
+    game?.scene?.stop('CombatArenaScene');
+    game?.scene?.stop('WilderviewScene');
     game?.scene?.stop('MainMenuScene');
-    game?.scene?.start('CombatArenaScene');
+    game?.scene?.start('CombatArenaScene', {});
   });
 
-  // Wait for the arena to be active (hero spawned = scene is running).
+  // Wait until MainMenuScene is gone and CombatArenaScene is the only active scene.
   await page.waitForFunction(
     () => {
       const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
-      return !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
+      const menuGone  = !g?.scene?.getScene('MainMenuScene')?.sys?.settings?.active;
+      const arenaUp   = !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
+      return menuGone && arenaUp;
     },
-    { timeout: 10_000 },
+    { timeout: 8_000 },
   );
 
   // Let the first wave spawn and the hero start fighting.

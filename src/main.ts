@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
 import './lib/supabaseClient';
+import { log } from './lib/logger';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { WilderviewScene } from './scenes/WilderviewScene';
 import { GameScene } from './scenes/GameScene';
@@ -12,6 +13,7 @@ import { GameOverScene } from './scenes/GameOverScene';
 import { LevelCompleteScene } from './scenes/LevelCompleteScene';
 import { CombatArenaScene } from './scenes/CombatArenaScene';
 import { UpgradeScene } from './scenes/UpgradeScene';
+import { NavScene } from './scenes/NavScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -45,7 +47,7 @@ const game = new Phaser.Game({
   },
   // MainMenuScene is the entry point (first in array = auto-started).
   // WilderviewScene is kept for compatibility but now redirects to MainMenuScene.
-  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene],
+  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene],
 });
 
 // Restore mute preference saved by SettingsScene.
@@ -57,3 +59,29 @@ if (typeof localStorage !== 'undefined' && localStorage.getItem('matlu_muted') =
 // Expose game instance for Playwright tests and dev tooling.
 // Always set so that preview-mode Playwright tests can access it.
 (window as unknown as Record<string, unknown>)['__game'] = game;
+
+// ── Global error capture ──────────────────────────────────────────────────────
+// Catches unhandled JS errors and promise rejections anywhere in the client.
+// These are the most important signals — they reach Better Stack even when
+// the user never reports anything.
+window.addEventListener('error', (ev) => {
+  log.error('unhandled error', {
+    message: ev.message,
+    filename: ev.filename,
+    line:     ev.lineno,
+    col:      ev.colno,
+    stack:    ev.error?.stack,
+  });
+});
+
+window.addEventListener('unhandledrejection', (ev) => {
+  const reason = ev.reason instanceof Error
+    ? { message: ev.reason.message, stack: ev.reason.stack }
+    : { message: String(ev.reason) };
+  log.error('unhandled promise rejection', reason);
+});
+
+// Phaser's internal error bus — catches errors thrown inside scene update loops.
+game.events.on('error', (err: Error) => {
+  log.error('phaser game error', { message: err.message, stack: err.stack });
+});
