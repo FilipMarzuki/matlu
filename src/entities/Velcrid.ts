@@ -47,6 +47,13 @@ function emitDigBurst(scene: Phaser.Scene, x: number, y: number): void {
  * movements. Stop. Shift."). Attacks with a short hop rather than a long lunge.
  * Can burrow but prefers surface movement. Broadcasts velcridScoutsOrbiting
  * while circling so adults below ground know the player is occupied.
+ *
+ * Movement feel improvements:
+ *   - Per-instance orbit radius (95–145 px) so grouped juveniles don't stack
+ *     on an identical ring.
+ *   - Recover phase drifts backward rather than stopping dead — continuous
+ *     motion removes the mechanical start-stop rhythm.
+ *   - Wider initial stagger (0–800 ms) prevents synchronised hops.
  */
 export class VelcridJuvenile extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -55,18 +62,20 @@ export class VelcridJuvenile extends CombatEntity {
       color: 0x2e3a18, meleeRange: 22, attackCooldownMs: 680,
       // Short hop — 2.5× speed for 80 ms ≈ ~24 px of travel
       dashSpeedMultiplier: 2.5, dashDurationMs: 80,
+      spriteKey: 'velcrid-juv', spriteScale: 1.4,
     });
   }
 
   protected buildTree(): BtNode {
     const MELEE_R  = this.meleeRange;
-    const ORBIT_R  = 120;   // px — circling radius
+    // Per-instance radius: 95–145 px so groups don't orbit on a perfect ring.
+    const ORBIT_R  = Phaser.Math.Between(95, 145);
     const ORBIT_MS = 900;   // ms orbiting before hopping in
 
     type Phase = 'orbit' | 'hop' | 'recover';
     let phase: Phase = 'orbit';
-    // Stagger so multiple juveniles don't all hop at the same instant
-    let orbitTimer  = Phaser.Math.Between(0, 500);
+    // Wider stagger — three spawned juveniles are unlikely to hop simultaneously.
+    let orbitTimer  = Phaser.Math.Between(0, 800);
     let phaseTimer  = 0;
     let orbitCw     = Math.random() < 0.5;
     let hopTargetX  = 0;
@@ -110,14 +119,21 @@ export class VelcridJuvenile extends CombatEntity {
             // Short burst — very brief, surprises without crossing the whole arena
             ctx.dash(hopTargetX, hopTargetY);
             if (phaseTimer <= 0) {
-              phase   = 'recover';
-              phaseTimer = 400;
-              orbitCw = !orbitCw; // approach from opposite arc next cycle
+              phase      = 'recover';
+              phaseTimer = 200; // shortened from 400 ms
+              orbitCw    = !orbitCw; // approach from opposite arc next cycle
             }
 
           } else {
-            // Recover: stand still briefly, then resume circling
-            ctx.stop();
+            // Recover: drift backward away from the hop target at low speed so
+            // the juvenile keeps moving rather than freezing dead in place.
+            const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+            if (physBody) {
+              const awayX = this.x - hopTargetX;
+              const awayY = this.y - hopTargetY;
+              const len   = Math.sqrt(awayX * awayX + awayY * awayY) || 1;
+              physBody.setVelocity((awayX / len) * 40, (awayY / len) * 40);
+            }
             if (phaseTimer <= 0) phase = 'orbit';
           }
 
@@ -141,6 +157,15 @@ export class VelcridJuvenile extends CombatEntity {
  * triggers 60 % sooner (player is occupied = ideal time to close in).
  * Writes velcridSoldierChargeCd after emerging to stagger simultaneous
  * eruptions from multiple adults.
+ *
+ * Movement feel improvements:
+ *   - Randomised surface target: each adult picks a random point 35–55 px
+ *     from the player at burrow-start so multiple adults surface from
+ *     different angles rather than clustering.
+ *   - Separation force suppressed while underground (suppressSeparation flag)
+ *     so ally-push can't deflect the slow burrow approach.
+ *   - Micro-shuffle in hold phase: small periodic velocity noise makes the
+ *     adult shift its weight rather than standing frozen at the standoff ring.
  */
 export class VelcridAdult extends CombatEntity {
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -149,6 +174,7 @@ export class VelcridAdult extends CombatEntity {
       color: 0x0e1a08, meleeRange: 36, attackCooldownMs: 1150,
       // Short jump on emerge — 2.8× speed for 100 ms ≈ ~36 px
       dashSpeedMultiplier: 2.8, dashDurationMs: 100,
+      spriteKey: 'velcrid-adult', spriteScale: 1.6,
     });
   }
 
@@ -164,11 +190,19 @@ export class VelcridAdult extends CombatEntity {
 
     type Phase = 'hold' | 'burrowing' | 'emerging' | 'jump' | 'recover';
     let phase: Phase  = 'hold';
-    // Random offset prevents all adults burrowing at the same time
+    // Random offset prevents all adults burrowing at the same time.
     let burrowCd      = BURROW_CD * Math.random();
     let phaseTimer    = 0;
     let jumpTargetX   = 0;
     let jumpTargetY   = 0;
+    // Fixed intercept point set at burrow-start — randomised angle so adults
+    // don't all surface from the same spot.
+    let burrowTargetX = 0;
+    let burrowTargetY = 0;
+    // Micro-shuffle state for hold phase.
+    let shuffleVx     = 0;
+    let shuffleVy     = 0;
+    let shuffleTimer  = 0;
 
     return new BtSelector([
       // 1. Melee if adjacent
@@ -194,7 +228,11 @@ export class VelcridAdult extends CombatEntity {
           // ── Recover (brief stun after jump) ───────────────────────────────
           if (phase === 'recover') {
             ctx.stop();
-            if (phaseTimer <= 0) { phase = 'hold'; burrowCd = BURROW_CD; }
+            if (phaseTimer <= 0) {
+              phase = 'hold';
+              burrowCd = BURROW_CD;
+              this.suppressSeparation = false; // re-enable ally separation on surface
+            }
             return 'running';
           }
 
@@ -218,10 +256,12 @@ export class VelcridAdult extends CombatEntity {
             return 'running';
           }
 
-          // ── Burrowing: slow underground advance ────────────────────────────
+          // ── Burrowing: slow underground advance toward randomised intercept ─
           if (phase === 'burrowing') {
             if (physBody) {
-              const angle = Phaser.Math.Angle.Between(ctx.x, ctx.y, opp.x, opp.y);
+              const angle = Phaser.Math.Angle.Between(
+                ctx.x, ctx.y, burrowTargetX, burrowTargetY,
+              );
               physBody.setVelocity(
                 Math.cos(angle) * this.speed * BURROW_SPEED,
                 Math.sin(angle) * this.speed * BURROW_SPEED,
@@ -260,14 +300,37 @@ export class VelcridAdult extends CombatEntity {
           else if (dist < HOLD_R - 25) ctx.steerAway(opp.x, opp.y);
           else                         ctx.stop();
 
+          // Micro-shuffle: small periodic velocity noise so the adult shifts
+          // its weight rather than standing frozen at the standoff ring.
+          shuffleTimer = Math.max(0, shuffleTimer - delta);
+          if (shuffleTimer <= 0) {
+            shuffleVx    = (Math.random() - 0.5) * 28;
+            shuffleVy    = (Math.random() - 0.5) * 28;
+            shuffleTimer = 160 + Math.random() * 240;
+          }
+          if (physBody) {
+            physBody.velocity.x += shuffleVx;
+            physBody.velocity.y += shuffleVy;
+          }
+
           // Begin burrow when cooldown ready. If juveniles are circling (player
           // is occupied), trigger 60 % sooner — ideal moment to close in.
-          const juvenile = (this.blackboard?.velcridScoutsOrbiting ?? 0) > 0;
+          const juvenile  = (this.blackboard?.velcridScoutsOrbiting ?? 0) > 0;
           const timeReady = burrowCd <= 0 || (juvenile && burrowCd < BURROW_CD * 0.4);
 
           if (timeReady) {
+            // Randomise the surface intercept point — offset from the opponent
+            // by a random angle so multiple adults surface from different spots.
+            const surfaceAngle = Math.random() * Math.PI * 2;
+            const surfaceDist  = 35 + Math.random() * 20;
+            burrowTargetX = opp.x + Math.cos(surfaceAngle) * surfaceDist;
+            burrowTargetY = opp.y + Math.sin(surfaceAngle) * surfaceDist;
+
             phase      = 'burrowing';
             phaseTimer = BURROW_MS;
+            // Suppress separation force so ally-push can't deflect the slow
+            // underground approach.
+            this.suppressSeparation = true;
             emitDigBurst(this.scene, this.x, this.y);
             this.scene.tweens.add({
               targets:  this,
