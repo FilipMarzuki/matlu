@@ -18,7 +18,8 @@ import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
 import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
-import { CorruptionField } from '../world/CorruptionField';
+import { CorruptionField }   from '../world/CorruptionField';
+import { CorruptionPostFX }  from '../shaders/CorruptionPostFX';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
   meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
@@ -335,6 +336,10 @@ export class GameScene extends Phaser.Scene {
   private leavesEmitter?:  Phaser.GameObjects.Particles.ParticleEmitter;
   private pollenEmitter?:  Phaser.GameObjects.Particles.ParticleEmitter;
   private fireflyEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+
+  // ─── Shader pipelines ────────────────────────────────────────────────────────
+  // null when running under the Canvas renderer (no WebGL) or before create()
+  private corruptPipeline: CorruptionPostFX | null = null;
 
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
@@ -832,6 +837,17 @@ export class GameScene extends Phaser.Scene {
         cam.setZoom(Phaser.Math.Clamp(cam.zoom + step, 0.2, 6));
       },
     );
+    // ── Corruption post-FX ───────────────────────────────────────────────────
+    // Registers a full-viewport WebGL shader that reacts to world corruption.
+    // The pipeline is a passthrough when corruption == 0 so there's no visual
+    // cost until the player actually lets the world corrupt.
+    if (this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
+      this.renderer.pipelines.addPostPipeline('CorruptionFX', CorruptionPostFX);
+      this.cameras.main.setPostPipeline('CorruptionFX');
+      const pipe = this.cameras.main.getPostPipeline('CorruptionFX');
+      this.corruptPipeline = Array.isArray(pipe) ? pipe[0] as CorruptionPostFX : pipe as CorruptionPostFX;
+    }
+
     this.initAttractMode();
   }
 
@@ -867,10 +883,18 @@ export class GameScene extends Phaser.Scene {
     if (this.fireflyEmitter) {
       this.fireflyEmitter.setPosition(this.player.x, this.player.y);
     }
+    // ── Corruption shader update ─────────────────────────────────────────────
+    // Computed every frame (getCleansePercent is a cheap state read) so the
+    // shader responds immediately as the player cleanses shrines rather than
+    // lagging by up to 5 s. Re-used below for path degradation too.
+    const cleanse01           = this.worldState.getCleansePercent('zone-main');
+    const globalCorruption01  = Math.max(0, 100 - cleanse01) / 100;
+    if (this.corruptPipeline) {
+      this.corruptPipeline.setCorruption(globalCorruption01);
+    }
+
     // Degrade path conditions every 5 s when corruption is above 0.
     if (time > this.nextPathDegradeAt) {
-      const cleanse = this.worldState.getCleansePercent('zone-main');
-      const globalCorruption01 = Math.max(0, 100 - cleanse) / 100;
       if (globalCorruption01 > 0) {
         // Sample corruptionField at each segment centre so roads inside
         // corruption hotspots degrade faster than roads in cleaner areas.
@@ -4339,15 +4363,19 @@ export class GameScene extends Phaser.Scene {
    */
   private launchNavPanel(): void {
     if (!this.scene.isActive(NavScene.KEY)) {
-      this.scene.launch(NavScene.KEY);
+      // Pass mode as init data so NavScene shows the correct button on its very
+      // first frame — avoids a race where game.events.emit() fires before
+      // NavScene's create() has registered the nav-mode-change listener.
+      this.scene.launch(NavScene.KEY, { mode: 'wilderview' });
+    } else {
+      // NavScene already running (e.g. switched back from arena) — update live.
+      this.game.events.emit('nav-mode-change', 'wilderview');
     }
-    // Tell NavScene which mode is active so it highlights the right button.
-    this.game.events.emit('nav-mode-change', 'wilderview');
 
     // NavScene button → goto arena.
     this.game.events.on('nav-goto-arena', () => {
       this.scene.stop(NavScene.KEY);
-      this.scene.start('CombatArenaScene');
+      this.scene.start('CombatArenaScene', {});
     }, this);
 
     // NavScene button → toggle free cam.

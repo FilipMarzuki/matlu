@@ -11,6 +11,7 @@ import {
 } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
+import { ShimmerPostFX }   from '../shaders/ShimmerPostFX';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -155,6 +156,15 @@ export class CombatArenaScene extends Phaser.Scene {
     this.heroAlive       = true;
 
     this.buildArena();
+
+    // ── Stone shimmer post-FX ─────────────────────────────────────────────────
+    // Registers and applies a custom WebGL PostFX pipeline that makes the arena
+    // floor feel like real polished stone — subtle UV warp + drifting specular.
+    // Guard: PostFX pipelines require WebGL; falls back gracefully on Canvas.
+    if (this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
+      this.renderer.pipelines.addPostPipeline('ShimmerFX', ShimmerPostFX);
+      this.cameras.main.setPostPipeline('ShimmerFX');
+    }
 
     this.anims.createFromAseprite('tinkerer');
     this.anims.createFromAseprite('spider');
@@ -553,9 +563,14 @@ export class CombatArenaScene extends Phaser.Scene {
    */
   private launchNavPanel(): void {
     if (!this.scene.isActive(NavScene.KEY)) {
-      this.scene.launch(NavScene.KEY);
+      // Pass mode as init data so NavScene shows the correct button on its very
+      // first frame — avoids a race where game.events.emit() fires before
+      // NavScene's create() has registered the nav-mode-change listener.
+      this.scene.launch(NavScene.KEY, { mode: 'arena' });
+    } else {
+      // NavScene already running (e.g. switched back from wilderview) — update live.
+      this.game.events.emit('nav-mode-change', 'arena');
     }
-    this.game.events.emit('nav-mode-change', 'arena');
 
     // NavScene button → goto wilderview.
     this.game.events.on('nav-goto-wilderview', () => {
