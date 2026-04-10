@@ -6,7 +6,7 @@
  *   log.info('wave started', { wave: 3, enemies: 7 });
  *   log.error('hero died', { cause: 'BruteCarapace' });
  *
- * If VITE_BETTERSTACK_TOKEN is not set (local dev without the secret, or
+ * If VITE_BETTERSTACK_DSN is not set (local dev without the secret, or
  * Canvas/legacy renderers) every call falls back to console.* so development
  * is never blocked.
  *
