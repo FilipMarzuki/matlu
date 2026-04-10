@@ -167,6 +167,34 @@ Spelaren rengör inte med kraft — de rengör med **närvaro och handling**. At
 
 ---
 
+## Bestiary
+
+### Velcrids — Tunnelrövarna
+
+**Klassificering:** Underjordiska artroper, korruptionsanpassade  
+**Storlek:** Juvenil ~30 cm; Vuxen ~70 cm brett  
+**Hemzon:** Spinolandet (Bio/evolution-korridor), underjordiska gångar under bioluminescenta skogar
+
+Velcriderna rör sig inte som insekter — de rör sig som ett argument. Varje rörelse är exakt, ekonomisk, avsiktlig. Skalplattorna är matta och nästan svarta, utan dominant ögonpar. Ingen av dem verkar titta på dig direkt, ändå koordinerar de perfekt.
+
+De har ingen kaststruktur. En velcrid är antingen juvenil eller vuxen — inte soldat, inte scout. Det är bara tid och massa som skiljer dem åt.
+
+**Tillväxtstadier (inte kaster):**
+
+- **Juvenil** — Snabb, ytaktiv. Cirklar på ytan för att hålla uppmärksamheten bunden. Angriper med ett kort hopp, aldrig ett långt utfall. Sänder ut ett subtilt kemiskt signal (koordinationsferomoner?) medan de kretsar — de vuxna under marken läser det.
+- **Vuxen** — Tung, långsam på ytan. Rör sig primärt underjord, avancerar vid låg alpha-transparens mot bytesdjuret, bryter upp när juvenilerna har spelaren låst. Hoppar kort vid ytan, återvänder snabbt under marken.
+
+**Koordinationsmekanism:** Ingen direkt kommunikation mellan individer. Juvenilerna cirklar och vuxna burrar när signalen är aktiv. Om flera vuxna vill upp samtidigt väntar de på varandra — ett kort, staggerat uppvaknande. Aldrig ett kaotiskt maskvälde.
+
+**Förstapersonsobservation (fältanteckning, okänd källa):**
+
+> Det cirkulerade. Korta rörelser. Stopp. Förskjutning. Inget av dem tittade på mig direkt — men de *täckte* alla vinklar. Jag höll mig still och ett av dem kom inom en meter innan det hoppade. Inte ett utfall — ett *hopp*. Liten räckvidd, hög precision. Sedan försvann det. Under marken. Jag stod kvar och väntade. Ingen mer syntes.  
+> Tre minuter senare bröt marken upp bakom mig.
+
+**Svaghet:** Om juvenilerna neutraliseras förlorar de vuxna sin koordinationssignal och burrar slumpmässigare. Separera faserna, eliminera juvenilerna först.
+
+---
+
 ## Öppna frågor
 
 - Vad är ursprunget till Korruptionen? Är det en varelse, en händelse, eller en naturlig process?

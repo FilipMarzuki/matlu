@@ -13,6 +13,7 @@ import {
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerPostFX }   from '../shaders/ShimmerPostFX';
+import { VelcridJuvenile, VelcridAdult } from '../entities/Velcrid';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -37,6 +38,9 @@ const WAVE_GROUPS: WaveGroup[] = [
   { label: 'Flyer Strike',    enemies: [ParasiteFlyer, ParasiteFlyer, AcidLancer] },
   { label: 'Bio Surge',       enemies: [BruteCarapace, ParasiteFlyer, SporeHusk] },
   { label: 'Horde',           enemies: [BruteCarapace, BruteCarapace, AcidLancer, ParasiteFlyer] },
+  { label: 'Velcrid Young',   enemies: [VelcridJuvenile, VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Tunnel Reavers',  enemies: [VelcridAdult, VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Hive Surge',      enemies: [VelcridAdult, VelcridAdult, VelcridJuvenile] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
