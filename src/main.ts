@@ -15,6 +15,8 @@ import { CombatArenaScene } from './scenes/CombatArenaScene';
 import { UpgradeScene } from './scenes/UpgradeScene';
 import { NavScene } from './scenes/NavScene';
 import { EndingScene } from './scenes/EndingScene';
+import { StatsScene } from './scenes/StatsScene';
+import { LoreScene } from './scenes/LoreScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -48,7 +50,7 @@ const game = new Phaser.Game({
   },
   // MainMenuScene is the entry point (first in array = auto-started).
   // WilderviewScene is kept for compatibility but now redirects to MainMenuScene.
-  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene, EndingScene],
+  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene],
 });
 
 // Restore mute preference saved by SettingsScene.

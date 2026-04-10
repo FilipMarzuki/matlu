@@ -40,5 +40,14 @@
   "levelcomplete.kills": "Besegrade fiender",
   "levelcomplete.time": "Tid",
   "levelcomplete.play_again": "Spela igen",
-  "levelcomplete.main_menu": "Huvudmeny"
+  "levelcomplete.main_menu": "Huvudmeny",
+  "stats.title": "Topplistan",
+  "stats.loading": "Laddar…",
+  "stats.no_scores": "Inga körningar än. Spela ett spel!",
+  "stats.error": "Kunde inte ladda poäng",
+  "stats.rank": "#",
+  "stats.name": "Namn",
+  "stats.score": "Poäng",
+  "stats.duration": "Tid",
+  "lore.title": "De tre världarna"
 }

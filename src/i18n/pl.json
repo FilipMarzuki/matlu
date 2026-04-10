@@ -40,5 +40,14 @@
   "levelcomplete.kills": "Pokonani wrogowie",
   "levelcomplete.time": "Czas",
   "levelcomplete.play_again": "Zagraj ponownie",
-  "levelcomplete.main_menu": "Menu główne"
+  "levelcomplete.main_menu": "Menu główne",
+  "stats.title": "Najlepsze wyniki",
+  "stats.loading": "Ładowanie…",
+  "stats.no_scores": "Brak wyników. Zagraj!",
+  "stats.error": "Nie można załadować wyników",
+  "stats.rank": "#",
+  "stats.name": "Imię",
+  "stats.score": "Wynik",
+  "stats.duration": "Czas",
+  "lore.title": "Trzy Światy"
 }

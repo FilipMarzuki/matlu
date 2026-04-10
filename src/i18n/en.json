@@ -40,5 +40,14 @@
   "levelcomplete.kills": "Enemies defeated",
   "levelcomplete.time": "Time",
   "levelcomplete.play_again": "Play Again",
-  "levelcomplete.main_menu": "Main Menu"
+  "levelcomplete.main_menu": "Main Menu",
+  "stats.title": "High Scores",
+  "stats.loading": "Loading…",
+  "stats.no_scores": "No runs yet. Play a game!",
+  "stats.error": "Could not load scores",
+  "stats.rank": "#",
+  "stats.name": "Name",
+  "stats.score": "Score",
+  "stats.duration": "Time",
+  "lore.title": "The Three Worlds"
 }
