@@ -73,10 +73,18 @@ export class CombatArenaScene extends Phaser.Scene {
   private waveGroupIndex = 0;
   private waveNumber     = 0;
   private killCount      = 0;
+  // Maintained incrementally so the trickle check avoids a per-frame filter().
+  private aliveBugCount  = 0;
 
   private mainSpawnTimer = 3000;  // first group fires after 3 s
   private trickleTimer   = 0;
   private trickleActive  = false;
+
+  // HUD cache — setText() rebuilds the text texture on every call even when the
+  // value hasn't changed, so only call it when the value actually differs.
+  private _lastHudWave  = -1;
+  private _lastHudAlive = -1;
+  private _lastHudKills = -1;
 
   // Arena bounds — set in buildArena(), used by spawn helpers.
   private arenaX = 0;
@@ -152,10 +160,14 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
+    this.aliveBugCount   = 0;
     this.mainSpawnTimer  = 3000;
     this.trickleTimer    = 0;
     this.trickleActive   = false;
     this.heroAlive       = true;
+    this._lastHudWave    = -1;
+    this._lastHudAlive   = -1;
+    this._lastHudKills   = -1;
 
     this.buildArena();
 
@@ -222,14 +234,21 @@ export class CombatArenaScene extends Phaser.Scene {
     this.projectiles = this.projectiles.filter(p => !p.isExpired);
 
     // ── Prune enemies that just died ──────────────────────────────────────────
-    const justDied = this.aliveEnemies.filter(e => !e.isAlive);
+    // Single pass: partition into alive / justDied rather than filtering twice.
+    const alive: CombatEntity[]    = [];
+    const justDied: CombatEntity[] = [];
+    for (const e of this.aliveEnemies) {
+      (e.isAlive ? alive : justDied).push(e);
+    }
     if (justDied.length > 0) {
-      this.aliveEnemies = this.aliveEnemies.filter(e => e.isAlive);
-      this.killCount += justDied.length;
-      this.cameras.main.shake(120, 0.003);
+      this.aliveEnemies = alive;
+      this.killCount   += justDied.length;
+      // Decrement the bug counter for any WarriorBugs that just died.
       for (const e of justDied) {
+        if (e instanceof WarriorBug) this.aliveBugCount--;
         this.time.delayedCall(1500, () => { if (e.active) e.destroy(); });
       }
+      this.cameras.main.shake(120, 0.003);
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
       this.syncEnemyCoordination();
     }
@@ -245,8 +264,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // ── Trickle spawn timer ───────────────────────────────────────────────────
     if (this.trickleActive) {
-      const bugCount = this.aliveEnemies.filter(e => e instanceof WarriorBug).length;
-      if (bugCount < MAX_ALIVE_BUGS && this.aliveEnemies.length < MAX_ALIVE) {
+      if (this.aliveBugCount < MAX_ALIVE_BUGS && this.aliveEnemies.length < MAX_ALIVE) {
         this.trickleTimer -= delta;
         if (this.trickleTimer <= 0) {
           this.spawnBug();
@@ -256,10 +274,12 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── HUD ───────────────────────────────────────────────────────────────────
+    // Only call setText when the value changed — setText rebuilds the texture
+    // every call, even for an identical string.
     if (!this.bgMode) {
-      this.hudWave.setText(`Wave ${this.waveNumber}`);
-      this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`);
-      this.hudKills.setText(`Kills: ${this.killCount}`);
+      if (this.waveNumber      !== this._lastHudWave)  { this.hudWave.setText(`Wave ${this.waveNumber}`);         this._lastHudWave  = this.waveNumber; }
+      if (this.aliveEnemies.length !== this._lastHudAlive) { this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`); this._lastHudAlive = this.aliveEnemies.length; }
+      if (this.killCount       !== this._lastHudKills) { this.hudKills.setText(`Kills: ${this.killCount}`);       this._lastHudKills = this.killCount; }
     }
   }
 
@@ -590,6 +610,7 @@ export class CombatArenaScene extends Phaser.Scene {
       this.addPhysics(bug);
       bug.setOpponent(this.hero);
       this.aliveEnemies.push(bug);
+      this.aliveBugCount++;
     }
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();
@@ -720,9 +741,13 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex = 0;
     this.waveNumber     = 0;
     this.killCount      = 0;
+    this.aliveBugCount  = 0;
     this.mainSpawnTimer = 3000;
     this.trickleTimer   = 0;
     this.trickleActive  = false;
+    this._lastHudWave   = -1;
+    this._lastHudAlive  = -1;
+    this._lastHudKills  = -1;
 
     // Respawn the hero
     if (this.hero.active) this.hero.destroy();

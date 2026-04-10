@@ -57,6 +57,22 @@ export interface CombatEntityConfig extends EnemyConfig {
   spriteScale?: number;
 }
 
+// ── Animation direction map ───────────────────────────────────────────────────
+// Module-level constant so it isn't recreated on every updateSpriteAnimation()
+// call (which runs every frame per entity).
+type CanonDir = 'south' | 'south-east' | 'east' | 'north-east' | 'north';
+const DIR_MAP: Record<number, [CanonDir, boolean]> = {
+   0: ['east',       false],
+   1: ['south-east', false],
+   2: ['south',      false],
+   3: ['south-east', true ],   // SW → mirror SE
+   4: ['east',       true ],   // W  → mirror E
+  '-4': ['east',       true ],
+  '-3': ['north-east', true ],  // NW → mirror NE
+  '-2': ['north',      false],
+  '-1': ['north-east', false],
+};
+
 // ── Base class ────────────────────────────────────────────────────────────────
 
 /**
@@ -456,21 +472,9 @@ export abstract class CombatEntity extends Enemy {
     if (spd > 5) {
       const angle = Math.atan2(vy, vx); // −π to π, 0 = east
       // Divide the circle into 8 × 45° sectors, offset by 22.5°.
-      const sector = Math.round(angle / (Math.PI / 4)); // −4 to 4
-      // Map sector to a canonical right-side direction + flipX flag.
       // Sector:  0=E  1=SE  2=S  3=SW  4/-4=W  -3=NW  -2=N  -1=NE
-      type CanonDir = 'south'|'south-east'|'east'|'north-east'|'north';
-      const DIR_MAP: Record<number, [CanonDir, boolean]> = {
-         0: ['east',       false],
-         1: ['south-east', false],
-         2: ['south',      false],
-         3: ['south-east', true ],   // SW → mirror SE
-         4: ['east',       true ],   // W  → mirror E
-        '-4': ['east',       true ],
-        '-3': ['north-east', true ],  // NW → mirror NE
-        '-2': ['north',      false],
-        '-1': ['north-east', false],
-      };
+      const sector = Math.round(angle / (Math.PI / 4)); // −4 to 4
+      // DIR_MAP is a module-level const — not recreated every frame.
       const [dir, flip] = DIR_MAP[sector] ?? ['south', false];
       this.lastDir   = dir;
       this.lastFlipX = flip;
