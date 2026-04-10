@@ -26,6 +26,17 @@ export class PauseMenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    // FIL-113: Duck GameScene's music and ambience while the pause menu is open.
+    // We check isPaused() so this is a no-op if PauseMenuScene is ever launched
+    // without GameScene being the one that paused (future-proofing).
+    // We pass our own this.tweens because GameScene's tween manager is frozen while
+    // it's paused — see GameScene.duckAudio() for the full explanation.
+    if (this.scene.isPaused('GameScene')) {
+      // Duck-typed access avoids a circular import between PauseMenuScene and GameScene.
+      type DuckableScene = Phaser.Scene & { duckAudio?: (tweens: Phaser.Tweens.TweenManager) => void };
+      (this.scene.get('GameScene') as DuckableScene).duckAudio?.(this.tweens);
+    }
+
     const { width, height } = this.cameras.main;
     const cx = width / 2;
     const cy = height / 2;
