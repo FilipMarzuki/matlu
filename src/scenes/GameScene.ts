@@ -274,6 +274,61 @@ function terrainTileFrame(
   return { key: 'mw-plains', frame: 48 + v6 }; // summit — bare granite always
 }
 
+// ── Dev overlay helpers ──────────────────────────────────────────────────────
+
+/** Short label for each biome index (0-7) — shown in the biome dev overlay. */
+const BIOME_LABELS = ['Sea', 'Shore', 'Dry', 'Heath', 'Forest', 'Spruce', 'Granite', 'Summit'] as const;
+
+/** Fill colour per biome index in the biome dev overlay. */
+const BIOME_OVERLAY_COLORS: readonly number[] = [
+  0x1a4f7a, // 0 Sea      — deep blue
+  0x8b6914, // 1 Shore    — warm sandy brown
+  0xb8904a, // 2 Dry mid  — sandy/rocky
+  0x7a9a3a, // 3 Heath    — olive green
+  0x2a7a2a, // 4 Forest   — fresh green
+  0x1a5a1a, // 5 Spruce   — dark spruce green
+  0x7a7a7a, // 6 Granite  — cool grey
+  0xaaaaaa, // 7 Summit   — light grey
+];
+
+/**
+ * Resolve which biome index (0-7) a tile belongs to from its noise values.
+ * Mirrors the if-else logic in terrainTileFrame() exactly.
+ */
+function tileBiomeIdx(elev: number, temp: number, moist: number): number {
+  if (elev < 0.25) return 0; // sea
+  if (elev < 0.30) return 1; // rocky shore
+  if (elev < 0.62) {
+    if (moist > 0.60) return 4; // wet mid — mixed forest
+    if (moist > 0.30) return 3; // moderate mid — heath
+    return 2;                    // dry mid — rocky/shingle
+  }
+  if (elev < 0.78) return temp > 0.50 ? 5 : 6; // warm spruce / cold granite
+  return 7; // summit — bare granite
+}
+
+/**
+ * Maps a normalised elevation t∈[0,1] to a heatmap hex colour:
+ *   0.0 dark purple → 0.25 dark blue → 0.50 cyan → 0.75 green → 1.0 yellow
+ */
+function elevHeatColor(t: number): number {
+  const stops: readonly [number, number, number][] = [
+    [0x2d, 0x00, 0x50], // dark purple
+    [0x0a, 0x20, 0x80], // dark blue
+    [0x00, 0x80, 0xc0], // cyan
+    [0x40, 0xc0, 0x40], // green
+    [0xff, 0xff, 0x00], // yellow
+  ];
+  const n   = stops.length - 1;
+  const seg = Math.min(n - 1, Math.floor(t * n));
+  const u   = t * n - seg;
+  const [ar, ag, ab] = stops[seg];
+  const [br, bg, bb] = stops[seg + 1];
+  return (Math.round(ar + (br - ar) * u) << 16)
+       | (Math.round(ag + (bg - ag) * u) <<  8)
+       |  Math.round(ab + (bb - ab) * u);
+}
+
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private playerShadow!: Phaser.GameObjects.Ellipse;
@@ -494,6 +549,30 @@ export class GameScene extends Phaser.Scene {
   // ─── Free-fly camera ──────────────────────────────────────────────────────────
   /** When true, WASD pans the camera freely instead of following an animal. */
   freeCamMode = false;
+
+  // ─── Dev terrain overlay ──────────────────────────────────────────────────────
+  /** Active dev overlay. 'elevation' shows purple→yellow heatmap; 'biome' shows flat biome colours. */
+  private devOverlay: 'none' | 'elevation' | 'biome' = 'none';
+  /** Pre-built elevation heatmap Graphics — lazily created on first use, then cached. */
+  private devElevGfx:  Phaser.GameObjects.Graphics | null = null;
+  /** Pre-built biome colour Graphics — lazily created on first use, then cached. */
+  private devBiomeGfx: Phaser.GameObjects.Graphics | null = null;
+  /** Container holding per-tile text labels (elevation number or biome name). */
+  private devTextContainer: Phaser.GameObjects.Container | null = null;
+  /** Raw elevation value per tile [0,1.2] — stored during terrain bake. */
+  private tileDevElev:  Float32Array | null = null;
+  /** Biome index per tile [0,7] — stored alongside elevation during terrain bake. */
+  private tileDevBiome: Uint8Array   | null = null;
+  /** Tile grid width — needed to convert flat array index back to (tx, ty). */
+  private tileDevW = 0;
+  /** Camera state at last text rebuild — avoids rebuilding every frame on tiny moves. */
+  private devTextLastX    = -9999;
+  private devTextLastY    = -9999;
+  private devTextLastZoom = -1;
+  /** True when the dev overlay auto-enabled free cam so we can restore state on deactivate. */
+  private devOverlayAutoFreeCam = false;
+  /** Reference captured at pinch start; null when no two-finger gesture is active. */
+  private pinchZoomRef: { dist: number; zoom: number } | null = null;
 
   // Set when the player types their name on the attract screen; used for leaderboard.
   playerName = '';
@@ -983,6 +1062,57 @@ export class GameScene extends Phaser.Scene {
         cam.setZoom(Phaser.Math.Clamp(cam.zoom + step, 0.2, 6));
       },
     );
+
+    // ── Keyboard zoom (= / + to zoom in, - to zoom out) ─────────────────────
+    // Same ±0.15 step as the wheel so the two methods feel identical.
+    // OS key-repeat means holding the key gives continuous smooth zoom.
+    // = (no Shift) and + (Shift+=) both map to zoom-in for convenience.
+    const stepZoom = (step: number) =>
+      this.cameras.main.setZoom(
+        Phaser.Math.Clamp(this.cameras.main.zoom + step, 0.2, 6),
+      );
+    this.input.keyboard!.on('keydown-PLUS',   () => stepZoom(+0.15));
+    this.input.keyboard!.on('keydown-EQUALS', () => stepZoom(+0.15));
+    this.input.keyboard!.on('keydown-MINUS',  () => stepZoom(-0.15));
+
+    // ── Pinch-to-zoom (two-finger touch) ────────────────────────────────────
+    // Phaser tracks pointer1 and pointer2 by default; addPointer(1) explicitly
+    // ensures the second slot is initialised before the listeners fire.
+    // When both fingers are down we compute the spread distance and scale the
+    // camera zoom proportionally to the ratio of current / reference distance —
+    // the same formula used by every mobile map app.
+    this.input.addPointer(1);
+
+    this.input.on('pointermove', () => {
+      const p1 = this.input.pointer1;
+      const p2 = this.input.pointer2;
+
+      if (!p1.isDown || !p2.isDown) {
+        this.pinchZoomRef = null;
+        return;
+      }
+
+      const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+
+      if (!this.pinchZoomRef) {
+        // First pointermove with two fingers — snapshot the starting state.
+        this.pinchZoomRef = { dist, zoom: this.cameras.main.zoom };
+        return;
+      }
+
+      if (this.pinchZoomRef.dist < 10) return; // guard: ignore near-zero reference
+      this.cameras.main.setZoom(
+        Phaser.Math.Clamp(
+          this.pinchZoomRef.zoom * (dist / this.pinchZoomRef.dist),
+          0.2,
+          6,
+        ),
+      );
+    });
+
+    // Reset pinch reference whenever a finger lifts so the next gesture starts fresh.
+    this.input.on('pointerup', () => { this.pinchZoomRef = null; });
+
     // ── Corruption post-FX ───────────────────────────────────────────────────
     // Registers a full-viewport WebGL shader that reacts to world corruption.
     // The pipeline is a passthrough when corruption == 0 so there's no visual
@@ -1055,6 +1185,10 @@ export class GameScene extends Phaser.Scene {
       }
       this.nextPathDegradeAt = time + 5000;
     }
+    // WASD camera pan runs every frame when free cam is active, regardless of game mode.
+    // Calling it here (outside the attractMode branch) means it also works during gameplay.
+    if (this.freeCamMode) this.updateFreeCam(delta);
+    this.updateDevOverlay();
   }
 
   /**
@@ -3297,13 +3431,12 @@ export class GameScene extends Phaser.Scene {
     this.attractNameDisplay.setText(this.attractName + '_');
   }
 
-  private updateAttractMode(time: number, delta: number): void {
+  private updateAttractMode(time: number, _delta: number): void {
     // Update thought bubble every frame with the current animal's live state.
     this.updateThoughtBubble();
 
     if (this.freeCamMode) {
-      // Free-fly: WASD pans the camera; auto-cycle and animal control suspended.
-      this.updateFreeCam(delta);
+      // Free-fly active — WASD pan is handled by top-level update(); skip animal cycling.
       return;
     }
 
@@ -4050,7 +4183,9 @@ export class GameScene extends Phaser.Scene {
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
     // Float32Array is cheap (~52 KB for 141×94 tiles) and avoids re-sampling the noise.
-    const biomeGrid = new Float32Array(tilesX * tilesY);
+    const biomeGrid    = new Float32Array(tilesX * tilesY);
+    // Biome index grid — one byte per tile — stored for the dev biome overlay.
+    const biomeIdxGrid = new Uint8Array(tilesX * tilesY);
 
     // Open a single batch for the entire terrain — no WebGL flush per tile.
     terrainRt.beginDraw();
@@ -4084,7 +4219,8 @@ export class GameScene extends Phaser.Scene {
           }
         }
 
-        biomeGrid[ty * tilesX + tx] = val;
+        biomeGrid[ty * tilesX + tx]    = val;
+        biomeIdxGrid[ty * tilesX + tx] = tileBiomeIdx(val, temp, moist);
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -4171,6 +4307,11 @@ export class GameScene extends Phaser.Scene {
 
     terrainRt.endDraw();
     tileImg.destroy();
+
+    // Store tile data so the dev overlay can be built lazily when first enabled.
+    this.tileDevW     = tilesX;
+    this.tileDevElev  = biomeGrid;
+    this.tileDevBiome = biomeIdxGrid;
 
     // ── Biome colour wash (depth 0.1) ────────────────────────────────────────
     // A coarse-grid Graphics layer drawn at low alpha over the terrain texture.
@@ -5272,9 +5413,19 @@ export class GameScene extends Phaser.Scene {
       this.toggleFreeCam();
     }, this);
 
+    // NavScene buttons → toggle dev overlays.
+    this.game.events.on('nav-toggle-elev-overlay', () => {
+      this.toggleDevOverlay('elevation');
+    }, this);
+    this.game.events.on('nav-toggle-biome-overlay', () => {
+      this.toggleDevOverlay('biome');
+    }, this);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-goto-arena', undefined, this);
       this.game.events.off('nav-toggle-free-cam', undefined, this);
+      this.game.events.off('nav-toggle-elev-overlay', undefined, this);
+      this.game.events.off('nav-toggle-biome-overlay', undefined, this);
     });
   }
 
@@ -5305,5 +5456,166 @@ export class GameScene extends Phaser.Scene {
     const cam   = this.cameras.main;
     cam.scrollX += (right - left) * speed * (delta / 1000);
     cam.scrollY += (down  - up)   * speed * (delta / 1000);
+  }
+
+  // ── Dev terrain overlay ──────────────────────────────────────────────────────
+
+  /**
+   * Toggle a dev overlay on/off. Calling the same mode again turns it off.
+   * Only one overlay is active at a time — activating one automatically hides the other.
+   */
+  toggleDevOverlay(mode: 'elevation' | 'biome'): void {
+    const next = this.devOverlay === mode ? 'none' : mode;
+    this.devOverlay = next;
+
+    if (next === 'elevation') {
+      // Build the heatmap Graphics lazily on first use.
+      if (!this.devElevGfx) this.buildDevElevGfx();
+      this.devElevGfx?.setVisible(true);
+      this.devBiomeGfx?.setVisible(false);
+    } else if (next === 'biome') {
+      if (!this.devBiomeGfx) this.buildDevBiomeGfx();
+      this.devBiomeGfx?.setVisible(true);
+      this.devElevGfx?.setVisible(false);
+    } else {
+      this.devElevGfx?.setVisible(false);
+      this.devBiomeGfx?.setVisible(false);
+    }
+
+    // Auto-manage free cam so the user can pan/zoom immediately without a separate click.
+    if (next !== 'none') {
+      // Activating overlay — enable free cam if it isn't already on.
+      if (!this.freeCamMode) {
+        this.toggleFreeCam();
+        this.devOverlayAutoFreeCam = true;
+      }
+    } else {
+      // Deactivating overlay — restore free cam to its prior state only if we enabled it.
+      if (this.devOverlayAutoFreeCam && this.freeCamMode) {
+        this.toggleFreeCam();
+      }
+      this.devOverlayAutoFreeCam = false;
+    }
+
+    // Force text to rebuild on next update().
+    this.devTextContainer?.removeAll(true);
+    this.devTextLastX = -9999;
+
+    this.game.events.emit('nav-dev-overlay-changed', next);
+  }
+
+  /**
+   * Builds the elevation heatmap Graphics — one colour per tile on a dark-purple→yellow
+   * gradient, bucketed into 16 steps to keep GPU state changes low.
+   * Stored and reused; call toggleDevOverlay() to show/hide.
+   */
+  private buildDevElevGfx(): void {
+    if (!this.tileDevElev) return;
+    const tilesX = this.tileDevW;
+    const N_BUCKETS = 16;
+
+    // Group tile positions by colour bucket so each fillStyle() covers many fillRect() calls.
+    const groups = new Map<number, number[]>();
+    for (let i = 0, len = this.tileDevElev.length; i < len; i++) {
+      const t      = Math.min(1, this.tileDevElev[i]);       // clamp [0,1]
+      const bucket = Math.min(N_BUCKETS - 1, Math.floor(t * N_BUCKETS));
+      const color  = elevHeatColor(bucket / (N_BUCKETS - 1));
+      let arr = groups.get(color);
+      if (!arr) { arr = []; groups.set(color, arr); }
+      arr.push((i % tilesX) * TILE_SIZE, Math.floor(i / tilesX) * TILE_SIZE);
+    }
+
+    // Render at depth 5000 — above the player (world-Y depth) and all decorations.
+    const gfx = this.add.graphics().setDepth(5000).setVisible(false);
+    for (const [color, coords] of groups) {
+      gfx.fillStyle(color, 0.82);
+      for (let j = 0; j < coords.length; j += 2) {
+        gfx.fillRect(coords[j], coords[j + 1], TILE_SIZE, TILE_SIZE);
+      }
+    }
+    this.devElevGfx = gfx;
+  }
+
+  /**
+   * Builds the biome colour Graphics — one flat colour per biome type.
+   * Colours match BIOME_OVERLAY_COLORS so they're distinct but readable.
+   */
+  private buildDevBiomeGfx(): void {
+    if (!this.tileDevBiome) return;
+    const tilesX = this.tileDevW;
+
+    const groups = new Map<number, number[]>();
+    for (let i = 0, len = this.tileDevBiome.length; i < len; i++) {
+      const color = BIOME_OVERLAY_COLORS[this.tileDevBiome[i]];
+      let arr = groups.get(color);
+      if (!arr) { arr = []; groups.set(color, arr); }
+      arr.push((i % tilesX) * TILE_SIZE, Math.floor(i / tilesX) * TILE_SIZE);
+    }
+
+    const gfx = this.add.graphics().setDepth(5000).setVisible(false);
+    for (const [color, coords] of groups) {
+      gfx.fillStyle(color, 0.82);
+      for (let j = 0; j < coords.length; j += 2) {
+        gfx.fillRect(coords[j], coords[j + 1], TILE_SIZE, TILE_SIZE);
+      }
+    }
+    this.devBiomeGfx = gfx;
+  }
+
+  /**
+   * Called from update() — refreshes per-tile text labels whenever the camera moves
+   * enough to change the visible tile set. Labels only appear at zoom ≥ 2 so they
+   * remain readable (8px font × 2 zoom = 16 px apparent).
+   */
+  private updateDevOverlay(): void {
+    if (this.devOverlay === 'none' || !this.tileDevElev) return;
+
+    const cam = this.cameras.main;
+    const dx  = Math.abs(cam.scrollX - this.devTextLastX);
+    const dy  = Math.abs(cam.scrollY - this.devTextLastY);
+    const dz  = Math.abs(cam.zoom   - this.devTextLastZoom);
+    // Only rebuild when camera has moved at least one tile or zoom changed.
+    if (dx < TILE_SIZE && dy < TILE_SIZE && dz < 0.05) return;
+
+    this.devTextLastX    = cam.scrollX;
+    this.devTextLastY    = cam.scrollY;
+    this.devTextLastZoom = cam.zoom;
+
+    if (!this.devTextContainer) {
+      this.devTextContainer = this.add.container(0, 0).setDepth(5001);
+    } else {
+      this.devTextContainer.removeAll(true);
+    }
+
+    // Skip text at low zoom — labels would be illegible.
+    if (cam.zoom < 2.0) return;
+
+    const tilesX = this.tileDevW;
+    const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
+    const viewW  = cam.width  / cam.zoom;
+    const viewH  = cam.height / cam.zoom;
+
+    const tx0 = Math.max(0,          Math.floor(cam.scrollX / TILE_SIZE));
+    const ty0 = Math.max(0,          Math.floor(cam.scrollY / TILE_SIZE));
+    const tx1 = Math.min(tilesX - 1, Math.ceil((cam.scrollX + viewW) / TILE_SIZE));
+    const ty1 = Math.min(tilesY - 1, Math.ceil((cam.scrollY + viewH) / TILE_SIZE));
+
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const idx   = ty * tilesX + tx;
+        const label = this.devOverlay === 'elevation'
+          ? String(Math.round(this.tileDevElev[idx] * 100))
+          : BIOME_LABELS[this.tileDevBiome![idx]];
+
+        // White text with black stroke so it's readable on any tile colour.
+        const txt = this.add.text(
+          tx * TILE_SIZE + TILE_SIZE / 2,
+          ty * TILE_SIZE + TILE_SIZE / 2,
+          label,
+          { fontSize: '8px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 },
+        ).setOrigin(0.5);
+        this.devTextContainer.add(txt);
+      }
+    }
   }
 }
