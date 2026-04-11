@@ -3281,25 +3281,70 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Draws a thin dark shadow strip on the south face of every highland tile that
-   * borders a lower biome. This fakes a vertical cliff face in top-down view —
-   * the same trick used in Stardew Valley and CrossCode to convey elevation without
-   * any actual 3D geometry. Depth 0.45 sits between the biome wash (0.1) and paths
-   * (1) so the edge is visible but doesn't overpower the terrain texture below.
+   * Draws a layered cliff-face illusion on south edges where highland meets lower ground.
+   *
+   * Three overlapping strips per edge tile (all on the same Graphics object, depth 0.45):
+   *   1. Bright lip    — 2 px at the very bottom of the highland tile (the "ledge top")
+   *   2. Cliff face    — 14 px at the top of the lower tile (dark earthy rock face)
+   *   3. Drop shadow   — 6 px fade below the face (grounds the cliff in the terrain)
+   *
+   * Also handles east-facing edges (highland to the left, lower to the right) with a
+   * narrow vertical shadow strip so the cliff reads from all viewing angles.
+   *
+   * No extra assets required — the same Graphics technique used in Stardew Valley
+   * (painted pixel-strip shadows baked into each cliff tile).
    */
   private drawCliffEdges(biomeGrid: Float32Array, tilesX: number, tilesY: number): void {
     const HIGHLAND = 0.78;
-    const gfx = this.add.graphics().setDepth(0.45);
+    const T = TILE_SIZE; // 32 px
 
-    gfx.fillStyle(0x000000, 0.40);
+    // Use three separate Graphics layers so we can set opacity independently.
+    const gfxLip    = this.add.graphics().setDepth(0.451); // bright ledge top
+    const gfxFace   = this.add.graphics().setDepth(0.452); // dark cliff face
+    const gfxShadow = this.add.graphics().setDepth(0.453); // soft drop shadow
+
+    // ── South-facing cliffs (highland above, lower below) ───────────────────────────
     for (let ty = 0; ty < tilesY - 1; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
         const val  = biomeGrid[ty       * tilesX + tx];
         const valS = biomeGrid[(ty + 1) * tilesX + tx];
-        // South-facing cliff: highland tile above, lower biome below.
-        if (val >= HIGHLAND && valS < HIGHLAND) {
-          gfx.fillRect(tx * TILE_SIZE, (ty + 1) * TILE_SIZE, TILE_SIZE, 10);
-        }
+        if (val < HIGHLAND || valS >= HIGHLAND) continue;
+
+        const px = tx * T;
+        const py = (ty + 1) * T; // top of the lower tile
+
+        // 1. Bright lip at bottom of highland tile — warm stone highlight
+        gfxLip.fillStyle(0x8a7060, 0.55);
+        gfxLip.fillRect(px, py - 2, T, 2);
+
+        // 2. Cliff face — dark earthy rock, slightly lighter in the centre
+        gfxFace.fillStyle(0x1e130a, 0.90);
+        gfxFace.fillRect(px, py, T, 14);
+        gfxFace.fillStyle(0x3a2510, 0.40); // mid-highlight band
+        gfxFace.fillRect(px, py + 4, T,  6);
+
+        // 3. Drop shadow — feathered, three thin bands of decreasing opacity
+        gfxShadow.fillStyle(0x000000, 0.28); gfxShadow.fillRect(px, py + 14, T, 3);
+        gfxShadow.fillStyle(0x000000, 0.16); gfxShadow.fillRect(px, py + 17, T, 2);
+        gfxShadow.fillStyle(0x000000, 0.07); gfxShadow.fillRect(px, py + 19, T, 2);
+      }
+    }
+
+    // ── East-facing cliffs (highland to the left, lower to the right) ───────────────
+    // Narrower treatment — just a vertical shadow strip on the right edge.
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX - 1; tx++) {
+        const val  = biomeGrid[ty * tilesX + tx];
+        const valE = biomeGrid[ty * tilesX + tx + 1];
+        if (val < HIGHLAND || valE >= HIGHLAND) continue;
+
+        const px = (tx + 1) * T; // left edge of the lower tile
+        const py = ty * T;
+
+        gfxFace.fillStyle(0x1e130a, 0.70);
+        gfxFace.fillRect(px, py, 6, T);
+        gfxShadow.fillStyle(0x000000, 0.20); gfxShadow.fillRect(px + 6, py, 3, T);
+        gfxShadow.fillStyle(0x000000, 0.09); gfxShadow.fillRect(px + 9, py, 2, T);
       }
     }
   }
