@@ -25,25 +25,50 @@ const PRICING = {
   cacheRead:   0.30,
 };
 
-const SESSIONS_DIR = path.join(
-  process.env.USERPROFILE || process.env.HOME,
-  '.claude', 'projects', 'C--Users-marzu-matlu'
-);
-
 const TOKEN_LOG = path.join(__dirname, '../../token-log.json');
+
+// ── Find the Claude Code sessions directory ───────────────────────────────────
+// Claude encodes the project path as the absolute path with all non-alphanumeric
+// chars replaced by '-'. Works on both Windows (C:\Users\...) and Linux (/repo).
+
+function findSessionsDir() {
+  const home = process.env.USERPROFILE || process.env.HOME;
+  const projectsBase = path.join(home, '.claude', 'projects');
+
+  // Primary: encode current working directory the same way Claude does
+  const encoded = process.cwd().replace(/[^a-zA-Z0-9]/g, '-');
+  const candidate = path.join(projectsBase, encoded);
+  if (fs.existsSync(candidate)) return candidate;
+
+  // Fallback: scan all project dirs and pick the one with the most recent JSONL
+  if (!fs.existsSync(projectsBase)) return null;
+  let latestMtime = 0, latestDir = null;
+  for (const dir of fs.readdirSync(projectsBase)) {
+    const fullDir = path.join(projectsBase, dir);
+    if (!fs.statSync(fullDir).isDirectory()) continue;
+    for (const f of fs.readdirSync(fullDir).filter(f => f.endsWith('.jsonl'))) {
+      const mtime = fs.statSync(path.join(fullDir, f)).mtime.getTime();
+      if (mtime > latestMtime) { latestMtime = mtime; latestDir = fullDir; }
+    }
+  }
+  return latestDir;
+}
 
 // ── Find most recent session JSONL ────────────────────────────────────────────
 
 function findLatestSession() {
-  const files = fs.readdirSync(SESSIONS_DIR)
+  const sessionsDir = findSessionsDir();
+  if (!sessionsDir) throw new Error('Could not locate Claude Code sessions directory');
+
+  const files = fs.readdirSync(sessionsDir)
     .filter(f => f.endsWith('.jsonl'))
     .map(f => ({
-      file: path.join(SESSIONS_DIR, f),
-      mtime: fs.statSync(path.join(SESSIONS_DIR, f)).mtime,
+      file: path.join(sessionsDir, f),
+      mtime: fs.statSync(path.join(sessionsDir, f)).mtime,
     }))
     .sort((a, b) => b.mtime - a.mtime);
 
-  if (!files.length) throw new Error('No session files found in ' + SESSIONS_DIR);
+  if (!files.length) throw new Error('No session files found in ' + sessionsDir);
   return files[0].file;
 }
 
