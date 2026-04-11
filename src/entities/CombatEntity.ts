@@ -114,6 +114,9 @@ export abstract class CombatEntity extends Enemy {
   /** Original fill colour — restored after a white-flash on hit. */
   private readonly bodyColor: number;
 
+  /** Subclasses set this true to skip applySeparationForce (e.g. while burrowing). */
+  protected suppressSeparation = false;
+
   // ── Dash state ──────────────────────────────────────────────────────────────
   private isDashing  = false;
   private dashTimer  = 0;
@@ -646,7 +649,7 @@ export abstract class CombatEntity extends Enemy {
    * violated. Closer = stronger push.
    */
   private applySeparationForce(): void {
-    if (this.allyEntities.length === 0 || this.isDashing) return;
+    if (this.allyEntities.length === 0 || this.isDashing || this.suppressSeparation) return;
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
     if (!physBody) return;
 

@@ -24,7 +24,7 @@
  * a timer and `restoreNear(x, y, radius, amount)` on player actions.
  */
 
-export type PathType = 'dirt' | 'forest' | 'animal' | 'paved';
+export type PathType = 'dirt' | 'forest' | 'animal' | 'paved' | 'wading';
 
 /** Static config for a path type — does not change at runtime. */
 interface PathDefinition {
@@ -50,6 +50,9 @@ const PATH_DEFS: Record<PathType, PathDefinition> = {
   forest: { baseSpeedMult: 0.90, animalAffinity:  0.5, conditionDecayRate: 1.1, drawColor: 0x507838, drawAlpha: 0.25 },
   animal: { baseSpeedMult: 1.00, animalAffinity:  1.0, conditionDecayRate: 1.3, drawColor: 0xa87848, drawAlpha: 0.20 },
   paved:  { baseSpeedMult: 1.35, animalAffinity: -1.0, conditionDecayRate: 0.7, drawColor: 0x989888, drawAlpha: 0.40 },
+  // Wading: shallow river ford. Speed reduced to 55% — thigh-deep water resists movement.
+  // Animals avoid water (negative affinity). Decay rate 0 — water is a permanent feature.
+  wading: { baseSpeedMult: 0.55, animalAffinity: -0.3, conditionDecayRate: 0.0, drawColor: 0x5588cc, drawAlpha: 0.40 },
 };
 
 /** A single road segment — one axis-aligned rectangle in world space. */

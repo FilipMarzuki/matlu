@@ -163,6 +163,11 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/characters/earth/enemies/crow/crow.png',
       'assets/sprites/characters/earth/enemies/crow/crow.json',
     );
+    // Velcrid placeholder sprites — replaced when custom sprites are ready.
+    // Boar (fast, ground-level) for juvenile; badger (low, dark) for adult.
+    this.load.image('velcrid-juv',   'assets/packs/critters/boar/boar_SE_idle_0.png');
+    this.load.image('velcrid-adult', 'assets/packs/critters/badger/critter_badger_SE_idle.png');
+
     // Colosseum floor Wang tileset — 4x4 grid of 16x16 px tiles, 64x64 total.
     this.load.spritesheet(
       'colosseum_floor',

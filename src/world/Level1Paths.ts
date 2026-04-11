@@ -93,6 +93,22 @@ export const LEVEL1_PATHS: PathSegment[] = [
     condition: 68,
   },
 
+  // ── River crossing wading fords (FIL-100) ──────────────────────────────────
+  // One per river, at the shallow ford gap in each river barrier.
+  // Speed drops to 0.55× so the player visibly slows while wading across.
+  {
+    id: 'river-a-wading',
+    type: 'wading',
+    x: 350, y: 2048, w: 128, h: 96,
+    condition: 100,
+  },
+  {
+    id: 'river-b-wading',
+    type: 'wading',
+    x: 1700, y: 1472, w: 128, h: 96,
+    condition: 100,
+  },
+
   // ── Paved road — old stone track approaching the NE portal plateau ──────────
   {
     id: 'paved-plateau-1',
