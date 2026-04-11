@@ -89,9 +89,17 @@ export class EndingScene extends Phaser.Scene {
   static readonly KEY = 'EndingScene';
 
   private endingData!: EndingSceneData;
+  private endingMusic: Phaser.Sound.BaseSound | undefined;
 
   constructor() {
     super({ key: EndingScene.KEY });
+  }
+
+  preload(): void {
+    // Calm hopeful ambient for the ending narrative screen (FIL-111).
+    this.load.audio('music-ending', [
+      'assets/audio/music-loop-bundle-2026-q1/Week 2 - Ruined Lands HOPE.ogg',
+    ]);
   }
 
   // Phaser calls init() with the data object passed to scene.launch().
@@ -106,6 +114,16 @@ export class EndingScene extends Phaser.Scene {
 
     // Use a fixed (non-scrolling) camera so the overlay renders in screen space.
     this.cameras.main.setScroll(0, 0);
+
+    // ── Ending ambient music ──────────────────────────────────────────────────
+    // Start at 0 and fade in so the jingle playing in GameScene isn't abruptly
+    // cut off. Music key loaded in preload() above.
+    if (this.cache.audio.has('music-ending')) {
+      this.endingMusic = this.sound.add('music-ending', { loop: true, volume: 0 });
+      this.endingMusic.play();
+      type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+      this.tweens.add({ targets: this.endingMusic as AudibleSound, volume: 0.15, duration: 2000, ease: 'Sine.easeIn' });
+    }
 
     // ── Background ────────────────────────────────────────────────────────────
     this.add.rectangle(cx, height / 2, width, height, 0x05050f).setScrollFactor(0);
@@ -198,6 +216,8 @@ export class EndingScene extends Phaser.Scene {
     btn.on('pointerover', () => btn.setStyle({ backgroundColor: '#44446a' }));
     btn.on('pointerout',  () => btn.setStyle({ backgroundColor: '#2a2a44' }));
     btn.on('pointerdown', () => {
+      // Stop ambient music before tearing down the scene.
+      this.endingMusic?.stop();
       // Stop both the frozen GameScene and this overlay, then return to the menu
       this.scene.stop('GameScene');
       this.scene.stop(EndingScene.KEY);

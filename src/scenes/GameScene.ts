@@ -166,6 +166,22 @@ const ANIMAL_DEFS: Record<string, AnimalDef> = {
 /** Fox detects hares within this radius and enters chase state. */
 const FOX_CHASE_RANGE = 220;
 
+/**
+ * FIL-109: Per-species startle vocalizations.
+ * No new audio files required — Phaser's `rate` parameter pitch-shifts the
+ * existing Kenney impactSoft variants so each species sounds distinct.
+ * rate < 1 → lower pitch (large animals); rate > 1 → higher pitch (small animals).
+ */
+const SPECIES_VOCALIZE: Record<string, { key: string; volume: number; rate: number }> = {
+  deer:   { key: 'animal-rustle-1', volume: 0.65, rate: 0.55 },  // low snort
+  stag:   { key: 'animal-rustle-0', volume: 0.75, rate: 0.40 },  // deep bellow
+  hare:   { key: 'animal-rustle-3', volume: 0.50, rate: 2.00 },  // high squeak
+  fox:    { key: 'animal-rustle-2', volume: 0.60, rate: 1.30 },  // sharp yelp
+  grouse: { key: 'animal-rustle-4', volume: 0.55, rate: 1.60 },  // rapid cluck
+  boar:   { key: 'animal-rustle-0', volume: 0.70, rate: 0.65 },  // low grunt
+  badger: { key: 'animal-rustle-2', volume: 0.65, rate: 0.85 },  // snarl
+};
+
 const BIRD_COUNT      = 30;
 const BIRD_SHADOW_DX  = 7;
 const BIRD_SHADOW_DY  = 5;
@@ -354,6 +370,9 @@ export class GameScene extends Phaser.Scene {
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
   private ambienceSound: Phaser.Sound.BaseSound | undefined;
+  // FIL-108: ocean/shore ambience layer — volume driven by biome proximity to water
+  private oceanAmbienceSound: Phaser.Sound.BaseSound | undefined;
+  private lastAmbienceZoneCheck = 0;
   // Background music track for the current day phase (crossfades on transition)
   private musicTrack: Phaser.Sound.BaseSound | undefined;
   // Key of the currently-playing music track (avoid restarting the same track)
@@ -485,6 +504,10 @@ export class GameScene extends Phaser.Scene {
       'assets/audio/forest-ambience.ogg',
       'assets/audio/forest-ambience.mp3',
     ]);
+    // FIL-108: ocean/shore ambience — deep ambient drone used as coastal presence
+    this.load.audio('ocean-ambience', [
+      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/underwater world.ogg',
+    ]);
     // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
     // Mapped: dawn → Sunlight Through Leaves, morning/midday/afternoon → Whispering Woods,
     // dusk → Evening Harmony, night → Polar Lights.
@@ -501,6 +524,8 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('sfx-pickup',  [`${jingles}/Pizzicato jingles/jingles_PIZZI05.ogg`]);
     // Portal reveal: crystalline steel jingle (Kenney Music Jingles, CC0)
     this.load.audio('sfx-portal',  [`${jingles}/Steel jingles/jingles_STEEL05.ogg`]);
+    // FIL-111: victory jingle on level completion — warm pizzicato (Kenney Music Jingles, CC0)
+    this.load.audio('sfx-victory', [`${jingles}/Pizzicato jingles/jingles_PIZZI07.ogg`]);
     // Cleanse swipe gesture: bright bell whoosh (Kenney Impact Sounds, CC0)
     this.load.audio('sfx-swipe',   [`${ken}/impactBell_heavy_004.ogg`]);
     // Swipe makes contact with an enemy: deeper bell strike (Kenney Impact Sounds, CC0)
@@ -863,6 +888,12 @@ export class GameScene extends Phaser.Scene {
       });
       this.ambienceSound.play();
     }
+    // FIL-108: ocean ambience starts at volume 0; updateAmbienceZone() fades it in
+    // when the player is near the coast (biome < 0.33).
+    if (this.audioAvailable && this.cache.audio.has('ocean-ambience')) {
+      this.oceanAmbienceSound = this.sound.add('ocean-ambience', { loop: true, volume: 0 });
+      this.oceanAmbienceSound.play();
+    }
 
     // Start background music for the initial day phase
     this.startPhaseMusic(this.currentPhase, 0);
@@ -903,6 +934,7 @@ export class GameScene extends Phaser.Scene {
       this.updateAttractMode(time, delta);
     } else {
       this.updatePlayerMovement();
+      this.updateAmbienceZone();
       this.updateLevel1(delta);
       this.updateNpcProximity();
       this.updateShrine();
@@ -1585,8 +1617,26 @@ export class GameScene extends Phaser.Scene {
       durationMs,
       cleanse,
     };
-    this.scene.pause();
-    this.scene.launch(EndingScene.KEY, endingData as unknown as object);
+
+    // FIL-111: Fade out game music + ambience, play victory jingle, then launch
+    // EndingScene after a brief pause so the jingle audibly starts first.
+    type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    if (this.audioAvailable) {
+      if (this.musicTrack) {
+        this.tweens.add({ targets: this.musicTrack as AudibleSound, volume: 0, duration: 1500, ease: 'Sine.easeIn' });
+      }
+      if (this.ambienceSound) {
+        this.tweens.add({ targets: this.ambienceSound as AudibleSound, volume: 0, duration: 1500, ease: 'Sine.easeIn' });
+      }
+      if (this.cache.audio.has('sfx-victory')) {
+        this.sound.play('sfx-victory', { volume: 0.7 });
+      }
+    }
+    // Short delay lets the jingle begin before the scene freezes.
+    this.time.delayedCall(400, () => {
+      this.scene.pause();
+      this.scene.launch(EndingScene.KEY, endingData as unknown as object);
+    });
   }
 
   private openPauseMenu(): void {
@@ -2211,6 +2261,45 @@ export class GameScene extends Phaser.Scene {
       case 'afternoon': return 0.20; // settling toward evening
       case 'dusk':      return 0.08; // last light fading
       case 'night':     return 0.00; // silent except wind
+    }
+  }
+
+  // ── FIL-108: Zone-sensitive ambience ─────────────────────────────────────────
+
+  /**
+   * Cross-fades forest ↔ ocean ambience based on the player's biome position.
+   * Throttled to run every 1 000 ms — a 2 s tween covers the gap smoothly.
+   *
+   * Biome formula mirrors `updatePlayerMovement()` exactly so the sound matches
+   * the terrain colour the player sees underfoot. biome < 0.33 = coastal zone;
+   * biome < 0.25 = open sea (full ocean ambience, forest fades to near-zero).
+   */
+  private updateAmbienceZone(): void {
+    const now = this.time.now;
+    if (now - this.lastAmbienceZoneCheck < 1000) return;
+    this.lastAmbienceZoneCheck = now;
+
+    const tx = this.player.x / TILE_SIZE;
+    const ty = this.player.y / TILE_SIZE;
+    const biomeVal = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+    const fsPerp   = (this.player.x / WORLD_W - (1 - this.player.y / WORLD_H)) / 2;
+    const fsMtB    = Math.pow(Math.max(0, -fsPerp - 0.10), 1.5) * 4.0;
+    const fsOcB    = Math.pow(Math.max(0, fsPerp  - 0.15), 1.5) * 3.0;
+    const biome    = Math.max(0, Math.min(1.2, biomeVal * 0.70 + fsMtB - fsOcB));
+
+    // oceanFrac: 1.0 at the waterline (biome = 0), 0.0 at the forest edge (biome ≥ 0.33).
+    const oceanFrac       = Phaser.Math.Clamp((0.33 - biome) / 0.33, 0, 1);
+    const phaseForestVol  = this.phaseAmbienceVolume(this.currentPhase);
+    const targetForest    = phaseForestVol * (1 - oceanFrac * 0.85);
+    const targetOcean     = 0.18 * oceanFrac;
+
+    const FADE = 2000;
+    type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    if (this.ambienceSound) {
+      this.tweens.add({ targets: this.ambienceSound as AudibleSound, volume: targetForest, duration: FADE, ease: 'Sine.easeInOut' });
+    }
+    if (this.oceanAmbienceSound) {
+      this.tweens.add({ targets: this.oceanAmbienceSound as AudibleSound, volume: targetOcean, duration: FADE, ease: 'Sine.easeInOut' });
     }
   }
 
@@ -3112,11 +3201,14 @@ export class GameScene extends Phaser.Scene {
       if (dist < def.fleeRange) {
         state = 'fleeing';
         r.setData('animalState', state);
-        // Play rustle only on the frame the animal starts fleeing, not every frame.
-        // This is the "state transition" pattern: prev was not fleeing, now it is.
+        // Play vocalization only on the frame the animal starts fleeing, not every frame.
+        // FIL-109: each species has a distinct pitch via Phaser's `rate` parameter so
+        // a deer's snort sounds different from a hare's squeak without new audio files.
         if (prevState !== 'fleeing') {
-          const rustleKey = `animal-rustle-${Phaser.Math.Between(0, 4)}`;
-        if (this.audioAvailable && this.cache.audio.has(rustleKey)) this.sound.play(rustleKey, { volume: 0.5 });
+          const vox = SPECIES_VOCALIZE[type] ?? { key: `animal-rustle-${Phaser.Math.Between(0, 4)}`, volume: 0.5, rate: 1.0 };
+          if (this.audioAvailable && this.cache.audio.has(vox.key)) {
+            this.sound.play(vox.key, { volume: vox.volume, rate: vox.rate });
+          }
           // Switch to walk animation when fleeing starts — faster-looking movement.
           r.play(`${type}-walk-anim`);
         }
