@@ -21,7 +21,13 @@ import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
-import { RIVER_BANDS }        from '../world/RiverData';
+import {
+  RIVER_BANDS,
+  DIAGONAL_RIVERS,
+  TracedRiverPath,
+  traceRiverPath,
+  buildRiverTileGrids,
+}                              from '../world/RiverData';
 import { CorruptionPostFX }  from '../shaders/CorruptionPostFX';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
@@ -565,6 +571,18 @@ export class GameScene extends Phaser.Scene {
   private tileDevBiome: Uint8Array   | null = null;
   /** Tile grid width — needed to convert flat array index back to (tx, ty). */
   private tileDevW = 0;
+  // ── FIL-167/168: diagonal river lookup grids ─────────────────────────────
+  /**
+   * 1 if the tile is covered by any diagonal river band, 0 otherwise.
+   * Built by initRiverTileGrids() before drawProceduralTerrain() runs.
+   * FIL-168 uses this to override terrain tiles and animated-water placement.
+   */
+  private isRiverTile: Uint8Array | null = null;
+  /**
+   * Fully traced diagonal river paths (populated before terrain bake).
+   * FIL-170 uses bridge/ford pathIndices to position crossing visuals.
+   */
+  private tracedRiverPaths: TracedRiverPath[] = [];
   /** Camera state at last text rebuild — avoids rebuilding every frame on tiny moves. */
   private devTextLastX    = -9999;
   private devTextLastY    = -9999;
@@ -824,6 +842,10 @@ export class GameScene extends Phaser.Scene {
       ...LEVEL1_PATHS.map(s => ({ ...s })),
       ...generateAnimalTrails(this.runSeed),
     ]);
+    // Trace diagonal rivers + build isRiverTile / isWaterfallTile grids (FIL-167).
+    // Must run before drawProceduralTerrain so FIL-168 can use isRiverTile during
+    // the terrain bake instead of the legacy horizontal RIVER_BANDS check.
+    this.initRiverTileGrids();
     this.drawProceduralTerrain();
     this.drawPaths();
     this.drawSettlementMarkers();
@@ -4048,13 +4070,11 @@ export class GameScene extends Phaser.Scene {
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
         const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
 
-        // Skip water and river-band tiles — water has identity from animated sprites.
+        // Skip water and river tiles — they have identity from animated sprites.
+        // FIL-168: use precomputed isRiverTile grid (diagonal paths) instead of
+        // the old horizontal RIVER_BANDS band check.
         if (val < 0.25) continue;
-        let isRiverTile = false;
-        for (const river of RIVER_BANDS) {
-          if (Math.abs(ty - river.tyCentre) <= river.halfTiles) { isRiverTile = true; break; }
-        }
-        if (isRiverTile) continue;
+        if (this.isRiverTile?.[ty * tilesX + tx]) continue;
 
         const tint = this.biomeTint(val, temp, moist);
         let arr = groups.get(tint);
@@ -4143,6 +4163,79 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ─── FIL-167: diagonal river tile grids ────────────────────────────────────
+
+  /**
+   * Compute the terrain elevation for every tile WITHOUT the horizontal
+   * RIVER_BANDS override.  This "clean" grid is needed by traceRiverPath() so
+   * gradient descent sees the real mountain→ocean slope rather than the
+   * artificially low values (≈ 0.15) that the FIL-100 RIVER_BANDS bake injects.
+   *
+   * The formula is identical to the inner loop of drawProceduralTerrain() except
+   * for the three lines that force river-band tiles to water values.
+   *
+   * FIL-168 removes the RIVER_BANDS override from drawProceduralTerrain entirely;
+   * until then both passes run (one for gradient-descent input, one for rendering).
+   */
+  private computeNaturalElevGrid(tilesX: number, tilesY: number): Float32Array {
+    const noise    = this.baseNoise;
+    // Same detail-noise seed as drawProceduralTerrain — keeps elevation consistent.
+    const detNoise = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
+    const grid     = new Float32Array(tilesX * tilesY);
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
+        // Diagonal bias: NW corner is mountains (high), SE corner is ocean (low).
+        const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        grid[ty * tilesX + tx] = Math.max(
+          0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias),
+        );
+      }
+    }
+    return grid;
+  }
+
+  /**
+   * Trace all diagonal rivers and build the isRiverTile / isWaterfallTile lookup
+   * grids.  Called once during create(), before drawProceduralTerrain() so the
+   * grids are ready for FIL-168 to use during the terrain bake.
+   *
+   * ## Why before drawProceduralTerrain?
+   * FIL-168 will replace the RIVER_BANDS horizontal-band override in the terrain
+   * bake with `isRiverTile[ty * tilesX + tx]`.  That lookup must exist before the
+   * bake runs.  We therefore compute a separate "natural" elevation grid here
+   * (without the RIVER_BANDS override) so gradient descent can follow the true
+   * mountain→ocean slope.
+   */
+  private initRiverTileGrids(): void {
+    const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
+    const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
+
+    // Step 1: compute clean elevation (no RIVER_BANDS override).
+    const naturalElev = this.computeNaturalElevGrid(tilesX, tilesY);
+
+    // Step 2: trace each river over the clean elevation grid.
+    // traceRiverPath() runs gradient descent + Catmull-Rom smoothing + crossing
+    // discovery, returning a TracedRiverPath with bridge/ford pathIndices filled in.
+    this.tracedRiverPaths = DIAGONAL_RIVERS.map(river =>
+      traceRiverPath(river, naturalElev, tilesX, tilesY),
+    );
+
+    // Step 3: build the flat Uint8Array lookup grids from the traced paths.
+    // buildRiverTileGrids() marks every tile within river.halfWidth of the smoothed
+    // path, then clears crossing-gap tiles at bridge and ford centres.
+    // isWaterfallTile is returned by buildRiverTileGrids but not yet consumed —
+    // FIL-171 (waterfall visuals + barriers) will store and use it.
+    const { isRiverTile } = buildRiverTileGrids(
+      this.tracedRiverPaths, tilesX, tilesY,
+    );
+    this.isRiverTile = isRiverTile;
+  }
+
   /**
    * Generates and draws a noise-based spring-Sweden landscape:
    * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
@@ -4209,14 +4302,12 @@ export class GameScene extends Phaser.Scene {
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
         let val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
 
-        // FIL-100: force water tiles across every row in a river band.
+        // FIL-168: force water tiles for diagonal river band tiles.
+        // isRiverTile is built from the traced diagonal paths in initRiverTileGrids().
         // detail-based jitter (×0.08) keeps the water surface visually varied
         // while staying safely below the water threshold (< 0.25).
-        for (const river of RIVER_BANDS) {
-          if (Math.abs(ty - river.tyCentre) <= river.halfTiles) {
-            val = 0.15 + detail * 0.08;
-            break;
-          }
+        if (this.isRiverTile?.[ty * tilesX + tx]) {
+          val = 0.15 + detail * 0.08;
         }
 
         biomeGrid[ty * tilesX + tx]    = val;

@@ -438,3 +438,151 @@ export function traceRiverPath(
     waterfalls,
   };
 }
+
+// ─── FIL-167: isRiverTile / isWaterfallTile lookup grids ─────────────────────
+
+/**
+ * Shortest distance from point P=(px, py) to line segment A=(ax,ay)→B=(bx,by).
+ * Used to determine which tiles fall within river.halfWidth of the smoothed path.
+ */
+function distPointToSegment(
+  px: number, py: number,
+  ax: number, ay: number,
+  bx: number, by: number,
+): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) {
+    // Degenerate (zero-length) segment — treat as single point.
+    return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2);
+  }
+  // Project P onto the segment, clamped so t∈[0,1] stays on the segment.
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  const projX = ax + t * dx;
+  const projY = ay + t * dy;
+  return Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
+}
+
+/**
+ * Build flat `Uint8Array` lookup grids from a set of traced river paths.
+ *
+ * ## isRiverTile
+ * A tile is marked 1 if its centre is within `river.halfWidth` pixels of *any*
+ * segment in the smoothed path.  Tiles at bridge or ford crossing centres
+ * (within `crossing.width / 2` pixels of the path point at `bridge.pathIndex`
+ * or `ford.pathIndex`) are excluded — they remain passable ground.
+ *
+ * ## isWaterfallTile
+ * Tiles within `halfWidth` of a waterfall point (rawPath index recorded during
+ * FIL-166 gradient descent) are also marked 1 in a *separate* grid.  They are
+ * still rendered as river tiles but receive distinct collision treatment in FIL-171.
+ *
+ * ## Performance
+ * For each path segment the algorithm only inspects tiles inside the segment's
+ * axis-aligned bounding box expanded by `halfWidth`.  This avoids the naïve
+ * O(tiles × segments) scan and keeps the one-time init cost low.
+ *
+ * ## Why segment-based rather than point-based?
+ * After Catmull-Rom smoothing the consecutive path points can be up to ~10 px
+ * apart.  Testing only points would leave thin "gaps" of unmarked tiles between
+ * them.  Testing the full segment guarantees a continuous band.
+ *
+ * @param traced  - Results from traceRiverPath() — one per river.
+ * @param tilesX  - Tile columns (= ceil(WORLD_W / TILE_SIZE)).
+ * @param tilesY  - Tile rows    (= ceil(WORLD_H / TILE_SIZE)).
+ */
+export function buildRiverTileGrids(
+  traced: ReadonlyArray<TracedRiverPath>,
+  tilesX: number,
+  tilesY: number,
+): { isRiverTile: Uint8Array; isWaterfallTile: Uint8Array } {
+  const isRiverTile    = new Uint8Array(tilesX * tilesY);
+  const isWaterfallTile = new Uint8Array(tilesX * tilesY);
+
+  for (const { river, rawPath, points, waterfalls } of traced) {
+    const { halfWidth } = river;
+    const halfWidthSq = halfWidth * halfWidth;
+
+    // ── Mark river-tile band ────────────────────────────────────────────────
+    // Iterate over consecutive pairs in the smoothed path (segments, not points)
+    // so there are no unmarked gaps between samples.
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+
+      // Tight bounding box for this segment, expanded by halfWidth.
+      // Only tiles whose centres can possibly be within halfWidth of the segment
+      // fall inside this box — skip everything outside.
+      const minTx = Math.max(0,          Math.floor((Math.min(p1.x, p2.x) - halfWidth) / TILE_SIZE));
+      const maxTx = Math.min(tilesX - 1, Math.ceil( (Math.max(p1.x, p2.x) + halfWidth) / TILE_SIZE));
+      const minTy = Math.max(0,          Math.floor((Math.min(p1.y, p2.y) - halfWidth) / TILE_SIZE));
+      const maxTy = Math.min(tilesY - 1, Math.ceil( (Math.max(p1.y, p2.y) + halfWidth) / TILE_SIZE));
+
+      for (let ty = minTy; ty <= maxTy; ty++) {
+        for (let tx = minTx; tx <= maxTx; tx++) {
+          const idx = ty * tilesX + tx;
+          if (isRiverTile[idx]) continue; // already marked — skip distance check
+          const cx = tx * TILE_SIZE + TILE_SIZE / 2;
+          const cy = ty * TILE_SIZE + TILE_SIZE / 2;
+          if (distPointToSegment(cx, cy, p1.x, p1.y, p2.x, p2.y) <= halfWidth) {
+            isRiverTile[idx] = 1;
+          }
+        }
+      }
+    }
+
+    // ── Crossing gap exclusion ──────────────────────────────────────────────
+    // Bridge and ford crossing centres must remain passable ground — clear any
+    // river-tile marks within half the crossing width of each centre point.
+    for (const crossing of [river.bridge, river.ford]) {
+      if (crossing.pathIndex >= points.length) continue;
+      const centre  = points[crossing.pathIndex];
+      const halfGap = crossing.width / 2;
+      const halfGapSq = halfGap * halfGap;
+
+      const minTx = Math.max(0,          Math.floor((centre.x - halfGap) / TILE_SIZE));
+      const maxTx = Math.min(tilesX - 1, Math.ceil( (centre.x + halfGap) / TILE_SIZE));
+      const minTy = Math.max(0,          Math.floor((centre.y - halfGap) / TILE_SIZE));
+      const maxTy = Math.min(tilesY - 1, Math.ceil( (centre.y + halfGap) / TILE_SIZE));
+
+      for (let ty = minTy; ty <= maxTy; ty++) {
+        for (let tx = minTx; tx <= maxTx; tx++) {
+          const cx = tx * TILE_SIZE + TILE_SIZE / 2;
+          const cy = ty * TILE_SIZE + TILE_SIZE / 2;
+          if ((cx - centre.x) ** 2 + (cy - centre.y) ** 2 <= halfGapSq) {
+            isRiverTile[ty * tilesX + tx] = 0;
+          }
+        }
+      }
+    }
+
+    // ── Waterfall tiles ─────────────────────────────────────────────────────
+    // Mark tiles within halfWidth of each waterfall point.  The waterfall index
+    // is into rawPath (recorded during gradient descent in FIL-166); we convert
+    // to world pixels from the raw tile coordinates.
+    for (const { pathIndex } of waterfalls) {
+      if (pathIndex >= rawPath.length) continue;
+      const step = rawPath[pathIndex];
+      const wx = step.tx * TILE_SIZE + TILE_SIZE / 2;
+      const wy = step.ty * TILE_SIZE + TILE_SIZE / 2;
+
+      const minTx = Math.max(0,          Math.floor((wx - halfWidth) / TILE_SIZE));
+      const maxTx = Math.min(tilesX - 1, Math.ceil( (wx + halfWidth) / TILE_SIZE));
+      const minTy = Math.max(0,          Math.floor((wy - halfWidth) / TILE_SIZE));
+      const maxTy = Math.min(tilesY - 1, Math.ceil( (wy + halfWidth) / TILE_SIZE));
+
+      for (let ty = minTy; ty <= maxTy; ty++) {
+        for (let tx = minTx; tx <= maxTx; tx++) {
+          const cx = tx * TILE_SIZE + TILE_SIZE / 2;
+          const cy = ty * TILE_SIZE + TILE_SIZE / 2;
+          if ((cx - wx) ** 2 + (cy - wy) ** 2 <= halfWidthSq) {
+            isWaterfallTile[ty * tilesX + tx] = 1;
+          }
+        }
+      }
+    }
+  }
+
+  return { isRiverTile, isWaterfallTile };
+}
