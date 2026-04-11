@@ -3137,20 +3137,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Three horizontal impassable strips that divide the world into four navigable zones,
-   * creating a guided SW→NE experience:
+   * Invisible static physics bodies that block player movement, dividing the world
+   * into navigable zones with guided SW→NE flow:
    *
    *   Zone 4 — Highland / Portal         (y < 830)
    *   ─── Highland Rim ───────────────── gap at x 2830–2930
    *   Zone 3 — Skogsgläntan area         (y 830–1240)
    *   ─── Forest Belt ────────────────── gaps at x 1930–2020 and x 2380–2470
    *   Zone 2 — Boreal mid-corridor       (y 1240–2060)
-   *   ─── Southern River ─────────────── ford gap at x 530–680
+   *   ─── River A & River B ──────────── stair-step barriers following tracedRiverPaths
    *   Zone 1 — Coastal / Strandviken     (y 2060–3000) ← spawn here
    *
-   * The gap positions are chosen to align with existing path segments in Level1Paths.ts
-   * so the player naturally discovers the crossings while following the dirt / animal /
-   * forest / paved route from spawn to portal.
+   * River barriers (FIL-169): instead of the old fixed horizontal rectangles, we
+   * iterate each traced river path row by row and emit one TILE_SIZE-tall barrier
+   * per row centred on that row's average tile x.  Bridge and ford rows are skipped
+   * so the player can cross only at the designated gaps.
    */
   private createNavigationBarriers(): void {
     this.navigationBarriers = this.physics.add.staticGroup();
@@ -3162,12 +3163,66 @@ export class GameScene extends Phaser.Scene {
       this.navigationBarriers.add(rect);
     };
 
-    // ── Southern River / River A (y 2060–2160) ──────────────────────────────
-    // FIL-100: two crossing gaps — wading ford (x 350–478) and bridge ford (x 540–668).
-    // Wading gap is new; bridge ford replaces the original single ford at x 530–680.
-    addBlock(0,   2060, 350,  100);  // west of wading gap
-    addBlock(478, 2060, 62,   100);  // between wading and bridge (478→540)
-    addBlock(668, 2060, 3832, 100);  // east of bridge ford
+    // ── River A & River B — stair-step barriers following traced paths (FIL-169) ──
+    //
+    // For each traced river we iterate its raw tile steps, grouping them by row (ty).
+    // For each row we compute the average tile-centre x of that river in that row,
+    // then emit a barrier block spanning (xCenter ± halfWidth) × TILE_SIZE tall.
+    //
+    // Rows that fall within the bridge or ford crossing gap are skipped so the
+    // player can only cross at the designated points.  The gap radius is derived
+    // from the crossing width defined in DiagonalRiver (same units as halfWidth).
+    //
+    // Why row-by-row rather than one big rectangle?
+    //   Diagonal rivers cut across tile rows at an angle — a single horizontal
+    //   rect would either block the crossings or leave gaps at the river edges.
+    //   Per-row blocks follow the river's actual diagonal shape precisely.
+    for (const traced of this.tracedRiverPaths) {
+      const { river, rawPath, points } = traced;
+      const { halfWidth } = river;
+
+      // Resolve the world-pixel crossing centres from the smoothed path.
+      // points[] is in world pixels; bridge/ford pathIndex indexes into it.
+      const bridgePt = river.bridge.pathIndex < points.length
+        ? points[river.bridge.pathIndex]
+        : undefined;
+      const fordPt = river.ford.pathIndex < points.length
+        ? points[river.ford.pathIndex]
+        : undefined;
+
+      // Convert crossing y to tile row so we can compare against ty.
+      const bridgeTy = bridgePt !== undefined ? Math.floor(bridgePt.y / TILE_SIZE) : -9999;
+      const fordTy   = fordPt   !== undefined ? Math.floor(fordPt.y   / TILE_SIZE) : -9999;
+
+      // Half-radius in tile rows to clear on each side of the crossing.
+      // +1 gives a small extra margin so no pixel of barrier overlaps the gap.
+      const bridgeGapR = Math.ceil(river.bridge.width / 2 / TILE_SIZE) + 1;
+      const fordGapR   = Math.ceil(river.ford.width   / 2 / TILE_SIZE) + 1;
+
+      // Accumulate average tx per row from raw gradient-descent steps.
+      // rawPath can have multiple steps per ty when the river zig-zags, so we
+      // average them to get a representative centre x for the barrier block.
+      const rowTxSums = new Map<number, { sum: number; count: number }>();
+      for (const step of rawPath) {
+        const entry = rowTxSums.get(step.ty);
+        if (entry) {
+          entry.sum   += step.tx;
+          entry.count += 1;
+        } else {
+          rowTxSums.set(step.ty, { sum: step.tx, count: 1 });
+        }
+      }
+
+      for (const [ty, { sum, count }] of rowTxSums) {
+        // Skip this row if it falls inside a crossing gap.
+        if (Math.abs(ty - bridgeTy) <= bridgeGapR) continue;
+        if (Math.abs(ty - fordTy)   <= fordGapR)   continue;
+
+        // Centre of the river in world pixels at this row.
+        const xCenter = (sum / count) * TILE_SIZE + TILE_SIZE / 2;
+        addBlock(xCenter - halfWidth, ty * TILE_SIZE, halfWidth * 2, TILE_SIZE);
+      }
+    }
 
     // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
     // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
@@ -3179,14 +3234,6 @@ export class GameScene extends Phaser.Scene {
     // Gap aligns with forest-path-2 / paved-plateau-1 junction.
     addBlock(0,    830,  2830, 90);
     addBlock(2930, 830,  1570, 90);
-
-    // ── River B (FIL-100) — y 1472–1568 ─────────────────────────────────────
-    // Mid-corridor river between Forest Belt (y 1240–1340) and Southern River.
-    // Bridge ford (x 1500–1596) aligns with animal-trail-3 vertical path.
-    // Wading ford (x 1700–1828) is east of the bridge.
-    addBlock(0,    1472, 1500, 96);  // west of bridge gap
-    addBlock(1596, 1472, 104,  96);  // between bridge and wading (1596→1700)
-    addBlock(1828, 1472, 2672, 96);  // east of wading gap
 
     this.navigationBarriers.refresh();
   }
