@@ -19,6 +19,7 @@ import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
 import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
+import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
 import { RIVER_BANDS }        from '../world/RiverData';
 import { CorruptionPostFX }  from '../shaders/CorruptionPostFX';
@@ -737,7 +738,13 @@ export class GameScene extends Phaser.Scene {
     this.tempNoise  = new FbmNoise(this.runSeed ^ 0x74656d70);
     this.moistNoise = new FbmNoise(this.runSeed ^ 0x6d6f6973);
     this.corruptionField = new CorruptionField(this.runSeed);
-    this.pathSystem = new PathSystem(LEVEL1_PATHS.map(s => ({ ...s })));
+    // Merge hand-authored Level1Paths with procedurally generated animal trails (FIL-88).
+    // generateAnimalTrails() traces noise-jittered paths between settlements and POIs,
+    // returning 'animal'-type segments that the existing affinity system already honours.
+    this.pathSystem = new PathSystem([
+      ...LEVEL1_PATHS.map(s => ({ ...s })),
+      ...generateAnimalTrails(this.runSeed),
+    ]);
     this.drawProceduralTerrain();
     this.drawPaths();
     this.drawSettlementMarkers();
