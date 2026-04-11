@@ -43,8 +43,8 @@ async function linearQuery(query, variables = {}) {
   const res = await fetch('https://api.linear.app/graphql', {
     method: 'POST',
     headers: {
-      // Linear PATs (lin_api_…) require Bearer prefix; plain keys also work with it
-      Authorization: LINEAR_API_KEY.startsWith('Bearer ') ? LINEAR_API_KEY : `Bearer ${LINEAR_API_KEY}`,
+      // Linear API keys must NOT have a Bearer prefix — strip it if present
+      Authorization: LINEAR_API_KEY.replace(/^Bearer\s+/i, ''),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ query, variables }),
