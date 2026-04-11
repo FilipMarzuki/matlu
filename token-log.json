@@ -50,5 +50,17 @@
     "cacheReadTokens": 29484,
     "cacheWriteTokens": 355,
     "estimatedCostUsd": 0.024
+  },
+  {
+    "sessionId": "manual-2026-04-11-REVIEW-BOT",
+    "date": "2026-04-11",
+    "branch": "",
+    "issueId": "REVIEW-BOT",
+    "source": "manual",
+    "inputTokens": 37,
+    "outputTokens": 5985,
+    "cacheReadTokens": 568420,
+    "cacheWriteTokens": 90074,
+    "estimatedCostUsd": 0.5982
   }
 ]
