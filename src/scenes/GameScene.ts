@@ -22,7 +22,6 @@ import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
 import {
-  RIVER_BANDS,
   DIAGONAL_RIVERS,
   TracedRiverPath,
   traceRiverPath,
@@ -846,6 +845,20 @@ export class GameScene extends Phaser.Scene {
     // Must run before drawProceduralTerrain so FIL-168 can use isRiverTile during
     // the terrain bake instead of the legacy horizontal RIVER_BANDS check.
     this.initRiverTileGrids();
+    // FIL-170: patch the two wading-ford path segments with the ford positions
+    // computed at runtime from the traced river paths.  The static definitions in
+    // Level1Paths.ts are approximations — actual positions depend on the elevation
+    // grid (noise-seed specific) and are only known after initRiverTileGrids().
+    const wadingIds = ['river-a-wading', 'river-b-wading'];
+    this.tracedRiverPaths.forEach((traced, i) => {
+      const id = wadingIds[i];
+      if (!id) return;
+      const fordPt = traced.points[traced.river.ford.pathIndex];
+      if (!fordPt) return;
+      const hw = traced.river.ford.width / 2;
+      const hh = traced.river.halfWidth;
+      this.pathSystem.updateSegmentBounds(id, fordPt.x - hw, fordPt.y - hh, hw * 2, hh * 2);
+    });
     this.drawProceduralTerrain();
     this.drawPaths();
     this.drawSettlementMarkers();
@@ -3244,12 +3257,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Bridge planks and wading-ford rocks for every river defined in RIVER_BANDS.
+   * Bridge planks and wading-ford rocks for every traced river (FIL-170).
    *
    * ## Why two crossing types?
    * A bridge gives the player a direct, fast crossing aligned with the road path.
    * A wading ford offers an alternative that slows the player (PathType 'wading')
    * — both teach the player that rivers are obstacles with discrete crossing points.
+   *
+   * ## Position source (FIL-170)
+   * Crossing positions now come from `this.tracedRiverPaths` (computed by
+   * `initRiverTileGrids()`), not from the deprecated `RIVER_BANDS` constants.
+   * `traced.points[traced.river.bridge.pathIndex]` gives the bridge world-pixel
+   * centre; `traced.points[traced.river.ford.pathIndex]` gives the ford centre.
    *
    * ## Depths
    * Bridge rectangle: depth 1.9 — above water animation sprites (0.5) and path
@@ -3259,33 +3278,40 @@ export class GameScene extends Phaser.Scene {
   private createRiverCrossingVisuals(): void {
     const rng = mulberry32(0x71766572); // 'rivr' in ASCII — deterministic placement
 
-    for (const river of RIVER_BANDS) {
-      const riverCy = river.tyCentre * TILE_SIZE;
-      const bandH   = (river.halfTiles * 2 + 1) * TILE_SIZE;
+    for (const traced of this.tracedRiverPaths) {
+      const { river, points } = traced;
+      // River height for crossing visuals: full band height = halfWidth × 2.
+      const bandH = river.halfWidth * 2;
 
-      // ── Bridge: dark wood-plank rectangle spanning the full river band height ──
-      // Sits on top of the water tiles so it looks like a crossing platform.
-      const bridgeCx = river.bridgeX + river.bridgeW / 2;
-      this.add.rectangle(bridgeCx, riverCy, river.bridgeW, bandH, 0x5c4033)
-        .setDepth(1.9);
-      // Two thin plank-line overlays for texture — lighter centre strip + dark edges
-      this.add.rectangle(bridgeCx, riverCy, river.bridgeW, 4, 0x8b6040)
-        .setDepth(1.91);
-      this.add.rectangle(bridgeCx, riverCy - bandH / 2 + 4, river.bridgeW, 4, 0x3a2010)
-        .setDepth(1.91);
-      this.add.rectangle(bridgeCx, riverCy + bandH / 2 - 4, river.bridgeW, 4, 0x3a2010)
-        .setDepth(1.91);
+      // ── Bridge ────────────────────────────────────────────────────────────────
+      // Centre is the smoothed-path point closest to the SW→NE corridor.
+      const bridgePt = points[river.bridge.pathIndex];
+      if (bridgePt) {
+        const bx = bridgePt.x;
+        const by = bridgePt.y;
+        const bw = river.bridge.width;
 
-      // ── Wading ford: scattered rocks-in-water sprites (Mystic Woods 2.2) ─────
-      // The 'rocks-in-water' spritesheet has 6 frames (frame 0–5). Placed at
-      // depth 1.8 (below bridge planks) and scaled ×2 to match TILE_SIZE = 32.
-      for (let i = 0; i < 5; i++) {
-        const rx    = river.wadingX + rng() * river.wadingW;
-        const ry    = riverCy - TILE_SIZE * 0.8 + rng() * TILE_SIZE * 1.6;
-        const frame = Math.floor(rng() * 6);
-        this.add.image(rx, ry, 'rocks-in-water', frame)
-          .setScale(2)
-          .setDepth(1.8);
+        // Dark wood-plank rectangle spanning the full river band height.
+        this.add.rectangle(bx, by, bw, bandH, 0x5c4033).setDepth(1.9);
+        // Plank-line overlays — lighter centre strip + dark top/bottom edges.
+        this.add.rectangle(bx, by,             bw, 4, 0x8b6040).setDepth(1.91);
+        this.add.rectangle(bx, by - bandH / 2 + 4, bw, 4, 0x3a2010).setDepth(1.91);
+        this.add.rectangle(bx, by + bandH / 2 - 4, bw, 4, 0x3a2010).setDepth(1.91);
+      }
+
+      // ── Wading ford ───────────────────────────────────────────────────────────
+      // Centre is ~10 raw gradient-descent steps upstream of the bridge — a
+      // shallower crossing that slows the player (PathType 'wading', ×0.55 speed).
+      // The 'rocks-in-water' spritesheet has 6 frames (0–5), scaled ×2 for 32px.
+      const fordPt = points[river.ford.pathIndex];
+      if (fordPt) {
+        const fw = river.ford.width;
+        for (let i = 0; i < 5; i++) {
+          const rx    = fordPt.x - fw / 2 + rng() * fw;
+          const ry    = fordPt.y - river.halfWidth * 0.8 + rng() * river.halfWidth * 1.6;
+          const frame = Math.floor(rng() * 6);
+          this.add.image(rx, ry, 'rocks-in-water', frame).setScale(2).setDepth(1.8);
+        }
       }
     }
   }
