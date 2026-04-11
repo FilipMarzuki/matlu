@@ -146,8 +146,12 @@ async function getLinearStats() {
   }
 
   const data = await linearQuery(`
-    query WeeklyStats($after: DateTime!) {
-      issues(filter: { completedAt: { gte: $after } }) {
+    query WeeklyStats {
+      issues(
+        filter: { state: { type: { eq: "completed" } } }
+        first: 100
+        orderBy: updatedAt
+      ) {
         nodes {
           id
           createdAt
@@ -155,9 +159,12 @@ async function getLinearStats() {
         }
       }
     }
-  `, { after: weekAgoISO });
+  `);
 
-  const issues = data.issues.nodes;
+  // Filter client-side to this week's completions
+  const issues = data.issues.nodes.filter(
+    i => i.completedAt && new Date(i.completedAt) >= weekAgo
+  );
   const completedCount = issues.length;
 
   // Cycle time: createdAt → completedAt in days
