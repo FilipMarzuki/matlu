@@ -124,7 +124,8 @@ export class CorruptionPostFX extends Phaser.Renderer.WebGL.Pipelines.PostFXPipe
   }
 
   onPreRender(): void {
-    this.set1f('uTime', this.game.loop.time * 0.001);
+    // Guard: currentShader is undefined until the first render pass binds it.
+    if (this.currentShader) this.set1f('uTime', this.game.loop.time * 0.001);
   }
 
   /**
@@ -132,6 +133,8 @@ export class CorruptionPostFX extends Phaser.Renderer.WebGL.Pipelines.PostFXPipe
    * @param value 0.0 = fully clean, 1.0 = maximum corruption
    */
   setCorruption(value: number): void {
-    this.set1f('uCorruption', value);
+    // Guard: currentShader may be unbound if called before the first render
+    // (e.g., during a forced scene tick in tests before WebGL initialises).
+    if (this.currentShader) this.set1f('uCorruption', value);
   }
 }
