@@ -37,9 +37,9 @@ export class MainMenuScene extends Phaser.Scene {
     this.load.audio('music-menu', [
       'assets/audio/Free Orchestral Music Pack/Lost Kingdom (Piano Menu).wav',
     ]);
-    // Cassette button click SFX (Shapeforms, free preview)
+    // Button click SFX (Kenney Impact Sounds, CC0)
     this.load.audio('sfx-click', [
-      'assets/audio/Shapeforms Audio Free Sound Effects/Cassette Preview/AUDIO/BUTTON_05.wav',
+      'assets/audio/kenney_impact-sounds/Audio/impactGeneric_light_003.ogg',
     ]);
   }
 

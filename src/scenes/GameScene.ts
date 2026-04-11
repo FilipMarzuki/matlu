@@ -486,12 +486,20 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('music-night', [`${cozyBase}/Polar Lights.ogg`]);
 
     // ── Event SFX ─────────────────────────────────────────────────────────────────
+    const ken = 'assets/audio/kenney_impact-sounds/Audio';
+    const jingles = 'assets/audio/kenney_music-jingles/Audio';
     // Collectible pickup: warm pizzicato jingle (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-pickup',  ['assets/audio/kenney_music-jingles/Audio/Pizzicato jingles/jingles_PIZZI05.ogg']);
+    this.load.audio('sfx-pickup',  [`${jingles}/Pizzicato jingles/jingles_PIZZI05.ogg`]);
     // Portal reveal: crystalline steel jingle (Kenney Music Jingles, CC0)
-    this.load.audio('sfx-portal',  ['assets/audio/kenney_music-jingles/Audio/Steel jingles/jingles_STEEL05.ogg']);
-    // Cleanse swipe: arcane wind-chime whoosh (Shapeforms, free preview)
-    this.load.audio('sfx-swipe',   ['assets/audio/Shapeforms Audio Free Sound Effects/Arcane Activations Preview/AUDIO/Arcane Wind Chime Gust.wav']);
+    this.load.audio('sfx-portal',  [`${jingles}/Steel jingles/jingles_STEEL05.ogg`]);
+    // Cleanse swipe gesture: bright bell whoosh (Kenney Impact Sounds, CC0)
+    this.load.audio('sfx-swipe',   [`${ken}/impactBell_heavy_004.ogg`]);
+    // Swipe makes contact with an enemy: deeper bell strike (Kenney Impact Sounds, CC0)
+    this.load.audio('sfx-swipe-hit', [`${ken}/impactBell_heavy_000.ogg`]);
+    // Corrupted enemy dies: soft organic dissolve/pop (Kenney Impact Sounds, CC0)
+    this.load.audio('sfx-enemy-death', [`${ken}/impactSoft_heavy_001.ogg`]);
+    // Player takes damage: dull punch impact (Kenney Impact Sounds, CC0)
+    this.load.audio('sfx-player-hit',  [`${ken}/impactPunch_medium_000.ogg`]);
     // Corruption presence: ominous drone (Cozy Tunes Pro sound effect)
     this.load.audio('sfx-corruption', ['assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/shadow.ogg']);
 
@@ -777,6 +785,7 @@ export class GameScene extends Phaser.Scene {
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - 20);
       this.setHpHud(this.playerHp);
+      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
       // Red tint flash — more readable than alpha blink, same intent.
       this.playerSprite.setTint(0xff4444);
       this.time.delayedCall(200, () => this.playerSprite.clearTint());
@@ -1289,6 +1298,8 @@ export class GameScene extends Phaser.Scene {
 
     // Camera shake on every successful hit — same intensity as the arena (FIL-124).
     this.cameras.main.shake(150, 0.004);
+    // Contact hit sound — layered on top of the gesture whoosh for tactile feedback.
+    if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 });
 
     if (Math.random() < 0.5) {
       this.killRabbit(rabbit);
@@ -1389,6 +1400,7 @@ export class GameScene extends Phaser.Scene {
     const rx = rabbit.x;
     const ry = rabbit.y;
     this.spawnEnergyBurst(rx, ry, this.player.x, this.player.y);
+    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 });
     rabbit.destroy();
     this.kills += 1;
     const percent = (this.kills / RABBIT_COUNT) * 100;
@@ -1890,6 +1902,7 @@ export class GameScene extends Phaser.Scene {
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - 25);
       this.setHpHud(this.playerHp);
+      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
       this.playerSprite.setTint(0xff4444);
       this.time.delayedCall(200, () => this.playerSprite.clearTint());
       if (this.playerHp <= 0) this.onPlayerDeath();
