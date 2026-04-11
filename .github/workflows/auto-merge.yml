@@ -1,0 +1,40 @@
+name: Auto-merge on CI pass
+
+# When CI completes successfully on a PR branch, squash-merge the PR automatically.
+# This removes the manual merge step for both agent-opened and manually-opened PRs.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  auto-merge:
+    # Only run when CI passed on a pull_request event (not direct pushes to main)
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Find PR for this commit
+        id: find-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh api \
+            "repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}/pulls" \
+            --jq '.[0].number // empty')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Squash-merge PR
+        if: steps.find-pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Merging PR #${{ steps.find-pr.outputs.pr_number }}"
+          gh pr merge ${{ steps.find-pr.outputs.pr_number }} \
+            --squash \
+            --delete-branch \
+            --repo ${{ github.repository }}

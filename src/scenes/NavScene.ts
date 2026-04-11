@@ -24,6 +24,8 @@ export class NavScene extends Phaser.Scene {
   static readonly KEY = 'NavScene';
 
   private freeCamBtn!:  Phaser.GameObjects.Text;
+  private elevMapBtn!:  Phaser.GameObjects.Text;
+  private biomeMapBtn!: Phaser.GameObjects.Text;
   private playAiBtn!:   Phaser.GameObjects.Text;
   private resetBtn!:    Phaser.GameObjects.Text;
   private freeCamGroup!: Phaser.GameObjects.Group;
@@ -109,7 +111,7 @@ export class NavScene extends Phaser.Scene {
     const divY = btnY0 + btnGap * 2 + 10;
     this.add.rectangle(cx, divY, BTN_W, 1, 0x3a5a3a, 0.6);
 
-    // ── WilderView-only controls (Free Cam) ────────────────────────────────────
+    // ── WilderView-only controls (Free Cam + Dev overlays) ────────────────────
     this.freeCamBtn = this.add.text(cx, divY + 22, 'Free Cam', {
       fontSize: '13px', color: '#88aaff',
       backgroundColor: '#111122aa',
@@ -121,11 +123,35 @@ export class NavScene extends Phaser.Scene {
       .on('pointerover', () => this.freeCamBtn.setStyle({ color: '#bbddff' }))
       .on('pointerout',  () => this.freeCamBtn.setStyle({ color: this.freeCamBtn.text.includes('✓') ? '#ffffff' : '#88aaff' }));
 
+    // Dev overlay buttons — toggling elevation heatmap or biome colour map.
+    // Each acts as a toggle: clicking the active mode turns it off.
+    this.elevMapBtn = this.add.text(cx, divY + 66, 'Elev Map', {
+      fontSize: '13px', color: '#cc88ff',
+      backgroundColor: '#220033aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup',   () => this.game.events.emit('nav-toggle-elev-overlay'))
+      .on('pointerover', () => this.elevMapBtn.setStyle({ color: '#eeccff' }))
+      .on('pointerout',  () => this.elevMapBtn.setStyle({ color: this.elevMapBtn.text.includes('✓') ? '#ffffff' : '#cc88ff' }));
+
+    this.biomeMapBtn = this.add.text(cx, divY + 110, 'Biome Map', {
+      fontSize: '13px', color: '#88ffcc',
+      backgroundColor: '#002233aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup',   () => this.game.events.emit('nav-toggle-biome-overlay'))
+      .on('pointerover', () => this.biomeMapBtn.setStyle({ color: '#ccffee' }))
+      .on('pointerout',  () => this.biomeMapBtn.setStyle({ color: this.biomeMapBtn.text.includes('✓') ? '#ffffff' : '#88ffcc' }));
+
     const freeCamHint = this.add.text(cx, H - 80, 'WASD — pan\nScroll — zoom', {
       fontSize: '10px', color: '#3a5a3a', align: 'center',
     }).setOrigin(0.5, 1);
 
-    this.freeCamGroup = this.add.group([this.freeCamBtn, freeCamHint]);
+    this.freeCamGroup = this.add.group([this.freeCamBtn, this.elevMapBtn, this.biomeMapBtn, freeCamHint]);
 
     // ── Arena-only controls (Play/AI, Reset) ───────────────────────────────────
     this.playAiBtn = this.add.text(cx, divY + 22, 'Play', {
@@ -175,11 +201,23 @@ export class NavScene extends Phaser.Scene {
       this.playAiBtn.setStyle({ color: active ? '#ffffff' : '#88aaff' });
     }, this);
 
+    // GameScene notifies us when the dev overlay mode changes so we can mark the
+    // active button with a ✓ and reset the inactive one.
+    this.game.events.on('nav-dev-overlay-changed', (mode: 'none' | 'elevation' | 'biome') => {
+      const elevOn  = mode === 'elevation';
+      const biomeOn = mode === 'biome';
+      this.elevMapBtn.setText( elevOn  ? 'Elev Map ✓' : 'Elev Map');
+      this.elevMapBtn.setStyle({ color: elevOn  ? '#ffffff' : '#cc88ff' });
+      this.biomeMapBtn.setText(biomeOn ? 'Biome Map ✓' : 'Biome Map');
+      this.biomeMapBtn.setStyle({ color: biomeOn ? '#ffffff' : '#88ffcc' });
+    }, this);
+
     // Clean up listeners when this scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-mode-change', undefined, this);
       this.game.events.off('nav-free-cam-changed', undefined, this);
       this.game.events.off('nav-play-mode-changed', undefined, this);
+      this.game.events.off('nav-dev-overlay-changed', undefined, this);
     });
   }
 
