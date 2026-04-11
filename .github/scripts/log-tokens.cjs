@@ -78,6 +78,7 @@ function parseSession(filePath) {
   const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
 
   let sessionId = null;
+  let model = null;
   let inputTokens = 0;
   let outputTokens = 0;
   let cacheReadTokens = 0;
@@ -92,7 +93,7 @@ function parseSession(filePath) {
       sessionId = record.sessionId;
     }
 
-    // Token usage is on assistant message records
+    // Token usage is on assistant message records; model is also here
     if (record.type === 'assistant' && record.message?.usage) {
       const u = record.message.usage;
       // Each assistant turn has the *cumulative* session totals — take the last one
@@ -100,12 +101,13 @@ function parseSession(filePath) {
       outputTokens     = u.output_tokens                 ?? outputTokens;
       cacheReadTokens  = u.cache_read_input_tokens       ?? cacheReadTokens;
       cacheWriteTokens = u.cache_creation_input_tokens   ?? cacheWriteTokens;
+      if (record.message.model) model = record.message.model;
     }
   }
 
   if (!sessionId) throw new Error('Could not find session ID in ' + filePath);
 
-  return { sessionId, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens };
+  return { sessionId, model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens };
 }
 
 // ── Estimate cost ─────────────────────────────────────────────────────────────
@@ -159,6 +161,7 @@ function mainAuto() {
     date:             new Date().toISOString().slice(0, 10),
     branch,
     issueId,
+    model:            session.model,
     source:           'claude-code',
     inputTokens:      session.inputTokens,
     outputTokens:     session.outputTokens,
