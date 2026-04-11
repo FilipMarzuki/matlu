@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  // screenshot.spec.ts is a visual capture tool, not a pass/fail test suite.
+  // It requires --headed mode (WebGL RenderTextures don't render in headless Chrome)
+  // and is meant to be run manually via `npm run screenshot`, not in CI.
+  testIgnore: ['**/screenshot.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
