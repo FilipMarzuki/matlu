@@ -152,12 +152,6 @@ async function getLinearStats() {
           id
           createdAt
           completedAt
-          history {
-            nodes {
-              toState { type }
-              fromState { type }
-            }
-          }
         }
       }
     }
@@ -172,15 +166,7 @@ async function getLinearStats() {
   );
   const avgCycleTime = Math.round(avg(cycleTimes) * 10) / 10;
 
-  // Rework: issues that moved back from completed to in-progress
-  const reworked = issues.filter(i =>
-    i.history.nodes.some(h => h.fromState?.type === 'completed' && h.toState?.type === 'started')
-  );
-  const reworkRate = completedCount
-    ? Math.round((reworked.length / completedCount) * 100)
-    : 0;
-
-  return { completedCount, avgCycleTime, reworkRate };
+  return { completedCount, avgCycleTime, reworkRate: 0 };
 }
 
 // ── AI token usage ────────────────────────────────────────────────────────────
