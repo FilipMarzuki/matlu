@@ -152,10 +152,140 @@ Start there.
 
 ## Spinolandet
 
-*To be developed. Bio-evolutionary alien world — think Zerg meets dinosaur meets organic alien.
-Five enemy types. Sprites pending. Tone: alien beauty that hides predatory logic.
-Everything is alive in ways that feel wrong. The corruption here does not darken the world —
-it simplifies it, reducing complex symbiotic ecosystems to monocultures of aggression.*
+### What it is
+
+Spinolandet is a world that lives underground. The surface is not dead — but it is secondary.
+Something happened to this world's star, or its orbit, or its atmosphere, long enough ago
+that the memory is geological. The sky delivers radiation in spectrums that surface life
+never fully adapted to. What lives above ground does so at cost: heavy chitin, photophobic
+eyes, short seasons of breeding before retreating. Most of the world's complexity is below.
+
+The tunnels are enormous. Some of them were made.
+
+### The Precursors
+
+There was once a civilisation here. Not like Earth's — no cities in the human sense, no
+written language anyone has decoded. What they built was biological. They shaped living
+things the way other civilisations shape stone: deliberately, over generations, with
+something that looked like intention. Their architecture was grown. Their tools were
+organisms. Their infrastructure was a network of modified organisms that processed,
+filtered, transported, stored. DNA was their engineering language.
+
+They are gone. Not extinct in a dramatic sense — there is no evidence of a war or a
+cataclysm. They simply stop appearing in the fossil record. The most coherent theory,
+for those few in the game world who study such things, is that they modified themselves
+out of sapience: optimised their own biology so thoroughly for underground survival that
+whatever made them a civilisation got edited away. Their descendants are still here.
+They are not people anymore.
+
+What remains of their work is the ecosystem. Everything alive in Spinolandet is, in some
+sense, a descendant of something they built or modified or cultivated. The current life
+did not evolve from scratch — it evolved from engineering. Which is why Spinolandet's
+biology feels purposeful in ways that natural selection alone does not produce.
+
+### The ecosystem
+
+Think of the Cretaceous — scale, aggression, the sense that everything is too large and
+moving too fast — filtered through insect logic. Colonies. Castes. Exoskeleton over
+soft tissue. Things that communicate chemically, that sacrifice individuals without
+hesitation, that build structures larger than themselves over generations without any
+single organism understanding the whole.
+
+Then add the alien: organisms that do not map onto Earth categories. Something that is
+neither plant nor animal but fills both roles. A predator that does not move because it
+does not need to. A creature whose life cycle includes stages that look like entirely
+different species. Bilateral symmetry is common but not universal. Some things have
+no clear front.
+
+There are localized hive minds. A colony of tunnel-borers that shares sensory input
+across its hundreds of bodies — not one consciousness, but something closer to a
+distributed awareness. Each body acts individually when isolated, but in proximity they
+synchronise: the same threat response runs through the whole group at once, the same
+hunger, the same direction. Separating them causes distress that looks almost like grief.
+These are not the planet's rulers. They are one solution among many to the problem of
+coordination in the dark.
+
+### Mana in Spinolandet
+
+Mana exists here, but it is not magic in any sense that Vattenpandalandet would recognise.
+It is a substrate — a property of the deep rock, of certain mineral formations, of the
+water in the deepest tunnels. Living things in Spinolandet have incorporated it the way
+Earth life incorporated iron: as a functional material, processed by specific organs,
+used for specific purposes.
+
+Some organisms generate bioluminescence via mana. Some have organs that detect it
+directionally — a kind of mana-sense, useful in complete darkness. A few larger predators
+can discharge it in short bursts, not as spellcasting but the way an electric eel discharges:
+reflexively, as a weapon of last resort that costs them something.
+
+There are no [Classes] here. No system. Mana is metabolic, not metaphysical.
+The Precursors almost certainly understood it — their modifications show evidence of
+deliberate mana-organ engineering. Whatever they knew died with their sapience.
+
+### The corruption here
+
+The corruption does not darken Spinolandet. It simplifies.
+
+Spinolandet's ecosystems are deeply interdependent. The tunnel-borers aerate soil that
+feeds fungal networks that feed the herbivore colonies that the predators cull.
+A hive that dies takes three other species' populations with it over the following season.
+Everything is connected in ways that took millions of years of post-Precursor evolution
+to build.
+
+Corruption severs those connections. Not violently — it just removes the cooperation.
+A fungal network stops sharing nutrients and starts competing with its own nodes. A
+predator that normally hunts selectively begins hunting everything it can reach. The
+hive minds fragment: bodies that shared awareness start acting independently, without
+coordination, consuming resources with no regard for the colony.
+
+The result is not chaos but monoculture. Corrupted zones trend toward one dominant
+organism that out-competes everything else — until there is nothing left to consume,
+and it too dies. What the player is fighting in Spinolandet is not monsters.
+It is the collapse of a system.
+
+### The five enemy types
+
+The specific enemy designs are pending sprite work. What they share:
+
+- All are descended from Precursor bioengineering, however distantly
+- All have mana-organs of some kind, even if vestigial
+- None are evil. They are organisms operating under corrupted drives —
+  a predator whose threat-response never resolves, a colonial organism
+  whose coordination signal has gone into a loop, a filter-feeder whose
+  intake has lost its off-switch
+- Corrupted variants look almost right. The chitin is the wrong colour.
+  The movement is slightly too fast, or too repetitive. The mana-glow
+  pulses at an interval that is just slightly wrong
+
+### Writing Spinolandet lore
+
+The voice here is closest to *Annihilation* — the observer is documenting something
+they do not fully understand, and the documentation is slightly inadequate to the reality.
+Do not try to explain the biology completely. Let it be almost-understood.
+
+Write organisms the way a field researcher would: what it looks like, what it does,
+what happens when you approach it. Not what it feels. These are not characters.
+The Precursors are characters — but they are absent. Their absence is the emotional
+register of this world.
+
+The exception: the localized hive minds. Write those with something approaching
+interiority — not human interiority, but the sense that the colony is experiencing
+something. The grief of separation. The confusion of fragmentation.
+That is where the emotional weight lives.
+
+**Avoid:** naming Spinolandet creatures with fantasy naming conventions.
+They should have field-designation energy — the kind of name a researcher would
+give something they found last week and do not fully understand yet.
+
+### Reference works (Spinolandet)
+
+| Work | What to borrow |
+|------|----------------|
+| *Annihilation* — Jeff VanderMeer | Biological uncanny, observer documenting the inadequate, transformation that is almost beautiful |
+| *Aliens* — James Cameron | Colonial organism logic, hive behaviour, the sense of a system you are inside |
+| *Starship Troopers* — Verhoeven | Insect scale and aggression, caste warfare, bodies as disposable units |
+| *Zerg — StarCraft* | Evolutionary pressure as design, biological architecture, consuming as expansion |
+| *Roadside Picnic* — Strugatsky | A zone that does not care about you, artefacts that cannot be fully understood |
 
 ---
 
