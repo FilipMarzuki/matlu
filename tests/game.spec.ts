@@ -81,11 +81,13 @@ test('pressing W key moves the player upward', async ({ page }) => {
 
   // ── Player movement ────────────────────────────────────────────────────────
   //
-  // WHY game.loop.tick() instead of waitForTimeout:
+  // WHY scene.sys.step() instead of waitForTimeout:
   //   In CI headless Chrome, requestAnimationFrame is throttled to near-zero FPS
   //   (background tabs in Chrome 88+ receive very infrequent rAF callbacks).
   //   Waiting 300 ms or even 60 s is not enough because the game loop never
-  //   advances. Forcing two synchronous ticks bypasses rAF entirely.
+  //   advances. game.loop.tick() would also re-run the rendering pipeline which
+  //   can fail in headless WebGL. scene.sys.step() runs only the scene update
+  //   (physics + scene logic) without rendering — safe and deterministic.
   //
   // WHY TWO TICKS:
   //   Tick N   — Phaser Input (MANAGER_PROCESS) processed W keydown → wasd.up.isDown = true
@@ -99,16 +101,20 @@ test('pressing W key moves the player upward', async ({ page }) => {
   const { initialY, afterY } = await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
     const scene = game?.scene?.getScene('GameScene') as
-      | (Phaser.Scene & { player?: { y?: number } })
+      | (Phaser.Scene & { player?: { y?: number }; sys: { step: (t: number, d: number) => void } })
       | null;
 
     const initialY: number | null = scene?.player?.y ?? null;
+    const now = performance.now();
+    const delta = 16.67; // one frame at ~60 fps
 
-    // Dispatch W, then force two game ticks synchronously so physics runs
-    // regardless of rAF frequency in CI.
+    // Dispatch W, then force two scene-update ticks synchronously so physics
+    // runs regardless of rAF frequency in CI. sys.step() runs PRE_UPDATE →
+    // UPDATE (physics World.update) → sceneUpdate → POST_UPDATE (World.postUpdate)
+    // but skips the rendering pipeline, avoiding WebGL issues in headless Chrome.
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
-    (game as unknown as { loop: { tick: () => void } }).loop.tick(); // Tick N:   sets velocity
-    (game as unknown as { loop: { tick: () => void } }).loop.tick(); // Tick N+1: physics moves player
+    scene?.sys.step(now, delta);           // Tick N:   sets velocity
+    scene?.sys.step(now + delta, delta);   // Tick N+1: physics moves player
     window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
 
     const afterY: number | null = scene?.player?.y ?? null;
