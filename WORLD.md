@@ -161,7 +161,137 @@ it simplifies it, reducing complex symbiotic ecosystems to monocultures of aggre
 
 ## Vattenpandalandet
 
-*To be developed. Water-themed third world. Tone TBD.*
+### What it is
+
+Vattenpandalandet is a world of stories and magic — a place where the conventions of fantasy
+literature are not conventions but physics. Classes are real. Skills manifest as genuine
+supernatural ability. Inns are sanctuaries. Ancient ruins contain things that should stay buried.
+The seas are older than the civilisations that sail them.
+
+Think of every fantasy novel you have ever read, every RPG world you have ever inhabited, layered
+on top of each other until the seams show. That is Vattenpandalandet. It is a world that has
+been through so many ages, so many heroes and apocalypses and rebirths, that it carries the weight
+of all of them simultaneously. The past is not backstory here. It is active and present and
+occasionally comes back to kill people.
+
+Water is the world's circulatory system — a vast inland sea at its centre, rivers running to every
+corner, archipelagos where different peoples developed in isolation for centuries before trade
+routes connected them. The ocean is old. The things in it predate the current age. Sailors know
+this and sail anyway.
+
+**The Wandering Inn** by pirateaba is the primary creative reference for this world.
+Read it as your bible for tone, species complexity, how to write a Skill activating,
+how an inn should feel, and how to treat characters the world would call monsters.
+
+### The system
+
+Every sapient being in Vattenpandalandet has a Class and levels within it. [Innkeeper].
+[Soldier]. [Fisherwoman]. [Bard]. Skills unlock at milestone levels — not mechanical bonuses,
+but genuine magic that reflects who you are. A [Chef] who cooks out of love unlocks different
+Skills than one who cooks for money.
+
+The system rewards authenticity and punishes emptiness. It is also a trap. Entire societies
+stratify by level. People define themselves by their Class and forget they were something before
+it. The system's origins are unknown and possibly sinister — it was built, not grown, and
+something built it for a reason nobody remembers.
+
+Corruption interacts with the system directly. Corrupted individuals gain levels faster — and
+lose the meaning behind their Skills. A [Healer] who is corrupted may keep the Skill but find
+it works in reverse. An [Innkeeper] whose inn is corrupted finds the doors no longer bring
+warmth — strangers who eat there leave as enemies. Corruption in Vattenpandalandet does not
+destroy the system. It hollows it out and wears it like a costume.
+
+### Species and inner lives
+
+Vattenpandalandet's peoples are not divided into heroes and monsters. The beings the world
+calls monsters are the ones whose complexity it cannot afford to acknowledge.
+
+**The Deepwalkers** — humanoid peoples of the inland sea, amphibious, clannish, with a
+tradition of oral memory so precise it functions as a legal system. Their histories go back
+further than any written record. They know things about the world's previous ages that the
+land peoples do not. Corruption transforms them into territorial and aggressive versions of
+themselves — but underneath, the Deepwalker is still there, still remembering.
+
+**The Shelved** — beings of enormous age and uncertain form who sleep in the ruins of previous
+civilisations. Not hostile by default. Do not respond well to being woken. Some of them built
+the system. None of them will say so.
+
+**The Wandering People** — a collective noun for any being who travels between regions without
+fixed territory. This includes itinerant [Bards], [Merchants], [Scholars], exiles, and outcasts
+of every species. Inns exist to serve them. The Wandering People carry information across the
+world in ways that no institution controls, which makes them valuable and dangerous.
+
+**The Called** — people from elsewhere who arrived in Vattenpandalandet and did not leave.
+Some came through the ocean. Some fell from the sky. Some simply appeared. They carry knowledge
+from places the world does not have words for. They adapt, gain Classes, build lives. They are
+not always human. The system seems to accommodate anything.
+
+### Inns
+
+An inn in Vattenpandalandet is a sanctuary. This is not metaphor — it is law older than the
+current kingdoms. An innkeeper who keeps a true inn, who means it, gains Skills that enforce
+this: violence does not happen here, cold does not reach inside, strangers are briefly safe from
+the things that pursue them.
+
+Inns are where people who should never meet share a table. A Deepwalker and an exile and a
+wandering [Bard] and something that arrived from elsewhere — all eating something warm, all
+briefly equal. This is the inn's political act. Corruption hates this. It targets innkeepers
+early and specifically, because the alternative — people seeing each other as people — is the
+one thing that reliably slows it.
+
+### Stories and art
+
+Stories are civilisation-building in Vattenpandalandet. The [Bard] class carries the same
+cultural weight as [General] or [King]. A story told well can change a city's politics.
+A [Bard] who is genuinely skilled can activate Skills that rewrite how people in a room
+perceive each other — not through illusion but through emotional truth. This is treated as
+real and slightly frightening even by the people who admire it.
+
+The world has accumulated so many stories over so many ages that some of them have become
+load-bearing. Old tales about the nature of the corruption, the origin of the system, the
+first [Innkeeper] — these are not just mythology. They describe things that are still true.
+Corruption rewrites stories. It does not destroy them — it introduces false endings, changes
+what the hero chose, makes the monster's victory seem inevitable. A corrupted [Bard] does not
+lose their voice. They lose their ability to tell a story that ends well.
+
+### The weight of the past
+
+There were dead gods. Their names are not said aloud. Their remains are in the ground, in the
+water, in the system itself — because the system was made in the age when gods were alive and
+they built things that outlasted them.
+
+There were previous ages. Each one thought it was the last and most sophisticated. Each one
+ended. What ended them is not agreed upon and possibly also not fully gone.
+
+The ancient ruins of Vattenpandalandet are not set dressing. They are questions that the
+world cannot answer but cannot stop asking. Dungeoneers enter them for Skills and treasure and
+come out having seen something they are not able to describe. Some do not come out.
+
+### Writing Vattenpandalandet lore
+
+The prose voice here is warmer and more oral than Earth's. Write as if you are a storyteller
+who has heard this story from someone who heard it from someone else — and each telling adds
+something. Notice small things: what something smells like, what someone eats, how the light
+falls on water. Let warmth and humour exist even inside dark entries — the world earns its
+tragedy because it also earns its joy.
+
+Species described as monsters should have interiority. If you are writing about a creature
+that the world exterminates on sight, give it a meal it prefers, a sound it makes when it
+is not afraid, something it remembers.
+
+Do not explain the system. The system is real and present and characters live inside it —
+they do not lecture about it. A [Fisherwoman] levelling does not monologue about Class
+mechanics. She just feels something shift and knows she is better at reading the current.
+
+### Reference works (Vattenpandalandet)
+
+| Work | What to borrow |
+|------|----------------|
+| *The Wandering Inn* — pirateaba | Everything: tone, species complexity, Skills-as-character, inns as sanctuary, warmth inside darkness |
+| *Discworld* — Terry Pratchett | Civilisation as fragile and earnest, humour as access to truth |
+| *The Name of the Wind* — Patrick Rothfuss | Magic as story, the gap between legend and person |
+| *Earthsea* — Ursula K. Le Guin | The sea as ancient and sovereign, names having weight |
+| *Malazan Book of the Fallen* — Steven Erikson | Depth of history, gods as active agents, the cost of being extraordinary |
 
 ---
 
