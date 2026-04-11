@@ -96,8 +96,11 @@ export class MainMenuScene extends Phaser.Scene {
 
     // ── Buttons ──────────────────────────────────────────────────────────────
 
-    const buttonStartY = height * 0.50;
-    const buttonGap    = 52;
+    // Six buttons fit comfortably starting at 40% of height with a 44px gap.
+    // (Previously 50% / 52px for 3 buttons — tightened to avoid overlap with
+    // the hint text at the bottom of the panel.)
+    const buttonStartY = height * 0.40;
+    const buttonGap    = 44;
 
     // Collect active buttons so keyboard nav can cycle through them.
     const activeButtons: Array<{ btn: Phaser.GameObjects.Text; action: () => void }> = [];
@@ -129,9 +132,12 @@ export class MainMenuScene extends Phaser.Scene {
       activeButtons.push({ btn: this.makeButton(cx, y, label, action), action });
     };
 
-    addBtn('Wilderview', () => this.startWilderview());
-    addBtn('Arena',      () => this.openArena());
-    addBtn(t('menu.credits'), () => this.openCredits());
+    addBtn('Wilderview',          () => this.startWilderview());
+    addBtn('Arena',               () => this.openArena());
+    addBtn(t('menu.settings'),   () => this.openSettings());
+    addBtn(t('menu.stats'),      () => this.openStats());
+    addBtn(t('menu.lore'),       () => this.openLore());
+    addBtn(t('menu.credits'),    () => this.openCredits());
 
     // Start with first button focused
     setFocus(0);
@@ -251,5 +257,22 @@ export class MainMenuScene extends Phaser.Scene {
     // Overlay pattern: pause so the background stays rendered behind CreditsScene.
     this.scene.pause();
     this.scene.launch('CreditsScene', this.scene.key as unknown as object);
+  }
+
+  private openSettings(): void {
+    // Same overlay pattern: pause this scene, launch SettingsScene with our key
+    // as data so it can resume us when the player closes Settings.
+    this.scene.pause();
+    this.scene.launch('SettingsScene', this.scene.key as unknown as object);
+  }
+
+  private openStats(): void {
+    this.scene.pause();
+    this.scene.launch('StatsScene', this.scene.key as unknown as object);
+  }
+
+  private openLore(): void {
+    this.scene.pause();
+    this.scene.launch('LoreScene', this.scene.key as unknown as object);
   }
 }
