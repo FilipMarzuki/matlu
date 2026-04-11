@@ -296,8 +296,18 @@ export class GameScene extends Phaser.Scene {
 
   private rabbits!: Phaser.Physics.Arcade.Group;
   private groundAnimals!: Phaser.Physics.Arcade.Group;
+  // FIL-106: three new corrupted enemy types
+  private foxEnemies!:  Phaser.Physics.Arcade.Group;
+  private crowEnemies!: Phaser.Physics.Arcade.Group;
+  private wispEnemies!: Phaser.Physics.Arcade.Group;
   private birds: BirdObject[] = [];
   private kills = 0;
+  // FIL-106: weighted cleanse value from non-rabbit enemy kills; FIL-94: eco kill tracking
+  private cleanseKillsExtra = 0;
+  private enemyKills = 0;
+  // FIL-94: per-species neutral-kill counters and resulting corruption penalty
+  private neutralKills: Partial<Record<string, number>> = {};
+  private corruptionPenalty = 0; // 0–100; each unit = 1% effective cleanse lost
   private lastSwipeAt   = 0;
   private lastRangedAt  = 0;
   /** Live ranged bolts — each is a teal Arc travelling toward pointer position. */
@@ -352,6 +362,8 @@ export class GameScene extends Phaser.Scene {
   private gameEnded = false;
 
   private cleanseFill!: Phaser.GameObjects.Rectangle;
+  // FIL-94: dark-red cap overlaid on the right portion of cleanseFill
+  private corruptionFill!: Phaser.GameObjects.Rectangle;
   private overlay!: Phaser.GameObjects.Rectangle;
   // All HUD elements (bars + labels) collected so they can be hidden during attract mode
   private hudObjects: Phaser.GameObjects.GameObject[] = [];
@@ -820,6 +832,12 @@ export class GameScene extends Phaser.Scene {
     this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.mountainWalls);
 
+    // FIL-106: spawn the three new corrupted enemy types
+    this.foxEnemies  = this.physics.add.group();
+    this.crowEnemies = this.physics.add.group();
+    this.wispEnemies = this.physics.add.group();
+    this.spawnCorruptedEnemies();
+
     // Corrupted rabbits deal damage when they touch the player.
     // lastDamagedAt provides 1.5 s of invincibility frames so a single contact
     // doesn't drain the full HP bar instantly.
@@ -837,6 +855,28 @@ export class GameScene extends Phaser.Scene {
       this.playerSprite.setTint(0xff4444);
       this.time.delayedCall(200, () => this.playerSprite.clearTint());
       if (this.playerHp <= 0) this.onPlayerDeath();
+    });
+
+    // FIL-106: corrupted fox deals 30 damage on contact; crow only damages while swooping.
+    // Both share the same 1.5 s invulnerability window as the rabbit overlap.
+    const applyContactDamage = (dmg: number): void => {
+      if (this.gameEnded || this.attractMode) return;
+      const now = this.time.now;
+      if (now < this.dashingUntil) return;
+      if (now - this.lastDamagedAt < 1500) return;
+      this.lastDamagedAt = now;
+      this.playerHp = Math.max(0, this.playerHp - dmg);
+      this.setHpHud(this.playerHp);
+      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
+      this.playerSprite.setTint(0xff4444);
+      this.time.delayedCall(200, () => this.playerSprite.clearTint());
+      if (this.playerHp <= 0) this.onPlayerDeath();
+    };
+    this.physics.add.overlap(this.player, this.foxEnemies, () => applyContactDamage(30));
+    this.physics.add.overlap(this.player, this.crowEnemies, (_player, crow) => {
+      if ((crow as Phaser.GameObjects.Rectangle).getData('state') === 'swooping') {
+        applyContactDamage(25);
+      }
     });
 
     this.createAnimalAnimations();
@@ -971,6 +1011,9 @@ export class GameScene extends Phaser.Scene {
     this.playerShadow.setDepth(this.player.y - 1);
 
     this.updateRabbits(time);
+    this.updateCorruptedFoxes(time);
+    this.updateCorruptedCrows(time);
+    this.updateCorruptedWisps(time);
     this.updateRangedProjectiles(delta);
     if (this.bossAlive && this.boss) this.boss.update(delta);
     this.updateGroundAnimals();
@@ -1125,6 +1168,223 @@ export class GameScene extends Phaser.Scene {
           this.physics.velocityFromRotation(wander, ROAM_SPEED, b.velocity);
           r.setData('roamNext', time + Phaser.Math.Between(2000, 4000));
         }
+      }
+    }
+  }
+
+  /**
+   * Spawn corrupted enemy types across the map (FIL-106).
+   *
+   * Uses a different RNG sub-seed from rabbits so the two populations don't
+   * interfere. Each enemy is a coloured Rectangle — matching the zombie rabbit
+   * pattern so all hit-detection and kill logic stays in the same code paths.
+   *
+   * Placement rules:
+   *   - At least SPAWN_CLEAR (320 px) from the player start position
+   *   - Up to 3 attempts per slot; slots that fail the bias check are skipped
+   */
+  private spawnCorruptedEnemies(): void {
+    const rng = mulberry32(this.runSeed ^ 0xdead1106);
+    const rndBetween = (min: number, max: number): number =>
+      Math.floor(rng() * (max - min + 1)) + min;
+
+    const place = (
+      count: number,
+      w: number,
+      h: number,
+      color: number,
+      stroke: number,
+      group: Phaser.Physics.Arcade.Group,
+      initData: Record<string, unknown>,
+    ): void => {
+      for (let i = 0; i < count; i++) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const x = rndBetween(80, WORLD_W - 80);
+          const y = rndBetween(80, WORLD_H - 80);
+          if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
+          const e = this.add.rectangle(x, y, w, h, color);
+          e.setStrokeStyle(1, stroke);
+          this.physics.add.existing(e);
+          const body = e.body as Phaser.Physics.Arcade.Body;
+          body.setCollideWorldBounds(true);
+          body.setDrag(30, 30);
+          group.add(e);
+          for (const [k, v] of Object.entries(initData)) e.setData(k, v);
+          break;
+        }
+      }
+    };
+
+    // Corrupted Fox — orange-red, 22×14, chases from 280 px
+    place(5, 22, 14, 0xff5522, 0x882200, this.foxEnemies, { state: 'roaming', roamNext: 0 });
+    // Corrupted Crow — blue-grey, 14×10, lurking / swooping / retreating
+    place(4, 14, 10, 0x4466bb, 0x223388, this.crowEnemies, { state: 'lurking', swoopUntil: 0, retreatUntil: 0 });
+    // Corruption Wisp — magenta, 14×14, drifts slowly; bursts near player
+    place(4, 14, 14, 0xbb33bb, 0x771177, this.wispEnemies, { state: 'drifting', roamNext: 0, warnUntil: 0 });
+  }
+
+  /**
+   * AI tick for corrupted foxes (FIL-106).
+   *
+   * Foxes have two states: roaming (slow random wander) and chasing (110 px/s
+   * straight toward the player). Unlike rabbits they never flee — once aggro'd
+   * they stay in chase until they are killed or run out of range by 40 px.
+   */
+  private updateCorruptedFoxes(time: number): void {
+    const px = this.player.x;
+    const py = this.player.y;
+    const FOX_AGGRO  = 280;
+    const FOX_SPEED  = 110;
+    const FOX_ROAM   = 40;
+
+    for (const child of this.foxEnemies.getChildren()) {
+      const f = child as Phaser.GameObjects.Rectangle;
+      const b = f.body as Phaser.Physics.Arcade.Body;
+      const dist = Phaser.Math.Distance.Between(f.x, f.y, px, py);
+      let state = f.getData('state') as string;
+
+      if (state === 'roaming' && dist < FOX_AGGRO) {
+        state = 'chasing';
+        f.setData('state', state);
+      } else if (state === 'chasing' && dist > FOX_AGGRO + 40) {
+        state = 'roaming';
+        f.setData('state', state);
+        f.setData('roamNext', time + Phaser.Math.Between(1500, 3000));
+      }
+
+      if (state === 'chasing') {
+        const ang = Phaser.Math.Angle.Between(f.x, f.y, px, py);
+        this.physics.velocityFromRotation(ang, FOX_SPEED, b.velocity);
+      } else {
+        if (time > (f.getData('roamNext') as number)) {
+          const wander = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          this.physics.velocityFromRotation(wander, FOX_ROAM, b.velocity);
+          f.setData('roamNext', time + Phaser.Math.Between(2000, 4000));
+        }
+      }
+    }
+  }
+
+  /**
+   * AI tick for corrupted crows (FIL-106).
+   *
+   * Three-state machine: lurking → swooping → retreating → lurking.
+   *   lurking    : slow approach (45 px/s); transition at dist < 160 px
+   *   swooping   : fast dash (200 px/s); on close contact GameScene physics overlap
+   *                deals 25 damage; transition once swoopUntil timer expires
+   *   retreating : move away (100 px/s) for 1.2 s, then back to lurking
+   *
+   * Note: the contact damage check (state === 'swooping') lives in the physics
+   * overlap callback set up in create() — not here.
+   */
+  private updateCorruptedCrows(time: number): void {
+    const px = this.player.x;
+    const py = this.player.y;
+    const CROW_LURCH      =  45;
+    const CROW_SWOOP      = 200;
+    const CROW_RETREAT    = 100;
+    const SWOOP_TRIGGER   = 160;
+    const SWOOP_DURATION  = 800;  // ms before crow gives up and retreats
+    const RETREAT_DURATION = 1200;
+
+    for (const child of this.crowEnemies.getChildren()) {
+      const c = child as Phaser.GameObjects.Rectangle;
+      const b = c.body as Phaser.Physics.Arcade.Body;
+      const dist  = Phaser.Math.Distance.Between(c.x, c.y, px, py);
+      const state = c.getData('state') as string;
+
+      if (state === 'lurking') {
+        if (dist < SWOOP_TRIGGER) {
+          c.setData('state', 'swooping');
+          c.setData('swoopUntil', time + SWOOP_DURATION);
+        } else {
+          const ang = Phaser.Math.Angle.Between(c.x, c.y, px, py);
+          this.physics.velocityFromRotation(ang, CROW_LURCH, b.velocity);
+        }
+      } else if (state === 'swooping') {
+        if (time > (c.getData('swoopUntil') as number)) {
+          c.setData('state', 'retreating');
+          c.setData('retreatUntil', time + RETREAT_DURATION);
+        } else {
+          const ang = Phaser.Math.Angle.Between(c.x, c.y, px, py);
+          this.physics.velocityFromRotation(ang, CROW_SWOOP, b.velocity);
+        }
+      } else if (state === 'retreating') {
+        if (time > (c.getData('retreatUntil') as number)) {
+          c.setData('state', 'lurking');
+          b.setVelocity(0, 0);
+        } else {
+          const ang = Phaser.Math.Angle.Between(px, py, c.x, c.y);
+          this.physics.velocityFromRotation(ang, CROW_RETREAT, b.velocity);
+        }
+      }
+    }
+  }
+
+  /**
+   * AI tick for corruption wisps (FIL-106).
+   *
+   * Wisps are ambient hazards, not chasers:
+   *   drifting : slow random wander (25 px/s); if player enters 90 px → warning
+   *   warning  : flash alpha (cosmetic) for 600 ms; if still close → burst
+   *   burst    : deal 35 AOE damage if player within 120 px, then self-destruct
+   *
+   * The burst self-destructs via killCorruptedEnemy(), so it also credits cleanse
+   * energy — wisps are actually worth killing indirectly by staying nearby.
+   */
+  private updateCorruptedWisps(time: number): void {
+    const px = this.player.x;
+    const py = this.player.y;
+    const WISP_DRIFT     = 25;
+    const WARN_RANGE     =  90;
+    const BURST_RANGE    = 120;
+    const WARN_DURATION  = 600;
+    const WISP_DAMAGE    =  35;
+
+    for (const child of this.wispEnemies.getChildren()) {
+      const w = child as Phaser.GameObjects.Rectangle;
+      const b = w.body as Phaser.Physics.Arcade.Body;
+      const dist  = Phaser.Math.Distance.Between(w.x, w.y, px, py);
+      const state = w.getData('state') as string;
+
+      if (state === 'drifting') {
+        // Drift with slow random direction changes
+        if (time > (w.getData('roamNext') as number)) {
+          const wander = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          this.physics.velocityFromRotation(wander, WISP_DRIFT, b.velocity);
+          w.setData('roamNext', time + Phaser.Math.Between(2000, 4000));
+        }
+        if (dist < WARN_RANGE) {
+          w.setData('state', 'warning');
+          w.setData('warnUntil', time + WARN_DURATION);
+          b.setVelocity(0, 0);
+        }
+      } else if (state === 'warning') {
+        // Cosmetic pulse — oscillate alpha so it visually telegraphs the burst
+        w.setAlpha(0.4 + 0.6 * Math.abs(Math.sin(time * 0.012)));
+
+        if (time > (w.getData('warnUntil') as number)) {
+          w.setData('state', 'burst');
+        }
+      } else if (state === 'burst') {
+        w.setAlpha(1);
+        // Deal damage only if player is still close enough
+        if (dist < BURST_RANGE && !this.gameEnded && !this.attractMode) {
+          const now = this.time.now;
+          if (now > this.lastDamagedAt + 1500) {
+            this.lastDamagedAt = now;
+            this.playerHp = Math.max(0, this.playerHp - WISP_DAMAGE);
+            this.setHpHud(this.playerHp);
+            if (this.audioAvailable && this.cache.audio.has('sfx-player-hit')) {
+              this.sound.play('sfx-player-hit', { volume: 0.6 });
+            }
+            this.playerSprite.setTint(0xff4444);
+            this.time.delayedCall(200, () => this.playerSprite.clearTint());
+            if (this.playerHp <= 0) this.onPlayerDeath();
+          }
+        }
+        // Self-destruct regardless (credits cleanse energy)
+        this.killCorruptedEnemy(w, 2.0);
       }
     }
   }
@@ -1368,6 +1628,47 @@ export class GameScene extends Phaser.Scene {
       this.applySwipeHit(r);
       break;
     }
+
+    // FIL-94: neutral animals are now hittable — same distance/arc check as rabbits.
+    // Killing too many of one species triggers the corruption penalty (see killNeutralAnimal).
+    for (const child of this.groundAnimals.getChildren()) {
+      const a = child as Phaser.GameObjects.Sprite;
+      const d = Phaser.Math.Distance.Between(px, py, a.x, a.y);
+      if (d > this.effectiveSwipeRange) continue;
+      const toA = Math.atan2(a.y - py, a.x - px);
+      let da = toA - aim;
+      while (da >  Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      if (Math.abs(da) > half) continue;
+      this.cameras.main.shake(80, 0.002);
+      if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.4 });
+      this.killNeutralAnimal(a);
+      break;
+    }
+
+    // FIL-106: corrupted enemies hittable with the same arc/range check.
+    const enemyGroups: Array<[Phaser.Physics.Arcade.Group, number]> = [
+      [this.foxEnemies, 2.0], [this.crowEnemies, 1.5], [this.wispEnemies, 2.0],
+    ];
+    for (const [grp, cv] of enemyGroups) {
+      let hit = false;
+      for (const child of grp.getChildren()) {
+        const e = child as Phaser.GameObjects.Rectangle;
+        const d = Phaser.Math.Distance.Between(px, py, e.x, e.y);
+        if (d > this.effectiveSwipeRange) continue;
+        const toE = Math.atan2(e.y - py, e.x - px);
+        let de = toE - aim;
+        while (de >  Math.PI) de -= Math.PI * 2;
+        while (de < -Math.PI) de += Math.PI * 2;
+        if (Math.abs(de) > half) continue;
+        this.cameras.main.shake(150, 0.004);
+        if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 });
+        this.killCorruptedEnemy(e, cv);
+        hit = true;
+        break;
+      }
+      if (hit) break;
+    }
   }
 
   private applySwipeHit(rabbit: Phaser.GameObjects.Rectangle): void {
@@ -1473,6 +1774,30 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
+      // FIL-94: neutral animal hit by ranged bolt
+      for (const child of this.groundAnimals.getChildren()) {
+        const a = child as Phaser.GameObjects.Sprite;
+        if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, a.x, a.y) < RANGED_RADIUS + 8) {
+          this.killNeutralAnimal(a);
+          p.arc.destroy();
+          return false;
+        }
+      }
+
+      // FIL-106: corrupted enemy hit by ranged bolt
+      for (const [grp, cv] of [
+        [this.foxEnemies, 2.0], [this.crowEnemies, 1.5], [this.wispEnemies, 2.0],
+      ] as Array<[Phaser.Physics.Arcade.Group, number]>) {
+        for (const child of grp.getChildren()) {
+          const e = child as Phaser.GameObjects.Rectangle;
+          if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, e.x, e.y) < RANGED_RADIUS + 8) {
+            this.killCorruptedEnemy(e, cv);
+            p.arc.destroy();
+            return false;
+          }
+        }
+      }
+
       return true; // still travelling
     });
   }
@@ -1484,7 +1809,7 @@ export class GameScene extends Phaser.Scene {
     if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 });
     rabbit.destroy();
     this.kills += 1;
-    const percent = (this.kills / RABBIT_COUNT) * 100;
+    const percent = Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100);
     this.setCleanseHud(percent);
     this.events.emit('cleanse-updated', percent);
     // Also propagate through WorldState so systems can react to zone cleansing
@@ -1494,6 +1819,69 @@ export class GameScene extends Phaser.Scene {
     this.onZoneCleansed('rabbit', rx, ry);
     // Resolve drop table — award gold and show floating feedback text
     this.resolveDrops('zombieRabbit', rx, ry);
+  }
+
+  /**
+   * Kill a neutral animal hit by swipe or ranged bolt (FIL-94).
+   *
+   * Neutral animals (deer, hare, fox, etc.) are the living world — killing too
+   * many of one species adds a corruption penalty that caps the effective cleanse
+   * bar. The first species-specific kill that crosses the 30 % threshold flashes
+   * the bar amber as a warning; every kill beyond it adds 5 % corruption (max 40%).
+   */
+  private killNeutralAnimal(animal: Phaser.GameObjects.Sprite): void {
+    const type = animal.getData('animalType') as string;
+    const def = ANIMAL_DEFS[type];
+    if (!def) { animal.destroy(); return; }
+
+    const prev = this.neutralKills[type] ?? 0;
+    const next = prev + 1;
+    this.neutralKills[type] = next;
+
+    const threshold = Math.max(1, Math.floor(def.count * 0.30));
+
+    // At exactly the threshold: flash the cleanse bar amber as a warning.
+    // Rectangle has no setTint — we briefly override the fill color and restore
+    // it by re-running setCleanseHud() after 500 ms.
+    if (next === threshold) {
+      this.cleanseFill.setFillStyle(0xffaa33);
+      const pct = Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100);
+      this.time.delayedCall(500, () => this.setCleanseHud(pct));
+    }
+
+    // Beyond the threshold: each extra kill adds 5 % corruption (capped at 40 %)
+    if (next > threshold) {
+      this.corruptionPenalty = Math.min(40, this.corruptionPenalty + 5);
+      const percent = Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100);
+      this.setCleanseHud(percent);
+    }
+
+    this.spawnEnergyBurst(animal.x, animal.y, this.player.x, this.player.y);
+    if (this.audioAvailable && this.cache.audio.has('sfx-enemy-death')) {
+      this.sound.play('sfx-enemy-death', { volume: 0.3 });
+    }
+    animal.destroy();
+  }
+
+  /**
+   * Kill a corrupted enemy (fox / crow / wisp) and credit cleanse energy (FIL-106).
+   *
+   * cleanseVal is fractional — foxes/wisps give 2.0, crows give 1.5. This allows
+   * fine-grained balancing without changing RABBIT_COUNT (the denominator stays
+   * constant so the bar is always "how many rabbit-equivalents have you cleansed").
+   */
+  private killCorruptedEnemy(e: Phaser.GameObjects.Rectangle, cleanseVal: number): void {
+    this.spawnEnergyBurst(e.x, e.y, this.player.x, this.player.y);
+    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 });
+    e.destroy();
+    this.cleanseKillsExtra += cleanseVal;
+    this.enemyKills += 1;
+    const percent = Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100);
+    this.setCleanseHud(percent);
+    this.events.emit('cleanse-updated', percent);
+    this.worldState.setCleansePercent('zone-main', percent);
+    this.pathSystem.restoreNear(e.x, e.y, 300, 3);
+    this.onZoneCleansed('enemy', e.x, e.y);
   }
 
   /**
@@ -1627,17 +2015,18 @@ export class GameScene extends Phaser.Scene {
     const durationMs = this.gameStartedAt > 0
       ? Math.round(this.time.now - this.gameStartedAt)
       : 0;
-    const cleanse = Math.round((this.kills / RABBIT_COUNT) * 100);
+    const cleanse = Math.round(Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100));
+    const totalKills = this.kills + this.enemyKills;
     insertMatluRun({
       nickname: this.playerName || 'Player',
-      score:    this.kills,
+      score:    totalKills,
       duration_ms: durationMs,
     }).catch(() => {});
     const alignment = this.worldState.getAlignment();
     const endingData: EndingSceneData = {
       ending:    determineEnding(alignment, cleanse),
       alignment,
-      kills:     this.kills,
+      kills:     totalKills,
       durationMs,
       cleanse,
     };
@@ -1816,6 +2205,16 @@ export class GameScene extends Phaser.Scene {
       .setDepth(300);
     this.hudObjects.push(this.cleanseFill);
 
+    // Dark-red cap overlaid on the right portion of cleanseFill — shows corrupted
+    // cleanse energy from over-hunting neutral animals (FIL-94). Width/position
+    // updated in setCleanseHud() whenever corruptionPenalty changes.
+    this.corruptionFill = this.add
+      .rectangle(sw - pad - w + 2, pad + 10, 0, h - 4, 0x882222)
+      .setOrigin(0, 0.5)
+      .setScrollFactor(0)
+      .setDepth(301);
+    this.hudObjects.push(this.corruptionFill);
+
     // Milestone tick marks at 25 %, 50 %, 75 % on the cleanse bar.
     // Drawn with a Graphics object in screen-space so they render above the fill.
     // These give the player visual targets to aim for without displaying a number.
@@ -1889,6 +2288,16 @@ export class GameScene extends Phaser.Scene {
     );
     const hex = Phaser.Display.Color.GetColor(c.r, c.g, c.b);
     this.cleanseFill.setFillStyle(hex);
+
+    // Update corruption overlay — dark-red cap on the right end of the fill,
+    // width proportional to corruptionPenalty (0-40). Anchored to the right edge
+    // of whatever cleanseFill is currently filled to, not the full bar width.
+    const corruptedPx = Math.min(
+      this.cleanseFill.width,
+      inner * Phaser.Math.Clamp(this.corruptionPenalty / 100, 0, 1),
+    );
+    this.corruptionFill.width = corruptedPx;
+    this.corruptionFill.setX(this.cleanseFill.x + this.cleanseFill.width - corruptedPx);
   }
 
   /**
