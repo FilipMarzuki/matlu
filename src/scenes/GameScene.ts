@@ -445,6 +445,15 @@ export class GameScene extends Phaser.Scene {
   private attractTitle!: Phaser.GameObjects.Text;
   private attractThoughtBubble!: Phaser.GameObjects.Text;
 
+  // ─── Idle attract (FIL-98) ────────────────────────────────────────────────────
+  // After IDLE_ATTRACT_MS of zero input during gameplay the camera drifts to the
+  // nearest animal at IDLE_ZOOM; any movement snaps it back to the player.
+  private idleMs = 0;
+  private idleAttractTarget: Phaser.GameObjects.GameObject | null = null;
+  private preIdleZoom = 3;
+  private readonly IDLE_ATTRACT_MS = 10_000;
+  private readonly IDLE_ZOOM = 5.0;
+
   // ─── Free-fly camera ──────────────────────────────────────────────────────────
   /** When true, WASD pans the camera freely instead of following an animal. */
   freeCamMode = false;
@@ -1146,6 +1155,20 @@ export class GameScene extends Phaser.Scene {
       this.lastFootstepAt = this.time.now;
     }
 
+    // ── Idle attract trigger (FIL-98) ─────────────────────────────────────────
+    // Count consecutive idle frames. After IDLE_ATTRACT_MS with no input during
+    // real gameplay, hand the camera to the nearest animal at a closer zoom.
+    // Any movement (joystick or keyboard) cancels it immediately.
+    if (moving) {
+      this.idleMs = 0;
+      if (this.idleAttractTarget) this.exitIdleAttract();
+    } else if (!this.attractMode && !this.freeCamMode) {
+      this.idleMs += this.game.loop.delta;
+      if (this.idleMs >= this.IDLE_ATTRACT_MS && !this.idleAttractTarget) {
+        this.enterIdleAttract();
+      }
+    }
+
     // Update directional animation
     this.updatePlayerAnimation(dx, dy, moving);
   }
@@ -1213,6 +1236,7 @@ export class GameScene extends Phaser.Scene {
 
   private trySwipe(pointer: Phaser.Input.Pointer): void {
     if (this.attractMode) return;
+    this.idleMs = 0;
     const now = this.time.now;
     if (now - this.lastSwipeAt < SWIPE_COOLDOWN_MS) {
       return;
@@ -1314,6 +1338,7 @@ export class GameScene extends Phaser.Scene {
    */
   private tryRangedAttack(pointer: Phaser.Input.Pointer): void {
     if (this.attractMode || this.gameEnded) return;
+    this.idleMs = 0;
     const now = this.time.now;
     if (now - this.lastRangedAt < RANGED_COOLDOWN_MS) return;
     this.lastRangedAt = now;
@@ -1570,6 +1595,7 @@ export class GameScene extends Phaser.Scene {
    */
   private tryDash(): void {
     if (this.attractMode || this.gameEnded) return;
+    this.idleMs = 0;
     const now = this.time.now;
     if (now - this.lastDashAt < DASH_COOLDOWN_MS) return;
 
@@ -2810,9 +2836,54 @@ export class GameScene extends Phaser.Scene {
     this.attractThoughtBubble.setText(`${type} — ${stateLabel[state] ?? state}`);
   }
 
+  // ─── Idle attract helpers (FIL-98) ───────────────────────────────────────────
+
+  /** Zoom camera in on the nearest wildlife and follow it while player is idle. */
+  private enterIdleAttract(): void {
+    if (this.attractTargets.length === 0) return;
+
+    // Find the animal closest to the player's current position.
+    const px = this.player.x;
+    const py = this.player.y;
+    let nearest: Phaser.GameObjects.GameObject | null = null;
+    let minDist = Infinity;
+    for (const t of this.attractTargets) {
+      const go = t as Phaser.GameObjects.Container;
+      const d = Phaser.Math.Distance.Between(px, py, go.x, go.y);
+      if (d < minDist) { minDist = d; nearest = t; }
+    }
+    if (!nearest) return;
+
+    this.idleAttractTarget = nearest;
+    this.preIdleZoom = this.cameras.main.zoom;
+    // Follow the animal with a lazier lerp so the transition feels dreamy.
+    this.cameras.main.startFollow(nearest as Phaser.GameObjects.Container, true, 0.06, 0.06);
+    this.tweens.add({
+      targets: this.cameras.main,
+      zoom: this.IDLE_ZOOM,
+      duration: 1000,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  /** Restore camera follow + zoom when the player starts moving again. */
+  private exitIdleAttract(): void {
+    this.idleAttractTarget = null;
+    this.idleMs = 0;
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    this.tweens.add({
+      targets: this.cameras.main,
+      zoom: this.preIdleZoom,
+      duration: 600,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
   private exitAttractMode(): void {
     if (!this.attractMode) return;
     this.attractMode = false;
+    // Clear any idle-attract state that may have leaked in edge cases.
+    if (this.idleAttractTarget) this.exitIdleAttract();
     this.playerName = this.attractName || 'Player';
     // Start the run timer now — this.time.now is ms since the Phaser game started
     this.gameStartedAt = this.time.now;
