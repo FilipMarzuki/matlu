@@ -41,7 +41,7 @@
   "levelcomplete.time": "Time",
   "levelcomplete.play_again": "Play Again",
   "levelcomplete.main_menu": "Main Menu",
-  "stats.title": "High Scores",
+  "stats.title": "Stats",
   "stats.loading": "Loading…",
   "stats.no_scores": "No runs yet. Play a game!",
   "stats.error": "Could not load scores",
@@ -49,5 +49,11 @@
   "stats.name": "Name",
   "stats.score": "Score",
   "stats.duration": "Time",
+  "stats.my_records": "My Records",
+  "stats.runs": "Runs",
+  "stats.best": "Best",
+  "stats.total_time": "Total",
+  "stats.top_scores": "Top Scores",
+  "stats.date": "Date",
   "lore.title": "The Three Worlds"
 }

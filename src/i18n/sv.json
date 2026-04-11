@@ -41,7 +41,7 @@
   "levelcomplete.time": "Tid",
   "levelcomplete.play_again": "Spela igen",
   "levelcomplete.main_menu": "Huvudmeny",
-  "stats.title": "Topplistan",
+  "stats.title": "Statistik",
   "stats.loading": "Laddar…",
   "stats.no_scores": "Inga körningar än. Spela ett spel!",
   "stats.error": "Kunde inte ladda poäng",
@@ -49,5 +49,11 @@
   "stats.name": "Namn",
   "stats.score": "Poäng",
   "stats.duration": "Tid",
+  "stats.my_records": "Mina rekord",
+  "stats.runs": "Omgångar",
+  "stats.best": "Bäst",
+  "stats.total_time": "Total",
+  "stats.top_scores": "Topplistan",
+  "stats.date": "Datum",
   "lore.title": "De tre världarna"
 }

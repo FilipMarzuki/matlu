@@ -41,7 +41,7 @@
   "levelcomplete.time": "Czas",
   "levelcomplete.play_again": "Zagraj ponownie",
   "levelcomplete.main_menu": "Menu główne",
-  "stats.title": "Najlepsze wyniki",
+  "stats.title": "Statystyki",
   "stats.loading": "Ładowanie…",
   "stats.no_scores": "Brak wyników. Zagraj!",
   "stats.error": "Nie można załadować wyników",
@@ -49,5 +49,11 @@
   "stats.name": "Imię",
   "stats.score": "Wynik",
   "stats.duration": "Czas",
+  "stats.my_records": "Moje rekordy",
+  "stats.runs": "Podejścia",
+  "stats.best": "Najlepszy",
+  "stats.total_time": "Łącznie",
+  "stats.top_scores": "Najlepsze wyniki",
+  "stats.date": "Data",
   "lore.title": "Trzy Światy"
 }

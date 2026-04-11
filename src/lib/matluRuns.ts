@@ -17,3 +17,14 @@ export async function fetchMatluLeaderboard(limit = 10) {
     .order('created_at', { ascending: false })
     .limit(limit);
 }
+
+/** Most-recent runs for a specific nickname (personal history). Returns null if Supabase is not configured. */
+export async function fetchPlayerRuns(nickname: string, limit = 5) {
+  if (!supabase) return null;
+  return supabase
+    .from('matlu_runs')
+    .select('*')
+    .eq('nickname', nickname)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+}
