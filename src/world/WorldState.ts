@@ -15,6 +15,7 @@
  * | `ws:combat-state-changed`    | `{ active: boolean }`            |
  * | `ws:weather-changed`         | `{ weather: WeatherCondition }`  |
  * | `ws:parent-meeting-triggered`| `{ x, y }`                      |
+ * | `ws:alignment-updated`       | `{ earth, spino, vatten }`       |
  *
  * ## Usage in GameScene
  * ```ts
@@ -83,6 +84,13 @@ export class WorldState {
 
   /** Current weather. */
   private _weather: WeatherCondition = 'clear';
+
+  /**
+   * World alignment scores — three independent values (0–100) tracking which
+   * world's values the player has favoured through dialog choices and gameplay.
+   * Never shown to the player during play; revealed on the ending screen.
+   */
+  private alignment = { earth: 0, spino: 0, vatten: 0 };
 
   /** Exposed WorldClock so systems can query time without direct import. */
   readonly clock: WorldClock | null;
@@ -172,5 +180,21 @@ export class WorldState {
 
   triggerParentMeeting(x: number, y: number): void {
     this.scene.events.emit('ws:parent-meeting-triggered', { x, y });
+  }
+
+  // ─── Alignment ───────────────────────────────────────────────────────────
+
+  /**
+   * Adjust one world's alignment score by `delta` (positive or negative).
+   * Clamped to 0–100. Call from GameScene whenever a choice is made.
+   */
+  adjustAlignment(world: 'earth' | 'spino' | 'vatten', delta: number): void {
+    this.alignment[world] = Math.max(0, Math.min(100, this.alignment[world] + delta));
+    this.scene.events.emit('ws:alignment-updated', { ...this.alignment });
+  }
+
+  /** Returns a snapshot of the current alignment scores. */
+  getAlignment(): { earth: number; spino: number; vatten: number } {
+    return { ...this.alignment };
   }
 }

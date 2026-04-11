@@ -30,6 +30,8 @@ import {
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
+import { EndingScene, determineEnding } from './EndingScene';
+import type { EndingSceneData } from './EndingScene';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
 
@@ -1538,8 +1540,16 @@ export class GameScene extends Phaser.Scene {
       score:    this.kills,
       duration_ms: durationMs,
     }).catch(() => {});
+    const alignment = this.worldState.getAlignment();
+    const endingData: EndingSceneData = {
+      ending:    determineEnding(alignment, cleanse),
+      alignment,
+      kills:     this.kills,
+      durationMs,
+      cleanse,
+    };
     this.scene.pause();
-    this.scene.launch('LevelCompleteScene', { cleanse, kills: this.kills, durationMs } as unknown as object);
+    this.scene.launch(EndingScene.KEY, endingData as unknown as object);
   }
 
   private openPauseMenu(): void {
@@ -4303,6 +4313,13 @@ export class GameScene extends Phaser.Scene {
   ): void {
     this.collectedItems.add(id);
 
+    // Wire collectible zone to alignment — coastal=earth, forest=spino, highland=vatten
+    const ITEM_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'vatten'> = {
+      'item-start': 'earth', 'item-forest': 'spino', 'item-plateau': 'vatten',
+    };
+    const itemWorld = ITEM_ALIGNMENT_MAP[id];
+    if (itemWorld) this.worldState.adjustAlignment(itemWorld, 5);
+
     // Collectible pickup jingle
     if (this.audioAvailable && this.cache.audio.has('sfx-pickup')) {
       this.sound.play('sfx-pickup', { volume: 0.55 });
@@ -4508,6 +4525,12 @@ export class GameScene extends Phaser.Scene {
     this.events.once('dialog-choice', (choiceId: string) => {
       this.chosenPath = choiceId as PathChoice;
       console.log(`[Level1] Path chosen: ${this.chosenPath}`);
+      // Wire dialog choice to alignment — jordens=earth, spinolandets=spino, vattenpandalandets=vatten
+      const CHOICE_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'vatten'> = {
+        jordens: 'earth', spinolandets: 'spino', vattenpandalandets: 'vatten',
+      };
+      const world = CHOICE_ALIGNMENT_MAP[choiceId];
+      if (world) this.worldState.adjustAlignment(world, 15);
     });
 
     this.scene.pause();
