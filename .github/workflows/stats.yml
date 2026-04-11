@@ -2,11 +2,12 @@ name: Weekly Engineering Stats
 
 on:
   schedule:
-    - cron: '0 8 * * 0'   # Every Sunday at 08:00 UTC
-  workflow_dispatch:        # Also runnable manually from GitHub Actions UI
+    # Every Sunday at 08:00 UTC
+    - cron: '0 8 * * 0'
+  workflow_dispatch:
 
 jobs:
-  stats:
+  collect-stats:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,23 +20,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: npm install --save-dev @octokit/rest @linear/sdk @notionhq/client
-
-      - name: Collect and post stats
+      - name: Collect stats and post to Notion
+        run: node .github/scripts/collect-stats.js
         env:
-          GITHUB_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
-          LINEAR_API_KEY:      ${{ secrets.LINEAR_API_KEY }}
-          NOTION_API_KEY:      ${{ secrets.NOTION_API_KEY }}
-          NOTION_STATS_PAGE:   33f379d6-d7c6-816e-a1cb-df23d81a5bd6
-          GITHUB_REPO_OWNER:   FilipMarzuki
-          GITHUB_REPO_NAME:    matlu
-        run: node .github/scripts/collect-stats.mjs
-
-      - name: Trigger Vercel rebuild
-        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_STATS_PAGE_ID: ${{ secrets.NOTION_STATS_PAGE_ID }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: |
-          if [ -n "$VERCEL_DEPLOY_HOOK" ]; then
-            curl -s -X POST "$VERCEL_DEPLOY_HOOK"
-          fi
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
