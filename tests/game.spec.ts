@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const GAME_BOOT_MS = 8_000; // time to wait for Phaser to boot and first scene to render
-const SCENE_READY_MS = 15_000; // extra time for GameScene.create() to finish (heavy work)
+const GAME_BOOT_MS = 8_000;   // time to wait for Phaser to boot and first scene to render
+const SCENE_READY_MS = 45_000; // extra time for GameScene.create() to finish (heavy work)
 
 // ─── Smoke test ───────────────────────────────────────────────────────────────
 
@@ -27,15 +27,26 @@ test('pressing W key moves the player upward', async ({ page }) => {
   // Wait for canvas to appear (MainMenuScene is running)
   await expect(page.locator('#game-container canvas')).toBeVisible({ timeout: GAME_BOOT_MS });
 
-  // The game now boots into MainMenuScene. Bypass it programmatically so the
-  // test doesn't depend on clicking a Phaser canvas button. We wait until the
-  // Phaser game object is available on window, then start GameScene directly.
+  // Wait until the Phaser game object is available on window
   await page.waitForFunction(
     () => !!(window as unknown as Record<string, unknown | null>)['__game'],
     { timeout: GAME_BOOT_MS },
   );
+
+  // Stop all background scenes before starting GameScene.
+  //
+  // WHY: Two reasons:
+  //   1. Running multiple heavy scenes simultaneously in CI (SwiftShader software WebGL)
+  //      can push GameScene.create() (terrain, chunks, animals) past the ready timeout.
+  //   2. MainMenuScene registers a `keydown-ENTER` handler that calls scene.start('GameScene').
+  //      If we dispatch Enter to exit attract mode while MainMenuScene is still active,
+  //      it queues a GameScene restart on the next tick — resetting attractMode to true
+  //      and undoing the attract-mode exit before the W key test can run.
   await page.evaluate(() => {
-    const game = (window as unknown as Record<string, { scene?: { start?: (k: string) => void } }>)['__game'];
+    const game = (window as unknown as Record<string, { scene?: { stop?: (k: string) => void; start?: (k: string) => void } }>)['__game'];
+    game?.scene?.stop?.('CombatArenaScene');
+    game?.scene?.stop?.('WilderviewScene');
+    game?.scene?.stop?.('MainMenuScene');
     game?.scene?.start?.('GameScene');
   });
 
@@ -46,59 +57,65 @@ test('pressing W key moves the player upward', async ({ page }) => {
     { timeout: SCENE_READY_MS },
   );
 
-  // Dispatch keydown events directly on window so Phaser's keyboard plugin
-  // receives them regardless of page focus state in headless Chrome.
-  // Phaser uses event.keyCode (not event.key) for key matching, so keyCode must
-  // be set correctly. GameScene attract mode needs at least one character before Enter.
+  // ── Attract-mode exit ──────────────────────────────────────────────────────
+  //
+  // Dispatch 'a' (adds a character to attractName) then 'Enter' (calls
+  // exitAttractMode → attractMode = false). Phaser processes these via
+  // MANAGER_PROCESS which fires synchronously on each window.dispatchEvent call.
   await page.evaluate(() => {
-    // 'A' keyCode = 65, 'Enter' keyCode = 13
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', keyCode: 65, bubbles: true }));
     window.dispatchEvent(new KeyboardEvent('keyup',   { key: 'a', code: 'KeyA', keyCode: 65, bubbles: true }));
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
     window.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
   });
 
-  // Poll until attract mode has exited (body enabled and attractMode = false)
+  // Poll until attract mode has exited
   await page.waitForFunction(
     () => {
-      const game = (window as unknown as Record<string, unknown>)['__game'] as { scene?: { getScene?: (k: string) => Record<string, unknown> | null } } | undefined;
-      const scene = game?.scene?.getScene?.('GameScene');
-      if (!scene) return false;
-      // attractMode is false once exitAttractMode() has run
-      return scene['attractMode'] === false;
+      const g = (window as unknown as Record<string, unknown>)['__game'] as
+        { scene?: { getScene?: (k: string) => Record<string, unknown> | null } } | undefined;
+      return g?.scene?.getScene?.('GameScene')?.['attractMode'] === false;
     },
-    { timeout: 5_000 },
+    { timeout: 10_000 },
   );
 
-  // Read initial player Y position from window.__game
-  const initialY = await page.evaluate(() => {
+  // ── Player movement ────────────────────────────────────────────────────────
+  //
+  // WHY game.loop.tick() instead of waitForTimeout:
+  //   In CI headless Chrome, requestAnimationFrame is throttled to near-zero FPS
+  //   (background tabs in Chrome 88+ receive very infrequent rAF callbacks).
+  //   Waiting 300 ms or even 60 s is not enough because the game loop never
+  //   advances. Forcing two synchronous ticks bypasses rAF entirely.
+  //
+  // WHY TWO TICKS:
+  //   Tick N   — Phaser Input (MANAGER_PROCESS) processed W keydown → wasd.up.isDown = true
+  //              ArcadePhysics.World.update fires (via UPDATE event, BEFORE sceneUpdate)
+  //                → moves body by current velocity (still 0)
+  //              GameScene.update (sceneUpdate) runs AFTER World.update
+  //                → updatePlayerMovement() sets body velocity to -speed
+  //              World.postUpdate syncs body position back to player.y (no change yet)
+  //   Tick N+1 — World.update fires → now applies -speed → body.y decreases
+  //              World.postUpdate → player.y decreases
+  const { initialY, afterY } = await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
     const scene = game?.scene?.getScene('GameScene') as
-      | (Phaser.Scene & { player?: Phaser.GameObjects.Container })
+      | (Phaser.Scene & { player?: { y?: number } })
       | null;
-    return scene?.player?.y ?? null;
+
+    const initialY: number | null = scene?.player?.y ?? null;
+
+    // Dispatch W, then force two game ticks synchronously so physics runs
+    // regardless of rAF frequency in CI.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
+    (game as unknown as { loop: { tick: () => void } }).loop.tick(); // Tick N:   sets velocity
+    (game as unknown as { loop: { tick: () => void } }).loop.tick(); // Tick N+1: physics moves player
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
+
+    const afterY: number | null = scene?.player?.y ?? null;
+    return { initialY, afterY };
   });
 
   expect(initialY).not.toBeNull();
-
-  // Dispatch W keydown directly on window, hold for ~300ms, then keyup.
-  // 'W' keyCode = 87 — Phaser looks up keys by keyCode, not by key string.
-  await page.evaluate(() => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
-  });
-  await page.waitForTimeout(300);
-  await page.evaluate(() => {
-    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', code: 'KeyW', keyCode: 87, bubbles: true }));
-  });
-
-  const afterY = await page.evaluate(() => {
-    const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    const scene = game?.scene?.getScene('GameScene') as
-      | (Phaser.Scene & { player?: Phaser.GameObjects.Container })
-      | null;
-    return scene?.player?.y ?? null;
-  });
-
   expect(afterY).not.toBeNull();
   // Player should have moved upward (Y decreases in Phaser's coordinate system)
   expect(afterY as number).toBeLessThan(initialY as number);
