@@ -373,6 +373,11 @@ export class GameScene extends Phaser.Scene {
   // FIL-108: ocean/shore ambience layer — volume driven by biome proximity to water
   private oceanAmbienceSound: Phaser.Sound.BaseSound | undefined;
   private lastAmbienceZoneCheck = 0;
+  // FIL-112: mountain wind layer — fades in above biome 0.81
+  private windSound: Phaser.Sound.BaseSound | undefined;
+  // FIL-110: settlement presence layer — single shared loop, volume = max proximity across all settlements
+  private settlementSound: Phaser.Sound.BaseSound | undefined;
+  private lastSettlementCheck = 0;
   // Background music track for the current day phase (crossfades on transition)
   private musicTrack: Phaser.Sound.BaseSound | undefined;
   // Key of the currently-playing music track (avoid restarting the same track)
@@ -507,6 +512,14 @@ export class GameScene extends Phaser.Scene {
     // FIL-108: ocean/shore ambience — deep ambient drone used as coastal presence
     this.load.audio('ocean-ambience', [
       'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/underwater world.ogg',
+    ]);
+    // FIL-112: mountain wind — Cozy Tunes Pro "Gentle Breeze" loop (CC0-compatible)
+    this.load.audio('sfx-wind', [
+      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Gentle Breeze.ogg',
+    ]);
+    // FIL-110: settlement presence — soft ambient loop as distant life texture near hamlets/villages
+    this.load.audio('sfx-settlement', [
+      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Forgotten Biomes.ogg',
     ]);
     // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
     // Mapped: dawn → Sunlight Through Leaves, morning/midday/afternoon → Whispering Woods,
@@ -894,6 +907,16 @@ export class GameScene extends Phaser.Scene {
       this.oceanAmbienceSound = this.sound.add('ocean-ambience', { loop: true, volume: 0 });
       this.oceanAmbienceSound.play();
     }
+    // FIL-112: wind starts silent; updateAmbienceZone() fades it in on the mountain plateau.
+    if (this.audioAvailable && this.cache.audio.has('sfx-wind')) {
+      this.windSound = this.sound.add('sfx-wind', { loop: true, volume: 0 });
+      this.windSound.play();
+    }
+    // FIL-110: settlement presence starts silent; updateSettlementAmbience() fades it in.
+    if (this.audioAvailable && this.cache.audio.has('sfx-settlement')) {
+      this.settlementSound = this.sound.add('sfx-settlement', { loop: true, volume: 0 });
+      this.settlementSound.play();
+    }
 
     // Start background music for the initial day phase
     this.startPhaseMusic(this.currentPhase, 0);
@@ -935,6 +958,7 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.updatePlayerMovement();
       this.updateAmbienceZone();
+      this.updateSettlementAmbience();
       this.updateLevel1(delta);
       this.updateNpcProximity();
       this.updateShrine();
@@ -2301,6 +2325,42 @@ export class GameScene extends Phaser.Scene {
     if (this.oceanAmbienceSound) {
       this.tweens.add({ targets: this.oceanAmbienceSound as AudibleSound, volume: targetOcean, duration: FADE, ease: 'Sine.easeInOut' });
     }
+    // FIL-112: wind fades in on the mountain plateau (biome ≥ 0.81 — Klipptoppen and above).
+    const windFrac   = Phaser.Math.Clamp((biome - 0.81) / 0.19, 0, 1);
+    const targetWind = 0.22 * windFrac;
+    if (this.windSound) {
+      this.tweens.add({ targets: this.windSound as AudibleSound, volume: targetWind, duration: FADE, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  // ── FIL-110: Settlement ambient ───────────────────────────────────────────────
+
+  /**
+   * Fades in a soft ambient loop when the player is near any of the three settlements.
+   * Uses a single shared sound so walking between settlements feels continuous — volume
+   * reflects the closest settlement rather than layering multiple tracks.
+   * Throttled to 800 ms; the 1500 ms tween fills the gap smoothly.
+   */
+  private updateSettlementAmbience(): void {
+    const now = this.time.now;
+    if (now - this.lastSettlementCheck < 800) return;
+    this.lastSettlementCheck = now;
+
+    let maxFrac = 0;
+    for (const s of SETTLEMENTS) {
+      const dist  = Phaser.Math.Distance.Between(this.player.x, this.player.y, s.x, s.y);
+      const outer = s.radius * 2.5;
+      const inner = s.radius * 0.5;
+      if (dist < outer) {
+        maxFrac = Math.max(maxFrac, Phaser.Math.Clamp((outer - dist) / (outer - inner), 0, 1));
+      }
+    }
+
+    const targetVol = 0.12 * maxFrac;
+    type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    if (this.settlementSound) {
+      this.tweens.add({ targets: this.settlementSound as AudibleSound, volume: targetVol, duration: 1500, ease: 'Sine.easeInOut' });
+    }
   }
 
   // ── FIL-113: Audio ducking ────────────────────────────────────────────────────
@@ -2332,6 +2392,15 @@ export class GameScene extends Phaser.Scene {
     if (this.ambienceSound) {
       this.preDuckAmbienceVol = (this.ambienceSound as AudibleSound).volume;
       tweens.add({ targets: this.ambienceSound, volume: this.preDuckAmbienceVol * 0.5, duration: 300, ease: 'Sine.easeInOut' });
+    }
+    // Duck environmental layers too (ocean, wind, settlement). No need to save/restore their
+    // pre-duck volumes — updateAmbienceZone()/updateSettlementAmbience() recalculate from
+    // scratch on the next gameplay tick after the overlay closes.
+    for (const s of [this.oceanAmbienceSound, this.windSound, this.settlementSound]) {
+      if (s) {
+        const vol = (s as AudibleSound).volume;
+        tweens.add({ targets: s as AudibleSound, volume: vol * 0.5, duration: 300, ease: 'Sine.easeInOut' });
+      }
     }
   }
 
