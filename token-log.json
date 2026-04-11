@@ -1,0 +1,25 @@
+[
+  {
+    "sessionId": "6161cc51-d4f6-49c8-b9b3-43e8da7db0bd",
+    "date": "2026-04-11",
+    "branch": "claude/FIL-146-choice-tracking-endings",
+    "issueId": "FIL-146",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 191,
+    "cacheReadTokens": 52429,
+    "cacheWriteTokens": 188,
+    "estimatedCostUsd": 0.0193
+  },
+  {
+    "sessionId": "cee04f21-fca8-473b-8a5c-843d16de2a65",
+    "date": "2026-04-11",
+    "branch": "claude/FIL-146-choice-tracking-endings",
+    "issueId": "FIL-146",
+    "inputTokens": 1,
+    "outputTokens": 538,
+    "cacheReadTokens": 126463,
+    "cacheWriteTokens": 441,
+    "estimatedCostUsd": 0.0477
+  }
+]
