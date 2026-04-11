@@ -1,0 +1,54 @@
+[
+  {
+    "sessionId": "cee04f21-fca8-473b-8a5c-843d16de2a65",
+    "date": "2026-04-11",
+    "branch": "claude/FIL-88-animal-trails",
+    "issueId": "FIL-88",
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 79,
+    "cacheReadTokens": 132180,
+    "cacheWriteTokens": 828,
+    "estimatedCostUsd": 0.0439
+  },
+  {
+    "sessionId": "6161cc51-d4f6-49c8-b9b3-43e8da7db0bd",
+    "date": "2026-04-11",
+    "branch": "claude/FIL-110-112-audio-world",
+    "issueId": "FIL-110",
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 244,
+    "cacheReadTokens": 89420,
+    "cacheWriteTokens": 2862,
+    "estimatedCostUsd": 0.0412
+  },
+  {
+    "sessionId": "ae6f8a35-7bec-4afb-ad7e-1692024690dd",
+    "date": "2026-04-11",
+    "branch": "claude/FIL-88-animal-trails",
+    "issueId": "FIL-88",
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 84,
+    "cacheReadTokens": 23235,
+    "cacheWriteTokens": 138,
+    "estimatedCostUsd": 0.0088
+  },
+  {
+    "sessionId": "8b418327-c829-4f99-9dbb-ab6be2382a42",
+    "date": "2026-04-11",
+    "branch": "claude/FIL-88-animal-trails",
+    "issueId": "FIL-88",
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 3,
+    "outputTokens": 922,
+    "cacheReadTokens": 29484,
+    "cacheWriteTokens": 355,
+    "estimatedCostUsd": 0.024
+  }
+]
