@@ -56,5 +56,6 @@
   "stats.top_scores": "Topplistan",
   "stats.date": "Datum",
   "lore.title": "De tre världarna",
-  "ui.open": "E: Öppna"
+  "ui.open": "E: Öppna",
+  "ui.shop": "E: Affär"
 }

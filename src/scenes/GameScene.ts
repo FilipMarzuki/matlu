@@ -161,6 +161,37 @@ interface LootChest {
   opened: boolean;
 }
 
+// ── Vendors (FIL-93) ─────────────────────────────────────────────────────────
+/**
+ * A vendor NPC placed near a settlement that opens ShopScene when the player
+ * presses E within 70 px. Each vendor maps to a vendorId that ShopScene uses
+ * to look up that settlement's item catalogue.
+ */
+interface Vendor {
+  vendorId: string;
+  sprite:   Phaser.GameObjects.Image;
+  /** "E: Shop" label — hidden until the player is within VENDOR_PROMPT_RADIUS. */
+  prompt:   Phaser.GameObjects.Text;
+}
+
+/**
+ * Fixed vendor positions — one trader per settlement.
+ *
+ * Positions are offset from the settlement centre so vendors don't overlap
+ * the existing dialogue NPCs (which spawn at r*0.25 from the centre).
+ * Vendors sit at roughly r*0.55 in the direction away from the map centre
+ * so they're easy to find when exploring the settlement edge.
+ *
+ *   Strandviken  (450, 2820) — fishing hamlet — vendor SE of shrine
+ *   Skogsgläntan (2300,1400) — trading village — vendor NE of centre
+ *   Klippbyn     (3900, 620) — mountain hamlet — vendor SE of centre
+ */
+const VENDOR_DEFS: ReadonlyArray<{ vendorId: string; x: number; y: number }> = [
+  { vendorId: 'strandviken',  x:  560, y: 2840 },
+  { vendorId: 'skogsglanten', x: 2430, y: 1340 },
+  { vendorId: 'klippbyn',     x: 3990, y:  660 },
+];
+
 interface AnimalDef {
   /** Physics body size (smaller than the visual sprite). */
   w: number; h: number;
@@ -598,6 +629,11 @@ export class GameScene extends Phaser.Scene {
   private settlementGlows: Phaser.GameObjects.Arc[] = [];
   // Standing NPC figures — checked each frame for proximity interaction.
   private settlementNpcs: Phaser.GameObjects.Image[] = [];
+
+  // ─── Vendors (FIL-93) ────────────────────────────────────────────────────────
+  private vendors: Vendor[] = [];
+  /** True while ShopScene is open — prevents re-triggering via E key. */
+  private vendorShopActive = false;
   // True while the NpcDialogScene is open so we don't re-trigger on the same frame.
   private npcDialogActive = false;
   private interactKey?: Phaser.Input.Keyboard.Key;
@@ -951,6 +987,7 @@ export class GameScene extends Phaser.Scene {
     this.stampSettlementBuildings();
     this.spawnParticleEffects();
     this.spawnSettlementNpcs();
+    this.createVendors();
     this.createLootChests();
     this.createInteractiveObjects();
     this.createPlayer();
@@ -999,12 +1036,33 @@ export class GameScene extends Phaser.Scene {
     this.events.on(Phaser.Scenes.Events.RESUME, () => {
       this.npcDialogActive    = false;
       this.shrineDialogActive = false;
+      this.vendorShopActive   = false;
     });
     // Deduct gold when UpgradeScene confirms a purchase (GameScene is paused, not sleeping,
     // so its event bus still processes emits from the overlay scene).
     this.events.on('upgrade-purchased', (cost: number) => {
       this.playerGold = Math.max(0, this.playerGold - cost);
       this.refreshGoldText();
+    });
+    // Apply shop purchases from ShopScene (FIL-93).
+    // GameScene is paused while ShopScene is open; the event bus still fires.
+    this.events.on('shop-purchased', (data: { effect: string; value: number; cost: number }) => {
+      this.playerGold = Math.max(0, this.playerGold - data.cost);
+      this.refreshGoldText();
+      if (data.effect === 'heal') {
+        // Clamp to max so a potion at full health isn't wasted on overflow.
+        this.playerHp = Math.min(this.playerMaxHp, this.playerHp + data.value);
+        this.setHpHud(this.playerHp);
+      } else if (data.effect === 'cleanse_pct') {
+        // Convert percentage points to the equivalent kill-credit.
+        // RABBIT_COUNT is the denominator of the cleanse formula, so adding
+        // RABBIT_COUNT * (pct/100) extra kill-credits raises the meter by pct%.
+        this.cleanseKillsExtra += RABBIT_COUNT * (data.value / 100);
+        const pct = Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100);
+        this.setCleanseHud(pct);
+        this.events.emit('cleanse-updated', pct);
+        this.worldState.setCleansePercent('zone-main', pct);
+      }
     });
 
     // Open credits overlay (C key)
@@ -1248,6 +1306,7 @@ export class GameScene extends Phaser.Scene {
       this.updateSettlementAmbience();
       this.updateLevel1(delta);
       this.updateNpcProximity();
+      this.updateVendorInteraction();
       this.updateLootChestInteraction();
       this.updateShrine();
     }
@@ -5576,6 +5635,96 @@ export class GameScene extends Phaser.Scene {
           this.scene.launch('NpcDialogScene', dialogData as unknown as object);
         }
         return; // only the nearest NPC counts per frame
+      }
+    }
+  }
+
+  // ── Vendors (FIL-93) ────────────────────────────────────────────────────────
+
+  /**
+   * Spawn a vendor NPC near each settlement and register proximity prompts.
+   *
+   * ## Why separate from settlementNpcs?
+   * Settlement dialogue NPCs use NpcDialogScene; vendors open ShopScene.
+   * Keeping them in separate arrays means each `update*` method handles its own
+   * E-key action without needing to know which NPC type is nearby.
+   *
+   * ## Visual distinction
+   * Vendors use the same player sprite as dialogue NPCs, but tinted orange
+   * (`0xffaa44`) so the player can visually tell them apart at a glance.
+   * A "Trader" label overhead reinforces the role.
+   */
+  private createVendors(): void {
+    for (const def of VENDOR_DEFS) {
+      // Reuse the PC idle sprite — an orange tint immediately sets traders apart
+      // from the green-tinted dialogue NPCs.
+      const sprite = this.add.image(def.x, def.y, 'pc-idle-down', 0);
+      sprite.setScale(0.35);
+      sprite.setDepth(2 + def.y / WORLD_H);
+      // Orange tint signals "interactable commerce" vs the neutral NPC tint.
+      sprite.setTint(0xffaa44);
+
+      // "Trader" label floats above the sprite.
+      this.add
+        .text(def.x, def.y - 22, 'Trader', {
+          fontSize: '8px',
+          color: '#ffcc88',
+        })
+        .setOrigin(0.5)
+        .setDepth(sprite.depth + 1);
+
+      // E-key prompt — shown only when the player is within VENDOR_PROMPT_RADIUS.
+      const prompt = this.add
+        .text(def.x, def.y - 36, t('ui.shop'), {
+          fontSize: '10px',
+          color: '#f0ead6',
+          backgroundColor: '#00000088',
+          padding: { x: 4, y: 2 },
+        })
+        .setOrigin(0.5)
+        .setDepth(sprite.depth + 2)
+        .setVisible(false);
+
+      this.vendors.push({ vendorId: def.vendorId, sprite, prompt });
+    }
+  }
+
+  /**
+   * Show the "E: Shop" prompt when the player is within 70 px of a vendor,
+   * and open ShopScene when E is pressed.
+   *
+   * Called every frame from update(). Sits after updateNpcProximity() so the
+   * dialogue NPC "consumes" the E-key JustDown in the same frame, preventing
+   * accidental shop opens when both a dialogue NPC and vendor are in range.
+   */
+  private updateVendorInteraction(): void {
+    /** Pixel radius within which the prompt appears and E becomes active. */
+    const VENDOR_PROMPT_RADIUS = 70;
+
+    if (this.vendorShopActive) {
+      // Hide all prompts while the shop is open.
+      for (const v of this.vendors) v.prompt.setVisible(false);
+      return;
+    }
+
+    for (const v of this.vendors) {
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y,
+        v.sprite.x,    v.sprite.y,
+      );
+      const inRange = dist < VENDOR_PROMPT_RADIUS;
+      v.prompt.setVisible(inRange);
+
+      if (inRange && this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+        this.vendorShopActive = true;
+        this.scene.pause();
+        this.scene.launch('ShopScene', {
+          callerKey: this.scene.key,
+          gold:      this.playerGold,
+          vendorId:  v.vendorId,
+        } as unknown as object);
+        // Only open one shop per keypress.
+        break;
       }
     }
   }
