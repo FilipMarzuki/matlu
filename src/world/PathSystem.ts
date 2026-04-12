@@ -195,6 +195,29 @@ export class PathSystem {
     }
   }
 
+  /**
+   * Reposition a segment by ID with new bounds.
+   *
+   * Used by GameScene to patch the wading ford segments (river-a-wading,
+   * river-b-wading) after `initRiverTileGrids()` computes the actual diagonal
+   * river positions at runtime — those positions depend on the elevation grid and
+   * can't be hardcoded in Level1Paths.ts.
+   *
+   * @param id  Segment ID to update (no-op if not found).
+   * @param x   New left edge in world pixels.
+   * @param y   New top edge in world pixels.
+   * @param w   New width in pixels.
+   * @param h   New height in pixels.
+   */
+  updateSegmentBounds(id: string, x: number, y: number, w: number, h: number): void {
+    const seg = this.segments.find(s => s.id === id);
+    if (!seg) return;
+    seg.x = x;
+    seg.y = y;
+    seg.w = w;
+    seg.h = h;
+  }
+
   getSegments(): PathSegment[] {
     return this.segments;
   }

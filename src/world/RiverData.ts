@@ -38,13 +38,13 @@ const TILE_SIZE = 32;
 //
 // The RiverBand / RIVER_BANDS / RIVER_BRIDGE_POSITIONS exports below are kept
 // only while the remaining GameScene consumers migrate to the new system:
-//   • drawProceduralTerrain   → FIL-168
-//   • drawBiomeColorWash      → FIL-168
-//   • createRiverCrossingVisuals → FIL-170
-//   • createNavigationBarriers   → FIL-169
+//   • drawProceduralTerrain      → done FIL-168
+//   • drawBiomeColorWash         → done FIL-168
+//   • createRiverCrossingVisuals → done FIL-170
+//   • createNavigationBarriers   → done FIL-169
 //
-// All four will be updated in their respective issues; these exports are removed
-// in FIL-168 when the last consumer switches over.
+// All consumers have migrated.  These deprecated exports can be removed in a
+// follow-up cleanup once RIVER_BRIDGE_POSITIONS is confirmed unused.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
