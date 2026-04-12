@@ -74,5 +74,17 @@
     "cacheReadTokens": 12000,
     "cacheWriteTokens": 0,
     "estimatedCostUsd": 0.0336
+  },
+  {
+    "sessionId": "manual-2026-04-12-review-merge-bot",
+    "date": "2026-04-12",
+    "branch": "",
+    "issueId": "REVIEW-MERGE-BOT",
+    "source": "manual",
+    "inputTokens": 21,
+    "outputTokens": 3974,
+    "cacheReadTokens": 386049,
+    "cacheWriteTokens": 39096,
+    "estimatedCostUsd": 0.3221
   }
 ]
