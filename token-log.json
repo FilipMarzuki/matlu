@@ -62,5 +62,17 @@
     "cacheReadTokens": 568420,
     "cacheWriteTokens": 90074,
     "estimatedCostUsd": 0.5982
+  },
+  {
+    "sessionId": "manual-2026-04-12-NONE",
+    "date": "2026-04-12",
+    "branch": "",
+    "issueId": "NONE",
+    "source": "manual",
+    "inputTokens": 8000,
+    "outputTokens": 400,
+    "cacheReadTokens": 12000,
+    "cacheWriteTokens": 0,
+    "estimatedCostUsd": 0.0336
   }
 ]
