@@ -236,80 +236,136 @@ interface BirdObject {
 /**
  * Maps elevation, temperature, moisture, and detail noise to a Mystic Woods tile.
  *
- * FIL-154: biome is now a 2D function of (elevation × moisture) at mid-elevations
- * and (elevation × temperature) at high elevations, rather than a single threshold.
+ * FIL-154: biome is a 2D function of (elevation × moisture) at mid-elevations
+ * and (elevation × temperature) at high elevations, not a single threshold.
  *
- * plains.png rows (16×16 px per frame, 6 cols per row):
- *   row 0 (frames  0– 5) — earthy shingle / rocky shore
- *   row 2 (frames 12–17) — coastal heath / light meadow
- *   row 4 (frames 24–29) — mixed birch-spruce floor
- *   row 6 (frames 36–41) — dense dark spruce
- *   row 8 (frames 48–53) — bare highland granite
+ * FIL-172: expanded from 5 to 10 used rows, fixing identical-tile bugs and adding
+ * marsh, snow, and sandy-shore biomes. Temperature now also affects shore and
+ * low-elevation tiles (previously only active above elev 0.62).
  *
- * @param elev   Elevation noise [0,1] — drives the main land/sea/mountain axis
- * @param temp   Temperature noise [0,1] — higher = warmer; varies independently of elev
- * @param moist  Moisture noise [0,1] — higher = wetter; varies independently of elev
- * @param detail High-frequency detail noise [0,1] — picks frame within a biome row
+ * plains.png row audit (16×16 px per frame, 6 cols × 12 rows):
+ *   row  0 (frames  0– 5) — rocky shore / earthy shingle
+ *   row  1 (frames  6–11) — dry sandy heath / lighter gravel  ← FIL-172: dry mid
+ *   row  2 (frames 12–17) — coastal heath / light meadow
+ *   row  3 (frames 18–23) — marsh / wet bog                   ← FIL-172: new biome
+ *   row  4 (frames 24–29) — mixed birch-spruce forest floor
+ *   row  5 (frames 30–35) — denser forest floor (reserved)
+ *   row  6 (frames 36–41) — dark spruce interior
+ *   row  7 (frames 42–47) — dark spruce transition (reserved)
+ *   row  8 (frames 48–53) — cold granite / highland rock
+ *   row  9 (frames 54–59) — bare rocky summit                  ← FIL-172: distinct summit
+ *   row 10 (frames 60–65) — snow / ice field                   ← FIL-172: cold peak
+ *   row 11 (frames 66–71) — reserved
+ *
+ * water-sheet.png rows (30 frames per row):
+ *   row 0 (frames  0–29) — standard ocean / lake water (animated)
+ *   row 1 (frames 30–59) — lighter/shallower river water       ← FIL-172: river tiles
+ *
+ * @param elev     Elevation [0,1] — main land/sea/mountain axis
+ * @param temp     Temperature [0,1] — higher = warmer
+ * @param moist    Effective moisture [0,1] — may be boosted near rivers (FIL-172)
+ * @param detail   High-frequency detail [0,1] — picks frame within biome row
+ * @param isRiver  True for diagonal river-band tiles; uses water-sheet row 1
  */
 function terrainTileFrame(
   elev: number, temp: number, moist: number, detail: number,
+  isRiver = false,
 ): { key: string; frame: number } {
-  const v6 = Math.floor(detail * 5.99); // 0–5, selects one of 6 frames in the biome row
+  const v6 = Math.floor(detail * 5.99); // 0–5: one of 6 frames per biome row
 
-  // ── Water & shore (elevation-only — moisture/temp don't change these) ─────────
-  if (elev < 0.25) return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 };
-  if (elev < 0.30) return { key: 'mw-plains', frame: v6 };                    // rocky shore
-
-  // ── Mid elevation: moisture determines vegetation density ──────────────────────
-  // A wet mid-slope grows dense birch-spruce; a dry one stays open heath/shingle.
-  if (elev < 0.62) {
-    if (moist > 0.60) return { key: 'mw-plains', frame: 24 + v6 };            // wet  → mixed forest
-    if (moist > 0.30) return { key: 'mw-plains', frame: 12 + v6 };            // mod  → coastal heath
-    return                   { key: 'mw-plains', frame: v6 };                 // dry  → rocky/shingle
+  // ── Water ─────────────────────────────────────────────────────────────────────
+  // River tiles use water-sheet row 1 (frames 30+) — lighter, shallower-looking.
+  // Ocean/lake uses row 0 (frames 0-2) as before.
+  if (elev < 0.25) {
+    const waterBase = isRiver ? 30 : 0;
+    return { key: 'terrain-water', frame: waterBase + (detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0) };
   }
 
-  // ── High elevation: temperature determines spruce vs bare granite ──────────────
-  // A warm highland grows dense dark spruce; cold exposed summits stay bare granite.
+  // ── Shore (elev 0.25–0.30) ────────────────────────────────────────────────────
+  // Cold or moist → rocky shingle (row 0); warm and dry → sandy shore (row 1).
+  // Temperature now affects the coast so northern shores look different from
+  // warm sheltered bays — resolves the "Shore and Sandy identical" FIL-172 gap.
+  if (elev < 0.30) {
+    return (temp < 0.45 || moist > 0.50)
+      ? { key: 'mw-plains', frame:      v6 }  // rocky shore (row 0)
+      : { key: 'mw-plains', frame:  6 + v6 }; // sandy shore (row 1)
+  }
+
+  // ── Marsh / bog (elev 0.30–0.45, very wet) ───────────────────────────────────
+  // Soggy lowlands near rivers shift to bog rather than forest. The threshold
+  // is intentionally high (0.72) so marsh is rare but emerges naturally in
+  // low-lying river valleys — especially after the river-bank moisture boost.
+  if (elev < 0.45 && moist > 0.72) return { key: 'mw-plains', frame: 18 + v6 }; // marsh (row 3)
+
+  // ── Mid elevation (elev 0.30–0.62) ───────────────────────────────────────────
+  // Dry mid now uses row 1 (sandy gravel) instead of row 0 (shore) —
+  // fixing the "Shore and Dry mid are identical" FIL-172 bug.
+  if (elev < 0.62) {
+    if (moist > 0.60) return { key: 'mw-plains', frame: 24 + v6 }; // mixed forest (row 4)
+    if (moist > 0.30) return { key: 'mw-plains', frame: 12 + v6 }; // coastal heath (row 2)
+    return                   { key: 'mw-plains', frame:  6 + v6 }; // dry heath (row 1)
+  }
+
+  // ── High elevation (elev 0.62–0.78) ──────────────────────────────────────────
   if (elev < 0.78) {
     return temp > 0.50
-      ? { key: 'mw-plains', frame: 36 + v6 }  // warm high — dense spruce
-      : { key: 'mw-plains', frame: 48 + v6 }; // cold high — granite
+      ? { key: 'mw-plains', frame: 36 + v6 }  // warm high — dense spruce (row 6)
+      : { key: 'mw-plains', frame: 48 + v6 }; // cold high — granite (row 8)
   }
 
-  return { key: 'mw-plains', frame: 48 + v6 }; // summit — bare granite always
+  // ── Summit (elev ≥ 0.78) ──────────────────────────────────────────────────────
+  // Cold → snow / ice (row 10); warm → bare rocky top (row 9).
+  // Previously both summit cases used row 8 — same as cold-high granite —
+  // fixing the "Granite and Summit are identical" FIL-172 bug.
+  return temp < 0.40
+    ? { key: 'mw-plains', frame: 60 + v6 }  // snow field (row 10)
+    : { key: 'mw-plains', frame: 54 + v6 }; // bare rocky summit (row 9)
 }
 
 // ── Dev overlay helpers ──────────────────────────────────────────────────────
 
-/** Short label for each biome index (0-7) — shown in the biome dev overlay. */
-const BIOME_LABELS = ['Sea', 'Shore', 'Dry', 'Heath', 'Forest', 'Spruce', 'Granite', 'Summit'] as const;
+/**
+ * Short label for each biome index — shown in the biome dev overlay.
+ * FIL-172: expanded from 8 to 11 biomes.
+ */
+const BIOME_LABELS = [
+  'Sea', 'Rocky Shore', 'Sandy Shore', 'Marsh',
+  'Dry Heath', 'Heath', 'Forest', 'Spruce',
+  'Granite', 'Summit', 'Snow',
+] as const;
 
-/** Fill colour per biome index in the biome dev overlay. */
+/** Fill colour per biome index in the biome dev overlay (FIL-172: 11 entries). */
 const BIOME_OVERLAY_COLORS: readonly number[] = [
-  0x1a4f7a, // 0 Sea      — deep blue
-  0x8b6914, // 1 Shore    — warm sandy brown
-  0xb8904a, // 2 Dry mid  — sandy/rocky
-  0x7a9a3a, // 3 Heath    — olive green
-  0x2a7a2a, // 4 Forest   — fresh green
-  0x1a5a1a, // 5 Spruce   — dark spruce green
-  0x7a7a7a, // 6 Granite  — cool grey
-  0xaaaaaa, // 7 Summit   — light grey
+  0x1a4f7a, // 0  Sea           — deep blue
+  0x8b6914, // 1  Rocky shore   — warm sandy brown
+  0xe8c870, // 2  Sandy shore   — lighter yellow-sand
+  0x4a7a3a, // 3  Marsh / bog   — muddy dark green
+  0xb8904a, // 4  Dry heath     — sandy/rocky
+  0x7a9a3a, // 5  Coastal heath — olive green
+  0x2a7a2a, // 6  Forest        — fresh green
+  0x1a5a1a, // 7  Spruce        — dark spruce green
+  0x7a7a7a, // 8  Cold granite  — cool grey
+  0x9a9898, // 9  Bare summit   — slightly lighter grey (distinct from granite)
+  0xd8e8f8, // 10 Snow field    — ice blue
 ];
 
 /**
- * Resolve which biome index (0-7) a tile belongs to from its noise values.
- * Mirrors the if-else logic in terrainTileFrame() exactly.
+ * Resolve which biome index a tile belongs to from its noise values.
+ * Must mirror the if-else logic in terrainTileFrame() exactly so dev overlay
+ * colours match the visible tiles.
+ * FIL-172: expanded from 8 to 11 biomes.
  */
 function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   if (elev < 0.25) return 0; // sea
-  if (elev < 0.30) return 1; // rocky shore
+  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // rocky / sandy shore
+  if (elev < 0.45 && moist > 0.72) return 3; // marsh / bog
   if (elev < 0.62) {
-    if (moist > 0.60) return 4; // wet mid — mixed forest
-    if (moist > 0.30) return 3; // moderate mid — heath
-    return 2;                    // dry mid — rocky/shingle
+    if (moist > 0.60) return 6; // mixed forest
+    if (moist > 0.30) return 5; // coastal heath
+    return 4;                    // dry heath
   }
-  if (elev < 0.78) return temp > 0.50 ? 5 : 6; // warm spruce / cold granite
-  return 7; // summit — bare granite
+  if (elev < 0.78) return temp > 0.50 ? 7 : 8; // spruce / cold granite
+  return temp < 0.40 ? 10 : 9;                  // snow / bare summit
 }
 
 /**
@@ -4103,19 +4159,29 @@ export class GameScene extends Phaser.Scene {
    *   dense forest < 0.78  → deep forest green
    *   highland     ≥ 0.78  → cool granite grey
    */
-  /** FIL-154: tint matches terrainTileFrame() biome logic exactly. */
+  /**
+   * FIL-154/172: tint matches terrainTileFrame() biome logic exactly.
+   * Each new FIL-172 biome has a distinct hue so the colour wash is consistent
+   * with the tile choice — sandy shore gets a warmer yellow, marsh gets muddy
+   * green, snow gets ice-blue, etc.
+   */
   private biomeTint(elev: number, temp: number, moist: number): number {
     if (elev < 0.25) return 0x7ab0d8;  // sea — blue
-    if (elev < 0.30) return 0xd4a86a;  // rocky shore — warm sandy
+    if (elev < 0.30) {
+      return (temp < 0.45 || moist > 0.50)
+        ? 0xd4a86a   // rocky shore — warm sandy
+        : 0xe8c870;  // sandy shore — lighter yellow-sand
+    }
+    if (elev < 0.45 && moist > 0.72) return 0x608858; // marsh — muddy dark green
     if (elev < 0.62) {
-      if (moist > 0.60) return 0x80c068; // wet mid  — fresh mixed-forest green
-      if (moist > 0.30) return 0xb8d480; // mod mid  — light olive heath
-      return                  0xd4a86a;  // dry mid  — sandy/rocky
+      if (moist > 0.60) return 0x80c068; // forest  — fresh green
+      if (moist > 0.30) return 0xb8d480; // heath   — light olive
+      return                  0xc8a860;  // dry heath — sandy (slightly distinct from shore)
     }
     if (elev < 0.78) {
-      return temp > 0.50 ? 0x50904a : 0xb8b4ac; // warm → spruce; cold → granite
+      return temp > 0.50 ? 0x50904a : 0xb8b4ac; // spruce / cold granite
     }
-    return 0xb8b4ac; // summit granite — cool grey
+    return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
   }
 
   /**
@@ -4149,7 +4215,26 @@ export class GameScene extends Phaser.Scene {
         if (val < 0.25) continue;
         if (this.isRiverTile?.[ty * tilesX + tx]) continue;
 
-        const tint = this.biomeTint(val, temp, moist);
+        // FIL-172: apply the same river-bank moisture boost as the terrain bake
+        // so the colour wash tint matches the tile that was drawn.
+        let effectiveMoist = moist;
+        if (this.isRiverTile) {
+          const bankR = 2;
+          outer: for (let dy = -bankR; dy <= bankR; dy++) {
+            for (let dx = -bankR; dx <= bankR; dx++) {
+              if (dy === 0 && dx === 0) continue;
+              const nx = tx + dx;
+              const ny = ty + dy;
+              if (nx >= 0 && nx < tilesX && ny >= 0 && ny < tilesY &&
+                  this.isRiverTile[ny * tilesX + nx] === 1) {
+                effectiveMoist = Math.min(1, moist + 0.30);
+                break outer;
+              }
+            }
+          }
+        }
+
+        const tint = this.biomeTint(val, temp, effectiveMoist);
         let arr = groups.get(tint);
         if (!arr) { arr = []; groups.set(tint, arr); }
         arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
@@ -4375,16 +4460,38 @@ export class GameScene extends Phaser.Scene {
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
         let val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
 
-        // FIL-168: force water tiles for diagonal river band tiles.
-        // isRiverTile is built from the traced diagonal paths in initRiverTileGrids().
-        // detail-based jitter (×0.08) keeps the water surface visually varied
-        // while staying safely below the water threshold (< 0.25).
-        if (this.isRiverTile?.[ty * tilesX + tx]) {
+        // FIL-168: force water elevation for diagonal river-band tiles.
+        const isRiverHere = this.isRiverTile?.[ty * tilesX + tx] === 1;
+        if (isRiverHere) {
+          // detail-based jitter (×0.08) keeps the river surface visually varied
+          // while staying safely below the water threshold (< 0.25).
           val = 0.15 + detail * 0.08;
         }
 
+        // FIL-172: river-bank wetland transition — tiles within 2 tile-rows of a
+        // river get a moisture boost so low-elevation biomes shift toward marsh
+        // rather than dry heath.  Creates a natural soggy edge without explicit
+        // transition tile assets.  The +0.30 boost is enough to push borderline
+        // heath tiles (moist ~0.65) past the marsh threshold (>0.72).
+        let effectiveMoist = moist;
+        if (!isRiverHere && this.isRiverTile) {
+          const bankR = 2;
+          outer: for (let dy = -bankR; dy <= bankR; dy++) {
+            for (let dx = -bankR; dx <= bankR; dx++) {
+              if (dy === 0 && dx === 0) continue;
+              const nx = tx + dx;
+              const ny = ty + dy;
+              if (nx >= 0 && nx < tilesX && ny >= 0 && ny < tilesY &&
+                  this.isRiverTile[ny * tilesX + nx] === 1) {
+                effectiveMoist = Math.min(1, moist + 0.30);
+                break outer;
+              }
+            }
+          }
+        }
+
         biomeGrid[ty * tilesX + tx]    = val;
-        biomeIdxGrid[ty * tilesX + tx] = tileBiomeIdx(val, temp, moist);
+        biomeIdxGrid[ty * tilesX + tx] = tileBiomeIdx(val, temp, effectiveMoist);
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -4394,7 +4501,8 @@ export class GameScene extends Phaser.Scene {
         // Biome tint multiplies with each tile's pixel colours so the tile detail
         // stays visible while each region gets a distinct dominant hue — the same
         // technique CrossCode uses to give each zone a clear visual identity.
-        const { key, frame } = terrainTileFrame(val, temp, moist, detail);
+        // FIL-172: pass isRiverHere so river tiles use water-sheet row 1 (lighter).
+        const { key, frame } = terrainTileFrame(val, temp, effectiveMoist, detail, isRiverHere);
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
         terrainRt.batchDraw(tileImg);
 
