@@ -55,5 +55,6 @@
   "stats.total_time": "Total",
   "stats.top_scores": "Top Scores",
   "stats.date": "Date",
-  "lore.title": "The Three Worlds"
+  "lore.title": "The Three Worlds",
+  "ui.open": "E: Open"
 }

@@ -146,6 +146,21 @@ const DROP_TABLES: Record<string, DropTable> = {
   corruptedGuardian:  { gold: { min: 60, max: 80 } },
 };
 
+// ── Loot chests (FIL-92) ─────────────────────────────────────────────────────
+/**
+ * One interactive loot chest placed near a settlement.
+ * Chests have stable string IDs so opened state can be persisted in localStorage
+ * across page reloads — positions near fixed settlements never change.
+ */
+interface LootChest {
+  id: string;
+  sprite: Phaser.GameObjects.Sprite;
+  /** "E: Open" label shown when the player is within CHEST_PROMPT_RADIUS. */
+  prompt: Phaser.GameObjects.Text;
+  gold: { min: number; max: number };
+  opened: boolean;
+}
+
 interface AnimalDef {
   /** Physics body size (smaller than the visual sprite). */
   w: number; h: number;
@@ -438,6 +453,9 @@ export class GameScene extends Phaser.Scene {
   // ─── Economy ──────────────────────────────────────────────────────────────────
   private playerGold = 0;
   private goldText!: Phaser.GameObjects.Text;
+
+  // ─── Loot chests (FIL-92) ─────────────────────────────────────────────────────
+  private lootChests: LootChest[] = [];
 
   // ─── Cleanse milestones ───────────────────────────────────────────────────────
   // Tracks which threshold percentages have already triggered so they don't
@@ -933,6 +951,7 @@ export class GameScene extends Phaser.Scene {
     this.stampSettlementBuildings();
     this.spawnParticleEffects();
     this.spawnSettlementNpcs();
+    this.createLootChests();
     this.createInteractiveObjects();
     this.createPlayer();
 
@@ -1229,6 +1248,7 @@ export class GameScene extends Phaser.Scene {
       this.updateSettlementAmbience();
       this.updateLevel1(delta);
       this.updateNpcProximity();
+      this.updateLootChestInteraction();
       this.updateShrine();
     }
     // Y-sort player every frame — depth = world-Y matches the raw-Y system used by
@@ -5624,6 +5644,189 @@ export class GameScene extends Phaser.Scene {
       this.scene.pause();
       this.scene.launch('UpgradeScene', { callerKey: this.scene.key, gold: this.playerGold } as unknown as object);
     }
+  }
+
+  // ── Loot chests (FIL-92) ─────────────────────────────────────────────────────
+
+  /**
+   * Place interactive chests near each settlement and register their animations.
+   *
+   * ## Why fixed positions (not procedural)?
+   * Chunk placement uses a random per-run seed, so procedurally placed chests
+   * would land at different world coordinates on every page load — making stable
+   * localStorage IDs impossible. Fixed positions near settlements keep IDs stable
+   * across sessions.
+   *
+   * ## Sprite vs Image
+   * Chests must animate on opening, so we use `this.add.sprite()` rather than
+   * `this.add.image()`. Both load from the same spritesheet; sprite just exposes
+   * the `play()` animation API.
+   *
+   * ## Chest animations
+   * Each Mystic Woods chest sheet is 64×16 px with 4 frames (16×16 each):
+   *   frame 0 = closed, frames 1–3 = opening sequence.
+   * `repeat: 0` plays once and leaves the sprite on frame 3 (fully open).
+   */
+  private createLootChests(): void {
+    // Register the one-shot opening animations (safe to call even if already created
+    // from a previous scene restart — Phaser ignores duplicate animation keys).
+    if (!this.anims.exists('chest-01-open')) {
+      this.anims.create({
+        key: 'chest-01-open',
+        frames: this.anims.generateFrameNumbers('mw-chest-01', { start: 0, end: 3 }),
+        frameRate: 8,  // 4 frames × 0.125 s each = 0.5 s total
+        repeat: 0,
+      });
+    }
+    if (!this.anims.exists('chest-02-open')) {
+      this.anims.create({
+        key: 'chest-02-open',
+        frames: this.anims.generateFrameNumbers('mw-chest-02', { start: 0, end: 3 }),
+        frameRate: 8,
+        repeat: 0,
+      });
+    }
+
+    // One chest per settlement. Gold ranges reflect each community's wealth.
+    //   Strandviken — poor fishing hamlet, modest cache
+    //   Skogsgläntan — forest trading village, richer stores
+    //   Klippbyn — isolated mountain hamlet, travellers' supply cache
+    const defs: ReadonlyArray<{
+      id: string; x: number; y: number;
+      texture: string; animKey: string;
+      gold: { min: number; max: number };
+    }> = [
+      { id: 'chest-strandviken',  x: 540,  y: 2780, texture: 'mw-chest-01', animKey: 'chest-01-open', gold: { min: 8,  max: 15 } },
+      { id: 'chest-skogsglanten', x: 2170, y: 1370, texture: 'mw-chest-02', animKey: 'chest-02-open', gold: { min: 15, max: 30 } },
+      { id: 'chest-klippbyn',     x: 3840, y: 660,  texture: 'mw-chest-01', animKey: 'chest-01-open', gold: { min: 10, max: 20 } },
+    ];
+
+    // Load which chests were already opened in a previous session.
+    const openedSet = new Set<string>(
+      JSON.parse(localStorage.getItem('matlu_opened_chests') ?? '[]') as string[]
+    );
+
+    for (const def of defs) {
+      const alreadyOpened = openedSet.has(def.id);
+
+      // Frame 3 = fully open. Already-opened chests render immediately open
+      // so the player doesn't see them "pop" closed on load.
+      const sprite = this.add.sprite(def.x, def.y, def.texture, alreadyOpened ? 3 : 0);
+      // Scale 2× matches other Mystic Woods decorations in the world (16 px → 32 px display).
+      sprite.setScale(2.0);
+      // y-sort: depth = world-y so the player correctly occludes/underlaps the chest.
+      sprite.setDepth(def.y);
+      // Origin (0.5, 1): sprite is anchored at its bottom-centre, consistent with
+      // all other world objects that use y-sorting.
+      sprite.setOrigin(0.5, 1);
+      // Store the animation key on the sprite data so openLootChest() doesn't
+      // need to know which sheet this particular chest uses.
+      sprite.setData('animKey', def.animKey);
+
+      // "E: Open" prompt — 8 px above the sprite top (sprite is 32 px tall at scale 2).
+      // Depth 500 renders above all world objects.
+      const prompt = this.add
+        .text(def.x, def.y - 40, t('ui.open'), {
+          fontSize: '10px',
+          color: '#f0ead6',
+          backgroundColor: '#00000088',
+          padding: { x: 4, y: 2 },
+        })
+        .setOrigin(0.5)
+        .setDepth(500)
+        .setVisible(false);
+
+      this.lootChests.push({ id: def.id, sprite, prompt, gold: def.gold, opened: alreadyOpened });
+    }
+  }
+
+  /**
+   * Show the "E: Open" prompt when the player is within 70 px of an unopened
+   * chest, and open it when E is pressed.
+   *
+   * Called every frame from update(). Matches the pattern of updateNpcProximity()
+   * and updateShrine() so all three interactions share the same E key.
+   *
+   * Multiple chests can show their prompts simultaneously if somehow in range,
+   * but in practice settlements are far apart so only one is ever nearby.
+   */
+  private updateLootChestInteraction(): void {
+    /** Pixel radius within which the prompt appears and E becomes active. */
+    const PROMPT_RADIUS = 70;
+
+    for (const chest of this.lootChests) {
+      // Already-opened chests never show a prompt.
+      if (chest.opened) {
+        chest.prompt.setVisible(false);
+        continue;
+      }
+
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y,
+        chest.sprite.x, chest.sprite.y,
+      );
+      const inRange = dist < PROMPT_RADIUS;
+      chest.prompt.setVisible(inRange);
+
+      if (inRange && this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+        this.openLootChest(chest);
+        // Only open one chest per keypress even if two were somehow in range.
+        break;
+      }
+    }
+  }
+
+  /**
+   * Open a loot chest: animate it, award gold, play a sound, and persist the
+   * opened state to localStorage so a page reload doesn't reset it.
+   *
+   * Gold is awarded using the same Lucky Strike multiplier applied to combat
+   * drops, keeping the economy consistent — a found chest feels like a
+   * meaningful bonus rather than a separate system.
+   */
+  private openLootChest(chest: LootChest): void {
+    chest.opened = true;
+    chest.prompt.setVisible(false);
+
+    // Play the opening animation — Phaser leaves the sprite on the last frame
+    // (frame 3 = fully open) after a repeat-0 animation completes.
+    const animKey = chest.sprite.getData('animKey') as string;
+    chest.sprite.play(animKey);
+
+    // Award gold, applying Lucky Strike upgrade if purchased.
+    const boughtUpgrades = JSON.parse(
+      localStorage.getItem('matlu_upgrades') ?? '{}'
+    ) as Record<string, boolean>;
+    const goldMult = boughtUpgrades['lucky_strike'] ? 1.5 : 1;
+    const amount   = Math.round(
+      Phaser.Math.Between(chest.gold.min, chest.gold.max) * goldMult
+    );
+    this.playerGold += amount;
+    this.refreshGoldText();
+
+    // Floating "+N gold" label — rises and fades, same as combat drop feedback.
+    // Spawn above the chest top so it doesn't overlap the sprite.
+    this.spawnFloatText(
+      chest.sprite.x,
+      chest.sprite.y - chest.sprite.displayHeight,
+      `+${amount} ${t('hud.gold')}`,
+      '#ffe066',
+    );
+
+    // Re-use an existing impact sound pitched up (+50% rate) for a "chest pop"
+    // feel. No dedicated audio file needed — Phaser's rate parameter pitch-shifts
+    // the existing soft-impact variants to sound distinct from footsteps.
+    if (this.audioAvailable && this.cache.audio.has('sfx-impact-soft-0')) {
+      this.sound.play('sfx-impact-soft-0', { volume: 0.6, rate: 1.5 });
+    }
+
+    // Persist opened IDs. We read and re-write each time so concurrent tabs
+    // (or future multi-chest openings) don't overwrite each other's state.
+    const openedSet = new Set<string>(
+      JSON.parse(localStorage.getItem('matlu_opened_chests') ?? '[]') as string[]
+    );
+    openedSet.add(chest.id);
+    localStorage.setItem('matlu_opened_chests', JSON.stringify([...openedSet]));
   }
 
   /**
