@@ -37,6 +37,7 @@ import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 import { EndingScene, determineEnding } from './EndingScene';
+import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 
 const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
@@ -444,15 +445,22 @@ export class GameScene extends Phaser.Scene {
   private lastRangedAt  = 0;
   /** Live ranged bolts — each is a teal Arc travelling toward pointer position. */
   private rangedProjectiles: Array<{
-    arc:  Phaser.GameObjects.Arc;
-    vx:   number;
-    vy:   number;
-    dist: number;
+    arc:     Phaser.GameObjects.Arc;
+    vx:      number;
+    vy:      number;
+    dist:    number;
+    /** Maximum travel distance — scaled by throwing skill so higher levels reach further. */
+    maxDist: number;
   }> = [];
 
   // ─── Economy ──────────────────────────────────────────────────────────────────
   private playerGold = 0;
   private goldText!: Phaser.GameObjects.Text;
+
+  // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
+  private skillSystem!: SkillSystem;
+  /** Timestamp of the last run-XP tick so we award at most 1 XP/second. */
+  private lastRunXpAt = 0;
 
   // ─── Loot chests (FIL-92) ─────────────────────────────────────────────────────
   private lootChests: LootChest[] = [];
@@ -1087,6 +1095,9 @@ export class GameScene extends Phaser.Scene {
     this.createLevel1Collectibles();
     this.createShrine();
     this.applyUpgrades();
+    // SkillSystem reads from localStorage — initialise after upgrades so both
+    // systems are ready before the first frame runs.
+    this.skillSystem = new SkillSystem();
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) {
@@ -1690,8 +1701,16 @@ export class GameScene extends Phaser.Scene {
       // Multiply base speed by the path multiplier so roads feel faster/slower.
       // Off-road returns 1.0 (no change); paved road at full condition returns 1.35.
       const speedMult = this.pathSystem.getSpeedMultiplier(this.player.x, this.player.y);
-      const speed = this.effectiveSpeed * speedMult;
+      // Running skill multiplier scales speed by 1 % per level (invisible to the player —
+      // they notice the improvement organically as movement starts feeling snappier).
+      const speed = this.effectiveSpeed * this.skillSystem.multiplier('running') * speedMult;
       body.setVelocity((dx / len) * speed, (dy / len) * speed);
+
+      // Award 1 running XP per second while the player is moving.
+      if (now - this.lastRunXpAt >= 1000) {
+        this.lastRunXpAt = now;
+        this.skillSystem.addXP('running', 1);
+      }
     } else {
       body.setVelocity(0, 0);
     }
@@ -1783,7 +1802,9 @@ export class GameScene extends Phaser.Scene {
     const px  = this.player.x;
     const py  = this.player.y;
     const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
-    const r   = this.effectiveSwipeRange;
+    // Cleansing skill multiplier widens the visible arc radius so the player can
+    // see their improved reach without any UI numbers.
+    const r   = this.effectiveSwipeRange * this.skillSystem.multiplier('cleansing');
     const half = SWIPE_ARC / 2;
 
     const gfx = this.add.graphics();
@@ -1847,6 +1868,10 @@ export class GameScene extends Phaser.Scene {
     const py = this.player.y;
     const aim = Math.atan2(pointer.worldY - py, pointer.worldX - px);
     const half = SWIPE_ARC / 2;
+    // Cleansing skill multiplier extends the arc radius by 1 % per level.
+    // Using a local variable avoids mutating effectiveSwipeRange so upgrades
+    // (cleanse_mastery) and skill bonuses stack independently.
+    const swipeRange = this.effectiveSwipeRange * this.skillSystem.multiplier('cleansing');
 
     // ── Boss hit check (priority over rabbits) ────────────────────────────────
     //
@@ -1854,11 +1879,12 @@ export class GameScene extends Phaser.Scene {
     // it's satisfying to hit. Swipe is consumed if the boss is in range.
     if (this.bossAlive && this.boss) {
       const db = Phaser.Math.Distance.Between(px, py, this.boss.x, this.boss.y);
-      if (db <= this.effectiveSwipeRange * 1.5) {
+      if (db <= swipeRange * 1.5) {
         this.boss.takeDamage(1);
         this.boss.onHitBy(px, py);
         this.cameras.main.shake(200, 0.006);
         this.updateBossHud();
+        this.skillSystem.addXP('cleansing', 3);
         return;
       }
     }
@@ -1867,7 +1893,7 @@ export class GameScene extends Phaser.Scene {
     for (const child of this.rabbits.getChildren()) {
       const r = child as Phaser.GameObjects.Rectangle;
       const d = Phaser.Math.Distance.Between(px, py, r.x, r.y);
-      if (d > this.effectiveSwipeRange) {
+      if (d > swipeRange) {
         continue;
       }
       const toR = Math.atan2(r.y - py, r.x - px);
@@ -1878,6 +1904,7 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       this.applySwipeHit(r);
+      this.skillSystem.addXP('cleansing', 3);
       break;
     }
 
@@ -1886,7 +1913,7 @@ export class GameScene extends Phaser.Scene {
     for (const child of this.groundAnimals.getChildren()) {
       const a = child as Phaser.GameObjects.Sprite;
       const d = Phaser.Math.Distance.Between(px, py, a.x, a.y);
-      if (d > this.effectiveSwipeRange) continue;
+      if (d > swipeRange) continue;
       const toA = Math.atan2(a.y - py, a.x - px);
       let da = toA - aim;
       while (da >  Math.PI) da -= Math.PI * 2;
@@ -1895,6 +1922,7 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.shake(80, 0.002);
       if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.4 });
       this.killNeutralAnimal(a);
+      this.skillSystem.addXP('cleansing', 2);
       break;
     }
 
@@ -1907,7 +1935,7 @@ export class GameScene extends Phaser.Scene {
       for (const child of grp.getChildren()) {
         const e = child as Phaser.GameObjects.Rectangle;
         const d = Phaser.Math.Distance.Between(px, py, e.x, e.y);
-        if (d > this.effectiveSwipeRange) continue;
+        if (d > swipeRange) continue;
         const toE = Math.atan2(e.y - py, e.x - px);
         let de = toE - aim;
         while (de >  Math.PI) de -= Math.PI * 2;
@@ -1916,6 +1944,7 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.shake(150, 0.004);
         if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 });
         this.killCorruptedEnemy(e, cv);
+        this.skillSystem.addXP('cleansing', 4);
         hit = true;
         break;
       }
@@ -1972,12 +2001,23 @@ export class GameScene extends Phaser.Scene {
       .setDepth(50)
       .setStrokeStyle(1, 0xaaffee);
 
+    // Throwing skill extends max travel distance by 1 % per level — skilled
+    // throwers reach targets that were previously just out of range.
+    const maxDist = RANGED_RANGE * this.skillSystem.multiplier('throwing');
+
     this.rangedProjectiles.push({
       arc,
-      vx:   Math.cos(angle) * RANGED_SPEED,
-      vy:   Math.sin(angle) * RANGED_SPEED,
-      dist: 0,
+      vx:      Math.cos(angle) * RANGED_SPEED,
+      vy:      Math.sin(angle) * RANGED_SPEED,
+      dist:    0,
+      maxDist,
     });
+
+    // Award XP per throw; bonus XP on the very first throw ever.
+    this.skillSystem.addXP('throwing', 5);
+    if (this.skillSystem.trackFirst('first-throw')) {
+      this.skillSystem.addXP('throwing', 25);
+    }
 
     // White flash on player — same feedback as swipe so the action feels responsive.
     this.playerSprite.setTint(0xffffff);
@@ -1998,8 +2038,8 @@ export class GameScene extends Phaser.Scene {
       p.arc.y  += p.vy * dt;
       p.dist   += Math.hypot(p.vx, p.vy) * dt;
 
-      // Expire when max range is exceeded.
-      if (p.dist >= RANGED_RANGE) {
+      // Expire when max range is exceeded (skill-scaled per projectile).
+      if (p.dist >= p.maxDist) {
         p.arc.destroy();
         return false;
       }
@@ -2071,6 +2111,10 @@ export class GameScene extends Phaser.Scene {
     this.onZoneCleansed('rabbit', rx, ry);
     // Resolve drop table — award gold and show floating feedback text
     this.resolveDrops('zombieRabbit', rx, ry);
+    // Bonus XP for the first kill ever (silent — no UI shown).
+    if (this.skillSystem.trackFirst('first-kill')) {
+      this.skillSystem.addXP('combat', 50);
+    }
   }
 
   /**
@@ -2147,15 +2191,21 @@ export class GameScene extends Phaser.Scene {
     if (!table) return;
 
     if (table.gold) {
-      // Lucky strike upgrade multiplies all gold drops by 1.5 (rounded).
+      // Stacked multipliers:
+      //  1) lucky_strike upgrade (1.5×) if purchased
+      //  2) combat skill multiplier (1 % per level) — more experienced fighters
+      //     shake down slightly more gold, invisibly improving over many sessions.
       const boughtUpgrades = JSON.parse(localStorage.getItem('matlu_upgrades') ?? '{}') as Record<string, boolean>;
-      const goldMult = boughtUpgrades['lucky_strike'] ? 1.5 : 1;
+      const goldMult = (boughtUpgrades['lucky_strike'] ? 1.5 : 1) * this.skillSystem.multiplier('combat');
       const amount = Math.round(Phaser.Math.Between(table.gold.min, table.gold.max) * goldMult);
       this.playerGold += amount;
       this.refreshGoldText();
       // Floating "+N gold" feedback in world-space — rises and fades like collectible labels
       this.spawnFloatText(x, y, `+${amount} ${t('hud.gold')}`, '#ffe066');
     }
+
+    // Award combat XP for every kill that has a drop table.
+    this.skillSystem.addXP('combat', 5);
   }
 
   private refreshGoldText(): void {
@@ -2374,6 +2424,11 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.spawnDashAfterimages();
+
+    // Bonus XP on the first dash ever — rewards discovering the mechanic.
+    if (this.skillSystem.trackFirst('first-dash')) {
+      this.skillSystem.addXP('running', 25);
+    }
 
     // Reuse swipe SFX at a higher pitch for a distinct whoosh feel.
     if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
@@ -5818,6 +5873,11 @@ export class GameScene extends Phaser.Scene {
     // the existing soft-impact variants to sound distinct from footsteps.
     if (this.audioAvailable && this.cache.audio.has('sfx-impact-soft-0')) {
       this.sound.play('sfx-impact-soft-0', { volume: 0.6, rate: 1.5 });
+    }
+
+    // Bonus XP for opening the very first chest — rewards exploring settlements.
+    if (this.skillSystem.trackFirst('first-chest')) {
+      this.skillSystem.addXP('combat', 30);
     }
 
     // Persist opened IDs. We read and re-write each time so concurrent tabs
