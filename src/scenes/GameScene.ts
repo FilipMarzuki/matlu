@@ -283,6 +283,9 @@ export class GameScene extends Phaser.Scene {
   private currentMusicKey = '';
   // tracks when we last played a footstep so we don't fire every frame
   private lastFootstepAt = 0;
+  // Countdown (ms) until the corruption presence SFX may fire again.
+  // Starts positive so the SFX doesn't play on the first frame.
+  private corruptionSfxCooldown = 10_000;
   private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
   private portal!: Phaser.GameObjects.Arc;
   private portalActive = false;
@@ -1779,6 +1782,58 @@ export class GameScene extends Phaser.Scene {
       case 'dusk':      return 0.08; // last light fading
       case 'night':     return 0.00; // silent except wind
     }
+  }
+
+  /**
+   * Conditionally play the corruption presence SFX ('sfx-corruption').
+   *
+   * The SFX fires when the player is standing in a locally-corrupt patch of
+   * terrain. Frequency and volume both scale with `multiplier` — Level 1 uses
+   * 1.0 (rare, almost out of place), Level 5 uses 5.0 (near-constant drone).
+   *
+   * ## Why a cooldown instead of a Phaser timer?
+   * Phaser.Time.addEvent fires on a fixed schedule regardless of where the
+   * player is. We want the SFX to be silent in clean zones and active in
+   * corrupt ones, so we sample the corruption field every frame and only
+   * decrement the cooldown inside corrupt patches.  The random jitter on
+   * reset prevents the SFX from sounding mechanical.
+   *
+   * @param delta       Frame delta in milliseconds (from update()).
+   * @param multiplier  Per-level SFX intensity multiplier (from LevelMusicConfig).
+   */
+  private maybePlayCorruptionSfx(delta: number, multiplier: number): void {
+    if (!this.audioAvailable) return;
+    if (!this.cache.audio.has('sfx-corruption')) return;
+
+    // Sample the corruption field at the player's world position.
+    // CorruptionField.sample() returns 0–0.9; anything above 0.35 is
+    // visually noticeable corruption that warrants an audio cue.
+    const localCorruption = this.corruptionField.sample(
+      this.player.x,
+      this.player.y,
+      1.0,  // pass global=1 so field geography drives the result, not cleanse %
+    );
+
+    if (localCorruption < 0.35) {
+      // Player is in a relatively clean patch — no SFX, but keep counting down
+      // so we're ready when they enter a dark zone.
+      this.corruptionSfxCooldown = Math.max(0, this.corruptionSfxCooldown - delta);
+      return;
+    }
+
+    // Inside corruption — count down and fire when cooldown expires.
+    this.corruptionSfxCooldown -= delta;
+    if (this.corruptionSfxCooldown > 0) return;
+
+    // Volume scales with both local corruption intensity and the level multiplier.
+    // Cap at 0.5 so it never overwhelms the music track.
+    const volume = Math.min(0.5, localCorruption * multiplier * 0.25);
+    this.sound.play('sfx-corruption', { volume });
+
+    // Base cooldown is 18 seconds. Multiplier shortens it (Level 5 = ~3.6s base).
+    // ±4s random jitter stops it feeling mechanical.
+    const jitter = Phaser.Math.Between(-4000, 4000);
+    this.corruptionSfxCooldown = Math.max(1000, (18_000 / multiplier) + jitter);
   }
 
   protected onZoneCleansed(_type: string, _x: number, _y: number): void {
@@ -3524,6 +3579,12 @@ export class GameScene extends Phaser.Scene {
   private updateLevel1(delta: number): void {
     const px = this.player.x;
     const py = this.player.y;
+
+    // ── Corruption SFX ───────────────────────────────────────────────────────
+    // Level 1 uses corruptionSfxMultiplier = 1.0 (baseline — rare, out of place).
+    // When Levels 2–5 get their own update methods they'll pass higher multipliers.
+    // See LevelMusicConfig.ts for the full per-level design.
+    this.maybePlayCorruptionSfx(delta, 1.0);
 
     // ── Collectible pickup ────────────────────────────────────────────────────
     for (const col of COLLECTIBLES) {
