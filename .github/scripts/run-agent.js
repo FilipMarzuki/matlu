@@ -160,9 +160,13 @@ function renderPrompt(issue) {
 
 function runClaude(prompt) {
   // Headless (`--print`) runs Claude Code non-interactively and streams output
-  // to stdout. `--permission-mode acceptEdits` lets the agent edit files and
-  // run allowlisted commands without a human in the loop — appropriate for a
-  // disposable CI sandbox.
+  // to stdout. We use `bypassPermissions` rather than `acceptEdits` because
+  // `acceptEdits` only auto-approves file edits — git, npm, gh, and other
+  // Bash calls still trigger a permission prompt that, in `--print` mode,
+  // has nowhere to go. The agent then gives up without committing. In a
+  // disposable CI runner this is the right trade-off: the sandbox is torn
+  // down after the session regardless, so "the agent has full shell access"
+  // costs us nothing extra.
   const result = spawnSync(
     'npx',
     [
@@ -170,7 +174,7 @@ function runClaude(prompt) {
       '@anthropic-ai/claude-code',
       '--print',
       '--permission-mode',
-      'acceptEdits',
+      'bypassPermissions',
       prompt,
     ],
     {
