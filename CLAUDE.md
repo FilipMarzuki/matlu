@@ -152,3 +152,14 @@ npx skills add supabase/agent-skills -y
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude/**`, and on pull requests targeting `main`. Uses Node 20, `npm ci`, then `npm run typecheck` and `npm run build`.
+
+## Nightly agent
+
+Two agent runners coexist during the FIL-198 migration:
+
+1. **Legacy single-session runner** — driven by `.agents/nightly.md`. Picks the highest-priority open issue, works it, then moves on. Still authoritative until Phase 3 cutover.
+2. **Per-issue runner** — `.github/workflows/agent-nightly.yml`. Cron (`0 2 * * *`) + `workflow_dispatch`. Fetches Linear Backlog issues with the `ready` label via `.github/scripts/fetch-agent-issues.js`, then fans out in a matrix (`max-parallel: 3`, `fail-fast: false`) and spawns one isolated Claude Code session per issue via `.github/scripts/run-agent.js`. Per-session prompt lives in `.agents/per-issue.md`.
+
+The per-issue runner requires two repo secrets: `ANTHROPIC_API_KEY` and `LINEAR_API_KEY`. It also expects four labels to already exist in Linear: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
+
+On-demand runs: trigger `Nightly Agent (per-issue)` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.
