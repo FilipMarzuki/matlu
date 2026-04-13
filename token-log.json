@@ -98,5 +98,18 @@
     "cacheReadTokens": 0,
     "cacheWriteTokens": 0,
     "estimatedCostUsd": 0.015
+  },
+  {
+    "sessionId": "d3ff9c7c-36b5-4009-aed0-f5cb667e6570",
+    "date": "2026-04-13",
+    "branch": "",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 91,
+    "cacheReadTokens": 41406,
+    "cacheWriteTokens": 947,
+    "estimatedCostUsd": 0.0173
   }
 ]

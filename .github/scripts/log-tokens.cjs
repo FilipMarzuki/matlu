@@ -88,8 +88,8 @@ function parseSession(filePath) {
     let record;
     try { record = JSON.parse(line); } catch (e) { continue; }
 
-    // Session ID is on the first line (permission-mode record)
-    if (record.type === 'permission-mode' && record.sessionId) {
+    // Session ID is on the first line (permission-mode in local, ai-title in cloud agents)
+    if ((record.type === 'permission-mode' || record.type === 'ai-title') && record.sessionId) {
       sessionId = record.sessionId;
     }
 
