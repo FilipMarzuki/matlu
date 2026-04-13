@@ -88,8 +88,14 @@ jobs:
 
       - name: Configure git identity
         run: |
-          git config user.name "matlu-agent[bot]"
-          git config user.email "matlu-agent@users.noreply.github.com"
+          # Use the standard github-actions[bot] identity. The previous
+          # matlu-agent[bot] email wasn't tied to a real GitHub account, so
+          # Vercel refused to build preview deploys for agent-authored PRs
+          # ("No GitHub account was found matching the commit author email").
+          # github-actions[bot] is the sanctioned CI-author identity; Vercel
+          # recognises it and attaches previews normally.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Run per-issue Claude Code session
         env:
