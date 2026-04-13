@@ -55,9 +55,9 @@ const READY_QUERY = `
       filter: {
         state: { type: { eq: "backlog" } }
         assignee: { name: { eq: "Filip Marzuki" } }
-        labels: { name: { eq: "ready" } }
+        labels: { some: { name: { eq: "ready" } } }
       }
-      orderBy: priority
+      orderBy: updatedAt
       first: 50
     ) {
       nodes { identifier }
