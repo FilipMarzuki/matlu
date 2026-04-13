@@ -92,6 +92,58 @@ Tasks are tracked in **Linear** (project: Matlu, assignee: Filip Marzuki).
 - Move the issue to **In Progress** when starting
 - After implementing: open a PR, post the PR link as a comment on the Linear issue, mark it **Done**
 
+## Label conventions
+
+Every Linear issue should follow this labeling system (defined in FIL-181):
+
+### Type — what kind of work is this? (required)
+
+| Label | When to use |
+| ----- | ----------- |
+| `feature` | New functionality being added |
+| `bug` | Something is broken and needs fixing |
+| `chore` | Routine maintenance, dependency updates, cleanup |
+| `exploration` | Design spike or open-ended research, not yet committed to implementation |
+| `refactor` | Code restructuring without changing functionality |
+
+### Domain — what area does this touch? (add when relevant)
+
+| Label | When to use |
+| ----- | ----------- |
+| `art` | Visual assets, animation, pixel art, art direction |
+| `audio` | Music, ambient sound, audio systems |
+| `systems` | Game mechanics, systems architecture, core logic |
+| `lore` | World-building, narrative, design philosophy |
+| `infrastructure` | Tooling, CI/CD, deployment, error tracking, dev environment |
+
+### Status — flow modifiers
+
+| Label | When to use |
+| ----- | ----------- |
+| `quick-win` | Small, self-contained task that can be done quickly |
+| `blocked` | Cannot proceed — waiting on a decision, asset, or dependency |
+
+### Rules
+
+1. Every issue gets **at least one Type label**
+2. Add a Domain label when relevant — most issues need one
+3. Use Linear's built-in fields for urgency (priority), workflow (state), and deadlines (due date) — don't duplicate with labels
+4. Max ~3 labels per issue; if you need more the issue is probably too broad
+5. `exploration` issues become `feature` issues once implementation is decided — create a new feature issue and link it
+6. `blocked` is transient — remove it once the blocker is resolved
+7. Don't create new labels without adding them to this table
+
+### For the Claude agent
+
+When creating issues autonomously, apply labels as follows:
+
+- Implementation tasks → `feature` + relevant domain
+- Bug reports → `bug` + relevant domain
+- Dependency/config updates → `chore` + `infrastructure`
+- Design questions without clear implementation → `exploration`
+- Code cleanup without new behavior → `refactor`
+- Anything waiting on art or design decisions → `blocked`
+
 ## When implementing a task
 
 1. Read the relevant existing files before writing anything
