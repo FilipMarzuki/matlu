@@ -86,5 +86,17 @@
     "cacheReadTokens": 386049,
     "cacheWriteTokens": 39096,
     "estimatedCostUsd": 0.3221
+  },
+  {
+    "sessionId": "manual-2026-04-13-nightly",
+    "date": "2026-04-13",
+    "branch": "",
+    "issueId": "NIGHTLY",
+    "source": "manual",
+    "inputTokens": 3000,
+    "outputTokens": 400,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "estimatedCostUsd": 0.015
   }
 ]
