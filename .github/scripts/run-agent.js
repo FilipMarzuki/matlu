@@ -93,8 +93,11 @@ async function moveToInProgress(issue) {
   );
   const inProgress = states.workflowStates.nodes[0];
   if (!inProgress) return;
+  // Linear is inconsistent: filter fields expect ID, but mutation arguments
+  // (issueUpdate(id: ...), input.stateId, input.labelIds, etc.) are typed
+  // String in the schema. Keep String! here even though these ARE IDs.
   await linear(
-    `mutation($id: ID!, $stateId: ID!) {
+    `mutation($id: String!, $stateId: String!) {
       issueUpdate(id: $id, input: { stateId: $stateId }) { success }
     }`,
     { id: issue.id, stateId: inProgress.id }
@@ -121,8 +124,9 @@ async function applyOutcomeLabel(issue, outcome) {
   }
   const existing = issue.labels.nodes.map((l) => l.id);
   const next = Array.from(new Set([...existing, label.id]));
+  // See note in moveToInProgress — mutation args are String in Linear's schema.
   await linear(
-    `mutation($id: ID!, $ids: [String!]!) {
+    `mutation($id: String!, $ids: [String!]!) {
       issueUpdate(id: $id, input: { labelIds: $ids }) { success }
     }`,
     { id: issue.id, ids: next }
@@ -131,7 +135,7 @@ async function applyOutcomeLabel(issue, outcome) {
 
 async function comment(issue, body) {
   await linear(
-    `mutation($issueId: ID!, $body: String!) {
+    `mutation($issueId: String!, $body: String!) {
       commentCreate(input: { issueId: $issueId, body: $body }) { success }
     }`,
     { issueId: issue.id, body }
