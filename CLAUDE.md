@@ -160,6 +160,11 @@ Two agent runners coexist during the FIL-198 migration:
 1. **Legacy single-session runner** — driven by `.agents/nightly.md`. Picks the highest-priority open issue, works it, then moves on. Still authoritative until Phase 3 cutover.
 2. **Per-issue runner** — `.github/workflows/agent-nightly.yml`. Cron (`0 2 * * *`) + `workflow_dispatch`. Fetches Linear Backlog issues with the `ready` label via `.github/scripts/fetch-agent-issues.js`, then fans out in a matrix (`max-parallel: 3`, `fail-fast: false`) and spawns one isolated Claude Code session per issue via `.github/scripts/run-agent.js`. Per-session prompt lives in `.agents/per-issue.md`.
 
-The per-issue runner requires two repo secrets: `ANTHROPIC_API_KEY` and `LINEAR_API_KEY`. It also expects four labels to already exist in Linear: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
+The per-issue runner requires `LINEAR_API_KEY` plus one of two Claude credentials as repo secrets:
+
+- **`CLAUDE_CODE_OAUTH_TOKEN`** (preferred) — generated locally via `claude setup-token`; usage counts against your Claude Pro/Max/Team-premium subscription quota so you avoid pay-as-you-go API billing.
+- **`ANTHROPIC_API_KEY`** — fallback, pay-as-you-go. Set this instead if you don't have a Claude Code subscription seat.
+
+It also expects four labels to already exist in Linear: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
 
 On-demand runs: trigger `Nightly Agent (per-issue)` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.

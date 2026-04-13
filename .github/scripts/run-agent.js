@@ -23,8 +23,12 @@ import { spawnSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-const LINEAR_API_KEY    = process.env.LINEAR_API_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const LINEAR_API_KEY           = process.env.LINEAR_API_KEY;
+// Claude Code accepts either auth method. Prefer the subscription OAuth
+// token (tied to a Pro/Max/Team-premium seat, no per-call API billing) and
+// fall back to a pay-as-you-go API key if the OAuth secret is unset.
+const CLAUDE_CODE_OAUTH_TOKEN  = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+const ANTHROPIC_API_KEY        = process.env.ANTHROPIC_API_KEY;
 
 const issueId = process.argv[2];
 
@@ -32,8 +36,12 @@ if (!issueId) {
   console.error('Usage: run-agent.js <ISSUE_ID>');
   process.exit(1);
 }
-if (!LINEAR_API_KEY || !ANTHROPIC_API_KEY) {
-  console.error('Missing LINEAR_API_KEY or ANTHROPIC_API_KEY');
+if (!LINEAR_API_KEY) {
+  console.error('Missing LINEAR_API_KEY');
+  process.exit(1);
+}
+if (!CLAUDE_CODE_OAUTH_TOKEN && !ANTHROPIC_API_KEY) {
+  console.error('Missing CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY');
   process.exit(1);
 }
 
@@ -163,7 +171,14 @@ function runClaude(prompt) {
     ],
     {
       stdio: 'inherit',
-      env: { ...process.env, ANTHROPIC_API_KEY },
+      // Pass whichever credential(s) the workflow provided. Claude Code uses
+      // CLAUDE_CODE_OAUTH_TOKEN when set (no API billing — charged against
+      // the subscription quota) and otherwise falls back to ANTHROPIC_API_KEY.
+      env: {
+        ...process.env,
+        ...(CLAUDE_CODE_OAUTH_TOKEN ? { CLAUDE_CODE_OAUTH_TOKEN } : {}),
+        ...(ANTHROPIC_API_KEY       ? { ANTHROPIC_API_KEY }       : {}),
+      },
     }
   );
   return result.status === 0;
