@@ -1,0 +1,105 @@
+name: Nightly Agent (per-issue)
+
+# Per-issue nightly runner for Matlu's Claude Code agent.
+#
+# Replaces the older single-session model with one isolated Claude Code
+# session per Linear issue. See FIL-198 for the full rationale — in short:
+# isolated sessions prevent context bleed between issues, keep costs
+# per-issue predictable, and let a failure on one issue not halt the rest.
+#
+# Phase 1 (current): run alongside the existing single-session runner, do NOT
+# retire it. See CLAUDE.md for the migration plan.
+
+on:
+  schedule:
+    # 02:00 UTC every day. Matches the cadence called out in FIL-198.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Manual trigger — either run the full Backlog scan, or pass a single
+    # issue ID for an on-demand mid-day run.
+    inputs:
+      issue_id:
+        description: 'Linear issue ID to run (e.g. FIL-42). Leave blank to scan the full Backlog.'
+        required: false
+        type: string
+
+concurrency:
+  # Don't let two scheduled runs overlap. workflow_dispatch runs also queue.
+  group: agent-nightly
+  cancel-in-progress: false
+
+jobs:
+  fetch-issues:
+    runs-on: ubuntu-latest
+    outputs:
+      issues:     ${{ steps.fetch.outputs.issues }}
+      has_issues: ${{ steps.fetch.outputs.has_issues }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+
+      - name: Fetch eligible Linear issues
+        id: fetch
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          if [ -n "${{ inputs.issue_id }}" ]; then
+            node .github/scripts/fetch-agent-issues.js --issue "${{ inputs.issue_id }}"
+          else
+            node .github/scripts/fetch-agent-issues.js
+          fi
+
+  run-agent:
+    needs: fetch-issues
+    # Skip the matrix entirely when there's nothing to do — otherwise the
+    # matrix would try to fan out over [] and the job would still spin up.
+    if: needs.fetch-issues.outputs.has_issues == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false is the whole point of this refactor. Each issue must
+      # stand alone — a failure in one must not cancel the others.
+      fail-fast: false
+      # Cap concurrent sessions so we don't hammer the Anthropic / Linear APIs.
+      max-parallel: 3
+      matrix:
+        issue: ${{ fromJson(needs.fetch-issues.outputs.issues) }}
+    permissions:
+      contents: write      # agent commits to its own branch
+      pull-requests: write # agent opens a PR at the end
+      issues: write        # future-proofing in case we move to GH issues too
+    env:
+      # Placeholder Vite vars so any `npm run build` inside the session
+      # bundles cleanly without repo secrets. Mirrors ci.yml.
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity
+        run: |
+          git config user.name "matlu-agent[bot]"
+          git config user.email "matlu-agent@users.noreply.github.com"
+
+      - name: Run per-issue Claude Code session
+        env:
+          # Prefer the subscription OAuth token (generated via `claude
+          # setup-token`) so usage is billed against the Claude Pro/Max/Team-
+          # premium quota rather than pay-as-you-go API credits. ANTHROPIC_API_KEY
+          # is kept as an optional fallback — set one or the other as a repo
+          # secret. run-agent.js picks whichever is present.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/run-agent.js "${{ matrix.issue }}"
