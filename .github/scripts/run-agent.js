@@ -84,7 +84,7 @@ async function fetchIssue(id) {
 async function moveToInProgress(issue) {
   if (issue.state.type === 'started') return; // already In Progress
   const states = await linear(
-    `query($teamId: String!) {
+    `query($teamId: ID!) {
       workflowStates(filter: { team: { id: { eq: $teamId } }, type: { eq: "started" } }) {
         nodes { id name }
       }
@@ -94,7 +94,7 @@ async function moveToInProgress(issue) {
   const inProgress = states.workflowStates.nodes[0];
   if (!inProgress) return;
   await linear(
-    `mutation($id: String!, $stateId: String!) {
+    `mutation($id: ID!, $stateId: ID!) {
       issueUpdate(id: $id, input: { stateId: $stateId }) { success }
     }`,
     { id: issue.id, stateId: inProgress.id }
@@ -107,7 +107,7 @@ async function applyOutcomeLabel(issue, outcome) {
   // the operator) — we look it up by name rather than create it here.
   const labelName = `agent:${outcome}`;
   const data = await linear(
-    `query($teamId: String!, $name: String!) {
+    `query($teamId: ID!, $name: String!) {
       issueLabels(filter: { team: { id: { eq: $teamId } }, name: { eq: $name } }) {
         nodes { id }
       }
@@ -122,7 +122,7 @@ async function applyOutcomeLabel(issue, outcome) {
   const existing = issue.labels.nodes.map((l) => l.id);
   const next = Array.from(new Set([...existing, label.id]));
   await linear(
-    `mutation($id: String!, $ids: [String!]!) {
+    `mutation($id: ID!, $ids: [String!]!) {
       issueUpdate(id: $id, input: { labelIds: $ids }) { success }
     }`,
     { id: issue.id, ids: next }
@@ -131,7 +131,7 @@ async function applyOutcomeLabel(issue, outcome) {
 
 async function comment(issue, body) {
   await linear(
-    `mutation($issueId: String!, $body: String!) {
+    `mutation($issueId: ID!, $body: String!) {
       commentCreate(input: { issueId: $issueId, body: $body }) { success }
     }`,
     { issueId: issue.id, body }
@@ -188,8 +188,30 @@ function runClaude(prompt) {
 
 async function main() {
   console.log(`[run-agent] Starting session for ${issueId}`);
-  const issue = await fetchIssue(issueId);
-  await moveToInProgress(issue);
+  let issue;
+
+  // The bookkeeping stage can also fail (e.g. Linear schema drift, network
+  // blip). If it crashes after we've fetched the issue, try to leave an
+  // `agent:failed` breadcrumb so the operator sees it in Linear instead of
+  // silently on the Actions tab.
+  try {
+    issue = await fetchIssue(issueId);
+    await moveToInProgress(issue);
+  } catch (err) {
+    console.error(`[run-agent] Bookkeeping failed for ${issueId}: ${err.message}`);
+    if (issue) {
+      try {
+        await applyOutcomeLabel(issue, 'failed');
+        await comment(
+          issue,
+          `⚠️ Per-issue agent bookkeeping crashed before the Claude session started. See the GitHub Actions run logs for details.`
+        );
+      } catch (e) {
+        console.error(`[run-agent] Could not post failure breadcrumb: ${e.message}`);
+      }
+    }
+    throw err;
+  }
 
   const prompt = renderPrompt(issue);
   const ok = runClaude(prompt);
