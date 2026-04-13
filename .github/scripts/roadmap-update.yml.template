@@ -1,0 +1,50 @@
+name: Weekly Roadmap Update
+
+# Posts a progress-log entry to the Notion roadmap and a dev-blog summary
+# every Sunday, fulfilling FIL-184 (Weekly Roadmap & Dev Blog Progress Updates).
+#
+# Runs one hour after stats.yml (08:00 UTC) so the two Notion writes don't
+# race. On-demand dispatch lets you re-run or test mid-week without waiting
+# for the Sunday schedule.
+
+on:
+  schedule:
+    # Every Sunday at 09:00 UTC
+    - cron: '0 9 * * 0'
+  workflow_dispatch:
+    # Manual run — useful for testing or out-of-cycle posts.
+
+jobs:
+  roadmap-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Post roadmap progress log and dev blog update
+        run: node .github/scripts/update-roadmap.js
+        env:
+          # Notion integration token — create at notion.so/my-integrations
+          NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
+
+          # Parent page for weekly progress-log entries.
+          # Defaults to the Matlu roadmap (340843c0718f81f2adc1c64213fa0f50)
+          # in the script, so this secret is optional unless the page moves.
+          NOTION_ROADMAP_PAGE_ID:  ${{ secrets.NOTION_ROADMAP_PAGE_ID }}
+
+          # Parent page for dev-blog posts.
+          # If not set, the blog-post step is skipped (roadmap update still runs).
+          NOTION_BLOG_PAGE_ID:     ${{ secrets.NOTION_BLOG_PAGE_ID }}
+
+          # Linear API key — same secret used by stats.yml and agent-nightly.yml
+          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
