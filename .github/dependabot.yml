@@ -1,0 +1,76 @@
+# Dependabot config for Matlu.
+#
+# How it works
+# ------------
+#   • Weekly npm scan, monthly GitHub Actions scan.
+#   • Minor + patch updates are grouped into a single PR per ecosystem so
+#     your Actions tab doesn't drown in bumps. Your existing
+#     `auto-merge.yml` workflow will squash-merge them once CI (typecheck,
+#     build, Playwright test) passes.
+#   • Major updates land as individual PRs — they need a human read-through
+#     because majors usually ship breaking changes.
+#   • Phaser minors are opted out of grouping on purpose: historically
+#     Phaser minors have shipped non-semver-safe changes (rendering quirks,
+#     physics tweaks). Better to handle those manually.
+#
+# Editing this file
+# -----------------
+#   Dependabot picks up changes on its next scheduled scan (weekly for npm,
+#   monthly for github-actions). You can force a re-run from Insights →
+#   Dependency graph → Dependabot → "Check for updates" on the ecosystem
+#   you care about.
+#
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # ── npm (Phaser, Vite, TypeScript, Playwright, Supabase, …) ────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Stockholm"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      # One combined PR per week for all minor + patch bumps. Low churn,
+      # auto-mergeable once CI goes green.
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Phaser minors are not reliably semver-safe — keep them manual so a
+      # surprise breakage doesn't slip past auto-merge.
+      - dependency-name: "phaser"
+        update-types:
+          - "version-update:semver-minor"
+
+  # ── GitHub Actions (checkout, setup-node, …) ───────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Stockholm"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+    groups:
+      # Bundle every action bump into a single monthly PR — there are only
+      # a handful of action versions and they rarely break.
+      github-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
