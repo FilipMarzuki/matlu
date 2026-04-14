@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
+import VirtualJoystickPlugin from 'phaser4-rex-plugins/plugins/virtualjoystick-plugin';
 import { FbmNoise } from '../lib/noise';
 import { mulberry32, poissonDisk } from '../lib/rng';
 import { t } from '../lib/i18n';
@@ -9,7 +9,7 @@ import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
 import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
-import type VirtualJoyStick from 'phaser3-rex-plugins/plugins/virtualjoystick';
+import type VirtualJoyStick from 'phaser4-rex-plugins/plugins/virtualjoystick';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
 import { WorldClock } from '../world/WorldClock';
@@ -4572,8 +4572,8 @@ export class GameScene extends Phaser.Scene {
     // Biome index grid — one byte per tile — stored for the dev biome overlay.
     const biomeIdxGrid = new Uint8Array(tilesX * tilesY);
 
-    // Open a single batch for the entire terrain — no WebGL flush per tile.
-    terrainRt.beginDraw();
+    // Phaser 4: RenderTexture.draw() handles batching internally —
+    // no manual beginDraw()/endDraw() needed.
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
@@ -4638,7 +4638,7 @@ export class GameScene extends Phaser.Scene {
         // FIL-172: pass isRiverHere so river tiles use water-sheet row 1 (lighter).
         const { key, frame } = terrainTileFrame(val, temp, effectiveMoist, detail, isRiverHere);
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
-        terrainRt.batchDraw(tileImg);
+        terrainRt.draw(tileImg);
 
         // Mark every 2nd water tile (in both axes) for the animated overlay pass.
         if (key === 'terrain-water' && tx % 2 === 0 && ty % 2 === 0 && waterCentres.length < 3000) {
@@ -4660,7 +4660,7 @@ export class GameScene extends Phaser.Scene {
           const frame = (Math.abs(dx) * 2 + Math.abs(dy)) % 6;
           tileImg.setTexture('mw-plains', frame)
                  .setPosition((sx + dx) * TILE_SIZE + 16, (sy + dy) * TILE_SIZE + 16);
-          terrainRt.batchDraw(tileImg);
+          terrainRt.draw(tileImg);
         }
       }
     }
@@ -4706,12 +4706,11 @@ export class GameScene extends Phaser.Scene {
             ((tx + nx) / 2) * TILE_SIZE + 16,
             ((ty + ny) / 2) * TILE_SIZE + 16,
           );
-          terrainRt.batchDraw(tileImg);
+          terrainRt.draw(tileImg);
         }
       }
     }
 
-    terrainRt.endDraw();
     tileImg.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
@@ -4816,14 +4815,15 @@ export class GameScene extends Phaser.Scene {
       const dashAngle = Math.PI / dashCount; // π/20 ≈ 9° per dash
       for (let i = 0; i < dashCount; i++) {
         const startAngle = i * dashAngle * 2;
-        // Approximate the arc as a 4-segment polyline
-        const pts: { x: number; y: number }[] = [];
+        // Approximate the arc as a 4-segment polyline.
+        // Phaser 4: strokePoints expects Vector2[], not plain {x,y}.
+        const pts: Phaser.Math.Vector2[] = [];
         for (let j = 0; j <= 4; j++) {
           const a = startAngle + dashAngle * (j / 4);
-          pts.push({
-            x: s.x + Math.cos(a) * s.radius,
-            y: s.y + Math.sin(a) * s.radius,
-          });
+          pts.push(new Phaser.Math.Vector2(
+            s.x + Math.cos(a) * s.radius,
+            s.y + Math.sin(a) * s.radius,
+          ));
         }
         gfx.strokePoints(pts, false);
       }

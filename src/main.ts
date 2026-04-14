@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin';
+import VirtualJoystickPlugin from 'phaser4-rex-plugins/plugins/virtualjoystick-plugin';
 import './lib/supabaseClient';
 import { log } from './lib/logger';
 import { MainMenuScene } from './scenes/MainMenuScene';
