@@ -1,0 +1,22 @@
+name: Cursor Agent — Nightly
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # midnight UTC
+  workflow_dispatch: # allow manual trigger for testing
+
+jobs:
+  cursor-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Cursor CLI
+        # See exact install command at: https://cursor.com/docs/cli/github-actions
+        run: curl -fsSL https://cursor.com/install-cli.sh | sh
+
+      - name: Run Cursor background agent
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          cursor agent \
+            --prompt "Check the Linear project for Matlu. Find issues that are in 'Todo' or 'Backlog' state and marked as ready for development. Pick the easiest one (smallest scope, well-defined). Implement it fully: write the code, run the build to verify it compiles, open a GitHub PR, post the PR link as a comment on the Linear issue, and mark the issue as Done." \
+            --model claude-sonnet-4-6
