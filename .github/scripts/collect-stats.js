@@ -422,9 +422,88 @@ function getCodeQualityStats() {
   }
 }
 
+// ── Cognitive load ───────────────────────────────────────────────────────────
+
+const NOTION_COGNITIVE_LOAD_DB_ID = process.env.NOTION_COGNITIVE_LOAD_DB_ID || null;
+
+/**
+ * Compute per-file cognitive load = (lines × branchCount) / 1000.
+ * Branch keywords: if, else if, for, while, case, &&, ||, ternary ?
+ * Returns top 10 files + total codebase score.
+ */
+function getCognitiveLoadStats() {
+  try {
+    const srcDir = join(__dirname, '..', '..', 'src');
+    const files = execSync(`find ${srcDir} -name "*.ts" -type f`, { encoding: 'utf8' })
+      .trim().split('\n').filter(Boolean);
+
+    const branchRe = /\b(if|else\s+if|for|while|case)\b|\?\s|&&|\|\|/g;
+    const results = [];
+    let totalScore = 0;
+
+    for (const filePath of files) {
+      const content = readFileSync(filePath, 'utf8');
+      const lines = content.split('\n').length;
+      const branches = (content.match(branchRe) || []).length;
+      const score = Math.round(lines * branches / 1000);
+      totalScore += score;
+
+      const relative = filePath.replace(srcDir + '/', '');
+      results.push({ file: relative, lines, branches, score });
+    }
+
+    results.sort((a, b) => b.score - a.score);
+    const top10 = results.slice(0, 10);
+    const fileCount = files.length;
+
+    return { top10, totalScore, fileCount };
+  } catch (e) {
+    console.warn('getCognitiveLoadStats failed:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Insert a row into the Cognitive Load Notion database for historical tracking.
+ * Creates one row per weekly run with the total score, top file, and top 10 JSON.
+ */
+async function postCognitiveLoadToNotion(cogLoad) {
+  if (!NOTION_COGNITIVE_LOAD_DB_ID || !NOTION_API_KEY || !cogLoad) return;
+
+  const top = cogLoad.top10[0] || { file: 'N/A', score: 0 };
+  const properties = {
+    Date:            { date: { start: isoDate() } },
+    'Total Score':   { number: cogLoad.totalScore },
+    'Top File':      { rich_text: [{ type: 'text', text: { content: top.file } }] },
+    'Top File Score':{ number: top.score },
+    'File Count':    { number: cogLoad.fileCount },
+    'Top 10':        { rich_text: [{ type: 'text', text: { content: JSON.stringify(cogLoad.top10) } }] },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({
+      parent: { database_id: NOTION_COGNITIVE_LOAD_DB_ID },
+      properties,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion cognitive load insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('Cognitive load row inserted into Notion.');
+  }
+}
+
 // ── Build Notion page content ──────────────────────────────────────────────────
 
-function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab) {
+function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad) {
   const top5Text = gh.top5Files.length
     ? gh.top5Files.map(([f, n], i) => `${i + 1}. \`${f}\` (${n} changes)`).join('\n')
     : 'No file data available.';
@@ -528,6 +607,20 @@ function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab) {
     );
   }
 
+  if (cogLoad) {
+    const top = cogLoad.top10[0];
+    const topList = cogLoad.top10
+      .map((f, i) => `${i + 1}. \`${f.file}\` — **${f.score}** (${f.lines}L × ${f.branches}br)`)
+      .join('\n');
+    blocks.push(
+      heading2('Cognitive Load'),
+      bullet(`Total codebase score: **${cogLoad.totalScore}** (${cogLoad.fileCount} files)`),
+      bullet(`Hottest file: **${top.file}** — score **${top.score}** (${top.lines} lines × ${top.branches} branches)`),
+      paragraph('Top 10 by cognitive load:'),
+      paragraph(topList),
+    );
+  }
+
   return blocks;
 }
 
@@ -627,18 +720,23 @@ async function main() {
     getPixelLabStats(),
   ]);
 
-  // Bundle size is synchronous but slow — run after async work to not block parallel fetches
-  const bundle = getBundleSize();
+  // Bundle size and cognitive load are synchronous — run after async work
+  const bundle  = getBundleSize();
+  const cogLoad = getCognitiveLoadStats();
 
   console.log('GitHub stats:', gh);
   console.log('Linear stats:', linear);
   console.log('Commit spread:', commitSpread);
   console.log('Bundle:', bundle);
   console.log('PixelLab:', pixellab);
+  console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
 
-  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab);
+  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad);
   const page   = await postToNotion(weekLabel, blocks);
   console.log(`Created Notion page: ${page.url}`);
+
+  // Store cognitive load in dedicated Notion database for historical charting
+  await postCognitiveLoadToNotion(cogLoad);
 
   await triggerVercelDeploy();
   console.log('Done.');
