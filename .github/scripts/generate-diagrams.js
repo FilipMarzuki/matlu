@@ -214,7 +214,7 @@ function renderDiagram(id, mmdContent) {
 
   try {
     execSync(
-      `npx --yes @mermaid-js/mermaid-cli mmdc -i "${mmdPath}" -o "${pngPath}" -b white --width 1400 -p "${puppeteerCfg}"`,
+      `npx --yes @mermaid-js/mermaid-cli -i "${mmdPath}" -o "${pngPath}" -b white --width 1400 -p "${puppeteerCfg}"`,
       { stdio: 'inherit', timeout: 120_000 }
     );
     console.log(`  Rendered ${id}.png`);
