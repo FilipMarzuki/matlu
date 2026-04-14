@@ -1,0 +1,63 @@
+name: Nightly Combat Improvement
+
+# Runs the arena testplay benchmark, attempts one targeted combat AI improvement,
+# and opens a PR if the score (kills - deaths×5) increases.
+# Runs at 03:00 UTC — one hour after the nightly implementation agent (02:00 UTC).
+# Prompt lives in .agents/combat-improvement.md.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-combat-improvement
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # agent commits and pushes a branch
+      pull-requests: write   # agent opens a PR
+
+    env:
+      # Placeholder Supabase vars so Vite can bundle without real secrets.
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        # Pre-build so the agent can immediately run `npm run arena:testplay`
+        # without waiting for the first build inside the session.
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run combat improvement session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/combat-improvement.md)"
