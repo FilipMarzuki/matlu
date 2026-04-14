@@ -12,8 +12,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { renderDiagram } from './lib/mermaid-render.js';
+import { pushToWiki }    from './lib/wiki-upload.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -24,12 +25,7 @@ const REPO_ROOT  = path.join(__dirname, '../..');
 const NOTION_API_KEY       = process.env.NOTION_API_KEY;
 const NOTION_BLOG_PAGE_ID  = process.env.NOTION_BLOG_PAGE_ID || '33f843c0-718f-8197-8972-fb2b6e44754a';
 const LINEAR_API_KEY       = process.env.LINEAR_API_KEY;
-const MATLU_WIKI_TOKEN     = process.env.MATLU_WIKI_PUSH_TOKEN;
-const WIKI_OWNER           = 'FilipMarzuki';
-const WIKI_REPO            = 'matlu-wiki';
-
 if (!NOTION_API_KEY) { console.error('Missing NOTION_API_KEY'); process.exit(1); }
-if (!MATLU_WIKI_TOKEN) { console.error('Missing MATLU_WIKI_PUSH_TOKEN'); process.exit(1); }
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -199,69 +195,7 @@ function buildEntityDiagram(hierarchy) {
   return lines.join('\n');
 }
 
-// ── Render Mermaid → PNG ──────────────────────────────────────────────────────
-
-function renderDiagram(id, mmdContent) {
-  fs.mkdirSync(TMP_DIR, { recursive: true });
-  const mmdPath = path.join(TMP_DIR, `${id}.mmd`);
-  const pngPath = path.join(TMP_DIR, `${id}.png`);
-
-  // Write puppeteer config for sandboxed CI environment
-  const puppeteerCfg = path.join(TMP_DIR, 'puppeteer.json');
-  fs.writeFileSync(puppeteerCfg, JSON.stringify({ args: ['--no-sandbox', '--disable-setuid-sandbox'] }));
-
-  fs.writeFileSync(mmdPath, mmdContent, 'utf8');
-
-  try {
-    execSync(
-      `npx --yes @mermaid-js/mermaid-cli mmdc -i "${mmdPath}" -o "${pngPath}" -b white --width 1400 -p "${puppeteerCfg}"`,
-      { stdio: 'inherit', timeout: 120_000 }
-    );
-    console.log(`  Rendered ${id}.png`);
-    return pngPath;
-  } catch (e) {
-    console.warn(`  Failed to render ${id}: ${e.message}`);
-    return null;
-  }
-}
-
-// ── Push PNG to matlu-wiki (public repo) ──────────────────────────────────────
-
-async function pushToWiki(id, pngPath) {
-  const wikiPath = `public/diagrams/${id}.png`;
-  const apiUrl = `https://api.github.com/repos/${WIKI_OWNER}/${WIKI_REPO}/contents/${wikiPath}`;
-  const headers = {
-    Authorization: `Bearer ${MATLU_WIKI_TOKEN}`,
-    Accept: 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28',
-    'Content-Type': 'application/json',
-  };
-
-  // Fetch existing file SHA so we can update in-place (required by GitHub API)
-  let sha;
-  const existing = await fetch(apiUrl, { headers });
-  if (existing.ok) {
-    const data = await existing.json();
-    sha = data.sha;
-  }
-
-  const content = fs.readFileSync(pngPath).toString('base64');
-  const body = {
-    message: `chore: update ${id} diagram [skip ci]`,
-    content,
-    ...(sha ? { sha } : {}),
-  };
-
-  const res = await fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`GitHub push failed for ${id}: ${res.status} ${err}`);
-  }
-  console.log(`  Pushed ${id}.png to matlu-wiki`);
-
-  // Return the stable raw URL for use in Notion image blocks
-  return `https://raw.githubusercontent.com/${WIKI_OWNER}/${WIKI_REPO}/main/${wikiPath}`;
-}
+// renderDiagram and pushToWiki are imported from ./lib/ (shared with FIL-205 agent)
 
 // ── Notion page create / update ───────────────────────────────────────────────
 
