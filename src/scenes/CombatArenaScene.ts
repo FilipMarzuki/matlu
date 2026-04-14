@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CombatEntity, Skald, Spider, Skag, Crow } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 import { WorldState } from '../world/WorldState';
+import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 
 // ── Wave & hero type definitions ──────────────────────────────────────────────
 
@@ -93,9 +94,14 @@ export class CombatArenaScene extends Phaser.Scene {
   private labelText!:   Phaser.GameObjects.Text;
 
   /** WorldState instance — tracks conviction for this arena session. */
-  private worldState!:  WorldState;
+  private worldState!:   WorldState;
   /** Conviction bar fill rectangle — scaleX mapped to 0–1 conviction fraction. */
-  private convBarFill!: Phaser.GameObjects.Rectangle;
+  private convBarFill!:  Phaser.GameObjects.Rectangle;
+  /**
+   * ArenaBlackboard — shared inter-entity state (panic origin, etc.).
+   * Updated once per frame; enemies read it to decide swarm reactions.
+   */
+  private blackboard!:   ArenaBlackboard;
 
   constructor() {
     super({ key: CombatArenaScene.KEY });
@@ -134,6 +140,8 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // WorldState tracks conviction for this arena session (0–100, starts at 50).
     this.worldState = new WorldState(this);
+    // ArenaBlackboard shares swarm-coordination state (panic events) between enemies.
+    this.blackboard = new ArenaBlackboard();
 
     this.buildArena();
 
@@ -155,8 +163,44 @@ export class CombatArenaScene extends Phaser.Scene {
   override update(_time: number, delta: number): void {
     if (this.waveState !== 'active') return;
 
+    // Expire stale panic events (they live for ~200 ms).
+    this.blackboard.update(delta);
+
     this.hero.update(delta);
     for (const e of this.enemies) e.update(delta);
+
+    // ── Boids swarm update ─────────────────────────────────────────────────
+    // Build a flat cell grid (cellSize = 80 px) from alive enemies so each
+    // entity can query its spatial neighbours without O(n²) distance checks.
+    // Cells are keyed as "cx,cy" strings — fast enough for ≤20 enemies.
+    const CELL = 80;
+    const cellMap = new Map<string, CombatEntity[]>();
+    for (const e of this.enemies) {
+      if (!e.isAlive) continue;
+      const key = `${Math.floor(e.x / CELL)},${Math.floor(e.y / CELL)}`;
+      if (!cellMap.has(key)) cellMap.set(key, []);
+      cellMap.get(key)!.push(e);
+    }
+    for (const e of this.enemies) {
+      if (!e.isAlive) continue;
+      const cx = Math.floor(e.x / CELL);
+      const cy = Math.floor(e.y / CELL);
+      // Query 3×3 neighbourhood (covers ≈240 px radius), capped at 7 entries.
+      const neighbours: CombatEntity[] = [];
+      outer: for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const cell = cellMap.get(`${cx + dx},${cy + dy}`);
+          if (!cell) continue;
+          for (const n of cell) {
+            if (n !== e) {
+              neighbours.push(n);
+              if (neighbours.length >= 7) break outer;
+            }
+          }
+        }
+      }
+      e.tickSwarm(neighbours, delta);
+    }
 
     // Tick all in-flight projectiles, then prune ones that have expired.
     for (const p of this.projectiles) p.tick(delta);
@@ -300,6 +344,17 @@ export class CombatArenaScene extends Phaser.Scene {
       // Only reward conviction for killing enemies, not for the hero dying.
       if (entity !== this.hero) {
         this.worldState.adjustConviction(+8);
+      }
+      // A death is a loud event — publish a panic origin and scatter nearby enemies.
+      // Enemies within 150 px enter panic: swarm weights spike, burst velocity fires.
+      this.blackboard.setPanic(entity.x, entity.y);
+      const PANIC_RADIUS = 150;
+      for (const e of this.enemies) {
+        if (!e.isAlive || e === entity) continue;
+        const d = Phaser.Math.Distance.Between(entity.x, entity.y, e.x, e.y);
+        if (d < PANIC_RADIUS) {
+          e.enterPanic(entity.x, entity.y);
+        }
       }
     });
 

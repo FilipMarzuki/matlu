@@ -10,6 +10,7 @@ import {
   BtCooldown,
   CombatContext,
 } from '../ai/BehaviorTree';
+import { SwarmBrain, SwarmWeights, BASE_WEIGHTS, PANIC_WEIGHTS } from './SwarmBrain';
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
@@ -106,7 +107,25 @@ export abstract class CombatEntity extends Enemy {
   private   readonly projectileSpeed:  number;
   private   readonly projectileColor:  number;
 
-  // ── Sprite animation state ────────────────────────────────────────────────
+  // ── Swarm (boids) state ───────────────────────────────────────────────────
+  /**
+   * Current boids weights — mutated when panic is triggered, then lerped
+   * back toward BASE_WEIGHTS as the panicTimer expires.
+   * Each entity gets its own copy so weights don't bleed between entities.
+   */
+  swarmWeights: SwarmWeights = { ...BASE_WEIGHTS };
+
+  /** Remaining panic duration in ms (0 = calm; 3000 = freshly panicked). */
+  panicTimer = 0;
+
+  /**
+   * Last computed boids steering vector — cached between frame-skip ticks.
+   * tickSwarm() recalculates every 3 frames and applies the cache in between;
+   * boids precision at 20 fps is imperceptible vs. 60 fps.
+   */
+  private cachedSteer = { vx: 0, vy: 0 };
+
+  // ── Sprite animation state ────────────────────────────────────────────────────
   private spriteObj?: Phaser.GameObjects.Sprite;
   /**
    * Last resolved facing direction — persists when the entity stops moving.
@@ -178,6 +197,11 @@ export abstract class CombatEntity extends Enemy {
       this.bringToTop(hpBarBg);
       this.bringToTop(this.hpBarFill);
     }
+
+    // Per-entity speed variance — ±15 px/s randomised at spawn time.
+    // This creates uneven swarm texture: some insects rush, some lag behind.
+    // Enemy.speed is no longer readonly specifically to allow this mutation.
+    this.speed += Phaser.Math.FloatBetween(-15, 15);
 
     // Build the behavior tree after all config is stored so subclass trees
     // can safely reference `this` fields.
@@ -427,6 +451,102 @@ export abstract class CombatEntity extends Enemy {
     });
 
     this.scene.events.emit('combatant-damaged', this, amount);
+  }
+
+  // ── Swarm (boids) API ─────────────────────────────────────────────────────
+
+  /**
+   * Trigger a panic scatter burst on this entity.
+   *
+   * Spikes the swarm weights toward PANIC_WEIGHTS so the entity scatters
+   * away from nearby threats; the weights then lerp back to BASE over 3 s.
+   * An immediate velocity burst away from the event origin is also applied
+   * so the visual scatter starts this frame rather than waiting for boids.
+   *
+   * Called by CombatArenaScene when a nearby combatant dies (FIL-190 will
+   * centralise this into a full SoundEventSystem when merged).
+   */
+  enterPanic(originX: number, originY: number): void {
+    this.panicTimer = 3000;
+    // Burst velocity directly away from the panic source — the "fly darting" feel.
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    if (physBody) {
+      const dx = this.x - originX;
+      const dy = this.y - originY;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      physBody.setVelocity(
+        physBody.velocity.x + (dx / len) * 120,
+        physBody.velocity.y + (dy / len) * 120,
+      );
+    }
+  }
+
+  /**
+   * Apply one boids tick for this entity.
+   *
+   * Called by CombatArenaScene.update() AFTER the BT tick so boids forces
+   * layer on top of the behaviour-tree velocity — the BT steers, boids perturbs.
+   *
+   * Recalculates the steering vector every 3 frames (cached in between) for
+   * performance. The full calculation at 20 fps is imperceptible vs. 60 fps.
+   *
+   * @param neighbours Alive entities from the spatial cell grid query (≤7).
+   * @param delta      Frame delta in ms.
+   */
+  tickSwarm(neighbours: ReadonlyArray<CombatEntity>, delta: number): void {
+    if (!this.isAlive) return;
+
+    // ── Panic weight recovery ──────────────────────────────────────────────
+    // t runs from 1 (full panic) to 0 (recovered); weights lerp accordingly.
+    if (this.panicTimer > 0) {
+      this.panicTimer = Math.max(0, this.panicTimer - delta);
+      const t = this.panicTimer / 3000;
+      this.swarmWeights.separation =
+        BASE_WEIGHTS.separation + (PANIC_WEIGHTS.separation - BASE_WEIGHTS.separation) * t;
+      this.swarmWeights.alignment =
+        BASE_WEIGHTS.alignment + (PANIC_WEIGHTS.alignment - BASE_WEIGHTS.alignment) * t;
+      this.swarmWeights.cohesion =
+        BASE_WEIGHTS.cohesion + (PANIC_WEIGHTS.cohesion - BASE_WEIGHTS.cohesion) * t;
+    }
+
+    // ── Frame-skipped recalculation ────────────────────────────────────────
+    // Boids don't need per-frame precision; recomputing every 3 frames halves
+    // CPU cost at 60 fps with zero visible difference.
+    if (this.scene.game.getFrame() % 3 === 0) {
+      const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+      if (!physBody) return;
+
+      const nData = neighbours.map(n => {
+        const nb = n.body as Phaser.Physics.Arcade.Body | undefined;
+        return { x: n.x, y: n.y, vx: nb?.velocity.x ?? 0, vy: nb?.velocity.y ?? 0 };
+      });
+
+      this.cachedSteer = SwarmBrain.steer(
+        this.x, this.y,
+        physBody.velocity.x, physBody.velocity.y,
+        nData,
+        this.swarmWeights,
+      );
+
+      // Per-frame jitter — small random velocity noise for insect-like twitching.
+      // Applied once at recalc time so the jitter doesn't fire every frame.
+      // TODO FIL-179: modulate cohesion weight by manaField.sample(this.x, this.y)
+      this.cachedSteer.vx += (Math.random() - 0.5) * 12;
+      this.cachedSteer.vy += (Math.random() - 0.5) * 12;
+    }
+
+    // ── Apply cached steer ─────────────────────────────────────────────────
+    // Applied every frame (not just recalc frames) so movement is smooth.
+    // Skipped during dash — boids shouldn't cancel the burst velocity.
+    if (!this.isDashing) {
+      const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+      if (physBody) {
+        physBody.setVelocity(
+          physBody.velocity.x + this.cachedSteer.vx,
+          physBody.velocity.y + this.cachedSteer.vy,
+        );
+      }
+    }
   }
 
   // ── Hit feedback API ──────────────────────────────────────────────────────

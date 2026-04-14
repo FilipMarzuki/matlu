@@ -16,7 +16,11 @@ export interface EnemyConfig extends LivingEntityConfig {
 export abstract class Enemy extends LivingEntity {
   readonly aggroRadius: number;
   readonly attackDamage: number;
-  readonly speed: number;
+  /**
+   * Movement speed in px/s. Not readonly so CombatEntity can apply a
+   * per-instance speed variance at construction time (boids texture).
+   */
+  speed: number;
 
   constructor(scene: Phaser.Scene, x: number, y: number, config: EnemyConfig) {
     super(scene, x, y, config);
