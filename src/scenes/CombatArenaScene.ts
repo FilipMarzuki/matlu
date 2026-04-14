@@ -12,8 +12,7 @@ import {
 } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
-// TODO(FIL-213): re-enable once ShimmerPostFX is migrated to Phaser 4 Filter system
-// import { ShimmerPostFX }   from '../shaders/ShimmerPostFX';
+import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { VelcridJuvenile, VelcridAdult } from '../entities/Velcrid';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
@@ -194,9 +193,12 @@ export class CombatArenaScene extends Phaser.Scene {
 
     this.buildArena();
 
-    // ── Stone shimmer post-FX (disabled — Phaser 4 migration) ──────────────
-    // TODO(FIL-213): PostFXPipeline was removed in Phaser 4. Re-implement as
-    // a custom Filter. The GLSL in ShimmerPostFX.ts is still valid.
+    // ── Stone shimmer filter (Phaser 4) ─────────────────────────────────────
+    // Subtle UV warp + drifting warm specular on the arena floor.
+    if (this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
+      const shimmer = new ShimmerFilter(this.cameras.main);
+      this.cameras.main.filters.external.add(shimmer);
+    }
 
     this.anims.createFromAseprite('tinkerer');
     this.anims.createFromAseprite('spider');

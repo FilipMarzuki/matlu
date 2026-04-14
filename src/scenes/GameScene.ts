@@ -27,8 +27,7 @@ import {
   traceRiverPath,
   buildRiverTileGrids,
 }                              from '../world/RiverData';
-// TODO(FIL-213): re-enable once CorruptionPostFX is migrated to Phaser 4 Filter system
-// import { CorruptionPostFX }  from '../shaders/CorruptionPostFX';
+import { CorruptionFilter } from '../shaders/CorruptionFilter';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
   meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
@@ -552,8 +551,7 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Shader pipelines ────────────────────────────────────────────────────────
   // null when running under the Canvas renderer (no WebGL) or before create()
-  // TODO(FIL-213): restore once CorruptionPostFX is migrated to Phaser 4 Filter
-  private corruptPipeline: { setCorruption(v: number): void } | null = null;
+  private corruptFilter: CorruptionFilter | null = null;
 
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
@@ -1294,11 +1292,13 @@ export class GameScene extends Phaser.Scene {
     // Reset pinch reference whenever a finger lifts so the next gesture starts fresh.
     this.input.on('pointerup', () => { this.pinchZoomRef = null; });
 
-    // ── Corruption post-FX (disabled — Phaser 4 migration) ─────────────────
-    // TODO(FIL-213): PostFXPipeline was removed in Phaser 4. Re-implement as
-    // a custom Filter (BaseFilterShader + Controller). The GLSL in
-    // CorruptionPostFX.ts is still valid — just needs a new host class.
-    // Until then, corruption visual effects are inactive.
+    // ── Corruption filter (Phaser 4) ────────────────────────────────────────
+    // Full-viewport corruption visual: UV warp, purple desat, pulsing vignette.
+    // Passthrough when corruption == 0 (no GPU cost for a clean world).
+    if (this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
+      this.corruptFilter = new CorruptionFilter(this.cameras.main);
+      this.cameras.main.filters.external.add(this.corruptFilter);
+    }
     this.initAttractMode();
   }
 
@@ -1347,8 +1347,8 @@ export class GameScene extends Phaser.Scene {
     // lagging by up to 5 s. Re-used below for path degradation too.
     const cleanse01           = this.worldState.getCleansePercent('zone-main');
     const globalCorruption01  = Math.max(0, 100 - cleanse01) / 100;
-    if (this.corruptPipeline) {
-      this.corruptPipeline.setCorruption(globalCorruption01);
+    if (this.corruptFilter) {
+      this.corruptFilter.setCorruption(globalCorruption01);
     }
 
     // Degrade path conditions every 5 s when corruption is above 0.

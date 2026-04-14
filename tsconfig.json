@@ -13,9 +13,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts", "vite.config.ts"],
-  "exclude": [
-    "src/shaders/CorruptionPostFX.ts",
-    "src/shaders/ShimmerPostFX.ts"
-  ]
+  "include": ["src/**/*.ts", "vite.config.ts"]
 }
