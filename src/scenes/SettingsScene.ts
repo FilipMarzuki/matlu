@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 import { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES } from '../lib/i18n';
 
 /**

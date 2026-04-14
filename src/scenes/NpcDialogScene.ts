@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 /**
  * NpcDialogScene — a pause overlay for story dialog with typewriter text reveal.

@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 // src/environment/InteractiveObject.ts
 import { SolidObject, SolidObjectOptions } from './SolidObject';
 

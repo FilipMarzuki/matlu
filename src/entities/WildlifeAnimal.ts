@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 import { LivingEntity, LivingEntityConfig } from './LivingEntity';
 import type { WorldClock } from '../world/WorldClock';
 

@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 /**
  * Entity — base class for all game entities with position and lifecycle.
  *
