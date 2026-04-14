@@ -22,6 +22,34 @@ const BAR_W  = 36;
 const BAR_H  = 5;
 const BAR_Y  = -20; // px above Container center
 
+// ── Detection FSM timing ───────────────────────────────────────────────────────
+
+/**
+ * Grace period (ms) before an engaging enemy transitions to searching when
+ * it loses sight of the target. Prevents instant give-up on brief occlusions.
+ */
+const LOS_GRACE_MS = 1500;
+
+/**
+ * How long (ms) a searching enemy investigates the last-known position before
+ * giving up and returning to idle.
+ */
+const SEARCH_DURATION_MS = 5000;
+
+// ── Detection FSM ─────────────────────────────────────────────────────────────
+
+/**
+ * Four-state detection model gating enemy awareness:
+ *
+ *   idle      → alerted   (target enters alertRadius AND has LOS, or alertTo() called)
+ *   alerted   → engaging  (target stays within alertRadius for 1 frame — immediate)
+ *   engaging  → searching (target leaves loseSightRadius OR LOS lost for > 1.5 s)
+ *   searching → idle      (searchTimer expires after 5 s with no re-acquire)
+ *   searching → alerted   (target re-enters alertRadius with LOS)
+ *   (any)     → alerted   (alertTo() called — sound event forces awareness)
+ */
+export type DetectionState = 'idle' | 'alerted' | 'engaging' | 'searching';
+
 // ── Config ────────────────────────────────────────────────────────────────────
 
 export interface CombatEntityConfig extends EnemyConfig {
@@ -124,6 +152,31 @@ export abstract class CombatEntity extends Enemy {
    * boids precision at 20 fps is imperceptible vs. 60 fps.
    */
   private cachedSteer = { vx: 0, vy: 0 };
+
+  // ── Detection FSM state ───────────────────────────────────────────────────────
+  /**
+   * Current awareness state. Guards BT execution: enemies only chase/attack
+   * while engaging; otherwise they wander or steer toward a last-known position.
+   */
+  detectionState: DetectionState = 'idle';
+
+  /**
+   * World position of the last confirmed target sighting.
+   * Set when engaging; retained as an investigation point when searching.
+   */
+  lastKnownTargetPos: { x: number; y: number } | null = null;
+
+  /**
+   * Accumulated time (ms) since LOS was lost while engaging.
+   * If this exceeds LOS_GRACE_MS the enemy transitions to searching.
+   */
+  private losTimer = 0;
+
+  /**
+   * Remaining search duration (ms).
+   * Counts down from SEARCH_DURATION_MS; idle transition fires when it hits 0.
+   */
+  private searchTimer = 0;
 
   // ── Sprite animation state ────────────────────────────────────────────────────
   private spriteObj?: Phaser.GameObjects.Sprite;
@@ -258,8 +311,16 @@ export abstract class CombatEntity extends Enemy {
       }
     }
 
-    // Pick the nearest living opponent for this frame's BT tick.
-    const target = this.findNearestLivingOpponent();
+    // ── Detection FSM ─────────────────────────────────────────────────────────
+    //
+    // Always find the raw nearest living opponent (pure distance lookup),
+    // then let the FSM decide whether we're aware of them. The BT only
+    // receives a non-null opponent when the state is 'engaging'.
+    const rawTarget = this.findNearestLivingOpponent();
+    this.updateDetectionFSM(delta, rawTarget);
+
+    // Gate target visibility: idle/searching enemies don't know where to attack.
+    const target = this.detectionState === 'engaging' ? rawTarget : null;
 
     const ctx: CombatContext = {
       x:     this.x,
@@ -339,6 +400,25 @@ export abstract class CombatEntity extends Enemy {
     };
 
     this.behaviorTree.tick(ctx, delta);
+
+    // ── Searching override ─────────────────────────────────────────────────────
+    //
+    // When searching, the BT sees no opponent and wanders randomly.
+    // Override that with purposeful movement toward the last confirmed sighting
+    // so the enemy investigates the area rather than wandering aimlessly.
+    if (this.detectionState === 'searching' && this.lastKnownTargetPos && physBody && !this.isDashing) {
+      const { x: tx, y: ty } = this.lastKnownTargetPos;
+      const dx  = tx - this.x;
+      const dy  = ty - this.y;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      if (len > 8) {
+        physBody.setVelocity((dx / len) * this.speed * 0.7, (dy / len) * this.speed * 0.7);
+      } else {
+        // Arrived at investigation point — stop moving and wait for searchTimer.
+        physBody.setVelocity(0, 0);
+      }
+    }
+
     this.refreshHpBar();
     this.updateSpriteAnimation(delta);
   }
@@ -400,6 +480,116 @@ export abstract class CombatEntity extends Enemy {
     // Only call play() when the tag changes to avoid restarting mid-loop.
     if (this.spriteObj.anims.currentAnim?.key !== tag) {
       this.spriteObj.play(tag, true);
+    }
+  }
+
+  // ── Detection FSM API ─────────────────────────────────────────────────────
+
+  /**
+   * Force this enemy into the alerted state from any current state.
+   *
+   * Called by SoundEventSystem when a loud event (gunshot, death, explosion)
+   * occurs within hearing range. Sound bypasses LOS requirements — an enemy
+   * hears a noise even around corners or behind walls.
+   *
+   * @param originX  World X of the sound — used as the initial investigation point.
+   * @param originY  World Y of the sound.
+   */
+  alertTo(originX: number, originY: number): void {
+    if (!this.isAlive) return;
+    this.detectionState = 'alerted';
+    this.lastKnownTargetPos = { x: originX, y: originY };
+  }
+
+  /**
+   * Returns true if this enemy has an unobstructed line of sight to the
+   * given world position.
+   *
+   * Currently always returns true — the combat arena has no solid obstacles,
+   * so LOS is never blocked. When walls are introduced, replace this with a
+   * ray-cast against the tilemap or physics world (FIL-190 future work).
+   */
+  hasLOS(_targetX: number, _targetY: number): boolean {
+    return true;
+  }
+
+  /**
+   * Advance the detection FSM by one frame.
+   *
+   * State transitions:
+   *   idle      → alerted   target enters alertRadius AND hasLOS
+   *   alerted   → engaging  immediate (one-frame gate for alertTo() distinction)
+   *   engaging  → searching target leaves loseSightRadius OR LOS lost > LOS_GRACE_MS
+   *   searching → idle      searchTimer expires (SEARCH_DURATION_MS)
+   *   searching → alerted   target re-enters alertRadius with LOS (re-acquire)
+   *
+   * alertTo() short-circuits all of the above by directly setting 'alerted'.
+   */
+  private updateDetectionFSM(delta: number, rawTarget: CombatEntity | null): void {
+    switch (this.detectionState) {
+
+      case 'idle': {
+        if (!rawTarget) break;
+        const d = Phaser.Math.Distance.Between(this.x, this.y, rawTarget.x, rawTarget.y);
+        if (d <= this.alertRadius && this.hasLOS(rawTarget.x, rawTarget.y)) {
+          this.detectionState = 'alerted';
+          this.lastKnownTargetPos = { x: rawTarget.x, y: rawTarget.y };
+        }
+        break;
+      }
+
+      case 'alerted': {
+        // One-frame pause between hearing/seeing and fully engaging — gives
+        // alertTo() a distinct state from normal sight so it can be extended
+        // in future (e.g. play an alert bark animation or emit a sound).
+        this.detectionState = 'engaging';
+        this.losTimer = 0;
+        break;
+      }
+
+      case 'engaging': {
+        if (!rawTarget) {
+          // Target died or was removed — start searching the last known spot.
+          this.detectionState = 'searching';
+          this.searchTimer = SEARCH_DURATION_MS;
+          break;
+        }
+        const d = Phaser.Math.Distance.Between(this.x, this.y, rawTarget.x, rawTarget.y);
+        const visible = d <= this.loseSightRadius && this.hasLOS(rawTarget.x, rawTarget.y);
+        if (visible) {
+          // Still has sight — refresh last-known position and reset grace period.
+          this.lastKnownTargetPos = { x: rawTarget.x, y: rawTarget.y };
+          this.losTimer = 0;
+        } else {
+          // Target out of range or obscured — accumulate grace time.
+          this.losTimer += delta;
+          if (this.losTimer >= LOS_GRACE_MS) {
+            this.detectionState = 'searching';
+            this.searchTimer = SEARCH_DURATION_MS;
+            this.losTimer = 0;
+          }
+        }
+        break;
+      }
+
+      case 'searching': {
+        this.searchTimer -= delta;
+        if (this.searchTimer <= 0) {
+          // Gave up — return to idle and forget the last known position.
+          this.detectionState = 'idle';
+          this.lastKnownTargetPos = null;
+          break;
+        }
+        // Re-acquire if target wanders back into detection range with LOS.
+        if (rawTarget) {
+          const d = Phaser.Math.Distance.Between(this.x, this.y, rawTarget.x, rawTarget.y);
+          if (d <= this.alertRadius && this.hasLOS(rawTarget.x, rawTarget.y)) {
+            this.detectionState = 'alerted';
+            this.lastKnownTargetPos = { x: rawTarget.x, y: rawTarget.y };
+          }
+        }
+        break;
+      }
     }
   }
 

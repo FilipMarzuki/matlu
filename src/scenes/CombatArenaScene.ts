@@ -3,6 +3,7 @@ import { CombatEntity, Skald, Spider, Skag, Crow } from '../entities/CombatEntit
 import { Projectile } from '../entities/Projectile';
 import { WorldState } from '../world/WorldState';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
+import { SoundEventSystem } from '../world/SoundEventSystem';
 
 // ── Wave & hero type definitions ──────────────────────────────────────────────
 
@@ -102,6 +103,11 @@ export class CombatArenaScene extends Phaser.Scene {
    * Updated once per frame; enemies read it to decide swarm reactions.
    */
   private blackboard!:   ArenaBlackboard;
+  /**
+   * SoundEventSystem — translates loud in-game events (gunshots, deaths)
+   * into enemy alertTo() calls so enemies react to noise without LOS.
+   */
+  private soundSystem!:  SoundEventSystem;
 
   constructor() {
     super({ key: CombatArenaScene.KEY });
@@ -142,6 +148,10 @@ export class CombatArenaScene extends Phaser.Scene {
     this.worldState = new WorldState(this);
     // ArenaBlackboard shares swarm-coordination state (panic events) between enemies.
     this.blackboard = new ArenaBlackboard();
+    // SoundEventSystem listens for scene sound events and alerts nearby enemies.
+    // Registered with WorldState so it's torn down cleanly when the scene shuts down.
+    this.soundSystem = new SoundEventSystem(this);
+    this.worldState.registerSystem(this.soundSystem);
 
     this.buildArena();
 
@@ -320,11 +330,18 @@ export class CombatArenaScene extends Phaser.Scene {
     // Hero targets all enemies; BT picks the nearest living one each frame.
     this.hero.setOpponents(this.enemies);
 
+    // Register the current enemy roster with the sound system so it knows
+    // which entities to alert when gunshots or deaths are heard.
+    this.soundSystem.setEnemies(this.enemies);
+
     // Collect projectiles spawned by any combatant's shootAt() closure.
     // Entities emit 'projectile-spawned' on the scene event bus; we own the
     // list and tick each projectile manually in update().
     this.events.on('projectile-spawned', (p: Projectile) => {
       this.projectiles.push(p);
+      // A gunshot is audible to enemies within 300 px — alert anyone in range.
+      // This lets enemies react to Skald's arrows even before they have LOS.
+      this.events.emit('sound:gunshot', { x: p.x, y: p.y, radius: 300 });
     });
 
     // Camera shake on hit — stronger shake when the hero is struck, subtle on enemy death.
@@ -345,8 +362,10 @@ export class CombatArenaScene extends Phaser.Scene {
       if (entity !== this.hero) {
         this.worldState.adjustConviction(+8);
       }
-      // A death is a loud event — publish a panic origin and scatter nearby enemies.
-      // Enemies within 150 px enter panic: swarm weights spike, burst velocity fires.
+      // A death is a loud event — alert enemies within 200 px via the sound system.
+      // This uses alertTo() which bypasses LOS, so enemies around corners hear it too.
+      this.events.emit('sound:death', { x: entity.x, y: entity.y, radius: 200 });
+      // Also publish a panic origin so the swarm boids scatter visually.
       this.blackboard.setPanic(entity.x, entity.y);
       const PANIC_RADIUS = 150;
       for (const e of this.enemies) {
@@ -373,6 +392,10 @@ export class CombatArenaScene extends Phaser.Scene {
     this.events.off('projectile-spawned');
     this.events.off('combatant-damaged');
     this.events.off('combatant-died');
+
+    // Clear the sound system's enemy roster so dead entities from this wave
+    // aren't alerted by events that fire during the next wave's startup.
+    this.soundSystem.setEnemies([]);
 
     this.hero.destroy();
     for (const e of this.enemies) e.destroy();
