@@ -1208,7 +1208,7 @@ export class Tinkerer extends CombatEntity {
             return 'success';
           }),
         ]),
-        750,
+        500,
       ),
 
       // ── 4. Gap-close dash ─────────────────────────────────────────────────────
