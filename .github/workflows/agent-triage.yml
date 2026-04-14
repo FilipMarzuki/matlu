@@ -1,0 +1,84 @@
+name: Triage Agent (per-issue)
+
+# Weekly triage runner for Matlu's Linear backlog.
+#
+# Sweeps Backlog issues that haven't been triaged yet (no `ready`,
+# `needs-refinement`, `blocked`, `too-large`, or `agent:*` label) and
+# spawns one isolated Claude Code session per issue to assess readiness
+# for the nightly implementation agent.
+#
+# The triage agent reads the codebase for context but does NOT write
+# code, commit, or push. Its only output is Linear label + description
+# edits + comments.
+
+on:
+  schedule:
+    # Every Sunday at 22:00 UTC — runs before Monday's implementation cron.
+    - cron: '0 22 * * 0'
+  workflow_dispatch:
+    inputs:
+      issue_id:
+        description: 'Linear issue ID to triage (e.g. FIL-42). Leave blank to scan the full Backlog.'
+        required: false
+        type: string
+
+concurrency:
+  group: agent-triage
+  cancel-in-progress: false
+
+jobs:
+  fetch-issues:
+    runs-on: ubuntu-latest
+    outputs:
+      issues:     ${{ steps.fetch.outputs.issues }}
+      has_issues: ${{ steps.fetch.outputs.has_issues }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Fetch un-triaged Backlog issues
+        id: fetch
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          if [ -n "${{ inputs.issue_id }}" ]; then
+            node .github/scripts/fetch-triage-issues.js --issue "${{ inputs.issue_id }}"
+          else
+            node .github/scripts/fetch-triage-issues.js
+          fi
+
+  run-triage:
+    needs: fetch-issues
+    if: needs.fetch-issues.outputs.has_issues == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # Higher parallelism than the implementation runner — triage sessions
+      # are lighter (read-only, no build/push) and finish in 2–5 minutes.
+      max-parallel: 5
+      matrix:
+        issue: ${{ fromJson(needs.fetch-issues.outputs.issues) }}
+    env:
+      # Placeholder Vite vars so any accidental `npm run build` doesn't crash.
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      # No npm ci — the triage agent only reads files, it doesn't build.
+      # Keeping the checkout lightweight speeds up session start.
+
+      - name: Run triage session for ${{ matrix.issue }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/run-triage.js "${{ matrix.issue }}"
