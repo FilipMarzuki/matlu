@@ -37,6 +37,7 @@ import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
+import { layoutSettlement } from '../world/SettlementLayout';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
 /**
@@ -5396,6 +5397,7 @@ export class GameScene extends Phaser.Scene {
   private stampSettlementBuildings(): void {
     // Register named crop-regions on the already-loaded 'building-roofs' texture.
     // Coordinates measured from the 400×400 Roofs.png sheet (white-background sprite atlas).
+    // Signature: add(name, sourceIndex, x, y, width, height)
     const roofTex = this.textures.get('building-roofs');
     roofTex.add('roof-brown-large',   0,   0,   0, 120,  70); // large brown gabled roof
     roofTex.add('roof-green-large',   0, 130,   0, 120,  70); // large green tiled roof
@@ -5403,86 +5405,87 @@ export class GameScene extends Phaser.Scene {
     roofTex.add('roof-brown-small',   0,   0, 210,  60,  50); // small brown peaked roof
     roofTex.add('roof-green-complex', 0, 140,  80, 120, 110); // green hall with base
 
+    // Graphics layer for intra-settlement dirt lanes.
+    // Depth 3.2 — above corruption overlays (3), below building sprites (3.5) and
+    // glow circles (3.4) so lanes appear to run under the buildings naturally.
+    const laneGfx = this.add.graphics();
+    laneGfx.setDepth(3.2);
+
     for (const s of SETTLEMENTS) {
-      // Hash the settlement id string to a numeric seed (djb2-style multiplicative hash)
-      let seed = 0;
+      // Derive a stable numeric seed from the settlement id (djb2-style hash).
+      // XOR with a constant to keep this seed independent from the decoration
+      // scatter which also hashes settlement ids.
+      let seed = 0xab1234cd;
       for (let i = 0; i < s.id.length; i++) {
         seed = (Math.imul(seed, 31) + s.id.charCodeAt(i)) >>> 0;
       }
       const rng = mulberry32(seed);
 
-      const count = s.type === 'hamlet'
-        ? 3 + Math.floor(rng() * 3)   // 3–5
-        : 8 + Math.floor(rng() * 7);  // 8–14
+      // layoutSettlement uses BuildingCatalogue to derive an economy-appropriate
+      // building programme (e.g. coastal → longhouse + smokehouse + fishing huts)
+      // then zones buildings into inner/middle/outer rings and places them via
+      // rejection sampling to avoid overlap.
+      const buildings = layoutSettlement(s, rng);
 
-      // Keep a small clearing at the settlement centre (e.g. a market square)
-      const clearR = s.radius * 0.2;
+      // ── Intra-settlement lanes ──────────────────────────────────────────────
+      // Draw a short dirt lane from the settlement centre to each inner-zone
+      // building (identified by being within 40% of the radius). The lane is a
+      // thin filled rect rotated toward the building — matching the colour used
+      // by the spur line in drawSettlementMarkers().
+      for (const b of buildings) {
+        const dx   = b.x - s.x;
+        const dy   = b.y - s.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > s.radius * 0.42) continue; // only connect inner-zone buildings
 
-      // Track placed AABBs for overlap rejection
-      const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+        const angle  = Math.atan2(dy, dx);
+        const laneW  = 4;  // lane width in pixels
+        const laneL  = dist - b.w * 0.3; // stop short of the building footprint
 
-      let placed_count = 0;
-      const maxAttempts = count * 20;
+        laneGfx.fillStyle(0xb8905a, 0.30);
+        // Rotate a thin rectangle along the lane direction using a manual transform:
+        // we compute the four corner offsets from the centre of the lane segment.
+        const midX = s.x + Math.cos(angle) * laneL / 2;
+        const midY = s.y + Math.sin(angle) * laneL / 2;
+        const perp = angle + Math.PI / 2;
+        const px = Math.cos(perp) * laneW / 2;
+        const py = Math.sin(perp) * laneW / 2;
+        const ax = Math.cos(angle) * laneL / 2;
+        const ay = Math.sin(angle) * laneL / 2;
 
-      for (let attempt = 0; attempt < maxAttempts && placed_count < count; attempt++) {
-        // Uniform random point in annulus [clearR, radius-20] using sqrt trick
-        const angle = rng() * Math.PI * 2;
-        const dist  = clearR + Math.sqrt(rng()) * (s.radius - clearR - 20);
-        const bx = s.x + Math.cos(angle) * dist;
-        const by = s.y + Math.sin(angle) * dist;
+        laneGfx.fillPoints([
+          new Phaser.Math.Vector2(midX - ax + px, midY - ay + py),
+          new Phaser.Math.Vector2(midX + ax + px, midY + ay + py),
+          new Phaser.Math.Vector2(midX + ax - px, midY + ay - py),
+          new Phaser.Math.Vector2(midX - ax - px, midY - ay - py),
+        ], true);
+      }
 
-        const bw = 24 + Math.floor(rng() * 20); // 24–43 px — drives sprite scale + overlap check
-        const bh = 18 + Math.floor(rng() * 16); // 18–33 px — used for overlap check only
-
-        // AABB overlap check against already-placed buildings (4 px gap)
-        const gap = 4;
-        const left   = bx - bw / 2 - gap;
-        const right  = bx + bw / 2 + gap;
-        const top    = by - bh / 2 - gap;
-        const bottom = by + bh / 2 + gap;
-
-        let overlaps = false;
-        for (const p of placed) {
-          if (right  > p.x - p.w / 2 &&
-              left   < p.x + p.w / 2 &&
-              bottom > p.y - p.h / 2 &&
-              top    < p.y + p.h / 2) {
-            overlaps = true;
-            break;
-          }
-        }
-        if (overlaps) continue;
-
-        placed.push({ x: bx, y: by, w: bw, h: bh });
-        placed_count++;
-
-        // Pick a roof sprite frame appropriate to the settlement type.
-        // Hamlet gets rustic brown frames; village gets tiled green frames.
-        const frameKey = s.type === 'hamlet'
-          ? (rng() < 0.6 ? 'roof-brown-large' : 'roof-brown-small')
-          : (rng() < 0.5 ? 'roof-green-large' : rng() < 0.5 ? 'roof-blue' : 'roof-green-complex');
-
-        // Scale the sprite uniformly so its display-width equals bw;
-        // height follows naturally from the frame's aspect ratio.
-        const img = this.add.image(bx, by, 'building-roofs', frameKey);
+      // ── Building sprites and physics bodies ────────────────────────────────
+      for (const b of buildings) {
+        // Scale the sprite uniformly so its display width equals b.w.
+        // Height follows from the frame's intrinsic aspect ratio.
+        const img = this.add.image(b.x, b.y, 'building-roofs', b.frameKey);
         this.decorImages.push(img);
-        const sprScale = bw / img.width;
+        const sprScale = b.w / img.width;
         img.setScale(sprScale);
         img.setDepth(3.5);
 
-        // Warm glow circle — lights up at dusk/night via ADD blend (FIL-80).
-        // Starts at alpha 0 (invisible) and is tweened by updateDayNight().
-        const glow = this.add.circle(bx, by, Math.max(bw, img.height * sprScale) * 0.55, 0xffaa33, 0);
+        // Warm glow circle — lit at dusk/night via ADD blend mode (FIL-80).
+        // Alpha starts at 0 and is tweened by updateDayNight().
+        const glowR = Math.max(b.w, img.height * sprScale) * 0.55;
+        const glow  = this.add.circle(b.x, b.y, glowR, 0xffaa33, 0);
         glow.setDepth(3.4).setBlendMode(Phaser.BlendModes.ADD);
         this.settlementGlows.push(glow);
 
-        // Invisible physics body sized to the sprite's actual displayed footprint.
-        // 'rock-grass' is always preloaded — any always-available texture works here.
-        const physRect = this.physics.add.staticImage(bx, by, 'rock-grass');
+        // Invisible static physics body so the player cannot walk through walls.
+        // We use a 'rock-grass' image as a convenient always-preloaded texture;
+        // it's set invisible so only the physics rectangle is active.
+        const physRect = this.physics.add.staticImage(b.x, b.y, 'rock-grass');
         physRect.setVisible(false);
         const body = physRect.body as Phaser.Physics.Arcade.StaticBody;
-        body.setSize(bw, img.height * sprScale);
-        body.reset(bx, by);
+        body.setSize(b.w, img.height * sprScale);
+        body.reset(b.x, b.y);
         this.solidObjects.add(physRect);
       }
     }
