@@ -168,6 +168,24 @@ export class WorldState {
     this.scene.events.emit('ws:weather-changed', { weather });
   }
 
+  // ─── Conviction ──────────────────────────────────────────────────────────
+
+  /** 0–100. Fills on enemy kills, drains on damage taken. Starts at 50. */
+  private _conviction = 50;
+
+  get conviction(): number { return this._conviction; }
+
+  /**
+   * Adjust conviction by delta (positive = gain, negative = drain).
+   * Clamps result to 0–100 and emits `ws:conviction-updated`.
+   */
+  adjustConviction(delta: number): void {
+    const next = Math.max(0, Math.min(100, this._conviction + delta));
+    if (next === this._conviction) return;
+    this._conviction = next;
+    this.scene.events.emit('ws:conviction-updated', { conviction: next });
+  }
+
   // ─── Parent meeting ──────────────────────────────────────────────────────
 
   triggerParentMeeting(x: number, y: number): void {

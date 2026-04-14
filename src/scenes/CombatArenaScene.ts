@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CombatEntity, Skald, Spider, Skag, Crow } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
+import { WorldState } from '../world/WorldState';
 
 // ── Wave & hero type definitions ──────────────────────────────────────────────
 
@@ -89,7 +90,12 @@ export class CombatArenaScene extends Phaser.Scene {
   /** In-flight projectiles — ticked each frame, pruned when expired. */
   private projectiles: Projectile[] = [];
 
-  private labelText!: Phaser.GameObjects.Text;
+  private labelText!:   Phaser.GameObjects.Text;
+
+  /** WorldState instance — tracks conviction for this arena session. */
+  private worldState!:  WorldState;
+  /** Conviction bar fill rectangle — scaleX mapped to 0–1 conviction fraction. */
+  private convBarFill!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super({ key: CombatArenaScene.KEY });
@@ -121,12 +127,23 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.heroIndex  = 0;
-    this.waveIndex  = 0;
-    this.enemies    = [];
+    this.heroIndex   = 0;
+    this.waveIndex   = 0;
+    this.enemies     = [];
     this.projectiles = [];
 
+    // WorldState tracks conviction for this arena session (0–100, starts at 50).
+    this.worldState = new WorldState(this);
+
     this.buildArena();
+
+    // Keep the conviction bar in sync whenever the value changes.
+    this.events.on('ws:conviction-updated', ({ conviction }: { conviction: number }) => {
+      // scaleX 0→1 maps to 0→100% conviction. Origin is at the left edge so
+      // the bar grows/shrinks from the left rather than the center.
+      this.convBarFill.scaleX = conviction / 100;
+    });
+
     // Register Aseprite animation tags so sprite.play('walk_south') works.
     this.anims.createFromAseprite('skald');
     this.anims.createFromAseprite('spider');
@@ -204,6 +221,29 @@ export class CombatArenaScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(2);
+
+    // Conviction bar — bottom center of the arena.
+    // Shows how decisive the hero's performance is: fills on kills, drains on damage.
+    const convW = 120;
+    const convH = 8;
+    const convX = cx;
+    const convY = arenaY + arenaH - 20;
+
+    this.add.text(convX, convY - 12, 'CONVICTION', {
+      fontSize: '9px',
+      color:    '#9999bb',
+    }).setOrigin(0.5, 0.5).setDepth(2);
+
+    // Background track (full width).
+    this.add.rectangle(convX, convY, convW, convH, 0x222233).setDepth(2);
+
+    // Fill rectangle — origin at left edge so scaleX grows rightward.
+    // Initial scaleX of 0.5 matches WorldState's starting conviction of 50.
+    this.convBarFill = this.add
+      .rectangle(convX - convW / 2, convY, convW, convH, 0x8844ff)
+      .setOrigin(0, 0.5)
+      .setDepth(3);
+    this.convBarFill.scaleX = 0.5;
   }
 
   // ── Wave lifecycle ────────────────────────────────────────────────────────────
@@ -243,10 +283,24 @@ export class CombatArenaScene extends Phaser.Scene {
       this.projectiles.push(p);
     });
 
-    // Camera shake on kill — short burst so the arena feels impactful.
+    // Camera shake on hit — stronger shake when the hero is struck, subtle on enemy death.
+    // Screen shake on the PLAYER is the most important feedback signal in combat.
+    this.events.on('combatant-damaged', (entity: CombatEntity, _amount: number) => {
+      if (entity === this.hero) {
+        // Hero was hit: punchy shake + conviction drain.
+        this.cameras.main.shake(80, 0.005);
+        this.worldState.adjustConviction(-12);
+      }
+    });
+
+    // Camera shake on death + conviction gain for enemy kills.
     // intensity 0.004 ≈ 4 px at the default zoom; duration 150 ms.
-    this.events.on('combatant-died', () => {
+    this.events.on('combatant-died', (entity: CombatEntity) => {
       this.cameras.main.shake(150, 0.004);
+      // Only reward conviction for killing enemies, not for the hero dying.
+      if (entity !== this.hero) {
+        this.worldState.adjustConviction(+8);
+      }
     });
 
     this.waveState = 'active';
@@ -262,6 +316,7 @@ export class CombatArenaScene extends Phaser.Scene {
     for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
     this.projectiles = [];
     this.events.off('projectile-spawned');
+    this.events.off('combatant-damaged');
     this.events.off('combatant-died');
 
     this.hero.destroy();

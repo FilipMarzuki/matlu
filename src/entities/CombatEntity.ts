@@ -394,6 +394,41 @@ export abstract class CombatEntity extends Enemy {
     return nearest;
   }
 
+  // ── LivingEntity hook — damage ────────────────────────────────────────────
+
+  /**
+   * Override: spawn a floating damage number at this entity's world position.
+   *
+   * The text is added directly to the SCENE (not this Container) so it stays
+   * fixed in world space as the entity moves and is not destroyed with it.
+   * It floats upward and fades out over 600 ms, then self-destructs.
+   *
+   * Also emits `combatant-damaged` on the scene event bus so the arena can
+   * react (e.g. camera shake when the hero is hit).
+   */
+  protected override onDamaged(amount: number): void {
+    const txt = this.scene.add
+      .text(this.x, this.y - 10, String(Math.ceil(amount)), {
+        fontSize: '12px',
+        color:    '#ffffff',
+        stroke:   '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(20);
+
+    this.scene.tweens.add({
+      targets:  txt,
+      y:        txt.y - 30,
+      alpha:    { from: 1, to: 0 },
+      duration: 600,
+      ease:     'Cubic.easeOut',
+      onComplete: () => txt.destroy(),
+    });
+
+    this.scene.events.emit('combatant-damaged', this, amount);
+  }
+
   // ── Hit feedback API ──────────────────────────────────────────────────────
 
   /**
@@ -443,17 +478,20 @@ export abstract class CombatEntity extends Enemy {
       this.spriteObj.setFlipX(this.lastFlipX);
       const deathKey = `${this.spriteObj.texture.key}_death_${this.lastDir}`;
       if (this.scene.anims.exists(deathKey)) {
-        // Play directional death animation; fade out once it completes.
+        // Play directional death animation; dissolve once it completes.
         this.spriteObj.play(deathKey, true);
         this.spriteObj.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-          if (this.active) this.setAlpha(0.3);
+          if (this.active) {
+            this.scene.tweens.add({ targets: this, alpha: 0, duration: 180 });
+          }
         });
       } else {
-        // No death animation for this sprite (e.g. quadruped) — fade immediately.
-        this.setAlpha(0.3);
+        // No death animation for this sprite — dissolve immediately.
+        this.scene.tweens.add({ targets: this, alpha: { from: 1, to: 0 }, duration: 180 });
       }
     } else {
-      this.setAlpha(0.3);
+      // Rectangle entity — dissolve immediately.
+      this.scene.tweens.add({ targets: this, alpha: { from: 1, to: 0 }, duration: 180 });
     }
 
     // Death burst: 6 small white arcs radiate outward and fade over 200 ms.
