@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 import { LivingEntity, LivingEntityConfig } from './LivingEntity';
 
 export interface EnemyConfig extends LivingEntityConfig {

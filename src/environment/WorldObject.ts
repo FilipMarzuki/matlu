@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 /**
  * WorldObject — base class for all static environment objects.
  *

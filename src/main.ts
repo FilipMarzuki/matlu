@@ -1,6 +1,13 @@
 import * as Phaser from 'phaser';
-import VirtualJoystickPlugin from 'phaser4-rex-plugins/plugins/virtualjoystick-plugin';
 import './lib/supabaseClient';
+
+// Phaser 4's ESM bundle (built with webpack) references `Phaser` as a global
+// in several internal paths (e.g. `Phaser.Textures.FilterMode.LINEAR` inside
+// `setSmoothPixelArt`, `instanceof Phaser.Textures.Texture` in filter setters).
+// In a Vite/ESM context the import namespace is NOT window.Phaser automatically,
+// so we assign it. Must happen before new Phaser.Game() and before any Phaser
+// game object constructors that trigger these paths.
+(window as unknown as Record<string, unknown>)['Phaser'] = Phaser;
 import { log } from './lib/logger';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { WilderviewScene } from './scenes/WilderviewScene';
@@ -37,17 +44,6 @@ const game = new Phaser.Game({
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  // Register the rex virtual joystick plugin from npm rather than CDN so it
-  // works reliably in production (raw.githubusercontent.com is not dependable).
-  plugins: {
-    global: [
-      {
-        key: 'rexvirtualjoystickplugin',
-        plugin: VirtualJoystickPlugin,
-        start: true,
-      },
-    ],
   },
   // MainMenuScene is the entry point (first in array = auto-started).
   // WilderviewScene is kept for compatibility but now redirects to MainMenuScene.

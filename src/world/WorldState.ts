@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 /**
  * WorldState — shared runtime state contract for Matlu's game systems.
  *

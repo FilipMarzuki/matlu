@@ -18,8 +18,6 @@
     "@logtail/browser": "^0.5.8",
     "@supabase/supabase-js": "^2.103.0",
     "phaser": "^4.0.0",
-    "phaser3-rex-plugins": "^1.80.20",
-    "phaser4-rex-plugins": "^4.0.5",
     "simplex-noise": "^4.0.3"
   },
   "devDependencies": {

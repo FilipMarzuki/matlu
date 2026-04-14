@@ -1,3 +1,4 @@
+import * as Phaser from 'phaser';
 /**
  * PathSystem — typed road segments that affect player speed and animal routing.
  *

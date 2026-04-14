@@ -1,5 +1,4 @@
 import * as Phaser from 'phaser';
-import VirtualJoystickPlugin from 'phaser4-rex-plugins/plugins/virtualjoystick-plugin';
 import { FbmNoise } from '../lib/noise';
 import { mulberry32, poissonDisk } from '../lib/rng';
 import { t } from '../lib/i18n';
@@ -9,7 +8,6 @@ import { generateDecorations, decorTexture } from '../world/DecorationScatter';
 import { insertMatluRun } from '../lib/matluRuns';
 import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
-import type VirtualJoyStick from 'phaser4-rex-plugins/plugins/virtualjoystick';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
 import { WorldClock } from '../world/WorldClock';
@@ -40,7 +38,85 @@ import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 
-const REX_VIRTUAL_JOYSTICK_PLUGIN_KEY = 'rexvirtualjoystickplugin';
+// ── SimpleJoystick ────────────────────────────────────────────────────────────
+/**
+ * Minimal virtual joystick that replaces the phaser4-rex-plugins dependency.
+ *
+ * phaser4-rex-plugins references `Phaser` as a global (legacy UMD pattern) at
+ * module evaluation time — before Vite/ESM even starts our game code. That
+ * causes `ReferenceError: Phaser is not defined` and the canvas never appears.
+ *
+ * This class exposes the two properties GameScene actually reads:
+ *   - `force`    — distance from centre (0 when idle, up to radius px when active)
+ *   - `rotation` — angle in radians pointing from centre → thumb
+ *
+ * The joystick is fixed-position and claims the first pointer that touches
+ * within 2× the base radius of the joystick centre.
+ */
+class SimpleJoystick {
+  force    = 0;
+  rotation = 0;
+
+  private pointerId: number | null = null;
+  private readonly cx: number;
+  private readonly cy: number;
+  private readonly radius: number;
+  private readonly thumb: Phaser.GameObjects.Arc;
+
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    radius: number,
+    thumb: Phaser.GameObjects.Arc,
+  ) {
+    this.cx     = x;
+    this.cy     = y;
+    this.radius = radius;
+    this.thumb  = thumb;
+
+    scene.input.on('pointerdown',    this.onDown, this);
+    scene.input.on('pointermove',    this.onMove, this);
+    scene.input.on('pointerup',      this.onUp,   this);
+    scene.input.on('pointerupoutside', this.onUp, this);
+  }
+
+  private onDown(pointer: Phaser.Input.Pointer): void {
+    if (this.pointerId !== null) return;
+    const dx = pointer.x - this.cx;
+    const dy = pointer.y - this.cy;
+    if (dx * dx + dy * dy > (this.radius * 2) ** 2) return;
+    this.pointerId = pointer.id;
+    this.updateThumb(pointer);
+  }
+
+  private onMove(pointer: Phaser.Input.Pointer): void {
+    if (pointer.id !== this.pointerId) return;
+    this.updateThumb(pointer);
+  }
+
+  private onUp(pointer: Phaser.Input.Pointer): void {
+    if (pointer.id !== this.pointerId) return;
+    this.pointerId = null;
+    this.force     = 0;
+    this.rotation  = 0;
+    this.thumb.setPosition(this.cx, this.cy);
+  }
+
+  private updateThumb(pointer: Phaser.Input.Pointer): void {
+    const dx   = pointer.x - this.cx;
+    const dy   = pointer.y - this.cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist === 0) return;
+    const clamped = Math.min(dist, this.radius);
+    this.force    = clamped;
+    this.rotation = Math.atan2(dy, dx);
+    this.thumb.setPosition(
+      this.cx + (dx / dist) * clamped,
+      this.cy + (dy / dist) * clamped,
+    );
+  }
+}
 
 // World dimensions — diagonal SW→NE corridor. 4500×3000 at zoom 3.
 const WORLD_W = 4500;
@@ -445,7 +521,7 @@ export class GameScene extends Phaser.Scene {
   private playerSprite!: Phaser.GameObjects.Sprite;
   private playerLastDir: 'down' | 'up' | 'side' = 'down';
   private playerMoving = false;
-  private joystick!: VirtualJoyStick;
+  private joystick!: SimpleJoystick;
   private mountainWalls!: Phaser.Physics.Arcade.StaticGroup;
   private navigationBarriers!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
@@ -682,6 +758,13 @@ export class GameScene extends Phaser.Scene {
   private devBiomeGfx: Phaser.GameObjects.Graphics | null = null;
   /** Container holding per-tile text labels (elevation number or biome name). */
   private devTextContainer: Phaser.GameObjects.Container | null = null;
+
+  // ─── Decoration visibility toggle (H key) ─────────────────────────────────
+  /** All world-decoration images (trees, rocks, flowers, buildings, etc.) — toggled by H key. */
+  private decorImages: Phaser.GameObjects.Image[] = [];
+  /** Whether decorations are currently visible. */
+  private decorVisible = true;
+
   /** Raw elevation value per tile [0,1.2] — stored during terrain bake. */
   private tileDevElev:  Float32Array | null = null;
   /** Biome index per tile [0,7] — stored alongside elevation during terrain bake. */
@@ -1005,21 +1088,16 @@ export class GameScene extends Phaser.Scene {
     // 2.5× gives a tighter, more intimate view than the previous 2×.
     this.cameras.main.setZoom(3);
 
-    const joystickPlugin = this.plugins.get(
-      REX_VIRTUAL_JOYSTICK_PLUGIN_KEY
-    ) as VirtualJoystickPlugin;
+    const JOY_X      = 120;
+    const JOY_Y      = this.scale.height - 120;
+    const JOY_RADIUS = 50;
 
-    const base = this.add.circle(0, 0, 50, 0x444444, 0.45);
-    const thumb = this.add.circle(0, 0, 22, 0xcccccc, 0.55);
+    // setScrollFactor(0) pins these circles to screen space so they don't scroll
+    // with the camera — equivalent to rex's `fixed: true`.
+    const base  = this.add.circle(JOY_X, JOY_Y, JOY_RADIUS, 0x444444, 0.45).setScrollFactor(0).setDepth(9999);
+    const thumb = this.add.circle(JOY_X, JOY_Y, 22,          0xcccccc, 0.55).setScrollFactor(0).setDepth(9999);
 
-    this.joystick = joystickPlugin.add(this, {
-      x: 120,
-      y: this.scale.height - 120,
-      radius: 50,
-      base,
-      thumb,
-      fixed: true,
-    });
+    this.joystick = new SimpleJoystick(this, JOY_X, JOY_Y, JOY_RADIUS, thumb);
 
     // Hide the joystick on non-touch devices (desktop with mouse/keyboard).
     // navigator.maxTouchPoints > 0 covers phones, tablets, and touch-screen laptops.
@@ -1089,6 +1167,13 @@ export class GameScene extends Phaser.Scene {
 
     // Dash on Shift key — same action as joystick double-tap (FIL-123)
     this.input.keyboard?.on('keydown-SHIFT', () => this.tryDash());
+
+    // H — toggle all world decorations (trees, rocks, flowers, buildings) so the
+    // bare terrain layout is visible for design / debug purposes.
+    this.input.keyboard?.on('keydown-H', () => {
+      this.decorVisible = !this.decorVisible;
+      for (const img of this.decorImages) img.setVisible(this.decorVisible);
+    });
 
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
@@ -3466,7 +3551,9 @@ export class GameScene extends Phaser.Scene {
           // Raw Y depth so trees Y-sort with the player — when the player passes
           // through a gap and stands north of the belt, trees (depth ~1245–1335)
           // correctly render in front of the player (depth = player.y < 1240).
-          this.add.image(tx + ox, ty + oy, key).setScale(0.5).setDepth(ty + oy);
+          this.decorImages.push(
+            this.add.image(tx + ox, ty + oy, key).setScale(0.5).setDepth(ty + oy),
+          );
         }
       }
     }
@@ -3482,9 +3569,11 @@ export class GameScene extends Phaser.Scene {
           const ox = (rng() - 0.5) * 18;
           const oy = (rng() - 0.5) * 18;
           // Raw Y depth — same rationale as forest-belt trees above.
-          this.add.image(tx + ox, ty + oy, 'rock-grass')
-            .setScale(0.5 + rng() * 0.5)
-            .setDepth(ty + oy);
+          this.decorImages.push(
+            this.add.image(tx + ox, ty + oy, 'rock-grass')
+              .setScale(0.5 + rng() * 0.5)
+              .setDepth(ty + oy),
+          );
         }
       }
     }
@@ -3544,7 +3633,9 @@ export class GameScene extends Phaser.Scene {
           const rx    = fordPt.x - fw / 2 + rng() * fw;
           const ry    = fordPt.y - river.halfWidth * 0.8 + rng() * river.halfWidth * 1.6;
           const frame = Math.floor(rng() * 6);
-          this.add.image(rx, ry, 'rocks-in-water', frame).setScale(2).setDepth(1.8);
+          this.decorImages.push(
+            this.add.image(rx, ry, 'rocks-in-water', frame).setScale(2).setDepth(1.8),
+          );
         }
       }
     }
@@ -5061,6 +5152,7 @@ export class GameScene extends Phaser.Scene {
           // Lily pads on open water — pick one of 6 variants by frame index
           const frame = Math.floor(rng() * 6);
           const img = this.add.image(x, y, 'water-lillies', frame);
+          this.decorImages.push(img);
           img.setScale(2.0 + rng() * 0.5); // 2.0–2.5× so they read at game zoom
           img.setDepth(0.5 + y / WORLD_H); // on the water surface, y-sorted
           img.setAlpha(0.80 + rng() * 0.20);
@@ -5069,6 +5161,7 @@ export class GameScene extends Phaser.Scene {
           // Rocks at the water's edge — 6 variants on the sheet
           const frame = Math.floor(rng() * 6);
           const img = this.add.image(x, y, 'rocks-in-water', frame);
+          this.decorImages.push(img);
           img.setScale(2.0);
           img.setDepth(1.0 + y / WORLD_H); // just above lily depth
           rockCount++;
@@ -5263,6 +5356,7 @@ export class GameScene extends Phaser.Scene {
         // 60 % butterflies, 40 % bees (matches approximate flower/clover split)
         const key = rand() < 0.6 ? 'butterfly-tex' : 'bee-tex';
         const img = this.add.image(x, y, key);
+        this.decorImages.push(img);
         img.setDepth(2 + y / WORLD_H).setScale(1.5);
 
         // Wing flutter — ±8° at 180 ms; butterflies slightly faster than bees
@@ -5371,6 +5465,7 @@ export class GameScene extends Phaser.Scene {
         // Scale the sprite uniformly so its display-width equals bw;
         // height follows naturally from the frame's aspect ratio.
         const img = this.add.image(bx, by, 'building-roofs', frameKey);
+        this.decorImages.push(img);
         const sprScale = bw / img.width;
         img.setScale(sprScale);
         img.setDepth(3.5);
@@ -5415,6 +5510,7 @@ export class GameScene extends Phaser.Scene {
       // item.frame is undefined for single-image textures, which Phaser treats identically
       // to omitting the argument — so this is backward compatible with all existing chunks.
       const obj = this.physics.add.staticImage(wx, wy, item.texture, item.frame);
+      this.decorImages.push(obj);
       if (item.scale !== undefined) obj.setScale(item.scale);
       obj.setDepth(wy); // y-sorting: lower on screen = in front
       obj.setOrigin(0.5, 1);
@@ -5434,6 +5530,7 @@ export class GameScene extends Phaser.Scene {
       // Pass item.frame so chunks can reference a specific frame on a spritesheet
       // (e.g. frame 0 = closed chest on mw-chest-01). Undefined = whole image.
       const sprite = this.add.image(wx, wy, item.texture, item.frame);
+      this.decorImages.push(sprite);
       if (item.scale !== undefined) sprite.setScale(item.scale);
       sprite.setOrigin(0.5, 1);
       sprite.setDepth(item.kind === 'puddle' ? 2 : wy); // puddles below sprites
