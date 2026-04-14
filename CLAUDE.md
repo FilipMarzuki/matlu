@@ -168,3 +168,21 @@ The per-issue runner requires `LINEAR_API_KEY` plus one of two Claude credential
 It also expects four labels to already exist in Linear: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
 
 On-demand runs: trigger `Nightly Agent (per-issue)` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.
+
+## Triage agent
+
+`.github/workflows/agent-triage.yml` — weekly cron (`0 22 * * 0`, Sunday 22:00 UTC) + `workflow_dispatch`. Sweeps Backlog issues that haven't been triaged (no `ready`, `needs-refinement`, `blocked`, `too-large`, or `agent:*` label) and spawns one Claude Code session per issue to assess readiness for the nightly implementation agent.
+
+The triage agent **reads the codebase but never writes code**. Its output is Linear labels + description edits + comments. Per-session prompt lives in `.agents/triage.md`.
+
+Scripts: `.github/scripts/fetch-triage-issues.js` (query un-triaged issues) + `.github/scripts/run-triage.js` (per-issue runner).
+
+Same secrets as the nightly agent (`LINEAR_API_KEY` + `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`).
+
+Triage labels (pre-created on the Fills Pills team):
+- `ready` — agent can pick this up in the nightly run.
+- `needs-refinement` — close but missing specifics; description has been edited.
+- `blocked` — hard dependency on another issue or missing infrastructure.
+- `too-large` — needs to be split into 2+ smaller issues.
+
+On-demand: trigger `Triage Agent (per-issue)` from the Actions tab, optionally pinning to one issue via `issue_id`.
