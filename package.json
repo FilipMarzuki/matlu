@@ -12,7 +12,9 @@
     "test": "npx playwright test",
     "screenshot": "npx playwright test tests/screenshot.spec.ts --reporter=list --headed",
     "sprites:assemble": "node scripts/assemble-sprites.mjs",
-    "sprites:status": "node scripts/assemble-sprites.mjs --status"
+    "sprites:status": "node scripts/assemble-sprites.mjs --status",
+    "arena:testplay": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts",
+    "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed"
   },
   "dependencies": {
     "@logtail/browser": "^0.5.8",
