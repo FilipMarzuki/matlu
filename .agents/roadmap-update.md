@@ -147,6 +147,45 @@ curl -s -X POST https://api.notion.com/v1/pages \
 
 ---
 
+## STEP 3.5 — OPTIONAL DIAGRAM (use judgment)
+
+If the blog post covers a **new system, architecture change, or data flow** that a diagram would make immediately clear, generate one Mermaid diagram and embed it. Skip this step for weeks where nothing notable was introduced (bug fixes, small tweaks, lore/art updates).
+
+When generating a diagram:
+
+1. Write the Mermaid source to `/tmp/post-diagram.mmd`
+
+2. Render to PNG:
+```bash
+PNG_PATH=$(node .github/scripts/lib/mermaid-render.js post-diagram /tmp/post-diagram.mmd)
+```
+
+3. Upload to matlu-wiki for public hosting:
+```bash
+IMG_URL=$(node .github/scripts/lib/wiki-upload.js post-diagram "$PNG_PATH")
+```
+
+4. Add an `image` block to the dev blog Notion page immediately after the paragraph it illustrates:
+```json
+{
+  "object": "block",
+  "type": "image",
+  "image": { "type": "external", "external": { "url": "<IMG_URL>" } }
+}
+```
+
+**When to generate a diagram:**
+| What shipped | Diagram type |
+|---|---|
+| New system/subsystem | Flowchart showing how it fits into the architecture |
+| Refactor / dependency change | Before/after or dependency graph |
+| Agent pipeline change | Updated pipeline flowchart |
+| Performance work | Sequence diagram of the hot path |
+
+Keep diagrams simple — one concept per diagram, no more than ~10 nodes.
+
+---
+
 ## STEP 4 — TRIGGER WIKI REBUILD
 
 ```bash
