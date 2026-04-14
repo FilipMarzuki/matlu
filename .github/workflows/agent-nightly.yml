@@ -63,7 +63,7 @@ jobs:
       # stand alone — a failure in one must not cancel the others.
       fail-fast: false
       # Cap concurrent sessions so we don't hammer the Anthropic / Linear APIs.
-      max-parallel: 3
+      max-parallel: 2
       matrix:
         issue: ${{ fromJson(needs.fetch-issues.outputs.issues) }}
     permissions:
