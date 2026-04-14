@@ -1,0 +1,35 @@
+name: Lore Auto-fill
+
+# Expands thin lore entries and generates new ones in Notion to enrich the
+# game world. Runs daily — prompt lives in .agents/lore-autofill.md.
+
+on:
+  schedule:
+    # 14:00 UTC (4:00 PM GMT+2) every day.
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-lore-autofill
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Run lore auto-fill session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/lore-autofill.md)"

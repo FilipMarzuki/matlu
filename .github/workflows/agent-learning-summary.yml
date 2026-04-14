@@ -1,0 +1,50 @@
+name: Weekly Learning Summary
+
+# Analyses the week's merged PRs and writes a learning summary aimed at
+# someone learning Phaser 3 + TypeScript. Posts to Notion under the Dev Blog
+# page. Runs every Saturday — prompt lives in .agents/learning-summary.md.
+
+on:
+  schedule:
+    # 07:00 UTC (9:00 AM GMT+2) every Saturday.
+    - cron: '0 7 * * 6'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-learning-summary
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # agent commits WEEKLY_LEARNING.md
+      pull-requests: read    # read merged PRs
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run learning summary session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/learning-summary.md)"

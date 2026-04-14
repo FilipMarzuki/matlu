@@ -1,0 +1,50 @@
+name: Weekly Release Notes
+
+# Writes release notes from the week's merged PRs and posts them to Notion
+# under the Dev Blog page. Runs every Sunday — prompt lives in
+# .agents/release-notes.md.
+
+on:
+  schedule:
+    # 09:00 UTC (11:00 AM GMT+2) every Sunday.
+    - cron: '0 9 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-release-notes
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # agent commits last-release-notes.txt
+      pull-requests: read    # read merged PRs
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run release notes session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/release-notes.md)"

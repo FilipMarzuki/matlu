@@ -183,3 +183,16 @@ Triage labels (pre-created on the Fills Pills team):
 - `too-large` — needs to be split into 2+ smaller issues.
 
 On-demand: trigger `Triage Agent (per-issue)` from the Actions tab, optionally pinning to one issue via `issue_id`.
+
+## Scheduled agent workflows
+
+All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude Code session with the corresponding prompt from `.agents/`. All support `workflow_dispatch` for manual runs.
+
+| Workflow | Cron (UTC) | Prompt | Secrets | Description |
+| -------- | ---------- | ------ | ------- | ----------- |
+| Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `LINEAR_API_KEY`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files Linear bugs |
+| Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY` | Expands thin lore entries, generates new ones in Notion |
+| Lore from Features | `0 15 * * *` (daily) | `.agents/lore-features.md` | `NOTION_API_KEY` | Scans merged PRs for new game entities, creates Notion lore entries |
+| Weekly Learning Summary | `0 7 * * 6` (Saturday) | `.agents/learning-summary.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes learning summary from the week's PRs, posts to Notion |
+| Weekly Architecture Review | `0 17 * * 5` (Friday) | `.agents/architecture-review.md` | `LINEAR_API_KEY` | Updates ARCHITECTURE.md, flags concerns, creates Linear issue |
+| Weekly Release Notes | `0 9 * * 0` (Sunday) | `.agents/release-notes.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes release notes from merged PRs, posts to Notion |
