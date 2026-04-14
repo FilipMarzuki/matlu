@@ -1,11 +1,15 @@
 name: Triage Agent (per-issue)
 
-# Weekly triage runner for Matlu's Linear backlog.
+# Nightly triage runner for Matlu's Linear backlog.
 #
 # Sweeps Backlog issues that haven't been triaged yet (no `ready`,
 # `needs-refinement`, `blocked`, `too-large`, or `agent:*` label) and
 # spawns one isolated Claude Code session per issue to assess readiness
 # for the nightly implementation agent.
+#
+# Runs at 22:00 UTC — four hours before the implementation agent's
+# 02:00 UTC cron. Any issue triaged as `ready` tonight is immediately
+# available for the implementation run that same night.
 #
 # The triage agent reads the codebase for context but does NOT write
 # code, commit, or push. Its only output is Linear label + description
@@ -13,8 +17,8 @@ name: Triage Agent (per-issue)
 
 on:
   schedule:
-    # Every Sunday at 22:00 UTC — runs before Monday's implementation cron.
-    - cron: '0 22 * * 0'
+    # 22:00 UTC every day — 4 hours before the implementation cron (02:00 UTC).
+    - cron: '0 22 * * *'
   workflow_dispatch:
     inputs:
       issue_id:

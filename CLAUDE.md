@@ -171,7 +171,7 @@ On-demand runs: trigger `Nightly Agent (per-issue)` from the Actions tab, option
 
 ## Triage agent
 
-`.github/workflows/agent-triage.yml` — weekly cron (`0 22 * * 0`, Sunday 22:00 UTC) + `workflow_dispatch`. Sweeps Backlog issues that haven't been triaged (no `ready`, `needs-refinement`, `blocked`, `too-large`, or `agent:*` label) and spawns one Claude Code session per issue to assess readiness for the nightly implementation agent.
+`.github/workflows/agent-triage.yml` — nightly cron (`0 22 * * *`, 22:00 UTC) + `workflow_dispatch`. Runs 4 hours before the implementation agent (02:00 UTC) so any issue triaged as `ready` tonight is immediately picked up. Sweeps Backlog issues that haven't been triaged (no `ready`, `needs-refinement`, `blocked`, `too-large`, or `agent:*` label) and spawns one Claude Code session per issue to assess readiness for the nightly implementation agent.
 
 The triage agent **reads the codebase but never writes code**. Its output is Linear labels + description edits + comments. Per-session prompt lives in `.agents/triage.md`.
 
