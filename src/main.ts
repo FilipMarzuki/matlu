@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser4-rex-plugins/plugins/virtualjoystick-plugin';
 import './lib/supabaseClient';
 import { log } from './lib/logger';

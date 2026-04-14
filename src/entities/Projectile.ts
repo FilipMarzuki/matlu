@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 /**
  * Minimal interface for projectile targets — avoids importing LivingEntity

@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { Enemy, EnemyConfig } from './Enemy';
 import { Projectile, Damageable } from './Projectile';
 import {

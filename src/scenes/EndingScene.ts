@@ -17,7 +17,7 @@
  * optimise." Labels are only shown HERE, retrospectively, after the ending text.
  */
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 export type EndingId = 'restoration' | 'weaving' | 'wound' | 'silence';
 

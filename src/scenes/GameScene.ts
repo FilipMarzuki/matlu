@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import VirtualJoystickPlugin from 'phaser4-rex-plugins/plugins/virtualjoystick-plugin';
 import { FbmNoise } from '../lib/noise';
 import { mulberry32, poissonDisk } from '../lib/rng';
@@ -27,7 +27,8 @@ import {
   traceRiverPath,
   buildRiverTileGrids,
 }                              from '../world/RiverData';
-import { CorruptionPostFX }  from '../shaders/CorruptionPostFX';
+// TODO(FIL-213): re-enable once CorruptionPostFX is migrated to Phaser 4 Filter system
+// import { CorruptionPostFX }  from '../shaders/CorruptionPostFX';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
   meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
@@ -551,7 +552,8 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Shader pipelines ────────────────────────────────────────────────────────
   // null when running under the Canvas renderer (no WebGL) or before create()
-  private corruptPipeline: CorruptionPostFX | null = null;
+  // TODO(FIL-213): restore once CorruptionPostFX is migrated to Phaser 4 Filter
+  private corruptPipeline: { setCorruption(v: number): void } | null = null;
 
   // ─── Sound ────────────────────────────────────────────────────────────────────
   // ambience loops continuously in the background once gameplay starts
@@ -1292,16 +1294,11 @@ export class GameScene extends Phaser.Scene {
     // Reset pinch reference whenever a finger lifts so the next gesture starts fresh.
     this.input.on('pointerup', () => { this.pinchZoomRef = null; });
 
-    // ── Corruption post-FX ───────────────────────────────────────────────────
-    // Registers a full-viewport WebGL shader that reacts to world corruption.
-    // The pipeline is a passthrough when corruption == 0 so there's no visual
-    // cost until the player actually lets the world corrupt.
-    if (this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
-      this.renderer.pipelines.addPostPipeline('CorruptionFX', CorruptionPostFX);
-      this.cameras.main.setPostPipeline('CorruptionFX');
-      const pipe = this.cameras.main.getPostPipeline('CorruptionFX');
-      this.corruptPipeline = Array.isArray(pipe) ? pipe[0] as CorruptionPostFX : pipe as CorruptionPostFX;
-    }
+    // ── Corruption post-FX (disabled — Phaser 4 migration) ─────────────────
+    // TODO(FIL-213): PostFXPipeline was removed in Phaser 4. Re-implement as
+    // a custom Filter (BaseFilterShader + Controller). The GLSL in
+    // CorruptionPostFX.ts is still valid — just needs a new host class.
+    // Until then, corruption visual effects are inactive.
     this.initAttractMode();
   }
 

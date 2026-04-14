@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { t } from '../lib/i18n';
 import { fetchMatluLeaderboard, fetchPlayerRuns } from '../lib/matluRuns';
 import type { MatluRun } from '../types/database.types';
