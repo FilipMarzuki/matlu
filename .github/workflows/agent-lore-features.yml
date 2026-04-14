@@ -1,0 +1,37 @@
+name: Lore from Features
+
+# Scans recently merged PRs for new game entities and creates matching
+# lore entries in Notion. Runs daily — prompt lives in .agents/lore-features.md.
+
+on:
+  schedule:
+    # 15:00 UTC (5:00 PM GMT+2) every day.
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-lore-features
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # full history so git log --since works
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Run lore-from-features session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/lore-features.md)"

@@ -1,0 +1,37 @@
+name: Better Stack Error Monitor
+
+# Checks Better Stack for unresolved errors in the last 24 hours and files
+# Linear bugs for anything not already tracked. Runs daily — prompt lives
+# in .agents/error-monitor.md.
+
+on:
+  schedule:
+    # 07:00 UTC (9:00 AM GMT+2) every day.
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-error-monitor
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Run error monitor session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
+          BETTERSTACK_API_TOKEN:   ${{ secrets.BETTERSTACK_API_TOKEN }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/error-monitor.md)"

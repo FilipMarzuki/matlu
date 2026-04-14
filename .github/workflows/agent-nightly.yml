@@ -2,13 +2,10 @@ name: Nightly Agent (per-issue)
 
 # Per-issue nightly runner for Matlu's Claude Code agent.
 #
-# Replaces the older single-session model with one isolated Claude Code
-# session per Linear issue. See FIL-198 for the full rationale — in short:
-# isolated sessions prevent context bleed between issues, keep costs
-# per-issue predictable, and let a failure on one issue not halt the rest.
-#
-# Phase 1 (current): run alongside the existing single-session runner, do NOT
-# retire it. See CLAUDE.md for the migration plan.
+# One isolated Claude Code session per Linear issue. See FIL-198 for the
+# full rationale — isolated sessions prevent context bleed between issues,
+# keep costs per-issue predictable, and let a failure on one issue not
+# halt the rest.
 
 on:
   schedule:
