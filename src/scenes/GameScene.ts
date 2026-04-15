@@ -13,6 +13,8 @@ import { InteractiveObject } from '../environment/InteractiveObject';
 import { WorldClock } from '../world/WorldClock';
 import type { DayPhase, PhaseOverlay } from '../world/WorldClock';
 import { WorldState } from '../world/WorldState';
+import { SeasonSystem } from '../world/SeasonSystem';
+import type { Season } from '../world/SeasonSystem';
 import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
 import { PathSystem } from '../world/PathSystem';
@@ -538,6 +540,9 @@ export class GameScene extends Phaser.Scene {
   private lerpTo!: PhaseOverlay;
   private overlayLerpElapsed = 0;
   private readonly OVERLAY_LERP_DURATION = 20_000; // 20 real seconds in ms
+  private seasonSystem!: SeasonSystem;
+  /** Tracks the last applied effective season so updateDayNight() only re-blends on change. */
+  private _currentSeason: Season = 'spring';
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -1026,6 +1031,13 @@ export class GameScene extends Phaser.Scene {
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
     this.worldState = new WorldState(this, this.worldClock);
+
+    // SeasonSystem layers seasonal state (spring/rainy/summer/autumn/winter) on
+    // top of the WorldClock day/night cycle. It advances every 3 in-game days by
+    // default and blends a palette tint into the day/night overlay (see blendedOverlay()).
+    this.seasonSystem = new SeasonSystem(this, this.worldClock, this.worldState);
+    this.worldState.registerSystem(this.seasonSystem);
+
     // Placeholder map data — replaced by parseLdtkLevel() once LDtk export exists
     this.mapData = emptyLdtkLevel(WORLD_W, WORLD_H, TILE_SIZE);
 
@@ -3034,7 +3046,42 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ─── Day/Night cycle (FIL-37) ───────────────────────────────────────────────
+  // ─── Day/Night + Season overlay (FIL-37, FIL-175) ───────────────────────────
+
+  /**
+   * Computes the blended RGBA overlay that combines the WorldClock phase tint
+   * with the SeasonSystem season tint. Both overlays contribute proportionally
+   * to their alpha values — when one has alpha 0 (e.g. morning) the other
+   * dominates, so the season color is always visible.
+   *
+   * Uses `getEffectiveSeason('zone-main')` so corrupted zones (corruption > 0.5)
+   * produce a winter tint rather than the current raw season.
+   *
+   * Called from both createDayNightOverlay() (initial frame) and
+   * updateDayNight() (on phase or season change).
+   */
+  private blendedOverlay(): { colour: number; alpha: number } {
+    const po = this.worldClock.overlay;
+    // Use effective season for the main zone — corrupted zones are locked to winter.
+    const so = this.seasonSystem.getEffectiveSeasonOverlay('zone-main');
+
+    const totalAlpha = Math.min(1, po.alpha + so.alpha);
+    let r: number, g: number, b: number;
+    if (totalAlpha <= 0) {
+      r = 0; g = 0; b = 0;
+    } else {
+      // Blend each channel weighted by each overlay's alpha contribution.
+      // This means a season with alpha 0.08 gets 50% weight when the phase
+      // is at alpha 0.08 too, producing an equal mix.
+      const pw = po.alpha / totalAlpha;
+      const sw = so.alpha / totalAlpha;
+      r = Math.round(po.r * pw + so.r * sw);
+      g = Math.round(po.g * pw + so.g * sw);
+      b = Math.round(po.b * pw + so.b * sw);
+    }
+
+    return { colour: Phaser.Display.Color.GetColor(r, g, b), alpha: totalAlpha };
+  }
 
   private createDayNightOverlay(): void {
     // Full-world rectangle sitting above all world objects but below HUD
@@ -3042,13 +3089,14 @@ export class GameScene extends Phaser.Scene {
       .rectangle(WORLD_W / 2, WORLD_H / 2, WORLD_W, WORLD_H, 0x000000, 0)
       .setDepth(48)
       .setScrollFactor(1);
-    // Apply the initial phase immediately (no tween on first frame)
-    const ov = this.worldClock.overlay;
-    const colour = Phaser.Display.Color.GetColor(ov.r, ov.g, ov.b);
-    this.dayNightOverlay.setFillStyle(colour, ov.alpha);
+    // Apply the initial blended phase + season overlay (no tween on first frame)
+    const { colour, alpha } = this.blendedOverlay();
+    this.dayNightOverlay.setFillStyle(colour, alpha);
     this.currentPhase = this.worldClock.phase;
+    this._currentSeason = this.seasonSystem.getEffectiveSeason('zone-main');
     // FIL-227: seed lerp state — treat the initial overlay as fully arrived so
     // the first updateDayNight() call has valid from/to values and no stale lerp.
+    const ov = this.worldClock.overlay;
     this.currentOverlay = { ...ov };
     this.lerpFrom       = { ...ov };
     this.lerpTo         = { ...ov };
@@ -3059,14 +3107,35 @@ export class GameScene extends Phaser.Scene {
   // OVERLAY_LERP_DURATION (20 s) whenever the phase changes.
   private updateDayNight(delta: number): void {
     const newPhase = this.worldClock.phase;
-    if (newPhase !== this.currentPhase) {
+    // SeasonSystem.update() already ran this frame (worldState.update() calls it),
+    // so getEffectiveSeason() reflects the latest season state.
+    const newSeason = this.seasonSystem.getEffectiveSeason('zone-main');
+
+    // Only start a new lerp when either the phase or the season has changed.
+    if (newPhase !== this.currentPhase || newSeason !== this._currentSeason) {
       this.currentPhase = newPhase;
+      this._currentSeason = newSeason;
 
       // Capture where the display currently sits as the lerp start so a
-      // mid-transition phase change blends from the actual displayed colour
-      // rather than jumping back to the previous phase's canonical overlay.
+      // mid-transition change blends from the actual displayed colour
+      // rather than jumping back to the previous overlay.
       this.lerpFrom           = { ...this.currentOverlay };
-      this.lerpTo             = { ...this.worldClock.overlay };
+      // Compute the blended phase + season target as raw RGBA for the lerp.
+      const po = this.worldClock.overlay;
+      const so = this.seasonSystem.getEffectiveSeasonOverlay('zone-main');
+      const totalAlpha = Math.min(1, po.alpha + so.alpha);
+      if (totalAlpha <= 0) {
+        this.lerpTo = { r: 0, g: 0, b: 0, alpha: 0 };
+      } else {
+        const pw = po.alpha / totalAlpha;
+        const sw = so.alpha / totalAlpha;
+        this.lerpTo = {
+          r: Math.round(po.r * pw + so.r * sw),
+          g: Math.round(po.g * pw + so.g * sw),
+          b: Math.round(po.b * pw + so.b * sw),
+          alpha: totalAlpha,
+        };
+      }
       this.overlayLerpElapsed = 0;
 
       // Audio and particle transitions stay at 8 s — they don't need to match
