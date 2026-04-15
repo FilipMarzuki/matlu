@@ -4389,22 +4389,22 @@ export class GameScene extends Phaser.Scene {
    * green, snow gets ice-blue, etc.
    */
   private biomeTint(elev: number, temp: number, moist: number): number {
-    if (elev < 0.25) return 0x7ab0d8;  // sea — blue
+    if (elev < 0.25) return 0x5f94c4;  // sea — cooler, deeper blue
     if (elev < 0.30) {
       return (temp < 0.45 || moist > 0.50)
-        ? 0xd4a86a   // rocky shore — warm sandy
-        : 0xe8c870;  // sandy shore — lighter yellow-sand
+        ? 0xb8844e   // rocky shore — ochre stone
+        : 0xd7b66a;  // sandy shore — warm pale sand
     }
-    if (elev < 0.45 && moist > 0.72) return 0x608858; // marsh — muddy dark green
+    if (elev < 0.45 && moist > 0.72) return 0x4f6d3d; // marsh — dark moss green
     if (elev < 0.62) {
-      if (moist > 0.60) return 0x80c068; // forest  — fresh green
-      if (moist > 0.30) return 0xb8d480; // heath   — light olive
-      return                  0xc8a860;  // dry heath — sandy (slightly distinct from shore)
+      if (moist > 0.60) return 0x5f9c56; // forest  — rich spring green
+      if (moist > 0.30) return 0x94b864; // heath   — sunlit olive
+      return                  0xa9874f;  // dry heath — muted ochre
     }
     if (elev < 0.78) {
-      return temp > 0.50 ? 0x50904a : 0xb8b4ac; // spruce / cold granite
+      return temp > 0.50 ? 0x3f7b45 : 0x7a8599; // spruce / cold slate
     }
-    return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
+    return temp < 0.40 ? 0xd7e6ff : 0x8f8176; // snow / warm bare summit
   }
 
   /**
@@ -4468,9 +4468,97 @@ export class GameScene extends Phaser.Scene {
     // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
     const gfx = this.add.graphics().setDepth(0.1);
     for (const [tint, coords] of groups) {
-      gfx.fillStyle(tint, 0.45);
+      // Slightly stronger alpha so biome identity survives dawn/dusk overlays.
+      gfx.fillStyle(tint, 0.56);
       for (let i = 0; i < coords.length; i += 2) {
         gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
+      }
+    }
+  }
+
+  /** Shift an RGB hex colour by a fixed amount per channel (-255..255). */
+  private shiftRgb(hex: number, delta: number): number {
+    const r = Phaser.Math.Clamp(((hex >> 16) & 0xff) + delta, 0, 255);
+    const g = Phaser.Math.Clamp(((hex >> 8)  & 0xff) + delta, 0, 255);
+    const b = Phaser.Math.Clamp((hex & 0xff) + delta, 0, 255);
+    return (r << 16) | (g << 8) | b;
+  }
+
+  /**
+   * Adds tiny per-tile terrain flecks so ground feels tactile at player zoom.
+   * This intentionally keeps alpha low: detail should break flatness, not distract.
+   */
+  private drawBiomeMicroDetails(noise: FbmNoise, tilesX: number, tilesY: number): void {
+    const gfx = this.add.graphics().setDepth(0.18);
+    const accentByTint = new Map<number, { dark: number; light: number; crack: number }>();
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        // Match terrain + wash sampling so flecks stay biome-correct across borders.
+        const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
+        const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
+        const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
+        if (val < 0.25) continue; // water tiles already have animated texture
+        if (this.isRiverTile?.[ty * tilesX + tx]) continue;
+
+        // Position-seeded hash: deterministic and cheap, no extra RNG state.
+        const hash = (((tx + 1) * 73856093) ^ ((ty + 1) * 19349663) ^ this.runSeed) >>> 0;
+        if ((hash & 0b111) > 0b100) continue; // draw on ~62.5% of land tiles
+
+        let effectiveMoist = moist;
+        if (this.isRiverTile) {
+          const bankR = 2;
+          outer: for (let dy = -bankR; dy <= bankR; dy++) {
+            for (let dx = -bankR; dx <= bankR; dx++) {
+              if (dy === 0 && dx === 0) continue;
+              const nx = tx + dx;
+              const ny = ty + dy;
+              if (nx >= 0 && nx < tilesX && ny >= 0 && ny < tilesY &&
+                  this.isRiverTile[ny * tilesX + nx] === 1) {
+                effectiveMoist = Math.min(1, moist + 0.30);
+                break outer;
+              }
+            }
+          }
+        }
+
+        const tint = this.biomeTint(val, temp, effectiveMoist);
+        let accent = accentByTint.get(tint);
+        if (!accent) {
+          accent = {
+            dark:  this.shiftRgb(tint, -36),
+            light: this.shiftRgb(tint,  28),
+            crack: this.shiftRgb(tint, -54),
+          };
+          accentByTint.set(tint, accent);
+        }
+
+        const px = tx * TILE_SIZE;
+        const py = ty * TILE_SIZE;
+
+        const fx = 2 + (((hash >>> 8)  & 0x0f) * 2 % 28);
+        const fy = 2 + (((hash >>> 12) & 0x0f) * 2 % 28);
+        gfx.fillStyle(accent.dark, 0.22);
+        gfx.fillRect(px + fx, py + fy, 2, 2);
+
+        if ((hash & 0x40) !== 0) {
+          const lx = 2 + (((hash >>> 16) & 0x0f) * 2 % 28);
+          const ly = 2 + (((hash >>> 20) & 0x0f) * 2 % 28);
+          gfx.fillStyle(accent.light, 0.16);
+          gfx.fillRect(px + lx, py + ly, 1, 1);
+        }
+
+        // Highland rock gets a short dark streak so cliffs read rougher.
+        if (val >= 0.78 && (hash & 0x200) !== 0) {
+          const cx = 3 + ((hash >>> 24) & 0x0f);
+          const cy = 6 + ((hash >>> 28) & 0x07);
+          gfx.fillStyle(accent.crack, 0.18);
+          gfx.fillRect(px + cx, py + cy, 3, 1);
+        }
       }
     }
   }
@@ -4814,6 +4902,8 @@ export class GameScene extends Phaser.Scene {
     // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
     // matching the noise gradient closely enough to look organic at play zoom.
     this.drawBiomeColorWash(noise, tilesX, tilesY);
+    // Fine-grain detail pass so nearby terrain keeps tactile texture at 3x zoom.
+    this.drawBiomeMicroDetails(noise, tilesX, tilesY);
     // Cliff-edge shadows (depth 0.45) render on top of the colour wash but below paths.
     this.drawCliffEdges(biomeGrid, tilesX, tilesY);
 
