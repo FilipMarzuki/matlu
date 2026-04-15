@@ -177,18 +177,18 @@ export const DIAGONAL_RIVERS: ReadonlyArray<DiagonalRiver> = [
     // Left edge, mid-south in the mountain zone — descends SE to cross the
     // corridor near the old Southern River position ~(600, 2100).
     sourceTile: { tx: 5, ty: 50 },
-    // 48 px half-width → 96 px total band, matching the old halfTiles:1 (3 rows × 32).
-    halfWidth: 48,
-    bridge: { pathIndex: 0, width: 128 }, // pathIndex resolved by traceRiverPath
-    ford:   { pathIndex: 0, width: 128 },
+    // 80 px half-width → 160 px total band so the river reads clearly at overview zoom.
+    halfWidth: 80,
+    bridge: { pathIndex: 0, width: 160 }, // pathIndex resolved by traceRiverPath
+    ford:   { pathIndex: 0, width: 160 },
   },
   {
     id: 'river-b',
     // Left edge, near north — longer path, crosses corridor near old River B ~(1548, 1520).
     sourceTile: { tx: 5, ty: 15 },
-    halfWidth: 48,
-    bridge: { pathIndex: 0, width: 96  },
-    ford:   { pathIndex: 0, width: 128 },
+    halfWidth: 80,
+    bridge: { pathIndex: 0, width: 128 },
+    ford:   { pathIndex: 0, width: 160 },
   },
 ] as const;
 

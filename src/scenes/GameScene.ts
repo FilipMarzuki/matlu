@@ -4429,14 +4429,29 @@ export class GameScene extends Phaser.Scene {
         const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.08), 1.5) * 4.5;
         const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
 
-        // Skip water and river tiles — they have identity from animated sprites.
-        // FIL-168: use precomputed isRiverTile grid (diagonal paths) instead of
-        // the old horizontal RIVER_BANDS band check.
-        if (val < 0.25) continue;
-        if (this.isRiverTile?.[ty * tilesX + tx]) continue;
+        const tileIdx = ty * tilesX + tx;
+        const isRiverHere = this.isRiverTile?.[tileIdx] === 1;
+
+        // Ocean tiles keep their native water colours. River tiles get a dedicated
+        // teal wash so they stay readable against both green banks and deep ocean.
+        if (val < 0.25) {
+          if (isRiverHere) {
+            let arr = groups.get(0x40b090);
+            if (!arr) { arr = []; groups.set(0x40b090, arr); }
+            arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
+          }
+          continue;
+        }
+
+        if (isRiverHere) {
+          let arr = groups.get(0x40b090);
+          if (!arr) { arr = []; groups.set(0x40b090, arr); }
+          arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
+          continue;
+        }
 
         // FIL-172: apply the same river-bank moisture boost as the terrain bake
         // so the colour wash tint matches the tile that was drawn.
@@ -4571,7 +4586,7 @@ export class GameScene extends Phaser.Scene {
         // Diagonal bias: NW corner is mountains (high), SE corner is ocean (low).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.08), 1.5) * 4.5;
         grid[ty * tilesX + tx] = Math.max(
           0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias),
         );
@@ -4680,7 +4695,7 @@ export class GameScene extends Phaser.Scene {
         // Power-curve biases push flanks to extreme biomes (mountain >0.90, ocean <0.25).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.08), 1.5) * 4.5;
         let val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
 
         // FIL-168: force water elevation for diagonal river-band tiles.
