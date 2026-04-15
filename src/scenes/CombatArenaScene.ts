@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CombatEntity, Tinkerer, Spider, Skag, Crow } from '../entities/CombatEntity';
+import { BabyVelcrid } from '../entities/Velcrid';
 import { Projectile } from '../entities/Projectile';
 
 // ── Wave & hero type definitions ──────────────────────────────────────────────
@@ -50,6 +51,7 @@ const HERO_ROSTER: HeroConfig[] = [
  * hero classes exist.
  */
 const WAVE_SEQUENCE: WaveConfig[] = [
+  { label: 'Velcrid Flood',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Spider Den',      enemies: [Spider, Spider] },
   { label: 'Spider + Skag',   enemies: [Spider, Skag] },
   { label: 'Skag Pack',       enemies: [Skag, Skag] },
@@ -117,6 +119,11 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/characters/earth/enemies/crow/crow.png',
       'assets/sprites/characters/earth/enemies/crow/crow.json',
     );
+    this.load.aseprite(
+      'baby-velcrid',
+      'assets/sprites/characters/spinolandet/enemies/baby-velcrid/baby-velcrid.png',
+      'assets/sprites/characters/spinolandet/enemies/baby-velcrid/baby-velcrid.json',
+    );
   }
 
   create(): void {
@@ -131,6 +138,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.anims.createFromAseprite('spider');
     this.anims.createFromAseprite('skag');
     this.anims.createFromAseprite('crow');
+    this.anims.createFromAseprite('baby-velcrid');
     this.startWave();
   }
 
