@@ -15,10 +15,13 @@ export interface Damageable {
  * Projectile — a short-lived visual that travels in a straight line and deals
  * damage on contact with a target.
  *
- * Extends `Phaser.GameObjects.Arc` so it renders as a filled circle with no
- * Container overhead. Movement is manual (position update each tick) rather
- * than arcade physics, which avoids the complexity of registering physics
- * overlaps between Container-based entities.
+ * Extends `Phaser.GameObjects.Rectangle` and renders as a thin elongated
+ * tracer round (~12×2 px) rotated to face the travel direction. This gives
+ * a fast-bullet silhouette instead of the old filled-circle "blob".
+ *
+ * Movement is manual (position update each tick) rather than arcade physics,
+ * which avoids the complexity of registering physics overlaps between
+ * Container-based entities.
  *
  * Lifecycle:
  *   1. CombatEntity spawns a Projectile and emits 'projectile-spawned' on the
@@ -29,7 +32,7 @@ export interface Damageable {
  *      or leaves the physics world bounds. `isExpired` goes true so the scene
  *      can prune its list.
  */
-export class Projectile extends Phaser.GameObjects.Arc {
+export class Projectile extends Phaser.GameObjects.Rectangle {
   private readonly vx: number;
   private readonly vy: number;
   private readonly damage: number;
@@ -68,13 +71,16 @@ export class Projectile extends Phaser.GameObjects.Arc {
     hitRadius: number = 18,
     maxRange:  number = 350,
   ) {
-    // Arc(scene, x, y, radius, startAngle, endAngle, anticlockwise, fillColor)
-    super(scene, x, y, 5, 0, 360, false, color);
+    // Rectangle(scene, x, y, width, height, fillColor)
+    // 12×2 px gives a tracer-round silhouette — narrow and elongated.
+    super(scene, x, y, 12, 2, color);
 
     // Register in the scene display list so it renders automatically.
     // Depth 1 = above the arena floor (0) but below HP bars (2) and ability FX (3).
     scene.add.existing(this);
     this.setDepth(1);
+    // Rotate the long axis to face the travel direction so it reads as a bullet.
+    this.setRotation(angle);
 
     this.vx        = Math.cos(angle) * speed;
     this.vy        = Math.sin(angle) * speed;
@@ -86,7 +92,7 @@ export class Projectile extends Phaser.GameObjects.Arc {
 
   /**
    * Advance the projectile by one frame. Called manually by CombatArenaScene
-   * because Arc is not in Phaser's built-in update list.
+   * because Rectangle is not in Phaser's built-in update list.
    */
   tick(delta: number): void {
     if (this.expired) return;
