@@ -102,6 +102,45 @@
       "outputDir": "public/assets/sprites/characters/earth/heroes/tinkerer"
     },
     {
+      "id": "mini-velcrid",
+      "name": "Mini Velcrid",
+      "world": "spinolandet",
+      "faction": "enemy",
+      "status": "done",
+      "_pixellabCharacterId": "2fab73d8-aa67-4cc4-8ad7-49ca10c30da1",
+      "_comment": "Spider-like alien creature used as the base sprite for all spinolandet enemies. Tinted/scaled per enemy class. Has idle (all dirs) and custom skitter-walk (all dirs).",
+      "pixellab": {
+        "description": "mini Velcrid alien spider creature, dark red carapace, multiple legs, top-down pixel art",
+        "size": 92,
+        "body_type": "quadruped",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "custom-move like a 8 legged spider or roach and skitter f",
+          "frameDurationMs": 80
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid"
+    },
+    {
       "id": "skald",
       "name": "Skald",
       "world": "earth",

@@ -4,16 +4,11 @@ import { NavScene } from './NavScene';
 import {
   CombatEntity,
   Tinkerer,
-  SporeHusk,
-  AcidLancer,
-  BruteCarapace,
-  ParasiteFlyer,
-  WarriorBug,
 } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
-import { VelcridJuvenile, VelcridAdult } from '../entities/Velcrid';
+import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -25,41 +20,31 @@ interface WaveGroup {
 }
 
 /**
- * Ordered groups that cycle indefinitely.
- * Each full cycle adds extra SporeHusk padding so difficulty scales.
- *
- * Main spawn fires the next group every 10→5 s (shrinks each wave).
- * Trickle WarriorBugs start at wave 2.
+ * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
+ * Groups cycle indefinitely; difficulty scales via the wave number multiplier in spawnWaveGroup.
  */
 const WAVE_GROUPS: WaveGroup[] = [
-  { label: 'Husk Scout',      enemies: [SporeHusk, SporeHusk, SporeHusk] },
-  { label: 'Lancer Advance',  enemies: [SporeHusk, SporeHusk, AcidLancer] },
-  { label: 'Brute Emergence', enemies: [BruteCarapace, SporeHusk] },
-  { label: 'Flyer Strike',    enemies: [ParasiteFlyer, ParasiteFlyer, AcidLancer] },
-  { label: 'Bio Surge',       enemies: [BruteCarapace, ParasiteFlyer, SporeHusk] },
-  { label: 'Horde',           enemies: [BruteCarapace, BruteCarapace, AcidLancer, ParasiteFlyer] },
-  { label: 'Velcrid Young',   enemies: [VelcridJuvenile, VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Tunnel Reavers',  enemies: [VelcridAdult, VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Hive Surge',      enemies: [VelcridAdult, VelcridAdult, VelcridJuvenile] },
+  { label: 'Baby Swarm',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Scout Pair',   enemies: [VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+  { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
-const SPAWN_MARGIN_Y  = 80;   // min px from arena top/bottom for spawns
 const MAX_ALIVE       = 20;   // total alive enemy cap
-const MAX_ALIVE_BUGS  = 8;    // separate cap for WarriorBugs
 const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
 /**
- * CombatArenaScene — continuous bio-wave combat sandbox.
+ * CombatArenaScene — continuous bio-wave combat sandbox (M1).
  *
- * The Tinkerer fights an endless escalating stream of spinolandet enemies:
- *   - Main timer:    fires a WaveGroup every 10→5 s (speeds up each wave).
- *   - Trickle timer: drops 1–2 WarriorBugs every 1.5→0.9 s from wave 2 onward.
- *   - Enemies accumulate — no reset between waves.
+ * Two enemy types: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
+ *   - Main timer fires a WaveGroup every 10→5 s (speeds up each wave).
+ *   - Enemies accumulate between waves.
  *   - Tinkerer respawns at full HP after HERO_RESPAWN_MS if killed.
  *
  * Dev menu at the bottom bar switches to GameScene (WilderView).
@@ -77,12 +62,8 @@ export class CombatArenaScene extends Phaser.Scene {
   private waveGroupIndex = 0;
   private waveNumber     = 0;
   private killCount      = 0;
-  // Maintained incrementally so the trickle check avoids a per-frame filter().
-  private aliveBugCount  = 0;
 
   private mainSpawnTimer = 3000;  // first group fires after 3 s
-  private trickleTimer   = 0;
-  private trickleActive  = false;
 
   // HUD cache — setText() rebuilds the text texture on every call even when the
   // value hasn't changed, so only call it when the value actually differs.
@@ -146,27 +127,12 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json',
     );
-    // Spider/skag/crow are used as tinted placeholders for the spinolandet enemies
-    // until dedicated sprites are generated.
+    // Mini Velcrid — used for all spinolandet enemies, tinted/scaled per class.
     this.load.aseprite(
-      'spider',
-      'assets/sprites/characters/earth/enemies/spider/spider.png',
-      'assets/sprites/characters/earth/enemies/spider/spider.json',
+      'mini-velcrid',
+      'assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.png',
+      'assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json',
     );
-    this.load.aseprite(
-      'skag',
-      'assets/sprites/characters/earth/enemies/skag/skag.png',
-      'assets/sprites/characters/earth/enemies/skag/skag.json',
-    );
-    this.load.aseprite(
-      'crow',
-      'assets/sprites/characters/earth/enemies/crow/crow.png',
-      'assets/sprites/characters/earth/enemies/crow/crow.json',
-    );
-    // Velcrid placeholder sprites — replaced when custom sprites are ready.
-    // Boar (fast, ground-level) for juvenile; badger (low, dark) for adult.
-    this.load.image('velcrid-juv',   'assets/packs/critters/boar/boar_SE_idle_0.png');
-    this.load.image('velcrid-adult', 'assets/packs/critters/badger/critter_badger_SE_idle.png');
 
     // Colosseum floor Wang tileset — 4x4 grid of 16x16 px tiles, 64x64 total.
     this.load.spritesheet(
@@ -182,10 +148,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
-    this.aliveBugCount   = 0;
     this.mainSpawnTimer  = 3000;
-    this.trickleTimer    = 0;
-    this.trickleActive   = false;
     this.heroAlive       = true;
     this._lastHudWave    = -1;
     this._lastHudAlive   = -1;
@@ -201,9 +164,7 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     this.anims.createFromAseprite('tinkerer');
-    this.anims.createFromAseprite('spider');
-    this.anims.createFromAseprite('skag');
-    this.anims.createFromAseprite('crow');
+    this.anims.createFromAseprite('mini-velcrid');
 
     // Audio is unavailable in headless CI (WebAudio context never starts).
     this.audioAvailable = this.cache.audio.has('gunshot-0');
@@ -217,6 +178,14 @@ export class CombatArenaScene extends Phaser.Scene {
     // Plays a metallic-crack SFX (pitched up), adds a micro camera shake for
     // recoil feel, and briefly flashes a muzzle bloom at the shot origin.
     this.events.on('hero-shot', (x: number, y: number, _angle: number) => {
+      // Gunshot panic — enemies within 120 px of the shot origin scatter.
+      const PANIC_R = 120;
+      for (const e of this.aliveEnemies) {
+        if (Phaser.Math.Distance.Between(x, y, e.x, e.y) < PANIC_R) {
+          e.enterPanic(x, y);
+        }
+      }
+
       // Recoil shake: very brief + subtle, just enough to feel the gun kick.
       this.cameras.main.shake(60, 0.003);
 
@@ -296,9 +265,14 @@ export class CombatArenaScene extends Phaser.Scene {
     if (justDied.length > 0) {
       this.aliveEnemies = alive;
       this.killCount   += justDied.length;
-      // Decrement the bug counter for any WarriorBugs that just died.
       for (const e of justDied) {
-        if (e instanceof WarriorBug) this.aliveBugCount--;
+        // Death panic — survivors within 80 px scatter away from the corpse.
+        const DEATH_PANIC_R = 80;
+        for (const survivor of alive) {
+          if (Phaser.Math.Distance.Between(e.x, e.y, survivor.x, survivor.y) < DEATH_PANIC_R) {
+            survivor.enterPanic(e.x, e.y);
+          }
+        }
         this.time.delayedCall(1500, () => { if (e.active) e.destroy(); });
       }
       this.cameras.main.shake(120, 0.003);
@@ -312,17 +286,6 @@ export class CombatArenaScene extends Phaser.Scene {
       if (this.mainSpawnTimer <= 0) {
         this.spawnWaveGroup();
         this.mainSpawnTimer = this.nextMainInterval();
-      }
-    }
-
-    // ── Trickle spawn timer ───────────────────────────────────────────────────
-    if (this.trickleActive) {
-      if (this.aliveBugCount < MAX_ALIVE_BUGS && this.aliveEnemies.length < MAX_ALIVE) {
-        this.trickleTimer -= delta;
-        if (this.trickleTimer <= 0) {
-          this.spawnBug();
-          this.trickleTimer = this.nextTrickleInterval();
-        }
       }
     }
 
@@ -611,7 +574,7 @@ export class CombatArenaScene extends Phaser.Scene {
    */
   private syncEnemyCoordination(): void {
     for (const e of this.aliveEnemies) {
-      e.setAllies(this.aliveEnemies);
+      e.setSwarmNeighbours(this.aliveEnemies);
       e.setBlackboard(this.blackboard);
     }
   }
@@ -620,14 +583,15 @@ export class CombatArenaScene extends Phaser.Scene {
 
   private spawnWaveGroup(): void {
     this.waveNumber++;
-    if (this.waveNumber >= 2) this.trickleActive = true;
 
     const group = WAVE_GROUPS[this.waveGroupIndex];
     this.waveGroupIndex = (this.waveGroupIndex + 1) % WAVE_GROUPS.length;
 
+    // Every full cycle through all groups, add one extra BabyVelcrid so difficulty
+    // slowly escalates without requiring new enemy types.
     const cycle  = Math.floor((this.waveNumber - 1) / WAVE_GROUPS.length);
     const ctors: EnemyCtor[] = [...group.enemies];
-    for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(SporeHusk);
+    for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(BabyVelcrid);
 
     const spawnX = this.arenaX + this.arenaW - SPAWN_X_OFFSET;
     const ys     = this.spreadY(ctors.length);
@@ -651,32 +615,10 @@ export class CombatArenaScene extends Phaser.Scene {
     this.syncEnemyCoordination();
   }
 
-  private spawnBug(): void {
-    const spawnX = this.arenaX + this.arenaW - SPAWN_X_OFFSET;
-    const count  = this.waveNumber >= 4 && Math.random() < 0.4 ? 2 : 1;
-    for (let i = 0; i < count; i++) {
-      const y = Phaser.Math.Between(
-        this.arenaY + SPAWN_MARGIN_Y,
-        this.arenaY + this.arenaH - SPAWN_MARGIN_Y,
-      );
-      const bug = new WarriorBug(this, spawnX, y);
-      this.addPhysics(bug);
-      bug.setOpponent(this.hero);
-      this.aliveEnemies.push(bug);
-      this.aliveBugCount++;
-    }
-    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
-    this.syncEnemyCoordination();
-  }
-
   // ── Wave timing ───────────────────────────────────────────────────────────────
 
   private nextMainInterval(): number {
     return Math.max(5000, 10000 - this.waveNumber * 400);
-  }
-
-  private nextTrickleInterval(): number {
-    return this.waveNumber >= 4 ? 900 : 1500;
   }
 
   // ── HUD ───────────────────────────────────────────────────────────────────────
@@ -799,10 +741,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex = 0;
     this.waveNumber     = 0;
     this.killCount      = 0;
-    this.aliveBugCount  = 0;
     this.mainSpawnTimer = 3000;
-    this.trickleTimer   = 0;
-    this.trickleActive  = false;
     this._lastHudWave   = -1;
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
