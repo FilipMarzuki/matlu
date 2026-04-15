@@ -294,6 +294,25 @@
   ],
   "tilesets": [
     {
+      "id": "water_animated",
+      "name": "Animated Water Tiles",
+      "world": "earth",
+      "status": "done",
+      "_comment": "4-frame animated water spritesheet for the procedural terrain. Replaces the Mystic Woods water-sheet.png. Generated via create_tiles_pro to match plains.png style.",
+      "tool": "create_tiles_pro",
+      "frameCount": 4,
+      "pixellab": {
+        "description": "1). calm still water, smooth deep blue surface 2). gentle water ripple, blue-teal with subtle small diagonal wave pattern 3). water mid-ripple, teal-blue with visible wave crests 4). full water ripple, active blue water with white foam highlights and wave peaks",
+        "tile_type": "square_topdown",
+        "tile_size": 16,
+        "tile_view": "top-down",
+        "outline_mode": "outline",
+        "style_reference": "mystic_woods_2.2/sprites/tilesets/plains.png",
+        "_style_notes": "Match plains.png style: top-down, 16x16, basic shading, selective outline, muted blues/teals"
+      },
+      "outputDir": "public/assets/sprites"
+    },
+    {
       "id": "arena_floor_earth",
       "name": "Earth Arena Floor",
       "world": "earth",
