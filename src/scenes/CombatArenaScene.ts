@@ -354,6 +354,15 @@ export class CombatArenaScene extends Phaser.Scene {
       }
     }
 
+    // ── Sight line checks (staggered) ─────────────────────────────────────────
+    // Each enemy rechecks LOS every SIGHT_CHECK_INTERVAL_MS (150 ms). The index
+    // argument staggers the checks across frames so not all raycasts fire at once.
+    // Checks run before update() so the BT reads a fresh canSeeTarget this frame.
+    const aliveCount = this.aliveEnemies.length;
+    for (let i = 0; i < aliveCount; i++) {
+      this.aliveEnemies[i].updateSightLine(this.obstacles, i, aliveCount);
+    }
+
     // ── Enemies ───────────────────────────────────────────────────────────────
     for (const e of this.aliveEnemies) e.update(delta);
 

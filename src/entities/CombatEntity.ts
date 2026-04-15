@@ -12,6 +12,9 @@ import {
   CombatContext,
 } from '../ai/BehaviorTree';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
+import { hasLineOfSight, SIGHT_CHECK_INTERVAL_MS } from '../combat/SightLineSystem';
+
+export { SIGHT_CHECK_INTERVAL_MS };
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
@@ -56,6 +59,15 @@ export interface CombatEntityConfig extends EnemyConfig {
   spriteKey?: string;
   spriteTint?: number;
   spriteScale?: number;
+
+  // ── Sight line (optional) ─────────────────────────────────────────────────
+  /**
+   * How long (ms) the enemy remembers the player's last known position after
+   * losing line of sight. During this window the enemy moves toward the cached
+   * position instead of idling. Default: 2000 ms.
+   * Tune per enemy type: short for dumb swarm creatures, long for smart elites.
+   */
+  sightMemoryMs?: number;
 }
 
 // ── Animation direction map ───────────────────────────────────────────────────
@@ -182,6 +194,36 @@ export abstract class CombatEntity extends Enemy {
    */
   private wallRects: readonly Phaser.Geom.Rectangle[] = [];
 
+  // ── Sight line state ──────────────────────────────────────────────────────
+
+  /** How long (ms) the enemy remembers the player after losing sight. */
+  readonly sightMemoryMs: number;
+
+  /**
+   * Whether the last staggered sight check found an unobstructed ray to the
+   * current target. Starts true so enemies are immediately active on spawn;
+   * updateSightLine() corrects it on the first scheduled check.
+   * Read by Velcrid buildTree() closures to gate special-attack branches.
+   */
+  protected canSeeTarget = true;
+
+  /**
+   * Last confirmed world position of the target while canSeeTarget was true.
+   * The behavior tree moves toward this position during the memory window
+   * instead of the target's real (potentially hidden) position.
+   */
+  private lastKnownPosition: { x: number; y: number } | null = null;
+
+  /**
+   * Phaser scene-time (ms) of the last frame in which canSeeTarget was true.
+   * Zero until updateSightLine confirms sight at least once — entities that
+   * have never seen the target wander rather than walking to a stale position.
+   */
+  private lastSeenTimestamp = 0;
+
+  /** Scene-time (ms) when the next scheduled sight check should fire. */
+  private nextSightCheck = 0;
+
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     // Bake a small random speed offset so swarm members move at slightly
     // different speeds — creates the uneven texture of a real insect swarm.
@@ -195,6 +237,8 @@ export abstract class CombatEntity extends Enemy {
     this.projectileDamage = config.projectileDamage;
     this.projectileSpeed  = config.projectileSpeed  ?? 260;
     this.projectileColor  = config.projectileColor  ?? 0xffffff;
+
+    this.sightMemoryMs = config.sightMemoryMs ?? 2000;
 
     this.attackAnimDuration = config.attackCooldownMs * 0.4;
 
@@ -317,6 +361,59 @@ export abstract class CombatEntity extends Enemy {
     return true;
   }
 
+  // ── Sight line ─────────────────────────────────────────────────────────────
+
+  /**
+   * Staggered line-of-sight check against arena obstacles. Call from the scene
+   * update loop once per alive enemy, BEFORE entity.update(delta).
+   *
+   * The check only fires once every SIGHT_CHECK_INTERVAL_MS. Staggering by
+   * roster index spreads raycasts evenly across frames:
+   *   nextCheck = now + interval + (index / total) × interval
+   *
+   * With 20 enemies at 60 fps and a 150 ms interval that is ~5 raycasts/frame
+   * instead of 20 — a ~4× reduction in AI raycast cost each frame.
+   *
+   * Side effects when the check fires:
+   *   - canSeeTarget is updated.
+   *   - If true, lastSeenTimestamp and lastKnownPosition are refreshed.
+   *   - If false, the previous values are preserved for the memory window.
+   *
+   * @param obstacles - arena's static physics group (pillars, walls, corners)
+   * @param index     - this enemy's position in the alive array (0-based)
+   * @param total     - total number of alive enemies (for stagger calculation)
+   */
+  updateSightLine(
+    obstacles: Phaser.Physics.Arcade.StaticGroup,
+    index: number,
+    total: number,
+  ): void {
+    const now = this.scene.time.now;
+    if (now < this.nextSightCheck) return;
+
+    // Spread next check time across the roster so all enemies don't ray-cast
+    // simultaneously. The (index / total) fraction staggers each enemy by a
+    // fraction of the full interval.
+    const stagger = total > 1 ? (index / total) * SIGHT_CHECK_INTERVAL_MS : 0;
+    this.nextSightCheck = now + SIGHT_CHECK_INTERVAL_MS + stagger;
+
+    const target = this.findTargetOpponent();
+    if (!target) {
+      this.canSeeTarget = false;
+      return;
+    }
+
+    this.canSeeTarget = hasLineOfSight(this.x, this.y, target.x, target.y, obstacles);
+
+    if (this.canSeeTarget) {
+      // Refresh the "last seen" snapshot so the memory window starts from now.
+      this.lastSeenTimestamp  = now;
+      this.lastKnownPosition  = { x: target.x, y: target.y };
+    }
+    // When canSeeTarget is false: leave lastSeenTimestamp and lastKnownPosition
+    // unchanged — updateBehaviour() uses them for the memory-window "searching" path.
+  }
+
   // ── Abstract ───────────────────────────────────────────────────────────────
 
   /** Return this entity's behavior tree. Called once at end of constructor. */
@@ -361,13 +458,40 @@ export abstract class CombatEntity extends Enemy {
     // Pick the target opponent for this frame's BT tick.
     const target = this.findTargetOpponent();
 
+    // ── Sight-gated effective opponent ──────────────────────────────────────
+    //
+    // Three states drive enemy AI:
+    //   1. canSeeTarget true  → real target position   (active aggro)
+    //   2. canSeeTarget false, memory window active → lastKnownPosition (searching)
+    //   3. canSeeTarget false, memory expired or never seen → null (wander)
+    //
+    // lastSeenTimestamp stays 0 until the first updateSightLine() call confirms
+    // sight, ensuring enemies that spawn without LOS wander rather than charging
+    // toward position 0,0.
+    const now = this.scene.time.now;
+    let effectiveOpponent: { x: number; y: number } | null = null;
+    if (target) {
+      if (this.canSeeTarget) {
+        effectiveOpponent = { x: target.x, y: target.y };
+      } else if (
+        this.lastKnownPosition !== null &&
+        this.lastSeenTimestamp > 0 &&
+        now - this.lastSeenTimestamp < this.sightMemoryMs
+      ) {
+        // Enemy lost sight but remembers where it last saw the target.
+        // Moving toward lastKnownPosition creates a "searching" feel for free —
+        // the enemy walks to the spot where it lost the trail, then wanders.
+        effectiveOpponent = this.lastKnownPosition;
+      }
+    }
+
     const ctx: CombatContext = {
       x:     this.x,
       y:     this.y,
       hp:    this.hp,
       maxHp: this.maxHp,
 
-      opponent: target ? { x: target.x, y: target.y } : null,
+      opponent: effectiveOpponent,
 
       moveToward: (tx, ty) => {
         // No-op during dash so the burst velocity isn't overwritten.
