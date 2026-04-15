@@ -314,6 +314,20 @@ export class CombatArenaScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Snapshot of the current arena state — read by NavScene to attach context
+   * metadata to feedback submissions without creating a circular import.
+   */
+  getArenaState(): { waveNumber: number; enemiesAlive: number; playerHp: number } {
+    return {
+      waveNumber:   this.waveNumber,
+      enemiesAlive: this.aliveEnemies.length,
+      playerHp:     this.heroAlive
+        ? Math.round(this.hero.hpFraction * this.hero.maxHp)
+        : 0,
+    };
+  }
+
   override update(_time: number, delta: number): void {
     this.blackboard.tick(delta);
 

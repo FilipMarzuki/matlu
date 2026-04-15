@@ -1,6 +1,9 @@
 import type { MatluFeedbackInsert } from '../types/database.types';
 import { supabase } from './supabaseClient';
 
+/** Semver string embedded in every feedback row — bump when cutting a release. */
+export const GAME_VERSION = '0.0.1';
+
 /**
  * Insert a feedback row into `matlu_feedback`.
  *
