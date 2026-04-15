@@ -20,10 +20,20 @@ export class ArenaBlackboard {
   /** ms cooldown staggering simultaneous Velcrid soldier charge sequences. */
   velcridSoldierChargeCd = 0;
 
+  /**
+   * Origin of the most recent panic event (gunshot or nearby death).
+   * Enemies within panicRadius read this to trigger their own scatter.
+   * Cleared after one frame so each event only fires once.
+   */
+  panicOrigin: { x: number; y: number } | null = null;
+  panicRadius  = 0;
+
   /** Called once per frame by the arena scene. Decrements all timers. */
   tick(delta: number): void {
     this.flyerDiveCooldown      = Math.max(0, this.flyerDiveCooldown      - delta);
     this.velcridScoutsOrbiting  = Math.max(0, this.velcridScoutsOrbiting  - delta);
     this.velcridSoldierChargeCd = Math.max(0, this.velcridSoldierChargeCd - delta);
+    // Clear panic origin after one frame — the arena scene re-sets it each event.
+    this.panicOrigin = null;
   }
 }

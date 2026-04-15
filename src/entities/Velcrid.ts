@@ -62,7 +62,7 @@ export class VelcridJuvenile extends CombatEntity {
       color: 0x2e3a18, meleeRange: 22, attackCooldownMs: 680,
       // Short hop — 2.5× speed for 80 ms ≈ ~24 px of travel
       dashSpeedMultiplier: 2.5, dashDurationMs: 80,
-      spriteKey: 'velcrid-juv', spriteScale: 1.4,
+      spriteKey: 'mini-velcrid', spriteTint: 0x88cc44, spriteScale: 0.28,
     });
   }
 
@@ -147,6 +147,41 @@ export class VelcridJuvenile extends CombatEntity {
 }
 
 /**
+ * BabyVelcrid — hatchling, the simplest enemy in m1.
+ *
+ * Very small, fast direct rusher. No dash, no special behaviour — just finds
+ * the nearest target and charges straight at it. Comes in large groups.
+ * Small scale + light pink tint distinguishes it from VelcridJuvenile.
+ */
+export class BabyVelcrid extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp: 12, speed: 130, aggroRadius: 500, attackDamage: 5,
+      color: 0x8a1a1a, meleeRange: 20, attackCooldownMs: 600,
+      spriteKey: 'mini-velcrid', spriteTint: 0xff9999, spriteScale: 0.22,
+    });
+  }
+
+  protected buildTree(): BtNode {
+    const R = this.meleeRange;
+    return new BtSelector([
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R,
+        ),
+        new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
+      ]),
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
+      ]),
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+/**
  * VelcridAdult — mature Velcrid, primarily subterranean.
  *
  * Heavier and slower on the surface, but uses burrow as its main movement
@@ -154,7 +189,7 @@ export class VelcridJuvenile extends CombatEntity {
  * to see coming), then surfaces near the player with a short jump-charge.
  *
  * Reads velcridScoutsOrbiting — if juveniles are active, burrow cycle
- * triggers 60 % sooner (player is occupied = ideal time to close in).
+ * triggers 60% sooner (player is occupied = ideal time to close in).
  * Writes velcridSoldierChargeCd after emerging to stagger simultaneous
  * eruptions from multiple adults.
  *
@@ -174,7 +209,7 @@ export class VelcridAdult extends CombatEntity {
       color: 0x0e1a08, meleeRange: 36, attackCooldownMs: 1150,
       // Short jump on emerge — 2.8× speed for 100 ms ≈ ~36 px
       dashSpeedMultiplier: 2.8, dashDurationMs: 100,
-      spriteKey: 'velcrid-adult', spriteScale: 1.6,
+      spriteKey: 'mini-velcrid', spriteTint: 0x446622, spriteScale: 0.48,
     });
   }
 

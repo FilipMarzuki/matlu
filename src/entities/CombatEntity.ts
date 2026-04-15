@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { Enemy, EnemyConfig } from './Enemy';
 import { Projectile, Damageable } from './Projectile';
+import { SwarmBrain, SwarmWeights, BASE_WEIGHTS, PANIC_WEIGHTS, BoidsNeighbour } from './SwarmBrain';
 import {
   BtNode,
   BtSelector,
@@ -158,18 +159,27 @@ export abstract class CombatEntity extends Enemy {
    */
   protected attackAnimId = 'attack';
 
-  // ── Ally coordination (separation steering + blackboard) ──────────────────
+  // ── Swarm / boids coordination ────────────────────────────────────────────
   /**
-   * Other combatants on the same team — set by the arena scene each frame.
-   * Used only for separation steering: each entity pushes away from nearby
-   * allies so groups spread naturally instead of piling up on one point.
+   * Same-team combatants used for boids steering (separation, alignment,
+   * cohesion). Set by the arena scene via setSwarmNeighbours() after each
+   * spawn/death event. Positions are read dynamically each tick so the
+   * array reference can be reused without staling.
    */
-  private allyEntities: CombatEntity[] = [];
+  private swarmNeighbours: CombatEntity[] = [];
+  /** Mutable boids weights — spiked during panic, lerped back to base. */
+  private swarmWeights: SwarmWeights = { ...BASE_WEIGHTS };
+  /** ms remaining in panic state. Weights lerp from PANIC back to BASE as it expires. */
+  private panicTimer = 0;
+  static readonly PANIC_DURATION_MS = 3000;
+
   /** Shared arena state — set by the scene, read by individual enemy BTs. */
   protected blackboard: ArenaBlackboard | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
-    super(scene, x, y, config);
+    // Bake a small random speed offset so swarm members move at slightly
+    // different speeds — creates the uneven texture of a real insect swarm.
+    super(scene, x, y, { ...config, speed: config.speed + Phaser.Math.FloatBetween(-15, 15) });
     this.meleeRange       = config.meleeRange;
     this.attackCooldownMs = config.attackCooldownMs;
 
@@ -239,9 +249,32 @@ export abstract class CombatEntity extends Enemy {
     this.opponents = [...es];
   }
 
-  /** Register allies for separation steering. Called by the arena on each spawn/death. */
-  setAllies(allies: CombatEntity[]): void {
-    this.allyEntities = allies;
+  /**
+   * Register same-team entities for boids steering.
+   * Called by the arena after each spawn/death event.
+   * Array reference is stored, not copied — positions are read live each tick.
+   */
+  setSwarmNeighbours(neighbours: CombatEntity[]): void {
+    this.swarmNeighbours = neighbours;
+  }
+
+  /**
+   * Trigger a panic scatter: spike swarm weights and add a burst velocity
+   * away from the event origin (gunshot, nearby death, etc.).
+   * Weights lerp back to base over PANIC_DURATION_MS.
+   */
+  enterPanic(ox: number, oy: number): void {
+    this.panicTimer  = CombatEntity.PANIC_DURATION_MS;
+    this.swarmWeights = { ...PANIC_WEIGHTS };
+
+    // Immediate burst away from the scare source — feels like a startled insect.
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    if (physBody && !this.isDashing) {
+      const dx  = this.x - ox;
+      const dy  = this.y - oy;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      physBody.setVelocity((dx / len) * this.speed * 2.5, (dy / len) * this.speed * 2.5);
+    }
   }
 
   /** Wire up the shared arena blackboard so BT nodes can coordinate. */
@@ -396,7 +429,18 @@ export abstract class CombatEntity extends Enemy {
     };
 
     this.behaviorTree.tick(ctx, delta);
-    this.applySeparationForce();
+
+    // Tick panic — lerp swarm weights back to base as the panic timer drains.
+    // At t=1 (full panic) weights equal PANIC_WEIGHTS; at t=0 they are BASE.
+    if (this.panicTimer > 0) {
+      this.panicTimer = Math.max(0, this.panicTimer - delta);
+      const t = this.panicTimer / CombatEntity.PANIC_DURATION_MS;
+      this.swarmWeights.separation = PANIC_WEIGHTS.separation * t + BASE_WEIGHTS.separation * (1 - t);
+      this.swarmWeights.alignment  = PANIC_WEIGHTS.alignment  * t + BASE_WEIGHTS.alignment  * (1 - t);
+      this.swarmWeights.cohesion   = PANIC_WEIGHTS.cohesion   * t + BASE_WEIGHTS.cohesion   * (1 - t);
+    }
+
+    this.applySwarmForce();
     } // end !playerControlled
 
     this.refreshHpBar();
@@ -516,11 +560,15 @@ export abstract class CombatEntity extends Enemy {
                  :                            'idle';
     // Animation keys are namespaced as {textureKey}_{state}_{dir} to avoid
     // collisions between characters sharing the global AnimationManager.
-    const tag = `${this.spriteObj.texture.key}_${state}_${this.lastDir}`;
+    const key = this.spriteObj.texture.key;
+    const tag = `${key}_${state}_${this.lastDir}`;
+    // Fall back to idle when the requested animation doesn't exist (e.g. sprites
+    // that only have idle+walk but no attack/dash — like mini-velcrid enemies).
+    const playKey = this.scene.anims.exists(tag) ? tag : `${key}_idle_${this.lastDir}`;
 
     // Only call play() when the tag changes to avoid restarting mid-loop.
-    if (this.spriteObj.anims.currentAnim?.key !== tag) {
-      this.spriteObj.play(tag, true);
+    if (this.spriteObj.anims.currentAnim?.key !== playKey) {
+      this.spriteObj.play(playKey, true);
     }
   }
 
@@ -639,49 +687,53 @@ export abstract class CombatEntity extends Enemy {
   }
 
   /**
-   * Steering separation — pushes this entity away from nearby allies.
+   * Full Reynolds boids steering — separation, alignment, and cohesion.
    *
-   * Applied as a velocity addend after the behavior tree runs, so the BT's
-   * intended movement direction is preserved while piling/stacking is prevented.
+   * Replaces the old single-rule separation force. Reads swarmNeighbours (set
+   * by the arena scene) and delegates to SwarmBrain.steer() which returns a
+   * velocity addend. That addend is added to the current physics velocity and
+   * clamped to 2× speed so boids forces never override BT movement entirely.
    *
-   * Works like Reynolds' separation rule: sum unit vectors pointing away from
-   * each nearby ally, weighted linearly by how much the separation radius is
-   * violated. Closer = stronger push.
+   * Panic spikes the separation weight and collapses cohesion/alignment,
+   * causing the swarm to scatter; weights are lerped back to BASE over 3 s.
+   *
+   * Suppressed while burrowing (suppressSeparation = true) so the slow
+   * underground approach isn't deflected by ally-push.
    */
-  private applySeparationForce(): void {
-    if (this.allyEntities.length === 0 || this.isDashing || this.suppressSeparation) return;
+  private applySwarmForce(): void {
+    if (this.swarmNeighbours.length === 0 || this.isDashing || this.suppressSeparation) return;
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
     if (!physBody) return;
 
-    const SEP_RADIUS   = 52;             // px — personal space bubble
-    const SEP_STRENGTH = this.speed * 0.8; // max separation impulse (px/s)
-
-    let fx = 0, fy = 0, count = 0;
-    for (const ally of this.allyEntities) {
-      // Skip self-reference and dead allies.
-      if ((ally as unknown) === (this as unknown) || !ally.isAlive) continue;
-      const dx   = this.x - ally.x;
-      const dy   = this.y - ally.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < SEP_RADIUS && dist > 0) {
-        // Linear falloff: 1.0 at overlap, 0.0 at SEP_RADIUS edge.
-        const t = 1 - dist / SEP_RADIUS;
-        fx += (dx / dist) * t;
-        fy += (dy / dist) * t;
-        count++;
-      }
+    // Build neighbour snapshots — skip self and dead entities.
+    const neighbours: BoidsNeighbour[] = [];
+    for (const nb of this.swarmNeighbours) {
+      if ((nb as unknown) === (this as unknown) || !nb.isAlive) continue;
+      const nbBody = nb.body as Phaser.Physics.Arcade.Body | undefined;
+      neighbours.push({
+        x:  nb.x,
+        y:  nb.y,
+        vx: nbBody?.velocity.x ?? 0,
+        vy: nbBody?.velocity.y ?? 0,
+      });
     }
 
-    if (count === 0) return;
+    if (neighbours.length === 0) return;
 
-    const len    = Math.sqrt(fx * fx + fy * fy) || 1;
-    const cv     = physBody.velocity;
-    const newVx  = cv.x + (fx / len) * SEP_STRENGTH;
-    const newVy  = cv.y + (fy / len) * SEP_STRENGTH;
+    const impulse = SwarmBrain.steer(this.x, this.y, this.speed, neighbours, this.swarmWeights);
 
-    // Clamp so separation never accelerates beyond 1.5× normal speed.
+    // Add a tiny per-frame jitter so perfectly-synchronised entities drift apart
+    // naturally, even when all weights are zero (e.g. during full panic alignment=0).
+    const jx = (Math.random() - 0.5) * 6;
+    const jy = (Math.random() - 0.5) * 6;
+
+    const cv    = physBody.velocity;
+    const newVx = cv.x + impulse.vx + jx;
+    const newVy = cv.y + impulse.vy + jy;
+
+    // Clamp to 2× speed — boids never fully hijack BT movement.
     const finalSpd = Math.sqrt(newVx * newVx + newVy * newVy);
-    const maxSpd   = this.speed * 1.5;
+    const maxSpd   = this.speed * 2;
     if (finalSpd > maxSpd) {
       const s = maxSpd / finalSpd;
       physBody.setVelocity(newVx * s, newVy * s);
@@ -1255,7 +1307,7 @@ export class SporeHusk extends CombatEntity {
     super(scene, x, y, {
       maxHp: 45, speed: 62, aggroRadius: 400, attackDamage: 10,
       color: 0x664466, meleeRange: 30, attackCooldownMs: 950,
-      spriteKey: 'spider', spriteTint: 0xaa66dd,
+      spriteKey: 'mini-velcrid', spriteTint: 0xcc88ff, spriteScale: 0.35,
     });
   }
 
@@ -1318,7 +1370,7 @@ export class AcidLancer extends CombatEntity {
       maxHp: 35, speed: 72, aggroRadius: 420, attackDamage: 6,
       color: 0x88aa22, meleeRange: 28, attackCooldownMs: 900,
       projectileDamage: 10, projectileSpeed: 190, projectileColor: 0x99dd00,
-      spriteKey: 'skag', spriteTint: 0x88ee22,
+      spriteKey: 'mini-velcrid', spriteTint: 0xaaee44, spriteScale: 0.35,
     });
   }
 
@@ -1409,6 +1461,7 @@ export class BruteCarapace extends CombatEntity {
       maxHp: 180, speed: 42, aggroRadius: 400, attackDamage: 25,
       color: 0x221133, meleeRange: 38, attackCooldownMs: 1200,
       dashSpeedMultiplier: 6.0, dashDurationMs: 240,
+      spriteKey: 'mini-velcrid', spriteTint: 0xff4422, spriteScale: 0.55,
     });
   }
 
@@ -1501,7 +1554,7 @@ export class ParasiteFlyer extends CombatEntity {
       maxHp: 45, speed: 88, aggroRadius: 450, attackDamage: 16,
       color: 0x3399aa, meleeRange: 28, attackCooldownMs: 900,
       dashSpeedMultiplier: 5.5, dashDurationMs: 160,
-      spriteKey: 'crow', spriteTint: 0x22ddcc,
+      spriteKey: 'mini-velcrid', spriteTint: 0x44ddcc, spriteScale: 0.38,
     });
   }
 
@@ -1570,7 +1623,7 @@ export class WarriorBug extends CombatEntity {
     super(scene, x, y, {
       maxHp: 8, speed: 132, aggroRadius: 500, attackDamage: 4,
       color: 0x1a2a0a, meleeRange: 22, attackCooldownMs: 600,
-      spriteKey: 'spider', spriteTint: 0x44ee22, spriteScale: 0.55,
+      spriteKey: 'mini-velcrid', spriteTint: 0x55ff33, spriteScale: 0.25,
     });
   }
 
