@@ -5093,15 +5093,15 @@ export class GameScene extends Phaser.Scene {
       // the standard "painter's algorithm" for top-down 2D.
       sprite.setDepth(2 + d.y / WORLD_H);
 
-      // Grass tufts sway gently — a sine-eased angle tween rocks each tuft ±3°.
+      // Grass tufts sway gently — a sine-eased angle tween rocks each tuft ±2°.
       // Duration and delay are derived from world position so adjacent tufts
       // don't oscillate in lockstep; coprime multipliers prevent axis-aligned banding.
       if (d.type === 'tuft') {
         this.tweens.add({
           targets: sprite,
-          angle: { from: -3, to: 3 },
+          angle: { from: -2, to: 2 },                           // narrower arc — light breeze, not wind
           ease: 'Sine.easeInOut',
-          duration: 1200 + (Math.abs(d.x + d.y) % 600), // 1.2–1.8 s cycle
+          duration: 2400 + (Math.abs(d.x + d.y) % 800),        // 2.4–3.2 s cycle (half-cycle 1.2–1.6 s)
           yoyo: true,
           repeat: -1,
           delay: Math.abs(d.x * 3 + d.y * 7) % 1500,  // 0–1.5 s stagger
@@ -5217,13 +5217,13 @@ export class GameScene extends Phaser.Scene {
     // Slow fall speed + rotation gives a natural tumbling leaf feel.
     this.leavesEmitter = this.add.particles(0, -10, 'particle-leaf', {
       x:        { min: 0, max: 800 },
-      speedY:   { min: 25, max: 70 },
-      speedX:   { min: -20, max: 20 },
-      rotate:   { min: 0, max: 360 },
+      speedY:   { min: 8, max: 25 },    // slow drift down — not a plummet
+      speedX:   { min: -6, max: 6 },    // gentle side-drift — not whipping
+      rotate:   { min: 0, max: 90 },    // lazy tumble — not a full spin
       alpha:    { start: 0.7, end: 0 },
       scale:    { min: 0.8, max: 1.6 },
-      lifespan: 9000,
-      frequency: 300,
+      lifespan: 14000,                   // longer air time at slower speed
+      frequency: 900,                    // one leaf every ~1 s — sparse, not constant
       quantity:  1,
       emitting: false,
     }).setScrollFactor(0).setDepth(3);
