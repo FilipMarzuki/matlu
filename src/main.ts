@@ -26,6 +26,20 @@ import { StatsScene } from './scenes/StatsScene';
 import { LoreScene } from './scenes/LoreScene';
 import { ShopScene } from './scenes/ShopScene';
 
+// Direct URL routing — lets testers jump straight to a scene without
+// navigating through the main menu. Vercel rewrites all paths to index.html
+// so these URLs work as direct links or bookmarks.
+//   /arena  → CombatArenaScene  (combat testing)
+//   /world  → GameScene         (world/wilderview testing)
+//   /       → MainMenuScene     (default — full game flow)
+const path = window.location.pathname.replace(/\/$/, '');
+const sceneOrder = (() => {
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene];
+  if (path === '/arena') return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
+  if (path === '/world') return [GameScene,        ...all.filter(s => s !== GameScene)];
+  return all;
+})();
+
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game-container',
@@ -47,7 +61,7 @@ const game = new Phaser.Game({
   },
   // MainMenuScene is the entry point (first in array = auto-started).
   // WilderviewScene is kept for compatibility but now redirects to MainMenuScene.
-  scene: [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene],
+  scene: sceneOrder,
 });
 
 // Restore mute preference saved by SettingsScene.
