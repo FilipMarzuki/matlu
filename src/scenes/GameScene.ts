@@ -133,6 +133,14 @@ const DETAIL_SCALE = 0.22;
 const TEMP_SCALE  = 0.04; // temperature varies in broad N/S-ish bands
 const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
 
+// ─── Fog of war constants (FIL-217) ──────────────────────────────────────────
+// Three tile visibility states stored in the fogGrid Uint8Array.
+const FOG_UNSEEN  = 0; // never visited — fully black overlay
+const FOG_SEEN    = 1; // visited but not currently in sight — 50% black shroud
+const FOG_VISIBLE = 2; // within the current sight radius — fully transparent
+const FOG_SIGHT_R = 10; // circular sight radius in tiles (320 px at 32 px/tile)
+const FOG_LS_KEY  = 'matlu-fog-state'; // localStorage key for persistent explored state
+
 // Player spawn at the SW end of the diagonal corridor (rocky shore)
 const SPAWN_X = 300;
 const SPAWN_Y = 2650;
@@ -793,6 +801,21 @@ export class GameScene extends Phaser.Scene {
   /** Reference captured at pinch start; null when no two-finger gesture is active. */
   private pinchZoomRef: { dist: number; zoom: number } | null = null;
 
+  // ─── Fog of war (FIL-217) ─────────────────────────────────────────────────────
+  // fogGrid: one byte per tile — FOG_UNSEEN / FOG_SEEN / FOG_VISIBLE.
+  // Dimensions match the world tile grid: Math.ceil(4500/32) × Math.ceil(3000/32) = 141 × 94.
+  private fogGrid: Uint8Array | null = null;
+  // Full-world RenderTexture at depth 49 — sits between day/night (48) and corruption (50).
+  // Opaque black for UNSEEN, 50%-alpha black for SEEN, fully transparent for VISIBLE.
+  private fogRt: Phaser.GameObjects.RenderTexture | null = null;
+  // Reusable Graphics stamps for RT draw/erase operations.
+  // Positioned at the target tile before each RT call (same pattern as tileImg in terrain bake).
+  private fogUnseenGfx: Phaser.GameObjects.Graphics | null = null; // alpha=1 black
+  private fogSeenGfx: Phaser.GameObjects.Graphics | null = null;   // alpha=0.5 black
+  // Bounding box (tile coords) of the visible circle from the previous update tick.
+  // Used to compute the "dirty region" = union of prev + current sight circles.
+  private fogPrevBounds: { x0: number; y0: number; x1: number; y1: number } | null = null;
+
   // Set when the player types their name on the attract screen; used for leaderboard.
   playerName = '';
 
@@ -1027,6 +1050,8 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.musicTrack?.stop();
       this.worldState.destroy();
+      // Persist explored fog state so revisiting areas doesn't reset the fog.
+      this.saveFogOfWar();
     });
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
@@ -1282,6 +1307,9 @@ export class GameScene extends Phaser.Scene {
     thumb.setDepth(201);
 
     this.createDayNightOverlay();
+    // Fog of war overlay at depth 49 — must come after terrain is drawn so the
+    // RenderTexture sits on top of the world but under the HUD.
+    this.initFogOfWar();
 
     // Ambient forest sound — skipped entirely when audio is unavailable (CI).
     // Initial volume matches the starting phase so it doesn't snap on first transition.
@@ -1453,6 +1481,10 @@ export class GameScene extends Phaser.Scene {
     // Calling it here (outside the attractMode branch) means it also works during gameplay.
     if (this.freeCamMode) this.updateFreeCam(delta);
     this.updateDevOverlay();
+    // Fog of war: reveal tiles around the player each frame.
+    // Runs outside the attractMode branch so the overlay is always visible,
+    // but the player doesn't move during attract mode so fog is effectively static.
+    this.updateFogOfWar();
   }
 
   /**
@@ -3052,6 +3084,191 @@ export class GameScene extends Phaser.Scene {
     const glowAlpha = (newPhase === 'dusk' || newPhase === 'night') ? 0.18 : 0;
     for (const glow of this.settlementGlows) {
       this.tweens.add({ targets: glow, alpha: glowAlpha, duration: 8000, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  // ─── Fog of war (FIL-217) ─────────────────────────────────────────────────────
+
+  /**
+   * Initialise the fog-of-war system.
+   *
+   * Creates the 141×94 Uint8Array state grid, restores any previously explored
+   * tiles from localStorage, then paints the initial RenderTexture overlay.
+   *
+   * The overlay sits at depth 49 — above the day/night rectangle (48) and
+   * below the corruption overlay (50).
+   */
+  private initFogOfWar(): void {
+    const tilesX = Math.ceil(WORLD_W / TILE_SIZE); // 141
+    const tilesY = Math.ceil(WORLD_H / TILE_SIZE); // 94
+
+    // Allocate state grid — all bytes default to 0 (FOG_UNSEEN).
+    this.fogGrid = new Uint8Array(tilesX * tilesY);
+
+    // Restore explored (SEEN) tiles persisted from a previous session.
+    // The saved value is a JSON array of flat tile indices.
+    // VISIBLE is never persisted — all saved entries are loaded as SEEN (= 1).
+    const saved = localStorage.getItem(FOG_LS_KEY);
+    if (saved) {
+      try {
+        const indices = JSON.parse(saved) as number[];
+        for (const idx of indices) {
+          if (idx >= 0 && idx < this.fogGrid.length) {
+            this.fogGrid[idx] = FOG_SEEN;
+          }
+        }
+      } catch {
+        // Corrupt or unexpected format — silently discard and start fresh.
+      }
+    }
+
+    // ── Stamp Graphics ────────────────────────────────────────────────────────
+    // Two reusable 32×32 Graphics objects used as "stamps" for RT draw/erase.
+    // They are invisible in the normal render but usable as RT sources —
+    // same pattern as the terrain bake's off-screen tileImg.
+    this.fogUnseenGfx = this.add.graphics().setVisible(false);
+    this.fogUnseenGfx.fillStyle(0x000000, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+
+    this.fogSeenGfx = this.add.graphics().setVisible(false);
+    this.fogSeenGfx.fillStyle(0x000000, 0.5).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+
+    // ── RenderTexture overlay ──────────────────────────────────────────────────
+    // Covers the full world. setOrigin(0,0) so position (0,0) = top-left of world.
+    this.fogRt = this.add
+      .renderTexture(0, 0, WORLD_W, WORLD_H)
+      .setOrigin(0, 0)
+      .setDepth(49);
+
+    // Start with the entire world blacked out (every tile UNSEEN).
+    // A single fill() call is far cheaper than 13 254 individual draws.
+    this.fogRt.fill(0x000000, 1);
+
+    // Restore SEEN tiles: erase the solid black, then paint the 50%-alpha shroud.
+    // Two RT operations per SEEN tile — only paid at startup, and only for
+    // tiles the player has already explored (empty on a fresh save).
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        if (this.fogGrid[ty * tilesX + tx] === FOG_SEEN) {
+          const px = tx * TILE_SIZE;
+          const py = ty * TILE_SIZE;
+          // erase() punches a transparent hole (DESTINATION_OUT blend).
+          // The stamp is positioned at the target tile before each call.
+          this.fogUnseenGfx.setPosition(px, py);
+          this.fogRt.erase(this.fogUnseenGfx);
+          this.fogSeenGfx.setPosition(px, py);
+          this.fogRt.draw(this.fogSeenGfx);
+        }
+      }
+    }
+  }
+
+  /**
+   * Update the fog overlay for the current frame.
+   *
+   * Only processes the "dirty region" — the union of the previous and current
+   * sight-circle bounding boxes — so tiles far from the player are untouched.
+   *
+   * State machine per tile inside the dirty region:
+   *   UNSEEN  → VISIBLE : erase black → transparent
+   *   SEEN    → VISIBLE : erase shroud → transparent
+   *   VISIBLE → SEEN    : erase transparent → draw 50%-alpha shroud
+   *   (UNSEEN/SEEN outside the new circle: no change)
+   */
+  private updateFogOfWar(): void {
+    if (!this.fogGrid || !this.fogRt || !this.fogUnseenGfx || !this.fogSeenGfx) return;
+
+    const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
+    const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
+
+    // Player's tile coordinate (centre of the sight circle).
+    const ptx = Math.floor(this.player.x / TILE_SIZE);
+    const pty = Math.floor(this.player.y / TILE_SIZE);
+
+    // Current sight-circle bounding box (clamped to the tile grid).
+    const currBounds = {
+      x0: Math.max(0, ptx - FOG_SIGHT_R),
+      y0: Math.max(0, pty - FOG_SIGHT_R),
+      x1: Math.min(tilesX - 1, ptx + FOG_SIGHT_R),
+      y1: Math.min(tilesY - 1, pty + FOG_SIGHT_R),
+    };
+
+    // Dirty region = union of previous and current bounding boxes so tiles
+    // that LEAVE the sight circle this frame are also updated.
+    const prev = this.fogPrevBounds ?? currBounds;
+    const dirtyX0 = Math.min(prev.x0, currBounds.x0);
+    const dirtyY0 = Math.min(prev.y0, currBounds.y0);
+    const dirtyX1 = Math.max(prev.x1, currBounds.x1);
+    const dirtyY1 = Math.max(prev.y1, currBounds.y1);
+
+    const R2 = FOG_SIGHT_R * FOG_SIGHT_R;
+
+    // Single pass through the dirty region.
+    // For each tile, compute new state, then update the RT only if it changed.
+    for (let ty = dirtyY0; ty <= dirtyY1; ty++) {
+      for (let tx = dirtyX0; tx <= dirtyX1; tx++) {
+        const idx     = ty * tilesX + tx;
+        const oldState = this.fogGrid[idx];
+
+        const dx = tx - ptx;
+        const dy = ty - pty;
+        const inSight = dx * dx + dy * dy <= R2;
+
+        // New state: VISIBLE if within radius, otherwise downgrade VISIBLE→SEEN,
+        // leave UNSEEN/SEEN unchanged.
+        const newState = inSight
+          ? FOG_VISIBLE
+          : oldState === FOG_VISIBLE
+            ? FOG_SEEN
+            : oldState;
+
+        if (newState === oldState) continue; // nothing to do for this tile
+
+        this.fogGrid[idx] = newState;
+
+        const px = tx * TILE_SIZE;
+        const py = ty * TILE_SIZE;
+
+        if (newState === FOG_VISIBLE) {
+          // Remove whatever fog was covering this tile (black or shroud).
+          this.fogUnseenGfx.setPosition(px, py);
+          this.fogRt.erase(this.fogUnseenGfx);
+        } else {
+          // newState === FOG_SEEN: tile was VISIBLE (transparent), now needs shroud.
+          // erase first to reset alpha, then draw 50%-alpha stamp on top.
+          this.fogUnseenGfx.setPosition(px, py);
+          this.fogRt.erase(this.fogUnseenGfx);
+          this.fogSeenGfx.setPosition(px, py);
+          this.fogRt.draw(this.fogSeenGfx);
+        }
+      }
+    }
+
+    this.fogPrevBounds = currBounds;
+  }
+
+  /**
+   * Serialise the fog state to localStorage so explored areas persist across sessions.
+   *
+   * Only SEEN/UNSEEN bits are persisted — VISIBLE tiles are saved as SEEN
+   * (the player was just there; it would be jarring to reset on reload).
+   * Called from the SHUTDOWN event so it runs on both normal exits and tab closes.
+   */
+  private saveFogOfWar(): void {
+    if (!this.fogGrid) return;
+
+    // Collect indices of all explored tiles (SEEN or VISIBLE → treated as SEEN).
+    // FOG_UNSEEN (0) tiles are skipped — they haven't been visited.
+    const seenIndices: number[] = [];
+    for (let i = 0; i < this.fogGrid.length; i++) {
+      if (this.fogGrid[i] > FOG_UNSEEN) {
+        seenIndices.push(i);
+      }
+    }
+
+    try {
+      localStorage.setItem(FOG_LS_KEY, JSON.stringify(seenIndices));
+    } catch {
+      // localStorage quota exceeded or unavailable — fog state will reset on next load.
     }
   }
 
