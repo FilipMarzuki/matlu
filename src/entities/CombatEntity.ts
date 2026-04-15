@@ -1151,11 +1151,13 @@ export class Tinkerer extends CombatEntity {
       // ── 1. Escape dash — fires when overwhelmed AND low HP ────────────────────
       // Dashes away from the enemy swarm centroid, not toward a target.
       // A last-resort survival move before the hero goes down.
+      // Threshold raised from 0.40 → 0.55 so the hero escapes earlier with
+      // more health buffer rather than waiting until nearly dead.
       new BtCooldown(
         new BtSequence([
           new BtCondition(ctx => {
             const near = swarmPressure(ctx.x, ctx.y);
-            return near >= SWARM_CAP && ctx.hp < ctx.maxHp * 0.40;
+            return near >= SWARM_CAP && ctx.hp < ctx.maxHp * 0.55;
           }),
           new BtAction(ctx => {
             // Compute the average position of nearby enemies and dash opposite.
