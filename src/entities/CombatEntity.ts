@@ -150,6 +150,8 @@ export abstract class CombatEntity extends Enemy {
   private attackAnimTimer = 0;
   /** How long to hold the attack animation = 40% of the attack cooldown. */
   private readonly attackAnimDuration: number;
+  /** Used to restore sprite tint after temporary sight-line silhouettes. */
+  private readonly spriteBaseTint: number | null;
   /**
    * The animation state name to use while attackAnimTimer > 0.
    * Defaults to 'attack' (single-attack entities: Skald, Spider, Crow, Skag).
@@ -181,6 +183,7 @@ export abstract class CombatEntity extends Enemy {
     this.projectileColor  = config.projectileColor  ?? 0xffffff;
 
     this.attackAnimDuration = config.attackCooldownMs * 0.4;
+    this.spriteBaseTint = config.spriteTint ?? null;
 
     // ── Visuals (all children of this Container) ──────────────────────────
     //
@@ -247,6 +250,28 @@ export abstract class CombatEntity extends Enemy {
   /** Wire up the shared arena blackboard so BT nodes can coordinate. */
   setBlackboard(bb: ArenaBlackboard): void {
     this.blackboard = bb;
+  }
+
+  /**
+   * Arena sight-line helper:
+   * - hidden=true  → dim silhouette (dark tint + low alpha)
+   * - hidden=false → restore normal tint/alpha
+   */
+  setSightSilhouette(hidden: boolean): void {
+    this.setAlpha(hidden ? 0.15 : 1);
+
+    if (this.spriteObj) {
+      if (hidden) {
+        this.spriteObj.setTint(0x111111);
+      } else if (this.spriteBaseTint !== null) {
+        this.spriteObj.setTint(this.spriteBaseTint);
+      } else {
+        this.spriteObj.clearTint();
+      }
+      return;
+    }
+
+    this.bodyRect.setFillStyle(hidden ? 0x111111 : this.bodyColor);
   }
 
   // ── Abstract ───────────────────────────────────────────────────────────────

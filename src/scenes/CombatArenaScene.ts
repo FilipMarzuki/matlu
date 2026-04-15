@@ -14,6 +14,11 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { VelcridJuvenile, VelcridAdult } from '../entities/Velcrid';
+import {
+  SIGHT_RADIUS,
+  computeVisibilityPolygon,
+  hasLineOfSight,
+} from '../combat/SightLineSystem';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -99,6 +104,9 @@ export class CombatArenaScene extends Phaser.Scene {
   private hudWave!:  Phaser.GameObjects.Text;
   private hudAlive!: Phaser.GameObjects.Text;
   private hudKills!: Phaser.GameObjects.Text;
+  private sightFog!: Phaser.GameObjects.Graphics;
+  private sightFogEraser!: Phaser.GameObjects.Graphics;
+  private sightWarnCooldownMs = 0;
 
   // ── Player control ──────────────────────────────────────────────────────────
   /** When true the player drives the hero with WASD/arrows + attack keys. */
@@ -192,6 +200,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudKills   = -1;
 
     this.buildArena();
+    this.buildSightFog();
 
     // ── Stone shimmer filter (Phaser 4) ─────────────────────────────────────
     // Subtle UV warp + drifting warm specular on the arena floor.
@@ -325,6 +334,8 @@ export class CombatArenaScene extends Phaser.Scene {
         }
       }
     }
+
+    this.updateSightVisibility(delta);
 
     // ── HUD ───────────────────────────────────────────────────────────────────
     // Only call setText when the value changed — setText rebuilds the texture
@@ -690,13 +701,59 @@ export class CombatArenaScene extends Phaser.Scene {
     // HUD anchored left — keeps it away from the right-side nav panel.
     this.hudWave = this.add
       .text(12, 12, 'Wave 0', { ...base, color: '#99ddff' })
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(1000);
     this.hudAlive = this.add
       .text(12, 32, 'Alive: 0', { ...base, color: '#aaffaa' })
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(1000);
     this.hudKills = this.add
       .text(12, 52, 'Kills: 0', { ...base, color: '#ffcc88' })
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(1000);
+  }
+
+  private buildSightFog(): void {
+    this.sightFog = this.add.graphics().setDepth(900);
+    this.sightFogEraser = this.add
+      .graphics()
+      .setDepth(901)
+      .setBlendMode(Phaser.BlendModes.ERASE);
+  }
+
+  private updateSightVisibility(delta: number): void {
+    if (!this.hero || !this.hero.active) return;
+
+    const sightStart = performance.now();
+    const origin = { x: this.hero.x, y: this.hero.y };
+    const visibility = computeVisibilityPolygon(origin, SIGHT_RADIUS, this.obstacles);
+    this.drawSightFog(visibility);
+
+    for (const enemy of this.aliveEnemies) {
+      const inRange = Phaser.Math.Distance.Between(origin.x, origin.y, enemy.x, enemy.y) <= SIGHT_RADIUS;
+      const visible = inRange && hasLineOfSight(origin, { x: enemy.x, y: enemy.y }, this.obstacles);
+      enemy.setSightSilhouette(!visible);
+    }
+
+    const sightMs = performance.now() - sightStart;
+    this.sightWarnCooldownMs = Math.max(0, this.sightWarnCooldownMs - delta);
+    if (sightMs > 1 && this.sightWarnCooldownMs <= 0) {
+      log.warn('arena_sightline_budget_exceeded', {
+        sight_ms: Number(sightMs.toFixed(3)),
+        enemies_alive: this.aliveEnemies.length,
+        radius: SIGHT_RADIUS,
+      });
+      this.sightWarnCooldownMs = 2000;
+    }
+  }
+
+  private drawSightFog(visibility: Phaser.Geom.Polygon): void {
+    const points = visibility.points;
+    this.sightFog.clear();
+    this.sightFog.fillStyle(0x000000, 0.72);
+    this.sightFog.fillRect(this.arenaX, this.arenaY, this.arenaW, this.arenaH);
+
+    this.sightFogEraser.clear();
+    if (points.length === 0) return;
+    this.sightFogEraser.fillStyle(0xffffff, 1);
+    this.sightFogEraser.fillPoints(points, true);
   }
 
   // ── Nav panel (NavScene overlay) ─────────────────────────────────────────────
