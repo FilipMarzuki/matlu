@@ -281,7 +281,7 @@ interface AnimalDef {
 const ANIMAL_DEFS: Record<string, AnimalDef> = {
   deer:   { w: 22, h: 14, scale: 2.0, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18 },
   hare:   { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
-  fox:    { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 10 },
+  fox:    { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 15 },
   // Grouse: small ground bird, lives in coveys of 2–4 in dense forest.
   // Slightly smaller display (scale 1.5) and flees faster than it roams.
   grouse: { w: 12, h:  9, scale: 1.5, fleeRange: 160, fleeSpeed: 130, roamSpeed: 28, count: 14 },
@@ -4071,16 +4071,19 @@ export class GameScene extends Phaser.Scene {
       clusterR: number;
       clusterMinDist: number;
     }> = {
-      deer:   { clusters: [3, 5],  perCluster: [4, 7], clusterR: 60,  clusterMinDist: 600 },
-      hare:   { clusters: [8, 12], perCluster: [3, 5], clusterR: 30,  clusterMinDist: 300 },
+      // FIL-223: raised cluster minimums so there's a higher chance of at least
+      // one cluster landing near the SW-corner spawn point (~300, 2650).
+      // Aim: 3–5 animals visible within the 800×600 viewport at game start.
+      deer:   { clusters: [6, 9],  perCluster: [5, 8], clusterR: 60,  clusterMinDist: 600 },
+      hare:   { clusters: [10, 15], perCluster: [4, 6], clusterR: 30,  clusterMinDist: 300 },
       fox:    { clusters: [1, 1],  perCluster: [1, 1], clusterR: 300, clusterMinDist: 300 },
       // fox: one "cluster" of 1 — effectively solo placement with Poisson spacing
       // Grouse: small coveys of 2–4 birds, multiple coveys per forest zone
-      grouse: { clusters: [4, 7],  perCluster: [2, 4], clusterR: 40,  clusterMinDist: 400 },
+      grouse: { clusters: [6, 9],  perCluster: [3, 5], clusterR: 40,  clusterMinDist: 400 },
       // Critters pack
-      stag:   { clusters: [2, 4],  perCluster: [2, 5], clusterR: 70,  clusterMinDist: 700 },
-      boar:   { clusters: [3, 5],  perCluster: [2, 4], clusterR: 50,  clusterMinDist: 500 },
-      badger: { clusters: [4, 7],  perCluster: [1, 3], clusterR: 40,  clusterMinDist: 350 },
+      stag:   { clusters: [3, 6],  perCluster: [2, 5], clusterR: 70,  clusterMinDist: 700 },
+      boar:   { clusters: [4, 7],  perCluster: [3, 5], clusterR: 50,  clusterMinDist: 500 },
+      badger: { clusters: [5, 9],  perCluster: [2, 4], clusterR: 40,  clusterMinDist: 350 },
     };
 
     for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
