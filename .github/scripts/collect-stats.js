@@ -76,6 +76,9 @@ const weekAgoISO   = weekAgo.toISOString();
 // Week label e.g. "Week of 2026-04-14"
 const weekLabel = `Week of ${now.toISOString().slice(0, 10)}`;
 
+// Returns today's date as a Notion-compatible ISO date string (YYYY-MM-DD)
+const isoDate = () => now.toISOString().slice(0, 10);
+
 // ── GitHub stats ──────────────────────────────────────────────────────────────
 
 async function getGitHubStats() {
@@ -473,6 +476,12 @@ function getCodeQualityStats() {
 
 const NOTION_COGNITIVE_LOAD_DB_ID =
   process.env.NOTION_COGNITIVE_LOAD_DB_ID || '4d1843c0718f8399ab2f019e109e7523';
+const NOTION_DELIVERY_DB_ID       = process.env.NOTION_DELIVERY_DB_ID       || null;
+const NOTION_VELOCITY_DB_ID       = process.env.NOTION_VELOCITY_DB_ID       || null;
+const NOTION_QUALITY_DB_ID        = process.env.NOTION_QUALITY_DB_ID        || null;
+const NOTION_AUTOMATION_DB_ID     = process.env.NOTION_AUTOMATION_DB_ID     || null;
+const NOTION_AI_USAGE_DB_ID       = process.env.NOTION_AI_USAGE_DB_ID       || null;
+const NOTION_BUNDLE_SIZE_DB_ID    = process.env.NOTION_BUNDLE_SIZE_DB_ID    || null;
 
 /**
  * Compute per-file cognitive load = (lines × branchCount) / 1000.
@@ -549,15 +558,214 @@ async function postCognitiveLoadToNotion(cogLoad) {
   }
 }
 
+/**
+ * Insert a row into the Delivery Notion database.
+ * Tracks PR counts, average PR size, completed issues, and active coding days.
+ */
+async function postDeliveryToNotion(gh, linear, commitSpread) {
+  if (!NOTION_DELIVERY_DB_ID || !NOTION_API_KEY) return;
+
+  const properties = {
+    Date:            { date: { start: isoDate() } },
+    prsMerged:       { number: gh.mergedCount },
+    humanPrs:        { number: gh.humanMergedCount },
+    agentPrs:        { number: gh.agentMergedCount },
+    avgPrSize:       { number: gh.avgPrSize },
+    issuesCompleted: { number: linear.completedCount },
+    activeDays:      { number: commitSpread ? commitSpread.activeDays : null },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({ parent: { database_id: NOTION_DELIVERY_DB_ID }, properties }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion delivery insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('Delivery row inserted into Notion.');
+  }
+}
+
+/**
+ * Insert a row into the Velocity Notion database.
+ * Tracks merge time, issue cycle time, and rework rate.
+ */
+async function postVelocityToNotion(gh, linear) {
+  if (!NOTION_VELOCITY_DB_ID || !NOTION_API_KEY) return;
+
+  const properties = {
+    Date:               { date: { start: isoDate() } },
+    avgMergeTimeHours:  { number: gh.avgMergeTime },
+    avgCycleTimeDays:   { number: linear.avgCycleTime },
+    reworkRatePct:      { number: linear.reworkRate },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({ parent: { database_id: NOTION_VELOCITY_DB_ID }, properties }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion velocity insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('Velocity row inserted into Notion.');
+  }
+}
+
+/**
+ * Insert a row into the Quality Notion database.
+ * Tracks CI pass rate, fix/revert count, static analysis counts, test coverage, and net lines.
+ */
+async function postQualityToNotion(gh, quality) {
+  if (!NOTION_QUALITY_DB_ID || !NOTION_API_KEY || !quality) return;
+
+  const netLines = quality.linesAdded - quality.linesDeleted;
+  const properties = {
+    Date:           { date: { start: isoDate() } },
+    ciPassRatePct:  { number: gh.ciPassRate },
+    fixRevertCount: { number: gh.fixRevertCount },
+    anyCount:       { number: quality.anyCount },
+    tsIgnoreCount:  { number: quality.tsIgnoreCount },
+    todoCount:      { number: quality.todoCount },
+    testFileCount:  { number: quality.testFileCount },
+    netLines:       { number: netLines },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({ parent: { database_id: NOTION_QUALITY_DB_ID }, properties }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion quality insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('Quality row inserted into Notion.');
+  }
+}
+
+/**
+ * Insert a row into the Automation Notion database.
+ * Tracks agent PR count, success rate, and share of total PRs.
+ */
+async function postAutomationToNotion(gh) {
+  if (!NOTION_AUTOMATION_DB_ID || !NOTION_API_KEY) return;
+
+  const properties = {
+    Date:                 { date: { start: isoDate() } },
+    agentPrCount:         { number: gh.agentMergedCount },
+    agentSuccessRatePct:  { number: gh.agentSuccessRate },
+    agentPrSharePct:      { number: gh.agentPrPct },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({ parent: { database_id: NOTION_AUTOMATION_DB_ID }, properties }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion automation insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('Automation row inserted into Notion.');
+  }
+}
+
+/**
+ * Insert a row into the AI Usage Notion database.
+ * Tracks Claude Code sessions, total tokens consumed, and estimated cost.
+ */
+async function postAiUsageToNotion(ai) {
+  if (!NOTION_AI_USAGE_DB_ID || !NOTION_API_KEY || !ai) return;
+
+  const totalTokens = ai.totalInput + ai.totalOutput + ai.totalCacheRead + ai.totalCacheWrite;
+  const properties = {
+    Date:         { date: { start: isoDate() } },
+    sessions:     { number: ai.sessions },
+    totalTokens:  { number: totalTokens },
+    totalCostUsd: { number: ai.totalCost },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({ parent: { database_id: NOTION_AI_USAGE_DB_ID }, properties }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion AI usage insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('AI usage row inserted into Notion.');
+  }
+}
+
+/**
+ * Insert a row into the Bundle Size Notion database.
+ * Tracks JS, CSS, gzip, and total bundle sizes from the Vite build output.
+ */
+async function postBundleSizeToNotion(bundle) {
+  if (!NOTION_BUNDLE_SIZE_DB_ID || !NOTION_API_KEY || !bundle) return;
+
+  const properties = {
+    Date:    { date: { start: isoDate() } },
+    jsKb:    { number: bundle.jsKb },
+    cssKb:   { number: bundle.cssKb },
+    gzipKb:  { number: bundle.gzipKb },
+    totalKb: { number: bundle.totalKb },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({ parent: { database_id: NOTION_BUNDLE_SIZE_DB_ID }, properties }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion bundle size insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('Bundle size row inserted into Notion.');
+  }
+}
+
 // ── Build Notion page content ──────────────────────────────────────────────────
 
-function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats) {
+function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality) {
   const top5Text = gh.top5Files.length
     ? gh.top5Files.map(([f, n], i) => `${i + 1}. \`${f}\` (${n} changes)`).join('\n')
     : 'No file data available.';
-
-  const ai      = getAiStats();
-  const quality = getCodeQualityStats();
 
   const blocks = [
     heading2('Delivery'),
@@ -785,9 +993,11 @@ async function main() {
     getDeployStats(),
   ]);
 
-  // Bundle size and cognitive load are synchronous — run after async work
+  // Synchronous stats — run after async work so the build step doesn't block network calls
   const bundle  = getBundleSize();
   const cogLoad = getCognitiveLoadStats();
+  const ai      = getAiStats();
+  const quality = getCodeQualityStats();
 
   console.log('GitHub stats:', gh);
   console.log('Linear stats:', linear);
@@ -797,12 +1007,18 @@ async function main() {
   console.log('Deploy stats:', deployStats);
   console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
 
-  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats);
+  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality);
   const page   = await postToNotion(weekLabel, blocks);
   console.log(`Created Notion page: ${page.url}`);
 
-  // Store cognitive load in dedicated Notion database for historical charting
+  // Store metrics in dedicated Notion databases for historical charting
   await postCognitiveLoadToNotion(cogLoad);
+  await postDeliveryToNotion(gh, linear, commitSpread);
+  await postVelocityToNotion(gh, linear);
+  await postQualityToNotion(gh, quality);
+  await postAutomationToNotion(gh);
+  await postAiUsageToNotion(ai);
+  await postBundleSizeToNotion(bundle);
 
   await triggerVercelDeploy();
   console.log('Done.');
