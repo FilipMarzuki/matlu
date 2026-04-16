@@ -430,31 +430,27 @@ function terrainTileFrame(
   // Soggy lowlands near rivers shift to bog rather than forest. The threshold
   // is intentionally high (0.72) so marsh is rare but emerges naturally in
   // low-lying river valleys — especially after the river-bank moisture boost.
-  if (elev < 0.45 && moist > 0.72) return { key: 'mw-plains', frame: 18 + v6 }; // marsh (row 3)
+  if (elev < 0.45 && moist > 0.72) return { key: 'mw-plains', frame: v6 }; // marsh — row 0, earthy/muddy
 
   // ── Mid elevation (elev 0.30–0.62) ───────────────────────────────────────────
-  // Dry mid now uses row 1 (sandy gravel) instead of row 0 (shore) —
-  // fixing the "Shore and Dry mid are identical" FIL-172 bug.
   if (elev < 0.62) {
-    if (moist > 0.60) return { key: 'mw-plains', frame: 24 + v6 }; // mixed forest (row 4)
-    if (moist > 0.30) return { key: 'mw-plains', frame: 12 + v6 }; // coastal heath (row 2)
-    return                   { key: 'mw-plains', frame:  6 + v6 }; // dry heath (row 1)
+    if (moist > 0.60) return { key: 'mw-plains',  frame: 6 + v6 }; // mixed forest — row 1, bushy green
+    if (moist > 0.52) return { key: 'mw-heather', frame: v6 };      // moist heather fringe — narrow band near forest edge
+    if (moist > 0.30) return { key: 'mw-plains',  frame:     v6 }; // open meadow — row 0, earthy brown
+    return                   { key: 'mw-grass',   frame: 0 };        // dry heath — flat clean grass
   }
 
   // ── High elevation (elev 0.62–0.78) ──────────────────────────────────────────
   if (elev < 0.78) {
     return temp > 0.50
-      ? { key: 'mw-plains', frame: 36 + v6 }  // warm high — dense spruce (row 6)
-      : { key: 'mw-plains', frame: 48 + v6 }; // cold high — granite (row 8)
+      ? { key: 'mw-plains', frame: 6 + v6 }  // warm high — row 1, bushy green
+      : { key: 'mw-plains', frame:     v6 }; // cold high — row 0, earthy/rocky
   }
 
   // ── Summit (elev ≥ 0.78) ──────────────────────────────────────────────────────
-  // Cold → snow / ice (row 10); warm → bare rocky top (row 9).
-  // Previously both summit cases used row 8 — same as cold-high granite —
-  // fixing the "Granite and Summit are identical" FIL-172 bug.
   return temp < 0.40
-    ? { key: 'mw-plains', frame: 60 + v6 }  // snow field (row 10)
-    : { key: 'mw-plains', frame: 54 + v6 }; // bare rocky summit (row 9)
+    ? { key: 'mw-snow',   frame: 12 }   // snow summit — generated snow tile (all-upper frame)
+    : { key: 'mw-plains', frame: v6 };  // bare rocky summit — row 0, earthy
 }
 
 // ── Dev overlay helpers ──────────────────────────────────────────────────────
@@ -921,7 +917,10 @@ export class GameScene extends Phaser.Scene {
     //   See terrainTileFrame() for the exact row-to-biome mapping.
     // water-sheet — loaded separately below; 30-frame animated water.
     const mwTiles = 'assets/packs/mystic_woods_2.2/sprites/tilesets';
-    this.load.spritesheet('mw-plains', `${mwTiles}/plains.png`, { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('mw-plains',   `${mwTiles}/plains.png`,   { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('mw-grass',    `${mwTiles}/grass.png`,    { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('mw-snow',     `${mwTiles}/snow.png`,     { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('mw-heather',  `${mwTiles}/heather.png`,  { frameWidth: 16, frameHeight: 16 });
 
     // ── Nature sprites (PostApocalypse AssetPack) ──────────────────────────────
     // Used by procedural scatter and chunk stamping (FIL-51/52/67).
@@ -4826,7 +4825,7 @@ export class GameScene extends Phaser.Scene {
     // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
     const gfx = this.add.graphics().setDepth(0.1);
     for (const [tint, coords] of groups) {
-      gfx.fillStyle(tint, 0.45);
+      gfx.fillStyle(tint, 0.12);
       for (let i = 0; i < coords.length; i += 2) {
         gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
       }
@@ -4992,8 +4991,8 @@ export class GameScene extends Phaser.Scene {
     // Created here so it is ready when we call sprite.play() after the bake loop.
     this.anims.create({
       key: 'water-anim',
-      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1, 2, 3] }),
-      frameRate: 4,
+      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1, 2, 3, 4, 5, 6, 7] }),
+      frameRate: 6,
       repeat: -1,
     });
 
