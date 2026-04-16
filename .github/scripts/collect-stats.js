@@ -18,6 +18,8 @@ const NOTION_API_KEY      = process.env.NOTION_API_KEY;
 const NOTION_STATS_PAGE_ID = process.env.NOTION_STATS_PAGE_ID;
 const LINEAR_API_KEY      = process.env.LINEAR_API_KEY;
 const VERCEL_DEPLOY_HOOK  = process.env.VERCEL_DEPLOY_HOOK;
+const VERCEL_TOKEN        = process.env.VERCEL_TOKEN;
+const VERCEL_PROJECT_ID   = process.env.VERCEL_PROJECT_ID;
 const PIXELLAB_API_KEY    = process.env.PIXELLAB_API_KEY;
 const REPO_OWNER          = process.env.REPO_OWNER || 'FilipMarzuki';
 const REPO_NAME           = process.env.REPO_NAME  || 'matlu';
@@ -66,9 +68,10 @@ function avg(arr) {
 
 // ── Date range: last 7 days ───────────────────────────────────────────────────
 
-const now     = new Date();
-const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-const weekAgoISO = weekAgo.toISOString();
+const now          = new Date();
+const weekAgo      = new Date(now - 7  * 24 * 60 * 60 * 1000);
+const twoWeeksAgo  = new Date(now - 14 * 24 * 60 * 60 * 1000);
+const weekAgoISO   = weekAgo.toISOString();
 
 // Week label e.g. "Week of 2026-04-14"
 const weekLabel = `Week of ${now.toISOString().slice(0, 10)}`;
@@ -249,6 +252,50 @@ async function getPixelLabStats() {
     return usd !== null ? { usd } : null;
   } catch (e) {
     console.warn('getPixelLabStats failed:', e.message);
+    return null;
+  }
+}
+
+// ── Vercel deployment frequency ───────────────────────────────────────────────
+
+/**
+ * Queries the Vercel REST API for production deployments in the last 14 days,
+ * then splits them into "this week" (0-7 days) and "last week" (7-14 days).
+ * Returns null gracefully when VERCEL_TOKEN or VERCEL_PROJECT_ID is absent —
+ * the same pattern as getPixelLabStats() so missing secrets don't break the run.
+ */
+async function getDeployStats() {
+  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return null;
+  try {
+    // Fetch up to 100 production deployments created in the last 14 days.
+    // `since` is a Unix timestamp in milliseconds.
+    const sinceMs = twoWeeksAgo.getTime();
+    const url =
+      `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/deployments` +
+      `?limit=100&target=production&since=${sinceMs}`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+    });
+    if (!res.ok) {
+      console.warn(`Vercel deployments API → ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    // Only count deployments that are both targeting production and succeeded.
+    const deployments = (data.deployments || []).filter(
+      d => d.target === 'production' && d.state === 'READY'
+    );
+
+    const thisWeek = deployments.filter(d => d.createdAt >= weekAgo.getTime());
+    const lastWeek = deployments.filter(
+      d => d.createdAt >= twoWeeksAgo.getTime() && d.createdAt < weekAgo.getTime()
+    );
+
+    return { thisWeek: thisWeek.length, lastWeek: lastWeek.length };
+  } catch (e) {
+    console.warn('getDeployStats failed:', e.message);
     return null;
   }
 }
@@ -503,7 +550,7 @@ async function postCognitiveLoadToNotion(cogLoad) {
 
 // ── Build Notion page content ──────────────────────────────────────────────────
 
-function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad) {
+function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats) {
   const top5Text = gh.top5Files.length
     ? gh.top5Files.map(([f, n], i) => `${i + 1}. \`${f}\` (${n} changes)`).join('\n')
     : 'No file data available.';
@@ -604,6 +651,22 @@ function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad) 
     blocks.push(
       heading2('PixelLab Credits'),
       bullet(`Balance: **$${pixellab.usd.toFixed(2)}**`),
+    );
+  }
+
+  if (deployStats) {
+    const trend =
+      deployStats.lastWeek === 0
+        ? ''
+        : deployStats.thisWeek > deployStats.lastWeek
+          ? ' ↑'
+          : deployStats.thisWeek < deployStats.lastWeek
+            ? ' ↓'
+            : ' →';
+    blocks.push(
+      heading2('Deployment Frequency'),
+      bullet(`Deploys this week: **${deployStats.thisWeek}**${trend}`),
+      bullet(`Deploys last week: **${deployStats.lastWeek}**`),
     );
   }
 
@@ -713,11 +776,12 @@ async function triggerVercelDeploy() {
 async function main() {
   console.log(`Collecting stats for ${weekLabel}...`);
 
-  const [gh, linear, commitSpread, pixellab] = await Promise.all([
+  const [gh, linear, commitSpread, pixellab, deployStats] = await Promise.all([
     getGitHubStats(),
     getLinearStats(),
     getCommitSpread(),
     getPixelLabStats(),
+    getDeployStats(),
   ]);
 
   // Bundle size and cognitive load are synchronous — run after async work
@@ -729,9 +793,10 @@ async function main() {
   console.log('Commit spread:', commitSpread);
   console.log('Bundle:', bundle);
   console.log('PixelLab:', pixellab);
+  console.log('Deploy stats:', deployStats);
   console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
 
-  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad);
+  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats);
   const page   = await postToNotion(weekLabel, blocks);
   console.log(`Created Notion page: ${page.url}`);
 
