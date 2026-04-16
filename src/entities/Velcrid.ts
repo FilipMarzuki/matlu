@@ -63,6 +63,9 @@ export class VelcridJuvenile extends CombatEntity {
       // Short hop — 2.5× speed for 80 ms ≈ ~24 px of travel
       dashSpeedMultiplier: 2.5, dashDurationMs: 80,
       spriteKey: 'mini-velcrid', spriteTint: 0x88cc44, spriteScale: 0.28,
+      // Short memory — juveniles are dumb swarm creatures. 1 s lets them close in
+      // if the player ducks behind cover briefly, but they lose the trail quickly.
+      sightMemoryMs: 1000,
     });
   }
 
@@ -82,18 +85,21 @@ export class VelcridJuvenile extends CombatEntity {
     let hopTargetY  = 0;
 
     return new BtSelector([
-      // 1. Melee if adjacent — can interrupt any orbit phase
+      // 1. Melee if adjacent AND in sight — can interrupt any orbit phase.
+      //    Requires canSeeTarget so the juvenile can't attack through walls.
       new BtSequence([
         new BtCondition(ctx =>
+          this.canSeeTarget &&
           ctx.opponent !== null &&
           Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < MELEE_R,
         ),
         new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
       ]),
 
-      // 2. Orbit → short hop → recover
+      // 2. Full orbit → short hop → recover — only when target is in sight.
+      //    Special movement patterns are reserved for active visual contact.
       new BtSequence([
-        new BtCondition(ctx => ctx.opponent !== null),
+        new BtCondition(ctx => this.canSeeTarget && ctx.opponent !== null),
         new BtAction((ctx, delta) => {
           const opp = ctx.opponent!;
           phaseTimer = Math.max(0, phaseTimer - delta);
@@ -139,6 +145,16 @@ export class VelcridJuvenile extends CombatEntity {
 
           return 'running';
         }),
+      ]),
+
+      // 3. Move toward last-known position during the sight-memory window.
+      //    ctx.opponent is set to lastKnownPosition by CombatEntity when
+      //    !canSeeTarget but the memory window hasn't expired yet.
+      //    This gives the juvenile a natural "searching" behaviour — it walks
+      //    to the spot where it lost sight, then falls through to wander.
+      new BtSequence([
+        new BtCondition(ctx => !this.canSeeTarget && ctx.opponent !== null),
+        new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
       ]),
 
       new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
@@ -210,6 +226,9 @@ export class VelcridAdult extends CombatEntity {
       // Short jump on emerge — 2.8× speed for 100 ms ≈ ~36 px
       dashSpeedMultiplier: 2.8, dashDurationMs: 100,
       spriteKey: 'mini-velcrid', spriteTint: 0x446622, spriteScale: 0.48,
+      // Long memory — adults are smarter apex predators. 3 s gives them time to
+      // circle behind cover looking for a re-engagement angle.
+      sightMemoryMs: 3000,
     });
   }
 
@@ -240,18 +259,22 @@ export class VelcridAdult extends CombatEntity {
     let shuffleTimer  = 0;
 
     return new BtSelector([
-      // 1. Melee if adjacent
+      // 1. Melee if adjacent AND in sight.
+      //    Requires canSeeTarget — the adult can't attack through walls.
       new BtSequence([
         new BtCondition(ctx =>
+          this.canSeeTarget &&
           ctx.opponent !== null &&
           Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < MELEE_R,
         ),
         new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
       ]),
 
-      // 2. Hold / burrow / emerge / jump state machine
+      // 2. Hold / burrow / emerge / jump state machine — only when in sight.
+      //    The adult's burrow is its main weapon; initiating it without visual
+      //    contact on the target would result in surfacing at a stale position.
       new BtSequence([
-        new BtCondition(ctx => ctx.opponent !== null),
+        new BtCondition(ctx => this.canSeeTarget && ctx.opponent !== null),
         new BtAction((ctx, delta) => {
           const opp      = ctx.opponent!;
           const dist     = Phaser.Math.Distance.Between(ctx.x, ctx.y, opp.x, opp.y);
@@ -377,6 +400,16 @@ export class VelcridAdult extends CombatEntity {
 
           return 'running';
         }),
+      ]),
+
+      // 3. Move toward last-known position during the sight-memory window.
+      //    ctx.opponent is set to lastKnownPosition by CombatEntity when
+      //    !canSeeTarget but the memory window (3 s for adults) hasn't expired.
+      //    The adult walks to where it last saw the target, creating a menacing
+      //    "stalking" behaviour before giving up and wandering.
+      new BtSequence([
+        new BtCondition(ctx => !this.canSeeTarget && ctx.opponent !== null),
+        new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
       ]),
 
       new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
