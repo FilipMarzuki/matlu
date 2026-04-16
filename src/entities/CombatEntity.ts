@@ -1466,7 +1466,7 @@ export class Tinkerer extends CombatEntity {
   }
 }
 
-// ── Spinolandet (bio / evolution) enemies ─────────────────────────────────────
+// ── Spinaria (bio / evolution) enemies ────────────────────────────────────────
 
 /**
  * SporeHusk — bloated fungal rusher. Slow but hits hard on contact.

@@ -90,8 +90,8 @@ export interface Collectible {
 export const ZONES: Zone[] = [
   {
     // Yttersåret — the outer wound. The three corruption strains operate
-    // simultaneously. The ground is neither Earth, Spinolandet, nor
-    // Vattenpandalandet. It is scar tissue. The most dangerous zone in
+    // simultaneously. The ground is neither Earth, Spinaria, nor
+    // Mistheim. It is scar tissue. The most dangerous zone in
     // the game.
     id: 'zone-outer-wound',
     x: 0, y: 1500, w: 2000, h: 1500,
@@ -198,7 +198,7 @@ export const PASSIVE_CLEANSE_CAP = 10;
 /**
  * There are no settlements in Level 5. There are traces — the remains of
  * expeditions: Pandor scholars who came to understand, Earth scavengers
- * who came for salvage, Spinolandet scouts sent to map the tear. None of
+ * who came for salvage, Spinaria scouts sent to map the tear. None of
  * them established settlements. Some of them left marks.
  *
  *  - trace: a campfire ring, a discarded pack, a sleeping position —

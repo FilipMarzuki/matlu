@@ -1,7 +1,7 @@
 /**
- * Level 2 configuration — The Spine Reaches (Spinolandet dominant).
+ * Level 2 configuration — The Spine Reaches (Spinaria dominant).
  *
- * ## Setting: A former Earth city consumed by Spinolandet biology
+ * ## Setting: A former Earth city consumed by Spinaria biology
  *
  * What used to be a city is no longer recognisable as one. Earth ruins
  * stand as scaffolding for something that has grown around and through
@@ -9,7 +9,7 @@
  * tunnel openings that exhale warm humid air. Bioluminescent forest.
  * Loud, alive, overwhelming.
  *
- * The Blight — Spinolandet's strain of the Skymning — severs the
+ * The Blight — Spinaria's strain of the Skymning — severs the
  * interdependencies that kept the ecosystem alive. Fungal networks stop
  * sharing nutrients. Predators hunt without selection. Hive minds
  * fragment into isolated bodies acting on individual panic. The result
@@ -24,18 +24,18 @@
  * ## Zone layout (world coordinates, 4500×3000 world)
  *
  *  Zone 1 — Ruinekanten (The Ruined Edge)
- *    Entry zone. Earth ruins with Spinolandet biology growing through
+ *    Entry zone. Earth ruins with Spinaria biology growing through
  *    them — concrete pillars wrapped in chitinous shell, collapsed
  *    buildings serving as habitat for creatures that never evolved for
  *    open-air existence. Static and Blight corruption blend here.
  *
  *  Zone 2 — Lyslunden (The Bioluminescent Grove)
- *    The Spinolandet canopy fully established. Enormous arthropods move
+ *    The Spinaria canopy fully established. Enormous arthropods move
  *    through the upper tiers; fungal mats underfoot pulse faintly with
  *    mana. Pure Blight corruption — the ecosystem is fragmenting.
  *
  *  Zone 3 — Sporhvälvet (The Spore Vault)
- *    Deep Spinolandet territory near the next portal. Pockets of
+ *    Deep Spinaria territory near the next portal. Pockets of
  *    Vattenpandalandet bleed begin appearing: magical springs that flow
  *    upward, water pooling on vertical surfaces. Two worlds' bleeds
  *    colliding.
@@ -47,7 +47,7 @@
  * ## Survivor meeting
  *  Walking within 100px of MEETING_POINT triggers a dialog with the
  *  first non-Earth survivors the player encounters. Communication is
- *  difficult — Spinolandet peoples do not use language in the same way.
+ *  difficult — Spinaria peoples do not use language in the same way.
  *  Ends with three path-choice buttons reflecting which world's approach
  *  the player chooses to take forward.
  */
@@ -80,23 +80,23 @@ export interface Collectible {
 
 export const ZONES: Zone[] = [
   {
-    // Ruinekanten — entry zone where Earth ruins meet Spinolandet biology.
+    // Ruinekanten — entry zone where Earth ruins meet Spinaria biology.
     // Static + Blight corruption at their worst: infrastructure and ecosystem
     // both fragmenting simultaneously.
     id: 'zone-ruins',
     x: 0, y: 2100, w: 900, h: 900,
     corruption: 70,
-    tintColor: 0x2a1a0a,  // dark amber-rust (Earth decay + Spinolandet warmth)
+    tintColor: 0x2a1a0a,  // dark amber-rust (Earth decay + Spinaria warmth)
     tintAlpha: 0.04,
   },
   {
-    // Lyslunden — the bioluminescent grove, full Spinolandet dominance.
+    // Lyslunden — the bioluminescent grove, full Spinaria dominance.
     // Deep purple-teal glow. Arthropods the size of cattle. Fungal mats
     // that consume everything that stays still too long.
     id: 'zone-canopy',
     x: 1500, y: 900, w: 1200, h: 1000,
     corruption: 50,
-    tintColor: 0x1a0a2a,  // deep purple (bioluminescent Spinolandet)
+    tintColor: 0x1a0a2a,  // deep purple (bioluminescent Spinaria)
     tintAlpha: 0.03,
   },
   {
@@ -226,7 +226,7 @@ export const PASSIVE_CLEANSE_CAP = 20;
 /**
  * A location significant enough to anchor on the map.
  *
- * In Spinolandet-dominant territory the social structure is different:
+ * In Spinaria-dominant territory the social structure is different:
  * there are Earth survivor outposts and cross-world meeting points,
  * but no permanent villages in the Earth sense.
  *
@@ -260,7 +260,7 @@ export const SETTLEMENTS: Settlement[] = [
   },
   {
     // Lysgläntan — a meeting point in a natural clearing in the
-    // bioluminescent grove. Both Earth and Spinolandet creatures avoid
+    // bioluminescent grove. Both Earth and Spinaria creatures avoid
     // the clearing's centre; nobody knows why. People leave offerings.
     id: 'lysglantan',
     name: 'Lysgläntan',
@@ -272,7 +272,7 @@ export const SETTLEMENTS: Settlement[] = [
   {
     // Porthuset — the building closest to the tear. Nobody lives here
     // permanently. Travelers rest, leave marks on the walls, and move on.
-    // The walls are covered in three scripts: Swedish, Spinolandet
+    // The walls are covered in three scripts: Swedish, Spinaria
     // chemical-symbols, and something that arrived from the third world.
     id: 'porthuset',
     name: 'Porthuset',

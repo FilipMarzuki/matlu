@@ -35,7 +35,7 @@ interface LorePage {
   body: string;
 }
 
-// Sourced from FIL-136: "World lore: Earth, Spinolandet, Vattenpandalandet"
+// Sourced from FIL-136: "World lore: Earth, Spinaria, Mistheim"
 // This is the canonical reference for NPC dialogue and enemy flavour text.
 const PAGES: LorePage[] = [
   {
@@ -74,7 +74,7 @@ const PAGES: LorePage[] = [
     ].join('\n'),
   },
   {
-    heading: 'Spinolandet',
+    heading: 'Spinaria',
     headingColor: '#80e0a0', // jungle green — biology and nature
     subheading: 'Strain: The Blight',
     body: [
@@ -91,7 +91,7 @@ const PAGES: LorePage[] = [
     ].join('\n'),
   },
   {
-    heading: 'Vattenpandalandet',
+    heading: 'Mistheim',
     headingColor: '#60c8e8', // water blue — rivers and magic
     subheading: 'Strain: The Dry',
     body: [

@@ -780,7 +780,8 @@ export class GameScene extends Phaser.Scene {
   /** All world-decoration images (trees, rocks, flowers, buildings, etc.) — toggled by H key. */
   private decorImages: Phaser.GameObjects.Image[] = [];
   /** Whether decorations are currently visible. */
-  private decorVisible = true;
+  // Start hidden — ground-polish focus. Press H to toggle all decorations on/off.
+  private decorVisible = false;
 
   /** Raw elevation value per tile [0,1.2] — stored during terrain bake. */
   private tileDevElev:  Float32Array | null = null;
@@ -1123,6 +1124,17 @@ export class GameScene extends Phaser.Scene {
     this.spawnButterfliesAndBees();
     this.stampSettlementBuildings();
     this.spawnParticleEffects();
+
+    // Hide all non-ground visuals on startup so the terrain bake can be
+    // evaluated in isolation. Press H to toggle everything back on.
+    for (const img of this.decorImages) img.setVisible(false);
+    this.pathGraphics.setVisible(false);
+    for (const ov of this.zoneOverlays.values()) ov.setVisible(false);
+    for (const g of this.settlementGlows) g.setVisible(false);
+    if (this.leavesEmitter)  this.leavesEmitter.emitting  = false;
+    if (this.pollenEmitter)  this.pollenEmitter.emitting   = false;
+    if (this.fireflyEmitter) this.fireflyEmitter.emitting  = false;
+
     this.spawnSettlementNpcs();
     this.createVendors();
     this.createLootChests();
@@ -1214,11 +1226,17 @@ export class GameScene extends Phaser.Scene {
     // Dash on Shift key — same action as joystick double-tap (FIL-123)
     this.input.keyboard?.on('keydown-SHIFT', () => this.tryDash());
 
-    // H — toggle all world decorations (trees, rocks, flowers, buildings) so the
-    // bare terrain layout is visible for design / debug purposes.
+    // H — toggle all world decorations so the bare terrain is visible for
+    // design / polish. Covers sprites, paths, zone tints, glows, particles.
     this.input.keyboard?.on('keydown-H', () => {
       this.decorVisible = !this.decorVisible;
       for (const img of this.decorImages) img.setVisible(this.decorVisible);
+      this.pathGraphics.setVisible(this.decorVisible);
+      for (const ov of this.zoneOverlays.values()) ov.setVisible(this.decorVisible);
+      for (const g of this.settlementGlows) g.setVisible(this.decorVisible);
+      if (this.leavesEmitter)  this.leavesEmitter.emitting  = this.decorVisible && (this.worldClock?.phase === 'dawn' || this.worldClock?.phase === 'dusk');
+      if (this.pollenEmitter)  this.pollenEmitter.emitting   = this.decorVisible && (this.worldClock?.phase === 'morning' || this.worldClock?.phase === 'midday' || this.worldClock?.phase === 'afternoon');
+      if (this.fireflyEmitter) this.fireflyEmitter.emitting  = this.decorVisible && this.worldClock?.phase === 'night';
     });
 
     this.rabbits = this.physics.add.group();
@@ -4746,20 +4764,20 @@ export class GameScene extends Phaser.Scene {
    * green, snow gets ice-blue, etc.
    */
   private biomeTint(elev: number, temp: number, moist: number): number {
-    if (elev < 0.25) return 0x7ab0d8;  // sea — blue
+    if (elev < 0.25) return 0x55ccff;  // sea — bright sky blue
     if (elev < 0.30) {
       return (temp < 0.45 || moist > 0.50)
-        ? 0xd4a86a   // rocky shore — warm sandy
-        : 0xe8c870;  // sandy shore — lighter yellow-sand
+        ? 0xeecc66   // rocky shore — warm golden sand
+        : 0xffdd66;  // sandy shore — bright sunny yellow
     }
-    if (elev < 0.45 && moist > 0.72) return 0x608858; // marsh — muddy dark green
+    if (elev < 0.45 && moist > 0.72) return 0x55cc44; // marsh — bright fresh green
     if (elev < 0.62) {
-      if (moist > 0.60) return 0x80c068; // forest  — fresh green
-      if (moist > 0.30) return 0xb8d480; // heath   — light olive
-      return                  0xc8a860;  // dry heath — sandy (slightly distinct from shore)
+      if (moist > 0.60) return 0x44ee55; // forest  — vibrant green
+      if (moist > 0.30) return 0xaaee55; // heath   — lime yellow-green
+      return                  0xddcc44;  // dry heath — golden
     }
     if (elev < 0.78) {
-      return temp > 0.50 ? 0x50904a : 0xb8b4ac; // spruce / cold granite
+      return temp > 0.50 ? 0x33bb44 : 0xaac8dd; // spruce green / pale blue-grey granite
     }
     return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
   }

@@ -18,12 +18,12 @@ export interface PhaseOverlay {
 }
 
 const PHASE_OVERLAYS: Record<DayPhase, PhaseOverlay> = {
-  dawn:      { r: 0xcc, g: 0x77, b: 0xaa, alpha: 0.25 },
-  morning:   { r: 0x00, g: 0x00, b: 0x00, alpha: 0.00 },
-  midday:    { r: 0xff, g: 0xee, b: 0x88, alpha: 0.05 },
-  afternoon: { r: 0xff, g: 0xaa, b: 0x44, alpha: 0.08 },
-  dusk:      { r: 0xcc, g: 0x55, b: 0x66, alpha: 0.20 },
-  night:     { r: 0x11, g: 0x22, b: 0x55, alpha: 0.45 },
+  dawn:      { r: 0xff, g: 0xcc, b: 0x44, alpha: 0.08 }, // warm golden sunrise, not purple
+  morning:   { r: 0x00, g: 0x00, b: 0x00, alpha: 0.00 }, // clear
+  midday:    { r: 0xff, g: 0xee, b: 0x88, alpha: 0.05 }, // subtle warm
+  afternoon: { r: 0xff, g: 0xaa, b: 0x44, alpha: 0.08 }, // warm orange
+  dusk:      { r: 0xff, g: 0x88, b: 0x44, alpha: 0.12 }, // warm sunset (not purplish)
+  night:     { r: 0x22, g: 0x44, b: 0x88, alpha: 0.35 }, // cool blue night
 };
 
 /**
