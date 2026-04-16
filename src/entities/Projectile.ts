@@ -30,8 +30,8 @@ export interface Damageable {
  *      can prune its list.
  */
 export class Projectile extends Phaser.GameObjects.Arc {
-  private readonly originX: number;
-  private readonly originY: number;
+  private readonly startX: number;
+  private readonly startY: number;
   private readonly dirX: number;
   private readonly dirY: number;
   private readonly speed: number;
@@ -82,8 +82,8 @@ export class Projectile extends Phaser.GameObjects.Arc {
     scene.add.existing(this);
     this.setDepth(1);
 
-    this.originX   = x;
-    this.originY   = y;
+    this.startX    = x;
+    this.startY    = y;
     this.dirX      = Math.cos(angle);
     this.dirY      = Math.sin(angle);
     this.speed     = speed;
@@ -106,8 +106,8 @@ export class Projectile extends Phaser.GameObjects.Arc {
     const travelled = Math.min(this.distanceTravelled, this.maxRange);
 
     // Base linear trajectory.
-    const baseX = this.originX + this.dirX * travelled;
-    const baseY = this.originY + this.dirY * travelled;
+    const baseX = this.startX + this.dirX * travelled;
+    const baseY = this.startY + this.dirY * travelled;
 
     if (this.arcHeight !== 0) {
       // Arc in the perpendicular axis: 0 at spawn/end, peak at midpoint.
