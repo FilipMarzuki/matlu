@@ -44,37 +44,36 @@ async function linearQuery(query, variables = {}) {
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
-// Fetch Backlog issues that have NONE of the triage-outcome labels.
-// Linear's collection filter: `labels: { every: { name: { nin: [...] } } }`
-// means "every label on this issue has a name NOT in this list" — which
-// effectively excludes issues that carry any of the listed labels.
+// Fetch all Backlog issues and filter in JS.
+// Linear's `labels: { every: { name: { nin: [...] } } }` silently excludes
+// issues with NO labels (empty set fails the `every` predicate in Linear's API),
+// so issues that have never been labelled would never be triaged. Fetching all
+// and filtering client-side handles both zero-label and labelled issues correctly.
+const TRIAGE_SKIP_LABELS = new Set([
+  'ready',
+  'needs-refinement',
+  'blocked',
+  'too-large',
+  'agent:success',
+  'agent:partial',
+  'agent:failed',
+  'agent:wrong-interpretation',
+]);
+
 const UNTRIAGED_QUERY = `
   query UntriagedIssues {
     issues(
       filter: {
         state: { type: { eq: "backlog" } }
         assignee: { name: { eq: "Filip Marzuki" } }
-        labels: {
-          every: {
-            name: {
-              nin: [
-                "ready",
-                "needs-refinement",
-                "blocked",
-                "too-large",
-                "agent:success",
-                "agent:partial",
-                "agent:failed",
-                "agent:wrong-interpretation"
-              ]
-            }
-          }
-        }
       }
       orderBy: updatedAt
       first: 50
     ) {
-      nodes { identifier }
+      nodes {
+        identifier
+        labels { nodes { name } }
+      }
     }
   }
 `;
@@ -99,7 +98,9 @@ async function main() {
     identifiers = [data.issue.identifier];
   } else {
     const data = await linearQuery(UNTRIAGED_QUERY);
-    identifiers = data.issues.nodes.map((n) => n.identifier);
+    identifiers = data.issues.nodes
+      .filter((n) => !n.labels.nodes.some((l) => TRIAGE_SKIP_LABELS.has(l.name)))
+      .map((n) => n.identifier);
   }
 
   const serialised = JSON.stringify(identifiers);
