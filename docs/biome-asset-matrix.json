@@ -1,0 +1,597 @@
+{
+  "_meta": {
+    "description": "Biome × Elevation × Season asset matrix for Matlu. Source of truth for art pipeline status.",
+    "generated": "2026-04-16",
+    "issue": "FIL-176",
+    "related": "FIL-175 (Season System)",
+    "audit_sources": [
+      "src/scenes/GameScene.ts — terrainTileFrame(), BIOME_LABELS, BIOME_OVERLAY_COLORS",
+      "src/world/Level1.ts — zone definitions",
+      "src/world/CorruptionField.ts — corruption is an overlay, not a separate biome",
+      "public/assets/manifest.json — actual asset files present"
+    ],
+    "elevation_key": {
+      "0": "water/pit",
+      "1": "ground level",
+      "2": "raised/hills",
+      "3": "cliff/ridge"
+    },
+    "status_key": {
+      "Done": "Asset exists and is production-ready",
+      "Placeholder": "Temporary/shared asset in use (not biome-specific)",
+      "Missing": "No asset exists; needs to be created",
+      "N/A": "This combination does not occur naturally"
+    },
+    "seasons": ["Spring", "Rainy", "Summer", "Autumn", "Winter"],
+    "notes": {
+      "corruption": "Corruption is a noise-driven overlay applied on top of any biome via CorruptionField.ts. It is NOT a separate biome. Corrupted appearance = any biome + dark tint from CorruptionField.",
+      "season_system": "Season system not yet implemented (see FIL-175). Current tiles are the Spring/early-spring baseline. All season-specific variants are Missing. Palette tint values below are PROPOSED targets for when FIL-175 ships.",
+      "audio_layer": "MusicSystem does not exist yet. Audio Layer = Missing for all rows. Pending MusicSystem implementation (FIL-175).",
+      "ground_tile_sharing": "Dry Heath shares mw-plains row 1 with Sandy Shore. Flagged as Placeholder until a dedicated Dry Heath tile row is added.",
+      "feature_sprites_scope": "Feature sprites listed are those actively placed in the game for this biome. Generic scatter (grass tufts, rocks) appears across many biomes and is flagged Placeholder. Water-edge and forest-belt scatter is biome-aware and flagged Done."
+    }
+  },
+  "biomes": [
+    {
+      "biome": "Sea",
+      "biome_index": 0,
+      "description": "Deep ocean and lake tiles. elev < 0.25 in terrain noise.",
+      "base_color": "#1a4f7a",
+      "valid_elevations": [0],
+      "ground_tile": {
+        "asset": "terrain-water (mystic_woods_2.2/sprites/tilesets/water-sheet.png, frames 0–2 deep / 30–32 river)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Done",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["water-lillies (water_lillies.png)", "rocks-in-water (rock_in_water_01-sheet.png)"],
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Done",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Placed by stampWaterEdgeScatter — biome-aware placement."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#8899aa",
+        "summer": "#ffffff",
+        "autumn": "#ccbbaa",
+        "winter": "#a0b8d0"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Rocky Shore",
+      "biome_index": 1,
+      "description": "Cold or moist coastline — rocky shingle. elev 0.25–0.30, (temp < 0.45 OR moist > 0.50).",
+      "base_color": "#8b6914",
+      "valid_elevations": [0, 1],
+      "ground_tile": {
+        "asset": "mw-plains row 0 (mystic_woods_2.2/sprites/tilesets/plains.png, frames 0–5)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["rocks-in-water (rock_in_water_01-sheet.png)", "rock-grass"],
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Done",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Rocks placed by stampWaterEdgeScatter on the land side of shore."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#99aabb",
+        "summer": "#ffe8aa",
+        "autumn": "#ddbb88",
+        "winter": "#b0b8c0"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Sandy Shore",
+      "biome_index": 2,
+      "description": "Warm dry coastline — sandy beach. elev 0.25–0.30, temp ≥ 0.45 AND moist ≤ 0.50.",
+      "base_color": "#e8c870",
+      "valid_elevations": [0, 1],
+      "ground_tile": {
+        "asset": "mw-plains row 1 (plains.png, frames 6–11) — shared with Dry Heath",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Done",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["rocks-in-water (rock_in_water_01-sheet.png)"],
+        "spring": "Placeholder",
+        "rainy": "Missing",
+        "summer": "Placeholder",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "No sand-specific feature sprites. Generic scatter only."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#aabbcc",
+        "summer": "#ffe080",
+        "autumn": "#ddcc88",
+        "winter": "#c0c8d0"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Marsh",
+      "biome_index": 3,
+      "description": "Soggy bog in low-lying river valleys. elev 0.30–0.45 AND moist > 0.72.",
+      "base_color": "#4a7a3a",
+      "valid_elevations": [1],
+      "ground_tile": {
+        "asset": "mw-plains row 3 (plains.png, frames 18–23)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["grass-tuft-1..5", "mushroom", "mushrooms-yellow", "puddle-grass-1..3"],
+        "spring": "Placeholder",
+        "rainy": "Missing",
+        "summer": "Placeholder",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Puddle sprites exist but are not placed biome-specifically. Generic scatter."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#88aa88",
+        "summer": "#aaddaa",
+        "autumn": "#aa9944",
+        "winter": "#80a098"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Dry Heath",
+      "biome_index": 4,
+      "description": "Sandy/gravelly open heath. elev 0.30–0.62, moist ≤ 0.30.",
+      "base_color": "#b8904a",
+      "valid_elevations": [1],
+      "ground_tile": {
+        "asset": "mw-plains row 1 (plains.png, frames 6–11) — SHARED with Sandy Shore; needs own row",
+        "spring": "Placeholder",
+        "rainy": "Missing",
+        "summer": "Placeholder",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["grass-tuft-1..5", "rock-grass", "stick"],
+        "spring": "Placeholder",
+        "rainy": "Missing",
+        "summer": "Placeholder",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Generic scatter. No biome-specific dry heath features."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#aabbcc",
+        "summer": "#ffdd88",
+        "autumn": "#ddaa66",
+        "winter": "#b0b8c0"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Coastal Heath",
+      "biome_index": 5,
+      "description": "Light meadow / heather. elev 0.30–0.62, moist 0.30–0.60.",
+      "base_color": "#7a9a3a",
+      "valid_elevations": [1],
+      "ground_tile": {
+        "asset": "mw-plains row 2 (plains.png, frames 12–17)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["grass-tuft-1..5", "bush-1", "bush-2", "flower-1-yellow/red/blue/purple", "flowers-2-*", "flowers-3-*", "rock-grass"],
+        "spring": "Placeholder",
+        "rainy": "Missing",
+        "summer": "Placeholder",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Flower assets exist; placed by generateDecorations() without biome specificity."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#99bb99",
+        "summer": "#ccff88",
+        "autumn": "#cc9944",
+        "winter": "#a0b0a8"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Mixed Forest",
+      "biome_index": 6,
+      "description": "Birch-spruce forest floor. elev 0.30–0.62, moist > 0.60.",
+      "base_color": "#2a7a2a",
+      "valid_elevations": [1, 2],
+      "ground_tile": {
+        "asset": "mw-plains row 4 (plains.png, frames 24–29)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["tree-birch", "tree-birch-2", "tree-oak-small", "tree-oak", "tree-normal", "stump-1", "stump-2", "mushroom", "mushrooms-red"],
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Done",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Forest belt scatter (stampProceduralChunks line ~3539) places trees in this biome zone. Done for spring/summer baseline."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#88aa88",
+        "summer": "#aaffaa",
+        "autumn": "#ddaa44",
+        "winter": "#90a898"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Dense Spruce",
+      "biome_index": 7,
+      "description": "Warm high-elevation spruce stand. elev 0.62–0.78, temp > 0.50.",
+      "base_color": "#1a5a1a",
+      "valid_elevations": [2],
+      "ground_tile": {
+        "asset": "mw-plains row 6 (plains.png, frames 36–41)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["tree-spruce", "tree-spruce-2", "tree-pine", "tree-big"],
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Done",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Spruce-specific trees placed in the highland forest belt."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#88aa88",
+        "summer": "#99ee99",
+        "autumn": "#99aa44",
+        "winter": "#708878"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Cold Granite",
+      "biome_index": 8,
+      "description": "Cold high-elevation granite. elev 0.62–0.78, temp ≤ 0.50.",
+      "base_color": "#7a7a7a",
+      "valid_elevations": [2, 3],
+      "ground_tile": {
+        "asset": "mw-plains row 8 (plains.png, frames 48–53)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": ["rock-grass"],
+        "spring": "Placeholder",
+        "rainy": "Missing",
+        "summer": "Placeholder",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "Only generic rock-grass sprite used. No granite-specific boulders."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#9999aa",
+        "summer": "#ddddcc",
+        "autumn": "#bbbbaa",
+        "winter": "#8090a0"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Bare Rocky Summit",
+      "biome_index": 9,
+      "description": "Warm bare summit rock. elev ≥ 0.78, temp ≥ 0.40.",
+      "base_color": "#9a9898",
+      "valid_elevations": [3],
+      "ground_tile": {
+        "asset": "mw-plains row 9 (plains.png, frames 54–59)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": [],
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "No feature sprites assigned to summit."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#ffffff",
+        "rainy": "#aaaaaa",
+        "summer": "#dddddd",
+        "autumn": "#ccbbbb",
+        "winter": "#a0b0c0"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    },
+    {
+      "biome": "Snow Field",
+      "biome_index": 10,
+      "description": "Cold icy summit. elev ≥ 0.78, temp < 0.40.",
+      "base_color": "#d8e8f8",
+      "valid_elevations": [3],
+      "ground_tile": {
+        "asset": "mw-plains row 10 (plains.png, frames 60–65)",
+        "spring": "Done",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Done"
+      },
+      "edge_cliff_tile": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "feature_sprites": {
+        "assets": [],
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing",
+        "notes": "No feature sprites. Snow particle effect needed for Winter."
+      },
+      "particles": {
+        "asset": null,
+        "spring": "Missing",
+        "rainy": "Missing",
+        "summer": "Missing",
+        "autumn": "Missing",
+        "winter": "Missing"
+      },
+      "palette_tint": {
+        "spring": "#e0f0ff",
+        "rainy": "#b0c8e0",
+        "summer": "#ffffff",
+        "autumn": "#d0d8e8",
+        "winter": "#d8e8f8"
+      },
+      "audio_layer": {
+        "asset": null,
+        "all_seasons": "Missing"
+      }
+    }
+  ]
+}
