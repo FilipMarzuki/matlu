@@ -1,4 +1,20 @@
 import * as Phaser from 'phaser';
+import { insertFeedback, GAME_VERSION } from '../lib/feedback';
+
+/**
+ * Minimal shape expected from CombatArenaScene.getArenaState().
+ * Defined here as an interface to avoid a circular import:
+ * CombatArenaScene already imports NavScene, so NavScene must NOT import
+ * CombatArenaScene directly.
+ */
+interface ArenaStateSnapshot {
+  waveNumber:   number;
+  enemiesAlive: number;
+  playerHp:     number;
+}
+
+/** Scene key used to look up CombatArenaScene at runtime without importing it. */
+const ARENA_SCENE_KEY = 'CombatArenaScene';
 
 /**
  * NavScene — persistent right-side navigation panel.
@@ -30,6 +46,16 @@ export class NavScene extends Phaser.Scene {
   private resetBtn!:    Phaser.GameObjects.Text;
   private freeCamGroup!: Phaser.GameObjects.Group;
   private arenaGroup!:   Phaser.GameObjects.Group;
+
+  // Tracks the active view mode so the feedback widget can use the right
+  // placeholder text and build the correct context JSON on submit.
+  private currentMode: 'wilderview' | 'arena' = 'wilderview';
+
+  // Feedback widget — DOM elements appended to document.body and removed on shutdown.
+  private feedbackWrapper: HTMLDivElement | null    = null;
+  private feedbackInput:   HTMLInputElement | null  = null;
+  private feedbackSendBtn: HTMLButtonElement | null = null;
+  private feedbackStatus:  HTMLDivElement | null    = null;
 
   // Initial mode passed via scene.launch(NavScene.KEY, { mode }) so the panel
   // shows the correct active button immediately without a frame-late event.
@@ -185,6 +211,15 @@ export class NavScene extends Phaser.Scene {
     // Apply initial mode — set via launch data so it's correct on the first frame.
     this.applyMode(this.initialMode, { wvActive, wvInactive, arenaActive, arenaInactive });
 
+    // ── Feedback widget ────────────────────────────────────────────────────────
+    // DOM <input> + button appended to document.body and positioned with
+    // CSS `position:fixed` so it sticks to the nav panel regardless of canvas
+    // scale. Phaser's keyboard events are blocked while the input is focused by
+    // calling stopPropagation() on keydown/keyup — Phaser listens at the window
+    // level in bubble phase, so stopping propagation on the focused element
+    // prevents WASD/space/etc. from reaching the game scenes.
+    this.buildFeedbackWidget();
+
     // ── Game event listeners ───────────────────────────────────────────────────
 
     this.game.events.on('nav-mode-change', (mode: 'wilderview' | 'arena') => {
@@ -212,12 +247,13 @@ export class NavScene extends Phaser.Scene {
       this.biomeMapBtn.setStyle({ color: biomeOn ? '#ffffff' : '#88ffcc' });
     }, this);
 
-    // Clean up listeners when this scene shuts down.
+    // Clean up listeners and DOM elements when this scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-mode-change', undefined, this);
       this.game.events.off('nav-free-cam-changed', undefined, this);
       this.game.events.off('nav-play-mode-changed', undefined, this);
       this.game.events.off('nav-dev-overlay-changed', undefined, this);
+      this.destroyFeedbackWidget();
     });
   }
 
@@ -230,6 +266,14 @@ export class NavScene extends Phaser.Scene {
       arenaInactive: Phaser.GameObjects.Text;
     },
   ): void {
+    this.currentMode = mode;
+
+    // Update feedback input placeholder to match the active context.
+    if (this.feedbackInput) {
+      this.feedbackInput.placeholder =
+        mode === 'arena' ? 'Combat feedback...' : 'Feedback...';
+    }
+
     const wv = mode === 'wilderview';
     btns.wvActive.setVisible(wv);
     btns.wvInactive.setVisible(!wv);
@@ -248,6 +292,153 @@ export class NavScene extends Phaser.Scene {
     } else {
       this.playAiBtn.setText('Play');
       this.playAiBtn.setStyle({ color: '#88aaff' });
+    }
+  }
+
+  // ── Feedback widget ───────────────────────────────────────────────────────────
+
+  /**
+   * Build and append the feedback DOM widget.
+   *
+   * Why DOM and not Phaser Text + Graphics?
+   * Phaser doesn't have a native text-input widget. The standard Phaser
+   * pattern for chat/form input is to overlay an HTML <input> on the canvas.
+   * `position:fixed` + right/bottom offsets keep it glued to the nav panel
+   * regardless of RESIZE-mode canvas scaling.
+   */
+  private buildFeedbackWidget(): void {
+    const wrapper = document.createElement('div');
+    // Align the widget with the nav panel (160 px wide, right edge of viewport).
+    // BTN_W = 132 px → right:14px + width:132px fills the panel's button column.
+    wrapper.style.cssText = [
+      'position:fixed',
+      'right:14px',
+      'bottom:135px',
+      'width:132px',
+      'display:flex',
+      'flex-direction:column',
+      'gap:4px',
+      'z-index:100',
+    ].join(';');
+
+    const input = document.createElement('input');
+    input.type        = 'text';
+    input.placeholder = this.currentMode === 'arena' ? 'Combat feedback...' : 'Feedback...';
+    input.maxLength   = 500;
+    input.style.cssText = [
+      'background:rgba(10,19,10,0.85)',
+      'color:#f0ead6',
+      'border:1px solid #3a5a3a',
+      'padding:5px 8px',
+      'font-size:12px',
+      'box-sizing:border-box',
+      'outline:none',
+      'width:100%',
+    ].join(';');
+
+    // Stop keydown/keyup from bubbling to Phaser's window-level listener.
+    // Phaser registers keyboard handlers with addEventListener(…, false) on
+    // window, so events propagate: input → … → window. stopPropagation() on
+    // the input element cuts the chain before it reaches Phaser, preventing
+    // WASD / space / etc. from firing game actions while the player types.
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { void this.submitFeedback(); }
+    });
+    input.addEventListener('keyup', (e) => { e.stopPropagation(); });
+
+    const sendBtn = document.createElement('button');
+    sendBtn.textContent = 'Send';
+    sendBtn.style.cssText = [
+      'background:rgba(17,17,34,0.67)',
+      'color:#88aaff',
+      'border:1px solid #3a5a3a',
+      'padding:5px',
+      'font-size:12px',
+      'cursor:pointer',
+      'width:100%',
+    ].join(';');
+    sendBtn.addEventListener('mouseover', () => { sendBtn.style.color = '#bbddff'; });
+    sendBtn.addEventListener('mouseout',  () => { sendBtn.style.color = '#88aaff'; });
+    sendBtn.addEventListener('click',     () => { void this.submitFeedback(); });
+
+    // One-line status area — shows "Sent!" for 2 s after a successful submit.
+    const status = document.createElement('div');
+    status.style.cssText = 'color:#aaffaa;font-size:12px;text-align:center;height:16px;';
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(sendBtn);
+    wrapper.appendChild(status);
+    document.body.appendChild(wrapper);
+
+    this.feedbackWrapper = wrapper;
+    this.feedbackInput   = input;
+    this.feedbackSendBtn = sendBtn;
+    this.feedbackStatus  = status;
+  }
+
+  /**
+   * Remove the feedback DOM widget from the page.
+   * Called from the SHUTDOWN event handler to prevent leaks when the scene
+   * restarts (e.g. returning to main menu and re-entering the arena).
+   */
+  private destroyFeedbackWidget(): void {
+    this.feedbackWrapper?.remove();
+    this.feedbackWrapper = null;
+    this.feedbackInput   = null;
+    this.feedbackSendBtn = null;
+    this.feedbackStatus  = null;
+  }
+
+  /**
+   * Read the current arena state for context metadata.
+   *
+   * Uses a duck-typed interface rather than importing CombatArenaScene to
+   * avoid a circular module dependency (CombatArenaScene → NavScene → …).
+   */
+  private buildContextJson(): string {
+    if (this.currentMode === 'arena') {
+      const rawScene: unknown = this.scene.get(ARENA_SCENE_KEY);
+      const provider = rawScene as { getArenaState?(): ArenaStateSnapshot };
+      const state = provider.getArenaState?.() ?? { waveNumber: 0, enemiesAlive: 0, playerHp: 0 };
+      return JSON.stringify({
+        scene_mode:    'arena',
+        wave_number:   state.waveNumber,
+        enemies_alive: state.enemiesAlive,
+        player_hp:     state.playerHp,
+      });
+    }
+    return JSON.stringify({ scene_mode: 'wilderview' });
+  }
+
+  /**
+   * Submit the current input text as a feedback row.
+   *
+   * Disables the input and button while the async Supabase insert is in
+   * flight (prevents double-submits). Re-enables on both success and error.
+   * Shows a brief "Sent!" confirmation on success.
+   */
+  private async submitFeedback(): Promise<void> {
+    if (!this.feedbackInput || !this.feedbackSendBtn) return;
+    const text = this.feedbackInput.value.trim();
+    if (!text) return;
+
+    this.feedbackInput.disabled  = true;
+    this.feedbackSendBtn.disabled = true;
+
+    try {
+      await insertFeedback(text, GAME_VERSION, this.buildContextJson());
+      this.feedbackInput.value = '';
+      if (this.feedbackStatus) {
+        this.feedbackStatus.textContent = 'Sent!';
+        setTimeout(() => {
+          if (this.feedbackStatus) this.feedbackStatus.textContent = '';
+        }, 2000);
+      }
+    } finally {
+      // Always re-enable so a network error doesn't lock out the user.
+      this.feedbackInput.disabled  = false;
+      this.feedbackSendBtn.disabled = false;
     }
   }
 }
