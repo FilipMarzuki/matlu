@@ -4197,6 +4197,9 @@ export class GameScene extends Phaser.Scene {
         // FIL-109: each species has a distinct pitch via Phaser's `rate` parameter so
         // a deer's snort sounds different from a hare's squeak without new audio files.
         if (prevState !== 'fleeing') {
+          // Record the timestamp when flee begins so the acceleration ramp knows
+          // how much time has elapsed since the startle (FIL-226).
+          r.setData('fleeStartTime', this.time.now);
           const vox = SPECIES_VOCALIZE[type] ?? { key: `animal-rustle-${Phaser.Math.Between(0, 4)}`, volume: 0.5, rate: 1.0 };
           if (this.audioAvailable && this.cache.audio.has(vox.key)) {
             this.sound.play(vox.key, { volume: vox.volume, rate: vox.rate });
@@ -4258,6 +4261,8 @@ export class GameScene extends Phaser.Scene {
           if (state !== 'fleeing') {
             state = 'fleeing';
             r.setData('animalState', state);
+            // Record flee start so the ramp can compute elapsed time (FIL-226).
+            r.setData('fleeStartTime', this.time.now);
             r.play('hare-walk-anim');
           }
         }
@@ -4267,7 +4272,13 @@ export class GameScene extends Phaser.Scene {
       if (state === 'fleeing') {
         // fleeFromX/Y is either the nearest fox (hare) or the player (everyone else).
         const away = Phaser.Math.Angle.Between(fleeFromX, fleeFromY, r.x, r.y);
-        this.physics.velocityFromRotation(away, def.fleeSpeed, b.velocity);
+        // FIL-226: 100ms acceleration ramp so the direction change reads as a
+        // startle response rather than an instant velocity snap. Speed lerps from
+        // 0 → fleeSpeed over the first 100ms of the flee state.
+        const FLEE_RAMP_MS = 100;
+        const fleeStart = (r.getData('fleeStartTime') as number | null) ?? this.time.now;
+        const ramp = Math.min((this.time.now - fleeStart) / FLEE_RAMP_MS, 1);
+        this.physics.velocityFromRotation(away, ramp * def.fleeSpeed, b.velocity);
       } else if (state === 'chasing') {
         if (chaseTarget?.active) {
           const toward = Phaser.Math.Angle.Between(r.x, r.y, chaseTarget.x, chaseTarget.y);
