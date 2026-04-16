@@ -53,14 +53,23 @@ export const log = {
   error: (msg: string, fields?: Fields) => send('error', msg, fields),
 };
 
-// ── Global error capture ──────────────────────────────────────────────────────
-// Catches unhandled JS errors and promise rejections that would otherwise only
-// appear in the browser console — sends them to Better Stack automatically.
-// Runs only in the browser (Vite SSR guard), no-ops if logtail isn't configured.
+// ── Global error + console capture ───────────────────────────────────────────
+// Forwards unhandled errors, unhandled rejections, and console.warn/error calls
+// to Better Stack. Deduplication prevents the same message flooding the log —
+// each unique message string is only forwarded once per page session.
 
 if (typeof window !== 'undefined') {
+  const seen = new Set<string>();
+
+  const forward = (level: 'warn' | 'error', message: string, extra?: Fields): void => {
+    if (seen.has(message)) return;
+    seen.add(message);
+    send(level, message, extra);
+  };
+
+  // Unhandled JS errors (crashes)
   window.addEventListener('error', (event) => {
-    send('error', 'unhandled_error', {
+    forward('error', 'unhandled_error', {
       message:  event.message,
       filename: event.filename,
       line:     event.lineno,
@@ -69,10 +78,26 @@ if (typeof window !== 'undefined') {
     });
   });
 
+  // Unhandled promise rejections
   window.addEventListener('unhandledrejection', (event) => {
-    send('error', 'unhandled_rejection', {
+    forward('error', 'unhandled_rejection', {
       message: String(event.reason),
       stack:   (event.reason as Error)?.stack ?? '',
     });
   });
+
+  // console.warn and console.error — captures Phaser warnings and other
+  // library noise, but only the first occurrence of each unique message.
+  const _warn  = console.warn.bind(console);
+  const _error = console.error.bind(console);
+
+  console.warn = (...args: unknown[]) => {
+    _warn(...args);
+    forward('warn', args.map(String).join(' ').slice(0, 300));
+  };
+
+  console.error = (...args: unknown[]) => {
+    _error(...args);
+    forward('error', args.map(String).join(' ').slice(0, 300));
+  };
 }
