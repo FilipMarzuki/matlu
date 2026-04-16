@@ -23,17 +23,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Collect stats and post to Notion
+      - name: Collect stats and post to Supabase
         run: node .github/scripts/collect-stats.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-          NOTION_STATS_PAGE_ID: ${{ secrets.NOTION_STATS_PAGE_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
           PIXELLAB_API_KEY: ${{ secrets.PIXELLAB_API_KEY }}
-          NOTION_COGNITIVE_LOAD_DB_ID: ${{ secrets.NOTION_COGNITIVE_LOAD_DB_ID }}
-          NOTION_REWORK_DB_ID: ${{ secrets.NOTION_REWORK_DB_ID }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           VITE_SUPABASE_URL: https://placeholder.supabase.co
