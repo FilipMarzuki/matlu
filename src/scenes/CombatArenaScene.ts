@@ -47,7 +47,7 @@ const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
-const DUNGEON_ZOOM = 4.5;
+const DUNGEON_ZOOM = 3.5;
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
@@ -455,6 +455,11 @@ export class CombatArenaScene extends Phaser.Scene {
     this.cameras.main.centerOn(cx, cy);
 
     const WALL_T  = 22;
+    // WALL_INSET: how far to push the physics world bounds from the arena edge.
+    // = WALL_T (solid stone) + 16 px headroom so the Tinkerer's 48×48 sprite
+    //   (half = 24) and the 16×16 physics body (half = 8) never overlap the wall
+    //   graphic.  Entity visual left edge = entityCenter - 24 ≥ arenaX + 22 = wall inner edge.
+    const WALL_INSET = WALL_T + 16;  // 38 px total
     // CHAMFER: how many pixels the octagonal corners cut inward.
     const CHAMFER = 42;
 
@@ -636,9 +641,11 @@ export class CombatArenaScene extends Phaser.Scene {
     addCornerZone(ax + aw - CHAMFER / 2, ay + ah - CHAMFER / 2); // bottom-right
 
     // ── Physics world bounds ──────────────────────────────────────────────────
+    // WALL_INSET (not WALL_T) so entity visuals never overlap the wall graphic.
+    // See the WALL_INSET constant above for the derivation.
     this.physics.world.setBounds(
-      this.arenaX + WALL_T, this.arenaY + WALL_T,
-      this.arenaW - WALL_T * 2, this.arenaH - WALL_T * 2,
+      this.arenaX + WALL_INSET, this.arenaY + WALL_INSET,
+      this.arenaW - WALL_INSET * 2, this.arenaH - WALL_INSET * 2,
     );
 
     // ── Torch glow pools ──────────────────────────────────────────────────────
@@ -1007,7 +1014,16 @@ export class CombatArenaScene extends Phaser.Scene {
 
   private addPhysics(entity: CombatEntity): void {
     this.physics.add.existing(entity);
-    (entity.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+    const body = entity.body as Phaser.Physics.Arcade.Body;
+    // Explicit 16×16 hitbox centered on the entity origin.
+    // Without this, Phaser sizes the body from the Container's bounding box,
+    // which includes the HP bar sitting ~30 px above the sprite — making the
+    // body off-center and taller than intended.  A fixed body ensures every
+    // entity type gets a consistent, centered hitbox that matches the derivation
+    // in WALL_INSET (body half = 8).
+    body.setSize(16, 16);
+    body.setOffset(-8, -8);
+    body.setCollideWorldBounds(true);
     this.physics.add.collider(entity, this.obstacles);
     // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
