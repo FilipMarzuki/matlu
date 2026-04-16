@@ -37,6 +37,10 @@ const SPAWN_X_OFFSET  = 80;   // px from arena right edge
 const MAX_ALIVE       = 20;   // total alive enemy cap
 const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 
+// Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
+// enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
+const DUNGEON_ZOOM = 4.5;
+
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -316,6 +320,9 @@ export class CombatArenaScene extends Phaser.Scene {
     const cy = this.arenaY + this.arenaH / 2;
 
     this.cameras.main.setBackgroundColor(0x120d08);
+    // Zoom in tighter than the overworld (3×) so the dungeon feels claustrophobic.
+    // NavScene owns its own camera, so it is unaffected by this zoom.
+    this.cameras.main.setZoom(DUNGEON_ZOOM);
     this.cameras.main.centerOn(cx, cy);
 
     const WALL_T  = 22;
