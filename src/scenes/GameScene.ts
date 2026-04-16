@@ -1437,6 +1437,29 @@ export class GameScene extends Phaser.Scene {
       this.corruptFilter.setCorruption(globalCorruption01);
     }
 
+    // ── Corruption camera jitter ─────────────────────────────────────────────
+    // Sample the corruption field at 5 points (player centre + 4 cardinal offsets
+    // at ±80 px) to detect whether the player is near a corruption hotspot, even
+    // if the centre pixel is clean. Using Math.max of 5 samples avoids the jitter
+    // cutting out abruptly as the player skirts the edge of a corruption tendril.
+    {
+      const px = this.player.x;
+      const py = this.player.y;
+      const OFFSET = 80;
+      const corruptionStrength = Math.max(
+        this.corruptionField.sample(px,          py,          globalCorruption01),
+        this.corruptionField.sample(px,          py - OFFSET, globalCorruption01),
+        this.corruptionField.sample(px,          py + OFFSET, globalCorruption01),
+        this.corruptionField.sample(px - OFFSET, py,          globalCorruption01),
+        this.corruptionField.sample(px + OFFSET, py,          globalCorruption01),
+      );
+      // Oscillate back and forth at ~0.4 Hz so the camera jiggles rather than
+      // tilting to a fixed angle. Max rotation 0.008 rad (~0.46°) — barely
+      // perceptible but creates a unsettling "wrongness" feel in corrupted zones.
+      const jitterAngle = Math.sin(time / 400) * 0.008 * corruptionStrength;
+      this.cameras.main.setRotation(jitterAngle);
+    }
+
     // Degrade path conditions every 5 s when corruption is above 0.
     if (time > this.nextPathDegradeAt) {
       if (globalCorruption01 > 0) {
