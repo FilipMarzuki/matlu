@@ -1,96 +1,46 @@
-name: PR Merge Agent — Nightly
+name: PR Queue Grooming Agent — Nightly
+
+# Processes all open PRs: closes superseded ones, merges clean ones in
+# dependency order, rebases and resolves conflicts for dirty ones.
+# Prompt lives in .agents/pr-merge.md.
 
 on:
   schedule:
-    - cron: '0 3 * * *' # 3 AM UTC — implementation agent runs midnight, CI finishes ~12:15 AM
-  workflow_dispatch: # allow manual trigger
+    # 3 AM UTC — implementation agent runs at midnight, CI finishes ~12:15 AM,
+    # so the queue is stable by this time.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: pr-merge-agent
+  cancel-in-progress: false
+
 jobs:
-  pr-merge-agent:
+  pr-merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Install Cursor CLI
-        run: curl -fsSL https://cursor.com/install-cli.sh | sh
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
 
-      - name: Write agent prompt
-        run: |
-          cat > /tmp/merge-agent-prompt.txt << 'PROMPT'
-          You are the nightly PR merge and cleanup agent for the Matlu project.
-          Your job: process all open PRs, merge the safe ones, clean up branches, and update Linear issues.
-          Run all steps sequentially — do not skip to the summary early.
+      - name: Install dependencies
+        run: npm ci
 
-          MERGE CRITERIA (all must pass):
-          1. CI checks all green — use: gh pr checks <number>
-          2. Not a draft PR
-          3. No merge conflict with main — use: gh pr view <number> --json mergeable,mergeStateStatus
-          4. Does NOT touch high-risk paths: .github/workflows/ or CLAUDE.md or vite.config.ts or tsconfig.json
-             For package.json: only hold if new keys were added/removed in "dependencies" or "devDependencies" sections (script-only changes are fine)
-
-          STEP 1 — Get the repo:
-          Run: gh repo view --json nameWithOwner -q .nameWithOwner
-          This gives you owner/repo for subsequent calls.
-
-          STEP 2 — List open PRs oldest first:
-          Run: gh pr list --state open --json number,title,headRefName,isDraft,createdAt --limit 100
-          Sort results by createdAt ascending (oldest first). Process in that order.
-
-          STEP 3 — For each PR in order:
-
-          a) Skip if isDraft is true. No comment needed.
-
-          b) Check CI status:
-             gh pr checks <number> --watch=false
-             If any check shows "fail" or is still "pending", skip this PR.
-             Post a comment: "Nightly merge agent: skipping — CI checks are <failing/pending>. Fix the checks to unblock."
-
-          c) Check mergeability:
-             gh pr view <number> --json mergeable,mergeStateStatus
-             If mergeable is CONFLICTING, skip this PR.
-             Post a comment: "Nightly merge agent: skipping — merge conflict with main. Rebase onto main to unblock."
-
-          d) Check changed files:
-             gh pr diff <number> --name-only
-             If any file starts with ".github/workflows/" or is "CLAUDE.md" or "vite.config.ts" or "tsconfig.json", hold this PR.
-             If "package.json" changed, run: gh pr diff <number> -- package.json
-             Only hold if the diff adds or removes keys inside "dependencies" or "devDependencies".
-             Post a comment: "Nightly merge agent: holding for human review — PR touches [list the specific high-risk files]. These require manual approval."
-
-          e) All criteria pass → merge:
-             gh pr merge <number> --squash --delete-branch
-             After merging, find the Linear issue number from the branch name or PR title (pattern: FIL-NNN or fil-NNN, case-insensitive).
-             Use Linear MCP to search for that issue and move its status to Done.
-             Do NOT post a comment on Linear — the Done status is the signal.
-
-          f) After each merge, main has changed. Re-check mergeability for remaining PRs before processing them.
-
-          STEP 4 — Print a summary at the end (always print this, even if all lists are empty):
-
-          === Nightly Merge Agent Summary ===
-          Merged:                  #N, #N  (or "none")
-          Skipped — CI failing:    #N, #N  (or "none")
-          Skipped — CI pending:    #N, #N  (or "none")
-          Skipped — conflicts:     #N, #N  (or "none")
-          Held — high-risk files:  #N, #N  (or "none")
-          Skipped — draft:         #N, #N  (or "none")
-
-          RULES:
-          - Never force-push, never reset --hard, never delete main.
-          - If a gh command fails unexpectedly, log the error and move on to the next PR.
-          - Only comment on a PR when it is skipped or held (not when merged).
-          - Only update Linear when a PR is merged (not when skipped or held).
-          PROMPT
-
-      - name: Run PR merge and cleanup agent
+      - name: Run PR queue grooming session
         env:
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN:                ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cursor agent \
-            --model claude-sonnet-4-6 \
-            --prompt "$(cat /tmp/merge-agent-prompt.txt)"
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/pr-merge.md)"
