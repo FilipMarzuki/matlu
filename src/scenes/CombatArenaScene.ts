@@ -4,6 +4,7 @@ import { NavScene } from './NavScene';
 import {
   CombatEntity,
   Tinkerer,
+  Skald,
 } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
@@ -52,9 +53,8 @@ const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 export class CombatArenaScene extends Phaser.Scene {
   static readonly KEY = 'CombatArenaScene';
 
-  private hero!:         CombatEntity;
+  private heroes:        CombatEntity[] = [];
   private obstacles!:   Phaser.Physics.Arcade.StaticGroup;
-  private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
   private readonly blackboard = new ArenaBlackboard();
@@ -127,6 +127,11 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json',
     );
+    this.load.aseprite(
+      'skald',
+      'assets/sprites/characters/earth/heroes/skald/skald.png',
+      'assets/sprites/characters/earth/heroes/skald/skald.json',
+    );
     // Mini Velcrid — used for all spinolandet enemies, tinted/scaled per class.
     this.load.aseprite(
       'mini-velcrid',
@@ -144,12 +149,12 @@ export class CombatArenaScene extends Phaser.Scene {
 
   create(): void {
     this.aliveEnemies    = [];
+    this.heroes          = [];
     this.projectiles     = [];
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
     this.mainSpawnTimer  = 3000;
-    this.heroAlive       = true;
     this._lastHudWave    = -1;
     this._lastHudAlive   = -1;
     this._lastHudKills   = -1;
@@ -164,6 +169,7 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     this.anims.createFromAseprite('tinkerer');
+    this.anims.createFromAseprite('skald');
     this.anims.createFromAseprite('mini-velcrid');
 
     // Audio is unavailable in headless CI (WebAudio context never starts).
@@ -233,18 +239,23 @@ export class CombatArenaScene extends Phaser.Scene {
   override update(_time: number, delta: number): void {
     this.blackboard.tick(delta);
 
-    // ── Hero ──────────────────────────────────────────────────────────────────
-    if (this.heroAlive) {
-      if (this.heroPlayerMode && !this.bgMode) {
+    // ── Heroes ────────────────────────────────────────────────────────────────
+    // Iterate every hero; skip those already dead (respawn is pending).
+    // P1 (index 0) may be player-controlled; P2 (Skald, index 1) is always AI.
+    for (let i = 0; i < this.heroes.length; i++) {
+      const h = this.heroes[i];
+      if (!h.isAlive) continue;
+
+      if (i === 0 && this.heroPlayerMode && !this.bgMode) {
         this.updatePlayerHeroInput(delta);
       } else {
-        this.hero.update(delta);
+        h.update(delta);
       }
-      if (!this.hero.isAlive) {
-        this.heroAlive = false;
+
+      if (!h.isAlive) {
         this.cameras.main.shake(300, 0.008);
-        this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero());
-        log.info('hero_died', { wave: this.waveNumber, kills: this.killCount, alive_enemies: this.aliveEnemies.length });
+        this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero(i));
+        log.info('hero_died', { hero_index: i, wave: this.waveNumber, kills: this.killCount, alive_enemies: this.aliveEnemies.length });
       }
     }
 
@@ -276,7 +287,7 @@ export class CombatArenaScene extends Phaser.Scene {
         this.time.delayedCall(1500, () => { if (e.active) e.destroy(); });
       }
       this.cameras.main.shake(120, 0.003);
-      if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+      for (const h of this.heroes) if (h.isAlive) h.setOpponents(this.aliveEnemies);
       this.syncEnemyCoordination();
     }
 
@@ -548,20 +559,46 @@ export class CombatArenaScene extends Phaser.Scene {
   // ── Hero ─────────────────────────────────────────────────────────────────────
 
   private spawnHero(): void {
-    const heroX = this.arenaX + this.arenaW * 0.2;
-    const heroY = this.arenaY + this.arenaH * 0.5;
-    this.hero = new Tinkerer(this, heroX, heroY);
-    this.addPhysics(this.hero);
-    this.hero.setOpponents(this.aliveEnemies);
-    this.heroAlive = true;
+    const centerY = this.arenaY + this.arenaH * 0.5;
+    // P1 — Tinkerer (human-controlled when heroPlayerMode is on)
+    const p1 = new Tinkerer(this, this.arenaX + this.arenaW * 0.2, centerY);
+    // P2 — Skald (always AI-controlled — PvE co-op ally)
+    const p2 = new Skald(this, this.arenaX + this.arenaW * 0.8, centerY);
+    this.heroes = [p1, p2];
+
+    for (const h of this.heroes) {
+      this.addPhysics(h);
+      h.setOpponents(this.aliveEnemies);
+    }
+    // Give heroes mutual swarm-separation so they don't stack on each other.
+    p1.setSwarmNeighbours([p2]);
+    p2.setSwarmNeighbours([p1]);
   }
 
-  private respawnHero(): void {
+  private respawnHero(heroIndex: number): void {
+    // Clear stale projectiles so they don't hit the freshly-spawned hero.
     for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
     this.projectiles = [];
-    if (this.hero.active) this.hero.destroy();
-    this.spawnHero();
-    for (const e of this.aliveEnemies) e.setOpponent(this.hero);
+
+    const dead = this.heroes[heroIndex];
+    if (dead.active) dead.destroy();
+
+    // Recreate the correct hero class at its designated spawn position.
+    const x = this.arenaX + this.arenaW * (heroIndex === 0 ? 0.2 : 0.8);
+    const y = this.arenaY + this.arenaH * 0.5;
+    const newHero = heroIndex === 0 ? new Tinkerer(this, x, y) : new Skald(this, x, y);
+    this.heroes[heroIndex] = newHero;
+    this.addPhysics(newHero);
+    newHero.setOpponents(this.aliveEnemies);
+
+    // Re-sync mutual swarm separation between the two heroes.
+    const otherIndex = heroIndex === 0 ? 1 : 0;
+    const other = this.heroes[otherIndex];
+    newHero.setSwarmNeighbours([other]);
+    other.setSwarmNeighbours([newHero]);
+
+    // Point all enemies at the full hero roster so they target nearest living.
+    for (const e of this.aliveEnemies) e.setOpponents(this.heroes);
   }
 
   /**
@@ -599,7 +636,8 @@ export class CombatArenaScene extends Phaser.Scene {
     for (let i = 0; i < ctors.length; i++) {
       const e = new ctors[i](this, spawnX, ys[i]);
       this.addPhysics(e);
-      e.setOpponent(this.hero);
+      // Enemies target the nearest living hero — setOpponents handles multi-target.
+      e.setOpponents(this.heroes);
       this.aliveEnemies.push(e);
     }
 
@@ -611,7 +649,7 @@ export class CombatArenaScene extends Phaser.Scene {
       kills_so_far: this.killCount,
     });
 
-    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    for (const h of this.heroes) if (h.isAlive) h.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();
   }
 
@@ -685,7 +723,8 @@ export class CombatArenaScene extends Phaser.Scene {
 
   toggleHeroPlayerMode(): void {
     this.heroPlayerMode = !this.heroPlayerMode;
-    this.hero.setPlayerControlled(this.heroPlayerMode);
+    // Only P1 (Tinkerer, index 0) can be player-controlled; P2 is always AI.
+    this.heroes[0]?.setPlayerControlled(this.heroPlayerMode);
     this.game.events.emit('nav-play-mode-changed', this.heroPlayerMode);
   }
 
@@ -704,25 +743,26 @@ export class CombatArenaScene extends Phaser.Scene {
     const dy = down  - up;
     // Use the hero's own speed value via setMoveVelocity.
     const spd = 160; // px/s — comfortable player speed
-    this.hero.setMoveVelocity(dx * spd, dy * spd);
+    const p1 = this.heroes[0];
+    p1.setMoveVelocity(dx * spd, dy * spd);
 
     // Melee — Space (just-pressed, no auto-repeat)
     if (Phaser.Input.Keyboard.JustDown(this.meleeKey)) {
-      this.hero.tryMelee();
+      p1.tryMelee();
     }
 
     // Ranged — F (just-pressed, targets nearest enemy)
     if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
-      this.hero.tryRanged();
+      p1.tryRanged();
     }
 
     // Dash — Shift (just-pressed)
     if (Phaser.Input.Keyboard.JustDown(this.dashKey) && (dx !== 0 || dy !== 0)) {
-      this.hero.tryDash(dx, dy);
+      p1.tryDash(dx, dy);
     }
 
     // Let the entity tick its animation + dash physics + HP bar.
-    this.hero.update(delta);
+    p1.update(delta);
   }
 
   /**
@@ -746,10 +786,11 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
 
-    // Respawn the hero
-    if (this.hero.active) this.hero.destroy();
+    // Destroy all heroes and respawn fresh
+    for (const h of this.heroes) { if (h.active) h.destroy(); }
+    this.heroes = [];
     this.spawnHero();
-    this.hero.setPlayerControlled(this.heroPlayerMode);
+    this.heroes[0]?.setPlayerControlled(this.heroPlayerMode);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
