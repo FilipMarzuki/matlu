@@ -120,6 +120,7 @@ function runClaude(prompt) {
     ],
     {
       stdio: 'inherit',
+      timeout: 4 * 60 * 1000, // 4 minutes — triage should finish in under 3
       env: {
         ...process.env,
         ...(CLAUDE_CODE_OAUTH_TOKEN ? { CLAUDE_CODE_OAUTH_TOKEN } : {}),

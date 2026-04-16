@@ -58,6 +58,7 @@ jobs:
     needs: fetch-issues
     if: needs.fetch-issues.outputs.has_issues == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       # Higher parallelism than the implementation runner — triage sessions
