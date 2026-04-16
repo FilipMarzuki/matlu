@@ -1255,7 +1255,7 @@ export class Tinkerer extends CombatEntity {
         new BtSequence([
           new BtCondition(ctx => {
             const near = swarmPressure(ctx.x, ctx.y);
-            return near >= SWARM_CAP && ctx.hp < ctx.maxHp * 0.40;
+            return near >= SWARM_CAP && ctx.hp < ctx.maxHp * 0.60;
           }),
           new BtAction(ctx => {
             // Compute the average position of nearby enemies and dash opposite.
