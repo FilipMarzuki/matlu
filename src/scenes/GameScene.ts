@@ -400,10 +400,11 @@ function terrainTileFrame(
   const v6 = Math.floor(detail * 5.99); // 0–5: one of 6 frames per biome row
 
   // ── Water ─────────────────────────────────────────────────────────────────────
-  // River tiles use water-sheet row 1 (frames 30+) — lighter, shallower-looking.
-  // Ocean/lake uses row 0 (frames 0-2) as before.
+  // The custom water_animated.png has 4 frames (0–3): calm → gentle → mid → full ripple.
+  // Ocean/lake uses frames 0–2; rivers use frames 1–3 for a slightly livelier look,
+  // preserving the visual distinction without needing a separate row.
   if (elev < 0.25) {
-    const waterBase = isRiver ? 30 : 0;
+    const waterBase = isRiver ? 1 : 0;
     return { key: 'terrain-water', frame: waterBase + (detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0) };
   }
 
@@ -951,10 +952,12 @@ export class GameScene extends Phaser.Scene {
     this.load.image('puddle-grass-2', `${paW}/Puddle_On-Grass_2_Grass_Green.png`);
     this.load.image('puddle-grass-3', `${paW}/Puddle_On-Grass_3_Grass_Green.png`);
 
-    // ── Water terrain tiles (Mystic Woods 2.2, FIL-74) ────────────────────────────
-    // water-sheet.png is 480×48 with 16×16 tiles (30 cols × 3 rows).
-    // We use 3 frame variants in row 0 driven by detail noise to prevent obvious tiling.
-    this.load.spritesheet('terrain-water', 'assets/packs/mystic_woods_2.2/sprites/tilesets/water-sheet.png', { frameWidth: 16, frameHeight: 16 });
+    // ── Water terrain tiles (FIL-173) ────────────────────────────────────────────
+    // water_animated.png is a custom 4-frame spritesheet (64×16, 16×16 per frame).
+    // Frames 0–3 cycle calm → gentle ripple → mid-ripple → full ripple at 4 FPS.
+    // Ocean uses frames 0–2; rivers use frames 1–3 for a slightly livelier look.
+    // Replace this file with a PixelLab create_tiles_pro output for custom pixel art.
+    this.load.spritesheet('terrain-water', 'assets/sprites/water_animated.png', { frameWidth: 16, frameHeight: 16 });
 
     // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
     // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
