@@ -11,7 +11,7 @@ import { NavScene } from './NavScene';
 import { createSolidGroup } from '../environment/SolidObject';
 import { InteractiveObject } from '../environment/InteractiveObject';
 import { WorldClock } from '../world/WorldClock';
-import type { DayPhase } from '../world/WorldClock';
+import type { DayPhase, PhaseOverlay } from '../world/WorldClock';
 import { WorldState } from '../world/WorldState';
 import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
@@ -532,6 +532,12 @@ export class GameScene extends Phaser.Scene {
   mapData!: LdtkLevel;
   private dayNightOverlay!: Phaser.GameObjects.Rectangle;
   private currentPhase: DayPhase = 'dawn';
+  // FIL-227: per-frame lerp state for smooth day/night colour + alpha transitions
+  private currentOverlay!: PhaseOverlay;
+  private lerpFrom!: PhaseOverlay;
+  private lerpTo!: PhaseOverlay;
+  private overlayLerpElapsed = 0;
+  private readonly OVERLAY_LERP_DURATION = 20_000; // 20 real seconds in ms
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -1391,7 +1397,7 @@ export class GameScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     this.worldClock.update(delta);
     this.worldState.update(delta);
-    this.updateDayNight();
+    this.updateDayNight(delta);
     if (this.attractMode) {
       this.updateAttractMode(time, delta);
     } else {
@@ -3041,41 +3047,67 @@ export class GameScene extends Phaser.Scene {
     const colour = Phaser.Display.Color.GetColor(ov.r, ov.g, ov.b);
     this.dayNightOverlay.setFillStyle(colour, ov.alpha);
     this.currentPhase = this.worldClock.phase;
+    // FIL-227: seed lerp state — treat the initial overlay as fully arrived so
+    // the first updateDayNight() call has valid from/to values and no stale lerp.
+    this.currentOverlay = { ...ov };
+    this.lerpFrom       = { ...ov };
+    this.lerpTo         = { ...ov };
+    this.overlayLerpElapsed = this.OVERLAY_LERP_DURATION;
   }
 
-  private updateDayNight(): void {
+  // FIL-227: called every frame; lerps r/g/b/alpha of the overlay over
+  // OVERLAY_LERP_DURATION (20 s) whenever the phase changes.
+  private updateDayNight(delta: number): void {
     const newPhase = this.worldClock.phase;
-    if (newPhase === this.currentPhase) return;
-    this.currentPhase = newPhase;
+    if (newPhase !== this.currentPhase) {
+      this.currentPhase = newPhase;
 
-    const ov = this.worldClock.overlay;
-    const colour = Phaser.Display.Color.GetColor(ov.r, ov.g, ov.b);
-    this.dayNightOverlay.setFillStyle(colour);
-    this.tweens.add({
-      targets: this.dayNightOverlay,
-      alpha: ov.alpha,
-      duration: 8000,
-      ease: 'Sine.easeInOut',
-    });
+      // Capture where the display currently sits as the lerp start so a
+      // mid-transition phase change blends from the actual displayed colour
+      // rather than jumping back to the previous phase's canonical overlay.
+      this.lerpFrom           = { ...this.currentOverlay };
+      this.lerpTo             = { ...this.worldClock.overlay };
+      this.overlayLerpElapsed = 0;
 
-    // Fade the ambient sound to a phase-appropriate volume over the same 8-second
-    // window as the visual overlay transition. Night is silent; dawn/dusk are quiet.
-    if (this.ambienceSound) {
-      this.tweens.add({
-        targets: this.ambienceSound,
-        volume: this.phaseAmbienceVolume(newPhase),
-        duration: 8000,
-        ease: 'Sine.easeInOut',
-      });
+      // Audio and particle transitions stay at 8 s — they don't need to match
+      // the visual lerp duration.
+      if (this.ambienceSound) {
+        this.tweens.add({
+          targets: this.ambienceSound,
+          volume: this.phaseAmbienceVolume(newPhase),
+          duration: 8000,
+          ease: 'Sine.easeInOut',
+        });
+      }
+      this.applyParticlePhase(newPhase);
+      this.crossfadeMusic(newPhase, 8000);
+
+      // Settlement window glow — warm at dusk/night, off during daylight (FIL-80)
+      const glowAlpha = (newPhase === 'dusk' || newPhase === 'night') ? 0.18 : 0;
+      for (const glow of this.settlementGlows) {
+        this.tweens.add({ targets: glow, alpha: glowAlpha, duration: 8000, ease: 'Sine.easeInOut' });
+      }
     }
-    this.applyParticlePhase(newPhase);
-    this.crossfadeMusic(newPhase, 8000);
 
-    // Settlement window glow — warm at dusk/night, off during daylight (FIL-80)
-    const glowAlpha = (newPhase === 'dusk' || newPhase === 'night') ? 0.18 : 0;
-    for (const glow of this.settlementGlows) {
-      this.tweens.add({ targets: glow, alpha: glowAlpha, duration: 8000, ease: 'Sine.easeInOut' });
-    }
+    // Advance the lerp every frame and apply the interpolated colour + alpha.
+    // Clamping elapsed to the duration keeps t pinned at 1.0 after the
+    // transition finishes so we don't over-shoot.
+    this.overlayLerpElapsed = Math.min(
+      this.overlayLerpElapsed + delta,
+      this.OVERLAY_LERP_DURATION,
+    );
+    const raw = this.overlayLerpElapsed / this.OVERLAY_LERP_DURATION;
+    // Ease-in-out for a natural-feeling sunrise/sunset
+    const t = Phaser.Math.Easing.Sine.InOut(raw);
+
+    const r     = Math.round(Phaser.Math.Linear(this.lerpFrom.r,     this.lerpTo.r,     t));
+    const g     = Math.round(Phaser.Math.Linear(this.lerpFrom.g,     this.lerpTo.g,     t));
+    const b     = Math.round(Phaser.Math.Linear(this.lerpFrom.b,     this.lerpTo.b,     t));
+    const alpha = Phaser.Math.Linear(this.lerpFrom.alpha, this.lerpTo.alpha, t);
+
+    // Track current display state so the next phase-change lerp starts here.
+    this.currentOverlay = { r, g, b, alpha };
+    this.dayNightOverlay.setFillStyle(Phaser.Display.Color.GetColor(r, g, b), alpha);
   }
 
   /** Music track key for each day phase. */
