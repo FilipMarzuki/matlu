@@ -1,0 +1,46 @@
+name: Linear Hygiene Agent
+
+# Sweeps Linear after every triage run and fixes up the backlog:
+#
+#   Pass 1 — Mark In Progress issues Done if their PR is merged on main
+#   Pass 2 — Split issues labelled `too-large` into concrete sub-issues
+#   Pass 3 — Enrich `needs-refinement` issues with codebase context
+#
+# Chained: fires automatically when the Triage Agent workflow completes.
+# Manual:  trigger from the Actions tab (no inputs needed).
+
+on:
+  workflow_run:
+    workflows: ["Triage Agent (per-issue)"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: agent-hygiene
+  cancel-in-progress: false
+
+jobs:
+  hygiene:
+    # Run whether triage succeeded or failed — even a partial triage run
+    # can leave issues that hygiene should clean up.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # full history so the agent can run git log checks
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Run Linear hygiene sweep
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/run-hygiene.js
