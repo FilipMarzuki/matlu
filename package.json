@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "assets:manifest": "node scripts/generate-assets-manifest.mjs",
     "test": "npx playwright test",
-    "screenshot": "npx playwright test tests/screenshot.spec.ts --reporter=list --headed",
+    "screenshot": "npx playwright test --config=playwright.screenshot.config.ts --headed",
     "sprites:assemble": "node scripts/assemble-sprites.mjs",
     "sprites:status": "node scripts/assemble-sprites.mjs --status",
     "arena:testplay": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts",
