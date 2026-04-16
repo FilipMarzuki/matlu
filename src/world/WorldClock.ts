@@ -72,6 +72,16 @@ export class WorldClock {
     return dayProgress * 24;
   }
 
+  /**
+   * Integer count of full in-game days elapsed since the clock started.
+   * SeasonSystem reads this to detect day rollovers and advance season
+   * progress — deriving it from totalSeconds / dayDuration means it stays
+   * correct even when skipToPhase() fast-forwards time.
+   */
+  get dayCount(): number {
+    return Math.floor(this.totalSeconds / this.dayDuration);
+  }
+
   get phase(): DayPhase {
     const h = this.hour;
     if (h >= 5  && h < 7)  return 'dawn';
