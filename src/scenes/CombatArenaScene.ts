@@ -115,8 +115,19 @@ export class CombatArenaScene extends Phaser.Scene {
   private heroPlayerMode = false;
   private moveKeys!: Record<string, Phaser.Input.Keyboard.Key>;
   private meleeKey!:  Phaser.Input.Keyboard.Key;
+  /** P1 dash — G key (replaces Shift). */
   private dashKey!:   Phaser.Input.Keyboard.Key;
   private shootKey!:  Phaser.Input.Keyboard.Key;
+
+  // ── P2 player control ────────────────────────────────────────────────────────
+  /** P2 Tinkerer — always player-controlled, never AI. Null in bgMode. */
+  private hero2: CombatEntity | null = null;
+  private hero2Alive = false;
+  private p2MoveKeys!: Record<string, Phaser.Input.Keyboard.Key>;
+  private p2MeleeKey!: Phaser.Input.Keyboard.Key;
+  /** P2 dash — L key. */
+  private p2DashKey!: Phaser.Input.Keyboard.Key;
+  private p2ShootKey!: Phaser.Input.Keyboard.Key;
 
   // ── Audio ───────────────────────────────────────────────────────────────────
   private audioAvailable = false;
@@ -179,6 +190,8 @@ export class CombatArenaScene extends Phaser.Scene {
     this.killCount       = 0;
     this.mainSpawnTimer  = 3000;
     this.heroAlive       = true;
+    this.hero2           = null;
+    this.hero2Alive      = false;
     this._lastHudWave    = -1;
     this._lastHudAlive   = -1;
     this._lastHudKills   = -1;
@@ -243,16 +256,58 @@ export class CombatArenaScene extends Phaser.Scene {
     this.spawnHero();
 
     if (!this.bgMode) {
-      // Keyboard input for player-control mode.
+      // P1 keyboard input: WASD move, Space melee, F ranged, G dash.
       this.moveKeys = this.input.keyboard!.addKeys({
         up:    Phaser.Input.Keyboard.KeyCodes.W,
         down:  Phaser.Input.Keyboard.KeyCodes.S,
         left:  Phaser.Input.Keyboard.KeyCodes.A,
         right: Phaser.Input.Keyboard.KeyCodes.D,
       }) as Record<string, Phaser.Input.Keyboard.Key>;
-      this.meleeKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.dashKey   = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-      this.shootKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+      this.meleeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      // G replaces Shift as the P1 dash key — Shift was triggering browser shortcuts.
+      this.dashKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.G);
+      this.shootKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+
+      // P2 keyboard input: Arrow keys move, J melee, K ranged, L dash.
+      this.p2MoveKeys = this.input.keyboard!.addKeys({
+        up:    Phaser.Input.Keyboard.KeyCodes.UP,
+        down:  Phaser.Input.Keyboard.KeyCodes.DOWN,
+        left:  Phaser.Input.Keyboard.KeyCodes.LEFT,
+        right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+      }) as Record<string, Phaser.Input.Keyboard.Key>;
+      this.p2MeleeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.J);
+      this.p2ShootKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.K);
+      this.p2DashKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.L);
+
+      // Spawn P2 immediately — P2 is always player-controlled, never AI.
+      this.spawnHero2();
+
+      // Gamepad button events — fired once per press, so no per-frame debounce needed.
+      // Axis reading (movement) still happens per-frame in the update methods.
+      // GamepadPlugin is typed as nullable; it will be non-null because we enabled
+      // `input: { gamepad: true }` in the Phaser config, but we guard anyway.
+      this.input.gamepad?.on(
+        'down',
+        (pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button) => {
+          // Read left-stick position at the moment the button fires so dash has a direction.
+          const axH = pad.axes[0]?.getValue() ?? 0;
+          const axV = pad.axes[1]?.getValue() ?? 0;
+          const dx = Math.abs(axH) > 0.2 ? axH : 0;
+          const dy = Math.abs(axV) > 0.2 ? axV : 0;
+
+          if (pad.index === 0 && this.heroAlive && this.heroPlayerMode) {
+            // P1 gamepad: button 0 = melee, button 5 = ranged, button 4 = dash
+            if (button.index === 0) this.hero.tryMelee();
+            else if (button.index === 5) this.hero.tryRanged();
+            else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero.tryDash(dx, dy);
+          } else if (pad.index === 1 && this.hero2 && this.hero2Alive) {
+            // P2 gamepad: same layout — button 0 = melee, button 5 = ranged, button 4 = dash
+            if (button.index === 0) this.hero2.tryMelee();
+            else if (button.index === 5) this.hero2.tryRanged();
+            else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero2.tryDash(dx, dy);
+          }
+        },
+      );
 
       this.buildHud();
       this.launchNavPanel();
@@ -262,7 +317,7 @@ export class CombatArenaScene extends Phaser.Scene {
   override update(_time: number, delta: number): void {
     this.blackboard.tick(delta);
 
-    // ── Hero ──────────────────────────────────────────────────────────────────
+    // ── Hero (P1) ─────────────────────────────────────────────────────────────
     if (this.heroAlive) {
       if (this.heroPlayerMode && !this.bgMode) {
         this.updatePlayerHeroInput(delta);
@@ -274,6 +329,28 @@ export class CombatArenaScene extends Phaser.Scene {
         this.cameras.main.shake(300, 0.008);
         this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero());
         log.info('hero_died', { wave: this.waveNumber, kills: this.killCount, alive_enemies: this.aliveEnemies.length });
+      }
+    }
+
+    // ── Hero 2 (P2 — always player-controlled) ────────────────────────────────
+    if (!this.bgMode && this.hero2 && this.hero2Alive) {
+      this.updateP2Input(delta);
+      if (!this.hero2.isAlive) {
+        this.hero2Alive = false;
+        this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero2());
+      }
+    }
+
+    // ── Camera — follow midpoint of live heroes ───────────────────────────────
+    // Both players can wander the arena, so we keep them both centred in view.
+    if (!this.bgMode) {
+      const pts: { x: number; y: number }[] = [];
+      if (this.heroAlive) pts.push(this.hero);
+      if (this.hero2 && this.hero2Alive) pts.push(this.hero2);
+      if (pts.length > 0) {
+        const midX = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const midY = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        this.cameras.main.centerOn(midX, midY);
       }
     }
 
@@ -306,6 +383,7 @@ export class CombatArenaScene extends Phaser.Scene {
       }
       this.cameras.main.shake(120, 0.003);
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+      if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
       this.syncEnemyCoordination();
     }
 
@@ -667,6 +745,7 @@ export class CombatArenaScene extends Phaser.Scene {
     });
 
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();
   }
 
@@ -749,15 +828,28 @@ export class CombatArenaScene extends Phaser.Scene {
    * Called every frame instead of hero.update() when heroPlayerMode is true.
    */
   private updatePlayerHeroInput(delta: number): void {
-    // Movement — WASD
+    // Movement — WASD keyboard
     const right = this.moveKeys['right'].isDown ? 1 : 0;
     const left  = this.moveKeys['left'].isDown  ? 1 : 0;
     const down  = this.moveKeys['down'].isDown  ? 1 : 0;
     const up    = this.moveKeys['up'].isDown    ? 1 : 0;
 
-    const dx = right - left;
-    const dy = down  - up;
-    // Use the hero's own speed value via setMoveVelocity.
+    let dx = right - left;
+    let dy = down  - up;
+
+    // Gamepad 1 (index 0) — left stick overrides keyboard for movement when outside
+    // the deadzone. Button presses (melee/ranged/dash) are handled via the 'down'
+    // event registered in create() so they fire exactly once per press.
+    const pad1 = this.input.gamepad?.getPad(0);
+    if (pad1) {
+      const ax = pad1.axes[0]?.getValue() ?? 0;
+      const ay = pad1.axes[1]?.getValue() ?? 0;
+      if (Math.abs(ax) > 0.2 || Math.abs(ay) > 0.2) {
+        dx = ax;
+        dy = ay;
+      }
+    }
+
     const spd = 160; // px/s — comfortable player speed
     this.hero.setMoveVelocity(dx * spd, dy * spd);
 
@@ -766,18 +858,93 @@ export class CombatArenaScene extends Phaser.Scene {
       this.hero.tryMelee();
     }
 
-    // Ranged — F (just-pressed, targets nearest enemy)
+    // Ranged — F (just-pressed)
     if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
       this.hero.tryRanged();
     }
 
-    // Dash — Shift (just-pressed)
+    // Dash — G (just-pressed); direction required
     if (Phaser.Input.Keyboard.JustDown(this.dashKey) && (dx !== 0 || dy !== 0)) {
       this.hero.tryDash(dx, dy);
     }
 
     // Let the entity tick its animation + dash physics + HP bar.
     this.hero.update(delta);
+  }
+
+  // ── P2 spawn / input ──────────────────────────────────────────────────────────
+
+  private spawnHero2(): void {
+    // Place P2 near P1's start but offset downward so they don't overlap.
+    const heroX = this.arenaX + this.arenaW * 0.2;
+    const heroY = this.arenaY + this.arenaH * 0.6;
+    this.hero2 = new Tinkerer(this, heroX, heroY);
+    this.addPhysics(this.hero2);
+    this.hero2.setOpponents(this.aliveEnemies);
+    // P2 is always player-controlled — the behaviour tree never runs for this entity.
+    this.hero2.setPlayerControlled(true);
+    this.hero2Alive = true;
+  }
+
+  private respawnHero2(): void {
+    if (this.hero2?.active) this.hero2.destroy();
+    this.spawnHero2();
+  }
+
+  /**
+   * Drive the P2 Tinkerer from keyboard (Arrow keys / J / K / L) or Gamepad 2
+   * (index 1). Called every frame in non-background mode alongside P1 input.
+   *
+   * Key bindings:
+   *   Move  — Arrow keys  |  left stick
+   *   Melee — J           |  button 0 (A / Cross)
+   *   Ranged— K           |  button 5 (RB / R1)
+   *   Dash  — L           |  button 4 (LB / L1)
+   */
+  private updateP2Input(delta: number): void {
+    if (!this.hero2) return;
+
+    // Keyboard movement — Arrow keys
+    const right = this.p2MoveKeys['right'].isDown ? 1 : 0;
+    const left  = this.p2MoveKeys['left'].isDown  ? 1 : 0;
+    const down  = this.p2MoveKeys['down'].isDown  ? 1 : 0;
+    const up    = this.p2MoveKeys['up'].isDown    ? 1 : 0;
+
+    let dx = right - left;
+    let dy = down  - up;
+
+    // Gamepad 2 (index 1) — left stick overrides keyboard for movement.
+    // Button presses (melee/ranged/dash) are handled via the 'down' event in create().
+    const pad2 = this.input.gamepad?.getPad(1);
+    if (pad2) {
+      const ax = pad2.axes[0]?.getValue() ?? 0;
+      const ay = pad2.axes[1]?.getValue() ?? 0;
+      if (Math.abs(ax) > 0.2 || Math.abs(ay) > 0.2) {
+        dx = ax;
+        dy = ay;
+      }
+    }
+
+    const spd = 160;
+    this.hero2.setMoveVelocity(dx * spd, dy * spd);
+
+    // Melee — J (just-pressed)
+    if (Phaser.Input.Keyboard.JustDown(this.p2MeleeKey)) {
+      this.hero2.tryMelee();
+    }
+
+    // Ranged — K (just-pressed)
+    if (Phaser.Input.Keyboard.JustDown(this.p2ShootKey)) {
+      this.hero2.tryRanged();
+    }
+
+    // Dash — L (just-pressed); direction required
+    if (Phaser.Input.Keyboard.JustDown(this.p2DashKey) && (dx !== 0 || dy !== 0)) {
+      this.hero2.tryDash(dx, dy);
+    }
+
+    // Tick animation, dash physics, and HP bar.
+    this.hero2.update(delta);
   }
 
   /**
@@ -801,10 +968,16 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
 
-    // Respawn the hero
+    // Respawn P1
     if (this.hero.active) this.hero.destroy();
     this.spawnHero();
     this.hero.setPlayerControlled(this.heroPlayerMode);
+
+    // Respawn P2
+    if (this.hero2?.active) this.hero2.destroy();
+    this.hero2 = null;
+    this.hero2Alive = false;
+    this.spawnHero2();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────

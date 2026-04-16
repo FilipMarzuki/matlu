@@ -53,6 +53,11 @@ const game = new Phaser.Game({
       debug: false,
     },
   },
+  // Enable Phaser's gamepad plugin so CombatArenaScene can read connected pads.
+  // getPad(0) = P1 gamepad, getPad(1) = P2 gamepad.
+  input: {
+    gamepad: true,
+  },
   // RESIZE makes the canvas fill the full viewport — no letterboxing.
   // UI elements must use this.scale.width/height instead of hardcoded 800×600.
   scale: {
