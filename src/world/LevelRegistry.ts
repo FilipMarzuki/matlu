@@ -61,7 +61,7 @@ export const LEVEL_CONFIGS: ReadonlyArray<LevelConfig> = [
   },
   {
     level: 2,
-    // Spinolandet dominant — bioluminescent ruins, enormous arthropods
+    // Spinaria dominant — bioluminescent ruins, enormous arthropods
     name: 'The Spine Reaches',
     zones: L2.ZONES,
     collectibles: L2.COLLECTIBLES,
@@ -77,8 +77,8 @@ export const LEVEL_CONFIGS: ReadonlyArray<LevelConfig> = [
   },
   {
     level: 3,
-    // Vattenpandalandet dominant — mist valleys, bamboo highlands, panda scholars
-    name: 'Vattenpandalandet Mist',
+    // Mistheim dominant — mist valleys, bamboo highlands, panda scholars
+    name: 'Mistheim Mist',
     zones: L3.ZONES,
     collectibles: L3.COLLECTIBLES,
     settlements: L3.SETTLEMENTS,

@@ -163,8 +163,8 @@ export class EndingScene extends Phaser.Scene {
 
     const rows: Array<{ label: string; value: number; fillColor: number }> = [
       { label: 'Earth',             value: this.endingData.alignment.earth, fillColor: 0x4a9ab0 },
-      { label: 'Spinolandet',       value: this.endingData.alignment.spino, fillColor: 0x6ab054 },
-      { label: 'Vattenpandalandet', value: this.endingData.alignment.vatten, fillColor: 0x5477b0 },
+      { label: 'Spinaria',  value: this.endingData.alignment.spino,  fillColor: 0x6ab054 },
+      { label: 'Mistheim', value: this.endingData.alignment.vatten, fillColor: 0x5477b0 },
     ];
 
     rows.forEach(({ label, value, fillColor }, i) => {

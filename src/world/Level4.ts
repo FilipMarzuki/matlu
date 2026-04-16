@@ -5,7 +5,7 @@
  *
  * The Seam is where the dimensional membranes have torn completely. No
  * single world dominates. A cliff is simultaneously granite (Earth),
- * chitinous shell (Spinolandet), and floating stone (Vattenpandalandet).
+ * chitinous shell (Spinaria), and floating stone (Mistheim).
  * Visual instability. Physics uncertain in patches.
  *
  * In stable patches, the overlay resolves into something new — a hybrid
@@ -13,7 +13,7 @@
  * the landscape flickers between what it was and what it is becoming.
  *
  * All three Skymning strains are present here at full strength: Static
- * (Earth), Blight (Spinolandet), Dry (Vattenpandalandet). They do not
+ * (Earth), Blight (Spinaria), Dry (Mistheim). They do not
  * cancel each other — they layer. Cross-world hybrid enemies appear here
  * for the first time: creatures that have absorbed elements from multiple
  * worlds (a Static-Blighted machine-organism, a Dry-Static corrupted

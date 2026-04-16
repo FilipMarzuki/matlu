@@ -1,9 +1,9 @@
 /**
- * Level 3 configuration — Vattenpandalandet Mist (Vattenpandalandet dominant).
+ * Level 3 configuration — Mistheim Mist (Mistheim dominant).
  *
  * ## Setting: Floating river delta, bamboo highlands, mist valleys
  *
- * Vattenpandalandet is a world of stories and water — its circulatory
+ * Mistheim is a world of stories and water — its circulatory
  * system is the vast inland sea at its centre, rivers running to every
  * corner. This level occupies a high river delta where Pandor scholars
  * keep their oldest records: bamboo highlands rising above mist valleys,
@@ -14,9 +14,9 @@
  * a collaboration that predates the apocalypse by a generation. The most
  * visually surreal level in the arc.
  *
- * The corruption here is the Dry — Vattenpandalandet's strain of the
+ * The corruption here is the Dry — Mistheim's strain of the
  * Skymning. It strips the world of its water gradually, hollowing out
- * the magical system that makes Vattenpandalandet function. A [Healer]
+ * the magical system that makes Mistheim function. A [Healer]
  * whose Skill works in reverse. An inn whose warmth turns cold. An
  * ancient river, still flowing, but flowing dry.
  *
@@ -41,7 +41,7 @@
  *    landscape, just light and noise.
  *
  * ## Collectibles
- *  Three objects, one per zone. Artifacts of Vattenpandalandet — water,
+ *  Three objects, one per zone. Artifacts of Mistheim — water,
  *  story, and record.
  *
  * ## Scholar meeting
@@ -85,7 +85,7 @@ export const ZONES: Zone[] = [
     id: 'zone-delta',
     x: 0, y: 2000, w: 900, h: 1000,
     corruption: 55,
-    tintColor: 0x1a3830,  // teal-jade (Vattenpandalandet fading)
+    tintColor: 0x1a3830,  // teal-jade (Mistheim fading)
     tintAlpha: 0.04,
   },
   {
@@ -209,7 +209,7 @@ export const PATH_CHOICES: Array<{ id: PathChoice; label: string }> = [
 /**
  * Returns the opening dialog line for the scholar meeting.
  * Varies based on how many collectibles the player found — reflecting
- * how carefully they moved through Vattenpandalandet Mist.
+ * how carefully they moved through Mistheim Mist.
  */
 export function meetingOpeningLine(itemsFound: number): string {
   if (itemsFound === 0) return 'Du har kommit långt utan att bära på något. Det säger oss något.';
@@ -226,7 +226,7 @@ export const PASSIVE_CLEANSE_CAP = 20;
 // ── Settlements ────────────────────────────────────────────────────────────────
 
 /**
- * Significant locations in Vattenpandalandet Mist.
+ * Significant locations in Mistheim Mist.
  *
  * The settlement types here reflect the world's structure:
  *  - hamlet:    working panda community
