@@ -59,6 +59,13 @@ export class CombatArenaScene extends Phaser.Scene {
   private projectiles:  Projectile[]   = [];
   private readonly blackboard = new ArenaBlackboard();
 
+  /**
+   * AABB rectangles for line-of-sight tests — one entry per solid interior
+   * obstacle (stone pillars). Populated by buildArena() and passed to every
+   * entity via addPhysics() so their BT can call hasLineOfSight().
+   */
+  private wallRects: Phaser.Geom.Rectangle[] = [];
+
   private waveGroupIndex = 0;
   private waveNumber     = 0;
   private killCount      = 0;
@@ -302,6 +309,9 @@ export class CombatArenaScene extends Phaser.Scene {
   // ── Arena layout ─────────────────────────────────────────────────────────────
 
   private buildArena(): void {
+    // Reset so a scene restart doesn't accumulate duplicate rects.
+    this.wallRects = [];
+
     const W      = this.scale.width;
     const H      = this.scale.height;
     const margin = 60;
@@ -418,8 +428,17 @@ export class CombatArenaScene extends Phaser.Scene {
       // Static physics body covering the pillar footprint
       const zone = this.add.zone(px, py, PILLAR_W + 4, PILLAR_FH);
       this.physics.add.existing(zone, true);
-      (zone.body as Phaser.Physics.Arcade.StaticBody).setSize(PILLAR_W - 4, PILLAR_FH - 4);
+      const bodyW = PILLAR_W - 4;
+      const bodyH = PILLAR_FH - 4;
+      (zone.body as Phaser.Physics.Arcade.StaticBody).setSize(bodyW, bodyH);
       this.obstacles.add(zone);
+
+      // Register this pillar as a line-of-sight blocker.
+      // Uses the same AABB as the physics body (centred at px, py) so LOS
+      // is blocked by exactly the same region that blocks physical passage.
+      this.wallRects.push(new Phaser.Geom.Rectangle(
+        px - bodyW / 2, py - bodyH / 2, bodyW, bodyH,
+      ));
     }
 
     // ── Octagonal wall border ─────────────────────────────────────────────────
@@ -758,6 +777,8 @@ export class CombatArenaScene extends Phaser.Scene {
     this.physics.add.existing(entity);
     (entity.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
     this.physics.add.collider(entity, this.obstacles);
+    // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
+    entity.setWallRects(this.wallRects);
   }
 
   private spreadY(count: number): number[] {
