@@ -140,6 +140,7 @@ checkout → node 20 → npm ci → node .github/scripts/collect-stats.js
 | Code Quality | grep: `as any`, `@ts-ignore`, TODO/FIXME/HACK; git log: net lines |
 | Bundle Size | `npm run build` output parsed for JS/CSS kB |
 | PixelLab Credits | `GET /v1/balance` |
+| Deployment Frequency | Vercel REST API — production deploys this week vs last week |
 
 **Secrets required**:
 ```
@@ -148,6 +149,8 @@ NOTION_STATS_PAGE_ID
 LINEAR_API_KEY
 PIXELLAB_API_KEY
 VERCEL_DEPLOY_HOOK        (optional — triggers matlu-wiki rebuild)
+VERCEL_TOKEN              (optional — read production deployments from Vercel)
+VERCEL_PROJECT_ID         (optional — Vercel project to query)
 ```
 
 ---
@@ -207,6 +210,8 @@ All agents end their session with `npm run log-tokens` to commit token usage to 
 | `LINEAR_API_KEY` | `stats.yml`, cloud agents | Query issues and projects |
 | `PIXELLAB_API_KEY` | `stats.yml` | Balance endpoint |
 | `VERCEL_DEPLOY_HOOK` | `stats.yml` | POST to rebuild matlu-wiki after stats |
+| `VERCEL_TOKEN` | `stats.yml` | Vercel personal access token — read production deployments for DORA metrics |
+| `VERCEL_PROJECT_ID` | `stats.yml` | Vercel project ID — identifies which project to query for deployment history |
 | `VITE_SUPABASE_URL` | CI + stats (placeholder) | Build-time placeholder |
 | `VITE_SUPABASE_ANON_KEY` | CI + stats (placeholder) | Build-time placeholder |
 | `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | CI + stats (placeholder) | Build-time placeholder |
