@@ -14,6 +14,14 @@ import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 
 type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
 
+/** Axis-aligned bounding box for a procedurally-placed dungeon room. */
+interface Room {
+  x: number;  // left edge
+  y: number;  // top edge
+  w: number;  // width
+  h: number;  // height
+}
+
 interface WaveGroup {
   label:   string;
   enemies: EnemyCtor[];
@@ -69,6 +77,16 @@ export class CombatArenaScene extends Phaser.Scene {
    * entity via addPhysics() so their BT can call hasLineOfSight().
    */
   private wallRects: Phaser.Geom.Rectangle[] = [];
+  /**
+   * Procedurally-placed rooms, populated by buildRooms() during create().
+   * Used by spawnHero() and spawnWaveGroup() to place entities inside rooms.
+   */
+  private rooms:    Room[]     = [];
+  /**
+   * The room the hero starts in — enemies will not spawn here at wave boundaries
+   * so the hero always has a moment to orient before the first enemies arrive.
+   */
+  private heroRoom: Room | null = null;
 
   private waveGroupIndex = 0;
   private waveNumber     = 0;
@@ -353,39 +371,11 @@ export class CombatArenaScene extends Phaser.Scene {
       [cx + 98,  cy + 38],
     ];
 
-    // ── Tiled colosseum floor ─────────────────────────────────────────────────
-    // Wang tileset: frame 12 = pale travertine, frame 6 = dark worn stone.
-    // Tiles inside the four chamfered corner zones are skipped — the wall fill
-    // covers that area. Tiles near pillar bases have a higher worn probability,
-    // suggesting battle damage around the obstacles.
-    const TILE        = 16;
-    const FRAME_CLEAN = 12;
-    const FRAME_WORN  = 6;
-
-    const cols = Math.ceil(this.arenaW / TILE);
-    const rows = Math.ceil(this.arenaH / TILE);
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const wx = this.arenaX + col * TILE + TILE / 2;
-        const wy = this.arenaY + row * TILE + TILE / 2;
-        // Skip tiles that fall inside the chamfered corner zones
-        const nearL = wx < this.arenaX + CHAMFER;
-        const nearR = wx > this.arenaX + this.arenaW - CHAMFER;
-        const nearT = wy < this.arenaY + CHAMFER;
-        const nearB = wy > this.arenaY + this.arenaH - CHAMFER;
-        if ((nearL && nearT) || (nearR && nearT) || (nearL && nearB) || (nearR && nearB)) continue;
-
-        const hash = (col * 31 + row * 17 + col * row * 7) % 100;
-        let wornThreshold = 12; // base 12% worn
-        for (const [px, py] of pillarDefs) {
-          const d = Math.hypot(wx - px, wy - py);
-          if      (d < 36) wornThreshold += 45;
-          else if (d < 64) wornThreshold += 20;
-        }
-        const frame = hash < wornThreshold ? FRAME_WORN : FRAME_CLEAN;
-        this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
-      }
-    }
+    // ── Procedural room layout ────────────────────────────────────────────────
+    // Rooms are placed and tiled inside buildRooms(). The returned array is
+    // stored on this.rooms so spawnHero() and spawnWaveGroup() can position
+    // entities inside rooms rather than at fixed arena coordinates.
+    this.rooms = this.buildRooms();
 
     // ── Stone pillar obstacles ────────────────────────────────────────────────
     // Broken columns in 3/4 top-down perspective: a lighter top face (visible
@@ -592,8 +582,19 @@ export class CombatArenaScene extends Phaser.Scene {
   // ── Hero ─────────────────────────────────────────────────────────────────────
 
   private spawnHero(): void {
-    const heroX = this.arenaX + this.arenaW * 0.2;
-    const heroY = this.arenaY + this.arenaH * 0.5;
+    // Spawn inside the largest room so the hero starts with the most manoeuvring
+    // space.  Falls back to the 20 % / 50 % arena position if no rooms exist.
+    const largestRoom = this.rooms.length > 0
+      ? this.rooms.reduce((best, r) => r.w * r.h > best.w * best.h ? r : best)
+      : null;
+
+    const heroX = largestRoom ? largestRoom.x + largestRoom.w / 2 : this.arenaX + this.arenaW * 0.2;
+    const heroY = largestRoom ? largestRoom.y + largestRoom.h / 2 : this.arenaY + this.arenaH * 0.5;
+
+    // Track which room the hero starts in — enemies are kept out of this room
+    // at wave boundaries so there's always some travel time before they arrive.
+    this.heroRoom = largestRoom;
+
     this.hero = new Tinkerer(this, heroX, heroY);
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
@@ -637,11 +638,21 @@ export class CombatArenaScene extends Phaser.Scene {
     const ctors: EnemyCtor[] = [...group.enemies];
     for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(BabyVelcrid);
 
-    const spawnX = this.arenaX + this.arenaW - SPAWN_X_OFFSET;
-    const ys     = this.spreadY(ctors.length);
+    // Spawn in a room other than the hero's starting room so enemies must
+    // travel to reach the hero — giving the player a moment to prepare.
+    // Falls back to the right-edge spawn when no other rooms are available.
+    const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
+    const spawnRoom = candidateRooms.length > 0
+      ? candidateRooms[Math.floor(Math.random() * candidateRooms.length)]
+      : null;
+
+    const spawnPositions = spawnRoom
+      ? this.spreadInRoom(spawnRoom, ctors.length)
+      : this.spreadY(ctors.length).map(y => ({ x: this.arenaX + this.arenaW - SPAWN_X_OFFSET, y }));
 
     for (let i = 0; i < ctors.length; i++) {
-      const e = new ctors[i](this, spawnX, ys[i]);
+      const { x: spawnX, y: spawnY } = spawnPositions[i];
+      const e = new ctors[i](this, spawnX, spawnY);
       this.addPhysics(e);
       e.setOpponent(this.hero);
       this.aliveEnemies.push(e);
@@ -804,6 +815,128 @@ export class CombatArenaScene extends Phaser.Scene {
     this.physics.add.collider(entity, this.obstacles);
     // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
+  }
+
+  /**
+   * Procedurally places 4–8 rooms inside the arena and renders their floors
+   * with colosseum_floor tiles.  Consecutive rooms are connected by L-shaped
+   * corridors (horizontal leg first, then vertical).
+   *
+   * Rooms are visual-only — no physics walls are added.  Entities move freely
+   * across the full arena; the floor tiles only define the visible footprint.
+   * Called once from buildArena(); the result is stored on this.rooms.
+   */
+  private buildRooms(): Room[] {
+    const WALL_T      = 22;   // mirrors buildArena — rooms must stay inside the border
+    const TILE        = 16;
+    const FRAME_CLEAN = 12;
+    const FRAME_WORN  = 6;
+    const CORRIDOR_W  = 32;   // corridor strip width in px
+    const PAD         = 10;   // minimum gap between room edges
+    const MIN_W = 80;  const MAX_W = 200;
+    const MIN_H = 70;  const MAX_H = 150;
+    const TARGET    = 6;   // aim for this many rooms
+    const MAX_TRIES = 24;  // rejection-sampling attempts
+
+    // Arena interior — rooms must fit within the wall border.
+    const innerX = this.arenaX + WALL_T;
+    const innerY = this.arenaY + WALL_T;
+    const innerW = this.arenaW - WALL_T * 2;
+    const innerH = this.arenaH - WALL_T * 2;
+
+    const rooms: Room[] = [];
+
+    // Rejection-sample random rooms; keep candidates that don't overlap existing ones.
+    for (let t = 0; t < MAX_TRIES && rooms.length < TARGET; t++) {
+      const rw = MIN_W + Math.floor(Math.random() * (MAX_W - MIN_W + 1));
+      const rh = MIN_H + Math.floor(Math.random() * (MAX_H - MIN_H + 1));
+      const rx = innerX + Math.floor(Math.random() * Math.max(1, innerW - rw));
+      const ry = innerY + Math.floor(Math.random() * Math.max(1, innerH - rh));
+      const candidate: Room = { x: rx, y: ry, w: rw, h: rh };
+
+      const overlaps = rooms.some(r =>
+        candidate.x < r.x + r.w + PAD &&
+        candidate.x + candidate.w + PAD > r.x &&
+        candidate.y < r.y + r.h + PAD &&
+        candidate.y + candidate.h + PAD > r.y,
+      );
+      if (!overlaps) rooms.push(candidate);
+    }
+
+    // Safety net: if sampling didn't produce enough rooms, fall back to a 2×2 grid.
+    if (rooms.length < 4) {
+      const hw = Math.floor(innerW / 2 - PAD);
+      const hh = Math.floor(innerH / 2 - PAD);
+      rooms.length = 0;  // discard partial results so the grid is clean
+      rooms.push(
+        { x: innerX,              y: innerY,              w: hw, h: hh },
+        { x: innerX + hw + PAD,   y: innerY,              w: hw, h: hh },
+        { x: innerX,              y: innerY + hh + PAD,   w: hw, h: hh },
+        { x: innerX + hw + PAD,   y: innerY + hh + PAD,   w: hw, h: hh },
+      );
+    }
+
+    // Tile a rectangle of floor, clipped to the arena interior.
+    const tileRect = (x: number, y: number, w: number, h: number): void => {
+      const x1 = Math.max(innerX, x);
+      const y1 = Math.max(innerY, y);
+      const x2 = Math.min(innerX + innerW, x + w);
+      const y2 = Math.min(innerY + innerH, y + h);
+      if (x2 <= x1 || y2 <= y1) return;
+      const cols = Math.ceil((x2 - x1) / TILE);
+      const rows = Math.ceil((y2 - y1) / TILE);
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const wx = x1 + col * TILE + TILE / 2;
+          const wy = y1 + row * TILE + TILE / 2;
+          if (wx > x2 || wy > y2) continue;
+          const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
+          const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
+          this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
+        }
+      }
+    };
+
+    // Tile each room's floor.
+    for (const room of rooms) tileRect(room.x, room.y, room.w, room.h);
+
+    // Connect consecutive rooms with L-shaped corridors (horizontal leg first,
+    // then vertical at the elbow). This guarantees at least one path between
+    // every adjacent pair in the list.
+    for (let i = 1; i < rooms.length; i++) {
+      const a    = rooms[i - 1];
+      const b    = rooms[i];
+      const ax   = Math.round(a.x + a.w / 2);
+      const ay   = Math.round(a.y + a.h / 2);
+      const bx   = Math.round(b.x + b.w / 2);
+      const by   = Math.round(b.y + b.h / 2);
+      const half = Math.round(CORRIDOR_W / 2);
+
+      // Horizontal leg: room-a centre → room-b centre X, at room-a centre Y.
+      tileRect(Math.min(ax, bx), ay - half, Math.abs(bx - ax), CORRIDOR_W);
+      // Vertical leg: elbow (bx, ay) → room-b centre Y.
+      tileRect(bx - half, Math.min(ay, by), CORRIDOR_W, Math.abs(by - ay));
+    }
+
+    return rooms;
+  }
+
+  /**
+   * Distributes `count` spawn positions evenly inside a room, keeping a 20%
+   * margin from each edge so entities don't clip wall visuals on spawn.
+   * Alternates slight X offsets so multiple entities don't stack on the same pixel.
+   */
+  private spreadInRoom(room: Room, count: number): { x: number; y: number }[] {
+    const cx      = room.x + room.w / 2;
+    const marginY = room.h * 0.2;
+    const y0      = room.y + marginY;
+    const y1      = room.y + room.h - marginY;
+    if (count === 1) return [{ x: cx, y: (y0 + y1) / 2 }];
+    const step = (y1 - y0) / (count - 1);
+    return Array.from({ length: count }, (_, i) => ({
+      x: cx + (i % 2 === 0 ? -room.w * 0.1 : room.w * 0.1),
+      y: y0 + i * step,
+    }));
   }
 
   private spreadY(count: number): number[] {
