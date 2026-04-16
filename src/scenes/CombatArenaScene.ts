@@ -208,6 +208,21 @@ export class CombatArenaScene extends Phaser.Scene {
     this.anims.createFromAseprite('tinkerer');
     this.anims.createFromAseprite('mini-velcrid');
 
+    // Phaser's createFromAseprite defaults repeat to 0 (play once and stop).
+    // Walk and idle animations must loop so the sprite never freezes mid-stride.
+    // Attack / dash / death stay one-shot — their keys don't contain _walk_ or _idle_.
+    const LOOP_STATES = ['idle', 'walk'];
+    const SPRITE_KEYS = ['tinkerer', 'mini-velcrid'];
+    const ANIM_DIRS   = ['south', 'south-east', 'east', 'north-east', 'north'];
+    for (const sKey of SPRITE_KEYS) {
+      for (const state of LOOP_STATES) {
+        for (const dir of ANIM_DIRS) {
+          const anim = this.anims.get(`${sKey}_${state}_${dir}`);
+          if (anim) anim.repeat = -1;
+        }
+      }
+    }
+
     // Audio is unavailable in headless CI (WebAudio context never starts).
     this.audioAvailable = this.cache.audio.has('gunshot-0');
 
