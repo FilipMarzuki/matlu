@@ -512,6 +512,91 @@ function getCognitiveLoadStats() {
   }
 }
 
+// ── Agent outcome stats ──────────────────────────────────────────────────────
+
+// Queries Linear for issues with agent:* labels updated this week.
+// Returns outcome counts + per-category breakdown stored in metrics.agentOutcome.
+async function getAgentOutcomeStats() {
+  if (!LINEAR_API_KEY) return null;
+
+  const categoryLabels = [
+    'systems', 'art', 'lore', 'infrastructure', 'world', 'ui-hud', 'ui-menus',
+    'enemies', 'weapons', 'upgrades', 'audio', 'hero', 'evolution', 'chore',
+  ];
+  const outcomeNames = [
+    'agent:success', 'agent:partial', 'agent:failed', 'agent:wrong-interpretation',
+  ];
+
+  let data;
+  try {
+    data = await linearQuery(`
+      query AgentOutcomes($since: DateTimeOrDuration) {
+        issues(
+          filter: {
+            labels: { name: { in: ["agent:success", "agent:partial", "agent:failed", "agent:wrong-interpretation"] } }
+            updatedAt: { gte: $since }
+          }
+          first: 100
+          orderBy: updatedAt
+        ) {
+          nodes {
+            identifier
+            title
+            updatedAt
+            labels { nodes { name } }
+          }
+        }
+      }
+    `, { since: weekAgoISO });
+  } catch (e) {
+    console.warn('getAgentOutcomeStats failed:', e.message);
+    return null;
+  }
+
+  const issues = data.issues.nodes;
+  if (!issues.length) return null;
+
+  const counts = {
+    'agent:success': 0,
+    'agent:partial': 0,
+    'agent:failed': 0,
+    'agent:wrong-interpretation': 0,
+  };
+  const byType = {};
+
+  for (const issue of issues) {
+    const labelNames = issue.labels.nodes.map(l => l.name);
+    const outcome = outcomeNames.find(n => labelNames.includes(n));
+    if (!outcome) continue;
+    counts[outcome]++;
+
+    const category = categoryLabels.find(l => labelNames.includes(l)) || 'other';
+    if (!byType[category]) {
+      byType[category] = { success: 0, partial: 0, failed: 0, wrong_interp: 0, total: 0 };
+    }
+    const key = outcome === 'agent:wrong-interpretation' ? 'wrong_interp' : outcome.replace('agent:', '');
+    byType[category][key]++;
+    byType[category].total++;
+  }
+
+  const total = issues.length;
+  const failureRate = total
+    ? Math.round(
+        ((counts['agent:failed'] + counts['agent:wrong-interpretation']) / total) * 100
+      )
+    : 0;
+
+  return {
+    total,
+    success:     counts['agent:success'],
+    partial:     counts['agent:partial'],
+    failed:      counts['agent:failed'],
+    wrongInterp: counts['agent:wrong-interpretation'],
+    failureRate,
+    byType,
+  };
+}
+
 // ── Slugify ───────────────────────────────────────────────────────────────────
 
 function slugify(title) {
@@ -525,7 +610,7 @@ function slugify(title) {
 
 // ── Build markdown ────────────────────────────────────────────────────────────
 
-function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework) {
+function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome) {
   const lines = [];
   const h2 = (t) => { lines.push(`## ${t}`, ''); };
   const li = (t) => lines.push(`- ${t}`);
@@ -553,6 +638,25 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   li(`Agent PRs this week: **${gh.agentMergedCount}** (${gh.agentPrPct}% of merged)`);
   if (gh.agentSuccessRate !== null) li(`Agent success rate: **${gh.agentSuccessRate}%** (merged / closed claude/ PRs)`);
   lines.push('');
+
+  if (agentOutcome) {
+    const pct = (n) => agentOutcome.total ? ` (${Math.round((n / agentOutcome.total) * 100)}%)` : '';
+    h2('Agent Outcome Breakdown');
+    li(`Issues processed: **${agentOutcome.total}**`);
+    li(`Success: **${agentOutcome.success}**${pct(agentOutcome.success)} | Partial: **${agentOutcome.partial}**${pct(agentOutcome.partial)} | Failed: **${agentOutcome.failed}**${pct(agentOutcome.failed)} | Wrong interpretation: **${agentOutcome.wrongInterp}**${pct(agentOutcome.wrongInterp)}`);
+    li(`Failure rate: **${agentOutcome.failureRate}%**${agentOutcome.failureRate >= 20 ? ' ⚠️' : ''}`);
+    if (Object.keys(agentOutcome.byType).length) {
+      const typeRows = Object.entries(agentOutcome.byType)
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([cat, c]) => {
+          const rate = c.total ? Math.round(((c.failed + c.wrong_interp) / c.total) * 100) : 0;
+          return `${cat}: ${c.total} issues (✓${c.success} ~${c.partial} ✗${c.failed} ?${c.wrong_interp}) ${rate >= 20 ? '⚠️' : ''}`;
+        })
+        .join('\n');
+      p('By category:');
+      p(typeRows);
+    }
+  }
 
   const top5Text = gh.top5Files.length
     ? gh.top5Files.map(([f, n], i) => `${i + 1}. \`${f}\` (${n} changes)`).join('\n')
@@ -662,6 +766,7 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
 // ── Post to Supabase ──────────────────────────────────────────────────────────
 
 async function postToSupabase(title, content, metrics) {
+  const ao = metrics.agentOutcome;
   const res = await fetch(`${SUPABASE_URL}/rest/v1/stats_weekly`, {
     method: 'POST',
     headers: {
@@ -676,6 +781,15 @@ async function postToSupabase(title, content, metrics) {
       slug:    slugify(title),
       content,
       metrics,
+
+      // Agent outcome typed columns (populated from metrics.agentOutcome)
+      agent_issues_processed:     ao?.total       ?? null,
+      agent_outcome_success:      ao?.success      ?? null,
+      agent_outcome_partial:      ao?.partial      ?? null,
+      agent_outcome_failed:       ao?.failed       ?? null,
+      agent_outcome_wrong_interp: ao?.wrongInterp  ?? null,
+      agent_failure_rate_pct:     ao?.failureRate  ?? null,
+      agent_outcome_by_type:      ao?.byType       ?? null,
     }),
   });
 
@@ -707,12 +821,13 @@ async function triggerVercelDeploy() {
 async function main() {
   console.log(`Collecting stats for ${weekLabel}...`);
 
-  const [gh, linear, commitSpread, pixellab, deployStats] = await Promise.all([
+  const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome] = await Promise.all([
     getGitHubStats(),
     getLinearStats(),
     getCommitSpread(),
     getPixelLabStats(),
     getDeployStats(),
+    getAgentOutcomeStats(),
   ]);
 
   // Synchronous stats — run after async work so the build step doesn't block network calls
@@ -730,19 +845,21 @@ async function main() {
   console.log('Deploy stats:', deployStats);
   console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
   console.log('Rework:', rework ? `rate=${rework.reworkRate}%, files=${rework.reworkFileCount}/${rework.totalFiles}` : 'N/A');
+  console.log('Agent outcomes:', agentOutcome ? `total=${agentOutcome.total}, failureRate=${agentOutcome.failureRate}%` : 'N/A');
 
-  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework);
+  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome);
   const metrics = {
     delivery:      { mergedCount: gh.mergedCount, humanMergedCount: gh.humanMergedCount, agentMergedCount: gh.agentMergedCount, avgPrSize: gh.avgPrSize, completedCount: linear.completedCount, activeDays: commitSpread?.activeDays ?? null, totalCommits: commitSpread?.totalCommits ?? null },
     velocity:      { avgMergeTime: gh.avgMergeTime, avgCycleTime: linear.avgCycleTime, reworkRate: linear.reworkRate },
     quality:       { ciPassRate: gh.ciPassRate, fixRevertCount: gh.fixRevertCount, fixRevertPct: gh.fixRevertPct, ...(quality ?? {}) },
     automation:    { agentMergedCount: gh.agentMergedCount, agentPrPct: gh.agentPrPct, agentSuccessRate: gh.agentSuccessRate },
-    cognitiveLoad: cogLoad     ?? null,
-    rework:        rework      ?? null,
-    aiUsage:       ai          ?? null,
-    bundleSize:    bundle      ?? null,
-    deployStats:   deployStats ?? null,
-    pixellab:      pixellab    ?? null,
+    cognitiveLoad: cogLoad      ?? null,
+    rework:        rework       ?? null,
+    aiUsage:       ai           ?? null,
+    bundleSize:    bundle       ?? null,
+    deployStats:   deployStats  ?? null,
+    pixellab:      pixellab     ?? null,
+    agentOutcome:  agentOutcome ?? null,
   };
   await postToSupabase(weekLabel, content, metrics);
 
