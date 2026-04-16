@@ -65,7 +65,6 @@ const UNTRIAGED_QUERY = `
     issues(
       filter: {
         state: { type: { eq: "backlog" } }
-        assignee: { name: { eq: "Filip Marzuki" } }
       }
       orderBy: updatedAt
       first: 50
