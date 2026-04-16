@@ -54,6 +54,29 @@ produce a shippable PR. Concretely:
 
 ---
 
+## T-shirt sizing
+
+After assessing readiness, estimate the implementation effort using T-shirt
+sizes. Set the Linear issue's `estimate` field using this scale:
+
+| Size | Estimate | Guideline |
+| ---- | -------- | --------- |
+| XS   | 1        | One-liner or config change. Single file, obvious fix. < 5 min. |
+| S    | 2        | Small, well-scoped change. 1–2 files, < 30 lines of real logic. |
+| M    | 3        | Moderate feature or fix. 2–4 files, may need tests or asset changes. |
+| L    | 5        | Substantial feature. Multiple files, new module or system, needs careful integration. |
+| XL   | 8        | Large cross-cutting change. Should probably be split — label `too-large` instead. |
+
+Base your estimate on what you see in the codebase, not just the issue
+description. A "simple" feature in a tangled file is bigger than it sounds.
+
+Set the estimate via Linear GraphQL:
+```graphql
+mutation { issueUpdate(id: "<issue-uuid>", input: { estimate: <number> }) { success } }
+```
+
+---
+
 ## Your task
 
 1. **Read the codebase** for context. Check whether the files and patterns
@@ -62,7 +85,10 @@ produce a shippable PR. Concretely:
 
 2. **Assess readiness** against the six criteria above.
 
-3. **Decide on one label:**
+3. **Estimate T-shirt size** based on the files involved, complexity of
+   changes needed, and integration surface area.
+
+4. **Decide on one label:**
 
    - `ready` — all six criteria met. The implementation agent can pick this up
      tonight.
@@ -74,7 +100,7 @@ produce a shippable PR. Concretely:
    - *(leave unlabelled)* — purely creative or exploratory; not appropriate
      for agent triage at all.
 
-4. **If `needs-refinement`:** edit the issue description to add what's missing.
+5. **If `needs-refinement`:** edit the issue description to add what's missing.
    Preserve the original text — add sections, don't rewrite. Typical additions:
    - An acceptance criteria checklist
    - File references (`src/scenes/GameScene.ts:120–180`)
@@ -83,9 +109,9 @@ produce a shippable PR. Concretely:
    After editing, **change the label to `ready`** — the edit should make it
    ready, not leave it in limbo.
 
-5. **Post a one-sentence comment on the Linear issue** summarising your
-   assessment: what label you applied and why (or what you changed in the
-   description).
+6. **Post a one-sentence comment on the Linear issue** summarising your
+   assessment: what label you applied, the T-shirt size, and why (or what
+   you changed in the description).
 
 ---
 
@@ -106,4 +132,5 @@ produce a shippable PR. Concretely:
 
 ## Wrap-up
 
-Apply the label and post the comment via the Linear GraphQL API. Then exit.
+Apply the label, set the estimate, and post the comment via the Linear
+GraphQL API. Then exit.
