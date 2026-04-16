@@ -3,6 +3,7 @@ import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
 import {
   CombatEntity,
+  HumanChild,
   Tinkerer,
 } from '../entities/CombatEntity';
 import { Projectile } from '../entities/Projectile';
@@ -13,6 +14,8 @@ import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 // ── Wave group definitions ────────────────────────────────────────────────────
 
 type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
+type HeroCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
+type ArenaHeroTier = 'tier1' | 'tier2';
 
 interface WaveGroup {
   label:   string;
@@ -35,7 +38,7 @@ const WAVE_GROUPS: WaveGroup[] = [
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
 const MAX_ALIVE       = 20;   // total alive enemy cap
-const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
+const HERO_RESPAWN_MS = 2000; // ms before hero respawns after death
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
@@ -45,7 +48,7 @@ const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
  * Two enemy types: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
  *   - Main timer fires a WaveGroup every 10→5 s (speeds up each wave).
  *   - Enemies accumulate between waves.
- *   - Tinkerer respawns at full HP after HERO_RESPAWN_MS if killed.
+ *   - Hero respawns at full HP after HERO_RESPAWN_MS if killed.
  *
  * Dev menu at the bottom bar switches to GameScene (WilderView).
  */
@@ -62,6 +65,7 @@ export class CombatArenaScene extends Phaser.Scene {
   private waveGroupIndex = 0;
   private waveNumber     = 0;
   private killCount      = 0;
+  private currentHeroTier: ArenaHeroTier = 'tier1';
 
   private mainSpawnTimer = 3000;  // first group fires after 3 s
 
@@ -150,6 +154,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.killCount       = 0;
     this.mainSpawnTimer  = 3000;
     this.heroAlive       = true;
+    this.currentHeroTier = 'tier1';
     this._lastHudWave    = -1;
     this._lastHudAlive   = -1;
     this._lastHudKills   = -1;
@@ -550,7 +555,8 @@ export class CombatArenaScene extends Phaser.Scene {
   private spawnHero(): void {
     const heroX = this.arenaX + this.arenaW * 0.2;
     const heroY = this.arenaY + this.arenaH * 0.5;
-    this.hero = new Tinkerer(this, heroX, heroY);
+    const HeroClass: HeroCtor = this.currentHeroTier === 'tier1' ? HumanChild : Tinkerer;
+    this.hero = new HeroClass(this, heroX, heroY);
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
     this.heroAlive = true;

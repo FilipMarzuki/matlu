@@ -30,11 +30,15 @@ export interface Damageable {
  *      can prune its list.
  */
 export class Projectile extends Phaser.GameObjects.Arc {
-  private readonly vx: number;
-  private readonly vy: number;
+  private readonly originX: number;
+  private readonly originY: number;
+  private readonly dirX: number;
+  private readonly dirY: number;
+  private readonly speed: number;
   private readonly damage: number;
   private readonly hitRadius: number;
   private readonly maxRange: number;
+  private readonly arcHeight: number;
   private readonly targets: Damageable[];
   private distanceTravelled = 0;
   private expired = false;
@@ -55,6 +59,7 @@ export class Projectile extends Phaser.GameObjects.Arc {
    * @param targets   - Entities that can be hit; dead ones are skipped
    * @param hitRadius - Distance in px that counts as a hit (default 18)
    * @param maxRange  - Max travel distance before self-destruct (default 350)
+   * @param arcHeight - Optional lateral arc amplitude in px (default 0 = straight)
    */
   constructor(
     scene:     Phaser.Scene,
@@ -67,6 +72,7 @@ export class Projectile extends Phaser.GameObjects.Arc {
     targets:   Damageable[],
     hitRadius: number = 18,
     maxRange:  number = 350,
+    arcHeight: number = 0,
   ) {
     // Arc(scene, x, y, radius, startAngle, endAngle, anticlockwise, fillColor)
     super(scene, x, y, 5, 0, 360, false, color);
@@ -76,11 +82,15 @@ export class Projectile extends Phaser.GameObjects.Arc {
     scene.add.existing(this);
     this.setDepth(1);
 
-    this.vx        = Math.cos(angle) * speed;
-    this.vy        = Math.sin(angle) * speed;
+    this.originX   = x;
+    this.originY   = y;
+    this.dirX      = Math.cos(angle);
+    this.dirY      = Math.sin(angle);
+    this.speed     = speed;
     this.damage    = damage;
     this.hitRadius = hitRadius;
     this.maxRange  = maxRange;
+    this.arcHeight = arcHeight;
     this.targets   = targets;
   }
 
@@ -91,12 +101,26 @@ export class Projectile extends Phaser.GameObjects.Arc {
   tick(delta: number): void {
     if (this.expired) return;
 
-    // Move linearly.
-    const dx = this.vx * (delta / 1000);
-    const dy = this.vy * (delta / 1000);
-    this.x += dx;
-    this.y += dy;
-    this.distanceTravelled += Math.sqrt(dx * dx + dy * dy);
+    const stepDistance = this.speed * (delta / 1000);
+    this.distanceTravelled += stepDistance;
+    const travelled = Math.min(this.distanceTravelled, this.maxRange);
+
+    // Base linear trajectory.
+    const baseX = this.originX + this.dirX * travelled;
+    const baseY = this.originY + this.dirY * travelled;
+
+    if (this.arcHeight !== 0) {
+      // Arc in the perpendicular axis: 0 at spawn/end, peak at midpoint.
+      const progress = travelled / this.maxRange;
+      const curveOffset = Math.sin(progress * Math.PI) * this.arcHeight;
+      const perpX = -this.dirY;
+      const perpY = this.dirX;
+      this.x = baseX + perpX * curveOffset;
+      this.y = baseY + perpY * curveOffset;
+    } else {
+      this.x = baseX;
+      this.y = baseY;
+    }
 
     // Self-destruct when range is exceeded.
     if (this.distanceTravelled >= this.maxRange) {

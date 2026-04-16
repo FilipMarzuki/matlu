@@ -40,6 +40,10 @@ export interface CombatEntityConfig extends EnemyConfig {
   projectileSpeed?: number;
   /** Projectile fill colour. Default: 0xffffff. */
   projectileColor?: number;
+  /** Max projectile travel distance in px. Default: 350. */
+  projectileMaxRange?: number;
+  /** Optional curved travel amount in px (0 = straight). Default: 0. */
+  projectileArcHeight?: number;
 
   // ── Dash (optional) ───────────────────────────────────────────────────────
   /** Dash speed as a multiple of the entity's base speed. Default: 4.5. */
@@ -130,6 +134,8 @@ export abstract class CombatEntity extends Enemy {
   protected readonly projectileDamage: number | undefined;
   private   readonly projectileSpeed:  number;
   private   readonly projectileColor:  number;
+  private   readonly projectileMaxRange: number;
+  private   readonly projectileArcHeight: number;
 
   // ── Sprite animation state ────────────────────────────────────────────────
   private spriteObj?: Phaser.GameObjects.Sprite;
@@ -189,6 +195,8 @@ export abstract class CombatEntity extends Enemy {
     this.projectileDamage = config.projectileDamage;
     this.projectileSpeed  = config.projectileSpeed  ?? 260;
     this.projectileColor  = config.projectileColor  ?? 0xffffff;
+    this.projectileMaxRange = config.projectileMaxRange ?? 350;
+    this.projectileArcHeight = config.projectileArcHeight ?? 0;
 
     this.attackAnimDuration = config.attackCooldownMs * 0.4;
 
@@ -382,6 +390,9 @@ export abstract class CombatEntity extends Enemy {
           this.projectileColor,
           // opponents satisfies Damageable[] — same shape, different import path.
           this.opponents as unknown as Damageable[],
+          18,
+          this.projectileMaxRange,
+          this.projectileArcHeight,
         );
         // Emit on the SCENE event bus (not this.emit) so CombatArenaScene can
         // listen with a single handler rather than per-entity listeners.
@@ -494,6 +505,9 @@ export abstract class CombatEntity extends Enemy {
       this.projectileSpeed, this.projectileDamage,
       this.projectileColor,
       this.opponents as unknown as Damageable[],
+      18,
+      this.projectileMaxRange,
+      this.projectileArcHeight,
     );
     this.scene.events.emit('projectile-spawned', p);
     this.attackAnimId    = 'attack_ranged';
@@ -1128,6 +1142,88 @@ export class Crow extends CombatEntity {
       ]),
 
       // ── 4. Wander (fallback) ──────────────────────────────────────────────
+      new BtAction((ctx, d) => {
+        ctx.wander(d);
+        return 'running';
+      }),
+    ]);
+  }
+}
+
+/**
+ * HumanChild — Tier 1 baseline hero.
+ *
+ * Fragile, deliberate, and range-limited: the slingshot reload is slow, shots
+ * travel in a slight arc, and the projectile max range is intentionally short.
+ */
+export class HumanChild extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:              55,
+      speed:              72,
+      aggroRadius:        380,
+      attackDamage:       8,
+      color:              0x8f6f55,
+      meleeRange:         28,
+      attackCooldownMs:   1200,
+      projectileDamage:   10,
+      projectileSpeed:    220,
+      projectileColor:    0xb48a63,
+      projectileMaxRange: 170,
+      projectileArcHeight: 14,
+      dashSpeedMultiplier: 2.8,
+      dashDurationMs:     120,
+      // Reuse current atlas until a dedicated Tier-1 sprite lands.
+      spriteKey:          'tinkerer',
+      spriteScale:        0.78,
+    });
+  }
+
+  protected buildTree(): BtNode {
+    const MELEE_R    = this.meleeRange;
+    const RANGED_MIN = 45;
+    const RANGED_MAX = 170;
+
+    return new BtSelector([
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < MELEE_R,
+        ),
+        new BtAction(ctx => {
+          this.attackAnimId = 'attack_melee';
+          ctx.attack();
+          ctx.stop();
+          return 'success';
+        }),
+      ]),
+
+      // Deliberate slingshot shots: slower cadence than Tinkerer pistol.
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d >= RANGED_MIN && d <= RANGED_MAX;
+          }),
+          new BtAction(ctx => {
+            this.attackAnimId = 'attack_ranged';
+            ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y);
+            ctx.stop();
+            return 'success';
+          }),
+        ]),
+        1450,
+      ),
+
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
       new BtAction((ctx, d) => {
         ctx.wander(d);
         return 'running';
