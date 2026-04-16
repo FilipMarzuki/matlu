@@ -476,6 +476,7 @@ function getCodeQualityStats() {
 
 const NOTION_COGNITIVE_LOAD_DB_ID =
   process.env.NOTION_COGNITIVE_LOAD_DB_ID || '4d1843c0718f8399ab2f019e109e7523';
+const NOTION_REWORK_DB_ID         = process.env.NOTION_REWORK_DB_ID         || null;
 const NOTION_DELIVERY_DB_ID       = process.env.NOTION_DELIVERY_DB_ID       || null;
 const NOTION_VELOCITY_DB_ID       = process.env.NOTION_VELOCITY_DB_ID       || null;
 const NOTION_QUALITY_DB_ID        = process.env.NOTION_QUALITY_DB_ID        || null;
@@ -555,6 +556,107 @@ async function postCognitiveLoadToNotion(cogLoad) {
     console.warn(`Notion cognitive load insert failed: ${res.status} ${body}`);
   } else {
     console.log('Cognitive load row inserted into Notion.');
+  }
+}
+
+// ── Rework rate ──────────────────────────────────────────────────────────────
+
+/**
+ * Compute rework rate: what % of lines changed this week were in files
+ * also changed in the prior 3 weeks?
+ *
+ * A high rework rate means the team is repeatedly touching the same code —
+ * a signal of bugs, missed requirements, or unstable areas.
+ *
+ * Returns: { reworkRate, reworkFiles, newFiles, totalFiles, topReworkFiles[] }
+ */
+function getReworkStats() {
+  try {
+    const repoRoot = join(__dirname, '..', '..');
+
+    // Files changed this week (last 7 days)
+    const thisWeek = execSync(
+      'git log --since="7 days ago" --name-only --pretty=format: -- "*.ts" "*.js" "*.json"',
+      { encoding: 'utf8', cwd: repoRoot },
+    ).trim().split('\n').filter(Boolean);
+    const thisWeekFiles = [...new Set(thisWeek)];
+
+    // Files changed in prior 3 weeks (8–28 days ago)
+    const priorWeeks = execSync(
+      'git log --since="28 days ago" --until="7 days ago" --name-only --pretty=format: -- "*.ts" "*.js" "*.json"',
+      { encoding: 'utf8', cwd: repoRoot },
+    ).trim().split('\n').filter(Boolean);
+    const priorWeeksSet = new Set(priorWeeks);
+
+    // Files that appear in both periods = rework
+    const reworkFiles = thisWeekFiles.filter(f => priorWeeksSet.has(f));
+    const newFiles = thisWeekFiles.filter(f => !priorWeeksSet.has(f));
+
+    const totalFiles = thisWeekFiles.length;
+    const reworkRate = totalFiles > 0
+      ? Math.round((reworkFiles.length / totalFiles) * 100)
+      : 0;
+
+    // Count how many times each rework file was changed this week
+    const reworkCounts = {};
+    for (const f of thisWeek) {
+      if (priorWeeksSet.has(f)) {
+        reworkCounts[f] = (reworkCounts[f] || 0) + 1;
+      }
+    }
+    const topReworkFiles = Object.entries(reworkCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([file, changes]) => ({ file, changes }));
+
+    return {
+      reworkRate,
+      reworkFileCount: reworkFiles.length,
+      newFileCount: newFiles.length,
+      totalFiles,
+      topReworkFiles,
+    };
+  } catch (e) {
+    console.warn('getReworkStats failed:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Insert a row into the Rework Notion database for historical charting.
+ */
+async function postReworkToNotion(rework) {
+  if (!NOTION_REWORK_DB_ID || !NOTION_API_KEY || !rework) return;
+
+  const top = rework.topReworkFiles[0] || { file: 'N/A', changes: 0 };
+  const properties = {
+    Date:              { date: { start: isoDate() } },
+    'Rework Rate (%)': { number: rework.reworkRate },
+    'Rework Files':    { number: rework.reworkFileCount },
+    'New Files':       { number: rework.newFileCount },
+    'Total Files':     { number: rework.totalFiles },
+    'Top Rework File': { rich_text: [{ type: 'text', text: { content: top.file } }] },
+    'Top Rework Hits': { number: top.changes },
+  };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({
+      parent: { database_id: NOTION_REWORK_DB_ID },
+      properties,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Notion rework insert failed: ${res.status} ${body}`);
+  } else {
+    console.log('Rework row inserted into Notion.');
   }
 }
 
@@ -762,7 +864,7 @@ async function postBundleSizeToNotion(bundle) {
 
 // ── Build Notion page content ──────────────────────────────────────────────────
 
-function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality) {
+function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework) {
   const top5Text = gh.top5Files.length
     ? gh.top5Files.map(([f, n], i) => `${i + 1}. \`${f}\` (${n} changes)`).join('\n')
     : 'No file data available.';
@@ -893,6 +995,23 @@ function buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, 
     );
   }
 
+  if (rework) {
+    const topList = rework.topReworkFiles
+      .map((f, i) => `${i + 1}. \`${f.file}\` — **${f.changes}** changes`)
+      .join('\n');
+    blocks.push(
+      heading2('Rework'),
+      bullet(`Rework rate: **${rework.reworkRate}%** (${rework.reworkFileCount} of ${rework.totalFiles} files touched this week were also changed in prior 3 weeks)`),
+      bullet(`New files: **${rework.newFileCount}** | Rework files: **${rework.reworkFileCount}**`),
+    );
+    if (rework.topReworkFiles.length > 0) {
+      blocks.push(
+        paragraph('Top rework hotspots:'),
+        paragraph(topList),
+      );
+    }
+  }
+
   return blocks;
 }
 
@@ -998,6 +1117,7 @@ async function main() {
   const cogLoad = getCognitiveLoadStats();
   const ai      = getAiStats();
   const quality = getCodeQualityStats();
+  const rework  = getReworkStats();
 
   console.log('GitHub stats:', gh);
   console.log('Linear stats:', linear);
@@ -1006,8 +1126,9 @@ async function main() {
   console.log('PixelLab:', pixellab);
   console.log('Deploy stats:', deployStats);
   console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
+  console.log('Rework:', rework ? `rate=${rework.reworkRate}%, files=${rework.reworkFileCount}/${rework.totalFiles}` : 'N/A');
 
-  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality);
+  const blocks = buildNotionBlocks(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework);
   const page   = await postToNotion(weekLabel, blocks);
   console.log(`Created Notion page: ${page.url}`);
 
@@ -1019,6 +1140,7 @@ async function main() {
   await postAutomationToNotion(gh);
   await postAiUsageToNotion(ai);
   await postBundleSizeToNotion(bundle);
+  await postReworkToNotion(rework);
 
   await triggerVercelDeploy();
   console.log('Done.');

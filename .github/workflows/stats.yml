@@ -33,6 +33,7 @@ jobs:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
           PIXELLAB_API_KEY: ${{ secrets.PIXELLAB_API_KEY }}
           NOTION_COGNITIVE_LOAD_DB_ID: ${{ secrets.NOTION_COGNITIVE_LOAD_DB_ID }}
+          NOTION_REWORK_DB_ID: ${{ secrets.NOTION_REWORK_DB_ID }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           VITE_SUPABASE_URL: https://placeholder.supabase.co

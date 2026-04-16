@@ -100,7 +100,23 @@ mutation { issueUpdate(id: "<issue-uuid>", input: { estimate: <number> }) { succ
    - *(leave unlabelled)* — purely creative or exploratory; not appropriate
      for agent triage at all.
 
-5. **If `needs-refinement`:** edit the issue description to add what's missing.
+5. **Detect rework.** An issue is **rework** when it fixes, reverts, or
+   polishes something that was recently shipped. Apply the `rework` label
+   **in addition to** the readiness label when any of these are true:
+
+   - The title or description contains signal words: "fix", "broken",
+     "regression", "revert", "polish", "tweak", "wrong", "doesn't work".
+   - The issue references files that were changed in the last 14 days.
+     Check with: `git log --since='14 days ago' --name-only --pretty=format: -- <file>`
+   - The issue explicitly mentions a recently merged PR or completed issue
+     that introduced the problem.
+   - The issue describes behaviour that *used to work* and now doesn't.
+
+   When you apply `rework`, also note in your comment which prior change
+   likely caused it (PR number, issue ID, or commit if you can find it).
+   This helps track rework sources over time.
+
+6. **If `needs-refinement`:** edit the issue description to add what's missing.
    Preserve the original text — add sections, don't rewrite. Typical additions:
    - An acceptance criteria checklist
    - File references (`src/scenes/GameScene.ts:120–180`)
@@ -109,9 +125,9 @@ mutation { issueUpdate(id: "<issue-uuid>", input: { estimate: <number> }) { succ
    After editing, **change the label to `ready`** — the edit should make it
    ready, not leave it in limbo.
 
-6. **Post a one-sentence comment on the Linear issue** summarising your
-   assessment: what label you applied, the T-shirt size, and why (or what
-   you changed in the description).
+7. **Post a one-sentence comment on the Linear issue** summarising your
+   assessment: what label you applied, the T-shirt size, whether it's
+   rework, and why (or what you changed in the description).
 
 ---
 
@@ -132,5 +148,6 @@ mutation { issueUpdate(id: "<issue-uuid>", input: { estimate: <number> }) { succ
 
 ## Wrap-up
 
-Apply the label, set the estimate, and post the comment via the Linear
-GraphQL API. Then exit.
+Apply the label(s), set the estimate, and post the comment via the Linear
+GraphQL API. If the issue is rework, apply both the readiness label and
+the `rework` label. Then exit.

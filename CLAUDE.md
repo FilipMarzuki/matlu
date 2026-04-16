@@ -181,6 +181,16 @@ Triage labels (pre-created on the Fills Pills team):
 - `needs-refinement` — close but missing specifics; description has been edited.
 - `blocked` — hard dependency on another issue or missing infrastructure.
 - `too-large` — needs to be split into 2+ smaller issues.
+- `rework` — issue fixes/reverts/polishes something recently shipped. Applied alongside a readiness label.
+
+The triage agent also sets the Linear `estimate` field using T-shirt sizes (XS=1, S=2, M=3, L=5, XL=8) based on codebase analysis.
+
+### Rework tracking
+
+Rework = fixing something that was recently shipped. Tracked in two ways:
+
+1. **Per-issue** — triage agent applies the `rework` label when it detects fix/regression/polish patterns in the title or recently-changed files.
+2. **Weekly metric** — `collect-stats.js` computes rework rate (% of files changed this week that were also changed in prior 3 weeks), top rework hotspots, and posts to a dedicated Notion database for trend charting.
 
 On-demand: trigger `Triage Agent (per-issue)` from the Actions tab, optionally pinning to one issue via `issue_id`.
 
