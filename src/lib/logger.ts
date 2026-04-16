@@ -52,3 +52,27 @@ export const log = {
   warn:  (msg: string, fields?: Fields) => send('warn',  msg, fields),
   error: (msg: string, fields?: Fields) => send('error', msg, fields),
 };
+
+// ── Global error capture ──────────────────────────────────────────────────────
+// Catches unhandled JS errors and promise rejections that would otherwise only
+// appear in the browser console — sends them to Better Stack automatically.
+// Runs only in the browser (Vite SSR guard), no-ops if logtail isn't configured.
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    send('error', 'unhandled_error', {
+      message:  event.message,
+      filename: event.filename,
+      line:     event.lineno,
+      col:      event.colno,
+      stack:    event.error?.stack ?? '',
+    });
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    send('error', 'unhandled_rejection', {
+      message: String(event.reason),
+      stack:   (event.reason as Error)?.stack ?? '',
+    });
+  });
+}
