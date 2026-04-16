@@ -393,16 +393,22 @@ interface BirdObject {
  */
 function terrainTileFrame(
   elev: number, temp: number, moist: number, detail: number,
+  tileX: number,
+  tileY: number,
   isRiver = false,
 ): { key: string; frame: number } {
-  const v6 = Math.floor(detail * 5.99); // 0–5: one of 6 frames per biome row
+  // Map detail into 3 visual bands (dark / mid / light) and then add a 1-bit
+  // spatial jitter so neighbouring tiles don't lock into visible stripes.
+  const detailBand = detail < 0.34 ? 0 : detail < 0.67 ? 1 : 2;
+  const jitter = (Math.imul(tileX + 17, 374_761_393) ^ Math.imul(tileY + 31, 668_265_263)) & 1;
+  const rowFrame = (row: number): number => row * 6 + detailBand * 2 + jitter;
 
   // ── Water ─────────────────────────────────────────────────────────────────────
   // River tiles use water-sheet row 1 (frames 30+) — lighter, shallower-looking.
   // Ocean/lake uses row 0 (frames 0-2) as before.
   if (elev < 0.25) {
     const waterBase = isRiver ? 30 : 0;
-    return { key: 'terrain-water', frame: waterBase + (detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0) };
+    return { key: 'terrain-water', frame: waterBase + detailBand };
   }
 
   // ── Shore (elev 0.25–0.30) ────────────────────────────────────────────────────
@@ -411,30 +417,30 @@ function terrainTileFrame(
   // warm sheltered bays — resolves the "Shore and Sandy identical" FIL-172 gap.
   if (elev < 0.30) {
     return (temp < 0.45 || moist > 0.50)
-      ? { key: 'mw-plains', frame:      v6 }  // rocky shore (row 0)
-      : { key: 'mw-plains', frame:  6 + v6 }; // sandy shore (row 1)
+      ? { key: 'mw-plains', frame: rowFrame(0) } // rocky shore (row 0)
+      : { key: 'mw-plains', frame: rowFrame(1) }; // sandy shore (row 1)
   }
 
   // ── Marsh / bog (elev 0.30–0.45, very wet) ───────────────────────────────────
   // Soggy lowlands near rivers shift to bog rather than forest. The threshold
   // is intentionally high (0.72) so marsh is rare but emerges naturally in
   // low-lying river valleys — especially after the river-bank moisture boost.
-  if (elev < 0.45 && moist > 0.72) return { key: 'mw-plains', frame: 18 + v6 }; // marsh (row 3)
+  if (elev < 0.45 && moist > 0.72) return { key: 'mw-plains', frame: rowFrame(3) }; // marsh (row 3)
 
   // ── Mid elevation (elev 0.30–0.62) ───────────────────────────────────────────
   // Dry mid now uses row 1 (sandy gravel) instead of row 0 (shore) —
   // fixing the "Shore and Dry mid are identical" FIL-172 bug.
   if (elev < 0.62) {
-    if (moist > 0.60) return { key: 'mw-plains', frame: 24 + v6 }; // mixed forest (row 4)
-    if (moist > 0.30) return { key: 'mw-plains', frame: 12 + v6 }; // coastal heath (row 2)
-    return                   { key: 'mw-plains', frame:  6 + v6 }; // dry heath (row 1)
+    if (moist > 0.60) return { key: 'mw-plains', frame: rowFrame(4) }; // mixed forest (row 4)
+    if (moist > 0.30) return { key: 'mw-plains', frame: rowFrame(2) }; // coastal heath (row 2)
+    return                   { key: 'mw-plains', frame: rowFrame(1) }; // dry heath (row 1)
   }
 
   // ── High elevation (elev 0.62–0.78) ──────────────────────────────────────────
   if (elev < 0.78) {
     return temp > 0.50
-      ? { key: 'mw-plains', frame: 36 + v6 }  // warm high — dense spruce (row 6)
-      : { key: 'mw-plains', frame: 48 + v6 }; // cold high — granite (row 8)
+      ? { key: 'mw-plains', frame: rowFrame(6) }  // warm high — dense spruce (row 6)
+      : { key: 'mw-plains', frame: rowFrame(8) }; // cold high — granite (row 8)
   }
 
   // ── Summit (elev ≥ 0.78) ──────────────────────────────────────────────────────
@@ -442,8 +448,8 @@ function terrainTileFrame(
   // Previously both summit cases used row 8 — same as cold-high granite —
   // fixing the "Granite and Summit are identical" FIL-172 bug.
   return temp < 0.40
-    ? { key: 'mw-plains', frame: 60 + v6 }  // snow field (row 10)
-    : { key: 'mw-plains', frame: 54 + v6 }; // bare rocky summit (row 9)
+    ? { key: 'mw-plains', frame: rowFrame(10) }  // snow field (row 10)
+    : { key: 'mw-plains', frame: rowFrame(9) }; // bare rocky summit (row 9)
 }
 
 // ── Dev overlay helpers ──────────────────────────────────────────────────────
@@ -460,18 +466,41 @@ const BIOME_LABELS = [
 
 /** Fill colour per biome index in the biome dev overlay (FIL-172: 11 entries). */
 const BIOME_OVERLAY_COLORS: readonly number[] = [
-  0x1a4f7a, // 0  Sea           — deep blue
-  0x8b6914, // 1  Rocky shore   — warm sandy brown
-  0xe8c870, // 2  Sandy shore   — lighter yellow-sand
-  0x4a7a3a, // 3  Marsh / bog   — muddy dark green
-  0xb8904a, // 4  Dry heath     — sandy/rocky
-  0x7a9a3a, // 5  Coastal heath — olive green
-  0x2a7a2a, // 6  Forest        — fresh green
-  0x1a5a1a, // 7  Spruce        — dark spruce green
-  0x7a7a7a, // 8  Cold granite  — cool grey
-  0x9a9898, // 9  Bare summit   — slightly lighter grey (distinct from granite)
-  0xd8e8f8, // 10 Snow field    — ice blue
+  0x2f77d6, // 0  Sea           — vivid coastal blue
+  0xb58b5b, // 1  Rocky shore   — warm stone
+  0xe8c87f, // 2  Sandy shore   — golden sand
+  0x5f8e5d, // 3  Marsh / bog   — wet green
+  0xc79a57, // 4  Dry heath     — amber ochre
+  0x8eaf52, // 5  Coastal heath — olive-green scrub
+  0x4e9c5b, // 6  Forest        — saturated meadow green
+  0x347347, // 7  Spruce        — deep canopy green
+  0x8f949d, // 8  Cold granite  — cool rock grey
+  0xb6a99a, // 9  Bare summit   — warm-highlighted stone
+  0xe8f1ff, // 10 Snow field    — crisp snow blue
 ];
+
+function mixChannel(a: number, b: number, t: number): number {
+  return Math.round(a + (b - a) * t);
+}
+
+function applyCorruptionTint(baseTint: number, corruption: number): number {
+  const t = Phaser.Math.Clamp((corruption - 0.35) / 0.55, 0, 1);
+  if (t <= 0) return baseTint;
+
+  const r = (baseTint >> 16) & 0xff;
+  const g = (baseTint >> 8) & 0xff;
+  const b = baseTint & 0xff;
+  const luma = (r + g + b) / 3;
+
+  // Sickly green target with lower blue channel to read as "wrong", not healthy.
+  const sickR = Math.min(255, luma * 0.55 + 58);
+  const sickG = Math.min(255, luma * 0.78 + 96);
+  const sickB = Math.min(255, luma * 0.42 + 44);
+
+  return (mixChannel(r, sickR, t) << 16)
+    | (mixChannel(g, sickG, t) << 8)
+    | mixChannel(b, sickB, t);
+}
 
 /**
  * Resolve which biome index a tile belongs to from its noise values.
@@ -4389,22 +4418,22 @@ export class GameScene extends Phaser.Scene {
    * green, snow gets ice-blue, etc.
    */
   private biomeTint(elev: number, temp: number, moist: number): number {
-    if (elev < 0.25) return 0x7ab0d8;  // sea — blue
+    if (elev < 0.25) return 0x61adff;  // sea — vivid blue
     if (elev < 0.30) {
       return (temp < 0.45 || moist > 0.50)
-        ? 0xd4a86a   // rocky shore — warm sandy
-        : 0xe8c870;  // sandy shore — lighter yellow-sand
+        ? 0xc59a68   // rocky shore — warm stone
+        : 0xe9c77e;  // sandy shore — brighter sand
     }
-    if (elev < 0.45 && moist > 0.72) return 0x608858; // marsh — muddy dark green
+    if (elev < 0.45 && moist > 0.72) return 0x659761; // marsh — bog green
     if (elev < 0.62) {
-      if (moist > 0.60) return 0x80c068; // forest  — fresh green
-      if (moist > 0.30) return 0xb8d480; // heath   — light olive
-      return                  0xc8a860;  // dry heath — sandy (slightly distinct from shore)
+      if (moist > 0.60) return 0x78c96c; // forest  — saturated spring green
+      if (moist > 0.30) return 0xa9c763; // heath   — olive meadow
+      return                  0xcf9f5a;  // dry heath — warm amber
     }
     if (elev < 0.78) {
-      return temp > 0.50 ? 0x50904a : 0xb8b4ac; // spruce / cold granite
+      return temp > 0.50 ? 0x4d9650 : 0xb0b4be; // spruce / cold granite
     }
-    return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
+    return temp < 0.40 ? 0xe6f2ff : 0xc2b7aa; // snow / bare rocky summit
   }
 
   /**
@@ -4415,6 +4444,7 @@ export class GameScene extends Phaser.Scene {
    * boundaries — the noise gradient produces smooth organic edges.
    */
   private drawBiomeColorWash(noise: FbmNoise, tilesX: number, tilesY: number): void {
+    const detailNoise = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
 
     // First pass: collect every non-water tile position, grouped by biome tint.
     // Using a flat array per tint avoids repeated map lookups during the draw pass.
@@ -4425,12 +4455,13 @@ export class GameScene extends Phaser.Scene {
         // Domain-warped base noise (FIL-153) so colour wash regions match tile biomes exactly.
         // FIL-154: sample temp + moist so tint matches the biome tile exactly.
         const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const detail = detailNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
         const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
         const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
-        const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
+        const val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
 
         // Skip water and river tiles — they have identity from animated sprites.
         // FIL-168: use precomputed isRiverTile grid (diagonal paths) instead of
@@ -4457,7 +4488,13 @@ export class GameScene extends Phaser.Scene {
           }
         }
 
-        const tint = this.biomeTint(val, temp, effectiveMoist);
+        const terrainTint = this.biomeTint(val, temp, effectiveMoist);
+        const corruption = this.corruptionField.sample(
+          tx * TILE_SIZE + TILE_SIZE / 2,
+          ty * TILE_SIZE + TILE_SIZE / 2,
+          1,
+        );
+        const tint = applyCorruptionTint(terrainTint, corruption);
         let arr = groups.get(tint);
         if (!arr) { arr = []; groups.set(tint, arr); }
         arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
@@ -4468,7 +4505,7 @@ export class GameScene extends Phaser.Scene {
     // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
     const gfx = this.add.graphics().setDepth(0.1);
     for (const [tint, coords] of groups) {
-      gfx.fillStyle(tint, 0.45);
+      gfx.fillStyle(tint, 0.58);
       for (let i = 0; i < coords.length; i += 2) {
         gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
       }
@@ -4725,7 +4762,15 @@ export class GameScene extends Phaser.Scene {
         // stays visible while each region gets a distinct dominant hue — the same
         // technique CrossCode uses to give each zone a clear visual identity.
         // FIL-172: pass isRiverHere so river tiles use water-sheet row 1 (lighter).
-        const { key, frame } = terrainTileFrame(val, temp, effectiveMoist, detail, isRiverHere);
+        const { key, frame } = terrainTileFrame(
+          val,
+          temp,
+          effectiveMoist,
+          detail,
+          tx,
+          ty,
+          isRiverHere,
+        );
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
         terrainRt.draw(tileImg);
 
@@ -4764,18 +4809,34 @@ export class GameScene extends Phaser.Scene {
     //
     // We check only east + south (not west + north) to avoid drawing any transition
     // tile twice. Reusing tileImg + batchDraw means zero extra GPU draw calls.
-    const TRANSITION_THRESHOLD = 0.12; // min biome difference to trigger blending
+    const TRANSITION_THRESHOLD = 0.06; // lower threshold so biome edges read clearly at world zoom
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
         const here = biomeGrid[ty * tilesX + tx];
+        const hereIdx = biomeIdxGrid[ty * tilesX + tx];
 
         // East and south neighbours — stay in bounds
-        const neighbours: Array<{ nx: number; ny: number; nVal: number }> = [];
-        if (tx + 1 < tilesX) neighbours.push({ nx: tx + 1, ny: ty,     nVal: biomeGrid[ty * tilesX + (tx + 1)] });
-        if (ty + 1 < tilesY) neighbours.push({ nx: tx,     ny: ty + 1, nVal: biomeGrid[(ty + 1) * tilesX + tx] });
+        const neighbours: Array<{ nx: number; ny: number; nVal: number; nIdx: number }> = [];
+        if (tx + 1 < tilesX) {
+          neighbours.push({
+            nx: tx + 1,
+            ny: ty,
+            nVal: biomeGrid[ty * tilesX + (tx + 1)],
+            nIdx: biomeIdxGrid[ty * tilesX + (tx + 1)],
+          });
+        }
+        if (ty + 1 < tilesY) {
+          neighbours.push({
+            nx: tx,
+            ny: ty + 1,
+            nVal: biomeGrid[(ty + 1) * tilesX + tx],
+            nIdx: biomeIdxGrid[(ty + 1) * tilesX + tx],
+          });
+        }
 
-        for (const { nx, ny, nVal } of neighbours) {
-          if (Math.abs(here - nVal) < TRANSITION_THRESHOLD) continue;
+        for (const { nx, ny, nVal, nIdx } of neighbours) {
+          const biomeChanged = nIdx !== hereIdx;
+          if (!biomeChanged && Math.abs(here - nVal) < TRANSITION_THRESHOLD) continue;
 
           // Position-seeded hash: same (tx,ty) always picks the same frame.
           // Two large primes give good bit-mixing across the grid.
@@ -4788,8 +4849,19 @@ export class GameScene extends Phaser.Scene {
           // Resample temp + moist at the neighbour tile for correct biome lookup
           const blendTemp  = this.tempNoise.fbm(nx * TEMP_SCALE,  ny * TEMP_SCALE,  3, 0.5);
           const blendMoist = this.moistNoise.fbm(nx * MOIST_SCALE, ny * MOIST_SCALE, 3, 0.5);
+          const sampleTx = hashBit === 0 ? tx : nx;
+          const sampleTy = hashBit === 0 ? ty : ny;
+          const blendRiver = this.isRiverTile?.[sampleTy * tilesX + sampleTx] === 1;
 
-          const { key, frame } = terrainTileFrame(blendElev, blendTemp, blendMoist, blendDetail);
+          const { key, frame } = terrainTileFrame(
+            blendElev,
+            blendTemp,
+            blendMoist,
+            blendDetail,
+            sampleTx,
+            sampleTy,
+            blendRiver,
+          );
           // Position the tile at the midpoint between the two neighbours
           tileImg.setTexture(key, frame).setPosition(
             ((tx + nx) / 2) * TILE_SIZE + 16,
