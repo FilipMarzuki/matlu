@@ -14,7 +14,8 @@
     "sprites:assemble": "node scripts/assemble-sprites.mjs",
     "sprites:status": "node scripts/assemble-sprites.mjs --status",
     "arena:testplay": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts",
-    "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed"
+    "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed",
+    "arena-bot": "tsx scripts/arena-bot/run.ts"
   },
   "dependencies": {
     "@logtail/browser": "^0.5.8",
@@ -26,6 +27,7 @@
     "@playwright/test": "^1.59.1",
     "@types/sharp": "^0.32.0",
     "sharp": "^0.34.5",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "unzipper": "^0.12.3",
     "vite": "^8.0.8"
