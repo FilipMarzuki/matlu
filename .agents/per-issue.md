@@ -95,10 +95,27 @@ Apply the label via Linear GraphQL (`issueUpdate` with the current
 runner already did this for you in past sessions, so the pattern is in
 `.github/scripts/run-agent.js` if you need a reference).
 
-### 4. Post a one-paragraph comment on the Linear issue
+### 4. Post a comment on the Linear issue
 
-Summarise what was done and include the PR URL from step 2. Use
-`commentCreate` via the Linear GraphQL API.
+Write a comment summarising what was done and include the PR URL from step 2.
+
+**If you applied `agent:wrong-interpretation`**, structure the comment to
+include these three lines so the weekly performance log can record it:
+
+```
+Wrong interpretation: [1–2 sentences on what the issue asked for]
+What was attempted: [1–2 sentences on what was actually built/tried]
+Root cause: [why the reading was wrong — ambiguous wording, missing context, assumed scope, etc.]
+```
+
+**If you touched files or systems outside the direct scope of {{issue_id}}**
+and it was genuinely necessary, include a scope note in the comment:
+
+```
+Scope note: also modified [file/system] — [reason it was necessary]
+```
+
+Use `commentCreate` via the Linear GraphQL API.
 
 ### 5. Exit
 
