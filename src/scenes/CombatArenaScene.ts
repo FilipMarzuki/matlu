@@ -507,6 +507,24 @@ export class CombatArenaScene extends Phaser.Scene {
     gfx.lineBetween(ax,                ay + ah - CHAMFER, ax + CHAMFER,      ay + ah);
     gfx.lineBetween(ax + aw,           ay + ah - CHAMFER, ax + aw - CHAMFER, ay + ah);
 
+    // ── Chamfered corner physics bodies ──────────────────────────────────────
+    // World bounds (below) cover the four straight wall strips as a rectangle,
+    // but the four diagonal corner triangles sit *inside* that rectangle.
+    // Without extra colliders, entities can be pushed into the visual corners.
+    // Each Zone body is a CHAMFER×CHAMFER rectangle — a conservative bounding
+    // box over the corner triangle. Minor overshoot into open floor is
+    // imperceptible. The same StaticGroup (this.obstacles) is used for pillar
+    // bodies, so existing per-entity colliders cover these automatically.
+    const addCornerZone = (cx: number, cy: number): void => {
+      const zone = this.add.zone(cx, cy, CHAMFER, CHAMFER);
+      this.physics.add.existing(zone, true);
+      this.obstacles.add(zone);
+    };
+    addCornerZone(ax + CHAMFER / 2,      ay + CHAMFER / 2);      // top-left
+    addCornerZone(ax + aw - CHAMFER / 2, ay + CHAMFER / 2);      // top-right
+    addCornerZone(ax + CHAMFER / 2,      ay + ah - CHAMFER / 2); // bottom-left
+    addCornerZone(ax + aw - CHAMFER / 2, ay + ah - CHAMFER / 2); // bottom-right
+
     // ── Physics world bounds ──────────────────────────────────────────────────
     this.physics.world.setBounds(
       this.arenaX + WALL_T, this.arenaY + WALL_T,
