@@ -623,10 +623,59 @@ function getReworkStats() {
 }
 
 /**
+ * Auto-provision the Rework database under the stats parent page if
+ * NOTION_REWORK_DB_ID is not set. Returns the database ID (existing or new).
+ */
+let _reworkDbId = NOTION_REWORK_DB_ID;
+async function ensureReworkDb() {
+  if (_reworkDbId) return _reworkDbId;
+  if (!NOTION_API_KEY || !NOTION_STATS_PAGE_ID) return null;
+
+  console.log('NOTION_REWORK_DB_ID not set — creating Rework database...');
+  const res = await fetch('https://api.notion.com/v1/databases', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    body: JSON.stringify({
+      parent: { page_id: NOTION_STATS_PAGE_ID },
+      title: [{ type: 'text', text: { content: 'Rework Rate' } }],
+      properties: {
+        'Date':              { date: {} },
+        'Rework Rate (%)':   { number: { format: 'percent' } },
+        'Rework Files':      { number: {} },
+        'New Files':         { number: {} },
+        'Total Files':       { number: {} },
+        'Top Rework File':   { rich_text: {} },
+        'Top Rework Hits':   { number: {} },
+        'Name':              { title: {} },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`Failed to create Rework database: ${res.status} ${body}`);
+    return null;
+  }
+
+  const db = await res.json();
+  _reworkDbId = db.id;
+  console.log(`Created Rework database: ${db.id}`);
+  console.log(`  → Add NOTION_REWORK_DB_ID=${db.id} to GitHub secrets to skip auto-creation next time.`);
+  return _reworkDbId;
+}
+
+/**
  * Insert a row into the Rework Notion database for historical charting.
+ * Auto-creates the database on first run if NOTION_REWORK_DB_ID is not set.
  */
 async function postReworkToNotion(rework) {
-  if (!NOTION_REWORK_DB_ID || !NOTION_API_KEY || !rework) return;
+  if (!NOTION_API_KEY || !rework) return;
+  const dbId = await ensureReworkDb();
+  if (!dbId) return;
 
   const top = rework.topReworkFiles[0] || { file: 'N/A', changes: 0 };
   const properties = {
@@ -647,7 +696,7 @@ async function postReworkToNotion(rework) {
       'Notion-Version': '2022-06-28',
     },
     body: JSON.stringify({
-      parent: { database_id: NOTION_REWORK_DB_ID },
+      parent: { database_id: dbId },
       properties,
     }),
   });
