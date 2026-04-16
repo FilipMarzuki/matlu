@@ -424,7 +424,8 @@ function getCodeQualityStats() {
 
 // ── Cognitive load ───────────────────────────────────────────────────────────
 
-const NOTION_COGNITIVE_LOAD_DB_ID = process.env.NOTION_COGNITIVE_LOAD_DB_ID || null;
+const NOTION_COGNITIVE_LOAD_DB_ID =
+  process.env.NOTION_COGNITIVE_LOAD_DB_ID || '4d1843c0718f8399ab2f019e109e7523';
 
 /**
  * Compute per-file cognitive load = (lines × branchCount) / 1000.
