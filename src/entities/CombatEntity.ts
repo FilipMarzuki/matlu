@@ -176,6 +176,12 @@ export abstract class CombatEntity extends Enemy {
   /** Shared arena state — set by the scene, read by individual enemy BTs. */
   protected blackboard: ArenaBlackboard | null = null;
 
+  /**
+   * Obstacle AABBs used for line-of-sight checks. Populated by the arena
+   * scene via setWallRects() when physics are added to this entity.
+   */
+  private wallRects: readonly Phaser.Geom.Rectangle[] = [];
+
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     // Bake a small random speed offset so swarm members move at slightly
     // different speeds — creates the uneven texture of a real insect swarm.
@@ -282,6 +288,35 @@ export abstract class CombatEntity extends Enemy {
     this.blackboard = bb;
   }
 
+  /**
+   * Register the obstacle rectangles for line-of-sight testing.
+   * Called by CombatArenaScene after adding physics to this entity.
+   */
+  setWallRects(rects: readonly Phaser.Geom.Rectangle[]): void {
+    this.wallRects = rects;
+  }
+
+  /**
+   * Returns true when a straight line from `from` to `to` is not blocked by
+   * any registered obstacle rectangle.
+   *
+   * Uses Phaser's built-in segment-vs-AABB test so no navmesh is needed —
+   * only the two stone pillars in the arena are registered as blockers.
+   *
+   * When no wall rects are registered (e.g. during unit tests or before the
+   * scene calls setWallRects) the check always passes.
+   */
+  hasLineOfSight(from: Phaser.Math.Vector2, to: Phaser.Math.Vector2): boolean {
+    if (this.wallRects.length === 0) return true;
+    const line = new Phaser.Geom.Line(from.x, from.y, to.x, to.y);
+    for (const rect of this.wallRects) {
+      if (Phaser.Geom.Intersects.LineToRectangle(line, rect)) {
+        return false; // blocked
+      }
+    }
+    return true;
+  }
+
   // ── Abstract ───────────────────────────────────────────────────────────────
 
   /** Return this entity's behavior tree. Called once at end of constructor. */
@@ -375,6 +410,12 @@ export abstract class CombatEntity extends Enemy {
       // ── New: ranged attack ─────────────────────────────────────────────────
       shootAt: (tx, ty) => {
         if (!this.projectileDamage) return;
+        // Line-of-sight check — skip the shot if a pillar is in the way.
+        // Prevents enemies from firing through solid obstacles.
+        if (!this.hasLineOfSight(
+          new Phaser.Math.Vector2(this.x, this.y),
+          new Phaser.Math.Vector2(tx, ty),
+        )) return;
         const angle = Math.atan2(ty - this.y, tx - this.x);
         const p = new Projectile(
           this.scene, this.x, this.y, angle,
@@ -393,6 +434,13 @@ export abstract class CombatEntity extends Enemy {
       // ── New: directional dash ──────────────────────────────────────────────
       dash: (tx, ty) => {
         if (this.isDashing || !physBody) return;
+        // Line-of-sight check — don't charge directly through a pillar.
+        // The entity will hold its current position this frame and retry
+        // next frame once it has orbited to a clear angle.
+        if (!this.hasLineOfSight(
+          new Phaser.Math.Vector2(this.x, this.y),
+          new Phaser.Math.Vector2(tx, ty),
+        )) return;
         const dx  = tx - this.x;
         const dy  = ty - this.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
