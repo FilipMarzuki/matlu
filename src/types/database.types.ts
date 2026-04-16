@@ -1,8 +1,11 @@
 /**
  * Supabase Postgres types for this project.
  *
- * Schema for `matlu_runs` was created with the Supabase MCP tool `apply_migration`
- * (`create_matlu_runs`). Regenerate the full project types in Cursor via MCP
+ * Schemas were created with the Supabase MCP tool `apply_migration`:
+ *   - `create_matlu_runs` — leaderboard table
+ *   - `create_matlu_feedback` — in-game feedback table
+ *
+ * Regenerate the full project types in Cursor via MCP
  * `generate_typescript_types` after any DDL change, then replace this file.
  */
 export type Json =
@@ -19,6 +22,33 @@ export type Database = {
   };
   public: {
     Tables: {
+      matlu_feedback: {
+        Row: {
+          created_at: string;
+          feedback_text: string;
+          game_version: string;
+          id: string;
+          session_id: string | null;
+          user_agent: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          feedback_text: string;
+          game_version: string;
+          id?: string;
+          session_id?: string | null;
+          user_agent?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          feedback_text?: string;
+          game_version?: string;
+          id?: string;
+          session_id?: string | null;
+          user_agent?: string | null;
+        };
+        Relationships: [];
+      };
       matlu_runs: {
         Row: {
           created_at: string;
@@ -59,5 +89,7 @@ export type Database = {
   };
 };
 
+export type MatluFeedback = Database['public']['Tables']['matlu_feedback']['Row'];
+export type MatluFeedbackInsert = Database['public']['Tables']['matlu_feedback']['Insert'];
 export type MatluRun = Database['public']['Tables']['matlu_runs']['Row'];
 export type MatluRunInsert = Database['public']['Tables']['matlu_runs']['Insert'];
