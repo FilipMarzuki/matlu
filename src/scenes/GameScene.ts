@@ -1434,7 +1434,20 @@ export class GameScene extends Phaser.Scene {
     const cleanse01           = this.worldState.getCleansePercent('zone-main');
     const globalCorruption01  = Math.max(0, 100 - cleanse01) / 100;
     if (this.corruptFilter) {
-      this.corruptFilter.setCorruption(globalCorruption01);
+      // Drive the fullscreen post-FX from local corruption around the player,
+      // not only the global cleanse scalar. This preserves threatening pockets
+      // while avoiding a flat grey/purple wash over the entire map.
+      const localCorruption01 = this.corruptionField.sample(
+        this.player.x,
+        this.player.y,
+        globalCorruption01,
+      );
+      const filterCorruption01 = Phaser.Math.Clamp(
+        Math.pow(localCorruption01, 0.85) * 1.15,
+        0,
+        1,
+      );
+      this.corruptFilter.setCorruption(filterCorruption01);
     }
 
     // Degrade path conditions every 5 s when corruption is above 0.
@@ -4389,22 +4402,22 @@ export class GameScene extends Phaser.Scene {
    * green, snow gets ice-blue, etc.
    */
   private biomeTint(elev: number, temp: number, moist: number): number {
-    if (elev < 0.25) return 0x7ab0d8;  // sea — blue
+    if (elev < 0.25) return 0x5f8fc4;  // sea — cool blue
     if (elev < 0.30) {
       return (temp < 0.45 || moist > 0.50)
-        ? 0xd4a86a   // rocky shore — warm sandy
-        : 0xe8c870;  // sandy shore — lighter yellow-sand
+        ? 0xc39a63   // rocky shore — warm stone
+        : 0xe5c87f;  // sandy shore — brighter sunlit sand
     }
-    if (elev < 0.45 && moist > 0.72) return 0x608858; // marsh — muddy dark green
+    if (elev < 0.45 && moist > 0.72) return 0x4f6c3f; // marsh — wetter olive
     if (elev < 0.62) {
-      if (moist > 0.60) return 0x80c068; // forest  — fresh green
-      if (moist > 0.30) return 0xb8d480; // heath   — light olive
-      return                  0xc8a860;  // dry heath — sandy (slightly distinct from shore)
+      if (moist > 0.60) return 0x6ea55a; // forest  — saturated spring green
+      if (moist > 0.30) return 0x9db86a; // heath   — yellow-olive
+      return                  0xb88958;  // dry heath — warm ochre
     }
     if (elev < 0.78) {
-      return temp > 0.50 ? 0x50904a : 0xb8b4ac; // spruce / cold granite
+      return temp > 0.50 ? 0x3f7138 : 0x8f8699; // spruce / cold granite
     }
-    return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
+    return temp < 0.40 ? 0xc6d8ee : 0x7a6d83; // snow / bare rocky summit
   }
 
   /**
@@ -4468,7 +4481,7 @@ export class GameScene extends Phaser.Scene {
     // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
     const gfx = this.add.graphics().setDepth(0.1);
     for (const [tint, coords] of groups) {
-      gfx.fillStyle(tint, 0.45);
+      gfx.fillStyle(tint, 0.56);
       for (let i = 0; i < coords.length; i += 2) {
         gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
       }
