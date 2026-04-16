@@ -126,3 +126,87 @@ test('pressing W key moves the player upward', async ({ page }) => {
   // Player should have moved upward (Y decreases in Phaser's coordinate system)
   expect(afterY as number).toBeLessThan(initialY as number);
 });
+
+// ─── Combat arena: hero walk animation loops ──────────────────────────────────
+//
+// WHY this test exists:
+//   Phaser's createFromAseprite() defaults repeat=0 (play once and stop).
+//   Without explicitly setting repeat=-1 on walk/idle animations, the sprite
+//   freezes on the last frame after one cycle because updateSpriteAnimation()
+//   only calls play() when the key CHANGES — so a finished same-key animation
+//   is never restarted.
+//
+// WHAT it checks:
+//   After player-controlling the hero southward for 50 frames (~833ms, which
+//   exceeds the 720ms walk_south cycle), the animation should still be playing.
+//   If repeat was 0 the animation would have stopped and isPlaying would be false.
+
+const ARENA_BOOT_MS = 12_000;
+
+test('hero walk animation loops after completing one cycle', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game'],
+    { timeout: GAME_BOOT_MS },
+  );
+
+  // Start the combat arena scene in isolation.
+  await page.evaluate(() => {
+    const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
+    game?.scene?.stop('CombatArenaScene');
+    game?.scene?.stop('WilderviewScene');
+    game?.scene?.stop('MainMenuScene');
+    game?.scene?.start('CombatArenaScene', {});
+  });
+
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
+    },
+    { timeout: ARENA_BOOT_MS },
+  );
+
+  // Short settle so create() finishes before we drive input.
+  await page.waitForTimeout(500);
+
+  const result = await page.evaluate(() => {
+    type ArenaParts = Phaser.Scene & {
+      hero: Record<string, unknown>;
+      toggleHeroPlayerMode(): void;
+      // Private in TS, accessible at runtime:
+      moveKeys: Record<string, { isDown: boolean }>;
+      sys: { step: (t: number, d: number) => void };
+    };
+
+    const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
+    const scene = game.scene.getScene('CombatArenaScene') as ArenaParts;
+
+    // Enable player control so we drive movement deterministically.
+    scene.toggleHeroPlayerMode();
+    // Walk south — 'down' key maps to the S key binding in the scene.
+    scene.moveKeys['down'].isDown = true;
+
+    const delta = 16.67; // ~60 fps
+    const now   = performance.now();
+
+    // 50 ticks ≈ 833 ms — comfortably past one 720 ms walk_south cycle.
+    for (let i = 0; i < 50; i++) {
+      scene.sys.step(now + i * delta, delta);
+    }
+
+    type AnimState = { currentAnim?: { key: string } | null; isPlaying: boolean };
+    type HeroSprite = { spriteObj?: { anims?: AnimState } };
+
+    const hero = scene.hero as HeroSprite;
+    return {
+      animKey:   hero.spriteObj?.anims?.currentAnim?.key ?? null,
+      isPlaying: hero.spriteObj?.anims?.isPlaying         ?? false,
+    };
+  });
+
+  // Hero should be playing a directional tinkerer walk animation.
+  expect(result.animKey).toMatch(/^tinkerer_walk_/);
+  // Animation must still be playing (looping) after the first cycle completes.
+  expect(result.isPlaying).toBe(true);
+});
