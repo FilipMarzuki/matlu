@@ -39,7 +39,7 @@ export function renderDiagram(id, mmdContent) {
     // Pin to @mermaid-js/mermaid-cli@10 — the last major release that supports
     // Node 20 and the --width flag. v11+ dropped --width and requires Node ≥22.
     execSync(
-      `npx --yes @mermaid-js/mermaid-cli@10 mmdc -i "${mmdPath}" -o "${pngPath}" -b white --width 1400 --puppeteerConfigFile "${puppeteerCfg}"`,
+      `npx --yes @mermaid-js/mermaid-cli@10 -i "${mmdPath}" -o "${pngPath}" -b white --width 1400 --puppeteerConfigFile "${puppeteerCfg}"`,
       { stdio: 'inherit', timeout: 120_000 }
     );
     return pngPath;
