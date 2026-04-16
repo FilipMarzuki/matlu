@@ -336,39 +336,10 @@ export class CombatArenaScene extends Phaser.Scene {
       [cx + 98,  cy + 38],
     ];
 
-    // ── Tiled colosseum floor ─────────────────────────────────────────────────
-    // Wang tileset: frame 12 = pale travertine, frame 6 = dark worn stone.
-    // Tiles inside the four chamfered corner zones are skipped — the wall fill
-    // covers that area. Tiles near pillar bases have a higher worn probability,
-    // suggesting battle damage around the obstacles.
-    const TILE        = 16;
-    const FRAME_CLEAN = 12;
-    const FRAME_WORN  = 6;
-
-    const cols = Math.ceil(this.arenaW / TILE);
-    const rows = Math.ceil(this.arenaH / TILE);
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const wx = this.arenaX + col * TILE + TILE / 2;
-        const wy = this.arenaY + row * TILE + TILE / 2;
-        // Skip tiles that fall inside the chamfered corner zones
-        const nearL = wx < this.arenaX + CHAMFER;
-        const nearR = wx > this.arenaX + this.arenaW - CHAMFER;
-        const nearT = wy < this.arenaY + CHAMFER;
-        const nearB = wy > this.arenaY + this.arenaH - CHAMFER;
-        if ((nearL && nearT) || (nearR && nearT) || (nearL && nearB) || (nearR && nearB)) continue;
-
-        const hash = (col * 31 + row * 17 + col * row * 7) % 100;
-        let wornThreshold = 12; // base 12% worn
-        for (const [px, py] of pillarDefs) {
-          const d = Math.hypot(wx - px, wy - py);
-          if      (d < 36) wornThreshold += 45;
-          else if (d < 64) wornThreshold += 20;
-        }
-        const frame = hash < wornThreshold ? FRAME_WORN : FRAME_CLEAN;
-        this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
-      }
-    }
+    // ── Procedural dungeon rooms ──────────────────────────────────────────────
+    // buildRooms() places 4–8 randomly-sized rooms and connects them with
+    // L-shaped colosseum_floor corridors, replacing the old full-arena tile fill.
+    this.buildRooms();
 
     // ── Stone pillar obstacles ────────────────────────────────────────────────
     // Broken columns in 3/4 top-down perspective: a lighter top face (visible
@@ -543,6 +514,99 @@ export class CombatArenaScene extends Phaser.Scene {
       }
     }
     crackGfx.setDepth(-0.5);
+  }
+
+  // ── Procedural rooms ─────────────────────────────────────────────────────────
+
+  /**
+   * Procedurally place 4–8 rooms of varying sizes across the arena and connect
+   * them with L-shaped tile corridors.  Rooms are visual-only — no physics
+   * bodies are added — so enemy movement and spawning are unaffected.
+   *
+   * Algorithm: generate up to 20 candidate rects; keep the first 4–8 that
+   * don't overlap (with a small padding gap).  Then connect consecutive rooms
+   * with a horizontal-then-vertical L-shaped tile strip.
+   */
+  private buildRooms(): void {
+    const TILE        = 16;  // colosseum_floor tile size in px
+    const FRAME_CLEAN = 12;  // pale travertine frame index
+    const FRAME_WORN  = 6;   // dark worn-stone frame index
+    const WALL_T      = 22;  // border wall thickness (mirrors buildArena)
+    const CORRIDOR_W  = 32;  // corridor width in px (two tiles wide)
+
+    // Keep rooms inside the visible floor area, away from the wall borders.
+    const inset   = WALL_T + 4;
+    const boundsX = this.arenaX + inset;
+    const boundsY = this.arenaY + inset;
+    const boundsR = this.arenaX + this.arenaW - inset;
+    const boundsB = this.arenaY + this.arenaH - inset;
+
+    type Room = { x: number; y: number; w: number; h: number };
+    const rooms: Room[] = [];
+
+    // Overlap padding between rooms — a small gap makes them read as separate.
+    const PAD = 4;
+    for (let attempt = 0; attempt < 20 && rooms.length < 8; attempt++) {
+      const w = Phaser.Math.Between(80, 160);
+      const h = Phaser.Math.Between(60, 120);
+      const x = Phaser.Math.Between(boundsX, Math.max(boundsX, boundsR - w));
+      const y = Phaser.Math.Between(boundsY, Math.max(boundsY, boundsB - h));
+      const overlaps = rooms.some(r =>
+        x < r.x + r.w + PAD && x + w > r.x - PAD &&
+        y < r.y + r.h + PAD && y + h > r.y - PAD,
+      );
+      if (!overlaps) rooms.push({ x, y, w, h });
+    }
+
+    // Fill a rectangle of world-space tiles using the colosseum_floor spritesheet.
+    // Tiles are placed by their centre (Phaser default), so we offset by TILE/2.
+    const tileRect = (rx: number, ry: number, rw: number, rh: number): void => {
+      const numCols = Math.ceil(rw / TILE);
+      const numRows = Math.ceil(rh / TILE);
+      for (let row = 0; row < numRows; row++) {
+        for (let col = 0; col < numCols; col++) {
+          const wx    = rx + col * TILE + TILE / 2;
+          const wy    = ry + row * TILE + TILE / 2;
+          // Deterministic hash → ~12 % of tiles use the worn (darker) frame.
+          const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
+          const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
+          this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
+        }
+      }
+    };
+
+    // Tile every room's floor footprint.
+    for (const room of rooms) {
+      tileRect(room.x, room.y, room.w, room.h);
+    }
+
+    // Connect consecutive rooms with an L-shaped corridor:
+    //   horizontal strip at room-A's centre-Y, then vertical strip down to room-B.
+    // This guarantees a traversable path between every adjacent room pair.
+    const half = CORRIDOR_W / 2;
+    for (let i = 0; i < rooms.length - 1; i++) {
+      const a  = rooms[i];
+      const b  = rooms[i + 1];
+      const ax = a.x + a.w / 2;
+      const ay = a.y + a.h / 2;
+      const bx = b.x + b.w / 2;
+      const by = b.y + b.h / 2;
+
+      // Horizontal segment: from ax to bx at height ay.
+      tileRect(
+        Math.min(ax, bx),
+        ay - half,
+        Math.abs(bx - ax),
+        CORRIDOR_W,
+      );
+      // Vertical segment: from ay to by at x = bx.
+      tileRect(
+        bx - half,
+        Math.min(ay, by),
+        CORRIDOR_W,
+        Math.abs(by - ay),
+      );
+    }
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
