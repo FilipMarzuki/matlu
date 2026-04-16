@@ -21,9 +21,12 @@ type Fields = Record<string, unknown>;
 
 // Initialise once at module load. The token is the "Source token" shown in
 // Better Stack → Logs → your source (not the ingest URL).
-const token = import.meta.env.VITE_BETTERSTACK_DSN as string | undefined;
+const token    = import.meta.env.VITE_BETTERSTACK_DSN      as string | undefined;
+const endpoint = import.meta.env.VITE_BETTERSTACK_ENDPOINT as string | undefined;
 
-const logtail: Logtail | null = token ? new Logtail(token) : null;
+const logtail: Logtail | null = token
+  ? new Logtail(token, endpoint ? { endpoint } : undefined)
+  : null;
 
 if (!logtail) {
   // Warn once so it's obvious in local dev that remote logging is off.
