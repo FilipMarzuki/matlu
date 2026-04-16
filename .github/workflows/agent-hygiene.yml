@@ -1,46 +1,87 @@
-name: Linear Hygiene Agent
+name: Linear Hygiene Agent (per-issue)
 
-# Sweeps Linear after every triage run and fixes up the backlog:
+# Per-issue hygiene runner. Fires after every Triage Agent run and cleans
+# up three drift patterns in the Linear backlog:
 #
-#   Pass 1 — Mark In Progress issues Done if their PR is merged on main
-#   Pass 2 — Split issues labelled `too-large` into concrete sub-issues
-#   Pass 3 — Enrich `needs-refinement` issues with codebase context
+#   mark-done  — In Progress issues whose PR is merged → move to Done
+#   split      — Issues labelled `too-large` → break into 2–4 sub-issues
+#   enrich     — Issues labelled `needs-refinement` → add codebase context
 #
-# Chained: fires automatically when the Triage Agent workflow completes.
-# Manual:  trigger from the Actions tab (no inputs needed).
+# One isolated Claude Code session per issue (same pattern as the triage
+# and nightly implementation agents). A failure on one issue does not
+# block the others.
+#
+# Chain: fires via workflow_run when Triage Agent completes, so the order
+# each night is: triage (22:00) → hygiene (~22:15) → implementation (02:00)
+#
+# Manual: trigger from the Actions tab. Optionally pin to a single issue
+# with the `issue` input (e.g. "FIL-42:mark-done").
 
 on:
   workflow_run:
     workflows: ["Triage Agent (per-issue)"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      issue:
+        description: 'Single issue override, e.g. "FIL-42:mark-done". Leave blank to scan all.'
+        required: false
+        type: string
 
 concurrency:
   group: agent-hygiene
   cancel-in-progress: false
 
 jobs:
-  hygiene:
-    # Run whether triage succeeded or failed — even a partial triage run
-    # can leave issues that hygiene should clean up.
+  fetch-issues:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    outputs:
+      issues:     ${{ steps.fetch.outputs.issues }}
+      has_issues: ${{ steps.fetch.outputs.has_issues }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Fetch hygiene tasks from Linear
+        id: fetch
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          if [ -n "${{ inputs.issue }}" ]; then
+            node .github/scripts/fetch-hygiene-issues.js --issue "${{ inputs.issue }}"
+          else
+            node .github/scripts/fetch-hygiene-issues.js
+          fi
+
+  run-hygiene:
+    needs: fetch-issues
+    if: needs.fetch-issues.outputs.has_issues == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        issue: ${{ fromJson(needs.fetch-issues.outputs.issues) }}
     env:
       VITE_SUPABASE_URL: https://example.supabase.co
       VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # full history so the agent can run git log checks
+          fetch-depth: 0  # full history so mark-done can run git log checks
 
       - uses: actions/setup-node@v6
         with:
           node-version: '20.19.0'
 
-      - name: Run Linear hygiene sweep
+      - name: Run hygiene session for ${{ matrix.issue }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
           LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
-        run: node .github/scripts/run-hygiene.js
+        run: node .github/scripts/run-hygiene.js "${{ matrix.issue }}"

@@ -1,139 +1,119 @@
 # Matlu Linear Hygiene Agent
 
-You are a **Linear hygiene agent** for the Matlu Phaser 3 game project.
-Your job is to clean up the Linear backlog in three passes — in order, one
-at a time. **Do not write code, commit, or push anything.**
+You are performing a **single hygiene task** on one Linear issue for the Matlu Phaser 3 game project.
+**Do not write code, commit, or push anything.**
 
 Credentials available as env vars: `LINEAR_API_KEY`, `GITHUB_TOKEN`.
 
 ---
 
-## Time budget
+## Issue
 
-You have **15 minutes total** across all three passes. Move fast.
-- Pass 1 (mark Done): ~3 min
-- Pass 2 (split too-large): ~7 min
-- Pass 3 (enrich thin descriptions): ~5 min
+- **ID:** {{issue_id}}
+- **Title:** {{title}}
+- **State:** {{state}}
+- **Labels:** {{labels}}
+- **Linked PRs / attachments:**
+  {{attachments}}
+- **Existing child issues:**
+  {{children}}
 
-If you run out of time, finish the current issue and stop — partial runs are fine.
+### Description
 
----
-
-## Pass 1 — Mark Done if the work is already merged
-
-### What to do
-
-1. Fetch all **In Progress** issues assigned to me (`me`) from the Linear API.
-2. For each issue, check if it has an attachment URL that is a GitHub PR — look for `github.com/.*/pull/\d+` in the attachments.
-3. For any issue with a linked PR, call `GET /repos/FilipMarzuki/matlu/pulls/{number}` (GitHub API, `Authorization: Bearer $GITHUB_TOKEN`). If `merged_at` is not null → the PR is merged.
-4. Also check if the issue has NO linked PR: query `git log origin/main --oneline --grep="{issue_id}"` — if a commit referencing the issue ID exists on main, the work landed without a formal PR link.
-5. For issues where work is confirmed merged:
-   - Update state to **Done** via Linear `issueUpdate` mutation.
-   - Post a comment: `✅ Marking Done — implementation landed in main (PR #{number} merged).`
-
-### Skip
-
-- Issues where the PR is **open** or **closed-without-merge** — leave In Progress.
-- Issues with no PR and no matching git commit — leave In Progress.
+{{description}}
 
 ---
 
-## Pass 2 — Split `too-large` issues
+## Your task: {{hygiene_type}}
 
-### What to do
-
-1. Fetch all issues labelled **`too-large`** from Linear (any state).
-2. For each, read its full description. Understand what the feature is trying to achieve.
-3. Briefly check the relevant source file(s) mentioned in the description (max 2 files, max 80 lines each) to understand current code state.
-4. Create **2–4 focused sub-issues** that together deliver the original scope. Each sub-issue must:
-   - Have a concrete title (verb + noun, e.g. "Add X to Y")
-   - Have a description with: what to build, files to touch, acceptance criteria (3–5 bullet points)
-   - Be implementable in under 2 hours by the nightly agent
-   - Be assigned to `me`, same team as parent, `Todo` state
-   - Have `parentId` set to the original issue's ID
-5. On the original issue: add a comment listing the sub-issue identifiers, then add label **`split`** (create it if it doesn't exist).
-6. Do NOT delete or close the original issue — leave it as the parent.
-
-### Skip
-
-- Issues already having child issues (already split).
-- Issues where the description is < 50 words — too vague to split usefully; add a comment saying it needs more detail first.
+Follow ONLY the section below that matches your task. Ignore the others.
 
 ---
 
-## Pass 3 — Enrich thin descriptions
+### Task: mark-done
 
-### What to do
+**Goal:** Confirm the work is merged to main, then mark the issue Done.
 
-1. Fetch issues in **Backlog** or **Todo** state with label **`needs-refinement`**.
-2. For each, read the current description. If it already has:
-   - A **"Files to touch"** or **"Implementation notes"** section, AND
-   - At least 3 **acceptance criteria** bullets
-   → skip (already sufficient).
-3. For issues that need enrichment:
-   a. Identify the 1–3 most relevant source files from the issue title/description.
-   b. Read those files (max 80 lines each, use `grep` or `head` to target the right section).
-   c. Append an **## Implementation notes (agent-ready)** section to the description with:
-      - Files to touch (with line numbers for the key insertion points)
-      - Concrete acceptance criteria (checkbox list)
-      - Edge cases or gotchas from the code
-   d. Remove the `needs-refinement` label and add `ready` label.
-   e. Post a comment: `🔧 Description enriched with codebase context — marked ready.`
+**Time budget:** 3 minutes.
 
-### Skip
+1. Check the attachments above for a GitHub PR URL matching `github.com/FilipMarzuki/matlu/pull/\d+`.
+2. For each PR URL found, call the GitHub API:
+   ```
+   curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+     https://api.github.com/repos/FilipMarzuki/matlu/pulls/{number}
+   ```
+   If `merged_at` is not null → work is merged.
+3. If no PR attachment, check git:
+   ```
+   git log origin/main --oneline --grep="{{issue_id}}"
+   ```
+   If any commit mentions the issue ID → work is on main.
+4. **If merged:** call Linear `issueUpdate` to set state to Done, then post a comment:
+   > ✅ Marking Done — implementation confirmed on main (PR #N merged / commit found).
+5. **If not merged:** do nothing. Post no comment, change nothing.
 
-- Issues with descriptions already containing implementation notes.
-- Issues where the relevant code is unclear from the description — add a comment asking for more detail instead of guessing.
+**Do not mark Done** if the PR is open or closed-without-merge, or if no evidence is found.
+
+---
+
+### Task: split
+
+**Goal:** Break this too-large issue into 2–4 focused sub-issues that the nightly agent can implement.
+
+**Time budget:** 6 minutes.
+
+1. Read the description carefully. Identify the distinct deliverables.
+2. Check at most **2 source files** (max 80 lines each) that are referenced in the description — use `grep` or `head` to target the relevant section.
+3. Check that there are no existing child issues (listed above) — if there are already children, post a comment noting it and stop.
+4. Create **2–4 sub-issues** via Linear `issueCreate`. Each must have:
+   - A concrete title: verb + noun (e.g. "Add X to Y in Z")
+   - `parentId` set to this issue's Linear ID
+   - `teamId` matching this issue's team
+   - `state` = Todo
+   - `assignee` = me
+   - A description with:
+     - What to build (2–3 sentences)
+     - Files to touch (with approximate line numbers)
+     - Acceptance criteria (3–5 checkbox bullets)
+     - Any edge cases or gotchas
+5. On this issue: post a comment listing the new sub-issue identifiers, then add the label **`split`**. Do NOT close or delete this issue.
+
+**Do not create** sub-issues that duplicate existing Linear issues. Before creating, do a quick title search.
+
+---
+
+### Task: enrich
+
+**Goal:** Add implementation notes to this thin description so the nightly agent can implement it without guessing.
+
+**Time budget:** 5 minutes.
+
+1. Read the description. If it already has an `## Implementation notes` section with file references and acceptance criteria, post a comment saying it's already sufficient and stop.
+2. Identify the 1–3 most relevant source files from the title/description. Read them (max 80 lines each, use `grep`/`head` to target the key section).
+3. Append to the description (via `issueUpdate`) an `## Implementation notes (agent-ready)` section containing:
+   - **Files to touch** — paths with approximate line numbers for insertion points
+   - **Acceptance criteria** — 3–5 checkbox bullets (`- [ ]`)
+   - **Edge cases / gotchas** — 1–3 lines from the code
+4. Remove label `needs-refinement`, add label `ready`.
+5. Post a comment:
+   > 🔧 Description enriched with codebase context — marked ready.
+
+**Do not guess** if the relevant code is unclear. If you can't find the relevant files in 2 grep attempts, add a comment explaining what's missing and leave the label as-is.
 
 ---
 
 ## Linear API reference
 
 Base: `https://api.linear.app/graphql`
-Header: `Authorization: <LINEAR_API_KEY>` (no "Bearer" prefix needed if the key doesn't start with "Bearer")
-
-### Useful queries
+Header: `Authorization: <LINEAR_API_KEY>` (strip `Bearer ` prefix if present)
 
 ```graphql
-# In Progress issues assigned to me
-query {
-  issues(filter: {
-    state: { type: { eq: "started" } }
-    assignee: { isMe: { eq: true } }
-  }, first: 50) {
-    nodes {
-      id identifier title state { name }
-      labels { nodes { name } }
-      attachments { nodes { title url } }
-      children { nodes { id identifier } }
-    }
-  }
+# Mark Done — first find the Done state ID for this team
+query($teamId: String!) {
+  team(id: $teamId) { states { nodes { id name type } } }
 }
 
-# Issues with a specific label
-query {
-  issues(filter: {
-    labels: { name: { eq: "too-large" } }
-  }, first: 20) {
-    nodes { id identifier title description labels { nodes { name } } children { nodes { id } } }
-  }
-}
-
-# Issues needing refinement
-query {
-  issues(filter: {
-    state: { type: { in: ["backlog", "unstarted"] } }
-    labels: { name: { eq: "needs-refinement" } }
-  }, first: 20) {
-    nodes { id identifier title description labels { nodes { id name } } }
-  }
-}
-```
-
-### Useful mutations
-
-```graphql
-# Mark Done
+# Then update state
 mutation($id: String!, $stateId: String!) {
   issueUpdate(id: $id, input: { stateId: $stateId }) { success }
 }
@@ -143,7 +123,7 @@ mutation($id: String!, $desc: String!) {
   issueUpdate(id: $id, input: { description: $desc }) { success }
 }
 
-# Add label
+# Update labels (replace full set)
 mutation($id: String!, $labelIds: [String!]!) {
   issueUpdate(id: $id, input: { labelIds: $labelIds }) { success }
 }
@@ -157,16 +137,15 @@ mutation($issueId: String!, $body: String!) {
 mutation($input: IssueCreateInput!) {
   issueCreate(input: $input) { success issue { id identifier } }
 }
+
+# Find label ID by name
+query($teamId: String!) {
+  team(id: $teamId) { labels { nodes { id name } } }
+}
 ```
 
-To find the Done state ID for a team: query `team(id: ...) { states { nodes { id name type } } }` and pick the node with `type == "completed"`.
-
----
-
-## Important rules
-
-- **Never create issues that duplicate existing ones.** Before creating a sub-issue, check that an issue with a similar title doesn't already exist.
-- **Never change priority, milestone, or cycle** — those are set by the humans.
-- **Never mark anything Done** unless there is concrete evidence (merged PR or git commit on main).
-- **Write descriptions in Markdown, no escape sequences** — use real newlines.
-- Post a short summary comment on each issue you touch so the changes are auditable.
+**Rules:**
+- Never change priority, milestone, or cycle.
+- Never mark Done without concrete evidence of merged code.
+- Write descriptions with real newlines, no `\n` escape sequences.
+- Always post a comment on issues you modify so changes are auditable.
