@@ -351,7 +351,10 @@ export class CombatArenaScene extends Phaser.Scene {
             if (button.index === 0) this.hero.tryMelee();
             else if (button.index === 5) this.hero.tryRanged();
             else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero.tryDash(dx, dy);
-            else if (button.index === 3 && this.gadgetUnlocked) (this.hero as Tinkerer).deployMine();
+            else if (button.index === 3) {
+              if (this.hero instanceof Tinkerer && this.gadgetUnlocked) this.hero.deployMine();
+              else if (this.hero instanceof EarthHero) this.hero.useSignature();
+            }
           }
         },
       );
