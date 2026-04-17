@@ -1817,3 +1817,127 @@ export class WarriorBug extends CombatEntity {
     ]);
   }
 }
+
+// ── Spinolandet enemy types ───────────────────────────────────────────────────
+//
+// Three creature types native to Spinolandet (Level 3 delta zone invaders):
+//   Spineling    — fast melee swarmer; dangerous in numbers
+//   Blightfrog   — toxic spitter that keeps distance and slings acid
+//   PackStalker  — coordinated trio hunter; defined in PackStalker.ts
+
+/**
+ * Spineling — fast chitinous swarmer from Spinolandet.
+ *
+ * Individually fragile but terrifying in the 20-unit swarms they come in.
+ * Behavior: direct charge + melee bite. No special mechanics; pure aggression.
+ */
+export class Spineling extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:            18,
+      speed:            125,
+      aggroRadius:      420,
+      attackDamage:     6,
+      color:            0x4a3a28, // earthy brown-orange (Spinolandet chitin)
+      meleeRange:       22,
+      attackCooldownMs: 550,
+    });
+  }
+
+  protected buildTree(): BtNode {
+    const R = this.meleeRange;
+    return new BtSelector([
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y) < R,
+        ),
+        new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
+      ]),
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
+      ]),
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+/**
+ * Blightfrog — corruption-touched amphibian that spits acid from range.
+ *
+ * Behavior tree:
+ *   1. Flee  — back away when the opponent closes to < 50 px (too close to spit)
+ *   2. Spit  — launch an acid projectile (700 ms cooldown) at 60–200 px range
+ *   3. Close — reposition into spit range when target is too far
+ *   4. Wander (fallback)
+ */
+export class Blightfrog extends CombatEntity {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:             45,
+      speed:             62,
+      aggroRadius:       350,
+      attackDamage:      8,
+      color:             0x224a11, // dark Spinolandet green
+      meleeRange:        26,
+      attackCooldownMs:  700,
+      projectileDamage:  10,
+      projectileSpeed:   190,
+      projectileColor:   0x55cc22, // acid green
+    });
+  }
+
+  protected buildTree(): BtNode {
+    const TOO_CLOSE = 50;
+    const SPIT_MIN  = 60;
+    const SPIT_MAX  = 200;
+
+    return new BtSelector([
+
+      // ── 1. Flee when the opponent is inside spitting distance ──────────────
+      new BtSequence([
+        new BtCondition(ctx => {
+          if (!ctx.opponent) return false;
+          return Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y)
+            < TOO_CLOSE;
+        }),
+        new BtAction(ctx => {
+          const fleeX = ctx.x + (ctx.x - ctx.opponent!.x);
+          const fleeY = ctx.y + (ctx.y - ctx.opponent!.y);
+          ctx.moveToward(fleeX, fleeY);
+          return 'running';
+        }),
+      ]),
+
+      // ── 2. Spit acid from preferred range ─────────────────────────────────
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d >= SPIT_MIN && d <= SPIT_MAX;
+          }),
+          new BtAction(ctx => {
+            ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y);
+            ctx.stop();
+            return 'success';
+          }),
+        ]),
+        700,
+      ),
+
+      // ── 3. Reposition into spit range ──────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
+      // ── 4. Wander (fallback) ───────────────────────────────────────────────
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
