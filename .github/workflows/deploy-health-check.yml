@@ -1,0 +1,38 @@
+name: Deploy Health Check
+
+# FIL-183: DORA Phase 2 — Change Failure Rate & MTTR
+#
+# Runs every 2 h. For each run, checks whether the most recent Vercel
+# production deploy (if fresh) caused an error spike in Better Stack.
+# Results land in the `deploy_health` Supabase table; failed deploys
+# trigger a Linear bug+rework issue automatically.
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # every 2 h, on the hour
+  workflow_dispatch:          # manual trigger for testing
+
+concurrency:
+  group: deploy-health-check
+  cancel-in-progress: false   # don't cancel a running check mid-way
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Check deploy health
+        run: node .github/scripts/check-deploy-health.js
+        env:
+          VERCEL_TOKEN:              ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID:         ${{ secrets.VERCEL_PROJECT_ID }}
+          BETTERSTACK_CONNECT_USER:  ${{ secrets.BETTERSTACK_CONNECT_USER }}
+          BETTERSTACK_CONNECT_PASS:  ${{ secrets.BETTERSTACK_CONNECT_PASS }}
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LINEAR_API_KEY:            ${{ secrets.LINEAR_API_KEY }}

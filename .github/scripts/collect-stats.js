@@ -295,6 +295,66 @@ async function getDeployStats() {
   }
 }
 
+// ── CFR & MTTR (DORA Phase 2) ────────────────────────────────────────────────
+
+const LINEAR_TEAM_ID_DORA = '84cc2660-9d7a-424a-99c6-3e858a67db4c';
+const LINEAR_API_KEY      = process.env.LINEAR_API_KEY;
+
+async function getCFRAndMTTR() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const since = twoWeeksAgo.toISOString();
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/deploy_health?deploy_time=gte.${since}&select=*&order=deploy_time.asc`,
+      {
+        headers: {
+          apikey:        SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    if (!res.ok) { console.warn(`deploy_health query → ${res.status}`); return null; }
+    const rows = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    const thisWeekRows  = rows.filter(r => new Date(r.deploy_time) >= weekAgo);
+    const failedRows    = thisWeekRows.filter(r => !r.healthy);
+    const totalChecked  = thisWeekRows.length;
+    const cfrPct        = totalChecked
+      ? Math.round((failedRows.length / totalChecked) * 100)
+      : null;
+
+    // MTTR: query Linear for fixed issues linked to failed deploys.
+    let mttrHours = null;
+    const failedWithIssue = failedRows.filter(r => r.linear_identifier);
+    if (failedWithIssue.length > 0 && LINEAR_API_KEY) {
+      const ids = failedWithIssue.map(r => `"${r.linear_identifier}"`).join(' ');
+      const gqlRes = await fetch('https://api.linear.app/graphql', {
+        method:  'POST',
+        headers: { Authorization: LINEAR_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: `{ issueSearch(query: "${ids}", filter: { team: { id: { eq: "${LINEAR_TEAM_ID_DORA}" } }, state: { type: { eq: "completed" } } }) { nodes { identifier completedAt } } }` }),
+      });
+      if (gqlRes.ok) {
+        const gqlData = await gqlRes.json();
+        const mttrValues = (gqlData.data?.issueSearch?.nodes ?? [])
+          .map(issue => {
+            const row = failedWithIssue.find(r => r.linear_identifier === issue.identifier);
+            return row && issue.completedAt
+              ? (new Date(issue.completedAt) - new Date(row.deploy_time)) / (1000 * 60 * 60)
+              : null;
+          })
+          .filter(v => v !== null && v > 0);
+        if (mttrValues.length > 0) mttrHours = Math.round(avg(mttrValues) * 10) / 10;
+      }
+    }
+
+    return { cfrPct, failedDeploys: failedRows.length, totalChecked, mttrHours };
+  } catch (e) {
+    console.warn('getCFRAndMTTR failed:', e.message);
+    return null;
+  }
+}
+
 // ── Issue stats (GitHub) ──────────────────────────────────────────────────────
 
 async function getIssueStats() {
@@ -616,7 +676,7 @@ function slugify(title) {
 
 // ── Build markdown ────────────────────────────────────────────────────────────
 
-function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome) {
+function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, dora) {
   const lines = [];
   const h2 = (t) => { lines.push(`## ${t}`, ''); };
   const li = (t) => lines.push(`- ${t}`);
@@ -741,6 +801,22 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
     lines.push('');
   }
 
+  if (dora) {
+    h2('Production Health (DORA)');
+    if (dora.cfrPct !== null && dora.cfrPct !== undefined) {
+      const cfrFlag = dora.cfrPct >= 15 ? ' ⚠️' : '';
+      li(`Change Failure Rate: **${dora.cfrPct}%** (${dora.failedDeploys}/${dora.totalChecked} checked deploys)${cfrFlag}`);
+    } else {
+      li('Change Failure Rate: _no data yet — baseline will establish after first checked deploy_');
+    }
+    if (dora.mttrHours !== null && dora.mttrHours !== undefined) {
+      li(`MTTR: **${dora.mttrHours} h** average (failed deploy → fix deployed)`);
+    } else {
+      li('MTTR: _no recoveries recorded this week_');
+    }
+    lines.push('');
+  }
+
   if (cogLoad) {
     const top = cogLoad.top10[0];
     const topList = cogLoad.top10
@@ -828,7 +904,7 @@ function getReworkStats() {
 
 // ── Post to Supabase ──────────────────────────────────────────────────────────
 
-async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome }) {
+async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, dora }) {
   const ao = agentOutcome;
   const aiTotalTokens = ai
     ? (ai.totalInput + ai.totalOutput + ai.totalCacheRead + ai.totalCacheWrite)
@@ -922,6 +998,12 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       agent_outcome_wrong_interp: ao?.wrongInterp  ?? null,
       agent_failure_rate_pct:     ao?.failureRate  ?? null,
       agent_outcome_by_type:      ao?.byType       ?? null,
+
+      // ── DORA Phase 2 ─────────────────────────────────────────────────────────
+      cfr_pct:                    dora?.cfrPct          ?? null,
+      failed_deploys:             dora?.failedDeploys   ?? null,
+      total_checked_deploys:      dora?.totalChecked    ?? null,
+      mttr_hours:                 dora?.mttrHours       ?? null,
     }),
   });
 
@@ -1123,13 +1205,14 @@ async function triggerVercelDeploy() {
 async function main() {
   console.log(`Collecting stats for ${weekLabel}...`);
 
-  const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome] = await Promise.all([
+  const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome, dora] = await Promise.all([
     getGitHubStats(),
     getIssueStats(),
     getCommitSpread(),
     getPixelLabStats(),
     getDeployStats(),
     getAgentOutcomeStats(),
+    getCFRAndMTTR(),
   ]);
 
   // Synchronous stats — run after async work so the build step doesn't block network calls
@@ -1149,8 +1232,9 @@ async function main() {
   console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
   console.log('Rework:', rework ? `rate=${rework.reworkRate}%, files=${rework.reworkFileCount}/${rework.totalFiles}` : 'N/A');
   console.log('Agent outcomes:', agentOutcome ? `total=${agentOutcome.total}, failureRate=${agentOutcome.failureRate}%` : 'N/A');
+  console.log('DORA CFR/MTTR:', dora ? `cfr=${dora.cfrPct}% mttr=${dora.mttrHours}h` : 'N/A');
 
-  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome);
+  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, dora);
   const metrics = {
     delivery:      { mergedCount: gh.mergedCount, humanMergedCount: gh.humanMergedCount, agentMergedCount: gh.agentMergedCount, avgPrSize: gh.avgPrSize, completedCount: linear.completedCount, activeDays: commitSpread?.activeDays ?? null, totalCommits: commitSpread?.totalCommits ?? null },
     velocity:      { avgMergeTime: gh.avgMergeTime, avgCycleTime: linear.avgCycleTime, reworkRate: linear.reworkRate },
@@ -1163,9 +1247,10 @@ async function main() {
     deployStats:   deployStats  ?? null,
     pixellab:      pixellab     ?? null,
     agentOutcome:  agentOutcome ?? null,
+    dora:          dora         ?? null,
   };
   await postToSupabase(weekLabel, content, metrics, {
-    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome,
+    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, dora,
   });
   await postCognitiveLoad({ gh, linear, rework });
   await postToNotion(weekLabel, content);
