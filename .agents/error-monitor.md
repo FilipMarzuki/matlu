@@ -91,6 +91,32 @@ For each unfiled error create a Linear bug:
 
 ---
 
-## STEP 4 — REPORT
+## STEP 4 — WRITE METRICS SNAPSHOT TO SUPABASE
 
-Print a summary: errors checked, already filed (skipped), newly created Linear issue identifiers.
+After filing (or skipping) all issues, insert one row into `error_metrics`:
+
+```bash
+curl -s -X POST "$SUPABASE_URL/rest/v1/error_metrics" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "window_hours": 48,
+    "unique_errors": <count of distinct error-level messages>,
+    "unique_warns": <count of distinct warn-level messages>,
+    "total_error_occurrences": <sum of occurrences across all error rows>,
+    "total_warn_occurrences": <sum of occurrences across all warn rows>,
+    "linear_issues_filed": <number of new Linear issues created this run>,
+    "top_errors": <JSON array of top 5 error rows: [{message, occurrences, first_seen}]>,
+    "top_warns":  <JSON array of top 5 warn rows:  [{message, occurrences, first_seen}]>
+  }'
+```
+
+If the insert fails, print a warning but do not exit with an error — metrics
+write failure must not block the Linear bug-filing outcome.
+
+---
+
+## STEP 5 — REPORT
+
+Print a summary: errors checked, already filed (skipped), newly created Linear issue identifiers, and whether the Supabase metrics snapshot succeeded.
