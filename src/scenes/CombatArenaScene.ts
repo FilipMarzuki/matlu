@@ -133,6 +133,8 @@ export class CombatArenaScene extends Phaser.Scene {
   private audioAvailable = false;
   /** Round-robins through 3 gunshot variants to avoid repetition fatigue. */
   private gunshotIndex   = 0;
+  /** Looping combat/dungeon music track. Null until create() confirms audio is available. */
+  private combatMusic: Phaser.Sound.BaseSound | null = null;
 
   /** Width of the right-side nav panel. Arena is shrunk to not go behind it. */
   private static readonly PANEL_W = 160;
@@ -161,6 +163,12 @@ export class CombatArenaScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) {
       this.load.audio(`gunshot-${i}`, `${ksfx}/impactMetal_heavy_00${i}.ogg`);
     }
+
+    // Tense dungeon ambience — "Cloak of Darkness" fits the arena's dark-stone aesthetic.
+    this.load.audio(
+      'combat-music',
+      'assets/audio/music-loop-bundle-2026-q1/Week 4 - Cloak of Darkness STAGE 1.ogg',
+    );
 
     this.load.aseprite(
       'tinkerer',
@@ -225,6 +233,19 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // Audio is unavailable in headless CI (WebAudio context never starts).
     this.audioAvailable = this.cache.audio.has('gunshot-0');
+
+    // Start looping combat music. The track runs for the lifetime of the scene;
+    // the SHUTDOWN handler stops it so it doesn't bleed back into GameScene.
+    if (this.audioAvailable && this.cache.audio.has('combat-music')) {
+      this.combatMusic = this.sound.add('combat-music', { loop: true, volume: 0.4 });
+      this.combatMusic.play();
+    }
+
+    // Clean up combat music when leaving the arena.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.combatMusic?.stop();
+      this.combatMusic = null;
+    });
 
     // Projectile listener lives for the whole scene — enemies and hero both fire.
     this.events.on('projectile-spawned', (p: Projectile) => {
