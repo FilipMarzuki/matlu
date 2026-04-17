@@ -39,6 +39,133 @@ const RELOAD_MS = 1400;
 const STILL_THRESHOLD   = 15;
 const STILL_DAMAGE_MULT = 1.5;
 
+// ── Proximity Mine ─────────────────────────────────────────────────────────────
+
+/** ms before the mine arms and becomes triggerable. */
+const MINE_ARM_MS = 600;
+
+/** px — enemy within this radius triggers detonation. */
+const MINE_TRIGGER_R = 28;
+
+/** px — AoE damage radius on detonation. */
+const MINE_AOE_R = 64;
+
+/** Flat damage dealt to each enemy inside the AoE. */
+const MINE_DAMAGE = 45;
+
+/** ms between consecutive mine deploys. */
+const MINE_COOLDOWN_MS = 4000;
+
+/** Maximum mines active simultaneously. */
+const MINE_MAX = 3;
+
+/**
+ * ProximityMine — a deployable gadget placed by the Tinkerer.
+ *
+ * Arms after MINE_ARM_MS (gray → pulsing orange). Once armed it checks for
+ * enemies within MINE_TRIGGER_R each frame; on contact it detonates, dealing
+ * MINE_DAMAGE to all enemies within MINE_AOE_R with an expanding flash as VFX.
+ *
+ * This is a plain class (not a Phaser.GameObjects child) because it doesn't
+ * need physics — the Tinkerer owner ticks it manually in updateBehaviour().
+ */
+class ProximityMine {
+  readonly x: number;
+  readonly y: number;
+
+  private armTimer = MINE_ARM_MS;
+
+  /** True once the arming delay has elapsed. */
+  armed = false;
+
+  /** True after detonation — prevents double-firing. */
+  detonated = false;
+
+  private readonly circle: Phaser.GameObjects.Arc;
+  private pulseTween?: Phaser.Tweens.Tween;
+
+  constructor(private readonly scene: Phaser.Scene, x: number, y: number) {
+    this.x      = x;
+    this.y      = y;
+    // Gray while arming so the player can distinguish live from placed
+    this.circle = scene.add.arc(x, y, 6, 0, 360, false, 0x888888);
+    this.circle.setDepth(7).setStrokeStyle(1.5, 0xcccccc);
+  }
+
+  tick(delta: number): void {
+    if (this.detonated || this.armed) return;
+    this.armTimer -= delta;
+    if (this.armTimer <= 0) this.arm();
+  }
+
+  private arm(): void {
+    this.armed = true;
+    this.circle.setFillStyle(0xff5500);
+    // Pulse communicates "armed and dangerous" without any text
+    this.pulseTween = this.scene.tweens.add({
+      targets:  this.circle,
+      scaleX:   1.5,
+      scaleY:   1.5,
+      alpha:    0.55,
+      yoyo:     true,
+      repeat:   -1,
+      duration: 380,
+      ease:     'Sine.easeInOut',
+    });
+  }
+
+  /** Returns true when an alive enemy is within trigger radius. */
+  checkTrigger(opponents: CombatEntity[]): boolean {
+    if (!this.armed || this.detonated) return false;
+    for (const e of opponents) {
+      if (e.isAlive && Phaser.Math.Distance.Between(this.x, this.y, e.x, e.y) < MINE_TRIGGER_R) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Damage all enemies in the AoE and play an expanding-ring flash.
+   *
+   * Emits `'mine-detonated'` on the scene event bus so the arena can add
+   * camera shake without the mine coupling directly to the scene hierarchy.
+   */
+  detonate(opponents: CombatEntity[]): void {
+    if (this.detonated) return;
+    this.detonated = true;
+    this.pulseTween?.stop();
+
+    for (const e of opponents) {
+      if (e.isAlive && Phaser.Math.Distance.Between(this.x, this.y, e.x, e.y) < MINE_AOE_R) {
+        e.takeDamage(MINE_DAMAGE);
+      }
+    }
+
+    // Expanding flash: starts at radius 10, expands to ~AOE_R then fades out
+    const flash = this.scene.add.arc(this.x, this.y, 10, 0, 360, false, 0xff7700);
+    flash.setDepth(10).setAlpha(0.9);
+    this.scene.tweens.add({
+      targets:  flash,
+      scaleX:   MINE_AOE_R / 5,
+      scaleY:   MINE_AOE_R / 5,
+      alpha:    0,
+      duration: 200,
+      ease:     'Cubic.easeOut',
+      onComplete: () => { if (flash.active) flash.destroy(); },
+    });
+
+    this.scene.events.emit('mine-detonated', this.x, this.y);
+    if (this.circle.active) this.circle.destroy();
+  }
+
+  /** Remove visuals without detonating (used on hero death / scene reset). */
+  dispose(): void {
+    this.pulseTween?.stop();
+    if (this.circle.active) this.circle.destroy();
+  }
+}
+
 /**
  * Tinkerer — post-apocalyptic mechanic hero. Melee bash + pistol + dash.
  *
@@ -65,6 +192,17 @@ export class Tinkerer extends EarthHero {
   private isReloading = false;
   private reloadTimer = 0;
   private shotInBurst = 0; // shots fired this magazine
+
+  // ── Gadget: Proximity Mine ────────────────────────────────────────────────────
+  private activeMines: ProximityMine[] = [];
+  /** Counts down from MINE_COOLDOWN_MS after each deploy; 0 = ready. */
+  private gadgetTimer = 0;
+
+  /** Total cooldown duration — read by the arena HUD to display remaining time. */
+  readonly gadgetCooldownMs = MINE_COOLDOWN_MS;
+
+  get isGadgetReady(): boolean { return this.gadgetTimer <= 0; }
+  get gadgetCooldownRemaining(): number { return this.gadgetTimer; }
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -126,6 +264,23 @@ export class Tinkerer extends EarthHero {
         this.shotInBurst = 0;
       }
     }
+
+    // ── Gadget cooldown ───────────────────────────────────────────────────────
+    if (this.gadgetTimer > 0) this.gadgetTimer = Math.max(0, this.gadgetTimer - delta);
+
+    // ── Tick mines and detonate those that triggered ──────────────────────────
+    // Two-pass: tick first (arm transitions), then check triggers so a mine
+    // that just armed this frame can still fire in the same tick.
+    const toDetonate: ProximityMine[] = [];
+    for (const mine of this.activeMines) {
+      mine.tick(delta);
+      if (mine.checkTrigger(this.opponents)) toDetonate.push(mine);
+    }
+    for (const mine of toDetonate) mine.detonate(this.opponents);
+    if (toDetonate.length > 0) {
+      this.activeMines = this.activeMines.filter(m => !toDetonate.includes(m));
+    }
+
     super.updateBehaviour(delta);
   }
 
@@ -176,6 +331,26 @@ export class Tinkerer extends EarthHero {
     this.tryDash(target.x - this.x, target.y - this.y);
   }
 
+  // ── Gadget ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Deploy a proximity mine at the hero's current position.
+   *
+   * No-ops if on cooldown or MINE_MAX mines are already active — safe to call
+   * every frame from player-input code without additional guards at the call site.
+   */
+  deployMine(): void {
+    if (this.gadgetTimer > 0 || this.activeMines.length >= MINE_MAX) return;
+    this.activeMines.push(new ProximityMine(this.scene, this.x, this.y));
+    this.gadgetTimer = MINE_COOLDOWN_MS;
+  }
+
+  /** Dispose all active mine visuals without detonating (called on hero death reset). */
+  destroyMines(): void {
+    for (const m of this.activeMines) m.dispose();
+    this.activeMines = [];
+  }
+
   protected override findTargetOpponent(): CombatEntity | null {
     const rangedThreats = this.opponents.filter(
       o => o.isAlive && (o instanceof AcidLancer || o instanceof ParasiteFlyer),
@@ -224,6 +399,21 @@ export class Tinkerer extends EarthHero {
           }),
         ]),
         4000,
+      ),
+
+      // 1b. Deploy mine when flanked — lay a trap before retreating or melee-ing
+      // The BtCooldown here mirrors gadgetTimer so the BT doesn't re-attempt
+      // the deploy on every frame while the mine cooldown ticks down.
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(() => this.isGadgetReady && this.activeMines.length < MINE_MAX),
+          new BtCondition(ctx => swarmPressure(ctx.x, ctx.y) >= 2),
+          new BtAction(() => {
+            this.deployMine();
+            return 'success';
+          }),
+        ]),
+        MINE_COOLDOWN_MS,
       ),
 
       // 2. Melee bash (suppressed when swarmed)
