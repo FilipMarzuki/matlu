@@ -1,0 +1,122 @@
+name: Audio Sync (Drive → Repo)
+
+# Downloads new audio files from a shared Google Drive folder, commits them,
+# opens a PR, then runs the audio review agent to validate naming and entity
+# references before the PR can be merged.
+#
+# Naming convention: entity_soundtype[_variant].{ogg|wav|mp3}
+# e.g. velcrid_death.ogg, player_footstep_grass.ogg
+#
+# Files with invalid names are reported in the PR but not committed.
+#
+# Required secrets:
+#   GOOGLE_SERVICE_ACCOUNT_JSON  — service account with Drive read access
+#   CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY — for the review agent
+#
+# Required vars:
+#   GOOGLE_DRIVE_AUDIO_FOLDER_ID — Drive folder ID (not secret)
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # Daily at 06:00 UTC
+  workflow_dispatch:        # Manual trigger from Actions tab
+
+concurrency:
+  group: audio-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+      pr_number:   ${{ steps.open-pr.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - run: npm ci
+
+      # Download new audio files from Drive → public/assets/packs/audio/
+      - name: Sync from Google Drive
+        env:
+          GOOGLE_DRIVE_AUDIO_FOLDER_ID: ${{ vars.GOOGLE_DRIVE_AUDIO_FOLDER_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON:  ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/sync-audio.js > sync-report.json
+
+      # Regenerate the flat asset catalog so the game picks up new files
+      - name: Regenerate assets manifest
+        env:
+          VITE_SUPABASE_URL:                       https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY:   ci-placeholder
+        run: npm run assets:manifest
+
+      - name: Check for new files
+        id: check
+        run: |
+          git add public/assets/packs/audio/ public/assets/manifest.json
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "Nothing new to sync."
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push branch
+        if: steps.check.outputs.has_changes == 'true'
+        id: push
+        run: |
+          BRANCH="audio/drive-sync-$(date +%Y-%m-%d-%H%M)"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git commit -m "audio: sync from Google Drive $(date +%Y-%m-%d)"
+          git push origin "$BRANCH"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Open PR
+        if: steps.check.outputs.has_changes == 'true'
+        id: open-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr create \
+            --title "audio: sync from Google Drive ($(date +%Y-%m-%d))" \
+            --body "$(node .github/scripts/build-audio-pr-body.js sync-report.json)" \
+            --base main \
+            --head "${{ steps.push.outputs.branch }}")
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "Opened PR #$PR_NUMBER: $PR_URL"
+
+  review:
+    needs: sync
+    if: needs.sync.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Run audio review agent
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/run-audio-review.js "${{ needs.sync.outputs.pr_number }}"
+
+      - name: Log token usage
+        if: always()
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/log-session-tokens.js --workflow "Audio Sync"
+      # [token-logging-added]

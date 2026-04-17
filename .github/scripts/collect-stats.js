@@ -378,32 +378,73 @@ async function getLinearStats() {
 // token-log.json lives at the repo root and is written by log-tokens.cjs after
 // each Claude Code session. The GitHub Actions checkout brings it into the runner.
 
-function getAiStats() {
-  const logPath = join(__dirname, '../../token-log.json');
-  let entries = [];
+// Merges local token-log.json (developer sessions) with Supabase ai_sessions
+// (GitHub Actions agent sessions) into a unified weekly AI usage snapshot.
+async function getAiStats() {
+  // ── Local sessions (token-log.json, written by Stop hook) ────────────────
+  let localEntries = [];
   try {
-    entries = JSON.parse(readFileSync(logPath, 'utf8'));
-  } catch (e) {
-    return null; // no log yet — skip the section
+    const logPath = join(__dirname, '../../token-log.json');
+    const all = JSON.parse(readFileSync(logPath, 'utf8'));
+    localEntries = all
+      .filter(e => new Date(e.date) >= weekAgo)
+      .map(e => ({
+        issueId:         e.issueId,
+        branch:          e.branch,
+        model:           e.model,
+        source:          e.source ?? 'claude-code',
+        inputTokens:     e.inputTokens      ?? 0,
+        outputTokens:    e.outputTokens     ?? 0,
+        cacheReadTokens: e.cacheReadTokens  ?? 0,
+        cacheWriteTokens:e.cacheWriteTokens ?? 0,
+        estimatedCostUsd:e.estimatedCostUsd ?? 0,
+      }));
+  } catch (e) { /* no local log yet */ }
+
+  // ── CI sessions (Supabase ai_sessions, written by log-session-tokens.js) ─
+  let ciEntries = [];
+  if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const since = weekAgo.toISOString().slice(0, 10);
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/ai_sessions?select=*&recorded_at=gte.${since}&source=eq.github-actions`,
+        { headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        ciEntries = rows.map(r => ({
+          issueId:          r.issue_id  ?? r.workflow,
+          branch:           r.branch,
+          model:            r.model,
+          source:           r.source,
+          inputTokens:      r.input_tokens       ?? 0,
+          outputTokens:     r.output_tokens      ?? 0,
+          cacheReadTokens:  r.cache_read_tokens  ?? 0,
+          cacheWriteTokens: r.cache_write_tokens ?? 0,
+          estimatedCostUsd: parseFloat(r.estimated_cost_usd ?? 0),
+        }));
+      }
+    } catch (e) {
+      console.warn('getAiStats: Supabase fetch failed:', e.message);
+    }
   }
 
-  // Filter to this week
-  const weekEntries = entries.filter(e => new Date(e.date) >= weekAgo);
+  const weekEntries = [...localEntries, ...ciEntries];
   if (!weekEntries.length) return null;
 
   // Total tokens and cost
-  const totalInput      = weekEntries.reduce((s, e) => s + (e.inputTokens      || 0), 0);
-  const totalOutput     = weekEntries.reduce((s, e) => s + (e.outputTokens     || 0), 0);
-  const totalCacheRead  = weekEntries.reduce((s, e) => s + (e.cacheReadTokens  || 0), 0);
-  const totalCacheWrite = weekEntries.reduce((s, e) => s + (e.cacheWriteTokens || 0), 0);
-  const totalCost       = weekEntries.reduce((s, e) => s + (e.estimatedCostUsd || 0), 0);
+  const totalInput      = weekEntries.reduce((s, e) => s + e.inputTokens,      0);
+  const totalOutput     = weekEntries.reduce((s, e) => s + e.outputTokens,     0);
+  const totalCacheRead  = weekEntries.reduce((s, e) => s + e.cacheReadTokens,  0);
+  const totalCacheWrite = weekEntries.reduce((s, e) => s + e.cacheWriteTokens, 0);
+  const totalCost       = weekEntries.reduce((s, e) => s + e.estimatedCostUsd, 0);
 
   // Cost per issue (group sessions by issueId), tracking model used
   const byIssue = {};
   for (const e of weekEntries) {
     const key = e.issueId || e.branch || 'unknown';
     if (!byIssue[key]) byIssue[key] = { cost: 0, sessions: 0, models: new Set() };
-    byIssue[key].cost     += e.estimatedCostUsd || 0;
+    byIssue[key].cost     += e.estimatedCostUsd;
     byIssue[key].sessions += 1;
     if (e.model) byIssue[key].models.add(e.model);
   }
@@ -413,8 +454,17 @@ function getAiStats() {
   for (const e of weekEntries) {
     const key = e.model || 'unknown';
     if (!byModel[key]) byModel[key] = { cost: 0, sessions: 0 };
-    byModel[key].cost     += e.estimatedCostUsd || 0;
+    byModel[key].cost     += e.estimatedCostUsd;
     byModel[key].sessions += 1;
+  }
+
+  // Cost by source (local dev vs CI agents)
+  const bySource = {};
+  for (const e of weekEntries) {
+    const key = e.source || 'unknown';
+    if (!bySource[key]) bySource[key] = { cost: 0, sessions: 0 };
+    bySource[key].cost     += e.estimatedCostUsd;
+    bySource[key].sessions += 1;
   }
 
   return {
@@ -426,6 +476,7 @@ function getAiStats() {
     totalCost:        Math.round(totalCost * 100) / 100,
     byIssue,
     byModel,
+    bySource,
   };
 }
 
@@ -1142,9 +1193,10 @@ async function main() {
   // Synchronous stats — run after async work so the build step doesn't block network calls
   const bundle  = getBundleSize();
   const cogLoad = getCognitiveLoadStats();
-  const ai      = getAiStats();
   const quality = getCodeQualityStats();
   const rework  = getReworkStats();
+  // getAiStats is async: merges local token-log.json + Supabase ai_sessions
+  const ai      = await getAiStats();
 
   console.log('GitHub stats:', gh);
   console.log('Linear stats:', linear);

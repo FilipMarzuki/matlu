@@ -114,3 +114,11 @@ jobs:
           else
             echo "Cap reached — stopping refinement chain for this cycle"
           fi
+
+      - name: Log token usage
+        if: always()
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/log-session-tokens.js --workflow "Backlog Cleanup" --issue "${{ matrix.issue }}"
+      # [token-logging-added]

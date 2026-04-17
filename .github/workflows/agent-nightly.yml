@@ -106,3 +106,11 @@ jobs:
           LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
         run: node .github/scripts/run-agent.js "${{ matrix.issue }}"
+
+      - name: Log token usage
+        if: always()
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/log-session-tokens.js --workflow "Dev Agent" --issue "${{ matrix.issue }}"
+      # [token-logging-added]
