@@ -5429,13 +5429,22 @@ export class GameScene extends Phaser.Scene {
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
     const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
 
-    // 4-frame water ripple animation played by live sprites overlaid on the baked terrain.
-    // frameRate 4 → one 1-second cycle; subtle enough not to distract from gameplay.
-    // Created here so it is ready when we call sprite.play() after the bake loop.
+    // FIL-258: Two separate water animations with different frame rates so rivers
+    // look fast-moving and ocean rolls slowly. Both use the same 4-frame spritesheet
+    // (water_animated.png: 0=calm, 1=gentle, 2=mid-ripple, 3=full ripple).
+    // Rivers use frames 1–3 (skips the calm frame for a livelier look) at 8 fps.
+    // Ocean uses all four frames at 2 fps for a slow, rolling feel.
+    // Created here so they are ready when sprite.play() is called after the bake loop.
     this.anims.create({
-      key: 'water-anim',
-      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1, 2, 3, 4, 5, 6, 7] }),
-      frameRate: 6,
+      key: 'river-anim',
+      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [1, 2, 3] }),
+      frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: 'ocean-anim',
+      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1, 2, 3] }),
+      frameRate: 2,
       repeat: -1,
     });
 
@@ -5451,9 +5460,11 @@ export class GameScene extends Phaser.Scene {
       .setScale(2)        // 16px → 32px to match TILE_SIZE
       .setVisible(false);
 
-    // Collect water tile centres for the animated sprite pass below.
-    // stride 2 (tx & ty both even) → 1/4 of water tiles; cap 1500 keeps mobile GPU load small.
-    const waterCentres: number[] = []; // flat [cx0, cy0, cx1, cy1, ...]
+    // FIL-258: Split water centres into two arrays so rivers and ocean can each
+    // play their own animation at a different frame rate. The combined sprite count
+    // is capped at 3000 to keep mobile GPU load small (same cap as before).
+    const riverCentres: number[] = []; // flat [cx0, cy0, ...] for fast river animation
+    const oceanCentres: number[] = []; // flat [cx0, cy0, ...] for slow ocean animation
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
     // Float32Array is cheap (~52 KB for 141×94 tiles) and avoids re-sampling the noise.
@@ -5530,8 +5541,10 @@ export class GameScene extends Phaser.Scene {
         terrainRt.draw(tileImg);
 
         // Mark every 2nd water tile (in both axes) for the animated overlay pass.
-        if (key === 'terrain-water' && tx % 2 === 0 && ty % 2 === 0 && waterCentres.length < 3000) {
-          waterCentres.push(wx + 16, wy + 16);
+        // Route to the correct array based on river vs ocean (FIL-258).
+        if (key === 'terrain-water' && tx % 2 === 0 && ty % 2 === 0
+            && riverCentres.length + oceanCentres.length < 3000) {
+          (isRiverHere ? riverCentres : oceanCentres).push(wx + 16, wy + 16);
         }
       }
     }
@@ -5620,13 +5633,21 @@ export class GameScene extends Phaser.Scene {
 
     // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
     // but below decorations (2+). Each sprite covers the baked water tile underneath.
-    // Stagger start frames (0-3) so adjacent tiles don't flash in sync.
-    const waterAnim = this.anims.get('water-anim');
-    for (let i = 0; i < waterCentres.length; i += 2) {
-      const spr = this.add.sprite(waterCentres[i], waterCentres[i + 1], 'terrain-water');
+    // Rivers play a faster 3-frame animation; ocean plays a slow 4-frame roll (FIL-258).
+    // Stagger start frames so adjacent tiles don't flash in sync.
+    const riverAnim = this.anims.get('river-anim');
+    for (let i = 0; i < riverCentres.length; i += 2) {
+      const spr = this.add.sprite(riverCentres[i], riverCentres[i + 1], 'terrain-water');
       spr.setScale(2).setDepth(0.5);
-      spr.play('water-anim');
-      spr.anims.setCurrentFrame(waterAnim.frames[(i / 2) % 4]);
+      spr.play('river-anim');
+      spr.anims.setCurrentFrame(riverAnim.frames[(i / 2) % riverAnim.frames.length]);
+    }
+    const oceanAnim = this.anims.get('ocean-anim');
+    for (let i = 0; i < oceanCentres.length; i += 2) {
+      const spr = this.add.sprite(oceanCentres[i], oceanCentres[i + 1], 'terrain-water');
+      spr.setScale(2).setDepth(0.5);
+      spr.play('ocean-anim');
+      spr.anims.setCurrentFrame(oceanAnim.frames[(i / 2) % oceanAnim.frames.length]);
     }
   }
 
