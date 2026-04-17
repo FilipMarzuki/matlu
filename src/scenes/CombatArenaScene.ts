@@ -9,6 +9,7 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
+import { SignalJammer, InfectedAPC, ScrapGolem } from '../entities/EarthEnemies';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -37,6 +38,10 @@ const WAVE_GROUPS: WaveGroup[] = [
   { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
   { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  // Earth faction — field-control enemies
+  { label: 'Jammer Hold',   enemies: [SignalJammer] },
+  { label: 'APC Rush',      enemies: [InfectedAPC, InfectedAPC] },
+  { label: 'Golem Assault', enemies: [ScrapGolem] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -1065,6 +1070,11 @@ export class CombatArenaScene extends Phaser.Scene {
     this.physics.add.collider(entity, this.obstacles);
     // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
+
+    // ScrapGolem needs the obstacles group to detect nearby debris for regen.
+    if (entity instanceof ScrapGolem) {
+      entity.setObstacles(this.obstacles);
+    }
   }
 
   /**
