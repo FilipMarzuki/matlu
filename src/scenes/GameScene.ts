@@ -4764,22 +4764,39 @@ export class GameScene extends Phaser.Scene {
    * green, snow gets ice-blue, etc.
    */
   private biomeTint(elev: number, temp: number, moist: number): number {
-    if (elev < 0.25) return 0x55ccff;  // sea — bright sky blue
+    if (elev < 0.25) return 0x3d8fb0;  // sea — colder blue-green so coast reads separately
     if (elev < 0.30) {
       return (temp < 0.45 || moist > 0.50)
-        ? 0xeecc66   // rocky shore — warm golden sand
-        : 0xffdd66;  // sandy shore — bright sunny yellow
+        ? 0xb2864f   // rocky shore — warm umber / shingle
+        : 0xcfaa66;  // sandy shore — muted ochre
     }
-    if (elev < 0.45 && moist > 0.72) return 0x55cc44; // marsh — bright fresh green
+    if (elev < 0.45 && moist > 0.72) return 0x45654c; // marsh — dark wet green
     if (elev < 0.62) {
-      if (moist > 0.60) return 0x44ee55; // forest  — vibrant green
-      if (moist > 0.30) return 0xaaee55; // heath   — lime yellow-green
-      return                  0xddcc44;  // dry heath — golden
+      if (moist > 0.60) return 0x3f8a52; // forest  — cooler mid-green
+      if (moist > 0.30) return 0x7e8f4a; // heath   — olive
+      return                  0xa1814d;  // dry heath — warm brown-ochre
     }
     if (elev < 0.78) {
-      return temp > 0.50 ? 0x33bb44 : 0xaac8dd; // spruce green / pale blue-grey granite
+      return temp > 0.50 ? 0x2e5f3d : 0x77879a; // spruce green / cool granite
     }
-    return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
+    return temp < 0.40 ? 0xc6d3e3 : 0x766d79; // snow / bare rocky summit
+  }
+
+  /**
+   * Wash strength per biome.
+   * Kept stronger on dry/shore zones so those regions don't collapse into the same
+   * green family as forests when viewed zoomed-out.
+   */
+  private biomeWashAlpha(elev: number, temp: number, moist: number): number {
+    if (elev < 0.30) return 0.25;                 // sea edge + shore
+    if (elev < 0.45 && moist > 0.72) return 0.20; // marsh
+    if (elev < 0.62) {
+      if (moist > 0.60) return 0.18;              // forest
+      if (moist > 0.30) return 0.23;              // heath
+      return 0.26;                                 // dry heath
+    }
+    if (elev < 0.78) return temp > 0.50 ? 0.16 : 0.22; // spruce / granite
+    return temp < 0.40 ? 0.18 : 0.24;                   // snow / summit rock
   }
 
   /**
@@ -4792,14 +4809,17 @@ export class GameScene extends Phaser.Scene {
   private drawBiomeColorWash(noise: FbmNoise, tilesX: number, tilesY: number): void {
 
     // First pass: collect every non-water tile position, grouped by biome tint.
-    // Using a flat array per tint avoids repeated map lookups during the draw pass.
-    const groups = new Map<number, number[]>(); // tint → flat [x0, y0, x1, y1, ...]
+    // Using tint+alpha buckets keeps draw calls low while allowing subtle per-tile
+    // variation from detail noise (adds "scattered detail" without new art assets).
+    const groups = new Map<string, number[]>(); // "tint:alpha" → flat [x0, y0, x1, y1, ...]
+    const detNoise = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
         // Domain-warped base noise (FIL-153) so colour wash regions match tile biomes exactly.
         // FIL-154: sample temp + moist so tint matches the biome tile exactly.
         const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
+        const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
         const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
         const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
@@ -4833,17 +4853,25 @@ export class GameScene extends Phaser.Scene {
         }
 
         const tint = this.biomeTint(val, temp, effectiveMoist);
-        let arr = groups.get(tint);
-        if (!arr) { arr = []; groups.set(tint, arr); }
+        const baseAlpha = this.biomeWashAlpha(val, temp, effectiveMoist);
+        // Quantise alpha into 4 steps so we retain batching while still getting
+        // hand-painted-looking variation at tile scale.
+        const jittered = Phaser.Math.Clamp(baseAlpha + (detail - 0.5) * 0.08, 0.14, 0.30);
+        const alphaQ = Math.round(jittered * 4) / 4;
+        const groupKey = `${tint}:${alphaQ}`;
+        let arr = groups.get(groupKey);
+        if (!arr) { arr = []; groups.set(groupKey, arr); }
         arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
       }
     }
 
-    // Second pass: one fillStyle() per biome colour, then fillRect for every tile of that colour.
-    // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
+    // Second pass: one fillStyle() per tint+alpha bucket, then fillRect each tile.
     const gfx = this.add.graphics().setDepth(0.1);
-    for (const [tint, coords] of groups) {
-      gfx.fillStyle(tint, 0.12);
+    for (const [key, coords] of groups) {
+      const [tintStr, alphaStr] = key.split(':');
+      const tint = Number(tintStr);
+      const alpha = Number(alphaStr);
+      gfx.fillStyle(tint, alpha);
       for (let i = 0; i < coords.length; i += 2) {
         gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
       }
