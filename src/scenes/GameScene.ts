@@ -166,6 +166,8 @@ const INDICATOR_H = 6;
 
 /** FIL-9 / FIL-10: one cleanse unit per defeated rabbit */
 const RABBIT_COUNT = 25;
+// Separate constant so spawn density can be tuned without affecting the cleanse formula.
+const RABBIT_SPAWN_COUNT = 25;
 const RABBIT_SIZE = 18;
 const SPAWN_CLEAR = 320;
 const CHASE_RANGE = 200;
@@ -1600,7 +1602,7 @@ export class GameScene extends Phaser.Scene {
     const rndBetween = (min: number, max: number): number =>
       Math.floor(rng() * (max - min + 1)) + min;
 
-    for (let i = 0; i < RABBIT_COUNT; i++) {
+    for (let i = 0; i < RABBIT_SPAWN_COUNT; i++) {
       // Try up to 3 candidate positions — accept the first one whose biome matches.
       // If all 3 fail the bias check, skip this rabbit rather than forcing it into
       // the wrong terrain. In practice < 5% of slots are skipped at these settings.
@@ -1643,7 +1645,10 @@ export class GameScene extends Phaser.Scene {
 
       if (state === 'fleeing' && time < fleeUntil) {
         const away = Phaser.Math.Angle.Between(px, py, r.x, r.y);
-        this.physics.velocityFromRotation(away, (r.getData('fleeSpeed') ?? FLEE_SPEED) as number, b.velocity);
+        // FIL-295: 100 ms ramp so the rabbit accelerates into flight rather than snapping to full speed.
+        const fleeStart = (r.getData('fleeStartTime') as number | null) ?? time;
+        const ramp = Math.min((time - fleeStart) / 100, 1);
+        this.physics.velocityFromRotation(away, ramp * ((r.getData('fleeSpeed') ?? FLEE_SPEED) as number), b.velocity);
         continue;
       }
       if (state === 'fleeing' && time >= fleeUntil) {
@@ -2208,6 +2213,8 @@ export class GameScene extends Phaser.Scene {
       const away = Phaser.Math.Angle.Between(this.player.x, this.player.y, rabbit.x, rabbit.y);
       rabbit.setData('state', 'fleeing' satisfies RabbitState);
       rabbit.setData('fleeUntil', this.time.now + FLEE_MS);
+      // Record when flee started so the update loop can apply the 100 ms acceleration ramp.
+      rabbit.setData('fleeStartTime', this.time.now);
       this.physics.velocityFromRotation(away, FLEE_SPEED, body.velocity);
     }
   }
