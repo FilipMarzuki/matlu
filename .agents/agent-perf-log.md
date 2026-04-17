@@ -6,30 +6,32 @@ summarise it, and append a new weekly child page to the log.
 
 ## Environment
 
-- `LINEAR_API_KEY` — Linear GraphQL API (`https://api.linear.app/graphql`)
+- `GITHUB_TOKEN` — GitHub API token (pre-authenticated via `GH_TOKEN` alias). Used for `gh` CLI calls.
 - `NOTION_API_KEY` — Notion integration token
 - Use the Notion REST API: base `https://api.notion.com/v1`,
   header `Notion-Version: 2022-06-28`, auth `Bearer $NOTION_API_KEY`.
 
 ---
 
-## STEP 1 — Query agent outcome data from Linear
+## STEP 1 — Query agent outcome data from GitHub Issues
 
 Fetch all issues with any `agent:*` label that were updated in the past 7 days.
 
 ```bash
-WEEK_AGO=$(date -d "7 days ago" --utc +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
-           date -v-7d -u +%Y-%m-%dT%H:%M:%SZ)
+WEEK_AGO=$(date -d "7 days ago" --utc +%Y-%m-%d 2>/dev/null || date -v-7d -u +%Y-%m-%d)
 
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: ${LINEAR_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"query\": \"query { issues(filter: { labels: { name: { in: [\\\"agent:success\\\", \\\"agent:partial\\\", \\\"agent:failed\\\", \\\"agent:wrong-interpretation\\\"] } }, updatedAt: { gte: \\\"${WEEK_AGO}\\\" } }, first: 100, orderBy: updatedAt) { nodes { id identifier title updatedAt labels { nodes { name } } } } }\"
-  }"
+for LABEL in "agent:success" "agent:partial" "agent:failed" "agent:wrong-interpretation"; do
+  gh issue list \
+    --repo FilipMarzuki/matlu \
+    --label "$LABEL" \
+    --search "updated:>${WEEK_AGO}" \
+    --state all \
+    --json number,title,updatedAt,labels \
+    --limit 100
+done
 ```
 
-From the response, compute:
+Merge and deduplicate the results (an issue may carry multiple `agent:*` labels — count it once under its most specific outcome). From the response, compute:
 - Total issues processed (any `agent:*` label)
 - Count per outcome: success / partial / failed / wrong-interpretation
 - Failure rate: (failed + wrong-interpretation) / total × 100
@@ -45,10 +47,11 @@ From the response, compute:
 For each issue with `agent:wrong-interpretation`, fetch its comments:
 
 ```bash
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: ${LINEAR_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d "{\"query\": \"query { issue(id: \\\"ISSUE_ID\\\") { comments { nodes { body createdAt } } } }\"}"
+gh issue view ISSUE_NUMBER \
+  --repo FilipMarzuki/matlu \
+  --comments \
+  --json comments \
+  --jq '.comments[] | {body: .body, createdAt: .createdAt}'
 ```
 
 From the comment body, extract the structured lines added by the per-issue agent:
