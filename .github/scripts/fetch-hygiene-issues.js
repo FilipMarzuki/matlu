@@ -83,6 +83,20 @@ const NEEDS_REFINEMENT_QUERY = `
   }
 `;
 
+// Issues already in Duplicate state that still have labels attached — clean them up
+const DUPLICATE_QUERY = `
+  query {
+    issues(filter: {
+      state: { name: { eq: "Duplicate" } }
+    }, first: 20, orderBy: updatedAt) {
+      nodes {
+        identifier
+        labels { nodes { name } }
+      }
+    }
+  }
+`;
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -96,10 +110,11 @@ async function main() {
     }
     entries = [issueOverride];
   } else {
-    const [inProgress, tooLarge, needsRefinement] = await Promise.all([
+    const [inProgress, tooLarge, needsRefinement, duplicates] = await Promise.all([
       linear(IN_PROGRESS_QUERY),
       linear(TOO_LARGE_QUERY),
       linear(NEEDS_REFINEMENT_QUERY),
+      linear(DUPLICATE_QUERY),
     ]);
 
     const markDone = inProgress.issues.nodes
@@ -114,7 +129,12 @@ async function main() {
     const enrich = needsRefinement.issues.nodes
       .map(n => `${n.identifier}:enrich`);
 
-    entries = [...markDone, ...split, ...enrich];
+    // Only clean Duplicate-state issues that still have labels attached
+    const cleanDuplicate = duplicates.issues.nodes
+      .filter(n => n.labels.nodes.length > 0)
+      .map(n => `${n.identifier}:clean-duplicate`);
+
+    entries = [...markDone, ...split, ...enrich, ...cleanDuplicate];
   }
 
   // Deduplicate (an issue could theoretically match multiple queries)

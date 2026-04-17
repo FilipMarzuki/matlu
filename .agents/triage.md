@@ -51,6 +51,30 @@ An issue is **ready** when an autonomous agent can produce a shippable PR:
 
 ## Steps
 
+### 0. Duplicate check (30 seconds max)
+
+Before touching the codebase, search Linear for issues with overlapping title keywords:
+
+```graphql
+query($term: String!) {
+  issues(filter: {
+    title: { containsIgnoreCase: $term }
+    state: { type: { nin: ["cancelled"] } }
+  }, first: 5, orderBy: updatedAt) {
+    nodes { identifier title state { name } }
+  }
+}
+```
+
+Extract 2–3 key nouns from this issue's title and use them as `$term`. Exclude this issue's own identifier from the results.
+
+If a non-cancelled issue with substantially the same scope is found:
+- Update this issue's state to "Duplicate" via `issueUpdate`
+- Post a comment: "🔁 Duplicate of [FIL-XXX] — [other title]. Marking as duplicate."
+- **Exit immediately.** Do not label, estimate, or explore the codebase.
+
+If no clear duplicate, continue to step 1.
+
 ### 1. Quick context check (30 seconds max)
 
 Only if needed — check 1–3 files to verify the surface area exists.

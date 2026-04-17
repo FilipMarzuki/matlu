@@ -164,7 +164,7 @@ The per-issue runner requires `LINEAR_API_KEY` plus one of two Claude credential
 
 It also expects four labels to already exist in Linear: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
 
-On-demand runs: trigger `Nightly Agent (per-issue)` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.
+On-demand runs: trigger `Dev Agent` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.
 
 ## Triage agent
 
@@ -192,7 +192,7 @@ Rework = fixing something that was recently shipped. Tracked in two ways:
 1. **Per-issue** — triage agent applies the `rework` label when it detects fix/regression/polish patterns in the title or recently-changed files.
 2. **Weekly metric** — `collect-stats.js` computes rework rate (% of files changed this week that were also changed in prior 3 weeks), top rework hotspots, and posts to a dedicated Notion database for trend charting.
 
-On-demand: trigger `Triage Agent (per-issue)` from the Actions tab, optionally pinning to one issue via `issue_id`.
+On-demand: trigger `Backlog Refinement` from the Actions tab, optionally pinning to one issue via `issue_id`.
 
 ## Scheduled agent workflows
 
@@ -200,8 +200,8 @@ All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude
 
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
-| Linear Hygiene | after Triage Agent | `.agents/hygiene.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
-| PR Queue Grooming | after Nightly Agent | `.agents/pr-merge.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
+| Backlog Cleanup | after Backlog Refinement | `.agents/hygiene.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
+| PR Grooming | after Dev Agent | `.agents/pr-merge.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `LINEAR_API_KEY`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files Linear bugs |
 | Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY` | Expands thin lore entries, generates new ones in Notion |
 | Lore from Features | `0 15 * * *` (daily) | `.agents/lore-features.md` | `NOTION_API_KEY` | Scans merged PRs for new game entities, creates Notion lore entries |

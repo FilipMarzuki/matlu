@@ -1,6 +1,6 @@
-name: Linear Hygiene Agent (per-issue)
+name: Backlog Cleanup
 
-# Per-issue hygiene runner. Fires after every Triage Agent run and cleans
+# Per-issue cleanup runner. Fires after every Backlog Refinement run and cleans
 # up three drift patterns in the Linear backlog:
 #
 #   mark-done  — In Progress issues whose PR is merged → move to Done
@@ -11,15 +11,15 @@ name: Linear Hygiene Agent (per-issue)
 # and nightly implementation agents). A failure on one issue does not
 # block the others.
 #
-# Chain: fires via workflow_run when Triage Agent completes, so the order
-# each night is: triage (22:00) → hygiene (~22:15) → implementation (02:00)
+# Chain: fires via workflow_run when Backlog Refinement completes, so the order
+# each night is: refinement (22:00) → cleanup (~22:15) → dev agent (02:00)
 #
 # Manual: trigger from the Actions tab. Optionally pin to a single issue
 # with the `issue` input (e.g. "FIL-42:mark-done").
 
 on:
   workflow_run:
-    workflows: ["Triage Agent (per-issue)"]
+    workflows: ["Backlog Refinement"]
     types: [completed]
   workflow_dispatch:
     inputs:
