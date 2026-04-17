@@ -33,6 +33,8 @@ const ARENA_SCENE_KEY = 'CombatArenaScene';
  *   nav-free-cam-changed (bool) → NavScene updates the Free Cam button label
  *   nav-play-mode-changed (bool) → NavScene updates the Play/AI button label
  *   nav-toggle-free-cam   → GameScene toggles free-fly camera
+ *   nav-toggle-decor      → GameScene toggles world decorations visibility
+ *   nav-toggle-animals    → GameScene toggles wildlife visibility
  *   nav-toggle-play-mode  → CombatArenaScene toggles hero player mode
  *   nav-reset-arena        → CombatArenaScene resets the fight
  */
@@ -42,6 +44,8 @@ export class NavScene extends Phaser.Scene {
   private freeCamBtn!:  Phaser.GameObjects.Text;
   private elevMapBtn!:  Phaser.GameObjects.Text;
   private biomeMapBtn!: Phaser.GameObjects.Text;
+  private decorBtn!:    Phaser.GameObjects.Text;
+  private animalsBtn!:  Phaser.GameObjects.Text;
   private playAiBtn!:   Phaser.GameObjects.Text;
   private resetBtn!:    Phaser.GameObjects.Text;
   private freeCamGroup!: Phaser.GameObjects.Group;
@@ -102,15 +106,15 @@ export class NavScene extends Phaser.Scene {
       fixedWidth: BTN_W, align: 'center',
     }).setOrigin(0.5);
 
-    // ── WilderView button ──────────────────────────────────────────────────────
-    const wvActive = this.add.text(cx, btnY0, 'WilderView', {
+    // ── World Dev button ──────────────────────────────────────────────────────
+    const wvActive = this.add.text(cx, btnY0, 'World Dev', {
       fontSize: '14px', color: '#aaffaa',
       backgroundColor: '#33330088',
       padding: { x: 10, y: 6 },
       fixedWidth: BTN_W, align: 'center',
     }).setOrigin(0.5).setName('wv-active');
 
-    const wvInactive = inactiveStyle('WilderView')
+    const wvInactive = inactiveStyle('World Dev')
       .setY(btnY0).setName('wv-inactive')
       .setInteractive({ useHandCursor: true })
       .on('pointerup', () => this.game.events.emit('nav-goto-wilderview'))
@@ -173,11 +177,38 @@ export class NavScene extends Phaser.Scene {
       .on('pointerover', () => this.biomeMapBtn.setStyle({ color: '#ccffee' }))
       .on('pointerout',  () => this.biomeMapBtn.setStyle({ color: this.biomeMapBtn.text.includes('✓') ? '#ffffff' : '#88ffcc' }));
 
+    // Toggle world decorations (trees, paths, zone tints) on/off.
+    this.decorBtn = this.add.text(cx, divY + 154, 'Decor', {
+      fontSize: '13px', color: '#ffcc88',
+      backgroundColor: '#332200aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup',   () => this.game.events.emit('nav-toggle-decor'))
+      .on('pointerover', () => this.decorBtn.setStyle({ color: '#ffeecc' }))
+      .on('pointerout',  () => this.decorBtn.setStyle({ color: this.decorBtn.text.includes('✓') ? '#ffffff' : '#ffcc88' }));
+
+    // Toggle wildlife (rabbits, deer, hare, fox) visibility on/off.
+    this.animalsBtn = this.add.text(cx, divY + 198, 'Animals', {
+      fontSize: '13px', color: '#aaffaa',
+      backgroundColor: '#002200aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup',   () => this.game.events.emit('nav-toggle-animals'))
+      .on('pointerover', () => this.animalsBtn.setStyle({ color: '#ccffcc' }))
+      .on('pointerout',  () => this.animalsBtn.setStyle({ color: this.animalsBtn.text.includes('✓') ? '#ffffff' : '#aaffaa' }));
+
     const freeCamHint = this.add.text(cx, H - 80, 'WASD — pan\nScroll — zoom', {
       fontSize: '10px', color: '#3a5a3a', align: 'center',
     }).setOrigin(0.5, 1);
 
-    this.freeCamGroup = this.add.group([this.freeCamBtn, this.elevMapBtn, this.biomeMapBtn, freeCamHint]);
+    this.freeCamGroup = this.add.group([
+      this.freeCamBtn, this.elevMapBtn, this.biomeMapBtn,
+      this.decorBtn, this.animalsBtn, freeCamHint,
+    ]);
 
     // ── Arena-only controls (Play/AI, Reset) ───────────────────────────────────
     this.playAiBtn = this.add.text(cx, divY + 22, 'Play', {
@@ -247,12 +278,24 @@ export class NavScene extends Phaser.Scene {
       this.biomeMapBtn.setStyle({ color: biomeOn ? '#ffffff' : '#88ffcc' });
     }, this);
 
+    this.game.events.on('nav-decor-changed', (visible: boolean) => {
+      this.decorBtn.setText(visible ? 'Decor ✓' : 'Decor');
+      this.decorBtn.setStyle({ color: visible ? '#ffffff' : '#ffcc88' });
+    }, this);
+
+    this.game.events.on('nav-animals-changed', (visible: boolean) => {
+      this.animalsBtn.setText(visible ? 'Animals ✓' : 'Animals');
+      this.animalsBtn.setStyle({ color: visible ? '#ffffff' : '#aaffaa' });
+    }, this);
+
     // Clean up listeners and DOM elements when this scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-mode-change', undefined, this);
       this.game.events.off('nav-free-cam-changed', undefined, this);
       this.game.events.off('nav-play-mode-changed', undefined, this);
       this.game.events.off('nav-dev-overlay-changed', undefined, this);
+      this.game.events.off('nav-decor-changed', undefined, this);
+      this.game.events.off('nav-animals-changed', undefined, this);
       this.destroyFeedbackWidget();
     });
   }
