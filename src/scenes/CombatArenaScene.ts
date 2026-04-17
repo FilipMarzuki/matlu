@@ -471,10 +471,12 @@ export class CombatArenaScene extends Phaser.Scene {
 
     const WALL_T  = 22;
     // WALL_INSET: how far to push the physics world bounds from the arena edge.
-    // = WALL_T (solid stone) + 16 px headroom so the Tinkerer's 48×48 sprite
-    //   (half = 24) and the 16×16 physics body (half = 8) never overlap the wall
-    //   graphic.  Entity visual left edge = entityCenter - 24 ≥ arenaX + 22 = wall inner edge.
-    const WALL_INSET = WALL_T + 16;  // 38 px total
+    // Derivation: body-half (8) + sprite-half-max (24 for 48×48 Tinkerer) + clearance (8) = 40.
+    // Round up to WALL_T + 24 = 46 so the inset also exceeds the CHAMFER (42), making the
+    // corner-triangle zone bodies unreachable — world bounds stop entities at 46 px from the
+    // edge, well inside the 42 px diagonal cut.
+    //   Entity visual left edge min = (arenaX + 46 + 8) − 24 = arenaX + 30 > arenaX + 22 (wall face). ✓
+    const WALL_INSET = WALL_T + 24;  // 46 px total
     // CHAMFER: how many pixels the octagonal corners cut inward.
     const CHAMFER = 42;
 
