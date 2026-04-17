@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Weekly engineering stats collector.
-// Queries GitHub REST API + Linear GraphQL, then posts a new page to Notion.
+// Queries GitHub REST API + Linear GraphQL, posts to Supabase (master),
+// then pushes a copy to Notion so stats are visible there too.
 // Runs via GitHub Actions — all credentials come from environment secrets.
 // Uses only Node.js built-ins (fetch is available in Node 18+).
 
@@ -13,16 +14,18 @@ import { execSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-const GITHUB_TOKEN             = process.env.GITHUB_TOKEN;
-const SUPABASE_URL             = process.env.SUPABASE_URL;
+const GITHUB_TOKEN              = process.env.GITHUB_TOKEN;
+const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const LINEAR_API_KEY           = process.env.LINEAR_API_KEY;
-const VERCEL_DEPLOY_HOOK       = process.env.VERCEL_DEPLOY_HOOK;
-const VERCEL_TOKEN             = process.env.VERCEL_TOKEN;
-const VERCEL_PROJECT_ID        = process.env.VERCEL_PROJECT_ID;
-const PIXELLAB_API_KEY         = process.env.PIXELLAB_API_KEY;
-const REPO_OWNER               = process.env.REPO_OWNER || 'FilipMarzuki';
-const REPO_NAME                = process.env.REPO_NAME  || 'matlu';
+const LINEAR_API_KEY            = process.env.LINEAR_API_KEY;
+const VERCEL_DEPLOY_HOOK        = process.env.VERCEL_DEPLOY_HOOK;
+const VERCEL_TOKEN              = process.env.VERCEL_TOKEN;
+const VERCEL_PROJECT_ID         = process.env.VERCEL_PROJECT_ID;
+const PIXELLAB_API_KEY          = process.env.PIXELLAB_API_KEY;
+const NOTION_API_KEY            = process.env.NOTION_API_KEY;
+const NOTION_STATS_PAGE_ID      = process.env.NOTION_STATS_PAGE_ID;
+const REPO_OWNER                = process.env.REPO_OWNER || 'FilipMarzuki';
+const REPO_NAME                 = process.env.REPO_NAME  || 'matlu';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
@@ -153,6 +156,13 @@ async function getGitHubStats() {
     ? Math.round((agentClosed.filter(pr => pr.merged_at).length / agentClosed.length) * 100)
     : null;
 
+  // Open PRs — count and average age (for cognitive load snapshot)
+  const openPrList       = await ghGet(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=open&per_page=100`);
+  const openPrCount      = openPrList.length;
+  const openPrAvgAgeDays = openPrList.length
+    ? Math.round(avg(openPrList.map(pr => (now - new Date(pr.created_at)) / (1000 * 60 * 60 * 24))) * 10) / 10
+    : 0;
+
   return {
     mergedCount,
     avgPrSize,
@@ -165,6 +175,8 @@ async function getGitHubStats() {
     humanMergedCount:  merged.length - agentMerged.length,
     agentPrPct,
     agentSuccessRate,
+    openPrCount,
+    openPrAvgAgeDays,
   };
 }
 
@@ -329,6 +341,7 @@ async function getLinearStats() {
           first: 20
           orderBy: updatedAt
         ) {
+          totalCount
           nodes { identifier title updatedAt }
         }
       }
@@ -357,7 +370,7 @@ async function getLinearStats() {
     .sort((a, b) => b.daysSinceUpdate - a.daysSinceUpdate)
     .slice(0, 5);
 
-  return { completedCount, avgCycleTime, reworkRate: 0, staleInProgress };
+  return { completedCount, avgCycleTime, reworkRate: 0, staleInProgress, inProgressCount: inProgressData.issues.totalCount };
 }
 
 // ── AI token usage ────────────────────────────────────────────────────────────
@@ -763,10 +776,71 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   return lines.join('\n');
 }
 
+// ── Rework stats ─────────────────────────────────────────────────────────────
+
+/**
+ * Computes rework rate: % of src/ files changed this week that were also
+ * changed in the prior 3 weeks (indicating churn / repeated edits).
+ */
+function getReworkStats() {
+  const repoRoot = join(__dirname, '../..');
+  try {
+    const threeWeeksAgo    = new Date(now - 28 * 24 * 60 * 60 * 1000);
+    const threeWeeksAgoISO = threeWeeksAgo.toISOString();
+
+    const gitNumstat = (since, until) => {
+      const untilFlag = until ? `--until="${until}"` : '';
+      return execSync(
+        `git -C "${repoRoot}" log --since="${since}" ${untilFlag} --numstat --format="" -- src/`,
+        { encoding: 'utf8' }
+      );
+    };
+
+    const parseFiles = (out) => {
+      const files = {};
+      for (const line of out.trim().split('\n').filter(Boolean)) {
+        const [a, d, file] = line.split('\t');
+        if (!file || a === '-' || d === '-') continue;
+        files[file] = (files[file] || 0) + (parseInt(a) || 0) + (parseInt(d) || 0);
+      }
+      return files;
+    };
+
+    const thisWeekFiles = parseFiles(gitNumstat(weekAgoISO));
+    const priorFiles    = new Set(Object.keys(parseFiles(gitNumstat(threeWeeksAgoISO, weekAgoISO))));
+
+    const totalFiles = Object.keys(thisWeekFiles).length;
+    if (!totalFiles) return null;
+
+    const reworkEntries  = Object.entries(thisWeekFiles).filter(([f]) => priorFiles.has(f));
+    const reworkFileCount = reworkEntries.length;
+    const reworkRate      = Math.round((reworkFileCount / totalFiles) * 100);
+    const topReworkFiles  = reworkEntries
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([file, changes]) => ({ file, changes }));
+
+    return {
+      reworkRate,
+      reworkFileCount,
+      newFileCount:   totalFiles - reworkFileCount,
+      totalFiles,
+      topReworkFiles,
+    };
+  } catch (e) {
+    console.warn('getReworkStats failed:', e.message);
+    return null;
+  }
+}
+
 // ── Post to Supabase ──────────────────────────────────────────────────────────
 
-async function postToSupabase(title, content, metrics) {
-  const ao = metrics.agentOutcome;
+async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome }) {
+  const ao = agentOutcome;
+  const aiTotalTokens = ai
+    ? (ai.totalInput + ai.totalOutput + ai.totalCacheRead + ai.totalCacheWrite)
+    : null;
+
   const res = await fetch(`${SUPABASE_URL}/rest/v1/stats_weekly`, {
     method: 'POST',
     headers: {
@@ -782,7 +856,72 @@ async function postToSupabase(title, content, metrics) {
       content,
       metrics,
 
-      // Agent outcome typed columns (populated from metrics.agentOutcome)
+      // ── Delivery ────────────────────────────────────────────────────────────
+      prs_merged:               gh.mergedCount,
+      human_prs:                gh.humanMergedCount,
+      agent_prs:                gh.agentMergedCount,
+      avg_pr_size:              gh.avgPrSize,
+      issues_completed:         linear.completedCount,
+      active_days:              commitSpread?.activeDays   ?? null,
+      total_commits:            commitSpread?.totalCommits ?? null,
+
+      // ── Velocity ────────────────────────────────────────────────────────────
+      avg_merge_time_hours:     gh.avgMergeTime,
+      avg_cycle_time_days:      linear.avgCycleTime,
+
+      // ── Quality ─────────────────────────────────────────────────────────────
+      ci_pass_rate_pct:         gh.ciPassRate,
+      fix_revert_count:         gh.fixRevertCount,
+      fix_revert_pct:           gh.fixRevertPct,
+      any_count:                quality?.anyCount       ?? null,
+      ts_ignore_count:          quality?.tsIgnoreCount  ?? null,
+      todo_count:               quality?.todoCount      ?? null,
+      test_file_count:          quality?.testFileCount  ?? null,
+      lines_added:              quality?.linesAdded     ?? null,
+      lines_deleted:            quality?.linesDeleted   ?? null,
+
+      // ── Automation ──────────────────────────────────────────────────────────
+      agent_pr_share_pct:       gh.agentPrPct,
+      agent_success_rate_pct:   gh.agentSuccessRate,
+
+      // ── Rework ──────────────────────────────────────────────────────────────
+      rework_rate_pct:          rework?.reworkRate      ?? null,
+      rework_file_count:        rework?.reworkFileCount ?? null,
+      new_file_count:           rework?.newFileCount    ?? null,
+      total_files_changed:      rework?.totalFiles      ?? null,
+      top_rework_file:          rework?.topReworkFiles?.[0]?.file    ?? null,
+      top_rework_hits:          rework?.topReworkFiles?.[0]?.changes ?? null,
+
+      // ── Cognitive load ──────────────────────────────────────────────────────
+      cognitive_load_total:     cogLoad?.totalScore     ?? null,
+      cognitive_load_top_file:  cogLoad?.top10?.[0]?.file  ?? null,
+      cognitive_load_top_score: cogLoad?.top10?.[0]?.score ?? null,
+      ts_file_count:            cogLoad?.fileCount      ?? null,
+      cognitive_load_top10:     cogLoad?.top10          ?? null,
+
+      // ── AI usage ────────────────────────────────────────────────────────────
+      ai_sessions:              ai?.sessions            ?? null,
+      ai_total_tokens:          aiTotalTokens,
+      ai_input_tokens:          ai?.totalInput          ?? null,
+      ai_output_tokens:         ai?.totalOutput         ?? null,
+      ai_cache_read_tokens:     ai?.totalCacheRead      ?? null,
+      ai_cache_write_tokens:    ai?.totalCacheWrite     ?? null,
+      ai_total_cost_usd:        ai?.totalCost           ?? null,
+
+      // ── Bundle ──────────────────────────────────────────────────────────────
+      bundle_js_kb:             bundle?.jsKb            ?? null,
+      bundle_css_kb:            bundle?.cssKb           ?? null,
+      bundle_gzip_kb:           bundle?.gzipKb          ?? null,
+      bundle_total_kb:          bundle?.totalKb         ?? null,
+
+      // ── Deploys ─────────────────────────────────────────────────────────────
+      deploys_this_week:        deployStats?.thisWeek   ?? null,
+      deploys_last_week:        deployStats?.lastWeek   ?? null,
+
+      // ── PixelLab ────────────────────────────────────────────────────────────
+      pixellab_balance_usd:     pixellab?.usd           ?? null,
+
+      // ── Agent outcome ────────────────────────────────────────────────────────
       agent_issues_processed:     ao?.total       ?? null,
       agent_outcome_success:      ao?.success      ?? null,
       agent_outcome_partial:      ao?.partial      ?? null,
@@ -801,7 +940,177 @@ async function postToSupabase(title, content, metrics) {
 }
 
 
+// ── Push stats to Notion ──────────────────────────────────────────────────────
+
+async function notionFetch(path, method = 'GET', body = null) {
+  const res = await fetch(`https://api.notion.com/v1${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${NOTION_API_KEY}`,
+      'Content-Type': 'application/json',
+      'Notion-Version': '2022-06-28',
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) throw new Error(`Notion ${method} ${path} → ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+/**
+ * Converts the markdown generated by buildMarkdown() into Notion block objects.
+ * Handles: ## headings, - bullets, numbered lists, ```code fences, **bold**, `inline code`.
+ */
+function markdownToNotionBlocks(markdown) {
+  const blocks = [];
+  const lines  = markdown.split('\n');
+  let i = 0;
+
+  const parseRichText = (text) => {
+    const parts  = [];
+    const regex  = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+    let last = 0, match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > last)
+        parts.push({ type: 'text', text: { content: text.slice(last, match.index) } });
+      const raw = match[0];
+      if (raw.startsWith('**'))
+        parts.push({ type: 'text', text: { content: raw.slice(2, -2) }, annotations: { bold: true } });
+      else
+        parts.push({ type: 'text', text: { content: raw.slice(1, -1) }, annotations: { code: true } });
+      last = match.index + raw.length;
+    }
+    if (last < text.length)
+      parts.push({ type: 'text', text: { content: text.slice(last) } });
+    return parts.length ? parts : [{ type: 'text', text: { content: text } }];
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.startsWith('## ')) {
+      blocks.push({ type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: line.slice(3) } }] } });
+    } else if (line.startsWith('- ')) {
+      blocks.push({ type: 'bulleted_list_item', bulleted_list_item: { rich_text: parseRichText(line.slice(2)) } });
+    } else if (/^\d+\.\s/.test(line)) {
+      blocks.push({ type: 'numbered_list_item', numbered_list_item: { rich_text: parseRichText(line.replace(/^\d+\.\s/, '')) } });
+    } else if (line.startsWith('```')) {
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) { codeLines.push(lines[i]); i++; }
+      if (codeLines.length)
+        blocks.push({ type: 'code', code: { rich_text: [{ type: 'text', text: { content: codeLines.join('\n') } }], language: 'plain text' } });
+    } else if (line.trim()) {
+      blocks.push({ type: 'paragraph', paragraph: { rich_text: parseRichText(line) } });
+    }
+
+    i++;
+  }
+
+  return blocks;
+}
+
+async function postToNotion(title, content) {
+  if (!NOTION_API_KEY || !NOTION_STATS_PAGE_ID) {
+    console.log('NOTION_API_KEY or NOTION_STATS_PAGE_ID not set — skipping Notion push.');
+    return;
+  }
+  try {
+    // Archive any existing child page for the same week so Notion stays clean
+    const { results } = await notionFetch(`/blocks/${NOTION_STATS_PAGE_ID}/children?page_size=100`);
+    for (const block of results ?? []) {
+      if (block.type === 'child_page' && block.child_page?.title === title) {
+        await notionFetch(`/pages/${block.id}`, 'PATCH', { archived: true });
+        console.log(`Archived existing Notion stats page: ${title}`);
+      }
+    }
+
+    // Create the new page; Notion caps children at 100 per request
+    const blocks    = markdownToNotionBlocks(content);
+    const firstPage = blocks.slice(0, 100);
+    const page = await notionFetch('/pages', 'POST', {
+      parent:     { page_id: NOTION_STATS_PAGE_ID },
+      properties: { title: { title: [{ type: 'text', text: { content: title } }] } },
+      children:   firstPage,
+    });
+
+    // Append any remaining blocks in batches of 100
+    for (let j = 100; j < blocks.length; j += 100) {
+      await notionFetch(`/blocks/${page.id}/children`, 'PATCH', {
+        children: blocks.slice(j, j + 100),
+      });
+    }
+
+    console.log(`Stats page pushed to Notion: ${title} (${blocks.length} blocks)`);
+  } catch (e) {
+    console.warn('postToNotion failed (non-fatal):', e.message);
+  }
+}
+
 // ── Trigger Vercel rebuild ────────────────────────────────────────────────────
+
+// ── Cognitive load snapshot ───────────────────────────────────────────────────
+
+// Writes one row per week to the `cognitive_load` table using the same raw data
+// already computed above — no extra API calls needed.
+//
+// Score formula (0–100):
+//   open_prs × 8   → max 40 pts (5 PRs)
+//   avg_age × 2    → max 20 pts (10 days)
+//   in_progress × 7 → max 28 pts (4 issues)
+//   rework_rate × 0.12 → max 12 pts (100%)
+
+async function postCognitiveLoad({ gh, linear, rework }) {
+  const openPrs    = gh.openPrCount        ?? 0;
+  const avgAge     = gh.openPrAvgAgeDays   ?? 0;
+  const inProg     = linear.inProgressCount ?? 0;
+  const reworkRate = rework?.reworkRate     ?? 0;
+
+  const a     = Math.min(openPrs   *  8,    40);
+  const b     = Math.min(avgAge    *  2,    20);
+  const c     = Math.min(inProg    *  7,    28);
+  const d     = Math.min(reworkRate * 0.12, 12);
+  const score = Math.min(100, Math.max(0, Math.round((a + b + c + d) * 10) / 10));
+
+  // Anchor to the Sunday of the current ISO week so each snapshot has a
+  // consistent date regardless of which day the script actually runs.
+  const day     = now.getUTCDay(); // 0 = Sunday
+  const diff    = day === 0 ? 0 : 7 - day;
+  const sunday  = new Date(now);
+  sunday.setUTCDate(now.getUTCDate() + diff);
+  const weekDate = sunday.toISOString().slice(0, 10);
+
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/cognitive_load?on_conflict=recorded_at`,
+    {
+      method: 'POST',
+      headers: {
+        apikey:          SUPABASE_SERVICE_ROLE_KEY,
+        Authorization:   `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type':  'application/json',
+        Prefer:          'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        recorded_at:        weekDate,
+        score,
+        open_prs:           openPrs,
+        avg_pr_age_days:    Math.round(avgAge * 10) / 10,
+        issues_in_progress: inProg,
+        rework_rate:        reworkRate,
+        details: {
+          rework_files_recent:  rework?.totalFiles      ?? 0,
+          rework_files_overlap: rework?.reworkFileCount ?? 0,
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`cognitive_load upsert failed: ${res.status} ${body}`);
+  } else {
+    console.log(`Cognitive load upserted for week ${weekDate} (score=${score}).`);
+  }
+}
 
 async function triggerVercelDeploy() {
   if (!VERCEL_DEPLOY_HOOK) {
@@ -861,7 +1170,11 @@ async function main() {
     pixellab:      pixellab     ?? null,
     agentOutcome:  agentOutcome ?? null,
   };
-  await postToSupabase(weekLabel, content, metrics);
+  await postToSupabase(weekLabel, content, metrics, {
+    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome,
+  });
+  await postCognitiveLoad({ gh, linear, rework });
+  await postToNotion(weekLabel, content);
 
   await triggerVercelDeploy();
   console.log('Done.');

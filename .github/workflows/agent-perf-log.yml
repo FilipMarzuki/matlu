@@ -1,15 +1,15 @@
 name: Agent Performance Log
 
-# Runs every Sunday at 10:00 UTC — after the release-notes agent (09:00) and
-# triage + hygiene agents earlier in the week.
+# Chains after Weekly Release Notes to form the Sunday stats pipeline:
+#   Weekly Engineering Stats → Weekly Release Notes → Agent Performance Log
 # Queries Linear for the past week's agent outcome labels, computes a breakdown
 # by issue type, and appends a weekly summary child page to the Notion
 # "Agent Performance Log". Prompt lives in .agents/agent-perf-log.md.
 
 on:
-  schedule:
-    # 10:00 UTC (12:00 PM GMT+2) every Sunday.
-    - cron: '0 10 * * 0'
+  workflow_run:
+    workflows: ["Weekly Release Notes"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:

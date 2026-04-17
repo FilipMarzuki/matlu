@@ -1,13 +1,13 @@
 name: Weekly Release Notes
 
 # Writes release notes from the week's merged PRs and posts them to Notion
-# under the Dev Blog page. Runs every Sunday — prompt lives in
-# .agents/release-notes.md.
+# under the Dev Blog page. Chains after Weekly Engineering Stats so the stats
+# snapshot is always complete first. Prompt lives in .agents/release-notes.md.
 
 on:
-  schedule:
-    # 09:00 UTC (11:00 AM GMT+2) every Sunday.
-    - cron: '0 9 * * 0'
+  workflow_run:
+    workflows: ["Weekly Engineering Stats"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
