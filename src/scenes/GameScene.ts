@@ -806,12 +806,14 @@ export class GameScene extends Phaser.Scene {
   /** Container holding per-tile text labels (elevation number or biome name). */
   private devTextContainer: Phaser.GameObjects.Container | null = null;
 
-  // ─── Decoration visibility toggle (H key) ─────────────────────────────────
-  /** All world-decoration images (trees, rocks, flowers, buildings, etc.) — toggled by H key. */
+  // ─── Decoration visibility toggle (H key / World Dev panel) ─────────────────
+  /** All world-decoration images (trees, rocks, flowers, buildings, etc.) — toggled by H key or Decor button. */
   private decorImages: Phaser.GameObjects.Image[] = [];
   /** Whether decorations are currently visible. */
-  // Start hidden — ground-polish focus. Press H to toggle all decorations on/off.
+  // Start hidden — ground-polish focus. Press H or use the World Dev Decor button to toggle.
   private decorVisible = false;
+  /** Whether wildlife (rabbits, ground animals) is currently visible. */
+  private animalsVisible = true;
 
   /** Raw elevation value per tile [0,1.2] — stored during terrain bake. */
   private tileDevElev:  Float32Array | null = null;
@@ -1287,17 +1289,8 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SHIFT', () => this.tryDash());
 
     // H — toggle all world decorations so the bare terrain is visible for
-    // design / polish. Covers sprites, paths, zone tints, glows, particles.
-    this.input.keyboard?.on('keydown-H', () => {
-      this.decorVisible = !this.decorVisible;
-      for (const img of this.decorImages) img.setVisible(this.decorVisible);
-      this.pathGraphics.setVisible(this.decorVisible);
-      for (const ov of this.zoneOverlays.values()) ov.setVisible(this.decorVisible);
-      for (const g of this.settlementGlows) g.setVisible(this.decorVisible);
-      if (this.leavesEmitter)  this.leavesEmitter.emitting  = this.decorVisible && (this.worldClock?.phase === 'dawn' || this.worldClock?.phase === 'dusk');
-      if (this.pollenEmitter)  this.pollenEmitter.emitting   = this.decorVisible && (this.worldClock?.phase === 'morning' || this.worldClock?.phase === 'midday' || this.worldClock?.phase === 'afternoon');
-      if (this.fireflyEmitter) this.fireflyEmitter.emitting  = this.decorVisible && this.worldClock?.phase === 'night';
-    });
+    // design / polish. Delegates to toggleDecor() so the World Dev panel button stays in sync.
+    this.input.keyboard?.on('keydown-H', () => { this.toggleDecor(); });
 
     this.rabbits = this.physics.add.group();
     this.spawnRabbits();
@@ -7218,11 +7211,21 @@ export class GameScene extends Phaser.Scene {
       this.toggleDevOverlay('biome');
     }, this);
 
+    // NavScene World Dev buttons → toggle world-layer visibility.
+    this.game.events.on('nav-toggle-decor', () => {
+      this.toggleDecor();
+    }, this);
+    this.game.events.on('nav-toggle-animals', () => {
+      this.toggleAnimals();
+    }, this);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-goto-arena', undefined, this);
       this.game.events.off('nav-toggle-free-cam', undefined, this);
       this.game.events.off('nav-toggle-elev-overlay', undefined, this);
       this.game.events.off('nav-toggle-biome-overlay', undefined, this);
+      this.game.events.off('nav-toggle-decor', undefined, this);
+      this.game.events.off('nav-toggle-animals', undefined, this);
     });
   }
 
@@ -7240,6 +7243,37 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.game.events.emit('nav-free-cam-changed', this.freeCamMode);
+  }
+
+  /**
+   * Toggle world decorations (trees, rocks, flowers, paths, zone tints, particles)
+   * on/off.  Mirrors the H-key shortcut but also fires a NavScene update event so
+   * the World Dev panel button reflects the current state.
+   */
+  toggleDecor(): void {
+    this.decorVisible = !this.decorVisible;
+    for (const img of this.decorImages) img.setVisible(this.decorVisible);
+    this.pathGraphics.setVisible(this.decorVisible);
+    for (const ov of this.zoneOverlays.values()) ov.setVisible(this.decorVisible);
+    for (const g of this.settlementGlows) g.setVisible(this.decorVisible);
+    if (this.leavesEmitter)  this.leavesEmitter.emitting  = this.decorVisible && (this.worldClock?.phase === 'dawn' || this.worldClock?.phase === 'dusk');
+    if (this.pollenEmitter)  this.pollenEmitter.emitting   = this.decorVisible && (this.worldClock?.phase === 'morning' || this.worldClock?.phase === 'midday' || this.worldClock?.phase === 'afternoon');
+    if (this.fireflyEmitter) this.fireflyEmitter.emitting  = this.decorVisible && this.worldClock?.phase === 'night';
+    // true means decorations are on (shown), button shows ✓
+    this.game.events.emit('nav-decor-changed', this.decorVisible);
+  }
+
+  /**
+   * Toggle wildlife visibility on/off.  Hides the rabbit and ground-animal physics
+   * groups so the world can be inspected without animals cluttering the view.
+   * Notifies NavScene so the Animals button label stays in sync.
+   */
+  toggleAnimals(): void {
+    this.animalsVisible = !this.animalsVisible;
+    this.rabbits?.setAlpha(this.animalsVisible ? 1 : 0);
+    this.groundAnimals?.setAlpha(this.animalsVisible ? 1 : 0);
+    // true means animals are visible, button shows ✓
+    this.game.events.emit('nav-animals-changed', this.animalsVisible);
   }
 
   /** Pan the camera with WASD/arrows when in free-fly mode. */
