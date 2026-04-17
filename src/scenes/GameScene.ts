@@ -22,6 +22,7 @@ import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
+import { WindSystem }        from '../systems/WindSystem';
 import {
   DIAGONAL_RIVERS,
   TracedRiverPath,
@@ -834,6 +835,8 @@ export class GameScene extends Phaser.Scene {
   private devTextContainer: Phaser.GameObjects.Container | null = null;
 
   // ─── Decoration visibility toggle (H key / World Dev panel) ─────────────────
+  /** Wind animation system — drives per-frame y-offset sway on visible decorations (FIL-240). */
+  private windSystem: WindSystem | null = null;
   /** All world-decoration images (trees, rocks, flowers, buildings, etc.) — toggled by H key or Decor button. */
   private decorImages: Phaser.GameObjects.Image[] = [];
   /** Whether decorations are currently visible. */
@@ -1231,6 +1234,16 @@ export class GameScene extends Phaser.Scene {
     this.spawnButterfliesAndBees();
     this.stampSettlementBuildings();
     this.spawnParticleEffects();
+
+    // FIL-240: create WindSystem after all decorations are placed.
+    // tileDevElev and tileDevW are populated by drawProceduralTerrain() above,
+    // so the biome grid is available for per-decoration amplitude lookup.
+    this.windSystem = new WindSystem(
+      this,
+      this.decorImages,
+      this.tileDevElev,
+      this.tileDevW,
+    );
 
     // Hide all non-ground visuals on startup so the terrain bake can be
     // evaluated in isolation. Press H to toggle everything back on.
@@ -1663,6 +1676,15 @@ export class GameScene extends Phaser.Scene {
     const globalCorruption01  = Math.max(0, 100 - cleanse01) / 100;
     if (this.corruptFilter) {
       this.corruptFilter.setCorruption(globalCorruption01);
+    }
+
+    // FIL-240: wind sway on visible decoration sprites.
+    if (this.windSystem && this.decorVisible) {
+      this.windSystem.update(
+        time * 0.001,
+        globalCorruption01,
+        this.worldState.weather,
+      );
     }
 
     // ── Corruption camera jitter ─────────────────────────────────────────────
