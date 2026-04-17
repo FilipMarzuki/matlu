@@ -866,9 +866,12 @@ export class CombatArenaScene extends Phaser.Scene {
     // Spawn in a room other than the hero's starting room so enemies must
     // travel to reach the hero — giving the player a moment to prepare.
     // Falls back to the right-edge spawn when no other rooms are available.
+    // Exclude the hero's current room so enemies must travel to reach the player,
+    // giving a moment to react. If heroRoom is null (spawnHero failed), all rooms
+    // are valid candidates.
     const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
     const spawnRoom = candidateRooms.length > 0
-      ? candidateRooms[Math.floor(Math.random() * candidateRooms.length)]
+      ? Phaser.Math.RND.pick(candidateRooms)
       : null;
 
     const spawnPositions = spawnRoom
