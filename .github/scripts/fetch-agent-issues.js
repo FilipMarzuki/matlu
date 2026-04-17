@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Fetches Linear issues eligible for the per-issue nightly agent.
 //
-// Eligibility: state=Backlog, assignee="Filip Marzuki", label="ready".
+// Eligibility: state=Backlog or Todo, assignee="Filip Marzuki", label="ready".
 // Emits a JSON array of Linear issue identifiers (e.g. ["FIL-42","FIL-43"])
 // on stdout. When run in GitHub Actions, also appends `issues=[...]` to
 // $GITHUB_OUTPUT so the downstream matrix job can fan out over them.
@@ -53,7 +53,7 @@ const READY_QUERY = `
   query ReadyIssues {
     issues(
       filter: {
-        state: { type: { eq: "backlog" } }
+        state: { type: { in: ["backlog", "unstarted"] } }
         assignee: { name: { eq: "Filip Marzuki" } }
         labels: { some: { name: { eq: "ready" } } }
       }
