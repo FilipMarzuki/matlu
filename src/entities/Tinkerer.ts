@@ -46,8 +46,8 @@ export class Tinkerer extends EarthHero {
       projectileDamage:   18,
       projectileSpeed:    420,   // faster than other projectiles — feels like a bullet
       projectileColor:    0xfff8b0, // bright yellow-white muzzle colour
-      dashSpeedMultiplier: 4.5,
-      dashDurationMs:     180,
+      dashSpeedMultiplier: 5,    // higher peak compensates for linear deceleration (avg ~2.5×)
+      dashDurationMs:     350,   // longer window gives the slide/roll feel
       spriteKey:          'tinkerer',
     });
   }

@@ -534,7 +534,11 @@ export abstract class CombatEntity extends Enemy {
         this.isDashing = false;
         physBody?.setVelocity(0, 0);
       } else {
-        physBody?.setVelocity(this.dashVx, this.dashVy);
+        // Ease-out: scale velocity by remaining-time fraction so the dash
+        // decelerates smoothly to zero rather than cutting off abruptly.
+        // Feels like a slide or roll instead of a hard burst.
+        const t = this.dashTimer / this.dashDurationMs;
+        physBody?.setVelocity(this.dashVx * t, this.dashVy * t);
       }
     }
 
@@ -720,35 +724,70 @@ export abstract class CombatEntity extends Enemy {
   }
 
   /**
-   * Attempt a melee attack on the nearest living opponent or extra damageable.
-   * Opponents (enemies) take priority; extraDamageables (e.g. BurrowHoles) are
-   * hit only when no opponent is within reach. Uses the same cooldown and damage
-   * as the AI behavior tree.
+   * Attempt a melee attack in a forward arc, hitting all opponents in range.
+   *
+   * The swipe covers a 120° cone centred on the direction from the hero to the
+   * nearest opponent (or the last known movement direction). All living opponents
+   * within the arc receive full damage and a knockback impulse away from the hero.
+   * ExtraDamageables (e.g. BurrowHoles) are hit with a plain distance check as
+   * before, since they don't have a meaningful facing angle.
+   *
+   * Arc constants:
+   *   - Reach: meleeRange × 2.5  (same generous reach as before)
+   *   - Half-angle: 60° (total sweep = 120°)
+   *   - Knockback: 240 px/s for 120 ms  (3× the old onHitBy default)
    */
   tryMelee(): void {
     if (this.attackTimer > 0) return;
-    const meleeReach = this.meleeRange * 2.5;  // generous player reach
-    const target = this.findNearestLivingOpponent();
-    if (target) {
-      const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
-      if (dist <= meleeReach) {
-        target.takeDamage(this.attackDamage);
-        target.onHitBy(this.x, this.y);
-        this.attackTimer     = this.attackCooldownMs;
-        this.attackAnimTimer = this.attackAnimDuration;
-        return;
+
+    const meleeReach  = this.meleeRange * 2.5;
+    const HALF_ARC    = Math.PI / 3; // 60° → 120° total sweep
+
+    // Determine the facing direction: toward nearest opponent, or fall back to
+    // current velocity direction so the arc always points where the hero is moving.
+    let faceAngle = 0;
+    const nearest = this.findNearestLivingOpponent();
+    if (nearest) {
+      faceAngle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
+    } else {
+      const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+      if (body && (body.velocity.x !== 0 || body.velocity.y !== 0)) {
+        faceAngle = Math.atan2(body.velocity.y, body.velocity.x);
       }
     }
-    // No opponent in reach — check extra damageable targets (e.g. BurrowHoles).
+
+    // Hit every living opponent inside the arc.
+    let hitAny = false;
+    for (const opp of this.opponents) {
+      if (!opp.isAlive) continue;
+      const dist = Phaser.Math.Distance.Between(this.x, this.y, opp.x, opp.y);
+      if (dist > meleeReach) continue;
+      const angle = Math.atan2(opp.y - this.y, opp.x - this.x);
+      // Shortest angular difference — wraps correctly across the ±π boundary.
+      const diff = Math.abs(Phaser.Math.Angle.Wrap(angle - faceAngle));
+      if (diff > HALF_ARC) continue;
+
+      opp.takeDamage(this.attackDamage);
+      // Knockback impulse: 3× stronger than the old onHitBy default.
+      opp.onHitByMelee(this.x, this.y);
+      hitAny = true;
+    }
+
+    // ExtraDamageables (BurrowHoles etc.) — plain distance, no arc needed.
     for (const d of this.extraDamageables) {
       if (!d.isAlive) continue;
       const dist = Phaser.Math.Distance.Between(this.x, this.y, d.x, d.y);
       if (dist <= meleeReach) {
         d.takeDamage(this.attackDamage);
-        this.attackTimer     = this.attackCooldownMs;
-        this.attackAnimTimer = this.attackAnimDuration;
-        return;
+        hitAny = true;
       }
+    }
+
+    if (hitAny || nearest) {
+      // Start cooldown whenever the swipe is attempted near a target, regardless
+      // of whether anyone was actually inside the arc.
+      this.attackTimer     = this.attackCooldownMs;
+      this.attackAnimTimer = this.attackAnimDuration;
     }
   }
 
@@ -899,7 +938,29 @@ export abstract class CombatEntity extends Enemy {
       const angle = Math.atan2(this.y - fromY, this.x - fromX);
       physBody.setVelocity(Math.cos(angle) * 80, Math.sin(angle) * 80);
       this.scene.time.delayedCall(100, () => {
-        // Guard: don't zero velocity if the entity has been destroyed by then.
+        if (this.active && this.isAlive) physBody.setVelocity(0, 0);
+      });
+    }
+  }
+
+  /**
+   * Stronger knockback variant called by the player melee arc swipe.
+   * 3× the impulse of onHitBy and held for longer, so the target visibly
+   * slides away from the swipe direction.
+   */
+  onHitByMelee(fromX: number, fromY: number): void {
+    if (!this.isAlive) return;
+
+    this.bodyRect.setFillStyle(0xffffff);
+    this.scene.time.delayedCall(80, () => {
+      if (this.active) this.bodyRect.setFillStyle(this.bodyColor);
+    });
+
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    if (physBody) {
+      const angle = Math.atan2(this.y - fromY, this.x - fromX);
+      physBody.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
+      this.scene.time.delayedCall(150, () => {
         if (this.active && this.isAlive) physBody.setVelocity(0, 0);
       });
     }
