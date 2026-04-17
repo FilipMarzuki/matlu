@@ -33,7 +33,7 @@ curl -s \
         count() AS occurrences,
         min(dt) AS first_seen
       FROM remote(t523686_matlu_logs)
-      WHERE dt >= now() - INTERVAL 24 HOUR
+      WHERE dt >= now() - INTERVAL 48 HOUR
         AND JSONExtractString(raw, 'level') = 'error'
       GROUP BY message, filename, line, stack
       ORDER BY occurrences DESC
@@ -76,7 +76,7 @@ For each unfiled error create a Linear bug:
   ## Error details
   **Message:** <full message>
   **File:** <filename>:<line>
-  **Occurrences (24 h):** <count>
+  **Occurrences (48 h):** <count>
   **First seen:** <first_seen>
 
   ## Stack trace
