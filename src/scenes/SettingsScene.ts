@@ -81,7 +81,12 @@ export class SettingsScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(802)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover',  () => audioBtn.setStyle({ color: '#ffffff' }))
+      .on('pointerover',  () => {
+        audioBtn.setStyle({ color: '#ffffff' });
+        if (this.game.device.os.desktop && this.cache.audio.has('sfx-hover')) {
+          this.sound.play('sfx-hover', { volume: 0.18 });
+        }
+      })
       .on('pointerout',   () => audioBtn.setStyle({ color: '#ffe066' }))
       .on('pointerdown',  () => {
         // Toggle mute on the shared sound manager and persist
@@ -125,6 +130,11 @@ export class SettingsScene extends Phaser.Scene {
         .setScrollFactor(0)
         .setDepth(802)
         .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => {
+          if (this.game.device.os.desktop && this.cache.audio.has('sfx-hover')) {
+            this.sound.play('sfx-hover', { volume: 0.18 });
+          }
+        })
         .on('pointerdown', () => {
           setLanguage(code);
           // Refresh button highlights to reflect the new selection
@@ -148,7 +158,12 @@ export class SettingsScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(802)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover',  () => closeBtn.setStyle({ color: '#f0ead6' }))
+      .on('pointerover',  () => {
+        closeBtn.setStyle({ color: '#f0ead6' });
+        if (this.game.device.os.desktop && this.cache.audio.has('sfx-hover')) {
+          this.sound.play('sfx-hover', { volume: 0.18 });
+        }
+      })
       .on('pointerout',   () => closeBtn.setStyle({ color: '#7a9a7a' }))
       .on('pointerdown',  () => this.close());
 
