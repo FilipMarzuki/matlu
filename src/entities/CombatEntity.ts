@@ -122,6 +122,7 @@ export abstract class CombatEntity extends Enemy {
   private wanderAngle = Math.random() * Math.PI * 2;
   private wanderTimer = 0;
   private readonly hpBarFill: Phaser.GameObjects.Rectangle;
+  private readonly hpBarBg:   Phaser.GameObjects.Rectangle;
   /** Coloured rectangle at Container origin — used for hit-flash. */
   private readonly bodyRect:  Phaser.GameObjects.Rectangle;
   /** Original fill colour — restored after a white-flash on hit. */
@@ -129,6 +130,15 @@ export abstract class CombatEntity extends Enemy {
 
   /** Subclasses set this true to skip applySeparationForce (e.g. while burrowing). */
   protected suppressSeparation = false;
+
+  /**
+   * When false, this entity is excluded from aggro target selection and its
+   * HP bar is hidden. Use this for stealth states — e.g. a Mimic Crawler in
+   * disguise. Set back to true BEFORE any reveal animation plays so there is
+   * no frame where the entity is visible but still un-targetable.
+   * AoE / direct-hit damage intentionally does NOT check this flag.
+   */
+  isTargetable = true;
 
   // ── Dash state ──────────────────────────────────────────────────────────────
   private isDashing  = false;
@@ -260,8 +270,8 @@ export abstract class CombatEntity extends Enemy {
     const barY = config.spriteKey ? -30 : BAR_Y;
 
     // HP bar background (dark red, full width).
-    const hpBarBg = scene.add.rectangle(0, barY, BAR_W, BAR_H, 0x661111);
-    this.add(hpBarBg);
+    this.hpBarBg = scene.add.rectangle(0, barY, BAR_W, BAR_H, 0x661111);
+    this.add(this.hpBarBg);
 
     // HP bar fill (green, shrinks left-to-right as HP drops).
     // Origin at (0, 0.5) so it anchors at the left edge while scaleX shrinks it.
@@ -278,7 +288,7 @@ export abstract class CombatEntity extends Enemy {
       this.add(spr);
       this.spriteObj = spr;
       // HP bar renders on top of the sprite.
-      this.bringToTop(hpBarBg);
+      this.bringToTop(this.hpBarBg);
       this.bringToTop(this.hpBarFill);
     }
 
@@ -744,12 +754,13 @@ export abstract class CombatEntity extends Enemy {
     }
   }
 
-  /** Returns the closest living opponent, or null when none remain. */
+  /** Returns the closest living targetable opponent, or null when none remain. */
   protected findNearestLivingOpponent(): CombatEntity | null {
     let nearest: CombatEntity | null = null;
     let nearestDist = Infinity;
     for (const o of this.opponents) {
-      if (!o.isAlive) continue;
+      // Skip dead or stealth/disguised enemies — they are not valid aggro targets.
+      if (!o.isAlive || !o.isTargetable) continue;
       const d = Phaser.Math.Distance.Between(this.x, this.y, o.x, o.y);
       if (d < nearestDist) {
         nearestDist = d;
@@ -856,6 +867,10 @@ export abstract class CombatEntity extends Enemy {
 
   private refreshHpBar(): void {
     this.hpBarFill.scaleX = Math.max(0, this.hpFraction);
+    // Hide both bar layers while untargetable (stealth / disguise states).
+    const visible = this.isTargetable;
+    this.hpBarBg.setVisible(visible);
+    this.hpBarFill.setVisible(visible);
   }
 
   /**
@@ -1344,7 +1359,7 @@ export class Tinkerer extends CombatEntity {
    */
   protected override findTargetOpponent(): CombatEntity | null {
     const rangedThreats = this.opponents.filter(
-      o => o.isAlive && (o instanceof AcidLancer || o instanceof ParasiteFlyer),
+      o => o.isAlive && o.isTargetable && (o instanceof AcidLancer || o instanceof ParasiteFlyer),
     );
     if (rangedThreats.length > 0) {
       return rangedThreats.reduce((best, o) =>
