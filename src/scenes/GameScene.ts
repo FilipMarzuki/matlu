@@ -39,6 +39,7 @@ import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 import { Dustling } from '../entities/Dustling';
+import { DryShade } from '../entities/DryShade';
 import { CrackedGolem } from '../entities/CrackedGolem';
 import { Projectile } from '../entities/Projectile';
 import { EndingScene, determineEnding } from './EndingScene';
@@ -711,6 +712,8 @@ export class GameScene extends Phaser.Scene {
   private dustlingSwarmAlive = false;
   /** Semi-opaque black screen overlay — visible while swarm is alive. */
   private dustlingOverlay!: Phaser.GameObjects.Rectangle;
+  // ── Dry Shades (FIL-304) ──────────────────────────────────────────────────────
+  private dryShades: DryShade[] = [];
   // ── Cracked Golems (FIL-306) ─────────────────────────────────────────────────
   private golems: CrackedGolem[] = [];
   /** Projectiles spawned by golem death bursts — ticked and pruned each frame. */
@@ -1600,6 +1603,7 @@ export class GameScene extends Phaser.Scene {
     this.updateRangedProjectiles(delta);
     if (this.bossAlive && this.boss) this.boss.update(delta);
     this.updateDustlings(delta);
+    this.updateDryShades(delta);
     this.updateGolems(delta);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
@@ -3232,6 +3236,7 @@ export class GameScene extends Phaser.Scene {
 
     this.createBossHud();
     this.createDustlingSwarm();
+    this.createDryShades();
   }
 
   /**
@@ -3285,6 +3290,63 @@ export class GameScene extends Phaser.Scene {
       this.dustlingOverlay.setVisible(false);
     } else if (anyAlive) {
       this.dustlingOverlay.setVisible(true);
+    }
+  }
+
+  /**
+   * Spawn DryShades in the Vattenpandalandet entrance area alongside the
+   * Dustling swarm. Five shades patrol loosely — enough to force the player
+   * to be aware of ability charges without completely denying them.
+   *
+   * Contact drains one ability charge per 1.5 s per Shade (per-instance
+   * cooldown). A `'player-charge-drain'` scene event is emitted on each drain
+   * so the future charge system can hook in without modifying this method.
+   * Currently the event has no listener — the drain is a no-op until charges
+   * are implemented (see backlog).
+   */
+  private createDryShades(): void {
+    DryShade.clearRegistry();
+    DryShade.setPlayerGetter(() => ({ x: this.player.x, y: this.player.y }));
+
+    // Scatter shades in a ring around the Dustling swarm spawn point so the
+    // player encounters them together with the swarm, not as a separate wave.
+    const SWARM_X = BOSS_X - 300;
+    const SWARM_Y = BOSS_Y;
+    const COUNT   = 5;
+
+    for (let i = 0; i < COUNT; i++) {
+      const angle  = (i / COUNT) * Math.PI * 2;
+      const radius = 80 + Math.random() * 60;
+      const shade  = new DryShade(
+        this,
+        SWARM_X + Math.cos(angle) * radius,
+        SWARM_Y + Math.sin(angle) * radius,
+      );
+      shade.setDepth(SWARM_Y);
+      this.physics.add.existing(shade);
+      (shade.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+
+      // Overlap: no HP damage — only attempt an ability-charge drain.
+      this.physics.add.overlap(this.player, shade, () => {
+        if (this.gameEnded || this.attractMode || !shade.isAlive) return;
+        const drained = shade.tryDrain(this.time.now);
+        if (drained) {
+          // Emit for the future charge system — currently a no-op.
+          this.events.emit('player-charge-drain');
+          // Brief tint feedback so the player knows contact occurred.
+          this.playerSprite.setTint(0x99ccff);
+          this.time.delayedCall(150, () => this.playerSprite.clearTint());
+        }
+      });
+
+      this.dryShades.push(shade);
+    }
+  }
+
+  /** Tick all live DryShades each frame. */
+  private updateDryShades(delta: number): void {
+    for (const shade of this.dryShades) {
+      if (shade.isAlive) shade.update(delta);
     }
   }
 

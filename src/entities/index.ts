@@ -21,3 +21,4 @@ export { SporeDrifter, SporeCloud } from './SporeDrifter';
 export { PackStalker, PackRole } from './PackStalker';
 export { BurrowHole } from './BurrowHole';
 export { Bonehulk } from './Bonehulk';
+export { DryShade } from './DryShade';
