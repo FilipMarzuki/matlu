@@ -990,29 +990,47 @@ export abstract class CombatEntity extends Enemy {
   // ── LivingEntity hook ──────────────────────────────────────────────────────
 
   /**
-   * Override death to fade the entity rather than destroying it immediately.
-   * CombatArenaScene detects death by polling isAlive and handles cleanup
-   * after a short delay, so the dead entity stays visible briefly as feedback.
+   * Override death to play the death animation, hold the corpse for a random
+   * window (12–18 s), fade it out, then self-destroy.
+   *
+   * The scene's justDied delayedCall is a safety net only — under normal
+   * conditions this method manages its own cleanup timeline.
    */
   protected override onDeath(): void {
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
     physBody?.setVelocity(0, 0);
 
+    // Random linger before fade — multiple deaths don't all vanish in sync.
+    const corpseMs = Phaser.Math.Between(12000, 18000);
+
+    // Tween alpha to 0 over 1.5 s, then self-destroy.
+    const startFade = (): void => {
+      if (!this.active) return;
+      this.scene.tweens.add({
+        targets:  this,
+        alpha:    0,
+        duration: 1500,
+        ease:     'Cubic.easeIn',
+        onComplete: () => { if (this.active) this.destroy(); },
+      });
+    };
+
     if (this.spriteObj) {
       this.spriteObj.setFlipX(this.lastFlipX);
       const deathKey = `${this.spriteObj.texture.key}_death_${this.lastDir}`;
       if (this.scene.anims.exists(deathKey)) {
-        // Play directional death animation; fade out once it completes.
+        // Play the death animation once, hold the last frame, then start fade.
         this.spriteObj.play(deathKey, true);
         this.spriteObj.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-          if (this.active) this.setAlpha(0.3);
+          if (!this.active) return;
+          this.scene.time.delayedCall(corpseMs, startFade);
         });
       } else {
-        // No death animation for this sprite (e.g. quadruped) — fade immediately.
-        this.setAlpha(0.3);
+        // No death animation — hold static sprite then fade after corpseMs.
+        this.scene.time.delayedCall(corpseMs, startFade);
       }
     } else {
-      this.setAlpha(0.3);
+      this.scene.time.delayedCall(corpseMs, startFade);
     }
 
     // Death burst: 6 small white arcs radiate outward and fade over 200 ms.
