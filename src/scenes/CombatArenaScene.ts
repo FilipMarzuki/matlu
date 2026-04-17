@@ -295,6 +295,7 @@ export class CombatArenaScene extends Phaser.Scene {
     });
 
     // Reload SFX — Tinkerer emits 'hero-reload' the moment the last shot empties the mag.
+    // Played here (scene-side) so audio logic stays out of the entity.
     this.events.on('hero-reload', () => {
       if (this.audioAvailable && this.cache.audio.has('sfx-reload')) {
         this.sound.play('sfx-reload', { volume: 0.7 });
@@ -411,6 +412,9 @@ export class CombatArenaScene extends Phaser.Scene {
       this.aliveEnemies = alive;
       this.killCount   += justDied.length;
       for (const e of justDied) {
+        // Notify ability-absorption systems (e.g. Progenitor) of the enemy type.
+        this.events.emit('enemy-died', e.constructor.name);
+
         // Death panic — survivors within 80 px scatter away from the corpse.
         const DEATH_PANIC_R = 80;
         for (const survivor of alive) {
