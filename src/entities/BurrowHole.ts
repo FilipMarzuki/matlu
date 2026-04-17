@@ -1,9 +1,16 @@
 import * as Phaser from 'phaser';
 import { LivingEntity } from './LivingEntity';
+import { CombatEntity } from './CombatEntity';
 import { emitDigBurst } from './Velcrid';
 
 const HOLE_RADIUS = 20;
 const CRACK_COUNT = 5;
+
+/** Constructor type for any CombatEntity subclass that takes (scene, x, y). */
+type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
+
+/** How long before each spawn the pre-spawn glow is shown (ms). */
+const PRE_SPAWN_WARN_MS = 800;
 
 /**
  * BurrowHole — a procedurally-drawn underground entry point that Velcrids
@@ -19,6 +26,7 @@ export class BurrowHole extends LivingEntity {
   private gfx: Phaser.GameObjects.Graphics;
   private idleTween: Phaser.Tweens.Tween | null = null;
   private preSpawnActive = false;
+  private spawnTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, maxHp = 3) {
     super(scene, x, y, { maxHp });
@@ -30,6 +38,79 @@ export class BurrowHole extends LivingEntity {
 
   // Entity requires this — BurrowHole is stationary so nothing to do each frame.
   override update(_delta: number): void { /* stationary */ }
+
+  // ── Spawning ──────────────────────────────────────────────────────────────
+
+  /**
+   * Begin periodically spawning enemies of the given type.
+   * The first spawn fires after `intervalMs`; subsequent spawns repeat at the
+   * same interval.  Calling again replaces any existing timer.
+   *
+   * The hole emits `'hole-spawned'` carrying the new `CombatEntity` instance
+   * each time a spawn occurs.  The listener (typically `CombatArenaScene`) is
+   * responsible for adding the enemy to physics and the `aliveEnemies` array.
+   */
+  startSpawning(enemyCtor: EnemyCtor, intervalMs: number): void {
+    this.stopSpawning();
+    this.spawnTimer = this.scene.time.addEvent({
+      delay:         intervalMs,
+      callback:      () => this.doSpawnCycle(enemyCtor),
+      callbackScope: this,
+      loop:          true,
+    });
+  }
+
+  /**
+   * Stop the recurring spawn timer.  Safe to call even if not spawning.
+   * Called automatically in `onDeath()` so ghost timers can't fire after the
+   * hole is destroyed.
+   */
+  stopSpawning(): void {
+    if (this.spawnTimer) {
+      this.spawnTimer.remove();
+      this.spawnTimer = null;
+    }
+  }
+
+  /**
+   * One full spawn cycle: show the pre-spawn glow, wait, then create the
+   * enemy with a crawl-out animation.
+   *
+   * The `PRE_SPAWN_WARN_MS` delay gives the player visual warning so the spawn
+   * doesn't feel completely random — the hole briefly brightens before anything
+   * crawls out.
+   */
+  private doSpawnCycle(enemyCtor: EnemyCtor): void {
+    if (!this.isAlive || !this.scene?.sys.isActive()) return;
+
+    this.startPreSpawnGlow();
+
+    this.scene.time.delayedCall(PRE_SPAWN_WARN_MS, () => {
+      if (!this.isAlive || !this.scene?.sys.isActive()) return;
+      this.endPreSpawnGlow();
+
+      const enemy = new enemyCtor(this.scene, this.x, this.y);
+      // Start scaled to zero so the tween animates from invisible.
+      enemy.setScale(0);
+
+      // Crawl-out scale tween — Back easing gives a brief overshoot that sells
+      // the "popping out of the ground" feel better than a linear scale.
+      this.scene.tweens.add({
+        targets:  enemy,
+        scaleX:   1,
+        scaleY:   1,
+        duration: 300,
+        ease:     'Back.easeOut',
+      });
+
+      emitDigBurst(this.scene, this.x, this.y);
+
+      // Notify the scene.  The listener is responsible for addPhysics(),
+      // setOpponent(), and pushing into aliveEnemies — keeping physics wiring
+      // out of this entity.
+      this.emit('hole-spawned', enemy);
+    });
+  }
 
   /** Begin the pre-spawn glow ~800 ms before the 'hole-spawned' event fires. */
   startPreSpawnGlow(): void {
@@ -48,6 +129,11 @@ export class BurrowHole extends LivingEntity {
   }
 
   protected override onDeath(): void {
+    // Stop the spawn timer immediately so no ghost spawns fire during the
+    // death animation or after the Container is destroyed.
+    this.stopSpawning();
+    this.emit('hole-destroyed');
+
     // Guard against scene already shutting down before the tween can play.
     if (!this.scene?.sys.isActive()) {
       super.onDeath();
