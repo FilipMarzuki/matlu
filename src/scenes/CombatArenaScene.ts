@@ -132,8 +132,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
   // ── Audio ───────────────────────────────────────────────────────────────────
   private audioAvailable = false;
-  /** Round-robins through 3 gunshot variants to avoid repetition fatigue. */
-  private gunshotIndex   = 0;
+  // gunshotIndex removed — single real 9mm sample with random pitch variation.
   /** Looping combat/dungeon music track. Null until create() confirms audio is available. */
   private combatMusic: Phaser.Sound.BaseSound | null = null;
 
@@ -158,12 +157,11 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Gunshot SFX — impactPlate_heavy has a sharper transient than impactMetal_heavy,
-    // closer to a pistol crack when pitched up. Three variants cycled to avoid fatigue.
-    const ksfx = 'assets/audio/kenney_impact-sounds/Audio';
-    for (let i = 0; i < 3; i++) {
-      this.load.audio(`gunshot-${i}`, `${ksfx}/impactPlate_heavy_00${i}.ogg`);
-    }
+    // Real 9mm pistol shot (CC0, Freesound community). Random pitch variation ±10%
+    // replaces the old 3-variant impactPlate cycling — same fatigue prevention, better realism.
+    this.load.audio('sfx-gunshot', 'assets/audio/freesound_community-9mm-pistol-shot-6349.mp3');
+    // 1911 magazine reload — plays once when the Tinkerer's mag runs dry.
+    this.load.audio('sfx-reload', 'assets/audio/freesound_community-1911-reload-6248.mp3');
 
     // Tense dungeon ambience — "Cloak of Darkness" fits the arena's dark-stone aesthetic.
     this.load.audio(
@@ -230,7 +228,7 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // Audio is unavailable in headless CI (WebAudio context never starts).
-    this.audioAvailable = this.cache.audio.has('gunshot-0');
+    this.audioAvailable = this.cache.audio.has('sfx-gunshot');
 
     // Start looping combat music. The track runs for the lifetime of the scene;
     // the SHUTDOWN handler stops it so it doesn't bleed back into GameScene.
@@ -283,13 +281,17 @@ export class CombatArenaScene extends Phaser.Scene {
         onComplete: () => bloom.destroy(),
       });
 
-      // SFX: cycle through 3 variants, play at 2× rate for a sharp crack.
-      if (this.audioAvailable) {
-        const key = `gunshot-${this.gunshotIndex}`;
-        this.gunshotIndex = (this.gunshotIndex + 1) % 3;
-        if (this.cache.audio.has(key)) {
-          this.sound.play(key, { volume: 0.6, rate: 3.0 });
-        }
+      // SFX: real 9mm crack with ±10% random pitch variation to avoid repetition fatigue.
+      if (this.audioAvailable && this.cache.audio.has('sfx-gunshot')) {
+        this.sound.play('sfx-gunshot', { volume: 0.5, rate: 0.9 + Math.random() * 0.2 });
+      }
+    });
+
+    // Reload SFX — Tinkerer emits 'hero-reload' the moment the last shot empties the mag.
+    // Played here (scene-side) so audio logic stays out of the entity.
+    this.events.on('hero-reload', () => {
+      if (this.audioAvailable && this.cache.audio.has('sfx-reload')) {
+        this.sound.play('sfx-reload', { volume: 0.7 });
       }
     });
 
@@ -403,6 +405,9 @@ export class CombatArenaScene extends Phaser.Scene {
       this.aliveEnemies = alive;
       this.killCount   += justDied.length;
       for (const e of justDied) {
+        // Notify ability-absorption systems (e.g. Progenitor) of the enemy type.
+        this.events.emit('enemy-died', e.constructor.name);
+
         // Death panic — survivors within 80 px scatter away from the corpse.
         const DEATH_PANIC_R = 80;
         for (const survivor of alive) {
