@@ -6,9 +6,10 @@
 // one Claude Code session with the relevant section of hygiene.md.
 //
 // Types:
-//   mark-done  — check if linked PR is merged; mark issue Done if so
-//   split      — split a too-large issue into 2–4 focused sub-issues
-//   enrich     — enrich a needs-refinement issue with codebase context
+//   mark-done        — check if linked PR is merged; mark issue Done if so
+//   split            — split a too-large issue into 2–4 focused sub-issues
+//   enrich           — enrich a needs-refinement issue with codebase context
+//   clean-duplicate  — strip labels from an already-Duplicate issue
 //
 // Usage:
 //   LINEAR_API_KEY=… ANTHROPIC_API_KEY=… node run-hygiene.js FIL-42:mark-done
@@ -36,7 +37,7 @@ if (!arg || !arg.includes(':')) {
 
 const [issueId, hygieneType] = arg.split(':');
 
-const VALID_TYPES = ['mark-done', 'split', 'enrich'];
+const VALID_TYPES = ['mark-done', 'split', 'enrich', 'clean-duplicate'];
 if (!VALID_TYPES.includes(hygieneType)) {
   console.error(`Unknown hygiene type "${hygieneType}". Must be one of: ${VALID_TYPES.join(', ')}`);
   process.exit(1);
