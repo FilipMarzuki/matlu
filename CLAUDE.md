@@ -209,3 +209,4 @@ All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude
 | Weekly Architecture Review | `0 17 * * 5` (Friday) | `.agents/architecture-review.md` | `LINEAR_API_KEY` | Updates ARCHITECTURE.md, flags concerns, creates Linear issue |
 | Weekly Release Notes | `0 9 * * 0` (Sunday) | `.agents/release-notes.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes release notes from merged PRs, posts to Notion |
 | Agent Performance Log | `0 10 * * 0` (Sunday) | `.agents/agent-perf-log.md` | `LINEAR_API_KEY`, `NOTION_API_KEY` | Queries Linear for agent:* outcome labels, creates weekly summary child page in Notion "Agent Performance Log" |
+| Cognitive Load Snapshot | `30 8 * * 6` (Saturday) | `.agents/cognitive-load-snapshot.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Computes weekly load score (open PRs, PR age, in-progress issues, rework rate) and writes to Supabase `cognitive_load` |
