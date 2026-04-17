@@ -29,7 +29,8 @@ const GITHUB_TOKEN             = process.env.GITHUB_TOKEN;
 // fall back to a pay-as-you-go API key if the OAuth secret is unset.
 const CLAUDE_CODE_OAUTH_TOKEN  = process.env.CLAUDE_CODE_OAUTH_TOKEN;
 const ANTHROPIC_API_KEY        = process.env.ANTHROPIC_API_KEY;
-const REPO                     = 'FilipMarzuki/matlu';
+const REPO_OWNER               = process.env.REPO_OWNER || 'FilipMarzuki';
+const REPO_NAME                = process.env.REPO_NAME  || 'matlu';
 
 const issueArg = process.argv[2];
 
@@ -55,7 +56,7 @@ if (isNaN(issueNumber)) {
 // ── GitHub Issues REST API ────────────────────────────────────────────────────
 
 async function githubRequest(method, path, body = null) {
-  const res = await fetch(`https://api.github.com/repos/${REPO}${path}`, {
+  const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -187,9 +188,6 @@ async function main() {
   const prompt = renderPrompt(issue);
   const ok = runClaude(prompt);
 
-  // If the session crashes before reaching its own wrap-up, leave a breadcrumb
-  // so the operator can triage. A successful session is expected to label and
-  // comment itself — we only act here on hard failure.
   if (!ok) {
     console.error(`[run-agent] Claude Code exited non-zero for #${issueNumber}`);
     try {

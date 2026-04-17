@@ -17,7 +17,6 @@ const __dirname  = dirname(__filename);
 const GITHUB_TOKEN              = process.env.GITHUB_TOKEN;
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const LINEAR_API_KEY            = process.env.LINEAR_API_KEY;
 const VERCEL_DEPLOY_HOOK        = process.env.VERCEL_DEPLOY_HOOK;
 const VERCEL_TOKEN              = process.env.VERCEL_TOKEN;
 const VERCEL_PROJECT_ID         = process.env.VERCEL_PROJECT_ID;
@@ -44,25 +43,6 @@ async function ghGet(path) {
   });
   if (!res.ok) throw new Error(`GitHub ${path} → ${res.status}`);
   return res.json();
-}
-
-async function linearQuery(query, variables = {}) {
-  const res = await fetch('https://api.linear.app/graphql', {
-    method: 'POST',
-    headers: {
-      // Linear API keys must NOT have a Bearer prefix — strip it if present
-      Authorization: LINEAR_API_KEY.replace(/^Bearer\s+/i, ''),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Linear API → ${res.status}: ${body}`);
-  }
-  const json = await res.json();
-  if (json.errors) throw new Error(json.errors.map(e => e.message).join(', '));
-  return json.data;
 }
 
 function avg(arr) {
@@ -315,61 +295,41 @@ async function getDeployStats() {
   }
 }
 
-// ── Linear stats ──────────────────────────────────────────────────────────────
+// ── Issue stats (GitHub) ──────────────────────────────────────────────────────
 
-async function getLinearStats() {
-  if (!LINEAR_API_KEY) {
-    return { completedCount: 0, avgCycleTime: 0, reworkRate: 0, staleInProgress: [] };
-  }
-
-  const [completedData, inProgressData] = await Promise.all([
-    linearQuery(`
-      query WeeklyCompleted {
-        issues(
-          filter: { state: { type: { eq: "completed" } } }
-          first: 100
-          orderBy: updatedAt
-        ) {
-          nodes { id createdAt completedAt }
-        }
-      }
-    `),
-    linearQuery(`
-      query InProgress {
-        issues(
-          filter: { state: { type: { eq: "started" } } }
-          first: 100
-          orderBy: updatedAt
-        ) {
-          nodes { identifier title updatedAt }
-        }
-      }
-    `),
-  ]);
-
-  // Filter client-side to this week's completions
-  const issues = completedData.issues.nodes.filter(
-    i => i.completedAt && new Date(i.completedAt) >= weekAgo
+async function getIssueStats() {
+  // Issues closed this week — GitHub's `since` param filters by updated_at,
+  // so we also check closed_at client-side. PRs share the issues endpoint;
+  // filter them out via the pull_request field.
+  const closed = await ghGet(
+    `/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=closed&since=${weekAgoISO}&per_page=100`
   );
-  const completedCount = issues.length;
+  const thisWeek = closed.filter(
+    i => !i.pull_request && i.closed_at && new Date(i.closed_at) >= weekAgo
+  );
+  const completedCount = thisWeek.length;
 
-  // Cycle time: createdAt → completedAt in days
-  const cycleTimes = issues.map(i =>
-    (new Date(i.completedAt) - new Date(i.createdAt)) / (1000 * 60 * 60 * 24)
+  // Cycle time: created_at → closed_at in days
+  const cycleTimes = thisWeek.map(
+    i => (new Date(i.closed_at) - new Date(i.created_at)) / (1000 * 60 * 60 * 24)
   );
   const avgCycleTime = Math.round(avg(cycleTimes) * 10) / 10;
 
-  // In-progress tickets sorted by days since last update (stale = stuck)
-  const staleInProgress = inProgressData.issues.nodes
+  // Open issues sorted oldest-updated-first as a proxy for "stale in progress"
+  const open = await ghGet(
+    `/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=open&per_page=20&sort=updated&direction=asc`
+  );
+  const openIssues = open.filter(i => !i.pull_request);
+  const staleInProgress = openIssues
     .map(i => ({
-      id:       i.identifier,
-      title:    i.title,
-      daysSinceUpdate: Math.round((now - new Date(i.updatedAt)) / (1000 * 60 * 60 * 24)),
+      id:              `#${i.number}`,
+      title:           i.title,
+      daysSinceUpdate: Math.round((now - new Date(i.updated_at)) / (1000 * 60 * 60 * 24)),
     }))
     .sort((a, b) => b.daysSinceUpdate - a.daysSinceUpdate)
     .slice(0, 5);
 
-  return { completedCount, avgCycleTime, reworkRate: 0, staleInProgress, inProgressCount: inProgressData.issues.nodes.length };
+  return { completedCount, avgCycleTime, reworkRate: 0, staleInProgress, inProgressCount: openIssues.length };
 }
 
 // ── AI token usage ────────────────────────────────────────────────────────────
@@ -575,48 +535,30 @@ function getCognitiveLoadStats() {
   }
 }
 
-// ── Agent outcome stats ──────────────────────────────────────────────────────
+// ── Agent outcome stats (GitHub) ─────────────────────────────────────────────
 
-// Queries Linear for issues with agent:* labels updated this week.
+// Queries GitHub Issues for issues with agent:* labels updated this week.
 // Returns outcome counts + per-category breakdown stored in metrics.agentOutcome.
 async function getAgentOutcomeStats() {
-  if (!LINEAR_API_KEY) return null;
-
-  const categoryLabels = [
-    'systems', 'art', 'lore', 'infrastructure', 'world', 'ui-hud', 'ui-menus',
-    'enemies', 'weapons', 'upgrades', 'audio', 'hero', 'evolution', 'chore',
-  ];
   const outcomeNames = [
     'agent:success', 'agent:partial', 'agent:failed', 'agent:wrong-interpretation',
   ];
 
-  let data;
+  let issues;
   try {
-    data = await linearQuery(`
-      query AgentOutcomes($since: DateTimeOrDuration) {
-        issues(
-          filter: {
-            labels: { name: { in: ["agent:success", "agent:partial", "agent:failed", "agent:wrong-interpretation"] } }
-            updatedAt: { gte: $since }
-          }
-          first: 100
-          orderBy: updatedAt
-        ) {
-          nodes {
-            identifier
-            title
-            updatedAt
-            labels { nodes { name } }
-          }
-        }
-      }
-    `, { since: weekAgoISO });
+    // Fetch all issues (open + closed) updated since weekAgo; filter PRs out.
+    const all = await ghGet(
+      `/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=all&since=${weekAgoISO}&per_page=100`
+    );
+    issues = all.filter(
+      i => !i.pull_request &&
+           i.labels.some(l => outcomeNames.includes(l.name))
+    );
   } catch (e) {
     console.warn('getAgentOutcomeStats failed:', e.message);
     return null;
   }
 
-  const issues = data.issues.nodes;
   if (!issues.length) return null;
 
   const counts = {
@@ -628,12 +570,13 @@ async function getAgentOutcomeStats() {
   const byType = {};
 
   for (const issue of issues) {
-    const labelNames = issue.labels.nodes.map(l => l.name);
+    const labelNames = issue.labels.map(l => l.name);
     const outcome = outcomeNames.find(n => labelNames.includes(n));
     if (!outcome) continue;
     counts[outcome]++;
 
-    const category = categoryLabels.find(l => labelNames.includes(l)) || 'other';
+    // Use the first non-agent label as the category, falling back to 'other'.
+    const category = labelNames.find(l => !l.startsWith('agent:')) || 'other';
     if (!byType[category]) {
       byType[category] = { success: 0, partial: 0, failed: 0, wrong_interp: 0, total: 0 };
     }
@@ -1182,7 +1125,7 @@ async function main() {
 
   const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome] = await Promise.all([
     getGitHubStats(),
-    getLinearStats(),
+    getIssueStats(),
     getCommitSpread(),
     getPixelLabStats(),
     getDeployStats(),
