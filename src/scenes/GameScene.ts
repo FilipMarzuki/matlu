@@ -1070,6 +1070,9 @@ export class GameScene extends Phaser.Scene {
     // Tear down WorldState when scene shuts down
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.musicTrack?.stop();
+      // Stop ambient loops so they don't bleed into other scenes (e.g. CombatArenaScene).
+      this.ambienceSound?.stop();
+      this.oceanAmbienceSound?.stop();
       this.worldState.destroy();
       // Persist explored fog state so revisiting areas doesn't reset the fog.
       this.saveFogOfWar();
