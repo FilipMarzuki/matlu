@@ -242,6 +242,8 @@ export class Tinkerer extends EarthHero {
       this.isReloading = true;
       this.reloadTimer = RELOAD_MS;
       this.shotInBurst = 0;
+      // Notify the scene to play the reload SFX — audio stays scene-side.
+      this.scene.events.emit('hero-reload');
     }
   }
 
