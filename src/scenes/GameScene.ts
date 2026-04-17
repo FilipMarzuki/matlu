@@ -671,6 +671,8 @@ export class GameScene extends Phaser.Scene {
   private windSound: Phaser.Sound.BaseSound | undefined;
   // FIL-110: settlement presence layer — single shared loop, volume = max proximity across all settlements
   private settlementSound: Phaser.Sound.BaseSound | undefined;
+  // FIL-117: night ambience layer — crickets/insect loop, fades in at dusk and peaks at night
+  private ambienceNight: Phaser.Sound.BaseSound | undefined;
   private lastSettlementCheck = 0;
   // Background music track for the current day phase (crossfades on transition)
   private musicTrack: Phaser.Sound.BaseSound | undefined;
@@ -895,6 +897,12 @@ export class GameScene extends Phaser.Scene {
     // FIL-110: settlement presence — soft ambient loop as distant life texture near hamlets/villages
     this.load.audio('sfx-settlement', [
       'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Forgotten Biomes.ogg',
+    ]);
+    // FIL-117: night ambience — eerie presence sound fades in at dusk and peaks during night.
+    // Replace with a dedicated crickets/insect loop when one is sourced from freesound.org.
+    this.load.audio('night-ambience', [
+      'assets/audio/night-ambience.ogg',
+      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/stalker.ogg',
     ]);
     // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
     // Mapped: dawn → Sunlight Through Leaves, morning/midday/afternoon → Whispering Woods,
@@ -1417,6 +1425,15 @@ export class GameScene extends Phaser.Scene {
     if (this.audioAvailable && this.cache.audio.has('sfx-settlement')) {
       this.settlementSound = this.sound.add('sfx-settlement', { loop: true, volume: 0 });
       this.settlementSound.play();
+    }
+    // FIL-117: night ambience — starts at the correct volume for the initial phase
+    // (0 during daytime, rises at dusk, peaks at night) so there's no snap on first transition.
+    if (this.audioAvailable && this.cache.audio.has('night-ambience')) {
+      this.ambienceNight = this.sound.add('night-ambience', {
+        loop: true,
+        volume: this.phaseNightAmbienceVolume(this.currentPhase),
+      });
+      this.ambienceNight.play();
     }
 
     // Start background music for the initial day phase
@@ -2709,6 +2726,9 @@ export class GameScene extends Phaser.Scene {
       if (this.ambienceSound) {
         this.tweens.add({ targets: this.ambienceSound as AudibleSound, volume: 0, duration: 1500, ease: 'Sine.easeIn' });
       }
+      if (this.ambienceNight) {
+        this.tweens.add({ targets: this.ambienceNight as AudibleSound, volume: 0, duration: 1500, ease: 'Sine.easeIn' });
+      }
       if (this.cache.audio.has('sfx-victory')) {
         this.sound.play('sfx-victory', { volume: 0.7 });
       }
@@ -3513,6 +3533,15 @@ export class GameScene extends Phaser.Scene {
           ease: 'Sine.easeInOut',
         });
       }
+      // FIL-117: fade night ambience in/out with each phase transition (8 s, matches music crossfade)
+      if (this.ambienceNight) {
+        this.tweens.add({
+          targets: this.ambienceNight,
+          volume: this.phaseNightAmbienceVolume(newPhase),
+          duration: 8000,
+          ease: 'Sine.easeInOut',
+        });
+      }
       this.applyParticlePhase(newPhase);
       this.crossfadeMusic(newPhase, 8000);
 
@@ -3826,6 +3855,22 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * FIL-117: Night ambience volume per day phase.
+   * Silent during daytime; rises at dusk as the forest goes quiet; peaks at night.
+   * Complement to phaseAmbienceVolume() — the two layers cross-fade naturally.
+   */
+  private phaseNightAmbienceVolume(phase: DayPhase): number {
+    switch (phase) {
+      case 'dawn':      return 0.00;
+      case 'morning':   return 0.00;
+      case 'midday':    return 0.00;
+      case 'afternoon': return 0.00;
+      case 'dusk':      return 0.12; // insects start as the light fades
+      case 'night':     return 0.25; // full night chorus
+    }
+  }
+
   // ── FIL-108: Zone-sensitive ambience ─────────────────────────────────────────
 
   /**
@@ -3934,7 +3979,7 @@ export class GameScene extends Phaser.Scene {
     // Duck environmental layers too (ocean, wind, settlement). No need to save/restore their
     // pre-duck volumes — updateAmbienceZone()/updateSettlementAmbience() recalculate from
     // scratch on the next gameplay tick after the overlay closes.
-    for (const s of [this.oceanAmbienceSound, this.windSound, this.settlementSound]) {
+    for (const s of [this.oceanAmbienceSound, this.windSound, this.settlementSound, this.ambienceNight]) {
       if (s) {
         const vol = (s as AudibleSound).volume;
         tweens.add({ targets: s as AudibleSound, volume: vol * 0.5, duration: 300, ease: 'Sine.easeInOut' });
