@@ -1524,7 +1524,17 @@ export class GameScene extends Phaser.Scene {
       this.corruptFilter = new CorruptionFilter(this.cameras.main);
       this.cameras.main.filters.external.add(this.corruptFilter);
     }
-    this.initAttractMode();
+    // /world dev route: skip attract screen and overlay so the world renders cleanly.
+    const isDevWorld = window.location.pathname.replace(/\/$/, '') === '/world';
+    if (isDevWorld) {
+      this.overlay.setAlpha(0);
+      this.attractMode = false;
+      this.player.setAlpha(1);
+      (this.player.body as Phaser.Physics.Arcade.Body).setEnable(true);
+      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    } else {
+      this.initAttractMode();
+    }
   }
 
   update(time: number, delta: number): void {
