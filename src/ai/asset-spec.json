@@ -419,6 +419,71 @@
         "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/tilesets/arena"
+    },
+    {
+      "id": "dungeon_wall_top",
+      "name": "Dungeon Wall Top Face",
+      "world": "earth",
+      "status": "done",
+      "_comment": "Top face of dungeon stone wall. 16×16. Matches arena_floor_earth palette — dark stone, muted warm earth tones.",
+      "tool": "create_tiles_pro",
+      "pixellab": {
+        "description": "1). dark ancient fortress stone wall top face, rough hewn stone blocks seen from above, weathered gray and dark brown stone, cracked mortar seams, battle-scarred, muted earth tones, post-apocalyptic dungeon",
+        "tile_type": "square_topdown",
+        "tile_size": 16,
+        "tile_view": "high top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/arena"
+    },
+    {
+      "id": "dungeon_wall_side",
+      "name": "Dungeon Wall Side Face",
+      "world": "earth",
+      "status": "done",
+      "_comment": "Side (front) face of dungeon stone wall. 16×16. Matches arena_floor_earth palette. Same stone as dungeon_wall_top, different angle.",
+      "tool": "create_tiles_pro",
+      "pixellab": {
+        "description": "1). dark ancient fortress stone wall front face, vertical rough-hewn gray stone blocks with horizontal mortar seams, weathered and chipped, muted dark gray and warm brown earth tones, post-apocalyptic dungeon",
+        "tile_type": "square_topdown",
+        "tile_size": 16,
+        "tile_view": "high top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/arena"
+    },
+    {
+      "id": "dungeon_doorway",
+      "name": "Dungeon Doorway / Arch",
+      "world": "earth",
+      "status": "done",
+      "_comment": "Stone arch doorway tile. 16×16. Dark opening framed by worn stone arch. Earth palette matching dungeon walls.",
+      "tool": "create_tiles_pro",
+      "pixellab": {
+        "description": "1). ancient fortress stone arch doorway, worn rough-hewn stone arch frame with dark void opening, cracked mortar, muted dark gray and warm brown earth tones, top-down dungeon tile",
+        "tile_type": "square_topdown",
+        "tile_size": 16,
+        "tile_view": "high top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/arena"
+    },
+    {
+      "id": "dungeon_torch",
+      "name": "Dungeon Torch (Animated)",
+      "world": "earth",
+      "status": "done",
+      "_comment": "Animated wall torch, 3-frame flicker. Output is a 48×16 strip (3 × 16px frames). Phaser loads as spritesheet with frameWidth:16. Earth palette — iron bracket, warm amber flame, dark stone wall bg.",
+      "tool": "create_tiles_pro",
+      "frameCount": 3,
+      "pixellab": {
+        "description": "1). iron wall torch bracket, dim red ember, dark stone wall background, minimal warm glow, muted earth tones 2). iron wall torch with medium orange flame, warm amber light on dark stone 3). iron wall torch with bright orange-yellow flame flicker, strong warm glow, dark stone dungeon wall",
+        "tile_type": "square_topdown",
+        "tile_size": 16,
+        "tile_view": "high top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/arena"
     }
   ]
 }
