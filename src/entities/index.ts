@@ -16,3 +16,4 @@ export { Dustling } from './Dustling';
 export { Spineling } from './Spineling';
 export { CrackedGolem } from './CrackedGolem';
 export { Blightfrog } from './Blightfrog';
+export { EarthHero } from './EarthHero';
