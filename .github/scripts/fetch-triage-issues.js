@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-// Fetches Linear Backlog issues that haven't been triaged yet.
+// Fetches Linear Backlog and Todo issues that haven't been triaged yet.
+//
+// Both states are included so issues moved to Todo (e.g. by a split or manual
+// grooming) are never silently skipped by the triage agent.
 //
 // "Not triaged" = no `ready`, `needs-refinement`, `blocked`, `too-large`,
 // or `agent:*` label. These are the issues the triage agent should assess.
@@ -64,10 +67,10 @@ const UNTRIAGED_QUERY = `
   query UntriagedIssues {
     issues(
       filter: {
-        state: { type: { eq: "backlog" } }
+        state: { type: { in: ["backlog", "unstarted"] } }
       }
       orderBy: updatedAt
-      first: 50
+      first: 100
     ) {
       nodes {
         identifier
