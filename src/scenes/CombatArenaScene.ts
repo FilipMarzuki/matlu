@@ -44,6 +44,9 @@ const SPAWN_X_OFFSET  = 80;   // px from arena right edge
 const MAX_ALIVE       = 20;   // total alive enemy cap
 const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence begins
 
+/** Kill count at which the mine gadget unlocks, simulating the Tier 1 → Tier 2 transition. */
+const GADGET_UNLOCK_KILLS = 10;
+
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
 const DUNGEON_ZOOM = 3.5;
@@ -108,9 +111,10 @@ export class CombatArenaScene extends Phaser.Scene {
   private arenaW = 0;
   private arenaH = 0;
 
-  private hudWave!:  Phaser.GameObjects.Text;
-  private hudAlive!: Phaser.GameObjects.Text;
-  private hudKills!: Phaser.GameObjects.Text;
+  private hudWave!:   Phaser.GameObjects.Text;
+  private hudAlive!:  Phaser.GameObjects.Text;
+  private hudKills!:  Phaser.GameObjects.Text;
+  private hudGadget!: Phaser.GameObjects.Text;
 
   // ── Player control ──────────────────────────────────────────────────────────
   /** When true the player drives the hero with WASD/arrows + attack keys. */
@@ -120,6 +124,11 @@ export class CombatArenaScene extends Phaser.Scene {
   /** P1 dash — G key (replaces Shift). */
   private dashKey!:   Phaser.Input.Keyboard.Key;
   private shootKey!:  Phaser.Input.Keyboard.Key;
+  /** E key — deploy proximity mine (Tinkerer Tier 2 gadget). */
+  private gadgetKey!: Phaser.Input.Keyboard.Key;
+
+  /** True once the player reaches GADGET_UNLOCK_KILLS — gates the mine ability. */
+  private gadgetUnlocked = false;
 
   // ── Audio ───────────────────────────────────────────────────────────────────
   private audioAvailable = false;
@@ -242,6 +251,11 @@ export class CombatArenaScene extends Phaser.Scene {
       this.projectiles.push(p);
     });
 
+    // Mine detonation — brief shake proportional to the AoE damage radius.
+    this.events.on('mine-detonated', () => {
+      this.cameras.main.shake(120, 0.006);
+    });
+
     // Gunshot effects — emitted by the Tinkerer in both AI and player modes.
     // Plays a metallic-crack SFX (pitched up), adds a micro camera shake for
     // recoil feel, and briefly flashes a muzzle bloom at the shot origin.
@@ -291,8 +305,10 @@ export class CombatArenaScene extends Phaser.Scene {
       }) as Record<string, Phaser.Input.Keyboard.Key>;
       this.meleeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       // G replaces Shift as the P1 dash key — Shift was triggering browser shortcuts.
-      this.dashKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.G);
-      this.shootKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+      this.dashKey   = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.G);
+      this.shootKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+      // E deploys a proximity mine — only active after GADGET_UNLOCK_KILLS.
+      this.gadgetKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
       // Gamepad button events — fired once per press, so no per-frame debounce needed.
       // Axis reading (movement) still happens per-frame in the update methods.
@@ -308,10 +324,11 @@ export class CombatArenaScene extends Phaser.Scene {
           const dy = Math.abs(axV) > 0.2 ? axV : 0;
 
           if (pad.index === 0 && this.heroAlive && this.heroPlayerMode) {
-            // P1 gamepad: button 0 = melee, button 5 = ranged, button 4 = dash
+            // P1 gamepad: button 0 = melee, button 5 = ranged, button 4 = dash, button 3 = gadget
             if (button.index === 0) this.hero.tryMelee();
             else if (button.index === 5) this.hero.tryRanged();
             else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero.tryDash(dx, dy);
+            else if (button.index === 3 && this.gadgetUnlocked) (this.hero as Tinkerer).deployMine();
           }
         },
       );
@@ -409,6 +426,14 @@ export class CombatArenaScene extends Phaser.Scene {
       }
     }
 
+    // ── Gadget unlock (Tier 1 → 2 threshold) ─────────────────────────────────
+    // Reaching GADGET_UNLOCK_KILLS simulates "graduating" from Tier 1 basics
+    // to Tier 2 Tinkerer: the mine gadget unlocks with a brief banner flash.
+    if (!this.bgMode && !this.gadgetUnlocked && this.killCount >= GADGET_UNLOCK_KILLS && this.heroAlive) {
+      this.gadgetUnlocked = true;
+      this.showGadgetUnlockBanner();
+    }
+
     // ── HUD ───────────────────────────────────────────────────────────────────
     // Only call setText when the value changed — setText rebuilds the texture
     // every call, even for an identical string.
@@ -416,6 +441,17 @@ export class CombatArenaScene extends Phaser.Scene {
       if (this.waveNumber      !== this._lastHudWave)  { this.hudWave.setText(`Wave ${this.waveNumber}`);         this._lastHudWave  = this.waveNumber; }
       if (this.aliveEnemies.length !== this._lastHudAlive) { this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`); this._lastHudAlive = this.aliveEnemies.length; }
       if (this.killCount       !== this._lastHudKills) { this.hudKills.setText(`Kills: ${this.killCount}`);       this._lastHudKills = this.killCount; }
+
+      // Gadget HUD — updates every frame while unlocked (cooldown is a live countdown)
+      if (this.gadgetUnlocked && this.heroAlive) {
+        const tinkerer = this.hero as Tinkerer;
+        if (tinkerer.isGadgetReady) {
+          this.hudGadget.setText('MINE [E]: ready').setColor('#ffee55');
+        } else {
+          const secs = (tinkerer.gadgetCooldownRemaining / 1000).toFixed(1);
+          this.hudGadget.setText(`MINE [E]: ${secs}s`).setColor('#aaaaaa');
+        }
+      }
     }
   }
 
@@ -730,6 +766,13 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
 
+    // Clean up any active mines before losing the hero reference.
+    // Mines are scene children (Arc GameObjects) that outlive the hero entity,
+    // so they must be explicitly disposed here rather than relying on destroy().
+    (this.hero as Tinkerer).destroyMines();
+    this.gadgetUnlocked = false;
+    if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
+
     // Spawn the hero once the fade completes.
     this.time.delayedCall(FADE_MS, () => {
       this.spawnHero();
@@ -913,6 +956,11 @@ export class CombatArenaScene extends Phaser.Scene {
       .text(12, 52, 'Kills: 0', { ...base, color: '#ffcc88' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
 
+    // Mine gadget — locked until GADGET_UNLOCK_KILLS, then shows cooldown status.
+    this.hudGadget = this.add
+      .text(12, 72, 'MINE: locked', { ...base, color: '#555555' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+
     this.buildZoomSlider();
   }
 
@@ -922,6 +970,39 @@ export class CombatArenaScene extends Phaser.Scene {
    * All coordinates are in screen space (scrollFactor 0), so they stay fixed
    * regardless of where the camera is pointing.
    */
+  /**
+   * Flash a centred banner when the mine gadget unlocks at GADGET_UNLOCK_KILLS.
+   *
+   * This is the Tier 1 → Tier 2 progression moment: the player has proven they
+   * can survive the basics and now gains their first active gadget. The banner
+   * fades automatically so it doesn't obstruct gameplay for long.
+   */
+  private showGadgetUnlockBanner(): void {
+    const cx = this.scale.width  / 2;
+    const cy = this.scale.height / 2 - 30;
+
+    const banner = this.add
+      .text(cx, cy, 'GADGET UNLOCKED\nPress E to deploy a proximity mine', {
+        fontSize:        '13px',
+        color:           '#ffee55',
+        backgroundColor: '#00000099',
+        padding:         { x: 14, y: 10 },
+        align:           'center',
+      })
+      .setOrigin(0.5, 0.5)
+      .setScrollFactor(0)
+      .setDepth(20);
+
+    this.tweens.add({
+      targets:  banner,
+      alpha:    0,
+      delay:    2400,
+      duration: 700,
+      ease:     'Linear',
+      onComplete: () => { if (banner.active) banner.destroy(); },
+    });
+  }
+
   private buildZoomSlider(): void {
     const SX       = 12;    // track left edge (screen x)
     const SY       = 88;    // track centre (screen y)
@@ -1078,6 +1159,11 @@ export class CombatArenaScene extends Phaser.Scene {
       this.hero.tryDash(dx, dy);
     }
 
+    // Mine gadget — E (just-pressed; only active after GADGET_UNLOCK_KILLS)
+    if (this.gadgetUnlocked && Phaser.Input.Keyboard.JustDown(this.gadgetKey)) {
+      (this.hero as Tinkerer).deployMine();
+    }
+
     // Let the entity tick its animation + dash physics + HP bar.
     this.hero.update(delta);
   }
@@ -1104,6 +1190,11 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudWave   = -1;
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
+
+    // Clean up mines and reset gadget state before respawning.
+    (this.hero as Tinkerer).destroyMines();
+    this.gadgetUnlocked = false;
+    if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
 
     // Respawn P1
     if (this.hero.active) this.hero.destroy();
