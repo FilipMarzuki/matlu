@@ -26,6 +26,7 @@ curl -s \
   -H 'Content-type: plain/text' \
   -X POST 'https://eu-fsn-3-connect.betterstackdata.com?output_format_pretty_row_numbers=0' \
   -d "SELECT
+        JSONExtractString(raw, 'level') AS level,
         JSONExtractString(raw, 'message') AS message,
         JSONExtractString(raw, 'filename') AS filename,
         JSONExtractString(raw, 'line') AS line,
@@ -34,9 +35,9 @@ curl -s \
         min(dt) AS first_seen
       FROM remote(t523686_matlu_logs)
       WHERE dt >= now() - INTERVAL 48 HOUR
-        AND JSONExtractString(raw, 'level') = 'error'
-      GROUP BY message, filename, line, stack
-      ORDER BY occurrences DESC
+        AND JSONExtractString(raw, 'level') IN ('error', 'warn')
+      GROUP BY level, message, filename, line, stack
+      ORDER BY level ASC, occurrences DESC
       LIMIT 25
       FORMAT JSONEachRow"
 ```
@@ -69,7 +70,9 @@ For each unfiled error create a Linear bug:
 - **Assignee**: Filip Marzuki (`563bef3c-ccc8-4d5e-9922-47b90c4e2595`)
 - **State**: Backlog
 - **Label**: `bug`
-- **Priority**: Urgent (1) if occurrences > 5, High (2) otherwise
+- **Priority**:
+  - `error` level: Urgent (1) if occurrences > 5, High (2) otherwise
+  - `warn` level: Normal (3) regardless of count
 - **Title**: error message trimmed to 80 chars
 - **Description**:
   ```
