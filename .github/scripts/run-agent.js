@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Per-issue agent runner. Invoked by the GitHub Actions matrix in
-// .github/workflows/agent-nightly.yml — one cell per Linear issue.
+// .github/workflows/agent-nightly.yml — one cell per GitHub issue.
 //
 // Responsibilities:
-//   1. Fetch the Linear issue (title + description).
-//   2. Move it to "In Progress" so humans can see the agent is working.
+//   1. Fetch the GitHub issue (title + body).
+//   2. Mark it as in-progress via an `agent:in-progress` label (best-effort).
 //   3. Render the per-issue prompt from .agents/per-issue.md.
 //   4. Spawn Claude Code in headless mode, scoped to exactly this issue.
 //   5. Apply an `agent:<outcome>` label and post a summary comment on the issue.
@@ -13,7 +13,7 @@
 // the Claude Code session itself. Keep this file boring.
 //
 // Usage:
-//   LINEAR_API_KEY=… ANTHROPIC_API_KEY=… node run-agent.js FIL-42
+//   GITHUB_TOKEN=… ANTHROPIC_API_KEY=… node run-agent.js 42
 
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -23,21 +23,22 @@ import { spawnSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-const LINEAR_API_KEY           = process.env.LINEAR_API_KEY;
+const GITHUB_TOKEN             = process.env.GITHUB_TOKEN;
 // Claude Code accepts either auth method. Prefer the subscription OAuth
 // token (tied to a Pro/Max/Team-premium seat, no per-call API billing) and
 // fall back to a pay-as-you-go API key if the OAuth secret is unset.
 const CLAUDE_CODE_OAUTH_TOKEN  = process.env.CLAUDE_CODE_OAUTH_TOKEN;
 const ANTHROPIC_API_KEY        = process.env.ANTHROPIC_API_KEY;
+const REPO                     = 'FilipMarzuki/matlu';
 
-const issueId = process.argv[2];
+const issueArg = process.argv[2];
 
-if (!issueId) {
-  console.error('Usage: run-agent.js <ISSUE_ID>');
+if (!issueArg) {
+  console.error('Usage: run-agent.js <ISSUE_NUMBER>');
   process.exit(1);
 }
-if (!LINEAR_API_KEY) {
-  console.error('Missing LINEAR_API_KEY');
+if (!GITHUB_TOKEN) {
+  console.error('Missing GITHUB_TOKEN');
   process.exit(1);
 }
 if (!CLAUDE_CODE_OAUTH_TOKEN && !ANTHROPIC_API_KEY) {
@@ -45,101 +46,57 @@ if (!CLAUDE_CODE_OAUTH_TOKEN && !ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-// ── Linear GraphQL ────────────────────────────────────────────────────────────
-
-async function linear(query, variables = {}) {
-  const res = await fetch('https://api.linear.app/graphql', {
-    method: 'POST',
-    headers: {
-      Authorization: LINEAR_API_KEY.replace(/^Bearer\s+/i, ''),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) throw new Error(`Linear → ${res.status} ${await res.text()}`);
-  const json = await res.json();
-  if (json.errors) throw new Error(`Linear GraphQL: ${JSON.stringify(json.errors)}`);
-  return json.data;
+const issueNumber = parseInt(issueArg, 10);
+if (isNaN(issueNumber)) {
+  console.error(`Invalid issue number: ${issueArg}`);
+  process.exit(1);
 }
 
-async function fetchIssue(id) {
-  const data = await linear(
-    `query($id: String!) {
-      issue(id: $id) {
-        id
-        identifier
-        title
-        description
-        team { id }
-        labels { nodes { id name } }
-        state { id name type }
-      }
-    }`,
-    { id }
-  );
-  if (!data.issue) throw new Error(`Issue ${id} not found`);
-  return data.issue;
+// ── GitHub Issues REST API ────────────────────────────────────────────────────
+
+async function githubRequest(method, path, body = null) {
+  const res = await fetch(`https://api.github.com/repos/${REPO}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) throw new Error(`GitHub API → ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function fetchIssue(number) {
+  return githubRequest('GET', `/issues/${number}`);
 }
 
 async function moveToInProgress(issue) {
-  if (issue.state.type === 'started') return; // already In Progress
-  const states = await linear(
-    `query($teamId: ID!) {
-      workflowStates(filter: { team: { id: { eq: $teamId } }, type: { eq: "started" } }) {
-        nodes { id name }
-      }
-    }`,
-    { teamId: issue.team.id }
-  );
-  const inProgress = states.workflowStates.nodes[0];
-  if (!inProgress) return;
-  // Linear is inconsistent: filter fields expect ID, but mutation arguments
-  // (issueUpdate(id: ...), input.stateId, input.labelIds, etc.) are typed
-  // String in the schema. Keep String! here even though these ARE IDs.
-  await linear(
-    `mutation($id: String!, $stateId: String!) {
-      issueUpdate(id: $id, input: { stateId: $stateId }) { success }
-    }`,
-    { id: issue.id, stateId: inProgress.id }
-  );
+  // GitHub Issues has no "state" concept equivalent to Linear's "In Progress"
+  // — add `agent:in-progress` label so humans can see work has begun.
+  // Best-effort: if the label doesn't exist in the repo this will fail with
+  // 422; we log the error but continue rather than aborting the session.
+  const currentLabels = issue.labels.map((l) => l.name);
+  if (currentLabels.includes('agent:in-progress')) return;
+  try {
+    await githubRequest('POST', `/issues/${issue.number}/labels`, {
+      labels: ['agent:in-progress'],
+    });
+  } catch (err) {
+    console.warn(`[run-agent] Could not apply agent:in-progress label: ${err.message}`);
+  }
 }
 
 async function applyOutcomeLabel(issue, outcome) {
-  // Outcome must be one of success|partial|failed|wrong-interpretation.
-  // The `agent:<outcome>` label must already exist in Linear (pre-created by
-  // the operator) — we look it up by name rather than create it here.
-  const labelName = `agent:${outcome}`;
-  const data = await linear(
-    `query($teamId: ID!, $name: String!) {
-      issueLabels(filter: { team: { id: { eq: $teamId } }, name: { eq: $name } }) {
-        nodes { id }
-      }
-    }`,
-    { teamId: issue.team.id, name: labelName }
-  );
-  const label = data.issueLabels.nodes[0];
-  if (!label) {
-    console.error(`Label "${labelName}" does not exist in Linear — skipping.`);
-    return;
-  }
-  const existing = issue.labels.nodes.map((l) => l.id);
-  const next = Array.from(new Set([...existing, label.id]));
-  // See note in moveToInProgress — mutation args are String in Linear's schema.
-  await linear(
-    `mutation($id: String!, $ids: [String!]!) {
-      issueUpdate(id: $id, input: { labelIds: $ids }) { success }
-    }`,
-    { id: issue.id, ids: next }
-  );
+  await githubRequest('POST', `/issues/${issue.number}/labels`, {
+    labels: [`agent:${outcome}`],
+  });
 }
 
 async function comment(issue, body) {
-  await linear(
-    `mutation($issueId: String!, $body: String!) {
-      commentCreate(input: { issueId: $issueId, body: $body }) { success }
-    }`,
-    { issueId: issue.id, body }
-  );
+  await githubRequest('POST', `/issues/${issue.number}/comments`, { body });
 }
 
 // ── Prompt rendering ──────────────────────────────────────────────────────────
@@ -149,11 +106,15 @@ function renderPrompt(issue) {
     join(__dirname, '..', '..', '.agents', 'per-issue.md'),
     'utf8'
   );
+  // Use the plain GitHub issue number as the identifier (e.g. "42").
+  // The template uses {{issue_id_lower}} for branch names — numbers have no
+  // case so both replacements receive the same string.
+  const issueId = String(issue.number);
   return template
-    .replaceAll('{{issue_id}}', issue.identifier)
-    .replaceAll('{{issue_id_lower}}', issue.identifier.toLowerCase())
+    .replaceAll('{{issue_id}}', issueId)
+    .replaceAll('{{issue_id_lower}}', issueId)
     .replaceAll('{{title}}', issue.title)
-    .replaceAll('{{description}}', issue.description || '_(no description provided)_');
+    .replaceAll('{{description}}', issue.body || '_(no description provided)_');
 }
 
 // ── Claude Code invocation ────────────────────────────────────────────────────
@@ -182,6 +143,8 @@ function runClaude(prompt) {
       // Pass whichever credential(s) the workflow provided. Claude Code uses
       // CLAUDE_CODE_OAUTH_TOKEN when set (no API billing — charged against
       // the subscription quota) and otherwise falls back to ANTHROPIC_API_KEY.
+      // All other env vars (including LINEAR_API_KEY if set) are forwarded so
+      // the spawned session can reach Linear for its own wrap-up steps.
       env: {
         ...process.env,
         ...(CLAUDE_CODE_OAUTH_TOKEN ? { CLAUDE_CODE_OAUTH_TOKEN } : {}),
@@ -195,18 +158,18 @@ function runClaude(prompt) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`[run-agent] Starting session for ${issueId}`);
+  console.log(`[run-agent] Starting session for issue #${issueNumber}`);
   let issue;
 
-  // The bookkeeping stage can also fail (e.g. Linear schema drift, network
-  // blip). If it crashes after we've fetched the issue, try to leave an
-  // `agent:failed` breadcrumb so the operator sees it in Linear instead of
-  // silently on the Actions tab.
+  // The bookkeeping stage can also fail (e.g. network blip, missing label).
+  // If it crashes after we've fetched the issue, try to leave an `agent:failed`
+  // breadcrumb so the operator sees it on the issue instead of silently on
+  // the Actions tab.
   try {
-    issue = await fetchIssue(issueId);
+    issue = await fetchIssue(issueNumber);
     await moveToInProgress(issue);
   } catch (err) {
-    console.error(`[run-agent] Bookkeeping failed for ${issueId}: ${err.message}`);
+    console.error(`[run-agent] Bookkeeping failed for #${issueNumber}: ${err.message}`);
     if (issue) {
       try {
         await applyOutcomeLabel(issue, 'failed');
@@ -228,7 +191,7 @@ async function main() {
   // so the operator can triage. A successful session is expected to label and
   // comment itself — we only act here on hard failure.
   if (!ok) {
-    console.error(`[run-agent] Claude Code exited non-zero for ${issueId}`);
+    console.error(`[run-agent] Claude Code exited non-zero for #${issueNumber}`);
     try {
       await applyOutcomeLabel(issue, 'failed');
       await comment(
@@ -241,7 +204,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`[run-agent] Completed ${issueId}`);
+  console.log(`[run-agent] Completed #${issueNumber}`);
 }
 
 main().catch((err) => {
