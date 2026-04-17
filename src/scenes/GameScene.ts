@@ -1562,7 +1562,9 @@ export class GameScene extends Phaser.Scene {
       );
       // Oscillate back and forth at ~0.4 Hz so the camera jiggles rather than
       // tilting to a fixed angle. Max rotation 0.008 rad (~0.46°) — barely
-      // perceptible but creates a unsettling "wrongness" feel in corrupted zones.
+      // perceptible but creates an unsettling "wrongness" feel in corrupted zones.
+      // When corruptionStrength is 0 (player outside all corrupted tiles),
+      // jitterAngle evaluates to 0 and setRotation(0) restores the normal view.
       const jitterAngle = Math.sin(time / 400) * 0.008 * corruptionStrength;
       this.cameras.main.setRotation(jitterAngle);
     }
