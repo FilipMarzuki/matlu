@@ -841,6 +841,51 @@ export class CombatArenaScene extends Phaser.Scene {
 
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();
+
+    // Place 2–3 BurrowHoles in non-hero rooms each wave.  Old holes from the
+    // previous wave are cleared first so positions rotate and timers don't stack.
+    this.placeBurrowHoles(candidateRooms);
+  }
+
+  /**
+   * Destroy any holes from the previous wave, then place 2–3 new BurrowHoles
+   * in side rooms (never in the hero's starting room).
+   *
+   * Holes are snapped to room centres and registered via `registerHole()` so
+   * spawned Velcrids are tracked by the existing aliveEnemies / MAX_ALIVE system.
+   *
+   * Clamped to the number of available non-hero rooms so small dungeon layouts
+   * (fewer than 3 non-hero rooms) don't throw.
+   */
+  private placeBurrowHoles(candidateRooms: Room[]): void {
+    this.clearHoles();
+
+    if (candidateRooms.length === 0) return;
+
+    // Pick 2–3 unique rooms at random; clamp to the pool size.
+    const holeCount = Math.min(2 + Math.floor(Math.random() * 2), candidateRooms.length);
+
+    // Shuffle a copy so we can just take the first `holeCount` entries.
+    const shuffled = [...candidateRooms].sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < holeCount; i++) {
+      const room = shuffled[i]!;
+      const cx = room.x + room.w / 2;
+      const cy = room.y + room.h / 2;
+
+      // Guard: if the centre falls inside a wall rect, skip this room rather
+      // than placing a hole inside geometry.
+      const blocked = this.wallRects.some(r => r.contains(cx, cy));
+      if (blocked) continue;
+
+      const hole = new BurrowHole(this, cx, cy);
+      this.registerHole(hole, BabyVelcrid, 3500);
+    }
+
+    log.info('burrow_holes_placed', {
+      wave:   this.waveNumber,
+      placed: this.activeHoles.length,
+    });
   }
 
   // ── Wave timing ───────────────────────────────────────────────────────────────
