@@ -3030,10 +3030,59 @@ export class GameScene extends Phaser.Scene {
   private revealPortal(): void {
     this.portalActive = true;
     this.drawPortalRing();
-    // Steel jingle marks the portal unlocking — distinct from the pickup pizzicato
-    if (this.audioAvailable && this.cache.audio.has('sfx-portal')) {
-      this.sound.play('sfx-portal', { volume: 0.6 });
+
+    // FIL-118: Dramatic music moment — duck music to ~10% for ~1 s, play the
+    // steel jingle after the duck completes, then swell music back over ~2 s.
+    // This sequences the audio so the jingle "lands" in a moment of near-silence.
+    //
+    // We snapshot the live .volume before ducking rather than using phaseMusicVolume()
+    // because the track may be mid-crossfade (e.g. during a phase transition) and the
+    // live value is what the player actually hears.
+    if (this.audioAvailable && this.musicTrack) {
+      type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+      const savedVol = (this.musicTrack as AudibleSound).volume;
+      this.tweens.add({
+        targets: this.musicTrack as AudibleSound,
+        volume: savedVol * 0.1,
+        duration: 1000,
+        ease: 'Sine.easeIn',
+        onComplete: () => {
+          // Play the jingle in the moment of near-silence.
+          // Use sound.add() + .play() so we get a typed BaseSound back for the
+          // 'complete' listener — sound.play() returns boolean | BaseSound and
+          // TypeScript can't safely narrow it for the cast we need below.
+          if (this.cache.audio.has('sfx-portal')) {
+            const jingle = this.sound.add('sfx-portal', { volume: 0.6 });
+            jingle.once('complete', () => {
+              // Swell music back to its pre-duck volume after the jingle finishes.
+              if (this.musicTrack) {
+                this.tweens.add({
+                  targets: this.musicTrack as AudibleSound,
+                  volume: savedVol,
+                  duration: 2000,
+                  ease: 'Sine.easeOut',
+                });
+              }
+            });
+            jingle.play();
+          } else {
+            // No jingle asset — swell back immediately so music doesn't stay quiet.
+            if (this.musicTrack) {
+              this.tweens.add({
+                targets: this.musicTrack as AudibleSound,
+                volume: savedVol,
+                duration: 2000,
+                ease: 'Sine.easeOut',
+              });
+            }
+          }
+        },
+      });
+    } else if (this.audioAvailable && this.cache.audio.has('sfx-portal')) {
+      // No music track active — just play the jingle at face value.
+      this.sound.add('sfx-portal', { volume: 0.6 }).play();
     }
+
     this.tweens.add({
       targets: this.portal,
       alpha: 1,
