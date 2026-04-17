@@ -45,6 +45,7 @@ import { CrackedGolem } from '../entities/CrackedGolem';
 import { Projectile } from '../entities/Projectile';
 import { Bao } from '../heroes/Bao';
 import { MasterFen } from '../heroes/MasterFen';
+import { TheLivingSea } from '../heroes/TheLivingSea';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
@@ -233,7 +234,7 @@ const BOSS_ENTRANCE_RADIUS = 500;
  * Active hero in arena mode. Change to 'masterfen' to play as Master Fen.
  * 'tinkerer' keeps the existing Tinkerer sprite with no panda abilities.
  */
-const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' = 'bao';
+const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' | 'livingsea' = 'bao';
 
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
@@ -723,7 +724,7 @@ export class GameScene extends Phaser.Scene {
   private dustlingOverlay!: Phaser.GameObjects.Rectangle;
   // ── Panda heroes (FIL-314) ────────────────────────────────────────────────────
   /** Bao or Master Fen instance spawned in arena mode — null for Tinkerer. */
-  private arenaHero: Bao | MasterFen | null = null;
+  private arenaHero: Bao | MasterFen | TheLivingSea | null = null;
   /** Keyboard keys 1–3 drive hero abilities; 4 = Master Fen signature (Torrent). */
   private abilityKey1?: Phaser.Input.Keyboard.Key;
   private abilityKey2?: Phaser.Input.Keyboard.Key;
@@ -3465,6 +3466,11 @@ export class GameScene extends Phaser.Scene {
       if (this.abilityKey4 && Phaser.Input.Keyboard.JustDown(this.abilityKey4)) {
         hero.castTorrent();
       }
+    } else if (hero instanceof TheLivingSea) {
+      // Key 1 — Sea Remembers: mirror the last stored ability back at its source.
+      if (Phaser.Input.Keyboard.JustDown(this.abilityKey1!)) {
+        hero.useSeaRemembers(this.heroProjectiles as unknown as import('../entities/Projectile').Damageable[]);
+      }
     }
 
     // Tick and prune projectiles fired by the hero (Water Jet / Ice Bolt).
@@ -4340,6 +4346,9 @@ export class GameScene extends Phaser.Scene {
         this.arenaHero.setAlpha(0); // invisible — the player Container is the visual
       } else if (SELECTED_HERO === 'masterfen') {
         this.arenaHero = new MasterFen(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero.setAlpha(0);
+      } else if (SELECTED_HERO === 'livingsea') {
+        this.arenaHero = new TheLivingSea(this, SPAWN_X, SPAWN_Y);
         this.arenaHero.setAlpha(0);
       }
     } else {
