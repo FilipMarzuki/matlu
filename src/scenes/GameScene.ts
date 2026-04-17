@@ -3149,7 +3149,7 @@ export class GameScene extends Phaser.Scene {
     this.dayNightOverlay.setFillStyle(colour, alpha);
     this.currentPhase = this.worldClock.phase;
     this._currentSeason = this.seasonSystem.getEffectiveSeason('zone-main');
-    // FIL-227: seed lerp state — treat the initial overlay as fully arrived so
+    // FIL-227 / FIL-299: seed lerp state — treat the initial overlay as fully arrived so
     // the first updateDayNight() call has valid from/to values and no stale lerp.
     const ov = this.worldClock.overlay;
     this.currentOverlay = { ...ov };
@@ -3158,7 +3158,7 @@ export class GameScene extends Phaser.Scene {
     this.overlayLerpElapsed = this.OVERLAY_LERP_DURATION;
   }
 
-  // FIL-227: called every frame; lerps r/g/b/alpha of the overlay over
+  // FIL-227 / FIL-299: called every frame; lerps r/g/b/alpha of the overlay over
   // OVERLAY_LERP_DURATION (20 s) whenever the phase changes.
   private updateDayNight(delta: number): void {
     const newPhase = this.worldClock.phase;
