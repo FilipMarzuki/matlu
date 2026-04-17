@@ -265,6 +265,204 @@
       "duration": 80
     },
     {
+      "filename": "death_south_12",
+      "frame": {
+        "x": 1104,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_13",
+      "frame": {
+        "x": 1196,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_14",
+      "frame": {
+        "x": 1288,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_15",
+      "frame": {
+        "x": 1380,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_16",
+      "frame": {
+        "x": 1472,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_17",
+      "frame": {
+        "x": 1564,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_18",
+      "frame": {
+        "x": 1656,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_19",
+      "frame": {
+        "x": 1748,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_20",
+      "frame": {
+        "x": 1840,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
       "filename": "idle_south-east_0",
       "frame": {
         "x": 0,
@@ -510,6 +708,204 @@
       "filename": "walk_south-east_11",
       "frame": {
         "x": 1012,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_12",
+      "frame": {
+        "x": 1104,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_13",
+      "frame": {
+        "x": 1196,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_14",
+      "frame": {
+        "x": 1288,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_15",
+      "frame": {
+        "x": 1380,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_16",
+      "frame": {
+        "x": 1472,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_17",
+      "frame": {
+        "x": 1564,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_18",
+      "frame": {
+        "x": 1656,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_19",
+      "frame": {
+        "x": 1748,
+        "y": 92,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_20",
+      "frame": {
+        "x": 1840,
         "y": 92,
         "w": 92,
         "h": 92
@@ -793,6 +1189,204 @@
       "duration": 80
     },
     {
+      "filename": "death_north-east_12",
+      "frame": {
+        "x": 1104,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_13",
+      "frame": {
+        "x": 1196,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_14",
+      "frame": {
+        "x": 1288,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_15",
+      "frame": {
+        "x": 1380,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_16",
+      "frame": {
+        "x": 1472,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_17",
+      "frame": {
+        "x": 1564,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_18",
+      "frame": {
+        "x": 1656,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_19",
+      "frame": {
+        "x": 1748,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_20",
+      "frame": {
+        "x": 1840,
+        "y": 184,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
       "filename": "idle_north_0",
       "frame": {
         "x": 0,
@@ -967,6 +1561,204 @@
         "h": 92
       },
       "duration": 150
+    },
+    {
+      "filename": "death_north_8",
+      "frame": {
+        "x": 736,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_9",
+      "frame": {
+        "x": 828,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_10",
+      "frame": {
+        "x": 920,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_11",
+      "frame": {
+        "x": 1012,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_12",
+      "frame": {
+        "x": 1104,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_13",
+      "frame": {
+        "x": 1196,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_14",
+      "frame": {
+        "x": 1288,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_15",
+      "frame": {
+        "x": 1380,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_16",
+      "frame": {
+        "x": 1472,
+        "y": 276,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
     },
     {
       "filename": "idle_east_0",
@@ -1214,6 +2006,182 @@
       "filename": "walk_east_11",
       "frame": {
         "x": 1012,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_12",
+      "frame": {
+        "x": 1104,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_13",
+      "frame": {
+        "x": 1196,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_14",
+      "frame": {
+        "x": 1288,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_15",
+      "frame": {
+        "x": 1380,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_16",
+      "frame": {
+        "x": 1472,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_17",
+      "frame": {
+        "x": 1564,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_18",
+      "frame": {
+        "x": 1656,
+        "y": 368,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_19",
+      "frame": {
+        "x": 1748,
         "y": 368,
         "w": 92,
         "h": 92
@@ -1495,6 +2463,182 @@
         "h": 92
       },
       "duration": 80
+    },
+    {
+      "filename": "death_west_12",
+      "frame": {
+        "x": 1104,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_13",
+      "frame": {
+        "x": 1196,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_14",
+      "frame": {
+        "x": 1288,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_15",
+      "frame": {
+        "x": 1380,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_16",
+      "frame": {
+        "x": 1472,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_17",
+      "frame": {
+        "x": 1564,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_18",
+      "frame": {
+        "x": 1656,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_19",
+      "frame": {
+        "x": 1748,
+        "y": 460,
+        "w": 92,
+        "h": 92
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 92,
+        "h": 92
+      },
+      "sourceSize": {
+        "w": 92,
+        "h": 92
+      },
+      "duration": 80
     }
   ],
   "meta": {
@@ -1503,7 +2647,7 @@
     "image": "mini-velcrid.png",
     "format": "RGBA8888",
     "size": {
-      "w": 1104,
+      "w": 1932,
       "h": 552
     },
     "scale": "1",
@@ -1521,57 +2665,93 @@
         "direction": "forward"
       },
       {
-        "name": "mini-velcrid_idle_south-east",
+        "name": "mini-velcrid_death_south",
         "from": 12,
-        "to": 19,
+        "to": 20,
+        "direction": "forward"
+      },
+      {
+        "name": "mini-velcrid_idle_south-east",
+        "from": 21,
+        "to": 28,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_walk_south-east",
-        "from": 20,
-        "to": 23,
+        "from": 29,
+        "to": 32,
+        "direction": "forward"
+      },
+      {
+        "name": "mini-velcrid_death_south-east",
+        "from": 33,
+        "to": 41,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_idle_north-east",
-        "from": 24,
-        "to": 31,
+        "from": 42,
+        "to": 49,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_walk_north-east",
-        "from": 32,
-        "to": 35,
+        "from": 50,
+        "to": 53,
+        "direction": "forward"
+      },
+      {
+        "name": "mini-velcrid_death_north-east",
+        "from": 54,
+        "to": 62,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_idle_north",
-        "from": 36,
-        "to": 43,
+        "from": 63,
+        "to": 70,
+        "direction": "forward"
+      },
+      {
+        "name": "mini-velcrid_death_north",
+        "from": 71,
+        "to": 79,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_idle_east",
-        "from": 44,
-        "to": 51,
+        "from": 80,
+        "to": 87,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_walk_east",
-        "from": 52,
-        "to": 55,
+        "from": 88,
+        "to": 91,
+        "direction": "forward"
+      },
+      {
+        "name": "mini-velcrid_death_east",
+        "from": 92,
+        "to": 99,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_idle_west",
-        "from": 56,
-        "to": 63,
+        "from": 100,
+        "to": 107,
         "direction": "forward"
       },
       {
         "name": "mini-velcrid_walk_west",
-        "from": 64,
-        "to": 67,
+        "from": 108,
+        "to": 111,
+        "direction": "forward"
+      },
+      {
+        "name": "mini-velcrid_death_west",
+        "from": 112,
+        "to": 119,
         "direction": "forward"
       }
     ]

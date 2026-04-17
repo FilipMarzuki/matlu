@@ -351,7 +351,10 @@ export class CombatArenaScene extends Phaser.Scene {
             if (button.index === 0) this.hero.tryMelee();
             else if (button.index === 5) this.hero.tryRanged();
             else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero.tryDash(dx, dy);
-            else if (button.index === 3 && this.gadgetUnlocked) (this.hero as Tinkerer).deployMine();
+            else if (button.index === 3) {
+              if (this.hero instanceof Tinkerer && this.gadgetUnlocked) this.hero.deployMine();
+              else if (this.hero instanceof EarthHero) this.hero.useSignature();
+            }
           }
         },
       );
@@ -436,7 +439,8 @@ export class CombatArenaScene extends Phaser.Scene {
             survivor.enterPanic(e.x, e.y);
           }
         }
-        this.time.delayedCall(1500, () => { if (e.active) e.destroy(); });
+        // Safety net: onDeath() self-destructs after corpse linger + fade (~20 s max).
+        this.time.delayedCall(25000, () => { if (e.active) e.destroy(); });
       }
       this.cameras.main.shake(120, 0.003);
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
