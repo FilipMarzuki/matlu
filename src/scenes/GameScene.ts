@@ -904,6 +904,9 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('music-day',   [`${cozyBase}/Whispering Woods.ogg`]);
     this.load.audio('music-dusk',  [`${cozyBase}/Evening Harmony.ogg`]);
     this.load.audio('music-night', [`${cozyBase}/Polar Lights.ogg`]);
+    // Phase-transition stinger: single bell strike at the moment the crossfade starts (FIL-122)
+    // impactBell_heavy_001 is distinct from _000 (sfx-swipe-hit) and _004 (sfx-swipe)
+    this.load.audio('sfx-phase-stinger', ['assets/audio/kenney_impact-sounds/Audio/impactBell_heavy_001.ogg']);
 
     // ── Event SFX ─────────────────────────────────────────────────────────────────
     const ken = 'assets/audio/kenney_impact-sounds/Audio';
@@ -3776,6 +3779,12 @@ export class GameScene extends Phaser.Scene {
     if (!this.audioAvailable) return;
     const nextKey = this.phaseMusicKey(newPhase);
     if (nextKey === this.currentMusicKey) return;
+
+    // One-shot bell stinger marks the moment the phase flips — plays at the
+    // very start of the crossfade, not after, so it punctuates the transition.
+    if (this.cache.audio.has('sfx-phase-stinger')) {
+      this.sound.play('sfx-phase-stinger', { volume: 0.15 });
+    }
 
     // Fade out old track
     if (this.musicTrack) {
