@@ -29,6 +29,7 @@
 import { CombatEntity } from '../entities/CombatEntity';
 import { Spineling, Blightfrog } from '../entities/CombatEntity';
 import { PackStalker } from '../entities/PackStalker';
+import { Venomantis } from '../entities/Venomantis';
 
 type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
 type GroupSpawnFn = (scene: Phaser.Scene, cx: number, cy: number) => CombatEntity[];
@@ -103,5 +104,26 @@ export const SPINOLANDET_WAVES: SpinelandetWave[] = [
       Blightfrog, Blightfrog,
     ],
     groups: [spawnPackStalkerTrio], // PackStalker ×3 (hard-coded trio)
+  },
+  {
+    // Venomantis introduction: two mantises flank while Spinelings distract.
+    // Players learn to watch their backs — the mantis vanishes and reappears
+    // behind them every 5 s after a 2 s invisible window.
+    label: 'Shadow Strike',
+    singles: [
+      Venomantis, Venomantis,
+      Spineling, Spineling, Spineling,
+    ],
+    groups: [],
+  },
+  {
+    // Heavy flanking pressure: Venomantis teleport-flanks while Blightfrogs
+    // hold range and PackStalkers close from the front.
+    label: 'Flank & Poison',
+    singles: [
+      Venomantis,
+      Blightfrog, Blightfrog,
+    ],
+    groups: [spawnPackStalkerTrio],
   },
 ];
