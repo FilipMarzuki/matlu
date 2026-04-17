@@ -1,4 +1,4 @@
-name: Nightly Agent (per-issue)
+name: Dev Agent
 
 # Per-issue nightly runner for Matlu's Claude Code agent.
 #

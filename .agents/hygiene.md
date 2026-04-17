@@ -102,6 +102,21 @@ Follow ONLY the section below that matches your task. Ignore the others.
 
 ---
 
+### Task: clean-duplicate
+
+**Goal:** Strip all labels from a Duplicate-state issue so it stops polluting label-based searches and dashboards.
+
+**Time budget:** 1 minute.
+
+1. Check the labels listed above. If there are none, post nothing and exit — already clean.
+2. Call `issueUpdate` with `labelIds: []` to remove all labels.
+3. Post a comment:
+   > 🗑️ Cleaned up labels [list them] — issue is already in Duplicate state, no further work needed.
+
+Do not change the state, priority, or description.
+
+---
+
 ## Linear API reference
 
 Base: `https://api.linear.app/graphql`
