@@ -12,3 +12,4 @@ export { Lund } from './heroes/Lund';
 export { SymbiontKarin } from './heroes/SymbiontKarin';
 export { Apex } from './heroes/Apex';
 export { Overmind } from './heroes/Overmind';
+export { Dustling } from './Dustling';

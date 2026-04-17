@@ -36,6 +36,7 @@ import {
 import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
+import { Dustling } from '../entities/Dustling';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
@@ -689,6 +690,13 @@ export class GameScene extends Phaser.Scene {
   private bossHudFill?: Phaser.GameObjects.Rectangle;
   /** Wrapper destroyed on boss death so all HUD elements go at once. */
   private bossHudContainer?: Phaser.GameObjects.Container;
+
+  // ── Dustling swarm (FIL-302) ─────────────────────────────────────────────────
+  private dustlings: Dustling[] = [];
+  /** True while at least one Dustling is alive — drives overlay + spell miss. */
+  private dustlingSwarmAlive = false;
+  /** Semi-opaque black screen overlay — visible while swarm is alive. */
+  private dustlingOverlay!: Phaser.GameObjects.Rectangle;
 
   // ── Upgrade shrine (FIL-130) ──────────────────────────────────────────────────
   private readonly shrinePos       = { x: 380, y: 2760 };
@@ -1504,6 +1512,7 @@ export class GameScene extends Phaser.Scene {
     this.updateCorruptedWisps(time);
     this.updateRangedProjectiles(delta);
     if (this.bossAlive && this.boss) this.boss.update(delta);
+    this.updateDustlings(delta);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
     if (this.portalActive) {
@@ -2106,6 +2115,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    // Dustling swarm disrupts the player's spells — 40 % chance of a miss
+    // while any swarm member is alive. The cooldown is still consumed so the
+    // player feels the penalty without realising the source immediately.
+    if (this.dustlingSwarmAlive && Math.random() < 0.4) return;
+
     // FIL-132: white-flash + micro scale-pulse on every swipe attempt.
     this.playerSprite.setTint(0xffffff);
     this.time.delayedCall(90, () => this.playerSprite.clearTint());
@@ -2206,6 +2220,17 @@ export class GameScene extends Phaser.Scene {
       }
       if (hit) break;
     }
+
+    // Dustling AoE: swipe is an area-of-effect — kills ALL swarm members within
+    // swipe range in one pass, unlike single-target rabbit logic above.
+    if (this.dustlingSwarmAlive) {
+      const killed = Dustling.aoeKill(px, py, swipeRange);
+      if (killed > 0) {
+        this.cameras.main.shake(100, 0.003);
+        if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.5 });
+        this.skillSystem.addXP('cleansing', 2 * killed);
+      }
+    }
   }
 
   private applySwipeHit(rabbit: Phaser.GameObjects.Rectangle): void {
@@ -2247,6 +2272,9 @@ export class GameScene extends Phaser.Scene {
     const now = this.time.now;
     if (now - this.lastRangedAt < RANGED_COOLDOWN_MS) return;
     this.lastRangedAt = now;
+
+    // Dustling swarm disrupts ranged spells — same 40 % miss as melee swipe.
+    if (this.dustlingSwarmAlive && Math.random() < 0.4) return;
 
     const px    = this.player.x;
     const py    = this.player.y;
@@ -2340,6 +2368,17 @@ export class GameScene extends Phaser.Scene {
           const e = child as Phaser.GameObjects.Rectangle;
           if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, e.x, e.y) < RANGED_RADIUS + 8) {
             this.killCorruptedEnemy(e, cv);
+            p.arc.destroy();
+            return false;
+          }
+        }
+      }
+
+      // FIL-302: Dustling hit — ranged bolt is single-target (swipe is the AoE).
+      if (this.dustlingSwarmAlive) {
+        for (const d of Dustling.getLiveSwarm()) {
+          if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, d.x, d.y) < RANGED_RADIUS + 8) {
+            d.takeDamage(d.maxHp);
             p.arc.destroy();
             return false;
           }
@@ -2828,6 +2867,14 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(50);
 
+    // Dustling swarm darkening overlay — shown while any swarm member is alive.
+    // Depth 48 puts it below the main tint overlay (50) so they layer correctly.
+    this.dustlingOverlay = this.add
+      .rectangle(sw / 2, sh / 2, sw, sh, 0x000000, 0.45)
+      .setScrollFactor(0)
+      .setDepth(48)
+      .setVisible(false);
+
     this.setCleanseHud(0);
   }
 
@@ -2989,6 +3036,61 @@ export class GameScene extends Phaser.Scene {
     this.events.once('boss-died', () => this.onBossDied());
 
     this.createBossHud();
+    this.createDustlingSwarm();
+  }
+
+  /**
+   * Spawn 20 Dustling swarm enemies clustered near the boss area.
+   *
+   * Dustlings are Entity-based (extend Enemy → LivingEntity → Container), so
+   * each one gets an Arcade physics body via physics.add.existing() — same
+   * pattern as CorruptedGuardian. The shared player-position getter gives every
+   * member the same gentle drift target without coupling Dustling to GameScene.
+   */
+  private createDustlingSwarm(): void {
+    Dustling.clearRegistry();
+    Dustling.setPlayerGetter(() => ({ x: this.player.x, y: this.player.y }));
+
+    // Spawn 300 px west of the boss — inside the Vattenpandalandet entrance zone
+    // but not on top of the boss spawn point.
+    const SWARM_X = BOSS_X - 300;
+    const SWARM_Y = BOSS_Y;
+
+    for (let i = 0; i < 20; i++) {
+      // Spread members in a ring so they immediately feel like a swarm.
+      const angle = (i / 20) * Math.PI * 2;
+      const radius = 40 + Math.random() * 60;
+      const d = new Dustling(
+        this,
+        SWARM_X + Math.cos(angle) * radius,
+        SWARM_Y + Math.sin(angle) * radius,
+      );
+      d.setDepth(SWARM_Y);
+      this.physics.add.existing(d);
+      (d.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+      this.dustlings.push(d);
+    }
+
+    this.dustlingSwarmAlive = true;
+  }
+
+  /**
+   * Per-frame Dustling update: tick each live member, then sync the dark
+   * overlay and swarmAlive flag based on whether any member remains.
+   */
+  private updateDustlings(delta: number): void {
+    // Spread to a snapshot so registry mutations during death don't skip entries.
+    const live = [...Dustling.getLiveSwarm()];
+    for (const d of live) d.update(delta);
+
+    const anyAlive = Dustling.getLiveSwarm().length > 0;
+    if (this.dustlingSwarmAlive && !anyAlive) {
+      // Swarm just died — lift the overlay and re-enable spells.
+      this.dustlingSwarmAlive = false;
+      this.dustlingOverlay.setVisible(false);
+    } else if (anyAlive) {
+      this.dustlingOverlay.setVisible(true);
+    }
   }
 
   /**
