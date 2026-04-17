@@ -1359,7 +1359,7 @@ export class Tinkerer extends CombatEntity {
     const MELEE_R    = this.meleeRange;   // 36px
     const DASH_MIN   = MELEE_R;
     const DASH_MAX   = 300;
-    const RANGED_MIN = 60;
+    const RANGED_MIN = 35;
     const RANGED_MAX = 230;
     const SWARM_R    = 130;   // radius for swarm pressure check
     const SWARM_CAP  = 4;     // enemies within SWARM_R that triggers escape mode
@@ -1397,14 +1397,14 @@ export class Tinkerer extends CombatEntity {
         4000,
       ),
 
-      // ── 2. Melee bash — suppressed when 3+ enemies are nearby ────────────────
-      // Melee into a swarm is suicidal; prefer ranged or dash instead.
+      // ── 2. Melee bash — always available at close range ───────────────────────
+      // FIL-277 regression fix: gating melee by local swarm count could leave the
+      // hero in a no-attack loop once surrounded by 3+ enemies.
       new BtSequence([
         new BtCondition(ctx => {
           if (!ctx.opponent) return false;
           const d    = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
-          const near = swarmPressure(ctx.x, ctx.y);
-          return d < MELEE_R && near < 3;
+          return d < MELEE_R;
         }),
         new BtAction(ctx => {
           this.attackAnimId = 'attack_melee';
