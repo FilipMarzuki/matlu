@@ -40,6 +40,15 @@ import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
+import {
+  detectCliffs,
+  CLIFF_COLORS,
+  CLIFF_STEP_PX,
+  CLIFF_LIP_PX,
+  CLIFF_SHADOW_BANDS,
+  CLIFF_CORRUPT_COLOR,
+} from '../world/CliffSystem';
+import type { CliffFace } from '../world/CliffSystem';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
 /**
@@ -789,6 +798,12 @@ export class GameScene extends Phaser.Scene {
   private tileDevBiome: Uint8Array   | null = null;
   /** Tile grid width — needed to convert flat array index back to (tx, ty). */
   private tileDevW = 0;
+  // ── FIL-178: cliff system ─────────────────────────────────────────────────
+  /**
+   * Corruption overlay drawn on top of cliff faces.
+   * Opacity scales with global corruption — updated whenever cleanse-updated fires.
+   */
+  private cliffCorruptGfx: Phaser.GameObjects.Graphics | null = null;
   // ── FIL-167/168: diagonal river lookup grids ─────────────────────────────
   /**
    * 1 if the tile is covered by any diagonal river band, 0 otherwise.
@@ -1324,6 +1339,9 @@ export class GameScene extends Phaser.Scene {
 
     this.events.on('cleanse-updated', (percent: number) => {
       this.applyWorldTint(percent);
+      // FIL-178: update cliff corruption overlay as cleanse level changes.
+      // The overlay darkens cliff faces with a purple tint in corrupted zones.
+      this.updateCliffCorruption(percent);
       if (percent >= 50 && !this.portalActive) {
         this.revealPortal();
         // Big cleanse milestone — slow the day cycle (world breathes out)
@@ -4854,72 +4872,201 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Draws a layered cliff-face illusion on south edges where highland meets lower ground.
+   * FIL-178: Cliff & Elevation Transition System.
    *
-   * Three overlapping strips per edge tile (all on the same Graphics object, depth 0.45):
-   *   1. Bright lip    — 2 px at the very bottom of the highland tile (the "ledge top")
-   *   2. Cliff face    — 14 px at the top of the lower tile (dark earthy rock face)
-   *   3. Drop shadow   — 6 px fade below the face (grounds the cliff in the terrain)
+   * Renders layered cliff-face illusions at all south-facing and east-facing
+   * elevation drops across the procedurally generated terrain.
    *
-   * Also handles east-facing edges (highland to the left, lower to the right) with a
-   * narrow vertical shadow strip so the cliff reads from all viewing angles.
+   * ## Detection
+   * Calls detectCliffs() (CliffSystem.ts) to run a full cliff-detection pass
+   * over the biomeGrid.  The continuous elevation float is first quantized into
+   * 5 discrete levels (sea → coast → lowland → highland → mountain); a cliff
+   * face is emitted wherever the level drops between a tile and its south or
+   * east neighbour.
    *
-   * No extra assets required — the same Graphics technique used in Stardew Valley
-   * (painted pixel-strip shadows baked into each cliff tile).
+   * ## Multi-step cliffs
+   * If the elevation drops by more than one level (e.g. highland straight to
+   * coast), CLIFF_STEP_PX-pixel wall segments are stacked vertically — one strip
+   * per elevation step.  Each strip has the same three-layer treatment (lip,
+   * face, shadow) but is offset downward by one step's worth of pixels.
+   *
+   * ## Biome-aware appearance
+   * The UPPER tile's biome index determines colour (CLIFF_COLORS), so the cliff
+   * face visually represents the cross-section of the upper surface material
+   * (dark forest soil, granite, ice-blue snow, etc.) rather than the lower one.
+   *
+   * ## Depth sorting
+   * South-facing cliff Graphics are created one-per-row with depth equal to
+   * (ty + 1) * TILE_SIZE — matching the raw-Y depth convention used by trees
+   * and entities.  Highland entities (Y < ty * T) appear behind the cliff;
+   * lowland entities (Y > (ty+1) * T) appear in front.
+   *
+   * East-facing cliff shadow strips use a single shared Graphics at depth 0.452
+   * (above the biome wash but below paths), since they are narrow side accents
+   * and not primary depth-sorting participants.
+   *
+   * ## Corruption overlay
+   * A separate Graphics object (cliffCorruptGfx) is created over all south cliff
+   * positions.  Its alpha is updated by updateCliffCorruption() whenever the
+   * cleanse-updated event fires, tinting cliffs dark purple in corrupted zones.
+   *
+   * @param biomeGrid     Flat row-major elevation values [0,1.2], one per tile.
+   * @param biomeIdxGrid  Flat row-major biome indices (0–10), one per tile.
+   * @param tilesX        World width in tiles.
+   * @param tilesY        World height in tiles.
    */
-  private drawCliffEdges(biomeGrid: Float32Array, tilesX: number, tilesY: number): void {
-    const HIGHLAND = 0.78;
+  private drawCliffEdges(
+    biomeGrid: Float32Array,
+    biomeIdxGrid: Uint8Array,
+    tilesX: number,
+    tilesY: number,
+  ): void {
     const T = TILE_SIZE; // 32 px
 
-    // Use three separate Graphics layers so we can set opacity independently.
-    const gfxLip    = this.add.graphics().setDepth(0.451); // bright ledge top
-    const gfxFace   = this.add.graphics().setDepth(0.452); // dark cliff face
-    const gfxShadow = this.add.graphics().setDepth(0.453); // soft drop shadow
+    // Run the full cliff-detection pass — produces one CliffFace descriptor per
+    // cliff tile, covering all elevation levels (not just the old HIGHLAND = 0.78
+    // threshold) and all biomes.
+    const faces = detectCliffs(biomeGrid, biomeIdxGrid, tilesX, tilesY);
 
-    // ── South-facing cliffs (highland above, lower below) ───────────────────────────
-    for (let ty = 0; ty < tilesY - 1; ty++) {
-      for (let tx = 0; tx < tilesX; tx++) {
-        const val  = biomeGrid[ty       * tilesX + tx];
-        const valS = biomeGrid[(ty + 1) * tilesX + tx];
-        if (val < HIGHLAND || valS >= HIGHLAND) continue;
+    // ── East-facing cliffs ────────────────────────────────────────────────────
+    // Narrow vertical shadow strips on the right edge of east-facing drops.
+    // All share one Graphics at a low depth — they are accent shadows, not primary
+    // depth-sorting objects.  Alpha 0.7 for the dark face, 0.2/0.09 for feather.
+    const gfxEast = this.add.graphics().setDepth(0.452);
+    for (const face of faces) {
+      if (face.isSouth) continue;
 
-        const px = tx * T;
-        const py = (ty + 1) * T; // top of the lower tile
+      const px = (face.tx + 1) * T; // left edge of the eastern (lower) tile
+      const py = face.ty * T;
 
-        // 1. Bright lip at bottom of highland tile — warm stone highlight
-        gfxLip.fillStyle(0x8a7060, 0.55);
-        gfxLip.fillRect(px, py - 2, T, 2);
+      // Per-biome colour lookup — upper biome owns the cliff face.
+      const [darkBase] = CLIFF_COLORS[face.biomeIdx] ?? CLIFF_COLORS[8];
+      gfxEast.fillStyle(darkBase, 0.75);
+      // Width scales with number of elevation steps — deeper drops are wider.
+      const shadowW = Math.min(6 + (face.steps - 1) * 2, 10);
+      gfxEast.fillRect(px, py, shadowW, T);
+      // Feather into lower tile
+      gfxEast.fillStyle(0x000000, 0.22);
+      gfxEast.fillRect(px + shadowW,     py, 3, T);
+      gfxEast.fillStyle(0x000000, 0.09);
+      gfxEast.fillRect(px + shadowW + 3, py, 2, T);
+    }
 
-        // 2. Cliff face — dark earthy rock, slightly lighter in the centre
-        gfxFace.fillStyle(0x1e130a, 0.90);
-        gfxFace.fillRect(px, py, T, 14);
-        gfxFace.fillStyle(0x3a2510, 0.40); // mid-highlight band
-        gfxFace.fillRect(px, py + 4, T,  6);
+    // ── South-facing cliffs ───────────────────────────────────────────────────
+    // Group cliff faces by row (ty) so each row can own its own Graphics object
+    // at the correct Y-sorted depth.  Only south-facing cliffs participate in
+    // depth sorting; their depth = (ty + 1) * TILE_SIZE matches tree/entity convention.
 
-        // 3. Drop shadow — feathered, three thin bands of decreasing opacity
-        gfxShadow.fillStyle(0x000000, 0.28); gfxShadow.fillRect(px, py + 14, T, 3);
-        gfxShadow.fillStyle(0x000000, 0.16); gfxShadow.fillRect(px, py + 17, T, 2);
-        gfxShadow.fillStyle(0x000000, 0.07); gfxShadow.fillRect(px, py + 19, T, 2);
+    // Collect distinct ty values that have south-facing cliffs.
+    const southByRow = new Map<number, CliffFace[]>();
+    for (const face of faces) {
+      if (!face.isSouth) continue;
+      let arr = southByRow.get(face.ty);
+      if (!arr) { arr = []; southByRow.set(face.ty, arr); }
+      arr.push(face);
+    }
+
+    for (const [ty, rowFaces] of southByRow) {
+      const depth = (ty + 1) * T; // Y-sort: cliff face sits at the top of the lower tile
+
+      // Three Graphics layers per row — depth offsets keep lip, face, and shadow
+      // in the correct painter order within the same depth band.
+      // The 0.001 fractions are imperceptible but keep the ordering deterministic.
+      const gfxLip    = this.add.graphics().setDepth(depth - 0.002); // bright ledge top
+      const gfxFace   = this.add.graphics().setDepth(depth - 0.001); // dark cliff face
+      const gfxShadow = this.add.graphics().setDepth(depth);          // drop shadow
+
+      for (const face of rowFaces) {
+        const px = face.tx * T;
+        const py = (ty + 1) * T; // world Y at the top of the lower tile
+
+        const [darkBase, midHighlight] = CLIFF_COLORS[face.biomeIdx] ?? CLIFF_COLORS[8];
+
+        // ── Bright lip — 2-px highlight at the very bottom of the upper tile ──
+        // Simulates sunlight catching the ledge top.  Warm tone for earth, cool
+        // for granite/snow — derived by brightening the mid-highlight colour.
+        gfxLip.fillStyle(midHighlight, 0.60);
+        gfxLip.fillRect(px, py - CLIFF_LIP_PX, T, CLIFF_LIP_PX);
+
+        // ── Cliff face — one strip per elevation step ─────────────────────────
+        // Multi-step cliffs stack wall segments vertically.  Each segment is
+        // CLIFF_STEP_PX tall with a mid-highlight band through its centre.
+        for (let step = 0; step < face.steps; step++) {
+          const faceY = py + step * CLIFF_STEP_PX;
+
+          gfxFace.fillStyle(darkBase, 0.92);
+          gfxFace.fillRect(px, faceY, T, CLIFF_STEP_PX);
+
+          // Mid-highlight band — brightens the centre of each step to give the
+          // illusion of a slightly convex rock face catching diffuse light.
+          gfxFace.fillStyle(midHighlight, 0.35);
+          gfxFace.fillRect(px, faceY + 4, T, Math.max(1, CLIFF_STEP_PX - 8));
+        }
+
+        // ── Concave inner corner fill ─────────────────────────────────────────
+        // When both a south drop AND an east drop originate at this tile the two
+        // cliff faces meet at a 90° notch.  Fill the corner block at (tx+1, ty+1)
+        // to prevent a visible gap at the inner corner intersection.
+        if (face.isInnerCorner) {
+          const cornerX = (face.tx + 1) * T;
+          const faceH   = face.steps * CLIFF_STEP_PX;
+          gfxFace.fillStyle(darkBase, 0.92);
+          gfxFace.fillRect(cornerX, py, T, faceH);
+        }
+
+        // ── Drop shadow — feathered bands below the cliff face ────────────────
+        // Three thin bands of decreasing opacity feather the cliff into the
+        // lower terrain, grounding it visually without a hard bottom edge.
+        const totalFaceH = face.steps * CLIFF_STEP_PX;
+        let shadowY = py + totalFaceH;
+        for (const [bandH, bandAlpha] of CLIFF_SHADOW_BANDS) {
+          gfxShadow.fillStyle(0x000000, bandAlpha);
+          gfxShadow.fillRect(px, shadowY, T, bandH);
+          shadowY += bandH;
+        }
       }
     }
 
-    // ── East-facing cliffs (highland to the left, lower to the right) ───────────────
-    // Narrower treatment — just a vertical shadow strip on the right edge.
-    for (let ty = 0; ty < tilesY; ty++) {
-      for (let tx = 0; tx < tilesX - 1; tx++) {
-        const val  = biomeGrid[ty * tilesX + tx];
-        const valE = biomeGrid[ty * tilesX + tx + 1];
-        if (val < HIGHLAND || valE >= HIGHLAND) continue;
-
-        const px = (tx + 1) * T; // left edge of the lower tile
-        const py = ty * T;
-
-        gfxFace.fillStyle(0x1e130a, 0.70);
-        gfxFace.fillRect(px, py, 6, T);
-        gfxShadow.fillStyle(0x000000, 0.20); gfxShadow.fillRect(px + 6, py, 3, T);
-        gfxShadow.fillStyle(0x000000, 0.09); gfxShadow.fillRect(px + 9, py, 2, T);
-      }
+    // ── Corruption overlay ────────────────────────────────────────────────────
+    // A single Graphics object drawn above all south cliff faces.  Filled with
+    // the corruption colour at each south cliff position; alpha is set to 0 at
+    // startup and updated by updateCliffCorruption() when cleanse state changes.
+    // Depth: just above the highest possible cliff row Graphics
+    // (any Y value > world height is fine since this layer only shows when
+    // corruption is active and the PostFX shader handles the camera-wide effect).
+    const corruptGfx = this.add.graphics().setDepth(WORLD_H + 1);
+    corruptGfx.setAlpha(0); // invisible until corruption rises
+    for (const face of faces) {
+      if (!face.isSouth) continue;
+      const px = face.tx * T;
+      const py = (face.ty + 1) * T;
+      const faceH = face.steps * CLIFF_STEP_PX;
+      corruptGfx.fillStyle(CLIFF_CORRUPT_COLOR, 1);
+      corruptGfx.fillRect(px, py - CLIFF_LIP_PX, T, faceH + CLIFF_LIP_PX);
     }
+    this.cliffCorruptGfx = corruptGfx;
+  }
+
+  /**
+   * FIL-178: Update the cliff corruption overlay opacity to match the current
+   * world corruption level.
+   *
+   * Called from the cleanse-updated event listener whenever the player's cleanse
+   * percentage changes (kill rabbits, activate shrines, etc.).  The overlay
+   * samples a spatial noise field so corruption appears in organic patches rather
+   * than uniformly across all cliffs — but for this GPU-friendly implementation
+   * the global alpha uniformly modulates the pre-drawn patch coverage.
+   *
+   * @param cleansePercent  0–100: 0 = fully corrupted, 100 = fully cleansed.
+   */
+  private updateCliffCorruption(cleansePercent: number): void {
+    if (!this.cliffCorruptGfx) return;
+    // Convert cleanse percentage to a corruption intensity [0, 1].
+    // The overlay starts appearing at 70 % corruption (30 % cleansed) and
+    // reaches full strength at 100 % corruption (0 % cleansed).
+    const globalCorruption = Math.max(0, 100 - cleansePercent) / 100;
+    const overlayAlpha = Math.max(0, (globalCorruption - 0.30) / 0.70) * 0.55;
+    this.cliffCorruptGfx.setAlpha(overlayAlpha);
   }
 
   // ─── FIL-167: diagonal river tile grids ────────────────────────────────────
@@ -5192,8 +5339,9 @@ export class GameScene extends Phaser.Scene {
     // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
     // matching the noise gradient closely enough to look organic at play zoom.
     this.drawBiomeColorWash(noise, tilesX, tilesY);
-    // Cliff-edge shadows (depth 0.45) render on top of the colour wash but below paths.
-    this.drawCliffEdges(biomeGrid, tilesX, tilesY);
+    // FIL-178: cliff-face rendering — Y-sorted per row, biome-aware, multi-step.
+    // biomeIdxGrid is now passed so the cliff system can look up per-biome colours.
+    this.drawCliffEdges(biomeGrid, biomeIdxGrid, tilesX, tilesY);
 
     // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
     // but below decorations (2+). Each sprite covers the baked water tile underneath.
