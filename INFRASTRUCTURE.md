@@ -22,7 +22,7 @@ flowchart TD
     VERCEL_WIKI[Vercel\nmatlu-wiki Astro]
 
     %% ── External Services ───────────────────────────
-    SUPABASE[(Supabase\nleaderboard\nmatlu_runs)]
+    SUPABASE[(Supabase\nstats_weekly master\n+ leaderboard)]
     NOTION[Notion\nDev Blog + Stats pages]
     LINEAR[Linear\nIssue tracking]
     BETTERSTACK[Better Stack\nError logging]
@@ -43,7 +43,8 @@ flowchart TD
 
     STATS -->|checkout + npm ci| GH
     STATS -->|reads token-log.json| TOKENLOG
-    STATS -->|posts weekly stats page| NOTION
+    STATS -->|upserts stats_weekly row| SUPABASE
+    SUPABASE -->|push copy via collect-stats| NOTION
     STATS -->|POST deploy hook| VERCEL_WIKI
 
     AGENTS -->|Sat 07:00 — weekly learning summary| NOTION
@@ -94,7 +95,7 @@ flowchart TD
 
 ### Notion
 - **Dev Blog**: weekly learning summaries + release notes (from cloud agents)
-- **Stats page**: weekly engineering metrics (from `stats.yml`)
+- **Stats page**: pushed from Supabase by `collect-stats.js` after the Supabase upsert — Supabase is the master, Notion is a read-friendly copy
 - **API version**: `2022-06-28`; pages created as children of `NOTION_STATS_PAGE_ID`
 
 ### PixelLab

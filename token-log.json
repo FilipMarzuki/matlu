@@ -111,5 +111,70 @@
     "cacheReadTokens": 41406,
     "cacheWriteTokens": 947,
     "estimatedCostUsd": 0.0173
+  },
+  {
+    "sessionId": "123b514f-bfcd-4700-91a2-85430ac7baa8",
+    "date": "2026-04-16",
+    "branch": "fix/hero-walk-anim-loop",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 940,
+    "cacheReadTokens": 130796,
+    "cacheWriteTokens": 260,
+    "estimatedCostUsd": 0.0543
+  },
+  {
+    "sessionId": "de960570-b4de-4661-8098-230b292d87cf",
+    "date": "2026-04-16",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 3,
+    "outputTokens": 16,
+    "cacheReadTokens": 132234,
+    "cacheWriteTokens": 68,
+    "estimatedCostUsd": 0.0402
+  },
+  {
+    "sessionId": "02ed75a3-88f4-47d6-8392-a6904edaf361",
+    "date": "2026-04-16",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 3,
+    "outputTokens": 628,
+    "cacheReadTokens": 120926,
+    "cacheWriteTokens": 204,
+    "estimatedCostUsd": 0.0465
+  },
+  {
+    "sessionId": "1564c1a8-b1a1-40cf-b84a-35199a6c17eb",
+    "date": "2026-04-16",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 3,
+    "outputTokens": 141,
+    "cacheReadTokens": 104773,
+    "cacheWriteTokens": 392,
+    "estimatedCostUsd": 0.035
+  },
+  {
+    "sessionId": "c20091b1-7e07-4aa3-93d5-07a3fe54569b",
+    "date": "2026-04-17",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 3,
+    "outputTokens": 4525,
+    "cacheReadTokens": 121420,
+    "cacheWriteTokens": 306,
+    "estimatedCostUsd": 0.1055
   }
 ]

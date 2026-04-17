@@ -2,33 +2,22 @@ import * as Phaser from 'phaser';
 import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
 import { CombatEntity } from '../entities/CombatEntity';
-import { EarthHero } from '../entities/EarthHero';
 import { Tinkerer } from '../entities/Tinkerer';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
-import { Spineling } from '../entities/Spineling';
-import { Blightfrog } from '../entities/Blightfrog';
-import { GlitchDrone, StaticCrawler, RustBerserker } from '../entities/EarthEnemies';
-import { SignalJammer, InfectedAPC, ScrapGolem } from '../entities/EarthEnemies';
-import { SporeDrifter, SporeCloud } from '../entities/SporeDrifter';
-import { BurrowHole } from '../entities/BurrowHole';
-import { TitanPrototype, TitanHalf } from '../entities/EarthEnemies';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
 type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
 
-type RoomType = 'main' | 'flanking' | 'dead-end';
-
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
-  x: number;     // left edge (world pixels)
-  y: number;     // top edge
-  w: number;     // width
-  h: number;     // height
-  type: RoomType;
+  x: number;  // left edge
+  y: number;  // top edge
+  w: number;  // width
+  h: number;  // height
 }
 
 interface WaveGroup {
@@ -37,52 +26,21 @@ interface WaveGroup {
 }
 
 /**
- * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers)
- * + Spineling (1 HP spider-crab swarmers, spawned in groups of 20).
- * Enemy roster: Velcrid (bio / subterranean) + Earth (corrupted machines and soldiers).
+ * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
  * Groups cycle indefinitely; difficulty scales via the wave number multiplier in spawnWaveGroup.
- *
- * GlitchDrone swarms are split across two groups of 4 so the 8-drone swarm
- * spawns across two consecutive waves without hitting the MAX_ALIVE cap at once.
  */
 const WAVE_GROUPS: WaveGroup[] = [
-  { label: 'Baby Swarm',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Scout Pair',    enemies: [VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Mixed Pack',    enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
-  { label: 'Baby Horde',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Reaver Squad',  enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
-  // Spineling tide — twenty 1-HP spider-crab swarmers. AoE weapons clear
-  // clusters fast; single-target weapons must work through the whole mass.
-  { label: 'Spineling Tide', enemies: Array<EnemyCtor>(20).fill(Spineling) },
-  { label: 'Baby Swarm',       enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Scout Pair',       enemies: [VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Mixed Pack',       enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
-  { label: 'Baby Horde',       enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Reaver Squad',     enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
-  { label: 'Blightfrog Ambush', enemies: [Blightfrog, BabyVelcrid, BabyVelcrid] },
-  { label: 'Glitch Swarm A', enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
-  { label: 'Mixed Pack',    enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
-  { label: 'Glitch Swarm B', enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
-  { label: 'Crawler Pair',  enemies: [StaticCrawler, StaticCrawler] },
-  { label: 'Baby Horde',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Berserker Squad', enemies: [RustBerserker, RustBerserker, RustBerserker] },
-  { label: 'Reaver Squad',  enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
   { label: 'Baby Swarm',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Scout Pair',   enemies: [VelcridJuvenile, VelcridJuvenile] },
   { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
   { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
-  // Earth faction — field-control enemies
-  { label: 'Jammer Hold',   enemies: [SignalJammer] },
-  { label: 'APC Rush',      enemies: [InfectedAPC, InfectedAPC] },
-  { label: 'Golem Assault', enemies: [ScrapGolem] },
-  { label: 'Drifter',     enemies: [SporeDrifter] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
-const MAX_ALIVE       = 24;   // total alive enemy cap (raised from 20 to fit 8-drone swarms)
+const MAX_ALIVE       = 20;   // total alive enemy cap
 const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
@@ -104,13 +62,11 @@ const DUNGEON_ZOOM = 3.5;
 export class CombatArenaScene extends Phaser.Scene {
   static readonly KEY = 'CombatArenaScene';
 
-  private hero!:         EarthHero;
+  private hero!:         CombatEntity;
   private obstacles!:   Phaser.Physics.Arcade.StaticGroup;
-  private holes:         BurrowHole[] = [];
   private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
-  private sporeClouds:  SporeCloud[]   = [];
   private readonly blackboard = new ArenaBlackboard();
 
   /**
@@ -160,16 +116,6 @@ export class CombatArenaScene extends Phaser.Scene {
   /** P1 dash — G key (replaces Shift). */
   private dashKey!:   Phaser.Input.Keyboard.Key;
   private shootKey!:  Phaser.Input.Keyboard.Key;
-
-  // ── P2 player control ────────────────────────────────────────────────────────
-  /** P2 Tinkerer — always player-controlled, never AI. Null in bgMode. */
-  private hero2: CombatEntity | null = null;
-  private hero2Alive = false;
-  private p2MoveKeys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private p2MeleeKey!: Phaser.Input.Keyboard.Key;
-  /** P2 dash — L key. */
-  private p2DashKey!: Phaser.Input.Keyboard.Key;
-  private p2ShootKey!: Phaser.Input.Keyboard.Key;
 
   // ── Audio ───────────────────────────────────────────────────────────────────
   private audioAvailable = false;
@@ -235,15 +181,11 @@ export class CombatArenaScene extends Phaser.Scene {
   create(): void {
     this.aliveEnemies    = [];
     this.projectiles     = [];
-    this.sporeClouds     = [];
-    this.holes           = [];
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
     this.mainSpawnTimer  = 3000;
     this.heroAlive       = true;
-    this.hero2           = null;
-    this.hero2Alive      = false;
     this._lastHudWave    = -1;
     this._lastHudAlive   = -1;
     this._lastHudKills   = -1;
@@ -294,24 +236,6 @@ export class CombatArenaScene extends Phaser.Scene {
     // Projectile listener lives for the whole scene — enemies and hero both fire.
     this.events.on('projectile-spawned', (p: Projectile) => {
       this.projectiles.push(p);
-    });
-
-    // SporeCloud listener — SporeDrifter emits this when it drops a cloud.
-    // The scene owns the cloud after this point: it ticks DoT in update() and
-    // destroys any live clouds in the SHUTDOWN handler below.
-    this.events.on('spore-cloud-spawned', (cloud: SporeCloud) => {
-      this.sporeClouds.push(cloud);
-    });
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      for (const c of this.sporeClouds) c.destroy();
-      this.sporeClouds = [];
-    });
-    // TITAN split: Phase 3 transition fires this event so we can spawn the two
-    // TitanHalf entities at the boss's last known position. Runs synchronously
-    // inside takeDamage(), so aliveEnemies still contains the dying TITAN here;
-    // the prune loop later this frame removes it and updates hero opponents.
-    this.events.on('titan-split', (x: number, y: number) => {
-      this.spawnTitanHalves(x, y);
     });
 
     // Gunshot effects — emitted by the Tinkerer in both AI and player modes.
@@ -366,20 +290,6 @@ export class CombatArenaScene extends Phaser.Scene {
       this.dashKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.G);
       this.shootKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
 
-      // P2 keyboard input: Arrow keys move, J melee, K ranged, L dash.
-      this.p2MoveKeys = this.input.keyboard!.addKeys({
-        up:    Phaser.Input.Keyboard.KeyCodes.UP,
-        down:  Phaser.Input.Keyboard.KeyCodes.DOWN,
-        left:  Phaser.Input.Keyboard.KeyCodes.LEFT,
-        right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
-      }) as Record<string, Phaser.Input.Keyboard.Key>;
-      this.p2MeleeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.J);
-      this.p2ShootKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.K);
-      this.p2DashKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.L);
-
-      // Spawn P2 immediately — P2 is always player-controlled, never AI.
-      this.spawnHero2();
-
       // Gamepad button events — fired once per press, so no per-frame debounce needed.
       // Axis reading (movement) still happens per-frame in the update methods.
       // GamepadPlugin is typed as nullable; it will be non-null because we enabled
@@ -398,11 +308,6 @@ export class CombatArenaScene extends Phaser.Scene {
             if (button.index === 0) this.hero.tryMelee();
             else if (button.index === 5) this.hero.tryRanged();
             else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero.tryDash(dx, dy);
-          } else if (pad.index === 1 && this.hero2 && this.hero2Alive) {
-            // P2 gamepad: same layout — button 0 = melee, button 5 = ranged, button 4 = dash
-            if (button.index === 0) this.hero2.tryMelee();
-            else if (button.index === 5) this.hero2.tryRanged();
-            else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero2.tryDash(dx, dy);
           }
         },
       );
@@ -444,26 +349,9 @@ export class CombatArenaScene extends Phaser.Scene {
       }
     }
 
-    // ── Hero 2 (P2 — always player-controlled) ────────────────────────────────
-    if (!this.bgMode && this.hero2 && this.hero2Alive) {
-      this.updateP2Input(delta);
-      if (!this.hero2.isAlive) {
-        this.hero2Alive = false;
-        this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero2());
-      }
-    }
-
-    // ── Camera — follow midpoint of live heroes ───────────────────────────────
-    // Both players can wander the arena, so we keep them both centred in view.
-    if (!this.bgMode) {
-      const pts: { x: number; y: number }[] = [];
-      if (this.heroAlive) pts.push(this.hero);
-      if (this.hero2 && this.hero2Alive) pts.push(this.hero2);
-      if (pts.length > 0) {
-        const midX = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-        const midY = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-        this.cameras.main.centerOn(midX, midY);
-      }
+    // ── Camera — follow hero ──────────────────────────────────────────────────
+    if (!this.bgMode && this.heroAlive) {
+      this.cameras.main.centerOn(this.hero.x, this.hero.y);
     }
 
     // ── Sight line checks (staggered) ─────────────────────────────────────────
@@ -481,16 +369,6 @@ export class CombatArenaScene extends Phaser.Scene {
     // ── Projectiles ───────────────────────────────────────────────────────────
     for (const p of this.projectiles) p.tick(delta);
     this.projectiles = this.projectiles.filter(p => !p.isExpired);
-
-    // ── Spore clouds — overlap check and DoT ──────────────────────────────────
-    // Collect live heroes; SporeCloud.tick() applies 3 HP/s to any hero whose
-    // center falls within the 150 px cloud radius (manual distance check,
-    // no physics.add.overlap needed since SporeCloud has no arcade body).
-    const liveHeroes: CombatEntity[] = [];
-    if (this.heroAlive) liveHeroes.push(this.hero);
-    if (this.hero2 && this.hero2Alive) liveHeroes.push(this.hero2);
-    for (const cloud of this.sporeClouds) cloud.tick(delta, liveHeroes);
-    this.sporeClouds = this.sporeClouds.filter(c => !c.isExpired);
 
     // ── Prune enemies that just died ──────────────────────────────────────────
     // Single pass: partition into alive / justDied rather than filtering twice.
@@ -514,15 +392,11 @@ export class CombatArenaScene extends Phaser.Scene {
       }
       this.cameras.main.shake(120, 0.003);
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
-      if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
       this.syncEnemyCoordination();
     }
 
     // ── Main wave spawn timer ─────────────────────────────────────────────────
-    // Suppress normal wave spawning while TITAN is alive — the boss fight is a
-    // solo encounter; no other enemies should enter the arena alongside TITAN.
-    const titanAlive = this.aliveEnemies.some(e => e instanceof TitanPrototype);
-    if (!titanAlive && this.aliveEnemies.length < MAX_ALIVE) {
+    if (this.aliveEnemies.length < MAX_ALIVE) {
       this.mainSpawnTimer -= delta;
       if (this.mainSpawnTimer <= 0) {
         this.spawnWaveGroup();
@@ -559,70 +433,245 @@ export class CombatArenaScene extends Phaser.Scene {
     const cx = this.arenaX + this.arenaW / 2;
     const cy = this.arenaY + this.arenaH / 2;
 
-    // Pure black void — rooms are carved into it by floor tiles.
-    this.cameras.main.setBackgroundColor(0x000000);
+    this.cameras.main.setBackgroundColor(0x120d08);
     // Zoom in tighter than the overworld (3×) so the dungeon feels claustrophobic.
     // NavScene owns its own camera, so it is unaffected by this zoom.
     this.cameras.main.setZoom(DUNGEON_ZOOM);
     this.cameras.main.centerOn(cx, cy);
 
-    // Obstacles group must exist before buildRooms() adds wall bodies to it.
-    this.obstacles = this.physics.add.staticGroup();
+    const WALL_T  = 22;
+    // WALL_INSET: how far to push the physics world bounds from the arena edge.
+    // Derivation: body-half (8) + sprite-half-max (24 for 48×48 Tinkerer) + clearance (8) = 40.
+    // Round up to WALL_T + 24 = 46 so the inset also exceeds the CHAMFER (42), making the
+    // corner-triangle zone bodies unreachable — world bounds stop entities at 46 px from the
+    // edge, well inside the 42 px diagonal cut.
+    //   Entity visual left edge min = (arenaX + 46 + 8) − 24 = arenaX + 30 > arenaX + 22 (wall face). ✓
+    const WALL_INSET = WALL_T + 24;  // 46 px total
+    // CHAMFER: how many pixels the octagonal corners cut inward.
+    const CHAMFER = 42;
 
-    // buildRooms() draws floor tiles + wall art, creates physics wall bodies in
-    // this.obstacles, and populates this.wallRects with wall AABBs for LOS tests.
+    // Stone palette matching the floor tileset's warm travertine tones
+    const STONE_MID   = 0x9a7a58;
+    const STONE_LIGHT = 0xb8956e;
+    const STONE_DARK  = 0x6a5038;
+    const MORTAR_C    = 0x3a2818;
+
+    // ── Pillar positions (early — floor loop references them) ─────────────────
+    // Asymmetric placement: symmetric pairs feel staged; these feel like
+    // surviving ruins from a once-larger structure.
+    const pillarDefs: [number, number][] = [
+      [cx - 125, cy - 22],
+      [cx + 98,  cy + 38],
+    ];
+
+    // ── Procedural room layout ────────────────────────────────────────────────
+    // Rooms are placed and tiled inside buildRooms(). The returned array is
+    // stored on this.rooms so spawnHero() and spawnWaveGroup() can position
+    // entities inside rooms rather than at fixed arena coordinates.
     this.rooms = this.buildRooms();
 
-    // Physics world bounds covers the full dungeon footprint so entities can
-    // move freely across all connected rooms. Per-room wall physics bodies
-    // contain them further — world bounds is just a safety net against escaping
-    // the dungeon bounding box entirely.
-    const left   = Math.min(...this.rooms.map(r => r.x));
-    const top    = Math.min(...this.rooms.map(r => r.y));
-    const right  = Math.max(...this.rooms.map(r => r.x + r.w));
-    const bottom = Math.max(...this.rooms.map(r => r.y + r.h));
-    // Expand by 2 wall cells (44 px) so the world bounds sit outside the outer
-    // wall layer and never block entities that are legitimately inside a room.
-    this.physics.world.setBounds(left - 44, top - 44, right - left + 88, bottom - top + 88);
+    // ── Stone pillar obstacles ────────────────────────────────────────────────
+    // Broken columns in 3/4 top-down perspective: a lighter top face (visible
+    // from above) sits over a darker front face (camera-facing side), with a
+    // cast shadow ellipse at the base.
+    this.obstacles = this.physics.add.staticGroup();
 
-    // ── Per-room floor colour variation ──────────────────────────────────────
-    // Largest room (main chamber) → warmer amber tint so it reads as richer stone.
-    // Side rooms → cooler grey-brown for a rougher, less-travelled look.
-    // Depth -0.5: above floor tiles (depth -1), below wall graphics (depth 0).
-    const largestArea = this.rooms.reduce((max, r) => Math.max(max, r.w * r.h), 0);
-    const roomTintGfx = this.add.graphics();
-    roomTintGfx.setDepth(-0.5);
-    for (const room of this.rooms) {
-      const isMain = room.w * room.h >= largestArea;
-      roomTintGfx.fillStyle(isMain ? 0x7a5010 : 0x28201a, isMain ? 0.18 : 0.22);
-      roomTintGfx.fillRect(room.x, room.y, room.w, room.h);
+    const PILLAR_W  = 28; // visual width
+    const PILLAR_FH = 22; // front face height (camera-facing)
+    const PILLAR_TH = 10; // top face height (foreshortened in 3/4 view)
+
+    for (const [px, py] of pillarDefs) {
+      const pg = this.add.graphics();
+
+      // Cast shadow
+      pg.fillStyle(0x000000, 0.28);
+      pg.fillEllipse(px + 5, py + PILLAR_FH / 2 + 5, PILLAR_W + 14, 9);
+
+      // Front face — darker, camera-facing stone
+      pg.fillStyle(STONE_DARK, 1);
+      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2, PILLAR_W, PILLAR_FH);
+
+      // Top face — lighter, angled away from camera
+      pg.fillStyle(STONE_LIGHT, 1);
+      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, PILLAR_W, PILLAR_TH);
+
+      // Left highlight — ambient light catch
+      pg.fillStyle(0xc8a880, 1);
+      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, 3, PILLAR_FH + PILLAR_TH);
+
+      // Right shadow — self-shadow
+      pg.fillStyle(0x3a2414, 1);
+      pg.fillRect(px + PILLAR_W / 2 - 3, py - PILLAR_FH / 2, 3, PILLAR_FH);
+
+      // Mortar lines on front face
+      pg.lineStyle(1, MORTAR_C, 0.7);
+      for (let i = 1; i < 3; i++) {
+        const ly = py - PILLAR_FH / 2 + (PILLAR_FH / 3) * i;
+        pg.lineBetween(px - PILLAR_W / 2, ly, px + PILLAR_W / 2, ly);
+      }
+      pg.lineBetween(px - PILLAR_W / 2, py - PILLAR_FH / 2, px + PILLAR_W / 2, py - PILLAR_FH / 2);
+
+      // Y-sort: depth = bottom of front face so the pillar occludes entities
+      // correctly — they walk behind the upper part, in front of the base.
+      pg.setDepth(py + PILLAR_FH / 2);
+
+      // Static physics body covering the pillar footprint
+      const zone = this.add.zone(px, py, PILLAR_W + 4, PILLAR_FH);
+      this.physics.add.existing(zone, true);
+      const bodyW = PILLAR_W - 4;
+      const bodyH = PILLAR_FH - 4;
+      (zone.body as Phaser.Physics.Arcade.StaticBody).setSize(bodyW, bodyH);
+      this.obstacles.add(zone);
+
+      // Register this pillar as a line-of-sight blocker.
+      // Uses the same AABB as the physics body (centred at px, py) so LOS
+      // is blocked by exactly the same region that blocks physical passage.
+      this.wallRects.push(new Phaser.Geom.Rectangle(
+        px - bodyW / 2, py - bodyH / 2, bodyW, bodyH,
+      ));
     }
 
-    // ── Dungeon torches at room corners and doorway entrances ─────────────────
-    // Depth 1: renders above wall graphics (depth 0) and floor tiles (-1).
-    // Torches are NOT added to the obstacles StaticGroup so they don't block movement.
-    const addDungeonTorch = (tx: number, ty: number): void => {
-      const tGlow = this.add.graphics();
-      tGlow.setDepth(1);
-      tGlow.fillStyle(0xff7700, 0.25);
-      tGlow.fillCircle(tx, ty, 14);
-      const tDot = this.add.graphics();
-      tDot.setDepth(1);
-      tDot.fillStyle(0xffcc44, 1);
-      tDot.fillCircle(tx, ty, 3);
+    // ── Octagonal wall border ─────────────────────────────────────────────────
+    // Wall drawn as 8 filled sections: 4 straight strips + 4 bevelled corner
+    // triangles. 3/4 perspective hints: top wall is thinner (lit top-face),
+    // bottom wall has an extra dark strip simulating visible front-face height.
+    const gfx = this.add.graphics();
+
+    const ashlarH = (bx: number, by: number, w: number, h: number, offset: number): void => {
+      const BRICK_W = 38;
+      let x = bx; let idx = offset;
+      while (x < bx + w) {
+        const bw = Math.min(BRICK_W, bx + w - x);
+        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
+        gfx.fillRect(x + 1, by + 1, bw - 2, h - 2);
+        gfx.lineStyle(1, MORTAR_C, 1);
+        gfx.strokeRect(x, by, bw, h);
+        x += bw; idx++;
+      }
+    };
+
+    const ashlarV = (bx: number, by: number, w: number, h: number, offset: number): void => {
+      const BRICK_H = 38;
+      let y = by; let idx = offset;
+      while (y < by + h) {
+        const bh = Math.min(BRICK_H, by + h - y);
+        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
+        gfx.fillRect(bx + 1, y + 1, w - 2, bh - 2);
+        gfx.lineStyle(1, MORTAR_C, 1);
+        gfx.strokeRect(bx, y, w, bh);
+        y += bh; idx++;
+      }
+    };
+
+    // Top wall — lit from above, no front-face depth needed
+    gfx.fillStyle(STONE_LIGHT, 1);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY, this.arenaW - CHAMFER * 2, WALL_T);
+    ashlarH(this.arenaX + CHAMFER, this.arenaY + 2, this.arenaW - CHAMFER * 2, WALL_T - 2, 0);
+    gfx.fillStyle(STONE_DARK, 0.45);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + WALL_T - 3, this.arenaW - CHAMFER * 2, 3);
+
+    // Bottom wall — extra dark strip at top implies visible wall height in 3/4
+    const BOT_EXTRA = 8;
+    gfx.fillStyle(STONE_DARK, 1);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T - BOT_EXTRA, this.arenaW - CHAMFER * 2, BOT_EXTRA);
+    ashlarH(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T, this.arenaW - CHAMFER * 2, WALL_T, 1);
+    gfx.fillStyle(MORTAR_C, 0.8);
+    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - 2, this.arenaW - CHAMFER * 2, 2);
+
+    // Left wall
+    ashlarV(this.arenaX, this.arenaY + CHAMFER, WALL_T, this.arenaH - CHAMFER * 2, 0);
+    gfx.fillStyle(STONE_LIGHT, 0.5);
+    gfx.fillRect(this.arenaX, this.arenaY + CHAMFER, WALL_T, 2);
+
+    // Right wall with gate opening
+    const GATE_HALF = 34;
+    const gateTop   = cy - GATE_HALF;
+    const gateBot   = cy + GATE_HALF;
+    ashlarV(this.arenaX + this.arenaW - WALL_T, this.arenaY + CHAMFER, WALL_T, gateTop - this.arenaY - CHAMFER, 1);
+    ashlarV(this.arenaX + this.arenaW - WALL_T, gateBot, WALL_T, this.arenaY + this.arenaH - CHAMFER - gateBot, 0);
+    gfx.fillStyle(0x0a0604, 1);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T - 3, gateTop, WALL_T + 5, GATE_HALF * 2);
+    gfx.fillStyle(STONE_LIGHT, 1);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateTop, WALL_T, 7);
+    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateBot - 7, WALL_T, 7);
+
+    // Chamfered corner fills — triangles bridging the wall strips
+    gfx.fillStyle(STONE_MID, 1);
+    const ax = this.arenaX, ay = this.arenaY, aw = this.arenaW, ah = this.arenaH;
+    gfx.fillTriangle(ax,      ay,      ax + CHAMFER,      ay,      ax,           ay + CHAMFER);
+    gfx.fillTriangle(ax + aw, ay,      ax + aw - CHAMFER, ay,      ax + aw,      ay + CHAMFER);
+    gfx.fillTriangle(ax,      ay + ah, ax + CHAMFER,      ay + ah, ax,           ay + ah - CHAMFER);
+    gfx.fillTriangle(ax + aw, ay + ah, ax + aw - CHAMFER, ay + ah, ax + aw,      ay + ah - CHAMFER);
+    // Mortar seam along each diagonal cut
+    gfx.lineStyle(2, MORTAR_C, 0.9);
+    gfx.lineBetween(ax + CHAMFER,      ay,           ax,           ay + CHAMFER);
+    gfx.lineBetween(ax + aw - CHAMFER, ay,           ax + aw,      ay + CHAMFER);
+    gfx.lineBetween(ax,                ay + ah - CHAMFER, ax + CHAMFER,      ay + ah);
+    gfx.lineBetween(ax + aw,           ay + ah - CHAMFER, ax + aw - CHAMFER, ay + ah);
+
+    // ── Chamfered corner physics bodies ──────────────────────────────────────
+    // World bounds (below) cover the four straight wall strips as a rectangle,
+    // but the four diagonal corner triangles sit *inside* that rectangle.
+    // Without extra colliders, entities can be pushed into the visual corners.
+    // Each Zone body is a CHAMFER×CHAMFER rectangle — a conservative bounding
+    // box over the corner triangle. Minor overshoot into open floor is
+    // imperceptible. The same StaticGroup (this.obstacles) is used for pillar
+    // bodies, so existing per-entity colliders cover these automatically.
+    const addCornerZone = (cx: number, cy: number): void => {
+      const zone = this.add.zone(cx, cy, CHAMFER, CHAMFER);
+      this.physics.add.existing(zone, true);
+      this.obstacles.add(zone);
+    };
+    addCornerZone(ax + CHAMFER / 2,      ay + CHAMFER / 2);      // top-left
+    addCornerZone(ax + aw - CHAMFER / 2, ay + CHAMFER / 2);      // top-right
+    addCornerZone(ax + CHAMFER / 2,      ay + ah - CHAMFER / 2); // bottom-left
+    addCornerZone(ax + aw - CHAMFER / 2, ay + ah - CHAMFER / 2); // bottom-right
+
+    // ── Physics world bounds ──────────────────────────────────────────────────
+    // WALL_INSET (not WALL_T) so entity visuals never overlap the wall graphic.
+    // See the WALL_INSET constant above for the derivation.
+    this.physics.world.setBounds(
+      this.arenaX + WALL_INSET, this.arenaY + WALL_INSET,
+      this.arenaW - WALL_INSET * 2, this.arenaH - WALL_INSET * 2,
+    );
+
+    // ── Torch glow pools ──────────────────────────────────────────────────────
+    const torchPositions: [number, number][] = [
+      [this.arenaX + CHAMFER + 26,               this.arenaY + CHAMFER + 20               ],
+      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + CHAMFER + 20               ],
+      [this.arenaX + CHAMFER + 26,               this.arenaY + this.arenaH - CHAMFER - 20 ],
+      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + this.arenaH - CHAMFER - 20 ],
+    ];
+    for (const [tx, ty] of torchPositions) {
+      const glowGfx = this.add.graphics();
+      glowGfx.fillStyle(0xff9933, 0.18);
+      glowGfx.fillCircle(tx, ty, 40);
       this.tweens.add({
-        targets:  tGlow,
-        alpha:    { from: 0.5, to: 1.0 },
-        duration: Phaser.Math.Between(280, 580),
+        targets:  glowGfx,
+        alpha:    { from: 0.7, to: 1.0 },
+        duration: Phaser.Math.Between(400, 700),
         yoyo:     true,
         repeat:   -1,
         ease:     'Sine.easeInOut',
-        delay:    Phaser.Math.Between(0, 320),
+        delay:    Phaser.Math.Between(0, 350),
       });
-    };
-    for (const room of this.rooms) {
-      addDungeonTorch(room.x + 8, room.y + 8);
     }
+
+    // ── Floor cracks from pillar bases ────────────────────────────────────────
+    const crackGfx = this.add.graphics();
+    for (const [px, py] of pillarDefs) {
+      crackGfx.lineStyle(1, STONE_DARK, 0.18);
+      for (let i = 0; i < 4; i++) {
+        const angle = ((px * 3 + py * 7 + i * 73) % 628) / 100;
+        const len   = 28 + (i * 11) % 18;
+        crackGfx.lineBetween(px, py, px + Math.cos(angle) * len, py + Math.sin(angle) * len);
+        crackGfx.lineBetween(
+          px + Math.cos(angle) * len * 0.5, py + Math.sin(angle) * len * 0.5,
+          px + Math.cos(angle + 0.5) * len * 0.35, py + Math.sin(angle + 0.5) * len * 0.35,
+        );
+      }
+    }
+    crackGfx.setDepth(-0.5);
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
@@ -644,7 +693,6 @@ export class CombatArenaScene extends Phaser.Scene {
     this.hero = new Tinkerer(this, heroX, heroY);
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
-    this.hero.setExtraDamageables(this.holes);
     this.heroAlive = true;
   }
 
@@ -676,14 +724,6 @@ export class CombatArenaScene extends Phaser.Scene {
   private spawnWaveGroup(): void {
     this.waveNumber++;
 
-    // Every 5th wave triggers a TITAN boss encounter (solo — no other enemies).
-    // Guard with an instanceof check so a second TITAN never spawns if the first
-    // is still alive (e.g. the wave timer fires while TITAN is still fighting).
-    if (this.waveNumber % 5 === 0 && !this.aliveEnemies.some(e => e instanceof TitanPrototype)) {
-      this.spawnTitanWave();
-      return;
-    }
-
     const group = WAVE_GROUPS[this.waveGroupIndex];
     this.waveGroupIndex = (this.waveGroupIndex + 1) % WAVE_GROUPS.length;
 
@@ -696,12 +736,9 @@ export class CombatArenaScene extends Phaser.Scene {
     // Spawn in a room other than the hero's starting room so enemies must
     // travel to reach the hero — giving the player a moment to prepare.
     // Falls back to the right-edge spawn when no other rooms are available.
-    // Exclude the hero's current room so enemies must travel to reach the player,
-    // giving a moment to react. If heroRoom is null (spawnHero failed), all rooms
-    // are valid candidates.
     const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
     const spawnRoom = candidateRooms.length > 0
-      ? Phaser.Math.RND.pick(candidateRooms)
+      ? candidateRooms[Math.floor(Math.random() * candidateRooms.length)]
       : null;
 
     const spawnPositions = spawnRoom
@@ -725,69 +762,7 @@ export class CombatArenaScene extends Phaser.Scene {
     });
 
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
-    if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();
-  }
-
-  /**
-   * Spawn a single TitanPrototype boss in a room away from the hero.
-   * Called by spawnWaveGroup() every 5th wave.
-   */
-  private spawnTitanWave(): void {
-    const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
-    const spawnRoom = candidateRooms.length > 0
-      ? candidateRooms[Math.floor(Math.random() * candidateRooms.length)]
-      : null;
-
-    const spawnX = spawnRoom ? spawnRoom.x + spawnRoom.w / 2 : this.arenaX + this.arenaW - SPAWN_X_OFFSET;
-    const spawnY = spawnRoom ? spawnRoom.y + spawnRoom.h / 2 : this.arenaY + this.arenaH / 2;
-
-    const titan = new TitanPrototype(this, spawnX, spawnY);
-    this.addPhysics(titan);
-    titan.setOpponent(this.hero);
-    this.aliveEnemies.push(titan);
-
-    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
-    if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
-    this.syncEnemyCoordination();
-
-    log.info('wave_spawned', {
-      wave:         this.waveNumber,
-      group_label:  'TITAN Boss',
-      spawned:      1,
-      total_alive:  this.aliveEnemies.length,
-      kills_so_far: this.killCount,
-    });
-  }
-
-  /**
-   * Spawn two TitanHalf entities offset ±30 px from the split position.
-   * Called synchronously from the 'titan-split' scene event, which fires inside
-   * TitanPrototype.takeDamage() when HP drops below 25%.
-   *
-   * The dying TITAN is still in aliveEnemies at this point (prune loop hasn't
-   * run yet), so we also push the halves immediately and update hero target
-   * lists — the prune loop will clean up the dead TITAN later this frame.
-   */
-  private spawnTitanHalves(spawnX: number, spawnY: number): void {
-    const heroes: CombatEntity[] = [];
-    if (this.heroAlive) heroes.push(this.hero);
-    if (this.hero2 && this.hero2Alive) heroes.push(this.hero2);
-
-    for (const ox of [-30, 30]) {
-      const half = new TitanHalf(this, spawnX + ox, spawnY);
-      this.addPhysics(half);
-      half.setOpponents(heroes);
-      half.setBlackboard(this.blackboard);
-      half.setSwarmNeighbours(this.aliveEnemies);
-      this.aliveEnemies.push(half);
-    }
-
-    // Update hero target lists so the halves are immediately targetable.
-    // aliveEnemies still contains the dead TITAN here, but findNearestLiving-
-    // Opponent() skips dead entities, so the heroes will correctly target halves.
-    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
-    if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
   }
 
   // ── Wave timing ───────────────────────────────────────────────────────────────
@@ -814,6 +789,77 @@ export class CombatArenaScene extends Phaser.Scene {
     this.hudKills = this.add
       .text(12, 52, 'Kills: 0', { ...base, color: '#ffcc88' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+
+    this.buildZoomSlider();
+  }
+
+  /**
+   * Zoom slider — lets you dial in the right DUNGEON_ZOOM value live without
+   * restarting. Drag the handle or click anywhere on the track.
+   * All coordinates are in screen space (scrollFactor 0), so they stay fixed
+   * regardless of where the camera is pointing.
+   */
+  private buildZoomSlider(): void {
+    const SX       = 12;    // track left edge (screen x)
+    const SY       = 88;    // track centre (screen y)
+    const SW       = 110;   // track width
+    const MIN_ZOOM = 1.0;
+    const MAX_ZOOM = 6.0;
+
+    // Track bar
+    const gfx = this.add.graphics().setScrollFactor(0).setDepth(2);
+    gfx.fillStyle(0x334433, 0.8);
+    gfx.fillRect(SX, SY - 3, SW, 6);
+
+    // "ZOOM" label
+    this.add.text(SX, SY - 14, 'ZOOM', { fontSize: '10px', color: '#7799aa' })
+      .setScrollFactor(0).setDepth(2).setOrigin(0, 0);
+
+    // Live value label to the right of the track
+    const zoomLabel = this.add.text(SX + SW + 6, SY, `${DUNGEON_ZOOM.toFixed(1)}×`, {
+      fontSize: '12px', color: '#aaccbb',
+    }).setScrollFactor(0).setDepth(2).setOrigin(0, 0.5);
+
+    // Draggable handle — starts at the initial DUNGEON_ZOOM position
+    const initT  = (DUNGEON_ZOOM - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+    const handle = this.add
+      .rectangle(SX + initT * SW, SY, 10, 18, 0x77bbaa)
+      .setScrollFactor(0).setDepth(3).setOrigin(0.5, 0.5)
+      .setInteractive();
+
+    // Apply a zoom value given a raw screen-x pointer position.
+    const applyZoom = (screenX: number): void => {
+      const t    = Phaser.Math.Clamp((screenX - SX) / SW, 0, 1);
+      const zoom = MIN_ZOOM + t * (MAX_ZOOM - MIN_ZOOM);
+      handle.x   = SX + t * SW;
+      this.cameras.main.setZoom(zoom);
+      zoomLabel.setText(`${zoom.toFixed(1)}×`);
+    };
+
+    // Dragging — track whether the handle is being held
+    let dragging = false;
+    handle.on('pointerdown', () => { dragging = true; });
+
+    // Clicking the track bar jumps directly to that position
+    const trackHit = this.add
+      .zone(SX, SY - 9, SW, 18)
+      .setScrollFactor(0).setDepth(2).setOrigin(0, 0)
+      .setInteractive();
+    trackHit.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
+      dragging = true;
+      applyZoom(ptr.x);
+    });
+
+    this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
+      if (dragging) applyZoom(ptr.x);
+    });
+    this.input.on('pointerup', () => { dragging = false; });
+
+    // Clean up listeners when the scene shuts down
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.off('pointermove');
+      this.input.off('pointerup');
+    });
   }
 
   // ── Nav panel (NavScene overlay) ─────────────────────────────────────────────
@@ -913,82 +959,6 @@ export class CombatArenaScene extends Phaser.Scene {
     this.hero.update(delta);
   }
 
-  // ── P2 spawn / input ──────────────────────────────────────────────────────────
-
-  private spawnHero2(): void {
-    // Place P2 near P1's start but offset downward so they don't overlap.
-    const heroX = this.arenaX + this.arenaW * 0.2;
-    const heroY = this.arenaY + this.arenaH * 0.6;
-    this.hero2 = new Tinkerer(this, heroX, heroY);
-    this.addPhysics(this.hero2);
-    this.hero2.setOpponents(this.aliveEnemies);
-    this.hero2.setExtraDamageables(this.holes);
-    // P2 is always player-controlled — the behaviour tree never runs for this entity.
-    this.hero2.setPlayerControlled(true);
-    this.hero2Alive = true;
-  }
-
-  private respawnHero2(): void {
-    if (this.hero2?.active) this.hero2.destroy();
-    this.spawnHero2();
-  }
-
-  /**
-   * Drive the P2 Tinkerer from keyboard (Arrow keys / J / K / L) or Gamepad 2
-   * (index 1). Called every frame in non-background mode alongside P1 input.
-   *
-   * Key bindings:
-   *   Move  — Arrow keys  |  left stick
-   *   Melee — J           |  button 0 (A / Cross)
-   *   Ranged— K           |  button 5 (RB / R1)
-   *   Dash  — L           |  button 4 (LB / L1)
-   */
-  private updateP2Input(delta: number): void {
-    if (!this.hero2) return;
-
-    // Keyboard movement — Arrow keys
-    const right = this.p2MoveKeys['right'].isDown ? 1 : 0;
-    const left  = this.p2MoveKeys['left'].isDown  ? 1 : 0;
-    const down  = this.p2MoveKeys['down'].isDown  ? 1 : 0;
-    const up    = this.p2MoveKeys['up'].isDown    ? 1 : 0;
-
-    let dx = right - left;
-    let dy = down  - up;
-
-    // Gamepad 2 (index 1) — left stick overrides keyboard for movement.
-    // Button presses (melee/ranged/dash) are handled via the 'down' event in create().
-    const pad2 = this.input.gamepad?.getPad(1);
-    if (pad2) {
-      const ax = pad2.axes[0]?.getValue() ?? 0;
-      const ay = pad2.axes[1]?.getValue() ?? 0;
-      if (Math.abs(ax) > 0.2 || Math.abs(ay) > 0.2) {
-        dx = ax;
-        dy = ay;
-      }
-    }
-
-    const spd = 160;
-    this.hero2.setMoveVelocity(dx * spd, dy * spd);
-
-    // Melee — J (just-pressed)
-    if (Phaser.Input.Keyboard.JustDown(this.p2MeleeKey)) {
-      this.hero2.tryMelee();
-    }
-
-    // Ranged — K (just-pressed)
-    if (Phaser.Input.Keyboard.JustDown(this.p2ShootKey)) {
-      this.hero2.tryRanged();
-    }
-
-    // Dash — L (just-pressed); direction required
-    if (Phaser.Input.Keyboard.JustDown(this.p2DashKey) && (dx !== 0 || dy !== 0)) {
-      this.hero2.tryDash(dx, dy);
-    }
-
-    // Tick animation, dash physics, and HP bar.
-    this.hero2.update(delta);
-  }
-
   /**
    * Clear all enemies and projectiles, respawn the hero at default position,
    * and reset wave counters — useful as a quick restart for player-mode testing.
@@ -1000,9 +970,6 @@ export class CombatArenaScene extends Phaser.Scene {
     // Destroy all projectiles
     for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
     this.projectiles = [];
-    // Destroy all spore clouds
-    for (const c of this.sporeClouds) c.destroy();
-    this.sporeClouds = [];
 
     // Reset wave counters
     this.waveGroupIndex = 0;
@@ -1017,12 +984,6 @@ export class CombatArenaScene extends Phaser.Scene {
     if (this.hero.active) this.hero.destroy();
     this.spawnHero();
     this.hero.setPlayerControlled(this.heroPlayerMode);
-
-    // Respawn P2
-    if (this.hero2?.active) this.hero2.destroy();
-    this.hero2 = null;
-    this.hero2Alive = false;
-    this.spawnHero2();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1042,231 +1003,107 @@ export class CombatArenaScene extends Phaser.Scene {
     this.physics.add.collider(entity, this.obstacles);
     // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
-
-    // ScrapGolem needs the obstacles group to detect nearby debris for regen.
-    if (entity instanceof ScrapGolem) {
-      entity.setObstacles(this.obstacles);
-    }
   }
 
   /**
-   * Procedurally generates 3–5 rooms connected by L-shaped corridors.
+   * Procedurally places 4–8 rooms inside the arena and renders their floors
+   * with colosseum_floor tiles.  Consecutive rooms are connected by L-shaped
+   * corridors (horizontal leg first, then vertical).
    *
-   * All geometry is snapped to a CELL (22 px) grid so floor cells and wall
-   * cells share gap-free boundaries.  After building the floor set, wall cells
-   * (cells adjacent to floor but not themselves floor) are identified, rendered
-   * as stone blocks, and given Arcade static physics bodies so entities cannot
-   * walk through them.  this.wallRects is populated for line-of-sight tests.
-   * Called once from buildArena(); obstacles must be initialised beforehand.
+   * Rooms are visual-only — no physics walls are added.  Entities move freely
+   * across the full arena; the floor tiles only define the visible footprint.
+   * Called once from buildArena(); the result is stored on this.rooms.
    */
   private buildRooms(): Room[] {
-    // Grid cell size = wall thickness. Snapping room geometry to this grid
-    // ensures the wall cells wrap the floor with no sub-pixel gaps.
-    const CELL = 22;
-    // Corridor width in cells: 2 cells = 44 world px. Wide enough for the
-    // 16 px entity hitbox to pass through with comfortable clearance.
-    const CW   = 2;
+    const WALL_T      = 22;   // mirrors buildArena — rooms must stay inside the border
     const TILE        = 16;
     const FRAME_CLEAN = 12;
     const FRAME_WORN  = 6;
+    const CORRIDOR_W  = 32;   // corridor strip width in px
+    const PAD         = 10;   // minimum gap between room edges
+    const MIN_W = 80;  const MAX_W = 200;
+    const MIN_H = 70;  const MAX_H = 150;
+    const TARGET    = 6;   // aim for this many rooms
+    const MAX_TRIES = 24;  // rejection-sampling attempts
 
-    const STONE_MID  = 0x9a7a58;
-    const STONE_DARK = 0x6a5038;
-    const MORTAR_C   = 0x3a2818;
+    // Arena interior — rooms must fit within the wall border.
+    const innerX = this.arenaX + WALL_T;
+    const innerY = this.arenaY + WALL_T;
+    const innerW = this.arenaW - WALL_T * 2;
+    const innerH = this.arenaH - WALL_T * 2;
 
-    // Grid bounds — leave a 2-cell border inside the arena canvas so outer
-    // wall cells stay on screen and never overlap the nav panel.
-    const gxMin = Math.ceil(this.arenaX / CELL) + 2;
-    const gyMin = Math.ceil(this.arenaY / CELL) + 2;
-    const gxMax = Math.floor((this.arenaX + this.arenaW) / CELL) - 2;
-    const gyMax = Math.floor((this.arenaY + this.arenaH) / CELL) - 2;
+    const rooms: Room[] = [];
 
-    // ── Generate rooms in grid space ────────────────────────────────────────
-    // Room size in cells: 4–6 wide × 3–5 tall = 88–132 × 66–110 world px.
-    // At DUNGEON_ZOOM 3.5 the viewport is ~228×171 world units, so the
-    // largest room (6×5 = 132×110 px) fits comfortably on screen.
-    const MIN_GW = 4, MAX_GW = 6;
-    const MIN_GH = 3, MAX_GH = 5;
-    const TARGET    = 5;
-    const MAX_TRIES = 50;
-    const PAD       = 2;  // min gap between rooms in cells
+    // Rejection-sample random rooms; keep candidates that don't overlap existing ones.
+    for (let t = 0; t < MAX_TRIES && rooms.length < TARGET; t++) {
+      const rw = MIN_W + Math.floor(Math.random() * (MAX_W - MIN_W + 1));
+      const rh = MIN_H + Math.floor(Math.random() * (MAX_H - MIN_H + 1));
+      const rx = innerX + Math.floor(Math.random() * Math.max(1, innerW - rw));
+      const ry = innerY + Math.floor(Math.random() * Math.max(1, innerH - rh));
+      const candidate: Room = { x: rx, y: ry, w: rw, h: rh };
 
-    interface RoomG { gx: number; gy: number; gw: number; gh: number; type: RoomType; }
-    const roomGs: RoomG[] = [];
-
-    for (let t = 0; t < MAX_TRIES && roomGs.length < TARGET; t++) {
-      const gw = MIN_GW + Math.floor(Math.random() * (MAX_GW - MIN_GW + 1));
-      const gh = MIN_GH + Math.floor(Math.random() * (MAX_GH - MIN_GH + 1));
-      const availW = gxMax - gxMin - gw;
-      const availH = gyMax - gyMin - gh;
-      if (availW < 0 || availH < 0) continue;
-      const gx = gxMin + Math.floor(Math.random() * (availW + 1));
-      const gy = gyMin + Math.floor(Math.random() * (availH + 1));
-      const overlaps = roomGs.some(r =>
-        gx < r.gx + r.gw + PAD && gx + gw + PAD > r.gx &&
-        gy < r.gy + r.gh + PAD && gy + gh + PAD > r.gy,
+      const overlaps = rooms.some(r =>
+        candidate.x < r.x + r.w + PAD &&
+        candidate.x + candidate.w + PAD > r.x &&
+        candidate.y < r.y + r.h + PAD &&
+        candidate.y + candidate.h + PAD > r.y,
       );
-      if (!overlaps) roomGs.push({ gx, gy, gw, gh, type: 'flanking' });
+      if (!overlaps) rooms.push(candidate);
     }
 
-    // Safety net: 2×2 grid of equal rooms when sampling fails.
-    if (roomGs.length < 3) {
-      const hw = Math.floor((gxMax - gxMin) / 2) - PAD;
-      const hh = Math.floor((gyMax - gyMin) / 2) - PAD;
-      roomGs.length = 0;
-      roomGs.push(
-        { gx: gxMin,           gy: gyMin,           gw: hw, gh: hh, type: 'flanking' as RoomType },
-        { gx: gxMin + hw + PAD, gy: gyMin,           gw: hw, gh: hh, type: 'flanking' as RoomType },
-        { gx: gxMin,           gy: gyMin + hh + PAD, gw: hw, gh: hh, type: 'flanking' as RoomType },
-        { gx: gxMin + hw + PAD, gy: gyMin + hh + PAD, gw: hw, gh: hh, type: 'flanking' as RoomType },
+    // Safety net: if sampling didn't produce enough rooms, fall back to a 2×2 grid.
+    if (rooms.length < 4) {
+      const hw = Math.floor(innerW / 2 - PAD);
+      const hh = Math.floor(innerH / 2 - PAD);
+      rooms.length = 0;  // discard partial results so the grid is clean
+      rooms.push(
+        { x: innerX,              y: innerY,              w: hw, h: hh },
+        { x: innerX + hw + PAD,   y: innerY,              w: hw, h: hh },
+        { x: innerX,              y: innerY + hh + PAD,   w: hw, h: hh },
+        { x: innerX + hw + PAD,   y: innerY + hh + PAD,   w: hw, h: hh },
       );
     }
 
-    // Label rooms: largest area = 'main'; first and last (terminal) = 'dead-end'.
-    const mainG = roomGs.reduce((best, r) => r.gw * r.gh > best.gw * best.gh ? r : best);
-    mainG.type = 'main';
-    if (roomGs[0] !== mainG) roomGs[0].type = 'dead-end';
-    if (roomGs[roomGs.length - 1] !== mainG) roomGs[roomGs.length - 1].type = 'dead-end';
-
-    // Convert to world-coordinate Room array.
-    const rooms: Room[] = roomGs.map(r => ({
-      x: r.gx * CELL, y: r.gy * CELL,
-      w: r.gw * CELL, h: r.gh * CELL,
-      type: r.type,
-    }));
-
-    // ── Build floor grid ────────────────────────────────────────────────────
-    // Encode cell (gx, gy) as gy * 10000 + gx (gx and gy are both < 200 for
-    // any realistic arena, so there are no collisions in this encoding).
-    const enc = (gx: number, gy: number): number => gy * 10000 + gx;
-    const dec = (code: number): [number, number] => {
-      const gy = Math.floor(code / 10000);
-      return [code - gy * 10000, gy];
-    };
-
-    const floorCells = new Set<number>();
-
-    // Mark room interior cells.
-    for (const r of roomGs) {
-      for (let dx = 0; dx < r.gw; dx++)
-        for (let dy = 0; dy < r.gh; dy++)
-          floorCells.add(enc(r.gx + dx, r.gy + dy));
-    }
-
-    // Mark L-shaped corridor cells and collect world rects for floor tiling.
-    // Horizontal leg first (at room-A centre row), then vertical leg at room-B
-    // centre column — same pattern as the previous visual-only corridors.
-    const corridorRects: { x: number; y: number; w: number; h: number }[] = [];
-    for (let i = 1; i < roomGs.length; i++) {
-      const a = roomGs[i - 1];
-      const b = roomGs[i];
-      const ax = Math.floor(a.gx + a.gw / 2);
-      const ay = Math.floor(a.gy + a.gh / 2);
-      const bx = Math.floor(b.gx + b.gw / 2);
-      const by = Math.floor(b.gy + b.gh / 2);
-      const half = Math.floor(CW / 2);
-
-      const hMin = Math.min(ax, bx);
-      const hMax = Math.max(ax, bx);
-      if (hMax > hMin) {
-        for (let gx = hMin; gx <= hMax; gx++)
-          for (let k = 0; k < CW; k++)
-            floorCells.add(enc(gx, ay - half + k));
-        corridorRects.push({ x: hMin * CELL, y: (ay - half) * CELL, w: (hMax - hMin + 1) * CELL, h: CW * CELL });
-      }
-
-      const vMin = Math.min(ay, by);
-      const vMax = Math.max(ay, by);
-      if (vMax > vMin) {
-        for (let gy = vMin; gy <= vMax; gy++)
-          for (let k = 0; k < CW; k++)
-            floorCells.add(enc(bx - half + k, gy));
-        corridorRects.push({ x: (bx - half) * CELL, y: vMin * CELL, w: CW * CELL, h: (vMax - vMin + 1) * CELL });
-      }
-    }
-
-    // ── Wall grid ───────────────────────────────────────────────────────────
-    // A wall cell is any non-floor cell that shares an edge or corner with a
-    // floor cell (8-connectivity). Diagonal neighbours are included so corridor
-    // junctions with rooms don't leave exposed void corners.
-    const wallCells = new Set<number>();
-    const deltas8: [number, number][] = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
-    for (const code of floorCells) {
-      const [gx, gy] = dec(code);
-      for (const [dx, dy] of deltas8) {
-        const nc = enc(gx + dx, gy + dy);
-        if (!floorCells.has(nc)) wallCells.add(nc);
-      }
-    }
-
-    // ── Floor tile rendering ────────────────────────────────────────────────
+    // Tile a rectangle of floor, clipped to the arena interior.
     const tileRect = (x: number, y: number, w: number, h: number): void => {
-      const cols = Math.ceil(w / TILE);
-      const rows = Math.ceil(h / TILE);
+      const x1 = Math.max(innerX, x);
+      const y1 = Math.max(innerY, y);
+      const x2 = Math.min(innerX + innerW, x + w);
+      const y2 = Math.min(innerY + innerH, y + h);
+      if (x2 <= x1 || y2 <= y1) return;
+      const cols = Math.ceil((x2 - x1) / TILE);
+      const rows = Math.ceil((y2 - y1) / TILE);
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          const wx = x + col * TILE + TILE / 2;
-          const wy = y + row * TILE + TILE / 2;
-          if (wx > x + w || wy > y + h) continue;
+          const wx = x1 + col * TILE + TILE / 2;
+          const wy = y1 + row * TILE + TILE / 2;
+          if (wx > x2 || wy > y2) continue;
           const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
           const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
           this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
         }
       }
     };
-    for (const r of rooms) tileRect(r.x, r.y, r.w, r.h);
-    for (const c of corridorRects) tileRect(c.x, c.y, c.w, c.h);
 
-    // ── Wall visual rendering ───────────────────────────────────────────────
-    // Each wall cell is a CELL×CELL stone block. A lighter top strip simulates
-    // the 3/4-view top-face lit from above; a mortar edge defines individual
-    // stones — matching the warm travertine palette of the floor tileset.
-    const gfx = this.add.graphics();
-    for (const code of wallCells) {
-      const [gx, gy] = dec(code);
-      const wx = gx * CELL;
-      const wy = gy * CELL;
-      const variant = (gx * 7 + gy * 13) % 3;
-      const stoneColor = variant === 0 ? 0x8a6a48 : variant === 1 ? STONE_DARK : 0x7a6048;
-      gfx.fillStyle(stoneColor, 1);
-      gfx.fillRect(wx, wy, CELL, CELL);
-      // Lighter top strip — 3/4-view top-face highlight.
-      gfx.fillStyle(STONE_MID, 0.35);
-      gfx.fillRect(wx, wy, CELL, 3);
-      gfx.lineStyle(1, MORTAR_C, 0.55);
-      gfx.strokeRect(wx, wy, CELL, CELL);
-    }
+    // Tile each room's floor.
+    for (const room of rooms) tileRect(room.x, room.y, room.w, room.h);
 
-    // ── Wall physics (merged horizontal segments) ───────────────────────────
-    // Group wall cells by row (gy), sort each row's gx list, then merge
-    // contiguous runs into a single static body per run. Fewer bodies =
-    // fewer collision pairs checked per frame.
-    const wallRows = new Map<number, number[]>();
-    for (const code of wallCells) {
-      const [gx, gy] = dec(code);
-      if (!wallRows.has(gy)) wallRows.set(gy, []);
-      wallRows.get(gy)!.push(gx);
-    }
+    // Connect consecutive rooms with L-shaped corridors (horizontal leg first,
+    // then vertical at the elbow). This guarantees at least one path between
+    // every adjacent pair in the list.
+    for (let i = 1; i < rooms.length; i++) {
+      const a    = rooms[i - 1];
+      const b    = rooms[i];
+      const ax   = Math.round(a.x + a.w / 2);
+      const ay   = Math.round(a.y + a.h / 2);
+      const bx   = Math.round(b.x + b.w / 2);
+      const by   = Math.round(b.y + b.h / 2);
+      const half = Math.round(CORRIDOR_W / 2);
 
-    for (const [gy, gxList] of wallRows) {
-      gxList.sort((a, b) => a - b);
-      let start = gxList[0];
-      let prev  = gxList[0];
-      for (let i = 1; i <= gxList.length; i++) {
-        const cur = gxList[i];
-        if (i < gxList.length && cur === prev + 1) {
-          prev = cur;
-        } else {
-          const wx = start * CELL;
-          const wy = gy * CELL;
-          const ww = (prev - start + 1) * CELL;
-          const zone = this.add.zone(wx + ww / 2, wy + CELL / 2, ww, CELL);
-          this.physics.add.existing(zone, true);
-          this.obstacles.add(zone);
-          this.wallRects.push(new Phaser.Geom.Rectangle(wx, wy, ww, CELL));
-          if (i < gxList.length) { start = prev = cur; }
-        }
-      }
+      // Horizontal leg: room-a centre → room-b centre X, at room-a centre Y.
+      tileRect(Math.min(ax, bx), ay - half, Math.abs(bx - ax), CORRIDOR_W);
+      // Vertical leg: elbow (bx, ay) → room-b centre Y.
+      tileRect(bx - half, Math.min(ay, by), CORRIDOR_W, Math.abs(by - ay));
     }
 
     return rooms;
