@@ -86,11 +86,31 @@ Milestone 1 — vehicle moving on a map with joystick controls ✓
 
 ## Task management
 
-Tasks are tracked in **Linear** (project: Matlu, assignee: Filip Marzuki).
+Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 
-- Pick the highest-priority issue in **Backlog** or **Todo** state
-- Move the issue to **In Progress** when starting
-- After implementing: open a PR, post the PR link as a comment on the Linear issue, mark it **Done**
+**State model** — GitHub's open/closed maps to the task lifecycle:
+
+| GitHub state | Meaning |
+| ------------ | ------- |
+| Open (no label) | Backlog — not yet started |
+| Open + `in-progress` | Actively being implemented |
+| Closed | Done — PR merged or issue resolved |
+
+**Label conventions:**
+
+| Group | Labels |
+| ----- | ------ |
+| Readiness | `ready`, `needs-refinement`, `blocked`, `too-large` |
+| Outcome | `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` |
+| State | `in-progress` |
+| Category | `systems`, `art`, `lore`, `infrastructure`, `world`, `hero`, `tech`, `ui-hud`, `ui-menus`, `audio`, `weapons`, `enemies`, `waves`, `upgrades`, `parts`, `mobile` |
+
+**Workflow:**
+
+- Pick the highest-priority open issue labelled `ready` (or without a blocking label)
+- Apply the `in-progress` label when you start
+- After implementing: open a PR with `Closes #<issue-number>` in the body — GitHub closes the issue automatically on merge
+- Run `.github/scripts/create-labels.js` to create all required labels idempotently
 
 ## When implementing a task
 
@@ -98,7 +118,8 @@ Tasks are tracked in **Linear** (project: Matlu, assignee: Filip Marzuki).
 2. Keep changes small and focused on the issue
 3. Don't refactor things outside the scope of the task
 4. Run `npm run build` and `npm run typecheck` before opening a PR
-5. If anything is unclear, open a PR with a plan and ask rather than guessing
+5. Reference the GitHub issue number (e.g. `Closes #42`) in the PR description so the issue closes automatically on merge
+6. If anything is unclear, open a PR with a plan and ask rather than guessing
 
 ## PR descriptions
 
