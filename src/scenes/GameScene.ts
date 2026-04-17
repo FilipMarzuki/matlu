@@ -27,6 +27,7 @@ import {
   traceRiverPath,
   buildRiverTileGrids,
 }                              from '../world/RiverData';
+import { buildLakeTileGrid }  from '../world/LakeData';
 import { CorruptionFilter } from '../shaders/CorruptionFilter';
 import {
   ZONES, COLLECTIBLES, MEETING_POINT, MEETING_RADIUS, PATH_CHOICES,
@@ -409,16 +410,24 @@ interface BirdObject {
 function terrainTileFrame(
   elev: number, temp: number, moist: number, detail: number,
   isRiver = false,
+  isLake  = false,
 ): { key: string; frame: number } {
   const v6 = Math.floor(detail * 5.99); // 0–5: one of 6 frames per biome row
 
   // ── Water ─────────────────────────────────────────────────────────────────────
   // The custom water_animated.png has 4 frames (0–3): calm → gentle → mid → full ripple.
-  // Ocean/lake uses frames 0–2; rivers use frames 1–3 for a slightly livelier look,
-  // preserving the visual distinction without needing a separate row.
+  // Rivers use frames 1–3 (livelier); ocean uses 0–2; lakes use row 0 frames 0–1
+  // (calmer than ocean — only the two stillest frames to suggest a quiet pond).
   if (elev < 0.25) {
-    const waterBase = isRiver ? 1 : 0;
-    return { key: 'terrain-water', frame: waterBase + (detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0) };
+    if (isRiver) {
+      return { key: 'terrain-water', frame: 1 + (detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0) };
+    }
+    if (isLake) {
+      // Lakes: calm surface — only frames 0 and 1 (no mid/full ripple).
+      return { key: 'terrain-water', frame: detail > 0.50 ? 1 : 0 };
+    }
+    // Ocean: all three ripple levels
+    return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 };
   }
 
   // ── Shore (elev 0.25–0.30) ────────────────────────────────────────────────────
@@ -817,9 +826,13 @@ export class GameScene extends Phaser.Scene {
   /**
    * 1 if the tile is covered by any diagonal river band, 0 otherwise.
    * Built by initRiverTileGrids() before drawProceduralTerrain() runs.
+   * FIL-260: isLakeTile is built in the same call — inland water pockets not
+   * reachable from the map edge are flagged 1 so they can animate differently.
    * FIL-168 uses this to override terrain tiles and animated-water placement.
    */
   private isRiverTile: Uint8Array | null = null;
+  /** FIL-260: 1 = inland lake tile; 0 = not. Populated alongside isRiverTile. */
+  private isLakeTile: Uint8Array | null = null;
   /**
    * Fully traced diagonal river paths (populated before terrain bake).
    * FIL-170 uses bridge/ford pathIndices to position crossing visuals.
@@ -5473,6 +5486,17 @@ export class GameScene extends Phaser.Scene {
       this.tracedRiverPaths, tilesX, tilesY,
     );
     this.isRiverTile = isRiverTile;
+
+    // FIL-260: classify inland pockets as lakes using the same natural-elevation
+    // grid.  River tiles that happen to sit in low-lying coastal depressions would
+    // be mis-classified as lakes if we used the baked grid (forced to 0.15 for
+    // rivers) — naturalElev avoids that.  After BFS, zero out any lake tile that
+    // overlaps a river to prevent visual collision at river mouths.
+    const isLakeTile = buildLakeTileGrid(naturalElev, tilesX, tilesY);
+    for (let i = 0; i < isLakeTile.length; i++) {
+      if (isRiverTile[i] === 1) isLakeTile[i] = 0;
+    }
+    this.isLakeTile = isLakeTile;
   }
 
   /**
@@ -5505,6 +5529,14 @@ export class GameScene extends Phaser.Scene {
       frameRate: 2,
       repeat: -1,
     });
+    // FIL-260: lake animation — same sheet but only the two calmest frames at 1 fps
+    // so ponds look near-still compared to the rippling ocean and fast-moving rivers.
+    this.anims.create({
+      key: 'lake-anim',
+      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1] }),
+      frameRate: 1,
+      repeat: -1,
+    });
 
     // All tiles (including water) are drawn into a pre-baked RenderTexture so the
     // entire terrain costs one GPU draw call at runtime — ~100× faster than per-tile flushes.
@@ -5518,11 +5550,11 @@ export class GameScene extends Phaser.Scene {
       .setScale(2)        // 16px → 32px to match TILE_SIZE
       .setVisible(false);
 
-    // FIL-258: Split water centres into two arrays so rivers and ocean can each
-    // play their own animation at a different frame rate. The combined sprite count
-    // is capped at 3000 to keep mobile GPU load small (same cap as before).
+    // FIL-258/260: Three water arrays — rivers (fast), ocean (slow), lakes (still).
+    // Combined cap kept at 3000: 2400 ocean + 600 lake so GPU load is unchanged.
     const riverCentres: number[] = []; // flat [cx0, cy0, ...] for fast river animation
     const oceanCentres: number[] = []; // flat [cx0, cy0, ...] for slow ocean animation
+    const lakeCentres:  number[] = []; // flat [cx0, cy0, ...] for near-still lake anim
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
     // Float32Array is cheap (~52 KB for 141×94 tiles) and avoids re-sampling the noise.
@@ -5554,6 +5586,8 @@ export class GameScene extends Phaser.Scene {
 
         // FIL-168: force water elevation for diagonal river-band tiles.
         const isRiverHere = this.isRiverTile?.[ty * tilesX + tx] === 1;
+        // FIL-260: inland lake tiles (not reachable from the map border)
+        const isLakeHere  = this.isLakeTile?.[ty  * tilesX + tx] === 1;
         if (isRiverHere) {
           // detail-based jitter (×0.08) keeps the river surface visually varied
           // while staying safely below the water threshold (< 0.25).
@@ -5594,15 +5628,22 @@ export class GameScene extends Phaser.Scene {
         // stays visible while each region gets a distinct dominant hue — the same
         // technique CrossCode uses to give each zone a clear visual identity.
         // FIL-172: pass isRiverHere so river tiles use water-sheet row 1 (lighter).
-        const { key, frame } = terrainTileFrame(val, temp, effectiveMoist, detail, isRiverHere);
+        // FIL-260: pass isLakeHere so lake tiles use the calm 2-frame variant.
+        const { key, frame } = terrainTileFrame(val, temp, effectiveMoist, detail, isRiverHere, isLakeHere);
         tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
         terrainRt.draw(tileImg);
 
         // Mark every 2nd water tile (in both axes) for the animated overlay pass.
-        // Route to the correct array based on river vs ocean (FIL-258).
-        if (key === 'terrain-water' && tx % 2 === 0 && ty % 2 === 0
-            && riverCentres.length + oceanCentres.length < 3000) {
-          (isRiverHere ? riverCentres : oceanCentres).push(wx + 16, wy + 16);
+        // Route to the correct array based on river / lake / ocean (FIL-258/260).
+        // Cap: rivers unlimited within 3000 total; ocean ≤ 2400; lakes ≤ 600.
+        if (key === 'terrain-water' && tx % 2 === 0 && ty % 2 === 0) {
+          if (isRiverHere) {
+            riverCentres.push(wx + 16, wy + 16);
+          } else if (isLakeHere && lakeCentres.length < 1200) { // 600 entries × 2 coords
+            lakeCentres.push(wx + 16, wy + 16);
+          } else if (!isRiverHere && !isLakeHere && oceanCentres.length < 4800) { // 2400 entries × 2
+            oceanCentres.push(wx + 16, wy + 16);
+          }
         }
       }
     }
@@ -5706,6 +5747,14 @@ export class GameScene extends Phaser.Scene {
       spr.setScale(2).setDepth(0.5);
       spr.play('ocean-anim');
       spr.anims.setCurrentFrame(oceanAnim.frames[(i / 2) % oceanAnim.frames.length]);
+    }
+    // FIL-260: lake sprites — near-still, 1 fps, only 2 frames so ponds feel quiet.
+    const lakeAnim = this.anims.get('lake-anim');
+    for (let i = 0; i < lakeCentres.length; i += 2) {
+      const spr = this.add.sprite(lakeCentres[i], lakeCentres[i + 1], 'terrain-water');
+      spr.setScale(2).setDepth(0.5);
+      spr.play('lake-anim');
+      spr.anims.setCurrentFrame(lakeAnim.frames[(i / 2) % lakeAnim.frames.length]);
     }
   }
 
