@@ -6,7 +6,6 @@ other issues and must not broaden its scope.
 
 Credentials are available as environment variables:
 
-- `LINEAR_API_KEY` — Linear GraphQL API (https://api.linear.app/graphql)
 - `ANTHROPIC_API_KEY` — injected by the runner for Claude Code itself
 - `GITHUB_TOKEN` — GitHub API token, scoped to this repo. Use for `gh` and REST.
 - `GH_TOKEN` — alias of `GITHUB_TOKEN`, picked up automatically by `gh`.
@@ -78,9 +77,9 @@ gh pr create \
 
 Capture the returned PR URL — you need it for step 4.
 
-### 3. Apply **one** outcome label on the Linear issue
+### 3. Apply **one** outcome label on the GitHub issue
 
-Labels already exist in Linear (pre-created by the operator):
+Labels already exist on the repo (pre-created by the operator):
 
 - `agent:success` — implementation matches the acceptance criteria and the
   PR is ready for review.
@@ -90,12 +89,13 @@ Labels already exist in Linear (pre-created by the operator):
 - `agent:wrong-interpretation` — the issue description was ambiguous or you
   realised mid-way that your reading was wrong; explain in the comment.
 
-Apply the label via Linear GraphQL (`issueUpdate` with the current
-`labelIds` array plus the new label's id — see Linear's API docs; the
-runner already did this for you in past sessions, so the pattern is in
-`.github/scripts/run-agent.js` if you need a reference).
+Apply the label with `gh` (replace `agent:success` with whichever outcome applies):
 
-### 4. Post a comment on the Linear issue
+```bash
+gh issue edit {{gh_issue_number}} --add-label "agent:success"
+```
+
+### 4. Post a comment on the GitHub issue
 
 Write a comment summarising what was done and include the PR URL from step 2.
 
@@ -115,7 +115,14 @@ and it was genuinely necessary, include a scope note in the comment:
 Scope note: also modified [file/system] — [reason it was necessary]
 ```
 
-Use `commentCreate` via the Linear GraphQL API.
+Use `gh issue comment`:
+
+```bash
+gh issue comment {{gh_issue_number}} --body "$(cat <<'EOF'
+Summary of changes. Include the PR URL here.
+EOF
+)"
+```
 
 ### 5. Exit
 

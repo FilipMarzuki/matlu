@@ -7,7 +7,7 @@ check for rework. **Finish in under 3 minutes.**
 **You do NOT write code.** Read a few files for context, then update the Linear
 issue (label + estimate + comment). That is your entire output.
 
-Credentials: `LINEAR_API_KEY` (Linear GraphQL), `GITHUB_TOKEN` (GitHub API).
+Credentials: `GITHUB_TOKEN` (GitHub CLI / API, pre-authenticated via `GH_TOKEN` alias).
 
 ---
 
@@ -53,24 +53,21 @@ An issue is **ready** when an autonomous agent can produce a shippable PR:
 
 ### 0. Duplicate check (30 seconds max)
 
-Before touching the codebase, search Linear for issues with overlapping title keywords:
+Before touching the codebase, search GitHub Issues for overlapping title keywords:
 
-```graphql
-query($term: String!) {
-  issues(filter: {
-    title: { containsIgnoreCase: $term }
-    state: { type: { nin: ["cancelled"] } }
-  }, first: 5, orderBy: updatedAt) {
-    nodes { identifier title state { name } }
-  }
-}
+```bash
+gh issue list --search "KEYWORD1 KEYWORD2" --state open --json number,title,state --limit 5
 ```
 
-Extract 2–3 key nouns from this issue's title and use them as `$term`. Exclude this issue's own identifier from the results.
+Extract 2–3 key nouns from this issue's title. Exclude this issue's own number from the results.
 
-If a non-cancelled issue with substantially the same scope is found:
-- Update this issue's state to "Duplicate" via `issueUpdate`
-- Post a comment: "🔁 Duplicate of [FIL-XXX] — [other title]. Marking as duplicate."
+If an open issue with substantially the same scope is found:
+- Add the `duplicate` label and close the issue:
+  ```bash
+  gh issue edit {{gh_issue_number}} --add-label "duplicate"
+  gh issue close {{gh_issue_number}}
+  gh issue comment {{gh_issue_number}} --body "🔁 Duplicate of #NNN — [other title]. Marking as duplicate."
+  ```
 - **Exit immediately.** Do not label, estimate, or explore the codebase.
 
 If no clear duplicate, continue to step 1.
@@ -91,7 +88,7 @@ If the issue is self-explanatory, skip this step entirely.
 
 ### 3. Estimate T-shirt size
 
-Set Linear's `estimate` field:
+Add a size label to the GitHub issue (`size:XS` through `size:XL`):
 
 | Size | Pts | Guideline |
 | ---- | --- | --------- |
@@ -111,15 +108,19 @@ Apply the `rework` label **in addition to** the readiness label if any of:
 
 Note in the comment which prior change likely caused it.
 
-### 5. Post to Linear
+### 5. Update the GitHub issue
 
-One GraphQL call to apply label(s) + set estimate, one to post a
-**one-sentence** comment. Then exit immediately.
+Apply label(s) (including size label) and post a one-sentence comment. Then exit immediately.
 
-```graphql
-mutation { issueUpdate(id: "<uuid>", input: { estimate: N, labelIds: [...] }) { success } }
-mutation { commentCreate(input: { issueId: "<uuid>", body: "..." }) { success } }
+```bash
+# Apply readiness label and size label
+gh issue edit {{gh_issue_number}} --add-label "ready" --add-label "size:S"
+
+# Post one-sentence triage comment
+gh issue comment {{gh_issue_number}} --body "Ready — [one sentence rationale]."
 ```
+
+Replace `ready` / `size:S` with whichever labels apply from steps 2–4.
 
 ---
 
