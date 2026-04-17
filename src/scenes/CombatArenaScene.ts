@@ -521,6 +521,19 @@ export class CombatArenaScene extends Phaser.Scene {
     // entities inside rooms rather than at fixed arena coordinates.
     this.rooms = this.buildRooms();
 
+    // ── Per-room floor colour variation ──────────────────────────────────────
+    // Largest room (main chamber) → warmer amber tint so it reads as richer stone.
+    // Side rooms → cooler grey-brown for a rougher, less-travelled look.
+    // Depth -0.5: above floor tiles (depth -1), below wall graphics (depth 0).
+    const largestArea = this.rooms.reduce((max, r) => Math.max(max, r.w * r.h), 0);
+    const roomTintGfx = this.add.graphics();
+    roomTintGfx.setDepth(-0.5);
+    for (const room of this.rooms) {
+      const isMain = room.w * room.h >= largestArea;
+      roomTintGfx.fillStyle(isMain ? 0x7a5010 : 0x28201a, isMain ? 0.18 : 0.22);
+      roomTintGfx.fillRect(room.x, room.y, room.w, room.h);
+    }
+
     // ── Stone pillar obstacles ────────────────────────────────────────────────
     // Broken columns in 3/4 top-down perspective: a lighter top face (visible
     // from above) sits over a darker front face (camera-facing side), with a
@@ -706,6 +719,87 @@ export class CombatArenaScene extends Phaser.Scene {
         ease:     'Sine.easeInOut',
         delay:    Phaser.Math.Between(0, 350),
       });
+    }
+
+    // ── Inner-edge wall shadows ───────────────────────────────────────────────
+    // Semi-transparent black rects just inside each wall face deepen the corners
+    // and make the enclosed space feel heavier. Alpha ~0.3 matches the pillar
+    // cast-shadow intensity used above.
+    const SHADOW_D  = 14;
+    const shadowGfx = this.add.graphics();
+    shadowGfx.setDepth(-0.5);
+    shadowGfx.fillStyle(0x000000, 0.3);
+    shadowGfx.fillRect(
+      this.arenaX + CHAMFER,                           this.arenaY + WALL_T,
+      this.arenaW - CHAMFER * 2,                       SHADOW_D,
+    );
+    shadowGfx.fillRect(
+      this.arenaX + CHAMFER,                           this.arenaY + this.arenaH - WALL_T - SHADOW_D,
+      this.arenaW - CHAMFER * 2,                       SHADOW_D,
+    );
+    shadowGfx.fillRect(
+      this.arenaX + WALL_T,                            this.arenaY + CHAMFER,
+      SHADOW_D,                                        this.arenaH - CHAMFER * 2,
+    );
+    shadowGfx.fillRect(
+      this.arenaX + this.arenaW - WALL_T - SHADOW_D,  this.arenaY + CHAMFER,
+      SHADOW_D,                                        this.arenaH - CHAMFER * 2,
+    );
+
+    // ── Dungeon torches at room corners and doorway entrances ─────────────────
+    // No dungeon_torch asset is loaded → plain Graphics circle fallback.
+    // All objects created once here in buildArena(); nothing added in update().
+    // Depth 1: renders above wall graphics (default 0) and floor tiles (-1).
+    // Torches are NOT added to the obstacles StaticGroup so they don't block movement.
+    const DOOR_CORR_HALF = 8;  // quarter of the 32 px corridor width — torch inset
+    const addDungeonTorch = (tx: number, ty: number): void => {
+      const tGlow = this.add.graphics();
+      tGlow.setDepth(1);
+      tGlow.fillStyle(0xff7700, 0.25);
+      tGlow.fillCircle(tx, ty, 14);
+      const tDot = this.add.graphics();
+      tDot.setDepth(1);
+      tDot.fillStyle(0xffcc44, 1);
+      tDot.fillCircle(tx, ty, 3);
+      // Each torch pulses independently (random duration + delay) for organic flicker.
+      this.tweens.add({
+        targets:  tGlow,
+        alpha:    { from: 0.5, to: 1.0 },
+        duration: Phaser.Math.Between(280, 580),
+        yoyo:     true,
+        repeat:   -1,
+        ease:     'Sine.easeInOut',
+        delay:    Phaser.Math.Between(0, 320),
+      });
+    };
+
+    // One corner torch per room — top-left inner corner, 8 px margin from edge.
+    for (const room of this.rooms) {
+      addDungeonTorch(room.x + 8, room.y + 8);
+    }
+
+    // Two doorway torches per corridor — one at room A's exit, one at room B's
+    // entrance.  Each torch is placed just outside the room boundary, inside the
+    // corridor strip, so it frames the doorway opening rather than cluttering the room.
+    // L-shaped corridors: horizontal leg from room A's centre toward room B's centre X,
+    // then a vertical leg down (or up) to room B's centre.
+    for (let i = 1; i < this.rooms.length; i++) {
+      const ra   = this.rooms[i - 1];
+      const rb   = this.rooms[i];
+      const raCx = ra.x + ra.w / 2;
+      const raCy = ra.y + ra.h / 2;
+      const rbCx = rb.x + rb.w / 2;
+      const rbCy = rb.y + rb.h / 2;
+
+      // Horizontal corridor exits room A: torch just past room A's far wall edge.
+      const hSign  = rbCx >= raCx ? 1 : -1;
+      const aEdgeX = hSign > 0 ? ra.x + ra.w : ra.x;
+      addDungeonTorch(aEdgeX + hSign * DOOR_CORR_HALF, raCy);
+
+      // Vertical corridor enters room B: torch just outside room B's near wall edge.
+      const vSign  = rbCy >= raCy ? 1 : -1;
+      const bEdgeY = vSign > 0 ? rb.y : rb.y + rb.h;
+      addDungeonTorch(rbCx, bEdgeY - vSign * DOOR_CORR_HALF);
     }
 
     // ── Floor cracks from pillar bases ────────────────────────────────────────
