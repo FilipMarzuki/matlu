@@ -53,6 +53,7 @@ import {
   CLIFF_CORRUPT_COLOR,
 } from '../world/CliffSystem';
 import type { CliffFace } from '../world/CliffSystem';
+import { detectBoundaries, BLEND_COLORS } from '../world/BiomeBlend';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
 /**
@@ -5218,6 +5219,70 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * FIL-177: Draw feathered colour strips at biome boundaries.
+   *
+   * At each tile edge where two biomes of different priority meet, a narrow
+   * 8-pixel strip is drawn on the lower-priority tile using the higher-priority
+   * biome's colour.  This softens the hard tile boundary that would otherwise
+   * appear as a perfectly straight colour edge — the same feathering technique
+   * used by many top-down 16-bit RPGs.
+   *
+   * ## Depth
+   * Strips sit at depth 0.46 — above the biome colour wash (0.1) and cliff east
+   * shadows (0.452) but below paths (1) and decorations (2+).
+   *
+   * ## Priority
+   * Priority is defined in BiomeBlend.BIOME_PRIORITY (sea = 0, snow = 10).
+   * Higher-priority biomes bleed into lower-priority ones; equal-priority biomes
+   * are treated as peers and emit no strip.
+   *
+   * @param biomeIdxGrid  Flat row-major biome indices (0–10), one per tile.
+   * @param tilesX        World width in tiles.
+   * @param tilesY        World height in tiles.
+   */
+  private drawBiomeBlendStrips(
+    biomeIdxGrid: Uint8Array,
+    tilesX: number,
+    tilesY: number,
+  ): void {
+    const T       = TILE_SIZE; // 32 px
+    const STRIP_W = 8;         // feather width in pixels — ~25% of a tile
+    const ALPHA   = 0.40;      // opacity of the blend strip
+
+    const boundaries = detectBoundaries(biomeIdxGrid, tilesX, tilesY);
+    if (boundaries.length === 0) return;
+
+    // One shared Graphics object for all strips — cheaper than per-tile objects.
+    const gfx = this.add.graphics().setDepth(0.46);
+
+    for (const { tx, ty, side, higherBiome } of boundaries) {
+      const color = BLEND_COLORS[higherBiome];
+      gfx.fillStyle(color, ALPHA);
+
+      // Place the strip rectangle on the correct edge of the lower-priority tile.
+      // T = tile size in pixels; tx/ty are grid coordinates.
+      switch (side) {
+        case 'north':
+          // Neighbour is above — strip at the top of this tile
+          gfx.fillRect(tx * T,           ty * T,           T,       STRIP_W);
+          break;
+        case 'south':
+          // Neighbour is below — strip at the bottom of this tile
+          gfx.fillRect(tx * T,           (ty + 1) * T - STRIP_W, T, STRIP_W);
+          break;
+        case 'west':
+          // Neighbour is to the left — strip at the left edge
+          gfx.fillRect(tx * T,           ty * T,           STRIP_W, T);
+          break;
+        case 'east':
+          // Neighbour is to the right — strip at the right edge
+          gfx.fillRect((tx + 1) * T - STRIP_W, ty * T,    STRIP_W, T);
+          break;
+      }
+    }
+  }
+
+  /**
    * FIL-178: Cliff & Elevation Transition System.
    *
    * Renders layered cliff-face illusions at all south-facing and east-facing
@@ -5729,6 +5794,10 @@ export class GameScene extends Phaser.Scene {
     // FIL-178: cliff-face rendering — Y-sorted per row, biome-aware, multi-step.
     // biomeIdxGrid is now passed so the cliff system can look up per-biome colours.
     this.drawCliffEdges(biomeGrid, biomeIdxGrid, tilesX, tilesY);
+    // FIL-177: feathered colour strips at biome boundaries.
+    // Drawn at depth 0.46 — above the biome colour wash (0.1) but below paths (1)
+    // and decorations (2+).
+    this.drawBiomeBlendStrips(biomeIdxGrid, tilesX, tilesY);
 
     // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
     // but below decorations (2+). Each sprite covers the baked water tile underneath.
