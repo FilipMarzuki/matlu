@@ -9,6 +9,7 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
+import { Blightfrog } from '../entities/Blightfrog';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -32,11 +33,12 @@ interface WaveGroup {
  * Groups cycle indefinitely; difficulty scales via the wave number multiplier in spawnWaveGroup.
  */
 const WAVE_GROUPS: WaveGroup[] = [
-  { label: 'Baby Swarm',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Scout Pair',   enemies: [VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
-  { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  { label: 'Baby Swarm',       enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Scout Pair',       enemies: [VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Mixed Pack',       enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+  { label: 'Baby Horde',       enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Reaver Squad',     enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  { label: 'Blightfrog Ambush', enemies: [Blightfrog, BabyVelcrid, BabyVelcrid] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
