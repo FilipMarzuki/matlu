@@ -23,21 +23,25 @@ If you can't find it, print "No matlu log source found" and exit.
 
 ---
 
-## STEP 2 — QUERY ERROR LOGS (LAST 24 H)
+## STEP 2 — FETCH ERROR LOGS (LAST 24 H)
 
-Replace `<SOURCE_ID>` with the id from step 1:
+Replace `<SOURCE_ID>` with the id from step 1. Compute `<FROM>` as 24 hours ago in
+RFC 3339 format (e.g. `2026-04-16T07:00:00Z`):
 
 ```bash
-curl -s -X POST "https://telemetry.betterstack.com/api/v2/query" \
-  -H "Authorization: Bearer $BETTERSTACK_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source_id": "<SOURCE_ID>",
-    "query": "SELECT message, filename, line, stack, COUNT(*) AS occurrences FROM logs WHERE dt >= NOW() - INTERVAL '\''24 hours'\'' AND level = '\''error'\'' GROUP BY message, filename, line, stack ORDER BY occurrences DESC LIMIT 25"
-  }'
+curl -s "https://telemetry.betterstack.com/api/v2/sources/<SOURCE_ID>/logs?query=level%3Aerror&from=<FROM>&limit=50" \
+  -H "Authorization: Bearer $BETTERSTACK_API_TOKEN"
 ```
 
-If no rows are returned, print "No errors in the last 24h" and exit cleanly.
+The response is a JSON object with a `data` array of log entries. Each entry has at
+minimum: `message`, `level`, and whatever structured fields the app forwards (e.g.
+`filename`, `line`, `stack`).
+
+If `data` is empty, print "No errors in the last 24h" and exit cleanly.
+
+**Deduplication:** group entries by their `message` text (first 120 chars). Treat
+entries with the same message as one error. Count occurrences across the group.
+Work with at most the 25 most-common distinct messages.
 
 ---
 
@@ -71,11 +75,11 @@ For each unfiled error create a Linear bug:
   ```
   ## Error details
   **Message:** <full message>
-  **File:** <filename>:<line>
   **Occurrences (24 h):** <count>
+  **First seen:** <timestamp of earliest entry in the group>
 
-  ## Stack trace
-  <stack>
+  ## Sample log entry
+  <paste the full JSON of one representative log entry from the group>
 
   ## Next steps
   Check Better Stack → Logs → Live Tail filtered by `level:error` for full context.
