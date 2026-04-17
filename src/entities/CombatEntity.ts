@@ -121,6 +121,8 @@ export abstract class CombatEntity extends Enemy {
   private attackTimer = 0;
   private wanderAngle = Math.random() * Math.PI * 2;
   private wanderTimer = 0;
+  /** Timestamp (scene.time.now) until which this entity cannot move or act. */
+  private rootUntil = 0;
   private readonly hpBarFill: Phaser.GameObjects.Rectangle;
   private readonly hpBarBg:   Phaser.GameObjects.Rectangle;
   /** Coloured rectangle at Container origin — used for hit-flash. */
@@ -445,6 +447,18 @@ export abstract class CombatEntity extends Enemy {
 
     // Physics body — may be undefined if the scene hasn't added it yet.
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+
+    // ── Root check — applied by applyRoot() (e.g. Blightfrog tongue) ─────────
+    //
+    // While rooted the entity cannot move or run its behavior tree. We zero
+    // velocity each frame so knockback or physics drift cannot sneak through,
+    // and return early to skip the BT entirely. Guard with this.active so a
+    // destroyed entity cannot access its physics body mid-teardown.
+    if (this.active && this.scene.time.now < this.rootUntil) {
+      physBody?.setVelocity(0, 0);
+      this.refreshHpBar();
+      return;
+    }
 
     // ── Dash state machine ────────────────────────────────────────────────────
     //
@@ -811,6 +825,15 @@ export abstract class CombatEntity extends Enemy {
         if (this.active && this.isAlive) physBody.setVelocity(0, 0);
       });
     }
+  }
+
+  /**
+   * Root this entity for `durationMs` milliseconds — halts all movement and
+   * bypasses the behavior tree. If the entity is already rooted, the timer is
+   * reset (not extended) so repeated hits don't stack indefinitely.
+   */
+  applyRoot(durationMs: number): void {
+    this.rootUntil = this.scene.time.now + durationMs;
   }
 
   // ── LivingEntity hook ──────────────────────────────────────────────────────

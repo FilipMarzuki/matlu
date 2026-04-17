@@ -39,6 +39,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   private readonly hitRadius: number;
   private readonly maxRange: number;
   private readonly targets: Damageable[];
+  private readonly onHitCb: ((target: Damageable) => void) | undefined;
   private distanceTravelled = 0;
   private expired = false;
 
@@ -58,6 +59,10 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
    * @param targets   - Entities that can be hit; dead ones are skipped
    * @param hitRadius - Distance in px that counts as a hit (default 18)
    * @param maxRange  - Max travel distance before self-destruct (default 350)
+   * @param onHit     - Optional callback fired on the first target hit, before
+   *                    the projectile destroys itself. Use this to apply effects
+   *                    (e.g. root, slow) from the spawning entity without
+   *                    coupling Projectile to any specific entity type.
    */
   constructor(
     scene:     Phaser.Scene,
@@ -70,6 +75,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     targets:   Damageable[],
     hitRadius: number = 18,
     maxRange:  number = 350,
+    onHit?:    (target: Damageable) => void,
   ) {
     // Rectangle(scene, x, y, width, height, fillColor)
     // 12×2 px gives a tracer-round silhouette — narrow and elongated.
@@ -88,6 +94,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.hitRadius = hitRadius;
     this.maxRange  = maxRange;
     this.targets   = targets;
+    this.onHitCb   = onHit;
   }
 
   /**
@@ -116,6 +123,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
       const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
       if (dist < this.hitRadius) {
         target.takeDamage(this.damage);
+        this.onHitCb?.(target);
         this.selfDestroy();
         return;
       }

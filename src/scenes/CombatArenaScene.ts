@@ -10,6 +10,7 @@ import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 import { Spineling } from '../entities/Spineling';
+import { Blightfrog } from '../entities/Blightfrog';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -42,6 +43,12 @@ const WAVE_GROUPS: WaveGroup[] = [
   // Spineling tide — twenty 1-HP spider-crab swarmers. AoE weapons clear
   // clusters fast; single-target weapons must work through the whole mass.
   { label: 'Spineling Tide', enemies: Array<EnemyCtor>(20).fill(Spineling) },
+  { label: 'Baby Swarm',       enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Scout Pair',       enemies: [VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Mixed Pack',       enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+  { label: 'Baby Horde',       enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Reaver Squad',     enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  { label: 'Blightfrog Ambush', enemies: [Blightfrog, BabyVelcrid, BabyVelcrid] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────

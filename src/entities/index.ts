@@ -15,3 +15,4 @@ export { Overmind } from './heroes/Overmind';
 export { Dustling } from './Dustling';
 export { Spineling } from './Spineling';
 export { CrackedGolem } from './CrackedGolem';
+export { Blightfrog } from './Blightfrog';
