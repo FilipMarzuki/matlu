@@ -1,0 +1,48 @@
+---
+const navItems = [
+  { href: '/',          label: 'Home'      },
+  { href: '/blog',      label: 'Dev Blog'  },
+  { href: '/stats',     label: 'Stats'     },
+  { href: '/playtest',  label: 'Playtest'  },
+];
+
+const pathname = Astro.url.pathname;
+---
+
+<nav>
+  <a href="/" class="site-title">Matlu Wiki</a>
+  <ul>
+    {navItems.map(item => (
+      <li>
+        <a href={item.href} class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}>
+          {item.label}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>
+
+<style>
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 1px 0 rgba(168, 85, 247, 0.12);
+  }
+  .site-title {
+    color: var(--accent-hi);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    white-space: nowrap;
+    text-shadow: 0 0 16px rgba(192, 132, 252, 0.4);
+    letter-spacing: 0.02em;
+  }
+  ul { display: flex; gap: 1.25rem; list-style: none; }
+  a { color: var(--text-dim); font-size: 0.9rem; font-family: 'Outfit', sans-serif; }
+  a:hover, a.active { color: var(--text); text-decoration: none; }
+  a.active { color: var(--accent-hi); }
+</style>
