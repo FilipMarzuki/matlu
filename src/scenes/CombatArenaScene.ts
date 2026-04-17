@@ -20,12 +20,15 @@ import { TitanPrototype, TitanHalf } from '../entities/EarthEnemies';
 
 type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
 
+type RoomType = 'main' | 'flanking' | 'dead-end';
+
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
-  x: number;  // left edge
-  y: number;  // top edge
-  w: number;  // width
-  h: number;  // height
+  x: number;     // left edge (world pixels)
+  y: number;     // top edge
+  w: number;     // width
+  h: number;     // height
+  type: RoomType;
 }
 
 interface WaveGroup {
@@ -555,262 +558,31 @@ export class CombatArenaScene extends Phaser.Scene {
     const cx = this.arenaX + this.arenaW / 2;
     const cy = this.arenaY + this.arenaH / 2;
 
-    this.cameras.main.setBackgroundColor(0x120d08);
+    // Pure black void — rooms are carved into it by floor tiles.
+    this.cameras.main.setBackgroundColor(0x000000);
     // Zoom in tighter than the overworld (3×) so the dungeon feels claustrophobic.
     // NavScene owns its own camera, so it is unaffected by this zoom.
     this.cameras.main.setZoom(DUNGEON_ZOOM);
     this.cameras.main.centerOn(cx, cy);
 
-    const WALL_T  = 22;
-    // WALL_INSET: how far to push the physics world bounds from the arena edge.
-    // Derivation: body-half (8) + sprite-half-max (24 for 48×48 Tinkerer) + clearance (8) = 40.
-    // Round up to WALL_T + 24 = 46 so the inset also exceeds the CHAMFER (42), making the
-    // corner-triangle zone bodies unreachable — world bounds stop entities at 46 px from the
-    // edge, well inside the 42 px diagonal cut.
-    //   Entity visual left edge min = (arenaX + 46 + 8) − 24 = arenaX + 30 > arenaX + 22 (wall face). ✓
-    const WALL_INSET = WALL_T + 24;  // 46 px total
-    // CHAMFER: how many pixels the octagonal corners cut inward.
-    const CHAMFER = 42;
-
-    // Stone palette matching the floor tileset's warm travertine tones
-    const STONE_MID   = 0x9a7a58;
-    const STONE_LIGHT = 0xb8956e;
-    const STONE_DARK  = 0x6a5038;
-    const MORTAR_C    = 0x3a2818;
-
-    // ── Pillar positions (early — floor loop references them) ─────────────────
-    // Asymmetric placement: symmetric pairs feel staged; these feel like
-    // surviving ruins from a once-larger structure.
-    const pillarDefs: [number, number][] = [
-      [cx - 125, cy - 22],
-      [cx + 98,  cy + 38],
-    ];
-
-    // ── Procedural room layout ────────────────────────────────────────────────
-    // Rooms are placed and tiled inside buildRooms(). The returned array is
-    // stored on this.rooms so spawnHero() and spawnWaveGroup() can position
-    // entities inside rooms rather than at fixed arena coordinates.
-    this.rooms = this.buildRooms();
-
-    // ── Stone pillar obstacles ────────────────────────────────────────────────
-    // Broken columns in 3/4 top-down perspective: a lighter top face (visible
-    // from above) sits over a darker front face (camera-facing side), with a
-    // cast shadow ellipse at the base.
+    // Obstacles group must exist before buildRooms() adds wall bodies to it.
     this.obstacles = this.physics.add.staticGroup();
 
-    const PILLAR_W  = 28; // visual width
-    const PILLAR_FH = 22; // front face height (camera-facing)
-    const PILLAR_TH = 10; // top face height (foreshortened in 3/4 view)
+    // buildRooms() draws floor tiles + wall art, creates physics wall bodies in
+    // this.obstacles, and populates this.wallRects with wall AABBs for LOS tests.
+    this.rooms = this.buildRooms();
 
-    for (const [px, py] of pillarDefs) {
-      const pg = this.add.graphics();
-
-      // Cast shadow
-      pg.fillStyle(0x000000, 0.28);
-      pg.fillEllipse(px + 5, py + PILLAR_FH / 2 + 5, PILLAR_W + 14, 9);
-
-      // Front face — darker, camera-facing stone
-      pg.fillStyle(STONE_DARK, 1);
-      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2, PILLAR_W, PILLAR_FH);
-
-      // Top face — lighter, angled away from camera
-      pg.fillStyle(STONE_LIGHT, 1);
-      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, PILLAR_W, PILLAR_TH);
-
-      // Left highlight — ambient light catch
-      pg.fillStyle(0xc8a880, 1);
-      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, 3, PILLAR_FH + PILLAR_TH);
-
-      // Right shadow — self-shadow
-      pg.fillStyle(0x3a2414, 1);
-      pg.fillRect(px + PILLAR_W / 2 - 3, py - PILLAR_FH / 2, 3, PILLAR_FH);
-
-      // Mortar lines on front face
-      pg.lineStyle(1, MORTAR_C, 0.7);
-      for (let i = 1; i < 3; i++) {
-        const ly = py - PILLAR_FH / 2 + (PILLAR_FH / 3) * i;
-        pg.lineBetween(px - PILLAR_W / 2, ly, px + PILLAR_W / 2, ly);
-      }
-      pg.lineBetween(px - PILLAR_W / 2, py - PILLAR_FH / 2, px + PILLAR_W / 2, py - PILLAR_FH / 2);
-
-      // Y-sort: depth = bottom of front face so the pillar occludes entities
-      // correctly — they walk behind the upper part, in front of the base.
-      pg.setDepth(py + PILLAR_FH / 2);
-
-      // Static physics body covering the pillar footprint
-      const zone = this.add.zone(px, py, PILLAR_W + 4, PILLAR_FH);
-      this.physics.add.existing(zone, true);
-      const bodyW = PILLAR_W - 4;
-      const bodyH = PILLAR_FH - 4;
-      (zone.body as Phaser.Physics.Arcade.StaticBody).setSize(bodyW, bodyH);
-      this.obstacles.add(zone);
-
-      // Register this pillar as a line-of-sight blocker.
-      // Uses the same AABB as the physics body (centred at px, py) so LOS
-      // is blocked by exactly the same region that blocks physical passage.
-      this.wallRects.push(new Phaser.Geom.Rectangle(
-        px - bodyW / 2, py - bodyH / 2, bodyW, bodyH,
-      ));
-    }
-
-    // ── Burrow holes ──────────────────────────────────────────────────────────
-    // Asymmetric placement — away from pillars and hero spawn so the player
-    // has time to orient before encountering them.
-    const holeDefs: [number, number][] = [
-      [cx - 45, cy + 58],
-      [cx + 65, cy - 48],
-    ];
-
-    for (const [hx, hy] of holeDefs) {
-      const hole = new BurrowHole(this, hx, hy);
-      // Static physics body — size matches the visible ring so entities bump against it.
-      this.physics.add.existing(hole, true);
-      (hole.body as Phaser.Physics.Arcade.StaticBody).setSize(20, 20);
-      this.obstacles.add(hole);
-      this.holes.push(hole);
-    }
-
-    // ── Octagonal wall border ─────────────────────────────────────────────────
-    // Wall drawn as 8 filled sections: 4 straight strips + 4 bevelled corner
-    // triangles. 3/4 perspective hints: top wall is thinner (lit top-face),
-    // bottom wall has an extra dark strip simulating visible front-face height.
-    const gfx = this.add.graphics();
-
-    const ashlarH = (bx: number, by: number, w: number, h: number, offset: number): void => {
-      const BRICK_W = 38;
-      let x = bx; let idx = offset;
-      while (x < bx + w) {
-        const bw = Math.min(BRICK_W, bx + w - x);
-        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
-        gfx.fillRect(x + 1, by + 1, bw - 2, h - 2);
-        gfx.lineStyle(1, MORTAR_C, 1);
-        gfx.strokeRect(x, by, bw, h);
-        x += bw; idx++;
-      }
-    };
-
-    const ashlarV = (bx: number, by: number, w: number, h: number, offset: number): void => {
-      const BRICK_H = 38;
-      let y = by; let idx = offset;
-      while (y < by + h) {
-        const bh = Math.min(BRICK_H, by + h - y);
-        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
-        gfx.fillRect(bx + 1, y + 1, w - 2, bh - 2);
-        gfx.lineStyle(1, MORTAR_C, 1);
-        gfx.strokeRect(bx, y, w, bh);
-        y += bh; idx++;
-      }
-    };
-
-    // Top wall — lit from above, no front-face depth needed
-    gfx.fillStyle(STONE_LIGHT, 1);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY, this.arenaW - CHAMFER * 2, WALL_T);
-    ashlarH(this.arenaX + CHAMFER, this.arenaY + 2, this.arenaW - CHAMFER * 2, WALL_T - 2, 0);
-    gfx.fillStyle(STONE_DARK, 0.45);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + WALL_T - 3, this.arenaW - CHAMFER * 2, 3);
-
-    // Bottom wall — extra dark strip at top implies visible wall height in 3/4
-    const BOT_EXTRA = 8;
-    gfx.fillStyle(STONE_DARK, 1);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T - BOT_EXTRA, this.arenaW - CHAMFER * 2, BOT_EXTRA);
-    ashlarH(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T, this.arenaW - CHAMFER * 2, WALL_T, 1);
-    gfx.fillStyle(MORTAR_C, 0.8);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - 2, this.arenaW - CHAMFER * 2, 2);
-
-    // Left wall
-    ashlarV(this.arenaX, this.arenaY + CHAMFER, WALL_T, this.arenaH - CHAMFER * 2, 0);
-    gfx.fillStyle(STONE_LIGHT, 0.5);
-    gfx.fillRect(this.arenaX, this.arenaY + CHAMFER, WALL_T, 2);
-
-    // Right wall with gate opening
-    const GATE_HALF = 34;
-    const gateTop   = cy - GATE_HALF;
-    const gateBot   = cy + GATE_HALF;
-    ashlarV(this.arenaX + this.arenaW - WALL_T, this.arenaY + CHAMFER, WALL_T, gateTop - this.arenaY - CHAMFER, 1);
-    ashlarV(this.arenaX + this.arenaW - WALL_T, gateBot, WALL_T, this.arenaY + this.arenaH - CHAMFER - gateBot, 0);
-    gfx.fillStyle(0x0a0604, 1);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T - 3, gateTop, WALL_T + 5, GATE_HALF * 2);
-    gfx.fillStyle(STONE_LIGHT, 1);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateTop, WALL_T, 7);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateBot - 7, WALL_T, 7);
-
-    // Chamfered corner fills — triangles bridging the wall strips
-    gfx.fillStyle(STONE_MID, 1);
-    const ax = this.arenaX, ay = this.arenaY, aw = this.arenaW, ah = this.arenaH;
-    gfx.fillTriangle(ax,      ay,      ax + CHAMFER,      ay,      ax,           ay + CHAMFER);
-    gfx.fillTriangle(ax + aw, ay,      ax + aw - CHAMFER, ay,      ax + aw,      ay + CHAMFER);
-    gfx.fillTriangle(ax,      ay + ah, ax + CHAMFER,      ay + ah, ax,           ay + ah - CHAMFER);
-    gfx.fillTriangle(ax + aw, ay + ah, ax + aw - CHAMFER, ay + ah, ax + aw,      ay + ah - CHAMFER);
-    // Mortar seam along each diagonal cut
-    gfx.lineStyle(2, MORTAR_C, 0.9);
-    gfx.lineBetween(ax + CHAMFER,      ay,           ax,           ay + CHAMFER);
-    gfx.lineBetween(ax + aw - CHAMFER, ay,           ax + aw,      ay + CHAMFER);
-    gfx.lineBetween(ax,                ay + ah - CHAMFER, ax + CHAMFER,      ay + ah);
-    gfx.lineBetween(ax + aw,           ay + ah - CHAMFER, ax + aw - CHAMFER, ay + ah);
-
-    // ── Chamfered corner physics bodies ──────────────────────────────────────
-    // World bounds (below) cover the four straight wall strips as a rectangle,
-    // but the four diagonal corner triangles sit *inside* that rectangle.
-    // Without extra colliders, entities can be pushed into the visual corners.
-    // Each Zone body is a CHAMFER×CHAMFER rectangle — a conservative bounding
-    // box over the corner triangle. Minor overshoot into open floor is
-    // imperceptible. The same StaticGroup (this.obstacles) is used for pillar
-    // bodies, so existing per-entity colliders cover these automatically.
-    const addCornerZone = (cx: number, cy: number): void => {
-      const zone = this.add.zone(cx, cy, CHAMFER, CHAMFER);
-      this.physics.add.existing(zone, true);
-      this.obstacles.add(zone);
-    };
-    addCornerZone(ax + CHAMFER / 2,      ay + CHAMFER / 2);      // top-left
-    addCornerZone(ax + aw - CHAMFER / 2, ay + CHAMFER / 2);      // top-right
-    addCornerZone(ax + CHAMFER / 2,      ay + ah - CHAMFER / 2); // bottom-left
-    addCornerZone(ax + aw - CHAMFER / 2, ay + ah - CHAMFER / 2); // bottom-right
-
-    // ── Physics world bounds ──────────────────────────────────────────────────
-    // WALL_INSET (not WALL_T) so entity visuals never overlap the wall graphic.
-    // See the WALL_INSET constant above for the derivation.
-    this.physics.world.setBounds(
-      this.arenaX + WALL_INSET, this.arenaY + WALL_INSET,
-      this.arenaW - WALL_INSET * 2, this.arenaH - WALL_INSET * 2,
-    );
-
-    // ── Torch glow pools ──────────────────────────────────────────────────────
-    const torchPositions: [number, number][] = [
-      [this.arenaX + CHAMFER + 26,               this.arenaY + CHAMFER + 20               ],
-      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + CHAMFER + 20               ],
-      [this.arenaX + CHAMFER + 26,               this.arenaY + this.arenaH - CHAMFER - 20 ],
-      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + this.arenaH - CHAMFER - 20 ],
-    ];
-    for (const [tx, ty] of torchPositions) {
-      const glowGfx = this.add.graphics();
-      glowGfx.fillStyle(0xff9933, 0.18);
-      glowGfx.fillCircle(tx, ty, 40);
-      this.tweens.add({
-        targets:  glowGfx,
-        alpha:    { from: 0.7, to: 1.0 },
-        duration: Phaser.Math.Between(400, 700),
-        yoyo:     true,
-        repeat:   -1,
-        ease:     'Sine.easeInOut',
-        delay:    Phaser.Math.Between(0, 350),
-      });
-    }
-
-    // ── Floor cracks from pillar bases ────────────────────────────────────────
-    const crackGfx = this.add.graphics();
-    for (const [px, py] of pillarDefs) {
-      crackGfx.lineStyle(1, STONE_DARK, 0.18);
-      for (let i = 0; i < 4; i++) {
-        const angle = ((px * 3 + py * 7 + i * 73) % 628) / 100;
-        const len   = 28 + (i * 11) % 18;
-        crackGfx.lineBetween(px, py, px + Math.cos(angle) * len, py + Math.sin(angle) * len);
-        crackGfx.lineBetween(
-          px + Math.cos(angle) * len * 0.5, py + Math.sin(angle) * len * 0.5,
-          px + Math.cos(angle + 0.5) * len * 0.35, py + Math.sin(angle + 0.5) * len * 0.35,
-        );
-      }
-    }
-    crackGfx.setDepth(-0.5);
+    // Physics world bounds covers the full dungeon footprint so entities can
+    // move freely across all connected rooms. Per-room wall physics bodies
+    // contain them further — world bounds is just a safety net against escaping
+    // the dungeon bounding box entirely.
+    const left   = Math.min(...this.rooms.map(r => r.x));
+    const top    = Math.min(...this.rooms.map(r => r.y));
+    const right  = Math.max(...this.rooms.map(r => r.x + r.w));
+    const bottom = Math.max(...this.rooms.map(r => r.y + r.h));
+    // Expand by 2 wall cells (44 px) so the world bounds sit outside the outer
+    // wall layer and never block entities that are legitimately inside a room.
+    this.physics.world.setBounds(left - 44, top - 44, right - left + 88, bottom - top + 88);
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
@@ -1238,104 +1010,223 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   /**
-   * Procedurally places 4–8 rooms inside the arena and renders their floors
-   * with colosseum_floor tiles.  Consecutive rooms are connected by L-shaped
-   * corridors (horizontal leg first, then vertical).
+   * Procedurally generates 3–5 rooms connected by L-shaped corridors.
    *
-   * Rooms are visual-only — no physics walls are added.  Entities move freely
-   * across the full arena; the floor tiles only define the visible footprint.
-   * Called once from buildArena(); the result is stored on this.rooms.
+   * All geometry is snapped to a CELL (22 px) grid so floor cells and wall
+   * cells share gap-free boundaries.  After building the floor set, wall cells
+   * (cells adjacent to floor but not themselves floor) are identified, rendered
+   * as stone blocks, and given Arcade static physics bodies so entities cannot
+   * walk through them.  this.wallRects is populated for line-of-sight tests.
+   * Called once from buildArena(); obstacles must be initialised beforehand.
    */
   private buildRooms(): Room[] {
-    const WALL_T      = 22;   // mirrors buildArena — rooms must stay inside the border
+    // Grid cell size = wall thickness. Snapping room geometry to this grid
+    // ensures the wall cells wrap the floor with no sub-pixel gaps.
+    const CELL = 22;
+    // Corridor width in cells: 2 cells = 44 world px. Wide enough for the
+    // 16 px entity hitbox to pass through with comfortable clearance.
+    const CW   = 2;
     const TILE        = 16;
     const FRAME_CLEAN = 12;
     const FRAME_WORN  = 6;
-    const CORRIDOR_W  = 32;   // corridor strip width in px
-    const PAD         = 10;   // minimum gap between room edges
-    const MIN_W = 80;  const MAX_W = 200;
-    const MIN_H = 70;  const MAX_H = 150;
-    const TARGET    = 6;   // aim for this many rooms
-    const MAX_TRIES = 24;  // rejection-sampling attempts
 
-    // Arena interior — rooms must fit within the wall border.
-    const innerX = this.arenaX + WALL_T;
-    const innerY = this.arenaY + WALL_T;
-    const innerW = this.arenaW - WALL_T * 2;
-    const innerH = this.arenaH - WALL_T * 2;
+    const STONE_MID  = 0x9a7a58;
+    const STONE_DARK = 0x6a5038;
+    const MORTAR_C   = 0x3a2818;
 
-    const rooms: Room[] = [];
+    // Grid bounds — leave a 2-cell border inside the arena canvas so outer
+    // wall cells stay on screen and never overlap the nav panel.
+    const gxMin = Math.ceil(this.arenaX / CELL) + 2;
+    const gyMin = Math.ceil(this.arenaY / CELL) + 2;
+    const gxMax = Math.floor((this.arenaX + this.arenaW) / CELL) - 2;
+    const gyMax = Math.floor((this.arenaY + this.arenaH) / CELL) - 2;
 
-    // Rejection-sample random rooms; keep candidates that don't overlap existing ones.
-    for (let t = 0; t < MAX_TRIES && rooms.length < TARGET; t++) {
-      const rw = MIN_W + Math.floor(Math.random() * (MAX_W - MIN_W + 1));
-      const rh = MIN_H + Math.floor(Math.random() * (MAX_H - MIN_H + 1));
-      const rx = innerX + Math.floor(Math.random() * Math.max(1, innerW - rw));
-      const ry = innerY + Math.floor(Math.random() * Math.max(1, innerH - rh));
-      const candidate: Room = { x: rx, y: ry, w: rw, h: rh };
+    // ── Generate rooms in grid space ────────────────────────────────────────
+    // Room size in cells: 4–6 wide × 3–5 tall = 88–132 × 66–110 world px.
+    // At DUNGEON_ZOOM 3.5 the viewport is ~228×171 world units, so the
+    // largest room (6×5 = 132×110 px) fits comfortably on screen.
+    const MIN_GW = 4, MAX_GW = 6;
+    const MIN_GH = 3, MAX_GH = 5;
+    const TARGET    = 5;
+    const MAX_TRIES = 50;
+    const PAD       = 2;  // min gap between rooms in cells
 
-      const overlaps = rooms.some(r =>
-        candidate.x < r.x + r.w + PAD &&
-        candidate.x + candidate.w + PAD > r.x &&
-        candidate.y < r.y + r.h + PAD &&
-        candidate.y + candidate.h + PAD > r.y,
+    interface RoomG { gx: number; gy: number; gw: number; gh: number; type: RoomType; }
+    const roomGs: RoomG[] = [];
+
+    for (let t = 0; t < MAX_TRIES && roomGs.length < TARGET; t++) {
+      const gw = MIN_GW + Math.floor(Math.random() * (MAX_GW - MIN_GW + 1));
+      const gh = MIN_GH + Math.floor(Math.random() * (MAX_GH - MIN_GH + 1));
+      const availW = gxMax - gxMin - gw;
+      const availH = gyMax - gyMin - gh;
+      if (availW < 0 || availH < 0) continue;
+      const gx = gxMin + Math.floor(Math.random() * (availW + 1));
+      const gy = gyMin + Math.floor(Math.random() * (availH + 1));
+      const overlaps = roomGs.some(r =>
+        gx < r.gx + r.gw + PAD && gx + gw + PAD > r.gx &&
+        gy < r.gy + r.gh + PAD && gy + gh + PAD > r.gy,
       );
-      if (!overlaps) rooms.push(candidate);
+      if (!overlaps) roomGs.push({ gx, gy, gw, gh, type: 'flanking' });
     }
 
-    // Safety net: if sampling didn't produce enough rooms, fall back to a 2×2 grid.
-    if (rooms.length < 4) {
-      const hw = Math.floor(innerW / 2 - PAD);
-      const hh = Math.floor(innerH / 2 - PAD);
-      rooms.length = 0;  // discard partial results so the grid is clean
-      rooms.push(
-        { x: innerX,              y: innerY,              w: hw, h: hh },
-        { x: innerX + hw + PAD,   y: innerY,              w: hw, h: hh },
-        { x: innerX,              y: innerY + hh + PAD,   w: hw, h: hh },
-        { x: innerX + hw + PAD,   y: innerY + hh + PAD,   w: hw, h: hh },
+    // Safety net: 2×2 grid of equal rooms when sampling fails.
+    if (roomGs.length < 3) {
+      const hw = Math.floor((gxMax - gxMin) / 2) - PAD;
+      const hh = Math.floor((gyMax - gyMin) / 2) - PAD;
+      roomGs.length = 0;
+      roomGs.push(
+        { gx: gxMin,           gy: gyMin,           gw: hw, gh: hh, type: 'flanking' as RoomType },
+        { gx: gxMin + hw + PAD, gy: gyMin,           gw: hw, gh: hh, type: 'flanking' as RoomType },
+        { gx: gxMin,           gy: gyMin + hh + PAD, gw: hw, gh: hh, type: 'flanking' as RoomType },
+        { gx: gxMin + hw + PAD, gy: gyMin + hh + PAD, gw: hw, gh: hh, type: 'flanking' as RoomType },
       );
     }
 
-    // Tile a rectangle of floor, clipped to the arena interior.
+    // Label rooms: largest area = 'main'; first and last (terminal) = 'dead-end'.
+    const mainG = roomGs.reduce((best, r) => r.gw * r.gh > best.gw * best.gh ? r : best);
+    mainG.type = 'main';
+    if (roomGs[0] !== mainG) roomGs[0].type = 'dead-end';
+    if (roomGs[roomGs.length - 1] !== mainG) roomGs[roomGs.length - 1].type = 'dead-end';
+
+    // Convert to world-coordinate Room array.
+    const rooms: Room[] = roomGs.map(r => ({
+      x: r.gx * CELL, y: r.gy * CELL,
+      w: r.gw * CELL, h: r.gh * CELL,
+      type: r.type,
+    }));
+
+    // ── Build floor grid ────────────────────────────────────────────────────
+    // Encode cell (gx, gy) as gy * 10000 + gx (gx and gy are both < 200 for
+    // any realistic arena, so there are no collisions in this encoding).
+    const enc = (gx: number, gy: number): number => gy * 10000 + gx;
+    const dec = (code: number): [number, number] => {
+      const gy = Math.floor(code / 10000);
+      return [code - gy * 10000, gy];
+    };
+
+    const floorCells = new Set<number>();
+
+    // Mark room interior cells.
+    for (const r of roomGs) {
+      for (let dx = 0; dx < r.gw; dx++)
+        for (let dy = 0; dy < r.gh; dy++)
+          floorCells.add(enc(r.gx + dx, r.gy + dy));
+    }
+
+    // Mark L-shaped corridor cells and collect world rects for floor tiling.
+    // Horizontal leg first (at room-A centre row), then vertical leg at room-B
+    // centre column — same pattern as the previous visual-only corridors.
+    const corridorRects: { x: number; y: number; w: number; h: number }[] = [];
+    for (let i = 1; i < roomGs.length; i++) {
+      const a = roomGs[i - 1];
+      const b = roomGs[i];
+      const ax = Math.floor(a.gx + a.gw / 2);
+      const ay = Math.floor(a.gy + a.gh / 2);
+      const bx = Math.floor(b.gx + b.gw / 2);
+      const by = Math.floor(b.gy + b.gh / 2);
+      const half = Math.floor(CW / 2);
+
+      const hMin = Math.min(ax, bx);
+      const hMax = Math.max(ax, bx);
+      if (hMax > hMin) {
+        for (let gx = hMin; gx <= hMax; gx++)
+          for (let k = 0; k < CW; k++)
+            floorCells.add(enc(gx, ay - half + k));
+        corridorRects.push({ x: hMin * CELL, y: (ay - half) * CELL, w: (hMax - hMin + 1) * CELL, h: CW * CELL });
+      }
+
+      const vMin = Math.min(ay, by);
+      const vMax = Math.max(ay, by);
+      if (vMax > vMin) {
+        for (let gy = vMin; gy <= vMax; gy++)
+          for (let k = 0; k < CW; k++)
+            floorCells.add(enc(bx - half + k, gy));
+        corridorRects.push({ x: (bx - half) * CELL, y: vMin * CELL, w: CW * CELL, h: (vMax - vMin + 1) * CELL });
+      }
+    }
+
+    // ── Wall grid ───────────────────────────────────────────────────────────
+    // A wall cell is any non-floor cell that shares an edge or corner with a
+    // floor cell (8-connectivity). Diagonal neighbours are included so corridor
+    // junctions with rooms don't leave exposed void corners.
+    const wallCells = new Set<number>();
+    const deltas8: [number, number][] = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+    for (const code of floorCells) {
+      const [gx, gy] = dec(code);
+      for (const [dx, dy] of deltas8) {
+        const nc = enc(gx + dx, gy + dy);
+        if (!floorCells.has(nc)) wallCells.add(nc);
+      }
+    }
+
+    // ── Floor tile rendering ────────────────────────────────────────────────
     const tileRect = (x: number, y: number, w: number, h: number): void => {
-      const x1 = Math.max(innerX, x);
-      const y1 = Math.max(innerY, y);
-      const x2 = Math.min(innerX + innerW, x + w);
-      const y2 = Math.min(innerY + innerH, y + h);
-      if (x2 <= x1 || y2 <= y1) return;
-      const cols = Math.ceil((x2 - x1) / TILE);
-      const rows = Math.ceil((y2 - y1) / TILE);
+      const cols = Math.ceil(w / TILE);
+      const rows = Math.ceil(h / TILE);
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          const wx = x1 + col * TILE + TILE / 2;
-          const wy = y1 + row * TILE + TILE / 2;
-          if (wx > x2 || wy > y2) continue;
+          const wx = x + col * TILE + TILE / 2;
+          const wy = y + row * TILE + TILE / 2;
+          if (wx > x + w || wy > y + h) continue;
           const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
           const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
           this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
         }
       }
     };
+    for (const r of rooms) tileRect(r.x, r.y, r.w, r.h);
+    for (const c of corridorRects) tileRect(c.x, c.y, c.w, c.h);
 
-    // Tile each room's floor.
-    for (const room of rooms) tileRect(room.x, room.y, room.w, room.h);
+    // ── Wall visual rendering ───────────────────────────────────────────────
+    // Each wall cell is a CELL×CELL stone block. A lighter top strip simulates
+    // the 3/4-view top-face lit from above; a mortar edge defines individual
+    // stones — matching the warm travertine palette of the floor tileset.
+    const gfx = this.add.graphics();
+    for (const code of wallCells) {
+      const [gx, gy] = dec(code);
+      const wx = gx * CELL;
+      const wy = gy * CELL;
+      const variant = (gx * 7 + gy * 13) % 3;
+      const stoneColor = variant === 0 ? 0x8a6a48 : variant === 1 ? STONE_DARK : 0x7a6048;
+      gfx.fillStyle(stoneColor, 1);
+      gfx.fillRect(wx, wy, CELL, CELL);
+      // Lighter top strip — 3/4-view top-face highlight.
+      gfx.fillStyle(STONE_MID, 0.35);
+      gfx.fillRect(wx, wy, CELL, 3);
+      gfx.lineStyle(1, MORTAR_C, 0.55);
+      gfx.strokeRect(wx, wy, CELL, CELL);
+    }
 
-    // Connect consecutive rooms with L-shaped corridors (horizontal leg first,
-    // then vertical at the elbow). This guarantees at least one path between
-    // every adjacent pair in the list.
-    for (let i = 1; i < rooms.length; i++) {
-      const a    = rooms[i - 1];
-      const b    = rooms[i];
-      const ax   = Math.round(a.x + a.w / 2);
-      const ay   = Math.round(a.y + a.h / 2);
-      const bx   = Math.round(b.x + b.w / 2);
-      const by   = Math.round(b.y + b.h / 2);
-      const half = Math.round(CORRIDOR_W / 2);
+    // ── Wall physics (merged horizontal segments) ───────────────────────────
+    // Group wall cells by row (gy), sort each row's gx list, then merge
+    // contiguous runs into a single static body per run. Fewer bodies =
+    // fewer collision pairs checked per frame.
+    const wallRows = new Map<number, number[]>();
+    for (const code of wallCells) {
+      const [gx, gy] = dec(code);
+      if (!wallRows.has(gy)) wallRows.set(gy, []);
+      wallRows.get(gy)!.push(gx);
+    }
 
-      // Horizontal leg: room-a centre → room-b centre X, at room-a centre Y.
-      tileRect(Math.min(ax, bx), ay - half, Math.abs(bx - ax), CORRIDOR_W);
-      // Vertical leg: elbow (bx, ay) → room-b centre Y.
-      tileRect(bx - half, Math.min(ay, by), CORRIDOR_W, Math.abs(by - ay));
+    for (const [gy, gxList] of wallRows) {
+      gxList.sort((a, b) => a - b);
+      let start = gxList[0];
+      let prev  = gxList[0];
+      for (let i = 1; i <= gxList.length; i++) {
+        const cur = gxList[i];
+        if (i < gxList.length && cur === prev + 1) {
+          prev = cur;
+        } else {
+          const wx = start * CELL;
+          const wy = gy * CELL;
+          const ww = (prev - start + 1) * CELL;
+          const zone = this.add.zone(wx + ww / 2, wy + CELL / 2, ww, CELL);
+          this.physics.add.existing(zone, true);
+          this.obstacles.add(zone);
+          this.wallRects.push(new Phaser.Geom.Rectangle(wx, wy, ww, CELL));
+          if (i < gxList.length) { start = prev = cur; }
+        }
+      }
     }
 
     return rooms;
