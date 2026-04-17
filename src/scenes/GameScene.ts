@@ -37,6 +37,8 @@ import type { PathChoice } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 import { Dustling } from '../entities/Dustling';
+import { CrackedGolem } from '../entities/CrackedGolem';
+import { Projectile } from '../entities/Projectile';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
@@ -242,6 +244,7 @@ interface DropTable {
 const DROP_TABLES: Record<string, DropTable> = {
   zombieRabbit:       { gold: { min: 1,  max: 4  } },
   corruptedGuardian:  { gold: { min: 60, max: 80 } },
+  crackedGolem:       { gold: { min: 5,  max: 15 } },
 };
 
 // ── Loot chests (FIL-92) ─────────────────────────────────────────────────────
@@ -697,6 +700,10 @@ export class GameScene extends Phaser.Scene {
   private dustlingSwarmAlive = false;
   /** Semi-opaque black screen overlay — visible while swarm is alive. */
   private dustlingOverlay!: Phaser.GameObjects.Rectangle;
+  // ── Cracked Golems (FIL-306) ─────────────────────────────────────────────────
+  private golems: CrackedGolem[] = [];
+  /** Projectiles spawned by golem death bursts — ticked and pruned each frame. */
+  private golemProjectiles: Projectile[] = [];
 
   // ── Upgrade shrine (FIL-130) ──────────────────────────────────────────────────
   private readonly shrinePos       = { x: 380, y: 2760 };
@@ -1324,6 +1331,7 @@ export class GameScene extends Phaser.Scene {
     this.createHudAndOverlay();
     this.createPortal();
     this.createBoss();
+    this.createGolems();
     this.createLevel1Zones();
     this.createLevel1Collectibles();
     this.createShrine();
@@ -1513,6 +1521,7 @@ export class GameScene extends Phaser.Scene {
     this.updateRangedProjectiles(delta);
     if (this.bossAlive && this.boss) this.boss.update(delta);
     this.updateDustlings(delta);
+    this.updateGolems(delta);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
     if (this.portalActive) {
@@ -2159,6 +2168,24 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // ── Golem hit check ───────────────────────────────────────────────────────
+    for (const golem of this.golems) {
+      if (!golem.isAlive) continue;
+      const dg = Phaser.Math.Distance.Between(px, py, golem.x, golem.y);
+      if (dg <= swipeRange * 1.2) {
+        const gx = golem.x;
+        const gy = golem.y;
+        golem.takeDamage(1);
+        golem.onHitBy(px, py);
+        this.cameras.main.shake(120, 0.004);
+        if (!golem.isAlive) {
+          this.resolveDrops('crackedGolem', gx, gy);
+        }
+        this.skillSystem.addXP('cleansing', 3);
+        return;
+      }
+    }
+
     // getChildren() already returns a plain array — no spread copy needed.
     for (const child of this.rabbits.getChildren()) {
       const r = child as Phaser.GameObjects.Rectangle;
@@ -2339,6 +2366,24 @@ export class GameScene extends Phaser.Scene {
           return false;
         }
       }
+
+      // Golem hit — 26×26 body, use moderate radius.
+      for (const golem of this.golems) {
+        if (!golem.isAlive) continue;
+        if (Phaser.Math.Distance.Between(p.arc.x, p.arc.y, golem.x, golem.y) < RANGED_RADIUS + 14) {
+          const gx = golem.x;
+          const gy = golem.y;
+          golem.takeDamage(1);
+          golem.onHitBy(p.arc.x, p.arc.y);
+          this.cameras.main.shake(120, 0.004);
+          if (!golem.isAlive) {
+            this.resolveDrops('crackedGolem', gx, gy);
+          }
+          p.arc.destroy();
+          return false;
+        }
+      }
+
 
       // Rabbit hit — reuse applySwipeHit for consistent kill/flee logic.
       for (const child of this.rabbits.getChildren()) {
@@ -3091,6 +3136,76 @@ export class GameScene extends Phaser.Scene {
     } else if (anyAlive) {
       this.dustlingOverlay.setVisible(true);
     }
+  }
+
+  /**
+   * Spawn CrackedGolems in the forest/plateau area and wire up physics,
+   * player overlap damage, and death-burst projectile collection.
+   *
+   * Golems are placed in a cluster near the mid-map forest zone so the player
+   * encounters them before reaching the portal boss. Three fixed positions give
+   * a deterministic layout without adding another RNG sub-seed.
+   */
+  private createGolems(): void {
+    // Mid-corridor positions — spread across the Skuleskogen/forest zone.
+    const SPAWN_POSITIONS: Array<{ x: number; y: number }> = [
+      { x: 2100, y: 1300 },
+      { x: 2450, y: 1150 },
+      { x: 2700, y: 1450 },
+    ];
+
+    for (const pos of SPAWN_POSITIONS) {
+      const golem = new CrackedGolem(this, pos.x, pos.y);
+      golem.setDepth(pos.y);
+      golem.setPlayerTarget(() => {
+        // Expose the player as a Damageable for death-burst projectile targeting.
+        // The player satisfies the Damageable interface via LivingEntity.
+        return this.player as unknown as import('../entities/Projectile').Damageable;
+      });
+
+      this.physics.add.existing(golem);
+      (golem.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+      this.physics.add.collider(golem, this.mountainWalls);
+
+      // Contact damage — same invincibility window as boss and rabbit overlap.
+      this.physics.add.overlap(this.player, golem, () => {
+        if (this.gameEnded || this.attractMode || !golem.isAlive) return;
+        const now = this.time.now;
+        if (now < this.dashingUntil) return;
+        if (now - this.lastDamagedAt < 1500) return;
+        this.lastDamagedAt = now;
+        this.playerHp = Math.max(0, this.playerHp - 15);
+        this.setHpHud(this.playerHp);
+        if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
+        this.playerSprite.setTint(0xff4444);
+        this.time.delayedCall(200, () => this.playerSprite.clearTint());
+        if (this.playerHp <= 0) this.onPlayerDeath();
+      });
+
+      this.golems.push(golem);
+    }
+
+    // Collect projectiles from golem death bursts and tick them each frame.
+    this.events.on('golem-death-burst', (projectiles: Projectile[]) => {
+      this.golemProjectiles.push(...projectiles);
+    });
+  }
+
+  /**
+   * Tick all live golem entities and their death-burst projectiles.
+   * Prunes expired projectiles from the list each frame.
+   */
+  private updateGolems(delta: number): void {
+    for (const golem of this.golems) {
+      if (golem.isAlive) golem.update(delta);
+    }
+
+    if (this.golemProjectiles.length === 0) return;
+    for (const proj of this.golemProjectiles) {
+      proj.tick(delta);
+    }
+    // Remove expired projectiles (hit target, exceeded range, or gone off-bounds).
+    this.golemProjectiles = this.golemProjectiles.filter(p => !p.isExpired);
   }
 
   /**
