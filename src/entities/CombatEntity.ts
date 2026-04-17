@@ -188,6 +188,19 @@ export abstract class CombatEntity extends Enemy {
   /** Shared arena state — set by the scene, read by individual enemy BTs. */
   protected blackboard: ArenaBlackboard | null = null;
 
+  // ── Status effects ─────────────────────────────────────────────────────────
+  /** When true the entity cannot move (applied by StaticCrawler on melee hit). */
+  frozen = false;
+  private frozenTimer = 0;
+  /**
+   * When true the entity's signature ability is suppressed (applied by
+   * StaticCrawler EMP on death). Checked by hero BT branches that gate
+   * signature moves — currently a flag; the hero can read it before using
+   * special abilities.
+   */
+  signatureDisabled = false;
+  private signatureDisabledTimer = 0;
+
   /**
    * Obstacle AABBs used for line-of-sight checks. Populated by the arena
    * scene via setWallRects() when physics are added to this entity.
@@ -333,6 +346,27 @@ export abstract class CombatEntity extends Enemy {
   }
 
   /**
+   * Freeze this entity for `ms` milliseconds — velocity is zeroed and movement
+   * input is ignored while frozen. Extends any existing freeze rather than
+   * cutting it short.
+   */
+  applyFrozen(ms: number): void {
+    this.frozen = true;
+    this.frozenTimer = Math.max(this.frozenTimer, ms);
+    (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(0, 0);
+  }
+
+  /**
+   * Suppress this entity's signature ability for `ms` milliseconds. Hero BT
+   * branches that gate special moves should check `this.signatureDisabled`.
+   * Extends any existing suppression rather than cutting it short.
+   */
+  applySignatureDisabled(ms: number): void {
+    this.signatureDisabled = true;
+    this.signatureDisabledTimer = Math.max(this.signatureDisabledTimer, ms);
+  }
+
+  /**
    * Register the obstacle rectangles for line-of-sight testing.
    * Called by CombatArenaScene after adding physics to this entity.
    */
@@ -433,6 +467,22 @@ export abstract class CombatEntity extends Enemy {
   override updateBehaviour(delta: number): void {
     this.attackTimer = Math.max(0, this.attackTimer - delta);
 
+    // ── Status effect timers ─────────────────────────────────────────────────
+    if (this.frozenTimer > 0) {
+      this.frozenTimer = Math.max(0, this.frozenTimer - delta);
+      if (this.frozenTimer === 0) this.frozen = false;
+      // Keep velocity zeroed every frame while frozen so accumulated forces
+      // (boids, knockback) don't gradually push the entity.
+      (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(0, 0);
+      this.refreshHpBar();
+      this.updateSpriteAnimation(delta);
+      return;
+    }
+    if (this.signatureDisabledTimer > 0) {
+      this.signatureDisabledTimer = Math.max(0, this.signatureDisabledTimer - delta);
+      if (this.signatureDisabledTimer === 0) this.signatureDisabled = false;
+    }
+
     // Physics body — may be undefined if the scene hasn't added it yet.
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
 
@@ -494,8 +544,8 @@ export abstract class CombatEntity extends Enemy {
       opponent: effectiveOpponent,
 
       moveToward: (tx, ty) => {
-        // No-op during dash so the burst velocity isn't overwritten.
-        if (!physBody || this.isDashing) return;
+        // No-op during dash or freeze so the burst / lock isn't overwritten.
+        if (!physBody || this.isDashing || this.frozen) return;
         const dx  = tx - this.x;
         const dy  = ty - this.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -629,7 +679,7 @@ export abstract class CombatEntity extends Enemy {
    * No-op while a dash is in progress so the burst isn't cancelled.
    */
   setMoveVelocity(vx: number, vy: number): void {
-    if (this.isDashing) return;
+    if (this.isDashing || this.frozen) return;
     (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(vx, vy);
   }
 

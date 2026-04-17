@@ -9,6 +9,7 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
+import { GlitchDrone, StaticCrawler, RustBerserker } from '../entities/EarthEnemies';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -28,21 +29,28 @@ interface WaveGroup {
 }
 
 /**
- * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
+ * Enemy roster: Velcrid (bio / subterranean) + Earth (corrupted machines and soldiers).
  * Groups cycle indefinitely; difficulty scales via the wave number multiplier in spawnWaveGroup.
+ *
+ * GlitchDrone swarms are split across two groups of 4 so the 8-drone swarm
+ * spawns across two consecutive waves without hitting the MAX_ALIVE cap at once.
  */
 const WAVE_GROUPS: WaveGroup[] = [
-  { label: 'Baby Swarm',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Scout Pair',   enemies: [VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
-  { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  { label: 'Baby Swarm',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Scout Pair',    enemies: [VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Glitch Swarm A', enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
+  { label: 'Mixed Pack',    enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+  { label: 'Glitch Swarm B', enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
+  { label: 'Crawler Pair',  enemies: [StaticCrawler, StaticCrawler] },
+  { label: 'Baby Horde',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Berserker Squad', enemies: [RustBerserker, RustBerserker, RustBerserker] },
+  { label: 'Reaver Squad',  enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
-const MAX_ALIVE       = 20;   // total alive enemy cap
+const MAX_ALIVE       = 24;   // total alive enemy cap (raised from 20 to fit 8-drone swarms)
 const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
