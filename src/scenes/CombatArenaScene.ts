@@ -106,6 +106,15 @@ export class CombatArenaScene extends Phaser.Scene {
   private _lastHudAlive = -1;
   private _lastHudKills = -1;
 
+  // ── HP bars (FIL-245) ───────────────────────────────────────────────────────
+  /** P1 green fill rect — scaleX updated every frame from hero.hpFraction. */
+  private p1HpBarFill!: Phaser.GameObjects.Rectangle;
+  /** P2 orange fill rect — scaleX updated every frame from hero2.hpFraction.
+   *  Stays hidden (scaleX=0) until a second player joins. */
+  private p2HpBarFill!: Phaser.GameObjects.Rectangle;
+  /** Second player hero — null until co-op P2 is wired in. */
+  private hero2: CombatEntity | null = null;
+
   // Arena bounds — set in buildArena(), used by spawn helpers.
   private arenaX = 0;
   private arenaY = 0;
@@ -450,6 +459,10 @@ export class CombatArenaScene extends Phaser.Scene {
     // Only call setText when the value changed — setText rebuilds the texture
     // every call, even for an identical string.
     if (!this.bgMode) {
+      // HP bars — scaleX is cheap to set every frame (no texture rebuild).
+      this.p1HpBarFill.scaleX = this.heroAlive ? Math.max(0, this.hero.hpFraction) : 0;
+      this.p2HpBarFill.scaleX = this.hero2?.isAlive ? Math.max(0, this.hero2.hpFraction) : 0;
+
       if (this.waveNumber      !== this._lastHudWave)  { this.hudWave.setText(`Wave ${this.waveNumber}`);         this._lastHudWave  = this.waveNumber; }
       if (this.aliveEnemies.length !== this._lastHudAlive) { this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`); this._lastHudAlive = this.aliveEnemies.length; }
       if (this.killCount       !== this._lastHudKills) { this.hudKills.setText(`Kills: ${this.killCount}`);       this._lastHudKills = this.killCount; }
@@ -1005,20 +1018,49 @@ export class CombatArenaScene extends Phaser.Scene {
       backgroundColor: '#00000077',
       padding:         { x: 6, y: 3 },
     };
+
+    // ── P1 / P2 HP bars (FIL-245) ───────────────────────────────────────────
+    // Two coloured bars pinned to screen corners so they're always readable
+    // regardless of camera zoom or position.
+    const BAR_W = 120;
+    const BAR_H = 8;
+    const BAR_Y = 14;   // bar top edge in screen pixels
+    const LBL_Y = 3;    // label top edge above the bar
+
+    // P1 — green, top-left
+    this.add.text(12, LBL_Y, 'P1 HP', { fontSize: '10px', color: '#88ffaa' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+    this.add.rectangle(12, BAR_Y, BAR_W, BAR_H, 0x1a3322)
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+    this.p1HpBarFill = this.add.rectangle(12, BAR_Y, BAR_W, BAR_H, 0x44ff88)
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+
+    // P2 — orange, top-right (aligned to left edge of the nav panel).
+    // P2 shows 0 HP until a second player is wired in.
+    const P2_X = this.scale.width - CombatArenaScene.PANEL_W - BAR_W - 12;
+    this.add.text(P2_X, LBL_Y, 'P2 HP', { fontSize: '10px', color: '#ffaa88' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+    this.add.rectangle(P2_X, BAR_Y, BAR_W, BAR_H, 0x33180a)
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+    this.p2HpBarFill = this.add.rectangle(P2_X, BAR_Y, BAR_W, BAR_H, 0xff8844)
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
+    this.p2HpBarFill.scaleX = 0; // empty until hero2 exists
+
+    // ── Status text — shifted down 20 px to sit below the HP bars ───────────
     // HUD anchored left — keeps it away from the right-side nav panel.
     this.hudWave = this.add
-      .text(12, 12, 'Wave 0', { ...base, color: '#99ddff' })
+      .text(12, 32, 'Wave 0', { ...base, color: '#99ddff' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
     this.hudAlive = this.add
-      .text(12, 32, 'Alive: 0', { ...base, color: '#aaffaa' })
+      .text(12, 52, 'Alive: 0', { ...base, color: '#aaffaa' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
     this.hudKills = this.add
-      .text(12, 52, 'Kills: 0', { ...base, color: '#ffcc88' })
+      .text(12, 72, 'Kills: 0', { ...base, color: '#ffcc88' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
 
     // Mine gadget — locked until GADGET_UNLOCK_KILLS, then shows cooldown status.
     this.hudGadget = this.add
-      .text(12, 72, 'MINE: locked', { ...base, color: '#555555' })
+      .text(12, 92, 'MINE: locked', { ...base, color: '#555555' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
 
     this.buildZoomSlider();
@@ -1065,7 +1107,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
   private buildZoomSlider(): void {
     const SX       = 12;    // track left edge (screen x)
-    const SY       = 88;    // track centre (screen y)
+    const SY       = 108;   // track centre (screen y) — shifted +20 to sit below MINE text
     const SW       = 110;   // track width
     const MIN_ZOOM = 1.0;
     const MAX_ZOOM = 6.0;
