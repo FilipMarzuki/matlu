@@ -2,6 +2,10 @@
 // Fetches Linear issues eligible for the per-issue nightly agent.
 //
 // Eligibility: state=Backlog or Todo, assignee="Filip Marzuki", label="ready".
+// Results are sorted by priority so the nightly agent works on the most
+// important issues first (the matrix runs max-parallel: 3, so position matters):
+//   1 = Urgent → 2 = High → 3 = Normal → 4 = Low → 0 = No priority (last)
+//
 // Emits a JSON array of Linear issue identifiers (e.g. ["FIL-42","FIL-43"])
 // on stdout. When run in GitHub Actions, also appends `issues=[...]` to
 // $GITHUB_OUTPUT so the downstream matrix job can fan out over them.
@@ -60,10 +64,17 @@ const READY_QUERY = `
       orderBy: updatedAt
       first: 50
     ) {
-      nodes { identifier }
+      nodes { identifier priority }
     }
   }
 `;
+
+// Linear priority values: 1=Urgent, 2=High, 3=Normal, 4=Low, 0=No priority.
+// Sort ascending by priority, but treat 0 (no priority) as lower than 4 (Low)
+// so explicitly prioritised issues always come first.
+function priorityOrder(p) {
+  return p === 0 ? 5 : p;
+}
 
 const ONE_ISSUE_QUERY = `
   query OneIssue($id: String!) {
@@ -85,7 +96,9 @@ async function main() {
     identifiers = [data.issue.identifier];
   } else {
     const data = await linearQuery(READY_QUERY);
-    identifiers = data.issues.nodes.map((n) => n.identifier);
+    identifiers = data.issues.nodes
+      .sort((a, b) => priorityOrder(a.priority) - priorityOrder(b.priority))
+      .map((n) => n.identifier);
   }
 
   // GitHub Actions' matrix strategy needs strict JSON — no trailing newlines
