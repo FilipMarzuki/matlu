@@ -7,3 +7,7 @@ import { Bao } from './Bao';
 export const HERO_ROSTER = [Bao] as const;
 export { TheTorrent } from './TheTorrent';
 export type { TorrentConfig } from './TheTorrent';
+import { MasterFen } from './MasterFen';
+
+// TODO: Bao added in FIL-282-A
+export const HERO_ROSTER = [MasterFen] as const;

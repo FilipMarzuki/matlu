@@ -64,6 +64,12 @@ export abstract class LivingEntity extends Entity {
     return actual;
   }
 
+  /** Restore HP by amount, capped at maxHp. No-ops if dead. */
+  heal(amount: number): void {
+    if (this.dead) return;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+  }
+
   /** Hook called every time damage is applied (even non-lethal). */
   protected onDamaged(_amount: number): void {
     // override in subclasses
