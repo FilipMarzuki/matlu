@@ -338,10 +338,9 @@ async function getLinearStats() {
       query InProgress {
         issues(
           filter: { state: { type: { eq: "started" } } }
-          first: 20
+          first: 100
           orderBy: updatedAt
         ) {
-          totalCount
           nodes { identifier title updatedAt }
         }
       }
@@ -370,7 +369,7 @@ async function getLinearStats() {
     .sort((a, b) => b.daysSinceUpdate - a.daysSinceUpdate)
     .slice(0, 5);
 
-  return { completedCount, avgCycleTime, reworkRate: 0, staleInProgress, inProgressCount: inProgressData.issues.totalCount };
+  return { completedCount, avgCycleTime, reworkRate: 0, staleInProgress, inProgressCount: inProgressData.issues.nodes.length };
 }
 
 // ── AI token usage ────────────────────────────────────────────────────────────
