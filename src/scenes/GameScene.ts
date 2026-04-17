@@ -301,41 +301,31 @@ interface AnimalDef {
   fleeRange: number; fleeSpeed: number; roamSpeed: number; count: number;
   /** Pixel scale applied to the 16×16 sprite to reach the desired display size. */
   scale: number;
+  /**
+   * FIL-50: Per-species startle vocalization played once when the animal starts fleeing.
+   * Uses pitch-shifting (`rate`) so species sound distinct without extra audio files.
+   * rate < 1 → lower pitch (large animals); rate > 1 → higher pitch (small ones).
+   */
+  fleeVocal: { key: string; volume: number; rate: number };
 }
 
 const ANIMAL_DEFS: Record<string, AnimalDef> = {
-  deer:   { w: 22, h: 14, scale: 2.0, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18 },
-  hare:   { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28 },
-  fox:    { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 15 },
+  deer:   { w: 22, h: 14, scale: 2.0, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18, fleeVocal: { key: 'animal-rustle-1', volume: 0.65, rate: 0.55 } },  // low snort
+  hare:   { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28, fleeVocal: { key: 'animal-rustle-3', volume: 0.50, rate: 2.00 } },  // high squeak
+  fox:    { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 15, fleeVocal: { key: 'animal-rustle-2', volume: 0.60, rate: 1.30 } },  // sharp yelp
   // Grouse: small ground bird, lives in coveys of 2–4 in dense forest.
   // Slightly smaller display (scale 1.5) and flees faster than it roams.
-  grouse: { w: 12, h:  9, scale: 1.5, fleeRange: 160, fleeSpeed: 130, roamSpeed: 28, count: 14 },
+  grouse: { w: 12, h:  9, scale: 1.5, fleeRange: 160, fleeSpeed: 130, roamSpeed: 28, count: 14, fleeVocal: { key: 'animal-rustle-4', volume: 0.55, rate: 1.60 } },  // rapid cluck
   // ── Critters pack ──────────────────────────────────────────────────────────
   // Source frames are larger (32–42 px) so scale is 1.0–1.2 rather than 2.0.
   // SE-direction strips are loaded; sprite flips horizontally when moving left.
-  stag:   { w: 28, h: 18, scale: 1.2, fleeRange: 320, fleeSpeed: 105, roamSpeed: 18, count: 10 },
-  boar:   { w: 32, h: 16, scale: 1.0, fleeRange: 100, fleeSpeed:  88, roamSpeed: 26, count:  8 },
-  badger: { w: 22, h: 14, scale: 1.0, fleeRange: 160, fleeSpeed: 115, roamSpeed: 32, count: 12 },
+  stag:   { w: 28, h: 18, scale: 1.2, fleeRange: 320, fleeSpeed: 105, roamSpeed: 18, count: 10, fleeVocal: { key: 'animal-rustle-0', volume: 0.75, rate: 0.40 } },  // deep bellow
+  boar:   { w: 32, h: 16, scale: 1.0, fleeRange: 100, fleeSpeed:  88, roamSpeed: 26, count:  8, fleeVocal: { key: 'animal-rustle-0', volume: 0.70, rate: 0.65 } },  // low grunt
+  badger: { w: 22, h: 14, scale: 1.0, fleeRange: 160, fleeSpeed: 115, roamSpeed: 32, count: 12, fleeVocal: { key: 'animal-rustle-2', volume: 0.65, rate: 0.85 } },  // snarl
 };
 
 /** Fox detects hares within this radius and enters chase state. */
 const FOX_CHASE_RANGE = 220;
-
-/**
- * FIL-109: Per-species startle vocalizations.
- * No new audio files required — Phaser's `rate` parameter pitch-shifts the
- * existing Kenney impactSoft variants so each species sounds distinct.
- * rate < 1 → lower pitch (large animals); rate > 1 → higher pitch (small animals).
- */
-const SPECIES_VOCALIZE: Record<string, { key: string; volume: number; rate: number }> = {
-  deer:   { key: 'animal-rustle-1', volume: 0.65, rate: 0.55 },  // low snort
-  stag:   { key: 'animal-rustle-0', volume: 0.75, rate: 0.40 },  // deep bellow
-  hare:   { key: 'animal-rustle-3', volume: 0.50, rate: 2.00 },  // high squeak
-  fox:    { key: 'animal-rustle-2', volume: 0.60, rate: 1.30 },  // sharp yelp
-  grouse: { key: 'animal-rustle-4', volume: 0.55, rate: 1.60 },  // rapid cluck
-  boar:   { key: 'animal-rustle-0', volume: 0.70, rate: 0.65 },  // low grunt
-  badger: { key: 'animal-rustle-2', volume: 0.65, rate: 0.85 },  // snarl
-};
 
 const BIRD_COUNT      = 30;
 const BIRD_SHADOW_DX  = 7;
@@ -4883,9 +4873,9 @@ export class GameScene extends Phaser.Scene {
           // Record the timestamp when flee begins so the acceleration ramp knows
           // how much time has elapsed since the startle (FIL-226).
           r.setData('fleeStartTime', this.time.now);
-          const vox = SPECIES_VOCALIZE[type] ?? { key: `animal-rustle-${Phaser.Math.Between(0, 4)}`, volume: 0.5, rate: 1.0 };
-          if (this.audioAvailable && this.cache.audio.has(vox.key)) {
-            this.sound.play(vox.key, { volume: vox.volume, rate: vox.rate });
+          // FIL-50: fleeVocal is co-located in AnimalDef — no separate lookup needed.
+          if (this.audioAvailable && this.cache.audio.has(def.fleeVocal.key)) {
+            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume, rate: def.fleeVocal.rate });
           }
           // Switch to walk animation when fleeing starts — faster-looking movement.
           r.play(`${type}-walk-anim`);
