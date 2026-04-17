@@ -92,6 +92,8 @@ Tasks are tracked in **Linear** (project: Matlu, assignee: Filip Marzuki).
 - Move the issue to **In Progress** when starting
 - After implementing: open a PR, post the PR link as a comment on the Linear issue, mark it **Done**
 
+Label conventions (Type, Domain, Effort labels) are documented in **[`LABELS.md`](LABELS.md)**.
+
 ## When implementing a task
 
 1. Read the relevant existing files before writing anything
