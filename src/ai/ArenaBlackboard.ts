@@ -9,6 +9,10 @@
  *   flyerDiveCooldown — prevents multiple ParasiteFlyers diving simultaneously.
  *     When one flyer dives it sets this to DIVE_STAGGER_MS; others wait until
  *     it ticks back to 0 before starting their own dive.
+ *   packStalkerFrontAttacking — per-pack flag set by the PackStalker frontrunner
+ *     each frame it is in melee range. Flankers gate their attacks on this flag.
+ *     Keyed by packId so multiple simultaneous packs don't share state.
+ *     Cleared each tick; the frontrunner re-sets it while in melee range.
  */
 export class ArenaBlackboard {
   /** ms until the next ParasiteFlyer may begin a dive. */
@@ -28,6 +32,13 @@ export class ArenaBlackboard {
   panicOrigin: { x: number; y: number } | null = null;
   panicRadius  = 0;
 
+  /**
+   * Per-pack flag indicating the PackStalker frontrunner is in melee range.
+   * Keyed by packId — supports multiple packs active simultaneously.
+   * Cleared each tick; the frontrunner re-writes it every frame while engaged.
+   */
+  packStalkerFrontAttacking = new Map<string, boolean>();
+
   /** Called once per frame by the arena scene. Decrements all timers. */
   tick(delta: number): void {
     this.flyerDiveCooldown      = Math.max(0, this.flyerDiveCooldown      - delta);
@@ -35,5 +46,7 @@ export class ArenaBlackboard {
     this.velcridSoldierChargeCd = Math.max(0, this.velcridSoldierChargeCd - delta);
     // Clear panic origin after one frame — the arena scene re-sets it each event.
     this.panicOrigin = null;
+    // Clear per-pack front-attacking flags — each frontrunner re-sets per frame while in range.
+    this.packStalkerFrontAttacking.clear();
   }
 }
