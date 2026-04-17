@@ -9,6 +9,7 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
+import { Spineling } from '../entities/Spineling';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -28,15 +29,19 @@ interface WaveGroup {
 }
 
 /**
- * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
+ * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers)
+ * + Spineling (1 HP spider-crab swarmers, spawned in groups of 20).
  * Groups cycle indefinitely; difficulty scales via the wave number multiplier in spawnWaveGroup.
  */
 const WAVE_GROUPS: WaveGroup[] = [
-  { label: 'Baby Swarm',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Scout Pair',   enemies: [VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
-  { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  { label: 'Baby Swarm',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Scout Pair',    enemies: [VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Mixed Pack',    enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+  { label: 'Baby Horde',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Reaver Squad',  enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  // Spineling tide — twenty 1-HP spider-crab swarmers. AoE weapons clear
+  // clusters fast; single-target weapons must work through the whole mass.
+  { label: 'Spineling Tide', enemies: Array<EnemyCtor>(20).fill(Spineling) },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
