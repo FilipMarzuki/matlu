@@ -201,7 +201,7 @@ All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
 | Linear Hygiene | after Triage Agent | `.agents/hygiene.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
-| PR Queue Grooming | `0 3 * * *` (daily) | `.agents/pr-merge.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
+| PR Queue Grooming | after Nightly Agent | `.agents/pr-merge.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `LINEAR_API_KEY`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files Linear bugs |
 | Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY` | Expands thin lore entries, generates new ones in Notion |
 | Lore from Features | `0 15 * * *` (daily) | `.agents/lore-features.md` | `NOTION_API_KEY` | Scans merged PRs for new game entities, creates Notion lore entries |
