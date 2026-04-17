@@ -2536,7 +2536,7 @@ export class GameScene extends Phaser.Scene {
     const rx = rabbit.x;
     const ry = rabbit.y;
     this.spawnEnergyBurst(rx, ry, this.player.x, this.player.y);
-    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 * this.sfxVol });
+    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 * this.sfxVol, pan: this.stereoPan(rx) });
     rabbit.destroy();
     this.kills += 1;
     const percent = Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100);
@@ -2592,7 +2592,7 @@ export class GameScene extends Phaser.Scene {
 
     this.spawnEnergyBurst(animal.x, animal.y, this.player.x, this.player.y);
     if (this.audioAvailable && this.cache.audio.has('sfx-enemy-death')) {
-      this.sound.play('sfx-enemy-death', { volume: 0.3 * this.sfxVol });
+      this.sound.play('sfx-enemy-death', { volume: 0.3 * this.sfxVol, pan: this.stereoPan(animal.x) });
     }
     animal.destroy();
   }
@@ -2606,7 +2606,7 @@ export class GameScene extends Phaser.Scene {
    */
   private killCorruptedEnemy(e: Phaser.GameObjects.Rectangle, cleanseVal: number): void {
     this.spawnEnergyBurst(e.x, e.y, this.player.x, this.player.y);
-    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 * this.sfxVol });
+    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 * this.sfxVol, pan: this.stereoPan(e.x) });
     e.destroy();
     this.cleanseKillsExtra += cleanseVal;
     this.enemyKills += 1;
@@ -3144,7 +3144,7 @@ export class GameScene extends Phaser.Scene {
           // 'complete' listener — sound.play() returns boolean | BaseSound and
           // TypeScript can't safely narrow it for the cast we need below.
           if (this.cache.audio.has('sfx-portal')) {
-            const jingle = this.sound.add('sfx-portal', { volume: 0.6 * this.sfxVol });
+            const jingle = this.sound.add('sfx-portal', { volume: 0.6 * this.sfxVol, pan: this.stereoPan(this.portal.x) });
             jingle.once('complete', () => {
               // Swell music back to its pre-duck volume after the jingle finishes.
               if (this.musicTrack) {
@@ -3172,7 +3172,7 @@ export class GameScene extends Phaser.Scene {
       });
     } else if (this.audioAvailable && this.cache.audio.has('sfx-portal')) {
       // No music track active — just play the jingle at face value.
-      this.sound.add('sfx-portal', { volume: 0.6 * this.sfxVol }).play();
+      this.sound.add('sfx-portal', { volume: 0.6 * this.sfxVol, pan: this.stereoPan(this.portal.x) }).play();
     }
 
     this.tweens.add({
@@ -3930,6 +3930,23 @@ export class GameScene extends Phaser.Scene {
       case 'dusk':      return 0.12; // insects start as the light fades
       case 'night':     return 0.25; // full night chorus
     }
+  }
+
+  /**
+   * FIL-116: Convert a world-space X coordinate to a stereo pan value (-1 left, +1 right).
+   *
+   * `pan = clamp((sourceX - cameraCenter.x) / halfScreenWidth, -1, 1)`
+   *
+   * Where cameraCenter.x accounts for camera scroll so the pan reflects what the
+   * player actually sees — a sound off the right edge of the viewport pans right.
+   * Returns 0 (centre) if the camera hasn't been set up yet.
+   */
+  private stereoPan(sourceX: number): number {
+    const cam = this.cameras.main;
+    if (!cam) return 0;
+    const centerX    = cam.scrollX + cam.width / 2;
+    const halfScreen = this.scale.width / 2;
+    return Phaser.Math.Clamp((sourceX - centerX) / halfScreen, -1, 1);
   }
 
   // ── FIL-108: Zone-sensitive ambience ─────────────────────────────────────────
@@ -4991,7 +5008,8 @@ export class GameScene extends Phaser.Scene {
           r.setData('fleeStartTime', this.time.now);
           // FIL-50: fleeVocal is co-located in AnimalDef — no separate lookup needed.
           if (this.audioAvailable && this.cache.audio.has(def.fleeVocal.key)) {
-            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume * this.sfxVol, rate: def.fleeVocal.rate });
+            // FIL-116: pan the flee sound to the animal's screen position.
+            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume * this.sfxVol, rate: def.fleeVocal.rate, pan: this.stereoPan(r.x) });
           }
           // Switch to walk animation when fleeing starts — faster-looking movement.
           r.play(`${type}-walk-anim`);
@@ -6725,9 +6743,11 @@ export class GameScene extends Phaser.Scene {
     const itemWorld = ITEM_ALIGNMENT_MAP[id];
     if (itemWorld) this.worldState.adjustAlignment(itemWorld, 5);
 
-    // Collectible pickup jingle
+    // Collectible pickup jingle — pan to the collectible's world X (FIL-116).
     if (this.audioAvailable && this.cache.audio.has('sfx-pickup')) {
-      this.sound.play('sfx-pickup', { volume: 0.55 * this.sfxVol });
+      const collectibleSprite = this.collectibleSprites.get(id);
+      const pickupPan = collectibleSprite ? this.stereoPan(collectibleSprite.x) : 0;
+      this.sound.play('sfx-pickup', { volume: 0.55 * this.sfxVol, pan: pickupPan });
     }
 
     const sprite = this.collectibleSprites.get(id);
