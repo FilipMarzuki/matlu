@@ -7,6 +7,7 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
+import { BurrowHole } from '../entities/BurrowHole';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -92,6 +93,9 @@ export class CombatArenaScene extends Phaser.Scene {
 
   private mainSpawnTimer = 3000;  // first group fires after 3 s
 
+  /** Active BurrowHole instances — populated by FIL-293 wave placement. */
+  private activeHoles: BurrowHole[] = [];
+
   // HUD cache — setText() rebuilds the text texture on every call even when the
   // value hasn't changed, so only call it when the value actually differs.
   private _lastHudWave  = -1;
@@ -145,11 +149,11 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Gunshot SFX — impactMetal_heavy pitched up gives a snappy, metallic crack.
-    // Three variants (000–002) are cycled on each shot to avoid repetition fatigue.
+    // Gunshot SFX — impactPlate_heavy has a sharper transient than impactMetal_heavy,
+    // closer to a pistol crack when pitched up. Three variants cycled to avoid fatigue.
     const ksfx = 'assets/audio/kenney_impact-sounds/Audio';
     for (let i = 0; i < 3; i++) {
-      this.load.audio(`gunshot-${i}`, `${ksfx}/impactMetal_heavy_00${i}.ogg`);
+      this.load.audio(`gunshot-${i}`, `${ksfx}/impactPlate_heavy_00${i}.ogg`);
     }
 
     // Tense dungeon ambience — "Cloak of Darkness" fits the arena's dark-stone aesthetic.
@@ -226,10 +230,11 @@ export class CombatArenaScene extends Phaser.Scene {
       this.combatMusic.play();
     }
 
-    // Clean up combat music when leaving the arena.
+    // Clean up combat music and any active burrow holes when leaving the arena.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.combatMusic?.stop();
       this.combatMusic = null;
+      this.clearHoles();
     });
 
     // Projectile listener lives for the whole scene — enemies and hero both fire.
@@ -269,7 +274,7 @@ export class CombatArenaScene extends Phaser.Scene {
         const key = `gunshot-${this.gunshotIndex}`;
         this.gunshotIndex = (this.gunshotIndex + 1) % 3;
         if (this.cache.audio.has(key)) {
-          this.sound.play(key, { volume: 0.55, rate: 2.2 });
+          this.sound.play(key, { volume: 0.6, rate: 3.0 });
         }
       }
     });
@@ -748,6 +753,50 @@ export class CombatArenaScene extends Phaser.Scene {
     }
   }
 
+  // ── BurrowHole management ─────────────────────────────────────────────────────
+
+  /**
+   * Wire a BurrowHole into the arena spawn system.
+   *
+   * The hole will periodically fire `'hole-spawned'` events.  This method
+   * subscribes to that event and, for each spawn, adds the enemy to physics,
+   * sets its opponent, and pushes it into `aliveEnemies` — honouring the
+   * `MAX_ALIVE` cap (the tick is skipped, not queued, if the arena is full).
+   *
+   * `'hole-destroyed'` removes the hole from `activeHoles` automatically.
+   */
+  registerHole(hole: BurrowHole, enemyCtor: typeof BabyVelcrid | typeof VelcridJuvenile, intervalMs: number): void {
+    this.activeHoles.push(hole);
+    hole.startSpawning(enemyCtor, intervalMs);
+
+    hole.on('hole-spawned', (enemy: CombatEntity) => {
+      if (this.aliveEnemies.length >= MAX_ALIVE) {
+        // Arena is full — skip this spawn rather than queuing; the next tick
+        // will try again.
+        if (enemy.active) enemy.destroy();
+        return;
+      }
+      this.addPhysics(enemy);
+      enemy.setOpponent(this.hero);
+      this.aliveEnemies.push(enemy);
+      if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+      this.syncEnemyCoordination();
+    });
+
+    hole.on('hole-destroyed', () => {
+      this.activeHoles = this.activeHoles.filter(h => h !== hole);
+    });
+  }
+
+  /** Destroy all active holes and clear the tracking array. */
+  private clearHoles(): void {
+    for (const h of this.activeHoles) {
+      h.stopSpawning();
+      if (h.active) h.destroy();
+    }
+    this.activeHoles = [];
+  }
+
   // ── Enemy spawning ────────────────────────────────────────────────────────────
 
   private spawnWaveGroup(): void {
@@ -996,6 +1045,8 @@ export class CombatArenaScene extends Phaser.Scene {
     // Destroy all live enemies
     for (const e of this.aliveEnemies) { if (e.active) e.destroy(); }
     this.aliveEnemies = [];
+    // Destroy any active burrow holes and cancel their spawn timers.
+    this.clearHoles();
     // Destroy all projectiles
     for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
     this.projectiles = [];
