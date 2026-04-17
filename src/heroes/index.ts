@@ -5,3 +5,5 @@ import { Bao } from './Bao';
  * Master Fen will be added in a sibling issue.
  */
 export const HERO_ROSTER = [Bao] as const;
+export { TheTorrent } from './TheTorrent';
+export type { TorrentConfig } from './TheTorrent';
