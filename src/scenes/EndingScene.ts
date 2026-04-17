@@ -100,6 +100,12 @@ export class EndingScene extends Phaser.Scene {
     this.load.audio('music-ending', [
       'assets/audio/music-loop-bundle-2026-q1/Week 2 - Ruined Lands HOPE.ogg',
     ]);
+    // Short non-looping fanfare that plays first before the ambient loop (FIL-120).
+    // "Graceful Descent LANDING" is ≈3 s — punchy enough to feel like a reward
+    // without overstaying its welcome.
+    this.load.audio('victory-fanfare', [
+      'assets/audio/music-loop-bundle-2026-q1/Week 9 - Graceful Descent LANDING.ogg',
+    ]);
   }
 
   // Phaser calls init() with the data object passed to scene.launch().
@@ -115,13 +121,27 @@ export class EndingScene extends Phaser.Scene {
     // Use a fixed (non-scrolling) camera so the overlay renders in screen space.
     this.cameras.main.setScroll(0, 0);
 
-    // ── Ending ambient music ──────────────────────────────────────────────────
-    // Start at 0 and fade in so the jingle playing in GameScene isn't abruptly
-    // cut off. Music key loaded in preload() above.
-    if (this.cache.audio.has('music-ending')) {
+    // ── Ending audio: fanfare → ambient loop (FIL-120) ───────────────────────
+    // Play the victory fanfare once, then chain into the looping ambient track.
+    // Assigning to this.endingMusic immediately means the Main Menu button's
+    // stop() call covers whichever sound is currently playing.
+    type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    if (this.cache.audio.has('victory-fanfare')) {
+      const fanfare = this.sound.add('victory-fanfare', { loop: false, volume: 0.4 });
+      this.endingMusic = fanfare;
+      fanfare.once('complete', () => {
+        // After the fanfare finishes, fade in the ambient loop from silence.
+        if (this.cache.audio.has('music-ending')) {
+          this.endingMusic = this.sound.add('music-ending', { loop: true, volume: 0 });
+          this.endingMusic.play();
+          this.tweens.add({ targets: this.endingMusic as AudibleSound, volume: 0.15, duration: 2000, ease: 'Sine.easeIn' });
+        }
+      });
+      fanfare.play();
+    } else if (this.cache.audio.has('music-ending')) {
+      // Fallback: no fanfare loaded — go straight to ambient loop.
       this.endingMusic = this.sound.add('music-ending', { loop: true, volume: 0 });
       this.endingMusic.play();
-      type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
       this.tweens.add({ targets: this.endingMusic as AudibleSound, volume: 0.15, duration: 2000, ease: 'Sine.easeIn' });
     }
 
