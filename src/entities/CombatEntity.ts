@@ -118,6 +118,12 @@ export abstract class CombatEntity extends Enemy {
   /** When true the BT is bypassed — the scene drives velocity and attacks directly. */
   protected playerControlled = false;
 
+  /**
+   * Set to true by a SignalJammer while this entity is inside its suppression
+   * radius. Game systems check this flag to disable signature abilities.
+   */
+  public signatureDisabled = false;
+
   private attackTimer = 0;
   private wanderAngle = Math.random() * Math.PI * 2;
   private wanderTimer = 0;

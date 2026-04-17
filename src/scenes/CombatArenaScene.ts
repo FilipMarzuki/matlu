@@ -11,6 +11,7 @@ import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 import { Spineling } from '../entities/Spineling';
 import { Blightfrog } from '../entities/Blightfrog';
 import { GlitchDrone, StaticCrawler, RustBerserker } from '../entities/EarthEnemies';
+import { SignalJammer, InfectedAPC, ScrapGolem } from '../entities/EarthEnemies';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -60,6 +61,15 @@ const WAVE_GROUPS: WaveGroup[] = [
   { label: 'Baby Horde',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Berserker Squad', enemies: [RustBerserker, RustBerserker, RustBerserker] },
   { label: 'Reaver Squad',  enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  { label: 'Baby Swarm',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Scout Pair',   enemies: [VelcridJuvenile, VelcridJuvenile] },
+  { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+  { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  // Earth faction — field-control enemies
+  { label: 'Jammer Hold',   enemies: [SignalJammer] },
+  { label: 'APC Rush',      enemies: [InfectedAPC, InfectedAPC] },
+  { label: 'Golem Assault', enemies: [ScrapGolem] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -1088,6 +1098,11 @@ export class CombatArenaScene extends Phaser.Scene {
     this.physics.add.collider(entity, this.obstacles);
     // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
+
+    // ScrapGolem needs the obstacles group to detect nearby debris for regen.
+    if (entity instanceof ScrapGolem) {
+      entity.setObstacles(this.obstacles);
+    }
   }
 
   /**
