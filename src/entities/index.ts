@@ -24,3 +24,4 @@ export { Bonehulk } from './Bonehulk';
 export { DryShade } from './DryShade';
 export { Thornvine } from './Thornvine';
 export { MimicCrawler } from './MimicCrawler';
+export { Venomantis } from './Venomantis';

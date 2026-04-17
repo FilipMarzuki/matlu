@@ -39,6 +39,7 @@ import { Bonehulk } from '../entities/Bonehulk';
 import { SporeDrifter } from '../entities/SporeDrifter';
 import { Thornvine } from '../entities/Thornvine';
 import { MimicCrawler } from '../entities/MimicCrawler';
+import { Venomantis } from '../entities/Venomantis';
 
 /**
  * Constructor signature for any Spinolandet enemy — widened to LivingEntity
@@ -153,6 +154,27 @@ export const SPINOLANDET_WAVES: SpinelandetWave[] = [
     label: 'Stalker Ambush',
     singles: [MimicCrawler, MimicCrawler],
     groups:  [spawnPackStalkerTrio],
+  },
+  {
+    // Venomantis introduction: two mantises flank while Spinelings distract.
+    // Players learn to watch their backs — the mantis vanishes and reappears
+    // behind them every 5 s after a 2 s invisible window.
+    label: 'Shadow Strike',
+    singles: [
+      Venomantis, Venomantis,
+      Spineling, Spineling, Spineling,
+    ],
+    groups: [],
+  },
+  {
+    // Heavy flanking pressure: Venomantis teleport-flanks while Blightfrogs
+    // hold range and PackStalkers close from the front.
+    label: 'Flank & Poison',
+    singles: [
+      Venomantis,
+      Blightfrog, Blightfrog,
+    ],
+    groups: [spawnPackStalkerTrio],
   },
   {
     // Full colony escalation: every Spinolandet type in one wave.
