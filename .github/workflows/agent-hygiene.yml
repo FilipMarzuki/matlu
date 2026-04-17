@@ -11,8 +11,14 @@ name: Backlog Cleanup
 # and nightly implementation agents). A failure on one issue does not
 # block the others.
 #
-# Chain: fires via workflow_run when Backlog Refinement completes, so the order
-# each night is: refinement (22:00) → cleanup (~22:15) → dev agent (02:00)
+# Chain: fires via workflow_run when Backlog Refinement completes. After
+# cleanup, re-triggers Backlog Refinement so newly-split sub-issues get
+# triaged the same night they're created. Capped at MAX_REFINEMENT_RUNS=3
+# total per 6-hour window to prevent runaway loops — each cycle is ~30 min
+# so 3 runs still finishes well before the 02:00 UTC Dev Agent.
+#
+# Full nightly order: refinement (22:00) → cleanup → refinement → cleanup
+#                     → refinement (if needed) → cleanup → dev agent (02:00)
 #
 # Manual: trigger from the Actions tab. Optionally pin to a single issue
 # with the `issue` input (e.g. "FIL-42:mark-done").
@@ -85,3 +91,26 @@ jobs:
           LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
         run: node .github/scripts/run-hygiene.js "${{ matrix.issue }}"
+
+  chain-refinement:
+    needs: [fetch-issues, run-hygiene]
+    # Run even if some hygiene tasks failed or there were no issues — a split
+    # may have created new sub-issues that need triage regardless.
+    if: always() && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-trigger Backlog Refinement (max 3 runs per 6-hour window)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MAX_RUNS=3
+          CUTOFF=$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          RECENT=$(gh api "repos/${{ github.repository }}/actions/workflows/agent-triage.yml/runs" \
+            --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\")] | length")
+          echo "Backlog Refinement runs in last 6 hours: $RECENT (max: $MAX_RUNS)"
+          if [ "$RECENT" -lt "$MAX_RUNS" ]; then
+            echo "Dispatching Backlog Refinement (cycle $((RECENT + 1)) of $MAX_RUNS)"
+            gh workflow run agent-triage.yml
+          else
+            echo "Cap reached — stopping refinement chain for this cycle"
+          fi
