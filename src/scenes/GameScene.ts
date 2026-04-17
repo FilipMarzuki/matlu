@@ -6059,12 +6059,56 @@ export class GameScene extends Phaser.Scene {
       spr.play('river-anim');
       spr.anims.setCurrentFrame(riverAnim.frames[(i / 2) % riverAnim.frames.length]);
     }
-    const oceanAnim = this.anims.get('ocean-anim');
-    for (let i = 0; i < oceanCentres.length; i += 2) {
-      const spr = this.add.sprite(oceanCentres[i], oceanCentres[i + 1], 'terrain-water');
-      spr.setScale(2).setDepth(0.5);
-      spr.play('ocean-anim');
-      spr.anims.setCurrentFrame(oceanAnim.frames[(i / 2) % oceanAnim.frames.length]);
+    // FIL-259: single TileSprite replaces up to 2400 per-tile ocean animated sprites.
+    // One GPU draw call + one tween instead of one AnimationState update per tile per frame.
+    if (oceanCentres.length >= 2) {
+      // Compute bounding box of all ocean tile centres (world coordinates).
+      let minOceanX = Infinity, minOceanY = Infinity, maxOceanX = -Infinity, maxOceanY = -Infinity;
+      for (let i = 0; i < oceanCentres.length; i += 2) {
+        if (oceanCentres[i]     < minOceanX) minOceanX = oceanCentres[i];
+        if (oceanCentres[i]     > maxOceanX) maxOceanX = oceanCentres[i];
+        if (oceanCentres[i + 1] < minOceanY) minOceanY = oceanCentres[i + 1];
+        if (oceanCentres[i + 1] > maxOceanY) maxOceanY = oceanCentres[i + 1];
+      }
+      // Each tile centre is 32 world-px from its neighbours; add a half-tile on
+      // each edge so the TileSprite covers the outermost tile footprint fully.
+      const OCEAN_HALF = 16; // half of the 32×32 displayed tile (16 source × 2 scale)
+      const oceanX = (minOceanX + maxOceanX) / 2;
+      const oceanY = (minOceanY + maxOceanY) / 2;
+      const oceanW  = maxOceanX - minOceanX + 2 * OCEAN_HALF;
+      const oceanH  = maxOceanY - minOceanY + 2 * OCEAN_HALF;
+
+      const oceanTile = this.add
+        .tileSprite(oceanX, oceanY, oceanW, oceanH, 'terrain-water')
+        .setDepth(0.5);
+      // Scale the tiled texture to 2× so each tile appears 32×32 in world space,
+      // matching the original per-tile sprites.  setTileScale does not inflate the
+      // TileSprite's own display rect — it only changes how the texture tiles within it.
+      oceanTile.setTileScale(2, 2);
+
+      // Scroll one full texture width (64 source px = all 4 frames) in 2 s —
+      // equivalent to the original ocean-anim frame rate of 2 fps, but smooth
+      // instead of frame-stepped.
+      this.tweens.add({
+        targets:       oceanTile,
+        tilePositionX: { from: 0, to: 64 },
+        duration:      2000,
+        repeat:        -1,
+        ease:          'Linear',
+      });
+
+      // Geometry mask: clip the TileSprite to actual water tiles so land tiles
+      // enclosed by the bounding box remain unaffected.  setVisible(false) hides
+      // the Graphics from the regular render pass while leaving the stencil pass
+      // (which checks `active`, not `visible`) fully functional.
+      const oceanMaskGfx = this.add.graphics().setVisible(false);
+      for (let i = 0; i < oceanCentres.length; i += 2) {
+        oceanMaskGfx.fillRect(
+          oceanCentres[i] - OCEAN_HALF, oceanCentres[i + 1] - OCEAN_HALF,
+          2 * OCEAN_HALF,               2 * OCEAN_HALF,
+        );
+      }
+      oceanTile.setMask(oceanMaskGfx.createGeometryMask());
     }
     // FIL-260: lake sprites — near-still, 1 fps, only 2 frames so ponds feel quiet.
     const lakeAnim = this.anims.get('lake-anim');
