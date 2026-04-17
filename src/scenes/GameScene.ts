@@ -884,8 +884,11 @@ export class GameScene extends Phaser.Scene {
 
   // Phaser calls init() before preload()/create() with data from scene.start/restart.
   // This is where we read the requested game mode so preload() can branch on it.
-  init(data?: { mode?: 'wilderview' | 'arena' }): void {
-    this.gameMode = data?.mode ?? 'wilderview';
+  private skipAttract = false;
+
+  init(data?: { mode?: 'wilderview' | 'arena'; skipAttract?: boolean }): void {
+    this.gameMode    = data?.mode ?? 'wilderview';
+    this.skipAttract = data?.skipAttract ?? false;
   }
 
   preload(): void {
@@ -1560,9 +1563,9 @@ export class GameScene extends Phaser.Scene {
       this.corruptFilter = new CorruptionFilter(this.cameras.main);
       this.cameras.main.filters.external.add(this.corruptFilter);
     }
-    // /world dev route: skip attract screen and overlay so the world renders cleanly.
+    // Skip attract screen on the /world dev route or when launched from the nav panel.
     const isDevWorld = window.location.pathname.replace(/\/$/, '') === '/world';
-    if (isDevWorld) {
+    if (isDevWorld || this.skipAttract) {
       this.overlay.setAlpha(0);
       this.attractMode = false;
       this.player.setAlpha(1);

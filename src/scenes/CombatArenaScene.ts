@@ -1083,10 +1083,10 @@ export class CombatArenaScene extends Phaser.Scene {
       this.game.events.emit('nav-mode-change', 'arena');
     }
 
-    // NavScene button → goto wilderview.
+    // NavScene button → goto wilderview. skipAttract suppresses the overlay/name-entry screen.
     this.game.events.on('nav-goto-wilderview', () => {
       this.scene.stop(NavScene.KEY);
-      this.scene.start('GameScene');
+      this.scene.start('GameScene', { skipAttract: true });
     }, this);
 
     // NavScene button → toggle play mode.
