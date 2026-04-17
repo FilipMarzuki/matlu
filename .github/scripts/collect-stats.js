@@ -892,13 +892,13 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
     ? (ai.totalInput + ai.totalOutput + ai.totalCacheRead + ai.totalCacheWrite)
     : null;
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/stats_weekly`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/stats_weekly?on_conflict=week_of`, {
     method: 'POST',
     headers: {
       apikey: SUPABASE_SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates',
+      Prefer: 'resolution=merge-duplicates,return=minimal',
     },
     body: JSON.stringify({
       week_of: isoDate(),

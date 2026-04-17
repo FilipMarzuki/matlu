@@ -199,10 +199,9 @@ export class CombatArenaScene extends Phaser.Scene {
       this.cameras.main.filters.external.add(shimmer);
     }
 
-    this.anims.createFromAseprite('tinkerer');
-    this.anims.createFromAseprite('mini-velcrid');
+    this.createAnimsFromAseprite('tinkerer');
+    this.createAnimsFromAseprite('mini-velcrid');
 
-    // Phaser's createFromAseprite defaults repeat to 0 (play once and stop).
     // Walk and idle animations must loop so the sprite never freezes mid-stride.
     // Attack / dash / death stay one-shot — their keys don't contain _walk_ or _idle_.
     const LOOP_STATES = ['idle', 'walk'];
@@ -987,6 +986,47 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Creates Phaser animations from an Aseprite-format JSON that was loaded via
+   * this.load.aseprite(). Phaser 4's built-in createFromAseprite() references
+   * frames by numeric index string ("0", "1", …), but our custom assembler
+   * names frames descriptively ("idle_south_0", "idle_south_1", …). This
+   * helper reads the same cache.json entry but uses each frame's filename
+   * value so the animation frame keys match the atlas texture frame keys.
+   */
+  private createAnimsFromAseprite(key: string): void {
+    type AseFrame = { filename: string; duration?: number };
+    type AseTag   = { name: string; from: number; to: number; direction: string };
+    const data = this.cache.json.get(key) as {
+      frames: AseFrame[];
+      meta:   { frameTags: AseTag[] };
+    } | null;
+
+    if (!data?.frames || !data.meta?.frameTags) {
+      console.warn(`createAnimsFromAseprite: no data for key "${key}"`);
+      return;
+    }
+
+    for (const tag of data.meta.frameTags) {
+      const animFrames: { key: string; frame: string; duration: number }[] = [];
+      let totalDuration = 0;
+      for (let i = tag.from; i <= tag.to; i++) {
+        const f = data.frames[i];
+        if (!f) continue;
+        const dur = f.duration ?? 100;
+        animFrames.push({ key, frame: f.filename, duration: dur });
+        totalDuration += dur;
+      }
+      if (tag.direction === 'reverse') animFrames.reverse();
+      this.anims.create({
+        key:      tag.name,
+        frames:   animFrames,
+        duration: totalDuration,
+        yoyo:     tag.direction === 'pingpong',
+      });
+    }
+  }
 
   private addPhysics(entity: CombatEntity): void {
     this.physics.add.existing(entity);
