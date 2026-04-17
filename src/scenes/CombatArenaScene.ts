@@ -9,6 +9,7 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
+import { SporeDrifter, SporeCloud } from '../entities/SporeDrifter';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ const WAVE_GROUPS: WaveGroup[] = [
   { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
   { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  { label: 'Drifter',     enemies: [SporeDrifter] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -69,6 +71,7 @@ export class CombatArenaScene extends Phaser.Scene {
   private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
+  private sporeClouds:  SporeCloud[]   = [];
   private readonly blackboard = new ArenaBlackboard();
 
   /**
@@ -193,6 +196,7 @@ export class CombatArenaScene extends Phaser.Scene {
   create(): void {
     this.aliveEnemies    = [];
     this.projectiles     = [];
+    this.sporeClouds     = [];
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
@@ -250,6 +254,17 @@ export class CombatArenaScene extends Phaser.Scene {
     // Projectile listener lives for the whole scene — enemies and hero both fire.
     this.events.on('projectile-spawned', (p: Projectile) => {
       this.projectiles.push(p);
+    });
+
+    // SporeCloud listener — SporeDrifter emits this when it drops a cloud.
+    // The scene owns the cloud after this point: it ticks DoT in update() and
+    // destroys any live clouds in the SHUTDOWN handler below.
+    this.events.on('spore-cloud-spawned', (cloud: SporeCloud) => {
+      this.sporeClouds.push(cloud);
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      for (const c of this.sporeClouds) c.destroy();
+      this.sporeClouds = [];
     });
 
     // Gunshot effects — emitted by the Tinkerer in both AI and player modes.
@@ -419,6 +434,16 @@ export class CombatArenaScene extends Phaser.Scene {
     // ── Projectiles ───────────────────────────────────────────────────────────
     for (const p of this.projectiles) p.tick(delta);
     this.projectiles = this.projectiles.filter(p => !p.isExpired);
+
+    // ── Spore clouds — overlap check and DoT ──────────────────────────────────
+    // Collect live heroes; SporeCloud.tick() applies 3 HP/s to any hero whose
+    // center falls within the 150 px cloud radius (manual distance check,
+    // no physics.add.overlap needed since SporeCloud has no arcade body).
+    const liveHeroes: CombatEntity[] = [];
+    if (this.heroAlive) liveHeroes.push(this.hero);
+    if (this.hero2 && this.hero2Alive) liveHeroes.push(this.hero2);
+    for (const cloud of this.sporeClouds) cloud.tick(delta, liveHeroes);
+    this.sporeClouds = this.sporeClouds.filter(c => !c.isExpired);
 
     // ── Prune enemies that just died ──────────────────────────────────────────
     // Single pass: partition into alive / justDied rather than filtering twice.
@@ -1026,6 +1051,9 @@ export class CombatArenaScene extends Phaser.Scene {
     // Destroy all projectiles
     for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
     this.projectiles = [];
+    // Destroy all spore clouds
+    for (const c of this.sporeClouds) c.destroy();
+    this.sporeClouds = [];
 
     // Reset wave counters
     this.waveGroupIndex = 0;
