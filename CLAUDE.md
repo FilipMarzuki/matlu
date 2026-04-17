@@ -112,6 +112,8 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 - After implementing: open a PR with `Closes #<issue-number>` in the body — GitHub closes the issue automatically on merge
 - Run `.github/scripts/create-labels.js` to create all required labels idempotently
 
+Label conventions (Type, Domain, Effort labels) are documented in **[`LABELS.md`](LABELS.md)**.
+
 ## When implementing a task
 
 1. Read the relevant existing files before writing anything
