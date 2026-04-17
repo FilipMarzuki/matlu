@@ -10,6 +10,7 @@ import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 import { Spineling } from '../entities/Spineling';
 import { Blightfrog } from '../entities/Blightfrog';
+import { GlitchDrone, StaticCrawler, RustBerserker } from '../entities/EarthEnemies';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -31,7 +32,11 @@ interface WaveGroup {
 /**
  * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers)
  * + Spineling (1 HP spider-crab swarmers, spawned in groups of 20).
+ * Enemy roster: Velcrid (bio / subterranean) + Earth (corrupted machines and soldiers).
  * Groups cycle indefinitely; difficulty scales via the wave number multiplier in spawnWaveGroup.
+ *
+ * GlitchDrone swarms are split across two groups of 4 so the 8-drone swarm
+ * spawns across two consecutive waves without hitting the MAX_ALIVE cap at once.
  */
 const WAVE_GROUPS: WaveGroup[] = [
   { label: 'Baby Swarm',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
@@ -48,12 +53,19 @@ const WAVE_GROUPS: WaveGroup[] = [
   { label: 'Baby Horde',       enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Reaver Squad',     enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
   { label: 'Blightfrog Ambush', enemies: [Blightfrog, BabyVelcrid, BabyVelcrid] },
+  { label: 'Glitch Swarm A', enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
+  { label: 'Mixed Pack',    enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+  { label: 'Glitch Swarm B', enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
+  { label: 'Crawler Pair',  enemies: [StaticCrawler, StaticCrawler] },
+  { label: 'Baby Horde',    enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+  { label: 'Berserker Squad', enemies: [RustBerserker, RustBerserker, RustBerserker] },
+  { label: 'Reaver Squad',  enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
-const MAX_ALIVE       = 20;   // total alive enemy cap
+const MAX_ALIVE       = 24;   // total alive enemy cap (raised from 20 to fit 8-drone swarms)
 const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
