@@ -22,7 +22,7 @@ import {
 //                            simultaneous eruptions.
 
 /** Emit dirt-burst arcs at a world position — used for burrow / surface. */
-function emitDigBurst(scene: Phaser.Scene, x: number, y: number): void {
+export function emitDigBurst(scene: Phaser.Scene, x: number, y: number): void {
   for (let i = 0; i < 6; i++) {
     const angle = (i / 6) * Math.PI * 2 + Math.random() * 0.5;
     const dist  = 8 + Math.random() * 8;

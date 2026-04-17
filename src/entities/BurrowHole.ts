@@ -1,89 +1,118 @@
 import * as Phaser from 'phaser';
-import type { Damageable } from './Projectile';
+import { LivingEntity } from './LivingEntity';
+import { emitDigBurst } from './Velcrid';
 
-export interface BurrowHoleConfig {
-  maxHp?: number;
-}
-
-const HOLE_R = 10;  // visual radius of the tunnel mouth
-const BAR_W  = 22;
-const BAR_H  = 3;
-const BAR_Y  = -17;
+const HOLE_RADIUS = 20;
+const CRACK_COUNT = 5;
 
 /**
- * BurrowHole — a static, damageable arena obstacle.
+ * BurrowHole — a procedurally-drawn underground entry point that Velcrids
+ * spawn from. All visuals are Phaser Graphics (no sprite needed).
  *
- * Represents a tunnel entrance carved into the arena floor. It accepts damage
- * from hero melee swings and projectile hits. When HP reaches zero it emits
- * 'hole-destroyed' on the scene event bus and disables its physics body so
- * entities can walk through the collapsed opening.
- *
- * Physics body is added externally by CombatArenaScene (same pattern as
- * CombatEntity): scene.physics.add.existing(hole, true).
- *
- * No BehaviourTree or aggro logic — purely a damageable static object.
+ * Four visual states driven by HP and spawn timing:
+ *   idle       — dark circle, alpha pulse tween
+ *   pre-spawn  — inner glow brightens ~800 ms before a spawn event
+ *   damaged    — crack arcs grow proportional to missing HP
+ *   destroyed  — scale-to-zero tween + dig-burst particles
  */
-export class BurrowHole extends Phaser.GameObjects.Container implements Damageable {
-  readonly maxHp: number;
-  private _hp: number;
-  private _dead = false;
-  private readonly hpBarFill: Phaser.GameObjects.Rectangle;
+export class BurrowHole extends LivingEntity {
+  private gfx: Phaser.GameObjects.Graphics;
+  private idleTween: Phaser.Tweens.Tween | null = null;
+  private preSpawnActive = false;
 
-  get isAlive(): boolean {
-    return !this._dead;
+  constructor(scene: Phaser.Scene, x: number, y: number, maxHp = 3) {
+    super(scene, x, y, { maxHp });
+    this.gfx = scene.add.graphics();
+    this.add(this.gfx);
+    this.updateVisuals(1);
+    this.startIdlePulse();
   }
 
-  constructor(scene: Phaser.Scene, x: number, y: number, config: BurrowHoleConfig = {}) {
-    super(scene, x, y);
-    // Register with the scene's display list so it renders automatically.
-    scene.add.existing(this);
+  // Entity requires this — BurrowHole is stationary so nothing to do each frame.
+  override update(_delta: number): void { /* stationary */ }
 
-    this.maxHp = config.maxHp ?? 60;
-    this._hp   = this.maxHp;
+  /** Begin the pre-spawn glow ~800 ms before the 'hole-spawned' event fires. */
+  startPreSpawnGlow(): void {
+    this.preSpawnActive = true;
+    this.updateVisuals(this.hpFraction);
+  }
 
-    // ── Visual ────────────────────────────────────────────────────────────────
-    // Outer ring — stone-edged entrance lip.
-    const outerRing = scene.add.arc(0, 0, HOLE_R, 0, 360, false, 0x3a1a08);
-    outerRing.setStrokeStyle(2, 0x7a4820);
-    this.add(outerRing);
+  /** Revert to normal visuals after the spawn event fires. */
+  endPreSpawnGlow(): void {
+    this.preSpawnActive = false;
+    this.updateVisuals(this.hpFraction);
+  }
 
-    // Inner void — the dark tunnel below.
-    const inner = scene.add.arc(0, 0, HOLE_R - 3, 0, 360, false, 0x050200);
-    this.add(inner);
+  protected override onDamaged(_amount: number): void {
+    this.updateVisuals(this.hpFraction);
+  }
 
-    // HP bar background (full width, dark).
-    const barBg = scene.add.rectangle(0, BAR_Y, BAR_W, BAR_H, 0x222222);
-    this.add(barBg);
+  protected override onDeath(): void {
+    // Guard against scene already shutting down before the tween can play.
+    if (!this.scene?.sys.isActive()) {
+      super.onDeath();
+      return;
+    }
+    this.idleTween?.stop();
+    // Scale the whole Container to zero so the gfx child collapses with it.
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: 0.1,
+      scaleY: 0.1,
+      duration: 400,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        emitDigBurst(this.scene, this.x, this.y);
+        // Call super.onDeath() only now so destroy() doesn't cancel the tween.
+        super.onDeath();
+      },
+    });
+  }
 
-    // HP bar fill — anchored at left edge; scaleX shrinks it as HP drops.
-    // Origin (0, 0.5) keeps the bar anchored at the left edge when scaling.
-    this.hpBarFill = scene.add.rectangle(-BAR_W / 2, BAR_Y, BAR_W, BAR_H, 0x44cc44);
-    this.hpBarFill.setOrigin(0, 0.5);
-    this.add(this.hpBarFill);
-
-    // Y-sort depth: floor tiles are at -1; holes sit just above at depth = y.
-    this.setDepth(y);
+  private startIdlePulse(): void {
+    this.idleTween = this.scene.tweens.add({
+      targets: this,
+      alpha: { from: 0.7, to: 1.0 },
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   /**
-   * Apply damage to the hole. Emits 'hole-damaged' on each hit and
-   * 'hole-destroyed' when HP reaches zero (also disables the physics body).
-   * Returns the actual damage dealt (clamped to remaining HP).
+   * Redraws all visuals from scratch. Called only on state transitions
+   * (damage, pre-spawn start/end) — not every frame — to avoid per-frame
+   * Graphics buffer clears.
    */
-  takeDamage(amount: number): number {
-    if (this._dead) return 0;
-    const actual = Math.min(amount, this._hp);
-    this._hp -= actual;
-    this.hpBarFill.scaleX = this._hp / this.maxHp;
-    this.scene.events.emit('hole-damaged', this, actual);
-    if (this._hp <= 0) {
-      this._dead = true;
-      this.scene.events.emit('hole-destroyed', this);
-      // Disable the static physics body so entities can walk over the collapsed hole.
-      const body = this.body as Phaser.Physics.Arcade.StaticBody | undefined;
-      if (body) body.enable = false;
-      this.setAlpha(0.3);
+  private updateVisuals(hpFraction: number): void {
+    this.gfx.clear();
+
+    // Base hole — dark grey normally, warm off-white when a spawn is imminent.
+    const baseColor = this.preSpawnActive ? 0xddddcc : 0x333333;
+    this.gfx.fillStyle(baseColor, 1);
+    this.gfx.fillCircle(0, 0, HOLE_RADIUS);
+
+    // Inner glow visible only during pre-spawn.
+    if (this.preSpawnActive) {
+      this.gfx.fillStyle(0xffffff, 0.8);
+      this.gfx.fillCircle(0, 0, 10);
     }
-    return actual;
+
+    // Crack lines — none at full HP, max CRACK_COUNT at 1 HP.
+    const crackCount = Math.round((1 - hpFraction) * CRACK_COUNT);
+    if (crackCount > 0) {
+      this.gfx.lineStyle(1.5, 0x111111, 1);
+      // Cracks extend further as HP drops.
+      const maxLen = HOLE_RADIUS * (1 - hpFraction + 0.3);
+      for (let i = 0; i < crackCount; i++) {
+        const angle = (i / CRACK_COUNT) * Math.PI * 2;
+        this.gfx.strokeLineShape(new Phaser.Geom.Line(
+          0, 0,
+          Math.cos(angle) * maxLen,
+          Math.sin(angle) * maxLen,
+        ));
+      }
+    }
   }
 }
