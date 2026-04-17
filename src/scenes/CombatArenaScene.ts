@@ -7,6 +7,8 @@ import { EarthHero } from '../entities/EarthHero';
 import { Ironwing } from '../entities/Ironwing';
 import { Rampart } from '../entities/Rampart';
 import { Kronos } from '../entities/Kronos';
+import { MajaLind } from '../entities/MajaLind';
+import { TorstenKraft } from '../entities/TorstenKraft';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
@@ -52,8 +54,8 @@ const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence beg
 /** Kill count at which the mine gadget unlocks, simulating the Tier 1 → Tier 2 transition. */
 const GADGET_UNLOCK_KILLS = 10;
 
-/** Swap to 'ironwing', 'rampart', or 'kronos' to test other Earth heroes in the arena. */
-const SELECTED_ARENA_HERO: 'tinkerer' | 'ironwing' | 'rampart' | 'kronos' = 'tinkerer';
+/** Swap hero key to test other Earth heroes in the arena. Default 'tinkerer' for CI. */
+const SELECTED_ARENA_HERO: 'tinkerer' | 'ironwing' | 'rampart' | 'kronos' | 'maja-lind' | 'torsten-kraft' = 'tinkerer';
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
@@ -488,6 +490,7 @@ export class CombatArenaScene extends Phaser.Scene {
             this.hudGadget.setText(`MINE [E]: ${secs}s`).setColor('#aaaaaa');
           }
         } else if (this.hero instanceof EarthHero && !(this.hero instanceof Tinkerer)) {
+          // Non-Tinkerer Earth heroes show their signature name; subclass owns cooldown display.
           this.hudGadget.setText(`SIG [E]: ${this.hero.name}`).setColor('#88ddff');
         }
       }
@@ -771,9 +774,11 @@ export class CombatArenaScene extends Phaser.Scene {
     this.heroRoom = largestRoom;
 
     this.hero =
-      SELECTED_ARENA_HERO === 'ironwing' ? new Ironwing(this, heroX, heroY) :
-      SELECTED_ARENA_HERO === 'rampart'  ? new Rampart(this, heroX, heroY)  :
-      SELECTED_ARENA_HERO === 'kronos'   ? new Kronos(this, heroX, heroY)   :
+      SELECTED_ARENA_HERO === 'ironwing'     ? new Ironwing(this, heroX, heroY) :
+      SELECTED_ARENA_HERO === 'rampart'      ? new Rampart(this, heroX, heroY)  :
+      SELECTED_ARENA_HERO === 'kronos'       ? new Kronos(this, heroX, heroY)   :
+      SELECTED_ARENA_HERO === 'maja-lind'    ? new MajaLind(this, heroX, heroY) :
+      SELECTED_ARENA_HERO === 'torsten-kraft'? new TorstenKraft(this, heroX, heroY) :
       new Tinkerer(this, heroX, heroY);
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
@@ -813,6 +818,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Mines are scene children (Arc GameObjects) that outlive the hero entity,
     // so they must be explicitly disposed here rather than relying on destroy().
     if (this.hero instanceof Tinkerer) this.hero.destroyMines();
+    else if (this.hero instanceof TorstenKraft) this.hero.destroyMines();
     this.gadgetUnlocked = false;
     if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
 
@@ -1281,7 +1287,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // Signature / gadget — E (just-pressed).
     // Tinkerer: deploy proximity mine (gated by kill count unlock).
-    // Other EarthHero subclasses: fire signature (subclass guards its own cooldown).
+    // Other EarthHero subclasses: fire signature (no kill-count gate; subclass guards its own cooldown).
     if (Phaser.Input.Keyboard.JustDown(this.gadgetKey)) {
       if (this.hero instanceof Tinkerer && this.gadgetUnlocked) {
         this.hero.deployMine();
@@ -1319,6 +1325,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // Clean up mines and reset gadget state before respawning.
     if (this.hero instanceof Tinkerer) this.hero.destroyMines();
+    else if (this.hero instanceof TorstenKraft) this.hero.destroyMines();
     this.gadgetUnlocked = false;
     if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
 
