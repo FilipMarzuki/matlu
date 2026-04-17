@@ -17,6 +17,7 @@ const __dirname  = dirname(__filename);
 const GITHUB_TOKEN              = process.env.GITHUB_TOKEN;
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const LINEAR_API_KEY            = process.env.LINEAR_API_KEY;
 const VERCEL_DEPLOY_HOOK        = process.env.VERCEL_DEPLOY_HOOK;
 const VERCEL_TOKEN              = process.env.VERCEL_TOKEN;
 const VERCEL_PROJECT_ID         = process.env.VERCEL_PROJECT_ID;
@@ -249,6 +250,118 @@ async function getPixelLabStats() {
     console.warn('getPixelLabStats failed:', e.message);
     return null;
   }
+}
+
+// ── Linear lead time (DORA metric 2) ─────────────────────────────────────────
+
+/**
+ * Queries Linear GraphQL for issues completed in the last 14 days and computes
+ * lead time (completedAt − createdAt) for this week and the prior week.
+ *
+ * Lead time is the most direct measure of delivery speed: from the moment an
+ * issue is created to the moment it is marked done. Long lead times indicate
+ * batching, blocking, or incomplete issue decomposition.
+ *
+ * Returns null gracefully when LINEAR_API_KEY is absent.
+ */
+async function getLinearLeadTimeStats() {
+  if (!LINEAR_API_KEY) {
+    console.log('LINEAR_API_KEY not set — skipping lead time stats.');
+    return null;
+  }
+
+  const query = `
+    query LeadTime($after: DateTime!) {
+      issues(
+        filter: { completedAt: { gte: $after } }
+        first: 250
+        orderBy: completedAt
+      ) {
+        nodes {
+          id
+          completedAt
+          createdAt
+        }
+      }
+    }
+  `;
+
+  let nodes;
+  try {
+    const res = await fetch('https://api.linear.app/graphql', {
+      method: 'POST',
+      headers: {
+        Authorization: LINEAR_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { after: twoWeeksAgo.toISOString() },
+      }),
+    });
+    if (!res.ok) {
+      console.warn(`Linear GraphQL → ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    if (data.errors) {
+      console.warn('Linear GraphQL errors:', JSON.stringify(data.errors));
+      return null;
+    }
+    nodes = data.data?.issues?.nodes ?? [];
+  } catch (e) {
+    console.warn('getLinearLeadTimeStats failed:', e.message);
+    return null;
+  }
+
+  // Split into this-week and last-week buckets by completedAt.
+  const thisWeekNodes = nodes.filter(n => new Date(n.completedAt) >= weekAgo);
+  const lastWeekNodes = nodes.filter(
+    n => new Date(n.completedAt) >= twoWeeksAgo && new Date(n.completedAt) < weekAgo,
+  );
+
+  // Lead time in fractional days (completedAt − createdAt).
+  const leadDays = (n) =>
+    (new Date(n.completedAt) - new Date(n.createdAt)) / (1000 * 60 * 60 * 24);
+
+  const p90 = (arr) => {
+    if (!arr.length) return null;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const idx = Math.ceil(sorted.length * 0.9) - 1;
+    return Math.round(sorted[Math.max(0, idx)] * 10) / 10;
+  };
+
+  const thisWeekTimes = thisWeekNodes.map(leadDays);
+  const lastWeekTimes = lastWeekNodes.map(leadDays);
+
+  const thisAvg = thisWeekTimes.length
+    ? Math.round(avg(thisWeekTimes) * 10) / 10
+    : null;
+  const lastAvg = lastWeekTimes.length
+    ? Math.round(avg(lastWeekTimes) * 10) / 10
+    : null;
+
+  // Trend: >10% improvement is "improving", >10% degradation is "degrading".
+  let trend = 'stable';
+  if (thisAvg !== null && lastAvg !== null && lastAvg > 0) {
+    const changePct = (thisAvg - lastAvg) / lastAvg;
+    if (changePct < -0.10) trend = 'improving';
+    else if (changePct >  0.10) trend = 'degrading';
+  }
+
+  return {
+    thisWeek: {
+      avg:   thisAvg,
+      p90:   p90(thisWeekTimes),
+      count: thisWeekNodes.length,
+    },
+    lastWeek: {
+      avg:   lastAvg,
+      p90:   p90(lastWeekTimes),
+      count: lastWeekNodes.length,
+    },
+    trend,
+  };
 }
 
 // ── Vercel deployment frequency ───────────────────────────────────────────────
@@ -616,7 +729,7 @@ function slugify(title) {
 
 // ── Build markdown ────────────────────────────────────────────────────────────
 
-function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome) {
+function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime) {
   const lines = [];
   const h2 = (t) => { lines.push(`## ${t}`, ''); };
   const li = (t) => lines.push(`- ${t}`);
@@ -632,6 +745,13 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   h2('Velocity');
   li(`Avg time to merge: **${gh.avgMergeTime} hours**`);
   li(`Avg issue cycle time: **${linear.avgCycleTime} days**`);
+  if (leadTime?.thisWeek?.avg !== null && leadTime?.thisWeek?.avg !== undefined) {
+    const trendArrow = leadTime.trend === 'improving' ? ' ↓' : leadTime.trend === 'degrading' ? ' ↑⚠️' : '';
+    li(`Lead time (Linear, this week): **${leadTime.thisWeek.avg}d** avg / **${leadTime.thisWeek.p90}d** p90 (n=${leadTime.thisWeek.count})${trendArrow}`);
+    if (leadTime.lastWeek?.avg !== null && leadTime.lastWeek?.avg !== undefined) {
+      li(`Lead time (last week): ${leadTime.lastWeek.avg}d avg / ${leadTime.lastWeek.p90}d p90 (n=${leadTime.lastWeek.count})`);
+    }
+  }
   li(`Rework rate: **${linear.reworkRate}%**`);
   lines.push('');
 
@@ -828,7 +948,7 @@ function getReworkStats() {
 
 // ── Post to Supabase ──────────────────────────────────────────────────────────
 
-async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome }) {
+async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime }) {
   const ao = agentOutcome;
   const aiTotalTokens = ai
     ? (ai.totalInput + ai.totalOutput + ai.totalCacheRead + ai.totalCacheWrite)
@@ -910,6 +1030,13 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       // ── Deploys ─────────────────────────────────────────────────────────────
       deploys_this_week:        deployStats?.thisWeek   ?? null,
       deploys_last_week:        deployStats?.lastWeek   ?? null,
+
+      // ── Lead time (DORA metric 2) ────────────────────────────────────────────
+      lead_time_avg_days:       leadTime?.thisWeek?.avg   ?? null,
+      lead_time_p90_days:       leadTime?.thisWeek?.p90   ?? null,
+      lead_time_count:          leadTime?.thisWeek?.count ?? null,
+      lead_time_trend:          leadTime?.trend           ?? null,
+      lead_time_prev_avg:       leadTime?.lastWeek?.avg   ?? null,
 
       // ── PixelLab ────────────────────────────────────────────────────────────
       pixellab_balance_usd:     pixellab?.usd           ?? null,
@@ -1123,13 +1250,14 @@ async function triggerVercelDeploy() {
 async function main() {
   console.log(`Collecting stats for ${weekLabel}...`);
 
-  const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome] = await Promise.all([
+  const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome, leadTime] = await Promise.all([
     getGitHubStats(),
     getIssueStats(),
     getCommitSpread(),
     getPixelLabStats(),
     getDeployStats(),
     getAgentOutcomeStats(),
+    getLinearLeadTimeStats(),
   ]);
 
   // Synchronous stats — run after async work so the build step doesn't block network calls
@@ -1146,11 +1274,12 @@ async function main() {
   console.log('Bundle:', bundle);
   console.log('PixelLab:', pixellab);
   console.log('Deploy stats:', deployStats);
+  console.log('Lead time:', leadTime ? `avg=${leadTime.thisWeek?.avg}d p90=${leadTime.thisWeek?.p90}d trend=${leadTime.trend}` : 'N/A');
   console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
   console.log('Rework:', rework ? `rate=${rework.reworkRate}%, files=${rework.reworkFileCount}/${rework.totalFiles}` : 'N/A');
   console.log('Agent outcomes:', agentOutcome ? `total=${agentOutcome.total}, failureRate=${agentOutcome.failureRate}%` : 'N/A');
 
-  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome);
+  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime);
   const metrics = {
     delivery:      { mergedCount: gh.mergedCount, humanMergedCount: gh.humanMergedCount, agentMergedCount: gh.agentMergedCount, avgPrSize: gh.avgPrSize, completedCount: linear.completedCount, activeDays: commitSpread?.activeDays ?? null, totalCommits: commitSpread?.totalCommits ?? null },
     velocity:      { avgMergeTime: gh.avgMergeTime, avgCycleTime: linear.avgCycleTime, reworkRate: linear.reworkRate },
@@ -1163,9 +1292,10 @@ async function main() {
     deployStats:   deployStats  ?? null,
     pixellab:      pixellab     ?? null,
     agentOutcome:  agentOutcome ?? null,
+    leadTime:      leadTime     ?? null,
   };
   await postToSupabase(weekLabel, content, metrics, {
-    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome,
+    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime,
   });
   await postCognitiveLoad({ gh, linear, rework });
   await postToNotion(weekLabel, content);

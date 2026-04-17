@@ -17,6 +17,7 @@ export { Spineling } from './Spineling';
 export { CrackedGolem } from './CrackedGolem';
 export { Blightfrog } from './Blightfrog';
 export { EarthHero } from './EarthHero';
+export { Ironwing } from './Ironwing';
 export { SporeDrifter, SporeCloud } from './SporeDrifter';
 export { PackStalker, PackRole } from './PackStalker';
 export { BurrowHole } from './BurrowHole';
