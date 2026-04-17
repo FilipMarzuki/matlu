@@ -8,6 +8,7 @@ import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 import { BurrowHole } from '../entities/BurrowHole';
+import { BroodMother, EggSac } from '../entities/BroodMother';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -294,6 +295,7 @@ export class CombatArenaScene extends Phaser.Scene {
     });
 
     // Reload SFX — Tinkerer emits 'hero-reload' the moment the last shot empties the mag.
+    // Played here (scene-side) so audio logic stays out of the entity.
     this.events.on('hero-reload', () => {
       if (this.audioAvailable && this.cache.audio.has('sfx-reload')) {
         this.sound.play('sfx-reload', { volume: 0.7 });
@@ -410,6 +412,9 @@ export class CombatArenaScene extends Phaser.Scene {
       this.aliveEnemies = alive;
       this.killCount   += justDied.length;
       for (const e of justDied) {
+        // Notify ability-absorption systems (e.g. Progenitor) of the enemy type.
+        this.events.emit('enemy-died', e.constructor.name);
+
         // Death panic — survivors within 80 px scatter away from the corpse.
         const DEATH_PANIC_R = 80;
         for (const survivor of alive) {
@@ -836,6 +841,54 @@ export class CombatArenaScene extends Phaser.Scene {
     hole.on('hole-destroyed', () => {
       this.activeHoles = this.activeHoles.filter(h => h !== hole);
     });
+  }
+
+  /**
+   * Wire a BroodMother and its four egg sacs into the arena system.
+   *
+   * Adds the BroodMother and each live sac to physics, `aliveEnemies`, and the
+   * hero's opponent list — identical to the normal `spawnWaveGroup` pathway.
+   * Also subscribes to `'broodmother-spawn-spineling'` so that each Spineling
+   * spawned by a sac is immediately registered with physics and `aliveEnemies`
+   * without BroodMother or EggSac needing to call `physics.add` themselves.
+   *
+   * Safe to call multiple times (each call sets up a fresh listener for the
+   * specific BroodMother instance, but in practice only one should exist).
+   */
+  registerBroodMother(bm: BroodMother): void {
+    // Wire the boss itself.
+    this.addPhysics(bm);
+    bm.setOpponent(this.hero);
+    this.aliveEnemies.push(bm);
+
+    // Wire each sac as an independent targetable entity.
+    for (const sac of bm.getSacs()) {
+      if (sac instanceof EggSac) {
+        this.addPhysics(sac);
+        sac.setOpponent(this.hero);
+        this.aliveEnemies.push(sac);
+        // Start the periodic Spineling spawn timer after physics is ready.
+        sac.startSpawning();
+      }
+    }
+
+    // Spineling spawns from sacs route through this handler — mirrors registerHole.
+    this.events.on('broodmother-spawn-spineling', (spineling: CombatEntity) => {
+      if (!this.heroAlive) return;
+      if (this.aliveEnemies.length >= MAX_ALIVE) {
+        // Arena is full — skip this spawn.
+        if (spineling.active) spineling.destroy();
+        return;
+      }
+      this.addPhysics(spineling);
+      spineling.setOpponent(this.hero);
+      this.aliveEnemies.push(spineling);
+      if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+      this.syncEnemyCoordination();
+    });
+
+    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    this.syncEnemyCoordination();
   }
 
   /** Destroy all active holes and clear the tracking array. */
