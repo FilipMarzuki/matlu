@@ -20,3 +20,4 @@ export { EarthHero } from './EarthHero';
 export { SporeDrifter, SporeCloud } from './SporeDrifter';
 export { PackStalker, PackRole } from './PackStalker';
 export { BurrowHole } from './BurrowHole';
+export { MimicCrawler } from './MimicCrawler';

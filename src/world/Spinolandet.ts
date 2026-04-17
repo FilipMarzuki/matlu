@@ -29,6 +29,7 @@
 import { CombatEntity } from '../entities/CombatEntity';
 import { Spineling, Blightfrog } from '../entities/CombatEntity';
 import { PackStalker } from '../entities/PackStalker';
+import { MimicCrawler } from '../entities/MimicCrawler';
 
 type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
 type GroupSpawnFn = (scene: Phaser.Scene, cx: number, cy: number) => CombatEntity[];
@@ -103,5 +104,20 @@ export const SPINOLANDET_WAVES: SpinelandetWave[] = [
       Blightfrog, Blightfrog,
     ],
     groups: [spawnPackStalkerTrio], // PackStalker ×3 (hard-coded trio)
+  },
+  {
+    // Ambush wave: 3 MimicCrawlers disguised among terrain props.
+    // They sit still until a hero walks within 80 px, then reveal and attack.
+    // The first hit deals 1.5× damage — punishes players who don't sweep AoE.
+    label: 'Ambush',
+    singles: [MimicCrawler, MimicCrawler, MimicCrawler],
+    groups:  [],
+  },
+  {
+    // Mixed threat: ambush crawlers + flanking pack.
+    // Crawlers bait heroes into flanking positions for the PackStalker trio.
+    label: 'Stalker Ambush',
+    singles: [MimicCrawler, MimicCrawler],
+    groups:  [spawnPackStalkerTrio],
   },
 ];
