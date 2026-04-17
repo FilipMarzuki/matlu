@@ -1,115 +1,95 @@
 #!/usr/bin/env node
-// Fetches Linear issues eligible for the per-issue nightly agent.
+// Fetches GitHub Issues eligible for the per-issue nightly agent.
 //
-// Eligibility: state=Backlog or Todo, assignee="Filip Marzuki", label="ready".
-// Results are sorted by priority so the nightly agent works on the most
-// important issues first (the matrix runs max-parallel: 3, so position matters):
-//   1 = Urgent → 2 = High → 3 = Normal → 4 = Low → 0 = No priority (last)
+// Eligibility: open issues with label "ready" assigned to FilipMarzuki.
 //
-// Emits a JSON array of Linear issue identifiers (e.g. ["FIL-42","FIL-43"])
-// on stdout. When run in GitHub Actions, also appends `issues=[...]` to
-// $GITHUB_OUTPUT so the downstream matrix job can fan out over them.
+// Emits a JSON array of GitHub issue numbers (e.g. [42, 43]) on stdout.
+// When run in GitHub Actions, also appends `issues=[...]` to $GITHUB_OUTPUT
+// so the downstream matrix job can fan out over them.
 //
 // Usage:
-//   node fetch-agent-issues.js                     # default: ready issues
-//   node fetch-agent-issues.js --issue FIL-42      # single-issue override
-//                                                  #   (for workflow_dispatch)
+//   node fetch-agent-issues.js                # default: ready issues
+//   node fetch-agent-issues.js --issue 42     # single-issue override
+//                                             #   (for workflow_dispatch)
 
 import { appendFileSync } from 'fs';
 
-const LINEAR_API_KEY = process.env.LINEAR_API_KEY;
-const GITHUB_OUTPUT  = process.env.GITHUB_OUTPUT;
+const GITHUB_TOKEN  = process.env.GITHUB_TOKEN;
+const GITHUB_OUTPUT = process.env.GITHUB_OUTPUT;
+const REPO          = 'FilipMarzuki/matlu';
 
-if (!LINEAR_API_KEY) {
-  console.error('Missing LINEAR_API_KEY');
+if (!GITHUB_TOKEN) {
+  console.error('Missing GITHUB_TOKEN');
   process.exit(1);
 }
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
-// Single-issue override lets workflow_dispatch target one issue on demand
-// instead of pulling the full Backlog — handy for mid-day runs.
 
 const args = process.argv.slice(2);
 const issueOverrideIdx = args.indexOf('--issue');
 const issueOverride = issueOverrideIdx >= 0 ? args[issueOverrideIdx + 1] : null;
 
-// ── Linear GraphQL ────────────────────────────────────────────────────────────
+// ── GitHub Issues REST API ────────────────────────────────────────────────────
 
-async function linearQuery(query, variables = {}) {
-  const res = await fetch('https://api.linear.app/graphql', {
-    method: 'POST',
+async function githubFetch(url) {
+  const res = await fetch(url, {
     headers: {
-      // Linear tokens must NOT use a Bearer prefix
-      Authorization: LINEAR_API_KEY.replace(/^Bearer\s+/i, ''),
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
     },
-    body: JSON.stringify({ query, variables }),
   });
-  if (!res.ok) throw new Error(`Linear → ${res.status} ${await res.text()}`);
-  const json = await res.json();
-  if (json.errors) throw new Error(`Linear GraphQL: ${JSON.stringify(json.errors)}`);
-  return json.data;
+  if (!res.ok) throw new Error(`GitHub API → ${res.status} ${await res.text()}`);
+  return { json: await res.json(), linkHeader: res.headers.get('link') };
 }
 
-// ── Queries ───────────────────────────────────────────────────────────────────
-
-const READY_QUERY = `
-  query ReadyIssues {
-    issues(
-      filter: {
-        state: { type: { in: ["backlog", "unstarted"] } }
-        assignee: { name: { eq: "Filip Marzuki" } }
-        labels: { some: { name: { eq: "ready" } } }
-      }
-      orderBy: updatedAt
-      first: 50
-    ) {
-      nodes { identifier priority }
-    }
+// Follow Link header pagination until no rel="next" page remains.
+async function fetchAllPages(url) {
+  const items = [];
+  let nextUrl = url;
+  while (nextUrl) {
+    const { json, linkHeader } = await githubFetch(nextUrl);
+    items.push(...json);
+    nextUrl = parseNextLink(linkHeader);
   }
-`;
-
-// Linear priority values: 1=Urgent, 2=High, 3=Normal, 4=Low, 0=No priority.
-// Sort ascending by priority, but treat 0 (no priority) as lower than 4 (Low)
-// so explicitly prioritised issues always come first.
-function priorityOrder(p) {
-  return p === 0 ? 5 : p;
+  return items;
 }
 
-const ONE_ISSUE_QUERY = `
-  query OneIssue($id: String!) {
-    issue(id: $id) { identifier }
-  }
-`;
+function parseNextLink(linkHeader) {
+  if (!linkHeader) return null;
+  const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+  return match ? match[1] : null;
+}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  let identifiers;
+  let numbers;
 
   if (issueOverride) {
-    const data = await linearQuery(ONE_ISSUE_QUERY, { id: issueOverride });
-    if (!data.issue) {
-      console.error(`Issue ${issueOverride} not found`);
+    const issueNum = parseInt(issueOverride, 10);
+    if (isNaN(issueNum)) {
+      console.error(`Invalid issue number: ${issueOverride}`);
       process.exit(1);
     }
-    identifiers = [data.issue.identifier];
+    const { json } = await githubFetch(
+      `https://api.github.com/repos/${REPO}/issues/${issueNum}`
+    );
+    numbers = [json.number];
   } else {
-    const data = await linearQuery(READY_QUERY);
-    identifiers = data.issues.nodes
-      .sort((a, b) => priorityOrder(a.priority) - priorityOrder(b.priority))
-      .map((n) => n.identifier);
+    const issues = await fetchAllPages(
+      `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&assignee=FilipMarzuki&per_page=100`
+    );
+    // GitHub Issues API returns pull requests too — exclude them.
+    numbers = issues.filter((i) => !i.pull_request).map((i) => i.number);
   }
 
-  // GitHub Actions' matrix strategy needs strict JSON — no trailing newlines
-  // inside the `issues=` value. We also print to stdout for log visibility.
-  const serialised = JSON.stringify(identifiers);
+  const serialised = JSON.stringify(numbers);
   console.log(serialised);
 
   if (GITHUB_OUTPUT) {
     appendFileSync(GITHUB_OUTPUT, `issues=${serialised}\n`);
-    // A boolean flag makes it easy for the downstream job to skip when empty
-    appendFileSync(GITHUB_OUTPUT, `has_issues=${identifiers.length > 0}\n`);
+    appendFileSync(GITHUB_OUTPUT, `has_issues=${numbers.length > 0}\n`);
   }
 }
 
