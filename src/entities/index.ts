@@ -7,3 +7,4 @@ export { Bird } from './Bird';
 export { GroundAnimal } from './GroundAnimal';
 export { Enemy } from './Enemy';
 export type { EnemyConfig } from './Enemy';
+export { EarthHero } from './EarthHero';

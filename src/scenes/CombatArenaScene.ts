@@ -1,10 +1,9 @@
 import * as Phaser from 'phaser';
 import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
-import {
-  CombatEntity,
-  Tinkerer,
-} from '../entities/CombatEntity';
+import { CombatEntity } from '../entities/CombatEntity';
+import { EarthHero } from '../entities/EarthHero';
+import { Tinkerer } from '../entities/Tinkerer';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
@@ -64,7 +63,7 @@ const DUNGEON_ZOOM = 3.5;
 export class CombatArenaScene extends Phaser.Scene {
   static readonly KEY = 'CombatArenaScene';
 
-  private hero!:         CombatEntity;
+  private hero!:         EarthHero;
   private obstacles!:   Phaser.Physics.Arcade.StaticGroup;
   private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
