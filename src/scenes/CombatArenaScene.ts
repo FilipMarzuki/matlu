@@ -145,11 +145,11 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Gunshot SFX — impactMetal_heavy pitched up gives a snappy, metallic crack.
-    // Three variants (000–002) are cycled on each shot to avoid repetition fatigue.
+    // Gunshot SFX — impactPlate_heavy has a sharper transient than impactMetal_heavy,
+    // closer to a pistol crack when pitched up. Three variants cycled to avoid fatigue.
     const ksfx = 'assets/audio/kenney_impact-sounds/Audio';
     for (let i = 0; i < 3; i++) {
-      this.load.audio(`gunshot-${i}`, `${ksfx}/impactMetal_heavy_00${i}.ogg`);
+      this.load.audio(`gunshot-${i}`, `${ksfx}/impactPlate_heavy_00${i}.ogg`);
     }
 
     // Tense dungeon ambience — "Cloak of Darkness" fits the arena's dark-stone aesthetic.
@@ -269,7 +269,7 @@ export class CombatArenaScene extends Phaser.Scene {
         const key = `gunshot-${this.gunshotIndex}`;
         this.gunshotIndex = (this.gunshotIndex + 1) % 3;
         if (this.cache.audio.has(key)) {
-          this.sound.play(key, { volume: 0.55, rate: 2.2 });
+          this.sound.play(key, { volume: 0.6, rate: 3.0 });
         }
       }
     });
