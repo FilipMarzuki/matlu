@@ -3,12 +3,16 @@ name: PR Queue Grooming Agent — Nightly
 # Processes all open PRs: closes superseded ones, merges clean ones in
 # dependency order, rebases and resolves conflicts for dirty ones.
 # Prompt lives in .agents/pr-merge.md.
+#
+# Chain: fires via workflow_run when the Nightly Agent completes, so the order
+# each night is: triage (22:00) → hygiene (~22:15) → implementation (02:00) → grooming (~02:30).
+# The grooming agent checks CI status before merging, so it handles the case
+# where CI is still running on freshly-created PRs.
 
 on:
-  schedule:
-    # 3 AM UTC — implementation agent runs at midnight, CI finishes ~12:15 AM,
-    # so the queue is stable by this time.
-    - cron: '0 3 * * *'
+  workflow_run:
+    workflows: ["Nightly Agent (per-issue)"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
