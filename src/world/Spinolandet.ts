@@ -12,6 +12,12 @@
  *   PackStalker  — coordinated wolf-analog; always three per pack. The front
  *                  runner charges while flankers circle to ±90° and close in
  *                  once the front engages. Defined in PackStalker.ts.
+ *   Bonehulk     — armoured brute; rears up (invulnerable) then snaps with 3×
+ *                  damage. Defined in Bonehulk.ts; extends Enemy not CombatEntity.
+ *   SporeDrifter — floating spore cloud that lingers and poisons. Defined in
+ *                  SporeDrifter.ts; extends CombatEntity.
+ *   Thornvine    — immobile plant that grabs the nearest hero and holds them
+ *                  until killed. Defined in Thornvine.ts; extends CombatEntity.
  *
  * Wave format
  * -----------
@@ -26,12 +32,20 @@
  *      the function handles internal position offsets for the group.
  */
 
-import { CombatEntity } from '../entities/CombatEntity';
+import { LivingEntity } from '../entities/LivingEntity';
 import { Spineling, Blightfrog } from '../entities/CombatEntity';
 import { PackStalker } from '../entities/PackStalker';
+import { Bonehulk } from '../entities/Bonehulk';
+import { SporeDrifter } from '../entities/SporeDrifter';
+import { Thornvine } from '../entities/Thornvine';
 
-type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
-type GroupSpawnFn = (scene: Phaser.Scene, cx: number, cy: number) => CombatEntity[];
+/**
+ * Constructor signature for any Spinolandet enemy — widened to LivingEntity
+ * so both CombatEntity subclasses (Thornvine, SporeDrifter) and plain Enemy
+ * subclasses (Bonehulk) can appear in the same wave list.
+ */
+type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => LivingEntity;
+type GroupSpawnFn = (scene: Phaser.Scene, cx: number, cy: number) => LivingEntity[];
 
 export interface SpinelandetWave {
   label: string;
@@ -58,7 +72,7 @@ export function spawnPackStalkerTrio(
   scene: Phaser.Scene,
   cx: number,
   cy: number,
-): CombatEntity[] {
+): LivingEntity[] {
   const spread = 24; // px — just enough to separate physics bodies
   return PackStalker.spawnTrio(scene, [
     { x: cx - spread, y: cy          }, // frontrunner
@@ -103,5 +117,37 @@ export const SPINOLANDET_WAVES: SpinelandetWave[] = [
       Blightfrog, Blightfrog,
     ],
     groups: [spawnPackStalkerTrio], // PackStalker ×3 (hard-coded trio)
+  },
+  {
+    // Thornvine ambush: two plants anchor the arena while Spinelings swarm.
+    // Heroes must kill the Thornvines to free their grabbed allies.
+    label: 'Root Trap',
+    singles: [
+      Thornvine, Thornvine,
+      Spineling, Spineling, Spineling, Spineling,
+    ],
+    groups: [],
+  },
+  {
+    // SporeDrifter cloud with Bonehulk support — poison zones force movement
+    // while the Bonehulk rears and punishes fleeing heroes.
+    label: 'Blight & Bone',
+    singles: [
+      SporeDrifter, SporeDrifter, SporeDrifter,
+      Bonehulk,
+    ],
+    groups: [],
+  },
+  {
+    // Full colony escalation: every Spinolandet type in one wave.
+    // Thornvines anchor, Bonehulk punishes clusters, SporeDrifters poison retreats.
+    label: 'Colony Strike',
+    singles: [
+      Thornvine,
+      Bonehulk,
+      SporeDrifter, SporeDrifter,
+      Spineling, Spineling, Spineling,
+    ],
+    groups: [spawnPackStalkerTrio],
   },
 ];
