@@ -115,6 +115,8 @@ export abstract class CombatEntity extends Enemy {
   protected readonly behaviorTree: BtNode;
   /** All combatants this entity should fight. Updated each wave by the arena. */
   protected opponents: CombatEntity[] = [];
+  /** Additional static damageable targets (e.g. BurrowHoles) for melee and projectile checks. */
+  private extraDamageables: Damageable[] = [];
   /** When true the BT is bypassed — the scene drives velocity and attacks directly. */
   protected playerControlled = false;
 
@@ -297,6 +299,11 @@ export abstract class CombatEntity extends Enemy {
   /** Set multiple opponents (hero vs. group). BT picks nearest living each frame. */
   setOpponents(es: CombatEntity[]): void {
     this.opponents = [...es];
+  }
+
+  /** Register static damageable targets (e.g. BurrowHoles) included in melee and projectile hits. */
+  setExtraDamageables(d: Damageable[]): void {
+    this.extraDamageables = [...d];
   }
 
   /**
@@ -545,8 +552,8 @@ export abstract class CombatEntity extends Enemy {
           this.scene, this.x, this.y, angle,
           this.projectileSpeed, this.projectileDamage,
           this.projectileColor,
-          // opponents satisfies Damageable[] — same shape, different import path.
-          this.opponents as unknown as Damageable[],
+          // Merge opponents and extra targets so projectiles can hit BurrowHoles too.
+          (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
         );
         // Emit on the SCENE event bus (not this.emit) so CombatArenaScene can
         // listen with a single handler rather than per-entity listeners.
@@ -634,20 +641,36 @@ export abstract class CombatEntity extends Enemy {
   }
 
   /**
-   * Attempt a melee attack on the nearest living opponent.
-   * Uses the same cooldown and damage as the AI behavior tree.
+   * Attempt a melee attack on the nearest living opponent or extra damageable.
+   * Opponents (enemies) take priority; extraDamageables (e.g. BurrowHoles) are
+   * hit only when no opponent is within reach. Uses the same cooldown and damage
+   * as the AI behavior tree.
    */
   tryMelee(): void {
     if (this.attackTimer > 0) return;
+    const meleeReach = this.meleeRange * 2.5;  // generous player reach
     const target = this.findNearestLivingOpponent();
-    if (!target) return;
-    const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
-    // 2.5× meleeRange gives a generous but fair player reach.
-    if (dist > this.meleeRange * 2.5) return;
-    target.takeDamage(this.attackDamage);
-    target.onHitBy(this.x, this.y);
-    this.attackTimer    = this.attackCooldownMs;
-    this.attackAnimTimer = this.attackAnimDuration;
+    if (target) {
+      const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
+      if (dist <= meleeReach) {
+        target.takeDamage(this.attackDamage);
+        target.onHitBy(this.x, this.y);
+        this.attackTimer     = this.attackCooldownMs;
+        this.attackAnimTimer = this.attackAnimDuration;
+        return;
+      }
+    }
+    // No opponent in reach — check extra damageable targets (e.g. BurrowHoles).
+    for (const d of this.extraDamageables) {
+      if (!d.isAlive) continue;
+      const dist = Phaser.Math.Distance.Between(this.x, this.y, d.x, d.y);
+      if (dist <= meleeReach) {
+        d.takeDamage(this.attackDamage);
+        this.attackTimer     = this.attackCooldownMs;
+        this.attackAnimTimer = this.attackAnimDuration;
+        return;
+      }
+    }
   }
 
   /**
@@ -665,7 +688,7 @@ export abstract class CombatEntity extends Enemy {
       this.scene, this.x, this.y, angle,
       this.projectileSpeed, this.projectileDamage,
       this.projectileColor,
-      this.opponents as unknown as Damageable[],
+      (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
     );
     this.scene.events.emit('projectile-spawned', p);
     this.attackAnimId    = 'attack_ranged';
