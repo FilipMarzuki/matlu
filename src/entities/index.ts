@@ -20,5 +20,3 @@ export { EarthHero } from './EarthHero';
 export { SporeDrifter, SporeCloud } from './SporeDrifter';
 export { PackStalker, PackRole } from './PackStalker';
 export { BurrowHole } from './BurrowHole';
-export type { BurrowHoleConfig } from './BurrowHole';
-export { BurrowHole } from './BurrowHole';

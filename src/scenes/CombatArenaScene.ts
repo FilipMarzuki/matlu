@@ -305,6 +305,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const c of this.sporeClouds) c.destroy();
       this.sporeClouds = [];
+    });
     // TITAN split: Phase 3 transition fires this event so we can spawn the two
     // TitanHalf entities at the boss's last known position. Runs synchronously
     // inside takeDamage(), so aliveEnemies still contains the dying TITAN here;

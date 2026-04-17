@@ -218,7 +218,6 @@ export abstract class CombatEntity extends Enemy {
    * signature moves — currently a flag; the hero can read it before using
    * special abilities.
    */
-  signatureDisabled = false;
   private signatureDisabledTimer = 0;
 
   /**
