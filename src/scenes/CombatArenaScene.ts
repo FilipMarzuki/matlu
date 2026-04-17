@@ -9,6 +9,7 @@ import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
+import { TitanPrototype, TitanHalf } from '../entities/EarthEnemies';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -252,6 +253,14 @@ export class CombatArenaScene extends Phaser.Scene {
       this.projectiles.push(p);
     });
 
+    // TITAN split: Phase 3 transition fires this event so we can spawn the two
+    // TitanHalf entities at the boss's last known position. Runs synchronously
+    // inside takeDamage(), so aliveEnemies still contains the dying TITAN here;
+    // the prune loop later this frame removes it and updates hero opponents.
+    this.events.on('titan-split', (x: number, y: number) => {
+      this.spawnTitanHalves(x, y);
+    });
+
     // Gunshot effects — emitted by the Tinkerer in both AI and player modes.
     // Plays a metallic-crack SFX (pitched up), adds a micro camera shake for
     // recoil feel, and briefly flashes a muzzle bloom at the shot origin.
@@ -447,7 +456,10 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Main wave spawn timer ─────────────────────────────────────────────────
-    if (this.aliveEnemies.length < MAX_ALIVE) {
+    // Suppress normal wave spawning while TITAN is alive — the boss fight is a
+    // solo encounter; no other enemies should enter the arena alongside TITAN.
+    const titanAlive = this.aliveEnemies.some(e => e instanceof TitanPrototype);
+    if (!titanAlive && this.aliveEnemies.length < MAX_ALIVE) {
       this.mainSpawnTimer -= delta;
       if (this.mainSpawnTimer <= 0) {
         this.spawnWaveGroup();
@@ -775,6 +787,14 @@ export class CombatArenaScene extends Phaser.Scene {
   private spawnWaveGroup(): void {
     this.waveNumber++;
 
+    // Every 5th wave triggers a TITAN boss encounter (solo — no other enemies).
+    // Guard with an instanceof check so a second TITAN never spawns if the first
+    // is still alive (e.g. the wave timer fires while TITAN is still fighting).
+    if (this.waveNumber % 5 === 0 && !this.aliveEnemies.some(e => e instanceof TitanPrototype)) {
+      this.spawnTitanWave();
+      return;
+    }
+
     const group = WAVE_GROUPS[this.waveGroupIndex];
     this.waveGroupIndex = (this.waveGroupIndex + 1) % WAVE_GROUPS.length;
 
@@ -815,6 +835,67 @@ export class CombatArenaScene extends Phaser.Scene {
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
     if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();
+  }
+
+  /**
+   * Spawn a single TitanPrototype boss in a room away from the hero.
+   * Called by spawnWaveGroup() every 5th wave.
+   */
+  private spawnTitanWave(): void {
+    const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
+    const spawnRoom = candidateRooms.length > 0
+      ? candidateRooms[Math.floor(Math.random() * candidateRooms.length)]
+      : null;
+
+    const spawnX = spawnRoom ? spawnRoom.x + spawnRoom.w / 2 : this.arenaX + this.arenaW - SPAWN_X_OFFSET;
+    const spawnY = spawnRoom ? spawnRoom.y + spawnRoom.h / 2 : this.arenaY + this.arenaH / 2;
+
+    const titan = new TitanPrototype(this, spawnX, spawnY);
+    this.addPhysics(titan);
+    titan.setOpponent(this.hero);
+    this.aliveEnemies.push(titan);
+
+    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
+    this.syncEnemyCoordination();
+
+    log.info('wave_spawned', {
+      wave:         this.waveNumber,
+      group_label:  'TITAN Boss',
+      spawned:      1,
+      total_alive:  this.aliveEnemies.length,
+      kills_so_far: this.killCount,
+    });
+  }
+
+  /**
+   * Spawn two TitanHalf entities offset ±30 px from the split position.
+   * Called synchronously from the 'titan-split' scene event, which fires inside
+   * TitanPrototype.takeDamage() when HP drops below 25%.
+   *
+   * The dying TITAN is still in aliveEnemies at this point (prune loop hasn't
+   * run yet), so we also push the halves immediately and update hero target
+   * lists — the prune loop will clean up the dead TITAN later this frame.
+   */
+  private spawnTitanHalves(spawnX: number, spawnY: number): void {
+    const heroes: CombatEntity[] = [];
+    if (this.heroAlive) heroes.push(this.hero);
+    if (this.hero2 && this.hero2Alive) heroes.push(this.hero2);
+
+    for (const ox of [-30, 30]) {
+      const half = new TitanHalf(this, spawnX + ox, spawnY);
+      this.addPhysics(half);
+      half.setOpponents(heroes);
+      half.setBlackboard(this.blackboard);
+      half.setSwarmNeighbours(this.aliveEnemies);
+      this.aliveEnemies.push(half);
+    }
+
+    // Update hero target lists so the halves are immediately targetable.
+    // aliveEnemies still contains the dead TITAN here, but findNearestLiving-
+    // Opponent() skips dead entities, so the heroes will correctly target halves.
+    if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+    if (this.hero2 && this.hero2Alive) this.hero2.setOpponents(this.aliveEnemies);
   }
 
   // ── Wave timing ───────────────────────────────────────────────────────────────
