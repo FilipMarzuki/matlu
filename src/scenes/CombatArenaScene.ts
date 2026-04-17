@@ -5,6 +5,8 @@ import { CombatEntity } from '../entities/CombatEntity';
 import { Tinkerer } from '../entities/Tinkerer';
 import { EarthHero } from '../entities/EarthHero';
 import { Ironwing } from '../entities/Ironwing';
+import { Rampart } from '../entities/Rampart';
+import { Kronos } from '../entities/Kronos';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
@@ -50,8 +52,8 @@ const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence beg
 /** Kill count at which the mine gadget unlocks, simulating the Tier 1 → Tier 2 transition. */
 const GADGET_UNLOCK_KILLS = 10;
 
-/** Swap to 'ironwing' to test the Tier 3 Earth hero in the arena. */
-const SELECTED_ARENA_HERO: 'tinkerer' | 'ironwing' = 'tinkerer';
+/** Swap to 'ironwing', 'rampart', or 'kronos' to test other Earth heroes in the arena. */
+const SELECTED_ARENA_HERO: 'tinkerer' | 'ironwing' | 'rampart' | 'kronos' = 'tinkerer';
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
@@ -768,9 +770,11 @@ export class CombatArenaScene extends Phaser.Scene {
     // at wave boundaries so there's always some travel time before they arrive.
     this.heroRoom = largestRoom;
 
-    this.hero = SELECTED_ARENA_HERO === 'ironwing'
-      ? new Ironwing(this, heroX, heroY)
-      : new Tinkerer(this, heroX, heroY);
+    this.hero =
+      SELECTED_ARENA_HERO === 'ironwing' ? new Ironwing(this, heroX, heroY) :
+      SELECTED_ARENA_HERO === 'rampart'  ? new Rampart(this, heroX, heroY)  :
+      SELECTED_ARENA_HERO === 'kronos'   ? new Kronos(this, heroX, heroY)   :
+      new Tinkerer(this, heroX, heroY);
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
     this.heroAlive = true;
