@@ -15,6 +15,7 @@ import type { DayPhase, PhaseOverlay } from '../world/WorldClock';
 import { WorldState } from '../world/WorldState';
 import { SeasonSystem } from '../world/SeasonSystem';
 import type { Season } from '../world/SeasonSystem';
+import { WeatherSystem } from '../world/WeatherSystem';
 import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
 import { PathSystem } from '../world/PathSystem';
@@ -563,6 +564,7 @@ export class GameScene extends Phaser.Scene {
   private seasonSystem!: SeasonSystem;
   /** Tracks the last applied effective season so updateDayNight() only re-blends on change. */
   private _currentSeason: Season = 'spring';
+  private weatherSystem!: WeatherSystem;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -1112,6 +1114,12 @@ export class GameScene extends Phaser.Scene {
     // default and blends a palette tint into the day/night overlay (see blendedOverlay()).
     this.seasonSystem = new SeasonSystem(this, this.worldClock, this.worldState);
     this.worldState.registerSystem(this.seasonSystem);
+
+    // FIL-58: WeatherSystem drives rain/clear transitions on a random schedule
+    // (30–120 s gaps, 10–30 s rain periods) and handles all rain visual effects
+    // (particles + dark overlay).  No audio until a rain-ambient asset is added.
+    this.weatherSystem = new WeatherSystem(this, this.worldState);
+    this.worldState.registerSystem(this.weatherSystem);
 
     // Placeholder map data — replaced by parseLdtkLevel() once LDtk export exists
     this.mapData = emptyLdtkLevel(WORLD_W, WORLD_H, TILE_SIZE);
