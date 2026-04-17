@@ -16,7 +16,7 @@ MainMenuScene
 └── [user picks mode]
     │
     ├── GameScene  ← main gameplay (wilderview)
-    │   ├── NavScene (persistent overlay — mode toggle, free-cam)
+    │   ├── NavScene (persistent overlay — mode toggle, free-cam, dev layer toggles)
     │   ├── PauseMenuScene (overlay)
     │   ├── NpcDialogScene (modal — blocks input until choice)
     │   ├── UpgradeScene (modal shop — permanent upgrades at shrines)
@@ -26,15 +26,18 @@ MainMenuScene
     │   ├── LevelCompleteScene (overlay — shown on portal reach)
     │   └── EndingScene (launched on portal reach — freezes GameScene)
     │
-    └── CombatArenaScene  ← infinite wave arena
+    └── CombatArenaScene  ← infinite wave arena (~1 300 lines)
         └── NavScene (persistent overlay)
 ```
 
 Scenes communicate via Phaser event bus (`this.game.events`). Key events:
 - `ws:alignment-updated` — NpcDialogScene → WorldState → EndingScene reads on launch
+- `ws:weather-changed` — WorldState → WeatherSystem applies visual effects
 - `boss-died` — unlocks portal
 - `upgrade-purchased` — GameScene deducts `playerGold`
 - `shop-purchased` — ShopScene → GameScene applies consumable effect (heal / cleanse_pct)
+- `nav-toggle-decor` / `nav-toggle-animals` — NavScene dev panel → GameScene toggles layer visibility
+- `nav-decor-changed` / `nav-animals-changed` — GameScene → NavScene updates button state
 
 ---
 
@@ -44,11 +47,11 @@ Scenes communicate via Phaser event bus (`this.game.events`). Key events:
 src/
 ├── main.ts                   # Phaser game config, global plugin registration
 ├── scenes/                   # One file per screen/mode (see Scene Graph above)
-│   ├── GameScene.ts          # Main gameplay (~6 300 lines — see Internals)
-│   ├── CombatArenaScene.ts   # Infinite wave arena
+│   ├── GameScene.ts          # Main gameplay (~7 450 lines — see Internals)
+│   ├── CombatArenaScene.ts   # Infinite wave arena with dungeon rooms
 │   ├── WilderviewScene.ts    # Standalone nature sim (background + menu mode)
 │   ├── MainMenuScene.ts      # Entry point — orchestrates background scenes
-│   ├── NavScene.ts           # Persistent HUD overlay (mode toggle, free-cam)
+│   ├── NavScene.ts           # Persistent HUD overlay (mode toggle, free-cam, dev toggles)
 │   ├── NpcDialogScene.ts     # Modal dialog with path choices
 │   ├── UpgradeScene.ts       # Permanent upgrade shrine shop
 │   ├── ShopScene.ts          # Consumable vendor shop (FIL-93)
@@ -68,24 +71,50 @@ src/
 │   │                         # Subtypes: Tinkerer, SporeHusk, AcidLancer, BruteCarapace,
 │   │                         # ParasiteFlyer, WarriorBug, Skald, Spider, Skag, Crow
 │   ├── Velcrid.ts            # VelcridJuvenile (orbit+hop) + VelcridAdult (burrow+surface)
+│   ├── BurrowHole.ts         # Stationary entity that timed-spawns enemies in dungeon rooms
 │   ├── CorruptedGuardian.ts  # Level 1 boss: 3-phase charge AI, spawns rabbits in phase 2+
+│   ├── EarthHero.ts          # Base class for Earth faction heroes (signature ability interface)
+│   ├── EarthEnemies.ts       # Field-control Earth enemies: Signal Jammer, Infected APC, Scrap Golem
+│   ├── Blightfrog.ts         # Root-and-leap enemy; Spinolandet faction
+│   ├── CrackedGolem.ts       # Death-burst enemy; Vattenpandalandet faction
+│   ├── Dustling.ts           # Swarm enemy; Vattenpandalandet faction
+│   ├── PackStalker.ts        # Coordinated flanking trio; Spinolandet faction
+│   ├── SporeDrifter.ts       # Area-denial poison cloud enemy
+│   ├── Spineling.ts          # Fast fragile swarmer; Spinolandet faction
+│   ├── SwarmBrain.ts         # Stateless Reynolds boids calculator (separation/alignment/cohesion)
+│   ├── heroes/               # Arena hero classes (playable in CombatArenaScene)
+│   │   ├── Lund.ts           # Tier 1 humanoid hero
+│   │   ├── SymbiontKarin.ts  # Tier 2 humanoid hero
+│   │   ├── Chimera.ts        # Tier 3 hero — multi-strike ability
+│   │   ├── Apex.ts           # Tier 4 hero — Primal Roar
+│   │   └── Overmind.ts       # Tier 5 swarm hero — Redistribute mechanic
 │   ├── Projectile.ts         # Ranged cleanse bolt
 │   ├── Bird.ts               # Atmospheric flight objects
 │   ├── WildlifeAnimal.ts     # Deer, fox, hare etc. with roam/flee/chase FSM
-│   └── GroundAnimal.ts       # Base for wildlife
+│   ├── GroundAnimal.ts       # Base for wildlife
+│   └── index.ts              # Barrel export for all entities
 ├── environment/
 │   ├── SolidObject.ts        # Colliders (mountains, barriers)
 │   ├── InteractiveObject.ts  # Shrines, NPCs — trigger dialog on E
 │   └── Decoration.ts         # Visual-only (trees, rocks)
 ├── world/
-│   ├── WorldState.ts         # Shared observable state (see Data Flow)
+│   ├── WorldState.ts         # Shared observable state + GameSystem registry (see Data Flow)
 │   ├── WorldClock.ts         # Day/night cycle, 6 phases, colour overlay
+│   ├── SeasonSystem.ts       # 5-season cycle (spring/rainy/summer/autumn/winter) with tint blending
+│   ├── WeatherSystem.ts      # Random rain/ash scheduling + screen-space particle effects
 │   ├── CorruptionField.ts    # 2D noise-driven local corruption intensity
 │   ├── PathSystem.ts         # Road segments — affects speed + animal routing
 │   ├── AnimalTrailGen.ts     # Procedural animal trail generation between POIs (FIL-88)
 │   ├── ChunkDef.ts           # Hand-authored set-piece templates (tree clusters, ruins, etc.)
 │   ├── DecorationScatter.ts  # Poisson disk decoration placement (flowers, mushrooms, etc.)
 │   ├── RiverData.ts          # Diagonal river paths via gradient descent (FIL-166)
+│   ├── LakeData.ts           # BFS flood-fill classifier — ocean vs inland lake tiles (FIL-260)
+│   ├── BiomeBlend.ts         # Biome-boundary detection for feathered transition strips (FIL-177)
+│   ├── CliffSystem.ts        # Elevation quantization + south/east-facing cliff-face detection
+│   ├── DungeonGen.ts         # Procedural dungeon: Bowyer-Watson + MST + loop edges + CA (~785 lines)
+│   ├── BuildingCatalogue.ts  # Economy-aware building vocabulary per settlement type
+│   ├── SettlementLayout.ts   # Radial ring building placement via rejection sampling
+│   ├── Spinolandet.ts        # Level 3 faction wave definitions (Spineling, Blightfrog, PackStalker)
 │   ├── MapData.ts            # WORLD_W × WORLD_H tile grid
 │   ├── Level1.ts             # Level 1 constants: zones, NPC positions, endings
 │   ├── Level1Paths.ts        # Level 1 hand-authored path segments
@@ -120,17 +149,28 @@ src/
 
 ### WorldState (world/WorldState.ts)
 
-Central shared state, one instance per GameScene run:
+Central shared state, one instance per GameScene run. Also acts as a **system registry** — any class implementing `GameSystem` can register itself and receive `update(delta)` calls each frame, plus optional `destroy()` on scene stop.
 
 ```
 WorldState
 ├── cleansePercent: 0–100      → drives CorruptionPostFX intensity
 ├── alignment: { earth, spino, vatten }  → determines ending
 ├── combatActive: boolean      → used for music ducking
-└── weather: clear | rain | ash
+├── weather: clear | rain | ash
+└── systems: GameSystem[]      → WeatherSystem, SeasonSystem, etc. auto-ticked here
 ```
 
-Alignment is adjusted by NPC dialog choices. It is intentionally hidden from the player during play — revealed only in EndingScene's bar display.
+#### GameSystem interface
+
+```ts
+interface GameSystem {
+  readonly systemId: string;
+  update(delta: number): void;
+  destroy?(): void;
+}
+```
+
+`WeatherSystem` and `SeasonSystem` both implement this. Registration is idempotent (duplicate `systemId` is silently ignored). This is the preferred pattern for new systems that need per-frame ticks but don't belong inside GameScene's `update()`.
 
 ### Ending Determination (EndingScene.ts:41–52)
 
@@ -150,6 +190,15 @@ else                                    → wound     (fragile stability)
 
 Decoupled deliberately. Field can be sampled at any (x, y) without touching the shader.
 
+### Water: Two separate tile types
+
+| Type | Animation | File |
+|---|---|---|
+| River tiles | `river-anim` spritesheet | `world/RiverData.ts` |
+| Ocean tiles | `ocean-anim` spritesheet | `world/LakeData.ts` classifies edge-connected water |
+
+`LakeData.buildLakeTileGrid()` runs a BFS from all border tiles to classify every sub-0.25-elevation tile as ocean (edge-reachable) or inland lake (not reached). Lakes use river-anim; ocean uses ocean-anim.
+
 ### SkillSystem (lib/SkillSystem.ts)
 
 Invisible progression stored in localStorage. Four skills map to stat multipliers:
@@ -167,7 +216,7 @@ Level = floor(sqrt(xp / 50)), capped at 50. Multiplier = 1 + level × 0.01 (max 
 
 ## GameScene Internals
 
-`scenes/GameScene.ts` is ~6 300 lines and owns the main game loop. Key responsibilities:
+`scenes/GameScene.ts` is ~7 450 lines and owns the main game loop. Key responsibilities:
 
 **Lifecycle**
 - `preload()` — loads sprites, audio, tilesets; registers CorruptionPostFX pipeline; loads rex-joystick plugin
@@ -182,7 +231,7 @@ Level = floor(sqrt(xp / 50)), capped at 50. Multiplier = 1 + level × 0.01 (max 
 - Idle attract: after 5s stillness, camera pans to nearby entities
 
 **Procedural terrain**
-Three independent fBm noise layers (elevation, temperature, moisture), each seeded by `runSeed XOR constant`. Biome lookup via multi-level if-else in `terrainTileFrame()`. Rivers are traced by gradient descent in `RiverData.ts` and baked into an `isRiverTile[]` lookup grid before `create()` completes.
+Three independent fBm noise layers (elevation, temperature, moisture), each seeded by `runSeed XOR constant`. Biome lookup via multi-level if-else in `terrainTileFrame()`. Rivers are traced by gradient descent in `RiverData.ts`; lakes are classified by BFS in `LakeData.ts`; biome boundaries are feathered by `BiomeBlend.detectBoundaries()`; cliff faces are detected by `CliffSystem`. All grids are baked before `create()` completes.
 
 **Projectiles** — tracked in array, filter-each-frame lifetime management (no pooling currently)
 
@@ -200,6 +249,8 @@ baseNoise ^ 0xdeadbeef  // corruption
 Five levels are scaffolded in `world/Level*.ts` and indexed in `LevelRegistry.ts`. Currently only Level 1 is wired into GameScene. The registry is forward infrastructure — it provides a typed `getLevelConfig(n)` accessor so a future level-selection or transition mechanism can switch levels without importing all five files.
 
 Level 2–5 files are stubs: they export the full `LevelConfig` shape with placeholder coordinates. They will be fleshed out as the level arc is implemented.
+
+`world/Spinolandet.ts` holds the wave definitions for Level 3's faction (Spineling, Blightfrog, PackStalker). This is not a LevelConfig stub — it is live, wired into `CombatArenaScene`.
 
 ---
 
@@ -227,7 +278,7 @@ BtCooldown   — decorator: gate child behind a timer
 |---|---|---|
 | GameScene | 3× | Follows player; UI elements use `setScrollFactor(0)` |
 | NavScene | 1× | Overlay — own camera so zoom doesn't affect HUD |
-| CombatArenaScene | 1× | Arena fits viewport at 1:1 |
+| CombatArenaScene | 1× | Dungeon rooms; live zoom slider in dev HUD |
 | WilderviewScene | 1× | Slow pan across 1200×900 world; independent of GameScene |
 
 ---
@@ -244,7 +295,7 @@ SWIPE_RANGE = 120, SWIPE_COOLDOWN_MS = 400
 RANGED_RANGE = 250, RANGED_COOLDOWN_MS = 1200
 
 RABBIT_COUNT = 25, CHASE_RANGE = 200, FLEE_SPEED = 120
-FOOTSTEP_INTERVAL_MS = 380
+FOOTSTEP_INTERVAL_MS = 380 (base; scaled by movement speed — FIL-119)
 ```
 
 ---
@@ -269,23 +320,35 @@ FOOTSTEP_INTERVAL_MS = 380
 
 **LevelRegistry is forward infrastructure** — Levels 2–5 are scaffolded but not yet wired into GameScene. The registry exists so a future transition mechanism can call `getLevelConfig(n)` without knowing the individual file names. GameScene still hard-codes Level 1 for now.
 
+**WeatherSystem implements GameSystem** — registered with WorldState and auto-ticked each frame; GameScene's `update()` does not call it directly. The scheduler alternates clear ↔ rain with randomised gap (30–120 s) and duration (10–30 s). Rain audio is commented out pending the asset file.
+
+**BurrowHole event-based spawn wiring** — the hole emits `'hole-spawned'` carrying the new `CombatEntity`; `CombatArenaScene` is the listener that calls `addPhysics()`, `setOpponent()`, and pushes into `aliveEnemies`. This keeps physics wiring out of the entity and follows the same boundary used by NpcDialogScene (no scene imports in entities).
+
+**BiomeBlend follows CliffSystem pattern** — pure detection pass in a `world/` module; rendering in `GameScene.drawBiomeBlendStrips()`. The same split was used for cliff faces (`CliffSystem.ts` + `GameScene.drawCliffEdges()`). New terrain features should follow this pattern: pure data-transform in `world/`, render call-site in GameScene.
+
+**NavScene world dev panel** — Decor and Animals layer toggle buttons are visible only in WilderView dev mode (`/world` route). They emit `nav-toggle-decor` / `nav-toggle-animals` on the global event bus; GameScene handles them and fires `nav-decor-changed` / `nav-animals-changed` back with the new boolean state so NavScene can update button labels.
+
+**`entities/heroes/` subdirectory** — arena hero classes are kept separate from arena enemies to make the hero tier list browsable. All heroes extend `CombatEntity` and implement a signature ability triggered by the hero's key binding in CombatArenaScene.
+
 ---
 
-## Review Notes — 2026-04-14
+## Review Notes — 2026-04-17
 
 ### What changed this week
-- **FIL-143**: `LevelRegistry.ts` + `LevelTypes.ts` scaffold for five-level arc; Level 2–5 data files added as stubs
-- **FIL-93**: `ShopScene.ts` — consumable vendor shop overlay; communicates with GameScene via `shop-purchased` event
-- **FIL-95**: `lib/SkillSystem.ts` — invisible XP and skill progression persisted in localStorage
-- **FIL-92**: Loot containers (interactive chests) added near settlements
-- **FIL-166 through FIL-170**: River system rewritten — `RiverData.ts` now uses gradient-descent path generation + Catmull-Rom spline smoothing; old horizontal `RiverBand` system deprecated (still in file)
-- **FIL-172**: Four new biomes added (marsh, snow, sandy shore, river-bank wetland)
-- **FIL-198 / agent infrastructure**: Multiple GitHub Actions agent workflows added (nightly per-issue, triage, architecture review, error monitor, lore, release notes, learning summary). Documented in `INFRASTRUCTURE.md`; not game-logic architecture
-- `WilderviewScene`, `GameOverScene`, `LevelCompleteScene`, `SettingsScene`, `LoreScene` added to scene graph (were missing from previous doc)
-- `AnimalTrailGen.ts`, `ChunkDef.ts`, `DecorationScatter.ts` extracted procedural helpers now documented in world/ structure
+- **FIL-58**: `WeatherSystem.ts` extracted as a standalone `GameSystem` — random rain/ash scheduling, screen-space particle streaks and dark overlay; registered with WorldState, not ticked by GameScene directly
+- **FIL-177**: `BiomeBlend.ts` — biome-boundary detection for feathered transition strips; follows the same module + call-site pattern as CliffSystem
+- **FIL-260**: `LakeData.ts` — BFS flood-fill from map borders to classify ocean vs inland lake tiles; enables split water animation (river-anim for lakes, ocean-anim for sea)
+- **FIL-258**: Water rendering split into `river-anim` and `ocean-anim` animation tracks in GameScene
+- **FIL-292/293**: `BurrowHole.ts` entity — stationary dungeon spawn point with 4 visual states (idle pulse, pre-spawn glow, HP cracks, collapse); placed 2–3 per wave in dungeon rooms; emits `hole-spawned` event for scene-level physics wiring
+- **FIL-331**: NavScene World Dev panel — Decor and Animals layer toggle buttons added; panel name corrected from "WilderView" to "World Dev"
+- **fix**: attract overlay and HUD suppressed in `/world` dev mode
+- **Audio pass**: night ambience layer, phase-transition music stingers, UI hover SFX, portal-reveal audio sequencing (duck → jingle → swell), victory fanfare before ambient loop, footstep interval/volume scaled with movement speed
+- **Hero death linger**: 3 s dead-pause, enemies fade out, then full reset in CombatArenaScene
+- Architecture doc updated to include previously undocumented files: `CliffSystem`, `SeasonSystem`, `DungeonGen`, `BuildingCatalogue`, `SettlementLayout`, `Spinolandet`, all new entity types, `heroes/` subdirectory
 
 ### Concerns
-- **GameScene.ts is now ~6 300 lines** — up from the ~5 800 noted in the previous doc. It continues to grow as new systems land (shop hooks, skill XP calls, river tile grid, new biomes). No immediate crisis, but extraction opportunities exist: the procedural terrain pipeline (river tracing, biome bake, decoration scatter) is already partially extracted into world/ helpers; completing that extraction would bring GameScene closer to a pure coordinator.
-- **Deprecated `RiverBand` exports still in `RiverData.ts`** — the comment says all consumers have migrated, so this is ready to delete. Leaving dead deprecated code in an active file adds noise.
-- **Level 2–5 stubs have placeholder coordinates** — they compile and are registered in the registry, but they all use approximate world-space positions that haven't been playtested. When the level-switching mechanism lands, each level will need a full coordinate pass.
-- **`SkillSystem` lives in `lib/` but is more game-domain than utility** — `lib/` mixes true utilities (noise, rng, i18n) with game-specific systems (SkillSystem, matluRuns). A `src/systems/` directory would be a cleaner home for SkillSystem once there are more systems like it.
+- **GameScene.ts is now ~7 450 lines** — grew by ~1 150 lines since the last review three days ago, now significantly above the 6 300 noted then. This is the most urgent structural concern. The procedural terrain pipeline (river tracing, lake BFS, biome blend, cliff detection, decoration scatter) is already partially extracted into `world/` modules, but the call sites, grid allocations, and rendering loops for each are still added directly to GameScene. A `TerrainBaker` coordinator in `world/` that owns all grid bake steps and returns a result object to GameScene could meaningfully reduce the scene.
+- **Deprecated `RiverBand` exports still in `RiverData.ts`** — carried over from last week; still ready to delete.
+- **`Spinolandet.ts` placement** — faction wave definitions live in `world/` but are not terrain or world-state data; they are arena content. A `src/arena/` or `src/factions/` directory would be a more honest home as more level-specific wave files accumulate.
+- **`SkillSystem` and `matluRuns` in `lib/`** — `lib/` continues to mix true utilities (noise, rng, i18n) with game-domain code. Not an immediate problem, but worth splitting into `src/systems/` and `src/db/` in a future pass.
+- **No unit tests on pure data modules** — `LakeData.ts`, `BiomeBlend.ts`, `DungeonGen.ts`, and `CliffSystem.ts` are all pure TypeScript with no Phaser dependency. They are exactly the kind of code that is easy to unit-test. Adding even a handful of tests would catch regressions before they reach the rendered game.
