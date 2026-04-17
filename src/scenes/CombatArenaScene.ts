@@ -583,6 +583,45 @@ export class CombatArenaScene extends Phaser.Scene {
     // Expand by 2 wall cells (44 px) so the world bounds sit outside the outer
     // wall layer and never block entities that are legitimately inside a room.
     this.physics.world.setBounds(left - 44, top - 44, right - left + 88, bottom - top + 88);
+
+    // ── Per-room floor colour variation ──────────────────────────────────────
+    // Largest room (main chamber) → warmer amber tint so it reads as richer stone.
+    // Side rooms → cooler grey-brown for a rougher, less-travelled look.
+    // Depth -0.5: above floor tiles (depth -1), below wall graphics (depth 0).
+    const largestArea = this.rooms.reduce((max, r) => Math.max(max, r.w * r.h), 0);
+    const roomTintGfx = this.add.graphics();
+    roomTintGfx.setDepth(-0.5);
+    for (const room of this.rooms) {
+      const isMain = room.w * room.h >= largestArea;
+      roomTintGfx.fillStyle(isMain ? 0x7a5010 : 0x28201a, isMain ? 0.18 : 0.22);
+      roomTintGfx.fillRect(room.x, room.y, room.w, room.h);
+    }
+
+    // ── Dungeon torches at room corners and doorway entrances ─────────────────
+    // Depth 1: renders above wall graphics (depth 0) and floor tiles (-1).
+    // Torches are NOT added to the obstacles StaticGroup so they don't block movement.
+    const addDungeonTorch = (tx: number, ty: number): void => {
+      const tGlow = this.add.graphics();
+      tGlow.setDepth(1);
+      tGlow.fillStyle(0xff7700, 0.25);
+      tGlow.fillCircle(tx, ty, 14);
+      const tDot = this.add.graphics();
+      tDot.setDepth(1);
+      tDot.fillStyle(0xffcc44, 1);
+      tDot.fillCircle(tx, ty, 3);
+      this.tweens.add({
+        targets:  tGlow,
+        alpha:    { from: 0.5, to: 1.0 },
+        duration: Phaser.Math.Between(280, 580),
+        yoyo:     true,
+        repeat:   -1,
+        ease:     'Sine.easeInOut',
+        delay:    Phaser.Math.Between(0, 320),
+      });
+    };
+    for (const room of this.rooms) {
+      addDungeonTorch(room.x + 8, room.y + 8);
+    }
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
