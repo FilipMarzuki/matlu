@@ -17,8 +17,6 @@ export { Spineling } from './Spineling';
 export { CrackedGolem } from './CrackedGolem';
 export { Blightfrog } from './Blightfrog';
 export { EarthHero } from './EarthHero';
-export { MajaLind } from './MajaLind';
-export { TorstenKraft, PerimeterMine } from './TorstenKraft';
 export { SporeDrifter, SporeCloud } from './SporeDrifter';
 export { PackStalker, PackRole } from './PackStalker';
 export { BurrowHole } from './BurrowHole';

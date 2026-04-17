@@ -3,9 +3,6 @@ import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
 import { CombatEntity } from '../entities/CombatEntity';
 import { Tinkerer } from '../entities/Tinkerer';
-import { EarthHero } from '../entities/EarthHero';
-import { MajaLind } from '../entities/MajaLind';
-import { TorstenKraft } from '../entities/TorstenKraft';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
@@ -50,9 +47,6 @@ const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence beg
 
 /** Kill count at which the mine gadget unlocks, simulating the Tier 1 → Tier 2 transition. */
 const GADGET_UNLOCK_KILLS = 10;
-
-/** Swap to 'maja-lind' or 'torsten-kraft' to test new Earth heroes in the arena. */
-const SELECTED_ARENA_HERO: 'tinkerer' | 'maja-lind' | 'torsten-kraft' = 'torsten-kraft';
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
@@ -343,10 +337,7 @@ export class CombatArenaScene extends Phaser.Scene {
             if (button.index === 0) this.hero.tryMelee();
             else if (button.index === 5) this.hero.tryRanged();
             else if (button.index === 4 && (dx !== 0 || dy !== 0)) this.hero.tryDash(dx, dy);
-            else if (button.index === 3) {
-              if (this.hero instanceof Tinkerer && this.gadgetUnlocked) this.hero.deployMine();
-              else if (this.hero instanceof EarthHero) this.hero.useSignature();
-            }
+            else if (button.index === 3 && this.gadgetUnlocked) (this.hero as Tinkerer).deployMine();
           }
         },
       );
@@ -463,18 +454,14 @@ export class CombatArenaScene extends Phaser.Scene {
       if (this.aliveEnemies.length !== this._lastHudAlive) { this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`); this._lastHudAlive = this.aliveEnemies.length; }
       if (this.killCount       !== this._lastHudKills) { this.hudKills.setText(`Kills: ${this.killCount}`);       this._lastHudKills = this.killCount; }
 
-      // Gadget / signature HUD
-      if (this.heroAlive) {
-        if (this.hero instanceof Tinkerer && this.gadgetUnlocked) {
-          if (this.hero.isGadgetReady) {
-            this.hudGadget.setText('MINE [E]: ready').setColor('#ffee55');
-          } else {
-            const secs = (this.hero.gadgetCooldownRemaining / 1000).toFixed(1);
-            this.hudGadget.setText(`MINE [E]: ${secs}s`).setColor('#aaaaaa');
-          }
-        } else if (this.hero instanceof EarthHero && !(this.hero instanceof Tinkerer)) {
-          // Non-Tinkerer Earth heroes show their signature name; subclass owns cooldown display.
-          this.hudGadget.setText(`SIG [E]: ${this.hero.name}`).setColor('#88ddff');
+      // Gadget HUD — updates every frame while unlocked (cooldown is a live countdown)
+      if (this.gadgetUnlocked && this.heroAlive) {
+        const tinkerer = this.hero as Tinkerer;
+        if (tinkerer.isGadgetReady) {
+          this.hudGadget.setText('MINE [E]: ready').setColor('#ffee55');
+        } else {
+          const secs = (tinkerer.gadgetCooldownRemaining / 1000).toFixed(1);
+          this.hudGadget.setText(`MINE [E]: ${secs}s`).setColor('#aaaaaa');
         }
       }
     }
@@ -756,13 +743,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // at wave boundaries so there's always some travel time before they arrive.
     this.heroRoom = largestRoom;
 
-    if (SELECTED_ARENA_HERO === 'maja-lind') {
-      this.hero = new MajaLind(this, heroX, heroY);
-    } else if (SELECTED_ARENA_HERO === 'torsten-kraft') {
-      this.hero = new TorstenKraft(this, heroX, heroY);
-    } else {
-      this.hero = new Tinkerer(this, heroX, heroY);
-    }
+    this.hero = new Tinkerer(this, heroX, heroY);
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
     this.heroAlive = true;
@@ -800,8 +781,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Clean up any active mines before losing the hero reference.
     // Mines are scene children (Arc GameObjects) that outlive the hero entity,
     // so they must be explicitly disposed here rather than relying on destroy().
-    if (this.hero instanceof Tinkerer) this.hero.destroyMines();
-    else if (this.hero instanceof TorstenKraft) this.hero.destroyMines();
+    (this.hero as Tinkerer).destroyMines();
     this.gadgetUnlocked = false;
     if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
 
@@ -1239,15 +1219,9 @@ export class CombatArenaScene extends Phaser.Scene {
       this.hero.tryDash(dx, dy);
     }
 
-    // Signature / gadget — E (just-pressed).
-    // Tinkerer: deploy proximity mine (gated by kill count unlock).
-    // Other EarthHero subclasses: fire signature (no kill-count gate; subclass guards its own cooldown).
-    if (Phaser.Input.Keyboard.JustDown(this.gadgetKey)) {
-      if (this.hero instanceof Tinkerer && this.gadgetUnlocked) {
-        this.hero.deployMine();
-      } else if (this.hero instanceof EarthHero) {
-        this.hero.useSignature();
-      }
+    // Mine gadget — E (just-pressed; only active after GADGET_UNLOCK_KILLS)
+    if (this.gadgetUnlocked && Phaser.Input.Keyboard.JustDown(this.gadgetKey)) {
+      (this.hero as Tinkerer).deployMine();
     }
 
     // Let the entity tick its animation + dash physics + HP bar.
@@ -1278,8 +1252,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudKills  = -1;
 
     // Clean up mines and reset gadget state before respawning.
-    if (this.hero instanceof Tinkerer) this.hero.destroyMines();
-    else if (this.hero instanceof TorstenKraft) this.hero.destroyMines();
+    (this.hero as Tinkerer).destroyMines();
     this.gadgetUnlocked = false;
     if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
 
