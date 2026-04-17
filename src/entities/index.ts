@@ -17,3 +17,4 @@ export { Spineling } from './Spineling';
 export { CrackedGolem } from './CrackedGolem';
 export { Blightfrog } from './Blightfrog';
 export { EarthHero } from './EarthHero';
+export { SporeDrifter, SporeCloud } from './SporeDrifter';
