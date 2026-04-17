@@ -1996,10 +1996,19 @@ export class GameScene extends Phaser.Scene {
       body.setVelocity(0, 0);
     }
 
-    // Footstep sound — fires once every FOOTSTEP_INTERVAL_MS while walking.
-    // We check time.now instead of a frame counter so it stays in sync even
-    // if the frame rate drops.
-    if (moving && this.time.now - this.lastFootstepAt > this.FOOTSTEP_INTERVAL_MS) {
+    // Footstep sound — rate and volume scale with current movement speed (FIL-119).
+    //
+    // speedRatio: 0 = standing still, 1 = full sprint (PLAYER_SPEED px/s).
+    // dynamicInterval: at half speed the interval doubles (steps sound slower);
+    //   below 5 % speed (joystick drift, nearly still) it becomes Infinity so
+    //   we don't fire a footstep for micro-movements.
+    // Volume: 0.15 (quiet tiptoe) → 0.40 (full sprint), matching the visual cadence.
+    const playerBody      = this.player.body as Phaser.Physics.Arcade.Body;
+    const speedRatio      = Phaser.Math.Clamp(playerBody.speed / PLAYER_SPEED, 0, 1);
+    const dynamicInterval = speedRatio > 0.05
+      ? this.FOOTSTEP_INTERVAL_MS / speedRatio
+      : Infinity;
+    if (moving && this.time.now - this.lastFootstepAt > dynamicInterval) {
       // Sample the biome noise at the player's tile position to pick the right
       // surface sound. BASE_SCALE and baseNoise match drawProceduralTerrain() exactly,
       // so the value corresponds to the terrain colour the player sees underfoot.
@@ -2025,9 +2034,12 @@ export class GameScene extends Phaser.Scene {
         else if (biome < 0.80) surface = 'wood';
         else                   surface = 'concrete';
 
-        const variant = Phaser.Math.Between(0, 4);
-        const footKey = `footstep-${surface}-${variant}`;
-        if (this.audioAvailable && this.cache.audio.has(footKey)) this.sound.play(footKey, { volume: 0.45 });
+        const variant  = Phaser.Math.Between(0, 4);
+        const footKey  = `footstep-${surface}-${variant}`;
+        const stepVol  = 0.15 + 0.25 * speedRatio; // quiet crawl → louder sprint
+        if (this.audioAvailable && this.cache.audio.has(footKey)) {
+          this.sound.play(footKey, { volume: stepVol });
+        }
       }
       this.lastFootstepAt = this.time.now;
     }
