@@ -42,6 +42,8 @@ import { Dustling } from '../entities/Dustling';
 import { DryShade } from '../entities/DryShade';
 import { CrackedGolem } from '../entities/CrackedGolem';
 import { Projectile } from '../entities/Projectile';
+import { Bao } from '../heroes/Bao';
+import { MasterFen } from '../heroes/MasterFen';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
@@ -225,6 +227,12 @@ const BOSS_X = 3800;
 const BOSS_Y = 520;
 /** Distance at which the boss entrance camera pan triggers */
 const BOSS_ENTRANCE_RADIUS = 500;
+
+/**
+ * Active hero in arena mode. Change to 'masterfen' to play as Master Fen.
+ * 'tinkerer' keeps the existing Tinkerer sprite with no panda abilities.
+ */
+const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' = 'bao';
 
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
@@ -712,6 +720,17 @@ export class GameScene extends Phaser.Scene {
   private dustlingSwarmAlive = false;
   /** Semi-opaque black screen overlay — visible while swarm is alive. */
   private dustlingOverlay!: Phaser.GameObjects.Rectangle;
+  // ── Panda heroes (FIL-314) ────────────────────────────────────────────────────
+  /** Bao or Master Fen instance spawned in arena mode — null for Tinkerer. */
+  private arenaHero: Bao | MasterFen | null = null;
+  /** Keyboard keys 1–3 drive hero abilities; 4 = Master Fen signature (Torrent). */
+  private abilityKey1?: Phaser.Input.Keyboard.Key;
+  private abilityKey2?: Phaser.Input.Keyboard.Key;
+  private abilityKey3?: Phaser.Input.Keyboard.Key;
+  private abilityKey4?: Phaser.Input.Keyboard.Key;
+  /** Projectiles emitted by hero cast methods — ticked and pruned each frame. */
+  private heroProjectiles: Projectile[] = [];
+
   // ── Dry Shades (FIL-304) ──────────────────────────────────────────────────────
   private dryShades: DryShade[] = [];
   // ── Cracked Golems (FIL-306) ─────────────────────────────────────────────────
@@ -1123,6 +1142,10 @@ export class GameScene extends Phaser.Scene {
         'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
         'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json',
       );
+      // TODO: replace with real panda atlas when sprites are available.
+      // Stubs use a placeholder image so the atlas key registers without throwing.
+      this.load.atlas('bao-panda',       'assets/packs/heroes/bao-panda.png',       'assets/packs/heroes/bao-panda.json');
+      this.load.atlas('masterfen-panda', 'assets/packs/heroes/masterfen-panda.png', 'assets/packs/heroes/masterfen-panda.json');
     }
   }
 
@@ -1260,6 +1283,19 @@ export class GameScene extends Phaser.Scene {
 
     // E key for NPC interaction (FIL-80)
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+    // ── Panda hero ability keys (FIL-314) — only registered in arena mode ─────────
+    // 1/2 = Bao's Water Jet / Water Shield.
+    // 1/2/3/4 = Master Fen's Ice Bolt / Water Push / Healing Rain / Torrent.
+    if (this.gameMode === 'arena') {
+      this.abilityKey1 = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+      this.abilityKey2 = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
+      this.abilityKey3 = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.THREE);
+      this.abilityKey4 = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR);
+      // Hero-fired projectiles are emitted via 'projectile-spawned'; collect and tick them.
+      this.events.on('projectile-spawned', (p: Projectile) => this.heroProjectiles.push(p));
+    }
+
     // Reset dialog-active flags when any overlay returns control to GameScene
     this.events.on(Phaser.Scenes.Events.RESUME, () => {
       this.npcDialogActive    = false;
@@ -1607,6 +1643,7 @@ export class GameScene extends Phaser.Scene {
     if (this.bossAlive && this.boss) this.boss.update(delta);
     this.updateDustlings(delta);
     this.updateDryShades(delta);
+    if (this.arenaHero) this.updateArenaHero(delta);
     this.updateGolems(delta);
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
@@ -3354,6 +3391,66 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Tick the panda hero (Bao or Master Fen) and handle ability key presses.
+   *
+   * The hero entity is kept at the player container's world position so its
+   * cast methods use accurate coordinates.  The ability keys only fire when
+   * the hero is alive and the scene is not in attract mode.
+   *
+   * Keys: 1/2 = Bao abilities; 1/2/3/4 = Master Fen abilities.
+   * Target position is the current pointer location in world space.
+   */
+  private updateArenaHero(delta: number): void {
+    const hero = this.arenaHero!;
+
+    // Sync hero world position to the player container every frame.
+    hero.setPosition(this.player.x, this.player.y);
+    hero.update(delta);
+
+    // Ability keys only fire when the hero is alive and input is active.
+    if (!hero.isAlive || this.attractMode) return;
+    if (!this.abilityKey1 || !this.abilityKey2) return;
+
+    // Convert pointer screen coords → world coords using camera scroll + zoom.
+    const ptr  = this.input.activePointer;
+    const cam  = this.cameras.main;
+    const wx   = ptr.x / cam.zoom + cam.scrollX;
+    const wy   = ptr.y / cam.zoom + cam.scrollY;
+
+    if (hero instanceof Bao) {
+      // Key 1 — Water Jet: fires toward pointer.
+      if (Phaser.Input.Keyboard.JustDown(this.abilityKey1)) {
+        hero.castWaterJet(wx, wy);
+      }
+      // Key 2 — Water Shield: absorbs next incoming hit (30 s cooldown).
+      if (Phaser.Input.Keyboard.JustDown(this.abilityKey2)) {
+        hero.castWaterShield();
+      }
+    } else if (hero instanceof MasterFen) {
+      // Key 1 — Ice Bolt: frost bolt toward pointer, slows on hit.
+      if (Phaser.Input.Keyboard.JustDown(this.abilityKey1)) {
+        hero.castIceBolt(wx, wy);
+      }
+      // Key 2 — Water Push: knockback to nearest enemy near pointer.
+      if (Phaser.Input.Keyboard.JustDown(this.abilityKey2)) {
+        hero.castWaterPush(wx, wy);
+      }
+      // Key 3 — Healing Rain: place a 3-tick heal zone at pointer.
+      if (this.abilityKey3 && Phaser.Input.Keyboard.JustDown(this.abilityKey3)) {
+        hero.castHealingRain(wx, wy);
+      }
+      // Key 4 — Torrent (signature): radial knockback + interrupt around hero.
+      if (this.abilityKey4 && Phaser.Input.Keyboard.JustDown(this.abilityKey4)) {
+        hero.castTorrent();
+      }
+    }
+
+    // Tick and prune projectiles fired by the hero (Water Jet / Ice Bolt).
+    for (const p of this.heroProjectiles) p.tick(delta);
+    this.heroProjectiles = this.heroProjectiles.filter(p => !p.isExpired);
+  }
+
+  /**
    * Spawn CrackedGolems in the forest/plateau area and wire up physics,
    * player overlap damage, and death-burst projectile collection.
    *
@@ -4211,6 +4308,18 @@ export class GameScene extends Phaser.Scene {
       this.playerSprite = this.add.sprite(0, 0, 'tinkerer', 'idle_south_0');
       this.playerSprite.setScale(1);
       this.playerSprite.play('pc-idle-down');
+
+      // Instantiate the panda hero when a non-Tinkerer hero is selected.
+      // The hero's position is synced to the player container each frame
+      // (see updateArenaHero) so cast methods fire from the correct world position.
+      // Entity constructor calls scene.add.existing() so no explicit add is needed.
+      if (SELECTED_HERO === 'bao') {
+        this.arenaHero = new Bao(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero.setAlpha(0); // invisible — the player Container is the visual
+      } else if (SELECTED_HERO === 'masterfen') {
+        this.arenaHero = new MasterFen(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero.setAlpha(0);
+      }
     } else {
       // WilderView: Pixel Crawler Free Pack Body_A character (64×64 px sheets)
       this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
@@ -5950,12 +6059,56 @@ export class GameScene extends Phaser.Scene {
       spr.play('river-anim');
       spr.anims.setCurrentFrame(riverAnim.frames[(i / 2) % riverAnim.frames.length]);
     }
-    const oceanAnim = this.anims.get('ocean-anim');
-    for (let i = 0; i < oceanCentres.length; i += 2) {
-      const spr = this.add.sprite(oceanCentres[i], oceanCentres[i + 1], 'terrain-water');
-      spr.setScale(2).setDepth(0.5);
-      spr.play('ocean-anim');
-      spr.anims.setCurrentFrame(oceanAnim.frames[(i / 2) % oceanAnim.frames.length]);
+    // FIL-259: single TileSprite replaces up to 2400 per-tile ocean animated sprites.
+    // One GPU draw call + one tween instead of one AnimationState update per tile per frame.
+    if (oceanCentres.length >= 2) {
+      // Compute bounding box of all ocean tile centres (world coordinates).
+      let minOceanX = Infinity, minOceanY = Infinity, maxOceanX = -Infinity, maxOceanY = -Infinity;
+      for (let i = 0; i < oceanCentres.length; i += 2) {
+        if (oceanCentres[i]     < minOceanX) minOceanX = oceanCentres[i];
+        if (oceanCentres[i]     > maxOceanX) maxOceanX = oceanCentres[i];
+        if (oceanCentres[i + 1] < minOceanY) minOceanY = oceanCentres[i + 1];
+        if (oceanCentres[i + 1] > maxOceanY) maxOceanY = oceanCentres[i + 1];
+      }
+      // Each tile centre is 32 world-px from its neighbours; add a half-tile on
+      // each edge so the TileSprite covers the outermost tile footprint fully.
+      const OCEAN_HALF = 16; // half of the 32×32 displayed tile (16 source × 2 scale)
+      const oceanX = (minOceanX + maxOceanX) / 2;
+      const oceanY = (minOceanY + maxOceanY) / 2;
+      const oceanW  = maxOceanX - minOceanX + 2 * OCEAN_HALF;
+      const oceanH  = maxOceanY - minOceanY + 2 * OCEAN_HALF;
+
+      const oceanTile = this.add
+        .tileSprite(oceanX, oceanY, oceanW, oceanH, 'terrain-water')
+        .setDepth(0.5);
+      // Scale the tiled texture to 2× so each tile appears 32×32 in world space,
+      // matching the original per-tile sprites.  setTileScale does not inflate the
+      // TileSprite's own display rect — it only changes how the texture tiles within it.
+      oceanTile.setTileScale(2, 2);
+
+      // Scroll one full texture width (64 source px = all 4 frames) in 2 s —
+      // equivalent to the original ocean-anim frame rate of 2 fps, but smooth
+      // instead of frame-stepped.
+      this.tweens.add({
+        targets:       oceanTile,
+        tilePositionX: { from: 0, to: 64 },
+        duration:      2000,
+        repeat:        -1,
+        ease:          'Linear',
+      });
+
+      // Geometry mask: clip the TileSprite to actual water tiles so land tiles
+      // enclosed by the bounding box remain unaffected.  setVisible(false) hides
+      // the Graphics from the regular render pass while leaving the stencil pass
+      // (which checks `active`, not `visible`) fully functional.
+      const oceanMaskGfx = this.add.graphics().setVisible(false);
+      for (let i = 0; i < oceanCentres.length; i += 2) {
+        oceanMaskGfx.fillRect(
+          oceanCentres[i] - OCEAN_HALF, oceanCentres[i + 1] - OCEAN_HALF,
+          2 * OCEAN_HALF,               2 * OCEAN_HALF,
+        );
+      }
+      oceanTile.setMask(oceanMaskGfx.createGeometryMask());
     }
     // FIL-260: lake sprites — near-still, 1 fps, only 2 frames so ponds feel quiet.
     const lakeAnim = this.anims.get('lake-anim');
