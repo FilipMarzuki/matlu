@@ -684,6 +684,11 @@ export class GameScene extends Phaser.Scene {
   // Stored here (not in the overlay) so GameScene owns the full duck/restore lifecycle.
   private preDuckMusicVol    = 0;
   private preDuckAmbienceVol = 0;
+  // FIL-115: User-controlled volume multipliers (0–1, default 1 = authored levels).
+  // Read from localStorage in preload(); updated live via settings:*-vol game events.
+  private musicVol    = 1.0;
+  private sfxVol      = 1.0;
+  private ambienceVol = 1.0;
   // tracks when we last played a footstep so we don't fire every frame
   private lastFootstepAt = 0;
   private readonly FOOTSTEP_INTERVAL_MS = 380; // tune this to match your walk animation rhythm
@@ -886,6 +891,17 @@ export class GameScene extends Phaser.Scene {
     this.load.once('complete', () => {
       this.audioAvailable = this.cache.audio.has('forest-ambience');
     });
+
+    // FIL-115: Restore per-channel volume multipliers from localStorage so they are
+    // ready before the sound graph is built in create().
+    if (typeof localStorage !== 'undefined') {
+      const mv = parseFloat(localStorage.getItem('matlu_music_vol')    ?? '1');
+      const sv = parseFloat(localStorage.getItem('matlu_sfx_vol')      ?? '1');
+      const av = parseFloat(localStorage.getItem('matlu_ambience_vol') ?? '1');
+      this.musicVol    = isNaN(mv) ? 1 : Phaser.Math.Clamp(mv, 0, 1);
+      this.sfxVol      = isNaN(sv) ? 1 : Phaser.Math.Clamp(sv, 0, 1);
+      this.ambienceVol = isNaN(av) ? 1 : Phaser.Math.Clamp(av, 0, 1);
+    }
 
     // ── Audio ──────────────────────────────────────────────────────────────────
     // Phaser tries each format in order and picks the first the browser supports.
@@ -1314,7 +1330,7 @@ export class GameScene extends Phaser.Scene {
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - 20);
       this.setHpHud(this.playerHp);
-      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
+      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 * this.sfxVol });
       // Red tint flash — more readable than alpha blink, same intent.
       this.playerSprite.setTint(0xff4444);
       this.time.delayedCall(200, () => this.playerSprite.clearTint());
@@ -1331,7 +1347,7 @@ export class GameScene extends Phaser.Scene {
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - dmg);
       this.setHpHud(this.playerHp);
-      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
+      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 * this.sfxVol });
       this.playerSprite.setTint(0xff4444);
       this.time.delayedCall(200, () => this.playerSprite.clearTint());
       if (this.playerHp <= 0) this.onPlayerDeath();
@@ -1448,6 +1464,30 @@ export class GameScene extends Phaser.Scene {
     // back up. Phaser sets active=true BEFORE emitting 'resume', so our tween manager
     // is running again by the time this fires — safe to add new tweens here.
     this.events.on('resume', this.onSceneResume, this);
+
+    // FIL-115: Live volume updates from SettingsScene sliders.
+    // Each handler updates the multiplier and adjusts currently-playing sounds.
+    type AudibleVol = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    this.game.events.on('settings:music-vol', (v: number) => {
+      this.musicVol = v;
+      if (this.musicTrack) {
+        (this.musicTrack as AudibleVol).setVolume(this.phaseMusicVolume(this.currentPhase));
+      }
+    });
+    this.game.events.on('settings:ambience-vol', (v: number) => {
+      this.ambienceVol = v;
+      // Force next updateAmbienceZone() to recalculate immediately.
+      this.lastAmbienceZoneCheck = 0;
+    });
+    this.game.events.on('settings:sfx-vol', (v: number) => {
+      this.sfxVol = v;
+      // SFX are fire-and-forget; next plays pick up the new multiplier automatically.
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('settings:music-vol');
+      this.game.events.off('settings:ambience-vol');
+      this.game.events.off('settings:sfx-vol');
+    });
 
     this.launchNavPanel();
 
@@ -1957,7 +1997,7 @@ export class GameScene extends Phaser.Scene {
             this.playerHp = Math.max(0, this.playerHp - WISP_DAMAGE);
             this.setHpHud(this.playerHp);
             if (this.audioAvailable && this.cache.audio.has('sfx-player-hit')) {
-              this.sound.play('sfx-player-hit', { volume: 0.6 });
+              this.sound.play('sfx-player-hit', { volume: 0.6 * this.sfxVol });
             }
             this.playerSprite.setTint(0xff4444);
             this.time.delayedCall(200, () => this.playerSprite.clearTint());
@@ -2075,7 +2115,7 @@ export class GameScene extends Phaser.Scene {
         const footKey  = `footstep-${surface}-${variant}`;
         const stepVol  = 0.15 + 0.25 * speedRatio; // quiet crawl → louder sprint
         if (this.audioAvailable && this.cache.audio.has(footKey)) {
-          this.sound.play(footKey, { volume: stepVol });
+          this.sound.play(footKey, { volume: stepVol * this.sfxVol });
         }
       }
       this.lastFootstepAt = this.time.now;
@@ -2196,7 +2236,7 @@ export class GameScene extends Phaser.Scene {
 
     // Swipe whoosh SFX — plays regardless of whether a rabbit is hit
     if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
-      this.sound.play('sfx-swipe', { volume: 0.35 });
+      this.sound.play('sfx-swipe', { volume: 0.35 * this.sfxVol });
     }
 
     const px = this.player.x;
@@ -2273,7 +2313,7 @@ export class GameScene extends Phaser.Scene {
       while (da < -Math.PI) da += Math.PI * 2;
       if (Math.abs(da) > half) continue;
       this.cameras.main.shake(80, 0.002);
-      if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.4 });
+      if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.4 * this.sfxVol });
       this.killNeutralAnimal(a);
       this.skillSystem.addXP('cleansing', 2);
       break;
@@ -2295,7 +2335,7 @@ export class GameScene extends Phaser.Scene {
         while (de < -Math.PI) de += Math.PI * 2;
         if (Math.abs(de) > half) continue;
         this.cameras.main.shake(150, 0.004);
-        if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 });
+        if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 * this.sfxVol });
         this.killCorruptedEnemy(e, cv);
         this.skillSystem.addXP('cleansing', 4);
         hit = true;
@@ -2310,7 +2350,7 @@ export class GameScene extends Phaser.Scene {
       const killed = Dustling.aoeKill(px, py, swipeRange);
       if (killed > 0) {
         this.cameras.main.shake(100, 0.003);
-        if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.5 });
+        if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.5 * this.sfxVol });
         this.skillSystem.addXP('cleansing', 2 * killed);
       }
     }
@@ -2325,7 +2365,7 @@ export class GameScene extends Phaser.Scene {
     // Camera shake on every successful hit — same intensity as the arena (FIL-124).
     this.cameras.main.shake(150, 0.004);
     // Contact hit sound — layered on top of the gesture whoosh for tactile feedback.
-    if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 });
+    if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 * this.sfxVol });
 
     if (Math.random() < 0.5) {
       this.killRabbit(rabbit);
@@ -2496,7 +2536,7 @@ export class GameScene extends Phaser.Scene {
     const rx = rabbit.x;
     const ry = rabbit.y;
     this.spawnEnergyBurst(rx, ry, this.player.x, this.player.y);
-    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 });
+    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 * this.sfxVol });
     rabbit.destroy();
     this.kills += 1;
     const percent = Math.min(100, (this.kills + this.cleanseKillsExtra) / RABBIT_COUNT * 100);
@@ -2552,7 +2592,7 @@ export class GameScene extends Phaser.Scene {
 
     this.spawnEnergyBurst(animal.x, animal.y, this.player.x, this.player.y);
     if (this.audioAvailable && this.cache.audio.has('sfx-enemy-death')) {
-      this.sound.play('sfx-enemy-death', { volume: 0.3 });
+      this.sound.play('sfx-enemy-death', { volume: 0.3 * this.sfxVol });
     }
     animal.destroy();
   }
@@ -2566,7 +2606,7 @@ export class GameScene extends Phaser.Scene {
    */
   private killCorruptedEnemy(e: Phaser.GameObjects.Rectangle, cleanseVal: number): void {
     this.spawnEnergyBurst(e.x, e.y, this.player.x, this.player.y);
-    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 });
+    if (this.audioAvailable) this.sound.play('sfx-enemy-death', { volume: 0.5 * this.sfxVol });
     e.destroy();
     this.cleanseKillsExtra += cleanseVal;
     this.enemyKills += 1;
@@ -2745,7 +2785,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: this.ambienceNight as AudibleSound, volume: 0, duration: 1500, ease: 'Sine.easeIn' });
       }
       if (this.cache.audio.has('sfx-victory')) {
-        this.sound.play('sfx-victory', { volume: 0.7 });
+        this.sound.play('sfx-victory', { volume: 0.7 * this.sfxVol });
       }
     }
     // Short delay lets the jingle begin before the scene freezes.
@@ -2833,7 +2873,7 @@ export class GameScene extends Phaser.Scene {
 
     // Reuse swipe SFX at a higher pitch for a distinct whoosh feel.
     if (this.audioAvailable && this.cache.audio.has('sfx-swipe')) {
-      this.sound.play('sfx-swipe', { volume: 0.22, rate: 1.6 });
+      this.sound.play('sfx-swipe', { volume: 0.22 * this.sfxVol, rate: 1.6 });
     }
   }
 
@@ -3104,7 +3144,7 @@ export class GameScene extends Phaser.Scene {
           // 'complete' listener — sound.play() returns boolean | BaseSound and
           // TypeScript can't safely narrow it for the cast we need below.
           if (this.cache.audio.has('sfx-portal')) {
-            const jingle = this.sound.add('sfx-portal', { volume: 0.6 });
+            const jingle = this.sound.add('sfx-portal', { volume: 0.6 * this.sfxVol });
             jingle.once('complete', () => {
               // Swell music back to its pre-duck volume after the jingle finishes.
               if (this.musicTrack) {
@@ -3132,7 +3172,7 @@ export class GameScene extends Phaser.Scene {
       });
     } else if (this.audioAvailable && this.cache.audio.has('sfx-portal')) {
       // No music track active — just play the jingle at face value.
-      this.sound.add('sfx-portal', { volume: 0.6 }).play();
+      this.sound.add('sfx-portal', { volume: 0.6 * this.sfxVol }).play();
     }
 
     this.tweens.add({
@@ -3176,7 +3216,7 @@ export class GameScene extends Phaser.Scene {
       this.lastDamagedAt = now;
       this.playerHp = Math.max(0, this.playerHp - 25);
       this.setHpHud(this.playerHp);
-      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
+      if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 * this.sfxVol });
       this.playerSprite.setTint(0xff4444);
       this.time.delayedCall(200, () => this.playerSprite.clearTint());
       if (this.playerHp <= 0) this.onPlayerDeath();
@@ -3286,7 +3326,7 @@ export class GameScene extends Phaser.Scene {
         this.lastDamagedAt = now;
         this.playerHp = Math.max(0, this.playerHp - 15);
         this.setHpHud(this.playerHp);
-        if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 });
+        if (this.audioAvailable) this.sound.play('sfx-player-hit', { volume: 0.6 * this.sfxVol });
         this.playerSprite.setTint(0xff4444);
         this.time.delayedCall(200, () => this.playerSprite.clearTint());
         if (this.playerHp <= 0) this.onPlayerDeath();
@@ -3787,14 +3827,17 @@ export class GameScene extends Phaser.Scene {
 
   /** Music volume target for each day phase (music is softer than ambience). */
   private phaseMusicVolume(phase: DayPhase): number {
+    // FIL-115: multiply by user-controlled musicVol slider (default 1.0).
+    let base: number;
     switch (phase) {
-      case 'dawn':      return 0.20;
-      case 'morning':   return 0.30;
-      case 'midday':    return 0.28;
-      case 'afternoon': return 0.25;
-      case 'dusk':      return 0.18;
-      case 'night':     return 0.15;
+      case 'dawn':      base = 0.20; break;
+      case 'morning':   base = 0.30; break;
+      case 'midday':    base = 0.28; break;
+      case 'afternoon': base = 0.25; break;
+      case 'dusk':      base = 0.18; break;
+      case 'night':     base = 0.15; break;
     }
+    return base * this.musicVol;
   }
 
   /**
@@ -3858,16 +3901,19 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  /** Ambience volume target for each day phase. */
+  /** Ambience volume target for each day phase, scaled by the user's ambience slider. */
   private phaseAmbienceVolume(phase: DayPhase): number {
+    // FIL-115: multiply by user-controlled ambienceVol slider (default 1.0).
+    let base: number;
     switch (phase) {
-      case 'dawn':      return 0.10; // forest waking slowly
-      case 'morning':   return 0.25; // full birdsong
-      case 'midday':    return 0.25;
-      case 'afternoon': return 0.20; // settling toward evening
-      case 'dusk':      return 0.08; // last light fading
-      case 'night':     return 0.00; // silent except wind
+      case 'dawn':      base = 0.10; break; // forest waking slowly
+      case 'morning':   base = 0.25; break; // full birdsong
+      case 'midday':    base = 0.25; break;
+      case 'afternoon': base = 0.20; break; // settling toward evening
+      case 'dusk':      base = 0.08; break; // last light fading
+      case 'night':     base = 0.00; break; // silent except wind
     }
+    return base * this.ambienceVol;
   }
 
   /**
@@ -4945,7 +4991,7 @@ export class GameScene extends Phaser.Scene {
           r.setData('fleeStartTime', this.time.now);
           // FIL-50: fleeVocal is co-located in AnimalDef — no separate lookup needed.
           if (this.audioAvailable && this.cache.audio.has(def.fleeVocal.key)) {
-            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume, rate: def.fleeVocal.rate });
+            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume * this.sfxVol, rate: def.fleeVocal.rate });
           }
           // Switch to walk animation when fleeing starts — faster-looking movement.
           r.play(`${type}-walk-anim`);
@@ -6681,7 +6727,7 @@ export class GameScene extends Phaser.Scene {
 
     // Collectible pickup jingle
     if (this.audioAvailable && this.cache.audio.has('sfx-pickup')) {
-      this.sound.play('sfx-pickup', { volume: 0.55 });
+      this.sound.play('sfx-pickup', { volume: 0.55 * this.sfxVol });
     }
 
     const sprite = this.collectibleSprites.get(id);
@@ -7127,7 +7173,7 @@ export class GameScene extends Phaser.Scene {
     // feel. No dedicated audio file needed — Phaser's rate parameter pitch-shifts
     // the existing soft-impact variants to sound distinct from footsteps.
     if (this.audioAvailable && this.cache.audio.has('sfx-impact-soft-0')) {
-      this.sound.play('sfx-impact-soft-0', { volume: 0.6, rate: 1.5 });
+      this.sound.play('sfx-impact-soft-0', { volume: 0.6 * this.sfxVol, rate: 1.5 });
     }
 
     // Bonus XP for opening the very first chest — rewards exploring settlements.
