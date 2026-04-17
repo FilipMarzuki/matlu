@@ -115,7 +115,12 @@ export class PauseMenuScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(802)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => btn.setStyle({ color: '#ffffff' }))
+      .on('pointerover', () => {
+        btn.setStyle({ color: '#ffffff' });
+        if (this.game.device.os.desktop && this.cache.audio.has('sfx-hover')) {
+          this.sound.play('sfx-hover', { volume: 0.18 });
+        }
+      })
       .on('pointerout',  () => btn.setStyle({ color: '#ffe066' }))
       .on('pointerdown', () => {
         if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });

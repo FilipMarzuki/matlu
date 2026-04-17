@@ -920,6 +920,8 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('sfx-swipe-hit', [`${ken}/impactBell_heavy_000.ogg`]);
     // Corrupted enemy dies: soft organic dissolve/pop (Kenney Impact Sounds, CC0)
     this.load.audio('sfx-enemy-death', [`${ken}/impactSoft_heavy_001.ogg`]);
+    // Button hover SFX for PauseMenuScene and SettingsScene (shared audio cache)
+    this.load.audio('sfx-hover', [`${ken}/impactPlate_light_000.ogg`]);
     // Player takes damage: dull punch impact (Kenney Impact Sounds, CC0)
     this.load.audio('sfx-player-hit',  [`${ken}/impactPunch_medium_000.ogg`]);
     // Corruption presence: ominous drone (Cozy Tunes Pro sound effect)

@@ -116,7 +116,7 @@ export abstract class CombatEntity extends Enemy {
   /** All combatants this entity should fight. Updated each wave by the arena. */
   protected opponents: CombatEntity[] = [];
   /** Additional static damageable targets (e.g. BurrowHoles) for melee and projectile checks. */
-  private extraDamageables: Damageable[] = [];
+  protected extraDamageables: Damageable[] = [];
   /** When true the BT is bypassed — the scene drives velocity and attacks directly. */
   protected playerControlled = false;
 
@@ -126,7 +126,7 @@ export abstract class CombatEntity extends Enemy {
    */
   public signatureDisabled = false;
 
-  private attackTimer = 0;
+  protected attackTimer = 0;
   private wanderAngle = Math.random() * Math.PI * 2;
   private wanderTimer = 0;
   /** Timestamp (scene.time.now) until which this entity cannot move or act. */
@@ -160,8 +160,8 @@ export abstract class CombatEntity extends Enemy {
 
   // ── Ranged config ───────────────────────────────────────────────────────────
   protected readonly projectileDamage: number | undefined;
-  private   readonly projectileSpeed:  number;
-  private   readonly projectileColor:  number;
+  protected   readonly projectileSpeed:  number;
+  protected   readonly projectileColor:  number;
 
   // ── Sprite animation state ────────────────────────────────────────────────
   private spriteObj?: Phaser.GameObjects.Sprite;
@@ -180,9 +180,9 @@ export abstract class CombatEntity extends Enemy {
   /** Whether the current lastDir requires a horizontal flip. */
   private lastFlipX = false;
   /** Remaining ms to hold the attack animation before returning to idle/walk. */
-  private attackAnimTimer = 0;
+  protected attackAnimTimer = 0;
   /** How long to hold the attack animation = 40% of the attack cooldown. */
-  private readonly attackAnimDuration: number;
+  protected readonly attackAnimDuration: number;
   /**
    * The animation state name to use while attackAnimTimer > 0.
    * Defaults to 'attack' (single-attack entities: Skald, Spider, Crow, Skag).
@@ -623,7 +623,7 @@ export abstract class CombatEntity extends Enemy {
 
       // ── New: ranged attack ─────────────────────────────────────────────────
       shootAt: (tx, ty) => {
-        if (!this.projectileDamage) return;
+        if (!this.projectileDamage || !this.canShoot()) return;
         // Line-of-sight check — skip the shot if a pillar is in the way.
         // Prevents enemies from firing through solid obstacles.
         if (!this.hasLineOfSight(
@@ -643,6 +643,7 @@ export abstract class CombatEntity extends Enemy {
         this.scene.events.emit('projectile-spawned', p);
         // Hold the ranged-attack animation for the same duration as a melee hit.
         this.attackAnimTimer = this.attackAnimDuration;
+        this.onShotFired();
       },
 
       // ── New: directional dash ──────────────────────────────────────────────
@@ -798,7 +799,7 @@ export abstract class CombatEntity extends Enemy {
    * sound + muzzle flash — same effect as the AI behavior tree path.
    */
   tryRanged(): void {
-    if (this.attackTimer > 0 || !this.projectileDamage) return;
+    if (this.attackTimer > 0 || !this.projectileDamage || !this.canShoot()) return;
     const target = this.findNearestLivingOpponent();
     if (!target) return;
     const angle = Math.atan2(target.y - this.y, target.x - this.x);
@@ -965,6 +966,17 @@ export abstract class CombatEntity extends Enemy {
       });
     }
   }
+
+  // ── Subclass hooks ────────────────────────────────────────────────────────────
+
+  /** Override to block ranged shots (e.g. during reload). Default: always true. */
+  protected canShoot(): boolean { return true; }
+
+  /**
+   * Called by the BT shootAt closure after each projectile is fired.
+   * Override in subclasses to track magazine state for AI shots. Default: no-op.
+   */
+  protected onShotFired(): void { /* no-op */ }
 
   /**
    * Root this entity for `durationMs` milliseconds — halts all movement and

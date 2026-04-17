@@ -41,6 +41,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.load.audio('sfx-click', [
       'assets/audio/kenney_impact-sounds/Audio/impactGeneric_light_003.ogg',
     ]);
+    // Button hover SFX — lighter than click so it doesn't compete with music
+    this.load.audio('sfx-hover', [
+      'assets/audio/kenney_impact-sounds/Audio/impactPlate_light_000.ogg',
+    ]);
   }
 
   create(): void {
@@ -190,7 +194,13 @@ export class MainMenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(1)
       .setInteractive({ useHandCursor: true })
-      .on('pointerover',  () => btn.setStyle({ color: '#ffffff' }))
+      .on('pointerover',  () => {
+        btn.setStyle({ color: '#ffffff' });
+        // Hover SFX on mouse devices only — touch entries don't count as hover
+        if (this.game.device.os.desktop && this.cache.audio.has('sfx-hover')) {
+          this.sound.play('sfx-hover', { volume: 0.18 });
+        }
+      })
       .on('pointerout',   () => btn.setStyle({ color: '#ffe066' }))
       .on('pointerdown',  () => {
         if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
