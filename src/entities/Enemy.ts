@@ -27,7 +27,7 @@ export abstract class Enemy extends LivingEntity {
   }
 
   override update(delta: number): void {
-    if (!this.isAlive) return;
+    if (!this.isAlive || this.isStunned) return;
     this.updateBehaviour(delta);
   }
 

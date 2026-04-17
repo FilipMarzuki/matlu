@@ -15,6 +15,8 @@ export abstract class LivingEntity extends Entity {
   readonly maxHp: number;
   protected hp: number;
   protected dead = false;
+  /** True while a stun effect is active — callers should skip movement/actions. */
+  isStunned = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, config: LivingEntityConfig) {
     super(scene, x, y);
@@ -55,5 +57,16 @@ export abstract class LivingEntity extends Entity {
   /** Hook called once when HP reaches 0. Override to play death animation, emit events, etc. */
   protected onDeath(): void {
     this.destroy();
+  }
+
+  /**
+   * Apply a timed stun. Sets isStunned = true for durationMs, then clears it.
+   * Stacking calls do NOT extend the duration — the last call wins the clear timer.
+   */
+  stun(durationMs: number): void {
+    this.isStunned = true;
+    this.scene.time.delayedCall(durationMs, () => {
+      if (this.active) this.isStunned = false;
+    });
   }
 }

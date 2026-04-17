@@ -7,3 +7,5 @@ export { Bird } from './Bird';
 export { GroundAnimal } from './GroundAnimal';
 export { Enemy } from './Enemy';
 export type { EnemyConfig } from './Enemy';
+export { Lund } from './heroes/Lund';
+export { SymbiontKarin } from './heroes/SymbiontKarin';
