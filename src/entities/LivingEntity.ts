@@ -16,6 +16,18 @@ export abstract class LivingEntity extends Entity {
   protected hp: number;
   protected dead = false;
 
+  /**
+   * Multiplier applied to incoming damage before damageMultiplier.
+   * Values < 1 reduce damage (0.15 = 85% reduction); 1 = no effect.
+   */
+  public damageReduction: number = 1;
+
+  /**
+   * Multiplier applied after damageReduction.
+   * Values > 1 amplify damage (3 = triple damage); 1 = no effect.
+   */
+  public damageMultiplier: number = 1;
+
   constructor(scene: Phaser.Scene, x: number, y: number, config: LivingEntityConfig) {
     super(scene, x, y);
     this.maxHp = config.maxHp;
@@ -37,7 +49,10 @@ export abstract class LivingEntity extends Entity {
    */
   takeDamage(amount: number): number {
     if (this.dead) return 0;
-    const actual = Math.min(amount, this.hp);
+    // Apply damageReduction first, then damageMultiplier — order matters for
+    // entities like Bonehulk where both can be active simultaneously.
+    const scaled = amount * this.damageReduction * this.damageMultiplier;
+    const actual = Math.min(scaled, this.hp);
     this.hp -= actual;
     this.onDamaged(actual);
     if (this.hp <= 0) {
