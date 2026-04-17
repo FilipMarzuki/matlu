@@ -41,7 +41,7 @@ const WAVE_GROUPS: WaveGroup[] = [
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
 const MAX_ALIVE       = 20;   // total alive enemy cap
-const HERO_RESPAWN_MS = 2000; // ms before Tinkerer respawns after death
+const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence begins
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
@@ -342,6 +342,7 @@ export class CombatArenaScene extends Phaser.Scene {
       }
       if (!this.hero.isAlive) {
         this.heroAlive = false;
+        this.mainSpawnTimer = 99999; // freeze wave spawning while hero is dead
         this.cameras.main.shake(300, 0.008);
         this.time.delayedCall(HERO_RESPAWN_MS, () => this.respawnHero());
         log.info('hero_died', { wave: this.waveNumber, kills: this.killCount, alive_enemies: this.aliveEnemies.length });
@@ -696,11 +697,40 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   private respawnHero(): void {
+    const FADE_MS = 600;
+
+    // Fade out all remaining enemies, then destroy them.
+    for (const e of this.aliveEnemies) {
+      this.tweens.add({
+        targets:  e,
+        alpha:    0,
+        duration: FADE_MS,
+        onComplete: () => { if (e.active) e.destroy(); },
+      });
+    }
+    this.aliveEnemies = [];
+
+    // Clear projectiles immediately.
     for (const p of this.projectiles) { if (!p.isExpired) p.destroy(); }
     this.projectiles = [];
+
+    // Remove the dead hero body.
     if (this.hero.active) this.hero.destroy();
-    this.spawnHero();
-    for (const e of this.aliveEnemies) e.setOpponent(this.hero);
+
+    // Reset wave state so the arena restarts clean.
+    this.waveGroupIndex = 0;
+    this.waveNumber     = 0;
+    this.killCount      = 0;
+    this._lastHudWave   = -1;
+    this._lastHudAlive  = -1;
+    this._lastHudKills  = -1;
+
+    // Spawn the hero once the fade completes.
+    this.time.delayedCall(FADE_MS, () => {
+      this.spawnHero();
+      this.hero.setPlayerControlled(this.heroPlayerMode);
+      this.mainSpawnTimer = 3000; // restart wave timer
+    });
   }
 
   /**
