@@ -28,3 +28,5 @@ export { MimicCrawler } from './MimicCrawler';
 export { Venomantis } from './Venomantis';
 export { BroodMother, EggSac } from './BroodMother';
 export { Progenitor } from './Progenitor';
+export { Rampart } from './Rampart';
+export { Kronos } from './Kronos';
