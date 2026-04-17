@@ -6,7 +6,6 @@
 //   1. Fetch the GitHub issue (title + body).
 //   2. Render the triage prompt from .agents/triage.md.
 //   3. Spawn Claude Code in headless mode (read-only codebase access).
-//   4. If the session crashes, post a comment on the issue.
 //
 // The triage agent does NOT write code, commit, or push. It only reads
 // the codebase and writes back via the APIs available in its session.
@@ -27,7 +26,8 @@ const __dirname  = dirname(__filename);
 const GITHUB_TOKEN             = process.env.GITHUB_TOKEN;
 const CLAUDE_CODE_OAUTH_TOKEN  = process.env.CLAUDE_CODE_OAUTH_TOKEN;
 const ANTHROPIC_API_KEY        = process.env.ANTHROPIC_API_KEY;
-const REPO                     = 'FilipMarzuki/matlu';
+const REPO_OWNER               = process.env.REPO_OWNER || 'FilipMarzuki';
+const REPO_NAME                = process.env.REPO_NAME  || 'matlu';
 
 const issueArg = process.argv[2];
 
@@ -53,7 +53,7 @@ if (isNaN(issueNumber)) {
 // ── GitHub Issues REST API ────────────────────────────────────────────────────
 
 async function githubRequest(method, path, body = null) {
-  const res = await fetch(`https://api.github.com/repos/${REPO}${path}`, {
+  const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -82,6 +82,7 @@ function renderPrompt(issue) {
     join(__dirname, '..', '..', '.agents', 'triage.md'),
     'utf8'
   );
+  const id = String(issue.number);
   return template
     .replaceAll('{{issue_id}}', String(issue.number))
     .replaceAll('{{title}}', issue.title)
