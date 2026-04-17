@@ -13,6 +13,7 @@ import { Blightfrog } from '../entities/Blightfrog';
 import { GlitchDrone, StaticCrawler, RustBerserker } from '../entities/EarthEnemies';
 import { SignalJammer, InfectedAPC, ScrapGolem } from '../entities/EarthEnemies';
 import { SporeDrifter, SporeCloud } from '../entities/SporeDrifter';
+import { BurrowHole } from '../entities/BurrowHole';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -101,6 +102,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
   private hero!:         EarthHero;
   private obstacles!:   Phaser.Physics.Arcade.StaticGroup;
+  private holes:         BurrowHole[] = [];
   private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
@@ -230,6 +232,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.aliveEnemies    = [];
     this.projectiles     = [];
     this.sporeClouds     = [];
+    this.holes           = [];
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
@@ -640,6 +643,23 @@ export class CombatArenaScene extends Phaser.Scene {
       ));
     }
 
+    // ── Burrow holes ──────────────────────────────────────────────────────────
+    // Asymmetric placement — away from pillars and hero spawn so the player
+    // has time to orient before encountering them.
+    const holeDefs: [number, number][] = [
+      [cx - 45, cy + 58],
+      [cx + 65, cy - 48],
+    ];
+
+    for (const [hx, hy] of holeDefs) {
+      const hole = new BurrowHole(this, hx, hy);
+      // Static physics body — size matches the visible ring so entities bump against it.
+      this.physics.add.existing(hole, true);
+      (hole.body as Phaser.Physics.Arcade.StaticBody).setSize(20, 20);
+      this.obstacles.add(hole);
+      this.holes.push(hole);
+    }
+
     // ── Octagonal wall border ─────────────────────────────────────────────────
     // Wall drawn as 8 filled sections: 4 straight strips + 4 bevelled corner
     // triangles. 3/4 perspective hints: top wall is thinner (lit top-face),
@@ -802,6 +822,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.hero = new Tinkerer(this, heroX, heroY);
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
+    this.hero.setExtraDamageables(this.holes);
     this.heroAlive = true;
   }
 
@@ -1007,6 +1028,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.hero2 = new Tinkerer(this, heroX, heroY);
     this.addPhysics(this.hero2);
     this.hero2.setOpponents(this.aliveEnemies);
+    this.hero2.setExtraDamageables(this.holes);
     // P2 is always player-controlled — the behaviour tree never runs for this entity.
     this.hero2.setPlayerControlled(true);
     this.hero2Alive = true;
