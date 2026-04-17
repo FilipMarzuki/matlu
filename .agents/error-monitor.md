@@ -1,51 +1,51 @@
 # Better Stack Error Monitor Agent
 
-You are the error monitoring agent for Matlu. Check Better Stack Logs for
-`error`-level entries in the last 24 hours and file Linear bugs for any not
-already tracked.
+You are the error monitoring agent for Matlu. Query Better Stack via the
+Connect SQL endpoint for `error`-level entries in the last 24 hours, then
+file Linear bugs for any not already tracked.
 
 ## Environment
 
-- `BETTERSTACK_API_TOKEN` — Better Stack **team** API token (Settings → API tokens — NOT the source ingest token).
-- `LINEAR_API_KEY` — Linear API key.
+- `BETTERSTACK_CONNECT_USER` — Better Stack Connect username
+- `BETTERSTACK_CONNECT_PASS` — Better Stack Connect password
+- `LINEAR_API_KEY` — Linear API key
+
+Connect endpoint: `https://eu-fsn-3-connect.betterstackdata.com`
+Log collection: `t523686_matlu_logs`
 
 ---
 
-## STEP 1 — FIND THE LOG SOURCE ID
+## STEP 1 — QUERY ERROR LOGS (LAST 24 H)
+
+Use the Connect SQL endpoint with ClickHouse SQL. The `raw` column contains
+the full JSON log entry as a string:
 
 ```bash
-curl -s "https://telemetry.betterstack.com/api/v2/log-sources" \
-  -H "Authorization: Bearer $BETTERSTACK_API_TOKEN"
+curl -s \
+  -u "$BETTERSTACK_CONNECT_USER:$BETTERSTACK_CONNECT_PASS" \
+  -H 'Content-type: plain/text' \
+  -X POST 'https://eu-fsn-3-connect.betterstackdata.com?output_format_pretty_row_numbers=0' \
+  -d "SELECT
+        JSONExtractString(raw, 'message') AS message,
+        JSONExtractString(raw, 'filename') AS filename,
+        JSONExtractString(raw, 'line') AS line,
+        JSONExtractString(raw, 'stack') AS stack,
+        count() AS occurrences,
+        min(dt) AS first_seen
+      FROM remote(t523686_matlu_logs)
+      WHERE dt >= now() - INTERVAL 24 HOUR
+        AND JSONExtractString(raw, 'level') = 'error'
+      GROUP BY message, filename, line, stack
+      ORDER BY occurrences DESC
+      LIMIT 25
+      FORMAT JSONEachRow"
 ```
 
-Find the source named "matlu" (or similar). Note its `id` — you'll need it in step 2.
-If you can't find it, print "No matlu log source found" and exit.
+If the result is empty, print "No errors in the last 24h" and exit cleanly.
 
 ---
 
-## STEP 2 — FETCH ERROR LOGS (LAST 24 H)
-
-Replace `<SOURCE_ID>` with the id from step 1. Compute `<FROM>` as 24 hours ago in
-RFC 3339 format (e.g. `2026-04-16T07:00:00Z`):
-
-```bash
-curl -s "https://telemetry.betterstack.com/api/v2/sources/<SOURCE_ID>/logs?query=level%3Aerror&from=<FROM>&limit=50" \
-  -H "Authorization: Bearer $BETTERSTACK_API_TOKEN"
-```
-
-The response is a JSON object with a `data` array of log entries. Each entry has at
-minimum: `message`, `level`, and whatever structured fields the app forwards (e.g.
-`filename`, `line`, `stack`).
-
-If `data` is empty, print "No errors in the last 24h" and exit cleanly.
-
-**Deduplication:** group entries by their `message` text (first 120 chars). Treat
-entries with the same message as one error. Count occurrences across the group.
-Work with at most the 25 most-common distinct messages.
-
----
-
-## STEP 3 — CHECK EXISTING LINEAR ISSUES
+## STEP 2 — CHECK EXISTING LINEAR ISSUES
 
 For each error row, search Linear for an open issue matching the message:
 
@@ -60,7 +60,7 @@ Skip any error that already has a matching open issue.
 
 ---
 
-## STEP 4 — CREATE LINEAR ISSUES
+## STEP 3 — CREATE LINEAR ISSUES
 
 For each unfiled error create a Linear bug:
 
@@ -75,11 +75,12 @@ For each unfiled error create a Linear bug:
   ```
   ## Error details
   **Message:** <full message>
+  **File:** <filename>:<line>
   **Occurrences (24 h):** <count>
-  **First seen:** <timestamp of earliest entry in the group>
+  **First seen:** <first_seen>
 
-  ## Sample log entry
-  <paste the full JSON of one representative log entry from the group>
+  ## Stack trace
+  <stack>
 
   ## Next steps
   Check Better Stack → Logs → Live Tail filtered by `level:error` for full context.
@@ -87,6 +88,6 @@ For each unfiled error create a Linear bug:
 
 ---
 
-## STEP 5 — REPORT
+## STEP 4 — REPORT
 
 Print a summary: errors checked, already filed (skipped), newly created Linear issue identifiers.
