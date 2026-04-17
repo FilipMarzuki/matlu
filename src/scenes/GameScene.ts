@@ -1125,11 +1125,11 @@ export class GameScene extends Phaser.Scene {
     this.stampSettlementBuildings();
     this.spawnParticleEffects();
 
-    // Hide all non-ground visuals on startup so the terrain bake can be
-    // evaluated in isolation. Press H to toggle everything back on.
+    // Hide most non-ground visuals on startup so terrain tuning remains easy,
+    // but keep zone overlays visible to preserve corruption mood and biome reads.
+    // Press H to toggle decorations on/off.
     for (const img of this.decorImages) img.setVisible(false);
     this.pathGraphics.setVisible(false);
-    for (const ov of this.zoneOverlays.values()) ov.setVisible(false);
     for (const g of this.settlementGlows) g.setVisible(false);
     if (this.leavesEmitter)  this.leavesEmitter.emitting  = false;
     if (this.pollenEmitter)  this.pollenEmitter.emitting   = false;
