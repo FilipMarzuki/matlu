@@ -108,7 +108,7 @@
       "faction": "enemy",
       "status": "done",
       "_pixellabCharacterId": "2fab73d8-aa67-4cc4-8ad7-49ca10c30da1",
-      "_comment": "Spider-like alien creature used as the base sprite for all spinolandet enemies. Tinted/scaled per enemy class. Has idle (all dirs), custom skitter-walk (all dirs), and death (jerking convulsion).",
+      "_comment": "Spider-like alien creature used as the base sprite for all spinolandet enemies. Tinted/scaled per enemy class. Has idle (all dirs), custom skitter-walk (all dirs), death (jerking convulsion), attack (lunge/mandible snap), hurt (recoil flinch).",
       "pixellab": {
         "description": "mini Velcrid alien spider creature, dark red carapace, multiple legs, top-down pixel art",
         "size": 92,
@@ -135,6 +135,16 @@
         {
           "id": "walk",
           "template": "custom-move like a 8 legged spider or roach and skitter f",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "attack",
+          "template": "custom-rearing up on hind legs, the front two clawed legs lunge forward snapping mandibles then recoil back",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "hurt",
+          "template": "custom-creature flinches and recoils backward, legs flailing outward then clamping tight",
           "frameDurationMs": 80
         },
         {
@@ -491,7 +501,6 @@
       "outputDir": "public/assets/sprites/tilesets/arena"
     }
   ],
-
   "mapObjects": [
     {
       "_note": "FIL-253 — Grasslands biome decoration set. Generated via create_map_object. Each entry produces one PNG saved to outputDir.",
@@ -507,540 +516,855 @@
     {
       "id": "gl-oak-young-a",
       "name": "Grasslands Young Oak — variant A",
-      "biome": "grasslands", "category": "tree", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "young oak sapling, single thin trunk, compact rounded green canopy, top-down pixel art RPG, muted forest greens, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-young-b",
       "name": "Grasslands Young Oak — variant B",
-      "biome": "grasslands", "category": "tree", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "young oak sapling with slightly wider crown and leaning trunk, top-down pixel art RPG, fresh green canopy, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-young-c",
       "name": "Grasslands Young Oak — variant C",
-      "biome": "grasslands", "category": "tree", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "young oak sapling with sparse oval canopy and straight trunk, top-down pixel art RPG, light yellow-green leaves, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-mid-a",
       "name": "Grasslands Mid Oak — variant A",
-      "biome": "grasslands", "category": "tree", "sizeClass": "medium", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "medium",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "mature oak tree, sturdy trunk, full rounded canopy with light highlight patches, top-down pixel art RPG, dark forest green, grassland biome, transparent background",
-        "width": 48, "height": 48,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 48,
+        "height": 48,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-mid-b",
       "name": "Grasslands Mid Oak — variant B",
-      "biome": "grasslands", "category": "tree", "sizeClass": "medium", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "medium",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "mature oak tree, dense oval canopy with uneven edge, thick trunk base visible, top-down pixel art RPG, mixed green canopy, grassland biome, transparent background",
-        "width": 48, "height": 48,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 48,
+        "height": 48,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-mid-c",
       "name": "Grasslands Mid Oak — variant C",
-      "biome": "grasslands", "category": "tree", "sizeClass": "medium", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "medium",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "mature oak tree with wider spreading asymmetric canopy, shorter trunk, top-down pixel art RPG, deep green foliage, grassland biome, transparent background",
-        "width": 48, "height": 48,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 48,
+        "height": 48,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-old-a",
       "name": "Grasslands Old Oak — variant A",
-      "biome": "grasslands", "category": "tree", "sizeClass": "large", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "large",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "ancient gnarled oak, wide spreading canopy, thick twisted trunk partially visible, top-down pixel art RPG, deep forest green, grassland biome, transparent background",
-        "width": 64, "height": 64,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 64,
+        "height": 64,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-old-b",
       "name": "Grasslands Old Oak — variant B",
-      "biome": "grasslands", "category": "tree", "sizeClass": "large", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "large",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "ancient tall oak, narrow but dense crown, very thick gnarled trunk, top-down pixel art RPG, dark muted green canopy, grassland biome, transparent background",
-        "width": 64, "height": 64,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 64,
+        "height": 64,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-oak-dead",
       "name": "Grasslands Dead Oak",
-      "biome": "grasslands", "category": "tree", "sizeClass": "medium", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "medium",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "dead oak tree, bare skeleton branches fanning outward, no leaves, weathered grey-brown trunk, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 48, "height": 48,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 48,
+        "height": 48,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-tree-cluster-a",
       "name": "Grasslands Tree Cluster — variant A",
-      "biome": "grasslands", "category": "tree", "sizeClass": "large", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "large",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "two young oak trees growing close together, overlapping canopies forming a single wider crown, top-down pixel art RPG, muted greens, grassland biome, transparent background",
-        "width": 64, "height": 64,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 64,
+        "height": 64,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-tree-cluster-b",
       "name": "Grasslands Tree Cluster — variant B",
-      "biome": "grasslands", "category": "tree", "sizeClass": "large", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "tree",
+      "sizeClass": "large",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "three saplings clustered, individual crowns visible and touching, top-down pixel art RPG, fresh green, grassland biome, transparent background",
-        "width": 64, "height": 64,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 64,
+        "height": 64,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-round-a",
       "name": "Grasslands Round Shrub — bright green",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "dense round bush, full leafy ball shape, no visible trunk, top-down pixel art RPG, bright green, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-round-b",
       "name": "Grasslands Round Shrub — yellow-green",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "dense round bush, full leafy ball, yellow-green foliage, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-round-c",
       "name": "Grasslands Round Shrub — dark green",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "dense round bush, full leafy ball, dark forest green foliage, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-flowering-a",
       "name": "Grasslands Flowering Shrub — pink",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "small flowering bush, pink blossoms scattered across green leaves, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-flowering-b",
       "name": "Grasslands Flowering Shrub — white",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "small flowering bush, white blossoms scattered across green leaves, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-thorny-a",
       "name": "Grasslands Thorny Bramble — variant A",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "low thorny bramble thicket, jagged spiky silhouette, dark muted green leaves, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-thorny-b",
       "name": "Grasslands Thorny Bramble — variant B",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "low thorny bramble patch, wider spread, visible thorns on branches, sparse leaves, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-berry-a",
       "name": "Grasslands Berry Bush — red berries",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "small berry bush with bright red berries clustered among green leaves, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-shrub-berry-b",
       "name": "Grasslands Berry Bush — dark berries",
-      "biome": "grasslands", "category": "shrub", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "shrub",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "small berry bush with dark purple berries clustered among green leaves, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-grass-tuft-tall-a",
       "name": "Grasslands Tall Grass Tuft — variant A",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "tall grass tuft cluster, several thin blades fanning outward from base, bright grass green, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-grass-tuft-tall-b",
       "name": "Grasslands Tall Grass Tuft — variant B",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "tall grass tuft, wider denser cluster of grass blades, slightly drooping tips, medium green, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-grass-tuft-tall-c",
       "name": "Grasslands Tall Grass Tuft — variant C",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "tall grass tuft, narrow compact cluster, straight upright blades, dark green, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-grass-tuft-tall-d",
       "name": "Grasslands Tall Grass Tuft — variant D",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "tall grass tuft, irregular splayed blades, some blades bending sideways, yellow-green, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-wildflower-patch-yellow",
       "name": "Grasslands Wildflower Patch — yellow",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "small cluster of yellow wildflowers, 3-5 flowers with petals on thin stems above short grass, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-wildflower-patch-red",
       "name": "Grasslands Wildflower Patch — red",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "small cluster of red wildflowers, 3-5 flowers with petals on thin stems above short grass, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-wildflower-patch-blue",
       "name": "Grasslands Wildflower Patch — blue",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "small cluster of blue wildflowers, 3-5 flowers with petals on thin stems above short grass, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-wildflower-patch-purple",
       "name": "Grasslands Wildflower Patch — purple",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "small cluster of purple wildflowers, 3-5 flowers with petals on thin stems above short grass, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-clover-mat-a",
       "name": "Grasslands Clover Mat",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "flat low ground cover patch of dense clover leaves, irregular oval shape, bright green with tiny white flowers, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-clover-mat-b",
       "name": "Grasslands Moss Mat",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "flat ground cover patch of moss, irregular oval shape, dark muted green, slightly textured surface, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-fern-a",
       "name": "Grasslands Fern — variant A",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "fern plant, several feathery fronds spreading outward from central stem, medium green, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-fern-b",
       "name": "Grasslands Fern — variant B",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "fern plant, wider spread of fronds arcing low to ground, dark green, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-dry-tuft-a",
       "name": "Grasslands Dry Tuft — variant A",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "dead dry grass tuft, yellowed straw-coloured blades drooping at tips, sparse cluster, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-dry-tuft-b",
       "name": "Grasslands Dry Tuft — variant B",
-      "biome": "grasslands", "category": "grass", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "grass",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "dead dry grass tuft, wider sparse spread of yellowed blades, some lying flat, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-rock-mossy-a",
       "name": "Grasslands Mossy Rock — variant A",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "rounded mossy rock, grey stone with patches of green moss on top face, oval shape, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-rock-mossy-b",
       "name": "Grasslands Mossy Rock — variant B",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "angular mossy rock, flat-topped grey stone with heavy green moss coverage, square-ish shape, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-rock-mossy-c",
       "name": "Grasslands Mossy Rock — variant C",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "small cluster of two grey rocks with light moss patches, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-rock-cluster-a",
       "name": "Grasslands Rock Cluster — variant A",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "cluster of 3 small grey pebble rocks scattered close together, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-rock-cluster-b",
       "name": "Grasslands Rock Cluster — variant B",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "cluster of 2 flat grey rocks side by side, one larger one smaller, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-rock-cluster-c",
       "name": "Grasslands Rock Cluster — variant C",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "small pile of 4-5 tiny grey pebbles loosely scattered, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-boulder-a",
       "name": "Grasslands Boulder — round",
-      "biome": "grasslands", "category": "rock", "sizeClass": "large", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "large",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "large rounded boulder, grey stone with flat top face visible, slight shadow at base, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 64, "height": 64,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 64,
+        "height": 64,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-boulder-b",
       "name": "Grasslands Boulder — angular",
-      "biome": "grasslands", "category": "rock", "sizeClass": "large", "priority": "must-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "large",
+      "priority": "must-have",
       "status": "pending",
       "pixellab": {
         "description": "large angular boulder, wedge-shaped grey stone with uneven faceted top, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 64, "height": 64,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 64,
+        "height": 64,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-pebble-scatter-a",
       "name": "Grasslands Pebble Scatter — variant A",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "scattered pebbles on ground, 4 tiny grey stones in loose spread, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-pebble-scatter-b",
       "name": "Grasslands Pebble Scatter — variant B",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "scattered pebbles, 5-6 tiny mixed-size grey stones loosely spread, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     },
     {
       "id": "gl-pebble-scatter-c",
       "name": "Grasslands Pebble Scatter — variant C",
-      "biome": "grasslands", "category": "rock", "sizeClass": "small", "priority": "nice-to-have",
+      "biome": "grasslands",
+      "category": "rock",
+      "sizeClass": "small",
+      "priority": "nice-to-have",
       "status": "pending",
       "pixellab": {
         "description": "scattered pebbles, 3 larger rounded grey pebbles in a triangle arrangement, top-down pixel art RPG, grassland biome, transparent background",
-        "width": 32, "height": 32,
-        "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+        "width": 32,
+        "height": 32,
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "basic shading",
+        "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
     }
