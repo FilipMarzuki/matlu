@@ -1,0 +1,64 @@
+name: Sprite Credit Burn
+
+# Uses remaining PixelLab credits before the monthly billing reset (9th of each month)
+# to generate pixel art sprites for entities currently missing them.
+#
+# IMPORTANT: This workflow burns real PixelLab credits. Only trigger manually — never add
+# a cron schedule. Run it in the days before the 9th when you have credits to spend.
+#
+# Priority: spinolandet enemies → earth enemies → spinolandet heroes → earth heroes → summons
+#
+# The agent commits after each entity, so partial runs are safe. Re-running skips any entity
+# already marked status: "done" in asset-spec.json.
+#
+# Manual: trigger from the Actions tab. No inputs needed.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: agent-sprite-credit-burn
+  cancel-in-progress: false   # never interrupt a run mid-entity
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120       # 2 hours — enough for ~6 entities with animations
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name  "sprite-credit-burn[bot]"
+          git config user.email "sprite-credit-burn@matlu.dev"
+
+      - name: Run sprite credit-burn session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+          PIXELLAB_API_KEY:        ${{ secrets.PIXELLAB_API_KEY }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/sprite-credit-burn.md)"
+
+      - name: Log token usage
+        if: always()
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/log-session-tokens.js --workflow "Sprite Credit Burn"
+      # [token-logging-added]
