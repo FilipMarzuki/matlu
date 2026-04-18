@@ -13,6 +13,7 @@ import {
 } from '../ai/BehaviorTree';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { hasLineOfSight, SIGHT_CHECK_INTERVAL_MS } from '../combat/SightLineSystem';
+import { calcSpread, applySpread, isPartialCover } from '../combat/Accuracy';
 
 export { SIGHT_CHECK_INTERVAL_MS };
 
@@ -799,7 +800,17 @@ export abstract class CombatEntity extends Enemy {
           new Phaser.Math.Vector2(this.x, this.y),
           new Phaser.Math.Vector2(tx, ty),
         )) return;
-        const angle = Math.atan2(ty - this.y, tx - this.x);
+        // Apply accuracy spread: range-based + movement penalty + partial-cover penalty.
+        // The enemy's body velocity reflects actual movement this frame.
+        const eBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+        const eVel  = eBody?.velocity;
+        const eSpd  = eVel ? Math.sqrt(eVel.x * eVel.x + eVel.y * eVel.y) : 0;
+        const eSpeedFraction = this.speed > 0 ? Math.min(eSpd / this.speed, 1) : 0;
+        const eDist     = Phaser.Math.Distance.Between(this.x, this.y, tx, ty);
+        const eInCover  = isPartialCover(this.x, this.y, tx, ty, this.wallRects);
+        const eSpread   = calcSpread(eDist, eSpeedFraction, eInCover);
+        const angle     = applySpread(Math.atan2(ty - this.y, tx - this.x), eSpread);
+
         const p = new Projectile(
           this.scene, this.x, this.y, angle,
           this.projectileSpeed, this.projectileDamage,
@@ -971,7 +982,16 @@ export abstract class CombatEntity extends Enemy {
     if (this.attackTimer > 0 || !this.projectileDamage || !this.canShoot()) return;
     const target = this.findNearestLivingOpponent();
     if (!target) return;
-    const angle = Math.atan2(target.y - this.y, target.x - this.x);
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const vel = physBody?.velocity;
+    const currentSpeed  = vel ? Math.sqrt(vel.x * vel.x + vel.y * vel.y) : 0;
+    const speedFraction = this.speed > 0 ? Math.min(currentSpeed / this.speed, 1) : 0;
+
+    const dist    = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
+    const inCover = isPartialCover(this.x, this.y, target.x, target.y, this.wallRects);
+    const spread  = calcSpread(dist, speedFraction, inCover);
+    const angle   = applySpread(Math.atan2(target.y - this.y, target.x - this.x), spread);
+
     const p = new Projectile(
       this.scene, this.x, this.y, angle,
       this.projectileSpeed, this.projectileDamage,

@@ -836,6 +836,10 @@ export class GameScene extends Phaser.Scene {
   /** When true, WASD pans the camera freely instead of following an animal. */
   freeCamMode = false;
 
+  // ─── Isometric grid overlay ───────────────────────────────────────
+  private isoGridGfx: Phaser.GameObjects.Graphics | null = null;
+  private isoGridVisible = false;
+
   // ─── Dev terrain overlay ──────────────────────────────────────────────────────
   /** Active dev overlay. 'elevation' shows purple→yellow heatmap; 'biome' shows flat biome colours. */
   private devOverlay: 'none' | 'elevation' | 'biome' = 'none';
@@ -1338,6 +1342,12 @@ export class GameScene extends Phaser.Scene {
     // E key for NPC interaction (FIL-80)
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
+    // P = spawn/despawn player at camera centre, G = toggle iso grid (world dev route only)
+    if (window.location.pathname.replace(/\/$/, '') === '/world') {
+      this.input.keyboard!.on('keydown-P', () => this.toggleDevPlayer());
+      this.input.keyboard!.on('keydown-G', () => this.toggleIsoGrid());
+    }
+
     // ── Panda hero ability keys (FIL-314) — only registered in arena mode ─────────
     // 1/2 = Bao's Water Jet / Water Shield.
     // 1/2/3/4 = Master Fen's Ice Bolt / Water Push / Healing Rain / Torrent.
@@ -1668,7 +1678,15 @@ export class GameScene extends Phaser.Scene {
     }
     // Skip attract screen on the /world dev route or when launched from the nav panel.
     const isDevWorld = window.location.pathname.replace(/\/$/, '') === '/world';
-    if (isDevWorld || this.skipAttract) {
+    if (isDevWorld) {
+      // World dev route — free camera starting at Strandviken. Player hidden;
+      // press P to spawn/despawn at camera centre for walkthrough testing.
+      this.overlay.setAlpha(0);
+      this.attractMode = false;
+      this.freeCamMode = true;
+      this.game.events.emit('nav-free-cam-changed', true);
+      this.cameras.main.centerOn(450, 2820); // Strandviken
+    } else if (this.skipAttract) {
       this.overlay.setAlpha(0);
       this.attractMode = false;
       this.player.setAlpha(1);
@@ -4551,6 +4569,14 @@ export class GameScene extends Phaser.Scene {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
     body.setCircle(BODY_RADIUS);
+
+    // On the /world dev route the player starts invisible and physics-disabled.
+    // The P key toggles spawn/despawn at the camera centre for walkthrough testing.
+    if (window.location.pathname.replace(/\/$/, '') === '/world') {
+      this.player.setAlpha(0);
+      this.playerShadow.setAlpha(0);
+      body.setEnable(false);
+    }
 
     this.physics.add.collider(this.player, this.mountainWalls);
     this.physics.add.collider(this.player, this.navigationBarriers);
@@ -7752,6 +7778,7 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('nav-toggle-zones',       () => { this.toggleZones();       }, this);
     this.game.events.on('nav-toggle-settlements', () => { this.toggleSettlements(); }, this);
     this.game.events.on('nav-toggle-fog',         () => { this.toggleFog();         }, this);
+    this.game.events.on('nav-toggle-iso-grid',    () => { this.toggleIsoGrid();    }, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-goto-arena', undefined, this);
@@ -7764,6 +7791,7 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off('nav-toggle-zones', undefined, this);
       this.game.events.off('nav-toggle-settlements', undefined, this);
       this.game.events.off('nav-toggle-fog', undefined, this);
+      this.game.events.off('nav-toggle-iso-grid', undefined, this);
     });
   }
 
@@ -7840,6 +7868,90 @@ export class GameScene extends Phaser.Scene {
     this.fogVisible = !this.fogVisible;
     if (this.fogRt) this.fogRt.setVisible(this.fogVisible);
     this.game.events.emit('nav-fog-changed', this.fogVisible);
+  }
+
+  /** Spawn or despawn the player at the current camera centre (P key, world dev route). */
+  private toggleDevPlayer(): void {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const visible = this.player.alpha > 0;
+    if (visible) {
+      // Despawn: hide and switch to free-cam.
+      this.player.setAlpha(0);
+      this.playerShadow.setAlpha(0);
+      body.setEnable(false);
+      if (!this.freeCamMode) {
+        this.freeCamMode = true;
+        this.cameras.main.stopFollow();
+        this.game.events.emit('nav-free-cam-changed', true);
+      }
+    } else {
+      // Spawn at camera centre so the player lands where you're looking.
+      const cam = this.cameras.main;
+      const wx  = cam.scrollX + cam.width  / 2 / cam.zoom;
+      const wy  = cam.scrollY + cam.height / 2 / cam.zoom;
+      this.player.setPosition(wx, wy);
+      this.playerShadow.setPosition(wx + 6, wy + 8);
+      body.reset(wx, wy);
+      body.setEnable(true);
+      this.player.setAlpha(1);
+      this.playerShadow.setAlpha(0.22);
+      this.freeCamMode = false;
+      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+      this.game.events.emit('nav-free-cam-changed', false);
+    }
+  }
+
+  /** Toggle the isometric grid overlay (lazily created on first show). */
+  toggleIsoGrid(): void {
+    this.isoGridVisible = !this.isoGridVisible;
+    if (this.isoGridVisible) {
+      if (!this.isoGridGfx) this.createIsoGrid();
+      this.isoGridGfx!.setVisible(true);
+    } else {
+      this.isoGridGfx?.setVisible(false);
+    }
+    this.game.events.emit('nav-iso-grid-changed', this.isoGridVisible);
+  }
+
+  /**
+   * Draw a 2:1 isometric diamond grid over the entire world.
+   *
+   * Two families of parallel lines at ±0.5 slope give the classic "iso" look.
+   * CELL_W = 128 px / CELL_H = 64 px — each diamond is one 8×8-tile chunk.
+   * Lines are drawn once into a static Graphics object at depth 5, then toggled
+   * visible/invisible. Alpha 0.15 keeps it subtle; raise to 0.3 for authoring.
+   */
+  private createIsoGrid(): void {
+    const gfx = this.add.graphics();
+    gfx.setDepth(5);
+    gfx.lineStyle(1, 0xd4c4a0, 0.15);
+
+    const W = WORLD_W;   // 4500
+    const H = WORLD_H;   // 3000
+    const CELL_W = 128;
+    const CELL_H = CELL_W / 2; // 64 — 2:1 diamond ratio
+
+    // NE-SW lines — slope +0.5 (y = 0.5x + b).
+    // b steps from -(W/2) to H in CELL_H increments.
+    const bMin = -Math.ceil((W / 2) / CELL_H) * CELL_H;
+    for (let b = bMin; b <= H; b += CELL_H) {
+      gfx.beginPath();
+      gfx.moveTo(0,  b);
+      gfx.lineTo(W,  0.5 * W + b);
+      gfx.strokePath();
+    }
+
+    // NW-SE lines — slope -0.5 (y = -0.5x + b).
+    // b steps from 0 to H + W/2.
+    for (let b = 0; b <= H + W / 2; b += CELL_H) {
+      gfx.beginPath();
+      gfx.moveTo(0,  b);
+      gfx.lineTo(W, -0.5 * W + b);
+      gfx.strokePath();
+    }
+
+    gfx.setVisible(false);
+    this.isoGridGfx = gfx;
   }
 
   /** Pan the camera with WASD/arrows when in free-fly mode. */

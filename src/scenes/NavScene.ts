@@ -47,6 +47,7 @@ export class NavScene extends Phaser.Scene {
   private zonesBtn!:       Phaser.GameObjects.Text;
   private settlementsBtn!: Phaser.GameObjects.Text;
   private fogBtn!:         Phaser.GameObjects.Text;
+  private isoGridBtn!:     Phaser.GameObjects.Text;
 
   // ── Section header references (needed by rebuildLayout) ─────────────────────
   private cameraHeader!:   Phaser.GameObjects.Text;
@@ -237,9 +238,12 @@ export class NavScene extends Phaser.Scene {
     // Fog — starts visible → show ✓
     this.fogBtn         = mkBtn('Fog',         '#aaccff', '#112233aa',
       () => this.game.events.emit('nav-toggle-fog'), true);
+    // Iso Grid — starts hidden → no ✓  (G key shortcut)
+    this.isoGridBtn     = mkBtn('Iso Grid [G]','#ccddff', '#111133aa',
+      () => this.game.events.emit('nav-toggle-iso-grid'));
     this.worldItems     = [
       this.decorBtn, this.animalsBtn, this.pathsBtn,
-      this.zonesBtn, this.settlementsBtn, this.fogBtn,
+      this.zonesBtn, this.settlementsBtn, this.fogBtn, this.isoGridBtn,
     ];
 
     // Hint shown below the tree in WilderView mode
@@ -322,6 +326,7 @@ export class NavScene extends Phaser.Scene {
     this.game.events.on('nav-zones-changed',       (v: boolean) => { this.syncBtn(this.zonesBtn,       'Zones',       '#ffaacc', v); }, this);
     this.game.events.on('nav-settlements-changed', (v: boolean) => { this.syncBtn(this.settlementsBtn, 'Settlements', '#ffdd88', v); }, this);
     this.game.events.on('nav-fog-changed',         (v: boolean) => { this.syncBtn(this.fogBtn,         'Fog',         '#aaccff', v); }, this);
+    this.game.events.on('nav-iso-grid-changed',    (v: boolean) => { this.syncBtn(this.isoGridBtn,     'Iso Grid [G]','#ccddff', v); }, this);
 
     // Clean up listeners and DOM elements when this scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -335,6 +340,7 @@ export class NavScene extends Phaser.Scene {
       this.game.events.off('nav-zones-changed',        undefined, this);
       this.game.events.off('nav-settlements-changed',  undefined, this);
       this.game.events.off('nav-fog-changed',          undefined, this);
+      this.game.events.off('nav-iso-grid-changed',     undefined, this);
       this.destroyFeedbackWidget();
     });
   }

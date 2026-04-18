@@ -1561,7 +1561,6 @@ export class CombatArenaScene extends Phaser.Scene {
     const WALL_T      = 22;   // mirrors buildArena — rooms must stay inside the border
     const TILE        = 16;
     const FRAME_CLEAN = 12;
-    const FRAME_WORN  = 6;
     const CORRIDOR_W  = 32;   // corridor strip width in px
     const PAD         = 10;   // minimum gap between room edges
     const MIN_W = 80;  const MAX_W = 200;
@@ -1629,16 +1628,23 @@ export class CombatArenaScene extends Phaser.Scene {
       const x2 = Math.min(innerX + innerW, x + w);
       const y2 = Math.min(innerY + innerH, y + h);
       if (x2 <= x1 || y2 <= y1) return;
-      const cols = Math.ceil((x2 - x1) / TILE);
-      const rows = Math.ceil((y2 - y1) / TILE);
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const wx = x1 + col * TILE + TILE / 2;
-          const wy = y1 + row * TILE + TILE / 2;
-          if (wx > x2 || wy > y2) continue;
-          const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
-          const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-          this.add.image(wx, wy, 'dungeon_floor', frame).setDepth(-1);
+      // Snap to the global tile grid anchored at (innerX, innerY) so that
+      // tiles from different rooms and corridors always land on the same 16px
+      // grid. Without this, rooms starting at non-tile-aligned pixel positions
+      // draw at different sub-pixel offsets, causing visible seams at junctions.
+      const col0 = Math.floor((x1 - innerX) / TILE);
+      const row0 = Math.floor((y1 - innerY) / TILE);
+      const col1 = Math.ceil((x2  - innerX) / TILE);
+      const row1 = Math.ceil((y2  - innerY) / TILE);
+      for (let row = row0; row < row1; row++) {
+        for (let col = col0; col < col1; col++) {
+          const wx = innerX + col * TILE + TILE / 2;
+          const wy = innerY + row * TILE + TILE / 2;
+          // FRAME_CLEAN (12) is the Wang "all-floor-neighbours" interior tile —
+          // it tiles seamlessly with itself. Using FRAME_WORN (6) and FRAME_CLEAN
+          // randomly mixed caused seams because they are different Wang corner
+          // states with mismatched edge pixels.
+          this.add.image(wx, wy, 'dungeon_floor', FRAME_CLEAN).setDepth(-1);
         }
       }
     };
