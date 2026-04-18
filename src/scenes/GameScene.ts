@@ -6154,20 +6154,24 @@ export class GameScene extends Phaser.Scene {
       const oceanTile = this.add
         .tileSprite(oceanX, oceanY, oceanW, oceanH, 'terrain-water')
         .setDepth(0.5);
+      // Lock to frame 1 (gentle ripple) so the TileSprite tiles a single
+      // uniform frame rather than the full 4-frame horizontal strip.
+      // Scrolling tilePositionX across all 4 frames caused a distracting
+      // left-to-right shift that looked like the water was sliding.
+      oceanTile.setFrame(1);
       // Scale the tiled texture to 2× so each tile appears 32×32 in world space,
       // matching the original per-tile sprites.  setTileScale does not inflate the
       // TileSprite's own display rect — it only changes how the texture tiles within it.
       oceanTile.setTileScale(2, 2);
 
-      // Scroll one full texture width (64 source px = all 4 frames) in 2 s —
-      // equivalent to the original ocean-anim frame rate of 2 fps, but smooth
-      // instead of frame-stepped.
+      // Alpha shimmer: gentle brightness pulse reads as water without horizontal drift.
       this.tweens.add({
-        targets:       oceanTile,
-        tilePositionX: { from: 0, to: 64 },
-        duration:      2000,
-        repeat:        -1,
-        ease:          'Linear',
+        targets:  oceanTile,
+        alpha:    { from: 0.78, to: 1.0 },
+        duration: 2000,
+        repeat:   -1,
+        yoyo:     true,
+        ease:     'Sine.easeInOut',
       });
 
       // Geometry mask: clip the TileSprite to actual water tiles so land tiles
