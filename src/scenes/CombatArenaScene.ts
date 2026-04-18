@@ -84,9 +84,9 @@ export class CombatArenaScene extends Phaser.Scene {
   private readonly blackboard = new ArenaBlackboard();
 
   /**
-   * AABB rectangles for line-of-sight tests — one entry per solid interior
-   * obstacle (stone pillars). Populated by buildArena() and passed to every
-   * entity via addPhysics() so their BT can call hasLineOfSight().
+   * AABB rectangles for line-of-sight tests — includes carved dungeon wall
+   * strips and discrete blockers (pillars). Populated by buildArena() and
+   * passed to every entity via addPhysics() so BTs can call hasLineOfSight().
    */
   private wallRects: Phaser.Geom.Rectangle[] = [];
   /**
@@ -547,6 +547,10 @@ export class CombatArenaScene extends Phaser.Scene {
       [cx + 98,  cy + 38],
     ];
 
+    // All interior blockers (dungeon walls + pillars + corner zones) share one
+    // static group so every combatant can reuse the same collider registration.
+    this.obstacles = this.physics.add.staticGroup();
+
     // ── Procedural room layout ────────────────────────────────────────────────
     // Rooms are placed and tiled inside buildRooms(). The returned array is
     // stored on this.rooms so spawnHero() and spawnWaveGroup() can position
@@ -557,8 +561,6 @@ export class CombatArenaScene extends Phaser.Scene {
     // Broken columns in 3/4 top-down perspective: a lighter top face (visible
     // from above) sits over a darker front face (camera-facing side), with a
     // cast shadow ellipse at the base.
-    this.obstacles = this.physics.add.staticGroup();
-
     const PILLAR_W  = 28; // visual width
     const PILLAR_FH = 22; // front face height (camera-facing)
     const PILLAR_TH = 10; // top face height (foreshortened in 3/4 view)
@@ -951,10 +953,11 @@ export class CombatArenaScene extends Phaser.Scene {
     const ctors: EnemyCtor[] = [...group.enemies];
     for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(BabyVelcrid);
 
-    // Spawn in a room other than the hero's starting room so enemies must
-    // travel to reach the hero — giving the player a moment to prepare.
+    // Spawn in a room other than the hero's CURRENT room so enemies must travel
+    // through the dungeon to reach the hero — giving the player a moment to prepare.
     // Falls back to the right-edge spawn when no other rooms are available.
-    const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
+    const heroCurrentRoom = this.findRoomContainingPoint(this.hero.x, this.hero.y) ?? this.heroRoom;
+    const candidateRooms = this.rooms.filter(r => r !== heroCurrentRoom);
     const spawnRoom = candidateRooms.length > 0
       ? candidateRooms[Math.floor(Math.random() * candidateRooms.length)]
       : null;
@@ -1396,13 +1399,9 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   /**
-   * Procedurally places 4–8 rooms inside the arena and renders their floors
-   * with colosseum_floor tiles.  Consecutive rooms are connected by L-shaped
-   * corridors (horizontal leg first, then vertical).
-   *
-   * Rooms are visual-only — no physics walls are added.  Entities move freely
-   * across the full arena; the floor tiles only define the visible footprint.
-   * Called once from buildArena(); the result is stored on this.rooms.
+   * Procedurally places 4–8 rooms and then carves walkable corridors between
+   * them. Every non-carved tile inside the arena interior becomes solid dungeon
+   * wall (rendered + static collider + LOS blocker).
    */
   private buildRooms(): Room[] {
     const WALL_T      = 22;   // mirrors buildArena — rooms must stay inside the border
@@ -1421,8 +1420,28 @@ export class CombatArenaScene extends Phaser.Scene {
     const innerY = this.arenaY + WALL_T;
     const innerW = this.arenaW - WALL_T * 2;
     const innerH = this.arenaH - WALL_T * 2;
+    const cols = Math.max(1, Math.floor(innerW / TILE));
+    const rows = Math.max(1, Math.floor(innerH / TILE));
 
     const rooms: Room[] = [];
+    const walkable: boolean[][] = Array.from(
+      { length: rows },
+      () => Array.from({ length: cols }, () => false),
+    );
+
+    const clampCellX = (x: number): number => Phaser.Math.Clamp(Math.floor((x - innerX) / TILE), 0, cols - 1);
+    const clampCellY = (y: number): number => Phaser.Math.Clamp(Math.floor((y - innerY) / TILE), 0, rows - 1);
+    const markWalkableRect = (x: number, y: number, w: number, h: number): void => {
+      const c0 = clampCellX(x);
+      const c1 = clampCellX(x + Math.max(1, w) - 1);
+      const r0 = clampCellY(y);
+      const r1 = clampCellY(y + Math.max(1, h) - 1);
+      for (let row = r0; row <= r1; row++) {
+        for (let col = c0; col <= c1; col++) {
+          walkable[row][col] = true;
+        }
+      }
+    };
 
     // Rejection-sample random rooms; keep candidates that don't overlap existing ones.
     for (let t = 0; t < MAX_TRIES && rooms.length < TARGET; t++) {
@@ -1454,29 +1473,8 @@ export class CombatArenaScene extends Phaser.Scene {
       );
     }
 
-    // Tile a rectangle of floor, clipped to the arena interior.
-    const tileRect = (x: number, y: number, w: number, h: number): void => {
-      const x1 = Math.max(innerX, x);
-      const y1 = Math.max(innerY, y);
-      const x2 = Math.min(innerX + innerW, x + w);
-      const y2 = Math.min(innerY + innerH, y + h);
-      if (x2 <= x1 || y2 <= y1) return;
-      const cols = Math.ceil((x2 - x1) / TILE);
-      const rows = Math.ceil((y2 - y1) / TILE);
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const wx = x1 + col * TILE + TILE / 2;
-          const wy = y1 + row * TILE + TILE / 2;
-          if (wx > x2 || wy > y2) continue;
-          const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
-          const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-          this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
-        }
-      }
-    };
-
-    // Tile each room's floor.
-    for (const room of rooms) tileRect(room.x, room.y, room.w, room.h);
+    // Carve each room as walkable space.
+    for (const room of rooms) markWalkableRect(room.x, room.y, room.w, room.h);
 
     // Connect consecutive rooms with L-shaped corridors (horizontal leg first,
     // then vertical at the elbow). This guarantees at least one path between
@@ -1491,12 +1489,73 @@ export class CombatArenaScene extends Phaser.Scene {
       const half = Math.round(CORRIDOR_W / 2);
 
       // Horizontal leg: room-a centre → room-b centre X, at room-a centre Y.
-      tileRect(Math.min(ax, bx), ay - half, Math.abs(bx - ax), CORRIDOR_W);
+      markWalkableRect(Math.min(ax, bx), ay - half, Math.max(TILE, Math.abs(bx - ax)), CORRIDOR_W);
       // Vertical leg: elbow (bx, ay) → room-b centre Y.
-      tileRect(bx - half, Math.min(ay, by), CORRIDOR_W, Math.abs(by - ay));
+      markWalkableRect(bx - half, Math.min(ay, by), CORRIDOR_W, Math.max(TILE, Math.abs(by - ay)));
+    }
+
+    // Visual pass: draw carved floors and solid walls tile-by-tile.
+    // Floors use existing colosseum tiles; walls use darker stone blocks so the
+    // traversable path reads clearly at 3.5x zoom.
+    const wallGfx = this.add.graphics().setDepth(-0.9);
+    const WALL_BASE  = 0x4f3a28;
+    const WALL_LIGHT = 0x6b5139;
+    const WALL_MORTAR = 0x24180f;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const tx = innerX + col * TILE;
+        const ty = innerY + row * TILE;
+        if (walkable[row][col]) {
+          const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
+          const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
+          this.add.image(tx + TILE / 2, ty + TILE / 2, 'colosseum_floor', frame).setDepth(-1);
+          continue;
+        }
+
+        wallGfx.fillStyle(WALL_BASE, 1);
+        wallGfx.fillRect(tx, ty, TILE, TILE);
+        wallGfx.fillStyle(WALL_LIGHT, 1);
+        wallGfx.fillRect(tx + 1, ty + 1, TILE - 2, 4);
+        wallGfx.lineStyle(1, WALL_MORTAR, 0.7);
+        wallGfx.strokeRect(tx, ty, TILE, TILE);
+      }
+    }
+
+    // Physics + LOS pass: collapse contiguous blocked tiles into row strips so
+    // we add far fewer bodies than "one collider per tile".
+    for (let row = 0; row < rows; row++) {
+      let col = 0;
+      while (col < cols) {
+        if (walkable[row][col]) {
+          col++;
+          continue;
+        }
+
+        const start = col;
+        while (col < cols && !walkable[row][col]) col++;
+        const runTiles = col - start;
+        const rx = innerX + start * TILE;
+        const ry = innerY + row * TILE;
+        const rw = runTiles * TILE;
+        const rh = TILE;
+
+        const zone = this.add.zone(rx + rw / 2, ry + rh / 2, rw, rh);
+        this.physics.add.existing(zone, true);
+        this.obstacles.add(zone);
+        this.wallRects.push(new Phaser.Geom.Rectangle(rx, ry, rw, rh));
+      }
     }
 
     return rooms;
+  }
+
+  /** Returns the first room containing world position (x, y), else null. */
+  private findRoomContainingPoint(x: number, y: number): Room | null {
+    for (const room of this.rooms) {
+      const inside = x >= room.x && x <= room.x + room.w && y >= room.y && y <= room.y + room.h;
+      if (inside) return room;
+    }
+    return null;
   }
 
   /**
