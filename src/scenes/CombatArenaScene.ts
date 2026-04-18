@@ -262,6 +262,16 @@ export class CombatArenaScene extends Phaser.Scene {
     this.createAnimsFromAseprite('tinkerer');
     this.createAnimsFromAseprite('mini-velcrid');
 
+    // Torch flicker — 3-frame loop at 6 fps (~167 ms/frame) for a slow, warm
+    // candle feel. Defined once here; each torch sprite calls play('torch_flicker')
+    // with a random progress offset so they don't all flash in sync.
+    this.anims.create({
+      key:       'torch_flicker',
+      frames:    this.anims.generateFrameNumbers('dungeon_torch', { start: 0, end: 2 }),
+      frameRate: 6,
+      repeat:    -1,
+    });
+
     // Walk and idle animations must loop so the sprite never freezes mid-stride.
     // Attack / dash / death stay one-shot — their keys don't contain _walk_ or _idle_.
     const LOOP_STATES = ['idle', 'walk'];
@@ -545,6 +555,12 @@ export class CombatArenaScene extends Phaser.Scene {
     // NavScene owns its own camera, so it is unaffected by this zoom.
     this.cameras.main.setZoom(DUNGEON_ZOOM);
     this.cameras.main.centerOn(cx, cy);
+    // Clamp the camera to the arena rect so the viewport never pans far enough
+    // to reveal the void beyond the arena walls (the hard black rectangle edge).
+    this.cameras.main.setBounds(
+      this.arenaX, this.arenaY,
+      this.arenaW, this.arenaH,
+    );
 
     const WALL_T  = 22;
     // WALL_INSET: how far to push the physics world bounds from the arena edge.
@@ -753,8 +769,12 @@ export class CombatArenaScene extends Phaser.Scene {
       const glowGfx = this.add.graphics();
       glowGfx.fillStyle(0xff9933, 0.18);
       glowGfx.fillCircle(tx, ty, 40);
-      // Torch sprite — frame 1 (medium flame). Animated flicker added in FIL-341.
-      this.add.image(tx, ty, 'dungeon_torch', 1).setDepth(2);
+      // Animated torch — plays the 'torch_flicker' animation (3 frames, 6 fps).
+      // startFrame staggers the start so adjacent torches don't pulse in lockstep.
+      // Using the play-config form avoids a null-currentAnim crash that occurs
+      // when setProgress() is called immediately after play() during create().
+      const torchSprite = this.add.sprite(tx, ty, 'dungeon_torch').setDepth(2);
+      torchSprite.play({ key: 'torch_flicker', startFrame: Math.floor(Math.random() * 3) });
       this.tweens.add({
         targets:  glowGfx,
         alpha:    { from: 0.7, to: 1.0 },
@@ -765,6 +785,24 @@ export class CombatArenaScene extends Phaser.Scene {
         delay:    Phaser.Math.Between(0, 350),
       });
     }
+
+    // ── Ambient dust motes ────────────────────────────────────────────────────
+    // ≤8 tiny particles drifting slowly upward in the centre of the arena.
+    // Uses a single floor tile frame as a micro-dot (scale 0.03–0.08 world-px)
+    // so no additional asset is needed. Warm tan tint matches the stone palette.
+    // depth 3 puts dust above floor (−1) and walls (0) but below entities (10+).
+    this.add.particles(cx, cy, 'dungeon_floor', {
+      frame:        0,
+      scale:        { min: 0.03, max: 0.08 },
+      alpha:        { start: 0.45, end: 0 },
+      speedY:       { min: -7, max: -2 },
+      speedX:       { min: -4, max: 4 },
+      lifespan:     4500,
+      frequency:    700,
+      quantity:     1,
+      tint:         0xc8a87a,
+      maxParticles: 8,
+    }).setDepth(3);
 
     // ── Floor cracks from pillar bases ────────────────────────────────────────
     const crackGfx = this.add.graphics();
@@ -1536,6 +1574,21 @@ export class CombatArenaScene extends Phaser.Scene {
         this.add.image(wx, y1 + TILE / 2, 'dungeon_wall_top').setDepth(0);
         this.add.image(wx, y2 - TILE / 2, 'dungeon_wall_side').setDepth(0);
       }
+    }
+
+    // Wall-base shadow — a 4 px semi-transparent strip just below the north
+    // wall tile row of each room. The thin dark band gives the flat 16×16
+    // tiles a sense of thickness and makes the wall read as solid stone
+    // rather than a painted flat surface.
+    const wallShadowGfx = this.add.graphics().setDepth(1);
+    wallShadowGfx.fillStyle(0x000000, 0.32);
+    for (const room of rooms) {
+      const x1 = Math.max(innerX, room.x);
+      const y1 = Math.max(innerY, room.y);
+      const x2 = Math.min(innerX + innerW, room.x + room.w);
+      if (x2 <= x1) continue;
+      // Shadow sits immediately below the north wall tile row (y1 + TILE).
+      wallShadowGfx.fillRect(x1, y1 + TILE, x2 - x1, 4);
     }
 
     // Connect consecutive rooms with L-shaped corridors (horizontal leg first,
