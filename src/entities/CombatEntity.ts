@@ -21,9 +21,11 @@ export { SIGHT_CHECK_INTERVAL_MS };
 /** Size of the entity rectangle in pixels (centered in the Container). */
 const ENTITY_SIZE = 20;
 
-/** HP bar dimensions and vertical offset above the entity center. */
-const BAR_W  = 36;
-const BAR_H  = 5;
+/** HP bar dimensions and vertical offset above the entity center.
+ *  Kept narrow (16 px) and thin (2 px) so bars don't dominate the screen
+ *  when many enemies are alive simultaneously. */
+const BAR_W  = 16;
+const BAR_H  = 2;
 const BAR_Y  = -20; // px above Container center
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -1080,8 +1082,9 @@ export abstract class CombatEntity extends Enemy {
 
   private refreshHpBar(): void {
     this.hpBarFill.scaleX = Math.max(0, this.hpFraction);
-    // Hide both bar layers while untargetable (stealth / disguise states).
-    const visible = this.isTargetable;
+    // Hide while untargetable (stealth) OR at full HP — reduces visual clutter
+    // when many enemies are alive simultaneously.
+    const visible = this.isTargetable && this.hpFraction < 1;
     this.hpBarBg.setVisible(visible);
     this.hpBarFill.setVisible(visible);
   }

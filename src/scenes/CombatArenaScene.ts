@@ -54,7 +54,7 @@ const WAVE_GROUPS: WaveGroup[] = [
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
-const MAX_ALIVE       = 20;   // total alive enemy cap
+const MAX_ALIVE       = 15;   // total alive enemy cap (kept lower so kill rate stays meaningful)
 const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence begins
 
 /** Kill count at which the mine gadget unlocks, simulating the Tier 1 → Tier 2 transition. */
@@ -1069,7 +1069,9 @@ export class CombatArenaScene extends Phaser.Scene {
   // ── Wave timing ───────────────────────────────────────────────────────────────
 
   private nextMainInterval(): number {
-    return Math.max(5000, 10000 - this.waveNumber * 400);
+    // Floor raised to 7500 ms (was 5000) — late waves previously spawned faster
+    // than the hero could kill, causing enemies to accumulate to the MAX_ALIVE cap.
+    return Math.max(7500, 10000 - this.waveNumber * 400);
   }
 
   // ── HUD ───────────────────────────────────────────────────────────────────────
