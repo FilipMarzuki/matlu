@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 // Per-issue agent runner. Invoked by the GitHub Actions matrix in
-// .github/workflows/agent-nightly.yml — one cell per Linear issue.
+// .github/workflows/agent-nightly.yml — one cell per GitHub issue.
 //
 // Responsibilities:
-//   1. Fetch the Linear issue (title + description).
-//   2. Render the per-issue prompt from .agents/per-issue.md.
-//   3. Spawn Claude Code in headless mode, scoped to exactly this issue.
+//   1. Fetch the GitHub issue (title + body).
+//   2. Mark it in-progress via an `agent:in-progress` label (best-effort).
+//   3. Render the per-issue prompt from .agents/per-issue.md.
+//   4. Spawn Claude Code in headless mode, scoped to exactly this issue.
 //
-// All Linear bookkeeping (outcome labels, comments) happens inside the Claude
-// session via the Linear MCP — the runner is orchestration only. The Claude
-// session also has access to GITHUB_TOKEN / gh CLI for commits and PRs.
+// All outcome bookkeeping (agent:success label, summary comment) happens
+// inside the Claude session via `gh issue edit` / `gh issue comment`.
+// The runner is orchestration only — keep this file boring.
 //
 // Usage:
-//   LINEAR_API_KEY=… ANTHROPIC_API_KEY=… node run-agent.js FIL-42
+//   GITHUB_TOKEN=… ANTHROPIC_API_KEY=… node run-agent.js 42
 
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -22,66 +23,69 @@ import { spawnSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-const LINEAR_API_KEY           = process.env.LINEAR_API_KEY;
+const GITHUB_TOKEN             = process.env.GITHUB_TOKEN;
 // Claude Code accepts either auth method. Prefer the subscription OAuth
 // token (tied to a Pro/Max/Team-premium seat, no per-call API billing) and
 // fall back to a pay-as-you-go API key if the OAuth secret is unset.
 const CLAUDE_CODE_OAUTH_TOKEN  = process.env.CLAUDE_CODE_OAUTH_TOKEN;
 const ANTHROPIC_API_KEY        = process.env.ANTHROPIC_API_KEY;
+const REPO_OWNER               = process.env.REPO_OWNER || 'FilipMarzuki';
+const REPO_NAME                = process.env.REPO_NAME  || 'matlu';
 
 const issueArg = process.argv[2];
 
 if (!issueArg) {
-  console.error('Usage: run-agent.js <LINEAR_ISSUE_ID> (e.g. FIL-42)');
+  console.error('Usage: run-agent.js <ISSUE_NUMBER>');
   process.exit(1);
 }
-if (!LINEAR_API_KEY) {
-  console.error('Missing LINEAR_API_KEY');
+if (!GITHUB_TOKEN) {
+  console.error('Missing GITHUB_TOKEN');
   process.exit(1);
 }
 if (!CLAUDE_CODE_OAUTH_TOKEN && !ANTHROPIC_API_KEY) {
   console.error('Missing CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY');
   process.exit(1);
 }
-if (!/^[A-Z]+-\d+$/.test(issueArg)) {
-  console.error(`Invalid Linear issue identifier: ${issueArg} (expected e.g. FIL-42)`);
+
+const issueNumber = parseInt(issueArg, 10);
+if (isNaN(issueNumber)) {
+  console.error(`Invalid issue number: ${issueArg}`);
   process.exit(1);
 }
 
-// ── Linear GraphQL API ─────────────────────────────────────────────────────────
+// ── GitHub Issues REST API ────────────────────────────────────────────────────
 
-async function linearQuery(query, variables = {}) {
-  const res = await fetch('https://api.linear.app/graphql', {
-    method: 'POST',
+async function githubRequest(method, path, body = null) {
+  const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}${path}`, {
+    method,
     headers: {
-      Authorization: LINEAR_API_KEY,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
-    body: JSON.stringify({ query, variables }),
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  if (!res.ok) throw new Error(`Linear API → ${res.status} ${await res.text()}`);
-  const { data, errors } = await res.json();
-  if (errors?.length) throw new Error(`Linear GraphQL errors: ${JSON.stringify(errors)}`);
-  return data;
+  if (!res.ok) throw new Error(`GitHub API → ${res.status} ${await res.text()}`);
+  return res.json();
 }
 
-async function fetchIssue(identifier) {
-  const data = await linearQuery(`
-    query Issue($identifier: String!) {
-      issues(filter: { identifier: { eq: $identifier } }, first: 1) {
-        nodes {
-          id
-          identifier
-          title
-          description
-        }
-      }
-    }
-  `, { identifier });
+async function fetchIssue(number) {
+  return githubRequest('GET', `/issues/${number}`);
+}
 
-  const nodes = data.issues.nodes;
-  if (!nodes.length) throw new Error(`Linear issue not found: ${identifier}`);
-  return nodes[0];
+async function moveToInProgress(issue) {
+  // Best-effort: add `agent:in-progress` label so humans can see work has begun.
+  // If the label doesn't exist yet this will fail with 422; log but don't abort.
+  const current = issue.labels.map(l => l.name);
+  if (current.includes('agent:in-progress')) return;
+  try {
+    await githubRequest('POST', `/issues/${issue.number}/labels`, {
+      labels: ['agent:in-progress'],
+    });
+  } catch (err) {
+    console.warn(`[run-agent] Could not apply agent:in-progress: ${err.message}`);
+  }
 }
 
 // ── Prompt rendering ──────────────────────────────────────────────────────────
@@ -91,28 +95,22 @@ function renderPrompt(issue) {
     join(__dirname, '..', '..', '.agents', 'per-issue.md'),
     'utf8'
   );
-  // issue.identifier = "FIL-42", issue.id = Linear UUID (needed for MCP calls)
-  const id      = issue.identifier;
-  const idLower = id.toLowerCase();
+  const num = String(issue.number);
   return template
-    .replaceAll('{{issue_id}}',       id)
-    .replaceAll('{{issue_id_lower}}', idLower)
-    .replaceAll('{{issue_uuid}}',     issue.id)
-    .replaceAll('{{title}}',          issue.title)
-    .replaceAll('{{description}}',    issue.description || '_(no description provided)_');
+    .replaceAll('{{issue_id}}',        num)
+    .replaceAll('{{issue_id_lower}}',  num)
+    .replaceAll('{{gh_issue_number}}', num)
+    .replaceAll('{{title}}',           issue.title)
+    .replaceAll('{{description}}',     issue.body || '_(no description provided)_');
 }
 
 // ── Claude Code invocation ────────────────────────────────────────────────────
 
 function runClaude(prompt) {
-  // Headless (`--print`) runs Claude Code non-interactively and streams output
-  // to stdout. We use `bypassPermissions` rather than `acceptEdits` because
-  // `acceptEdits` only auto-approves file edits — git, npm, gh, and other
-  // Bash calls still trigger a permission prompt that, in `--print` mode,
-  // has nowhere to go. The agent then gives up without committing. In a
-  // disposable CI runner this is the right trade-off: the sandbox is torn
-  // down after the session regardless, so "the agent has full shell access"
-  // costs us nothing extra.
+  // Headless (`--print`) runs Claude Code non-interactively. bypassPermissions
+  // is used instead of acceptEdits because acceptEdits only auto-approves file
+  // edits — git, npm, gh, and Bash calls still trigger prompts that have
+  // nowhere to go in --print mode. In a disposable CI sandbox this is fine.
   const result = spawnSync(
     'npx',
     [
@@ -125,11 +123,6 @@ function runClaude(prompt) {
     ],
     {
       stdio: 'inherit',
-      // Pass whichever credential(s) the workflow provided. Claude Code uses
-      // CLAUDE_CODE_OAUTH_TOKEN when set (no API billing — charged against
-      // the subscription quota) and otherwise falls back to ANTHROPIC_API_KEY.
-      // LINEAR_API_KEY and GITHUB_TOKEN are forwarded so the spawned session
-      // can reach Linear (via MCP) and GitHub (via gh CLI) for wrap-up steps.
       env: {
         ...process.env,
         ...(CLAUDE_CODE_OAUTH_TOKEN ? { CLAUDE_CODE_OAUTH_TOKEN } : {}),
@@ -143,18 +136,20 @@ function runClaude(prompt) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`[run-agent] Starting session for ${issueArg}`);
+  console.log(`[run-agent] Starting session for issue #${issueNumber}`);
 
-  const issue = await fetchIssue(issueArg);
+  const issue = await fetchIssue(issueNumber);
+  await moveToInProgress(issue);
+
   const prompt = renderPrompt(issue);
   const ok = runClaude(prompt);
 
   if (!ok) {
-    console.error(`[run-agent] Claude Code exited non-zero for ${issueArg}`);
+    console.error(`[run-agent] Claude Code exited non-zero for #${issueNumber}`);
     process.exit(1);
   }
 
-  console.log(`[run-agent] Completed ${issueArg}`);
+  console.log(`[run-agent] Completed #${issueNumber}`);
 }
 
 main().catch((err) => {
