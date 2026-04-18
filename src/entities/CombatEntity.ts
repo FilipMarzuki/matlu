@@ -70,6 +70,32 @@ export interface CombatEntityConfig extends EnemyConfig {
    * Tune per enemy type: short for dumb swarm creatures, long for smart elites.
    */
   sightMemoryMs?: number;
+
+  // ── Ambient vocalisation (optional) ──────────────────────────────────────
+  /**
+   * Idle/ambient sound config. When set, the entity emits 'entity-ambient-sound'
+   * scene events on a random timer so the arena scene can play spatially-
+   * attenuated audio without the entity needing a direct sound manager reference.
+   *
+   * The interval is re-randomised after each chirp so the pattern feels organic
+   * rather than mechanical. A random initial delay (up to intervalMaxMs) is baked
+   * in at construction time so multiple entities of the same type don't all fire
+   * on the same tick.
+   */
+  ambientSounds?: {
+    /** Audio keys (must be preloaded by the scene). Randomly chosen each time. */
+    keys: string[];
+    /** Minimum ms between emissions. */
+    intervalMinMs: number;
+    /** Maximum ms between emissions. */
+    intervalMaxMs: number;
+    /** Base playback volume at zero distance from the camera. */
+    volume: number;
+    /** Minimum playback rate (pitch). 1.0 = normal, 1.3 = higher, faster. */
+    pitchMin: number;
+    /** Maximum playback rate (pitch). */
+    pitchMax: number;
+  };
 }
 
 // ── Animation direction map ───────────────────────────────────────────────────
@@ -265,6 +291,13 @@ export abstract class CombatEntity extends Enemy {
   /** Scene-time (ms) when the next scheduled sight check should fire. */
   private nextSightCheck = 0;
 
+  // ── Ambient vocalisation state ────────────────────────────────────────────
+
+  /** Ambient sound config, or undefined if this entity is silent. */
+  private readonly ambientSoundCfg: CombatEntityConfig['ambientSounds'];
+  /** Countdown (ms) until the next ambient sound fires. */
+  private ambientTimer = 0;
+
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     // Bake a small random speed offset so swarm members move at slightly
     // different speeds — creates the uneven texture of a real insect swarm.
@@ -280,6 +313,13 @@ export abstract class CombatEntity extends Enemy {
     this.projectileColor  = config.projectileColor  ?? 0xffffff;
 
     this.sightMemoryMs = config.sightMemoryMs ?? 2000;
+
+    // Ambient sound — random initial delay so multiple entities of the same
+    // type don't all chirp on the same first tick.
+    this.ambientSoundCfg = config.ambientSounds;
+    if (config.ambientSounds) {
+      this.ambientTimer = Phaser.Math.FloatBetween(0, config.ambientSounds.intervalMaxMs);
+    }
 
     this.attackAnimDuration = config.attackCooldownMs * 0.4;
 
@@ -509,6 +549,7 @@ export abstract class CombatEntity extends Enemy {
    */
   override updateBehaviour(delta: number): void {
     this.attackTimer = Math.max(0, this.attackTimer - delta);
+    this.updateAmbientSound(delta);
 
     // ── Status effect timers ─────────────────────────────────────────────────
     if (this.frozenTimer > 0) {
@@ -1079,6 +1120,34 @@ export abstract class CombatEntity extends Enemy {
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
+
+  /**
+   * Counts down the ambient-sound timer and fires an 'entity-ambient-sound'
+   * scene event when it expires. The event carries the audio key and world
+   * position; the arena scene handles distance attenuation and playback.
+   *
+   * Interval is re-randomised after each emission so the pattern stays
+   * irregular — a fixed tick would feel mechanical within seconds.
+   */
+  private updateAmbientSound(delta: number): void {
+    if (!this.ambientSoundCfg || !this.isAlive) return;
+    this.ambientTimer -= delta;
+    if (this.ambientTimer > 0) return;
+
+    const cfg = this.ambientSoundCfg;
+    const key = cfg.keys[Math.floor(Math.random() * cfg.keys.length)];
+    this.scene.events.emit('entity-ambient-sound', {
+      key,
+      x:        this.x,
+      y:        this.y,
+      volume:   cfg.volume,
+      pitchMin: cfg.pitchMin,
+      pitchMax: cfg.pitchMax,
+    });
+
+    // Re-schedule with a fresh random interval.
+    this.ambientTimer = Phaser.Math.FloatBetween(cfg.intervalMinMs, cfg.intervalMaxMs);
+  }
 
   private refreshHpBar(): void {
     this.hpBarFill.scaleX = Math.max(0, this.hpFraction);
