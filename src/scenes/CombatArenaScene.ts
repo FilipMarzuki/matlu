@@ -97,6 +97,9 @@ export class CombatArenaScene extends Phaser.Scene {
    */
   private wallRects: Phaser.Geom.Rectangle[] = [];
 
+  /** Point light that follows the hero — keeps nearby tiles visible as they move. */
+  private heroLight: Phaser.GameObjects.Light | null = null;
+
   /**
    * Generated BSP dungeon layout — stored so other methods can query room data,
    * entry/exit points, etc. without re-running the generator.
@@ -512,6 +515,13 @@ export class CombatArenaScene extends Phaser.Scene {
     // ── Camera — follow hero ──────────────────────────────────────────────────
     if (!this.bgMode && this.heroAlive) {
       this.cameras.main.centerOn(this.hero.x, this.hero.y);
+    }
+
+    // ── Hero lantern — track hero position ───────────────────────────────────
+    // Phaser.GameObjects.Light is not a scene child (it doesn't have x/y
+    // auto-updated), so we must sync its position manually each frame.
+    if (this.heroLight && this.heroAlive) {
+      this.heroLight.setPosition(this.hero.x, this.hero.y);
     }
 
     // ── Sight line checks (staggered) ─────────────────────────────────────────
@@ -956,6 +966,27 @@ export class CombatArenaScene extends Phaser.Scene {
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
     this.heroAlive = true;
+
+    // ── Hero lantern light ────────────────────────────────────────────────────
+    // A dim, slightly cool-white point light that travels with the hero.
+    // Without this, any room the hero enters that has no nearby torch would
+    // be lit only by the ambient (0x1e1610 ≈ very dark brown), making the
+    // floor nearly invisible.
+    //
+    // The lantern is intentionally dim (intensity 0.7) and slightly blue-white
+    // (0xd0e8ff) — it reads as "moonlight leaking in" or a faint magic aura,
+    // not a competing warm source.  Torch rooms still look warm because the
+    // torch point lights (0xff9933, intensity 1.6) dominate within their range.
+    //
+    // radius=96: enough to illuminate a small corridor or the immediate area
+    // around the hero (~6 tiles at DUNGEON_ZOOM=3.5) without washing out the
+    // torch falloff drama in larger rooms.
+    if (this.heroLight) {
+      // On respawn, reuse the existing Light object — just move it.
+      this.heroLight.setPosition(heroX, heroY);
+    } else {
+      this.heroLight = this.lights.addLight(heroX, heroY, 96, 0xd0e8ff, 0.7);
+    }
   }
 
   private respawnHero(): void {
