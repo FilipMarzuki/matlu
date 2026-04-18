@@ -1,28 +1,28 @@
 #!/usr/bin/env node
-// Fetches GitHub Issues that haven't been triaged yet.
+// Fetches Linear Backlog issues that haven't been triaged yet.
 //
-// "Not triaged" = open issue with none of: ready, needs-refinement, blocked,
-// too-large, agent:success, agent:partial, agent:failed, agent:wrong-interpretation.
+// "Not triaged" = Backlog issue with none of the triage labels:
+//   ready, needs-refinement, blocked, too-large,
+//   agent:success, agent:partial, agent:failed, agent:wrong-interpretation
 //
-// GitHub's label filter API can only require ALL listed labels to be present,
-// not the inverse (exclude issues having any of these labels). We fetch all
-// open issues and filter client-side — same logic as the previous Linear version.
+// Linear's filter API can express "has none of these labels" using a nested
+// AND-NOT, but client-side filtering after fetching all Backlog issues is
+// simpler and avoids complex GraphQL filter composition.
 //
-// Emits a JSON array of GitHub issue numbers on stdout (and $GITHUB_OUTPUT
-// when running in GitHub Actions).
+// Emits a JSON array of Linear issue identifiers on stdout.
+// In GitHub Actions, also appends `issues=[...]` to $GITHUB_OUTPUT.
 //
 // Usage:
-//   node fetch-triage-issues.js                # all un-triaged issues
-//   node fetch-triage-issues.js --issue 42     # single-issue override
+//   node fetch-triage-issues.js                # all un-triaged Backlog issues
+//   node fetch-triage-issues.js --issue FIL-42 # single-issue override
 
 import { appendFileSync } from 'fs';
 
-const GITHUB_TOKEN  = process.env.GITHUB_TOKEN;
-const GITHUB_OUTPUT = process.env.GITHUB_OUTPUT;
-const REPO          = 'FilipMarzuki/matlu';
+const LINEAR_API_KEY = process.env.LINEAR_API_KEY;
+const GITHUB_OUTPUT  = process.env.GITHUB_OUTPUT;
 
-if (!GITHUB_TOKEN) {
-  console.error('Missing GITHUB_TOKEN');
+if (!LINEAR_API_KEY) {
+  console.error('Missing LINEAR_API_KEY');
   process.exit(1);
 }
 
@@ -42,70 +42,77 @@ const TRIAGE_SKIP_LABELS = new Set([
   'agent:wrong-interpretation',
 ]);
 
-// ── GitHub Issues REST API ────────────────────────────────────────────────────
+// ── Linear GraphQL API ────────────────────────────────────────────────────────
 
-async function githubFetch(url) {
-  const res = await fetch(url, {
+async function linearQuery(query, variables = {}) {
+  const res = await fetch('https://api.linear.app/graphql', {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
+      Authorization: LINEAR_API_KEY,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ query, variables }),
   });
-  if (!res.ok) throw new Error(`GitHub API → ${res.status} ${await res.text()}`);
-  return { json: await res.json(), linkHeader: res.headers.get('link') };
-}
-
-// Follow Link header pagination until no rel="next" page remains.
-async function fetchAllPages(url) {
-  const items = [];
-  let nextUrl = url;
-  while (nextUrl) {
-    const { json, linkHeader } = await githubFetch(nextUrl);
-    items.push(...json);
-    nextUrl = parseNextLink(linkHeader);
-  }
-  return items;
-}
-
-function parseNextLink(linkHeader) {
-  if (!linkHeader) return null;
-  const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-  return match ? match[1] : null;
+  if (!res.ok) throw new Error(`Linear API → ${res.status} ${await res.text()}`);
+  const { data, errors } = await res.json();
+  if (errors?.length) throw new Error(`Linear GraphQL errors: ${JSON.stringify(errors)}`);
+  return data;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  let numbers;
+  let identifiers;
 
   if (issueOverride) {
-    const issueNum = parseInt(issueOverride, 10);
-    if (isNaN(issueNum)) {
-      console.error(`Invalid issue number: ${issueOverride}`);
+    if (!/^[A-Z]+-\d+$/.test(issueOverride)) {
+      console.error(`Invalid Linear issue identifier: ${issueOverride} (expected e.g. FIL-42)`);
       process.exit(1);
     }
-    const { json } = await githubFetch(
-      `https://api.github.com/repos/${REPO}/issues/${issueNum}`
-    );
-    numbers = [json.number];
+    identifiers = [issueOverride];
   } else {
-    const issues = await fetchAllPages(
-      `https://api.github.com/repos/${REPO}/issues?state=open&per_page=100`
-    );
-    numbers = issues
-      // GitHub Issues API also returns pull requests — exclude them.
-      .filter((i) => !i.pull_request)
-      .filter((i) => !i.labels.some((l) => TRIAGE_SKIP_LABELS.has(l.name)))
-      .map((i) => i.number);
+    // Paginate through all Backlog issues and filter client-side.
+    const allIssues = [];
+    let hasNextPage = true;
+    let after = null;
+
+    while (hasNextPage) {
+      const data = await linearQuery(`
+        query UntriagedIssues($after: String) {
+          issues(
+            first: 50
+            after: $after
+            filter: {
+              state: { type: { eq: "backlog" } }
+            }
+          ) {
+            nodes {
+              identifier
+              labels { nodes { name } }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      `, { after });
+
+      const { nodes, pageInfo } = data.issues;
+      allIssues.push(...nodes);
+      hasNextPage = pageInfo.hasNextPage;
+      after = pageInfo.endCursor;
+    }
+
+    // Keep only issues with none of the triage labels.
+    identifiers = allIssues
+      .filter(i => !i.labels.nodes.some(l => TRIAGE_SKIP_LABELS.has(l.name)))
+      .map(i => i.identifier);
   }
 
-  const serialised = JSON.stringify(numbers);
+  const serialised = JSON.stringify(identifiers);
   console.log(serialised);
 
   if (GITHUB_OUTPUT) {
     appendFileSync(GITHUB_OUTPUT, `issues=${serialised}\n`);
-    appendFileSync(GITHUB_OUTPUT, `has_issues=${numbers.length > 0}\n`);
+    appendFileSync(GITHUB_OUTPUT, `has_issues=${identifiers.length > 0}\n`);
   }
 }
 

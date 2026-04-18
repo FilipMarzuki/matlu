@@ -104,6 +104,8 @@ function renderPrompt(issue) {
   );
   return template
     .replaceAll('{{issue_id}}',     issue.identifier)
+    .replaceAll('{{issue_uuid}}',   issue.id)
+    .replaceAll('{{team_id}}',      issue.team?.id || '')
     .replaceAll('{{title}}',        issue.title)
     .replaceAll('{{description}}',  issue.description || '_(no description)_')
     .replaceAll('{{hygiene_type}}',  hygieneType)
