@@ -12,7 +12,7 @@ import {
   CombatContext,
 } from '../ai/BehaviorTree';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
-import { hasLineOfSight, SIGHT_CHECK_INTERVAL_MS } from '../combat/SightLineSystem';
+import { hasLineOfSight, sampleIllumination, SIGHT_CHECK_INTERVAL_MS } from '../combat/SightLineSystem';
 
 export { SIGHT_CHECK_INTERVAL_MS };
 
@@ -85,6 +85,20 @@ export interface CombatEntityConfig extends EnemyConfig {
    * 30 px. Default: 60 px. Rarely needs tuning.
    */
   proximityRadius?: number;
+
+  /**
+   * How much this entity's sight is preserved in darkness. Ranges 0–1.
+   *
+   *   0 (default) — fully affected: effectiveAggroRadius = aggroRadius × illumination.
+   *   1 — true darkvision: aggroRadius is unchanged regardless of light level.
+   *   0.5 — partial darkvision: interpolates between the two extremes.
+   *
+   * Illumination is sampled at the TARGET's world position using the same
+   * quadratic attenuation formula the Light2D shader applies to the scene.
+   * A hero hiding in a dark corner is genuinely harder to spot — not just
+   * "the room is globally dark". Has no effect in scenes without point lights.
+   */
+  darkvision?: number;
 
   // ── Ambient vocalisation (optional) ──────────────────────────────────────
   /**
@@ -328,6 +342,9 @@ export abstract class CombatEntity extends Enemy {
   /** Countdown (ms) until the next ambient sound fires. */
   private ambientTimer = 0;
 
+  /** 0 = fully penalised by darkness, 1 = true darkvision (ignores light). */
+  private readonly darkvision: number;
+
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     // Bake a small random speed offset so swarm members move at slightly
     // different speeds — creates the uneven texture of a real insect swarm.
@@ -345,6 +362,7 @@ export abstract class CombatEntity extends Enemy {
     this.sightMemoryMs  = config.sightMemoryMs  ?? 2000;
     this.hearingRadius  = config.hearingRadius  ?? 0;
     this.proximityRadius = config.proximityRadius ?? 60;
+    this.darkvision      = config.darkvision      ?? 0;
 
     // Ambient sound — random initial delay so multiple entities of the same
     // type don't all chirp on the same first tick.
@@ -1037,8 +1055,29 @@ export abstract class CombatEntity extends Enemy {
       // Skip dead or stealth/disguised enemies — not valid aggro targets.
       if (!o.isAlive || !o.isTargetable) continue;
       const d = Phaser.Math.Distance.Between(this.x, this.y, o.x, o.y);
-      // Outside proximity AND outside aggroRadius → ignore completely.
-      if (d > this.proximityRadius && d > this.aggroRadius) continue;
+
+      // Light-adjusted aggro radius — illumination is sampled at the TARGET's
+      // position, not the entity's: a player hiding in a dark corner is harder
+      // to spot, not just "the room is globally dark".
+      //
+      //   effectiveAggro = aggroRadius × lerp(illumination, 1, darkvision)
+      //     darkvision 0 → effectiveAggro = aggroRadius × illumination (full penalty)
+      //     darkvision 1 → effectiveAggro = aggroRadius               (ignores light)
+      //
+      // Short-circuit when darkvision is maxed — avoids the light sample entirely.
+      const effectiveAggro = this.darkvision >= 1
+        ? this.aggroRadius
+        : this.aggroRadius * (
+            this.darkvision < 0.001
+              ? sampleIllumination(this.scene, o.x, o.y)
+              : (() => {
+                  const illum = sampleIllumination(this.scene, o.x, o.y);
+                  return illum + (1 - illum) * this.darkvision; // lerp toward 1
+                })()
+          );
+
+      // Outside proximity AND outside light-adjusted aggroRadius → ignore.
+      if (d > this.proximityRadius && d > effectiveAggro) continue;
       if (d < nearestDist) {
         nearestDist = d;
         nearest = o;
