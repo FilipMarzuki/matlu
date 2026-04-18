@@ -1088,6 +1088,13 @@ export class GameScene extends Phaser.Scene {
     // Replace this file with a PixelLab create_tiles_pro output for custom pixel art.
     this.load.spritesheet('terrain-water', 'assets/sprites/water_animated.png', { frameWidth: 16, frameHeight: 16 });
 
+    // ── Wang water tileset — depth variation (PixelLab generated) ────────────────
+    // 4×4 grid of 16 Wang tiles (64×64 px total). Lower terrain = deep dark teal
+    // ocean; upper terrain = shallow lighter blue near the coast. A second pass
+    // in buildWorld() redraws ocean tiles using corner-based Wang selection so
+    // the ocean shows depth gradient from shore to centre.
+    this.load.spritesheet('water-deep', 'assets/sprites/tilesets/world/water_deep.png', { frameWidth: 16, frameHeight: 16 });
+
     // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
     // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
     // water/land boundary and add natural-looking detail.
@@ -6096,6 +6103,44 @@ export class GameScene extends Phaser.Scene {
           );
           terrainRt.draw(tileImg);
         }
+      }
+    }
+
+    // ── Water Wang depth pass ────────────────────────────────────────────────────
+    // Redraws every ocean tile (elev < 0.25, not river/lake) using the 'water-deep'
+    // Wang tileset so the ocean shows a depth gradient: dark teal in the open
+    // ocean, lighter teal near the shore where elevation approaches 0.25.
+    //
+    // Corner key encoding: NW<<3 | NE<<2 | SW<<1 | SE (1=shallow/upper, 0=deep/lower)
+    // A diagonal corner is "shallow" when that neighbour's elevation ≥ SHALLOW_THRESH
+    // (approaching the water surface) or when it's out-of-bounds (treat as land).
+    // Frame lookup built from the tileset JSON bounding_box positions:
+    //   frame = (bbox.y / 16) * 4 + (bbox.x / 16)
+    // Index 0 (all deep) → frame 6 (wang_0, pure deep tile); 15 (all shallow) → frame 12.
+    const WATER_WANG_FRAMES = [6, 7, 10, 9, 2, 11, 4, 15, 5, 14, 1, 8, 3, 0, 13, 12];
+    const SHALLOW_THRESH    = 0.22; // elevation band just below the water threshold (0.25)
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const elev = biomeGrid[ty * tilesX + tx];
+        if (elev >= 0.25) continue;                                    // not ocean
+        if (this.isRiverTile?.[ty * tilesX + tx] === 1) continue;     // rivers keep their own animation
+        if (this.isLakeTile?.[ty  * tilesX + tx] === 1) continue;     // lakes too
+
+        // Elevation at the four diagonal corner neighbours (out-of-bounds → 1 = land/shallow)
+        const nwE = (tx > 0        && ty > 0)        ? biomeGrid[(ty - 1) * tilesX + (tx - 1)] : 1;
+        const neE = (tx < tilesX-1 && ty > 0)        ? biomeGrid[(ty - 1) * tilesX + (tx + 1)] : 1;
+        const swE = (tx > 0        && ty < tilesY-1) ? biomeGrid[(ty + 1) * tilesX + (tx - 1)] : 1;
+        const seE = (tx < tilesX-1 && ty < tilesY-1) ? biomeGrid[(ty + 1) * tilesX + (tx + 1)] : 1;
+
+        const nw = nwE >= SHALLOW_THRESH ? 1 : 0;
+        const ne = neE >= SHALLOW_THRESH ? 1 : 0;
+        const sw = swE >= SHALLOW_THRESH ? 1 : 0;
+        const se = seE >= SHALLOW_THRESH ? 1 : 0;
+        const frame = WATER_WANG_FRAMES[(nw << 3) | (ne << 2) | (sw << 1) | se];
+
+        tileImg.setTexture('water-deep', frame).setPosition(tx * TILE_SIZE + 16, ty * TILE_SIZE + 16);
+        terrainRt.draw(tileImg);
       }
     }
 
