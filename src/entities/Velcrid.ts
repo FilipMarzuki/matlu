@@ -66,6 +66,9 @@ export class VelcridJuvenile extends CombatEntity {
       // Short memory — juveniles are dumb swarm creatures. 1 s lets them close in
       // if the player ducks behind cover briefly, but they lose the trail quickly.
       sightMemoryMs: 1000,
+      // Insect swarm hearing — sensitive to nearby impacts. 220 px lets them
+      // react to a fight in the same room without triggering from across the arena.
+      hearingRadius: 220,
       // Insect chirp vocalisations — 3 variants, random pitch shift in the 1.2–1.55
       // range makes each one feel slightly different. 2–8 s interval is irregular
       // enough to feel organic rather than mechanical. Volume is low so a swarm of
@@ -189,6 +192,9 @@ export class BabyVelcrid extends CombatEntity {
       maxHp: 12, speed: 130, aggroRadius: 500, attackDamage: 5,
       color: 0x8a1a1a, meleeRange: 20, attackCooldownMs: 600,
       spriteKey: 'mini-velcrid', spriteTint: 0xff9999, spriteScale: 0.22,
+      sightMemoryMs: 800,
+      // Hatchlings are less individually alert but still react to nearby impacts.
+      hearingRadius: 160,
     });
   }
 
@@ -243,6 +249,9 @@ export class VelcridAdult extends CombatEntity {
       // Long memory — adults are smarter apex predators. 3 s gives them time to
       // circle behind cover looking for a re-engagement angle.
       sightMemoryMs: 3000,
+      // Apex predator — best hearing in the velcrid family. Reacts to any
+      // loud impact within 300 px; will surface to investigate.
+      hearingRadius: 300,
     });
   }
 
