@@ -14,8 +14,8 @@
       "animTags": {
         "idle":   "idle_south",
         "walk":   "walk_south",
-        "attack": null,
-        "hurt":   null,
+        "attack": "attack_south",
+        "hurt":   "hurt_south",
         "death":  "death_south",
         "alert":  null
       },
