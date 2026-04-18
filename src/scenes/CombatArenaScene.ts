@@ -15,6 +15,7 @@ import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 import { BurrowHole } from '../entities/BurrowHole';
 import { BroodMother, EggSac } from '../entities/BroodMother';
+import { GlitchDrone, TrackerUnit, StaticGhost, SwarmMatrix } from '../entities/EarthEnemies';
 
 // ── Wave group definitions ────────────────────────────────────────────────────
 
@@ -43,6 +44,11 @@ const WAVE_GROUPS: WaveGroup[] = [
   { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
   { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
   { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+  // ── Earth enemy waves ─────────────────────────────────────────────────────
+  { label: 'Tracker Hunt',  enemies: [TrackerUnit, TrackerUnit] },
+  { label: 'Ghost Patrol',  enemies: [StaticGhost, StaticGhost, StaticGhost] },
+  { label: 'Swarm Matrix',  enemies: [SwarmMatrix] },
+  { label: 'Drone Swarm',   enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -924,6 +930,18 @@ export class CombatArenaScene extends Phaser.Scene {
       this.syncEnemyCoordination();
     });
 
+    // GlitchDrone spawns emitted by SwarmMatrix — mirrors broodmother-spawn-spineling.
+    this.events.on('spawn-glitch-drone', (x: number, y: number) => {
+      if (!this.heroAlive) return;
+      if (this.aliveEnemies.length >= MAX_ALIVE) return;
+      const drone = new GlitchDrone(this, x, y);
+      this.addPhysics(drone);
+      drone.setOpponent(this.hero);
+      this.aliveEnemies.push(drone);
+      if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
+      this.syncEnemyCoordination();
+    });
+
     if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
     this.syncEnemyCoordination();
   }
@@ -1268,7 +1286,9 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     const spd = 160; // px/s — comfortable player speed
-    this.hero.setMoveVelocity(dx * spd, dy * spd);
+    // StaticGhost applies controlsInverted — negate axes for the duration.
+    const inv = this.hero.controlsInverted ? -1 : 1;
+    this.hero.setMoveVelocity(dx * spd * inv, dy * spd * inv);
 
     // Melee — Space (just-pressed, no auto-repeat)
     if (Phaser.Input.Keyboard.JustDown(this.meleeKey)) {
