@@ -202,11 +202,19 @@ function auditEntity(e: EntityEntry): EntityReport {
       else          info(false, `Sound: ${key} (bonus)`, 'not declared');
       return;
     }
-    const missing = entry.files.filter(f => !exists(f));
-    const pass    = missing.length === 0;
-    const detail  = pass
-      ? `${entry.files.length} file(s) present`
-      : `FILES MISSING: ${missing.map(f => path.basename(f)).join(', ')}`;
+    // Support both ambient format { files: string[] } and single-file { file: string }.
+    const files: string[] = Array.isArray((entry as { files?: string[] }).files)
+      ? (entry as { files: string[] }).files
+      : (entry as { file?: string }).file
+        ? [(entry as { file: string }).file]
+        : [];
+    const missing = files.filter(f => !exists(f));
+    const pass    = files.length > 0 && missing.length === 0;
+    const detail  = files.length === 0
+      ? 'no file paths declared'
+      : pass
+        ? `${files.length} file(s) present`
+        : `FILES MISSING: ${missing.map(f => path.basename(f)).join(', ')}`;
     if (required) req(pass,  `Sound: ${key}`, detail);
     else          info(pass, `Sound: ${key} (bonus)`, detail);
   };
