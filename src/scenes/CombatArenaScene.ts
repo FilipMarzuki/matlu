@@ -667,6 +667,19 @@ export class CombatArenaScene extends Phaser.Scene {
     // this.physics.add.collider(entity, this.obstacles) calls cover everything.
     this.obstacles = this.physics.add.staticGroup();
 
+    // ── Phaser Light2D pipeline ───────────────────────────────────────────────
+    // Enables Phaser's built-in normal-map lighting system for this scene.
+    // Without this call, setPipeline('Light2D') on tiles has no effect.
+    //
+    // setAmbientColor() is the base "darkness" of the scene when no light
+    // source reaches a tile.  0x1e1610 is a very dark warm brown-black —
+    // just enough to hint at floor texture without looking like a flat void.
+    //
+    // Each torch then adds a point light (addLight in createTorchGlow()) that
+    // illuminates nearby tiles with a warm cone.  Tiles farther away from any
+    // torch remain near-black because the point light's falloff is quadratic.
+    this.lights.enable().setAmbientColor(0x1e1610);
+
     const { values } = layout.tiles;
 
     // Inline tile reader — returns 1 (wall) for out-of-bounds coordinates.
@@ -691,19 +704,24 @@ export class CombatArenaScene extends Phaser.Scene {
         // Hash-driven Wang frame picks; same formula as the old buildRooms().
         const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
         const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-        this.add.image(wx, wy, 'dungeon_floor', frame).setDepth(-1);
+        // setLighting(true) opts this tile into Phaser 4's lighting system.
+        // The renderer will modulate each tile's pixel colour by the combined
+        // contribution of every active Phaser.GameObjects.Light in the scene,
+        // attenuated by distance.  Tiles with no nearby light source fade to
+        // the ambient colour set above.  Tiles near a torch warm up naturally.
+        this.add.image(wx, wy, 'dungeon_floor', frame).setDepth(-1).setLighting(true);
 
         // North wall edge: floor tile adjacent to wall above.
         // dungeon_wall_top shows the top face of the wall as seen from above —
         // rendered over the floor tile so it appears to sit at the boundary.
         if (tv(col, row - 1) === 1) {
-          this.add.image(wx, wy, 'dungeon_wall_top').setDepth(0);
+          this.add.image(wx, wy, 'dungeon_wall_top').setDepth(0).setLighting(true);
         }
 
         // South wall edge: floor tile adjacent to wall below.
         // dungeon_wall_side shows the camera-facing front face of the south wall.
         if (tv(col, row + 1) === 1) {
-          this.add.image(wx, wy, 'dungeon_wall_side').setDepth(0);
+          this.add.image(wx, wy, 'dungeon_wall_side').setDepth(0).setLighting(true);
         }
       }
     }
@@ -822,20 +840,21 @@ export class CombatArenaScene extends Phaser.Scene {
     // The glow centre sits 4 px above the torch base — heat rises.
     const oy = -4;
 
-    // Four rings, outer → inner.  Alpha values are intentionally low because they
-    // stack: the innermost pixel is covered by all four rings summed.
-    // Colours shift from deep amber at the perimeter to pale gold at the core,
-    // matching the colour temperature of an actual flame.
-    gfx.fillStyle(0xff5500, 0.06);  // outer haze  — deep amber
+    // Four rings, outer → inner.  Alphas are halved vs the pre-Light2D version
+    // because the Phaser point light (below) now does the real illumination work.
+    // These rings are "bloom" — they make the flame itself look bright and hot —
+    // not the light that falls on the floor.  Keeping them helps the torch read
+    // as a visible object; the Light2D pipeline handles the floor illumination.
+    gfx.fillStyle(0xff5500, 0.03);  // outer haze  — deep amber
     gfx.fillEllipse(0, oy, 88, 60);
 
-    gfx.fillStyle(0xff8800, 0.10);  // mid ring    — orange
+    gfx.fillStyle(0xff8800, 0.05);  // mid ring    — orange
     gfx.fillEllipse(0, oy, 58, 40);
 
-    gfx.fillStyle(0xffaa00, 0.16);  // warm ring   — amber gold
+    gfx.fillStyle(0xffaa00, 0.08);  // warm ring   — amber gold
     gfx.fillEllipse(0, oy, 34, 24);
 
-    gfx.fillStyle(0xffee66, 0.24);  // inner core  — hot yellow
+    gfx.fillStyle(0xffee66, 0.12);  // inner core  — hot yellow
     gfx.fillEllipse(0, oy, 14, 10);
 
     // Tween 1: slow size throb (the glow "breathes" in and out).
@@ -863,6 +882,55 @@ export class CombatArenaScene extends Phaser.Scene {
       repeat:   -1,
       ease:     'Sine.easeInOut',
       delay:    Phaser.Math.Between(50, 420),
+    });
+
+    // ── Phaser Light2D point light ────────────────────────────────────────────
+    // this.lights.addLight(x, y, radius, color, intensity)
+    //
+    // This is the "real" light that falls on floor and wall tiles.  Phaser's
+    // Light2D renderer computes, per-pixel, how much each active light
+    // contributes to a tile's final colour, using a simple quadratic falloff:
+    //
+    //   attenuation = 1 - (dist / radius)²
+    //
+    // Tiles outside the radius are unaffected; tiles at the centre receive
+    // intensity × color.  The ambient colour (set in buildDungeon) is added on
+    // top, so completely unlit tiles still show a faint warm brown rather than
+    // pure black.
+    //
+    // radius=160: at DUNGEON_ZOOM=3.5, 160 world-px ≈ 10 tiles — illuminates
+    // roughly the room the torch is in.
+    // intensity=1.6: slightly above 1.0 so the centre tile is noticeably bright.
+    // 0xff9933: warm amber — cooler than the bloom colour but still flame-toned.
+    const pLight = this.lights.addLight(tx, ty - 4, 160, 0xff9933, 1.6);
+
+    // Tween 3: intensity throb — the point light dims and brightens in sync with
+    // the scale tween but at a slightly different duration so they stay out of
+    // phase.  This makes the illumination on the floor tiles flicker visibly,
+    // not just the bloom sprite above.
+    this.tweens.add({
+      targets:  pLight,
+      intensity: { from: 1.2, to: 1.8 },
+      radius:    { from: 140, to: 170 },
+      duration:  Phaser.Math.Between(280, 460),
+      yoyo:      true,
+      repeat:    -1,
+      ease:      'Sine.easeInOut',
+      delay:     Phaser.Math.Between(0, 280),
+    });
+
+    // Tween 4: slower intensity drift — another incommensurable period so the
+    // combined waveform of tweens 3+4 never repeats in any reasonable time.
+    // Models the subtle long-period variation real fire has — a momentary lull
+    // followed by a surge.
+    this.tweens.add({
+      targets:  pLight,
+      intensity: { from: 1.0, to: 1.6 },
+      duration:  Phaser.Math.Between(360, 580),
+      yoyo:      true,
+      repeat:    -1,
+      ease:      'Sine.easeInOut',
+      delay:     Phaser.Math.Between(60, 380),
     });
   }
 
