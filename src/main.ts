@@ -25,6 +25,7 @@ import { EndingScene } from './scenes/EndingScene';
 import { StatsScene } from './scenes/StatsScene';
 import { LoreScene } from './scenes/LoreScene';
 import { ShopScene } from './scenes/ShopScene';
+import { ArenaSelectScene } from './scenes/ArenaSelectScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
 // navigating through the main menu. Vercel rewrites all paths to index.html
@@ -34,7 +35,7 @@ import { ShopScene } from './scenes/ShopScene';
 //   /       → MainMenuScene     (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene];
   if (path === '/world') return [GameScene,        ...all.filter(s => s !== GameScene)];
   if (path === '/menu')  return all;
   // Default (/ and /arena): boot straight into arena/combat

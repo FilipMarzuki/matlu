@@ -16,11 +16,8 @@ import { ShimmerFilter }   from '../shaders/ShimmerFilter';
 import { BabyVelcrid, VelcridJuvenile } from '../entities/Velcrid';
 import { BurrowHole } from '../entities/BurrowHole';
 import { BroodMother, EggSac } from '../entities/BroodMother';
-import { GlitchDrone, TrackerUnit, StaticGhost, SwarmMatrix } from '../entities/EarthEnemies';
-
-// ── Wave group definitions ────────────────────────────────────────────────────
-
-type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
+import { GlitchDrone } from '../entities/EarthEnemies';
+import { ArenaTierConfig, EnemyCtor, TIER_CONFIGS } from '../data/arenaTiers';
 
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
@@ -30,28 +27,6 @@ interface Room {
   h: number;  // height
 }
 
-interface WaveGroup {
-  label:   string;
-  enemies: EnemyCtor[];
-}
-
-/**
- * M1 enemy roster: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
- * Groups cycle indefinitely; difficulty scales via the wave number multiplier in spawnWaveGroup.
- */
-const WAVE_GROUPS: WaveGroup[] = [
-  { label: 'Baby Swarm',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Scout Pair',   enemies: [VelcridJuvenile, VelcridJuvenile] },
-  { label: 'Mixed Pack',   enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
-  { label: 'Baby Horde',   enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
-  { label: 'Reaver Squad', enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
-  // ── Earth enemy waves ─────────────────────────────────────────────────────
-  { label: 'Tracker Hunt',  enemies: [TrackerUnit, TrackerUnit] },
-  { label: 'Ghost Patrol',  enemies: [StaticGhost, StaticGhost, StaticGhost] },
-  { label: 'Swarm Matrix',  enemies: [SwarmMatrix] },
-  { label: 'Drone Swarm',   enemies: [GlitchDrone, GlitchDrone, GlitchDrone, GlitchDrone] },
-];
-
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
@@ -60,9 +35,6 @@ const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence beg
 
 /** Kill count at which the mine gadget unlocks, simulating the Tier 1 → Tier 2 transition. */
 const GADGET_UNLOCK_KILLS = 10;
-
-/** Swap hero key to test other Earth heroes in the arena. Default 'tinkerer' for CI. */
-const SELECTED_ARENA_HERO: 'tinkerer' | 'ironwing' | 'rampart' | 'kronos' | 'maja-lind' | 'torsten-kraft' = 'tinkerer';
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
@@ -99,6 +71,13 @@ export class CombatArenaScene extends Phaser.Scene {
 
   /** Point light that follows the hero — keeps nearby tiles visible as they move. */
   private heroLight: Phaser.GameObjects.Light | null = null;
+
+  /**
+   * Active tier configuration — set by init() from the data passed via
+   * scene.start(key, config).  Falls back to TIER_CONFIGS[0] (Tier 1) when
+   * no config is provided (e.g. CI screenshots, direct URL launch).
+   */
+  private tierConfig: ArenaTierConfig = TIER_CONFIGS[0];
 
   /**
    * Generated BSP dungeon layout — stored so other methods can query room data,
@@ -188,8 +167,20 @@ export class CombatArenaScene extends Phaser.Scene {
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-  init(data?: { background?: boolean }): void {
+  init(data?: Partial<ArenaTierConfig> & { background?: boolean }): void {
     this.bgMode = data?.background ?? false;
+
+    // Merge incoming data with the T1 defaults.  This means:
+    //   scene.start('CombatArenaScene', TIER_CONFIGS[2])  → full T3 config
+    //   scene.start('CombatArenaScene', { background: true }) → T1 defaults + bgMode
+    //   scene.start('CombatArenaScene')                   → T1 defaults
+    const base = TIER_CONFIGS[0];
+    this.tierConfig = {
+      tier:       data?.tier       ?? base.tier,
+      label:      data?.label      ?? base.label,
+      heroKey:    data?.heroKey    ?? base.heroKey,
+      waveGroups: data?.waveGroups ?? base.waveGroups,
+    };
   }
 
   preload(): void {
@@ -956,13 +947,17 @@ export class CombatArenaScene extends Phaser.Scene {
     // heroRoom is already set by buildDungeon() to the start room.
     // No change needed here; the field persists across respawns.
 
+    // Instantiate the hero selected by the active tier config.
+    // The switch exhausts all HeroKey values; the default arm handles 'tinkerer'
+    // and any future keys added before this switch is updated.
+    const hk = this.tierConfig.heroKey;
     this.hero =
-      SELECTED_ARENA_HERO === 'ironwing'     ? new Ironwing(this, heroX, heroY) :
-      SELECTED_ARENA_HERO === 'rampart'      ? new Rampart(this, heroX, heroY)  :
-      SELECTED_ARENA_HERO === 'kronos'       ? new Kronos(this, heroX, heroY)   :
-      SELECTED_ARENA_HERO === 'maja-lind'    ? new MajaLind(this, heroX, heroY) :
-      SELECTED_ARENA_HERO === 'torsten-kraft'? new TorstenKraft(this, heroX, heroY) :
-      new Tinkerer(this, heroX, heroY);
+      hk === 'ironwing'      ? new Ironwing(this, heroX, heroY)      :
+      hk === 'rampart'       ? new Rampart(this, heroX, heroY)        :
+      hk === 'kronos'        ? new Kronos(this, heroX, heroY)         :
+      hk === 'maja-lind'     ? new MajaLind(this, heroX, heroY)      :
+      hk === 'torsten-kraft' ? new TorstenKraft(this, heroX, heroY)  :
+      new Tinkerer(this, heroX, heroY); // 'tinkerer' + any unknown key
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
     this.heroAlive = true;
@@ -1158,14 +1153,18 @@ export class CombatArenaScene extends Phaser.Scene {
   private spawnWaveGroup(): void {
     this.waveNumber++;
 
-    const group = WAVE_GROUPS[this.waveGroupIndex];
-    this.waveGroupIndex = (this.waveGroupIndex + 1) % WAVE_GROUPS.length;
+    const waveGroups = this.tierConfig.waveGroups;
+    const group = waveGroups[this.waveGroupIndex];
+    this.waveGroupIndex = (this.waveGroupIndex + 1) % waveGroups.length;
 
-    // Every full cycle through all groups, add one extra BabyVelcrid so difficulty
-    // slowly escalates without requiring new enemy types.
-    const cycle  = Math.floor((this.waveNumber - 1) / WAVE_GROUPS.length);
+    // Every full cycle through all groups, add one extra escalation enemy so
+    // difficulty slowly climbs without new enemy types.  The escalation enemy
+    // is the first enemy of the first wave group — tier-appropriate by design
+    // (BabyVelcrid for T1, Blightfrog for T2, SporeDrifter for T3, etc.).
+    const cycle = Math.floor((this.waveNumber - 1) / waveGroups.length);
     const ctors: EnemyCtor[] = [...group.enemies];
-    for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(BabyVelcrid);
+    const escalationCtor = waveGroups[0].enemies[0];
+    for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(escalationCtor);
 
     // Spawn in a room other than the hero's starting room so enemies must
     // travel to reach the hero — giving the player a moment to prepare.

@@ -142,6 +142,19 @@ class SimpleJoystick {
   }
 }
 
+// ── Debug spawn toggles ───────────────────────────────────────────────────────
+// Set a flag to true to enable that category; false to skip it entirely.
+// Lets you inspect one asset type at a time without hunting through create().
+const DEBUG_SPAWN = {
+  rabbits:          false,
+  groundAnimals:    false,  // deer, hare, fox, grouse, stag, boar, badger
+  birds:            false,
+  decorScatter:     false,  // flowers, mushrooms, rocks, grass, stumps, sticks
+  waterEdgeScatter: false,  // lily pads, rocks-in-water
+  butterfliesAndBees: false,
+  buildings:        false,
+};
+
 // World dimensions — diagonal SW→NE corridor. 4500×3000 at zoom 3.
 const WORLD_W = 4500;
 const WORLD_H = 3000;
@@ -1264,10 +1277,10 @@ export class GameScene extends Phaser.Scene {
     this.stampCorruptedLandmarks();
     this.stampSecretAreas();
     this.stampZoneBoundaries();
-    this.stampDecorationScatter();
-    this.stampWaterEdgeScatter();
-    this.spawnButterfliesAndBees();
-    this.stampSettlementBuildings();
+    if (DEBUG_SPAWN.decorScatter)       this.stampDecorationScatter();
+    if (DEBUG_SPAWN.waterEdgeScatter)   this.stampWaterEdgeScatter();
+    if (DEBUG_SPAWN.butterfliesAndBees) this.spawnButterfliesAndBees();
+    if (DEBUG_SPAWN.buildings)          this.stampSettlementBuildings();
     this.spawnParticleEffects();
 
     // FIL-240: create WindSystem after all decorations are placed.
@@ -1331,6 +1344,12 @@ export class GameScene extends Phaser.Scene {
 
     // E key for NPC interaction (FIL-80)
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+    // P key — world dev view only: toggle player character on/off.
+    // Warps the player to camera centre on first spawn so they appear where you're looking.
+    if (window.location.pathname.replace(/\/$/, '') === '/world') {
+      this.input.keyboard!.on('keydown-P', () => this.toggleDevPlayer());
+    }
 
     // ── Panda hero ability keys (FIL-314) — only registered in arena mode ─────────
     // 1/2 = Bao's Water Jet / Water Shield.
@@ -1399,7 +1418,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-H', () => { this.toggleDecor(); });
 
     this.rabbits = this.physics.add.group();
-    this.spawnRabbits();
+    if (DEBUG_SPAWN.rabbits) this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.mountainWalls);
 
     // FIL-106: spawn the three new corrupted enemy types
@@ -1454,8 +1473,8 @@ export class GameScene extends Phaser.Scene {
 
     this.createAnimalAnimations();
     this.groundAnimals = this.physics.add.group();
-    this.spawnGroundAnimals();
-    this.spawnBirds();
+    if (DEBUG_SPAWN.groundAnimals) this.spawnGroundAnimals();
+    if (DEBUG_SPAWN.birds)         this.spawnBirds();
 
     this.createHudAndOverlay();
     this.createPortal();
@@ -1662,7 +1681,17 @@ export class GameScene extends Phaser.Scene {
     }
     // Skip attract screen on the /world dev route or when launched from the nav panel.
     const isDevWorld = window.location.pathname.replace(/\/$/, '') === '/world';
-    if (isDevWorld || this.skipAttract) {
+    if (isDevWorld) {
+      // World dev view — free camera only, no player character.
+      this.overlay.setAlpha(0);
+      this.attractMode = false;
+      // Leave player invisible and physics-disabled so it doesn't interfere.
+      this.freeCamMode = true;
+      this.game.events.emit('nav-free-cam-changed', true);
+      // Start camera over the first settlement (strandviken) so the JRPG layout
+      // is immediately visible on load.
+      this.cameras.main.centerOn(450, 2820);
+    } else if (this.skipAttract) {
       this.overlay.setAlpha(0);
       this.attractMode = false;
       this.player.setAlpha(1);
@@ -4546,6 +4575,15 @@ export class GameScene extends Phaser.Scene {
     body.setCollideWorldBounds(true);
     body.setCircle(BODY_RADIUS);
 
+    // World dev view (/world route) — keep player invisible and physics-disabled.
+    // Press P to spawn/despawn the character for in-world walkaround testing.
+    const isDevRoute = window.location.pathname.replace(/\/$/, '') === '/world';
+    if (isDevRoute) {
+      this.player.setAlpha(0);
+      this.playerShadow.setAlpha(0);
+      body.setEnable(false);
+    }
+
     this.physics.add.collider(this.player, this.mountainWalls);
     this.physics.add.collider(this.player, this.navigationBarriers);
     // Register solid-objects collider here (not in createSolidObjects) because
@@ -5614,7 +5652,7 @@ export class GameScene extends Phaser.Scene {
         const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
         const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
 
         // Skip water and river tiles — they have identity from animated sprites.
@@ -5949,7 +5987,7 @@ export class GameScene extends Phaser.Scene {
         // Diagonal bias: NW corner is mountains (high), SE corner is ocean (low).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
         grid[ty * tilesX + tx] = Math.max(
           0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias),
         );
@@ -6088,7 +6126,7 @@ export class GameScene extends Phaser.Scene {
         // Power-curve biases push flanks to extreme biomes (mountain >0.90, ocean <0.25).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
         let val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
 
         // FIL-168: force water elevation for diagonal river-band tiles.
@@ -6982,44 +7020,23 @@ export class GameScene extends Phaser.Scene {
       }
       const rng = mulberry32(seed);
 
-      // layoutSettlement uses BuildingCatalogue to derive an economy-appropriate
-      // building programme (e.g. coastal → longhouse + smokehouse + fishing huts)
-      // then zones buildings into inner/middle/outer rings and places them via
-      // rejection sampling to avoid overlap.
-      const buildings = layoutSettlement(s, rng);
+      // JRPG-style grid-aligned layout: plaza-first, fixed building slots per
+      // settlement, three dirt street segments (south entry, cross, north spur).
+      const { buildings, plaza, streets } = layoutSettlement(s, rng);
 
-      // ── Intra-settlement lanes ──────────────────────────────────────────────
-      // Draw a short dirt lane from the settlement centre to each inner-zone
-      // building (identified by being within 40% of the radius). The lane is a
-      // thin filled rect rotated toward the building — matching the colour used
-      // by the spur line in drawSettlementMarkers().
-      for (const b of buildings) {
-        const dx   = b.x - s.x;
-        const dy   = b.y - s.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > s.radius * 0.42) continue; // only connect inner-zone buildings
+      // ── Plaza ───────────────────────────────────────────────────────────────
+      // Sandy flagstone fill (0xd4b483) — slightly warmer than the dirt streets
+      // so the civic square reads as a distinct paved surface.
+      laneGfx.fillStyle(0xd4b483, 0.55);
+      laneGfx.fillRect(plaza.x - plaza.w / 2, plaza.y - plaza.h / 2, plaza.w, plaza.h);
 
-        const angle  = Math.atan2(dy, dx);
-        const laneW  = 4;  // lane width in pixels
-        const laneL  = dist - b.w * 0.3; // stop short of the building footprint
-
-        laneGfx.fillStyle(0xb8905a, 0.30);
-        // Rotate a thin rectangle along the lane direction using a manual transform:
-        // we compute the four corner offsets from the centre of the lane segment.
-        const midX = s.x + Math.cos(angle) * laneL / 2;
-        const midY = s.y + Math.sin(angle) * laneL / 2;
-        const perp = angle + Math.PI / 2;
-        const px = Math.cos(perp) * laneW / 2;
-        const py = Math.sin(perp) * laneW / 2;
-        const ax = Math.cos(angle) * laneL / 2;
-        const ay = Math.sin(angle) * laneL / 2;
-
-        laneGfx.fillPoints([
-          new Phaser.Math.Vector2(midX - ax + px, midY - ay + py),
-          new Phaser.Math.Vector2(midX + ax + px, midY + ay + py),
-          new Phaser.Math.Vector2(midX + ax - px, midY + ay - py),
-          new Phaser.Math.Vector2(midX - ax - px, midY - ay - py),
-        ], true);
+      // ── Dirt streets ────────────────────────────────────────────────────────
+      // Three axis-aligned segments (main south entry, cross E-W, north spur).
+      // Drawn in the same dirt colour as the old lane system but as axis-aligned
+      // rects — no rotation math needed, which keeps the grid aesthetic sharp.
+      laneGfx.fillStyle(0xb8905a, 0.35);
+      for (const seg of streets) {
+        laneGfx.fillRect(seg.x, seg.y, seg.w, seg.h);
       }
 
       // ── Building sprites and physics bodies ────────────────────────────────
@@ -7749,7 +7766,10 @@ export class GameScene extends Phaser.Scene {
     // NavScene button → goto arena.
     this.game.events.on('nav-goto-arena', () => {
       this.scene.stop(NavScene.KEY);
-      this.scene.start('CombatArenaScene', {});
+      // Show tier selector — player picks a tier, then ArenaSelectScene
+      // launches CombatArenaScene with the matching ArenaTierConfig.
+      this.scene.pause(this.scene.key);
+      this.scene.start('ArenaSelectScene', { returnTo: this.scene.key });
     }, this);
 
     // NavScene button → toggle free cam.
@@ -7789,6 +7809,45 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off('nav-toggle-settlements', undefined, this);
       this.game.events.off('nav-toggle-fog', undefined, this);
     });
+  }
+
+  /**
+   * World dev view (P key): toggle the player character on/off.
+   * First spawn warps the character to the camera centre so they appear where
+   * you're looking. When despawned, free cam resumes automatically.
+   */
+  private toggleDevPlayer(): void {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const visible = this.player.alpha > 0;
+
+    if (visible) {
+      // Despawn — hide and disable physics, return to free cam.
+      this.player.setAlpha(0);
+      this.playerShadow.setAlpha(0);
+      body.setEnable(false);
+      if (!this.freeCamMode) {
+        this.freeCamMode = true;
+        this.cameras.main.stopFollow();
+        this.game.events.emit('nav-free-cam-changed', true);
+      }
+    } else {
+      // Spawn at camera centre so the character appears where you're inspecting.
+      const cam = this.cameras.main;
+      const wx = cam.scrollX + cam.width  / 2 / cam.zoom;
+      const wy = cam.scrollY + cam.height / 2 / cam.zoom;
+      this.player.setPosition(wx, wy);
+      this.playerShadow.setPosition(wx + 6, wy + 8);
+      body.reset(wx, wy);
+      body.setEnable(true);
+
+      this.player.setAlpha(1);
+      this.playerShadow.setAlpha(0.22);
+
+      // Switch camera to follow the player; disable free cam.
+      this.freeCamMode = false;
+      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+      this.game.events.emit('nav-free-cam-changed', false);
+    }
   }
 
   /** Toggle free-fly camera on/off. Notifies NavScene to update its button. */
