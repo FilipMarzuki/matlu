@@ -142,6 +142,19 @@ class SimpleJoystick {
   }
 }
 
+// ── Debug spawn toggles ───────────────────────────────────────────────────────
+// Set a flag to true to enable that category; false to skip it entirely.
+// Lets you inspect one asset type at a time without hunting through create().
+const DEBUG_SPAWN = {
+  rabbits:          false,
+  groundAnimals:    false,  // deer, hare, fox, grouse, stag, boar, badger
+  birds:            false,
+  decorScatter:     false,  // flowers, mushrooms, rocks, grass, stumps, sticks
+  waterEdgeScatter: false,  // lily pads, rocks-in-water
+  butterfliesAndBees: false,
+  buildings:        false,
+};
+
 // World dimensions — diagonal SW→NE corridor. 4500×3000 at zoom 3.
 const WORLD_W = 4500;
 const WORLD_H = 3000;
@@ -1274,10 +1287,10 @@ export class GameScene extends Phaser.Scene {
     this.stampCorruptedLandmarks();
     this.stampSecretAreas();
     this.stampZoneBoundaries();
-    this.stampDecorationScatter();
-    this.stampWaterEdgeScatter();
-    this.spawnButterfliesAndBees();
-    this.stampSettlementBuildings();
+    if (DEBUG_SPAWN.decorScatter)       this.stampDecorationScatter();
+    if (DEBUG_SPAWN.waterEdgeScatter)   this.stampWaterEdgeScatter();
+    if (DEBUG_SPAWN.butterfliesAndBees) this.spawnButterfliesAndBees();
+    if (DEBUG_SPAWN.buildings)          this.stampSettlementBuildings();
     this.spawnParticleEffects();
 
     // FIL-240: create WindSystem after all decorations are placed.
@@ -1415,7 +1428,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-H', () => { this.toggleDecor(); });
 
     this.rabbits = this.physics.add.group();
-    this.spawnRabbits();
+    if (DEBUG_SPAWN.rabbits) this.spawnRabbits();
     this.physics.add.collider(this.rabbits, this.mountainWalls);
 
     // FIL-106: spawn the three new corrupted enemy types
@@ -1470,8 +1483,8 @@ export class GameScene extends Phaser.Scene {
 
     this.createAnimalAnimations();
     this.groundAnimals = this.physics.add.group();
-    this.spawnGroundAnimals();
-    this.spawnBirds();
+    if (DEBUG_SPAWN.groundAnimals) this.spawnGroundAnimals();
+    if (DEBUG_SPAWN.birds)         this.spawnBirds();
 
     this.createHudAndOverlay();
     this.createPortal();
@@ -5646,7 +5659,7 @@ export class GameScene extends Phaser.Scene {
         const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
         const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
 
         // Skip water and river tiles — they have identity from animated sprites.
@@ -5981,7 +5994,7 @@ export class GameScene extends Phaser.Scene {
         // Diagonal bias: NW corner is mountains (high), SE corner is ocean (low).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
         grid[ty * tilesX + tx] = Math.max(
           0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias),
         );
@@ -6120,7 +6133,7 @@ export class GameScene extends Phaser.Scene {
         // Power-curve biases push flanks to extreme biomes (mountain >0.90, ocean <0.25).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.15), 1.5) * 3.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
         let val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
 
         // FIL-168: force water elevation for diagonal river-band tiles.
@@ -7751,7 +7764,10 @@ export class GameScene extends Phaser.Scene {
     // NavScene button → goto arena.
     this.game.events.on('nav-goto-arena', () => {
       this.scene.stop(NavScene.KEY);
-      this.scene.start('CombatArenaScene', {});
+      // Show tier selector — player picks a tier, then ArenaSelectScene
+      // launches CombatArenaScene with the matching ArenaTierConfig.
+      this.scene.pause(this.scene.key);
+      this.scene.start('ArenaSelectScene', { returnTo: this.scene.key });
     }, this);
 
     // NavScene button → toggle free cam.

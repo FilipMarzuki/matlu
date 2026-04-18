@@ -41,6 +41,47 @@
   },
   "characters": [
     {
+      "id": "npc-wanderer",
+      "name": "Wanderer NPC",
+      "world": "earth",
+      "faction": "npc",
+      "status": "done",
+      "_pixellabCharacterId": "54c2652b-b655-4015-b157-6be24c1a5213",
+      "_comment": "Generic post-apocalyptic wanderer NPC. Used by HumanoidNPC base class for walk/interact testing. Idle + walk only — no combat animations.",
+      "pixellab": {
+        "description": "weary post-apocalyptic survivor, ragged patched civilian jacket over simple shirt, worn dusty boots, no weapons, slightly hunched posture, gaunt tired face, muted gray and brown earth tones, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "Character created at n_directions=8; only 5 right-side dirs animated. SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/earth/npcs/npc-wanderer"
+    },
+    {
       "id": "tinkerer",
       "name": "Tinkerer",
       "world": "earth",

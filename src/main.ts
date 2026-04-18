@@ -25,6 +25,7 @@ import { EndingScene } from './scenes/EndingScene';
 import { StatsScene } from './scenes/StatsScene';
 import { LoreScene } from './scenes/LoreScene';
 import { ShopScene } from './scenes/ShopScene';
+import { ArenaSelectScene } from './scenes/ArenaSelectScene';
 import { BiomeInspectorScene } from './scenes/BiomeInspectorScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
@@ -36,7 +37,7 @@ import { BiomeInspectorScene } from './scenes/BiomeInspectorScene';
 //   /       → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, BiomeInspectorScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, BiomeInspectorScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
   if (path === '/biome') return [BiomeInspectorScene, ...all.filter(s => s !== BiomeInspectorScene)];
   if (path === '/menu')  return all;

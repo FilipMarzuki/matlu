@@ -54,3 +54,42 @@ export function hasLineOfSight(
 
   return true; // no obstacle intersected — clear line of sight
 }
+
+// ── Illumination sampling ─────────────────────────────────────────────────────
+
+/**
+ * Ambient luminance of the dungeon scene derived from its ambient color 0x1e1610.
+ * R=30, G=22, B=16 → luminance = (30·0.2126 + 22·0.7152 + 16·0.0722) / 255 ≈ 0.091.
+ * Used as the darkness floor — the scene is never completely pitch black.
+ */
+const DUNGEON_AMBIENT = 0.091;
+
+/**
+ * Samples the illumination level [0, 1] at world position (x, y) by summing
+ * contributions from all registered Phaser point lights using the same
+ * quadratic attenuation formula the Light2D shader applies:
+ *
+ *   contribution = (1 − dist / radius)² × intensity
+ *
+ * Returns 1 when the scene has no point lights (e.g. non-dungeon scenes that
+ * never called `this.lights.enable()`) — no lights present means no penalty.
+ *
+ * Intended to be called at the 150 ms sight-check interval (not every frame),
+ * so the per-entity cost is trivial even with 10+ lights in the scene.
+ */
+export function sampleIllumination(scene: Phaser.Scene, x: number, y: number): number {
+  // LightsPlugin (extends LightsManager) exposes `.lights` as a public array
+  // of all registered Phaser.GameObjects.Light instances.
+  const allLights =
+    (scene.lights as unknown as { lights: Phaser.GameObjects.Light[] }).lights ?? [];
+  if (allLights.length === 0) return 1; // scene not using point lights — no effect
+
+  let total = DUNGEON_AMBIENT;
+  for (const light of allLights) {
+    const dist = Phaser.Math.Distance.Between(light.x, light.y, x, y);
+    if (dist >= light.radius) continue;
+    const t = 1 - dist / light.radius;
+    total += t * t * light.intensity; // quadratic falloff — matches Light2D shader
+  }
+  return Math.min(1, total);
+}

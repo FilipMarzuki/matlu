@@ -69,6 +69,10 @@ export class VelcridJuvenile extends CombatEntity {
       // Insect swarm hearing — sensitive to nearby impacts. 220 px lets them
       // react to a fight in the same room without triggering from across the arena.
       hearingRadius: 220,
+      // Surface-adapted night vision — juveniles forage in low-light conditions
+      // but aren't true underground predators. 0.3 = they spot a lit hero at
+      // full range, a dark-corner hero at ~40% range.
+      darkvision: 0.3,
       // Insect chirp vocalisations — 3 variants, random pitch shift in the 1.2–1.55
       // range makes each one feel slightly different. 2–8 s interval is irregular
       // enough to feel organic rather than mechanical. Volume is low so a swarm of
@@ -236,6 +240,9 @@ export class BabyVelcrid extends CombatEntity {
       sightMemoryMs: 800,
       // Hatchlings are less individually alert but still react to nearby impacts.
       hearingRadius: 160,
+      // Hatchlings are newly hatched and have minimal light adaptation.
+      // Very short darkvision — they rely on numbers, not individual senses.
+      darkvision: 0.1,
     });
   }
 
@@ -310,6 +317,9 @@ export class VelcridAdult extends CombatEntity {
       // Apex predator — best hearing in the velcrid family. Reacts to any
       // loud impact within 300 px; will surface to investigate.
       hearingRadius: 300,
+      // Near-true darkvision — adults live underground and hunt in total darkness.
+      // 0.8 means they lose only ~20% of sight range even in pitch black.
+      darkvision: 0.8,
     });
   }
 
