@@ -110,7 +110,7 @@ jobs:
           echo "Backlog Refinement runs in last 6 hours: $RECENT (max: $MAX_RUNS)"
           if [ "$RECENT" -lt "$MAX_RUNS" ]; then
             echo "Dispatching Backlog Refinement (cycle $((RECENT + 1)) of $MAX_RUNS)"
-            gh workflow run agent-triage.yml
+            gh workflow run agent-triage.yml --repo ${{ github.repository }}
           else
             echo "Cap reached — stopping refinement chain for this cycle"
           fi
@@ -120,5 +120,5 @@ jobs:
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node .github/scripts/log-session-tokens.js --workflow "Backlog Cleanup" --issue "${{ matrix.issue }}"
+        run: node .github/scripts/log-session-tokens.js --workflow "Backlog Cleanup"
       # [token-logging-added]
