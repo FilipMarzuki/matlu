@@ -83,6 +83,18 @@ export class VelcridJuvenile extends CombatEntity {
         pitchMin:      1.20,
         pitchMax:      1.55,
       },
+      // Combat sounds — pitch-shifted high (1.1–1.4×) to emphasise the creature's
+      // small size. Aggro is the sharpest/most distinct since it signals "I see you".
+      // Placeholder files from CC0 libraries; replace with creature-specific recordings.
+      combatSounds: {
+        aggro:   'sfx-velcrid-aggro',
+        attack:  'sfx-velcrid-attack',
+        hurt:    'sfx-velcrid-hurt',
+        death:   'sfx-velcrid-death',
+        volume:  0.55,
+        pitchMin: 1.10,
+        pitchMax: 1.40,
+      },
     });
   }
 
