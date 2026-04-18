@@ -17,7 +17,8 @@
     "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed",
     "arena-bot": "tsx scripts/arena-bot/run.ts",
     "audio:sync": "node scripts/sync-audio.js",
-    "entity:audit": "tsx scripts/entity-audit.ts"
+    "entity:audit": "tsx scripts/entity-audit.ts",
+    "unit": "vitest run"
   },
   "dependencies": {
     "@logtail/browser": "^0.5.8",
@@ -33,6 +34,7 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "unzipper": "^0.12.3",
-    "vite": "^8.0.8"
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
   }
 }

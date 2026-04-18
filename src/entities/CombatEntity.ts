@@ -13,6 +13,7 @@ import {
 } from '../ai/BehaviorTree';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { hasLineOfSight, SIGHT_CHECK_INTERVAL_MS } from '../combat/SightLineSystem';
+import { calcSpread, applySpread, isPartialCover } from '../combat/Accuracy';
 
 export { SIGHT_CHECK_INTERVAL_MS };
 
@@ -85,6 +86,29 @@ export interface CombatEntityConfig extends EnemyConfig {
    * 30 px. Default: 60 px. Rarely needs tuning.
    */
   proximityRadius?: number;
+
+  // ── Combat vocalisations (optional) ──────────────────────────────────────
+  /**
+   * One-shot sound effects for combat events. Each fired event emits
+   * 'entity-combat-sound' so the arena scene can apply distance attenuation.
+   * All keys must be preloaded by the scene; missing keys are skipped gracefully.
+   */
+  combatSounds?: {
+    /** Played once when the entity first acquires a target (unaware → aware). */
+    aggro?: string;
+    /** Played when this entity lands a melee hit on a target. */
+    attack?: string;
+    /** Played when this entity takes damage. */
+    hurt?: string;
+    /** Played when this entity dies. */
+    death?: string;
+    /** Base playback volume at zero camera distance (default 0.7). */
+    volume?: number;
+    /** Minimum playback rate / pitch (default 0.9). */
+    pitchMin?: number;
+    /** Maximum playback rate / pitch (default 1.1). */
+    pitchMax?: number;
+  };
 
   // ── Ambient vocalisation (optional) ──────────────────────────────────────
   /**
@@ -328,6 +352,13 @@ export abstract class CombatEntity extends Enemy {
   /** Countdown (ms) until the next ambient sound fires. */
   private ambientTimer = 0;
 
+  // ── Combat sound state ────────────────────────────────────────────────────
+
+  /** Combat sound config, or undefined if this entity has no combat vocalisations. */
+  private readonly combatSndCfg: CombatEntityConfig['combatSounds'];
+  /** Tracks whether entity had an effectiveOpponent last frame — detects aggro transition. */
+  private hadTargetLastFrame = false;
+
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     // Bake a small random speed offset so swarm members move at slightly
     // different speeds — creates the uneven texture of a real insect swarm.
@@ -352,6 +383,8 @@ export abstract class CombatEntity extends Enemy {
     if (config.ambientSounds) {
       this.ambientTimer = Phaser.Math.FloatBetween(0, config.ambientSounds.intervalMaxMs);
     }
+
+    this.combatSndCfg = config.combatSounds;
 
     this.attackAnimDuration = config.attackCooldownMs * 0.4;
 
@@ -705,6 +738,12 @@ export abstract class CombatEntity extends Enemy {
       }
     }
 
+    // Aggro vocalisation — fire once when transitioning from no-target to having one.
+    // Triggers for both vision-acquired and proximity-detected targets.
+    const hasTarget = effectiveOpponent !== null;
+    if (hasTarget && !this.hadTargetLastFrame) this.emitCombatSound('aggro');
+    this.hadTargetLastFrame = hasTarget;
+
     const ctx: CombatContext = {
       x:     this.x,
       y:     this.y,
@@ -736,6 +775,7 @@ export abstract class CombatEntity extends Enemy {
         this.attackTimer = this.attackCooldownMs;
         // Hold the attack animation for 40% of the cooldown duration.
         this.attackAnimTimer = this.attackAnimDuration;
+        this.emitCombatSound('attack');
       },
 
       wander: (_d) => {
@@ -760,7 +800,17 @@ export abstract class CombatEntity extends Enemy {
           new Phaser.Math.Vector2(this.x, this.y),
           new Phaser.Math.Vector2(tx, ty),
         )) return;
-        const angle = Math.atan2(ty - this.y, tx - this.x);
+        // Apply accuracy spread: range-based + movement penalty + partial-cover penalty.
+        // The enemy's body velocity reflects actual movement this frame.
+        const eBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+        const eVel  = eBody?.velocity;
+        const eSpd  = eVel ? Math.sqrt(eVel.x * eVel.x + eVel.y * eVel.y) : 0;
+        const eSpeedFraction = this.speed > 0 ? Math.min(eSpd / this.speed, 1) : 0;
+        const eDist     = Phaser.Math.Distance.Between(this.x, this.y, tx, ty);
+        const eInCover  = isPartialCover(this.x, this.y, tx, ty, this.wallRects);
+        const eSpread   = calcSpread(eDist, eSpeedFraction, eInCover);
+        const angle     = applySpread(Math.atan2(ty - this.y, tx - this.x), eSpread);
+
         const p = new Projectile(
           this.scene, this.x, this.y, angle,
           this.projectileSpeed, this.projectileDamage,
@@ -932,7 +982,16 @@ export abstract class CombatEntity extends Enemy {
     if (this.attackTimer > 0 || !this.projectileDamage || !this.canShoot()) return;
     const target = this.findNearestLivingOpponent();
     if (!target) return;
-    const angle = Math.atan2(target.y - this.y, target.x - this.x);
+    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const vel = physBody?.velocity;
+    const currentSpeed  = vel ? Math.sqrt(vel.x * vel.x + vel.y * vel.y) : 0;
+    const speedFraction = this.speed > 0 ? Math.min(currentSpeed / this.speed, 1) : 0;
+
+    const dist    = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
+    const inCover = isPartialCover(this.x, this.y, target.x, target.y, this.wallRects);
+    const spread  = calcSpread(dist, speedFraction, inCover);
+    const angle   = applySpread(Math.atan2(target.y - this.y, target.x - this.x), spread);
+
     const p = new Projectile(
       this.scene, this.x, this.y, angle,
       this.projectileSpeed, this.projectileDamage,
@@ -1074,6 +1133,7 @@ export abstract class CombatEntity extends Enemy {
     // A melee hit is a loud event — broadcast so nearby enemies can hear it.
     // Radius 280 px: audible in the same room but not across the whole arena.
     this.blackboard?.broadcastSound(this.x, this.y, 280);
+    this.emitCombatSound('hurt');
 
     // Flash the body rect white; restore original fill colour after 80 ms.
     // Rectangle uses setFillStyle, not setTint (which is for Image/Sprite).
@@ -1103,6 +1163,7 @@ export abstract class CombatEntity extends Enemy {
 
     // Player melee swipe is louder than an enemy jab — broader alert radius.
     this.blackboard?.broadcastSound(this.x, this.y, 380);
+    this.emitCombatSound('hurt');
 
     this.bodyRect.setFillStyle(0xffffff);
     this.scene.time.delayedCall(80, () => {
@@ -1149,6 +1210,8 @@ export abstract class CombatEntity extends Enemy {
    * conditions this method manages its own cleanup timeline.
    */
   protected override onDeath(): void {
+    this.emitCombatSound('death');
+
     const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
     physBody?.setVelocity(0, 0);
 
@@ -1235,6 +1298,26 @@ export abstract class CombatEntity extends Enemy {
 
     // Re-schedule with a fresh random interval.
     this.ambientTimer = Phaser.Math.FloatBetween(cfg.intervalMinMs, cfg.intervalMaxMs);
+  }
+
+  /**
+   * Emit an 'entity-combat-sound' scene event for one of the four combat moments.
+   * The arena scene applies distance attenuation and handles actual playback.
+   * Silently no-ops when combatSounds is not configured or the specific key is absent.
+   */
+  private emitCombatSound(type: 'aggro' | 'attack' | 'hurt' | 'death'): void {
+    const cfg = this.combatSndCfg;
+    if (!cfg) return;
+    const key = cfg[type];
+    if (!key) return;
+    this.scene.events.emit('entity-combat-sound', {
+      key,
+      x:        this.x,
+      y:        this.y,
+      volume:   cfg.volume   ?? 0.7,
+      pitchMin: cfg.pitchMin ?? 0.9,
+      pitchMax: cfg.pitchMax ?? 1.1,
+    });
   }
 
   private refreshHpBar(): void {

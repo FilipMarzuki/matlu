@@ -83,6 +83,18 @@ export class VelcridJuvenile extends CombatEntity {
         pitchMin:      1.20,
         pitchMax:      1.55,
       },
+      // Combat sounds — pitch-shifted high (1.1–1.4×) to emphasise the creature's
+      // small size. Aggro is the sharpest/most distinct since it signals "I see you".
+      // Placeholder files from CC0 libraries; replace with creature-specific recordings.
+      combatSounds: {
+        aggro:   'sfx-velcrid-aggro',
+        attack:  'sfx-velcrid-attack',
+        hurt:    'sfx-velcrid-hurt',
+        death:   'sfx-velcrid-death',
+        volume:  0.55,
+        pitchMin: 1.10,
+        pitchMax: 1.40,
+      },
     });
   }
 
@@ -174,7 +186,36 @@ export class VelcridJuvenile extends CombatEntity {
         new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
       ]),
 
-      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+      // 4. Unaware activity: wander → dig-pause → wander.
+      //    When no target is visible the juvenile pokes at the ground for a
+      //    moment before moving on — makes idle groups feel occupied rather
+      //    than endlessly drifting. The dig-burst at transition is the same
+      //    VFX used by adults so the family reads as one creature type.
+      (() => {
+        type UAPhase = 'wander' | 'dig';
+        let uaPhase: UAPhase = 'wander';
+        let uaTimer = Phaser.Math.Between(2000, 4500);
+        return new BtAction((ctx, d) => {
+          uaTimer = Math.max(0, uaTimer - d);
+          if (uaPhase === 'wander') {
+            ctx.wander(d);
+            if (uaTimer <= 0) {
+              uaPhase = 'dig';
+              uaTimer = Phaser.Math.Between(1200, 2400);
+              ctx.stop();
+              emitDigBurst(this.scene, this.x, this.y);
+            }
+          } else {
+            // Idle animation plays automatically when velocity is zero.
+            ctx.stop();
+            if (uaTimer <= 0) {
+              uaPhase = 'wander';
+              uaTimer = Phaser.Math.Between(2000, 4500);
+            }
+          }
+          return 'running';
+        });
+      })(),
     ]);
   }
 }
@@ -200,6 +241,13 @@ export class BabyVelcrid extends CombatEntity {
 
   protected buildTree(): BtNode {
     const R = this.meleeRange;
+
+    // Unaware activity: wander → huddle-still → wander.
+    // Hatchlings cluster and twitch rather than digging — too small to burrow.
+    // A brief freeze every few seconds breaks the mechanical drift rhythm.
+    let uaTimer = Phaser.Math.Between(1000, 2500);
+    let uaHuddle = false;
+
     return new BtSelector([
       new BtSequence([
         new BtCondition(ctx =>
@@ -212,7 +260,17 @@ export class BabyVelcrid extends CombatEntity {
         new BtCondition(ctx => ctx.opponent !== null),
         new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
       ]),
-      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+      new BtAction((ctx, d) => {
+        uaTimer = Math.max(0, uaTimer - d);
+        if (uaHuddle) {
+          ctx.stop();
+          if (uaTimer <= 0) { uaHuddle = false; uaTimer = Phaser.Math.Between(1500, 3000); }
+        } else {
+          ctx.wander(d);
+          if (uaTimer <= 0) { uaHuddle = true; uaTimer = Phaser.Math.Between(500, 1200); }
+        }
+        return 'running';
+      }),
     ]);
   }
 }
@@ -280,6 +338,21 @@ export class VelcridAdult extends CombatEntity {
     let shuffleVx     = 0;
     let shuffleVy     = 0;
     let shuffleTimer  = 0;
+
+    // ── Unaware patrol-burrow state ────────────────────────────────────────────
+    // Adults occasionally submerge and reposition even without a target —
+    // they surface at a new spot, which makes them feel restless and predatory
+    // rather than just standing around. Burrow distances are short (50–130 px)
+    // since this is repositioning, not an attack run.
+    const UB_BURROW_MS    = 1600;  // ms spent underground
+    const UB_SURFACE_MS   = 220;   // ms of emerge before idle
+    const UB_BURROW_SPEED = 0.20;  // fraction of speed underground
+    type UBPhase = 'idle' | 'burrowing' | 'emerging';
+    let ubPhase: UBPhase  = 'idle';
+    // Stagger so multiple adults don't patrol-burrow simultaneously.
+    let ubTimer = Phaser.Math.Between(5000, 10000);
+    let ubTargetX = 0;
+    let ubTargetY = 0;
 
     return new BtSelector([
       // 1. Melee if adjacent AND in sight.
@@ -435,7 +508,61 @@ export class VelcridAdult extends CombatEntity {
         new BtAction(ctx => { ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y); return 'running'; }),
       ]),
 
-      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+      // 4. Unaware patrol-burrow: idle → submerge → drift to nearby pos → surface.
+      //    Adults are subterranean apex predators; even at rest they don't stay
+      //    in one spot. The patrol burrow repositions them ~50–130 px every
+      //    5–10 s, making the arena feel inhabited even before combat starts.
+      //    Re-uses the same fade/burst VFX as the combat burrow for consistency.
+      new BtAction((ctx, d) => {
+        const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+        ubTimer = Math.max(0, ubTimer - d);
+
+        if (ubPhase === 'idle') {
+          ctx.wander(d);
+          if (ubTimer <= 0) {
+            // Pick a random nearby point to surface at.
+            const angle = Math.random() * Math.PI * 2;
+            const dist  = 50 + Math.random() * 80;
+            ubTargetX = this.x + Math.cos(angle) * dist;
+            ubTargetY = this.y + Math.sin(angle) * dist;
+            ubPhase   = 'burrowing';
+            ubTimer   = UB_BURROW_MS;
+            this.suppressSeparation = true;
+            emitDigBurst(this.scene, this.x, this.y);
+            this.scene.tweens.add({
+              targets: this, alpha: { from: 1, to: 0.18 },
+              duration: 300, ease: 'Cubic.easeIn',
+            });
+          }
+        } else if (ubPhase === 'burrowing') {
+          // Slow underground drift toward the target point.
+          if (physBody) {
+            const angle = Phaser.Math.Angle.Between(this.x, this.y, ubTargetX, ubTargetY);
+            physBody.setVelocity(
+              Math.cos(angle) * this.speed * UB_BURROW_SPEED,
+              Math.sin(angle) * this.speed * UB_BURROW_SPEED,
+            );
+          }
+          if (ubTimer <= 0) {
+            ubPhase = 'emerging';
+            ubTimer = UB_SURFACE_MS;
+            this.suppressSeparation = false;
+            emitDigBurst(this.scene, this.x, this.y);
+            this.scene.tweens.add({
+              targets: this, alpha: { from: 0.18, to: 1 },
+              duration: UB_SURFACE_MS, ease: 'Cubic.easeOut',
+            });
+          }
+        } else {
+          // Emerging: brief pause while surfacing, then back to idle wander.
+          ctx.stop();
+          if (ubTimer <= 0) {
+            ubPhase = 'idle';
+            ubTimer = Phaser.Math.Between(5000, 10000);
+          }
+        }
+        return 'running';
+      }),
     ]);
   }
 }

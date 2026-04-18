@@ -1,22 +1,23 @@
 #!/usr/bin/env node
-// Fetches Linear issues that need hygiene work and outputs them as a matrix.
+// Fetches GitHub Issues that need hygiene work and outputs them as a matrix.
 //
-// Three query types, merged into one array of "ISSUE_ID:type" strings:
-//   mark-done  — In Progress issues assigned to me (check if PR is merged)
-//   split      — Issues labelled `too-large`
-//   enrich     — Issues labelled `needs-refinement`
+// Three query types, merged into one array of "NUMBER:type" strings:
+//   mark-done  — open issues with `in-progress` label (check if PR is merged)
+//   split      — open issues with `too-large` label
+//   enrich     — open issues with `needs-refinement` label
 //
 // Usage:
 //   node fetch-hygiene-issues.js
-//   node fetch-hygiene-issues.js --issue FIL-42:mark-done  # single override
+//   node fetch-hygiene-issues.js --issue 42:mark-done  # single override
 
 import { appendFileSync } from 'fs';
 
-const LINEAR_API_KEY = process.env.LINEAR_API_KEY;
-const GITHUB_OUTPUT  = process.env.GITHUB_OUTPUT;
+const GITHUB_TOKEN  = process.env.GITHUB_TOKEN;
+const GITHUB_OUTPUT = process.env.GITHUB_OUTPUT;
+const REPO          = 'FilipMarzuki/matlu';
 
-if (!LINEAR_API_KEY) {
-  console.error('Missing LINEAR_API_KEY');
+if (!GITHUB_TOKEN) {
+  console.error('Missing GITHUB_TOKEN');
   process.exit(1);
 }
 
@@ -24,120 +25,63 @@ const args = process.argv.slice(2);
 const overrideIdx = args.indexOf('--issue');
 const issueOverride = overrideIdx >= 0 ? args[overrideIdx + 1] : null;
 
-// ── Linear GraphQL ────────────────────────────────────────────────────────────
+// ── GitHub Issues REST API ────────────────────────────────────────────────────
 
-async function linear(query, variables = {}) {
-  const res = await fetch('https://api.linear.app/graphql', {
-    method: 'POST',
+async function githubFetch(url) {
+  const res = await fetch(url, {
     headers: {
-      Authorization: LINEAR_API_KEY.replace(/^Bearer\s+/i, ''),
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
     },
-    body: JSON.stringify({ query, variables }),
   });
-  if (!res.ok) throw new Error(`Linear → ${res.status} ${await res.text()}`);
-  const json = await res.json();
-  if (json.errors) throw new Error(`Linear GraphQL: ${JSON.stringify(json.errors)}`);
-  return json.data;
+  if (!res.ok) throw new Error(`GitHub API → ${res.status} ${await res.text()}`);
+  return { json: await res.json(), linkHeader: res.headers.get('link') };
 }
 
-// ── Queries ───────────────────────────────────────────────────────────────────
-
-// In Progress issues assigned to me — check if their PR is merged
-const IN_PROGRESS_QUERY = `
-  query {
-    issues(filter: {
-      state: { type: { eq: "started" } }
-      assignee: { isMe: { eq: true } }
-    }, first: 50, orderBy: updatedAt) {
-      nodes { identifier }
-    }
+async function fetchByLabel(label) {
+  const items = [];
+  let nextUrl = `https://api.github.com/repos/${REPO}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=100`;
+  while (nextUrl) {
+    const { json, linkHeader } = await githubFetch(nextUrl);
+    items.push(...json.filter(i => !i.pull_request));
+    const match = linkHeader?.match(/<([^>]+)>;\s*rel="next"/);
+    nextUrl = match ? match[1] : null;
   }
-`;
-
-// Issues labelled too-large (not already split)
-const TOO_LARGE_QUERY = `
-  query {
-    issues(filter: {
-      labels: { name: { eq: "too-large" } }
-      state: { type: { nin: ["completed", "cancelled"] } }
-    }, first: 20, orderBy: updatedAt) {
-      nodes {
-        identifier
-        labels { nodes { name } }
-        children { nodes { id } }
-      }
-    }
-  }
-`;
-
-// Issues labelled needs-refinement
-const NEEDS_REFINEMENT_QUERY = `
-  query {
-    issues(filter: {
-      labels: { name: { eq: "needs-refinement" } }
-      state: { type: { nin: ["completed", "cancelled"] } }
-    }, first: 20, orderBy: updatedAt) {
-      nodes { identifier }
-    }
-  }
-`;
-
-// Issues already in Duplicate state that still have labels attached — clean them up
-const DUPLICATE_QUERY = `
-  query {
-    issues(filter: {
-      state: { name: { eq: "Duplicate" } }
-    }, first: 20, orderBy: updatedAt) {
-      nodes {
-        identifier
-        labels { nodes { name } }
-      }
-    }
-  }
-`;
+  return items;
+}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  let entries; // array of "FIL-123:type" strings
+  let entries; // array of "42:type" strings
 
   if (issueOverride) {
-    // Single-issue override — must include type suffix
     if (!issueOverride.includes(':')) {
-      console.error('Single-issue override must include type, e.g. FIL-42:mark-done');
+      console.error('Single-issue override must include type, e.g. 42:mark-done');
       process.exit(1);
     }
     entries = [issueOverride];
   } else {
-    const [inProgress, tooLarge, needsRefinement, duplicates] = await Promise.all([
-      linear(IN_PROGRESS_QUERY),
-      linear(TOO_LARGE_QUERY),
-      linear(NEEDS_REFINEMENT_QUERY),
-      linear(DUPLICATE_QUERY),
+    const [inProgress, tooLarge, needsRefinement] = await Promise.all([
+      fetchByLabel('in-progress'),
+      fetchByLabel('too-large'),
+      fetchByLabel('needs-refinement'),
     ]);
 
-    const markDone = inProgress.issues.nodes
-      .map(n => `${n.identifier}:mark-done`);
+    const markDone = inProgress.map(i => `${i.number}:mark-done`);
 
-    // Skip issues that already have children (already split)
-    const split = tooLarge.issues.nodes
-      .filter(n => n.children.nodes.length === 0)
-      .filter(n => !n.labels.nodes.some(l => l.name === 'split'))
-      .map(n => `${n.identifier}:split`);
+    // Skip too-large issues that already have a `split` label (already split)
+    const split = tooLarge
+      .filter(i => !i.labels.some(l => l.name === 'split'))
+      .map(i => `${i.number}:split`);
 
-    const enrich = needsRefinement.issues.nodes
-      .map(n => `${n.identifier}:enrich`);
+    const enrich = needsRefinement.map(i => `${i.number}:enrich`);
 
-    // Only clean Duplicate-state issues that still have labels attached
-    const cleanDuplicate = duplicates.issues.nodes
-      .filter(n => n.labels.nodes.length > 0)
-      .map(n => `${n.identifier}:clean-duplicate`);
-
-    entries = [...markDone, ...split, ...enrich, ...cleanDuplicate];
+    entries = [...markDone, ...split, ...enrich];
   }
 
-  // Deduplicate (an issue could theoretically match multiple queries)
+  // Deduplicate (an issue could match multiple queries)
   const seen = new Set();
   entries = entries.filter(e => {
     if (seen.has(e)) return false;

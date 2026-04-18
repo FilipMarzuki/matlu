@@ -836,6 +836,10 @@ export class GameScene extends Phaser.Scene {
   /** When true, WASD pans the camera freely instead of following an animal. */
   freeCamMode = false;
 
+  // ─── Isometric grid overlay ───────────────────────────────────────
+  private isoGridGfx: Phaser.GameObjects.Graphics | null = null;
+  private isoGridVisible = false;
+
   // ─── Dev terrain overlay ──────────────────────────────────────────────────────
   /** Active dev overlay. 'elevation' shows purple→yellow heatmap; 'biome' shows flat biome colours. */
   private devOverlay: 'none' | 'elevation' | 'biome' = 'none';
@@ -1165,11 +1169,17 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('pc-walk-up',   `${bodyBase}/Walk_Base/Walk_Up-Sheet.png`,    { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('pc-walk-side', `${bodyBase}/Walk_Base/Walk_Side-Sheet.png`,  { frameWidth: 64, frameHeight: 64 });
 
-    // ── Pixel Crawler building roofs (FIL-79) ─────────────────────────────────────
-    // Single 400×400 sheet; named frames are registered in stampSettlementBuildings()
-    // via this.textures.get().add() rather than a JSON atlas (none is bundled).
-    const pcBuildings = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Environment/Structures/Buildings';
-    this.load.image('building-roofs', `${pcBuildings}/Roofs.png`);
+    // ── Mystic Woods style buildings — PixelLab generated, JRPG 3/4 view ────────────
+    // Six pre-composed building sprites (roof + front wall visible). Each is a
+    // separate PNG with transparent background, loaded as individual textures so
+    // the texture key IS the frameKey stored on PlacedBuilding.
+    const mwb = 'assets/packs/mw-buildings';
+    this.load.image('mw-cottage',     `${mwb}/mw-cottage.png`);
+    this.load.image('mw-dwelling',    `${mwb}/mw-dwelling.png`);
+    this.load.image('mw-longhouse',   `${mwb}/mw-longhouse.png`);
+    this.load.image('mw-smokehouse',  `${mwb}/mw-smokehouse.png`);
+    this.load.image('mw-workshop',    `${mwb}/mw-workshop.png`);
+    this.load.image('mw-market-hall', `${mwb}/mw-market-hall.png`);
 
     // ── Arena mode: Tinkerer hero (48×48 px PixelLab atlas) ───────────────────────
     // Only loaded in arena mode — avoids a needless download in wilderview.
@@ -1331,6 +1341,12 @@ export class GameScene extends Phaser.Scene {
 
     // E key for NPC interaction (FIL-80)
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+    // P = spawn/despawn player at camera centre, G = toggle iso grid (world dev route only)
+    if (window.location.pathname.replace(/\/$/, '') === '/world') {
+      this.input.keyboard!.on('keydown-P', () => this.toggleDevPlayer());
+      this.input.keyboard!.on('keydown-G', () => this.toggleIsoGrid());
+    }
 
     // ── Panda hero ability keys (FIL-314) — only registered in arena mode ─────────
     // 1/2 = Bao's Water Jet / Water Shield.
@@ -1662,7 +1678,15 @@ export class GameScene extends Phaser.Scene {
     }
     // Skip attract screen on the /world dev route or when launched from the nav panel.
     const isDevWorld = window.location.pathname.replace(/\/$/, '') === '/world';
-    if (isDevWorld || this.skipAttract) {
+    if (isDevWorld) {
+      // World dev route — free camera starting at Strandviken. Player hidden;
+      // press P to spawn/despawn at camera centre for walkthrough testing.
+      this.overlay.setAlpha(0);
+      this.attractMode = false;
+      this.freeCamMode = true;
+      this.game.events.emit('nav-free-cam-changed', true);
+      this.cameras.main.centerOn(450, 2820); // Strandviken
+    } else if (this.skipAttract) {
       this.overlay.setAlpha(0);
       this.attractMode = false;
       this.player.setAlpha(1);
@@ -4546,6 +4570,14 @@ export class GameScene extends Phaser.Scene {
     body.setCollideWorldBounds(true);
     body.setCircle(BODY_RADIUS);
 
+    // On the /world dev route the player starts invisible and physics-disabled.
+    // The P key toggles spawn/despawn at the camera centre for walkthrough testing.
+    if (window.location.pathname.replace(/\/$/, '') === '/world') {
+      this.player.setAlpha(0);
+      this.playerShadow.setAlpha(0);
+      body.setEnable(false);
+    }
+
     this.physics.add.collider(this.player, this.mountainWalls);
     this.physics.add.collider(this.player, this.navigationBarriers);
     // Register solid-objects collider here (not in createSolidObjects) because
@@ -6956,15 +6988,8 @@ export class GameScene extends Phaser.Scene {
    * when the source pack doesn't ship a JSON atlas.
    */
   private stampSettlementBuildings(): void {
-    // Register named crop-regions on the already-loaded 'building-roofs' texture.
-    // Coordinates measured from the 400×400 Roofs.png sheet (white-background sprite atlas).
-    // Signature: add(name, sourceIndex, x, y, width, height)
-    const roofTex = this.textures.get('building-roofs');
-    roofTex.add('roof-brown-large',   0,   0,   0, 120,  70); // large brown gabled roof
-    roofTex.add('roof-green-large',   0, 130,   0, 120,  70); // large green tiled roof
-    roofTex.add('roof-blue',          0, 270,   0,  90,  70); // blue glass/striped roof
-    roofTex.add('roof-brown-small',   0,   0, 210,  60,  50); // small brown peaked roof
-    roofTex.add('roof-green-complex', 0, 140,  80, 120, 110); // green hall with base
+    // Mystic Woods building sprites — each frameKey on PlacedBuilding is a texture key
+    // loaded individually in preload(). No atlas registration needed.
 
     // Graphics layer for intra-settlement dirt lanes.
     // Depth 3.2 — above corruption overlays (3), below building sprites (3.5) and
@@ -6982,51 +7007,28 @@ export class GameScene extends Phaser.Scene {
       }
       const rng = mulberry32(seed);
 
-      // layoutSettlement uses BuildingCatalogue to derive an economy-appropriate
-      // building programme (e.g. coastal → longhouse + smokehouse + fishing huts)
-      // then zones buildings into inner/middle/outer rings and places them via
-      // rejection sampling to avoid overlap.
-      const buildings = layoutSettlement(s, rng);
+      // JRPG-style grid-aligned layout: plaza-first, fixed building slots per
+      // settlement, three dirt street segments (south entry, cross, north spur).
+      const { buildings, plaza, streets } = layoutSettlement(s, rng);
 
-      // ── Intra-settlement lanes ──────────────────────────────────────────────
-      // Draw a short dirt lane from the settlement centre to each inner-zone
-      // building (identified by being within 40% of the radius). The lane is a
-      // thin filled rect rotated toward the building — matching the colour used
-      // by the spur line in drawSettlementMarkers().
-      for (const b of buildings) {
-        const dx   = b.x - s.x;
-        const dy   = b.y - s.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > s.radius * 0.42) continue; // only connect inner-zone buildings
+      // ── Plaza ───────────────────────────────────────────────────────────────
+      // Sandy flagstone fill (0xd4b483) — slightly warmer than the dirt streets
+      // so the civic square reads as a distinct paved surface.
+      laneGfx.fillStyle(0xd4b483, 0.55);
+      laneGfx.fillRect(plaza.x - plaza.w / 2, plaza.y - plaza.h / 2, plaza.w, plaza.h);
 
-        const angle  = Math.atan2(dy, dx);
-        const laneW  = 4;  // lane width in pixels
-        const laneL  = dist - b.w * 0.3; // stop short of the building footprint
-
-        laneGfx.fillStyle(0xb8905a, 0.30);
-        // Rotate a thin rectangle along the lane direction using a manual transform:
-        // we compute the four corner offsets from the centre of the lane segment.
-        const midX = s.x + Math.cos(angle) * laneL / 2;
-        const midY = s.y + Math.sin(angle) * laneL / 2;
-        const perp = angle + Math.PI / 2;
-        const px = Math.cos(perp) * laneW / 2;
-        const py = Math.sin(perp) * laneW / 2;
-        const ax = Math.cos(angle) * laneL / 2;
-        const ay = Math.sin(angle) * laneL / 2;
-
-        laneGfx.fillPoints([
-          new Phaser.Math.Vector2(midX - ax + px, midY - ay + py),
-          new Phaser.Math.Vector2(midX + ax + px, midY + ay + py),
-          new Phaser.Math.Vector2(midX + ax - px, midY + ay - py),
-          new Phaser.Math.Vector2(midX - ax - px, midY - ay - py),
-        ], true);
+      // ── Dirt streets ────────────────────────────────────────────────────────
+      // Three axis-aligned segments (main south entry, cross E-W, north spur).
+      laneGfx.fillStyle(0xb8905a, 0.35);
+      for (const seg of streets) {
+        laneGfx.fillRect(seg.x, seg.y, seg.w, seg.h);
       }
 
       // ── Building sprites and physics bodies ────────────────────────────────
       for (const b of buildings) {
         // Scale the sprite uniformly so its display width equals b.w.
         // Height follows from the frame's intrinsic aspect ratio.
-        const img = this.add.image(b.x, b.y, 'building-roofs', b.frameKey);
+        const img = this.add.image(b.x, b.y, b.frameKey);
         this.decorImages.push(img);
         const sprScale = b.w / img.width;
         img.setScale(sprScale);
@@ -7776,6 +7778,7 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('nav-toggle-zones',       () => { this.toggleZones();       }, this);
     this.game.events.on('nav-toggle-settlements', () => { this.toggleSettlements(); }, this);
     this.game.events.on('nav-toggle-fog',         () => { this.toggleFog();         }, this);
+    this.game.events.on('nav-toggle-iso-grid',    () => { this.toggleIsoGrid();    }, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-goto-arena', undefined, this);
@@ -7788,6 +7791,7 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off('nav-toggle-zones', undefined, this);
       this.game.events.off('nav-toggle-settlements', undefined, this);
       this.game.events.off('nav-toggle-fog', undefined, this);
+      this.game.events.off('nav-toggle-iso-grid', undefined, this);
     });
   }
 
@@ -7864,6 +7868,90 @@ export class GameScene extends Phaser.Scene {
     this.fogVisible = !this.fogVisible;
     if (this.fogRt) this.fogRt.setVisible(this.fogVisible);
     this.game.events.emit('nav-fog-changed', this.fogVisible);
+  }
+
+  /** Spawn or despawn the player at the current camera centre (P key, world dev route). */
+  private toggleDevPlayer(): void {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const visible = this.player.alpha > 0;
+    if (visible) {
+      // Despawn: hide and switch to free-cam.
+      this.player.setAlpha(0);
+      this.playerShadow.setAlpha(0);
+      body.setEnable(false);
+      if (!this.freeCamMode) {
+        this.freeCamMode = true;
+        this.cameras.main.stopFollow();
+        this.game.events.emit('nav-free-cam-changed', true);
+      }
+    } else {
+      // Spawn at camera centre so the player lands where you're looking.
+      const cam = this.cameras.main;
+      const wx  = cam.scrollX + cam.width  / 2 / cam.zoom;
+      const wy  = cam.scrollY + cam.height / 2 / cam.zoom;
+      this.player.setPosition(wx, wy);
+      this.playerShadow.setPosition(wx + 6, wy + 8);
+      body.reset(wx, wy);
+      body.setEnable(true);
+      this.player.setAlpha(1);
+      this.playerShadow.setAlpha(0.22);
+      this.freeCamMode = false;
+      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+      this.game.events.emit('nav-free-cam-changed', false);
+    }
+  }
+
+  /** Toggle the isometric grid overlay (lazily created on first show). */
+  toggleIsoGrid(): void {
+    this.isoGridVisible = !this.isoGridVisible;
+    if (this.isoGridVisible) {
+      if (!this.isoGridGfx) this.createIsoGrid();
+      this.isoGridGfx!.setVisible(true);
+    } else {
+      this.isoGridGfx?.setVisible(false);
+    }
+    this.game.events.emit('nav-iso-grid-changed', this.isoGridVisible);
+  }
+
+  /**
+   * Draw a 2:1 isometric diamond grid over the entire world.
+   *
+   * Two families of parallel lines at ±0.5 slope give the classic "iso" look.
+   * CELL_W = 128 px / CELL_H = 64 px — each diamond is one 8×8-tile chunk.
+   * Lines are drawn once into a static Graphics object at depth 5, then toggled
+   * visible/invisible. Alpha 0.15 keeps it subtle; raise to 0.3 for authoring.
+   */
+  private createIsoGrid(): void {
+    const gfx = this.add.graphics();
+    gfx.setDepth(5);
+    gfx.lineStyle(1, 0xd4c4a0, 0.15);
+
+    const W = WORLD_W;   // 4500
+    const H = WORLD_H;   // 3000
+    const CELL_W = 128;
+    const CELL_H = CELL_W / 2; // 64 — 2:1 diamond ratio
+
+    // NE-SW lines — slope +0.5 (y = 0.5x + b).
+    // b steps from -(W/2) to H in CELL_H increments.
+    const bMin = -Math.ceil((W / 2) / CELL_H) * CELL_H;
+    for (let b = bMin; b <= H; b += CELL_H) {
+      gfx.beginPath();
+      gfx.moveTo(0,  b);
+      gfx.lineTo(W,  0.5 * W + b);
+      gfx.strokePath();
+    }
+
+    // NW-SE lines — slope -0.5 (y = -0.5x + b).
+    // b steps from 0 to H + W/2.
+    for (let b = 0; b <= H + W / 2; b += CELL_H) {
+      gfx.beginPath();
+      gfx.moveTo(0,  b);
+      gfx.lineTo(W, -0.5 * W + b);
+      gfx.strokePath();
+    }
+
+    gfx.setVisible(false);
+    this.isoGridGfx = gfx;
   }
 
   /** Pan the camera with WASD/arrows when in free-fly mode. */
