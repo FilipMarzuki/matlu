@@ -351,15 +351,21 @@ function delaunayEdges(rooms: Room[]): DungeonEdge[] {
   const midX = (minX + maxX) / 2;
   const midY = (minY + maxY) / 2;
 
-  // Super-triangle: large enough to contain all room centres; vertices in CCW order
-  // so the circumcircle determinant sign is consistent throughout the algorithm.
+  // Super-triangle: large enough to contain all room centres.
+  // Vertices must be CCW in *math* coords (Y-up) so inCircumcircle() returns
+  // det > 0 for interior points.  CCW test: (B-A)×(C-A) > 0.
+  //   A=left, B=right, C=top  →  (40s,0)×(20s,21s) = 840s² > 0  ✓
+  //
+  // Previous order was left→top→right (CW), which inverted every det, making
+  // no room centre appear inside any circumcircle — zero edges, zero corridors,
+  // every room isolated (FIL-389).
   const sA = n;
   const sB = n + 1;
   const sC = n + 2;
   pts.push(
-    { cx: midX - 20 * span, cy: midY - span },      // far left
-    { cx: midX,             cy: midY + 20 * span },  // far top
-    { cx: midX + 20 * span, cy: midY - span },       // far right
+    { cx: midX - 20 * span, cy: midY - span },      // sA — far left
+    { cx: midX + 20 * span, cy: midY - span },       // sB — far right  (was sC)
+    { cx: midX,             cy: midY + 20 * span },  // sC — far top    (was sB)
   );
 
   let triangles: DelaunayTriangle[] = [{ a: sA, b: sB, c: sC }];

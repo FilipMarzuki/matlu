@@ -6,10 +6,10 @@
 //
 // GitHub's label filter API can only require ALL listed labels to be present,
 // not the inverse (exclude issues having any of these labels). We fetch all
-// open issues and filter client-side — same logic as the previous Linear version.
+// open issues and filter client-side.
 //
-// Emits a JSON array of GitHub issue numbers on stdout (and $GITHUB_OUTPUT
-// when running in GitHub Actions).
+// Emits a JSON array of GitHub issue numbers on stdout.
+// In GitHub Actions, also appends `issues=[...]` to $GITHUB_OUTPUT.
 //
 // Usage:
 //   node fetch-triage-issues.js                # all un-triaged issues
@@ -56,7 +56,6 @@ async function githubFetch(url) {
   return { json: await res.json(), linkHeader: res.headers.get('link') };
 }
 
-// Follow Link header pagination until no rel="next" page remains.
 async function fetchAllPages(url) {
   const items = [];
   let nextUrl = url;
@@ -85,19 +84,16 @@ async function main() {
       console.error(`Invalid issue number: ${issueOverride}`);
       process.exit(1);
     }
-    const { json } = await githubFetch(
-      `https://api.github.com/repos/${REPO}/issues/${issueNum}`
-    );
-    numbers = [json.number];
+    numbers = [issueNum];
   } else {
     const issues = await fetchAllPages(
       `https://api.github.com/repos/${REPO}/issues?state=open&per_page=100`
     );
     numbers = issues
       // GitHub Issues API also returns pull requests — exclude them.
-      .filter((i) => !i.pull_request)
-      .filter((i) => !i.labels.some((l) => TRIAGE_SKIP_LABELS.has(l.name)))
-      .map((i) => i.number);
+      .filter(i => !i.pull_request)
+      .filter(i => !i.labels.some(l => TRIAGE_SKIP_LABELS.has(l.name)))
+      .map(i => i.number);
   }
 
   const serialised = JSON.stringify(numbers);

@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 // Fetches GitHub Issues eligible for the per-issue nightly agent.
 //
-// Eligibility: open issues with label "ready" assigned to FilipMarzuki.
+// Eligibility: open issues with "ready" label but NOT "blocked".
 //
 // Emits a JSON array of GitHub issue numbers (e.g. [42, 43]) on stdout.
-// When run in GitHub Actions, also appends `issues=[...]` to $GITHUB_OUTPUT
-// so the downstream matrix job can fan out over them.
+// In GitHub Actions, also appends `issues=[...]` to $GITHUB_OUTPUT so the
+// downstream matrix job can fan out over them.
 //
 // Usage:
-//   node fetch-agent-issues.js                # default: ready issues
-//   node fetch-agent-issues.js --issue 42     # single-issue override
-//                                             #   (for workflow_dispatch)
+//   node fetch-agent-issues.js                # default: all ready issues
+//   node fetch-agent-issues.js --issue 42     # single-issue override (workflow_dispatch)
 
 import { appendFileSync } from 'fs';
 
@@ -43,7 +42,6 @@ async function githubFetch(url) {
   return { json: await res.json(), linkHeader: res.headers.get('link') };
 }
 
-// Follow Link header pagination until no rel="next" page remains.
 async function fetchAllPages(url) {
   const items = [];
   let nextUrl = url;
@@ -72,16 +70,18 @@ async function main() {
       console.error(`Invalid issue number: ${issueOverride}`);
       process.exit(1);
     }
-    const { json } = await githubFetch(
-      `https://api.github.com/repos/${REPO}/issues/${issueNum}`
-    );
-    numbers = [json.number];
+    numbers = [issueNum];
   } else {
+    // Fetch all open issues with the "ready" label.
     const issues = await fetchAllPages(
-      `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&assignee=FilipMarzuki&per_page=100`
+      `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&per_page=100`
     );
-    // GitHub Issues API returns pull requests too — exclude them.
-    numbers = issues.filter((i) => !i.pull_request).map((i) => i.number);
+    // GitHub Issues API also returns pull requests — exclude them.
+    // Also exclude issues that also carry the "blocked" label.
+    numbers = issues
+      .filter(i => !i.pull_request)
+      .filter(i => !i.labels.some(l => l.name === 'blocked'))
+      .map(i => i.number);
   }
 
   const serialised = JSON.stringify(numbers);

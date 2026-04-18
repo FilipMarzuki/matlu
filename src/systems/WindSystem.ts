@@ -38,17 +38,17 @@ interface BiomeWindParams {
 
 const BIOME_TABLE: BiomeWindParams[] = [
   { maxElev: 0.28, amplitude: 0.00, freqHz: 0.00 }, // water — no sway
-  { maxElev: 0.33, amplitude: 0.55, freqHz: 0.70 }, // sandy shore
-  { maxElev: 0.50, amplitude: 0.50, freqHz: 0.55 }, // marsh / bog
-  { maxElev: 0.65, amplitude: 0.60, freqHz: 0.80 }, // plains / coastal heath
-  { maxElev: 0.78, amplitude: 0.25, freqHz: 0.40 }, // mixed forest
-  { maxElev: 0.90, amplitude: 0.15, freqHz: 0.30 }, // dense spruce
-  { maxElev: 0.96, amplitude: 0.70, freqHz: 1.00 }, // granite / highland
-  { maxElev: 1.00, amplitude: 0.90, freqHz: 1.20 }, // snow / klipptoppen
+  { maxElev: 0.33, amplitude: 0.40, freqHz: 0.32 }, // sandy shore
+  { maxElev: 0.50, amplitude: 0.35, freqHz: 0.26 }, // marsh / bog
+  { maxElev: 0.65, amplitude: 0.42, freqHz: 0.36 }, // plains / coastal heath
+  { maxElev: 0.78, amplitude: 0.18, freqHz: 0.18 }, // mixed forest
+  { maxElev: 0.90, amplitude: 0.10, freqHz: 0.14 }, // dense spruce
+  { maxElev: 0.96, amplitude: 0.48, freqHz: 0.44 }, // granite / highland
+  { maxElev: 1.00, amplitude: 0.60, freqHz: 0.52 }, // snow / klipptoppen
 ];
 
 /** Maximum pixel swing at amplitude = 1.0. */
-const MAX_SWING_PX = 2.5;
+const MAX_SWING_PX = 1.2;
 
 /** Camera view multiplier — animate within 2× the visible area. */
 const VIEW_MULT = 2.0;
@@ -56,8 +56,8 @@ const VIEW_MULT = 2.0;
 // ── WeatherCondition → amplitude multiplier ───────────────────────────────────
 const WEATHER_MULT: Record<WeatherCondition, number> = {
   clear: 1.00,
-  rain:  1.35,
-  ash:   0.90,
+  rain:  1.20,  // was 1.35 — rain is gusty but not a storm
+  ash:   0.85,
 };
 
 // ── WindSystem ────────────────────────────────────────────────────────────────
@@ -149,8 +149,8 @@ export class WindSystem {
       }
 
       // ── Wind parameters (possibly chaos-boosted) ────────────────────────
-      const amp  = lerp(params.amplitude * wMult, 0.80, chaosLevel);
-      const freq = lerp(params.freqHz,            2.50, chaosLevel);
+      const amp  = lerp(params.amplitude * wMult, 0.70, chaosLevel);
+      const freq = lerp(params.freqHz,            1.20, chaosLevel); // corruption max, still wilder than calm
 
       // Position-based phase offset — neighbouring sprites swing out of sync
       // with each other, producing a natural ripple rather than a wall of

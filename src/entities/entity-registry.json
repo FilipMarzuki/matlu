@@ -14,8 +14,8 @@
       "animTags": {
         "idle":   "idle_south",
         "walk":   "walk_south",
-        "attack": null,
-        "hurt":   null,
+        "attack": "attack_south",
+        "hurt":   "hurt_south",
         "death":  "death_south",
         "alert":  null
       },
@@ -28,11 +28,27 @@
             "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-2.ogg"
           ]
         },
-        "alert":  null,
-        "aggro":  null,
-        "attack": null,
-        "hurt":   null,
-        "death":  null
+        "alert": null,
+        "aggro": {
+          "key": "sfx-velcrid-aggro",
+          "file": "public/assets/audio/creatures/mini-velcrid/mini-velcrid-aggro.ogg",
+          "status": "placeholder"
+        },
+        "attack": {
+          "key": "sfx-velcrid-attack",
+          "file": "public/assets/audio/creatures/mini-velcrid/mini-velcrid-attack.ogg",
+          "status": "placeholder"
+        },
+        "hurt": {
+          "key": "sfx-velcrid-hurt",
+          "file": "public/assets/audio/creatures/mini-velcrid/mini-velcrid-hurt.ogg",
+          "status": "placeholder"
+        },
+        "death": {
+          "key": "sfx-velcrid-death",
+          "file": "public/assets/audio/creatures/mini-velcrid/mini-velcrid-death.ogg",
+          "status": "placeholder"
+        }
       },
       "behavior": {
         "buildTree":     true,
@@ -44,6 +60,23 @@
         "aggroRadius":   480,
         "hearingRadius": 220,
         "sightMemoryMs": 1000
+      },
+      "designNotes": {
+        "sprite": "Squat hexapod the size of a fist: broad thorax, stubby limbs ending in hooked claws, and two oversized compound eyes that catch light at odd angles. Chitin is mottled olive-black with acid-green bioluminescent spots along the abdomen seam. Moves in quick, jerky bursts — joints bend the wrong way, like a crab crossed with a beetle. Reads clearly at 28×28 px in-game: bold silhouette, high-contrast eye glow, no fine detail needed.",
+        "animations": {
+          "idle": "Slow, asymmetric abdominal pulse — one side inflates fractionally more than the other, giving a subtly lopsided breathing rhythm. Antennae twitch independently every 2–3 frames. 6–8 frames at 5–6 fps.",
+          "walk": "Rapid tripod gait: three legs step while three remain planted, alternating. Body bobs slightly with each stride. Antennae fold back against thorax when at speed. 8 frames at 10 fps.",
+          "attack": "Wind-up (3 frames): rear up on hind four legs, forelegs raised and mandibles spread wide. Commit (2 frames): lunge forward, body fully extended, mandibles snapping shut. Recovery (2 frames): pull back to neutral. 7 frames total at 12 fps.",
+          "hurt": "Sharp full-body recoil backward — limbs flail outward for one frame, then clamp tight. Abdomen brightens (desaturated flash) for one frame. 3 frames at 10 fps.",
+          "death": "Topple sideways over 4 frames, legs curling inward sequentially from front to back. Bioluminescent spots dim from acid-green to grey across the sequence. Holds on final frame (legs curled, eyes dark). 5 frames at 8 fps."
+        },
+        "sounds": {
+          "ambient": "Dry insect click — thin, aperiodic. ~80–150 ms. Like a beetle tapping chitin. Freesound: 'insect click short CC0', 'cricket stridulation single', 'beetle tap'.",
+          "aggro": "Rapid burst of 4–6 clicks accelerating to a chittering trill — alert call when spotting prey. ~350 ms. Freesound: 'insect alarm chitter', 'beetle stridulation burst', 'cricket rapid chirp'.",
+          "attack": "Hard mandible snap — single dry click with slight resonance, like two pieces of hard plastic snapping together. ~80 ms. Freesound: 'mandible snap', 'insect bite click', 'plastic snap short'.",
+          "hurt": "High-pitched chitin crack — sharp, short, slightly hollow. Suggests shell damage. ~100 ms. Freesound: 'chitin crack', 'glass light click', 'insect hit high'.",
+          "death": "Rapid diminishing chitter (4–5 clicks slowing) ending in a dull thud as the body drops. ~500 ms total. Freesound: 'insect death stridulation', 'beetle dying clicks', 'creature death small'."
+        }
       }
     },
 

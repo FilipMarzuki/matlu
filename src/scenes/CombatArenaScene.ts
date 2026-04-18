@@ -599,6 +599,7 @@ export class CombatArenaScene extends Phaser.Scene {
       for (const e of justDied) {
         // Notify ability-absorption systems (e.g. Progenitor) of the enemy type.
         this.events.emit('enemy-died', e.constructor.name);
+        if (this.heroAlive) this.spawnXPMotes(e.x, e.y);
 
         // Death panic — survivors within 80 px scatter away from the corpse.
         const DEATH_PANIC_R = 80;
@@ -1089,6 +1090,42 @@ export class CombatArenaScene extends Phaser.Scene {
    *   - the current aliveEnemies list (for separation steering), and
    *   - the shared arena blackboard (for flyer-dive staggering).
    *
+  /**
+   * Spawn glittery XP motes from an enemy death position toward the hero —
+   * same two-phase effect as GameScene: scatter then converge and fade.
+   * Hints at the hidden XP system without surfacing a number or bar.
+   */
+  private spawnXPMotes(sx: number, sy: number): void {
+    const count = 5;
+    for (let i = 0; i < count; i++) {
+      const delay = i * 28;
+      const ox = Phaser.Math.Between(-10, 10);
+      const oy = Phaser.Math.Between(-10, 10);
+      const mote = this.add.circle(sx + ox, sy + oy, 2, 0xe8f4ff, 1);
+      mote.setDepth(59);
+      this.tweens.add({
+        delay,
+        targets: mote,
+        x: sx + ox * 2.2,
+        y: sy + oy * 2.2,
+        duration: 110,
+        ease: 'Sine.easeOut',
+        onComplete: () => {
+          this.tweens.add({
+            targets: mote,
+            x: this.hero.x,
+            y: this.hero.y,
+            alpha: 0,
+            duration: Phaser.Math.Between(360, 500),
+            ease: 'Sine.easeIn',
+            onComplete: () => mote.destroy(),
+          });
+        },
+      });
+    }
+  }
+
+  /**
    * Called after spawnWaveGroup, spawnBug, and every prune-dead cycle so
    * separation always reflects the current roster.
    */

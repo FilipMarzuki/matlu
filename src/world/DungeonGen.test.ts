@@ -17,7 +17,42 @@ import {
   allRoomsConnected,
   CAVE_CONFIG,
   ARENA_BSP_CONFIG,
+  type BspDungeonLayout,
 } from './DungeonGen';
+
+// ─── Shared helper ─────────────────────────────────────────────────────────────
+
+/**
+ * BFS flood-fill from the layout's entry tile.
+ * Returns a Set of floor-tile indices reachable without crossing a wall.
+ * Used to assert full dungeon connectivity without relying on fragile (row,col)
+ * coordinates that shift whenever corridor carving implementation changes.
+ */
+function reachableFromEntry(layout: BspDungeonLayout): Set<number> {
+  const { cols, rows, cellSize, values } = layout.tiles;
+  const startCol = Math.floor(layout.entryPoint.x / cellSize);
+  const startRow = Math.floor(layout.entryPoint.y / cellSize);
+
+  const visited = new Set<number>();
+  const start = startRow * cols + startCol;
+  if (values[start] !== 0) return visited;
+
+  const queue = [start];
+  visited.add(start);
+  while (queue.length > 0) {
+    const idx = queue.shift()!;
+    const r = Math.floor(idx / cols);
+    const c = idx % cols;
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      const nr = r + dr; const nc = c + dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      const ni = nr * cols + nc;
+      if (values[ni] !== 0 || visited.has(ni)) continue;
+      visited.add(ni); queue.push(ni);
+    }
+  }
+  return visited;
+}
 
 // ─── allRoomsConnected ────────────────────────────────────────────────────────
 
@@ -98,40 +133,44 @@ describe('bspGenerate', () => {
   // The Bowyer-Watson super-triangle was CW in math coords, making inCircumcircle()
   // always return false.  Zero Delaunay edges → zero MST edges → zero corridors →
   // hero trapped in spawn room.  This seed reproduces the exact failure.
-  it('FIL-389 regression: 0xdead_beef seed produces fully-connected dungeon (16/16 rooms)', () => {
+  //
+  // We use a BFS flood-fill rather than a hardcoded tile coordinate: the flood-fill
+  // is robust to implementation changes in corridor carving, while a specific (row, col)
+  // check would break any time room sizes or positions shift slightly.
+  it('FIL-389 regression: all rooms reachable from start tile (BFS flood-fill)', () => {
     const layout = bspGenerate(0xdead_beef, ARENA_BSP_CONFIG);
+    expect(layout.rooms.length).toBeGreaterThanOrEqual(2);
 
-    // All rooms must be reachable — the broken Delaunay returned 0 edges,
-    // so corridors were never carved and every room was isolated.
-    expect(layout.rooms.length).toBe(16);
+    const reachable = reachableFromEntry(layout);
+    const { cols } = layout.tiles;
 
-    // The entryPoint (start room centre) must be floor (tile value 0),
-    // confirming the room was carved and is a real spawn location.
-    const { cols, cellSize, values } = layout.tiles;
-    const startCol = Math.floor(layout.entryPoint.x / cellSize);
-    const startRow = Math.floor(layout.entryPoint.y / cellSize);
-    expect(values[startRow * cols + startCol]).toBe(0); // floor, not wall
-
-    // Verify the corridor between start room (5) and its only MST neighbour (4)
-    // was actually carved — the critical tile is in the gap between the rooms.
-    // Room 5: col 3..12, row 45..54.  Room 4: col 6..15, row 29..34.
-    // The vertical corridor passes through row 40 at col 11 (tile-space).
-    const corridorCol = 11;
-    const corridorRow = 40; // mid-gap between rooms 4 and 5
-    expect(values[corridorRow * cols + corridorCol]).toBe(0); // must be floor
+    for (let i = 0; i < layout.rooms.length; i++) {
+      const room = layout.rooms[i];
+      const idx = Math.floor(room.cy) * cols + Math.floor(room.cx);
+      expect(
+        reachable.has(idx),
+        `room ${i} not reachable from start — FIL-389 regression`,
+      ).toBe(true);
+    }
   });
 
-  it('produces a connected dungeon for a variety of seeds', () => {
+  it('all rooms are reachable for a variety of seeds (BFS connectivity)', () => {
     const seeds = [1, 42, 12345, 0xabcdef, 999999999];
     for (const seed of seeds) {
       const layout = bspGenerate(seed, ARENA_BSP_CONFIG);
       if (layout.rooms.length < 2) continue; // degenerate — skip
 
-      // At least one floor tile must border the start room centre.
-      const { cols, cellSize, values } = layout.tiles;
-      const startCol = Math.floor(layout.entryPoint.x / cellSize);
-      const startRow = Math.floor(layout.entryPoint.y / cellSize);
-      expect(values[startRow * cols + startCol]).toBe(0);
+      const reachable = reachableFromEntry(layout);
+      const { cols } = layout.tiles;
+
+      for (let i = 0; i < layout.rooms.length; i++) {
+        const room = layout.rooms[i];
+        const idx = Math.floor(room.cy) * cols + Math.floor(room.cx);
+        expect(
+          reachable.has(idx),
+          `seed ${seed}: room ${i} not reachable from entry`,
+        ).toBe(true);
+      }
     }
   });
 });

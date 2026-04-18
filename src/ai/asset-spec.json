@@ -149,7 +149,7 @@
       "faction": "enemy",
       "status": "done",
       "_pixellabCharacterId": "2fab73d8-aa67-4cc4-8ad7-49ca10c30da1",
-      "_comment": "Spider-like alien creature used as the base sprite for all spinolandet enemies. Tinted/scaled per enemy class. Has idle (all dirs), custom skitter-walk (all dirs), and death (jerking convulsion).",
+      "_comment": "Spider-like alien creature used as the base sprite for all spinolandet enemies. Tinted/scaled per enemy class. Has idle (all dirs), custom skitter-walk (all dirs), death (jerking convulsion), attack (lunge/mandible snap), hurt (recoil flinch).",
       "pixellab": {
         "description": "mini Velcrid alien spider creature, dark red carapace, multiple legs, top-down pixel art",
         "size": 92,
@@ -176,6 +176,16 @@
         {
           "id": "walk",
           "template": "custom-move like a 8 legged spider or roach and skitter f",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "attack",
+          "template": "custom-rearing up on hind legs, the front two clawed legs lunge forward snapping mandibles then recoil back",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "hurt",
+          "template": "custom-creature flinches and recoils backward, legs flailing outward then clamping tight",
           "frameDurationMs": 80
         },
         {
