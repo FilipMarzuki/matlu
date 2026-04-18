@@ -754,22 +754,10 @@ export class CombatArenaScene extends Phaser.Scene {
       // Position: 1 tile below the room's north-wall row so the sprite sits on floor.
       const ty = (r.row + 1) * CELL + CELL / 2;
 
-      const glowGfx = this.add.graphics();
-      glowGfx.fillStyle(0xff9933, 0.18);
-      glowGfx.fillCircle(tx, ty, 40);
+      this.createTorchGlow(tx, ty);
 
       const torchSprite = this.add.sprite(tx, ty, 'dungeon_torch').setDepth(2);
       torchSprite.play({ key: 'torch_flicker', startFrame: Math.floor(Math.random() * 3) });
-
-      this.tweens.add({
-        targets:  glowGfx,
-        alpha:    { from: 0.7, to: 1.0 },
-        duration: Phaser.Math.Between(400, 700),
-        yoyo:     true,
-        repeat:   -1,
-        ease:     'Sine.easeInOut',
-        delay:    Phaser.Math.Between(0, 350),
-      });
     }
 
     // ── Ambient dust motes ─────────────────────────────────────────────────────
@@ -795,6 +783,87 @@ export class CombatArenaScene extends Phaser.Scene {
     for (const r of this.rooms) {
       shadowGfx.fillRect(r.x, r.y + CELL, r.w, 4);
     }
+  }
+
+  /**
+   * Renders the warm glow pool around a torch at world position (tx, ty).
+   *
+   * ## Why this looks better than a plain circle
+   *
+   * Real torchlight has three properties a single flat-alpha circle can't fake:
+   *
+   * 1. **Gradient falloff** — brightness drops sharply near the flame and fades
+   *    smoothly at the edges. We simulate this with four concentric ellipses whose
+   *    alpha increases toward the centre, building up additively.
+   *
+   * 2. **Additive blending** — `BlendModes.ADD` adds the glow's RGB to whatever
+   *    is underneath rather than mixing over it with alpha.  On a dark background
+   *    a small add value is nearly invisible; close to the flame the values stack
+   *    up and the surface looks genuinely lit.  This is how Enter the Gungeon,
+   *    Spelunky, and most modern pixel-art dungeon games handle dynamic lighting
+   *    without a full shader.
+   *
+   * 3. **Organic flicker** — two independent tweens run at different durations
+   *    (one driving alpha, one driving scale).  Because their periods are coprime
+   *    they rarely peak together, producing the irregular beat pattern of real fire
+   *    without any per-frame randomness.
+   *
+   * The ellipses are slightly wider than tall and offset 4 px upward — heat and
+   * light from a flame travel upward, so the bright zone is asymmetric.
+   */
+  private createTorchGlow(tx: number, ty: number): void {
+    // Position the Graphics object at the torch world coordinates.
+    // All drawing commands below use (0, 0) as the local origin, so the object
+    // can be scaled by tweens without the glow drifting away from the torch.
+    const gfx = this.add.graphics({ x: tx, y: ty });
+    gfx.setBlendMode(Phaser.BlendModes.ADD);
+    gfx.setDepth(1);
+
+    // The glow centre sits 4 px above the torch base — heat rises.
+    const oy = -4;
+
+    // Four rings, outer → inner.  Alpha values are intentionally low because they
+    // stack: the innermost pixel is covered by all four rings summed.
+    // Colours shift from deep amber at the perimeter to pale gold at the core,
+    // matching the colour temperature of an actual flame.
+    gfx.fillStyle(0xff5500, 0.06);  // outer haze  — deep amber
+    gfx.fillEllipse(0, oy, 88, 60);
+
+    gfx.fillStyle(0xff8800, 0.10);  // mid ring    — orange
+    gfx.fillEllipse(0, oy, 58, 40);
+
+    gfx.fillStyle(0xffaa00, 0.16);  // warm ring   — amber gold
+    gfx.fillEllipse(0, oy, 34, 24);
+
+    gfx.fillStyle(0xffee66, 0.24);  // inner core  — hot yellow
+    gfx.fillEllipse(0, oy, 14, 10);
+
+    // Tween 1: slow size throb (the glow "breathes" in and out).
+    // Using scaleX/Y instead of redrawing the geometry each frame.
+    this.tweens.add({
+      targets:  gfx,
+      scaleX:   { from: 0.86, to: 1.10 },
+      scaleY:   { from: 0.88, to: 1.06 },
+      duration: Phaser.Math.Between(300, 480),
+      yoyo:     true,
+      repeat:   -1,
+      ease:     'Sine.easeInOut',
+      delay:    Phaser.Math.Between(0, 300),
+    });
+
+    // Tween 2: alpha flicker at a different (incommensurable) period.
+    // Because the two periods don't share a common factor they rarely peak
+    // together — giving the stochastic, irregular feel of real fire without
+    // per-frame random() calls.
+    this.tweens.add({
+      targets:  gfx,
+      alpha:    { from: 0.70, to: 1.0 },
+      duration: Phaser.Math.Between(380, 620),
+      yoyo:     true,
+      repeat:   -1,
+      ease:     'Sine.easeInOut',
+      delay:    Phaser.Math.Between(50, 420),
+    });
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
