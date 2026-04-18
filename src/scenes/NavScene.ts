@@ -17,53 +17,67 @@ interface ArenaStateSnapshot {
 const ARENA_SCENE_KEY = 'CombatArenaScene';
 
 /**
- * NavScene — persistent right-side navigation panel.
+ * NavScene — persistent right-side navigation panel with collapsible layer tree.
  *
- * Launched as an overlay by GameScene and CombatArenaScene. Because it has its
- * own scene camera (no zoom, no scroll), its UI elements are never culled — the
- * main game scene's zoom=3 camera would cull scrollFactor(0) elements that are
- * outside the small world-space view window.
+ * Layer tree structure (WilderView mode):
+ *   ▾ Camera      → Free Cam
+ *   ▾ Overlays    → Elev Map, Biome Map
+ *   ▾ World       → Decor, Animals, Paths, Zones, Settlements, Fog
  *
- * Communication with the underlying game scene is via the Phaser game event bus
- * (`this.game.events`) so the two scenes stay decoupled:
+ * Clicking a section header collapses / expands it; rebuildLayout() repositions
+ * all visible items so they pack tightly with no gaps.
  *
- *   nav-mode-change   → NavScene updates which mode button is highlighted
- *   nav-goto-arena    → CombatArenaScene is started
- *   nav-goto-wilderview → GameScene is started
- *   nav-free-cam-changed (bool) → NavScene updates the Free Cam button label
- *   nav-play-mode-changed (bool) → NavScene updates the Play/AI button label
- *   nav-toggle-free-cam   → GameScene toggles free-fly camera
- *   nav-toggle-decor      → GameScene toggles world decorations visibility
- *   nav-toggle-animals    → GameScene toggles wildlife visibility
- *   nav-toggle-play-mode  → CombatArenaScene toggles hero player mode
- *   nav-reset-arena        → CombatArenaScene resets the fight
+ * Communication with the underlying game scene is via the Phaser game event bus:
+ *   Emits:   nav-toggle-*, nav-goto-*, nav-reset-arena, nav-toggle-play-mode
+ *   Listens: nav-*-changed (state feedback from game scenes)
  */
 export class NavScene extends Phaser.Scene {
   static readonly KEY = 'NavScene';
 
-  private freeCamBtn!:  Phaser.GameObjects.Text;
-  private elevMapBtn!:  Phaser.GameObjects.Text;
-  private biomeMapBtn!: Phaser.GameObjects.Text;
-  private decorBtn!:    Phaser.GameObjects.Text;
-  private animalsBtn!:  Phaser.GameObjects.Text;
-  private playAiBtn!:   Phaser.GameObjects.Text;
-  private resetBtn!:    Phaser.GameObjects.Text;
-  private freeCamGroup!: Phaser.GameObjects.Group;
-  private arenaGroup!:   Phaser.GameObjects.Group;
+  // ── Section open/collapsed state ────────────────────────────────────────────
+  private openSections = { camera: true, overlays: false, world: true };
 
-  // Tracks the active view mode so the feedback widget can use the right
-  // placeholder text and build the correct context JSON on submit.
+  // ── Layer tree button references ────────────────────────────────────────────
+  private freeCamBtn!:     Phaser.GameObjects.Text;
+  private elevMapBtn!:     Phaser.GameObjects.Text;
+  private biomeMapBtn!:    Phaser.GameObjects.Text;
+  private decorBtn!:       Phaser.GameObjects.Text;
+  private animalsBtn!:     Phaser.GameObjects.Text;
+  private pathsBtn!:       Phaser.GameObjects.Text;
+  private zonesBtn!:       Phaser.GameObjects.Text;
+  private settlementsBtn!: Phaser.GameObjects.Text;
+  private fogBtn!:         Phaser.GameObjects.Text;
+
+  // ── Section header references (needed by rebuildLayout) ─────────────────────
+  private cameraHeader!:   Phaser.GameObjects.Text;
+  private overlaysHeader!: Phaser.GameObjects.Text;
+  private worldHeader!:    Phaser.GameObjects.Text;
+
+  // Items per section — drives rebuildLayout visibility + positioning
+  private cameraItems:  Phaser.GameObjects.Text[] = [];
+  private overlayItems: Phaser.GameObjects.Text[] = [];
+  private worldItems:   Phaser.GameObjects.Text[] = [];
+
+  // All WilderView objects (tree + hint) — toggled on/off when switching modes
+  private wilderViewGroup!: Phaser.GameObjects.Group;
+
+  // ── Arena-only controls ─────────────────────────────────────────────────────
+  private playAiBtn!:  Phaser.GameObjects.Text;
+  private resetBtn!:   Phaser.GameObjects.Text;
+  private arenaGroup!: Phaser.GameObjects.Group;
+
+  // Y coordinate where the layer tree begins (below the view-mode divider)
+  private treeStartY = 0;
+
+  // ── Mode tracking ───────────────────────────────────────────────────────────
   private currentMode: 'wilderview' | 'arena' = 'wilderview';
-
-  // Feedback widget — DOM elements appended to document.body and removed on shutdown.
-  private feedbackWrapper: HTMLDivElement | null    = null;
-  private feedbackInput:   HTMLInputElement | null  = null;
-  private feedbackSendBtn: HTMLButtonElement | null = null;
-  private feedbackStatus:  HTMLDivElement | null    = null;
-
-  // Initial mode passed via scene.launch(NavScene.KEY, { mode }) so the panel
-  // shows the correct active button immediately without a frame-late event.
   private initialMode: 'wilderview' | 'arena' = 'wilderview';
+
+  // ── Feedback widget (DOM) ───────────────────────────────────────────────────
+  private feedbackWrapper:  HTMLDivElement | null    = null;
+  private feedbackInput:    HTMLInputElement | null  = null;
+  private feedbackSendBtn:  HTMLButtonElement | null = null;
+  private feedbackStatus:   HTMLDivElement | null    = null;
 
   constructor() {
     super({ key: NavScene.KEY });
@@ -74,19 +88,16 @@ export class NavScene extends Phaser.Scene {
   }
 
   create(): void {
-    const W  = this.scale.width;
-    const H  = this.scale.height;
-    const PW = 160;      // panel width
-    const cx = W - PW / 2;
+    const W   = this.scale.width;
+    const H   = this.scale.height;
+    const PW  = 160;      // panel width
+    const cx  = W - PW / 2;
     const BTN_W = PW - 28;
 
     // ── Background panel ───────────────────────────────────────────────────────
-    this.add
-      .rectangle(cx, H / 2, PW, H, 0x0a130a, 0.92);
+    this.add.rectangle(cx, H / 2, PW, H, 0x0a130a, 0.92);
 
-    // ── Menu link (small, top of panel) ────────────────────────────────────────
-    // Small link back to the main menu — navigates via window.location so the
-    // Phaser game fully reinitialises (same as typing /menu in the address bar).
+    // ── Menu link ─────────────────────────────────────────────────────────────
     this.add.text(cx, H * 0.05, '← Menu', {
       fontSize: '11px', color: '#3a5a3a',
     }).setOrigin(0.5)
@@ -95,24 +106,10 @@ export class NavScene extends Phaser.Scene {
       .on('pointerout',  function(this: Phaser.GameObjects.Text) { this.setStyle({ color: '#3a5a3a' }); })
       .on('pointerup',   () => { window.location.href = '/menu'; });
 
-    const btnY0 = H * 0.12;
+    const btnY0  = H * 0.12;
     const btnGap = 46;
 
-    const inactiveStyle = (label: string) => this.add.text(cx, 0, label, {
-      fontSize: '14px', color: '#ffe066',
-      backgroundColor: '#33330088',
-      padding: { x: 10, y: 6 },
-      fixedWidth: BTN_W, align: 'center',
-    }).setOrigin(0.5);
-
-    const activeStyle = (label: string) => this.add.text(cx, 0, label, {
-      fontSize: '14px', color: '#aaffaa',
-      backgroundColor: '#33330088',
-      padding: { x: 10, y: 6 },
-      fixedWidth: BTN_W, align: 'center',
-    }).setOrigin(0.5);
-
-    // ── World Dev button ──────────────────────────────────────────────────────
+    // ── View-mode selector (World Dev / Arena tabs) ────────────────────────────
     const wvActive = this.add.text(cx, btnY0, 'World Dev', {
       fontSize: '14px', color: '#aaffaa',
       backgroundColor: '#33330088',
@@ -120,103 +117,145 @@ export class NavScene extends Phaser.Scene {
       fixedWidth: BTN_W, align: 'center',
     }).setOrigin(0.5).setName('wv-active');
 
-    const wvInactive = inactiveStyle('World Dev')
-      .setY(btnY0).setName('wv-inactive')
+    const wvInactive = this.add.text(cx, btnY0, 'World Dev', {
+      fontSize: '14px', color: '#ffe066',
+      backgroundColor: '#33330088',
+      padding: { x: 10, y: 6 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5).setName('wv-inactive')
       .setInteractive({ useHandCursor: true })
-      .on('pointerup', () => this.game.events.emit('nav-goto-wilderview'))
+      .on('pointerup',   () => this.game.events.emit('nav-goto-wilderview'))
       .on('pointerover', () => wvInactive.setStyle({ color: '#ffffff' }))
       .on('pointerout',  () => wvInactive.setStyle({ color: '#ffe066' }));
 
-    // ── Arena button ───────────────────────────────────────────────────────────
-    const arenaActive = activeStyle('Arena').setY(btnY0 + btnGap).setName('arena-active');
+    const arenaActive = this.add.text(cx, btnY0 + btnGap, 'Arena', {
+      fontSize: '14px', color: '#aaffaa',
+      backgroundColor: '#33330088',
+      padding: { x: 10, y: 6 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5).setName('arena-active');
 
-    const arenaInactive = inactiveStyle('Arena')
-      .setY(btnY0 + btnGap).setName('arena-inactive')
+    const arenaInactive = this.add.text(cx, btnY0 + btnGap, 'Arena', {
+      fontSize: '14px', color: '#ffe066',
+      backgroundColor: '#33330088',
+      padding: { x: 10, y: 6 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5).setName('arena-inactive')
       .setInteractive({ useHandCursor: true })
-      .on('pointerup', () => this.game.events.emit('nav-goto-arena'))
+      .on('pointerup',   () => this.game.events.emit('nav-goto-arena'))
       .on('pointerover', () => arenaInactive.setStyle({ color: '#ffffff' }))
       .on('pointerout',  () => arenaInactive.setStyle({ color: '#ffe066' }));
 
-    // Start in WilderView mode — setMode() adjusts visibility.
-    wvActive.setVisible(true);
-    wvInactive.setVisible(false);
-    arenaActive.setVisible(false);
-    arenaInactive.setVisible(true);
-
-    // ── Divider ────────────────────────────────────────────────────────────────
+    // Thin divider below the tabs
     const divY = btnY0 + btnGap * 2 + 10;
     this.add.rectangle(cx, divY, BTN_W, 1, 0x3a5a3a, 0.6);
+    this.treeStartY = divY + 14;
 
-    // ── WilderView-only controls (Free Cam + Dev overlays) ────────────────────
-    this.freeCamBtn = this.add.text(cx, divY + 22, 'Free Cam', {
-      fontSize: '13px', color: '#88aaff',
-      backgroundColor: '#111122aa',
-      padding: { x: 10, y: 5 },
-      fixedWidth: BTN_W, align: 'center',
-    }).setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerup',   () => this.game.events.emit('nav-toggle-free-cam'))
-      .on('pointerover', () => this.freeCamBtn.setStyle({ color: '#bbddff' }))
-      .on('pointerout',  () => this.freeCamBtn.setStyle({ color: this.freeCamBtn.text.includes('✓') ? '#ffffff' : '#88aaff' }));
+    // ── Layer tree builder helpers ─────────────────────────────────────────────
 
-    // Dev overlay buttons — toggling elevation heatmap or biome colour map.
-    // Each acts as a toggle: clicking the active mode turns it off.
-    this.elevMapBtn = this.add.text(cx, divY + 66, 'Elev Map', {
-      fontSize: '13px', color: '#cc88ff',
-      backgroundColor: '#220033aa',
-      padding: { x: 10, y: 5 },
-      fixedWidth: BTN_W, align: 'center',
-    }).setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerup',   () => this.game.events.emit('nav-toggle-elev-overlay'))
-      .on('pointerover', () => this.elevMapBtn.setStyle({ color: '#eeccff' }))
-      .on('pointerout',  () => this.elevMapBtn.setStyle({ color: this.elevMapBtn.text.includes('✓') ? '#ffffff' : '#cc88ff' }));
+    /**
+     * Create a collapsible section header.
+     * Clicking it toggles openSections[section] and calls rebuildLayout().
+     */
+    const mkHeader = (label: string, section: keyof typeof this.openSections): Phaser.GameObjects.Text => {
+      const icon = this.openSections[section] ? '▾ ' : '▸ ';
+      const t = this.add.text(cx, 0, icon + label, {
+        fontSize: '11px', color: '#7aaa7a',
+        padding: { x: 10, y: 3 },
+        fixedWidth: BTN_W, align: 'left',
+      }).setOrigin(0.5)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerup', () => {
+          this.openSections[section] = !this.openSections[section];
+          t.setText((this.openSections[section] ? '▾ ' : '▸ ') + label);
+          this.rebuildLayout();
+        })
+        .on('pointerover', () => t.setStyle({ color: '#aaffaa' }))
+        .on('pointerout',  () => t.setStyle({ color: '#7aaa7a' }));
+      return t;
+    };
 
-    this.biomeMapBtn = this.add.text(cx, divY + 110, 'Biome Map', {
-      fontSize: '13px', color: '#88ffcc',
-      backgroundColor: '#002233aa',
-      padding: { x: 10, y: 5 },
-      fixedWidth: BTN_W, align: 'center',
-    }).setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerup',   () => this.game.events.emit('nav-toggle-biome-overlay'))
-      .on('pointerover', () => this.biomeMapBtn.setStyle({ color: '#ccffee' }))
-      .on('pointerout',  () => this.biomeMapBtn.setStyle({ color: this.biomeMapBtn.text.includes('✓') ? '#ffffff' : '#88ffcc' }));
+    /**
+     * Create a layer toggle button.
+     * pointerout restores the active (✓) colour if the layer is on, otherwise base colour.
+     */
+    const mkBtn = (
+      label: string,
+      baseColor: string,
+      bg: string,
+      onUp: () => void,
+      startActive = false,
+    ): Phaser.GameObjects.Text => {
+      const initLabel = startActive ? label + ' ✓' : label;
+      const initColor = startActive ? '#ffffff'     : baseColor;
+      const t = this.add.text(cx, 0, initLabel, {
+        fontSize: '12px', color: initColor,
+        backgroundColor: bg,
+        padding: { x: 10, y: 4 },
+        fixedWidth: BTN_W, align: 'center',
+      }).setOrigin(0.5)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerup', onUp)
+        .on('pointerover', () => t.setStyle({ color: '#ffffff' }))
+        .on('pointerout',  () => {
+          t.setStyle({ color: t.text.includes('✓') ? '#ffffff' : baseColor });
+        });
+      return t;
+    };
 
-    // Toggle world decorations (trees, paths, zone tints) on/off.
-    this.decorBtn = this.add.text(cx, divY + 154, 'Decor', {
-      fontSize: '13px', color: '#ffcc88',
-      backgroundColor: '#332200aa',
-      padding: { x: 10, y: 5 },
-      fixedWidth: BTN_W, align: 'center',
-    }).setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerup',   () => this.game.events.emit('nav-toggle-decor'))
-      .on('pointerover', () => this.decorBtn.setStyle({ color: '#ffeecc' }))
-      .on('pointerout',  () => this.decorBtn.setStyle({ color: this.decorBtn.text.includes('✓') ? '#ffffff' : '#ffcc88' }));
+    // ── Camera section ─────────────────────────────────────────────────────────
+    this.cameraHeader = mkHeader('Camera', 'camera');
+    this.freeCamBtn   = mkBtn('Free Cam', '#88aaff', '#111122aa',
+      () => this.game.events.emit('nav-toggle-free-cam'));
+    this.cameraItems  = [this.freeCamBtn];
 
-    // Toggle wildlife (rabbits, deer, hare, fox) visibility on/off.
-    this.animalsBtn = this.add.text(cx, divY + 198, 'Animals', {
-      fontSize: '13px', color: '#aaffaa',
-      backgroundColor: '#002200aa',
-      padding: { x: 10, y: 5 },
-      fixedWidth: BTN_W, align: 'center',
-    }).setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerup',   () => this.game.events.emit('nav-toggle-animals'))
-      .on('pointerover', () => this.animalsBtn.setStyle({ color: '#ccffcc' }))
-      .on('pointerout',  () => this.animalsBtn.setStyle({ color: this.animalsBtn.text.includes('✓') ? '#ffffff' : '#aaffaa' }));
+    // ── Overlays section ───────────────────────────────────────────────────────
+    this.overlaysHeader = mkHeader('Overlays', 'overlays');
+    this.elevMapBtn     = mkBtn('Elev Map',  '#cc88ff', '#220033aa',
+      () => this.game.events.emit('nav-toggle-elev-overlay'));
+    this.biomeMapBtn    = mkBtn('Biome Map', '#88ffcc', '#002233aa',
+      () => this.game.events.emit('nav-toggle-biome-overlay'));
+    this.overlayItems   = [this.elevMapBtn, this.biomeMapBtn];
 
+    // ── World section ──────────────────────────────────────────────────────────
+    this.worldHeader    = mkHeader('World', 'world');
+    // Decor (trees/rocks/flowers + particles) — starts hidden → no ✓
+    this.decorBtn       = mkBtn('Decor',       '#ffcc88', '#332200aa',
+      () => this.game.events.emit('nav-toggle-decor'));
+    // Animals — start visible → show ✓
+    this.animalsBtn     = mkBtn('Animals',     '#aaffaa', '#002200aa',
+      () => this.game.events.emit('nav-toggle-animals'), true);
+    // Paths — starts hidden
+    this.pathsBtn       = mkBtn('Paths',       '#88ccff', '#001133aa',
+      () => this.game.events.emit('nav-toggle-paths'));
+    // Zones — starts hidden
+    this.zonesBtn       = mkBtn('Zones',       '#ffaacc', '#220011aa',
+      () => this.game.events.emit('nav-toggle-zones'));
+    // Settlements — starts hidden
+    this.settlementsBtn = mkBtn('Settlements', '#ffdd88', '#221100aa',
+      () => this.game.events.emit('nav-toggle-settlements'));
+    // Fog — starts visible → show ✓
+    this.fogBtn         = mkBtn('Fog',         '#aaccff', '#112233aa',
+      () => this.game.events.emit('nav-toggle-fog'), true);
+    this.worldItems     = [
+      this.decorBtn, this.animalsBtn, this.pathsBtn,
+      this.zonesBtn, this.settlementsBtn, this.fogBtn,
+    ];
+
+    // Hint shown below the tree in WilderView mode
     const freeCamHint = this.add.text(cx, H - 80, 'WASD — pan\nScroll — zoom', {
       fontSize: '10px', color: '#3a5a3a', align: 'center',
     }).setOrigin(0.5, 1);
 
-    this.freeCamGroup = this.add.group([
-      this.freeCamBtn, this.elevMapBtn, this.biomeMapBtn,
-      this.decorBtn, this.animalsBtn, freeCamHint,
+    // Group everything so applyMode() can show/hide the tree in one call
+    this.wilderViewGroup = this.add.group([
+      this.cameraHeader, ...this.cameraItems,
+      this.overlaysHeader, ...this.overlayItems,
+      this.worldHeader, ...this.worldItems,
+      freeCamHint,
     ]);
 
-    // ── Arena-only controls (Play/AI, Reset) ───────────────────────────────────
+    // ── Arena controls ─────────────────────────────────────────────────────────
     this.playAiBtn = this.add.text(cx, divY + 22, 'Play', {
       fontSize: '13px', color: '#88aaff',
       backgroundColor: '#111122aa',
@@ -226,7 +265,9 @@ export class NavScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .on('pointerup',   () => this.game.events.emit('nav-toggle-play-mode'))
       .on('pointerover', () => this.playAiBtn.setStyle({ color: '#bbddff' }))
-      .on('pointerout',  () => this.playAiBtn.setStyle({ color: this.playAiBtn.text === 'AI' ? '#ffffff' : '#88aaff' }));
+      .on('pointerout',  () => this.playAiBtn.setStyle({
+        color: this.playAiBtn.text === 'AI' ? '#ffffff' : '#88aaff',
+      }));
 
     this.resetBtn = this.add.text(cx, divY + 66, 'Reset', {
       fontSize: '13px', color: '#ff9966',
@@ -239,22 +280,18 @@ export class NavScene extends Phaser.Scene {
       .on('pointerover', () => this.resetBtn.setStyle({ color: '#ffcc99' }))
       .on('pointerout',  () => this.resetBtn.setStyle({ color: '#ff9966' }));
 
-    const arenaHint = this.add.text(cx, H - 80, 'WASD — move\nSpace — attack\nShift — dash\n(Play mode)', {
-      fontSize: '10px', color: '#3a5a3a', align: 'center',
-    }).setOrigin(0.5, 1);
+    const arenaHint = this.add.text(cx, H - 80,
+      'WASD — move\nSpace — attack\nShift — dash\n(Play mode)', {
+        fontSize: '10px', color: '#3a5a3a', align: 'center',
+      }).setOrigin(0.5, 1);
 
     this.arenaGroup = this.add.group([this.playAiBtn, this.resetBtn, arenaHint]);
 
-    // Apply initial mode — set via launch data so it's correct on the first frame.
+    // ── Initial layout + mode ──────────────────────────────────────────────────
+    this.rebuildLayout();
     this.applyMode(this.initialMode, { wvActive, wvInactive, arenaActive, arenaInactive });
 
     // ── Feedback widget ────────────────────────────────────────────────────────
-    // DOM <input> + button appended to document.body and positioned with
-    // CSS `position:fixed` so it sticks to the nav panel regardless of canvas
-    // scale. Phaser's keyboard events are blocked while the input is focused by
-    // calling stopPropagation() on keydown/keyup — Phaser listens at the window
-    // level in bubble phase, so stopping propagation on the focused element
-    // prevents WASD/space/etc. from reaching the game scenes.
     this.buildFeedbackWidget();
 
     // ── Game event listeners ───────────────────────────────────────────────────
@@ -264,8 +301,7 @@ export class NavScene extends Phaser.Scene {
     }, this);
 
     this.game.events.on('nav-free-cam-changed', (active: boolean) => {
-      this.freeCamBtn.setText(active ? 'Free Cam ✓' : 'Free Cam');
-      this.freeCamBtn.setStyle({ color: active ? '#ffffff' : '#88aaff' });
+      this.syncBtn(this.freeCamBtn, 'Free Cam', '#88aaff', active);
     }, this);
 
     this.game.events.on('nav-play-mode-changed', (active: boolean) => {
@@ -273,39 +309,93 @@ export class NavScene extends Phaser.Scene {
       this.playAiBtn.setStyle({ color: active ? '#ffffff' : '#88aaff' });
     }, this);
 
-    // GameScene notifies us when the dev overlay mode changes so we can mark the
-    // active button with a ✓ and reset the inactive one.
+    // Dev overlay: only one can be active at a time
     this.game.events.on('nav-dev-overlay-changed', (mode: 'none' | 'elevation' | 'biome') => {
-      const elevOn  = mode === 'elevation';
-      const biomeOn = mode === 'biome';
-      this.elevMapBtn.setText( elevOn  ? 'Elev Map ✓' : 'Elev Map');
-      this.elevMapBtn.setStyle({ color: elevOn  ? '#ffffff' : '#cc88ff' });
-      this.biomeMapBtn.setText(biomeOn ? 'Biome Map ✓' : 'Biome Map');
-      this.biomeMapBtn.setStyle({ color: biomeOn ? '#ffffff' : '#88ffcc' });
+      this.syncBtn(this.elevMapBtn,  'Elev Map',  '#cc88ff', mode === 'elevation');
+      this.syncBtn(this.biomeMapBtn, 'Biome Map', '#88ffcc', mode === 'biome');
     }, this);
 
-    this.game.events.on('nav-decor-changed', (visible: boolean) => {
-      this.decorBtn.setText(visible ? 'Decor ✓' : 'Decor');
-      this.decorBtn.setStyle({ color: visible ? '#ffffff' : '#ffcc88' });
-    }, this);
-
-    this.game.events.on('nav-animals-changed', (visible: boolean) => {
-      this.animalsBtn.setText(visible ? 'Animals ✓' : 'Animals');
-      this.animalsBtn.setStyle({ color: visible ? '#ffffff' : '#aaffaa' });
-    }, this);
+    // Individual layer state feedback
+    this.game.events.on('nav-decor-changed',       (v: boolean) => { this.syncBtn(this.decorBtn,       'Decor',       '#ffcc88', v); }, this);
+    this.game.events.on('nav-animals-changed',     (v: boolean) => { this.syncBtn(this.animalsBtn,     'Animals',     '#aaffaa', v); }, this);
+    this.game.events.on('nav-paths-changed',       (v: boolean) => { this.syncBtn(this.pathsBtn,       'Paths',       '#88ccff', v); }, this);
+    this.game.events.on('nav-zones-changed',       (v: boolean) => { this.syncBtn(this.zonesBtn,       'Zones',       '#ffaacc', v); }, this);
+    this.game.events.on('nav-settlements-changed', (v: boolean) => { this.syncBtn(this.settlementsBtn, 'Settlements', '#ffdd88', v); }, this);
+    this.game.events.on('nav-fog-changed',         (v: boolean) => { this.syncBtn(this.fogBtn,         'Fog',         '#aaccff', v); }, this);
 
     // Clean up listeners and DOM elements when this scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.game.events.off('nav-mode-change', undefined, this);
-      this.game.events.off('nav-free-cam-changed', undefined, this);
-      this.game.events.off('nav-play-mode-changed', undefined, this);
-      this.game.events.off('nav-dev-overlay-changed', undefined, this);
-      this.game.events.off('nav-decor-changed', undefined, this);
-      this.game.events.off('nav-animals-changed', undefined, this);
+      this.game.events.off('nav-mode-change',          undefined, this);
+      this.game.events.off('nav-free-cam-changed',     undefined, this);
+      this.game.events.off('nav-play-mode-changed',    undefined, this);
+      this.game.events.off('nav-dev-overlay-changed',  undefined, this);
+      this.game.events.off('nav-decor-changed',        undefined, this);
+      this.game.events.off('nav-animals-changed',      undefined, this);
+      this.game.events.off('nav-paths-changed',        undefined, this);
+      this.game.events.off('nav-zones-changed',        undefined, this);
+      this.game.events.off('nav-settlements-changed',  undefined, this);
+      this.game.events.off('nav-fog-changed',          undefined, this);
       this.destroyFeedbackWidget();
     });
   }
 
+  /**
+   * Reposition all layer tree items so they pack tightly with no gaps.
+   * Called on create() and whenever a section header is clicked.
+   *
+   * Layout constants:
+   *   SECT_H = 22 px — section header height (11 px font + 2×3 px padding)
+   *   ITEM_H = 26 px — button row height    (12 px font + 2×4 px padding + 1 gap)
+   *   GAP    = 6  px — vertical gap between sections
+   */
+  private rebuildLayout(): void {
+    const cx     = this.scale.width - 80; // panel center X (W=800, PW=160 → 720)
+    let   y      = this.treeStartY;
+    const SECT_H = 22;
+    const ITEM_H = 26;
+    const GAP    = 6;
+
+    const placeSection = (
+      header: Phaser.GameObjects.Text,
+      items:  Phaser.GameObjects.Text[],
+      open:   boolean,
+    ) => {
+      header.setPosition(cx, y + SECT_H / 2);
+      y += SECT_H;
+      if (open) {
+        for (const btn of items) {
+          btn.setPosition(cx, y + ITEM_H / 2).setVisible(true);
+          y += ITEM_H;
+        }
+      } else {
+        for (const btn of items) btn.setVisible(false);
+      }
+      y += GAP;
+    };
+
+    placeSection(this.cameraHeader,   this.cameraItems,   this.openSections.camera);
+    placeSection(this.overlaysHeader, this.overlayItems,  this.openSections.overlays);
+    placeSection(this.worldHeader,    this.worldItems,    this.openSections.world);
+  }
+
+  /**
+   * Update a toggle button's label and colour to reflect its current active state.
+   * Active (on) → appends ✓ and uses white; inactive (off) → base label and base colour.
+   */
+  private syncBtn(
+    btn:       Phaser.GameObjects.Text,
+    baseLabel: string,
+    baseColor: string,
+    active:    boolean,
+  ): void {
+    btn.setText(active ? baseLabel + ' ✓' : baseLabel);
+    btn.setStyle({ color: active ? '#ffffff' : baseColor });
+  }
+
+  /**
+   * Switch between WilderView and Arena mode.
+   * Shows/hides the view-mode tab buttons, the layer tree, and the arena controls.
+   */
   private applyMode(
     mode: 'wilderview' | 'arena',
     btns: {
@@ -317,7 +407,6 @@ export class NavScene extends Phaser.Scene {
   ): void {
     this.currentMode = mode;
 
-    // Update feedback input placeholder to match the active context.
     if (this.feedbackInput) {
       this.feedbackInput.placeholder =
         mode === 'arena' ? 'Combat feedback...' : 'Feedback...';
@@ -329,13 +418,16 @@ export class NavScene extends Phaser.Scene {
     btns.arenaActive.setVisible(!wv);
     btns.arenaInactive.setVisible(wv);
 
-    this.freeCamGroup.getChildren().forEach(c =>
+    // Show/hide the entire layer tree (WilderView) or the arena controls
+    this.wilderViewGroup.getChildren().forEach(c =>
       (c as Phaser.GameObjects.Text).setVisible(wv));
     this.arenaGroup.getChildren().forEach(c =>
       (c as Phaser.GameObjects.Text).setVisible(!wv));
 
-    // Reset dynamic button states when switching modes.
+    // Visibility set above is a blanket show/hide; for items inside collapsed sections
+    // the rebuildLayout visibility state must be restored.
     if (wv) {
+      this.rebuildLayout();
       this.freeCamBtn.setText('Free Cam');
       this.freeCamBtn.setStyle({ color: '#88aaff' });
     } else {
@@ -357,8 +449,6 @@ export class NavScene extends Phaser.Scene {
    */
   private buildFeedbackWidget(): void {
     const wrapper = document.createElement('div');
-    // Prominent feedback widget — positioned in the lower half of the nav panel.
-    // BTN_W = 132 px → right:14px + width:132px fills the panel's button column.
     wrapper.style.cssText = [
       'position:fixed',
       'right:14px',
@@ -370,7 +460,6 @@ export class NavScene extends Phaser.Scene {
       'z-index:100',
     ].join(';');
 
-    // Section label
     const label = document.createElement('div');
     label.textContent = '✦ Feedback';
     label.style.cssText = [
@@ -398,10 +487,6 @@ export class NavScene extends Phaser.Scene {
     ].join(';');
 
     // Stop keydown/keyup from bubbling to Phaser's window-level listener.
-    // Phaser registers keyboard handlers with addEventListener(…, false) on
-    // window, so events propagate: input → … → window. stopPropagation() on
-    // the input element cuts the chain before it reaches Phaser, preventing
-    // WASD / space / etc. from firing game actions while the player types.
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Enter') { void this.submitFeedback(); }
@@ -430,9 +515,8 @@ export class NavScene extends Phaser.Scene {
       sendBtn.style.background = 'rgba(60,90,20,0.85)';
       sendBtn.style.color = '#ffe066';
     });
-    sendBtn.addEventListener('click',     () => { void this.submitFeedback(); });
+    sendBtn.addEventListener('click', () => { void this.submitFeedback(); });
 
-    // One-line status area — shows "Sent!" for 2 s after a successful submit.
     const status = document.createElement('div');
     status.style.cssText = 'color:#aaffaa;font-size:12px;text-align:center;height:16px;';
 
@@ -450,8 +534,7 @@ export class NavScene extends Phaser.Scene {
 
   /**
    * Remove the feedback DOM widget from the page.
-   * Called from the SHUTDOWN event handler to prevent leaks when the scene
-   * restarts (e.g. returning to main menu and re-entering the arena).
+   * Called from the SHUTDOWN event handler to prevent leaks when the scene restarts.
    */
   private destroyFeedbackWidget(): void {
     this.feedbackWrapper?.remove();
@@ -463,9 +546,7 @@ export class NavScene extends Phaser.Scene {
 
   /**
    * Read the current arena state for context metadata.
-   *
-   * Uses a duck-typed interface rather than importing CombatArenaScene to
-   * avoid a circular module dependency (CombatArenaScene → NavScene → …).
+   * Uses a duck-typed interface to avoid a circular module dependency.
    */
   private buildContextJson(): string {
     if (this.currentMode === 'arena') {
@@ -484,17 +565,14 @@ export class NavScene extends Phaser.Scene {
 
   /**
    * Submit the current input text as a feedback row.
-   *
-   * Disables the input and button while the async Supabase insert is in
-   * flight (prevents double-submits). Re-enables on both success and error.
-   * Shows a brief "Sent!" confirmation on success.
+   * Disables controls while the async insert is in flight; re-enables on completion.
    */
   private async submitFeedback(): Promise<void> {
     if (!this.feedbackInput || !this.feedbackSendBtn) return;
     const text = this.feedbackInput.value.trim();
     if (!text) return;
 
-    this.feedbackInput.disabled  = true;
+    this.feedbackInput.disabled   = true;
     this.feedbackSendBtn.disabled = true;
 
     try {
@@ -507,8 +585,7 @@ export class NavScene extends Phaser.Scene {
         }, 2000);
       }
     } finally {
-      // Always re-enable so a network error doesn't lock out the user.
-      this.feedbackInput.disabled  = false;
+      this.feedbackInput.disabled   = false;
       this.feedbackSendBtn.disabled = false;
     }
   }

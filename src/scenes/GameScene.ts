@@ -853,6 +853,11 @@ export class GameScene extends Phaser.Scene {
   private decorVisible = false;
   /** Whether wildlife (rabbits, ground animals) is currently visible. */
   private animalsVisible = true;
+  /** Individual layer visibility flags — tracked independently of the Decor master toggle. */
+  private pathsVisible       = false; // pathGraphics hidden at startup
+  private zonesVisible       = false; // zoneOverlays hidden at startup
+  private settlementsVisible = false; // settlementGlows hidden at startup
+  private fogVisible         = true;  // fogRt is visible by default
 
   /** Raw elevation value per tile [0,1.2] — stored during terrain bake. */
   private tileDevElev:  Float32Array | null = null;
@@ -7662,6 +7667,10 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('nav-toggle-animals', () => {
       this.toggleAnimals();
     }, this);
+    this.game.events.on('nav-toggle-paths',       () => { this.togglePaths();       }, this);
+    this.game.events.on('nav-toggle-zones',       () => { this.toggleZones();       }, this);
+    this.game.events.on('nav-toggle-settlements', () => { this.toggleSettlements(); }, this);
+    this.game.events.on('nav-toggle-fog',         () => { this.toggleFog();         }, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-goto-arena', undefined, this);
@@ -7670,6 +7679,10 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off('nav-toggle-biome-overlay', undefined, this);
       this.game.events.off('nav-toggle-decor', undefined, this);
       this.game.events.off('nav-toggle-animals', undefined, this);
+      this.game.events.off('nav-toggle-paths', undefined, this);
+      this.game.events.off('nav-toggle-zones', undefined, this);
+      this.game.events.off('nav-toggle-settlements', undefined, this);
+      this.game.events.off('nav-toggle-fog', undefined, this);
     });
   }
 
@@ -7718,6 +7731,34 @@ export class GameScene extends Phaser.Scene {
     this.groundAnimals?.setAlpha(this.animalsVisible ? 1 : 0);
     // true means animals are visible, button shows ✓
     this.game.events.emit('nav-animals-changed', this.animalsVisible);
+  }
+
+  /** Toggle path network independently of the Decor master toggle. */
+  togglePaths(): void {
+    this.pathsVisible = !this.pathsVisible;
+    this.pathGraphics.setVisible(this.pathsVisible);
+    this.game.events.emit('nav-paths-changed', this.pathsVisible);
+  }
+
+  /** Toggle zone tint overlays independently of the Decor master toggle. */
+  toggleZones(): void {
+    this.zonesVisible = !this.zonesVisible;
+    for (const ov of this.zoneOverlays.values()) ov.setVisible(this.zonesVisible);
+    this.game.events.emit('nav-zones-changed', this.zonesVisible);
+  }
+
+  /** Toggle settlement glow circles independently of the Decor master toggle. */
+  toggleSettlements(): void {
+    this.settlementsVisible = !this.settlementsVisible;
+    for (const g of this.settlementGlows) g.setVisible(this.settlementsVisible);
+    this.game.events.emit('nav-settlements-changed', this.settlementsVisible);
+  }
+
+  /** Toggle the fog-of-war render texture overlay on/off. */
+  toggleFog(): void {
+    this.fogVisible = !this.fogVisible;
+    if (this.fogRt) this.fogRt.setVisible(this.fogVisible);
+    this.game.events.emit('nav-fog-changed', this.fogVisible);
   }
 
   /** Pan the camera with WASD/arrows when in free-fly mode. */
