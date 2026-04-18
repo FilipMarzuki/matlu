@@ -142,6 +142,7 @@ export class MainMenuScene extends Phaser.Scene {
     addBtn(t('menu.stats'),      () => this.openStats());
     addBtn(t('menu.lore'),       () => this.openLore());
     addBtn(t('menu.credits'),    () => this.openCredits());
+    addBtn('Biome Inspector',    () => this.openBiomeInspector());
 
     // Start with first button focused
     setFocus(0);
@@ -284,5 +285,15 @@ export class MainMenuScene extends Phaser.Scene {
   private openLore(): void {
     this.scene.pause();
     this.scene.launch('LoreScene', this.scene.key as unknown as object);
+  }
+
+  private openBiomeInspector(): void {
+    this.fadeMusicOut();
+    this.bgSwapTimer.remove();
+    this.scene.stop(this.activeBgKey);
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start('BiomeInspectorScene');
+    });
   }
 }

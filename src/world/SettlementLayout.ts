@@ -1,32 +1,50 @@
 /**
- * SettlementLayout — generates the building placement for a settlement.
+ * SettlementLayout — JRPG-style grid-aligned settlement placement.
  *
- * ## Algorithm
- * Buildings are placed ring-by-ring using rejection sampling inside annular
- * zones. Each `BuildingDef` specifies a zone ('inner' | 'middle' | 'outer')
- * which maps to a radial fraction range. Within that range, candidate positions
- * are drawn from a uniform annular distribution (using the √r trick to avoid
- * centre-clustering) and tested for AABB overlap with already-placed buildings.
+ * ## Approach
+ * Classic top-down RPGs (Zelda, Final Fantasy, Chrono Trigger) hand-place
+ * buildings on a tile grid with a clear spatial hierarchy:
  *
- * Inner-zone buildings are placed first, giving economic centrepieces (market
- * halls, sawmills) priority before homes and storage fight for space.
+ *   1. Central plaza defined first — the civic heart
+ *   2. Key buildings seat around the plaza (they face it)
+ *   3. Secondary buildings fill a loose grid around those
+ *   4. Streets run south → plaza (main), east-west (cross), and north → landmark
  *
- * ## Why not Poisson disk?
- * The `poissonDisk` utility in rng.ts is great for open-world scatter where you
- * want even coverage of a large area. For small, zoned settlements we need
- * *controlled* density per ring — more freedom in the outer ring, tighter
- * packing in the inner — which rejection sampling expresses more cleanly.
+ * We replicate those rules procedurally using per-settlement templates. Each
+ * template hard-codes slot positions in tile-grid coordinates relative to the
+ * settlement centre so layouts are readable and tunable, not random.
  *
- * ## Determinism
- * The caller must pass a seeded RNG (mulberry32) so the layout is identical
- * on every page reload for a given settlement id and game seed.
+ * RNG is used only for minor ±8 % size variation per building instance —
+ * enough to break the "copy-paste" feel without disrupting the grid logic.
+ *
+ * ## Grid
+ * TILE = 16 px. All positions are snapped to the nearest tile so buildings
+ * align with the world tile grid and paths feel intentional.
+ *
+ * ## Output
+ * Returns a `SettlementLayout` containing:
+ *   - `buildings`  — array of placed buildings (same interface as before)
+ *   - `plaza`      — centre + size of the civic square
+ *   - `streets`    — axis-aligned rect segments for dirt paths
+ *
+ * GameScene consumes all three to draw the settlement ground layer before
+ * stamping building sprites and physics bodies.
  */
 
 import type { Settlement } from './Level1';
-import { buildingProgramme, SETTLEMENT_ECONOMY } from './BuildingCatalogue';
-import type { BuildingZone } from './BuildingCatalogue';
 
-/** A building that has been successfully placed in world space. */
+/** One tile in world pixels — all positions snap to this grid. */
+const TILE = 16;
+
+/** Snap a world coordinate to the nearest tile boundary. */
+function snap(v: number): number {
+  return Math.round(v / TILE) * TILE;
+}
+
+// ── Public interfaces ────────────────────────────────────────────────────────
+
+/** A building successfully placed in world space. Interface kept stable so
+ *  GameScene's sprite / physics stamping code requires no changes. */
 export interface PlacedBuilding {
   /** World x of the building centre. */
   x: number;
@@ -34,87 +52,209 @@ export interface PlacedBuilding {
   y: number;
   /** Display width in world pixels (drives sprite scale). */
   w: number;
-  /**
-   * Approximate display height — derived from the frame's aspect ratio.
-   * Used only for overlap rejection; the actual rendered height is computed
-   * from the sprite's intrinsic dimensions after scaling.
-   */
+  /** Approximate display height (w × 0.6 — used for overlap context only). */
   h: number;
   /** Named frame key on the 'building-roofs' texture. */
   frameKey: string;
-  /** Human-readable role — useful for future tooltip / lore systems. */
+  /** Human-readable role — for tooltips, lore, and future NPC attachment. */
   role: string;
 }
 
-// Radial fractions [min, max] as a proportion of the settlement radius.
-// Chosen so that:
-//   inner  starts outside a natural "plaza" clearing (~15% r)
-//   middle fills the main residential band
-//   outer  stops short of the dashed boundary circle (~88% r)
-const ZONE_RANGES: Record<BuildingZone, [number, number]> = {
-  inner:  [0.15, 0.38],
-  middle: [0.38, 0.65],
-  outer:  [0.65, 0.88],
-};
-
-/** Minimum pixel gap between the AABBs of any two buildings. */
-const MIN_GAP = 5;
+/** The open civic square at the heart of the settlement. */
+export interface PlazaDef {
+  /** World x of plaza centre. */
+  x: number;
+  /** World y of plaza centre. */
+  y: number;
+  /** Total width in pixels (always a multiple of TILE). */
+  w: number;
+  /** Total height in pixels (always a multiple of TILE). */
+  h: number;
+}
 
 /**
- * Generate the building layout for a settlement.
+ * An axis-aligned dirt street segment expressed as a top-left rect.
+ * GameScene draws these with fillRect before placing buildings.
+ */
+export interface StreetSegment {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Full layout returned to GameScene for rendering. */
+export interface SettlementLayout {
+  buildings: PlacedBuilding[];
+  plaza:     PlazaDef;
+  streets:   StreetSegment[];
+}
+
+// ── Template system ──────────────────────────────────────────────────────────
+
+/**
+ * A building slot in tile-grid units relative to the settlement centre.
+ * Positive col = east, positive row = south (screen-down).
+ */
+interface SlotDef {
+  col:      number;
+  row:      number;
+  role:     string;
+  frameKey: string;
+  /** Base display width in pixels — varied ±8% by rng per instance. */
+  w:        number;
+}
+
+interface Template {
+  /** Plaza width in tiles. */
+  plazaCols: number;
+  /** Plaza height in tiles. */
+  plazaRows: number;
+  /**
+   * Plaza centre row offset from settlement centre, in tiles.
+   * Negative = north of centre (typical — puts the entry street to the south).
+   */
+  plazaRowOffset: number;
+  slots: SlotDef[];
+}
+
+/**
+ * Per-settlement templates. Positions are intentional, not random — each
+ * settlement has its own character expressed in where things are placed.
+ *
+ * Reading the grid: col 0 = settlement centre x. Row 0 = settlement centre y.
+ * Negative row = north (up the screen). Negative col = west.
+ *
+ * Key buildings sit directly adjacent to the plaza (row/col ~±3–4 from centre
+ * depending on plaza size). Homes and storage fill the outer ring.
+ */
+const TEMPLATES: Record<string, Template> = {
+
+  // ── Strandviken — coastal fishing hamlet ──────────────────────────────────
+  // Longhouse anchors the north. Smokehouse and fishing hut flank the plaza
+  // east and west. Net sheds and a second fishing hut sit at the south edge.
+  strandviken: {
+    plazaCols: 4, plazaRows: 4, plazaRowOffset: -1,
+    slots: [
+      { col:  0, row: -5, role: 'longhouse',  frameKey: 'mw-longhouse',   w: 38 },
+      { col: -5, row: -2, role: 'smokehouse', frameKey: 'mw-smokehouse',  w: 22 },
+      { col:  5, row: -2, role: 'fishing-hut',frameKey: 'mw-cottage',     w: 18 },
+      { col: -5, row: -5, role: 'home',       frameKey: 'mw-cottage',     w: 20 },
+      { col:  5, row: -5, role: 'home',       frameKey: 'mw-cottage',     w: 20 },
+      { col: -4, row:  4, role: 'net-shed',   frameKey: 'mw-cottage',     w: 16 },
+      { col:  4, row:  4, role: 'fishing-hut',frameKey: 'mw-cottage',     w: 18 },
+    ],
+  },
+
+  // ── Skogsgläntan — forest trading village ─────────────────────────────────
+  // Largest settlement. Market hall dominates the north. Sawmill to the west,
+  // workshop to the east. Four dwellings ring the plaza. Storage at the south.
+  skogsglanten: {
+    plazaCols: 5, plazaRows: 4, plazaRowOffset: -1,
+    slots: [
+      { col:  0, row: -6, role: 'market-hall',frameKey: 'mw-market-hall', w: 40 },
+      { col: -6, row: -3, role: 'sawmill',    frameKey: 'mw-workshop',    w: 30 },
+      { col:  6, row: -3, role: 'workshop',   frameKey: 'mw-workshop',    w: 20 },
+      { col: -5, row: -6, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 26 },
+      { col:  5, row: -6, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 26 },
+      { col: -5, row:  4, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 24 },
+      { col:  5, row:  4, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 24 },
+      { col: -3, row:  6, role: 'storage',    frameKey: 'mw-cottage',     w: 16 },
+      { col:  3, row:  6, role: 'storage',    frameKey: 'mw-cottage',     w: 16 },
+    ],
+  },
+
+  // ── Klippbyn — isolated mountain hamlet ───────────────────────────────────
+  // Smallest settlement. Lodge at the north, smithy to the west, three
+  // shelter huts scattered around the south. Sparse, austere.
+  klippbyn: {
+    plazaCols: 4, plazaRows: 3, plazaRowOffset: -1,
+    slots: [
+      { col:  0, row: -5, role: 'lodge',       frameKey: 'mw-longhouse',   w: 34 },
+      { col: -4, row: -2, role: 'smithy',      frameKey: 'mw-workshop',    w: 22 },
+      { col:  4, row: -2, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 16 },
+      { col: -3, row:  4, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 14 },
+      { col:  3, row:  4, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 14 },
+    ],
+  },
+};
+
+// ── Layout function ──────────────────────────────────────────────────────────
+
+/**
+ * Generate the full layout for a settlement.
  *
  * @param s    Settlement definition from Level1.SETTLEMENTS
  * @param rng  Seeded PRNG (mulberry32) — must be dedicated to this settlement
- *             so drawing from it doesn't affect other placement systems
  */
-export function layoutSettlement(s: Settlement, rng: () => number): PlacedBuilding[] {
-  const economy = SETTLEMENT_ECONOMY[s.id];
-  // Unknown settlement id — return empty so no buildings are rendered.
-  if (!economy) return [];
-
-  const programme = buildingProgramme(economy);
-  const placed: PlacedBuilding[] = [];
-
-  for (const def of programme) {
-    const [rMin, rMax] = ZONE_RANGES[def.zone];
-
-    for (let n = 0; n < def.count; n++) {
-      // Width is randomised per instance within the def's [minW, maxW] range.
-      const w = def.minW + rng() * (def.maxW - def.minW);
-      // Approximate height: most Pixel Crawler roof frames are ~1.7:1 wide:tall,
-      // so multiply width by 0.6 to get a safe bounding box height for overlap tests.
-      const h = w * 0.6;
-
-      // Try up to 40 candidate positions — if none fit, skip this instance.
-      // A miss is preferable to forcing an overlap in a tight settlement.
-      for (let attempt = 0; attempt < 40; attempt++) {
-        // Uniform random point in the annulus [rMin·r, rMax·r].
-        // √(rng()) maps a uniform [0,1] to a radial distribution that is
-        // uniform in *area* within the annulus — without this correction the
-        // inner part of the ring is over-sampled.
-        const rFrac = rMin + Math.sqrt(rng()) * (rMax - rMin);
-        const angle = rng() * Math.PI * 2;
-        const bx    = s.x + Math.cos(angle) * rFrac * s.radius;
-        const by    = s.y + Math.sin(angle) * rFrac * s.radius;
-
-        // AABB overlap test against all already-placed buildings.
-        // Two AABBs overlap when both axes overlap, so we test whether the
-        // signed gap on each axis is positive — if both are negative, they overlap.
-        let overlaps = false;
-        for (const p of placed) {
-          const gapX = Math.abs(bx - p.x) - (w + p.w) / 2 - MIN_GAP;
-          const gapY = Math.abs(by - p.y) - (h + p.h) / 2 - MIN_GAP;
-          if (gapX < 0 && gapY < 0) { overlaps = true; break; }
-        }
-        if (overlaps) continue;
-
-        placed.push({ x: bx, y: by, w, h, frameKey: def.frameKey, role: def.role });
-        break; // success — move on to next instance
-      }
-      // If attempt loop exhausted without a placement, this instance is simply
-      // omitted. The settlement still renders with the buildings that did fit.
-    }
+export function layoutSettlement(s: Settlement, rng: () => number): SettlementLayout {
+  const template = TEMPLATES[s.id];
+  if (!template) {
+    // Unknown settlement — return empty layout so nothing breaks.
+    return { buildings: [], plaza: { x: s.x, y: s.y, w: 0, h: 0 }, streets: [] };
   }
 
-  return placed;
+  // Snap centre to tile grid — keeps everything pixel-aligned with the terrain.
+  const cx = snap(s.x);
+  const cy = snap(s.y);
+
+  // ── Plaza ────────────────────────────────────────────────────────────────
+  const plazaW  = template.plazaCols * TILE;
+  const plazaH  = template.plazaRows * TILE;
+  const plazaCY = cy + template.plazaRowOffset * TILE;
+  const plaza: PlazaDef = { x: cx, y: plazaCY, w: plazaW, h: plazaH };
+
+  // ── Buildings ────────────────────────────────────────────────────────────
+  const buildings: PlacedBuilding[] = template.slots.map(slot => {
+    const bx = snap(cx + slot.col * TILE);
+    const by = snap(cy + slot.row * TILE);
+    // ±8 % size variation for a hand-crafted feel — not enough to misalign.
+    const w  = Math.round(slot.w * (0.92 + rng() * 0.16));
+    const h  = Math.round(w * 0.6);
+    return { x: bx, y: by, w, h, frameKey: slot.frameKey, role: slot.role };
+  });
+
+  // ── Streets ──────────────────────────────────────────────────────────────
+  // Three axis-aligned dirt segments form the skeleton of the settlement:
+  //
+  //   Main street  (vertical)   — south entry point → plaza south face
+  //   Cross street (horizontal) — east edge → west edge through plaza mid
+  //   North spur   (vertical)   — plaza north face → landmark building area
+  //
+  // All widths are multiples of TILE so they align with the grid.
+  const MAIN_W  = 2 * TILE;   // 32 px — main street, wide enough for two people
+  const CROSS_W = 2 * TILE;   // 32 px — cross axis
+  const SPUR_W  = TILE;       // 16 px — narrower side lane
+
+  const plazaTop    = plazaCY - plazaH / 2;
+  const plazaBottom = plazaCY + plazaH / 2;
+
+  // South entry: one radius below centre, snapped to grid.
+  const entryY = snap(cy + s.radius);
+
+  const streets: StreetSegment[] = [
+    // Main street: south entry → plaza south face
+    {
+      x: cx - MAIN_W / 2,
+      y: plazaBottom,
+      w: MAIN_W,
+      h: Math.max(0, entryY - plazaBottom),
+    },
+    // Cross street: spans ~130 % of the radius east-west through plaza centre
+    {
+      x: snap(cx - s.radius * 0.65),
+      y: plazaCY - CROSS_W / 2,
+      w: snap(s.radius * 1.30),
+      h: CROSS_W,
+    },
+    // North spur: plaza north face → ~45 % of radius above centre
+    {
+      x: cx - SPUR_W / 2,
+      y: snap(cy - s.radius * 0.45),
+      w: SPUR_W,
+      h: Math.max(0, plazaTop - snap(cy - s.radius * 0.45)),
+    },
+  ];
+
+  return { buildings, plaza, streets };
 }
