@@ -6,11 +6,12 @@ file Linear bugs for any not already tracked.
 
 ## Environment
 
-- `BETTERSTACK_CONNECT_USER` — Better Stack Connect username
-- `BETTERSTACK_CONNECT_PASS` — Better Stack Connect password
+- `BETTERSTACK_SQL_USER` — Better Stack SQL Query API username
+- `BETTERSTACK_SQL_PASSWORD` — Better Stack SQL Query API password
+- `BETTERSTACK_SQL_ENDPOINT` (optional) — Better Stack SQL Query API host
 - `LINEAR_API_KEY` — Linear API key
 
-Connect endpoint: `https://eu-fsn-3-connect.betterstackdata.com`
+Default SQL endpoint: `https://eu-fsn-3-connect.betterstackdata.com`
 Log collection: `t523686_matlu_logs`
 
 ---
@@ -22,9 +23,9 @@ the full JSON log entry as a string:
 
 ```bash
 curl -s \
-  -u "$BETTERSTACK_CONNECT_USER:$BETTERSTACK_CONNECT_PASS" \
+  -u "$BETTERSTACK_SQL_USER:$BETTERSTACK_SQL_PASSWORD" \
   -H 'Content-type: plain/text' \
-  -X POST 'https://eu-fsn-3-connect.betterstackdata.com?output_format_pretty_row_numbers=0' \
+  -X POST "${BETTERSTACK_SQL_ENDPOINT:-https://eu-fsn-3-connect.betterstackdata.com}?output_format_pretty_row_numbers=0" \
   -d "SELECT
         JSONExtractString(raw, 'level') AS level,
         JSONExtractString(raw, 'message') AS message,

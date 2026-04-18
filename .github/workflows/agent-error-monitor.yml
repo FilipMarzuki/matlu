@@ -30,8 +30,9 @@ jobs:
           ANTHROPIC_API_KEY:          ${{ secrets.ANTHROPIC_API_KEY }}
           LINEAR_API_KEY:             ${{ secrets.LINEAR_API_KEY }}
           BETTERSTACK_API_TOKEN:      ${{ secrets.BETTERSTACK_API_TOKEN }}
-          BETTERSTACK_CONNECT_USER:   ${{ secrets.BETTERSTACK_CONNECT_USER }}
-          BETTERSTACK_CONNECT_PASS:   ${{ secrets.BETTERSTACK_CONNECT_PASS }}
+          BETTERSTACK_SQL_USER:       ${{ secrets.BETTERSTACK_SQL_USER || secrets.BETTERSTACK_CONNECT_USER }}
+          BETTERSTACK_SQL_PASSWORD:   ${{ secrets.BETTERSTACK_SQL_PASSWORD || secrets.BETTERSTACK_CONNECT_PASS }}
+          BETTERSTACK_SQL_ENDPOINT:   ${{ secrets.BETTERSTACK_SQL_ENDPOINT }}
           SUPABASE_URL:               ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY:  ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_TOKEN:               ${{ secrets.GITHUB_TOKEN }}
