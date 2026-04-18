@@ -63,6 +63,23 @@ interface EntityEntry {
     hearingRadius: number | null;
     sightMemoryMs: number | null;
   };
+  designNotes?: {
+    sprite?: string | null;
+    animations?: {
+      idle?:   string | null;
+      walk?:   string | null;
+      attack?: string | null;
+      hurt?:   string | null;
+      death?:  string | null;
+    } | null;
+    sounds?: {
+      ambient?: string | null;
+      aggro?:   string | null;
+      attack?:  string | null;
+      hurt?:    string | null;
+      death?:   string | null;
+    } | null;
+  } | null;
 }
 
 interface Registry {
@@ -217,6 +234,17 @@ function auditEntity(e: EntityEntry): EntityReport {
     e.behavior.hearingRadius !== null ? `${e.behavior.hearingRadius}px` : 'not set');
   info(e.behavior.flee,                   'Behavior: flee state (bonus)');
 
+  // ── Design notes ─────────────────────────────────────────────────────────────
+  const dn = e.designNotes;
+  const dnSprite    = !!(dn?.sprite);
+  const dnAnims     = !!(dn?.animations?.idle && dn?.animations?.walk && dn?.animations?.attack && dn?.animations?.hurt && dn?.animations?.death);
+  const dnSounds    = !!(dn?.sounds?.ambient  && dn?.sounds?.aggro   && dn?.sounds?.attack    && dn?.sounds?.hurt    && dn?.sounds?.death);
+  const dnComplete  = dnSprite && dnAnims && dnSounds;
+  info(dnComplete, 'Design notes: complete',
+    dnComplete ? 'sprite + animations + sounds' :
+    dn         ? `partial — missing: ${[!dnSprite && 'sprite', !dnAnims && 'animations', !dnSounds && 'sounds'].filter(Boolean).join(', ')}` :
+                 'none — entity-spec-fill agent will populate on next run');
+
   const missing = checks.filter(c => !c.pass).map(c => c.label);
   const pct     = Math.round((score / TOTAL) * 100);
 
@@ -279,9 +307,16 @@ function printReport(reports: EntityReport[]): void {
   console.log('');
   console.log('═'.repeat(72));
   console.log(`${BOLD}Summary${RESET}`);
+  const withDesignNotes = reports.filter(r => {
+    const dn = r.entity.designNotes;
+    return !!(dn?.sprite && dn?.animations?.attack && dn?.sounds?.aggro);
+  }).length;
+
   console.log(`  Entities audited : ${total}`);
   console.log(`  ${GREEN}Ship-ready (≥82%)${RESET}: ${shipReady}/${total}`);
   console.log(`  Average score    : ${scoreColor(avgPct)}${avgPct}%${RESET}  ${scoreColor(avgPct)}${bar(avgPct)}${RESET}`);
+  const dnColor = withDesignNotes === total ? GREEN : withDesignNotes > 0 ? YELLOW : RED;
+  console.log(`  Design notes     : ${dnColor}${withDesignNotes}/${total}${RESET} entities have full design notes`);
   console.log('');
 
   // Top gaps
@@ -304,16 +339,20 @@ function printReport(reports: EntityReport[]): void {
 // ── JSON output ───────────────────────────────────────────────────────────────
 
 function printJson(reports: EntityReport[]): void {
-  const out = reports.map(r => ({
-    class:     r.entity.class,
-    type:      r.entity.type,
-    world:     r.entity.world,
-    score:     r.score,
-    total:     r.total,
-    pct:       r.pct,
-    shipReady: r.pct >= 82,
-    missing:   r.missing,
-  }));
+  const out = reports.map(r => {
+    const dn = r.entity.designNotes;
+    return {
+      class:           r.entity.class,
+      type:            r.entity.type,
+      world:           r.entity.world,
+      score:           r.score,
+      total:           r.total,
+      pct:             r.pct,
+      shipReady:       r.pct >= 82,
+      hasDesignNotes:  !!(dn?.sprite && dn?.animations?.attack && dn?.sounds?.aggro),
+      missing:         r.missing,
+    };
+  });
   console.log(JSON.stringify(out, null, 2));
 }
 

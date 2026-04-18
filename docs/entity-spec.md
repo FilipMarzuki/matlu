@@ -124,6 +124,53 @@ before the enemy physically reaches them — this is fair warning.
 
 ---
 
+## Design notes (`designNotes`)
+
+Every entity in the registry has a `designNotes` object. This is the creative
+brief — written by the entity-spec-fill agent (`.agents/entity-spec-fill.md`,
+runs daily at 16:00 UTC) — that artists and sound designers follow when
+building actual assets.
+
+```jsonc
+"designNotes": {
+  // 2–4 sentences: body shape, size, palette, what makes it readable at a glance.
+  "sprite": "...",
+
+  "animations": {
+    // Subtle life — what body part moves, what the rhythm feels like.
+    "idle": "...",
+    // Locomotion — body bob, lean, limb pattern, weight.
+    "walk": "...",
+    // CRITICAL: wind-up frames (≥3, the telegraph) → hit frame → recovery.
+    "attack": "...",
+    // Brief flinch, 2–3 frames, distinct from idle.
+    "hurt": "...",
+    // Full death sequence — where does the body go? Does it crumple, dissolve?
+    "death": "..."
+  },
+
+  "sounds": {
+    // Raw character + duration in ms + real-world reference for freesound.org search.
+    "ambient": "...",
+    // "I see you" — pitch, urgency, character.
+    "aggro": "...",
+    // Wind-up cue and/or impact cue, timed to animation frames.
+    "attack": "...",
+    // Pain response — short, distinct from death, describe 2–3 variant range.
+    "hurt": "...",
+    // Final sound — resolved, ~300–600ms, describe what makes it feel final.
+    "death": "..."
+  }
+}
+```
+
+The audit script checks whether `designNotes` is populated and reports coverage.
+Do not fill these manually — let the agent handle it. If a note is wrong or
+needs updating, add a comment in the registry's `personality` field and the
+agent will incorporate it on its next run.
+
+---
+
 ## Adding a new entity — checklist
 
 Copy this block into the registry, fill in, implement in order:
@@ -163,7 +210,9 @@ Copy this block into the registry, fill in, implement in order:
     "aggroRadius":   null,
     "hearingRadius": null,
     "sightMemoryMs": null
-  }
+  },
+  // Written by entity-spec-fill agent — do not fill manually.
+  "designNotes": null
 }
 ```
 

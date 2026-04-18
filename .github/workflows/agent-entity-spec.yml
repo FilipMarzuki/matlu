@@ -1,0 +1,55 @@
+name: Entity Spec Fill
+
+# Reads entity-registry.json and writes detailed designNotes for every entity
+# missing sprite/animation/sound descriptions. Runs daily after lore agents
+# so it can draw on Notion lore that was just expanded.
+#
+# Output: updates src/entities/entity-registry.json with designNotes on each
+# entity and commits/pushes directly to main. Artists and sound designers
+# use these notes as a creative brief when building assets.
+#
+# Manual: trigger from the Actions tab. No inputs needed.
+
+on:
+  schedule:
+    # 16:00 UTC daily — after lore-autofill (14:00) and lore-features (15:00).
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-entity-spec
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Run entity spec fill session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/entity-spec-fill.md)"
+
+      - name: Log token usage
+        if: always()
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/log-session-tokens.js --workflow "Entity Spec Fill"
+      # [token-logging-added]
