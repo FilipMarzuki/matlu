@@ -45,7 +45,8 @@ import { CrackedGolem } from '../entities/CrackedGolem';
 import { Projectile } from '../entities/Projectile';
 import { Bao } from '../heroes/Bao';
 import { MasterFen } from '../heroes/MasterFen';
-import { TheLivingSea } from '../heroes/TheLivingSea';
+import { TheTorrent } from '../heroes/TheTorrent';
+import { StormSovereign } from '../heroes/StormSovereign';
 import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
@@ -234,7 +235,7 @@ const BOSS_ENTRANCE_RADIUS = 500;
  * Active hero in arena mode. Change to 'masterfen' to play as Master Fen.
  * 'tinkerer' keeps the existing Tinkerer sprite with no panda abilities.
  */
-const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' | 'livingsea' = 'bao';
+const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' | 'torrent' | 'stormsovereign' = 'bao';
 
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
@@ -723,8 +724,15 @@ export class GameScene extends Phaser.Scene {
   /** Semi-opaque black screen overlay — visible while swarm is alive. */
   private dustlingOverlay!: Phaser.GameObjects.Rectangle;
   // ── Panda heroes (FIL-314) ────────────────────────────────────────────────────
-  /** Bao or Master Fen instance spawned in arena mode — null for Tinkerer. */
-  private arenaHero: Bao | MasterFen | TheLivingSea | null = null;
+  /** Hero instance spawned in arena mode — null for Tinkerer. */
+  private arenaHero: Bao | MasterFen | TheTorrent | StormSovereign | null = null;
+  /**
+   * Active enemy group exposed so StormSovereign.monsoon() can iterate all
+   * live enemies without a spatial query. Populated in create(); added to in
+   * registerEnemy() so any enemy spawned during gameplay is automatically
+   * included. Satisfies the EnemyHostScene interface from StormSovereign.
+   */
+  public enemies!: Phaser.GameObjects.Group;
   /** Keyboard keys 1–3 drive hero abilities; 4 = Master Fen signature (Torrent). */
   private abilityKey1?: Phaser.Input.Keyboard.Key;
   private abilityKey2?: Phaser.Input.Keyboard.Key;
@@ -1372,6 +1380,9 @@ export class GameScene extends Phaser.Scene {
     this.foxEnemies  = this.physics.add.group();
     this.crowEnemies = this.physics.add.group();
     this.wispEnemies = this.physics.add.group();
+    // Combined enemies group — exposes the EnemyHostScene interface required
+    // by StormSovereign.monsoon() to iterate all active enemies in one pass.
+    this.enemies = this.physics.add.group();
     this.spawnCorruptedEnemies();
 
     // Corrupted rabbits deal damage when they touch the player.
@@ -3331,6 +3342,7 @@ export class GameScene extends Phaser.Scene {
       d.setDepth(SWARM_Y);
       this.physics.add.existing(d);
       (d.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
+      this.enemies.add(d);
       this.dustlings.push(d);
     }
 
@@ -3402,6 +3414,9 @@ export class GameScene extends Phaser.Scene {
         }
       });
 
+      // Register in the combined enemies group so StormSovereign.monsoon()
+      // can iterate all live entities without knowing their concrete types.
+      this.enemies.add(shade);
       this.dryShades.push(shade);
     }
   }
@@ -3429,6 +3444,13 @@ export class GameScene extends Phaser.Scene {
     // Sync hero world position to the player container every frame.
     hero.setPosition(this.player.x, this.player.y);
     hero.update(delta);
+
+    // Y-sort StormSovereign's scene-level rain emitter so it renders above
+    // the ground layer but below entities at higher Y. TheTorrent's emitter
+    // is inside the Container and inherits depth automatically.
+    if (hero instanceof StormSovereign) {
+      hero.setEmitterDepth(hero.y);
+    }
 
     // Ability keys only fire when the hero is alive and input is active.
     if (!hero.isAlive || this.attractMode) return;
@@ -3466,10 +3488,19 @@ export class GameScene extends Phaser.Scene {
       if (this.abilityKey4 && Phaser.Input.Keyboard.JustDown(this.abilityKey4)) {
         hero.castTorrent();
       }
-    } else if (hero instanceof TheLivingSea) {
-      // Key 1 — Sea Remembers: mirror the last stored ability back at its source.
+    } else if (hero instanceof TheTorrent) {
+      // Key 1 — Fluid Form: briefly disables solid-layer collision so the hero
+      // can pass through terrain gaps. GameScene uses a static physics group
+      // (not a TilemapLayer), so solidLayer is omitted — the body-immovability
+      // change alone still lets the hero slip through dynamic bodies.
       if (Phaser.Input.Keyboard.JustDown(this.abilityKey1!)) {
-        hero.useSeaRemembers(this.heroProjectiles as unknown as import('../entities/Projectile').Damageable[]);
+        hero.fluidForm();
+      }
+    } else if (hero instanceof StormSovereign) {
+      // Key 1 — Monsoon: deal flat damage to all enemies in the `enemies` group
+      // and fire visual lightning bolts toward each one.
+      if (Phaser.Input.Keyboard.JustDown(this.abilityKey1!)) {
+        hero.monsoon();
       }
     }
 
@@ -3522,6 +3553,7 @@ export class GameScene extends Phaser.Scene {
         if (this.playerHp <= 0) this.onPlayerDeath();
       });
 
+      this.enemies.add(golem);
       this.golems.push(golem);
     }
 
@@ -4347,9 +4379,19 @@ export class GameScene extends Phaser.Scene {
       } else if (SELECTED_HERO === 'masterfen') {
         this.arenaHero = new MasterFen(this, SPAWN_X, SPAWN_Y);
         this.arenaHero.setAlpha(0);
-      } else if (SELECTED_HERO === 'livingsea') {
-        this.arenaHero = new TheLivingSea(this, SPAWN_X, SPAWN_Y);
+      } else if (SELECTED_HERO === 'torrent') {
+        // TheTorrent: water-construct with fluid-form ability. Container children
+        // (including the particle emitter) inherit the Container's depth, which is
+        // Y-sorted each frame in updateArenaHero. No manual emitter depth needed.
+        this.arenaHero = new TheTorrent(this, SPAWN_X, SPAWN_Y);
         this.arenaHero.setAlpha(0);
+      } else if (SELECTED_HERO === 'stormsovereign') {
+        // StormSovereign: rain aura + monsoon AoE. The rain emitter is a scene-level
+        // object (not a Container child) so we set its depth explicitly after construction
+        // to place it above the ground layer (Y-sort value) and below the HUD.
+        this.arenaHero = new StormSovereign(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero.setAlpha(0);
+        (this.arenaHero as StormSovereign).setEmitterDepth(SPAWN_Y);
       }
     } else {
       // WilderView: Pixel Crawler Free Pack Body_A character (64×64 px sheets)

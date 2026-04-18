@@ -52,6 +52,18 @@ export class StormSovereign extends LivingEntity {
     });
   }
 
+  /**
+   * Set the render depth of the rain particle emitter.
+   *
+   * Because the emitter is a scene-level game object (not a Container child),
+   * it starts at depth 0. Call this after construction to place particles
+   * above the ground layer but below the HUD. A value of `this.y` keeps them
+   * Y-sorted with the rest of the world.
+   */
+  setEmitterDepth(depth: number): void {
+    this.rainEmitter.setDepth(depth);
+  }
+
   override update(delta: number): void {
     if (!this.isAlive) return;
 

@@ -127,13 +127,18 @@ export class TheTorrent extends LivingEntity {
    * Both are restored after `fluidFormDurationMs` milliseconds.
    * Calls while the ability is already active are silently ignored.
    */
-  fluidForm(solidLayer: Phaser.Tilemaps.TilemapLayer): void {
+  fluidForm(solidLayer?: Phaser.Tilemaps.TilemapLayer | null): void {
     if (this.fluidFormActive) return;
     this.fluidFormActive = true;
 
     const arcadeBody = this.body as Phaser.Physics.Arcade.Body;
     arcadeBody.setImmovable(false);
-    solidLayer.setCollisionByProperty({ collides: true }, false);
+    // When a solid TilemapLayer is provided, temporarily disable its tile
+    // collision so the body can pass through narrow terrain gaps. Scenes that
+    // use a static physics group instead of a TilemapLayer (e.g. GameScene's
+    // procedural world) simply omit the argument — the body-immovability change
+    // alone still allows slipping past dynamic bodies.
+    solidLayer?.setCollisionByProperty({ collides: true }, false);
 
     // Tint the crystal core white to give visual feedback that the ability is
     // active. Restored when the timer fires.
@@ -142,7 +147,7 @@ export class TheTorrent extends LivingEntity {
     this.scene.time.delayedCall(this.fluidFormDurationMs, () => {
       if (!this.active) return; // hero may have been destroyed before the timer fired
       arcadeBody.setImmovable(true);
-      solidLayer.setCollisionByProperty({ collides: true }, true);
+      solidLayer?.setCollisionByProperty({ collides: true }, true);
       this.crystalCore.setFillStyle(CRYSTAL_COLOR);
       this.fluidFormActive = false;
     });
