@@ -782,3 +782,242 @@ export class TitanHalf extends CombatEntity {
     });
   }
 }
+
+// ── TrackerUnit ───────────────────────────────────────────────────────────────
+
+/**
+ * TrackerUnit — dedicated target-lock assassin drone.
+ *
+ * Locks onto the first opponent it detects (hero) and never retargets even if
+ * something else enters the arena. Overrides `findTargetOpponent()` to return
+ * the locked reference instead of nearest-living, so the BT always chases the
+ * same enemy regardless of distance or other entities on screen.
+ *
+ * Tactically more dangerous than a standard chaser: the player cannot "kite it
+ * away" by placing another enemy between them and the Tracker.
+ */
+export class TrackerUnit extends CombatEntity {
+  /** The locked target — set once on the first frame opponents are available. */
+  private lockedTarget: CombatEntity | null = null;
+
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:            55,
+      speed:            115,
+      aggroRadius:      600,
+      attackDamage:     18,
+      color:            0xffaa00,   // amber — hot pursuit
+      meleeRange:       28,
+      attackCooldownMs: 700,
+      dashSpeedMultiplier: 5.0,
+      dashDurationMs:      160,
+      sightMemoryMs:       5000,    // remembers the player for a long time
+    });
+  }
+
+  /**
+   * Lock onto the first living opponent we see and never change. If the locked
+   * target dies we fall back to nearest-living so the Tracker doesn't idle.
+   */
+  protected override findTargetOpponent(): CombatEntity | null {
+    if (!this.lockedTarget || !this.lockedTarget.isAlive) {
+      this.lockedTarget = this.findNearestLivingOpponent();
+    }
+    return this.lockedTarget;
+  }
+
+  protected buildTree(): BtNode {
+    return new BtSelector([
+
+      // ── 1. Melee ──────────────────────────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y)
+            < this.meleeRange,
+        ),
+        new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
+      ]),
+
+      // ── 2. Closing dash (4 s cooldown) ───────────────────────────────────
+      // When within 200 px but outside melee range, burst toward the target.
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d > this.meleeRange && d < 200;
+          }),
+          new BtAction(ctx => {
+            ctx.dash(ctx.opponent!.x, ctx.opponent!.y);
+            return 'success';
+          }),
+        ]),
+        4000,
+      ),
+
+      // ── 3. Chase locked target ────────────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
+      // ── 4. Wander (fallback) ──────────────────────────────────────────────
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+// ── StaticGhost ───────────────────────────────────────────────────────────────
+
+/**
+ * StaticGhost — intangible entity that phases through walls.
+ *
+ * On its first update frame after physics are added, the physics collision mask
+ * is cleared (`checkCollision.none = true`) so the Ghost passes through all
+ * obstacle colliders. Semi-transparent (alpha 0.5) to signal its nature visually.
+ *
+ * When it reaches the hero it applies `controlsInverted` for 2 s — left/right
+ * and up/down inputs are negated, making the player temporarily fight their own
+ * movement instincts.
+ *
+ * Low HP (30) and medium speed — intended as a harassment threat that rewards
+ * shooting it early rather than ignoring it.
+ */
+export class StaticGhost extends CombatEntity {
+  /** True once we've disabled collision (only needs to happen once). */
+  private phaseEnabled = false;
+
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:            30,
+      speed:            88,
+      aggroRadius:      500,
+      attackDamage:     0,          // damage comes from the inversion, not HP loss
+      color:            0xaaddff,   // pale blue — spectral
+      meleeRange:       26,
+      attackCooldownMs: 1200,
+    });
+    // Semi-transparent to signal wall-phasing to the player.
+    this.setAlpha(0.5);
+  }
+
+  override updateBehaviour(delta: number): void {
+    // Phase through walls on the first frame after addPhysics() wires a body.
+    if (!this.phaseEnabled) {
+      const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+      if (body) {
+        body.checkCollision.none = true;
+        this.phaseEnabled = true;
+      }
+    }
+    super.updateBehaviour(delta);
+  }
+
+  protected buildTree(): BtNode {
+    const INVERT_R = this.meleeRange;
+
+    return new BtSelector([
+
+      // ── 1. Touch — invert controls (no HP damage) ────────────────────────
+      // When within contact range, apply the controls-inverted debuff and stop
+      // briefly (the Ghost "passes through" the player rather than standing still).
+      new BtSequence([
+        new BtCondition(ctx =>
+          ctx.opponent !== null &&
+          Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y)
+            < INVERT_R,
+        ),
+        new BtAction(ctx => {
+          const target = this.findNearestLivingOpponent();
+          if (target) target.applyControlsInverted(2000);
+          ctx.stop();
+          return 'success';
+        }),
+      ]),
+
+      // ── 2. Chase ──────────────────────────────────────────────────────────
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
+        }),
+      ]),
+
+      // ── 3. Wander (fallback) ──────────────────────────────────────────────
+      new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
+    ]);
+  }
+}
+
+// ── SwarmMatrix ───────────────────────────────────────────────────────────────
+
+/**
+ * SwarmMatrix — corrupted drone hive that periodically spawns GlitchDrones.
+ *
+ * Does not move or attack directly. Every 8 s it emits a `'spawn-glitch-drone'`
+ * scene event carrying its current position — the arena scene listens for this
+ * event and creates new GlitchDrone instances (capped by MAX_ALIVE).
+ *
+ * Spawning is limited to 3 drones per pulse so the arena doesn't flood
+ * instantly, but multiple SwarmMatrices multiply output.
+ *
+ * High HP (160) and immobile — the player must push through drone harassment to
+ * destroy the source, creating a "DPS race" feel.
+ */
+export class SwarmMatrix extends CombatEntity {
+  /** Max drones emitted per spawn pulse. */
+  private static readonly DRONES_PER_PULSE = 3;
+  /** ms between spawn pulses. */
+  private static readonly SPAWN_INTERVAL_MS = 8000;
+
+  /** True once the spawn timer has been registered (body may not exist yet). */
+  private spawnScheduled = false;
+
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, {
+      maxHp:            160,
+      speed:            0,
+      aggroRadius:      0,
+      attackDamage:     0,
+      color:            0x446644,   // dark olive — industrial hive
+      meleeRange:       1,
+      attackCooldownMs: 99_999,
+    });
+  }
+
+  override updateBehaviour(delta: number): void {
+    // Register the repeating spawn timer on the first update so we don't call
+    // scene.time in the constructor (scene time isn't ready that early).
+    if (!this.spawnScheduled) {
+      this.spawnScheduled = true;
+      this.scene.time.addEvent({
+        delay:    SwarmMatrix.SPAWN_INTERVAL_MS,
+        loop:     true,
+        callback: () => {
+          if (!this.isAlive) return;
+          for (let i = 0; i < SwarmMatrix.DRONES_PER_PULSE; i++) {
+            // Scatter around the matrix so drones don't stack on spawn.
+            const angle  = (i / SwarmMatrix.DRONES_PER_PULSE) * Math.PI * 2;
+            const offset = 40;
+            this.scene.events.emit(
+              'spawn-glitch-drone',
+              this.x + Math.cos(angle) * offset,
+              this.y + Math.sin(angle) * offset,
+            );
+          }
+        },
+      });
+    }
+    super.updateBehaviour(delta);
+  }
+
+  protected buildTree(): BtNode {
+    // SwarmMatrix never moves — the BT only stops the physics body every tick.
+    return new BtAction(ctx => { ctx.stop(); return 'running'; });
+  }
+}

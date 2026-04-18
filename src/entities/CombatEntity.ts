@@ -219,6 +219,13 @@ export abstract class CombatEntity extends Enemy {
    * special abilities.
    */
   private signatureDisabledTimer = 0;
+  /**
+   * When true the entity's movement input axes are negated — left becomes
+   * right, up becomes down. Applied by StaticGhost on contact. The arena
+   * scene checks this flag before passing velocity to setMoveVelocity().
+   */
+  controlsInverted = false;
+  private controlsInvertedTimer = 0;
 
   /**
    * Obstacle AABBs used for line-of-sight checks. Populated by the arena
@@ -391,6 +398,16 @@ export abstract class CombatEntity extends Enemy {
   }
 
   /**
+   * Invert this entity's movement controls for `ms` milliseconds — applied by
+   * StaticGhost on contact. The arena scene negates dx/dy when this flag is set.
+   * Extends any existing inversion rather than cutting it short.
+   */
+  applyControlsInverted(ms: number): void {
+    this.controlsInverted = true;
+    this.controlsInvertedTimer = Math.max(this.controlsInvertedTimer, ms);
+  }
+
+  /**
    * Register the obstacle rectangles for line-of-sight testing.
    * Called by CombatArenaScene after adding physics to this entity.
    */
@@ -505,6 +522,10 @@ export abstract class CombatEntity extends Enemy {
     if (this.signatureDisabledTimer > 0) {
       this.signatureDisabledTimer = Math.max(0, this.signatureDisabledTimer - delta);
       if (this.signatureDisabledTimer === 0) this.signatureDisabled = false;
+    }
+    if (this.controlsInvertedTimer > 0) {
+      this.controlsInvertedTimer = Math.max(0, this.controlsInvertedTimer - delta);
+      if (this.controlsInvertedTimer === 0) this.controlsInverted = false;
     }
 
     // Physics body — may be undefined if the scene hasn't added it yet.
