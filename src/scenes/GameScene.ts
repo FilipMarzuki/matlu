@@ -3078,7 +3078,7 @@ export class GameScene extends Phaser.Scene {
     // This pushes corrupted world states toward the HLD-style threatening palette
     // (purple + black) instead of neutral grey.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x14071f, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, 0x2d1440, 0.38)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3170,7 +3170,7 @@ export class GameScene extends Phaser.Scene {
     // Ease-in corruption darkness so low-cleanse states feel meaningfully oppressive,
     // while still clearing quickly near full cleanse.
     const corruption = 1 - ratio;
-    this.overlay.setAlpha(0.34 * Math.pow(corruption, 1.1));
+    this.overlay.setAlpha(0.28 * Math.pow(corruption, 0.85));
   }
 
   private createPortal(): void {
@@ -5568,6 +5568,136 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Draw small deterministic speckles on land tiles to add player-scale texture.
+   *
+   * CrossCode-style readability comes from two layers: broad biome colour identity
+   * and local texture variation under the player. The base tiles + biome wash
+   * already handle the first layer; this pass adds the second by stamping tiny
+   * biome-aware highlights/shadows so large areas don't read as flat colour fields.
+   *
+   * Depth 0.22 keeps this above the biome wash (0.1) but below cliffs (0.452+),
+   * paths (1), and all world props (2+).
+   */
+  private drawGroundMicroDetail(
+    biomeIdxGrid: Uint8Array,
+    tilesX: number,
+    tilesY: number,
+  ): void {
+    const T = TILE_SIZE;
+    const MARGIN = 3; // keep speckles away from tile edges to avoid seam emphasis
+    const DOT = 2;    // 2×2 world px → 6×6 screen px at zoom 3
+
+    // Per-biome speckle density (0–255). Higher = more frequent.
+    // Tuned so forest/heath read textured while shore/summit remain cleaner.
+    const DENSITY: readonly number[] = [
+      0,   // sea (skipped below)
+      62,  // rocky shore
+      74,  // sandy shore
+      112, // marsh
+      96,  // dry heath
+      124, // heath
+      142, // forest
+      154, // spruce
+      86,  // granite
+      72,  // summit
+      58,  // snow
+    ];
+
+    // Light and dark micro-detail colours per biome index.
+    const LIGHT: readonly number[] = [
+      0x000000, // sea unused
+      0xb6905e, // rocky shore
+      0xd6bc78, // sandy shore
+      0x5f874f, // marsh
+      0xbf9957, // dry heath
+      0x8aa84a, // heath
+      0x4f8f47, // forest
+      0x356f35, // spruce
+      0x8f8f96, // granite
+      0xa7a5a0, // summit
+      0xe5edf7, // snow
+    ];
+    const DARK: readonly number[] = [
+      0x000000, // sea unused
+      0x5e4428, // rocky shore
+      0x7a6336, // sandy shore
+      0x2e4b29, // marsh
+      0x6f5531, // dry heath
+      0x4f652d, // heath
+      0x2d5b2a, // forest
+      0x1f3f1f, // spruce
+      0x54545a, // granite
+      0x66635f, // summit
+      0xaab9cc, // snow
+    ];
+
+    const hash2 = (x: number, y: number, salt: number): number => {
+      let h = Math.imul(x ^ this.runSeed ^ salt, 0x9e3779b1);
+      h ^= Math.imul(y + salt, 0x85ebca6b);
+      h ^= h >>> 13;
+      h = Math.imul(h, 0xc2b2ae35);
+      return h >>> 0;
+    };
+
+    // Batch by colour to keep draw calls/state switches low.
+    const lightGroups = new Map<number, number[]>(); // color -> [x0,y0,x1,y1,...]
+    const darkGroups = new Map<number, number[]>();
+
+    const addPoint = (groups: Map<number, number[]>, color: number, x: number, y: number): void => {
+      let arr = groups.get(color);
+      if (!arr) {
+        arr = [];
+        groups.set(color, arr);
+      }
+      arr.push(x, y);
+    };
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const biome = biomeIdxGrid[ty * tilesX + tx];
+        if (biome === 0) continue; // no micro-detail on animated water
+
+        const density = DENSITY[biome] ?? 0;
+        if (density <= 0) continue;
+
+        const h1 = hash2(tx, ty, 0x1f123bb5);
+        if ((h1 & 0xff) > density) continue;
+
+        const tileX = tx * T;
+        const tileY = ty * T;
+        const usable = T - 2 * MARGIN - DOT;
+
+        // Primary highlight speckle.
+        const lx = tileX + MARGIN + ((h1 >>> 8) % usable);
+        const ly = tileY + MARGIN + ((h1 >>> 16) % usable);
+        addPoint(lightGroups, LIGHT[biome] ?? 0x888888, lx, ly);
+
+        // Secondary darker speckle on ~55% of highlighted tiles.
+        const h2 = hash2(tx, ty, 0x7f4a7c15);
+        if ((h2 & 0xff) < Math.floor(density * 0.55)) {
+          const dx = tileX + MARGIN + ((h2 >>> 9) % usable);
+          const dy = tileY + MARGIN + ((h2 >>> 17) % usable);
+          addPoint(darkGroups, DARK[biome] ?? 0x444444, dx, dy);
+        }
+      }
+    }
+
+    const gfx = this.add.graphics().setDepth(0.22);
+    for (const [color, coords] of lightGroups) {
+      gfx.fillStyle(color, 0.18);
+      for (let i = 0; i < coords.length; i += 2) {
+        gfx.fillRect(coords[i], coords[i + 1], DOT, DOT);
+      }
+    }
+    for (const [color, coords] of darkGroups) {
+      gfx.fillStyle(color, 0.14);
+      for (let i = 0; i < coords.length; i += 2) {
+        gfx.fillRect(coords[i], coords[i + 1], DOT, DOT);
+      }
+    }
+  }
+
+  /**
    * FIL-178: Cliff & Elevation Transition System.
    *
    * Renders layered cliff-face illusions at all south-facing and east-facing
@@ -6076,6 +6206,8 @@ export class GameScene extends Phaser.Scene {
     // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
     // matching the noise gradient closely enough to look organic at play zoom.
     this.drawBiomeColorWash(noise, tilesX, tilesY);
+    // Add fine-grain land texture at player scale so terrain reads less flat.
+    this.drawGroundMicroDetail(biomeIdxGrid, tilesX, tilesY);
     // FIL-178: cliff-face rendering — Y-sorted per row, biome-aware, multi-step.
     // biomeIdxGrid is now passed so the cliff system can look up per-biome colours.
     this.drawCliffEdges(biomeGrid, biomeIdxGrid, tilesX, tilesY);
