@@ -64,12 +64,19 @@
         "alert":  null
       },
       "sounds": {
-        "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "ambient": {
+          "keys":  ["sfx-velcrid-chirp-0", "sfx-velcrid-chirp-1", "sfx-velcrid-chirp-2"],
+          "files": [
+            "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-0.ogg",
+            "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-1.ogg",
+            "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-2.ogg"
+          ]
+        },
+        "alert":  null,
+        "aggro":  null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null
       },
       "behavior": {
         "buildTree":     true,
@@ -80,7 +87,7 @@
         "flee":          false,
         "aggroRadius":   500,
         "hearingRadius": null,
-        "sightMemoryMs": null
+        "sightMemoryMs": 800
       }
     },
 
@@ -1055,11 +1062,11 @@
       "spriteKey": "tinkerer",
       "spritesheetJson": "public/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json",
       "animTags": {
-        "idle":   null,
-        "walk":   null,
-        "attack": null,
+        "idle":   "idle_south",
+        "walk":   "walk_south",
+        "attack": "attack_melee_south",
         "hurt":   null,
-        "death":  null,
+        "death":  "death_south",
         "alert":  null
       },
       "sounds": {
