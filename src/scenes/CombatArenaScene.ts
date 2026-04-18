@@ -218,6 +218,24 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/tilesets/arena/arena_floor_colosseum.png',
       { frameWidth: 16, frameHeight: 16 },
     );
+
+    // Dungeon floor — same Wang 4×4 format (16 frames, 16×16 each). Used in
+    // CombatArenaScene to replace the colosseum look with dark stone.
+    this.load.spritesheet(
+      'dungeon_floor',
+      'assets/sprites/tilesets/arena/arena_floor_earth.png',
+      { frameWidth: 16, frameHeight: 16 },
+    );
+    // Dungeon wall tiles — single 16×16 images from create_tiles_pro.
+    this.load.image('dungeon_wall_top',  'assets/sprites/tilesets/arena/dungeon_wall_top.png');
+    this.load.image('dungeon_wall_side', 'assets/sprites/tilesets/arena/dungeon_wall_side.png');
+    // Torch — 3-frame animated strip (48×16 total). Load as spritesheet; frame 1
+    // (medium flame) is used as a static placeholder; animation added in FIL-341.
+    this.load.spritesheet(
+      'dungeon_torch',
+      'assets/sprites/tilesets/arena/dungeon_torch.png',
+      { frameWidth: 16, frameHeight: 16 },
+    );
   }
 
   create(): void {
@@ -735,6 +753,8 @@ export class CombatArenaScene extends Phaser.Scene {
       const glowGfx = this.add.graphics();
       glowGfx.fillStyle(0xff9933, 0.18);
       glowGfx.fillCircle(tx, ty, 40);
+      // Torch sprite — frame 1 (medium flame). Animated flicker added in FIL-341.
+      this.add.image(tx, ty, 'dungeon_torch', 1).setDepth(2);
       this.tweens.add({
         targets:  glowGfx,
         alpha:    { from: 0.7, to: 1.0 },
@@ -1490,13 +1510,31 @@ export class CombatArenaScene extends Phaser.Scene {
           if (wx > x2 || wy > y2) continue;
           const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
           const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-          this.add.image(wx, wy, 'colosseum_floor', frame).setDepth(-1);
+          this.add.image(wx, wy, 'dungeon_floor', frame).setDepth(-1);
         }
       }
     };
 
     // Tile each room's floor.
     for (const room of rooms) tileRect(room.x, room.y, room.w, room.h);
+
+    // Dungeon wall tiles at room north and south edges — visual depth cues.
+    // North row: dungeon_wall_top (the top face seen from above).
+    // South row: dungeon_wall_side (the camera-facing front face).
+    // Both sit at depth 0 (above floor at -1, below entities).
+    for (const room of rooms) {
+      const x1 = Math.max(innerX, room.x);
+      const y1 = Math.max(innerY, room.y);
+      const x2 = Math.min(innerX + innerW, room.x + room.w);
+      const y2 = Math.min(innerY + innerH, room.y + room.h);
+      if (x2 <= x1 || y2 <= y1) continue;
+      const cols = Math.ceil((x2 - x1) / TILE);
+      for (let c = 0; c < cols; c++) {
+        const wx = x1 + c * TILE + TILE / 2;
+        this.add.image(wx, y1 + TILE / 2, 'dungeon_wall_top').setDepth(0);
+        this.add.image(wx, y2 - TILE / 2, 'dungeon_wall_side').setDepth(0);
+      }
+    }
 
     // Connect consecutive rooms with L-shaped corridors (horizontal leg first,
     // then vertical at the elbow). This guarantees at least one path between
