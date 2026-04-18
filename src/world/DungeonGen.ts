@@ -679,6 +679,188 @@ export function allRoomsConnected(n: number, connections: DungeonEdge[]): boolea
   return visited.size === n;
 }
 
+// ─── BSP dungeon generator ────────────────────────────────────────────────────
+
+/**
+ * A single node in the Binary Space Partitioning tree.
+ * Leaf nodes (no left/right children) each receive exactly one room.
+ * All coordinates are in tile space.
+ */
+interface BspNode {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  left?:  BspNode;
+  right?: BspNode;
+}
+
+/**
+ * Parameters for BSP dungeon generation.
+ * Similar to DungeonConfig but replaces scatter-placement parameters with BSP
+ * depth control — rooms are guaranteed to be spatially distributed because each
+ * BSP leaf partition gets exactly one room.
+ */
+export interface BspDungeonConfig {
+  /** Total dungeon width in tiles. */
+  cols: number;
+  /** Total dungeon height in tiles. */
+  rows: number;
+  /** Pixel size of each tile, passed through to IntGridLayer. */
+  cellSize: number;
+  /**
+   * Recursion depth for BSP splits.  Each level roughly doubles the room count:
+   *   depth 3 → ~8 leaves  (6–8 rooms after small-leaf pruning)
+   *   depth 4 → ~16 leaves (10–14 rooms)
+   */
+  maxDepth: number;
+  /** Minimum room width in tiles. */
+  minRoomW: number;
+  /** Maximum room width in tiles. */
+  maxRoomW: number;
+  /** Minimum room height in tiles. */
+  minRoomH: number;
+  /** Maximum room height in tiles. */
+  maxRoomH: number;
+  /**
+   * How many tiles wide each carved corridor is.
+   * 3 gives 48 px corridors at cellSize=16, wide enough for comfortable combat.
+   */
+  corridorWidth: number;
+  /**
+   * Fraction of non-MST Delaunay edges to re-add as loop corridors.
+   * Higher values create more shortcuts; 0.20 is enough to avoid dead-end mazes
+   * without making the layout feel trivially open.
+   */
+  loopFactor: number;
+  /** Dungeon archetype — influences thematic corruption / mana distribution. */
+  type: 'cave' | 'ruins' | 'corrupted';
+}
+
+/** BSP dungeon layout extends the base with arena-specific room tags. */
+export interface BspDungeonLayout extends DungeonLayout {
+  /**
+   * Index into rooms[] of the room where the hero spawns.
+   * This is the largest room (best manoeuvring space at spawn).
+   */
+  startRoomIndex: number;
+  /**
+   * Index into rooms[] of the "vault" — the second-largest room.
+   * Reserved for high-value encounters or secrets in future content passes.
+   */
+  vaultRoomIndex: number;
+}
+
+/**
+ * BSP arena config used by CombatArenaScene.
+ * 60×60 tiles × 16 px = 960×960 px world.  DUNGEON_ZOOM 3.5 makes the
+ * viewport ≈229×171 px ≈ 14×11 tiles — claustrophobic dungeon feel.
+ *
+ * corridorWidth=3 (48 px) is tight enough to funnel enemies while still
+ * allowing the hero to dodge; loopFactor=0.20 adds enough extra corridors
+ * that no room is a pure dead end.
+ */
+export const ARENA_BSP_CONFIG: BspDungeonConfig = {
+  cols:          60,
+  rows:          60,
+  cellSize:      16,
+  maxDepth:      4,        // 16 leaves → 10–14 rooms after small-leaf pruning
+  minRoomW:      5,
+  maxRoomW:      12,
+  minRoomH:      5,
+  maxRoomH:      10,
+  corridorWidth: 3,
+  loopFactor:    0.20,
+  type:          'corrupted',
+};
+
+// ── BSP internal helpers ──────────────────────────────────────────────────────
+
+/**
+ * Recursively split a BSP node into two children.
+ *
+ * Split axis is chosen by aspect ratio: wider nodes split vertically (left/right),
+ * taller nodes split horizontally (top/bottom).  A 30/70 split range keeps both
+ * children large enough to hold a room with margin.
+ *
+ * Splitting stops at maxDepth or when the node is too narrow to divide.
+ */
+function bspSplit(rng: () => number, node: BspNode, depth: number, maxDepth: number): void {
+  if (depth >= maxDepth) return;
+
+  const splitVertical = node.w >= node.h; // prefer splitting the longer axis
+
+  if (splitVertical) {
+    if (node.w < 8) return; // too narrow to split cleanly
+    const lo = Math.floor(node.w * 0.3);
+    const hi = Math.ceil(node.w * 0.7);
+    const cut = node.x + lo + Math.floor(rng() * (hi - lo + 1));
+    node.left  = { x: node.x, y: node.y, w: cut - node.x,             h: node.h };
+    node.right = { x: cut,    y: node.y, w: node.x + node.w - cut,    h: node.h };
+  } else {
+    if (node.h < 8) return; // too short to split cleanly
+    const lo = Math.floor(node.h * 0.3);
+    const hi = Math.ceil(node.h * 0.7);
+    const cut = node.y + lo + Math.floor(rng() * (hi - lo + 1));
+    node.left  = { x: node.x, y: node.y,     w: node.w, h: cut - node.y             };
+    node.right = { x: node.x, y: cut,        w: node.w, h: node.y + node.h - cut    };
+  }
+
+  bspSplit(rng, node.left,  depth + 1, maxDepth);
+  bspSplit(rng, node.right, depth + 1, maxDepth);
+}
+
+/** Collect all leaf nodes (nodes with no children) from a BSP tree. */
+function bspLeaves(node: BspNode): BspNode[] {
+  if (!node.left && !node.right) return [node];
+  const result: BspNode[] = [];
+  if (node.left)  result.push(...bspLeaves(node.left));
+  if (node.right) result.push(...bspLeaves(node.right));
+  return result;
+}
+
+/**
+ * Place one room per BSP leaf, randomly positioned within the partition.
+ * Leaves that are too small to hold even minRoomW × minRoomH with the 1-tile
+ * margin are silently skipped — BSP does not guarantee that every leaf is usable.
+ */
+function bspPlaceRooms(rng: () => number, leaves: BspNode[], config: BspDungeonConfig): Room[] {
+  const { minRoomW, maxRoomW, minRoomH, maxRoomH } = config;
+  const MARGIN = 1; // 1-tile gap between room edge and partition boundary
+  const rooms: Room[] = [];
+
+  for (const leaf of leaves) {
+    const usableW = leaf.w - MARGIN * 2;
+    const usableH = leaf.h - MARGIN * 2;
+
+    if (usableW < 3 || usableH < 3) continue; // leaf too small — skip
+
+    const rw = Math.min(maxRoomW, usableW);
+    const rh = Math.min(maxRoomH, usableH);
+    const w  = Math.max(minRoomW, Math.min(rw, minRoomW + Math.floor(rng() * (rw - minRoomW + 1))));
+    const h  = Math.max(minRoomH, Math.min(rh, minRoomH + Math.floor(rng() * (rh - minRoomH + 1))));
+
+    if (w > usableW || h > usableH) continue; // can't fit even after clamping
+
+    // Random position within the usable area of the partition.
+    const offX = MARGIN + (usableW > w ? Math.floor(rng() * (usableW - w + 1)) : 0);
+    const offY = MARGIN + (usableH > h ? Math.floor(rng() * (usableH - h + 1)) : 0);
+
+    const col = leaf.x + offX;
+    const row = leaf.y + offY;
+
+    rooms.push({
+      col, row, w, h,
+      cx: col + w / 2,
+      cy: row + h / 2,
+      corruptionLevel: 0,
+      manaLevel:       0,
+    });
+  }
+
+  return rooms;
+}
+
 // ─── Main entry point ──────────────────────────────────────────────────────────
 
 /**
@@ -782,4 +964,130 @@ export function generateDungeon(seed: number, config: DungeonConfig): DungeonLay
   };
 
   return { tiles, rooms, spawnPoints, entryPoint, exitPoint };
+}
+
+// ─── BSP entry point ───────────────────────────────────────────────────────────
+
+/**
+ * Generate a BSP dungeon — guaranteed room distribution across the whole map.
+ *
+ * ## How it differs from generateDungeon()
+ *
+ * `generateDungeon()` scatters rooms at random positions and retries on
+ * overlap, which can leave large empty voids or cluster rooms together.
+ * `bspGenerate()` first divides the dungeon into a tree of spatial partitions
+ * (BSP), then places exactly one room per leaf — so rooms are spread evenly
+ * across the map by construction, and no partition is wasted.
+ *
+ * ## Pipeline
+ * 1. BSP split the dungeon grid to `maxDepth` — produces 2^maxDepth leaf nodes.
+ * 2. Place one room per leaf (leaves too small for a room are skipped).
+ * 3. Carve rooms to floor on an all-wall grid.
+ * 4. Delaunay triangulation → MST + loop edges → L-shaped corridor carving.
+ * 5. Two light CA passes to roughen corridor edges.
+ * 6. Tag start room (largest), exit room (farthest from start), vault (2nd largest).
+ *
+ * @param seed    Integer seed.  Same seed + config → same dungeon.
+ * @param config  Use ARENA_BSP_CONFIG for the combat arena, or a custom config.
+ */
+export function bspGenerate(seed: number, config: BspDungeonConfig): BspDungeonLayout {
+  const rng = mulberry32(seed);
+  const { cols, rows, cellSize, corridorWidth, loopFactor } = config;
+
+  // ── 1. BSP tree — 1-tile border kept as permanent outer wall ────────────────
+  const root: BspNode = { x: 1, y: 1, w: cols - 2, h: rows - 2 };
+  bspSplit(rng, root, 0, config.maxDepth);
+  const leaves = bspLeaves(root);
+
+  // ── 2. Initialise grid — all walls ──────────────────────────────────────────
+  const values = new Array<number>(cols * rows).fill(1);
+
+  // ── 3. Place rooms in leaves, carve interiors to floor ──────────────────────
+  const rooms = bspPlaceRooms(rng, leaves, config);
+  for (const room of rooms) {
+    for (let r = room.row; r < room.row + room.h; r++) {
+      for (let c = room.col; c < room.col + room.w; c++) {
+        setTile(values, cols, rows, c, r, 0);
+      }
+    }
+  }
+
+  // ── 4. Delaunay + MST + loop edges ───────────────────────────────────────────
+  const allEdges    = delaunayEdges(rooms);
+  const mst         = rooms.length >= 2 ? buildMST(rooms.length, allEdges, rooms) : [];
+  const connections = addLoopEdges(rng, mst, allEdges, loopFactor);
+
+  // ── 5. Carve corridors ────────────────────────────────────────────────────────
+  carveCorridors(rng, values, cols, rows, rooms, connections, corridorWidth);
+
+  // ── 6. Light CA smoothing — roughens corridor edges organically ──────────────
+  // Two passes (vs. three in generateDungeon) to keep room walls sharp.
+  const caNoise = new FbmNoise(seed ^ 0xca11dead);
+  let grid = values;
+  for (let pass = 0; pass < 2; pass++) {
+    grid = caPass(grid, cols, rows, caNoise, 0.18, 0.78 - pass * 0.03);
+  }
+
+  // ── 7. Assign room thematic levels ───────────────────────────────────────────
+  assignRoomLevels(rng, rooms, config.type);
+
+  // ── 8. Handle degenerate case: no rooms placed ───────────────────────────────
+  if (rooms.length === 0) {
+    const centre: Vec2 = { x: (cols / 2) * cellSize, y: (rows / 2) * cellSize };
+    const tiles: IntGridLayer = { identifier: 'DungeonCollision', cellSize, cols, rows, values: grid };
+    return { tiles, rooms: [], spawnPoints: [], entryPoint: centre, exitPoint: centre, startRoomIndex: 0, vaultRoomIndex: 0 };
+  }
+
+  // ── 9. Derive spawn points ────────────────────────────────────────────────────
+  const spawnPoints: Vec2[] = rooms.map(r => ({
+    x: r.cx * cellSize,
+    y: r.cy * cellSize,
+  }));
+
+  // ── 10. Tag start (largest), exit (farthest from start), vault (2nd largest) ─
+
+  // Start room: largest area — most manoeuvring space for the spawning hero.
+  let startRoomIndex = 0;
+  let largestArea = 0;
+  for (let i = 0; i < rooms.length; i++) {
+    const area = rooms[i].w * rooms[i].h;
+    if (area > largestArea) { largestArea = area; startRoomIndex = i; }
+  }
+
+  // Exit room: farthest from start (maximises travel distance across the dungeon).
+  const startRoom = rooms[startRoomIndex];
+  let exitRoomIndex = startRoomIndex === 0 ? 1 : 0;
+  let maxDist2 = 0;
+  for (let i = 0; i < rooms.length; i++) {
+    if (i === startRoomIndex) continue;
+    const d = roomDist2(startRoom, rooms[i]);
+    if (d > maxDist2) { maxDist2 = d; exitRoomIndex = i; }
+  }
+
+  // Vault room: second-largest room that isn't the start or exit.
+  let vaultRoomIndex = exitRoomIndex;
+  let vaultArea = 0;
+  for (let i = 0; i < rooms.length; i++) {
+    if (i === startRoomIndex || i === exitRoomIndex) continue;
+    const area = rooms[i].w * rooms[i].h;
+    if (area > vaultArea) { vaultArea = area; vaultRoomIndex = i; }
+  }
+
+  const exitRoom = rooms[exitRoomIndex];
+  const entryPoint: Vec2 = { x: startRoom.cx * cellSize, y: startRoom.cy * cellSize };
+  const exitPoint:  Vec2 = { x: exitRoom.cx  * cellSize, y: exitRoom.cy  * cellSize };
+
+  // ── 11. Pack output ───────────────────────────────────────────────────────────
+  const tiles: IntGridLayer = {
+    identifier: 'DungeonCollision',
+    cellSize,
+    cols,
+    rows,
+    values: grid,
+  };
+
+  return {
+    tiles, rooms, spawnPoints, entryPoint, exitPoint,
+    startRoomIndex, vaultRoomIndex,
+  };
 }

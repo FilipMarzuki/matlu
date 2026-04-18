@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
+import { bspGenerate, ARENA_BSP_CONFIG, BspDungeonLayout } from '../world/DungeonGen';
 import { CombatEntity } from '../entities/CombatEntity';
 import { Tinkerer } from '../entities/Tinkerer';
 import { EarthHero } from '../entities/EarthHero';
@@ -91,10 +92,17 @@ export class CombatArenaScene extends Phaser.Scene {
 
   /**
    * AABB rectangles for line-of-sight tests — one entry per solid interior
-   * obstacle (stone pillars). Populated by buildArena() and passed to every
+   * obstacle (stone pillars). Populated by buildDungeon() and passed to every
    * entity via addPhysics() so their BT can call hasLineOfSight().
    */
   private wallRects: Phaser.Geom.Rectangle[] = [];
+
+  /**
+   * Generated BSP dungeon layout — stored so other methods can query room data,
+   * entry/exit points, etc. without re-running the generator.
+   * Null until buildDungeon() runs in create().
+   */
+  private dungeonLayout: BspDungeonLayout | null = null;
   /**
    * Procedurally-placed rooms, populated by buildRooms() during create().
    * Used by spawnHero() and spawnWaveGroup() to place entities inside rooms.
@@ -210,6 +218,15 @@ export class CombatArenaScene extends Phaser.Scene {
     this.load.audio('sfx-velcrid-chirp-1', 'assets/audio/creatures/mini-velcrid-chirp-1.ogg');
     this.load.audio('sfx-velcrid-chirp-2', 'assets/audio/creatures/mini-velcrid-chirp-2.ogg');
 
+    // VelcridJuvenile combat sounds — placeholder CC0 audio until proper creature
+    // recordings are sourced (see scripts/download-creature-sounds.js).
+    // Aggro: alien chirp burst on first sighting; attack: mandible snap;
+    // hurt: chitin crack; death: heavy collapse with resonance.
+    this.load.audio('sfx-velcrid-aggro',  'assets/audio/creatures/mini-velcrid/mini-velcrid-aggro.ogg');
+    this.load.audio('sfx-velcrid-attack', 'assets/audio/creatures/mini-velcrid/mini-velcrid-attack.ogg');
+    this.load.audio('sfx-velcrid-hurt',   'assets/audio/creatures/mini-velcrid/mini-velcrid-hurt.ogg');
+    this.load.audio('sfx-velcrid-death',  'assets/audio/creatures/mini-velcrid/mini-velcrid-death.ogg');
+
     this.load.aseprite(
       'tinkerer',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
@@ -260,7 +277,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudAlive   = -1;
     this._lastHudKills   = -1;
 
-    this.buildArena();
+    this.buildDungeon();
 
     // ── Stone shimmer filter (Phaser 4) ─────────────────────────────────────
     // Subtle UV warp + drifting warm specular on the arena floor.
@@ -385,6 +402,27 @@ export class CombatArenaScene extends Phaser.Scene {
         const distFactor = Math.max(0, 1 - dist / MAX_AMBIENT_DIST);
         const vol = ev.volume * distFactor;
         if (vol < 0.01) return; // too quiet to bother playing
+        const rate = ev.pitchMin + Math.random() * (ev.pitchMax - ev.pitchMin);
+        this.sound.play(ev.key, { volume: vol, rate });
+      },
+    );
+
+    // ── Entity combat vocalisations ───────────────────────────────────────────
+    // One-shot sounds for aggro, attack, hurt, and death events.
+    // Attenuated by camera distance — falls off faster than ambient chirps so
+    // only on-screen combat is audible (MAX_COMBAT_DIST = 600 px).
+    const MAX_COMBAT_DIST = 600;
+    this.events.on(
+      'entity-combat-sound',
+      (ev: { key: string; x: number; y: number; volume: number; pitchMin: number; pitchMax: number }) => {
+        if (!this.audioAvailable || !this.cache.audio.has(ev.key)) return;
+        const cam  = this.cameras.main;
+        const camX = cam.scrollX + cam.width  / 2;
+        const camY = cam.scrollY + cam.height / 2;
+        const dist = Phaser.Math.Distance.Between(ev.x, ev.y, camX, camY);
+        const distFactor = Math.max(0, 1 - dist / MAX_COMBAT_DIST);
+        const vol = ev.volume * distFactor;
+        if (vol < 0.01) return;
         const rate = ev.pitchMin + Math.random() * (ev.pitchMax - ev.pitchMin);
         this.sound.play(ev.key, { volume: vol, rate });
       },
@@ -569,248 +607,160 @@ export class CombatArenaScene extends Phaser.Scene {
 
   // ── Arena layout ─────────────────────────────────────────────────────────────
 
-  private buildArena(): void {
-    // Reset so a scene restart doesn't accumulate duplicate rects.
+  /**
+   * Generates a BSP dungeon and sets up the camera, physics world bounds, floor
+   * tiles, wall physics bodies, and decorative torch sprites.  Replaces the old
+   * buildArena() + buildRooms() pair.
+   *
+   * ## BSP guarantee
+   * Binary Space Partitioning first divides the tile grid into a tree of
+   * spatial partitions, then places exactly one room per leaf.  This spreads
+   * rooms evenly across the whole 60×60 tile world (960×960 px) — no voids,
+   * no clusters.  Corridors are carved with the same Delaunay MST pipeline
+   * as the GameScene dungeon generator.
+   *
+   * ## Wall physics
+   * Only wall tiles that directly border floor (4-connected) receive Arcade
+   * Physics StaticBody zones.  Interior wall masses (surrounded entirely by
+   * other walls) are unreachable and need no collider.
+   *
+   * ## Camera
+   * The viewport is smaller than the dungeon world, so the camera follows the
+   * hero with bounds clamped to the dungeon world size.
+   */
+  private buildDungeon(): void {
     this.wallRects = [];
 
-    const W      = this.scale.width;
-    const H      = this.scale.height;
-    const margin = 60;
-    // Reserve space for the right-side nav panel so the arena never goes behind it.
-    const rightEdge = this.bgMode ? W - margin : W - CombatArenaScene.PANEL_W - margin;
+    // ── Generate BSP layout (seed is fixed for deterministic CI screenshots) ──
+    const SEED = 0xdead_beef;
+    const layout = bspGenerate(SEED, ARENA_BSP_CONFIG);
+    this.dungeonLayout = layout;
 
-    this.arenaX = margin;
-    this.arenaY = margin;
-    this.arenaW = rightEdge - margin;
-    this.arenaH = H - margin * 2;
-    const cx = this.arenaX + this.arenaW / 2;
-    const cy = this.arenaY + this.arenaH / 2;
+    const CELL   = ARENA_BSP_CONFIG.cellSize;   // 16 px per tile
+    const dCols  = ARENA_BSP_CONFIG.cols;
+    const dRows  = ARENA_BSP_CONFIG.rows;
+    const worldW = dCols * CELL;                // 960 px
+    const worldH = dRows * CELL;                // 960 px
 
-    this.cameras.main.setBackgroundColor(0x120d08);
-    // Zoom in tighter than the overworld (3×) so the dungeon feels claustrophobic.
-    // NavScene owns its own camera, so it is unaffected by this zoom.
+    // Set arena bounds — used by spawn fallback helpers.
+    this.arenaX = 0;
+    this.arenaY = 0;
+    this.arenaW = worldW;
+    this.arenaH = worldH;
+
+    // ── Camera ──────────────────────────────────────────────────────────────
+    this.cameras.main.setBackgroundColor(0x120d08); // deep cave black
+    // DUNGEON_ZOOM 3.5 → viewport shows ≈229×171 px ≈ 14×11 tiles at once.
+    // The camera bounds here are the full dungeon world; the hero-follow in
+    // update() centres the viewport on the hero, clamped to these bounds.
     this.cameras.main.setZoom(DUNGEON_ZOOM);
-    this.cameras.main.centerOn(cx, cy);
-    // Clamp the camera to the arena rect so the viewport never pans far enough
-    // to reveal the void beyond the arena walls (the hard black rectangle edge).
-    this.cameras.main.setBounds(
-      this.arenaX, this.arenaY,
-      this.arenaW, this.arenaH,
-    );
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+    // Pre-center on the entry point so bgMode (menu background) shows the
+    // start room on the first frame before the hero-follow loop kicks in.
+    this.cameras.main.centerOn(layout.entryPoint.x, layout.entryPoint.y);
 
-    const WALL_T  = 22;
-    // WALL_INSET: how far to push the physics world bounds from the arena edge.
-    // Derivation: body-half (8) + sprite-half-max (24 for 48×48 Tinkerer) + clearance (8) = 40.
-    // Round up to WALL_T + 24 = 46 so the inset also exceeds the CHAMFER (42), making the
-    // corner-triangle zone bodies unreachable — world bounds stop entities at 46 px from the
-    // edge, well inside the 42 px diagonal cut.
-    //   Entity visual left edge min = (arenaX + 46 + 8) − 24 = arenaX + 30 > arenaX + 22 (wall face). ✓
-    const WALL_INSET = WALL_T + 24;  // 46 px total
-    // CHAMFER: how many pixels the octagonal corners cut inward.
-    const CHAMFER = 42;
+    // ── Physics world bounds ─────────────────────────────────────────────────
+    this.physics.world.setBounds(0, 0, worldW, worldH);
 
-    // Stone palette matching the floor tileset's warm travertine tones
-    const STONE_MID   = 0x9a7a58;
-    const STONE_LIGHT = 0xb8956e;
-    const STONE_DARK  = 0x6a5038;
-    const MORTAR_C    = 0x3a2818;
-
-    // ── Pillar positions (early — floor loop references them) ─────────────────
-    // Asymmetric placement: symmetric pairs feel staged; these feel like
-    // surviving ruins from a once-larger structure.
-    const pillarDefs: [number, number][] = [
-      [cx - 125, cy - 22],
-      [cx + 98,  cy + 38],
-    ];
-
-    // ── Procedural room layout ────────────────────────────────────────────────
-    // Rooms are placed and tiled inside buildRooms(). The returned array is
-    // stored on this.rooms so spawnHero() and spawnWaveGroup() can position
-    // entities inside rooms rather than at fixed arena coordinates.
-    this.rooms = this.buildRooms();
-
-    // ── Stone pillar obstacles ────────────────────────────────────────────────
-    // Broken columns in 3/4 top-down perspective: a lighter top face (visible
-    // from above) sits over a darker front face (camera-facing side), with a
-    // cast shadow ellipse at the base.
+    // ── Static obstacle group ─────────────────────────────────────────────────
+    // Wall tile bodies AND future pillar bodies share this group so all existing
+    // this.physics.add.collider(entity, this.obstacles) calls cover everything.
     this.obstacles = this.physics.add.staticGroup();
 
-    const PILLAR_W  = 28; // visual width
-    const PILLAR_FH = 22; // front face height (camera-facing)
-    const PILLAR_TH = 10; // top face height (foreshortened in 3/4 view)
+    const { values } = layout.tiles;
 
-    for (const [px, py] of pillarDefs) {
-      const pg = this.add.graphics();
+    // Inline tile reader — returns 1 (wall) for out-of-bounds coordinates.
+    const tv = (c: number, r: number): number => {
+      if (c < 0 || r < 0 || c >= dCols || r >= dRows) return 1;
+      return values[r * dCols + c] ?? 1;
+    };
 
-      // Cast shadow
-      pg.fillStyle(0x000000, 0.28);
-      pg.fillEllipse(px + 5, py + PILLAR_FH / 2 + 5, PILLAR_W + 14, 9);
+    // ── Tile rendering ─────────────────────────────────────────────────────────
+    // Floor tiles are rendered at depth -1.  Wall edge overlay tiles sit at
+    // depth 0 (above floor, below entities which start at depth 10+).
+    const FRAME_CLEAN = 12; // Wang tile index 15 — all-upper (clean stone)
+    const FRAME_WORN  = 6;  // Wang tile index  6 — half-worn variant
 
-      // Front face — darker, camera-facing stone
-      pg.fillStyle(STONE_DARK, 1);
-      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2, PILLAR_W, PILLAR_FH);
+    for (let row = 0; row < dRows; row++) {
+      for (let col = 0; col < dCols; col++) {
+        if (tv(col, row) !== 0) continue; // wall tiles — no floor render needed
 
-      // Top face — lighter, angled away from camera
-      pg.fillStyle(STONE_LIGHT, 1);
-      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, PILLAR_W, PILLAR_TH);
+        const wx = col * CELL + CELL / 2;
+        const wy = row * CELL + CELL / 2;
 
-      // Left highlight — ambient light catch
-      pg.fillStyle(0xc8a880, 1);
-      pg.fillRect(px - PILLAR_W / 2, py - PILLAR_FH / 2 - PILLAR_TH, 3, PILLAR_FH + PILLAR_TH);
+        // Hash-driven Wang frame picks; same formula as the old buildRooms().
+        const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
+        const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
+        this.add.image(wx, wy, 'dungeon_floor', frame).setDepth(-1);
 
-      // Right shadow — self-shadow
-      pg.fillStyle(0x3a2414, 1);
-      pg.fillRect(px + PILLAR_W / 2 - 3, py - PILLAR_FH / 2, 3, PILLAR_FH);
+        // North wall edge: floor tile adjacent to wall above.
+        // dungeon_wall_top shows the top face of the wall as seen from above —
+        // rendered over the floor tile so it appears to sit at the boundary.
+        if (tv(col, row - 1) === 1) {
+          this.add.image(wx, wy, 'dungeon_wall_top').setDepth(0);
+        }
 
-      // Mortar lines on front face
-      pg.lineStyle(1, MORTAR_C, 0.7);
-      for (let i = 1; i < 3; i++) {
-        const ly = py - PILLAR_FH / 2 + (PILLAR_FH / 3) * i;
-        pg.lineBetween(px - PILLAR_W / 2, ly, px + PILLAR_W / 2, ly);
+        // South wall edge: floor tile adjacent to wall below.
+        // dungeon_wall_side shows the camera-facing front face of the south wall.
+        if (tv(col, row + 1) === 1) {
+          this.add.image(wx, wy, 'dungeon_wall_side').setDepth(0);
+        }
       }
-      pg.lineBetween(px - PILLAR_W / 2, py - PILLAR_FH / 2, px + PILLAR_W / 2, py - PILLAR_FH / 2);
-
-      // Y-sort: depth = bottom of front face so the pillar occludes entities
-      // correctly — they walk behind the upper part, in front of the base.
-      pg.setDepth(py + PILLAR_FH / 2);
-
-      // Static physics body covering the pillar footprint
-      const zone = this.add.zone(px, py, PILLAR_W + 4, PILLAR_FH);
-      this.physics.add.existing(zone, true);
-      const bodyW = PILLAR_W - 4;
-      const bodyH = PILLAR_FH - 4;
-      (zone.body as Phaser.Physics.Arcade.StaticBody).setSize(bodyW, bodyH);
-      this.obstacles.add(zone);
-
-      // Register this pillar as a line-of-sight blocker.
-      // Uses the same AABB as the physics body (centred at px, py) so LOS
-      // is blocked by exactly the same region that blocks physical passage.
-      this.wallRects.push(new Phaser.Geom.Rectangle(
-        px - bodyW / 2, py - bodyH / 2, bodyW, bodyH,
-      ));
     }
 
-    // ── Octagonal wall border ─────────────────────────────────────────────────
-    // Wall drawn as 8 filled sections: 4 straight strips + 4 bevelled corner
-    // triangles. 3/4 perspective hints: top wall is thinner (lit top-face),
-    // bottom wall has an extra dark strip simulating visible front-face height.
-    const gfx = this.add.graphics();
+    // ── Wall physics bodies ────────────────────────────────────────────────────
+    // One StaticBody Zone per wall tile that directly borders floor (4-connected).
+    // Interior wall tiles (surrounded entirely by other walls) are unreachable —
+    // skipping them halves the body count with no gameplay difference.
+    for (let row = 0; row < dRows; row++) {
+      for (let col = 0; col < dCols; col++) {
+        if (tv(col, row) !== 1) continue;
 
-    const ashlarH = (bx: number, by: number, w: number, h: number, offset: number): void => {
-      const BRICK_W = 38;
-      let x = bx; let idx = offset;
-      while (x < bx + w) {
-        const bw = Math.min(BRICK_W, bx + w - x);
-        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
-        gfx.fillRect(x + 1, by + 1, bw - 2, h - 2);
-        gfx.lineStyle(1, MORTAR_C, 1);
-        gfx.strokeRect(x, by, bw, h);
-        x += bw; idx++;
+        const bordersFloor =
+          tv(col - 1, row) === 0 || tv(col + 1, row) === 0 ||
+          tv(col, row - 1) === 0 || tv(col, row + 1) === 0;
+        if (!bordersFloor) continue;
+
+        const wx = col * CELL + CELL / 2;
+        const wy = row * CELL + CELL / 2;
+
+        // Zone with a full-tile StaticBody — invisible physics blocker.
+        // The Zone itself has no visual; walls appear as dark background.
+        const zone = this.add.zone(wx, wy, CELL, CELL);
+        this.physics.add.existing(zone, true);
+        this.obstacles.add(zone);
       }
-    };
+    }
 
-    const ashlarV = (bx: number, by: number, w: number, h: number, offset: number): void => {
-      const BRICK_H = 38;
-      let y = by; let idx = offset;
-      while (y < by + h) {
-        const bh = Math.min(BRICK_H, by + h - y);
-        gfx.fillStyle(idx % 2 === 0 ? STONE_MID : STONE_LIGHT, 1);
-        gfx.fillRect(bx + 1, y + 1, w - 2, bh - 2);
-        gfx.lineStyle(1, MORTAR_C, 1);
-        gfx.strokeRect(bx, y, w, bh);
-        y += bh; idx++;
-      }
-    };
+    // ── Convert DungeonGen room tile-coords → pixel-space Room objects ─────────
+    // this.rooms is used by spawnHero(), spawnWaveGroup(), placeBurrowHoles(), etc.
+    this.rooms = layout.rooms.map(r => ({
+      x: r.col * CELL,
+      y: r.row * CELL,
+      w: r.w   * CELL,
+      h: r.h   * CELL,
+    }));
 
-    // Top wall — lit from above, no front-face depth needed
-    gfx.fillStyle(STONE_LIGHT, 1);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY, this.arenaW - CHAMFER * 2, WALL_T);
-    ashlarH(this.arenaX + CHAMFER, this.arenaY + 2, this.arenaW - CHAMFER * 2, WALL_T - 2, 0);
-    gfx.fillStyle(STONE_DARK, 0.45);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + WALL_T - 3, this.arenaW - CHAMFER * 2, 3);
+    // Hero starts in the entry (largest) room — most space to orient at spawn.
+    this.heroRoom = this.rooms[layout.startRoomIndex] ?? this.rooms[0] ?? null;
 
-    // Bottom wall — extra dark strip at top implies visible wall height in 3/4
-    const BOT_EXTRA = 8;
-    gfx.fillStyle(STONE_DARK, 1);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T - BOT_EXTRA, this.arenaW - CHAMFER * 2, BOT_EXTRA);
-    ashlarH(this.arenaX + CHAMFER, this.arenaY + this.arenaH - WALL_T, this.arenaW - CHAMFER * 2, WALL_T, 1);
-    gfx.fillStyle(MORTAR_C, 0.8);
-    gfx.fillRect(this.arenaX + CHAMFER, this.arenaY + this.arenaH - 2, this.arenaW - CHAMFER * 2, 2);
+    // ── Torch decorations ──────────────────────────────────────────────────────
+    // One flickering torch near the north wall of each of the first 6 rooms.
+    // The 'torch_flicker' animation is created in create() before buildDungeon()
+    // is called, so it is always available here.
+    for (let i = 0; i < Math.min(6, layout.rooms.length); i++) {
+      const r  = layout.rooms[i];
+      const tx = r.cx * CELL;
+      // Position: 1 tile below the room's north-wall row so the sprite sits on floor.
+      const ty = (r.row + 1) * CELL + CELL / 2;
 
-    // Left wall
-    ashlarV(this.arenaX, this.arenaY + CHAMFER, WALL_T, this.arenaH - CHAMFER * 2, 0);
-    gfx.fillStyle(STONE_LIGHT, 0.5);
-    gfx.fillRect(this.arenaX, this.arenaY + CHAMFER, WALL_T, 2);
-
-    // Right wall with gate opening
-    const GATE_HALF = 34;
-    const gateTop   = cy - GATE_HALF;
-    const gateBot   = cy + GATE_HALF;
-    ashlarV(this.arenaX + this.arenaW - WALL_T, this.arenaY + CHAMFER, WALL_T, gateTop - this.arenaY - CHAMFER, 1);
-    ashlarV(this.arenaX + this.arenaW - WALL_T, gateBot, WALL_T, this.arenaY + this.arenaH - CHAMFER - gateBot, 0);
-    gfx.fillStyle(0x0a0604, 1);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T - 3, gateTop, WALL_T + 5, GATE_HALF * 2);
-    gfx.fillStyle(STONE_LIGHT, 1);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateTop, WALL_T, 7);
-    gfx.fillRect(this.arenaX + this.arenaW - WALL_T, gateBot - 7, WALL_T, 7);
-
-    // Chamfered corner fills — triangles bridging the wall strips
-    gfx.fillStyle(STONE_MID, 1);
-    const ax = this.arenaX, ay = this.arenaY, aw = this.arenaW, ah = this.arenaH;
-    gfx.fillTriangle(ax,      ay,      ax + CHAMFER,      ay,      ax,           ay + CHAMFER);
-    gfx.fillTriangle(ax + aw, ay,      ax + aw - CHAMFER, ay,      ax + aw,      ay + CHAMFER);
-    gfx.fillTriangle(ax,      ay + ah, ax + CHAMFER,      ay + ah, ax,           ay + ah - CHAMFER);
-    gfx.fillTriangle(ax + aw, ay + ah, ax + aw - CHAMFER, ay + ah, ax + aw,      ay + ah - CHAMFER);
-    // Mortar seam along each diagonal cut
-    gfx.lineStyle(2, MORTAR_C, 0.9);
-    gfx.lineBetween(ax + CHAMFER,      ay,           ax,           ay + CHAMFER);
-    gfx.lineBetween(ax + aw - CHAMFER, ay,           ax + aw,      ay + CHAMFER);
-    gfx.lineBetween(ax,                ay + ah - CHAMFER, ax + CHAMFER,      ay + ah);
-    gfx.lineBetween(ax + aw,           ay + ah - CHAMFER, ax + aw - CHAMFER, ay + ah);
-
-    // ── Chamfered corner physics bodies ──────────────────────────────────────
-    // World bounds (below) cover the four straight wall strips as a rectangle,
-    // but the four diagonal corner triangles sit *inside* that rectangle.
-    // Without extra colliders, entities can be pushed into the visual corners.
-    // Each Zone body is a CHAMFER×CHAMFER rectangle — a conservative bounding
-    // box over the corner triangle. Minor overshoot into open floor is
-    // imperceptible. The same StaticGroup (this.obstacles) is used for pillar
-    // bodies, so existing per-entity colliders cover these automatically.
-    const addCornerZone = (cx: number, cy: number): void => {
-      const zone = this.add.zone(cx, cy, CHAMFER, CHAMFER);
-      this.physics.add.existing(zone, true);
-      this.obstacles.add(zone);
-    };
-    addCornerZone(ax + CHAMFER / 2,      ay + CHAMFER / 2);      // top-left
-    addCornerZone(ax + aw - CHAMFER / 2, ay + CHAMFER / 2);      // top-right
-    addCornerZone(ax + CHAMFER / 2,      ay + ah - CHAMFER / 2); // bottom-left
-    addCornerZone(ax + aw - CHAMFER / 2, ay + ah - CHAMFER / 2); // bottom-right
-
-    // ── Physics world bounds ──────────────────────────────────────────────────
-    // WALL_INSET (not WALL_T) so entity visuals never overlap the wall graphic.
-    // See the WALL_INSET constant above for the derivation.
-    this.physics.world.setBounds(
-      this.arenaX + WALL_INSET, this.arenaY + WALL_INSET,
-      this.arenaW - WALL_INSET * 2, this.arenaH - WALL_INSET * 2,
-    );
-
-    // ── Torch glow pools ──────────────────────────────────────────────────────
-    const torchPositions: [number, number][] = [
-      [this.arenaX + CHAMFER + 26,               this.arenaY + CHAMFER + 20               ],
-      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + CHAMFER + 20               ],
-      [this.arenaX + CHAMFER + 26,               this.arenaY + this.arenaH - CHAMFER - 20 ],
-      [this.arenaX + this.arenaW - CHAMFER - 26, this.arenaY + this.arenaH - CHAMFER - 20 ],
-    ];
-    for (const [tx, ty] of torchPositions) {
       const glowGfx = this.add.graphics();
       glowGfx.fillStyle(0xff9933, 0.18);
       glowGfx.fillCircle(tx, ty, 40);
-      // Animated torch — plays the 'torch_flicker' animation (3 frames, 6 fps).
-      // startFrame staggers the start so adjacent torches don't pulse in lockstep.
-      // Using the play-config form avoids a null-currentAnim crash that occurs
-      // when setProgress() is called immediately after play() during create().
+
       const torchSprite = this.add.sprite(tx, ty, 'dungeon_torch').setDepth(2);
       torchSprite.play({ key: 'torch_flicker', startFrame: Math.floor(Math.random() * 3) });
+
       this.tweens.add({
         targets:  glowGfx,
         alpha:    { from: 0.7, to: 1.0 },
@@ -822,12 +772,9 @@ export class CombatArenaScene extends Phaser.Scene {
       });
     }
 
-    // ── Ambient dust motes ────────────────────────────────────────────────────
-    // ≤8 tiny particles drifting slowly upward in the centre of the arena.
-    // Uses a single floor tile frame as a micro-dot (scale 0.03–0.08 world-px)
-    // so no additional asset is needed. Warm tan tint matches the stone palette.
-    // depth 3 puts dust above floor (−1) and walls (0) but below entities (10+).
-    this.add.particles(cx, cy, 'dungeon_floor', {
+    // ── Ambient dust motes ─────────────────────────────────────────────────────
+    // Emitted at the hero entry point so they're visible from the start.
+    this.add.particles(layout.entryPoint.x, layout.entryPoint.y, 'dungeon_floor', {
       frame:        0,
       scale:        { min: 0.03, max: 0.08 },
       alpha:        { start: 0.45, end: 0 },
@@ -840,38 +787,27 @@ export class CombatArenaScene extends Phaser.Scene {
       maxParticles: 8,
     }).setDepth(3);
 
-    // ── Floor cracks from pillar bases ────────────────────────────────────────
-    const crackGfx = this.add.graphics();
-    for (const [px, py] of pillarDefs) {
-      crackGfx.lineStyle(1, STONE_DARK, 0.18);
-      for (let i = 0; i < 4; i++) {
-        const angle = ((px * 3 + py * 7 + i * 73) % 628) / 100;
-        const len   = 28 + (i * 11) % 18;
-        crackGfx.lineBetween(px, py, px + Math.cos(angle) * len, py + Math.sin(angle) * len);
-        crackGfx.lineBetween(
-          px + Math.cos(angle) * len * 0.5, py + Math.sin(angle) * len * 0.5,
-          px + Math.cos(angle + 0.5) * len * 0.35, py + Math.sin(angle + 0.5) * len * 0.35,
-        );
-      }
+    // ── Wall-base shadow ───────────────────────────────────────────────────────
+    // Thin dark strip immediately below each room's north wall tile row adds a
+    // sense of wall thickness — same technique as the old buildRooms().
+    const shadowGfx = this.add.graphics().setDepth(1);
+    shadowGfx.fillStyle(0x000000, 0.32);
+    for (const r of this.rooms) {
+      shadowGfx.fillRect(r.x, r.y + CELL, r.w, 4);
     }
-    crackGfx.setDepth(-0.5);
   }
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
 
   private spawnHero(): void {
-    // Spawn inside the largest room so the hero starts with the most manoeuvring
-    // space.  Falls back to the 20 % / 50 % arena position if no rooms exist.
-    const largestRoom = this.rooms.length > 0
-      ? this.rooms.reduce((best, r) => r.w * r.h > best.w * best.h ? r : best)
-      : null;
+    // Use the BSP entry point (centre of the start room) so the hero always
+    // spawns in the largest room.  Falls back to 20%/50% of the arena bounds
+    // if dungeonLayout is somehow null (e.g. first create() hasn't run yet).
+    const heroX = this.dungeonLayout?.entryPoint.x ?? this.arenaX + this.arenaW * 0.2;
+    const heroY = this.dungeonLayout?.entryPoint.y ?? this.arenaY + this.arenaH * 0.5;
 
-    const heroX = largestRoom ? largestRoom.x + largestRoom.w / 2 : this.arenaX + this.arenaW * 0.2;
-    const heroY = largestRoom ? largestRoom.y + largestRoom.h / 2 : this.arenaY + this.arenaH * 0.5;
-
-    // Track which room the hero starts in — enemies are kept out of this room
-    // at wave boundaries so there's always some travel time before they arrive.
-    this.heroRoom = largestRoom;
+    // heroRoom is already set by buildDungeon() to the start room.
+    // No change needed here; the field persists across respawns.
 
     this.hero =
       SELECTED_ARENA_HERO === 'ironwing'     ? new Ironwing(this, heroX, heroY) :
@@ -1520,134 +1456,6 @@ export class CombatArenaScene extends Phaser.Scene {
    * across the full arena; the floor tiles only define the visible footprint.
    * Called once from buildArena(); the result is stored on this.rooms.
    */
-  private buildRooms(): Room[] {
-    const WALL_T      = 22;   // mirrors buildArena — rooms must stay inside the border
-    const TILE        = 16;
-    const FRAME_CLEAN = 12;
-    const FRAME_WORN  = 6;
-    const CORRIDOR_W  = 32;   // corridor strip width in px
-    const PAD         = 10;   // minimum gap between room edges
-    const MIN_W = 80;  const MAX_W = 200;
-    const MIN_H = 70;  const MAX_H = 150;
-    const TARGET    = 6;   // aim for this many rooms
-    const MAX_TRIES = 24;  // rejection-sampling attempts
-
-    // Arena interior — rooms must fit within the wall border.
-    const innerX = this.arenaX + WALL_T;
-    const innerY = this.arenaY + WALL_T;
-    const innerW = this.arenaW - WALL_T * 2;
-    const innerH = this.arenaH - WALL_T * 2;
-
-    const rooms: Room[] = [];
-
-    // Rejection-sample random rooms; keep candidates that don't overlap existing ones.
-    for (let t = 0; t < MAX_TRIES && rooms.length < TARGET; t++) {
-      const rw = MIN_W + Math.floor(Math.random() * (MAX_W - MIN_W + 1));
-      const rh = MIN_H + Math.floor(Math.random() * (MAX_H - MIN_H + 1));
-      const rx = innerX + Math.floor(Math.random() * Math.max(1, innerW - rw));
-      const ry = innerY + Math.floor(Math.random() * Math.max(1, innerH - rh));
-      const candidate: Room = { x: rx, y: ry, w: rw, h: rh };
-
-      const overlaps = rooms.some(r =>
-        candidate.x < r.x + r.w + PAD &&
-        candidate.x + candidate.w + PAD > r.x &&
-        candidate.y < r.y + r.h + PAD &&
-        candidate.y + candidate.h + PAD > r.y,
-      );
-      if (!overlaps) rooms.push(candidate);
-    }
-
-    // Safety net: if sampling didn't produce enough rooms, fall back to a 2×2 grid.
-    if (rooms.length < 4) {
-      const hw = Math.floor(innerW / 2 - PAD);
-      const hh = Math.floor(innerH / 2 - PAD);
-      rooms.length = 0;  // discard partial results so the grid is clean
-      rooms.push(
-        { x: innerX,              y: innerY,              w: hw, h: hh },
-        { x: innerX + hw + PAD,   y: innerY,              w: hw, h: hh },
-        { x: innerX,              y: innerY + hh + PAD,   w: hw, h: hh },
-        { x: innerX + hw + PAD,   y: innerY + hh + PAD,   w: hw, h: hh },
-      );
-    }
-
-    // Tile a rectangle of floor, clipped to the arena interior.
-    const tileRect = (x: number, y: number, w: number, h: number): void => {
-      const x1 = Math.max(innerX, x);
-      const y1 = Math.max(innerY, y);
-      const x2 = Math.min(innerX + innerW, x + w);
-      const y2 = Math.min(innerY + innerH, y + h);
-      if (x2 <= x1 || y2 <= y1) return;
-      const cols = Math.ceil((x2 - x1) / TILE);
-      const rows = Math.ceil((y2 - y1) / TILE);
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const wx = x1 + col * TILE + TILE / 2;
-          const wy = y1 + row * TILE + TILE / 2;
-          if (wx > x2 || wy > y2) continue;
-          const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
-          const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-          this.add.image(wx, wy, 'dungeon_floor', frame).setDepth(-1);
-        }
-      }
-    };
-
-    // Tile each room's floor.
-    for (const room of rooms) tileRect(room.x, room.y, room.w, room.h);
-
-    // Dungeon wall tiles at room north and south edges — visual depth cues.
-    // North row: dungeon_wall_top (the top face seen from above).
-    // South row: dungeon_wall_side (the camera-facing front face).
-    // Both sit at depth 0 (above floor at -1, below entities).
-    for (const room of rooms) {
-      const x1 = Math.max(innerX, room.x);
-      const y1 = Math.max(innerY, room.y);
-      const x2 = Math.min(innerX + innerW, room.x + room.w);
-      const y2 = Math.min(innerY + innerH, room.y + room.h);
-      if (x2 <= x1 || y2 <= y1) continue;
-      const cols = Math.ceil((x2 - x1) / TILE);
-      for (let c = 0; c < cols; c++) {
-        const wx = x1 + c * TILE + TILE / 2;
-        this.add.image(wx, y1 + TILE / 2, 'dungeon_wall_top').setDepth(0);
-        this.add.image(wx, y2 - TILE / 2, 'dungeon_wall_side').setDepth(0);
-      }
-    }
-
-    // Wall-base shadow — a 4 px semi-transparent strip just below the north
-    // wall tile row of each room. The thin dark band gives the flat 16×16
-    // tiles a sense of thickness and makes the wall read as solid stone
-    // rather than a painted flat surface.
-    const wallShadowGfx = this.add.graphics().setDepth(1);
-    wallShadowGfx.fillStyle(0x000000, 0.32);
-    for (const room of rooms) {
-      const x1 = Math.max(innerX, room.x);
-      const y1 = Math.max(innerY, room.y);
-      const x2 = Math.min(innerX + innerW, room.x + room.w);
-      if (x2 <= x1) continue;
-      // Shadow sits immediately below the north wall tile row (y1 + TILE).
-      wallShadowGfx.fillRect(x1, y1 + TILE, x2 - x1, 4);
-    }
-
-    // Connect consecutive rooms with L-shaped corridors (horizontal leg first,
-    // then vertical at the elbow). This guarantees at least one path between
-    // every adjacent pair in the list.
-    for (let i = 1; i < rooms.length; i++) {
-      const a    = rooms[i - 1];
-      const b    = rooms[i];
-      const ax   = Math.round(a.x + a.w / 2);
-      const ay   = Math.round(a.y + a.h / 2);
-      const bx   = Math.round(b.x + b.w / 2);
-      const by   = Math.round(b.y + b.h / 2);
-      const half = Math.round(CORRIDOR_W / 2);
-
-      // Horizontal leg: room-a centre → room-b centre X, at room-a centre Y.
-      tileRect(Math.min(ax, bx), ay - half, Math.abs(bx - ax), CORRIDOR_W);
-      // Vertical leg: elbow (bx, ay) → room-b centre Y.
-      tileRect(bx - half, Math.min(ay, by), CORRIDOR_W, Math.abs(by - ay));
-    }
-
-    return rooms;
-  }
-
   /**
    * Distributes `count` spawn positions evenly inside a room, keeping a 20%
    * margin from each edge so entities don't clip wall visuals on spawn.
