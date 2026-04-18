@@ -1,0 +1,28 @@
+{
+  "_readme": "Manual animation folder → animId overrides for extract-character.mjs. Use when variance-based auto-mapping produces wrong results.",
+  "mini-velcrid": {
+    "animation-3806ce44": "idle",
+    "animation-59ee4637": "walk",
+    "animation-7cf78d6b": "death",
+    "rearing_up_on_hind_legs_the_front_two_clawed_legs-365bd44b": "attack",
+    "rearing_up_on_hind_legs_the_front_two_clawed_legs-9e5e7ece": "attack",
+    "rearing_up_on_hind_legs_the_front_two_clawed_legs-9b5c6d9c": "attack",
+    "rearing_up_on_hind_legs_the_front_two_clawed_legs-77ca1afa": "attack",
+    "creature_flinches_and_recoils_backward_legs_flaili-c0de408c": "hurt",
+    "creature_flinches_and_recoils_backward_legs_flaili-6e1eee04": "hurt",
+    "creature_flinches_and_recoils_backward_legs_flaili-4a9a2e13": "hurt",
+    "creature_flinches_and_recoils_backward_legs_flaili-5effe863": "hurt",
+    "creature_flinches_and_recoils_backward_legs_flaili-26da05ee": "hurt"
+  },
+  "npc-wanderer": {
+    "animating-726c1fce": "idle",
+    "animating-2f759bc5": "idle",
+    "animating-c8623801": "walk"
+  },
+  "tinkerer": {
+    "animating-09ee8715": "walk",
+    "animating-1b4daa88": "idle",
+    "animating-2d7ac07a": "dash",
+    "animating-c856d6be": "attack_ranged"
+  }
+}
