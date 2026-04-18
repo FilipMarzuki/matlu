@@ -687,6 +687,9 @@ export class GameScene extends Phaser.Scene {
   private settlementSound: Phaser.Sound.BaseSound | undefined;
   // FIL-117: night ambience layer — crickets/insect loop, fades in at dusk and peaks at night
   private ambienceNight: Phaser.Sound.BaseSound | undefined;
+  // FIL-47: positional animal ambient — one looping layer per species group
+  private animalSounds: Map<string, Phaser.Sound.BaseSound> = new Map();
+  private lastAnimalSoundTick = 0;
   private lastSettlementCheck = 0;
   // Background music track for the current day phase (crossfades on transition)
   private musicTrack: Phaser.Sound.BaseSound | undefined;
@@ -1022,6 +1025,14 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 5; i++) {
       this.load.audio(`animal-rustle-${i}`, `${kenney}/impactSoft_medium_00${i}.ogg`);
     }
+
+    // FIL-47: ambient animal calls — positional volume/pan driven by nearest animal.
+    // Source files from Freesound.org CC0 or Kenney Animal Pack (see FIL-47 for links).
+    // Missing files are silently skipped via cache.audio.has() checks in create().
+    this.load.audio('animal-bird', 'assets/audio/animal/bird-call.ogg');
+    this.load.audio('animal-deer', 'assets/audio/animal/deer-call.ogg');
+    this.load.audio('animal-hare', 'assets/audio/animal/hare-rustle.ogg');
+    this.load.audio('animal-fox',  'assets/audio/animal/fox-bark.ogg');
 
     // ── Terrain tilesets (Mystic Woods 2.2, preferred for Level 1) ───────────────
     // plains.png  — 96×192, 16×16 tiles (6 cols × 12 rows = 72 frames)
@@ -1539,6 +1550,16 @@ export class GameScene extends Phaser.Scene {
       this.ambienceNight.play();
     }
 
+    // FIL-47: positional animal sounds — one loop per species group, volume driven by
+    // the closest animal of that type. Files are optional; silently skipped if not yet sourced.
+    for (const key of ['animal-bird', 'animal-deer', 'animal-hare', 'animal-fox']) {
+      if (this.audioAvailable && this.cache.audio.has(key)) {
+        const s = this.sound.add(key, { loop: true, volume: 0 });
+        s.play();
+        this.animalSounds.set(key, s);
+      }
+    }
+
     // Start background music for the initial day phase
     this.startPhaseMusic(this.currentPhase, 0);
 
@@ -1662,6 +1683,7 @@ export class GameScene extends Phaser.Scene {
       this.updatePlayerMovement();
       this.updateAmbienceZone();
       this.updateSettlementAmbience();
+      this.updateAnimalAmbience();
       this.updateLevel1(delta);
       this.updateNpcProximity();
       this.updateVendorInteraction();
@@ -4258,6 +4280,89 @@ export class GameScene extends Phaser.Scene {
     type AudibleSound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
     if (this.settlementSound) {
       this.tweens.add({ targets: this.settlementSound as AudibleSound, volume: targetVol, duration: 1500, ease: 'Sine.easeInOut' });
+    }
+  }
+
+  // ── FIL-47: Positional animal ambient ─────────────────────────────────────────
+
+  /**
+   * Updates volume and stereo pan on each species-group ambient loop based on the
+   * nearest animal of that species to the player. Throttled to every 100 ms.
+   *
+   * Species → sound key:
+   *   bird / grouse       → 'animal-bird'
+   *   deer / stag         → 'animal-deer'
+   *   hare                → 'animal-hare'
+   *   fox / boar / badger → 'animal-fox'
+   *
+   * Volume: 0 at MAX_DIST (500 px), MAX_VOL at FULL_DIST (80 px).
+   * Pan: uses stereoPan() helper (camera-centre-relative, ±1 at screen edges).
+   */
+  private updateAnimalAmbience(): void {
+    if (this.animalSounds.size === 0) return;
+    const now = this.time.now;
+    if (now - this.lastAnimalSoundTick < 100) return;
+    this.lastAnimalSoundTick = now;
+
+    type Audible = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+
+    // Mute all species loops while animals are hidden in the nav panel
+    if (!this.animalsVisible) {
+      for (const s of this.animalSounds.values()) (s as Audible).setVolume(0);
+      return;
+    }
+
+    const px = this.player.x;
+    const py = this.player.y;
+    const MAX_DIST = 500;
+    const FULL_DIST = 80;
+    const MAX_VOL = 0.35;
+
+    const closest: Record<string, { dist: number; x: number }> = {
+      'animal-bird': { dist: Infinity, x: 0 },
+      'animal-deer': { dist: Infinity, x: 0 },
+      'animal-hare': { dist: Infinity, x: 0 },
+      'animal-fox':  { dist: Infinity, x: 0 },
+    };
+
+    const BIRD_TYPES = new Set(['grouse']);   // ground birds; flying birds handled below
+    const DEER_TYPES = new Set(['deer', 'stag']);
+    const HARE_TYPES = new Set(['hare']);
+    const FOX_TYPES  = new Set(['fox', 'boar', 'badger']);
+
+    for (const child of this.groundAnimals.getChildren()) {
+      const a = child as Phaser.GameObjects.Sprite;
+      const type = a.getData('animalType') as string;
+      let key: string | undefined;
+      if (BIRD_TYPES.has(type))       key = 'animal-bird';
+      else if (DEER_TYPES.has(type))  key = 'animal-deer';
+      else if (HARE_TYPES.has(type))  key = 'animal-hare';
+      else if (FOX_TYPES.has(type))   key = 'animal-fox';
+      if (!key) continue;
+      const d = Phaser.Math.Distance.Between(px, py, a.x, a.y);
+      if (d < closest[key].dist) { closest[key].dist = d; closest[key].x = a.x; }
+    }
+
+    // Flying birds (crows) contribute to the bird channel
+    for (const b of this.birds) {
+      const d = Phaser.Math.Distance.Between(px, py, b.body.x, b.body.y);
+      if (d < closest['animal-bird'].dist) {
+        closest['animal-bird'].dist = d;
+        closest['animal-bird'].x   = b.body.x;
+      }
+    }
+
+    for (const [key, info] of Object.entries(closest)) {
+      const s = this.animalSounds.get(key);
+      if (!s) continue;
+      const frac = info.dist >= MAX_DIST
+        ? 0
+        : Phaser.Math.Clamp((MAX_DIST - info.dist) / (MAX_DIST - FULL_DIST), 0, 1);
+      const vol = MAX_VOL * frac * this.ambienceVol;
+      const pan = info.dist < MAX_DIST ? this.stereoPan(info.x) : 0;
+      (s as Audible).setVolume(vol);
+      // setPan is WebAudioSound-only; silently absent in HTML5 fallback
+      if ('setPan' in s) (s as Phaser.Sound.WebAudioSound).setPan(pan);
     }
   }
 
