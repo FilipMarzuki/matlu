@@ -770,11 +770,11 @@ export class CombatArenaScene extends Phaser.Scene {
       glowGfx.fillStyle(0xff9933, 0.18);
       glowGfx.fillCircle(tx, ty, 40);
       // Animated torch — plays the 'torch_flicker' animation (3 frames, 6 fps).
-      // setProgress(random) staggers the starting frame so adjacent torches
-      // don't pulse in lockstep, which would look mechanical.
+      // startFrame staggers the start so adjacent torches don't pulse in lockstep.
+      // Using the play-config form avoids a null-currentAnim crash that occurs
+      // when setProgress() is called immediately after play() during create().
       const torchSprite = this.add.sprite(tx, ty, 'dungeon_torch').setDepth(2);
-      torchSprite.play('torch_flicker');
-      torchSprite.anims.setProgress(Math.random());
+      torchSprite.play({ key: 'torch_flicker', startFrame: Math.floor(Math.random() * 3) });
       this.tweens.add({
         targets:  glowGfx,
         alpha:    { from: 0.7, to: 1.0 },
