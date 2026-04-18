@@ -84,12 +84,18 @@ export class NavScene extends Phaser.Scene {
     this.add
       .rectangle(cx, H / 2, PW, H, 0x0a130a, 0.92);
 
-    // ── Title ─────────────────────────────────────────────────────────────────
-    this.add.text(cx, H * 0.08, 'matlu', {
-      fontSize: '22px', color: '#f0ead6', fontStyle: 'bold',
-    }).setOrigin(0.5);
+    // ── Menu link (small, top of panel) ────────────────────────────────────────
+    // Small link back to the main menu — navigates via window.location so the
+    // Phaser game fully reinitialises (same as typing /menu in the address bar).
+    this.add.text(cx, H * 0.05, '← Menu', {
+      fontSize: '11px', color: '#3a5a3a',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', function(this: Phaser.GameObjects.Text) { this.setStyle({ color: '#6a9a6a' }); })
+      .on('pointerout',  function(this: Phaser.GameObjects.Text) { this.setStyle({ color: '#3a5a3a' }); })
+      .on('pointerup',   () => { window.location.href = '/menu'; });
 
-    const btnY0 = H * 0.22;
+    const btnY0 = H * 0.12;
     const btnGap = 46;
 
     const inactiveStyle = (label: string) => this.add.text(cx, 0, label, {
@@ -351,17 +357,28 @@ export class NavScene extends Phaser.Scene {
    */
   private buildFeedbackWidget(): void {
     const wrapper = document.createElement('div');
-    // Align the widget with the nav panel (160 px wide, right edge of viewport).
+    // Prominent feedback widget — positioned in the lower half of the nav panel.
     // BTN_W = 132 px → right:14px + width:132px fills the panel's button column.
     wrapper.style.cssText = [
       'position:fixed',
       'right:14px',
-      'bottom:135px',
+      'bottom:90px',
       'width:132px',
       'display:flex',
       'flex-direction:column',
-      'gap:4px',
+      'gap:5px',
       'z-index:100',
+    ].join(';');
+
+    // Section label
+    const label = document.createElement('div');
+    label.textContent = '✦ Feedback';
+    label.style.cssText = [
+      'color:#ffe066',
+      'font-size:13px',
+      'font-weight:bold',
+      'text-align:center',
+      'letter-spacing:0.5px',
     ].join(';');
 
     const input = document.createElement('input');
@@ -369,14 +386,15 @@ export class NavScene extends Phaser.Scene {
     input.placeholder = this.currentMode === 'arena' ? 'Combat feedback...' : 'Feedback...';
     input.maxLength   = 500;
     input.style.cssText = [
-      'background:rgba(10,19,10,0.85)',
+      'background:rgba(10,19,10,0.92)',
       'color:#f0ead6',
-      'border:1px solid #3a5a3a',
-      'padding:5px 8px',
+      'border:1px solid #6a8a2a',
+      'padding:7px 8px',
       'font-size:12px',
       'box-sizing:border-box',
       'outline:none',
       'width:100%',
+      'border-radius:2px',
     ].join(';');
 
     // Stop keydown/keyup from bubbling to Phaser's window-level listener.
@@ -391,24 +409,34 @@ export class NavScene extends Phaser.Scene {
     input.addEventListener('keyup', (e) => { e.stopPropagation(); });
 
     const sendBtn = document.createElement('button');
-    sendBtn.textContent = 'Send';
+    sendBtn.textContent = 'Send Feedback';
     sendBtn.style.cssText = [
-      'background:rgba(17,17,34,0.67)',
-      'color:#88aaff',
-      'border:1px solid #3a5a3a',
-      'padding:5px',
+      'background:rgba(60,90,20,0.85)',
+      'color:#ffe066',
+      'border:1px solid #6a8a2a',
+      'padding:7px',
       'font-size:12px',
+      'font-weight:bold',
       'cursor:pointer',
       'width:100%',
+      'border-radius:2px',
+      'letter-spacing:0.3px',
     ].join(';');
-    sendBtn.addEventListener('mouseover', () => { sendBtn.style.color = '#bbddff'; });
-    sendBtn.addEventListener('mouseout',  () => { sendBtn.style.color = '#88aaff'; });
+    sendBtn.addEventListener('mouseover', () => {
+      sendBtn.style.background = 'rgba(80,120,25,0.95)';
+      sendBtn.style.color = '#ffffff';
+    });
+    sendBtn.addEventListener('mouseout',  () => {
+      sendBtn.style.background = 'rgba(60,90,20,0.85)';
+      sendBtn.style.color = '#ffe066';
+    });
     sendBtn.addEventListener('click',     () => { void this.submitFeedback(); });
 
     // One-line status area — shows "Sent!" for 2 s after a successful submit.
     const status = document.createElement('div');
     status.style.cssText = 'color:#aaffaa;font-size:12px;text-align:center;height:16px;';
 
+    wrapper.appendChild(label);
     wrapper.appendChild(input);
     wrapper.appendChild(sendBtn);
     wrapper.appendChild(status);

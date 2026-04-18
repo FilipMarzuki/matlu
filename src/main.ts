@@ -35,9 +35,10 @@ import { ShopScene } from './scenes/ShopScene';
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
   const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene];
-  if (path === '/arena') return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
   if (path === '/world') return [GameScene,        ...all.filter(s => s !== GameScene)];
-  return all;
+  if (path === '/menu')  return all;
+  // Default (/ and /arena): boot straight into arena/combat
+  return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
 })();
 
 const game = new Phaser.Game({
