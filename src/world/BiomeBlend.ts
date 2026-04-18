@@ -27,7 +27,7 @@
  *                 always the edge that faces the higher-priority neighbour.
  */
 
-/** Priority per biome index (0–10).  Higher value = more visually dominant. */
+/** Priority per biome index (0–11).  Higher value = more visually dominant. */
 export const BIOME_PRIORITY: readonly number[] = [
   0,  // 0  Sea           — lowest, never bleeds into anything
   2,  // 1  Rocky shore
@@ -35,11 +35,12 @@ export const BIOME_PRIORITY: readonly number[] = [
   3,  // 3  Marsh / bog
   4,  // 4  Dry heath
   5,  // 5  Coastal heath
-  6,  // 6  Forest
-  7,  // 7  Spruce
-  8,  // 8  Cold granite
-  9,  // 9  Bare summit
-  10, // 10 Snow field    — highest
+  6,  // 6  Meadow
+  7,  // 7  Forest
+  8,  // 8  Spruce
+  9,  // 9  Cold granite
+  10, // 10 Bare summit
+  11, // 11 Snow field    — highest
 ];
 
 /**
@@ -53,11 +54,12 @@ export const BLEND_COLORS: readonly number[] = [
   0x4a7a3a, // 3  Marsh / bog
   0xb8904a, // 4  Dry heath
   0x7a9a3a, // 5  Coastal heath
-  0x2a7a2a, // 6  Forest
-  0x1a5a1a, // 7  Spruce
-  0x7a7a7a, // 8  Cold granite
-  0x9a9898, // 9  Bare summit
-  0xd8e8f8, // 10 Snow field
+  0x6abf45, // 6  Meadow
+  0x2a7a2a, // 7  Forest
+  0x1a5a1a, // 8  Spruce
+  0x7a7a7a, // 9  Cold granite
+  0x9a9898, // 10 Bare summit
+  0xd8e8f8, // 11 Snow field
 ];
 
 /**
@@ -93,7 +95,7 @@ export interface BiomeBoundary {
  * of each shared edge are emitted so the strip always lands on the correct
  * (lower-priority) tile.
  *
- * @param biomeIdxGrid  Flat row-major biome indices (0–10), one per tile.
+ * @param biomeIdxGrid  Flat row-major biome indices (0–11), one per tile.
  * @param tilesX        World width in tiles.
  * @param tilesY        World height in tiles.
  */
