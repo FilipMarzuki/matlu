@@ -71,6 +71,21 @@ export interface CombatEntityConfig extends EnemyConfig {
    */
   sightMemoryMs?: number;
 
+  /**
+   * Maximum distance (px) at which this entity can hear blackboard sound events
+   * (melee hits, deaths, loud abilities). When a sound event occurs within this
+   * radius the entity enters the alerted-investigate state and moves to the origin.
+   * Default 0 (deaf — no hearing). Set per-enemy in their constructor config.
+   */
+  hearingRadius?: number;
+
+  /**
+   * Distance (px) within which a target is always detected regardless of walls
+   * or aggroRadius. Prevents the absurd case of an enemy being oblivious at
+   * 30 px. Default: 60 px. Rarely needs tuning.
+   */
+  proximityRadius?: number;
+
   // ── Ambient vocalisation (optional) ──────────────────────────────────────
   /**
    * Idle/ambient sound config. When set, the entity emits 'entity-ambient-sound'
@@ -291,6 +306,21 @@ export abstract class CombatEntity extends Enemy {
   /** Scene-time (ms) when the next scheduled sight check should fire. */
   private nextSightCheck = 0;
 
+  // ── Hearing / alert state ─────────────────────────────────────────────────
+
+  /** Max distance (px) to hear blackboard sound events. 0 = deaf (default). */
+  readonly hearingRadius: number;
+  /** Distance (px) for touch-range detection bypass — always detects regardless of walls. */
+  readonly proximityRadius: number;
+  /**
+   * World position being investigated after hearing a sound event.
+   * Treated as effectiveOpponent so the BT chases it. Cleared when a real
+   * target enters vision range or the alert timer expires.
+   */
+  private alertOrigin: { x: number; y: number } | null = null;
+  /** ms remaining to investigate the alertOrigin before returning to unaware. */
+  private alertTimer = 0;
+
   // ── Ambient vocalisation state ────────────────────────────────────────────
 
   /** Ambient sound config, or undefined if this entity is silent. */
@@ -312,7 +342,9 @@ export abstract class CombatEntity extends Enemy {
     this.projectileSpeed  = config.projectileSpeed  ?? 260;
     this.projectileColor  = config.projectileColor  ?? 0xffffff;
 
-    this.sightMemoryMs = config.sightMemoryMs ?? 2000;
+    this.sightMemoryMs  = config.sightMemoryMs  ?? 2000;
+    this.hearingRadius  = config.hearingRadius  ?? 0;
+    this.proximityRadius = config.proximityRadius ?? 60;
 
     // Ambient sound — random initial delay so multiple entities of the same
     // type don't all chirp on the same first tick.
@@ -639,6 +671,40 @@ export abstract class CombatEntity extends Enemy {
       }
     }
 
+    // ── Hearing / alert state (FIL-374) ─────────────────────────────────────
+    //
+    // When unaware (no effective opponent from vision or memory), check the
+    // blackboard for loud events within hearingRadius. If one is close enough,
+    // record its origin and investigate for up to 3 s. The BT treats alertOrigin
+    // as ctx.opponent — the entity moves toward it. If updateSightLine fires a
+    // positive LOS check on arrival, the entity promotes to full tracking.
+    if (!effectiveOpponent && this.hearingRadius > 0 && this.blackboard) {
+      for (const ev of this.blackboard.soundEvents) {
+        const d = Phaser.Math.Distance.Between(this.x, this.y, ev.x, ev.y);
+        if (d <= Math.min(this.hearingRadius, ev.radius)) {
+          this.alertOrigin = { x: ev.x, y: ev.y };
+          this.alertTimer  = 3000;
+          break;
+        }
+      }
+    }
+
+    // Tick alert investigation: promote alertOrigin to effectiveOpponent while active.
+    // Cancel if a real sighted target appeared, or the timer ran out.
+    if (this.alertOrigin) {
+      if (effectiveOpponent) {
+        // Found a real target — cancel the investigation (vision takes priority).
+        this.alertOrigin = null;
+      } else {
+        this.alertTimer -= delta;
+        if (this.alertTimer <= 0) {
+          this.alertOrigin = null;   // gave up — return to unaware/wander
+        } else {
+          effectiveOpponent = this.alertOrigin;
+        }
+      }
+    }
+
     const ctx: CombatContext = {
       x:     this.x,
       y:     this.y,
@@ -950,14 +1016,29 @@ export abstract class CombatEntity extends Enemy {
     }
   }
 
-  /** Returns the closest living targetable opponent, or null when none remain. */
+  /**
+   * Returns the closest living targetable opponent within detection range, or null.
+   *
+   * Detection gates (FIL-370 / FIL-375):
+   *   - Proximity bypass: targets within proximityRadius are ALWAYS detected,
+   *     regardless of aggroRadius or walls. Prevents the absurd case where an
+   *     enemy is 30 px away but oblivious because LOS hasn't fired yet.
+   *   - Aggro radius: targets beyond proximityRadius are only considered when
+   *     within aggroRadius. LOS is then enforced by canSeeTarget / updateSightLine —
+   *     enemies behind walls set canSeeTarget=false and fall through to wander.
+   *
+   * Heroes call this too (tryMelee / tryRanged). For heroes aggroRadius is
+   * implicitly large (400 px default) so they can always target visible enemies.
+   */
   protected findNearestLivingOpponent(): CombatEntity | null {
     let nearest: CombatEntity | null = null;
     let nearestDist = Infinity;
     for (const o of this.opponents) {
-      // Skip dead or stealth/disguised enemies — they are not valid aggro targets.
+      // Skip dead or stealth/disguised enemies — not valid aggro targets.
       if (!o.isAlive || !o.isTargetable) continue;
       const d = Phaser.Math.Distance.Between(this.x, this.y, o.x, o.y);
+      // Outside proximity AND outside aggroRadius → ignore completely.
+      if (d > this.proximityRadius && d > this.aggroRadius) continue;
       if (d < nearestDist) {
         nearestDist = d;
         nearest = o;
@@ -990,6 +1071,10 @@ export abstract class CombatEntity extends Enemy {
   onHitBy(fromX: number, fromY: number): void {
     if (!this.isAlive) return;
 
+    // A melee hit is a loud event — broadcast so nearby enemies can hear it.
+    // Radius 280 px: audible in the same room but not across the whole arena.
+    this.blackboard?.broadcastSound(this.x, this.y, 280);
+
     // Flash the body rect white; restore original fill colour after 80 ms.
     // Rectangle uses setFillStyle, not setTint (which is for Image/Sprite).
     this.bodyRect.setFillStyle(0xffffff);
@@ -1015,6 +1100,9 @@ export abstract class CombatEntity extends Enemy {
    */
   onHitByMelee(fromX: number, fromY: number): void {
     if (!this.isAlive) return;
+
+    // Player melee swipe is louder than an enemy jab — broader alert radius.
+    this.blackboard?.broadcastSound(this.x, this.y, 380);
 
     this.bodyRect.setFillStyle(0xffffff);
     this.scene.time.delayedCall(80, () => {

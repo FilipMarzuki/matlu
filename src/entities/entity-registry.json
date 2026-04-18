@@ -36,13 +36,13 @@
       },
       "behavior": {
         "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
+        "unaware":       true,
+        "alert":         true,
         "tracking":      true,
         "combat":        true,
         "flee":          false,
         "aggroRadius":   480,
-        "hearingRadius": null,
+        "hearingRadius": 220,
         "sightMemoryMs": 1000
       }
     },
@@ -80,13 +80,13 @@
       },
       "behavior": {
         "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
+        "unaware":       true,
+        "alert":         true,
         "tracking":      true,
         "combat":        true,
         "flee":          false,
         "aggroRadius":   500,
-        "hearingRadius": null,
+        "hearingRadius": 160,
         "sightMemoryMs": 800
       }
     },
@@ -117,13 +117,13 @@
       },
       "behavior": {
         "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
+        "unaware":       true,
+        "alert":         true,
         "tracking":      true,
         "combat":        true,
         "flee":          false,
         "aggroRadius":   420,
-        "hearingRadius": null,
+        "hearingRadius": 300,
         "sightMemoryMs": 3000
       }
     },
