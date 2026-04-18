@@ -1,20 +1,21 @@
 name: Sprite Credit Burn
 
-# Uses remaining PixelLab credits before the monthly billing reset (9th of each month)
-# to generate pixel art sprites for entities currently missing them.
+# Uses remaining PixelLab credits to generate pixel art sprites for entities missing them.
 #
-# IMPORTANT: This workflow burns real PixelLab credits. Only trigger manually — never add
-# a cron schedule. Run it in the days before the 9th when you have credits to spend.
+# Triggered automatically after Entity Spec Fill completes (so designNotes.sprite is
+# already written and can be used as the PixelLab description). Also triggerable manually.
+#
+# Safe to re-run: skips entities already done (status: "done" in asset-spec.json) and
+# stops cleanly when PixelLab returns an error (= credits exhausted). Commits after every
+# single entity so partial runs never lose progress.
 #
 # Priority: spinolandet enemies → earth enemies → spinolandet heroes → earth heroes → summons
-#
-# The agent commits after each entity, so partial runs are safe. Re-running skips any entity
-# already marked status: "done" in asset-spec.json.
-#
-# Manual: trigger from the Actions tab. No inputs needed.
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Entity Spec Fill"]
+    types: [completed]
 
 concurrency:
   group: agent-sprite-credit-burn
