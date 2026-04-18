@@ -66,6 +66,20 @@ export class VelcridJuvenile extends CombatEntity {
       // Short memory — juveniles are dumb swarm creatures. 1 s lets them close in
       // if the player ducks behind cover briefly, but they lose the trail quickly.
       sightMemoryMs: 1000,
+      // Insect chirp vocalisations — 3 variants, random pitch shift in the 1.2–1.55
+      // range makes each one feel slightly different. 2–8 s interval is irregular
+      // enough to feel organic rather than mechanical. Volume is low so a swarm of
+      // 6+ juveniles doesn't become overwhelming (distance attenuation in scene).
+      // Audio files: public/assets/audio/creatures/mini-velcrid-chirp-{0,1,2}.ogg
+      // (source from freesound.org — search "insect click short CC0")
+      ambientSounds: {
+        keys:          ['sfx-velcrid-chirp-0', 'sfx-velcrid-chirp-1', 'sfx-velcrid-chirp-2'],
+        intervalMinMs: 2000,
+        intervalMaxMs: 8000,
+        volume:        0.22,
+        pitchMin:      1.20,
+        pitchMax:      1.55,
+      },
     });
   }
 

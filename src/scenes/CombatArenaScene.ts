@@ -200,6 +200,16 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/audio/music-loop-bundle-2026-q1/Week 4 - Cloak of Darkness STAGE 1.ogg',
     );
 
+    // ── Creature ambient vocalisations ────────────────────────────────────────
+    // MiniVelcrid insect chirps — 3 variants so back-to-back plays don't repeat
+    // the same sound. Source: freesound.org CC0 — search "insect chirp short"
+    // or "cricket stridulation single" and drop the OGGs into
+    // public/assets/audio/creatures/. The scene skips playback gracefully if
+    // the files are absent (audioAvailable guard in the event handler below).
+    this.load.audio('sfx-velcrid-chirp-0', 'assets/audio/creatures/mini-velcrid-chirp-0.ogg');
+    this.load.audio('sfx-velcrid-chirp-1', 'assets/audio/creatures/mini-velcrid-chirp-1.ogg');
+    this.load.audio('sfx-velcrid-chirp-2', 'assets/audio/creatures/mini-velcrid-chirp-2.ogg');
+
     this.load.aseprite(
       'tinkerer',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
@@ -353,6 +363,32 @@ export class CombatArenaScene extends Phaser.Scene {
         this.sound.play('sfx-reload', { volume: 0.7 });
       }
     });
+
+    // ── Entity ambient vocalisations ──────────────────────────────────────────
+    // CombatEntity emits this event on a random timer when ambientSounds is
+    // configured. We handle it here so the entity never needs a sound manager.
+    //
+    // Volume is attenuated by distance from the camera midpoint — sounds that
+    // are off-screen or near the edge of the viewport feel distant without
+    // needing a full 3D audio API. MAX_AMBIENT_DIST is the radius at which the
+    // sound fades to silence; within half that range it plays at full volume.
+    const MAX_AMBIENT_DIST = 420; // px; tune to taste
+    this.events.on(
+      'entity-ambient-sound',
+      (ev: { key: string; x: number; y: number; volume: number; pitchMin: number; pitchMax: number }) => {
+        if (!this.audioAvailable || !this.cache.audio.has(ev.key)) return;
+        const cam  = this.cameras.main;
+        const camX = cam.scrollX + cam.width  / 2;
+        const camY = cam.scrollY + cam.height / 2;
+        const dist = Phaser.Math.Distance.Between(ev.x, ev.y, camX, camY);
+        // Linear falloff: 1.0 at dist=0, 0.0 at dist=MAX_AMBIENT_DIST.
+        const distFactor = Math.max(0, 1 - dist / MAX_AMBIENT_DIST);
+        const vol = ev.volume * distFactor;
+        if (vol < 0.01) return; // too quiet to bother playing
+        const rate = ev.pitchMin + Math.random() * (ev.pitchMax - ev.pitchMin);
+        this.sound.play(ev.key, { volume: vol, rate });
+      },
+    );
 
     this.spawnHero();
 
