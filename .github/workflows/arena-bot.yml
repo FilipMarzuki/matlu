@@ -1,0 +1,52 @@
+name: Arena Nightly Bot
+
+on:
+  schedule:
+    # Every day at 03:00 UTC — runs after the nightly dev agent (02:00 UTC)
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  testplay:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run arena testplay simulation
+        # arena:testplay boots the arena and fast-forwards 90 sim-seconds via
+        # sys.step() — no GPU or real-time wait required. The Playwright webServer
+        # config spins up `npm run preview` automatically before the spec runs and
+        # tears it down afterwards, so we only need the build artefact above.
+        # Output: screenshots/arena-testplay-report.json (read by the next step).
+        run: npm run arena:testplay
+        env:
+          CI: true
+
+      - name: Post regression report to Linear
+        # report.ts reads screenshots/arena-testplay-report.json, compares metrics
+        # against healthy thresholds, posts a summary comment on FIL-188, and
+        # creates one bug issue per out-of-range metric. Exits 0 gracefully if
+        # LINEAR_API_KEY is not set (e.g. on forks).
+        run: npx tsx scripts/arena-bot/report.ts
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
