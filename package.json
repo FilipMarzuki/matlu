@@ -16,7 +16,8 @@
     "arena:testplay": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts",
     "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed",
     "arena-bot": "tsx scripts/arena-bot/run.ts",
-    "audio:sync": "node scripts/sync-audio.js"
+    "audio:sync": "node scripts/sync-audio.js",
+    "entity:audit": "tsx scripts/entity-audit.ts"
   },
   "dependencies": {
     "@logtail/browser": "^0.5.8",

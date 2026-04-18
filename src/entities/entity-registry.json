@@ -1,0 +1,1457 @@
+{
+  "_comment": "Entity registry — source of truth for entity completeness. Run `npm run entity:audit` to validate against disk.",
+  "_spec": "docs/entity-spec.md",
+  "entities": [
+
+    {
+      "class": "VelcridJuvenile",
+      "file": "src/entities/Velcrid.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Swarming insect scout. Orbits target, hops in, retreats. Dumb but numerous.",
+      "spriteKey": "mini-velcrid",
+      "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
+      "animTags": {
+        "idle":   "idle_south",
+        "walk":   "walk_south",
+        "attack": null,
+        "hurt":   null,
+        "death":  "death_south",
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": {
+          "keys":  ["sfx-velcrid-chirp-0", "sfx-velcrid-chirp-1", "sfx-velcrid-chirp-2"],
+          "files": [
+            "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-0.ogg",
+            "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-1.ogg",
+            "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-2.ogg"
+          ]
+        },
+        "alert":  null,
+        "aggro":  null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   480,
+        "hearingRadius": null,
+        "sightMemoryMs": 1000
+      }
+    },
+
+    {
+      "class": "BabyVelcrid",
+      "file": "src/entities/Velcrid.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Hatchling rush unit. Tiny, fast, no special behavior. Comes in large groups.",
+      "spriteKey": "mini-velcrid",
+      "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
+      "animTags": {
+        "idle":   "idle_south",
+        "walk":   "walk_south",
+        "attack": null,
+        "hurt":   null,
+        "death":  "death_south",
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   500,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "VelcridAdult",
+      "file": "src/entities/Velcrid.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Apex predator. Burrows underground, surfaces near player with a jump-charge. Reads juvenile activity to time eruptions.",
+      "spriteKey": "mini-velcrid",
+      "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
+      "animTags": {
+        "idle":   "idle_south",
+        "walk":   "walk_south",
+        "attack": null,
+        "hurt":   null,
+        "death":  "death_south",
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   420,
+        "hearingRadius": null,
+        "sightMemoryMs": 3000
+      }
+    },
+
+    {
+      "class": "Blightfrog",
+      "file": "src/entities/Blightfrog.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Tongue-puller. Roots targets at range, hops in to melee.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   350,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Dustling",
+      "file": "src/entities/Dustling.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Dust-cloud ambusher. Hides until player is close, then bursts.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   0,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "PackStalker",
+      "file": "src/entities/PackStalker.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Pack hunter. Coordinates with allies — holds back until pack has numbers.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   380,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Spineling",
+      "file": "src/entities/Spineling.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Spine-shooter. Ranged attacker with short memory — fires from cover, retreats when threatened.",
+      "spriteKey": "mini-velcrid",
+      "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
+      "animTags": {
+        "idle":   "idle_south",
+        "walk":   "walk_south",
+        "attack": null,
+        "hurt":   null,
+        "death":  "death_south",
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   500,
+        "hearingRadius": null,
+        "sightMemoryMs": 600
+      }
+    },
+
+    {
+      "class": "SporeDrifter",
+      "file": "src/entities/SporeDrifter.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Passive drifter. Floats slowly, detonates spore cloud on contact or death.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       true,
+        "alert":         false,
+        "tracking":      false,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   0,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Bonehulk",
+      "file": "src/entities/Bonehulk.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Slow tank. Absorbs damage, cleaves in a wide arc. Very loud footsteps.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   300,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "DryShade",
+      "file": "src/entities/DryShade.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Phase-shifter. Briefly intangible, dashes through walls to reposition.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   0,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "EggSac",
+      "file": "src/entities/BroodMother.ts",
+      "type": "summon",
+      "world": "spinolandet",
+      "personality": "Static structure. Spawns hatchlings on timer, priority target for players.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       true,
+        "alert":         false,
+        "tracking":      false,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   0,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "BroodMother",
+      "file": "src/entities/BroodMother.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Egg-layer boss. Moves slowly, continuously spawns EggSacs. Must be eliminated to stop reinforcements.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   200,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "MimicCrawler",
+      "file": "src/entities/MimicCrawler.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Disguises as floor debris. Reveals and charges when player gets close.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       true,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   80,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Progenitor",
+      "file": "src/entities/Progenitor.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Spawner elite. Hangs back, periodically births minions. Must be killed to stop reinforcements.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   220,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Thornvine",
+      "file": "src/entities/Thornvine.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Rooted hazard. Cannot move. Attacks anything within melee reach via thorn lash.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       true,
+        "alert":         false,
+        "tracking":      false,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   40,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Venomantis",
+      "file": "src/entities/Venomantis.ts",
+      "type": "enemy",
+      "world": "spinolandet",
+      "personality": "Poison melee ambusher. Closes quickly, applies DOT on hit, retreats to let poison work.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   160,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "GlitchDrone",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Corrupted flying drone. Fast, ranged. Erratic movement pattern from glitch state.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   500,
+        "hearingRadius": null,
+        "sightMemoryMs": 800
+      }
+    },
+
+    {
+      "class": "StaticCrawler",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Electrified ground unit. Leaves static discharge on tiles it crosses.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   420,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "RustBerserker",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Berserk melee charger. Takes reduced damage while charging, deals massive impact hit.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   450,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "SignalJammer",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Static support unit. Disrupts hero abilities in its radius. Must be destroyed first.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       true,
+        "alert":         false,
+        "tracking":      false,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   0,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "InfectedAPC",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Slow armored vehicle. Deploys infantry, fires turret. High HP, weak rear armor.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   500,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "ScrapGolem",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Assembled from debris. Loses limbs as HP drops, each phase changes attack pattern.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   400,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "TitanPrototype",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Elite mech. Multi-phase boss. Long memory — hunts player across the full arena.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   600,
+        "hearingRadius": null,
+        "sightMemoryMs": 5000
+      }
+    },
+
+    {
+      "class": "TitanHalf",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Damaged TitanPrototype — one half functional. Erratic, rage-mode attacks.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   600,
+        "hearingRadius": null,
+        "sightMemoryMs": 4000
+      }
+    },
+
+    {
+      "class": "TrackerUnit",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Relentless pursuer. Never loses target. Long sight, long memory, flanks around obstacles.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   600,
+        "hearingRadius": null,
+        "sightMemoryMs": 5000
+      }
+    },
+
+    {
+      "class": "StaticGhost",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Intangible anomaly. Ignores walls, drains hero energy on contact.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   500,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "SwarmMatrix",
+      "file": "src/entities/EarthEnemies.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Coordination node. Buffs allied units nearby. Destroying it panics its swarm.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       true,
+        "alert":         false,
+        "tracking":      false,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   0,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "CrackedGolem",
+      "file": "src/entities/CrackedGolem.ts",
+      "type": "enemy",
+      "world": "earth",
+      "personality": "Stone construct. Slow and telegraphed, but hits through shields. Cracks deepen as HP drops.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   380,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Tinkerer",
+      "file": "src/entities/Tinkerer.ts",
+      "type": "hero",
+      "world": "earth",
+      "personality": "Ranged gunslinger. Pistol with limited mag, must reload. Dash to reposition.",
+      "spriteKey": "tinkerer",
+      "spritesheetJson": "public/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json",
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  { "keys": ["sfx-gunshot"], "files": ["public/assets/audio/freesound_community-9mm-pistol-shot-6349.ogg"] },
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   400,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Ironwing",
+      "file": "src/entities/Ironwing.ts",
+      "type": "hero",
+      "world": "earth",
+      "personality": "Heavy melee. Slow but armored. Signature ability: wing-slam AOE.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   440,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Rampart",
+      "file": "src/entities/Rampart.ts",
+      "type": "hero",
+      "world": "earth",
+      "personality": "Shield bearer. Blocks projectiles from the front, charges forward to stun.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Kronos",
+      "file": "src/entities/Kronos.ts",
+      "type": "hero",
+      "world": "earth",
+      "personality": "Time manipulator. Slows enemies in AOE, blinks short distances, very fragile.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "MajaLind",
+      "file": "src/entities/MajaLind.ts",
+      "type": "hero",
+      "world": "earth",
+      "personality": "Support medic. Heals allies, applies shields, weak in direct combat.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "TorstenKraft",
+      "file": "src/entities/TorstenKraft.ts",
+      "type": "hero",
+      "world": "earth",
+      "personality": "Engineer. Deploys turrets and proximity mines. Fights from behind cover.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     true,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Apex",
+      "file": "src/entities/heroes/Apex.ts",
+      "type": "hero",
+      "world": "spinolandet",
+      "personality": "Hybrid attacker. Fast melee, short-range dash, moderate durability.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Chimera",
+      "file": "src/entities/heroes/Chimera.ts",
+      "type": "hero",
+      "world": "spinolandet",
+      "personality": "Adaptive hybrid. Changes combat style based on absorbed enemy traits.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Lund",
+      "file": "src/entities/heroes/Lund.ts",
+      "type": "hero",
+      "world": "spinolandet",
+      "personality": "Brawler tank. High HP, no ranged option. Signature: ground slam that stuns.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "Overmind",
+      "file": "src/entities/heroes/Overmind.ts",
+      "type": "hero",
+      "world": "spinolandet",
+      "personality": "Swarm commander. Controls allied units telepathically. Fragile solo, dominant in groups.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    },
+
+    {
+      "class": "SymbiontKarin",
+      "file": "src/entities/heroes/SymbiontKarin.ts",
+      "type": "hero",
+      "world": "spinolandet",
+      "personality": "Symbiont host. Dual-mode: host body fights normally, symbiont can detach as scout.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle":   null,
+        "walk":   null,
+        "attack": null,
+        "hurt":   null,
+        "death":  null,
+        "alert":  null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert":   null,
+        "aggro":   null,
+        "attack":  null,
+        "hurt":    null,
+        "death":   null
+      },
+      "behavior": {
+        "buildTree":     false,
+        "unaware":       false,
+        "alert":         false,
+        "tracking":      true,
+        "combat":        true,
+        "flee":          false,
+        "aggroRadius":   null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      }
+    }
+
+  ]
+}
