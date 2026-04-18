@@ -1,6 +1,6 @@
 # Matlu — Phaser 3 + TypeScript + Vite
 
-Top-down vehicle game built with Phaser 3 + TypeScript. A vehicle drives on a 2D map controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
+Top-down action RPG built with Phaser 3 + TypeScript. A hero character explores a corrupted world, fights enemies, and cleanses corruption — controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
 
 Primary platform: Android tablet (Chrome). Keyboard also supported.
 Deployed to: Vercel (auto-deploy on push to main)
@@ -228,6 +228,7 @@ All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `LINEAR_API_KEY`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files Linear bugs |
 | Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY` | Expands thin lore entries, generates new ones in Notion |
 | Lore from Features | `0 15 * * *` (daily) | `.agents/lore-features.md` | `NOTION_API_KEY` | Scans merged PRs for new game entities, creates Notion lore entries |
+| Entity Spec Fill | `0 16 * * *` (daily) | `.agents/entity-spec-fill.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` | Writes `designNotes` (sprite, animation, sound briefs) for all entities missing them in `entity-registry.json` |
 | Weekly Learning Summary | `0 7 * * 6` (Saturday) | `.agents/learning-summary.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes learning summary from the week's PRs, posts to Notion |
 | Weekly Architecture Review | `0 17 * * 5` (Friday) | `.agents/architecture-review.md` | `LINEAR_API_KEY` | Updates ARCHITECTURE.md, flags concerns, creates Linear issue |
 | **Weekly Engineering Stats** | `0 8 * * 0` (Sunday) | `collect-stats.js` (script, not agent) | `LINEAR_API_KEY`, `GITHUB_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTION_API_KEY` | Collects delivery/quality/rework metrics; writes to Supabase `stats_weekly` + `cognitive_load`; triggers Vercel rebuild |
