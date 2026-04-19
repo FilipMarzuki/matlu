@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Blog">
+  <h1>Blog</h1>
+  <p class="coming-soon">Posts coming soon.</p>
+</Base>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+  .coming-soon {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+  }
+</style>

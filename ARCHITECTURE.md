@@ -352,3 +352,38 @@ FOOTSTEP_INTERVAL_MS = 380 (base; scaled by movement speed — FIL-119)
 - **`Spinolandet.ts` placement** — faction wave definitions live in `world/` but are not terrain or world-state data; they are arena content. A `src/arena/` or `src/factions/` directory would be a more honest home as more level-specific wave files accumulate.
 - **`SkillSystem` and `matluRuns` in `lib/`** — `lib/` continues to mix true utilities (noise, rng, i18n) with game-domain code. Not an immediate problem, but worth splitting into `src/systems/` and `src/db/` in a future pass.
 - **No unit tests on pure data modules** — `LakeData.ts`, `BiomeBlend.ts`, `DungeonGen.ts`, and `CliffSystem.ts` are all pure TypeScript with no Phaser dependency. They are exactly the kind of code that is easy to unit-test. Adding even a handful of tests would catch regressions before they reach the rendered game.
+
+---
+
+## Web Layer — Three Deployable Sites
+
+The repo contains three independently deployed Vercel projects. Each has its own `package.json` and root directory setting in Vercel.
+
+| Directory | Vercel project | URL | Stack | Purpose |
+|---|---|---|---|---|
+| `/` (root) | `matlu` | matlu.vercel.app | Phaser 3 + Vite SPA | The game |
+| `wiki/` | `matlu-codex` | matlu-codex.vercel.app | Astro 6 static | Player-facing community hub — lore, biomes, creatures, playtest feedback |
+| `dev/` | `agentic-experiments` | agentic-experiments.vercel.app | Astro 6 static | Internal dev log — metrics dashboard, agent performance, architecture notes, blog |
+
+**Shared infrastructure**
+- All three are in one GitHub repo and share `.github/` workflows.
+- `collect-stats.js` (runs Sunday 08:00 UTC) writes to Supabase `stats_weekly`, then fires `VERCEL_DEPLOY_HOOK` to rebuild `agentic-experiments` so the metrics dashboard picks up the new row.
+- The `wiki/` and `dev/` Astro sites use the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY` env vars already set on the main game project in Vercel.
+
+**dev/ page map**
+```
+/             index.astro          — landing + 4 metric cards (stats_weekly latest row)
+/metrics      metrics.astro        — 6 Chart.js charts + complexity hotspots table
+/blog         blog/index.astro     — dev blog (content collections, Markdown)
+/architecture architecture.astro  — renders ARCHITECTURE.md
+/agents       agents.astro         — agent outcome table (Linear agent:* labels)
+```
+
+**wiki/ page map**
+```
+/             index.astro (scaffold)
+/lore         lore/index.astro     — Notion-driven lore entries
+/biomes       biomes/index.astro   — biome cards
+/creatures    creatures/           — gallery + submission form
+/playtest     playtest.astro       — playtest feedback form
+```
