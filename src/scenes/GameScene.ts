@@ -842,7 +842,6 @@ export class GameScene extends Phaser.Scene {
     // FIL-117: night ambience — eerie presence sound fades in at dusk and peaks during night.
     // Replace with a dedicated crickets/insect loop when one is sourced from freesound.org.
     this.load.audio('night-ambience', [
-      'assets/audio/night-ambience.ogg',
       'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/stalker.ogg',
     ]);
     // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
