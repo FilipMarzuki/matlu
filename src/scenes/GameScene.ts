@@ -5725,9 +5725,6 @@ export class GameScene extends Phaser.Scene {
         tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
         terrainRt.draw(tileImg);
 
-        // FIL-444: animated water overlays deferred to a later milestone.
-        if (false) {
-        }
       }
     }
 
