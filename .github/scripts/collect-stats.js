@@ -271,11 +271,11 @@ async function getLinearLeadTimeStats() {
   }
 
   const query = `
-    query LeadTime($after: DateTime!) {
+    query LeadTime($after: DateTimeOrDuration!) {
       issues(
         filter: { completedAt: { gte: $after } }
         first: 250
-        orderBy: completedAt
+        orderBy: updatedAt
       ) {
         nodes {
           id
