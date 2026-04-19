@@ -52,7 +52,7 @@ import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
-import { worldToIso, isoToWorld, ISO_WORLD_W, ISO_WORLD_H } from '../lib/IsoTransform';
+import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H } from '../lib/IsoTransform';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
@@ -5283,9 +5283,8 @@ export class GameScene extends Phaser.Scene {
     for (const child of allAnimals) {
       // Ground animals are now sprites (FIL-73); cast accordingly.
       const r  = child as Phaser.GameObjects.Sprite;
-      // Y-sort with the same raw-Y system as chunk-placed trees so animals
-      // correctly pass behind/in-front of trees and the player as they move.
-      r.setDepth(r.y);
+      // iso painter-sort using stored world position (set by placeGroundAnimal, FIL-461).
+      r.setDepth(isoDepth(r.getData('worldX') ?? 0, r.getData('worldY') ?? 0));
       const b  = r.body as Phaser.Physics.Arcade.Body;
       const type = r.getData('animalType') as string;
       const def  = ANIMAL_DEFS[type];
@@ -6035,9 +6034,8 @@ export class GameScene extends Phaser.Scene {
       const texture = decorTexture(d.type, d.variant);
       const sprite = this.add.image(d.x, d.y, texture);
       sprite.setScale(d.scale);
-      // Sort by y so decorations further down the screen render in front —
-      // the standard "painter's algorithm" for top-down 2D.
-      sprite.setDepth(2 + d.y / WORLD_H);
+      // iso painter-sort depth — same 0–235 scale as trees and player (FIL-460).
+      sprite.setDepth(isoDepth(d.x, d.y));
 
       // Grass tufts sway gently — a sine-eased angle tween rocks each tuft ±2°.
       // Duration and delay are derived from world position so adjacent tufts
@@ -6095,22 +6093,25 @@ export class GameScene extends Phaser.Scene {
         const x = Phaser.Math.Clamp(wx + jx, 16, WORLD_W - 16);
         const y = Phaser.Math.Clamp(wy + jy, 16, WORLD_H - 16);
 
+        // Project world position to iso space for rendering (FIL-460).
+        const { x: isoX, y: isoY } = worldToIso(x, y);
+
         if (biome < 0.29 && lilyCount < MAX_LILIES && rng() < 0.60) {
           // Lily pads on open water — pick one of 6 variants by frame index
           const frame = Math.floor(rng() * 6);
-          const img = this.add.image(x, y, 'water-lillies', frame);
+          const img = this.add.image(isoX, isoY, 'water-lillies', frame);
           this.decorImages.push(img);
           img.setScale(2.0 + rng() * 0.5); // 2.0–2.5× so they read at game zoom
-          img.setDepth(0.5 + y / WORLD_H); // on the water surface, y-sorted
+          img.setDepth(isoDepth(x, y)); // iso painter-sort scale (0–235)
           img.setAlpha(0.80 + rng() * 0.20);
           lilyCount++;
         } else if (biome >= 0.27 && rockCount < MAX_ROCKS && rng() < 0.50) {
           // Rocks at the water's edge — 6 variants on the sheet
           const frame = Math.floor(rng() * 6);
-          const img = this.add.image(x, y, 'rocks-in-water', frame);
+          const img = this.add.image(isoX, isoY, 'rocks-in-water', frame);
           this.decorImages.push(img);
           img.setScale(2.0);
-          img.setDepth(1.0 + y / WORLD_H); // just above lily depth
+          img.setDepth(isoDepth(x, y) + 0.5); // slightly above lily depth
           rockCount++;
         }
       }
@@ -6304,7 +6305,7 @@ export class GameScene extends Phaser.Scene {
         const key = rand() < 0.6 ? 'butterfly-tex' : 'bee-tex';
         const img = this.add.image(x, y, key);
         this.decorImages.push(img);
-        img.setDepth(2 + y / WORLD_H).setScale(1.5);
+        img.setDepth(isoDepth(x, y)).setScale(1.5);
 
         // Wing flutter — ±8° at 180 ms; butterflies slightly faster than bees
         this.tweens.add({
@@ -6424,14 +6425,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private stampChunkItem(item: ChunkItem, wx: number, wy: number): void {
+    // wx/wy are world-pixel coords. Project to iso for rendering (FIL-460).
+    const { x: isoX, y: isoY } = worldToIso(wx, wy);
     if (item.kind === 'tree' || item.kind === 'rock') {
       // Re-use the existing solidObjects group so the player collider covers these too.
       // item.frame is undefined for single-image textures, which Phaser treats identically
       // to omitting the argument — so this is backward compatible with all existing chunks.
-      const obj = this.physics.add.staticImage(wx, wy, item.texture, item.frame);
+      const obj = this.physics.add.staticImage(isoX, isoY, item.texture, item.frame);
       this.decorImages.push(obj);
       if (item.scale !== undefined) obj.setScale(item.scale);
-      obj.setDepth(wy); // y-sorting: lower on screen = in front
+      obj.setDepth(isoDepth(wx, wy)); // iso painter-sort scale (0–235)
       obj.setOrigin(0.5, 1);
       this.solidObjects.add(obj);
 
@@ -6448,11 +6451,11 @@ export class GameScene extends Phaser.Scene {
       // decoration / puddle — no physics, just a sprite.
       // Pass item.frame so chunks can reference a specific frame on a spritesheet
       // (e.g. frame 0 = closed chest on mw-chest-01). Undefined = whole image.
-      const sprite = this.add.image(wx, wy, item.texture, item.frame);
+      const sprite = this.add.image(isoX, isoY, item.texture, item.frame);
       this.decorImages.push(sprite);
       if (item.scale !== undefined) sprite.setScale(item.scale);
       sprite.setOrigin(0.5, 1);
-      sprite.setDepth(item.kind === 'puddle' ? 2 : wy); // puddles below sprites
+      sprite.setDepth(item.kind === 'puddle' ? 2 : isoDepth(wx, wy)); // puddles below sprites
     }
   }
 
@@ -6679,7 +6682,7 @@ export class GameScene extends Phaser.Scene {
         const npc = this.add.image(nx, ny, 'pc-idle-down', 0);
         // Scale 0.35 makes the 64×64 frame appear at ~22 px — readable at zoom 2
         npc.setScale(0.35);
-        npc.setDepth(2 + ny / WORLD_H);
+        npc.setDepth(isoDepth(nx, ny));
         npc.setData('settlementId', s.id);
         this.settlementNpcs.push(npc);
       }
@@ -6730,7 +6733,7 @@ export class GameScene extends Phaser.Scene {
       // from the green-tinted dialogue NPCs.
       const sprite = this.add.image(def.x, def.y, 'pc-idle-down', 0);
       sprite.setScale(0.35);
-      sprite.setDepth(2 + def.y / WORLD_H);
+      sprite.setDepth(isoDepth(def.x, def.y));
       // Orange tint signals "interactable commerce" vs the neutral NPC tint.
       sprite.setTint(0xffaa44);
 
@@ -6933,8 +6936,8 @@ export class GameScene extends Phaser.Scene {
       const sprite = this.add.sprite(def.x, def.y, def.texture, alreadyOpened ? 3 : 0);
       // Scale 2× matches other Mystic Woods decorations in the world (16 px → 32 px display).
       sprite.setScale(2.0);
-      // y-sort: depth = world-y so the player correctly occludes/underlaps the chest.
-      sprite.setDepth(def.y);
+      // iso painter-sort depth — same 0–235 scale as trees and player (FIL-460).
+      sprite.setDepth(isoDepth(def.x, def.y));
       // Origin (0.5, 1): sprite is anchored at its bottom-centre, consistent with
       // all other world objects that use y-sorting.
       sprite.setOrigin(0.5, 1);
