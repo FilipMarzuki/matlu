@@ -1,98 +1,297 @@
 ---
 import Base from '../layouts/Base.astro';
+import { fetchAllLore, TYPE_LABELS } from '../lib/notion-lore';
+
+const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://matlu.vercel.app';
+
+// 3 most-recent lore entries for the world teaser
+const allLore = await fetchAllLore();
+const recentLore = allLore.slice(0, 3);
 ---
 
-<Base title="Matlu Codex" description="Matlu Codex — lore, biomes, and creatures for Core Warden.">
+<Base
+  title="Matlu Codex"
+  description="Matlu Codex — lore, biomes, and creatures for Core Warden."
+>
+  <!-- ── Hero ──────────────────────────────────────────────────────────── -->
   <section class="hero">
-    <h1>Matlu Codex</h1>
-    <p class="lead">The world companion for <strong>Core Warden</strong> — lore, biomes, creatures, and more.</p>
+    <h1>The Matlu Multiworld</h1>
+    <p class="lead">
+      The world companion for <strong>Core Warden</strong> — lore, biomes, creatures, and more.
+      Explore the world, meet its peoples, and help bring its creatures to life.
+    </p>
+    <a href={gameUrl} class="cta" target="_blank" rel="noopener">
+      Play Core Warden →
+    </a>
   </section>
 
-  <nav class="cards">
-    <a href="/lore" class="card">
-      <span class="icon">📖</span>
-      <h2>Lore</h2>
-      <p>Stories, history, and the forces shaping the Matlu multiworld.</p>
-    </a>
-    <a href="/biomes" class="card">
-      <span class="icon">🌍</span>
-      <h2>Biomes</h2>
-      <p>Every terrain type — from Meadow to Deep Sea — with tile previews.</p>
-    </a>
-    <a href="/creatures" class="card">
-      <span class="icon">🦎</span>
-      <h2>Creatures</h2>
-      <p>The animals, enemies, and NPCs that inhabit each region.</p>
-    </a>
-    <a href="/playtest" class="card card--cta">
-      <span class="icon">🎮</span>
-      <h2>Playtest</h2>
-      <p>Try Core Warden in your browser and share what you think.</p>
-    </a>
-  </nav>
+  <!-- ── World teaser ──────────────────────────────────────────────────── -->
+  <section class="section">
+    <div class="section-head">
+      <h2>📖 Lore</h2>
+      <a href="/lore" class="see-all">Browse all →</a>
+    </div>
+
+    {recentLore.length > 0 ? (
+      <div class="card-grid">
+        {recentLore.map((entry) => (
+          <a href={`/lore/${entry.slug}`} class="card">
+            <div class="card-top">
+              <span class="badge">{TYPE_LABELS[entry.type]}</span>
+              {entry.world && <span class="world-tag">{entry.world}</span>}
+            </div>
+            <h3>{entry.title}</h3>
+            {entry.summary && <p class="card-p">{entry.summary}</p>}
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="coming-soon">
+        <span>Lore entries coming soon.</span>
+        <a href="/lore">Visit the lore section →</a>
+      </div>
+    )}
+  </section>
+
+  <!-- ── Biomes teaser ─────────────────────────────────────────────────── -->
+  <section class="section">
+    <div class="section-head">
+      <h2>🌍 Biomes</h2>
+    </div>
+    <div class="coming-soon">
+      Biome cards coming soon — from Meadow to Deep Sea.
+    </div>
+  </section>
+
+  <!-- ── Creatures teaser ──────────────────────────────────────────────── -->
+  <section class="section">
+    <div class="section-head">
+      <h2>🦎 Creatures</h2>
+    </div>
+    <div class="coming-soon">
+      Creature gallery coming soon.
+      <a href="/creatures/submit">Submit a creature →</a>
+    </div>
+  </section>
+
+  <!-- ── Contribute CTA ────────────────────────────────────────────────── -->
+  <section class="contribute">
+    <h2>Contribute to the World</h2>
+    <p>The Matlu multiworld grows with the community. Submit a creature you've dreamed up, or play the game and share your feedback.</p>
+    <div class="cta-row">
+      <a href="/creatures/submit" class="btn btn-primary">Submit a creature</a>
+      <a href="/playtest" class="btn btn-secondary">Give feedback</a>
+    </div>
+  </section>
 </Base>
 
 <style>
+  /* ── Hero ───────────────────────────────────────────────────────────── */
   .hero {
-    padding: 3rem 0 2.5rem;
+    padding: 3rem 0 3rem;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 2.5rem;
+    margin-bottom: 3rem;
   }
 
   .hero h1 {
-    font-size: 2.8rem;
+    font-size: 2.4rem;
     color: var(--accent-hi);
-    text-shadow: 0 0 32px rgba(192, 132, 252, 0.3);
-    margin-bottom: 0.75rem;
+    text-shadow: 0 0 32px rgba(192, 132, 252, 0.25);
+    margin-bottom: 1rem;
   }
 
   .lead {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     color: var(--text-dim);
     max-width: 520px;
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
   }
 
   .lead strong { color: var(--text); }
 
-  .cards {
+  a.cta {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.95rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    padding: 0.6rem 1.4rem;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+
+  a.cta:hover {
+    background: var(--accent-hi);
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+    text-decoration: none;
+  }
+
+  /* ── Sections ───────────────────────────────────────────────────────── */
+  .section { margin-bottom: 3rem; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-head h2 {
+    font-size: 1.25rem;
+    color: var(--text);
+  }
+
+  .see-all {
+    font-size: 0.85rem;
+    color: var(--accent-hi);
+  }
+
+  /* ── Card grid ──────────────────────────────────────────────────────── */
+  .card-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1.25rem;
+    gap: 1rem;
   }
 
   .card {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 1.5rem;
+    gap: 0.45rem;
+    padding: 1.25rem;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
+    border-radius: 8px;
     text-decoration: none;
+    color: var(--text);
     transition: border-color 0.15s, box-shadow 0.15s;
   }
 
   .card:hover {
     border-color: var(--accent);
-    box-shadow: 0 0 16px rgba(168, 85, 247, 0.15);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.12);
     text-decoration: none;
   }
 
-  .card--cta {
-    border-color: rgba(168, 85, 247, 0.4);
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
-  .icon { font-size: 1.5rem; }
-
-  .card h2 {
-    font-size: 1.1rem;
+  .badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(168, 85, 247, 0.15);
     color: var(--accent-hi);
+    border-radius: 4px;
+    padding: 0.12rem 0.45rem;
   }
 
-  .card p {
-    font-size: 0.9rem;
+  .world-tag {
+    font-size: 0.74rem;
+    color: var(--text-dim);
+  }
+
+  .card h3 {
+    font-size: 0.95rem;
+    color: var(--accent-hi);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+  }
+
+  .card-p {
+    font-size: 0.84rem;
     color: var(--text-dim);
     margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ── Coming soon ────────────────────────────────────────────────────── */
+  .coming-soon {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+  }
+
+  .coming-soon a { color: var(--accent-hi); font-size: 0.875rem; }
+
+  /* ── Contribute ─────────────────────────────────────────────────────── */
+  .contribute {
+    margin-top: 1rem;
+    padding: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-align: center;
+  }
+
+  .contribute h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .contribute p {
+    color: var(--text-dim);
+    max-width: 480px;
+    margin: 0 auto 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.55rem 1.2rem;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hi);
+    text-decoration: none;
+    box-shadow: 0 0 16px rgba(168, 85, 247, 0.35);
+  }
+
+  .btn-secondary {
+    background: var(--surface-hi);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent-hi);
+    text-decoration: none;
   }
 </style>
