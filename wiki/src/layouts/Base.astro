@@ -14,6 +14,8 @@ interface Props {
 }
 
 const { title, description = 'Matlu Codex — lore, biomes, and creatures for Core Warden.' } = Astro.props;
+const siteTitle = 'Matlu Codex';
+const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
 ---
 
 <!DOCTYPE html>
@@ -22,9 +24,9 @@ const { title, description = 'Matlu Codex — lore, biomes, and creatures for Co
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <meta property="og:title" content={`${title} — Matlu Codex`} />
+    <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
-    <title>{title} — Matlu Codex</title>
+    <title>{pageTitle}</title>
 
     <!-- Google Fonts: Syne (display headings) + Outfit (body text) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
