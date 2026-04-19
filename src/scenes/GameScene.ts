@@ -5978,9 +5978,9 @@ export class GameScene extends Phaser.Scene {
   private stampCorruptedLandmarks(): void {
     for (const lm of CORRUPTED_LANDMARKS) {
       this.stampChunk(CORRUPTED_CLEARING, lm.x, lm.y);
-      // Dark purple aura — very low alpha so it doesn't dominate the palette,
-      // but creates a clear "something happened here" visual signal.
-      this.add.circle(lm.x, lm.y, 90, 0x220022, 0.18).setDepth(0.05);
+      // Dark purple aura — project world position to iso space (FIL-468).
+      const { x: lmIsoX, y: lmIsoY } = worldToIso(lm.x, lm.y);
+      this.add.circle(lmIsoX, lmIsoY, 90, 0x220022, 0.18).setDepth(0.05);
     }
   }
 
@@ -5992,8 +5992,9 @@ export class GameScene extends Phaser.Scene {
   private stampSecretAreas(): void {
     for (const sp of SECRET_POSITIONS) {
       this.stampChunk(HIDDEN_HOLLOW, sp.x, sp.y);
-      // Faint golden glow — suggests "something worth finding here" without being obvious.
-      this.add.circle(sp.x, sp.y, 50, 0x998800, 0.10).setDepth(0.05);
+      // Faint golden glow — project world position to iso space (FIL-468).
+      const { x: spIsoX, y: spIsoY } = worldToIso(sp.x, sp.y);
+      this.add.circle(spIsoX, spIsoY, 50, 0x998800, 0.10).setDepth(0.05);
     }
   }
 
@@ -6465,10 +6466,12 @@ export class GameScene extends Phaser.Scene {
    */
   private createLevel1Zones(): void {
     for (const zone of ZONES) {
+      // Project world-space zone centre to iso for rendering (FIL-468).
+      const { x: zoneIsoX, y: zoneIsoY } = worldToIso(zone.x + zone.w / 2, zone.y + zone.h / 2);
       const overlay = this.add
         .rectangle(
-          zone.x + zone.w / 2,
-          zone.y + zone.h / 2,
+          zoneIsoX,
+          zoneIsoY,
           zone.w,
           zone.h,
           zone.tintColor,
@@ -6486,8 +6489,10 @@ export class GameScene extends Phaser.Scene {
    */
   private createLevel1Collectibles(): void {
     for (const col of COLLECTIBLES) {
+      // Project world-space collectible position to iso for rendering (FIL-468).
+      const { x: colIsoX, y: colIsoY } = worldToIso(col.x, col.y);
       const circle = this.add
-        .circle(col.x, col.y, 10, 0xffffff, 0.9)
+        .circle(colIsoX, colIsoY, 10, 0xffffff, 0.9)
         .setStrokeStyle(2, 0xffffff, 1)
         .setDepth(20);
 
@@ -6511,8 +6516,9 @@ export class GameScene extends Phaser.Scene {
    * Checks collectible pickups, passive cleanse in Zone 3, and meeting trigger.
    */
   private updateLevel1(delta: number): void {
-    const px = this.player.x;
-    const py = this.player.y;
+    // Player is in iso screen space; convert to world coords so proximity checks
+    // compare apples-to-apples against the world-space reference data (FIL-468).
+    const { x: px, y: py } = isoToWorld(this.player.x, this.player.y);
 
     // ── Collectible pickup ────────────────────────────────────────────────────
     for (const col of COLLECTIBLES) {
