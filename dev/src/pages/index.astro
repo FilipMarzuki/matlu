@@ -1,9 +1,32 @@
 ---
 /**
- * Agentic Experiments — landing page stub.
- * Full landing with metrics cards lands in issue #354.
+ * Agentic Experiments — landing page.
+ * Pulls the latest row from stats_weekly at build time (Vercel rebuilds
+ * weekly after collect-stats.js runs, so numbers stay fresh without polling).
  */
 import Base from '../layouts/Base.astro';
+import MetricCard from '../components/MetricCard.astro';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.SUPABASE_ANON_KEY ?? '';
+
+// Graceful empty state when env vars are missing (CI placeholders)
+let latest: Record<string, unknown> | null = null;
+if (supabaseUrl && !supabaseUrl.includes('example')) {
+  const sb = createClient(supabaseUrl, supabaseKey);
+  const { data } = await sb
+    .from('stats_weekly')
+    .select('week_of, prs_merged, issues_completed, rework_rate_pct, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd')
+    .order('week_of', { ascending: false })
+    .limit(1)
+    .single();
+  latest = data;
+}
+
+const weekOf = latest?.week_of
+  ? new Date(latest.week_of as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  : null;
 ---
 
 <Base title="Home">
@@ -11,45 +34,104 @@ import Base from '../layouts/Base.astro';
     <p class="label">experiment log</p>
     <h1>Agentic Experiments</h1>
     <p class="tagline">
-      Building <a href="https://matlu-wiki.vercel.app" target="_blank" rel="noopener">Core Warden</a> with AI agents.
+      Building <a href="https://matlu-codex.vercel.app" target="_blank" rel="noopener">Core Warden</a> with AI agents.
       Tracking what the machines do — and what they break.
     </p>
-    <p class="wip">
-      Metrics dashboard, blog, and agent performance pages coming soon.
-    </p>
   </div>
+
+  <section class="metrics">
+    <div class="metrics-header">
+      <h2>This week</h2>
+      {weekOf && <span class="week-label">w/e {weekOf}</span>}
+    </div>
+    <div class="cards">
+      <MetricCard
+        label="PRs merged"
+        value={latest?.prs_merged != null ? String(latest.prs_merged) : '—'}
+        sub="velocity"
+      />
+      <MetricCard
+        label="Agent success"
+        value={latest?.agent_success_rate_pct != null ? `${latest.agent_success_rate_pct}%` : '—'}
+        sub="of agent-run issues"
+        accent
+      />
+      <MetricCard
+        label="Cognitive load"
+        value={latest?.cognitive_load_total != null
+          ? Number(latest.cognitive_load_total).toLocaleString()
+          : '—'}
+        sub="complexity index"
+      />
+      <MetricCard
+        label="AI cost"
+        value={latest?.ai_total_cost_usd != null
+          ? `$${Number(latest.ai_total_cost_usd).toFixed(2)}`
+          : '—'}
+        sub="cumulative spend"
+      />
+    </div>
+    <a href="/metrics" class="see-more">See full metrics →</a>
+  </section>
+
+  <section class="blog-teaser">
+    <h2>Latest post</h2>
+    <p class="empty">First post coming soon.</p>
+  </section>
 </Base>
 
 <style>
   .hero {
-    padding-top: 4rem;
+    padding-top: 3rem;
     max-width: 600px;
+    margin-bottom: 3rem;
   }
   .label {
     font-family: var(--mono);
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     color: var(--accent-hi);
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  h1 { font-size: 2.25rem; margin-bottom: 1rem; }
+  .tagline { font-size: 1.05rem; color: var(--text-dim); line-height: 1.65; }
+
+  .metrics { margin-bottom: 3rem; }
+  .metrics-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
     margin-bottom: 1rem;
   }
-  h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1.25rem;
-  }
-  .tagline {
-    font-size: 1.1rem;
+  h2 { font-size: 1rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .week-label {
+    font-family: var(--mono);
+    font-size: 0.75rem;
     color: var(--text-dim);
-    margin-bottom: 2rem;
-    line-height: 1.6;
   }
-  .wip {
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .see-more {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--accent-hi);
+  }
+  .see-more:hover { text-decoration: underline; }
+
+  .blog-teaser { margin-bottom: 3rem; }
+  .empty {
     font-family: var(--mono);
     font-size: 0.85rem;
     color: var(--text-dim);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
+    border-left: 3px solid var(--border);
     padding: 0.75rem 1rem;
     border-radius: 4px;
+    margin-top: 1rem;
   }
 </style>

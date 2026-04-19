@@ -1,0 +1,235 @@
+---
+/**
+ * /metrics — full dashboard pulling all stats_weekly rows.
+ * Charts rendered client-side via Chart.js (CDN). Data passed from
+ * build-time Supabase fetch via Astro's define:vars directive.
+ */
+import Base from '../layouts/Base.astro';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.SUPABASE_ANON_KEY ?? '';
+
+type WeekRow = {
+  week_of: string;
+  prs_merged: number | null;
+  issues_completed: number | null;
+  rework_rate_pct: string | null;
+  agent_success_rate_pct: string | null;
+  cognitive_load_total: number | null;
+  ai_total_cost_usd: string | null;
+  cognitive_load_top10: Array<{ file: string; score: number; lines: number }> | null;
+};
+
+let rows: WeekRow[] = [];
+if (supabaseUrl && !supabaseUrl.includes('example')) {
+  const sb = createClient(supabaseUrl, supabaseKey);
+  const { data } = await sb
+    .from('stats_weekly')
+    .select('week_of, prs_merged, issues_completed, rework_rate_pct, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd, cognitive_load_top10')
+    .order('week_of', { ascending: true });
+  rows = (data as WeekRow[]) ?? [];
+}
+
+// Prepare chart datasets (oldest → newest for time axis)
+const labels = rows.map(r =>
+  new Date(r.week_of).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+);
+const prsData     = rows.map(r => r.prs_merged ?? 0);
+const issuesData  = rows.map(r => r.issues_completed ?? 0);
+const reworkData  = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
+const cogLoadData = rows.map(r => r.cognitive_load_total ?? 0);
+const agentData   = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
+const aiCostData  = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
+
+// Latest row's cognitive load top-10 for the hotspots table
+const latest = rows.at(-1);
+const hotspots = latest?.cognitive_load_top10 ?? [];
+---
+
+<Base title="Metrics">
+  <h1>Metrics</h1>
+  <p class="intro">Weekly snapshots from <code>stats_weekly</code>. Rebuilt automatically after each weekly stats run.</p>
+
+  {rows.length === 0 ? (
+    <p class="empty">No data yet — stats are collected weekly.</p>
+  ) : (
+    <div class="dashboard">
+
+      <div class="chart-grid">
+        <div class="chart-box">
+          <h2>PRs merged / week</h2>
+          <canvas id="chart-prs"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Issues closed / week</h2>
+          <canvas id="chart-issues"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Rework rate %</h2>
+          <canvas id="chart-rework"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Cognitive load index</h2>
+          <canvas id="chart-cogload"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Agent success rate %</h2>
+          <canvas id="chart-agent"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Cumulative AI cost (USD)</h2>
+          <canvas id="chart-cost"></canvas>
+        </div>
+      </div>
+
+      {hotspots.length > 0 && (
+        <section class="hotspots">
+          <h2>Complexity hotspots <span class="hint">(latest week)</span></h2>
+          <table>
+            <thead>
+              <tr><th>File</th><th>Lines</th><th>Score</th></tr>
+            </thead>
+            <tbody>
+              {hotspots.slice(0, 10).map(h => (
+                <tr>
+                  <td class="file">{h.file}</td>
+                  <td>{h.lines.toLocaleString()}</td>
+                  <td class="score">{h.score.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+    </div>
+  )}
+</Base>
+
+<!-- Chart.js from CDN — only loads when there's actual data -->
+{rows.length > 0 && (
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+)}
+
+<script define:vars={{ labels, prsData, issuesData, reworkData, cogLoadData, agentData, aiCostData }}>
+  // Runs client-side once Chart.js CDN script has loaded
+  if (typeof Chart === 'undefined') {
+    // CDN not loaded (e.g. no data rendered), skip
+  } else {
+    const ACCENT   = '#a89ff9';
+    const ACCENT2  = '#7c6ff7';
+    const DIM      = 'rgba(168,159,249,0.15)';
+    const GRID     = 'rgba(34,34,48,0.8)';
+    const TEXT     = '#6b6b80';
+
+    const defaults = {
+      type: 'line',
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+          y: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true },
+        },
+      },
+    };
+
+    const line = (id, data, color = ACCENT) => {
+      const ctx = document.getElementById(id);
+      if (!ctx) return;
+      new Chart(ctx, {
+        ...defaults,
+        data: {
+          labels,
+          datasets: [{ data, borderColor: color, backgroundColor: DIM, fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: color }],
+        },
+      });
+    };
+
+    const bar = (id, data, color = ACCENT) => {
+      const ctx = document.getElementById(id);
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: color }] },
+        options: { ...defaults.options },
+      });
+    };
+
+    line('chart-prs',     prsData);
+    line('chart-issues',  issuesData);
+    line('chart-rework',  reworkData,  '#f87171');
+    line('chart-cogload', cogLoadData, '#fbbf24');
+    bar('chart-agent',   agentData,   ACCENT2);
+    line('chart-cost',   aiCostData,  '#4ade80');
+  }
+</script>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+  .intro { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+  .empty {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    padding: 2rem 0;
+  }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.25rem;
+  }
+  .chart-box h2 {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 1rem;
+  }
+
+  .hotspots h2 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+  .hint { font-size: 0.8rem; color: var(--text-dim); font-weight: 400; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  td.file {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  td.score { color: var(--accent-hi); font-family: var(--mono); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface-hi); }
+</style>
