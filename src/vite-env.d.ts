@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_GIT_SHA?: string;
   /** Better Stack source token (Logs → your source → "Source token"). */
   readonly VITE_BETTERSTACK_DSN?: string;
+  /** Matlu Codex URL — used for the in-game playtest feedback link. Defaults to production URL. */
+  readonly VITE_WIKI_URL?: string;
 }
 
 interface ImportMeta {
