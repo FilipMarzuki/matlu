@@ -166,6 +166,25 @@ export class MainMenuScene extends Phaser.Scene {
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => menuMusic.stop());
     }
 
+    // ── Playtest link ─────────────────────────────────────────────────────────
+    // Opens the Matlu Codex playtest feedback form in a new tab.
+    // `window.open` is the standard way to trigger external navigation from Phaser.
+    // VITE_WIKI_URL can be set per-environment; falls back to the production URL.
+    const wikiUrl = import.meta.env.VITE_WIKI_URL as string | undefined
+      ?? 'https://matlu-codex.vercel.app';
+
+    this.add
+      .text(cx, height - 52, 'Leave feedback →', {
+        fontSize: '11px',
+        color: '#5a9a5a',
+      })
+      .setOrigin(0.5)
+      .setDepth(1)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover',  function(this: Phaser.GameObjects.Text) { this.setStyle({ color: '#ffe066' }); })
+      .on('pointerout',   function(this: Phaser.GameObjects.Text) { this.setStyle({ color: '#5a9a5a' }); })
+      .on('pointerdown', () => { window.open(`${wikiUrl}/playtest`, '_blank', 'noopener'); });
+
     // ── Hint ─────────────────────────────────────────────────────────────────
 
     this.add

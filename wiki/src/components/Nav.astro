@@ -21,6 +21,10 @@ const pathname = Astro.url.pathname;
       </li>
     ))}
   </ul>
+  <!-- Cross-link to the Agentic Experiments dev log -->
+  <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" target="_blank" rel="noopener">
+    Dev Log →
+  </a>
 </nav>
 
 <style>
@@ -46,4 +50,14 @@ const pathname = Astro.url.pathname;
   a { color: var(--text-dim); font-size: 0.9rem; font-family: 'Outfit', sans-serif; }
   a:hover, a.active { color: var(--text); text-decoration: none; }
   a.active { color: var(--accent-hi); }
+  .dev-link {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+  }
+  .dev-link:hover { color: var(--text); text-decoration: none; border-color: var(--accent); }
 </style>
