@@ -2043,15 +2043,21 @@ export class GameScene extends Phaser.Scene {
     let dy = 0;
 
     if (this.joystick.force > 10) {
-      dx = Math.cos(this.joystick.rotation);
-      dy = Math.sin(this.joystick.rotation);
+      // FIL-446: rotate 45° CCW so joystick "up" maps to world northwest,
+      // matching standard isometric games (Diablo, Hades).
+      const worldAngle = this.joystick.rotation - Math.PI / 4;
+      dx = Math.cos(worldAngle);
+      dy = Math.sin(worldAngle);
     } else {
       const right = this.cursors.right.isDown || this.wasd['right'].isDown ? 1 : 0;
       const left = this.cursors.left.isDown || this.wasd['left'].isDown ? 1 : 0;
       const down = this.cursors.down.isDown || this.wasd['down'].isDown ? 1 : 0;
       const up = this.cursors.up.isDown || this.wasd['up'].isDown ? 1 : 0;
-      dx = right - left;
-      dy = down - up;
+      // FIL-446: rotate screen-space keyboard input 45° CCW into world space.
+      const sx = right - left;
+      const sy = down - up;
+      dx = (sx - sy) * Math.SQRT1_2;
+      dy = (sx + sy) * Math.SQRT1_2;
     }
 
     // ── Joystick double-tap detection ─────────────────────────────────────────
@@ -2840,15 +2846,19 @@ export class GameScene extends Phaser.Scene {
     let dy = 0;
 
     if (this.joystick.force > 10) {
-      dx = Math.cos(this.joystick.rotation);
-      dy = Math.sin(this.joystick.rotation);
+      // FIL-446: same -45° iso rotation as the movement handler.
+      const worldAngle = this.joystick.rotation - Math.PI / 4;
+      dx = Math.cos(worldAngle);
+      dy = Math.sin(worldAngle);
     } else {
       const right = this.cursors.right.isDown || this.wasd['right'].isDown ? 1 : 0;
       const left  = this.cursors.left.isDown  || this.wasd['left'].isDown  ? 1 : 0;
       const down  = this.cursors.down.isDown  || this.wasd['down'].isDown  ? 1 : 0;
       const up    = this.cursors.up.isDown    || this.wasd['up'].isDown    ? 1 : 0;
-      dx = right - left;
-      dy = down - up;
+      const sx = right - left;
+      const sy = down - up;
+      dx = (sx - sy) * Math.SQRT1_2;
+      dy = (sx + sy) * Math.SQRT1_2;
     }
 
     // If no directional input, use the last known facing direction so standing
@@ -4386,12 +4396,14 @@ export class GameScene extends Phaser.Scene {
       // West-facing is handled by setFlipX(true) on the east animation in updatePlayerAnimation().
       const tkFrames = (anim: string, dir: string, n: number) =>
         Array.from({ length: n }, (_, i) => ({ key: 'tinkerer', frame: `${anim}_${dir}_${i}` }));
-      this.anims.create({ key: 'pc-idle-down', frames: tkFrames('idle', 'south', 4), frameRate: 6, repeat: -1 });
-      this.anims.create({ key: 'pc-idle-up',   frames: tkFrames('idle', 'north', 4), frameRate: 6, repeat: -1 });
-      this.anims.create({ key: 'pc-idle-side', frames: tkFrames('idle', 'east',  4), frameRate: 6, repeat: -1 });
-      this.anims.create({ key: 'pc-walk-down', frames: tkFrames('walk', 'south', 4), frameRate: 9, repeat: -1 });
-      this.anims.create({ key: 'pc-walk-up',   frames: tkFrames('walk', 'north', 4), frameRate: 9, repeat: -1 });
-      this.anims.create({ key: 'pc-walk-side', frames: tkFrames('walk', 'east',  4), frameRate: 9, repeat: -1 });
+      if (!this.anims.exists('pc-idle-down')) {
+        this.anims.create({ key: 'pc-idle-down', frames: tkFrames('idle', 'south', 4), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'pc-idle-up',   frames: tkFrames('idle', 'north', 4), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'pc-idle-side', frames: tkFrames('idle', 'east',  4), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'pc-walk-down', frames: tkFrames('walk', 'south', 4), frameRate: 9, repeat: -1 });
+        this.anims.create({ key: 'pc-walk-up',   frames: tkFrames('walk', 'north', 4), frameRate: 9, repeat: -1 });
+        this.anims.create({ key: 'pc-walk-side', frames: tkFrames('walk', 'east',  4), frameRate: 9, repeat: -1 });
+      }
       this.playerSprite = this.add.sprite(0, 0, 'tinkerer', 'idle_south_0');
       this.playerSprite.setScale(1);
       this.playerSprite.play('pc-idle-down');
@@ -4422,12 +4434,14 @@ export class GameScene extends Phaser.Scene {
       }
     } else {
       // WilderView: Pixel Crawler Free Pack Body_A character (64×64 px sheets)
-      this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
-      this.anims.create({ key: 'pc-idle-up',   frames: this.anims.generateFrameNumbers('pc-idle-up',   {}), frameRate: 6, repeat: -1 });
-      this.anims.create({ key: 'pc-idle-side', frames: this.anims.generateFrameNumbers('pc-idle-side', {}), frameRate: 6, repeat: -1 });
-      this.anims.create({ key: 'pc-walk-down', frames: this.anims.generateFrameNumbers('pc-walk-down', {}), frameRate: 9, repeat: -1 });
-      this.anims.create({ key: 'pc-walk-up',   frames: this.anims.generateFrameNumbers('pc-walk-up',   {}), frameRate: 9, repeat: -1 });
-      this.anims.create({ key: 'pc-walk-side', frames: this.anims.generateFrameNumbers('pc-walk-side', {}), frameRate: 9, repeat: -1 });
+      if (!this.anims.exists('pc-idle-down')) {
+        this.anims.create({ key: 'pc-idle-down', frames: this.anims.generateFrameNumbers('pc-idle-down', {}), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'pc-idle-up',   frames: this.anims.generateFrameNumbers('pc-idle-up',   {}), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'pc-idle-side', frames: this.anims.generateFrameNumbers('pc-idle-side', {}), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'pc-walk-down', frames: this.anims.generateFrameNumbers('pc-walk-down', {}), frameRate: 9, repeat: -1 });
+        this.anims.create({ key: 'pc-walk-up',   frames: this.anims.generateFrameNumbers('pc-walk-up',   {}), frameRate: 9, repeat: -1 });
+        this.anims.create({ key: 'pc-walk-side', frames: this.anims.generateFrameNumbers('pc-walk-side', {}), frameRate: 9, repeat: -1 });
+      }
       this.playerSprite = this.add.sprite(0, 0, 'pc-idle-down');
       this.playerSprite.setScale(1);
       this.playerSprite.play('pc-idle-down');
@@ -5120,12 +5134,14 @@ export class GameScene extends Phaser.Scene {
       ['badger-walk-anim', 'badger-walk', [0,1,2,3,4,5,6,7,8],        10],
     ];
     for (const [key, texture, frames, frameRate] of defs) {
-      this.anims.create({
-        key,
-        frames: this.anims.generateFrameNumbers(texture, { frames }),
-        frameRate,
-        repeat: -1,
-      });
+      if (!this.anims.exists(key)) {
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(texture, { frames }),
+          frameRate,
+          repeat: -1,
+        });
+      }
     }
   }
 
@@ -5603,21 +5619,23 @@ export class GameScene extends Phaser.Scene {
     // Rivers use frames 1–3 (skips the calm frame for a livelier look) at 8 fps.
     // Ocean uses all four frames at 2 fps for a slow, rolling feel.
     // Created here so they are ready when sprite.play() is called after the bake loop.
-    this.anims.create({
-      key: 'river-anim',
-      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [1, 2, 3] }),
-      frameRate: 8,
-      repeat: -1,
-    });
-    this.anims.create({
-      key: 'ocean-anim',
-      frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1, 2, 3] }),
-      frameRate: 2,
-      repeat: -1,
-    });
+    if (!this.anims.exists('river-anim')) {
+      this.anims.create({
+        key: 'river-anim',
+        frames: this.anims.generateFrameNumbers('terrain-water', { frames: [1, 2, 3] }),
+        frameRate: 8,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: 'ocean-anim',
+        frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1, 2, 3] }),
+        frameRate: 2,
+        repeat: -1,
+      });
+    }
     // FIL-260: lake animation — same sheet but only the two calmest frames at 1 fps
     // so ponds look near-still compared to the rippling ocean and fast-moving rivers.
-    this.anims.create({
+    if (!this.anims.exists('lake-anim')) this.anims.create({
       key: 'lake-anim',
       frames: this.anims.generateFrameNumbers('terrain-water', { frames: [0, 1] }),
       frameRate: 1,
