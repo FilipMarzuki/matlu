@@ -1,0 +1,49 @@
+---
+interface Props {
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent?: boolean;
+}
+const { label, value, sub, accent = false } = Astro.props;
+---
+
+<div class:list={['card', { accent }]}>
+  <span class="label">{label}</span>
+  <span class="value">{value}</span>
+  {sub && <span class="sub">{sub}</span>}
+</div>
+
+<style>
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .card.accent { border-color: var(--accent); }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .value {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+  .card.accent .value { color: var(--accent-hi); }
+  .sub {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 0.1rem;
+  }
+</style>

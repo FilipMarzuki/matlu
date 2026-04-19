@@ -1,9 +1,9 @@
 /// <reference types="astro/client" />
 
 interface ImportMetaEnv {
-  // Supabase — server-side only (no VITE_ prefix, not exposed to the client)
-  readonly SUPABASE_URL: string;
-  readonly SUPABASE_ANON_KEY: string;
+  // Supabase — reuse the same VITE_ vars set in Vercel for the main game
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: string;
   // Notion — server-side only
   readonly NOTION_API_KEY: string;
 }

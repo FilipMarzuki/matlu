@@ -68,8 +68,8 @@ jobs:
         working-directory: dev
     env:
       # Placeholder env vars — dev build must not crash on missing secrets
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_ANON_KEY: ci-placeholder
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder
       NOTION_API_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v6
