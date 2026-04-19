@@ -22,6 +22,7 @@ import { PathSystem } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
+import { BIOMES }            from '../world/biomes';
 import { WindSystem }        from '../systems/WindSystem';
 import {
   DIAGONAL_RIVERS,
@@ -51,16 +52,8 @@ import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
-import {
-  detectCliffs,
-  CLIFF_COLORS,
-  CLIFF_STEP_PX,
-  CLIFF_LIP_PX,
-  CLIFF_SHADOW_BANDS,
-  CLIFF_CORRUPT_COLOR,
-} from '../world/CliffSystem';
-import type { CliffFace } from '../world/CliffSystem';
-import { detectBoundaries, BLEND_COLORS } from '../world/BiomeBlend';
+import { worldToIso, isoToWorld, ISO_WORLD_W, ISO_WORLD_H } from '../lib/IsoTransform';
+import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
 /**
@@ -370,174 +363,36 @@ interface BirdObject {
 }
 
 
-/**
- * Maps a biome value + detail value to a Mystic Woods tileset frame.
- *
- * Setting: Höga Kusten (Swedish High Coast), early spring.
- * The landscape rises steeply from the Gulf of Bothnia. Biomes run from
- * open sea through rocky shore, coastal heath, and boreal forest up to
- * the bare granite of the highland summits.
- *
- * Tilesets (all Mystic Woods 2.2, 16×16 tiles):
- *   terrain-water  — water-sheet.png  480×48,  30 cols × 3 rows  (animated overlay)
- *   mw-plains      — plains.png       96×192,   6 cols × 12 rows
- *
- * Each ground biome maps to a consecutive row-pair (12 frames per biome).
- * detail noise spreads across all 12 frames so no two adjacent tiles repeat:
- *
- *   Biome            val range   rows   frames
- *   Rocky shore      0.25–0.33   0–1     0–11   earthy shingle
- *   Coastal heath    0.33–0.48   2–3    12–23   open ground / heather
- *   Mixed forest     0.48–0.65   4–5    24–35   birch-spruce floor
- *   Dense forest     0.65–0.80   6–7    36–47   dark spruce interior
- *   Highland rock    ≥ 0.80      8–9    48–59   granite / stone
- *
- * Biome mapping (mirrors coastal terrain breakpoints used in spawnBias):
- *   < 0.25  Bottenhavet — the Gulf of Bothnia / inland lakes
- *   < 0.33  Rocky shore — wave-smoothed granite and shingle beach
- *   < 0.48  Coastal heath — heather, crow-berries, early spring flowers
- *   < 0.65  Mixed birch-spruce forest — the main boreal belt
- *   < 0.80  Dense spruce forest — dark interior forest
- *   ≥ 0.80  Highland rock — bare granite, gnarled mountain birch
- */
-/**
- * Maps elevation, temperature, moisture, and detail noise to a Mystic Woods tile.
- *
- * FIL-154: biome is a 2D function of (elevation × moisture) at mid-elevations
- * and (elevation × temperature) at high elevations, not a single threshold.
- *
- * FIL-172: expanded from 5 to 10 used rows, fixing identical-tile bugs and adding
- * marsh, snow, and sandy-shore biomes. Temperature now also affects shore and
- * low-elevation tiles (previously only active above elev 0.62).
- *
- * plains.png row audit (16×16 px per frame, 6 cols × 12 rows):
- *   row  0 (frames  0– 5) — rocky shore / earthy shingle
- *   row  1 (frames  6–11) — dry sandy heath / lighter gravel  ← FIL-172: dry mid
- *   row  2 (frames 12–17) — coastal heath / light meadow
- *   row  3 (frames 18–23) — marsh / wet bog                   ← FIL-172: new biome
- *   row  4 (frames 24–29) — mixed birch-spruce forest floor
- *   row  5 (frames 30–35) — denser forest floor (reserved)
- *   row  6 (frames 36–41) — dark spruce interior
- *   row  7 (frames 42–47) — dark spruce transition (reserved)
- *   row  8 (frames 48–53) — cold granite / highland rock
- *   row  9 (frames 54–59) — bare rocky summit                  ← FIL-172: distinct summit
- *   row 10 (frames 60–65) — snow / ice field                   ← FIL-172: cold peak
- *   row 11 (frames 66–71) — reserved
- *
- * water-sheet.png rows (30 frames per row):
- *   row 0 (frames  0–29) — standard ocean / lake water (animated)
- *   row 1 (frames 30–59) — lighter/shallower river water       ← FIL-172: river tiles
- *
- * @param elev     Elevation [0,1] — main land/sea/mountain axis
- * @param temp     Temperature [0,1] — higher = warmer
- * @param moist    Effective moisture [0,1] — may be boosted near rivers (FIL-172)
- * @param detail   High-frequency detail [0,1] — picks frame within biome row
- * @param isRiver  True for diagonal river-band tiles; uses water-sheet row 1
- */
-function terrainTileFrame(
-  elev: number, temp: number, moist: number, detail: number,
-  isRiver = false,
-  isLake  = false,
-): { key: string; frame: number } {
-  const v6 = Math.floor(detail * 5.99); // 0–5: one of 6 frames per biome row
-
-  // ── Water ─────────────────────────────────────────────────────────────────────
-  // The custom water_animated.png has 4 frames (0–3): calm → gentle → mid → full ripple.
-  // Rivers use frames 1–3 (livelier); ocean uses 0–2; lakes use row 0 frames 0–1
-  // (calmer than ocean — only the two stillest frames to suggest a quiet pond).
-  if (elev < 0.25) {
-    if (isRiver) {
-      return { key: 'terrain-water', frame: 1 + (detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0) };
-    }
-    if (isLake) {
-      // Lakes: calm surface — only frames 0 and 1 (no mid/full ripple).
-      return { key: 'terrain-water', frame: detail > 0.50 ? 1 : 0 };
-    }
-    // Ocean: all three ripple levels
-    return { key: 'terrain-water', frame: detail > 0.65 ? 2 : detail > 0.35 ? 1 : 0 };
-  }
-
-  // ── Shore (elev 0.25–0.30) ────────────────────────────────────────────────────
-  // Cold or moist → rocky shingle (row 0); warm and dry → sandy shore (row 1).
-  // Temperature now affects the coast so northern shores look different from
-  // warm sheltered bays — resolves the "Shore and Sandy identical" FIL-172 gap.
-  if (elev < 0.30) {
-    return (temp < 0.45 || moist > 0.50)
-      ? { key: 'mw-plains', frame:      v6 }  // rocky shore (row 0)
-      : { key: 'mw-plains', frame:  6 + v6 }; // sandy shore (row 1)
-  }
-
-  // ── Marsh / bog (elev 0.30–0.45, very wet) ───────────────────────────────────
-  // Soggy lowlands near rivers shift to bog rather than forest. The threshold
-  // is intentionally high (0.72) so marsh is rare but emerges naturally in
-  // low-lying river valleys — especially after the river-bank moisture boost.
-  if (elev < 0.45 && moist > 0.72) return { key: 'mw-plains', frame: v6 }; // marsh — row 0, earthy/muddy
-
-  // ── Mid elevation (elev 0.30–0.62) ───────────────────────────────────────────
-  if (elev < 0.62) {
-    if (moist > 0.60) return { key: 'mw-plains',  frame: 6 + v6 }; // mixed forest — row 1, bushy green
-    if (moist > 0.52) return { key: 'mw-heather', frame: v6 };      // moist heather fringe — narrow band near forest edge
-    if (moist > 0.30) return { key: 'mw-plains',  frame:     v6 }; // open meadow — row 0, earthy brown
-    return                   { key: 'mw-grass',   frame: 0 };        // dry heath — flat clean grass
-  }
-
-  // ── High elevation (elev 0.62–0.78) ──────────────────────────────────────────
-  if (elev < 0.78) {
-    return temp > 0.50
-      ? { key: 'mw-plains', frame: 6 + v6 }  // warm high — row 1, bushy green
-      : { key: 'mw-plains', frame:     v6 }; // cold high — row 0, earthy/rocky
-  }
-
-  // ── Summit (elev ≥ 0.78) ──────────────────────────────────────────────────────
-  return temp < 0.40
-    ? { key: 'mw-snow',   frame: 12 }   // snow summit — generated snow tile (all-upper frame)
-    : { key: 'mw-plains', frame: v6 };  // bare rocky summit — row 0, earthy
-}
-
 // ── Dev overlay helpers ──────────────────────────────────────────────────────
 
 /**
- * Short label for each biome index — shown in the biome dev overlay.
- * FIL-172: expanded from 8 to 11 biomes.
+ * Short label per biome index — sourced from the canonical biomes.ts list.
+ * Index 6 (Meadow) is never returned by tileBiomeIdx but exists in the data
+ * for the BiomeInspector UI. Dev overlay uses indices 0–5 and 7–11.
  */
-const BIOME_LABELS = [
-  'Sea', 'Rocky Shore', 'Sandy Shore', 'Marsh',
-  'Dry Heath', 'Heath', 'Forest', 'Spruce',
-  'Granite', 'Summit', 'Snow',
-] as const;
+const BIOME_LABELS = BIOMES.map(b => b.name);
 
-/** Fill colour per biome index in the biome dev overlay (FIL-172: 11 entries). */
-const BIOME_OVERLAY_COLORS: readonly number[] = [
-  0x1a4f7a, // 0  Sea           — deep blue
-  0x8b6914, // 1  Rocky shore   — warm sandy brown
-  0xe8c870, // 2  Sandy shore   — lighter yellow-sand
-  0x4a7a3a, // 3  Marsh / bog   — muddy dark green
-  0xb8904a, // 4  Dry heath     — sandy/rocky
-  0x7a9a3a, // 5  Coastal heath — olive green
-  0x2a7a2a, // 6  Forest        — fresh green
-  0x1a5a1a, // 7  Spruce        — dark spruce green
-  0x7a7a7a, // 8  Cold granite  — cool grey
-  0x9a9898, // 9  Bare summit   — slightly lighter grey (distinct from granite)
-  0xd8e8f8, // 10 Snow field    — ice blue
-];
+/** Fill colour per biome index — sourced from the canonical biomes.ts list. */
+const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
  * Resolve which biome index a tile belongs to from its noise values.
- * Must mirror the if-else logic in terrainTileFrame() exactly so dev overlay
- * colours match the visible tiles.
- * FIL-172: expanded from 8 to 11 biomes.
+ * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
+ *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
+ *   4  Dry Heath 5  Coastal Heath 6  Meadow(unused) 7 Forest
+ *   8  Spruce    9  Cold Granite  10 Bare Summit    11 Snow Field
  */
 function tileBiomeIdx(elev: number, temp: number, moist: number): number {
-  if (elev < 0.25) return 0; // sea
-  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // rocky / sandy shore
-  if (elev < 0.45 && moist > 0.72) return 3; // marsh / bog
+  if (elev < 0.25) return 0; // Sea
+  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky Shore / Sandy Shore
+  if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
   if (elev < 0.62) {
-    if (moist > 0.60) return 6; // mixed forest
-    if (moist > 0.30) return 5; // coastal heath
-    return 4;                    // dry heath
+    if (moist > 0.60) return 7; // Forest (wet mid-altitude)
+    if (moist > 0.30) return 5; // Coastal Heath
+    return 4;                   // Dry Heath
   }
-  if (elev < 0.78) return temp > 0.50 ? 7 : 8; // spruce / cold granite
-  return temp < 0.40 ? 10 : 9;                  // snow / bare summit
+  if (elev < 0.78) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
+  return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
 }
 
 /**
@@ -1131,6 +986,13 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('water-deep',  'assets/sprites/tilesets/world/water_deep.png',  { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('water-shore', 'assets/sprites/tilesets/world/water_shore.png', { frameWidth: 16, frameHeight: 16 });
 
+    // ── Isometric terrain tileset (FIL-444) ───────────────────────────────────────
+    // 116 tiles, 32×32 px each, 11 columns × 11 rows in a 352×352 spritesheet.
+    // Biome → frame range mapping lives in IsoTileMap.ts.
+    this.load.spritesheet('iso-tiles',
+      'assets/packs/isometric tileset/spritesheet.png',
+      { frameWidth: 32, frameHeight: 32 });
+
     // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
     // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
     // water/land boundary and add natural-looking detail.
@@ -1211,7 +1073,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
+    // FIL-444: physics world expanded to isometric canvas size.
+    this.physics.world.setBounds(0, 0, ISO_WORLD_W, ISO_WORLD_H);
 
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
@@ -1319,7 +1182,8 @@ export class GameScene extends Phaser.Scene {
     this.createInteractiveObjects();
     this.createPlayer();
 
-    this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
+    // FIL-444: camera bounded to isometric canvas.
+    this.cameras.main.setBounds(0, 0, ISO_WORLD_W, ISO_WORLD_H);
     // Zoom in so pixel-art sprites read clearly on a tablet screen.
     // 2.5× gives a tighter, more intimate view than the previous 2×.
     this.cameras.main.setZoom(3);
@@ -2241,11 +2105,13 @@ export class GameScene extends Phaser.Scene {
       // Sample the biome noise at the player's tile position to pick the right
       // surface sound. BASE_SCALE and baseNoise match drawProceduralTerrain() exactly,
       // so the value corresponds to the terrain colour the player sees underfoot.
-      const tx = this.player.x / TILE_SIZE;
-      const ty = this.player.y / TILE_SIZE;
+      // FIL-444: player is in iso space — convert to world tile coords first.
+      const { x: fsWx, y: fsWy } = isoToWorld(this.player.x, this.player.y);
+      const tx = fsWx / TILE_SIZE;
+      const ty = fsWy / TILE_SIZE;
       const biomeVal = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
       // Mirror the diagonal gradient so surface sound matches the tile colour underfoot.
-      const fsPerp = (this.player.x / WORLD_W - (1 - this.player.y / WORLD_H)) / 2;
+      const fsPerp = (fsWx / WORLD_W - (1 - fsWy / WORLD_H)) / 2;
       const fsMtB  = Math.pow(Math.max(0, -fsPerp - 0.10), 1.5) * 4.0;
       const fsOcB  = Math.pow(Math.max(0, fsPerp  - 0.15), 1.5) * 3.0;
       const biome = Math.max(0, Math.min(1.2, biomeVal * 0.70 + fsMtB - fsOcB));
@@ -3820,9 +3686,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createDayNightOverlay(): void {
-    // Full-world rectangle sitting above all world objects but below HUD
+    // Full-world rectangle sitting above all world objects but below HUD.
+    // FIL-444: sized to the isometric canvas (ISO_WORLD_W × ISO_WORLD_H).
     this.dayNightOverlay = this.add
-      .rectangle(WORLD_W / 2, WORLD_H / 2, WORLD_W, WORLD_H, 0x000000, 0)
+      .rectangle(ISO_WORLD_W / 2, ISO_WORLD_H / 2, ISO_WORLD_W, ISO_WORLD_H, 0x000000, 0)
       .setDepth(48)
       .setScrollFactor(1);
     // Apply the initial blended phase + season overlay (no tween on first frame)
@@ -3970,9 +3837,9 @@ export class GameScene extends Phaser.Scene {
     this.fogSeenGfx.fillStyle(0x000000, 0.5).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
 
     // ── RenderTexture overlay ──────────────────────────────────────────────────
-    // Covers the full world. setOrigin(0,0) so position (0,0) = top-left of world.
+    // FIL-444: covers the isometric canvas. setOrigin(0,0) so (0,0) = north apex.
     this.fogRt = this.add
-      .renderTexture(0, 0, WORLD_W, WORLD_H)
+      .renderTexture(0, 0, ISO_WORLD_W, ISO_WORLD_H)
       .setOrigin(0, 0)
       .setDepth(49);
 
@@ -3986,8 +3853,8 @@ export class GameScene extends Phaser.Scene {
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
         if (this.fogGrid[ty * tilesX + tx] === FOG_SEEN) {
-          const px = tx * TILE_SIZE;
-          const py = ty * TILE_SIZE;
+          // FIL-444: fog stamps at iso-space positions of world tiles.
+          const { x: px, y: py } = worldToIso(tx * TILE_SIZE, ty * TILE_SIZE);
           // erase() punches a transparent hole (DESTINATION_OUT blend).
           // The stamp is positioned at the target tile before each call.
           this.fogUnseenGfx.setPosition(px, py);
@@ -4017,9 +3884,10 @@ export class GameScene extends Phaser.Scene {
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
     const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
 
-    // Player's tile coordinate (centre of the sight circle).
-    const ptx = Math.floor(this.player.x / TILE_SIZE);
-    const pty = Math.floor(this.player.y / TILE_SIZE);
+    // FIL-444: player is in iso space — convert back to world tile coords.
+    const { x: pfwx, y: pfwy } = isoToWorld(this.player.x, this.player.y);
+    const ptx = Math.floor(pfwx / TILE_SIZE);
+    const pty = Math.floor(pfwy / TILE_SIZE);
 
     // Current sight-circle bounding box (clamped to the tile grid).
     const currBounds = {
@@ -4062,8 +3930,8 @@ export class GameScene extends Phaser.Scene {
 
         this.fogGrid[idx] = newState;
 
-        const px = tx * TILE_SIZE;
-        const py = ty * TILE_SIZE;
+        // FIL-444: stamp at the iso-space position of this world tile.
+        const { x: px, y: py } = worldToIso(tx * TILE_SIZE, ty * TILE_SIZE);
 
         if (newState === FOG_VISIBLE) {
           // Remove whatever fog was covering this tile (black or shroud).
@@ -4260,10 +4128,12 @@ export class GameScene extends Phaser.Scene {
     if (now - this.lastAmbienceZoneCheck < 1000) return;
     this.lastAmbienceZoneCheck = now;
 
-    const tx = this.player.x / TILE_SIZE;
-    const ty = this.player.y / TILE_SIZE;
+    // FIL-444: player is in iso space — convert to world tile coords for biome sampling.
+    const { x: azWx, y: azWy } = isoToWorld(this.player.x, this.player.y);
+    const tx = azWx / TILE_SIZE;
+    const ty = azWy / TILE_SIZE;
     const biomeVal = this.baseNoise.fbm(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
-    const fsPerp   = (this.player.x / WORLD_W - (1 - this.player.y / WORLD_H)) / 2;
+    const fsPerp   = (azWx / WORLD_W - (1 - azWy / WORLD_H)) / 2;
     const fsMtB    = Math.pow(Math.max(0, -fsPerp - 0.10), 1.5) * 4.0;
     const fsOcB    = Math.pow(Math.max(0, fsPerp  - 0.15), 1.5) * 3.0;
     const biome    = Math.max(0, Math.min(1.2, biomeVal * 0.70 + fsMtB - fsOcB));
@@ -4567,16 +4437,18 @@ export class GameScene extends Phaser.Scene {
     this.playerBody = this.add.circle(0, 0, 1, 0x000000, 0);
     this.playerIndicator = this.add.rectangle(BODY_RADIUS + INDICATOR_W / 2, 0, INDICATOR_W, INDICATOR_H, 0xffffff, 0);
 
-    this.player = this.add.container(SPAWN_X, SPAWN_Y, [this.playerSprite, this.playerBody, this.playerIndicator]);
+    // FIL-444: spawn player at the isometric position of world spawn coordinates.
+    // worldToIso(300, 2650) ≈ (330, 738) in iso screen space.
+    const { x: isoSpawnX, y: isoSpawnY } = worldToIso(SPAWN_X, SPAWN_Y);
+    this.player = this.add.container(isoSpawnX, isoSpawnY, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
-    // Initial depth matches spawn Y so the first frame renders correctly.
-    // Updated every frame in update() using the same raw-Y system as chunk trees.
-    this.player.setDepth(SPAWN_Y);
+    // Depth = iso-Y (proportional to tx+ty) — valid painter sort for iso space.
+    // Updated every frame in update() to track position.
+    this.player.setDepth(isoSpawnY);
 
-    // Drop shadow — oval offset SE from the player's feet, depth just below the player.
-    // Same pattern as bird shadows (add.ellipse at offset position, low alpha).
-    this.playerShadow = this.add.ellipse(SPAWN_X + 6, SPAWN_Y + 8, 22, 10, 0x000000, 0.22);
-    this.playerShadow.setDepth(SPAWN_Y - 1);
+    // Drop shadow — oval offset SE from the player's feet.
+    this.playerShadow = this.add.ellipse(isoSpawnX + 6, isoSpawnY + 8, 22, 10, 0x000000, 0.22);
+    this.playerShadow.setDepth(isoSpawnY - 1);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -5598,352 +5470,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /**
-   * Maps a biome value to a WebGL tint colour applied to each terrain tile.
-   * Tinting multiplies per-channel so tile pixel detail is preserved — only
-   * the dominant hue shifts. Bright tint components (≥ 0x90) keep tiles
-   * readable; dark components deepen shadows naturally.
-   *
-   * Breakpoints mirror terrainTileFrame() so tint matches the tile type:
-   *   sea          < 0.25  → deep blue
-   *   rocky shore  < 0.30  → warm sandy stone
-   *   coastal heath< 0.42  → light olive
-   *   mixed forest < 0.62  → fresh mid-green
-   *   dense forest < 0.78  → deep forest green
-   *   highland     ≥ 0.78  → cool granite grey
-   */
-  /**
-   * FIL-154/172: tint matches terrainTileFrame() biome logic exactly.
-   * Each new FIL-172 biome has a distinct hue so the colour wash is consistent
-   * with the tile choice — sandy shore gets a warmer yellow, marsh gets muddy
-   * green, snow gets ice-blue, etc.
-   */
-  private biomeTint(elev: number, temp: number, moist: number): number {
-    if (elev < 0.25) return 0x55ccff;  // sea — bright sky blue
-    if (elev < 0.30) {
-      return (temp < 0.45 || moist > 0.50)
-        ? 0xeecc66   // rocky shore — warm golden sand
-        : 0xffdd66;  // sandy shore — bright sunny yellow
-    }
-    if (elev < 0.45 && moist > 0.72) return 0x55cc44; // marsh — bright fresh green
-    if (elev < 0.62) {
-      if (moist > 0.60) return 0x44ee55; // forest  — vibrant green
-      if (moist > 0.30) return 0xaaee55; // heath   — lime yellow-green
-      return                  0xddcc44;  // dry heath — golden
-    }
-    if (elev < 0.78) {
-      return temp > 0.50 ? 0x33bb44 : 0xaac8dd; // spruce green / pale blue-grey granite
-    }
-    return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
-  }
 
-  /**
-   * Draws a per-tile biome colour wash at depth 0.1 — just above the baked terrain.
-   * Tiles are grouped by biome colour before drawing so all tiles of the same hue
-   * are issued as one fillStyle + N fillRect calls, minimising GPU state changes.
-   * Per-tile resolution (32×32 px) means there are no visible seams at biome
-   * boundaries — the noise gradient produces smooth organic edges.
-   */
-  private drawBiomeColorWash(noise: FbmNoise, tilesX: number, tilesY: number): void {
-
-    // First pass: collect every non-water tile position, grouped by biome tint.
-    // Using a flat array per tint avoids repeated map lookups during the draw pass.
-    const groups = new Map<number, number[]>(); // tint → flat [x0, y0, x1, y1, ...]
-
-    for (let ty = 0; ty < tilesY; ty++) {
-      for (let tx = 0; tx < tilesX; tx++) {
-        // Domain-warped base noise (FIL-153) so colour wash regions match tile biomes exactly.
-        // FIL-154: sample temp + moist so tint matches the biome tile exactly.
-        const base   = noise.warped(tx * BASE_SCALE, ty * BASE_SCALE, 4, 0.5);
-        const temp   = this.tempNoise.fbm(tx * TEMP_SCALE,  ty * TEMP_SCALE,  3, 0.5);
-        const moist  = this.moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
-        const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
-        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
-        const val = Math.max(0, Math.min(1.2, base + mountainBias - oceanBias));
-
-        // Skip water and river tiles — they have identity from animated sprites.
-        // FIL-168: use precomputed isRiverTile grid (diagonal paths) instead of
-        // the old horizontal RIVER_BANDS band check.
-        if (val < 0.25) continue;
-        if (this.isRiverTile?.[ty * tilesX + tx]) continue;
-
-        // FIL-172: apply the same river-bank moisture boost as the terrain bake
-        // so the colour wash tint matches the tile that was drawn.
-        let effectiveMoist = moist;
-        if (this.isRiverTile) {
-          const bankR = 2;
-          outer: for (let dy = -bankR; dy <= bankR; dy++) {
-            for (let dx = -bankR; dx <= bankR; dx++) {
-              if (dy === 0 && dx === 0) continue;
-              const nx = tx + dx;
-              const ny = ty + dy;
-              if (nx >= 0 && nx < tilesX && ny >= 0 && ny < tilesY &&
-                  this.isRiverTile[ny * tilesX + nx] === 1) {
-                effectiveMoist = Math.min(1, moist + 0.30);
-                break outer;
-              }
-            }
-          }
-        }
-
-        const tint = this.biomeTint(val, temp, effectiveMoist);
-        let arr = groups.get(tint);
-        if (!arr) { arr = []; groups.set(tint, arr); }
-        arr.push(tx * TILE_SIZE, ty * TILE_SIZE);
-      }
-    }
-
-    // Second pass: one fillStyle() per biome colour, then fillRect for every tile of that colour.
-    // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
-    const gfx = this.add.graphics().setDepth(0.1);
-    for (const [tint, coords] of groups) {
-      gfx.fillStyle(tint, 0.12);
-      for (let i = 0; i < coords.length; i += 2) {
-        gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
-      }
-    }
-  }
-
-  /**
-   * FIL-177: Draw feathered colour strips at biome boundaries.
-   *
-   * At each tile edge where two biomes of different priority meet, a narrow
-   * 8-pixel strip is drawn on the lower-priority tile using the higher-priority
-   * biome's colour.  This softens the hard tile boundary that would otherwise
-   * appear as a perfectly straight colour edge — the same feathering technique
-   * used by many top-down 16-bit RPGs.
-   *
-   * ## Depth
-   * Strips sit at depth 0.46 — above the biome colour wash (0.1) and cliff east
-   * shadows (0.452) but below paths (1) and decorations (2+).
-   *
-   * ## Priority
-   * Priority is defined in BiomeBlend.BIOME_PRIORITY (sea = 0, snow = 10).
-   * Higher-priority biomes bleed into lower-priority ones; equal-priority biomes
-   * are treated as peers and emit no strip.
-   *
-   * @param biomeIdxGrid  Flat row-major biome indices (0–10), one per tile.
-   * @param tilesX        World width in tiles.
-   * @param tilesY        World height in tiles.
-   */
-  private drawBiomeBlendStrips(
-    biomeIdxGrid: Uint8Array,
-    tilesX: number,
-    tilesY: number,
-  ): void {
-    const T       = TILE_SIZE; // 32 px
-    const STRIP_W = 8;         // feather width in pixels — ~25% of a tile
-    const ALPHA   = 0.40;      // opacity of the blend strip
-
-    const boundaries = detectBoundaries(biomeIdxGrid, tilesX, tilesY);
-    if (boundaries.length === 0) return;
-
-    // One shared Graphics object for all strips — cheaper than per-tile objects.
-    const gfx = this.add.graphics().setDepth(0.46);
-
-    for (const { tx, ty, side, higherBiome } of boundaries) {
-      const color = BLEND_COLORS[higherBiome];
-      gfx.fillStyle(color, ALPHA);
-
-      // Place the strip rectangle on the correct edge of the lower-priority tile.
-      // T = tile size in pixels; tx/ty are grid coordinates.
-      switch (side) {
-        case 'north':
-          // Neighbour is above — strip at the top of this tile
-          gfx.fillRect(tx * T,           ty * T,           T,       STRIP_W);
-          break;
-        case 'south':
-          // Neighbour is below — strip at the bottom of this tile
-          gfx.fillRect(tx * T,           (ty + 1) * T - STRIP_W, T, STRIP_W);
-          break;
-        case 'west':
-          // Neighbour is to the left — strip at the left edge
-          gfx.fillRect(tx * T,           ty * T,           STRIP_W, T);
-          break;
-        case 'east':
-          // Neighbour is to the right — strip at the right edge
-          gfx.fillRect((tx + 1) * T - STRIP_W, ty * T,    STRIP_W, T);
-          break;
-      }
-    }
-  }
-
-  /**
-   * FIL-178: Cliff & Elevation Transition System.
-   *
-   * Renders layered cliff-face illusions at all south-facing and east-facing
-   * elevation drops across the procedurally generated terrain.
-   *
-   * ## Detection
-   * Calls detectCliffs() (CliffSystem.ts) to run a full cliff-detection pass
-   * over the biomeGrid.  The continuous elevation float is first quantized into
-   * 5 discrete levels (sea → coast → lowland → highland → mountain); a cliff
-   * face is emitted wherever the level drops between a tile and its south or
-   * east neighbour.
-   *
-   * ## Multi-step cliffs
-   * If the elevation drops by more than one level (e.g. highland straight to
-   * coast), CLIFF_STEP_PX-pixel wall segments are stacked vertically — one strip
-   * per elevation step.  Each strip has the same three-layer treatment (lip,
-   * face, shadow) but is offset downward by one step's worth of pixels.
-   *
-   * ## Biome-aware appearance
-   * The UPPER tile's biome index determines colour (CLIFF_COLORS), so the cliff
-   * face visually represents the cross-section of the upper surface material
-   * (dark forest soil, granite, ice-blue snow, etc.) rather than the lower one.
-   *
-   * ## Depth sorting
-   * South-facing cliff Graphics are created one-per-row with depth equal to
-   * (ty + 1) * TILE_SIZE — matching the raw-Y depth convention used by trees
-   * and entities.  Highland entities (Y < ty * T) appear behind the cliff;
-   * lowland entities (Y > (ty+1) * T) appear in front.
-   *
-   * East-facing cliff shadow strips use a single shared Graphics at depth 0.452
-   * (above the biome wash but below paths), since they are narrow side accents
-   * and not primary depth-sorting participants.
-   *
-   * ## Corruption overlay
-   * A separate Graphics object (cliffCorruptGfx) is created over all south cliff
-   * positions.  Its alpha is updated by updateCliffCorruption() whenever the
-   * cleanse-updated event fires, tinting cliffs dark purple in corrupted zones.
-   *
-   * @param biomeGrid     Flat row-major elevation values [0,1.2], one per tile.
-   * @param biomeIdxGrid  Flat row-major biome indices (0–10), one per tile.
-   * @param tilesX        World width in tiles.
-   * @param tilesY        World height in tiles.
-   */
-  private drawCliffEdges(
-    biomeGrid: Float32Array,
-    biomeIdxGrid: Uint8Array,
-    tilesX: number,
-    tilesY: number,
-  ): void {
-    const T = TILE_SIZE; // 32 px
-
-    // Run the full cliff-detection pass — produces one CliffFace descriptor per
-    // cliff tile, covering all elevation levels (not just the old HIGHLAND = 0.78
-    // threshold) and all biomes.
-    const faces = detectCliffs(biomeGrid, biomeIdxGrid, tilesX, tilesY);
-
-    // ── East-facing cliffs ────────────────────────────────────────────────────
-    // Narrow vertical shadow strips on the right edge of east-facing drops.
-    // All share one Graphics at a low depth — they are accent shadows, not primary
-    // depth-sorting objects.  Alpha 0.7 for the dark face, 0.2/0.09 for feather.
-    const gfxEast = this.add.graphics().setDepth(0.452);
-    for (const face of faces) {
-      if (face.isSouth) continue;
-
-      const px = (face.tx + 1) * T; // left edge of the eastern (lower) tile
-      const py = face.ty * T;
-
-      // Per-biome colour lookup — upper biome owns the cliff face.
-      const [darkBase] = CLIFF_COLORS[face.biomeIdx] ?? CLIFF_COLORS[8];
-      gfxEast.fillStyle(darkBase, 0.75);
-      // Width scales with number of elevation steps — deeper drops are wider.
-      const shadowW = Math.min(6 + (face.steps - 1) * 2, 10);
-      gfxEast.fillRect(px, py, shadowW, T);
-      // Feather into lower tile
-      gfxEast.fillStyle(0x000000, 0.22);
-      gfxEast.fillRect(px + shadowW,     py, 3, T);
-      gfxEast.fillStyle(0x000000, 0.09);
-      gfxEast.fillRect(px + shadowW + 3, py, 2, T);
-    }
-
-    // ── South-facing cliffs ───────────────────────────────────────────────────
-    // Group cliff faces by row (ty) so each row can own its own Graphics object
-    // at the correct Y-sorted depth.  Only south-facing cliffs participate in
-    // depth sorting; their depth = (ty + 1) * TILE_SIZE matches tree/entity convention.
-
-    // Collect distinct ty values that have south-facing cliffs.
-    const southByRow = new Map<number, CliffFace[]>();
-    for (const face of faces) {
-      if (!face.isSouth) continue;
-      let arr = southByRow.get(face.ty);
-      if (!arr) { arr = []; southByRow.set(face.ty, arr); }
-      arr.push(face);
-    }
-
-    for (const [ty, rowFaces] of southByRow) {
-      const depth = (ty + 1) * T; // Y-sort: cliff face sits at the top of the lower tile
-
-      // Three Graphics layers per row — depth offsets keep lip, face, and shadow
-      // in the correct painter order within the same depth band.
-      // The 0.001 fractions are imperceptible but keep the ordering deterministic.
-      const gfxLip    = this.add.graphics().setDepth(depth - 0.002); // bright ledge top
-      const gfxFace   = this.add.graphics().setDepth(depth - 0.001); // dark cliff face
-      const gfxShadow = this.add.graphics().setDepth(depth);          // drop shadow
-
-      for (const face of rowFaces) {
-        const px = face.tx * T;
-        const py = (ty + 1) * T; // world Y at the top of the lower tile
-
-        const [darkBase, midHighlight] = CLIFF_COLORS[face.biomeIdx] ?? CLIFF_COLORS[8];
-
-        // ── Bright lip — 2-px highlight at the very bottom of the upper tile ──
-        // Simulates sunlight catching the ledge top.  Warm tone for earth, cool
-        // for granite/snow — derived by brightening the mid-highlight colour.
-        gfxLip.fillStyle(midHighlight, 0.60);
-        gfxLip.fillRect(px, py - CLIFF_LIP_PX, T, CLIFF_LIP_PX);
-
-        // ── Cliff face — one strip per elevation step ─────────────────────────
-        // Multi-step cliffs stack wall segments vertically.  Each segment is
-        // CLIFF_STEP_PX tall with a mid-highlight band through its centre.
-        for (let step = 0; step < face.steps; step++) {
-          const faceY = py + step * CLIFF_STEP_PX;
-
-          gfxFace.fillStyle(darkBase, 0.92);
-          gfxFace.fillRect(px, faceY, T, CLIFF_STEP_PX);
-
-          // Mid-highlight band — brightens the centre of each step to give the
-          // illusion of a slightly convex rock face catching diffuse light.
-          gfxFace.fillStyle(midHighlight, 0.35);
-          gfxFace.fillRect(px, faceY + 4, T, Math.max(1, CLIFF_STEP_PX - 8));
-        }
-
-        // ── Concave inner corner fill ─────────────────────────────────────────
-        // When both a south drop AND an east drop originate at this tile the two
-        // cliff faces meet at a 90° notch.  Fill the corner block at (tx+1, ty+1)
-        // to prevent a visible gap at the inner corner intersection.
-        if (face.isInnerCorner) {
-          const cornerX = (face.tx + 1) * T;
-          const faceH   = face.steps * CLIFF_STEP_PX;
-          gfxFace.fillStyle(darkBase, 0.92);
-          gfxFace.fillRect(cornerX, py, T, faceH);
-        }
-
-        // ── Drop shadow — feathered bands below the cliff face ────────────────
-        // Three thin bands of decreasing opacity feather the cliff into the
-        // lower terrain, grounding it visually without a hard bottom edge.
-        const totalFaceH = face.steps * CLIFF_STEP_PX;
-        let shadowY = py + totalFaceH;
-        for (const [bandH, bandAlpha] of CLIFF_SHADOW_BANDS) {
-          gfxShadow.fillStyle(0x000000, bandAlpha);
-          gfxShadow.fillRect(px, shadowY, T, bandH);
-          shadowY += bandH;
-        }
-      }
-    }
-
-    // ── Corruption overlay ────────────────────────────────────────────────────
-    // A single Graphics object drawn above all south cliff faces.  Filled with
-    // the corruption colour at each south cliff position; alpha is set to 0 at
-    // startup and updated by updateCliffCorruption() when cleanse state changes.
-    // Depth: just above the highest possible cliff row Graphics
-    // (any Y value > world height is fine since this layer only shows when
-    // corruption is active and the PostFX shader handles the camera-wide effect).
-    const corruptGfx = this.add.graphics().setDepth(WORLD_H + 1);
-    corruptGfx.setAlpha(0); // invisible until corruption rises
-    for (const face of faces) {
-      if (!face.isSouth) continue;
-      const px = face.tx * T;
-      const py = (face.ty + 1) * T;
-      const faceH = face.steps * CLIFF_STEP_PX;
-      corruptGfx.fillStyle(CLIFF_CORRUPT_COLOR, 1);
-      corruptGfx.fillRect(px, py - CLIFF_LIP_PX, T, faceH + CLIFF_LIP_PX);
-    }
-    this.cliffCorruptGfx = corruptGfx;
-  }
 
   /**
    * FIL-178: Update the cliff corruption overlay opacity to match the current
@@ -5995,8 +5522,15 @@ export class GameScene extends Phaser.Scene {
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
+        const baseVal = base * 0.70 + mountainBias - oceanBias;
+        const _d0 = Math.abs(baseVal - 0.25);
+        const _d1 = Math.abs(baseVal - 0.45);
+        const _d2 = Math.abs(baseVal - 0.62);
+        const _d3 = Math.abs(baseVal - 0.78);
+        const _nd = Math.min(_d0, Math.min(_d1, Math.min(_d2, _d3)));
+        const cliffFade = Math.min(1, _nd / 0.08);
         grid[ty * tilesX + tx] = Math.max(
-          0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias),
+          0, Math.min(1.2, baseVal + detail * 0.30 * cliffFade),
         );
       }
     }
@@ -6090,23 +5624,18 @@ export class GameScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // All tiles (including water) are drawn into a pre-baked RenderTexture so the
-    // entire terrain costs one GPU draw call at runtime — ~100× faster than per-tile flushes.
-    // We use beginDraw() + batchDraw() + endDraw() to flush the WebGL batch only ONCE.
-    const terrainRt = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setDepth(0);
+    // FIL-444: terrain baked into an isometric RenderTexture.
+    // RT covers the full iso canvas (3760 × 1892 px). Depth 0 = drawn first (furthest back).
+    const terrainRt = this.add.renderTexture(0, 0, ISO_WORLD_W, ISO_WORLD_H).setDepth(0);
 
-    // Reuse a single off-screen Image to draw scaled (32×32) tiles from the
-    // 16×16 tileset frames. setTexture() + setPosition() change state without
-    // creating a new object each iteration.
-    const tileImg = this.add.image(-9999, -9999, 'mw-plains', 0)
-      .setScale(2)        // 16px → 32px to match TILE_SIZE
+    // Reuse a single off-screen Image for every tile draw — setTexture/setPosition change
+    // state without creating new objects. Origin (0.5, 0) = north apex of the diamond.
+    const tileImg = this.add.image(-9999, -9999, 'iso-tiles', 0)
+      .setScale(1)
+      .setOrigin(0.5, 0)
       .setVisible(false);
 
-    // FIL-258/260: Three water arrays — rivers (fast), ocean (slow), lakes (still).
-    // Combined cap kept at 3000: 2400 ocean + 600 lake so GPU load is unchanged.
-    const riverCentres: number[] = []; // flat [cx0, cy0, ...] for fast river animation
-    const oceanCentres: number[] = []; // flat [cx0, cy0, ...] for slow ocean animation
-    const lakeCentres:  number[] = []; // flat [cx0, cy0, ...] for near-still lake anim
+    // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
     // Float32Array is cheap (~52 KB for 141×94 tiles) and avoids re-sampling the noise.
@@ -6134,7 +5663,18 @@ export class GameScene extends Phaser.Scene {
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
         const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
         const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
-        let val = Math.max(0, Math.min(1.2, base * 0.70 + detail * 0.30 + mountainBias - oceanBias));
+        const baseVal      = base * 0.70 + mountainBias - oceanBias;
+        // Fade detail near every cliff-quantization threshold (0.25 / 0.45 / 0.62 / 0.78)
+        // so elevation doesn't oscillate across a level boundary tile-to-tile, which
+        // would produce hundreds of small cliff faces and jagged coastlines.
+        // Within 0.08 units of any threshold detail → 0; beyond it returns to 30%.
+        const _d0 = Math.abs(baseVal - 0.25);
+        const _d1 = Math.abs(baseVal - 0.45);
+        const _d2 = Math.abs(baseVal - 0.62);
+        const _d3 = Math.abs(baseVal - 0.78);
+        const _nd  = Math.min(_d0, Math.min(_d1, Math.min(_d2, _d3)));
+        const cliffFade    = Math.min(1, _nd / 0.08);
+        let val = Math.max(0, Math.min(1.2, baseVal + detail * 0.30 * cliffFade));
 
         // FIL-168: force water elevation for diagonal river-band tiles.
         const isRiverHere = this.isRiverTile?.[ty * tilesX + tx] === 1;
@@ -6174,168 +5714,43 @@ export class GameScene extends Phaser.Scene {
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
 
-        // Draw the matching tileset frame (including water) scaled 2× to fill the 32×32 tile.
-        // batchDraw() uses the image's own position — no per-tile batch flush.
-        // Biome tint multiplies with each tile's pixel colours so the tile detail
-        // stays visible while each region gets a distinct dominant hue — the same
-        // technique CrossCode uses to give each zone a clear visual identity.
-        // FIL-172: pass isRiverHere so river tiles use water-sheet row 1 (lighter).
-        // FIL-260: pass isLakeHere so lake tiles use the calm 2-frame variant.
-        const { key, frame } = terrainTileFrame(val, temp, effectiveMoist, detail, isRiverHere, isLakeHere);
-        tileImg.setTexture(key, frame).setPosition(wx + 16, wy + 16);
+        // FIL-444: pick iso tile frame from biome + elevation noise, then place at
+        // the iso-projected north apex of the tile diamond. Origin is (0.5, 0) so
+        // worldToIso() result lands at the top-centre of the sprite (north apex).
+        // Painter order: ty=0 (back) drawn first, ty=tilesY-1 (front) drawn last —
+        // each row's front face is covered by the diamond of the next row forward.
+        const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
+        const frame = (isRiverHere || isLakeHere) ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, detail);
+        const { x: isoX, y: isoY } = worldToIso(wx, wy);
+        tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
         terrainRt.draw(tileImg);
 
-        // Mark every 2nd water tile (in both axes) for the animated overlay pass.
-        // Route to the correct array based on river / lake / ocean (FIL-258/260).
-        // Cap: rivers unlimited within 3000 total; ocean ≤ 2400; lakes ≤ 600.
-        if (key === 'terrain-water' && tx % 2 === 0 && ty % 2 === 0) {
-          if (isRiverHere) {
-            riverCentres.push(wx + 16, wy + 16);
-          } else if (isLakeHere && lakeCentres.length < 1200) { // 600 entries × 2 coords
-            lakeCentres.push(wx + 16, wy + 16);
-          } else if (!isRiverHere && !isLakeHere && oceanCentres.length < 4800) { // 2400 entries × 2
-            oceanCentres.push(wx + 16, wy + 16);
-          }
+        // FIL-444: animated water overlays deferred to a later milestone.
+        if (false) {
         }
       }
     }
 
-    // Spawn clearing — stamp earthy shore tiles (mw-plains row 0) over the underlying
-    // biome in a circular patch so the player has a recognisable gravel landmark.
-    // Done inside beginDraw()/endDraw() so it costs zero extra GPU draw calls.
-    // Cycling frames 0–5 uses the full row width to break up visible tiling.
-    // Spawn clearing stamps plain shore tiles — no tint needed here.
+    // Spawn clearing — stamp grass tiles (iso-tiles frame 40, bright green top) over the
+    // surrounding biome so the player spawns in a recognisable open clearing.
+    // FIL-444: positions use worldToIso so clearing stamps land on iso diamond tiles.
     const sx = Math.floor(SPAWN_X / TILE_SIZE);
     const sy = Math.floor(SPAWN_Y / TILE_SIZE);
     for (let dy = -3; dy <= 3; dy++) {
       for (let dx = -3; dx <= 3; dx++) {
         if (dx * dx + dy * dy <= 7) {
-          const frame = (Math.abs(dx) * 2 + Math.abs(dy)) % 6;
-          tileImg.setTexture('mw-plains', frame)
-                 .setPosition((sx + dx) * TILE_SIZE + 16, (sy + dy) * TILE_SIZE + 16);
+          const clearFrame = 40 + ((Math.abs(dx) * 2 + Math.abs(dy)) % 4); // frames 40–43 (grass)
+          const { x: clearX, y: clearY } = worldToIso((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE);
+          tileImg.setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
         }
       }
     }
 
-    // ── FIL-151: Biome transition dithering ──────────────────────────────────
-    // Second pass over biomeGrid — at each tile we check its east and south
-    // neighbours. When the biome values differ by more than a threshold (i.e. a
-    // biome boundary crosses here), we draw an extra tile between the two using a
-    // position-seeded bit-hash to alternate between the two biome frames.
-    // This is "dithered blending" — the same technique many 16-bit era RPGs used
-    // to smooth hard tile edges without explicit transition tile assets.
-    //
-    // We check only east + south (not west + north) to avoid drawing any transition
-    // tile twice. Reusing tileImg + batchDraw means zero extra GPU draw calls.
-    const TRANSITION_THRESHOLD = 0.12; // min biome difference to trigger blending
-    for (let ty = 0; ty < tilesY; ty++) {
-      for (let tx = 0; tx < tilesX; tx++) {
-        const here = biomeGrid[ty * tilesX + tx];
-
-        // East and south neighbours — stay in bounds
-        const neighbours: Array<{ nx: number; ny: number; nVal: number }> = [];
-        if (tx + 1 < tilesX) neighbours.push({ nx: tx + 1, ny: ty,     nVal: biomeGrid[ty * tilesX + (tx + 1)] });
-        if (ty + 1 < tilesY) neighbours.push({ nx: tx,     ny: ty + 1, nVal: biomeGrid[(ty + 1) * tilesX + tx] });
-
-        for (const { nx, ny, nVal } of neighbours) {
-          if (Math.abs(here - nVal) < TRANSITION_THRESHOLD) continue;
-
-          // Position-seeded hash: same (tx,ty) always picks the same frame.
-          // Two large primes give good bit-mixing across the grid.
-          const hashBit = ((tx * 2654435761 ^ ty * 2246822519) >>> 0) & 1;
-          // Alternate between the two neighbouring biome elevations for dither effect
-          const blendElev = hashBit === 0 ? here : nVal;
-          // High-frequency detail from position hash for frame variety within the row
-          const blendDetail = ((tx * 1664525 ^ ny * 1013904223) >>> 0) / 0xffffffff;
-
-          // Resample temp + moist at the neighbour tile for correct biome lookup
-          const blendTemp  = this.tempNoise.fbm(nx * TEMP_SCALE,  ny * TEMP_SCALE,  3, 0.5);
-          const blendMoist = this.moistNoise.fbm(nx * MOIST_SCALE, ny * MOIST_SCALE, 3, 0.5);
-
-          const { key, frame } = terrainTileFrame(blendElev, blendTemp, blendMoist, blendDetail);
-          // Position the tile at the midpoint between the two neighbours
-          tileImg.setTexture(key, frame).setPosition(
-            ((tx + nx) / 2) * TILE_SIZE + 16,
-            ((ty + ny) / 2) * TILE_SIZE + 16,
-          );
-          terrainRt.draw(tileImg);
-        }
-      }
-    }
-
-    // ── Water Wang depth pass ────────────────────────────────────────────────────
-    // Redraws every ocean tile (elev < 0.25, not river/lake) using the 'water-deep'
-    // Wang tileset so the ocean shows a depth gradient: dark teal in the open
-    // ocean, lighter teal near the shore where elevation approaches 0.25.
-    //
-    // Corner key encoding: NW<<3 | NE<<2 | SW<<1 | SE (1=shallow/upper, 0=deep/lower)
-    // A diagonal corner is "shallow" when that neighbour's elevation ≥ SHALLOW_THRESH
-    // (approaching the water surface) or when it's out-of-bounds (treat as land).
-    // Frame lookup built from the tileset JSON bounding_box positions:
-    //   frame = (bbox.y / 16) * 4 + (bbox.x / 16)
-    // Index 0 (all deep) → frame 6 (wang_0, pure deep tile); 15 (all shallow) → frame 12.
-    const WATER_WANG_FRAMES = [6, 7, 10, 9, 2, 11, 4, 15, 5, 14, 1, 8, 3, 0, 13, 12];
-    const SHALLOW_THRESH    = 0.22; // elevation band just below the water threshold (0.25)
-
-    for (let ty = 0; ty < tilesY; ty++) {
-      for (let tx = 0; tx < tilesX; tx++) {
-        const elev = biomeGrid[ty * tilesX + tx];
-        if (elev >= 0.25) continue;                                    // not ocean
-        if (this.isRiverTile?.[ty * tilesX + tx] === 1) continue;     // rivers keep their own animation
-        if (this.isLakeTile?.[ty  * tilesX + tx] === 1) continue;     // lakes too
-
-        // Elevation at the four diagonal corner neighbours (out-of-bounds → 1 = land/shallow)
-        const nwE = (tx > 0        && ty > 0)        ? biomeGrid[(ty - 1) * tilesX + (tx - 1)] : 1;
-        const neE = (tx < tilesX-1 && ty > 0)        ? biomeGrid[(ty - 1) * tilesX + (tx + 1)] : 1;
-        const swE = (tx > 0        && ty < tilesY-1) ? biomeGrid[(ty + 1) * tilesX + (tx - 1)] : 1;
-        const seE = (tx < tilesX-1 && ty < tilesY-1) ? biomeGrid[(ty + 1) * tilesX + (tx + 1)] : 1;
-
-        const nw = nwE >= SHALLOW_THRESH ? 1 : 0;
-        const ne = neE >= SHALLOW_THRESH ? 1 : 0;
-        const sw = swE >= SHALLOW_THRESH ? 1 : 0;
-        const se = seE >= SHALLOW_THRESH ? 1 : 0;
-        const frame = WATER_WANG_FRAMES[(nw << 3) | (ne << 2) | (sw << 1) | se];
-
-        tileImg.setTexture('water-deep', frame).setPosition(tx * TILE_SIZE + 16, ty * TILE_SIZE + 16);
-        terrainRt.draw(tileImg);
-      }
-    }
-
-    // ── Shore Wang transition pass ───────────────────────────────────────────────
-    // Draws water-shore Wang tiles over shore-band tiles (elev 0.25–0.30) that
-    // have at least one water corner. Interior shore tiles (all-land corners,
-    // wangKey=15) are skipped so they keep their existing Mystic Woods look.
-    //
-    // Layering: these tiles are baked at depth 0 (same RenderTexture). The cliff
-    // faces from drawCliffEdges() are drawn afterwards at depth 0.3–0.5, so they
-    // naturally sit on top — sandy shore at the base, cliff wall above it.
-    //
-    // Same WATER_WANG_FRAMES lookup; corner encoding is inverted relative to the
-    // depth pass: here lower=water (elev<0.25, bit=0), upper=land (bit=1).
-    for (let ty = 0; ty < tilesY; ty++) {
-      for (let tx = 0; tx < tilesX; tx++) {
-        const elev = biomeGrid[ty * tilesX + tx];
-        if (elev < 0.25 || elev >= 0.30) continue; // only shore band
-
-        const nwE = (tx > 0        && ty > 0)        ? biomeGrid[(ty - 1) * tilesX + (tx - 1)] : 1;
-        const neE = (tx < tilesX-1 && ty > 0)        ? biomeGrid[(ty - 1) * tilesX + (tx + 1)] : 1;
-        const swE = (tx > 0        && ty < tilesY-1) ? biomeGrid[(ty + 1) * tilesX + (tx - 1)] : 1;
-        const seE = (tx < tilesX-1 && ty < tilesY-1) ? biomeGrid[(ty + 1) * tilesX + (tx + 1)] : 1;
-
-        // bit=1 when corner is land (>=0.25), bit=0 when water (<0.25)
-        const nw = nwE >= 0.25 ? 1 : 0;
-        const ne = neE >= 0.25 ? 1 : 0;
-        const sw = swE >= 0.25 ? 1 : 0;
-        const se = seE >= 0.25 ? 1 : 0;
-        const wangKey = (nw << 3) | (ne << 2) | (sw << 1) | se;
-        if (wangKey === 15) continue; // all-land corners — no water adjacency, skip
-
-        const frame = WATER_WANG_FRAMES[wangKey];
-        tileImg.setTexture('water-shore', frame).setPosition(tx * TILE_SIZE + 16, ty * TILE_SIZE + 16);
-        terrainRt.draw(tileImg);
-      }
-    }
+    // FIL-444: dithering pass, Wang water passes, cliff edges, blend strips, and
+    // animated water overlays all removed — iso cube tiles provide natural depth cues
+    // and biome variety through per-tile frame selection. These will be revisited
+    // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
 
@@ -6343,96 +5758,6 @@ export class GameScene extends Phaser.Scene {
     this.tileDevW     = tilesX;
     this.tileDevElev  = biomeGrid;
     this.tileDevBiome = biomeIdxGrid;
-
-    // ── Biome colour wash (depth 0.1) ────────────────────────────────────────
-    // A coarse-grid Graphics layer drawn at low alpha over the terrain texture.
-    // Gives each biome region a distinct dominant hue — the same visual technique
-    // CrossCode uses so players instantly read "I'm in the forest / shore / highlands".
-    // Using TILE_SIZE*6 (192px) cells keeps it under 200 fillRect calls while still
-    // matching the noise gradient closely enough to look organic at play zoom.
-    this.drawBiomeColorWash(noise, tilesX, tilesY);
-    // FIL-178: cliff-face rendering — Y-sorted per row, biome-aware, multi-step.
-    // biomeIdxGrid is now passed so the cliff system can look up per-biome colours.
-    this.drawCliffEdges(biomeGrid, biomeIdxGrid, tilesX, tilesY);
-    // FIL-177: feathered colour strips at biome boundaries.
-    // Drawn at depth 0.46 — above the biome colour wash (0.1) but below paths (1)
-    // and decorations (2+).
-    this.drawBiomeBlendStrips(biomeIdxGrid, tilesX, tilesY);
-
-    // Place animated water sprites at depth 0.5 — just above the static terrain bake (0)
-    // but below decorations (2+). Each sprite covers the baked water tile underneath.
-    // Rivers play a faster 3-frame animation; ocean plays a slow 4-frame roll (FIL-258).
-    // Stagger start frames so adjacent tiles don't flash in sync.
-    const riverAnim = this.anims.get('river-anim');
-    for (let i = 0; i < riverCentres.length; i += 2) {
-      const spr = this.add.sprite(riverCentres[i], riverCentres[i + 1], 'terrain-water');
-      spr.setScale(2).setDepth(0.5);
-      spr.play('river-anim');
-      spr.anims.setCurrentFrame(riverAnim.frames[(i / 2) % riverAnim.frames.length]);
-    }
-    // FIL-259: single TileSprite replaces up to 2400 per-tile ocean animated sprites.
-    // One GPU draw call + one tween instead of one AnimationState update per tile per frame.
-    if (oceanCentres.length >= 2) {
-      // Compute bounding box of all ocean tile centres (world coordinates).
-      let minOceanX = Infinity, minOceanY = Infinity, maxOceanX = -Infinity, maxOceanY = -Infinity;
-      for (let i = 0; i < oceanCentres.length; i += 2) {
-        if (oceanCentres[i]     < minOceanX) minOceanX = oceanCentres[i];
-        if (oceanCentres[i]     > maxOceanX) maxOceanX = oceanCentres[i];
-        if (oceanCentres[i + 1] < minOceanY) minOceanY = oceanCentres[i + 1];
-        if (oceanCentres[i + 1] > maxOceanY) maxOceanY = oceanCentres[i + 1];
-      }
-      // Each tile centre is 32 world-px from its neighbours; add a half-tile on
-      // each edge so the TileSprite covers the outermost tile footprint fully.
-      const OCEAN_HALF = 16; // half of the 32×32 displayed tile (16 source × 2 scale)
-      const oceanX = (minOceanX + maxOceanX) / 2;
-      const oceanY = (minOceanY + maxOceanY) / 2;
-      const oceanW  = maxOceanX - minOceanX + 2 * OCEAN_HALF;
-      const oceanH  = maxOceanY - minOceanY + 2 * OCEAN_HALF;
-
-      const oceanTile = this.add
-        .tileSprite(oceanX, oceanY, oceanW, oceanH, 'terrain-water')
-        .setDepth(0.5);
-      // Lock to frame 1 (gentle ripple) so the TileSprite tiles a single
-      // uniform frame rather than the full 4-frame horizontal strip.
-      // Scrolling tilePositionX across all 4 frames caused a distracting
-      // left-to-right shift that looked like the water was sliding.
-      oceanTile.setFrame(1);
-      // Scale the tiled texture to 2× so each tile appears 32×32 in world space,
-      // matching the original per-tile sprites.  setTileScale does not inflate the
-      // TileSprite's own display rect — it only changes how the texture tiles within it.
-      oceanTile.setTileScale(2, 2);
-
-      // Alpha shimmer: gentle brightness pulse reads as water without horizontal drift.
-      this.tweens.add({
-        targets:  oceanTile,
-        alpha:    { from: 0.78, to: 1.0 },
-        duration: 2000,
-        repeat:   -1,
-        yoyo:     true,
-        ease:     'Sine.easeInOut',
-      });
-
-      // Geometry mask: clip the TileSprite to actual water tiles so land tiles
-      // enclosed by the bounding box remain unaffected.  setVisible(false) hides
-      // the Graphics from the regular render pass while leaving the stencil pass
-      // (which checks `active`, not `visible`) fully functional.
-      const oceanMaskGfx = this.add.graphics().setVisible(false);
-      for (let i = 0; i < oceanCentres.length; i += 2) {
-        oceanMaskGfx.fillRect(
-          oceanCentres[i] - OCEAN_HALF, oceanCentres[i + 1] - OCEAN_HALF,
-          2 * OCEAN_HALF,               2 * OCEAN_HALF,
-        );
-      }
-      oceanTile.setMask(oceanMaskGfx.createGeometryMask());
-    }
-    // FIL-260: lake sprites — near-still, 1 fps, only 2 frames so ponds feel quiet.
-    const lakeAnim = this.anims.get('lake-anim');
-    for (let i = 0; i < lakeCentres.length; i += 2) {
-      const spr = this.add.sprite(lakeCentres[i], lakeCentres[i + 1], 'terrain-water');
-      spr.setScale(2).setDepth(0.5);
-      spr.play('lake-anim');
-      spr.anims.setCurrentFrame(lakeAnim.frames[(i / 2) % lakeAnim.frames.length]);
-    }
   }
 
   /**

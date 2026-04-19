@@ -29,21 +29,12 @@
 
 import * as Phaser from 'phaser';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
+import { BIOMES } from '../world/biomes';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Constants (derived from canonical biomes.ts) ──────────────────────────────
 
-const BIOME_NAMES: readonly string[] = [
-  'Sea',          'Rocky Shore',   'Sandy Shore',  'Marsh / Bog',
-  'Dry Heath',    'Coastal Heath', 'Meadow',        'Forest',
-  'Spruce',       'Cold Granite',  'Bare Summit',   'Snow Field',
-];
-
-/** Matches BIOME_OVERLAY_COLORS in GameScene — used for palette swatches. */
-const BIOME_OVERLAY_COLORS: readonly number[] = [
-  0x1a4f7a, 0x8b6914, 0xe8c870, 0x4a7a3a,
-  0xb8904a, 0x7a9a3a, 0x6abf45, 0x2a7a2a,
-  0x1a5a1a, 0x7a7a7a, 0x9a9898, 0xd8e8f8,
-];
+const BIOME_NAMES         = BIOMES.map(b => b.name);
+const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
