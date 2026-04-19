@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "prebuild": "node -e \"const{cpSync,existsSync,mkdirSync}=require('fs');const s='../screenshots';if(existsSync(s)){mkdirSync('public/screenshots',{recursive:true});cpSync(s,'public/screenshots',{recursive:true,force:true})}\"",
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
