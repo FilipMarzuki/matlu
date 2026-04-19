@@ -1,0 +1,108 @@
+---
+/**
+ * Creature license page — the plain-language grant that submitters agree to
+ * when they tick the license checkbox on /creatures/submit. Kept as a
+ * standalone page so we can bump `license_version` without restyling the
+ * form. The version string below must match what the submit form sends.
+ */
+import Base from '../../layouts/Base.astro';
+
+export const LICENSE_VERSION = 'v1-2026-04';
+---
+
+<Base
+  title="Creature license"
+  description="The simple rules for sharing a creature with Matlu."
+>
+  <h1>Sharing your creature with Matlu</h1>
+  <p class="lead">
+    Before you send us your creature, please read this with a grown-up.
+    It explains what happens to your drawing and your story after you
+    send them in.
+  </p>
+
+  <section class="grant">
+    <h2>By submitting your creature, you're saying&hellip;</h2>
+    <ol>
+      <li>
+        <strong>You made it yourself.</strong>
+        The drawing and the description are your own work. You're not
+        copying someone else's art or characters.
+      </li>
+      <li>
+        <strong>You're OK with us using it.</strong>
+        You give Matlu permission to:
+        <ul>
+          <li>Show your creature on the Matlu wiki and in the game.</li>
+          <li>
+            Put your creature into the game as a character. We might
+            change how it looks or acts a bit so it fits with the
+            other creatures.
+          </li>
+          <li>Share it on social media and in videos about Matlu.</li>
+          <li>
+            Keep using it forever, even if you later change your mind.
+          </li>
+        </ul>
+      </li>
+      <li>
+        <strong>This is a hobby project &mdash; no payment.</strong>
+        We're not going to pay you for your creature.
+      </li>
+      <li>
+        <strong>You can still use your own creature.</strong>
+        You keep the right to use your own drawing for anything else
+        you want. We just also get to use it.
+      </li>
+      <li>
+        <strong>Credits.</strong>
+        If you fill in <em>Your name</em> on the form, we'll add you
+        to the Matlu credits page &mdash; unless you uncheck the
+        <em>Include my name in the credits</em> box.
+      </li>
+      <li>
+        <strong>Grown-ups need to say yes too.</strong>
+        If you're under 18, a parent or guardian needs to read this
+        with you and agree.
+      </li>
+    </ol>
+
+    <p class="kicker">
+      If any of this doesn't feel right, please don't submit. You can
+      still play the game and look at the creatures other kids have made.
+    </p>
+
+    <p class="version">License version <code>{LICENSE_VERSION}</code></p>
+  </section>
+
+  <p class="back">
+    <a href="/creatures/submit">&larr; Back to the creature form</a>
+  </p>
+</Base>
+
+<style>
+  .lead { color: var(--text-dim); max-width: 620px; margin: 0.5rem 0 2rem; }
+
+  .grant {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.75rem;
+    max-width: 720px;
+  }
+  .grant h2 { margin-top: 0; }
+  .grant ol { padding-left: 1.25rem; }
+  .grant ol > li { margin-bottom: 1rem; }
+  .grant ol > li ul { margin-top: 0.35rem; }
+  .grant ol > li ul > li { margin-bottom: 0.2rem; }
+
+  .kicker {
+    border-left: 3px solid var(--accent);
+    padding: 0.15rem 0 0.15rem 0.85rem;
+    color: var(--text);
+    margin-top: 1.5rem;
+  }
+  .version { color: var(--text-dim); font-size: 0.85rem; margin-top: 1.5rem; }
+
+  .back { margin-top: 1.5rem; }
+</style>

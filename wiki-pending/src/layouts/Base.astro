@@ -1,0 +1,98 @@
+---
+/**
+ * Shared layout for every page on the Matlu wiki. Provides the HTML shell,
+ * global CSS variables, the Google Fonts links, and slots in a <Nav /> bar.
+ *
+ * Props: `title` and `description` — page-specific, rendered into <head>.
+ */
+import Nav from '../components/Nav.astro';
+
+interface Props {
+  title:        string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description ?? 'Matlu — a corrupted-world action RPG'} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Outfit:wght@400;500;700&display=swap"
+    />
+    <title>{title} — Matlu</title>
+  </head>
+  <body>
+    <Nav />
+    <main>
+      <slot />
+    </main>
+
+    <style is:global>
+      :root {
+        --bg:          #0b0b12;
+        --surface:     #12131c;
+        --surface-hi:  #1a1b26;
+        --border:      #26283a;
+        --text:        #e8e9f0;
+        --text-dim:    #9ea1b5;
+        --accent:      #a855f7;
+        --accent-hi:   #c084fc;
+        --green:       #4ade80;
+        --red:         #f87171;
+        --amber:       #fbbf24;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Outfit', sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+      }
+
+      a {
+        color: var(--accent-hi);
+        text-decoration: none;
+      }
+      a:hover { text-decoration: underline; }
+
+      h1, h2, h3 {
+        font-family: 'Syne', sans-serif;
+        font-weight: 800;
+        color: var(--text);
+        margin: 0 0 0.6rem;
+        line-height: 1.2;
+      }
+      h1 { font-size: 2rem; }
+      h2 { font-size: 1.5rem; }
+      h3 { font-size: 1.15rem; }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 1.5rem 1.25rem 4rem;
+      }
+
+      code, pre {
+        font-family: 'Menlo', 'Consolas', monospace;
+        background: var(--surface-hi);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.1em 0.35em;
+        font-size: 0.9em;
+      }
+    </style>
+  </body>
+</html>
