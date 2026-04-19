@@ -1,57 +1,48 @@
 /**
  * Level 3 configuration — Mistheim Mist (Mistheim dominant).
  *
- * ## Setting: Floating river delta, bamboo highlands, mist valleys
+ * ## Setting: Bamboo highlands, mist valleys, ancient ruins
  *
- * Mistheim is a world of stories and Myst — where mana (called Myst here,
- * or Mysten by scholars) is the animating current beneath everything.
- * Rivers flow because Myst moves through them. Mist hangs in valleys where
- * Myst concentrates. Memory lives in water because Myst carried it there.
- * "Vatten" in the old tongue meant Myst-water — water alive with current.
- * Most people have forgotten this and call it water magic. The scholars
- * haven't forgotten.
+ * Mistheim is a world of old magic and older stories. The mist in its
+ * valleys is not weather — it is Myst made visible, the background flow
+ * of mana that animates the world. Where Myst pools, things remember.
+ * Where it thins, things forget.
  *
- * This level occupies a high river delta where those scholars keep their
- * oldest records: bamboo highlands rising above mist-filled valleys,
- * standing stones that glow at dawn where Myst pools overnight, rivers
- * that run sideways because the Myst beneath them runs that way.
- *
- * Ancient panda settlements, some intact, some crumbling. Earth technology
- * salvaged and repurposed — machines running on channelled Myst, turbines
- * in rivers that moved before anyone understood why. The most visually
- * surreal level in the arc.
+ * This level occupies a highland delta where Pandor scholars keep their
+ * oldest records: bamboo ridges rising above mist-filled valleys, standing
+ * stones that glow at dawn, ruins from three different ages stacked on top
+ * of each other. Ancient panda settlements, some intact, some crumbling.
+ * Earth technology salvaged and repurposed by people who understood it
+ * imperfectly but needed it urgently.
  *
  * The corruption here is the Dry — Mistheim's strain of the Skymning.
- * It does not drain water. It severs the Myst. Rivers stop not because
- * they dry up but because the animating current beneath them is gone.
- * A [Healer] whose Skill works in reverse. An inn whose warmth turns cold.
- * An ancient river, still flowing, but flowing wrong — the water moves but
- * nothing moves with it.
+ * It thins the Myst until magic stops working and stories lose their
+ * endings. A [Healer] whose Skill works in reverse. An inn whose warmth
+ * turns cold. The most surreal level in the arc: a world that was built
+ * on flow, now running still.
  *
  * ## Zone layout (world coordinates, 4500×3000 world)
  *
  *  Zone 1 — Deltagrunden (The Delta Floor)
- *    Entry zone. The lower river delta where Spinolandet creatures have
- *    already begun to arrive. Rivers run sideways. The bamboo at the
- *    waterline is the wrong shade of green — not dead, not healthy, not
- *    anything that has a name. The Myst here is thin and confused.
+ *    Entry zone. Spinolandet creatures have arrived in the lowlands.
+ *    The bamboo at the edge of the settlement is the wrong shade of green —
+ *    not dead, not healthy, not anything that has a name.
  *
  *  Zone 2 — Mistdalen (The Mist Valley)
- *    Bamboo highlands where Myst pools visibly as drifting mist.
- *    Ancient panda settlements, some inhabited, some abandoned to the Dry.
- *    Earth machines run on channelled Myst — turbines of salvaged metal
- *    turning in rivers that the Myst still moves, just barely.
- *    The settlements here are defined more by who left than who stayed.
+ *    Bamboo highlands veiled in mist. Ancient panda settlements, some
+ *    inhabited, some abandoned to the Dry. Earth machines run here on
+ *    channelled magic — repurposed salvage turning in currents that
+ *    are barely moving now. Defined more by who left than who stayed.
  *
  *  Zone 3 — Skriftberget (The Scholar's Height)
  *    Where the Pandor scholars keep their oldest records. Near-clean,
- *    protected by old agreement and by the concentration of Myst at
- *    altitude. The tear here is the largest so far — something on the
- *    other side visible through it, not another landscape, just light.
+ *    protected by old agreement. The tear here is the largest so far —
+ *    something on the other side visible through it, not another
+ *    landscape, just light and noise.
  *
  * ## Collectibles
- *  Three objects, one per zone. Artifacts of Mistheim — Myst-stone,
- *  Myst-script, and the three-world record.
+ *  Three objects, one per zone. Artifacts of Mistheim — a Myst-stone,
+ *  an ancient script-tablet, and the three-world record.
  *
  * ## Scholar meeting
  *  Walking within 100px of MEETING_POINT triggers dialog with the Pandor
@@ -89,8 +80,8 @@ export interface Collectible {
 export const ZONES: Zone[] = [
   {
     // Deltagrunden — the lower delta. Dry corruption has begun to work:
-    // rivers still flow but the banks are drying. Spinolandet creatures
-    // wade through shallows that used to be too deep to cross.
+    // the Myst is thin here. Spinolandet creatures have pushed into the
+    // lowlands where the old settlements can no longer keep them back.
     id: 'zone-delta',
     x: 0, y: 2000, w: 900, h: 1000,
     corruption: 55,
@@ -126,19 +117,19 @@ export const COLLECTIBLES: Collectible[] = [
   {
     id: 'item-delta',
     x: 400, y: 2500,
-    // A river stone that still holds water inside it — permanently damp to
-    // the touch, even on its cut surface. Water magic made this, before
-    // the Dry began.
-    label: 'Vattenstenen',
+    // A carved stone that hums faintly — still holding a charge of Myst
+    // from before the Dry reached this far. Warm to the touch in a way
+    // stone should not be.
+    label: 'Mystestenen',
     zoneId: 'zone-delta',
   },
   {
     id: 'item-mist',
     x: 2000, y: 1350,
-    // A bamboo scroll sealed with wax, showing a panda in a [Waterscribe]
-    // Class pose — a notation system that runs on mana rather than ink.
-    // Still legible. Still active.
-    label: 'Vattenskriften',
+    // A bamboo scroll sealed with wax, in a notation system that encodes
+    // Myst patterns rather than spoken language. Still legible. Still active.
+    // The scholars argue about what it says.
+    label: 'Mystskriften',
     zoneId: 'zone-mist',
   },
   {

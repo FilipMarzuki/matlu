@@ -304,26 +304,18 @@ been through so many ages, so many heroes and apocalypses and rebirths, that it 
 of all of them simultaneously. The past is not backstory here. It is active and present and
 occasionally comes back to kill people.
 
-### Myst — the world's living force
+### Myst — the world's living current
 
-The world's name contains a truth that most of its inhabitants have forgotten. "Vatten" is not
-the old word for water. It is a corruption of *Mysten* — the Myst — the living current of mana
-that flows through everything. Scholars in the oldest monasteries still know this. Most people
-do not think about it, the way most people do not think about blood.
+Myst is the flow of mana through the world — not a resource to be spent but an animating
+principle, like weather, like tide. It moves through places and through people. Where it
+runs strongly, magic works, stories hold, Skills mean something. Where it thins, things
+become less than themselves.
 
-Myst is not a resource or a fuel. It is the animating principle of the world. It flows through
-rivers the way a current moves through water — rivers do not create Myst, Myst creates rivers.
-Where Myst pools, it becomes visible as mist. Where it flows strongly, rivers run clear and fast.
-Where it is absent, the ground dries and the stories stop working.
-
-This is why what looks like water magic is not. A [Scholar] who reads the memory in a river is
-reading the Myst that ran through it. A [Diviner] who prophesies from a still pool is watching
-Myst patterns, not water patterns. Rain that holds prophecy is rain saturated with Myst.
-The water is the vessel. Myst is what it carries.
-
-The world itself is a vast inland sea at its centre, rivers running to every corner, archipelagos
-where different peoples developed in isolation for centuries before trade routes connected them.
-The ocean is old. The things in it predate the current age. Sailors know this and sail anyway.
+The world's geography is a classic fantasy landscape: highlands and lowlands, ancient forests,
+archipelagos where isolated peoples developed for centuries before trade connected them.
+The land has its own character — valleys, mountain passes, coastal deltas, ruins — but it is
+not defined by any single element. Water, wind, stone, mist: all of these carry Myst and are
+carried by it. None of them own it.
 
 **The Wandering Inn** by pirateaba is the primary creative reference for this world.
 Read it as your bible for tone, species complexity, how to write a Skill activating,
@@ -352,7 +344,7 @@ destroy the system. It hollows it out and wears it like a costume.
 Vattenpandalandet's peoples are not divided into heroes and monsters. The beings the world
 calls monsters are the ones whose complexity it cannot afford to acknowledge.
 
-**The Deepwalkers** — humanoid peoples of the inland sea, amphibious, clannish, with a
+**The Deepwalkers** — humanoid peoples of the coasts and deep places, clannish, with a
 tradition of oral memory so precise it functions as a legal system. Their histories go back
 further than any written record. They know things about the world's previous ages that the
 land peoples do not. Corruption transforms them into territorial and aggressive versions of
@@ -368,9 +360,9 @@ of every species. Inns exist to serve them. The Wandering People carry informati
 world in ways that no institution controls, which makes them valuable and dangerous.
 
 **The Called** — people from elsewhere who arrived in Vattenpandalandet and did not leave.
-Some came through the ocean. Some fell from the sky. Some simply appeared. They carry knowledge
-from places the world does not have words for. They adapt, gain Classes, build lives. They are
-not always human. The system seems to accommodate anything.
+Some fell from the sky. Some walked out of ruins that should have been empty. Some simply
+appeared. They carry knowledge from places the world does not have words for. They adapt,
+gain Classes, build lives. They are not always human. The system seems to accommodate anything.
 
 ### Inns
 
@@ -403,7 +395,7 @@ lose their voice. They lose their ability to tell a story that ends well.
 ### The weight of the past
 
 There were dead gods. Their names are not said aloud. Their remains are in the ground, in the
-water, in the system itself — because the system was made in the age when gods were alive and
+stone, in the system itself — because the system was made in the age when gods were alive and
 they built things that outlasted them.
 
 There were previous ages. Each one thought it was the last and most sophisticated. Each one
@@ -418,7 +410,7 @@ come out having seen something they are not able to describe. Some do not come o
 The prose voice here is warmer and more oral than Earth's. Write as if you are a storyteller
 who has heard this story from someone who heard it from someone else — and each telling adds
 something. Notice small things: what something smells like, what someone eats, how the light
-falls on water. Let warmth and humour exist even inside dark entries — the world earns its
+falls at dusk. Let warmth and humour exist even inside dark entries — the world earns its
 tragedy because it also earns its joy.
 
 Species described as monsters should have interiority. If you are writing about a creature
@@ -426,22 +418,18 @@ that the world exterminates on sight, give it a meal it prefers, a sound it make
 is not afraid, something it remembers.
 
 Do not explain the system. The system is real and present and characters live inside it —
-they do not lecture about it. A [Fisherwoman] levelling does not monologue about Class
-mechanics. She just feels something shift and knows she is better at reading the current.
+they do not lecture about it. A [Blacksmith] levelling does not monologue about Class
+mechanics. She just feels something shift and knows she is better at reading the metal.
 
-**Do not lead with Myst.** Characters in Vattenpandalandet do not think about Myst the way
-a player character thinks about mana. They think about the story they are living, the debt
-they owe, the person they cannot forgive, the inn they are trying to reach before dark.
-Myst is in the background of everything the way gravity is in the background of everything —
-present, essential, not the sentence that starts a character description.
+**Give characters a story before a power.** People in Vattenpandalandet think about the debt
+they owe, the person they cannot forgive, the inn they are trying to reach before dark, the
+argument they have been having for fifteen years. Their Class and their relationship to Myst
+are real — but they are not who the character is. They are what the character became.
 
-A panda scholar is a scholar first. They have a favourite text they have read sixty times.
-They have an argument with a colleague that has lasted fifteen years. They have a home
-settlement that may or may not exist anymore. Their Class is [Scholar] or [Chronicler] or
-[Cartographer]. Myst is the medium they work in, not who they are.
-
-When writing Mistheim characters: give them a story before you give them a power.
-The power should feel like it grew out of the story, not the other way around.
+A Mistheim scholar is a scholar first. They have a favourite text. They have a home settlement
+that may or may not exist anymore. Their Class is [Chronicler] or [Cartographer] or [Keeper].
+When writing any Mistheim character: begin with what they remember and what they have lost.
+The rest follows.
 
 ### Reference works (Vattenpandalandet)
 
@@ -461,10 +449,10 @@ The power should feel like it grew out of the story, not the other way around.
   entry, be clear (implicitly) which state you are describing.
 - Corruption looks different on each world. On Earth: distortion and hyper-aggression.
   On Spinolandet: simplification and loss of symbiosis. On Vattenpandalandet: The Dry —
-  it severs the flow of Myst. Rivers run dry not because water is drained but because the
-  animating current that moved them is gone. Magic stops working. Stories lose their endings.
-  The Class system persists but Skills hollow out — a [Healer]'s touch closes wounds that
-  re-open. An [Innkeeper]'s warmth becomes cold hospitality with nothing behind it.
+  the Myst thins and stops flowing. Magic stops working. Stories lose their endings.
+  Skills hollow out — a [Healer]'s touch closes wounds that re-open, an [Innkeeper]'s
+  warmth becomes cold hospitality with nothing behind it. The landscape dries as a
+  symptom, not the cause.
 - Characters from one world encountering another is rare and significant — do not write
   cross-world meetings casually.
 - The player's presence in a zone does not automatically mean the zone is safe. Lore entries
