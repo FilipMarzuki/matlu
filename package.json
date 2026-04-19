@@ -18,7 +18,11 @@
     "arena-bot": "tsx scripts/arena-bot/run.ts",
     "audio:sync": "node scripts/sync-audio.js",
     "entity:audit": "tsx scripts/entity-audit.ts",
-    "unit": "vitest run"
+    "unit": "vitest run",
+    "dev:wiki": "npm run dev --prefix wiki",
+    "dev:sites": "npm run dev --prefix wiki & npm run dev --prefix dev",
+    "build:all": "npm run build && npm run build --prefix wiki && npm run build --prefix dev",
+    "typecheck:all": "npm run typecheck && npm run typecheck --prefix wiki && npm run typecheck --prefix dev"
   },
   "dependencies": {
     "@logtail/browser": "^0.5.8",
