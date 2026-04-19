@@ -2,10 +2,11 @@
  * Supabase Postgres types for this project.
  *
  * Schemas were created with the Supabase MCP tool `apply_migration`:
- *   - `create_matlu_runs`            — leaderboard table
- *   - `create_matlu_feedback`        — in-game feedback table
- *   - `create_stats_weekly`          — weekly engineering metrics
- *   - `create_creature_submissions`  — creature wiki submission form (FIL-431)
+ *   - `create_matlu_runs`                    — leaderboard table
+ *   - `create_matlu_feedback`                — in-game feedback table
+ *   - `create_stats_weekly`                  — weekly engineering metrics
+ *   - `create_creature_submissions`          — creature wiki submission form (FIL-431)
+ *   - `creature_pipeline_state_machine`      — pipeline status columns + history table + trigger (FIL-435)
  *
  * Regenerate via MCP `generate_typescript_types` after any DDL change,
  * then replace this file.
@@ -113,21 +114,62 @@ export type Database = {
         }
         Relationships: []
       }
+      creature_status_history: {
+        Row: {
+          changed_at: string
+          creature_id: string
+          from_status: string | null
+          id: string
+          note: string | null
+          to_status: string
+        }
+        Insert: {
+          changed_at?: string
+          creature_id: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          to_status: string
+        }
+        Update: {
+          changed_at?: string
+          creature_id?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creature_status_history_creature_id_fkey"
+            columns: ["creature_id"]
+            isOneToOne: false
+            referencedRelation: "creature_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creature_submissions: {
         Row: {
           approved: boolean
           approved_at: string | null
           art_credit: string | null
           art_path: string | null
+          balance_notes: string | null
+          balance_tier: string | null
           behaviour_notes: string | null
           behaviour_threat: string | null
+          biome_affinity: string[] | null
           completion_score: number | null
           contact_email: string | null
           created_at: string
           creator_name: string
           creature_name: string
           credits_opt_in: boolean
+          entity_id: string | null
           food_notes: string | null
+          graphics_difficulty: number | null
+          graphics_notes: string | null
           habitat_biome: string[] | null
           habitat_climate: string | null
           habitat_notes: string | null
@@ -139,13 +181,21 @@ export type Database = {
           license_accepted: boolean
           license_version: string
           lore_description: string | null
+          lore_entry_id: string | null
+          lore_entry_url: string | null
           lore_origin: string | null
           maker_age: number | null
           moderation_note: string | null
           parental_consent: boolean
+          queue_priority: number | null
+          queued_at: string | null
           rejected_at: string | null
+          shipped_at: string | null
           slug: string | null
           special_ability: string | null
+          status: string
+          status_changed_at: string | null
+          tracker_issue_number: number | null
           world_name: string | null
         }
         Insert: {
@@ -153,15 +203,21 @@ export type Database = {
           approved_at?: string | null
           art_credit?: string | null
           art_path?: string | null
+          balance_notes?: string | null
+          balance_tier?: string | null
           behaviour_notes?: string | null
           behaviour_threat?: string | null
+          biome_affinity?: string[] | null
           completion_score?: number | null
           contact_email?: string | null
           created_at?: string
           creator_name: string
           creature_name: string
           credits_opt_in?: boolean
+          entity_id?: string | null
           food_notes?: string | null
+          graphics_difficulty?: number | null
+          graphics_notes?: string | null
           habitat_biome?: string[] | null
           habitat_climate?: string | null
           habitat_notes?: string | null
@@ -173,13 +229,21 @@ export type Database = {
           license_accepted: boolean
           license_version: string
           lore_description?: string | null
+          lore_entry_id?: string | null
+          lore_entry_url?: string | null
           lore_origin?: string | null
           maker_age?: number | null
           moderation_note?: string | null
           parental_consent: boolean
+          queue_priority?: number | null
+          queued_at?: string | null
           rejected_at?: string | null
+          shipped_at?: string | null
           slug?: string | null
           special_ability?: string | null
+          status?: string
+          status_changed_at?: string | null
+          tracker_issue_number?: number | null
           world_name?: string | null
         }
         Update: {
@@ -187,15 +251,21 @@ export type Database = {
           approved_at?: string | null
           art_credit?: string | null
           art_path?: string | null
+          balance_notes?: string | null
+          balance_tier?: string | null
           behaviour_notes?: string | null
           behaviour_threat?: string | null
+          biome_affinity?: string[] | null
           completion_score?: number | null
           contact_email?: string | null
           created_at?: string
           creator_name?: string
           creature_name?: string
           credits_opt_in?: boolean
+          entity_id?: string | null
           food_notes?: string | null
+          graphics_difficulty?: number | null
+          graphics_notes?: string | null
           habitat_biome?: string[] | null
           habitat_climate?: string | null
           habitat_notes?: string | null
@@ -207,13 +277,21 @@ export type Database = {
           license_accepted?: boolean
           license_version?: string
           lore_description?: string | null
+          lore_entry_id?: string | null
+          lore_entry_url?: string | null
           lore_origin?: string | null
           maker_age?: number | null
           moderation_note?: string | null
           parental_consent?: boolean
+          queue_priority?: number | null
+          queued_at?: string | null
           rejected_at?: string | null
+          shipped_at?: string | null
           slug?: string | null
           special_ability?: string | null
+          status?: string
+          status_changed_at?: string | null
+          tracker_issue_number?: number | null
           world_name?: string | null
         }
         Relationships: []
@@ -568,7 +646,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      creature_status_transition_allowed: {
+        Args: { from_s: string; to_s: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
@@ -707,3 +788,5 @@ export const Constants = {
 export type MatluRun          = Tables<'matlu_runs'>;
 export type MatluRunInsert    = TablesInsert<'matlu_runs'>;
 export type MatluFeedbackInsert = TablesInsert<'matlu_feedback'>;
+export type CreatureSubmission = Tables<'creature_submissions'>;
+export type CreatureStatusHistory = Tables<'creature_status_history'>;
