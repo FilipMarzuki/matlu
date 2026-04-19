@@ -52,7 +52,7 @@ import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
-import { worldToIso, isoToWorld, ISO_WORLD_W, ISO_WORLD_H } from '../lib/IsoTransform';
+import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H } from '../lib/IsoTransform';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
@@ -1591,12 +1591,13 @@ export class GameScene extends Phaser.Scene {
       this.updateLootChestInteraction();
       this.updateShrine();
     }
-    // Y-sort player every frame — depth = world-Y matches the raw-Y system used by
-    // chunk-placed trees so the player correctly occludes them based on position.
-    // Done outside the attractMode branch so it runs whether or not input is active.
-    this.player.setDepth(this.player.y);
+    // Y-sort player every frame using isoDepth so the player sorts on the same
+    // 0–235 scale as trees and decorations (FIL-459).
+    const { x: pdWx, y: pdWy } = isoToWorld(this.player.x, this.player.y);
+    const pdDepth = isoDepth(pdWx, pdWy);
+    this.player.setDepth(pdDepth);
     this.playerShadow.setPosition(this.player.x + 6, this.player.y + 8);
-    this.playerShadow.setDepth(this.player.y - 1);
+    this.playerShadow.setDepth(pdDepth - 0.1);
 
     this.updateRabbits(time);
     this.updateCorruptedFoxes(time);
@@ -4456,13 +4457,13 @@ export class GameScene extends Phaser.Scene {
     const { x: isoSpawnX, y: isoSpawnY } = worldToIso(SPAWN_X, SPAWN_Y);
     this.player = this.add.container(isoSpawnX, isoSpawnY, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
-    // Depth = iso-Y (proportional to tx+ty) — valid painter sort for iso space.
+    // Depth = isoDepth(SPAWN_X, SPAWN_Y) — on the same 0–235 scale as decorations.
     // Updated every frame in update() to track position.
-    this.player.setDepth(isoSpawnY);
+    this.player.setDepth(isoDepth(SPAWN_X, SPAWN_Y));
 
     // Drop shadow — oval offset SE from the player's feet.
     this.playerShadow = this.add.ellipse(isoSpawnX + 6, isoSpawnY + 8, 22, 10, 0x000000, 0.22);
-    this.playerShadow.setDepth(isoSpawnY - 1);
+    this.playerShadow.setDepth(isoDepth(SPAWN_X, SPAWN_Y) - 0.1);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
