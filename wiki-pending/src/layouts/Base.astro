@@ -1,0 +1,128 @@
+---
+/**
+ * Base layout — used by every wiki page.
+ *
+ * Props:
+ *   title       — injected into <title> and og:title
+ *   description — optional meta description
+ */
+import Nav from '../components/Nav.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Matlu Wiki — world, creatures, and dev notes.' } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={`${title} — Matlu Wiki`} />
+    <meta property="og:description" content={description} />
+    <title>{title} — Matlu Wiki</title>
+
+    <!-- Google Fonts: Syne (display headings) + Outfit (body text) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Outfit:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <style is:global>
+      /* ── Design tokens ───────────────────────────────────────────────────── */
+      :root {
+        --bg:         #0d0d14;
+        --surface:    #13131e;
+        --surface-hi: #1c1c2e;
+        --border:     #2a2a3e;
+        --text:       #e8e8f0;
+        --text-dim:   #9898b0;
+        --accent:     #a855f7;   /* purple-500 */
+        --accent-hi:  #c084fc;   /* purple-400 */
+        --green:      #4ade80;
+        --red:        #f87171;
+        --amber:      #fbbf24;
+      }
+
+      /* ── Reset / base ────────────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Outfit', sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body { min-height: 100vh; }
+
+      /* ── Typography ──────────────────────────────────────────────────────── */
+      h1, h2, h3, h4, h5, h6 {
+        font-family: 'Syne', sans-serif;
+        line-height: 1.25;
+        color: var(--text);
+      }
+
+      h1 { font-size: 2rem;   font-weight: 800; }
+      h2 { font-size: 1.5rem; font-weight: 700; }
+      h3 { font-size: 1.2rem; font-weight: 700; }
+
+      p { margin-bottom: 1rem; }
+      p:last-child { margin-bottom: 0; }
+
+      a {
+        color: var(--accent-hi);
+        text-decoration: none;
+      }
+      a:hover { text-decoration: underline; }
+
+      /* ── Main content wrapper ────────────────────────────────────────────── */
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+
+      /* ── Code ────────────────────────────────────────────────────────────── */
+      code {
+        font-family: 'Cascadia Code', 'Fira Code', monospace;
+        font-size: 0.88em;
+        background: var(--surface-hi);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.15em 0.4em;
+        color: var(--accent-hi);
+      }
+      pre {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.25rem;
+        overflow-x: auto;
+        margin-bottom: 1.5rem;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 0.9em;
+        color: var(--text);
+      }
+    </style>
+  </head>
+
+  <body>
+    <Nav />
+    <main>
+      <slot />
+    </main>
+  </body>
+</html>

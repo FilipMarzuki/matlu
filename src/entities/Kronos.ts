@@ -91,6 +91,7 @@ export class Kronos extends EarthHero {
       aggroRadius:         500,
       attackDamage:        20,
       color:               0x003366,   // deep navy — cold autonomous machine
+      spriteKey:           'tinkerer', // TODO: replace with 'kronos' once PixelLab sprite is assembled
       meleeRange:          30,
       attackCooldownMs:    600,
       projectileDamage:    16,

@@ -148,6 +148,7 @@ export class TorstenKraft extends EarthHero {
       aggroRadius:      420,
       attackDamage:     18,   // solid melee fallback
       color:            0x4a7c3f, // military green placeholder
+      spriteKey:        'tinkerer', // TODO: replace with 'torsten-kraft' once PixelLab sprite is assembled
       meleeRange:       36,
       attackCooldownMs: 900,
       projectileDamage: 20,   // assault rifle — more than Maja's sidearm

@@ -50,6 +50,7 @@ export class Ironwing extends EarthHero {
       aggroRadius:      440,
       attackDamage:     30,   // mech stomp hits hard
       color:            0x4e88c4, // steel-blue placeholder
+      spriteKey:        'tinkerer', // TODO: replace with 'ironwing' once PixelLab sprite is assembled
       meleeRange:       42,
       attackCooldownMs: 1200, // slow swing cadence for a heavy arm
       projectileDamage: 32,   // autocannon — heaviest per-shot damage

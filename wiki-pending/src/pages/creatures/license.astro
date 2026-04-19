@@ -1,0 +1,128 @@
+---
+/**
+ * Creature submission license page.
+ *
+ * Linked from the submit form (A2). Explains in plain language what the
+ * creator agrees to when they submit a creature. The LICENSE_VERSION export
+ * is imported by the submit form and stored on every insert so we know which
+ * version of the license was accepted at submission time.
+ */
+import Base from '../../layouts/Base.astro';
+
+export const LICENSE_VERSION = 'v1-2026-04';
+---
+
+<Base
+  title="Creature Submission License"
+  description="What you agree to when you submit a creature to the Matlu creature encyclopedia."
+>
+  <h1>Creature Submission License</h1>
+  <p class="version">Version {LICENSE_VERSION} &mdash; April 2026</p>
+
+  <p class="lead">
+    When you submit a creature to Matlu, you're sharing something you made.
+    Here's what that means in plain language.
+  </p>
+
+  <section class="terms">
+    <h2>What you're agreeing to</h2>
+    <ul>
+      <li>
+        <strong>You created this.</strong> The creature, its name, its story, and any
+        drawing or photo you upload were made by you (or by a child you are responsible for).
+        You are not copying someone else's work.
+      </li>
+      <li>
+        <strong>We can use it.</strong> By submitting, you give Fills Pills permission to
+        display your creature on the Matlu wiki, include it in the game, and create pixel
+        art based on your description. We will always credit you by the name you provide.
+      </li>
+      <li>
+        <strong>You keep it too.</strong> You still own your creature. This license does
+        not take it away from you — we're asking to share it, not buy it.
+      </li>
+      <li>
+        <strong>Credit stays with the creature.</strong> If your creature appears in the
+        game, your name (or the creator name you enter) will appear in the credits.
+        We will not remove the credit later.
+      </li>
+      <li>
+        <strong>We may not use every submission.</strong> Submitting does not guarantee
+        your creature will appear in the game. Creatures go through a review process.
+        We may edit descriptions for length or clarity before publishing.
+      </li>
+      <li>
+        <strong>For creators under 18.</strong> A parent or guardian must give permission
+        before submitting. By ticking the parental consent box on the form, the adult
+        confirms they have read this license and agree on the child's behalf.
+      </li>
+    </ul>
+  </section>
+
+  <section class="questions">
+    <h2>Questions?</h2>
+    <p>
+      If something here is unclear, or if you want to withdraw a submission, open an issue
+      on the <a href="https://github.com/FilipMarzuki/matlu" target="_blank" rel="noopener">Matlu GitHub repository</a>
+      and we'll sort it out.
+    </p>
+  </section>
+
+  <p class="back">
+    <a href="/creatures/submit">&larr; Back to the submission form</a>
+  </p>
+</Base>
+
+<style>
+  .version {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .lead {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    max-width: 600px;
+    margin-bottom: 2rem;
+  }
+
+  section { margin-bottom: 2.5rem; }
+
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--accent-hi);
+  }
+
+  ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  li {
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  li strong {
+    display: block;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    margin-bottom: 0.25rem;
+  }
+
+  .questions p { max-width: 540px; }
+
+  .back {
+    margin-top: 3rem;
+    font-size: 0.9rem;
+  }
+</style>

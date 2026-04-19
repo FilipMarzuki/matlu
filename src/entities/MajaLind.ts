@@ -44,6 +44,7 @@ export class MajaLind extends EarthHero {
       aggroRadius:      380,
       attackDamage:     22,   // wrench hits hard when it connects
       color:            0xf5a623, // orange-yellow work coveralls placeholder
+      spriteKey:        'tinkerer', // TODO: replace with 'maja-lind' once PixelLab sprite is assembled
       meleeRange:       38,
       attackCooldownMs: 850,
       projectileDamage: 12,   // basic sidearm — low but fast
