@@ -26,6 +26,14 @@ import { chromium } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import { BotController, type BotMetrics } from './bot-controller.js';
+import {
+  compareToBaseline,
+  detectRegressions,
+  loadRollingAverage,
+  type ArenaRegression,
+  type BaselineComparison,
+  type SessionMetrics,
+} from './metrics.js';
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -44,6 +52,10 @@ interface SessionSnapshot extends BotMetrics {
   elapsedMs: number;
 }
 
+interface SessionMetricsSummary extends SessionMetrics {
+  jsErrorTypes: string[];
+}
+
 interface SessionResult {
   sessionIndex: number;
   startedAt: string;
@@ -52,12 +64,21 @@ interface SessionResult {
   endReason: EndReason;
   finalMetrics: BotMetrics;
   snapshots: SessionSnapshot[];
+  metrics: SessionMetricsSummary;
+  baseline: BaselineComparison | null;
+  regressions: ArenaRegression[];
 }
 
 interface BotLog {
   generatedAt: string;
   devServer: string;
   sessions: SessionResult[];
+  baselineWindow: {
+    startDate: string;
+    endDate: string;
+    sampleDays: number;
+    sampleSessions: number;
+  };
 }
 
 // ── Minimal game-access types used inside page.evaluate() ─────────────────────
@@ -75,6 +96,39 @@ type GameAccess = {
 type ArenaSceneAccess = {
   sys: { settings: { active: boolean } };
 };
+
+interface ArenaBotTelemetry {
+  shotsFired: number;
+  shotsHit: number;
+  projectilePeak: number;
+}
+
+function normalizeErrorType(message: string): string {
+  const firstLine = message.split('\n')[0]?.trim() ?? '';
+  if (!firstLine) return 'UnknownError';
+
+  const explicitError = firstLine.match(/^([A-Za-z]+Error)\b/);
+  if (explicitError) return explicitError[1];
+
+  const colonIndex = firstLine.indexOf(':');
+  if (colonIndex > 0) return firstLine.slice(0, colonIndex).trim();
+
+  return firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine;
+}
+
+function setupJsErrorCollection(page: import('@playwright/test').Page): () => string[] {
+  const errorTypes = new Set<string>();
+
+  page.on('pageerror', (error) => {
+    errorTypes.add(normalizeErrorType(`${error.name}: ${error.message}`));
+  });
+  page.on('console', (msg) => {
+    if (msg.type() !== 'error') return;
+    errorTypes.add(normalizeErrorType(msg.text()));
+  });
+
+  return (): string[] => [...errorTypes].sort();
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -124,6 +178,165 @@ async function startArena(page: import('@playwright/test').Page): Promise<void> 
 }
 
 /**
+ * Install lightweight runtime telemetry hooks inside the arena scene.
+ *
+ * We count:
+ * - shotsFired via the existing `hero-shot` event
+ * - shotsHit by wrapping the hero projectile's `onHitCb`
+ * - projectilePeak from the largest observed in-flight projectile count
+ */
+async function installArenaTelemetry(page: import('@playwright/test').Page): Promise<void> {
+  await page.evaluate(() => {
+    const game = (window as unknown as Record<string, GameAccess>)['__game'];
+    const scene = game.scene.getScene('CombatArenaScene') as ArenaSceneAccess & Record<string, unknown>;
+
+    const telemetry: ArenaBotTelemetry = {
+      shotsFired: 0,
+      shotsHit: 0,
+      projectilePeak: 0,
+    };
+    scene['__arenaBotTelemetry'] = telemetry;
+
+    (scene as {
+      events?: {
+        on: (event: string, cb: (...args: unknown[]) => void) => void;
+      };
+      hero?: { x: number; y: number };
+      projectiles?: unknown[];
+    }).events?.on('hero-shot', () => {
+      telemetry.shotsFired += 1;
+    });
+
+    (scene as {
+      events?: {
+        on: (event: string, cb: (...args: unknown[]) => void) => void;
+      };
+      hero?: { x: number; y: number };
+      projectiles?: unknown[];
+    }).events?.on('projectile-spawned', (projectile: unknown) => {
+      const activeProjectiles = Array.isArray((scene as { projectiles?: unknown[] }).projectiles)
+        ? (scene as { projectiles?: unknown[] }).projectiles!.length
+        : 0;
+      telemetry.projectilePeak = Math.max(telemetry.projectilePeak, activeProjectiles);
+
+      const hero = (scene as { hero?: { x: number; y: number } }).hero;
+      if (
+        !hero ||
+        typeof (projectile as { x?: unknown }).x !== 'number' ||
+        typeof (projectile as { y?: unknown }).y !== 'number'
+      ) {
+        return;
+      }
+
+      const dx = (projectile as { x: number }).x - hero.x;
+      const dy = (projectile as { y: number }).y - hero.y;
+      const isLikelyHeroProjectile = Math.hypot(dx, dy) <= 28;
+      if (!isLikelyHeroProjectile) return;
+
+      const rawProjectile = projectile as {
+        onHitCb?: ((target: unknown) => void) | undefined;
+        __arenaBotWrappedHitCb?: boolean;
+      };
+      if (rawProjectile.__arenaBotWrappedHitCb) return;
+
+      const originalOnHit = rawProjectile.onHitCb;
+      rawProjectile.onHitCb = (target: unknown) => {
+        telemetry.shotsHit += 1;
+        if (typeof originalOnHit === 'function') originalOnHit(target);
+      };
+      rawProjectile.__arenaBotWrappedHitCb = true;
+    });
+  });
+}
+
+async function readArenaTelemetry(page: import('@playwright/test').Page): Promise<ArenaBotTelemetry> {
+  return page.evaluate(() => {
+    const game = (window as unknown as Record<string, GameAccess>)['__game'];
+    const scene = game.scene.getScene('CombatArenaScene') as Record<string, unknown>;
+    const telemetry = scene['__arenaBotTelemetry'] as ArenaBotTelemetry | undefined;
+    return telemetry ?? { shotsFired: 0, shotsHit: 0, projectilePeak: 0 };
+  });
+}
+
+function countStuckStates(snapshots: SessionSnapshot[]): number {
+  const STUCK_WINDOW_MS = 5_000;
+  const SPEED_EPSILON = 8;
+  const DRIFT_EPSILON = 12;
+
+  let stuckStates = 0;
+  let segmentStartMs: number | null = null;
+  let segmentStartX = 0;
+  let segmentStartY = 0;
+  let alreadyCounted = false;
+
+  for (const snap of snapshots) {
+    const lowSpeed = snap.heroSpeed <= SPEED_EPSILON;
+    if (!lowSpeed) {
+      segmentStartMs = null;
+      alreadyCounted = false;
+      continue;
+    }
+
+    if (segmentStartMs === null) {
+      segmentStartMs = snap.elapsedMs;
+      segmentStartX = snap.heroX;
+      segmentStartY = snap.heroY;
+      alreadyCounted = false;
+      continue;
+    }
+
+    const drift = Math.hypot(snap.heroX - segmentStartX, snap.heroY - segmentStartY);
+    if (drift > DRIFT_EPSILON) {
+      segmentStartMs = snap.elapsedMs;
+      segmentStartX = snap.heroX;
+      segmentStartY = snap.heroY;
+      alreadyCounted = false;
+      continue;
+    }
+
+    if (!alreadyCounted && snap.elapsedMs - segmentStartMs >= STUCK_WINDOW_MS) {
+      stuckStates += 1;
+      alreadyCounted = true;
+    }
+  }
+
+  return stuckStates;
+}
+
+function summarizeSessionMetrics(
+  session: Pick<SessionResult, 'durationMs' | 'endReason' | 'finalMetrics' | 'snapshots'>,
+  telemetry: ArenaBotTelemetry,
+  jsErrorTypes: string[],
+): SessionMetricsSummary {
+  const fpsSamples = session.snapshots
+    .map((snap) => snap.fps)
+    .filter((fps) => Number.isFinite(fps) && fps > 0);
+  const fpsAverage = fpsSamples.length > 0
+    ? fpsSamples.reduce((sum, fps) => sum + fps, 0) / fpsSamples.length
+    : 0;
+  const fpsMinimum = fpsSamples.length > 0
+    ? Math.min(...fpsSamples)
+    : 0;
+  const snapshotProjectilePeak = session.snapshots.reduce(
+    (peak, snap) => Math.max(peak, snap.projectileCount),
+    0,
+  );
+
+  return {
+    survivalTimeSeconds: Number((session.durationMs / 1000).toFixed(2)),
+    enemiesKilled: session.finalMetrics.kills,
+    shotsFired: telemetry.shotsFired,
+    shotsHit: telemetry.shotsHit,
+    deaths: session.endReason === 'died' ? 1 : 0,
+    fpsAverage: Number(fpsAverage.toFixed(2)),
+    fpsMinimum: Number(fpsMinimum.toFixed(2)),
+    projectileCountPeak: Math.max(snapshotProjectilePeak, telemetry.projectilePeak),
+    stuckStates: countStuckStates(session.snapshots),
+    jsErrorTypes,
+  };
+}
+
+/**
  * Run one 3-minute bot session.
  *
  * Bot action weights (approximate):
@@ -138,18 +351,23 @@ async function startArena(page: import('@playwright/test').Page): Promise<void> 
 async function runSession(
   page: import('@playwright/test').Page,
   sessionIndex: number,
+  baseline: ReturnType<typeof loadRollingAverage>,
+  getJsErrorTypes: () => string[],
 ): Promise<SessionResult> {
   const bot       = new BotController(page);
   const startMs   = Date.now();
   const startedAt = new Date().toISOString();
   const snapshots: SessionSnapshot[] = [];
 
+  await installArenaTelemetry(page);
   await bot.enablePlayerMode();
 
   let endReason: EndReason = 'timeout';
   let finalMetrics: BotMetrics = {
     wave: 0, kills: 0, heroAlive: true,
     enemiesAlive: 0, heroHp: 0, heroMaxHp: 0,
+    heroX: 0, heroY: 0, heroSpeed: 0,
+    fps: 0, projectileCount: 0,
   };
 
   // ── Action loop ─────────────────────────────────────────────────────────────
@@ -205,6 +423,15 @@ async function runSession(
     `| hp ${finalMetrics.heroHp}/${finalMetrics.heroMaxHp}`,
   );
 
+  const telemetry = await readArenaTelemetry(page);
+  const sessionMetrics = summarizeSessionMetrics(
+    { durationMs, endReason, finalMetrics, snapshots },
+    telemetry,
+    getJsErrorTypes(),
+  );
+  const baselineComparison = compareToBaseline(sessionMetrics, baseline);
+  const regressions = detectRegressions(sessionMetrics, baselineComparison);
+
   return {
     sessionIndex,
     startedAt,
@@ -213,6 +440,9 @@ async function runSession(
     endReason,
     finalMetrics,
     snapshots,
+    metrics: sessionMetrics,
+    baseline: baselineComparison,
+    regressions,
   };
 }
 
@@ -222,6 +452,12 @@ async function main(): Promise<void> {
   const logDir  = path.resolve('logs/arena-bot');
   const dateStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const logPath = path.join(logDir, `${dateStr}.json`);
+  const referenceDate = new Date(`${dateStr}T00:00:00.000Z`);
+  const rollingAverage = loadRollingAverage(referenceDate);
+  const fallbackStartDate = new Date(referenceDate);
+  fallbackStartDate.setUTCDate(fallbackStartDate.getUTCDate() - 7);
+  const fallbackEndDate = new Date(referenceDate);
+  fallbackEndDate.setUTCDate(fallbackEndDate.getUTCDate() - 1);
 
   fs.mkdirSync(logDir, { recursive: true });
 
@@ -229,6 +465,14 @@ async function main(): Promise<void> {
   console.log(`  Dev server : ${DEV_SERVER_URL}`);
   console.log(`  Sessions   : ${SESSIONS}`);
   console.log(`  Log file   : ${logPath}\n`);
+  if (rollingAverage) {
+    console.log(
+      `  Baseline   : ${rollingAverage.startDate} → ${rollingAverage.endDate} ` +
+      `(${rollingAverage.sampleSessions} sessions)\n`,
+    );
+  } else {
+    console.log('  Baseline   : none (no logs found in previous 7 days)\n');
+  }
 
   const browser = await chromium.launch({ headless: true });
 
@@ -236,6 +480,19 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     devServer:   DEV_SERVER_URL,
     sessions:    [],
+    baselineWindow: rollingAverage
+      ? {
+        startDate: rollingAverage.startDate,
+        endDate: rollingAverage.endDate,
+        sampleDays: rollingAverage.sampleDays,
+        sampleSessions: rollingAverage.sampleSessions,
+      }
+      : {
+        startDate: fallbackStartDate.toISOString().slice(0, 10),
+        endDate: fallbackEndDate.toISOString().slice(0, 10),
+        sampleDays: 0,
+        sampleSessions: 0,
+      },
   };
 
   try {
@@ -246,10 +503,11 @@ async function main(): Promise<void> {
       const page = await browser.newPage();
 
       try {
+        const getJsErrorTypes = setupJsErrorCollection(page);
         await bootGame(page);
         await startArena(page);
 
-        const result = await runSession(page, i);
+        const result = await runSession(page, i, rollingAverage, getJsErrorTypes);
         log.sessions.push(result);
       } finally {
         await page.close();
@@ -266,8 +524,10 @@ async function main(): Promise<void> {
 
   const died    = log.sessions.filter(s => s.endReason === 'died').length;
   const timeout = log.sessions.filter(s => s.endReason === 'timeout').length;
+  const regressions = log.sessions.flatMap((s) => s.regressions);
   console.log(`  Timed out    : ${timeout}`);
   console.log(`  Died early   : ${died}`);
+  console.log(`  Regressions  : ${regressions.length}`);
   console.log(`  Log written  : ${logPath}`);
 }
 

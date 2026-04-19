@@ -40,8 +40,20 @@ type ArenaAccess = {
   killCount: number;
   heroAlive: boolean;
   aliveEnemies: unknown[];
+  projectiles: unknown[];
   heroPlayerMode: boolean;
-  hero: { hp: number; maxHp: number };
+  hero: {
+    hp: number;
+    maxHp: number;
+    x: number;
+    y: number;
+    body?: {
+      velocity?: {
+        x: number;
+        y: number;
+      };
+    };
+  };
 };
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -54,6 +66,11 @@ export interface BotMetrics {
   enemiesAlive: number;
   heroHp: number;
   heroMaxHp: number;
+  heroX: number;
+  heroY: number;
+  heroSpeed: number;
+  fps: number;
+  projectileCount: number;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -166,6 +183,10 @@ export class BotController {
     return this.page.evaluate(() => {
       const game = (window as unknown as Record<string, GameAccess>)['__game'];
       const scene = game.scene.getScene('CombatArenaScene') as ArenaAccess;
+      const velocity = scene.hero.body?.velocity;
+      const heroSpeed = velocity
+        ? Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
+        : 0;
       return {
         wave:         scene.waveNumber,
         kills:        scene.killCount,
@@ -173,6 +194,11 @@ export class BotController {
         enemiesAlive: scene.aliveEnemies.length,
         heroHp:       scene.hero.hp,
         heroMaxHp:    scene.hero.maxHp,
+        heroX:        scene.hero.x,
+        heroY:        scene.hero.y,
+        heroSpeed,
+        fps:          Number((game as unknown as { loop?: { actualFps?: number } }).loop?.actualFps ?? 0),
+        projectileCount: scene.projectiles.length,
       };
     });
   }
