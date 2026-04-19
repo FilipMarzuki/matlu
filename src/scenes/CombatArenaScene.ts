@@ -299,6 +299,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
     this.createAnimsFromAseprite('tinkerer');
     this.createAnimsFromAseprite('mini-velcrid');
+    this.createAnimsFromAseprite('npc-wanderer');
 
     // Torch flicker — 3-frame loop at 6 fps (~167 ms/frame) for a slow, warm
     // candle feel. Defined once here; each torch sprite calls play('torch_flicker')
@@ -315,7 +316,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Walk and idle animations must loop so the sprite never freezes mid-stride.
     // Attack / dash / death stay one-shot — their keys don't contain _walk_ or _idle_.
     const LOOP_STATES = ['idle', 'walk'];
-    const SPRITE_KEYS = ['tinkerer', 'mini-velcrid'];
+    const SPRITE_KEYS = ['tinkerer', 'mini-velcrid', 'npc-wanderer'];
     const ANIM_DIRS   = ['south', 'south-east', 'east', 'north-east', 'north'];
     for (const sKey of SPRITE_KEYS) {
       for (const state of LOOP_STATES) {
@@ -1620,6 +1621,10 @@ export class CombatArenaScene extends Phaser.Scene {
    * names frames descriptively ("idle_south_0", "idle_south_1", …). This
    * helper reads the same cache.json entry but uses each frame's filename
    * value so the animation frame keys match the atlas texture frame keys.
+   *
+   * Always removes and recreates each animation so these filename-based frames
+   * override any numeric-index animations that Phaser 4 may have auto-created
+   * when the aseprite file loaded (fixes FIL-423).
    */
   private createAnimsFromAseprite(key: string): void {
     type AseFrame = { filename: string; duration?: number };
@@ -1645,14 +1650,15 @@ export class CombatArenaScene extends Phaser.Scene {
         totalDuration += dur;
       }
       if (tag.direction === 'reverse') animFrames.reverse();
-      if (!this.anims.exists(tag.name)) {
-        this.anims.create({
-          key:      tag.name,
-          frames:   animFrames,
-          duration: totalDuration,
-          yoyo:     tag.direction === 'pingpong',
-        });
-      }
+      // Remove before create — ensures our filename-based refs win over any
+      // Phaser 4 auto-registered numeric-index animations for the same key.
+      if (this.anims.exists(tag.name)) this.anims.remove(tag.name);
+      this.anims.create({
+        key:      tag.name,
+        frames:   animFrames,
+        duration: totalDuration,
+        yoyo:     tag.direction === 'pingpong',
+      });
     }
   }
 
