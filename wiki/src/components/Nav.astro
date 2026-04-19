@@ -1,4 +1,6 @@
 ---
+const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://matlu.vercel.app';
+
 const navItems = [
   { href: '/',           label: 'Home'      },
   { href: '/lore',       label: 'Lore'      },
@@ -21,7 +23,10 @@ const pathname = Astro.url.pathname;
       </li>
     ))}
   </ul>
-  <!-- Cross-link to the Agentic Experiments dev log -->
+  <!-- Cross-links to other Matlu projects -->
+  <a href={`${gameUrl}/biome`} class="dev-link" target="_blank" rel="noopener">
+    World Forge →
+  </a>
   <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" target="_blank" rel="noopener">
     Dev Log →
   </a>

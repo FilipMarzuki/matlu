@@ -1,9 +1,23 @@
 ---
 import Base from '../../layouts/Base.astro';
+
+const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://matlu.vercel.app';
+const worldForgeUrl = `${gameUrl}/biome`;
 ---
 
 <Base title="Biomes">
   <h1>Biomes</h1>
+
+  <div class="world-forge-card">
+    <div class="world-forge-info">
+      <h2>World Forge</h2>
+      <p>Explore every biome in Core Warden — inspect tile palettes, decoration scatter, and biome boundaries in real time. Works in your browser.</p>
+    </div>
+    <a href={worldForgeUrl} class="world-forge-btn" target="_blank" rel="noopener">
+      Open World Forge →
+    </a>
+  </div>
+
   <p class="coming-soon">Biome cards coming soon.</p>
 </Base>
 
@@ -19,4 +33,44 @@ import Base from '../../layouts/Base.astro';
     border-radius: 4px;
     margin-top: 1rem;
   }
+  .world-forge-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-hi);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    background: rgba(192, 132, 252, 0.04);
+  }
+  .world-forge-info h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent-hi);
+    margin: 0 0 0.35rem 0;
+  }
+  .world-forge-info p {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    margin: 0;
+    max-width: 480px;
+  }
+  .world-forge-btn {
+    display: inline-block;
+    white-space: nowrap;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.6rem 1.25rem;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .world-forge-btn:hover { background: var(--accent-hi); color: #fff; text-decoration: none; }
 </style>
