@@ -646,6 +646,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      creature_queue_priority: {
+        Args: { c: Database["public"]["Tables"]["creature_submissions"]["Row"] }
+        Returns: number
+      }
       creature_status_transition_allowed: {
         Args: { from_s: string; to_s: string }
         Returns: boolean
