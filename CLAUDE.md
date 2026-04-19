@@ -1,10 +1,22 @@
 # Matlu — Phaser 3 + TypeScript + Vite
 
-Top-down action RPG built with Phaser 3 + TypeScript. A hero character explores a corrupted world, fights enemies, and cleanses corruption — controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
+Top-down action RPG called **Core Warden**, set in the **Matlu multiworld**. A hero character explores a corrupted world, fights enemies, and cleanses corruption — controlled by a virtual joystick (mobile-first) or keyboard. Leaderboard stored in Supabase.
 
 Primary platform: Android tablet (Chrome). Keyboard also supported.
 Deployed to: Vercel (auto-deploy on push to main)
 Database: Supabase (leaderboard via `matlu_runs` table)
+
+## Sites
+
+This repo contains three deployable projects:
+
+| Project | Directory | Vercel project | Purpose |
+| ------- | --------- | -------------- | ------- |
+| **Core Warden** (game) | `/` (root) | `matlu` | The Phaser 3 game |
+| **Matlu Codex** | `wiki/` | `matlu-wiki` | Community hub — lore, biomes, creatures, contribution forms. Audience: players, kids, contributors. |
+| **Agentic Experiments** | `dev/` | `matlu-dev` | AI/automation learning log — metrics, agent performance, dev blog. Audience: self (primary), external devs (secondary). |
+
+Each site has its own `package.json` and is built independently in CI.
 
 ## Tech stack
 
@@ -71,6 +83,29 @@ src/
     database.types.ts   # Generated Supabase TypeScript types (Matlu table)
   vite-env.d.ts         # Vite env type declarations
 vite.config.ts          # Vite options (dev port 3000)
+
+wiki/                   # Matlu Codex — community hub (Astro 6)
+  src/
+    layouts/Base.astro
+    components/Nav.astro
+    pages/
+      playtest.astro    # Feedback form
+      lore/             # Notion-driven lore pages (#358)
+      biomes/           # Biome cards (#324)
+      creatures/        # Creature gallery + submit form (#329)
+
+dev/                    # Agentic Experiments — AI/automation dev log (Astro 6)
+  src/
+    layouts/Base.astro
+    components/Nav.astro
+    pages/
+      index.astro       # Landing + metric cards (#354)
+      metrics.astro     # Charts dashboard (#354)
+      blog/             # Content collections blog (#355)
+      architecture.astro # Renders ARCHITECTURE.md (#355)
+      agents.astro      # Agent performance table (#357)
+    content/
+      blog/             # Markdown posts, draft: true/false frontmatter
 ```
 
 ## Coding conventions

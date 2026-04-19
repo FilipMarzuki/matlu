@@ -1,0 +1,128 @@
+---
+/**
+ * Base layout for Agentic Experiments.
+ *
+ * Dark, technical theme — charts-first, monospace, minimal.
+ * Think fly.io changelog / railway blog.
+ */
+import Nav from '../components/Nav.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'Agentic Experiments — learning to build a game with AI agents. Automation, agentic workflows, and what happens when you let the machines do the work.',
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={`${title} — Agentic Experiments`} />
+    <meta property="og:description" content={description} />
+    <title>{title} — Agentic Experiments</title>
+
+    <!-- Monospace-first: JetBrains Mono for code/data, Inter for prose -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <style is:global>
+      /* ── Design tokens ───────────────────────────────────────────────────── */
+      :root {
+        --bg:         #0a0a0f;
+        --surface:    #111118;
+        --surface-hi: #1a1a24;
+        --border:     #222230;
+        --text:       #d4d4e0;
+        --text-dim:   #6b6b80;
+        --accent:     #7c6ff7;   /* indigo */
+        --accent-hi:  #a89ff9;
+        --green:      #4ade80;
+        --red:        #f87171;
+        --amber:      #fbbf24;
+        --mono:       'JetBrains Mono', 'Cascadia Code', monospace;
+      }
+
+      /* ── Reset ───────────────────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 15px;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body { min-height: 100vh; }
+
+      /* ── Typography ──────────────────────────────────────────────────────── */
+      h1, h2, h3, h4, h5, h6 {
+        font-family: var(--mono);
+        line-height: 1.2;
+        color: var(--text);
+      }
+
+      h1 { font-size: 1.75rem; font-weight: 600; }
+      h2 { font-size: 1.35rem; font-weight: 600; }
+      h3 { font-size: 1.1rem;  font-weight: 600; }
+
+      p { margin-bottom: 1rem; }
+      p:last-child { margin-bottom: 0; }
+
+      a { color: var(--accent-hi); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      /* ── Main content wrapper ────────────────────────────────────────────── */
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+
+      /* ── Code ────────────────────────────────────────────────────────────── */
+      code {
+        font-family: var(--mono);
+        font-size: 0.87em;
+        background: var(--surface-hi);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.15em 0.4em;
+        color: var(--accent-hi);
+      }
+      pre {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1.25rem;
+        overflow-x: auto;
+        margin-bottom: 1.5rem;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 0.9em;
+        color: var(--text);
+      }
+    </style>
+  </head>
+
+  <body>
+    <Nav />
+    <main>
+      <slot />
+    </main>
+  </body>
+</html>

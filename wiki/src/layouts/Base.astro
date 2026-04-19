@@ -13,7 +13,7 @@ interface Props {
   description?: string;
 }
 
-const { title, description = 'Matlu Wiki — world, creatures, and dev notes.' } = Astro.props;
+const { title, description = 'Matlu Codex — lore, biomes, and creatures for Core Warden.' } = Astro.props;
 ---
 
 <!DOCTYPE html>
@@ -22,9 +22,9 @@ const { title, description = 'Matlu Wiki — world, creatures, and dev notes.' }
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <meta property="og:title" content={`${title} — Matlu Wiki`} />
+    <meta property="og:title" content={`${title} — Matlu Codex`} />
     <meta property="og:description" content={description} />
-    <title>{title} — Matlu Wiki</title>
+    <title>{title} — Matlu Codex</title>
 
     <!-- Google Fonts: Syne (display headings) + Outfit (body text) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

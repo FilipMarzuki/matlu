@@ -303,12 +303,14 @@ export class CombatArenaScene extends Phaser.Scene {
     // Torch flicker — 3-frame loop at 6 fps (~167 ms/frame) for a slow, warm
     // candle feel. Defined once here; each torch sprite calls play('torch_flicker')
     // with a random progress offset so they don't all flash in sync.
-    this.anims.create({
-      key:       'torch_flicker',
-      frames:    this.anims.generateFrameNumbers('dungeon_torch', { start: 0, end: 2 }),
-      frameRate: 6,
-      repeat:    -1,
-    });
+    if (!this.anims.exists('torch_flicker')) {
+      this.anims.create({
+        key:       'torch_flicker',
+        frames:    this.anims.generateFrameNumbers('dungeon_torch', { start: 0, end: 2 }),
+        frameRate: 6,
+        repeat:    -1,
+      });
+    }
 
     // Walk and idle animations must loop so the sprite never freezes mid-stride.
     // Attack / dash / death stay one-shot — their keys don't contain _walk_ or _idle_.
@@ -1643,12 +1645,14 @@ export class CombatArenaScene extends Phaser.Scene {
         totalDuration += dur;
       }
       if (tag.direction === 'reverse') animFrames.reverse();
-      this.anims.create({
-        key:      tag.name,
-        frames:   animFrames,
-        duration: totalDuration,
-        yoyo:     tag.direction === 'pingpong',
-      });
+      if (!this.anims.exists(tag.name)) {
+        this.anims.create({
+          key:      tag.name,
+          frames:   animFrames,
+          duration: totalDuration,
+          yoyo:     tag.direction === 'pingpong',
+        });
+      }
     }
   }
 

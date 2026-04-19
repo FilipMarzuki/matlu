@@ -1,16 +1,17 @@
 ---
 const navItems = [
-  { href: '/',          label: 'Home'      },
-  { href: '/blog',      label: 'Dev Blog'  },
-  { href: '/stats',     label: 'Stats'     },
-  { href: '/playtest',  label: 'Playtest'  },
+  { href: '/',           label: 'Home'      },
+  { href: '/lore',       label: 'Lore'      },
+  { href: '/biomes',     label: 'Biomes'    },
+  { href: '/creatures',  label: 'Creatures' },
+  { href: '/playtest',   label: 'Playtest'  },
 ];
 
 const pathname = Astro.url.pathname;
 ---
 
 <nav>
-  <a href="/" class="site-title">Matlu Wiki</a>
+  <a href="/" class="site-title">Matlu Codex</a>
   <ul>
     {navItems.map(item => (
       <li>

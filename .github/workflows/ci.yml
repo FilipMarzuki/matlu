@@ -37,3 +37,47 @@ jobs:
 
       - name: Run Playwright tests
         run: npm run test
+
+  build-wiki:
+    name: Build Matlu Codex (wiki/)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wiki
+    env:
+      # Placeholder env vars — wiki build must not crash on missing secrets
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder
+      NOTION_API_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - run: npm ci
+
+      - run: npm run build
+
+  build-dev:
+    name: Build Agentic Experiments (dev/)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dev
+    env:
+      # Placeholder env vars — dev build must not crash on missing secrets
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_ANON_KEY: ci-placeholder
+      NOTION_API_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - run: npm ci
+
+      - run: npm run build
