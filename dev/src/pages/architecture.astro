@@ -1,22 +1,95 @@
 ---
+/**
+ * Renders ARCHITECTURE.md from the repo root.
+ * Kept fresh automatically by the weekly architecture review agent.
+ */
 import Base from '../layouts/Base.astro';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { marked } from 'marked';
+
+// Resolve relative to this file (dev/src/pages/) — 3 levels up = repo root
+const __here = dirname(fileURLToPath(import.meta.url));
+const mdPath = join(__here, '../../../ARCHITECTURE.md');
+
+let html = '';
+let readError = '';
+try {
+  const raw = readFileSync(mdPath, 'utf-8');
+  html = String(await marked(raw));
+} catch (e) {
+  readError = `Could not read ARCHITECTURE.md: ${e instanceof Error ? e.message : String(e)}`;
+}
 ---
 
-<Base title="Architecture">
+<Base title="Architecture" description="Core Warden system architecture — auto-updated weekly by the architecture review agent.">
   <h1>Architecture</h1>
-  <p class="coming-soon">Architecture overview coming soon.</p>
+  <p class="meta">
+    Source: <code>ARCHITECTURE.md</code> at repo root &mdash;
+    auto-updated by the weekly architecture review agent.
+  </p>
+
+  {readError ? (
+    <p class="error">{readError}</p>
+  ) : (
+    <div class="md-body" set:html={html} />
+  )}
 </Base>
 
 <style>
-  h1 { margin-bottom: 0.5rem; }
-  .coming-soon {
+  h1 { margin-bottom: 0.4rem; }
+
+  .meta {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+
+  .error {
+    color: var(--red);
     font-family: var(--mono);
     font-size: 0.9rem;
-    color: var(--text-dim);
+  }
+
+  .md-body { max-width: 720px; line-height: 1.75; }
+  .md-body :global(h1) { display: none; }
+  .md-body :global(h2) { margin: 2rem 0 0.75rem; color: var(--accent-hi); }
+  .md-body :global(h3) { margin: 1.5rem 0 0.6rem; }
+  .md-body :global(h4) { margin: 1.25rem 0 0.5rem; color: var(--text-dim); }
+  .md-body :global(p)  { margin-bottom: 1rem; }
+  .md-body :global(ul),
+  .md-body :global(ol) { padding-left: 1.5rem; margin-bottom: 1rem; }
+  .md-body :global(li) { margin-bottom: 0.3rem; }
+  .md-body :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+    font-size: 0.87rem;
+  }
+  .md-body :global(th),
+  .md-body :global(td) {
     border: 1px solid var(--border);
-    border-left: 3px solid var(--border);
-    padding: 0.75rem 1rem;
-    border-radius: 4px;
-    margin-top: 1rem;
+    padding: 0.4rem 0.75rem;
+    text-align: left;
+  }
+  .md-body :global(th) {
+    background: var(--surface-hi);
+    font-family: var(--mono);
+    font-size: 0.82rem;
+  }
+  .md-body :global(blockquote) {
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    color: var(--text-dim);
+    margin: 1.5rem 0;
+  }
+  .md-body :global(hr) {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
   }
 </style>

@@ -1,0 +1,125 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map(post => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+---
+
+<Base title={post.data.title} description={post.data.summary}>
+  <article>
+    <header class="post-header">
+      <a href="/blog" class="back">&larr; Blog</a>
+      <h1>{post.data.title}</h1>
+      <div class="post-meta">
+        <time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
+        {post.data.tags.length > 0 && (
+          <span class="tags">
+            {post.data.tags.map(tag => <span class="tag">{tag}</span>)}
+          </span>
+        )}
+      </div>
+      <p class="summary">{post.data.summary}</p>
+    </header>
+
+    <div class="post-body">
+      <Content />
+    </div>
+  </article>
+</Base>
+
+<style>
+  article { max-width: 680px; }
+
+  .back {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    margin-bottom: 1.25rem;
+  }
+  .back:hover { color: var(--accent-hi); text-decoration: none; }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-size: 1.55rem;
+    margin-bottom: 0.6rem;
+    color: var(--accent-hi);
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.8rem;
+  }
+
+  time {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .tags { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+
+  .tag {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1rem 0.4rem;
+    font-family: var(--mono);
+  }
+
+  .summary {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* Markdown body prose */
+  .post-body {
+    line-height: 1.75;
+  }
+
+  .post-body :global(h2) { margin: 2rem 0 0.75rem; }
+  .post-body :global(h3) { margin: 1.5rem 0 0.6rem; }
+  .post-body :global(p)  { margin-bottom: 1.1rem; color: var(--text); }
+  .post-body :global(ul),
+  .post-body :global(ol) {
+    padding-left: 1.5rem;
+    margin-bottom: 1.1rem;
+    color: var(--text);
+  }
+  .post-body :global(li) { margin-bottom: 0.35rem; }
+  .post-body :global(blockquote) {
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    color: var(--text-dim);
+    margin: 1.5rem 0;
+  }
+  .post-body :global(hr) {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+</style>
