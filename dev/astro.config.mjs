@@ -4,6 +4,6 @@ import { defineConfig } from 'astro/config';
 // Tracks agent performance, automation evolution, and dev learnings. Shared publicly.
 export default defineConfig({
   output: 'static',
-  // Set to the deployed Vercel URL when available — needed for RSS feed
-  // site: 'https://agentic-experiments.vercel.app',
+  // Needed for RSS feed and canonical URLs
+  site: 'https://agentic-experiments.vercel.app',
 });
