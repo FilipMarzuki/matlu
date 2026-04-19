@@ -176,5 +176,57 @@
     "cacheReadTokens": 121420,
     "cacheWriteTokens": 306,
     "estimatedCostUsd": 0.1055
+  },
+  {
+    "sessionId": "80904029-47ff-4d22-90d6-00596e5f622e",
+    "date": "2026-04-19",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 505,
+    "cacheReadTokens": 69409,
+    "cacheWriteTokens": 987,
+    "estimatedCostUsd": 0.0321
+  },
+  {
+    "sessionId": "4023433c-e131-4452-8205-efb84be8bf41",
+    "date": "2026-04-19",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 346,
+    "cacheReadTokens": 139523,
+    "cacheWriteTokens": 540,
+    "estimatedCostUsd": 0.0491
+  },
+  {
+    "sessionId": "ce1c8875-1e27-4c60-af8f-0428aaedaca9",
+    "date": "2026-04-19",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 3,
+    "outputTokens": 102,
+    "cacheReadTokens": 30048,
+    "cacheWriteTokens": 266,
+    "estimatedCostUsd": 0.0116
+  },
+  {
+    "sessionId": "dbaf1775-2221-4df5-82e8-58921bd93d28",
+    "date": "2026-04-19",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 3,
+    "outputTokens": 454,
+    "cacheReadTokens": 36957,
+    "cacheWriteTokens": 59,
+    "estimatedCostUsd": 0.0181
   }
 ]
