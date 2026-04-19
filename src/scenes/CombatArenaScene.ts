@@ -10,6 +10,7 @@ import { Rampart } from '../entities/Rampart';
 import { Kronos } from '../entities/Kronos';
 import { MajaLind } from '../entities/MajaLind';
 import { TorstenKraft } from '../entities/TorstenKraft';
+import { Loke } from '../entities/heroes/Loke';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { ShimmerFilter }   from '../shaders/ShimmerFilter';
@@ -18,7 +19,6 @@ import { BurrowHole } from '../entities/BurrowHole';
 import { BroodMother, EggSac } from '../entities/BroodMother';
 import { GlitchDrone } from '../entities/EarthEnemies';
 import { ArenaTierConfig, EnemyCtor, TIER_CONFIGS } from '../data/arenaTiers';
-import { HumanoidNPC } from '../entities/HumanoidNPC';
 
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
@@ -107,7 +107,6 @@ export class CombatArenaScene extends Phaser.Scene {
   private activeHoles: BurrowHole[] = [];
 
   /** Test NPC — wandering humanoid for animation + interaction testing. */
-  private testNpc: HumanoidNPC | null = null;
 
   // HUD cache — setText() rebuilds the text texture on every call even when the
   // value hasn't changed, so only call it when the value actually differs.
@@ -184,6 +183,7 @@ export class CombatArenaScene extends Phaser.Scene {
       label:      data?.label      ?? base.label,
       heroKey:    data?.heroKey    ?? base.heroKey,
       waveGroups: data?.waveGroups ?? base.waveGroups,
+      ready:      data?.ready      ?? base.ready,
     };
   }
 
@@ -229,6 +229,11 @@ export class CombatArenaScene extends Phaser.Scene {
       'tinkerer',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
       'assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json',
+    );
+    this.load.aseprite(
+      'loke',
+      'assets/sprites/characters/mistheim/heroes/loke/loke.png',
+      'assets/sprites/characters/mistheim/heroes/loke/loke.json',
     );
     // Mini Velcrid — used for all spinolandet enemies, tinted/scaled per class.
     this.load.aseprite(
@@ -436,44 +441,6 @@ export class CombatArenaScene extends Phaser.Scene {
 
     this.spawnHero();
 
-    // ── Test NPC — spawns once the PixelLab sprite is assembled + committed. ──
-    // Generate: npm run sprites:assemble -- --id npc-wanderer
-    // Output:   public/assets/sprites/characters/earth/npcs/npc-wanderer/
-    if (this.textures.exists('npc-wanderer')) {
-      this.anims.createFromAseprite('npc-wanderer');
-
-      const npcX = this.hero.x + 48;
-      const npcY = this.hero.y;
-      this.testNpc = new HumanoidNPC(this, npcX, npcY, {
-        textureKey:  'npc-wanderer',
-        name:        'Wanderer',
-        dialogLines: [
-          'This place feels wrong...',
-          'Have you heard what lives in the deep chambers?',
-          'Stay close to the torches. The dark ones hate the light.',
-        ],
-      });
-
-      // Simple inline dialog banner — shown at the top of the camera view for 3 s.
-      this.events.on('npc-interact', ({ name, line }: { name: string; line: string }) => {
-        const cam   = this.cameras.main;
-        const bx    = cam.scrollX + cam.width  / 2;
-        const by    = cam.scrollY + 28;
-        const depth = 9998;
-
-        const bg = this.add.rectangle(bx, by, cam.width * 0.7, 36, 0x000000, 0.78)
-          .setDepth(depth);
-        const txt = this.add.text(bx, by, `${name}: "${line}"`, {
-          fontSize: '10px',
-          color: '#ffe066',
-          fontFamily: 'monospace',
-          wordWrap: { width: cam.width * 0.65 },
-        }).setOrigin(0.5).setDepth(depth + 1);
-
-        this.time.delayedCall(3000, () => { bg.destroy(); txt.destroy(); });
-      });
-    }
-
     if (!this.bgMode) {
       // P1 keyboard input: WASD move, Space melee, F ranged, G dash.
       this.moveKeys = this.input.keyboard!.addKeys({
@@ -563,11 +530,6 @@ export class CombatArenaScene extends Phaser.Scene {
     // auto-updated), so we must sync its position manually each frame.
     if (this.heroLight && this.heroAlive) {
       this.heroLight.setPosition(this.hero.x, this.hero.y);
-    }
-
-    // ── Test NPC ──────────────────────────────────────────────────────────────
-    if (this.testNpc && this.heroAlive) {
-      this.testNpc.tick(delta, this.hero.x, this.hero.y);
     }
 
     // ── Sight line checks (staggered) ─────────────────────────────────────────
@@ -1008,11 +970,12 @@ export class CombatArenaScene extends Phaser.Scene {
     // and any future keys added before this switch is updated.
     const hk = this.tierConfig.heroKey;
     this.hero =
-      hk === 'ironwing'      ? new Ironwing(this, heroX, heroY)      :
+      hk === 'loke'          ? new Loke(this, heroX, heroY)           :
+      hk === 'ironwing'      ? new Ironwing(this, heroX, heroY)       :
       hk === 'rampart'       ? new Rampart(this, heroX, heroY)        :
       hk === 'kronos'        ? new Kronos(this, heroX, heroY)         :
-      hk === 'maja-lind'     ? new MajaLind(this, heroX, heroY)      :
-      hk === 'torsten-kraft' ? new TorstenKraft(this, heroX, heroY)  :
+      hk === 'maja-lind'     ? new MajaLind(this, heroX, heroY)       :
+      hk === 'torsten-kraft' ? new TorstenKraft(this, heroX, heroY)   :
       new Tinkerer(this, heroX, heroY); // 'tinkerer' + any unknown key
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);

@@ -15,6 +15,9 @@
 import * as Phaser from 'phaser';
 import { TIER_CONFIGS, ArenaTierConfig } from '../data/arenaTiers';
 
+/** Only tiers marked ready are shown in the selector. */
+const READY_TIERS = TIER_CONFIGS.filter(c => c.ready);
+
 export class ArenaSelectScene extends Phaser.Scene {
   static readonly KEY = 'ArenaSelectScene';
 
@@ -47,7 +50,7 @@ export class ArenaSelectScene extends Phaser.Scene {
     const rowH    = 56;
     const startY  = 120;
 
-    TIER_CONFIGS.forEach((cfg, i) => {
+    READY_TIERS.forEach((cfg, i) => {
       const y       = startY + i * rowH;
       const keyHint = `[${i + 1}]`;
 
@@ -76,7 +79,7 @@ export class ArenaSelectScene extends Phaser.Scene {
     });
 
     // ── Back row ──────────────────────────────────────────────────────────────
-    const backY  = startY + TIER_CONFIGS.length * rowH + 20;
+    const backY  = startY + READY_TIERS.length * rowH + 20;
     const backBg = this.add.rectangle(cx, backY, W * 0.72, 44, 0x1a1a2e, 0.8)
       .setInteractive({ useHandCursor: true });
     backBg
@@ -91,11 +94,11 @@ export class ArenaSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // ── Keyboard ─────────────────────────────────────────────────────────────
-    // Number keys 1–5 map to tier configs by index.
+    // Number keys map to ready-tier rows by display index.
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
       const idx = parseInt(event.key, 10) - 1;
-      if (idx >= 0 && idx < TIER_CONFIGS.length) {
-        this.launch(TIER_CONFIGS[idx]);
+      if (idx >= 0 && idx < READY_TIERS.length) {
+        this.launch(READY_TIERS[idx]);
       } else if (event.key === 'Escape') {
         this.goBack();
       }

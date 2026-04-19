@@ -58,6 +58,7 @@ export type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => Comba
  */
 export type HeroKey =
   | 'tinkerer'
+  | 'loke'
   | 'maja-lind'
   | 'torsten-kraft'
   | 'ironwing'
@@ -75,7 +76,7 @@ export interface WaveGroup {
  * Passed to CombatArenaScene via `scene.start(key, config)`.
  */
 export interface ArenaTierConfig {
-  /** Tier number, 1–5. Shown in the ArenaSelectScene list. */
+  /** Tier number, 1–5 (0 = prologue). Shown in the ArenaSelectScene list. */
   tier: number;
   /** Short display name for the HUD and tier selector. */
   label: string;
@@ -83,19 +84,27 @@ export interface ArenaTierConfig {
   heroKey: HeroKey;
   /** Wave groups that cycle repeatedly, with escalation pressure each cycle. */
   waveGroups: WaveGroup[];
+  /**
+   * Whether this tier is ready to play — hero sprite and abilities are complete.
+   * ArenaSelectScene only shows and enables ready tiers.
+   * Non-ready tiers are preserved here as the roadmap for future implementation.
+   */
+  ready: boolean;
 }
 
 // ── Tier configs ──────────────────────────────────────────────────────────────
 
 export const TIER_CONFIGS: ArenaTierConfig[] = [
 
-  // ── Tier 1 — MajaLind ──────────────────────────────────────────────────────
-  // Simple rushers; pressure comes from numbers not individual danger.
-  // The T1 config is also the default when no config is passed (CI / screenshots).
+  // ── Tier 1 — Tinkerer ─────────────────────────────────────────────────────
+  // Entry point tier. Simple rushers; pressure comes from numbers not danger.
+  // This is also the default when no config is passed (CI / screenshots).
+  // READY: Tinkerer sprite + abilities are complete.
   {
     tier:    1,
-    label:   'Tier 1 — MajaLind',
-    heroKey: 'maja-lind',
+    label:   'Tier 1 — Tinkerer',
+    heroKey: 'tinkerer',
+    ready:   true,
     waveGroups: [
       { label: 'Hatchling Rush',  enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
       { label: 'Scout Pair',      enemies: [VelcridJuvenile, VelcridJuvenile] },
@@ -105,13 +114,50 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
     ],
   },
 
-  // ── Tier 2 — TorstenKraft ──────────────────────────────────────────────────
-  // Enemies start demanding movement — Blightfrog roots, Spineling flanks.
-  // Earth drones mixed in to test the assault-rifle kit against varied targets.
+  // ── Prologue — Loke ────────────────────────────────────────────────────────
+  // Scout mission. Loke is fragile (70 HP) and kite-focused — waves are lighter
+  // to reward positioning over raw DPS. No burrow surprises; no AoE threats.
+  // READY: Loke sprite + slingshot AI complete.
+  {
+    tier:    0,
+    label:   'Prologue — Loke',
+    heroKey: 'loke',
+    ready:   true,
+    waveGroups: [
+      { label: 'First Contact',  enemies: [BabyVelcrid, BabyVelcrid] },
+      { label: 'Scout Pair',     enemies: [VelcridJuvenile] },
+      { label: 'Hatchling Pack', enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+      { label: 'Pursuit',        enemies: [VelcridJuvenile, BabyVelcrid] },
+      { label: 'Frogwatch',      enemies: [Blightfrog] },
+      { label: 'Stinger Pair',   enemies: [Blightfrog, Blightfrog] },
+      { label: 'Closing In',     enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+    ],
+  },
+
+  // ── Tier 2 — MajaLind ─────────────────────────────────────────────────────
+  // NOT READY — awaiting MajaLind PixelLab sprite.
   {
     tier:    2,
-    label:   'Tier 2 — TorstenKraft',
+    label:   'Tier 2 — MajaLind',
+    heroKey: 'maja-lind',
+    ready:   false,
+    waveGroups: [
+      { label: 'Hatchling Rush',  enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+      { label: 'Scout Pair',      enemies: [VelcridJuvenile, VelcridJuvenile] },
+      { label: 'Mixed Swarm',     enemies: [VelcridJuvenile, BabyVelcrid, BabyVelcrid] },
+      { label: 'Baby Horde',      enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid, BabyVelcrid] },
+      { label: 'Reaver Scout',    enemies: [VelcridJuvenile, VelcridJuvenile, BabyVelcrid] },
+    ],
+  },
+
+  // ── Tier 3 — TorstenKraft ──────────────────────────────────────────────────
+  // NOT READY — awaiting TorstenKraft PixelLab sprite.
+  // Enemies demand movement — Blightfrog roots, Spineling flanks.
+  {
+    tier:    3,
+    label:   'Tier 3 — TorstenKraft',
     heroKey: 'torsten-kraft',
+    ready:   false,
     waveGroups: [
       { label: 'Blightfrog Pair',   enemies: [Blightfrog, Blightfrog] },
       { label: 'Spineling Sprint',  enemies: [Spineling, Spineling, Spineling] },
@@ -123,14 +169,14 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
     ],
   },
 
-  // ── Tier 3 — Ironwing ──────────────────────────────────────────────────────
-  // First power spike: Ironwing's AoE stomp clears groups.  Enemies create
-  // positioning puzzles — Spore zones, VelcridAdult burrow surprises, Mimics
-  // baiting the player.  Earth StaticGhost + SwarmMatrix add attrition.
+  // ── Tier 4 — Ironwing ──────────────────────────────────────────────────────
+  // NOT READY — awaiting Ironwing PixelLab sprite.
+  // First power spike: Ironwing's AoE stomp clears groups.
   {
-    tier:    3,
-    label:   'Tier 3 — Ironwing',
+    tier:    4,
+    label:   'Tier 4 — Ironwing',
     heroKey: 'ironwing',
+    ready:   false,
     waveGroups: [
       { label: 'Spore Drift',      enemies: [SporeDrifter, SporeDrifter, SporeDrifter] },
       { label: 'Adult Hunt',       enemies: [VelcridAdult, VelcridJuvenile, VelcridJuvenile] },
@@ -143,14 +189,14 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
     ],
   },
 
-  // ── Tier 4 — Rampart ───────────────────────────────────────────────────────
-  // Siege mech against late-game horrors.  BroodMother creates secondary spawn
-  // pressure.  Thornvine and Venomantis punish standing still.  ScrapGolem and
-  // InfectedAPC test the heavy-cannon at close range.
+  // ── Tier 5 — Rampart ───────────────────────────────────────────────────────
+  // NOT READY — awaiting Rampart PixelLab sprite.
+  // Siege mech against late-game horrors.
   {
-    tier:    4,
-    label:   'Tier 4 — Rampart',
+    tier:    5,
+    label:   'Tier 5 — Rampart',
     heroKey: 'rampart',
+    ready:   false,
     waveGroups: [
       { label: 'Brood Eruption',    enemies: [BroodMother, EggSac, EggSac, EggSac] },
       { label: 'Thornvine Wall',    enemies: [Thornvine, Thornvine, Thornvine] },
@@ -162,18 +208,18 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
     ],
   },
 
-  // ── Tier 5 — Kronos ────────────────────────────────────────────────────────
-  // End-game: the hero IS a disaster.  Regular waves use enemies that were apex
-  // threats at T3/T4.  Boss encounters (Progenitor, TitanPrototype) are the
-  // real test.
+  // ── Tier 6 — Kronos ────────────────────────────────────────────────────────
+  // NOT READY — awaiting Kronos PixelLab sprite.
+  // End-game: the hero IS a disaster. Boss encounters are the real test.
   //
   // Note: TitanPrototype emits a 'titan-split' event when it reaches low HP —
   // CombatArenaScene must listen for this and spawn two TitanHalf instances.
   // That wiring is tracked under FIL-397.
   {
-    tier:    5,
-    label:   'Tier 5 — Kronos',
+    tier:    6,
+    label:   'Tier 6 — Kronos',
     heroKey: 'kronos',
+    ready:   false,
     waveGroups: [
       { label: 'Horror Pack',    enemies: [Venomantis, Thornvine, SporeDrifter] },
       { label: 'Brood Surge',    enemies: [BroodMother, EggSac, EggSac, EggSac, EggSac] },
