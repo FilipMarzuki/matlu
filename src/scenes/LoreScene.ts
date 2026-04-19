@@ -92,19 +92,21 @@ const PAGES: LorePage[] = [
   },
   {
     heading: 'Mistheim',
-    headingColor: '#60c8e8', // water blue — rivers and magic
+    headingColor: '#a8d8c0', // mist green — Myst drifting through valley air
     subheading: 'Strain: The Dry',
     body: [
-      'A world of rivers, floating islands, mist valleys, and ancient bamboo',
-      'forests. Water here is metaphysical — rivers carry memory, rain holds',
-      'prophecy, still pools are used for divination.',
+      'A world of rivers, floating islands, and ancient bamboo forests held',
+      'together by Myst — the living current of mana that flows through',
+      'everything. Rivers run because Myst moves them. Mist hangs in valleys',
+      'where Myst pools. Memory lives in water because Myst carried it there.',
       '',
-      'The Dry corrupts water, drains magic, and turns rivers black and stagnant.',
-      'Magical constructs created to protect the world sometimes get corrupted by',
-      'the Dry and turn against their makers.',
+      'The Dry severs the Myst. Rivers stop. Stories lose their endings.',
+      'Skills hollow out. What corrupted the world did not drain the water —',
+      'it cut the current that gave the water its life.',
       '',
-      'Heroes are Panda scholars of water magic, practitioners of a tradition',
-      'thousands of years old.',
+      'The scholars and keepers of Mistheim are defined by what they remember',
+      'and what they refuse to forget. Their tradition is older than the',
+      'kingdoms that built over it.',
     ].join('\n'),
   },
 ];

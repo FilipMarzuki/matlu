@@ -3,22 +3,30 @@
  *
  * ## Setting: Floating river delta, bamboo highlands, mist valleys
  *
- * Mistheim is a world of stories and water — its circulatory
- * system is the vast inland sea at its centre, rivers running to every
- * corner. This level occupies a high river delta where Pandor scholars
- * keep their oldest records: bamboo highlands rising above mist valleys,
- * standing stones that glow at dawn, rivers that flow sideways.
+ * Mistheim is a world of stories and Myst — where mana (called Myst here,
+ * or Mysten by scholars) is the animating current beneath everything.
+ * Rivers flow because Myst moves through them. Mist hangs in valleys where
+ * Myst concentrates. Memory lives in water because Myst carried it there.
+ * "Vatten" in the old tongue meant Myst-water — water alive with current.
+ * Most people have forgotten this and call it water magic. The scholars
+ * haven't forgotten.
  *
- * Ancient panda settlements, some intact, some dry and crumbling. Earth
- * technology salvaged and repurposed — machines running on water magic,
- * a collaboration that predates the apocalypse by a generation. The most
- * visually surreal level in the arc.
+ * This level occupies a high river delta where those scholars keep their
+ * oldest records: bamboo highlands rising above mist-filled valleys,
+ * standing stones that glow at dawn where Myst pools overnight, rivers
+ * that run sideways because the Myst beneath them runs that way.
  *
- * The corruption here is the Dry — Mistheim's strain of the
- * Skymning. It strips the world of its water gradually, hollowing out
- * the magical system that makes Mistheim function. A [Healer]
- * whose Skill works in reverse. An inn whose warmth turns cold. An
- * ancient river, still flowing, but flowing dry.
+ * Ancient panda settlements, some intact, some crumbling. Earth technology
+ * salvaged and repurposed — machines running on channelled Myst, turbines
+ * in rivers that moved before anyone understood why. The most visually
+ * surreal level in the arc.
+ *
+ * The corruption here is the Dry — Mistheim's strain of the Skymning.
+ * It does not drain water. It severs the Myst. Rivers stop not because
+ * they dry up but because the animating current beneath them is gone.
+ * A [Healer] whose Skill works in reverse. An inn whose warmth turns cold.
+ * An ancient river, still flowing, but flowing wrong — the water moves but
+ * nothing moves with it.
  *
  * ## Zone layout (world coordinates, 4500×3000 world)
  *
@@ -26,23 +34,24 @@
  *    Entry zone. The lower river delta where Spinolandet creatures have
  *    already begun to arrive. Rivers run sideways. The bamboo at the
  *    waterline is the wrong shade of green — not dead, not healthy, not
- *    anything that has a name.
+ *    anything that has a name. The Myst here is thin and confused.
  *
  *  Zone 2 — Mistdalen (The Mist Valley)
- *    Bamboo highlands veiled in permanent mist. Ancient panda settlements,
- *    some inhabited, some abandoned to the Dry. Earth machines run here
- *    on channelled water magic — turbines made of salvaged metal turning
- *    in rivers that are not rivers anymore.
+ *    Bamboo highlands where Myst pools visibly as drifting mist.
+ *    Ancient panda settlements, some inhabited, some abandoned to the Dry.
+ *    Earth machines run on channelled Myst — turbines of salvaged metal
+ *    turning in rivers that the Myst still moves, just barely.
+ *    The settlements here are defined more by who left than who stayed.
  *
  *  Zone 3 — Skriftberget (The Scholar's Height)
  *    Where the Pandor scholars keep their oldest records. Near-clean,
- *    protected by old agreement. The tear here is the largest so far.
- *    Something on the other side is visible through it — not another
- *    landscape, just light and noise.
+ *    protected by old agreement and by the concentration of Myst at
+ *    altitude. The tear here is the largest so far — something on the
+ *    other side visible through it, not another landscape, just light.
  *
  * ## Collectibles
- *  Three objects, one per zone. Artifacts of Mistheim — water,
- *  story, and record.
+ *  Three objects, one per zone. Artifacts of Mistheim — Myst-stone,
+ *  Myst-script, and the three-world record.
  *
  * ## Scholar meeting
  *  Walking within 100px of MEETING_POINT triggers dialog with the Pandor

@@ -304,10 +304,26 @@ been through so many ages, so many heroes and apocalypses and rebirths, that it 
 of all of them simultaneously. The past is not backstory here. It is active and present and
 occasionally comes back to kill people.
 
-Water is the world's circulatory system — a vast inland sea at its centre, rivers running to every
-corner, archipelagos where different peoples developed in isolation for centuries before trade
-routes connected them. The ocean is old. The things in it predate the current age. Sailors know
-this and sail anyway.
+### Myst — the world's living force
+
+The world's name contains a truth that most of its inhabitants have forgotten. "Vatten" is not
+the old word for water. It is a corruption of *Mysten* — the Myst — the living current of mana
+that flows through everything. Scholars in the oldest monasteries still know this. Most people
+do not think about it, the way most people do not think about blood.
+
+Myst is not a resource or a fuel. It is the animating principle of the world. It flows through
+rivers the way a current moves through water — rivers do not create Myst, Myst creates rivers.
+Where Myst pools, it becomes visible as mist. Where it flows strongly, rivers run clear and fast.
+Where it is absent, the ground dries and the stories stop working.
+
+This is why what looks like water magic is not. A [Scholar] who reads the memory in a river is
+reading the Myst that ran through it. A [Diviner] who prophesies from a still pool is watching
+Myst patterns, not water patterns. Rain that holds prophecy is rain saturated with Myst.
+The water is the vessel. Myst is what it carries.
+
+The world itself is a vast inland sea at its centre, rivers running to every corner, archipelagos
+where different peoples developed in isolation for centuries before trade routes connected them.
+The ocean is old. The things in it predate the current age. Sailors know this and sail anyway.
 
 **The Wandering Inn** by pirateaba is the primary creative reference for this world.
 Read it as your bible for tone, species complexity, how to write a Skill activating,
@@ -413,6 +429,20 @@ Do not explain the system. The system is real and present and characters live in
 they do not lecture about it. A [Fisherwoman] levelling does not monologue about Class
 mechanics. She just feels something shift and knows she is better at reading the current.
 
+**Do not lead with Myst.** Characters in Vattenpandalandet do not think about Myst the way
+a player character thinks about mana. They think about the story they are living, the debt
+they owe, the person they cannot forgive, the inn they are trying to reach before dark.
+Myst is in the background of everything the way gravity is in the background of everything —
+present, essential, not the sentence that starts a character description.
+
+A panda scholar is a scholar first. They have a favourite text they have read sixty times.
+They have an argument with a colleague that has lasted fifteen years. They have a home
+settlement that may or may not exist anymore. Their Class is [Scholar] or [Chronicler] or
+[Cartographer]. Myst is the medium they work in, not who they are.
+
+When writing Mistheim characters: give them a story before you give them a power.
+The power should feel like it grew out of the story, not the other way around.
+
 ### Reference works (Vattenpandalandet)
 
 | Work | What to borrow |
@@ -430,7 +460,11 @@ mechanics. She just feels something shift and knows she is better at reading the
 - Each world has a **pre-corruption baseline** and a **corrupted state**. When writing a new
   entry, be clear (implicitly) which state you are describing.
 - Corruption looks different on each world. On Earth: distortion and hyper-aggression.
-  On Spinolandet: simplification and loss of symbiosis. On Vattenpandalandet: TBD.
+  On Spinolandet: simplification and loss of symbiosis. On Vattenpandalandet: The Dry —
+  it severs the flow of Myst. Rivers run dry not because water is drained but because the
+  animating current that moved them is gone. Magic stops working. Stories lose their endings.
+  The Class system persists but Skills hollow out — a [Healer]'s touch closes wounds that
+  re-open. An [Innkeeper]'s warmth becomes cold hospitality with nothing behind it.
 - Characters from one world encountering another is rare and significant — do not write
   cross-world meetings casually.
 - The player's presence in a zone does not automatically mean the zone is safe. Lore entries
