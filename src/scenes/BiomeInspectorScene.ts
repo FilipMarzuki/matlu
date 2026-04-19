@@ -344,6 +344,6 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.selectionBorder!.lineStyle(3, 0xffffff, 1);
     this.selectionBorder!.strokeRect(bx - 2, by - 2, BOX_W + 4, BOX_H + 4);
 
-    this.biomeLabel!.setText(`[${this.selectedBiome}]  ${BIOME_NAMES[this.selectedBiome]}`);
+    this.biomeLabel!.setText(`World Forge — [${this.selectedBiome}]  ${BIOME_NAMES[this.selectedBiome]}`);
   }
 }
