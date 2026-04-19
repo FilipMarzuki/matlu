@@ -24,5 +24,21 @@
     "animating-1b4daa88": "idle",
     "animating-2d7ac07a": "dash",
     "animating-c856d6be": "attack_ranged"
+  },
+  "loke": {
+    "Breathing_Idle-c9ad0733": "idle",
+    "Running-7e30359a": "walk",
+    "Running_Jump-1f769757": "dash",
+    "Fight_Stance_Idle-f8e8a66f": "alert",
+    "Crouching-128f6837": "crouch",
+    "Taking_Punch-287e1226": "hurt",
+    "Falling_Back_Death-742112b2": "death",
+    "Picking_Up-58ce54a8": "pickup",
+    "Two-Footed_Jump-40634a53": "jump",
+    "Drinking-b07c9dca": "drink",
+    "Getting_Up-eab470a3": "get_up",
+    "Pull_Object-f8f3dd4e": "pull",
+    "pulling_back_a_wooden_Y-fork_slingshot_with_both_h-069e42e3": "attack",
+    "Fireball-dea4dd63": "fireball"
   }
 }

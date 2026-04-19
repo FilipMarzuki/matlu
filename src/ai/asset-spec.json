@@ -385,6 +385,107 @@
         }
       ],
       "outputDir": "public/assets/sprites/characters/earth/enemies/crow"
+    },
+    {
+      "id": "loke",
+      "name": "Loke",
+      "world": "mistheim",
+      "faction": "hero",
+      "status": "done",
+      "_pixellabCharacterId": "25a6a824-bbcc-4165-bdb7-1f625f35f459",
+      "_comment": "Tier-0 player character. 10-year-old scout boy from Mistheim. Ash blond hair, green warm hat, gloves, hiking clothing, backpack and binoculars. Attacks with a wooden Y-fork slingshot. 5 right-side directions; SW/W/NW mirrored in code.",
+      "pixellab": {
+        "description": "10-year-old boy scout, ash blond hair tucked under a warm green knit hat, small face with curious eyes, lightweight hiking jacket and pants in earthy green and brown, fingerless gloves, heavy-duty hiking boots, small backpack on back, binoculars hanging around neck, holds a wooden Y-fork slingshot ready to shoot, Scandinavian wilderness palette, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "attack",
+          "template": "custom-pulling back a wooden Y-fork slingshot with both hands, releasing, recoiling",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "dash",
+          "template": "running-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "alert",
+          "template": "fight-stance-idle-8-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "pull",
+          "template": "pull-object",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "fireball",
+          "template": "fireball",
+          "frameDurationMs": 80
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/heroes/loke"
     }
   ],
   "tilesets": [

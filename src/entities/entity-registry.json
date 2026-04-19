@@ -2,7 +2,6 @@
   "_comment": "Entity registry — source of truth for entity completeness. Run `npm run entity:audit` to validate against disk.",
   "_spec": "docs/entity-spec.md",
   "entities": [
-
     {
       "class": "VelcridJuvenile",
       "file": "src/entities/Velcrid.ts",
@@ -12,16 +11,20 @@
       "spriteKey": "mini-velcrid",
       "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
       "animTags": {
-        "idle":   "idle_south",
-        "walk":   "walk_south",
+        "idle": "idle_south",
+        "walk": "walk_south",
         "attack": "attack_south",
-        "hurt":   "hurt_south",
-        "death":  "death_south",
-        "alert":  null
+        "hurt": "hurt_south",
+        "death": "death_south",
+        "alert": null
       },
       "sounds": {
         "ambient": {
-          "keys":  ["sfx-velcrid-chirp-0", "sfx-velcrid-chirp-1", "sfx-velcrid-chirp-2"],
+          "keys": [
+            "sfx-velcrid-chirp-0",
+            "sfx-velcrid-chirp-1",
+            "sfx-velcrid-chirp-2"
+          ],
           "files": [
             "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-0.ogg",
             "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-1.ogg",
@@ -51,13 +54,13 @@
         }
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         true,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   480,
+        "buildTree": true,
+        "unaware": true,
+        "alert": true,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 480,
         "hearingRadius": 220,
         "sightMemoryMs": 1000
       },
@@ -79,7 +82,6 @@
         }
       }
     },
-
     {
       "class": "BabyVelcrid",
       "file": "src/entities/Velcrid.ts",
@@ -89,41 +91,44 @@
       "spriteKey": "mini-velcrid",
       "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
       "animTags": {
-        "idle":   "idle_south",
-        "walk":   "walk_south",
+        "idle": "idle_south",
+        "walk": "walk_south",
         "attack": null,
-        "hurt":   null,
-        "death":  "death_south",
-        "alert":  null
+        "hurt": null,
+        "death": "death_south",
+        "alert": null
       },
       "sounds": {
         "ambient": {
-          "keys":  ["sfx-velcrid-chirp-0", "sfx-velcrid-chirp-1", "sfx-velcrid-chirp-2"],
+          "keys": [
+            "sfx-velcrid-chirp-0",
+            "sfx-velcrid-chirp-1",
+            "sfx-velcrid-chirp-2"
+          ],
           "files": [
             "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-0.ogg",
             "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-1.ogg",
             "public/assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-2.ogg"
           ]
         },
-        "alert":  null,
-        "aggro":  null,
+        "alert": null,
+        "aggro": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         true,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   500,
+        "buildTree": true,
+        "unaware": true,
+        "alert": true,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 500,
         "hearingRadius": 160,
         "sightMemoryMs": 800
       }
     },
-
     {
       "class": "VelcridAdult",
       "file": "src/entities/Velcrid.ts",
@@ -133,34 +138,33 @@
       "spriteKey": "mini-velcrid",
       "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
       "animTags": {
-        "idle":   "idle_south",
-        "walk":   "walk_south",
+        "idle": "idle_south",
+        "walk": "walk_south",
         "attack": null,
-        "hurt":   null,
-        "death":  "death_south",
-        "alert":  null
+        "hurt": null,
+        "death": "death_south",
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         true,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   420,
+        "buildTree": true,
+        "unaware": true,
+        "alert": true,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 420,
         "hearingRadius": 300,
         "sightMemoryMs": 3000
       }
     },
-
     {
       "class": "Blightfrog",
       "file": "src/entities/Blightfrog.ts",
@@ -170,34 +174,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   350,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 350,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Dustling",
       "file": "src/entities/Dustling.ts",
@@ -207,34 +210,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   0,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 0,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "PackStalker",
       "file": "src/entities/PackStalker.ts",
@@ -244,34 +246,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   380,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 380,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Spineling",
       "file": "src/entities/Spineling.ts",
@@ -281,34 +282,33 @@
       "spriteKey": "mini-velcrid",
       "spritesheetJson": "public/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.json",
       "animTags": {
-        "idle":   "idle_south",
-        "walk":   "walk_south",
+        "idle": "idle_south",
+        "walk": "walk_south",
         "attack": null,
-        "hurt":   null,
-        "death":  "death_south",
-        "alert":  null
+        "hurt": null,
+        "death": "death_south",
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   500,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 500,
         "hearingRadius": null,
         "sightMemoryMs": 600
       }
     },
-
     {
       "class": "SporeDrifter",
       "file": "src/entities/SporeDrifter.ts",
@@ -318,34 +318,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         false,
-        "tracking":      false,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   0,
+        "buildTree": true,
+        "unaware": true,
+        "alert": false,
+        "tracking": false,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 0,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Bonehulk",
       "file": "src/entities/Bonehulk.ts",
@@ -355,34 +354,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   300,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 300,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "DryShade",
       "file": "src/entities/DryShade.ts",
@@ -392,34 +390,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   0,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 0,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "EggSac",
       "file": "src/entities/BroodMother.ts",
@@ -429,34 +426,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         false,
-        "tracking":      false,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   0,
+        "buildTree": true,
+        "unaware": true,
+        "alert": false,
+        "tracking": false,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 0,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "BroodMother",
       "file": "src/entities/BroodMother.ts",
@@ -466,34 +462,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   200,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 200,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "MimicCrawler",
       "file": "src/entities/MimicCrawler.ts",
@@ -503,34 +498,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   80,
+        "buildTree": true,
+        "unaware": true,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 80,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Progenitor",
       "file": "src/entities/Progenitor.ts",
@@ -540,34 +534,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   220,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 220,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Thornvine",
       "file": "src/entities/Thornvine.ts",
@@ -577,34 +570,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         false,
-        "tracking":      false,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   40,
+        "buildTree": true,
+        "unaware": true,
+        "alert": false,
+        "tracking": false,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 40,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Venomantis",
       "file": "src/entities/Venomantis.ts",
@@ -614,34 +606,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   160,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 160,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "GlitchDrone",
       "file": "src/entities/EarthEnemies.ts",
@@ -651,34 +642,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   500,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 500,
         "hearingRadius": null,
         "sightMemoryMs": 800
       }
     },
-
     {
       "class": "StaticCrawler",
       "file": "src/entities/EarthEnemies.ts",
@@ -688,34 +678,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   420,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 420,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "RustBerserker",
       "file": "src/entities/EarthEnemies.ts",
@@ -725,34 +714,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   450,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 450,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "SignalJammer",
       "file": "src/entities/EarthEnemies.ts",
@@ -762,34 +750,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         false,
-        "tracking":      false,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   0,
+        "buildTree": true,
+        "unaware": true,
+        "alert": false,
+        "tracking": false,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 0,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "InfectedAPC",
       "file": "src/entities/EarthEnemies.ts",
@@ -799,34 +786,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   500,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 500,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "ScrapGolem",
       "file": "src/entities/EarthEnemies.ts",
@@ -836,34 +822,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   400,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 400,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "TitanPrototype",
       "file": "src/entities/EarthEnemies.ts",
@@ -873,34 +858,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   600,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 600,
         "hearingRadius": null,
         "sightMemoryMs": 5000
       }
     },
-
     {
       "class": "TitanHalf",
       "file": "src/entities/EarthEnemies.ts",
@@ -910,34 +894,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   600,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 600,
         "hearingRadius": null,
         "sightMemoryMs": 4000
       }
     },
-
     {
       "class": "TrackerUnit",
       "file": "src/entities/EarthEnemies.ts",
@@ -947,34 +930,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   600,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 600,
         "hearingRadius": null,
         "sightMemoryMs": 5000
       }
     },
-
     {
       "class": "StaticGhost",
       "file": "src/entities/EarthEnemies.ts",
@@ -984,34 +966,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   500,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 500,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "SwarmMatrix",
       "file": "src/entities/EarthEnemies.ts",
@@ -1021,34 +1002,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       true,
-        "alert":         false,
-        "tracking":      false,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   0,
+        "buildTree": true,
+        "unaware": true,
+        "alert": false,
+        "tracking": false,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 0,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "CrackedGolem",
       "file": "src/entities/CrackedGolem.ts",
@@ -1058,34 +1038,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   380,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 380,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Tinkerer",
       "file": "src/entities/Tinkerer.ts",
@@ -1095,34 +1074,40 @@
       "spriteKey": "tinkerer",
       "spritesheetJson": "public/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json",
       "animTags": {
-        "idle":   "idle_south",
-        "walk":   "walk_south",
+        "idle": "idle_south",
+        "walk": "walk_south",
         "attack": "attack_melee_south",
-        "hurt":   null,
-        "death":  "death_south",
-        "alert":  null
+        "hurt": null,
+        "death": "death_south",
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  { "keys": ["sfx-gunshot"], "files": ["public/assets/audio/freesound_community-9mm-pistol-shot-6349.ogg"] },
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": {
+          "keys": [
+            "sfx-gunshot"
+          ],
+          "files": [
+            "public/assets/audio/freesound_community-9mm-pistol-shot-6349.ogg"
+          ]
+        },
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   400,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 400,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Ironwing",
       "file": "src/entities/Ironwing.ts",
@@ -1132,34 +1117,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   440,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": 440,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Rampart",
       "file": "src/entities/Rampart.ts",
@@ -1169,34 +1153,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Kronos",
       "file": "src/entities/Kronos.ts",
@@ -1206,34 +1189,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "MajaLind",
       "file": "src/entities/MajaLind.ts",
@@ -1243,34 +1225,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "TorstenKraft",
       "file": "src/entities/TorstenKraft.ts",
@@ -1280,34 +1261,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     true,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": true,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Apex",
       "file": "src/entities/heroes/Apex.ts",
@@ -1317,34 +1297,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Chimera",
       "file": "src/entities/heroes/Chimera.ts",
@@ -1354,34 +1333,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Lund",
       "file": "src/entities/heroes/Lund.ts",
@@ -1391,34 +1369,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "Overmind",
       "file": "src/entities/heroes/Overmind.ts",
@@ -1428,34 +1405,33 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
     },
-
     {
       "class": "SymbiontKarin",
       "file": "src/entities/heroes/SymbiontKarin.ts",
@@ -1465,33 +1441,89 @@
       "spriteKey": null,
       "spritesheetJson": null,
       "animTags": {
-        "idle":   null,
-        "walk":   null,
+        "idle": null,
+        "walk": null,
         "attack": null,
-        "hurt":   null,
-        "death":  null,
-        "alert":  null
+        "hurt": null,
+        "death": null,
+        "alert": null
       },
       "sounds": {
         "ambient": null,
-        "alert":   null,
-        "aggro":   null,
-        "attack":  null,
-        "hurt":    null,
-        "death":   null
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
       },
       "behavior": {
-        "buildTree":     false,
-        "unaware":       false,
-        "alert":         false,
-        "tracking":      true,
-        "combat":        true,
-        "flee":          false,
-        "aggroRadius":   null,
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "aggroRadius": null,
         "hearingRadius": null,
         "sightMemoryMs": null
       }
+    },
+    {
+      "class": "Loke",
+      "file": "src/entities/heroes/Loke.ts",
+      "type": "hero",
+      "world": "mistheim",
+      "tier": 0,
+      "personality": "Curious, resourceful boy scout. Tier-0 protagonist. Player-controlled. Attacks with a wooden slingshot.",
+      "spriteKey": "loke",
+      "spritesheetJson": "public/assets/sprites/characters/mistheim/heroes/loke/loke.json",
+      "pixellabCharacterId": "25a6a824-bbcc-4165-bdb7-1f625f35f459",
+      "animTags": {
+        "idle": "loke_idle_south",
+        "walk": "loke_walk_south",
+        "attack": "loke_attack_south",
+        "hurt": "loke_hurt_south",
+        "death": "loke_death_south",
+        "alert": "loke_alert_south",
+        "dash": "loke_dash_south",
+        "crouch": "loke_crouch_south"
+      },
+      "sounds": {
+        "ambient": null,
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
+      },
+      "behavior": {
+        "buildTree": false,
+        "unaware": false,
+        "alert": false,
+        "tracking": false,
+        "combat": false,
+        "flee": false,
+        "aggroRadius": null,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      },
+      "designNotes": {
+        "sprite": "10-year-old Scandinavian boy scout: chibi-proportioned, ash blond hair under a warm green knit hat, lightweight earthy green/brown hiking jacket, fingerless gloves, heavy hiking boots, small backpack, binoculars around neck. Holds a wooden Y-fork slingshot. Reads clearly at 32x32px — bold hat silhouette and backpack bump are the key silhouette markers.",
+        "animations": {
+          "idle": "Subtle breathing — chest and backpack bob slightly. Loke glances side to side every 4-5 cycles, binoculars swinging gently. 6-8 frames at 6 fps.",
+          "walk": "Brisk walking gait with slight arm swing. Backpack bobs. Binoculars sway. 4 frames at 8 fps.",
+          "attack": "Pull slingshot pouch back with both hands (2 frames wind-up), release with full-body snap-forward recoil (1 frame commit), return to ready stance (2 frames recovery). 5 frames at 12 fps.",
+          "hurt": "Sharp backward flinch, arms splaying out, hat tilting. 3 frames at 10 fps.",
+          "death": "Stumble then fall backward, landing flat. Backpack hits ground last. 5 frames at 8 fps."
+        },
+        "sounds": {
+          "ambient": "Light forest ambience — distant birds, wind in leaves. Not a creature sound, more environmental presence when Loke is idle outdoors.",
+          "aggro": null,
+          "attack": "Elastic snap of slingshot release — sharp twang/pop. ~60 ms. Optionally a brief whoosh of the projectile. Freesound: 'slingshot release', 'elastic snap', 'rubber band twang'.",
+          "hurt": "Young boy pained grunt — short, surprised. Non-violent, age-appropriate. ~150 ms.",
+          "death": "Soft thud of a small body falling, followed by a quiet sorrowful exhale. ~600 ms total."
+        }
+      }
     }
-
   ]
 }
