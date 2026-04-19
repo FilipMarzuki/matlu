@@ -1,0 +1,55 @@
+---
+/**
+ * Agentic Experiments — landing page stub.
+ * Full landing with metrics cards lands in issue #354.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Home">
+  <div class="hero">
+    <p class="label">experiment log</p>
+    <h1>Agentic Experiments</h1>
+    <p class="tagline">
+      Building <a href="https://matlu-wiki.vercel.app" target="_blank" rel="noopener">Core Warden</a> with AI agents.
+      Tracking what the machines do — and what they break.
+    </p>
+    <p class="wip">
+      Metrics dashboard, blog, and agent performance pages coming soon.
+    </p>
+  </div>
+</Base>
+
+<style>
+  .hero {
+    padding-top: 4rem;
+    max-width: 600px;
+  }
+  .label {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--accent-hi);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .tagline {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+  .wip {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+  }
+</style>
