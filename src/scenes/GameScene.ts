@@ -4511,8 +4511,10 @@ export class GameScene extends Phaser.Scene {
       if (boundaryFrac <= 0) break;
 
       const boundaryY = boundaryFrac * WORLD_H;
+      // Project the world-space centre of this column slab to iso screen space (FIL-457).
+      const { x: mwIsoX, y: mwIsoY } = worldToIso(wx + colW / 2, boundaryY / 2);
       const rect = this.add.rectangle(
-        wx + colW / 2, boundaryY / 2,
+        mwIsoX, mwIsoY,
         colW, boundaryY,
         0x000000, 0,
       );
@@ -4613,14 +4615,15 @@ export class GameScene extends Phaser.Scene {
 
     // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
     // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
-    addBlock(0,    1240, 1930, 100);
-    addBlock(2020, 1240, 360,  100);
-    addBlock(2470, 1240, 2030, 100);
+    // Origins projected to iso space (FIL-457); w/h kept in world units (approximate).
+    { const { x: ix, y: iy } = worldToIso(0,    1240); addBlock(ix, iy, 1930, 100); }
+    { const { x: ix, y: iy } = worldToIso(2020, 1240); addBlock(ix, iy, 360,  100); }
+    { const { x: ix, y: iy } = worldToIso(2470, 1240); addBlock(ix, iy, 2030, 100); }
 
     // ── Highland Rim (y 830–920) — gap at x 2830–2930 ────────────────────────
     // Gap aligns with forest-path-2 / paved-plateau-1 junction.
-    addBlock(0,    830,  2830, 90);
-    addBlock(2930, 830,  1570, 90);
+    { const { x: ix, y: iy } = worldToIso(0,    830); addBlock(ix, iy, 2830, 90); }
+    { const { x: ix, y: iy } = worldToIso(2930, 830); addBlock(ix, iy, 1570, 90); }
 
     this.navigationBarriers.refresh();
   }
