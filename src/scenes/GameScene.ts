@@ -1739,8 +1739,8 @@ export class GameScene extends Phaser.Scene {
       // the wrong terrain. In practice < 5% of slots are skipped at these settings.
       let accepted = false;
       for (let attempt = 0; attempt < 3 && !accepted; attempt++) {
-        const x = rndBetween(80, WORLD_W - 80);
-        const y = rndBetween(80, WORLD_H - 80);
+        const x = rndBetween(80, ISO_WORLD_W - 80);
+        const y = rndBetween(80, ISO_WORLD_H - 80);
         if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
         if (rng() >= this.spawnBias(x, y, 'rabbit')) continue;
 
@@ -1836,8 +1836,9 @@ export class GameScene extends Phaser.Scene {
     ): void => {
       for (let i = 0; i < count; i++) {
         for (let attempt = 0; attempt < 3; attempt++) {
-          const x = rndBetween(80, WORLD_W - 80);
-          const y = rndBetween(80, WORLD_H - 80);
+          // Generate directly in iso space so rectangle enemies appear on the iso canvas.
+          const x = rndBetween(80, ISO_WORLD_W - 80);
+          const y = rndBetween(80, ISO_WORLD_H - 80);
           if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
           const e = this.add.rectangle(x, y, w, h, color);
           e.setStrokeStyle(1, stroke);
@@ -3224,8 +3225,9 @@ export class GameScene extends Phaser.Scene {
    * event listeners and physics interactions.
    */
   private createBoss(): void {
-    this.boss = new CorruptedGuardian(this, BOSS_X, BOSS_Y);
-    this.boss.setDepth(BOSS_Y);   // raw-Y depth so it sorts with other objects
+    const { x: bossIsoX, y: bossIsoY } = worldToIso(BOSS_X, BOSS_Y);
+    this.boss = new CorruptedGuardian(this, bossIsoX, bossIsoY);
+    this.boss.setDepth(bossIsoY);   // iso-space depth — consistent with player/decoration sort
     // Provide a player position getter — boss uses this to aim charges.
     this.boss.setTarget(() => ({ x: this.player.x, y: this.player.y }));
 
@@ -3275,10 +3277,8 @@ export class GameScene extends Phaser.Scene {
     Dustling.clearRegistry();
     Dustling.setPlayerGetter(() => ({ x: this.player.x, y: this.player.y }));
 
-    // Spawn 300 px west of the boss — inside the Vattenpandalandet entrance zone
-    // but not on top of the boss spawn point.
-    const SWARM_X = BOSS_X - 300;
-    const SWARM_Y = BOSS_Y;
+    // Spawn 300 px west of the boss — project world coords to iso for placement (FIL-456).
+    const { x: swarmIsoX, y: swarmIsoY } = worldToIso(BOSS_X - 300, BOSS_Y);
 
     for (let i = 0; i < 20; i++) {
       // Spread members in a ring so they immediately feel like a swarm.
@@ -3286,10 +3286,10 @@ export class GameScene extends Phaser.Scene {
       const radius = 40 + Math.random() * 60;
       const d = new Dustling(
         this,
-        SWARM_X + Math.cos(angle) * radius,
-        SWARM_Y + Math.sin(angle) * radius,
+        swarmIsoX + Math.cos(angle) * radius,
+        swarmIsoY + Math.sin(angle) * radius,
       );
-      d.setDepth(SWARM_Y);
+      d.setDepth(swarmIsoY);
       this.physics.add.existing(d);
       (d.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
       this.enemies.add(d);
@@ -3334,20 +3334,19 @@ export class GameScene extends Phaser.Scene {
     DryShade.setPlayerGetter(() => ({ x: this.player.x, y: this.player.y }));
 
     // Scatter shades in a ring around the Dustling swarm spawn point so the
-    // player encounters them together with the swarm, not as a separate wave.
-    const SWARM_X = BOSS_X - 300;
-    const SWARM_Y = BOSS_Y;
-    const COUNT   = 5;
+    // player encounters them together with the swarm — project to iso (FIL-456).
+    const { x: shadeIsoX, y: shadeIsoY } = worldToIso(BOSS_X - 300, BOSS_Y);
+    const COUNT = 5;
 
     for (let i = 0; i < COUNT; i++) {
       const angle  = (i / COUNT) * Math.PI * 2;
       const radius = 80 + Math.random() * 60;
       const shade  = new DryShade(
         this,
-        SWARM_X + Math.cos(angle) * radius,
-        SWARM_Y + Math.sin(angle) * radius,
+        shadeIsoX + Math.cos(angle) * radius,
+        shadeIsoY + Math.sin(angle) * radius,
       );
-      shade.setDepth(SWARM_Y);
+      shade.setDepth(shadeIsoY);
       this.physics.add.existing(shade);
       (shade.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
 
@@ -3476,8 +3475,9 @@ export class GameScene extends Phaser.Scene {
     ];
 
     for (const pos of SPAWN_POSITIONS) {
-      const golem = new CrackedGolem(this, pos.x, pos.y);
-      golem.setDepth(pos.y);
+      const { x: golemIsoX, y: golemIsoY } = worldToIso(pos.x, pos.y);
+      const golem = new CrackedGolem(this, golemIsoX, golemIsoY);
+      golem.setDepth(golemIsoY); // iso-space depth
       golem.setPlayerTarget(() => {
         // Expose the player as a Damageable for death-burst projectile targeting.
         // The player satisfies the Damageable interface via LivingEntity.
@@ -4412,25 +4412,27 @@ export class GameScene extends Phaser.Scene {
       // The hero's position is synced to the player container each frame
       // (see updateArenaHero) so cast methods fire from the correct world position.
       // Entity constructor calls scene.add.existing() so no explicit add is needed.
+      // Project world spawn to iso space for hero initial placement (FIL-456).
+      const { x: heroIsoX, y: heroIsoY } = worldToIso(SPAWN_X, SPAWN_Y);
       if (SELECTED_HERO === 'bao') {
-        this.arenaHero = new Bao(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero = new Bao(this, heroIsoX, heroIsoY);
         this.arenaHero.setAlpha(0); // invisible — the player Container is the visual
       } else if (SELECTED_HERO === 'masterfen') {
-        this.arenaHero = new MasterFen(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero = new MasterFen(this, heroIsoX, heroIsoY);
         this.arenaHero.setAlpha(0);
       } else if (SELECTED_HERO === 'torrent') {
         // TheTorrent: water-construct with fluid-form ability. Container children
         // (including the particle emitter) inherit the Container's depth, which is
         // Y-sorted each frame in updateArenaHero. No manual emitter depth needed.
-        this.arenaHero = new TheTorrent(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero = new TheTorrent(this, heroIsoX, heroIsoY);
         this.arenaHero.setAlpha(0);
       } else if (SELECTED_HERO === 'stormsovereign') {
         // StormSovereign: rain aura + monsoon AoE. The rain emitter is a scene-level
         // object (not a Container child) so we set its depth explicitly after construction
         // to place it above the ground layer (Y-sort value) and below the HUD.
-        this.arenaHero = new StormSovereign(this, SPAWN_X, SPAWN_Y);
+        this.arenaHero = new StormSovereign(this, heroIsoX, heroIsoY);
         this.arenaHero.setAlpha(0);
-        (this.arenaHero as StormSovereign).setEmitterDepth(SPAWN_Y);
+        (this.arenaHero as StormSovereign).setEmitterDepth(heroIsoY);
       }
     } else {
       // WilderView: Pixel Crawler Free Pack Body_A character (64×64 px sheets)
