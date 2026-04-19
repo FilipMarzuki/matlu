@@ -77,6 +77,13 @@ export class BiomeInspectorScene extends Phaser.Scene {
   private placedObjects = new Map<string, { gfx: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text }>();
   private objectSelBorder?: Phaser.GameObjects.Graphics;
 
+  // Decoration painter state (FIL-465) — per-biome scatter on tiles.
+  private selectedDecorKey: string | null = null;
+  private placedDecors = new Map<string, { gfx: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text }>();
+  // Decor toolbar buttons rebuilt on biome change (zone, gfx, text per type).
+  private decorRowObjs: Phaser.GameObjects.GameObject[] = [];
+  private decorSelBorder?: Phaser.GameObjects.Graphics;
+
   constructor() { super({ key: 'BiomeInspectorScene' }); }
 
   preload(): void {
@@ -97,7 +104,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-A',     () => this.cycleBiome(-1));
     this.input.keyboard!.on('keydown-D',     () => this.cycleBiome(+1));
     this.input.keyboard!.on('keydown-E',     () => this.clearEntity());
-    this.input.keyboard!.on('keydown-C',     () => this.clearObjects());
+    this.input.keyboard!.on('keydown-C',     () => { this.clearObjects(); this.clearDecors(); });
 
     // Click a tile to place entity or object. Palette / toolbar clicks produce
     // out-of-bounds tile coords, so screenToTile() returns null and nothing fires.
@@ -108,6 +115,8 @@ export class BiomeInspectorScene extends Phaser.Scene {
         this.placeEntity(tile.tx, tile.ty);
       } else if (this.selectedObjectKey !== null) {
         this.toggleObject(tile.tx, tile.ty);
+      } else if (this.selectedDecorKey !== null) {
+        this.toggleDecor(tile.tx, tile.ty);
       }
     });
   }
@@ -167,6 +176,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.bandLabels = [];
     this.buildDisplay();
     this.updatePalette();
+    this.refreshDecorRow();
   }
 
   // ── Terrain ───────────────────────────────────────────────────────────────────
@@ -388,6 +398,9 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
     this.entitySelBorder = this.add.graphics().setDepth(14);
     this.objectSelBorder = this.add.graphics().setDepth(14);
+    this.decorSelBorder  = this.add.graphics().setDepth(14);
+
+    this.buildDecorRow();
   }
 
   // ── Entity spawner (FIL-463) ──────────────────────────────────────────────────
@@ -526,5 +539,136 @@ export class BiomeInspectorScene extends Phaser.Scene {
       this.objectSelBorder!.lineStyle(2, 0xffffff, 1);
       this.objectSelBorder!.strokeRect(bx - 2, TOOL_Y - 2, BTN_W + 4, BTN_H + 4);
     }
+
+    // Decor border — buttons are positioned by buildDecorRow() at DECOR_Y
+    this.decorSelBorder!.clear();
+    const DECOR_Y = TOOL_Y - BTN_H - BTN_G - 14;
+    const decorTypes = BIOMES[this.selectedBiome].decorTypes ?? [];
+    const dIdx = decorTypes.indexOf(this.selectedDecorKey ?? '');
+    if (dIdx >= 0) {
+      const bx = PAD + dIdx * (BTN_W + BTN_G);
+      this.decorSelBorder!.lineStyle(2, 0xffffff, 1);
+      this.decorSelBorder!.strokeRect(bx - 2, DECOR_Y - 2, BTN_W + 4, BTN_H + 4);
+    }
+  }
+
+  // ── Decoration painter (FIL-465) ──────────────────────────────────────────────
+
+  /**
+   * Builds the decor toolbar row for the currently selected biome.
+   * Called once by buildSpawnerToolbar() and on every biome change via refreshDecorRow().
+   * Each decor type gets a button sized identically to entity/object buttons.
+   */
+  private buildDecorRow(): void {
+    const H      = this.scale.height;
+    const PAD    = 4;
+    const BOX_H  = 44;
+    const startY = H - BOX_H - PAD;
+    const TOOL_Y = startY - 58;
+    const BTN_W  = 54;
+    const BTN_H  = 24;
+    const BTN_G  = 3;
+    const DECOR_Y = TOOL_Y - BTN_H - BTN_G - 14;
+
+    const decorTypes = BIOMES[this.selectedBiome].decorTypes ?? [];
+    if (decorTypes.length === 0) return;
+
+    const header = this.add.text(PAD, DECOR_Y - 13, 'Decor:', {
+      fontSize: '10px', color: '#ffddaa', stroke: '#000000', strokeThickness: 2,
+    }).setDepth(11);
+    this.decorRowObjs.push(header);
+
+    // Use an earthy palette that shifts across button index
+    const DECOR_COLORS = [0x8b6914, 0x6b8b14, 0x14698b, 0x8b1468, 0x8b4514, 0x148b45];
+
+    for (let i = 0; i < decorTypes.length; i++) {
+      const dKey = decorTypes[i];
+      const bx   = PAD + i * (BTN_W + BTN_G);
+      const col  = DECOR_COLORS[i % DECOR_COLORS.length];
+
+      const gfx = this.add.graphics({ x: bx, y: DECOR_Y }).setDepth(10);
+      gfx.fillStyle(col, 0.7);
+      gfx.fillRect(0, 0, BTN_W, BTN_H);
+      this.decorRowObjs.push(gfx);
+
+      // Abbreviate long decor names to fit the button
+      const abbrev = dKey.length > 9 ? dKey.slice(0, 8) + '.' : dKey;
+      const lbl = this.add.text(bx + BTN_W / 2, DECOR_Y + BTN_H / 2, abbrev, {
+        fontSize: '9px', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(13);
+      this.decorRowObjs.push(lbl);
+
+      const zone = this.add.zone(bx + BTN_W / 2, DECOR_Y + BTN_H / 2, BTN_W, BTN_H)
+        .setDepth(15).setInteractive()
+        .on('pointerdown', () => this.selectDecorType(dKey));
+      this.decorRowObjs.push(zone);
+    }
+  }
+
+  /** Destroys the current decor row and rebuilds it for the new biome. */
+  private refreshDecorRow(): void {
+    for (const obj of this.decorRowObjs) {
+      (obj as Phaser.GameObjects.GameObject).destroy();
+    }
+    this.decorRowObjs = [];
+    this.selectedDecorKey = null;
+    this.decorSelBorder?.clear();
+    this.buildDecorRow();
+  }
+
+  private selectDecorType(key: string): void {
+    this.selectedDecorKey = this.selectedDecorKey === key ? null : key;
+    if (this.selectedDecorKey !== null) {
+      this.selectedEntityKey = null;
+      this.selectedObjectKey = null;
+    }
+    this.updateToolbarBorders();
+  }
+
+  /**
+   * Toggles a decor placeholder on tile (tx, ty).
+   * Decor is flat surface scatter — no painter-order depth sorting needed.
+   * Placeholder: a small dot (4 px radius) in the decor type's button colour.
+   */
+  private toggleDecor(tx: number, ty: number): void {
+    const key = `${tx},${ty}`;
+    const existing = this.placedDecors.get(key);
+    if (existing) {
+      existing.gfx.destroy();
+      existing.label.destroy();
+      this.placedDecors.delete(key);
+      return;
+    }
+    if (this.selectedDecorKey === null) return;
+
+    const { x: cx, y: cy } = this.isoPos(tx, ty);
+    const sx = cx;
+    const sy = cy + this.ISO_H / 2; // tile surface centre
+
+    const DECOR_COLORS = [0x8b6914, 0x6b8b14, 0x14698b, 0x8b1468, 0x8b4514, 0x148b45];
+    const decorTypes = BIOMES[this.selectedBiome].decorTypes ?? [];
+    const dIdx = decorTypes.indexOf(this.selectedDecorKey);
+    const col  = DECOR_COLORS[dIdx >= 0 ? dIdx % DECOR_COLORS.length : 0];
+
+    // Flat scatter — depth 4, between terrain (0) and entity (5)
+    const gfx = this.add.graphics().setDepth(4);
+    gfx.fillStyle(col, 0.9);
+    gfx.fillCircle(sx, sy, 4);
+    gfx.lineStyle(1, 0xffffff, 0.6);
+    gfx.strokeCircle(sx, sy, 4);
+
+    const label = this.add.text(sx, sy - 7, this.selectedDecorKey, {
+      fontSize: '7px', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5, 1).setDepth(4.1);
+
+    this.placedDecors.set(key, { gfx, label });
+  }
+
+  private clearDecors(): void {
+    for (const { gfx, label } of this.placedDecors.values()) {
+      gfx.destroy();
+      label.destroy();
+    }
+    this.placedDecors.clear();
   }
 }
