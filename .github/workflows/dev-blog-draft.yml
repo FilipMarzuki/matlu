@@ -1,0 +1,45 @@
+name: Dev Blog Draft
+
+# Writes a weekly Agentic Experiments blog post draft based on the week's
+# Learning Summary + Release Notes (Notion) and merged PRs (GitHub).
+# Opens a PR with draft: true — human flips to false and merges to publish.
+
+on:
+  workflow_run:
+    workflows: ["Weekly Release Notes"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  draft:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # create branch + commit
+      pull-requests: write  # open draft PR
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Write blog draft + open PR
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER:     FilipMarzuki
+          REPO_NAME:      matlu
+        run: node .github/scripts/draft-blog-post.js
