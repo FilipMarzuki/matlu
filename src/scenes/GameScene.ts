@@ -4605,9 +4605,10 @@ export class GameScene extends Phaser.Scene {
         if (Math.abs(ty - bridgeTy) <= bridgeGapR) continue;
         if (Math.abs(ty - fordTy)   <= fordGapR)   continue;
 
-        // Centre of the river in world pixels at this row.
+        // Centre of the river in world pixels at this row, projected to iso screen space.
         const xCenter = (sum / count) * TILE_SIZE + TILE_SIZE / 2;
-        addBlock(xCenter - halfWidth, ty * TILE_SIZE, halfWidth * 2, TILE_SIZE);
+        const { x: isoX, y: isoY } = worldToIso(xCenter, ty * TILE_SIZE);
+        addBlock(isoX - halfWidth, isoY, halfWidth * 2, TILE_SIZE);
       }
     }
 
