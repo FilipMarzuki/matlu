@@ -50,6 +50,7 @@ export class Rampart extends EarthHero {
       aggroRadius:         350,
       attackDamage:        35,
       color:               0x8b5e3c,   // weathered rust-brown placeholder
+      spriteKey:           'tinkerer', // TODO: replace with 'rampart' once PixelLab sprite is assembled
       meleeRange:          48,
       attackCooldownMs:    1400,
       projectileDamage:    55,          // heavy artillery shell — punishing
