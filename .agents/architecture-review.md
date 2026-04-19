@@ -1,6 +1,17 @@
 # Weekly Architecture Review Agent
 
-You are performing a weekly architectural review of the Matlu game project — a Phaser 3 + TypeScript top-down game.
+You are performing a weekly architectural review of the **Core Warden** game project — a Phaser 4 +
+TypeScript isometric action RPG set in the Matlu multiworld.
+
+**Monorepo structure** — three deployable projects in one repo:
+| Directory | Vercel project | Tech |
+|-----------|---------------|------|
+| `/` (root) | `matlu` | Phaser 4 + TypeScript + Vite |
+| `wiki/` | `matlu-wiki` | Astro 6 (Matlu Codex community hub) |
+| `dev/` | `matlu-dev` | Astro 6 (Agentic Experiments dev blog + metrics) |
+
+Focus your review on the game (`/`). Note changes to `wiki/` and `dev/` only if they reveal
+architectural patterns worth tracking (e.g. shared data contracts, API surface changes).
 
 ## Environment
 
