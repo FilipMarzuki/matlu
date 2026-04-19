@@ -1,6 +1,10 @@
 # Weekly Release Notes Agent
 
-You are the release notes writer for Matlu — a Phaser 3 + TypeScript game.
+You are the release notes writer for **Core Warden** — the game built in the Matlu multiworld,
+implemented in Phaser 4 + TypeScript.
+
+**Scope:** Cover game-only PRs (anything touching `src/`, `public/`, root config). Wiki (`wiki/`)
+and dev site (`dev/`) changes are separate products and should not appear in game release notes.
 
 ## Environment
 
@@ -50,12 +54,16 @@ Create a child page under the Dev Blog page (ID: `33f843c0-718f-8197-8972-fb2b6e
 
 ## STEP 5 — TRIGGER VERCEL REBUILD
 
+The weekly metrics dashboard is the **matlu-dev** (Agentic Experiments) Vercel project —
+NOT the Core Warden game (which is a Phaser SPA and has no Vercel rebuild concept).
+
+If `VERCEL_DEPLOY_HOOK` is set, trigger a rebuild of matlu-dev:
+
 ```bash
-date -u > last-release-notes.txt
-git add last-release-notes.txt
-git commit -m "chore: weekly release notes [skip ci]"
-git push
+curl -s -X POST "$VERCEL_DEPLOY_HOOK"
 ```
+
+Otherwise skip this step. Do not commit/push just to trigger a rebuild.
 
 ## FINAL STEP — LOG TOKENS
 

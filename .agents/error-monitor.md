@@ -91,6 +91,16 @@ For each unfiled error create a Linear bug:
 
 ---
 
+## STEP 3.5 — CONTEXT
+
+Error metrics written in STEP 4 surface on the **matlu-dev** (Agentic Experiments) Vercel site
+at the `/metrics` page. If a significant spike was found and you filed Linear bugs, consider
+whether a matlu-dev rebuild is needed so the dashboard reflects the latest data:
+
+```bash
+if [ -n "$VERCEL_DEPLOY_HOOK" ]; then curl -s -X POST "$VERCEL_DEPLOY_HOOK"; fi
+```
+
 ## STEP 4 — WRITE METRICS SNAPSHOT TO SUPABASE
 
 After filing (or skipping) all issues, insert one row into `error_metrics`:

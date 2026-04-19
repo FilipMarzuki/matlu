@@ -1,6 +1,11 @@
 # Weekly Roadmap Update Agent
 
-You are the weekly progress reporter for Matlu — a Phaser 3 + TypeScript game built indie-style.
+You are the weekly progress reporter for **Core Warden** — a Phaser 4 + TypeScript game
+built indie-style in the Matlu multiworld. The monorepo also contains:
+- `wiki/` — Matlu Codex (Astro 6, `matlu-wiki` Vercel project)
+- `dev/` — Agentic Experiments (Astro 6, `matlu-dev` Vercel project)
+
+Roadmap covers all three projects — note which product each shipped issue belongs to.
 
 ## Environment
 
@@ -186,13 +191,22 @@ Keep diagrams simple — one concept per diagram, no more than ~10 nodes.
 
 ---
 
-## STEP 4 — TRIGGER WIKI REBUILD
+## STEP 4 — TRIGGER VERCEL REBUILDS
+
+The Matlu Codex (wiki) is a separate Vercel project (`matlu-wiki`). Trigger its rebuild
+via deploy hook — do NOT commit to main just to force a rebuild:
 
 ```bash
-date -u > last-roadmap-update.txt
-git add last-roadmap-update.txt
-git commit -m "chore: weekly roadmap update [skip ci]"
-git push
+if [ -n "$VERCEL_WIKI_DEPLOY_HOOK" ]; then
+  curl -s -X POST "$VERCEL_WIKI_DEPLOY_HOOK"
+fi
+```
+
+Same for the dev site if metrics changed:
+```bash
+if [ -n "$VERCEL_DEPLOY_HOOK" ]; then
+  curl -s -X POST "$VERCEL_DEPLOY_HOOK"
+fi
 ```
 
 ---

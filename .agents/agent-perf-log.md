@@ -151,3 +151,16 @@ Build the page content as Notion block objects. Include:
 ## STEP 5 — Log tokens
 
 Run: `npm run log-tokens`
+
+---
+
+## Context
+
+Agent performance data is written to the Supabase `stats_weekly` table by `collect-stats.js`
+(Weekly Engineering Stats workflow). It surfaces on the **matlu-dev** (Agentic Experiments)
+Vercel site at the `/agents` page. After writing this week's Notion page, trigger a rebuild
+if `VERCEL_DEPLOY_HOOK` is set:
+
+```bash
+if [ -n "$VERCEL_DEPLOY_HOOK" ]; then curl -s -X POST "$VERCEL_DEPLOY_HOOK"; fi
+```

@@ -82,6 +82,22 @@ Build the merge plan as an ordered list. Prioritise:
 
 ---
 
+## Step 4.5 — Monorepo CI check
+
+This repo contains three deployable projects:
+- `/` — Core Warden game (`build` CI job)
+- `wiki/` — Matlu Codex Astro site (`build-wiki` CI job)
+- `dev/` — Agentic Experiments Astro site (`build-dev` CI job)
+
+`npm run build` at the repo root only validates the game. It does **not** validate wiki/ or dev/.
+
+Before merging any PR, confirm **all three CI jobs** pass on that branch:
+```bash
+gh pr checks <number>
+```
+Look for `build`, `build-wiki`, and `build-dev` all green. If a PR only touches game files,
+a missing build-wiki/build-dev job is fine — it means those jobs weren't triggered.
+
 ## Step 5 — High-risk file check
 
 Hold (do not merge) any PR that touches:
