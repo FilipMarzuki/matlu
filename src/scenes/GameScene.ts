@@ -358,6 +358,9 @@ interface BirdObject {
   vx:              number;
   vy:              number;
   nextDirChange:   number;
+  /** World-pixel position — updated each frame in world space, then projected to iso. */
+  worldX:          number;
+  worldY:          number;
   /** True while the player is driving this bird via nav keys in attract mode. */
   playerControlled?: boolean;
 }
@@ -5254,7 +5257,9 @@ export class GameScene extends Phaser.Scene {
    * the larger visual.
    */
   private placeGroundAnimal(type: string, def: AnimalDef, x: number, y: number): void {
-    const sprite = this.add.sprite(x, y, `${type}-idle`, 0);
+    // x/y are world-pixel coords (Poisson disk space). Project to iso for rendering.
+    const { x: isoX, y: isoY } = worldToIso(x, y);
+    const sprite = this.add.sprite(isoX, isoY, `${type}-idle`, 0);
     sprite.setScale(def.scale);
     sprite.setDepth(3);
     sprite.play(`${type}-idle-anim`);
@@ -5268,6 +5273,9 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('animalType', type);
     sprite.setData('animalState', 'roaming' satisfies AnimalState);
     sprite.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+    // Store world position so flee/approach distance calcs stay in world space.
+    sprite.setData('worldX', x);
+    sprite.setData('worldY', y);
   }
 
   private updateGroundAnimals(): void {
@@ -5422,8 +5430,10 @@ export class GameScene extends Phaser.Scene {
 
   private spawnBirds(): void {
     for (let i = 0; i < BIRD_COUNT; i++) {
-      const x = Phaser.Math.Between(50, WORLD_W - 50);
-      const y = Phaser.Math.Between(50, WORLD_H - 50);
+      // Generate spawn position in world space; project to iso for initial placement.
+      const wx = Phaser.Math.Between(50, WORLD_W - 50);
+      const wy = Phaser.Math.Between(50, WORLD_H - 50);
+      const { x, y } = worldToIso(wx, wy);
 
       const isCrow = i < 4;          // first 4 are crow-sized, rest are small songbirds
       // Shadow dimensions match the approximate visual footprint at each scale.
@@ -5454,6 +5464,8 @@ export class GameScene extends Phaser.Scene {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         nextDirChange: this.time.now + Phaser.Math.Between(6000, 14000),
+        worldX: wx,
+        worldY: wy,
       });
     }
   }
@@ -5472,15 +5484,19 @@ export class GameScene extends Phaser.Scene {
         bird.nextDirChange = time + Phaser.Math.Between(6000, 14000);
       }
 
-      let nx = bird.body.x + bird.vx * dt;
-      let ny = bird.body.y + bird.vy * dt;
+      // Move in world space — bounce against world bounds to keep birds on the map.
+      let nx = bird.worldX + bird.vx * dt;
+      let ny = bird.worldY + bird.vy * dt;
 
-      // Bounce off world edges
       if (nx < 40 || nx > WORLD_W - 40) { bird.vx = -bird.vx; nx = Phaser.Math.Clamp(nx, 40, WORLD_W - 40); }
       if (ny < 40 || ny > WORLD_H - 40) { bird.vy = -bird.vy; ny = Phaser.Math.Clamp(ny, 40, WORLD_H - 40); }
 
-      bird.body.setPosition(nx, ny);
-      bird.shadow.setPosition(nx + BIRD_SHADOW_DX, ny + BIRD_SHADOW_DY);
+      bird.worldX = nx;
+      bird.worldY = ny;
+      // Project updated world position to iso for rendering.
+      const { x: bx, y: by } = worldToIso(nx, ny);
+      bird.body.setPosition(bx, by);
+      bird.shadow.setPosition(bx + BIRD_SHADOW_DX, by + BIRD_SHADOW_DY);
       // Flip the sprite so it always faces the direction it's flying.
       if (bird.vx !== 0) bird.body.setFlipX(bird.vx < 0);
     }
