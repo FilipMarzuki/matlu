@@ -5619,22 +5619,22 @@ export class GameScene extends Phaser.Scene {
    * green, snow gets ice-blue, etc.
    */
   private biomeTint(elev: number, temp: number, moist: number): number {
-    if (elev < 0.25) return 0x55ccff;  // sea — bright sky blue
+    if (elev < 0.25) return 0x4aa8de;  // sea — cooler steel-blue
     if (elev < 0.30) {
       return (temp < 0.45 || moist > 0.50)
-        ? 0xeecc66   // rocky shore — warm golden sand
-        : 0xffdd66;  // sandy shore — bright sunny yellow
+        ? 0xc69a56   // rocky shore — muted warm ochre
+        : 0xe0bf6a;  // sandy shore — pale dry sand
     }
-    if (elev < 0.45 && moist > 0.72) return 0x55cc44; // marsh — bright fresh green
+    if (elev < 0.45 && moist > 0.72) return 0x3e6e4a; // marsh — wet, desaturated green
     if (elev < 0.62) {
-      if (moist > 0.60) return 0x44ee55; // forest  — vibrant green
-      if (moist > 0.30) return 0xaaee55; // heath   — lime yellow-green
-      return                  0xddcc44;  // dry heath — golden
+      if (moist > 0.60) return 0x3e8a4a; // forest  — deep boreal green
+      if (moist > 0.30) return 0x6a8e44; // heath   — olive green
+      return                  0xb89955;  // dry heath — dusty ochre
     }
     if (elev < 0.78) {
-      return temp > 0.50 ? 0x33bb44 : 0xaac8dd; // spruce green / pale blue-grey granite
+      return temp > 0.50 ? 0x2e6a3f : 0x8596a5; // spruce green / cool granite blue-grey
     }
-    return temp < 0.40 ? 0xd0e4f8 : 0xb0b0b8; // snow / bare rocky summit
+    return temp < 0.40 ? 0xd7e6f4 : 0x8a8f98; // snow / bare rocky summit
   }
 
   /**
@@ -5698,7 +5698,7 @@ export class GameScene extends Phaser.Scene {
     // This keeps GPU state changes to ~5 (one per biome type) regardless of world size.
     const gfx = this.add.graphics().setDepth(0.1);
     for (const [tint, coords] of groups) {
-      gfx.fillStyle(tint, 0.12);
+      gfx.fillStyle(tint, 0.18);
       for (let i = 0; i < coords.length; i += 2) {
         gfx.fillRect(coords[i], coords[i + 1], TILE_SIZE, TILE_SIZE);
       }
