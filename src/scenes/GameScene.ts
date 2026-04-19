@@ -52,7 +52,7 @@ import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
-import { worldToIso, isoToWorld, ISO_WORLD_W, ISO_WORLD_H } from '../lib/IsoTransform';
+import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
@@ -358,6 +358,9 @@ interface BirdObject {
   vx:              number;
   vy:              number;
   nextDirChange:   number;
+  /** World-space position — birds bounce in world space and are projected to iso for display. */
+  worldX:          number;
+  worldY:          number;
   /** True while the player is driving this bird via nav keys in attract mode. */
   playerControlled?: boolean;
 }
@@ -1594,9 +1597,11 @@ export class GameScene extends Phaser.Scene {
     // Y-sort player every frame — depth = world-Y matches the raw-Y system used by
     // chunk-placed trees so the player correctly occludes them based on position.
     // Done outside the attractMode branch so it runs whether or not input is active.
-    this.player.setDepth(this.player.y);
+    const { x: _pdWx, y: _pdWy } = isoToWorld(this.player.x, this.player.y);
+    const _pdDepth = isoDepth(_pdWx, _pdWy);
+    this.player.setDepth(_pdDepth);
     this.playerShadow.setPosition(this.player.x + 6, this.player.y + 8);
-    this.playerShadow.setDepth(this.player.y - 1);
+    this.playerShadow.setDepth(_pdDepth - 0.1);
 
     this.updateRabbits(time);
     this.updateCorruptedFoxes(time);
@@ -1670,7 +1675,7 @@ export class GameScene extends Phaser.Scene {
         this.pathSystem.degradeLocal((cx, cy) =>
           this.corruptionField.sample(cx, cy, globalCorruption01)
         );
-        this.pathSystem.drawPaths(this.pathGraphics);
+        this.pathSystem.drawPaths(this.pathGraphics, (x, y) => worldToIso(x, y));
       }
       this.nextPathDegradeAt = time + 5000;
     }
@@ -1744,7 +1749,8 @@ export class GameScene extends Phaser.Scene {
         if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
         if (rng() >= this.spawnBias(x, y, 'rabbit')) continue;
 
-        const r = this.add.rectangle(x, y, RABBIT_SIZE, RABBIT_SIZE, 0x4a3558);
+        const { x: _rabIsoX, y: _rabIsoY } = worldToIso(x, y);
+        const r = this.add.rectangle(_rabIsoX, _rabIsoY, RABBIT_SIZE, RABBIT_SIZE, 0x4a3558);
         r.setStrokeStyle(1, 0x221122);
         this.physics.add.existing(r);
         const b = r.body as Phaser.Physics.Arcade.Body;
@@ -1839,7 +1845,8 @@ export class GameScene extends Phaser.Scene {
           const x = rndBetween(80, WORLD_W - 80);
           const y = rndBetween(80, WORLD_H - 80);
           if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
-          const e = this.add.rectangle(x, y, w, h, color);
+          const { x: _ceIsoX, y: _ceIsoY } = worldToIso(x, y);
+          const e = this.add.rectangle(_ceIsoX, _ceIsoY, w, h, color);
           e.setStrokeStyle(1, stroke);
           this.physics.add.existing(e);
           const body = e.body as Phaser.Physics.Arcade.Body;
@@ -3841,10 +3848,10 @@ export class GameScene extends Phaser.Scene {
     // They are invisible in the normal render but usable as RT sources —
     // same pattern as the terrain bake's off-screen tileImg.
     this.fogUnseenGfx = this.add.graphics().setVisible(false);
-    this.fogUnseenGfx.fillStyle(0x000000, 1).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    this.fogUnseenGfx.fillStyle(0x000000, 1).fillRect(0, 0, ISO_TILE_W, ISO_TILE_H);
 
     this.fogSeenGfx = this.add.graphics().setVisible(false);
-    this.fogSeenGfx.fillStyle(0x000000, 0.5).fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    this.fogSeenGfx.fillStyle(0x000000, 0.5).fillRect(0, 0, ISO_TILE_W, ISO_TILE_H);
 
     // ── RenderTexture overlay ──────────────────────────────────────────────────
     // FIL-444: covers the isometric canvas. setOrigin(0,0) so (0,0) = north apex.
@@ -4511,8 +4518,9 @@ export class GameScene extends Phaser.Scene {
       if (boundaryFrac <= 0) break;
 
       const boundaryY = boundaryFrac * WORLD_H;
+      const { x: _mwIsoX, y: _mwIsoY } = worldToIso(wx + colW / 2, boundaryY / 2);
       const rect = this.add.rectangle(
-        wx + colW / 2, boundaryY / 2,
+        _mwIsoX, _mwIsoY,
         colW, boundaryY,
         0x000000, 0,
       );
@@ -4613,14 +4621,14 @@ export class GameScene extends Phaser.Scene {
 
     // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
     // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
-    addBlock(0,    1240, 1930, 100);
-    addBlock(2020, 1240, 360,  100);
-    addBlock(2470, 1240, 2030, 100);
+    { const { x: _bx, y: _by } = worldToIso(0,    1240); addBlock(_bx, _by, 1930, 100); }
+    { const { x: _bx, y: _by } = worldToIso(2020, 1240); addBlock(_bx, _by, 360,  100); }
+    { const { x: _bx, y: _by } = worldToIso(2470, 1240); addBlock(_bx, _by, 2030, 100); }
 
     // ── Highland Rim (y 830–920) — gap at x 2830–2930 ────────────────────────
     // Gap aligns with forest-path-2 / paved-plateau-1 junction.
-    addBlock(0,    830,  2830, 90);
-    addBlock(2930, 830,  1570, 90);
+    { const { x: _bx, y: _by } = worldToIso(0,    830); addBlock(_bx, _by, 2830, 90); }
+    { const { x: _bx, y: _by } = worldToIso(2930, 830); addBlock(_bx, _by, 1570, 90); }
 
     this.navigationBarriers.refresh();
   }
@@ -5254,9 +5262,10 @@ export class GameScene extends Phaser.Scene {
    * the larger visual.
    */
   private placeGroundAnimal(type: string, def: AnimalDef, x: number, y: number): void {
-    const sprite = this.add.sprite(x, y, `${type}-idle`, 0);
+    const { x: _gaIsoX, y: _gaIsoY } = worldToIso(x, y);
+    const sprite = this.add.sprite(_gaIsoX, _gaIsoY, `${type}-idle`, 0);
     sprite.setScale(def.scale);
-    sprite.setDepth(3);
+    sprite.setDepth(isoDepth(x, y));
     sprite.play(`${type}-idle-anim`);
     this.physics.add.existing(sprite);
     const b = sprite.body as Phaser.Physics.Arcade.Body;
@@ -5285,7 +5294,7 @@ export class GameScene extends Phaser.Scene {
       const r  = child as Phaser.GameObjects.Sprite;
       // Y-sort with the same raw-Y system as chunk-placed trees so animals
       // correctly pass behind/in-front of trees and the player as they move.
-      r.setDepth(r.y);
+      { const { x: _gaWx, y: _gaWy } = isoToWorld(r.x, r.y); r.setDepth(isoDepth(_gaWx, _gaWy)); }
       const b  = r.body as Phaser.Physics.Arcade.Body;
       const type = r.getData('animalType') as string;
       const def  = ANIMAL_DEFS[type];
@@ -5422,8 +5431,9 @@ export class GameScene extends Phaser.Scene {
 
   private spawnBirds(): void {
     for (let i = 0; i < BIRD_COUNT; i++) {
-      const x = Phaser.Math.Between(50, WORLD_W - 50);
-      const y = Phaser.Math.Between(50, WORLD_H - 50);
+      const wx = Phaser.Math.Between(50, WORLD_W - 50);
+      const wy = Phaser.Math.Between(50, WORLD_H - 50);
+      const { x, y } = worldToIso(wx, wy);
 
       const isCrow = i < 4;          // first 4 are crow-sized, rest are small songbirds
       // Shadow dimensions match the approximate visual footprint at each scale.
@@ -5454,6 +5464,8 @@ export class GameScene extends Phaser.Scene {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         nextDirChange: this.time.now + Phaser.Math.Between(6000, 14000),
+        worldX: wx,
+        worldY: wy,
       });
     }
   }
@@ -5472,15 +5484,19 @@ export class GameScene extends Phaser.Scene {
         bird.nextDirChange = time + Phaser.Math.Between(6000, 14000);
       }
 
-      let nx = bird.body.x + bird.vx * dt;
-      let ny = bird.body.y + bird.vy * dt;
+      // Birds bounce in world space, then re-project to iso for display.
+      let nx = bird.worldX + bird.vx * dt;
+      let ny = bird.worldY + bird.vy * dt;
 
       // Bounce off world edges
       if (nx < 40 || nx > WORLD_W - 40) { bird.vx = -bird.vx; nx = Phaser.Math.Clamp(nx, 40, WORLD_W - 40); }
       if (ny < 40 || ny > WORLD_H - 40) { bird.vy = -bird.vy; ny = Phaser.Math.Clamp(ny, 40, WORLD_H - 40); }
 
-      bird.body.setPosition(nx, ny);
-      bird.shadow.setPosition(nx + BIRD_SHADOW_DX, ny + BIRD_SHADOW_DY);
+      bird.worldX = nx;
+      bird.worldY = ny;
+      const { x: _bIsoX, y: _bIsoY } = worldToIso(nx, ny);
+      bird.body.setPosition(_bIsoX, _bIsoY);
+      bird.shadow.setPosition(_bIsoX + BIRD_SHADOW_DX, _bIsoY + BIRD_SHADOW_DY);
       // Flip the sprite so it always faces the direction it's flying.
       if (bird.vx !== 0) bird.body.setFlipX(bird.vx < 0);
     }
@@ -5783,7 +5799,7 @@ export class GameScene extends Phaser.Scene {
   private drawPaths(): void {
     this.pathGraphics = this.add.graphics();
     this.pathGraphics.setDepth(1);
-    this.pathSystem.drawPaths(this.pathGraphics);
+    this.pathSystem.drawPaths(this.pathGraphics, (x, y) => worldToIso(x, y));
   }
 
   // ─── Settlement markers (FIL-76) ─────────────────────────────────────────────
@@ -5980,7 +5996,8 @@ export class GameScene extends Phaser.Scene {
       this.stampChunk(CORRUPTED_CLEARING, lm.x, lm.y);
       // Dark purple aura — very low alpha so it doesn't dominate the palette,
       // but creates a clear "something happened here" visual signal.
-      this.add.circle(lm.x, lm.y, 90, 0x220022, 0.18).setDepth(0.05);
+      const { x: _lmIsoX, y: _lmIsoY } = worldToIso(lm.x, lm.y);
+      this.add.circle(_lmIsoX, _lmIsoY, 90, 0x220022, 0.18).setDepth(0.05);
     }
   }
 
@@ -5993,7 +6010,8 @@ export class GameScene extends Phaser.Scene {
     for (const sp of SECRET_POSITIONS) {
       this.stampChunk(HIDDEN_HOLLOW, sp.x, sp.y);
       // Faint golden glow — suggests "something worth finding here" without being obvious.
-      this.add.circle(sp.x, sp.y, 50, 0x998800, 0.10).setDepth(0.05);
+      const { x: _spIsoX, y: _spIsoY } = worldToIso(sp.x, sp.y);
+      this.add.circle(_spIsoX, _spIsoY, 50, 0x998800, 0.10).setDepth(0.05);
     }
   }
 
@@ -6033,11 +6051,10 @@ export class GameScene extends Phaser.Scene {
 
     for (const d of decors) {
       const texture = decorTexture(d.type, d.variant);
-      const sprite = this.add.image(d.x, d.y, texture);
+      const { x: _dIsoX, y: _dIsoY } = worldToIso(d.x, d.y);
+      const sprite = this.add.image(_dIsoX, _dIsoY, texture);
       sprite.setScale(d.scale);
-      // Sort by y so decorations further down the screen render in front —
-      // the standard "painter's algorithm" for top-down 2D.
-      sprite.setDepth(2 + d.y / WORLD_H);
+      sprite.setDepth(isoDepth(d.x, d.y));
 
       // Grass tufts sway gently — a sine-eased angle tween rocks each tuft ±2°.
       // Duration and delay are derived from world position so adjacent tufts
@@ -6098,19 +6115,21 @@ export class GameScene extends Phaser.Scene {
         if (biome < 0.29 && lilyCount < MAX_LILIES && rng() < 0.60) {
           // Lily pads on open water — pick one of 6 variants by frame index
           const frame = Math.floor(rng() * 6);
-          const img = this.add.image(x, y, 'water-lillies', frame);
+          const { x: _lilyIsoX, y: _lilyIsoY } = worldToIso(x, y);
+          const img = this.add.image(_lilyIsoX, _lilyIsoY, 'water-lillies', frame);
           this.decorImages.push(img);
           img.setScale(2.0 + rng() * 0.5); // 2.0–2.5× so they read at game zoom
-          img.setDepth(0.5 + y / WORLD_H); // on the water surface, y-sorted
+          img.setDepth(isoDepth(x, y));
           img.setAlpha(0.80 + rng() * 0.20);
           lilyCount++;
         } else if (biome >= 0.27 && rockCount < MAX_ROCKS && rng() < 0.50) {
           // Rocks at the water's edge — 6 variants on the sheet
           const frame = Math.floor(rng() * 6);
-          const img = this.add.image(x, y, 'rocks-in-water', frame);
+          const { x: _rockIsoX, y: _rockIsoY } = worldToIso(x, y);
+          const img = this.add.image(_rockIsoX, _rockIsoY, 'rocks-in-water', frame);
           this.decorImages.push(img);
           img.setScale(2.0);
-          img.setDepth(1.0 + y / WORLD_H); // just above lily depth
+          img.setDepth(isoDepth(x, y) + 0.5);
           rockCount++;
         }
       }
@@ -6424,14 +6443,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private stampChunkItem(item: ChunkItem, wx: number, wy: number): void {
+    const { x: _scIsoX, y: _scIsoY } = worldToIso(wx, wy);
     if (item.kind === 'tree' || item.kind === 'rock') {
       // Re-use the existing solidObjects group so the player collider covers these too.
       // item.frame is undefined for single-image textures, which Phaser treats identically
       // to omitting the argument — so this is backward compatible with all existing chunks.
-      const obj = this.physics.add.staticImage(wx, wy, item.texture, item.frame);
+      const obj = this.physics.add.staticImage(_scIsoX, _scIsoY, item.texture, item.frame);
       this.decorImages.push(obj);
       if (item.scale !== undefined) obj.setScale(item.scale);
-      obj.setDepth(wy); // y-sorting: lower on screen = in front
+      obj.setDepth(isoDepth(wx, wy));
       obj.setOrigin(0.5, 1);
       this.solidObjects.add(obj);
 
@@ -6448,11 +6468,11 @@ export class GameScene extends Phaser.Scene {
       // decoration / puddle — no physics, just a sprite.
       // Pass item.frame so chunks can reference a specific frame on a spritesheet
       // (e.g. frame 0 = closed chest on mw-chest-01). Undefined = whole image.
-      const sprite = this.add.image(wx, wy, item.texture, item.frame);
+      const sprite = this.add.image(_scIsoX, _scIsoY, item.texture, item.frame);
       this.decorImages.push(sprite);
       if (item.scale !== undefined) sprite.setScale(item.scale);
       sprite.setOrigin(0.5, 1);
-      sprite.setDepth(item.kind === 'puddle' ? 2 : wy); // puddles below sprites
+      sprite.setDepth(item.kind === 'puddle' ? 2 : isoDepth(wx, wy));
     }
   }
 
@@ -6465,10 +6485,11 @@ export class GameScene extends Phaser.Scene {
    */
   private createLevel1Zones(): void {
     for (const zone of ZONES) {
+      const { x: _zIsoX, y: _zIsoY } = worldToIso(zone.x + zone.w / 2, zone.y + zone.h / 2);
       const overlay = this.add
         .rectangle(
-          zone.x + zone.w / 2,
-          zone.y + zone.h / 2,
+          _zIsoX,
+          _zIsoY,
           zone.w,
           zone.h,
           zone.tintColor,
@@ -6486,8 +6507,9 @@ export class GameScene extends Phaser.Scene {
    */
   private createLevel1Collectibles(): void {
     for (const col of COLLECTIBLES) {
+      const { x: _cIsoX, y: _cIsoY } = worldToIso(col.x, col.y);
       const circle = this.add
-        .circle(col.x, col.y, 10, 0xffffff, 0.9)
+        .circle(_cIsoX, _cIsoY, 10, 0xffffff, 0.9)
         .setStrokeStyle(2, 0xffffff, 1)
         .setDepth(20);
 
@@ -6511,8 +6533,9 @@ export class GameScene extends Phaser.Scene {
    * Checks collectible pickups, passive cleanse in Zone 3, and meeting trigger.
    */
   private updateLevel1(delta: number): void {
-    const px = this.player.x;
-    const py = this.player.y;
+    // Convert player ISO position to world space — all Level 1 reference points
+    // (COLLECTIBLES, ZONES, MEETING_POINT, BOSS_X/Y) are defined in world pixels.
+    const { x: px, y: py } = isoToWorld(this.player.x, this.player.y);
 
     // ── Collectible pickup ────────────────────────────────────────────────────
     for (const col of COLLECTIBLES) {
@@ -6523,7 +6546,8 @@ export class GameScene extends Phaser.Scene {
       const dist = Phaser.Math.Distance.Between(px, py, col.x, col.y);
       if (dist > 40) continue;
 
-      this.collectItem(col.id, col.label, col.x, col.y, col.zoneId);
+      const { x: _colIsoX, y: _colIsoY } = worldToIso(col.x, col.y);
+      this.collectItem(col.id, col.label, _colIsoX, _colIsoY, col.zoneId);
     }
 
     // ── Passive cleanse in Zone 3 ─────────────────────────────────────────────
@@ -6676,10 +6700,11 @@ export class GameScene extends Phaser.Scene {
         const r = s.radius * 0.25;
         const nx = s.x + Math.cos(angle) * r;
         const ny = s.y + Math.sin(angle) * r;
-        const npc = this.add.image(nx, ny, 'pc-idle-down', 0);
+        const { x: _npcIsoX, y: _npcIsoY } = worldToIso(nx, ny);
+        const npc = this.add.image(_npcIsoX, _npcIsoY, 'pc-idle-down', 0);
         // Scale 0.35 makes the 64×64 frame appear at ~22 px — readable at zoom 2
         npc.setScale(0.35);
-        npc.setDepth(2 + ny / WORLD_H);
+        npc.setDepth(isoDepth(nx, ny));
         npc.setData('settlementId', s.id);
         this.settlementNpcs.push(npc);
       }
@@ -6728,15 +6753,16 @@ export class GameScene extends Phaser.Scene {
     for (const def of VENDOR_DEFS) {
       // Reuse the PC idle sprite — an orange tint immediately sets traders apart
       // from the green-tinted dialogue NPCs.
-      const sprite = this.add.image(def.x, def.y, 'pc-idle-down', 0);
+      const { x: _vIsoX, y: _vIsoY } = worldToIso(def.x, def.y);
+      const sprite = this.add.image(_vIsoX, _vIsoY, 'pc-idle-down', 0);
       sprite.setScale(0.35);
-      sprite.setDepth(2 + def.y / WORLD_H);
+      sprite.setDepth(isoDepth(def.x, def.y));
       // Orange tint signals "interactable commerce" vs the neutral NPC tint.
       sprite.setTint(0xffaa44);
 
       // "Trader" label floats above the sprite.
       this.add
-        .text(def.x, def.y - 22, 'Trader', {
+        .text(_vIsoX, _vIsoY - 22, 'Trader', {
           fontSize: '8px',
           color: '#ffcc88',
         })
@@ -6745,7 +6771,7 @@ export class GameScene extends Phaser.Scene {
 
       // E-key prompt — shown only when the player is within VENDOR_PROMPT_RADIUS.
       const prompt = this.add
-        .text(def.x, def.y - 36, t('ui.shop'), {
+        .text(_vIsoX, _vIsoY - 36, t('ui.shop'), {
           fontSize: '10px',
           color: '#f0ead6',
           backgroundColor: '#00000088',

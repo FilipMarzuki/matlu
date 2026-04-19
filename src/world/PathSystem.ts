@@ -172,7 +172,7 @@ export class PathSystem {
    * Color fades toward muted gray (0x888888) as condition drops from 100 → 0, giving
    * the player a subtle visual cue that roads are degrading under corruption.
    */
-  drawPaths(graphics: Phaser.GameObjects.Graphics): void {
+  drawPaths(graphics: Phaser.GameObjects.Graphics, project?: (x: number, y: number) => { x: number; y: number }): void {
     graphics.clear();
     for (const seg of this.segments) {
       const def = PATH_DEFS[seg.type];
@@ -192,7 +192,15 @@ export class PathSystem {
       const alpha = def.drawAlpha * (0.5 + t * 0.5);
 
       graphics.fillStyle(blendedColor, alpha);
-      graphics.fillRect(seg.x, seg.y, seg.w, seg.h);
+      // If a projection function is supplied (e.g. for isometric rendering),
+      // project the world-space origin before drawing. Width/height are kept
+      // in world units — an approximation that is acceptable for thin path strips.
+      if (project) {
+        const { x, y } = project(seg.x, seg.y);
+        graphics.fillRect(x, y, seg.w, seg.h);
+      } else {
+        graphics.fillRect(seg.x, seg.y, seg.w, seg.h);
+      }
     }
   }
 
