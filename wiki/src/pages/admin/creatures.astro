@@ -1,0 +1,473 @@
+---
+/**
+ * /admin/creatures — Password-gated moderation page.
+ *
+ * Two states:
+ *   1. No valid session cookie → show password gate form.
+ *   2. Valid cookie → fetch pending submissions with the service-role key
+ *      (bypasses RLS) and show approve / reject UI.
+ *
+ * The session cookie is HMAC(ADMIN_PASSWORD, fixed-label), set by
+ * POST /api/admin/login. It is httpOnly + secure so it is invisible
+ * to client-side JavaScript.
+ */
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import { ADMIN_COOKIE, verifySessionCookie } from '../../lib/adminAuth';
+import { getAdminClient } from '../../lib/supabaseAdmin';
+import type { CreatureRow } from '../../types/wiki-database.types';
+
+const adminPassword = import.meta.env.ADMIN_PASSWORD ?? '';
+const cookieValue = Astro.cookies.get(ADMIN_COOKIE)?.value ?? '';
+const isAuthed = adminPassword !== '' && verifySessionCookie(cookieValue, adminPassword);
+
+let creatures: CreatureRow[] = [];
+let fetchError: string | null = null;
+
+if (isAuthed) {
+  try {
+    const supabase = getAdminClient();
+    const { data, error } = await supabase
+      .from('creature_submissions')
+      .select('*')
+      .eq('approved', false)
+      .is('moderation_note', null)
+      .order('created_at', { ascending: true });
+    if (error) {
+      fetchError = error.message;
+    } else {
+      creatures = data ?? [];
+    }
+  } catch (e) {
+    fetchError = e instanceof Error ? e.message : 'Unknown error';
+  }
+}
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+
+function artUrl(artPath: string): string {
+  return `${supabaseUrl}/storage/v1/object/public/creature-art/${artPath}`;
+}
+
+function timeAgo(isoDate: string): string {
+  const ms = Date.now() - new Date(isoDate).getTime();
+  const h = Math.floor(ms / 3_600_000);
+  const d = Math.floor(h / 24);
+  if (d > 0) return `${d}d ago`;
+  if (h > 0) return `${h}h ago`;
+  return 'just now';
+}
+
+function label(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+---
+
+<Base title="Creature Moderation" description="Admin: review pending creature submissions">
+  {!isAuthed ? (
+    <!-- ── Password gate ───────────────────────────────────────────────── -->
+    <div class="gate-wrap">
+      <div class="gate-card">
+        <h1>Admin login</h1>
+        <p class="dim">Enter the admin password to access the moderation queue.</p>
+        <form id="login-form" novalidate>
+          <label for="password-input">Password</label>
+          <input
+            id="password-input"
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            required
+          />
+          <button type="submit" id="login-btn">Sign in</button>
+        </form>
+        <p id="login-status" class="status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById('login-form') as HTMLFormElement;
+      const input = document.getElementById('password-input') as HTMLInputElement;
+      const btn = document.getElementById('login-btn') as HTMLButtonElement;
+      const status = document.getElementById('login-status') as HTMLElement;
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        btn.disabled = true;
+        status.textContent = 'Checking…';
+        status.className = 'status';
+
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: input.value }),
+        });
+
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          status.textContent = 'Incorrect password.';
+          status.className = 'status error';
+          btn.disabled = false;
+          input.value = '';
+          input.focus();
+        }
+      });
+    </script>
+  ) : (
+    <!-- ── Moderation queue ───────────────────────────────────────────── -->
+    <h1>Creature moderation</h1>
+
+    {fetchError && (
+      <p class="fetch-error">Failed to load submissions: {fetchError}</p>
+    )}
+
+    {!fetchError && creatures.length === 0 && (
+      <p class="empty">No pending submissions. The queue is empty.</p>
+    )}
+
+    {!fetchError && creatures.length > 0 && (
+      <p class="queue-count">{creatures.length} pending submission{creatures.length !== 1 ? 's' : ''}</p>
+    )}
+
+    <ul class="queue" id="queue-list">
+      {creatures.map((c) => (
+        <li class="card" id={`card-${c.id}`} data-id={c.id}>
+          <header class="card-header">
+            <div>
+              <h2 class="creature-name">{c.creature_name}</h2>
+              {c.world_name && <span class="world-tag">{c.world_name}</span>}
+            </div>
+            <span class="submitted-time">{timeAgo(c.created_at)}</span>
+          </header>
+
+          <!-- Art -->
+          {c.art_path && (
+            <div class="art-wrap">
+              <img
+                src={artUrl(c.art_path)}
+                alt={`Artwork for ${c.creature_name}`}
+                class="art-img"
+                loading="lazy"
+              />
+            </div>
+          )}
+
+          <!-- Creator -->
+          <section class="info-section">
+            <h3>Creator</h3>
+            <dl>
+              <dt>Name</dt><dd>{label(c.creator_name)}</dd>
+              <dt>Age</dt><dd>{label(c.maker_age)}</dd>
+              <dt>Contact</dt><dd>{label(c.contact_email)}</dd>
+            </dl>
+          </section>
+
+          <!-- Creature details -->
+          <section class="info-section">
+            <h3>Details</h3>
+            <dl>
+              <dt>Size</dt><dd>{label(c.kind_size)}</dd>
+              <dt>Movement</dt><dd>{label(c.kind_movement)}</dd>
+              <dt>Diet</dt><dd>{label(c.kind_diet)}</dd>
+              <dt>Solitary</dt><dd>{label(c.kind_solitary)}</dd>
+              <dt>Biome</dt><dd>{label(c.habitat_biome)}</dd>
+              <dt>Climate</dt><dd>{label(c.habitat_climate)}</dd>
+              <dt>Habitat notes</dt><dd>{label(c.habitat_notes)}</dd>
+              <dt>Threat</dt><dd>{label(c.behaviour_threat)}</dd>
+              <dt>Behaviour</dt><dd>{label(c.behaviour_notes)}</dd>
+              <dt>Food notes</dt><dd>{label(c.food_notes)}</dd>
+              <dt>Special ability</dt><dd>{label(c.special_ability)}</dd>
+            </dl>
+          </section>
+
+          <!-- Lore -->
+          <section class="info-section">
+            <h3>Lore</h3>
+            <dl>
+              <dt>Description</dt><dd>{label(c.lore_description)}</dd>
+              <dt>Origin</dt><dd>{label(c.lore_origin)}</dd>
+            </dl>
+          </section>
+
+          <!-- Consent & completion -->
+          <section class="info-section">
+            <h3>Consent &amp; status</h3>
+            <dl>
+              <dt>Completion score</dt><dd>{label(c.completion_score)}{c.completion_score !== null ? '/100' : ''}</dd>
+              <dt>License</dt><dd>{label(c.license_version)}</dd>
+              <dt>License accepted</dt><dd>{label(c.license_accepted)}</dd>
+              <dt>Parental consent</dt><dd>{label(c.parental_consent)}</dd>
+              <dt>Credits opt-in</dt><dd>{label(c.credits_opt_in)}</dd>
+            </dl>
+          </section>
+
+          <!-- Moderation actions -->
+          <section class="actions" data-id={c.id}>
+            <button class="btn-approve" data-id={c.id}>Approve</button>
+
+            <div class="reject-form">
+              <textarea
+                class="note-input"
+                data-id={c.id}
+                placeholder="Rejection note (optional — visible only to admins)"
+                rows={2}
+              ></textarea>
+              <button class="btn-reject" data-id={c.id}>Reject</button>
+            </div>
+
+            <p class="action-status" id={`status-${c.id}`} role="status" aria-live="polite"></p>
+          </section>
+        </li>
+      ))}
+    </ul>
+
+    <script>
+      function setStatus(id: string, msg: string, isError: boolean) {
+        const el = document.getElementById(`status-${id}`);
+        if (el) {
+          el.textContent = msg;
+          el.className = `action-status ${isError ? 'error' : 'success'}`;
+        }
+      }
+
+      function removeCard(id: string) {
+        const card = document.getElementById(`card-${id}`);
+        card?.remove();
+        const list = document.getElementById('queue-list');
+        if (list && list.children.length === 0) {
+          const count = document.querySelector('.queue-count');
+          if (count) count.textContent = 'Queue is now empty.';
+        }
+      }
+
+      function disableActions(id: string) {
+        const section = document.querySelector<HTMLElement>(`.actions[data-id="${id}"]`);
+        section?.querySelectorAll('button').forEach((b) => { (b as HTMLButtonElement).disabled = true; });
+      }
+
+      // Approve
+      document.querySelectorAll<HTMLButtonElement>('.btn-approve').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id ?? '';
+          disableActions(id);
+          setStatus(id, 'Approving…', false);
+
+          const res = await fetch('/api/creatures/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id }),
+          });
+          const data = await res.json() as { ok?: boolean; error?: string; slug?: string };
+
+          if (res.ok && data.ok) {
+            setStatus(id, `Approved as /${data.slug ?? id}`, false);
+            setTimeout(() => removeCard(id), 800);
+          } else {
+            setStatus(id, `Error: ${data.error ?? 'unknown'}`, true);
+            disableActions(id); // re-enable would need the whole section refreshed
+          }
+        });
+      });
+
+      // Reject
+      document.querySelectorAll<HTMLButtonElement>('.btn-reject').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id ?? '';
+          const noteEl = document.querySelector<HTMLTextAreaElement>(`.note-input[data-id="${id}"]`);
+          const note = noteEl?.value.trim() ?? '';
+          disableActions(id);
+          setStatus(id, 'Rejecting…', false);
+
+          const res = await fetch('/api/creatures/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, note }),
+          });
+          const data = await res.json() as { ok?: boolean; error?: string };
+
+          if (res.ok && data.ok) {
+            setStatus(id, 'Rejected.', false);
+            setTimeout(() => removeCard(id), 800);
+          } else {
+            setStatus(id, `Error: ${data.error ?? 'unknown'}`, true);
+          }
+        });
+      });
+    </script>
+  )}
+</Base>
+
+<style>
+  /* ── Password gate ──────────────────────────────────────────────────── */
+  .gate-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 4rem 1rem;
+  }
+  .gate-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    width: 100%;
+    max-width: 360px;
+  }
+  .gate-card h1 { margin-bottom: 0.5rem; }
+  .dim { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  #login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  #login-form label { font-size: 0.9rem; color: var(--text-dim); }
+  #password-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 1rem;
+    padding: 0.55rem 0.8rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #password-input:focus { border-color: var(--accent); }
+
+  /* ── Shared button style ────────────────────────────────────────────── */
+  button {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.55rem 1.4rem;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-hi); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* ── Status messages ────────────────────────────────────────────────── */
+  .status, .action-status {
+    font-size: 0.85rem;
+    margin-top: 0.6rem;
+    min-height: 1.2em;
+  }
+  .status.error, .action-status.error { color: var(--red); }
+  .action-status.success { color: var(--green); }
+
+  /* ── Queue ──────────────────────────────────────────────────────────── */
+  h1 { margin-bottom: 0.25rem; }
+  .queue-count { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .empty, .fetch-error { color: var(--text-dim); margin-top: 2rem; }
+  .fetch-error { color: var(--red); }
+
+  .queue {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 0;
+  }
+
+  /* ── Creature card ──────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .creature-name { margin: 0; }
+  .world-tag {
+    display: inline-block;
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    padding: 0.1rem 0.6rem;
+    margin-top: 0.3rem;
+  }
+  .submitted-time {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Art */
+  .art-wrap { margin-bottom: 1rem; }
+  .art-img {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    max-width: 260px;
+    max-height: 260px;
+    object-fit: contain;
+    background: var(--surface-hi);
+  }
+
+  /* Info sections */
+  .info-section { margin-bottom: 1.25rem; }
+  .info-section h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 0.25rem 0.75rem;
+    font-size: 0.88rem;
+  }
+  dt { color: var(--text-dim); }
+  dd { color: var(--text); word-break: break-word; }
+
+  /* Actions */
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+    margin-top: 0.5rem;
+  }
+  .btn-approve { background: var(--green); color: #0d0d14; align-self: flex-start; }
+  .btn-approve:hover { filter: brightness(1.1); background: var(--green); }
+
+  .reject-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .note-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    padding: 0.5rem 0.7rem;
+    resize: vertical;
+    transition: border-color 0.15s;
+  }
+  .note-input:focus { outline: none; border-color: var(--red); }
+  .btn-reject { background: var(--red); color: #0d0d14; align-self: flex-start; }
+  .btn-reject:hover { filter: brightness(1.1); background: var(--red); }
+</style>

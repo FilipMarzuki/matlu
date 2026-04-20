@@ -6,6 +6,9 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: string;
   // Notion — server-side only (no VITE_ prefix)
   readonly NOTION_API_KEY: string;
+  // Moderation admin — server-side only
+  readonly SUPABASE_SERVICE_ROLE_KEY: string;
+  readonly ADMIN_PASSWORD: string;
 }
 
 interface ImportMeta {
