@@ -1469,6 +1469,113 @@
       }
     },
     {
+      "class": "FarggladKordororn",
+      "file": "src/entities/FarggladKordororn.ts",
+      "type": "enemy",
+      "world": "earth",
+      "submissionId": "ed681715-bffd-4360-a6c6-aabd85fc7f28",
+      "submissionCreator": "Loke Marzuki (age 9)",
+      "name_en": "Vivid Condor Eagle",
+      "name_sv": "Färgglad Kordorörn",
+      "personality": "Apex soarer. Circles without urgency. Does not attack — waits until the moment is right.",
+      "spriteKey": null,
+      "spritesheetJson": null,
+      "animTags": {
+        "idle": null,
+        "walk": null,
+        "attack": null,
+        "hurt": null,
+        "death": null,
+        "alert": null
+      },
+      "sounds": {
+        "ambient": {
+          "keys": ["sfx-kordororn-ambient-0", "sfx-kordororn-ambient-1", "sfx-kordororn-ambient-2"],
+          "files": [
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-ambient-0.ogg",
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-ambient-1.ogg",
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-ambient-2.ogg"
+          ],
+          "status": "pending"
+        },
+        "alert": {
+          "key": "sfx-kordororn-alert",
+          "file": "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-alert.ogg",
+          "status": "pending"
+        },
+        "aggro": {
+          "key": "sfx-kordororn-aggro",
+          "file": "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-aggro.ogg",
+          "status": "pending"
+        },
+        "attack": {
+          "keys": ["sfx-kordororn-attack-windup", "sfx-kordororn-attack-impact"],
+          "files": [
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-attack-windup.ogg",
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-attack-impact.ogg"
+          ],
+          "status": "pending"
+        },
+        "hurt": {
+          "keys": ["sfx-kordororn-hurt-0", "sfx-kordororn-hurt-1", "sfx-kordororn-hurt-2"],
+          "files": [
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-hurt-0.ogg",
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-hurt-1.ogg",
+            "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-hurt-2.ogg"
+          ],
+          "status": "pending"
+        },
+        "death": {
+          "key": "sfx-kordororn-death",
+          "file": "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-death.ogg",
+          "status": "pending"
+        }
+      },
+      "behavior": {
+        "buildTree": true,
+        "unaware": true,
+        "alert": true,
+        "tracking": true,
+        "combat": true,
+        "flee": false,
+        "movementType": "flying",
+        "flyHeight": 48,
+        "aggroRadius": 450,
+        "hearingRadius": 220,
+        "sightMemoryMs": 2000,
+        "speed": 85,
+        "attackRange": 80,
+        "attackCooldownMs": 1400
+      },
+      "stats": {
+        "hp": 60,
+        "damage": 10,
+        "speed": 85,
+        "aggroRadius": 450,
+        "hearingRadius": 220,
+        "sightMemoryMs": 2000,
+        "attackRange": 80,
+        "attackCooldownMs": 1400
+      },
+      "designNotes": {
+        "sprite": "Wide-winged raptor seen from high top-down — wingspan roughly 2× the sprite width. Plumage is earthy brown and ochre but with patches of colour that are slightly too vivid: acid greens on the wing coverts, deep russet on the throat. The corruption has not changed its shape, only pushed the colours just past what feels natural. A thick hooked beak and broad fanned tail are the clearest silhouette markers at 32px. Talons visible as two small dark hooks below the wingtips.",
+        "animations": {
+          "idle": "Slow thermal soar — minimal wing movement. Wingtips flex up once every 3–4 frames as the bird adjusts on the updraft. Head turns side to side independently. 8 frames at 5 fps. Should feel weightless and patient.",
+          "walk": "Powered flapping flight for level movement. Full wing-beat cycle: down-stroke (2 frames, body dips) then up-stroke (2 frames, body rises). 6 frames at 10 fps.",
+          "attack": "Wind-up (4 frames): wings fold tight against body, head drops forward into a stoop, talons drawn forward — this is the player's warning window. Commit (2 frames): full-speed dive, wings near-closed, talons fully extended. Recovery (3 frames): wings snap wide to brake, body sweeps upward. 9 frames at 14 fps.",
+          "hurt": "One wing snaps back sharply, body rotates 15–20° off-axis. Opposite wing beats twice to recover. 3 frames at 12 fps.",
+          "death": "Wings lose symmetry — one folds inward while the other beats weakly. The bird enters a tight spiral descent over 6 frames, then a flat impact frame (body splayed against ground), then holds. 7 frames at 10 fps."
+        },
+        "sounds": {
+          "ambient": "Low feather-rush whoosh of soaring wings, barely audible at distance. ~200 ms. Freesound: 'eagle wing beats soaring CC0', 'large raptor flight wind overhead', 'bird wing adjustment feather rustle'.",
+          "aggro": "Full predatory scream — sharp, high, carrying. The 'I see you' moment. ~400 ms. Freesound: 'eagle scream predatory CC0', 'golden eagle attack scream loud', 'raptor screech aggressive'.",
+          "attack": "Two cues: (1) rushing air crescendo as bird stoops (~300 ms, timed to wind-up frames) + (2) heavy talon impact thud (~80 ms, timed to commit frame). Freesound windup: 'bird dive stoop wind rush CC0'. Impact: 'talon strike CC0', 'raptor grab impact'.",
+          "hurt": "Sharp broken shriek, high and short, suggests surprise. ~150 ms per variant. Freesound: 'eagle pain shriek short CC0', 'raptor distress call sharp', 'large bird hurt flapping CC0'.",
+          "death": "Descending cry — starts at full pitch, drops in volume and frequency over ~400 ms, ends with a dull impact thud. ~600 ms total. Freesound: 'eagle dying descending call CC0', 'raptor death spiral call fade', 'large bird crash land'."
+        }
+      }
+    },
+    {
       "class": "Loke",
       "file": "src/entities/heroes/Loke.ts",
       "type": "hero",
