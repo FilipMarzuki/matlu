@@ -49,10 +49,6 @@ jobs:
       VITE_SUPABASE_URL: https://example.supabase.co
       VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder
       NOTION_API_KEY: ci-placeholder
-      # Server-side vars for admin routes — only needed at runtime, not build time.
-      # Placeholder values here satisfy any compile-time checks.
-      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role
-      ADMIN_PASSWORD: ci-placeholder-admin
     steps:
       - uses: actions/checkout@v6
 
