@@ -1,0 +1,10769 @@
+{
+  "frames": [
+    {
+      "filename": "idle_south_0",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_1",
+      "frame": {
+        "x": 76,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_2",
+      "frame": {
+        "x": 152,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_3",
+      "frame": {
+        "x": 228,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_4",
+      "frame": {
+        "x": 304,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south_5",
+      "frame": {
+        "x": 380,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south_6",
+      "frame": {
+        "x": 456,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south_7",
+      "frame": {
+        "x": 532,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south_8",
+      "frame": {
+        "x": 608,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south_9",
+      "frame": {
+        "x": 684,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south_10",
+      "frame": {
+        "x": 760,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south_11",
+      "frame": {
+        "x": 836,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "dash_south_12",
+      "frame": {
+        "x": 912,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south_13",
+      "frame": {
+        "x": 988,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south_14",
+      "frame": {
+        "x": 1064,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south_15",
+      "frame": {
+        "x": 1140,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south_16",
+      "frame": {
+        "x": 1216,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south_17",
+      "frame": {
+        "x": 1292,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south_18",
+      "frame": {
+        "x": 1368,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south_19",
+      "frame": {
+        "x": 1444,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "alert_south_20",
+      "frame": {
+        "x": 1520,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south_21",
+      "frame": {
+        "x": 1596,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south_22",
+      "frame": {
+        "x": 1672,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south_23",
+      "frame": {
+        "x": 1748,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south_24",
+      "frame": {
+        "x": 1824,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south_25",
+      "frame": {
+        "x": 1900,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south_26",
+      "frame": {
+        "x": 1976,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south_27",
+      "frame": {
+        "x": 2052,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "crouch_south_28",
+      "frame": {
+        "x": 2128,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south_29",
+      "frame": {
+        "x": 2204,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south_30",
+      "frame": {
+        "x": 2280,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south_31",
+      "frame": {
+        "x": 2356,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south_32",
+      "frame": {
+        "x": 2432,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "hurt_south_33",
+      "frame": {
+        "x": 2508,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south_34",
+      "frame": {
+        "x": 2584,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south_35",
+      "frame": {
+        "x": 2660,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south_36",
+      "frame": {
+        "x": 2736,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south_37",
+      "frame": {
+        "x": 2812,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south_38",
+      "frame": {
+        "x": 2888,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south_39",
+      "frame": {
+        "x": 2964,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south_40",
+      "frame": {
+        "x": 3040,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south_41",
+      "frame": {
+        "x": 3116,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south_42",
+      "frame": {
+        "x": 3192,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south_43",
+      "frame": {
+        "x": 3268,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south_44",
+      "frame": {
+        "x": 3344,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south_45",
+      "frame": {
+        "x": 3420,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "pickup_south_46",
+      "frame": {
+        "x": 3496,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south_47",
+      "frame": {
+        "x": 3572,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south_48",
+      "frame": {
+        "x": 3648,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south_49",
+      "frame": {
+        "x": 3724,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south_50",
+      "frame": {
+        "x": 3800,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "jump_south_51",
+      "frame": {
+        "x": 3876,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south_52",
+      "frame": {
+        "x": 3952,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south_53",
+      "frame": {
+        "x": 4028,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south_54",
+      "frame": {
+        "x": 4104,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south_55",
+      "frame": {
+        "x": 4180,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south_56",
+      "frame": {
+        "x": 4256,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south_57",
+      "frame": {
+        "x": 4332,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "drink_south_58",
+      "frame": {
+        "x": 4408,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south_59",
+      "frame": {
+        "x": 4484,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south_60",
+      "frame": {
+        "x": 4560,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south_61",
+      "frame": {
+        "x": 4636,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south_62",
+      "frame": {
+        "x": 4712,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south_63",
+      "frame": {
+        "x": 4788,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "get_up_south_64",
+      "frame": {
+        "x": 4864,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south_65",
+      "frame": {
+        "x": 4940,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south_66",
+      "frame": {
+        "x": 5016,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south_67",
+      "frame": {
+        "x": 5092,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south_68",
+      "frame": {
+        "x": 5168,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pull_south_69",
+      "frame": {
+        "x": 5244,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south_70",
+      "frame": {
+        "x": 5320,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south_71",
+      "frame": {
+        "x": 5396,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south_72",
+      "frame": {
+        "x": 5472,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south_73",
+      "frame": {
+        "x": 5548,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south_74",
+      "frame": {
+        "x": 5624,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "attack_south_75",
+      "frame": {
+        "x": 5700,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_south_76",
+      "frame": {
+        "x": 5776,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_south_77",
+      "frame": {
+        "x": 5852,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_south_78",
+      "frame": {
+        "x": 5928,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "fireball_south_79",
+      "frame": {
+        "x": 6004,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "fireball_south_80",
+      "frame": {
+        "x": 6080,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "fireball_south_81",
+      "frame": {
+        "x": 6156,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "fireball_south_82",
+      "frame": {
+        "x": 6232,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "fireball_south_83",
+      "frame": {
+        "x": 6308,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "fireball_south_84",
+      "frame": {
+        "x": 6384,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "idle_south-east_0",
+      "frame": {
+        "x": 0,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_1",
+      "frame": {
+        "x": 76,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_2",
+      "frame": {
+        "x": 152,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_3",
+      "frame": {
+        "x": 228,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_4",
+      "frame": {
+        "x": 304,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south-east_5",
+      "frame": {
+        "x": 380,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south-east_6",
+      "frame": {
+        "x": 456,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south-east_7",
+      "frame": {
+        "x": 532,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south-east_8",
+      "frame": {
+        "x": 608,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south-east_9",
+      "frame": {
+        "x": 684,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south-east_10",
+      "frame": {
+        "x": 760,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_south-east_11",
+      "frame": {
+        "x": 836,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "dash_south-east_12",
+      "frame": {
+        "x": 912,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south-east_13",
+      "frame": {
+        "x": 988,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south-east_14",
+      "frame": {
+        "x": 1064,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south-east_15",
+      "frame": {
+        "x": 1140,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south-east_16",
+      "frame": {
+        "x": 1216,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south-east_17",
+      "frame": {
+        "x": 1292,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south-east_18",
+      "frame": {
+        "x": 1368,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_south-east_19",
+      "frame": {
+        "x": 1444,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "alert_south-east_20",
+      "frame": {
+        "x": 1520,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south-east_21",
+      "frame": {
+        "x": 1596,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south-east_22",
+      "frame": {
+        "x": 1672,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south-east_23",
+      "frame": {
+        "x": 1748,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south-east_24",
+      "frame": {
+        "x": 1824,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south-east_25",
+      "frame": {
+        "x": 1900,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south-east_26",
+      "frame": {
+        "x": 1976,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_south-east_27",
+      "frame": {
+        "x": 2052,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "crouch_south-east_28",
+      "frame": {
+        "x": 2128,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south-east_29",
+      "frame": {
+        "x": 2204,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south-east_30",
+      "frame": {
+        "x": 2280,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south-east_31",
+      "frame": {
+        "x": 2356,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_south-east_32",
+      "frame": {
+        "x": 2432,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "hurt_south-east_33",
+      "frame": {
+        "x": 2508,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south-east_34",
+      "frame": {
+        "x": 2584,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south-east_35",
+      "frame": {
+        "x": 2660,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south-east_36",
+      "frame": {
+        "x": 2736,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south-east_37",
+      "frame": {
+        "x": 2812,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_south-east_38",
+      "frame": {
+        "x": 2888,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_south-east_39",
+      "frame": {
+        "x": 2964,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south-east_40",
+      "frame": {
+        "x": 3040,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south-east_41",
+      "frame": {
+        "x": 3116,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south-east_42",
+      "frame": {
+        "x": 3192,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south-east_43",
+      "frame": {
+        "x": 3268,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south-east_44",
+      "frame": {
+        "x": 3344,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_south-east_45",
+      "frame": {
+        "x": 3420,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "pickup_south-east_46",
+      "frame": {
+        "x": 3496,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south-east_47",
+      "frame": {
+        "x": 3572,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south-east_48",
+      "frame": {
+        "x": 3648,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south-east_49",
+      "frame": {
+        "x": 3724,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_south-east_50",
+      "frame": {
+        "x": 3800,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "jump_south-east_51",
+      "frame": {
+        "x": 3876,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south-east_52",
+      "frame": {
+        "x": 3952,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south-east_53",
+      "frame": {
+        "x": 4028,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south-east_54",
+      "frame": {
+        "x": 4104,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south-east_55",
+      "frame": {
+        "x": 4180,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south-east_56",
+      "frame": {
+        "x": 4256,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_south-east_57",
+      "frame": {
+        "x": 4332,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "drink_south-east_58",
+      "frame": {
+        "x": 4408,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south-east_59",
+      "frame": {
+        "x": 4484,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south-east_60",
+      "frame": {
+        "x": 4560,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south-east_61",
+      "frame": {
+        "x": 4636,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south-east_62",
+      "frame": {
+        "x": 4712,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_south-east_63",
+      "frame": {
+        "x": 4788,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "get_up_south-east_64",
+      "frame": {
+        "x": 4864,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south-east_65",
+      "frame": {
+        "x": 4940,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south-east_66",
+      "frame": {
+        "x": 5016,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south-east_67",
+      "frame": {
+        "x": 5092,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_south-east_68",
+      "frame": {
+        "x": 5168,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pull_south-east_69",
+      "frame": {
+        "x": 5244,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south-east_70",
+      "frame": {
+        "x": 5320,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south-east_71",
+      "frame": {
+        "x": 5396,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south-east_72",
+      "frame": {
+        "x": 5472,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south-east_73",
+      "frame": {
+        "x": 5548,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_south-east_74",
+      "frame": {
+        "x": 5624,
+        "y": 76,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "idle_north-east_0",
+      "frame": {
+        "x": 0,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_1",
+      "frame": {
+        "x": 76,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_2",
+      "frame": {
+        "x": 152,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_3",
+      "frame": {
+        "x": 228,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_4",
+      "frame": {
+        "x": 304,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north-east_5",
+      "frame": {
+        "x": 380,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north-east_6",
+      "frame": {
+        "x": 456,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north-east_7",
+      "frame": {
+        "x": 532,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north-east_8",
+      "frame": {
+        "x": 608,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north-east_9",
+      "frame": {
+        "x": 684,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north-east_10",
+      "frame": {
+        "x": 760,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north-east_11",
+      "frame": {
+        "x": 836,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "dash_north-east_12",
+      "frame": {
+        "x": 912,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north-east_13",
+      "frame": {
+        "x": 988,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north-east_14",
+      "frame": {
+        "x": 1064,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north-east_15",
+      "frame": {
+        "x": 1140,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north-east_16",
+      "frame": {
+        "x": 1216,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north-east_17",
+      "frame": {
+        "x": 1292,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north-east_18",
+      "frame": {
+        "x": 1368,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north-east_19",
+      "frame": {
+        "x": 1444,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "alert_north-east_20",
+      "frame": {
+        "x": 1520,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north-east_21",
+      "frame": {
+        "x": 1596,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north-east_22",
+      "frame": {
+        "x": 1672,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north-east_23",
+      "frame": {
+        "x": 1748,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north-east_24",
+      "frame": {
+        "x": 1824,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north-east_25",
+      "frame": {
+        "x": 1900,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north-east_26",
+      "frame": {
+        "x": 1976,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north-east_27",
+      "frame": {
+        "x": 2052,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "crouch_north-east_28",
+      "frame": {
+        "x": 2128,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north-east_29",
+      "frame": {
+        "x": 2204,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north-east_30",
+      "frame": {
+        "x": 2280,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north-east_31",
+      "frame": {
+        "x": 2356,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north-east_32",
+      "frame": {
+        "x": 2432,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "hurt_north-east_33",
+      "frame": {
+        "x": 2508,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north-east_34",
+      "frame": {
+        "x": 2584,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north-east_35",
+      "frame": {
+        "x": 2660,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north-east_36",
+      "frame": {
+        "x": 2736,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north-east_37",
+      "frame": {
+        "x": 2812,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north-east_38",
+      "frame": {
+        "x": 2888,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north-east_39",
+      "frame": {
+        "x": 2964,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north-east_40",
+      "frame": {
+        "x": 3040,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north-east_41",
+      "frame": {
+        "x": 3116,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north-east_42",
+      "frame": {
+        "x": 3192,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north-east_43",
+      "frame": {
+        "x": 3268,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north-east_44",
+      "frame": {
+        "x": 3344,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north-east_45",
+      "frame": {
+        "x": 3420,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "pickup_north-east_46",
+      "frame": {
+        "x": 3496,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north-east_47",
+      "frame": {
+        "x": 3572,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north-east_48",
+      "frame": {
+        "x": 3648,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north-east_49",
+      "frame": {
+        "x": 3724,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north-east_50",
+      "frame": {
+        "x": 3800,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "jump_north-east_51",
+      "frame": {
+        "x": 3876,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north-east_52",
+      "frame": {
+        "x": 3952,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north-east_53",
+      "frame": {
+        "x": 4028,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north-east_54",
+      "frame": {
+        "x": 4104,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north-east_55",
+      "frame": {
+        "x": 4180,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north-east_56",
+      "frame": {
+        "x": 4256,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north-east_57",
+      "frame": {
+        "x": 4332,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "drink_north-east_58",
+      "frame": {
+        "x": 4408,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north-east_59",
+      "frame": {
+        "x": 4484,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north-east_60",
+      "frame": {
+        "x": 4560,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north-east_61",
+      "frame": {
+        "x": 4636,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north-east_62",
+      "frame": {
+        "x": 4712,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north-east_63",
+      "frame": {
+        "x": 4788,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "get_up_north-east_64",
+      "frame": {
+        "x": 4864,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north-east_65",
+      "frame": {
+        "x": 4940,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north-east_66",
+      "frame": {
+        "x": 5016,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north-east_67",
+      "frame": {
+        "x": 5092,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north-east_68",
+      "frame": {
+        "x": 5168,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pull_north-east_69",
+      "frame": {
+        "x": 5244,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north-east_70",
+      "frame": {
+        "x": 5320,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north-east_71",
+      "frame": {
+        "x": 5396,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north-east_72",
+      "frame": {
+        "x": 5472,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north-east_73",
+      "frame": {
+        "x": 5548,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north-east_74",
+      "frame": {
+        "x": 5624,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "attack_north-east_75",
+      "frame": {
+        "x": 5700,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_north-east_76",
+      "frame": {
+        "x": 5776,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_north-east_77",
+      "frame": {
+        "x": 5852,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_north-east_78",
+      "frame": {
+        "x": 5928,
+        "y": 152,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "idle_north_0",
+      "frame": {
+        "x": 0,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_1",
+      "frame": {
+        "x": 76,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_2",
+      "frame": {
+        "x": 152,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_3",
+      "frame": {
+        "x": 228,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_4",
+      "frame": {
+        "x": 304,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north_5",
+      "frame": {
+        "x": 380,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north_6",
+      "frame": {
+        "x": 456,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north_7",
+      "frame": {
+        "x": 532,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north_8",
+      "frame": {
+        "x": 608,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north_9",
+      "frame": {
+        "x": 684,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north_10",
+      "frame": {
+        "x": 760,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_north_11",
+      "frame": {
+        "x": 836,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "dash_north_12",
+      "frame": {
+        "x": 912,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north_13",
+      "frame": {
+        "x": 988,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north_14",
+      "frame": {
+        "x": 1064,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north_15",
+      "frame": {
+        "x": 1140,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north_16",
+      "frame": {
+        "x": 1216,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north_17",
+      "frame": {
+        "x": 1292,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north_18",
+      "frame": {
+        "x": 1368,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_north_19",
+      "frame": {
+        "x": 1444,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "alert_north_20",
+      "frame": {
+        "x": 1520,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north_21",
+      "frame": {
+        "x": 1596,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north_22",
+      "frame": {
+        "x": 1672,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north_23",
+      "frame": {
+        "x": 1748,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north_24",
+      "frame": {
+        "x": 1824,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north_25",
+      "frame": {
+        "x": 1900,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north_26",
+      "frame": {
+        "x": 1976,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_north_27",
+      "frame": {
+        "x": 2052,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "crouch_north_28",
+      "frame": {
+        "x": 2128,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north_29",
+      "frame": {
+        "x": 2204,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north_30",
+      "frame": {
+        "x": 2280,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north_31",
+      "frame": {
+        "x": 2356,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_north_32",
+      "frame": {
+        "x": 2432,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "hurt_north_33",
+      "frame": {
+        "x": 2508,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north_34",
+      "frame": {
+        "x": 2584,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north_35",
+      "frame": {
+        "x": 2660,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north_36",
+      "frame": {
+        "x": 2736,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north_37",
+      "frame": {
+        "x": 2812,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_north_38",
+      "frame": {
+        "x": 2888,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_north_39",
+      "frame": {
+        "x": 2964,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north_40",
+      "frame": {
+        "x": 3040,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north_41",
+      "frame": {
+        "x": 3116,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north_42",
+      "frame": {
+        "x": 3192,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north_43",
+      "frame": {
+        "x": 3268,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north_44",
+      "frame": {
+        "x": 3344,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_north_45",
+      "frame": {
+        "x": 3420,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "pickup_north_46",
+      "frame": {
+        "x": 3496,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north_47",
+      "frame": {
+        "x": 3572,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north_48",
+      "frame": {
+        "x": 3648,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north_49",
+      "frame": {
+        "x": 3724,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_north_50",
+      "frame": {
+        "x": 3800,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "jump_north_51",
+      "frame": {
+        "x": 3876,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north_52",
+      "frame": {
+        "x": 3952,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north_53",
+      "frame": {
+        "x": 4028,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north_54",
+      "frame": {
+        "x": 4104,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north_55",
+      "frame": {
+        "x": 4180,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north_56",
+      "frame": {
+        "x": 4256,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_north_57",
+      "frame": {
+        "x": 4332,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "drink_north_58",
+      "frame": {
+        "x": 4408,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north_59",
+      "frame": {
+        "x": 4484,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north_60",
+      "frame": {
+        "x": 4560,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north_61",
+      "frame": {
+        "x": 4636,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north_62",
+      "frame": {
+        "x": 4712,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_north_63",
+      "frame": {
+        "x": 4788,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "get_up_north_64",
+      "frame": {
+        "x": 4864,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north_65",
+      "frame": {
+        "x": 4940,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north_66",
+      "frame": {
+        "x": 5016,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north_67",
+      "frame": {
+        "x": 5092,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_north_68",
+      "frame": {
+        "x": 5168,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pull_north_69",
+      "frame": {
+        "x": 5244,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north_70",
+      "frame": {
+        "x": 5320,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north_71",
+      "frame": {
+        "x": 5396,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north_72",
+      "frame": {
+        "x": 5472,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north_73",
+      "frame": {
+        "x": 5548,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_north_74",
+      "frame": {
+        "x": 5624,
+        "y": 228,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "idle_east_0",
+      "frame": {
+        "x": 0,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_1",
+      "frame": {
+        "x": 76,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_2",
+      "frame": {
+        "x": 152,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_3",
+      "frame": {
+        "x": 228,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_4",
+      "frame": {
+        "x": 304,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_east_5",
+      "frame": {
+        "x": 380,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_east_6",
+      "frame": {
+        "x": 456,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_east_7",
+      "frame": {
+        "x": 532,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_east_8",
+      "frame": {
+        "x": 608,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_east_9",
+      "frame": {
+        "x": 684,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_east_10",
+      "frame": {
+        "x": 760,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_east_11",
+      "frame": {
+        "x": 836,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "dash_east_12",
+      "frame": {
+        "x": 912,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_east_13",
+      "frame": {
+        "x": 988,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_east_14",
+      "frame": {
+        "x": 1064,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_east_15",
+      "frame": {
+        "x": 1140,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_east_16",
+      "frame": {
+        "x": 1216,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_east_17",
+      "frame": {
+        "x": 1292,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_east_18",
+      "frame": {
+        "x": 1368,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_east_19",
+      "frame": {
+        "x": 1444,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "alert_east_20",
+      "frame": {
+        "x": 1520,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_east_21",
+      "frame": {
+        "x": 1596,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_east_22",
+      "frame": {
+        "x": 1672,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_east_23",
+      "frame": {
+        "x": 1748,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_east_24",
+      "frame": {
+        "x": 1824,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_east_25",
+      "frame": {
+        "x": 1900,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_east_26",
+      "frame": {
+        "x": 1976,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_east_27",
+      "frame": {
+        "x": 2052,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "crouch_east_28",
+      "frame": {
+        "x": 2128,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_east_29",
+      "frame": {
+        "x": 2204,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_east_30",
+      "frame": {
+        "x": 2280,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_east_31",
+      "frame": {
+        "x": 2356,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_east_32",
+      "frame": {
+        "x": 2432,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "hurt_east_33",
+      "frame": {
+        "x": 2508,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_east_34",
+      "frame": {
+        "x": 2584,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_east_35",
+      "frame": {
+        "x": 2660,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_east_36",
+      "frame": {
+        "x": 2736,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_east_37",
+      "frame": {
+        "x": 2812,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_east_38",
+      "frame": {
+        "x": 2888,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_east_39",
+      "frame": {
+        "x": 2964,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_east_40",
+      "frame": {
+        "x": 3040,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_east_41",
+      "frame": {
+        "x": 3116,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_east_42",
+      "frame": {
+        "x": 3192,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_east_43",
+      "frame": {
+        "x": 3268,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_east_44",
+      "frame": {
+        "x": 3344,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_east_45",
+      "frame": {
+        "x": 3420,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "pickup_east_46",
+      "frame": {
+        "x": 3496,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_east_47",
+      "frame": {
+        "x": 3572,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_east_48",
+      "frame": {
+        "x": 3648,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_east_49",
+      "frame": {
+        "x": 3724,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_east_50",
+      "frame": {
+        "x": 3800,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "jump_east_51",
+      "frame": {
+        "x": 3876,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_east_52",
+      "frame": {
+        "x": 3952,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_east_53",
+      "frame": {
+        "x": 4028,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_east_54",
+      "frame": {
+        "x": 4104,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_east_55",
+      "frame": {
+        "x": 4180,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_east_56",
+      "frame": {
+        "x": 4256,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_east_57",
+      "frame": {
+        "x": 4332,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "drink_east_58",
+      "frame": {
+        "x": 4408,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_east_59",
+      "frame": {
+        "x": 4484,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_east_60",
+      "frame": {
+        "x": 4560,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_east_61",
+      "frame": {
+        "x": 4636,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_east_62",
+      "frame": {
+        "x": 4712,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_east_63",
+      "frame": {
+        "x": 4788,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "get_up_east_64",
+      "frame": {
+        "x": 4864,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_east_65",
+      "frame": {
+        "x": 4940,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_east_66",
+      "frame": {
+        "x": 5016,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_east_67",
+      "frame": {
+        "x": 5092,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_east_68",
+      "frame": {
+        "x": 5168,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pull_east_69",
+      "frame": {
+        "x": 5244,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_east_70",
+      "frame": {
+        "x": 5320,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_east_71",
+      "frame": {
+        "x": 5396,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_east_72",
+      "frame": {
+        "x": 5472,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_east_73",
+      "frame": {
+        "x": 5548,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_east_74",
+      "frame": {
+        "x": 5624,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "attack_east_75",
+      "frame": {
+        "x": 5700,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_east_76",
+      "frame": {
+        "x": 5776,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_east_77",
+      "frame": {
+        "x": 5852,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "attack_east_78",
+      "frame": {
+        "x": 5928,
+        "y": 304,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "idle_west_0",
+      "frame": {
+        "x": 0,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_1",
+      "frame": {
+        "x": 76,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_2",
+      "frame": {
+        "x": 152,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_3",
+      "frame": {
+        "x": 228,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_west_4",
+      "frame": {
+        "x": 304,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_west_5",
+      "frame": {
+        "x": 380,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_west_6",
+      "frame": {
+        "x": 456,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_west_7",
+      "frame": {
+        "x": 532,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_west_8",
+      "frame": {
+        "x": 608,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_west_9",
+      "frame": {
+        "x": 684,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_west_10",
+      "frame": {
+        "x": 760,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "walk_west_11",
+      "frame": {
+        "x": 836,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "dash_west_12",
+      "frame": {
+        "x": 912,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_west_13",
+      "frame": {
+        "x": 988,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_west_14",
+      "frame": {
+        "x": 1064,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_west_15",
+      "frame": {
+        "x": 1140,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_west_16",
+      "frame": {
+        "x": 1216,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_west_17",
+      "frame": {
+        "x": 1292,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_west_18",
+      "frame": {
+        "x": 1368,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "dash_west_19",
+      "frame": {
+        "x": 1444,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 70
+    },
+    {
+      "filename": "alert_west_20",
+      "frame": {
+        "x": 1520,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_west_21",
+      "frame": {
+        "x": 1596,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_west_22",
+      "frame": {
+        "x": 1672,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_west_23",
+      "frame": {
+        "x": 1748,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_west_24",
+      "frame": {
+        "x": 1824,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_west_25",
+      "frame": {
+        "x": 1900,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_west_26",
+      "frame": {
+        "x": 1976,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "alert_west_27",
+      "frame": {
+        "x": 2052,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "crouch_west_28",
+      "frame": {
+        "x": 2128,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_west_29",
+      "frame": {
+        "x": 2204,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_west_30",
+      "frame": {
+        "x": 2280,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_west_31",
+      "frame": {
+        "x": 2356,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "crouch_west_32",
+      "frame": {
+        "x": 2432,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "hurt_west_33",
+      "frame": {
+        "x": 2508,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_west_34",
+      "frame": {
+        "x": 2584,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_west_35",
+      "frame": {
+        "x": 2660,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_west_36",
+      "frame": {
+        "x": 2736,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_west_37",
+      "frame": {
+        "x": 2812,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "hurt_west_38",
+      "frame": {
+        "x": 2888,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 80
+    },
+    {
+      "filename": "death_west_39",
+      "frame": {
+        "x": 2964,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_west_40",
+      "frame": {
+        "x": 3040,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_west_41",
+      "frame": {
+        "x": 3116,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_west_42",
+      "frame": {
+        "x": 3192,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_west_43",
+      "frame": {
+        "x": 3268,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_west_44",
+      "frame": {
+        "x": 3344,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "death_west_45",
+      "frame": {
+        "x": 3420,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "pickup_west_46",
+      "frame": {
+        "x": 3496,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_west_47",
+      "frame": {
+        "x": 3572,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_west_48",
+      "frame": {
+        "x": 3648,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_west_49",
+      "frame": {
+        "x": 3724,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pickup_west_50",
+      "frame": {
+        "x": 3800,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "jump_west_51",
+      "frame": {
+        "x": 3876,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_west_52",
+      "frame": {
+        "x": 3952,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_west_53",
+      "frame": {
+        "x": 4028,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_west_54",
+      "frame": {
+        "x": 4104,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_west_55",
+      "frame": {
+        "x": 4180,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_west_56",
+      "frame": {
+        "x": 4256,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "jump_west_57",
+      "frame": {
+        "x": 4332,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 90
+    },
+    {
+      "filename": "drink_west_58",
+      "frame": {
+        "x": 4408,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_west_59",
+      "frame": {
+        "x": 4484,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_west_60",
+      "frame": {
+        "x": 4560,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_west_61",
+      "frame": {
+        "x": 4636,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_west_62",
+      "frame": {
+        "x": 4712,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "drink_west_63",
+      "frame": {
+        "x": 4788,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 120
+    },
+    {
+      "filename": "get_up_west_64",
+      "frame": {
+        "x": 4864,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_west_65",
+      "frame": {
+        "x": 4940,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_west_66",
+      "frame": {
+        "x": 5016,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_west_67",
+      "frame": {
+        "x": 5092,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "get_up_west_68",
+      "frame": {
+        "x": 5168,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 100
+    },
+    {
+      "filename": "pull_west_69",
+      "frame": {
+        "x": 5244,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_west_70",
+      "frame": {
+        "x": 5320,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_west_71",
+      "frame": {
+        "x": 5396,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_west_72",
+      "frame": {
+        "x": 5472,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_west_73",
+      "frame": {
+        "x": 5548,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    },
+    {
+      "filename": "pull_west_74",
+      "frame": {
+        "x": 5624,
+        "y": 380,
+        "w": 76,
+        "h": 76
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 76,
+        "h": 76
+      },
+      "sourceSize": {
+        "w": 76,
+        "h": 76
+      },
+      "duration": 110
+    }
+  ],
+  "meta": {
+    "app": "assemble-sprites",
+    "version": "1.0",
+    "image": "loke.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 6460,
+      "h": 456
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "loke_idle_south",
+        "from": 0,
+        "to": 3,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_walk_south",
+        "from": 4,
+        "to": 11,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_dash_south",
+        "from": 12,
+        "to": 19,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_alert_south",
+        "from": 20,
+        "to": 27,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_crouch_south",
+        "from": 28,
+        "to": 32,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_hurt_south",
+        "from": 33,
+        "to": 38,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_death_south",
+        "from": 39,
+        "to": 45,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pickup_south",
+        "from": 46,
+        "to": 50,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_jump_south",
+        "from": 51,
+        "to": 57,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_drink_south",
+        "from": 58,
+        "to": 63,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_get_up_south",
+        "from": 64,
+        "to": 68,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pull_south",
+        "from": 69,
+        "to": 74,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_attack_south",
+        "from": 75,
+        "to": 78,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_fireball_south",
+        "from": 79,
+        "to": 84,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_idle_south-east",
+        "from": 85,
+        "to": 88,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_walk_south-east",
+        "from": 89,
+        "to": 96,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_dash_south-east",
+        "from": 97,
+        "to": 104,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_alert_south-east",
+        "from": 105,
+        "to": 112,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_crouch_south-east",
+        "from": 113,
+        "to": 117,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_hurt_south-east",
+        "from": 118,
+        "to": 123,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_death_south-east",
+        "from": 124,
+        "to": 130,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pickup_south-east",
+        "from": 131,
+        "to": 135,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_jump_south-east",
+        "from": 136,
+        "to": 142,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_drink_south-east",
+        "from": 143,
+        "to": 148,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_get_up_south-east",
+        "from": 149,
+        "to": 153,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pull_south-east",
+        "from": 154,
+        "to": 159,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_idle_north-east",
+        "from": 160,
+        "to": 163,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_walk_north-east",
+        "from": 164,
+        "to": 171,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_dash_north-east",
+        "from": 172,
+        "to": 179,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_alert_north-east",
+        "from": 180,
+        "to": 187,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_crouch_north-east",
+        "from": 188,
+        "to": 192,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_hurt_north-east",
+        "from": 193,
+        "to": 198,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_death_north-east",
+        "from": 199,
+        "to": 205,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pickup_north-east",
+        "from": 206,
+        "to": 210,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_jump_north-east",
+        "from": 211,
+        "to": 217,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_drink_north-east",
+        "from": 218,
+        "to": 223,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_get_up_north-east",
+        "from": 224,
+        "to": 228,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pull_north-east",
+        "from": 229,
+        "to": 234,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_attack_north-east",
+        "from": 235,
+        "to": 238,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_idle_north",
+        "from": 239,
+        "to": 242,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_walk_north",
+        "from": 243,
+        "to": 250,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_dash_north",
+        "from": 251,
+        "to": 258,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_alert_north",
+        "from": 259,
+        "to": 266,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_crouch_north",
+        "from": 267,
+        "to": 271,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_hurt_north",
+        "from": 272,
+        "to": 277,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_death_north",
+        "from": 278,
+        "to": 284,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pickup_north",
+        "from": 285,
+        "to": 289,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_jump_north",
+        "from": 290,
+        "to": 296,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_drink_north",
+        "from": 297,
+        "to": 302,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_get_up_north",
+        "from": 303,
+        "to": 307,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pull_north",
+        "from": 308,
+        "to": 313,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_idle_east",
+        "from": 314,
+        "to": 317,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_walk_east",
+        "from": 318,
+        "to": 325,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_dash_east",
+        "from": 326,
+        "to": 333,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_alert_east",
+        "from": 334,
+        "to": 341,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_crouch_east",
+        "from": 342,
+        "to": 346,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_hurt_east",
+        "from": 347,
+        "to": 352,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_death_east",
+        "from": 353,
+        "to": 359,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pickup_east",
+        "from": 360,
+        "to": 364,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_jump_east",
+        "from": 365,
+        "to": 371,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_drink_east",
+        "from": 372,
+        "to": 377,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_get_up_east",
+        "from": 378,
+        "to": 382,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pull_east",
+        "from": 383,
+        "to": 388,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_attack_east",
+        "from": 389,
+        "to": 392,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_idle_west",
+        "from": 393,
+        "to": 396,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_walk_west",
+        "from": 397,
+        "to": 404,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_dash_west",
+        "from": 405,
+        "to": 412,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_alert_west",
+        "from": 413,
+        "to": 420,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_crouch_west",
+        "from": 421,
+        "to": 425,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_hurt_west",
+        "from": 426,
+        "to": 431,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_death_west",
+        "from": 432,
+        "to": 438,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pickup_west",
+        "from": 439,
+        "to": 443,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_jump_west",
+        "from": 444,
+        "to": 450,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_drink_west",
+        "from": 451,
+        "to": 456,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_get_up_west",
+        "from": 457,
+        "to": 461,
+        "direction": "forward"
+      },
+      {
+        "name": "loke_pull_west",
+        "from": 462,
+        "to": 467,
+        "direction": "forward"
+      }
+    ]
+  }
+}

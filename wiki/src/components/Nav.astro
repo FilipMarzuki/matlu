@@ -2,13 +2,13 @@
 const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://corewarden.app';
 
 const navItems = [
-  { href: '/',           label: 'Home'      },
-  { href: '/lore',       label: 'Lore'      },
-  { href: '/biomes',     label: 'Biomes'    },
-  { href: '/creatures',  label: 'Creatures' },
-  { href: '/playtest',   label: 'Playtest'  },
-  { href: '/screenshots', label: 'Screenshots' },
-  { href: '/credits',     label: 'Credits'     },
+  { href: '/',            label: 'Home',        i18n: 'nav.home'        },
+  { href: '/lore',        label: 'Lore',        i18n: 'nav.lore'        },
+  { href: '/biomes',      label: 'Biomes',      i18n: 'nav.biomes'      },
+  { href: '/creatures',   label: 'Creatures',   i18n: 'nav.creatures'   },
+  { href: '/playtest',    label: 'Playtest',    i18n: 'nav.playtest'    },
+  { href: '/screenshots', label: 'Screenshots', i18n: 'nav.screenshots' },
+  { href: '/credits',     label: 'Credits',     i18n: 'nav.credits'     },
 ];
 
 const pathname = Astro.url.pathname;
@@ -19,52 +19,145 @@ const pathname = Astro.url.pathname;
   <ul>
     {navItems.map(item => (
       <li>
-        <a href={item.href} class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}>
+        <a
+          href={item.href}
+          data-i18n={item.i18n}
+          class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}
+        >
           {item.label}
         </a>
       </li>
     ))}
   </ul>
   <!-- Cross-links to other Matlu projects -->
-  <a href={`${gameUrl}/biome`} class="dev-link" target="_blank" rel="noopener">
+  <a href={`${gameUrl}/biome`} class="dev-link" data-i18n="nav.world_forge" target="_blank" rel="noopener">
     World Forge →
   </a>
-  <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" target="_blank" rel="noopener">
+  <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" data-i18n="nav.dev_log" target="_blank" rel="noopener">
     Dev Log →
   </a>
+  <!-- Language toggle -->
+  <div class="lang-toggle">
+    <button class="lang-btn" data-lang="en">EN</button>
+    <button class="lang-btn" data-lang="sv">SV</button>
+  </div>
 </nav>
 
 <style>
   nav {
     display: flex;
     align-items: center;
-    gap: 2rem;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--border);
+    gap: 1.75rem;
+    padding: 0.85rem 1.25rem;
     background: var(--surface);
-    box-shadow: 0 1px 0 rgba(168, 85, 247, 0.12);
+    /* Pixel art double-border on the bottom — game HUD feel */
+    border-bottom: 2px solid var(--border);
+    box-shadow:
+      0 2px 0 var(--bg),
+      0 4px 0 var(--border),
+      0 4px 24px rgba(0,0,0,0.6);
+    position: relative;
+    z-index: 100;
   }
+
+  /* Site title — Pixelify Sans in gold, matches game button color */
   .site-title {
-    color: var(--accent-hi);
-    font-family: 'Syne', sans-serif;
-    font-size: 1.15rem;
-    font-weight: 800;
+    color: var(--gold);
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
     white-space: nowrap;
-    text-shadow: 0 0 16px rgba(192, 132, 252, 0.4);
-    letter-spacing: 0.02em;
+    text-shadow:
+      0 0 10px rgba(255, 224, 102, 0.5),
+      0 0 28px rgba(255, 224, 102, 0.2);
+    letter-spacing: 0.03em;
+    text-decoration: none;
   }
-  ul { display: flex; gap: 1.25rem; list-style: none; }
-  a { color: var(--text-dim); font-size: 0.9rem; font-family: 'Outfit', sans-serif; }
-  a:hover, a.active { color: var(--text); text-decoration: none; }
-  a.active { color: var(--accent-hi); }
+  .site-title:hover { text-decoration: none; opacity: 0.9; }
+
+  ul { display: flex; gap: 1.1rem; list-style: none; }
+  a {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-family: 'Pixelify Sans', monospace;
+    transition: color 0.1s;
+  }
+  a:hover { color: var(--text); text-decoration: none; }
+  a.active {
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(255, 224, 102, 0.35);
+    text-decoration: none;
+  }
+
   .dev-link {
     margin-left: auto;
     color: var(--text-dim);
-    font-size: 0.82rem;
+    font-size: 0.75rem;
+    font-family: 'Pixelify Sans', monospace;
     white-space: nowrap;
-    border: 1px solid var(--border);
-    padding: 0.25rem 0.6rem;
-    border-radius: 4px;
+    border: 2px solid var(--border);
+    padding: 0.2rem 0.55rem;
+    border-radius: 0;   /* square = pixel art */
+    transition: border-color 0.15s, color 0.15s;
   }
-  .dev-link:hover { color: var(--text); text-decoration: none; border-color: var(--accent); }
+  .dev-link:hover {
+    color: var(--text);
+    text-decoration: none;
+    border-color: var(--accent-hi);
+  }
+
+  /* ── Language toggle ─────────────────────────────────────────────── */
+  .lang-toggle {
+    display: flex;
+    gap: 1px;
+    margin-left: 0.25rem;
+  }
+  .lang-btn {
+    background: none;
+    border: 2px solid var(--border);
+    border-radius: 0;   /* square pixel corners */
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.15rem 0.4rem;
+    transition: border-color 0.1s, color 0.1s, background 0.1s;
+  }
+  .lang-btn:hover { color: var(--text); border-color: var(--accent-hi); }
+  .lang-btn.active {
+    color: #1a1200;
+    background: var(--gold);
+    border-color: var(--gold);
+    text-shadow: none;
+  }
 </style>
+
+<script>
+  import { getLanguage, setLanguage, applyTranslations } from '../lib/i18n-codex';
+
+  function updateActive(lang: string) {
+    document.querySelectorAll<HTMLElement>('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+  }
+
+  // Mark active button on load
+  updateActive(getLanguage());
+
+  document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lang = btn.dataset.lang as 'en' | 'sv';
+      setLanguage(lang);
+      updateActive(lang);
+      // Re-apply to any elements the nav init script may have missed
+      applyTranslations(lang);
+    });
+  });
+
+  // Keep active state in sync when language changes from another source
+  window.addEventListener('codex:langchange', (e) => {
+    updateActive((e as CustomEvent<{ lang: string }>).detail.lang);
+  });
+</script>

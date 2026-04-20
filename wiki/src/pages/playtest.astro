@@ -11,13 +11,13 @@
 import Base from '../layouts/Base.astro';
 
 // These are baked in at Vercel build time — safe to expose (publishable key).
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 ---
 
 <Base title="Playtest" description="Play Matlu and share your feedback">
-  <h1>Playtest Matlu</h1>
-  <p class="lead">
+  <h1 data-i18n="playtest.title">Playtest Matlu</h1>
+  <p class="lead" data-i18n="playtest.lead">
     Try the game in your browser, then share what worked and what didn't.
     Feedback goes directly to the development team.
   </p>
@@ -27,13 +27,14 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     target="_blank"
     rel="noopener noreferrer"
     class="play-btn"
+    data-i18n="playtest.play_btn"
   >
     Play Matlu &rarr;
   </a>
 
   <section class="feedback-section">
-    <h2>Share your feedback</h2>
-    <p class="section-desc">Takes about 60 seconds. No account needed.</p>
+    <h2 data-i18n="playtest.feedback_heading">Share your feedback</h2>
+    <p class="section-desc" data-i18n="playtest.feedback_desc">Takes about 60 seconds. No account needed.</p>
 
     <!--
       Hidden element to bridge server-side env vars into the client script.
@@ -45,7 +46,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <form id="feedback-form" novalidate>
       <div class="field">
-        <label for="combat_feel_rating">How did combat feel? <span class="hint">(1 = terrible, 5 = great)</span></label>
+        <label for="combat_feel_rating"><span data-i18n="playtest.combat_label">How did combat feel?</span> <span class="hint" data-i18n="playtest.combat_hint">(1 = terrible, 5 = great)</span></label>
         <div class="rating-row">
           {[1, 2, 3, 4, 5].map(n => (
             <label class="radio-label">
@@ -57,21 +58,21 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <div class="field">
-        <label for="frustration_text">What frustrated you most? <span class="hint">(optional)</span></label>
+        <label for="frustration_text"><span data-i18n="playtest.frustration_label">What frustrated you most?</span> <span class="hint">(optional)</span></label>
         <textarea id="frustration_text" name="frustration_text" rows={3} placeholder="e.g. controls feel slippery, enemies too fast…"></textarea>
       </div>
 
       <div class="field">
-        <label for="bug_text">Any bugs? <span class="hint">(optional)</span></label>
+        <label for="bug_text"><span data-i18n="playtest.bug_label">Any bugs?</span> <span class="hint">(optional)</span></label>
         <textarea id="bug_text" name="bug_text" rows={3} placeholder="e.g. crashed when pressing X, stuck on Y screen…"></textarea>
       </div>
 
       <div class="field">
-        <label for="overall_text">Overall thoughts <span class="hint">(optional)</span></label>
+        <label for="overall_text"><span data-i18n="playtest.overall_label">Overall thoughts</span> <span class="hint">(optional)</span></label>
         <textarea id="overall_text" name="overall_text" rows={3} placeholder="Anything else you'd like us to know…"></textarea>
       </div>
 
-      <button type="submit" id="submit-btn">Submit feedback</button>
+      <button type="submit" id="submit-btn" data-i18n="playtest.submit_btn">Submit feedback</button>
     </form>
 
     <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
@@ -80,6 +81,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
 <script>
   import { createClient } from '@supabase/supabase-js';
+  import { t } from '../lib/i18n-codex';
 
   const cfg = document.getElementById('supa-cfg') as HTMLElement;
   const url = cfg.dataset.url ?? '';
@@ -101,7 +103,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     const data = new FormData(form);
     const ratingRaw = data.get('combat_feel_rating');
     if (!ratingRaw) {
-      statusEl.textContent = 'Please select a combat feel rating.';
+      statusEl.textContent = t('playtest.rating_required');
       statusEl.className = 'form-status error';
       return;
     }
@@ -120,7 +122,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     ].filter(Boolean).join(' | ');
 
     submitBtn.disabled = true;
-    statusEl.textContent = 'Submitting…';
+    statusEl.textContent = t('playtest.submitting');
     statusEl.className = 'form-status';
 
     const { error } = await supabase.from('matlu_feedback').insert({
@@ -141,11 +143,11 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     if (error) {
       console.error('Feedback submit error:', error);
-      statusEl.textContent = 'Something went wrong — please try again.';
+      statusEl.textContent = t('playtest.error');
       statusEl.className = 'form-status error';
       submitBtn.disabled = false;
     } else {
-      statusEl.textContent = 'Thanks! Your feedback has been recorded.';
+      statusEl.textContent = t('playtest.success');
       statusEl.className = 'form-status success';
       form.reset();
     }
@@ -158,23 +160,25 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
   .play-btn {
     display: inline-block;
-    background: var(--accent);
-    color: #fff;
-    font-family: 'Syne', sans-serif;
+    background: var(--gold);
+    color: #1a1200;
+    font-family: 'Pixelify Sans', monospace;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1rem;
     padding: 0.75rem 2rem;
-    border-radius: 8px;
+    border-radius: 0;
     text-decoration: none;
-    transition: background 0.15s, box-shadow 0.15s;
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
+    box-shadow: 4px 4px 0 var(--gold-dim);
+    transition: box-shadow 0.08s, transform 0.08s;
     margin-bottom: 3rem;
   }
   .play-btn:hover {
-    background: var(--accent-hi);
-    color: #fff;
     text-decoration: none;
-    box-shadow: 0 0 28px rgba(192, 132, 252, 0.5);
+    box-shadow: 5px 5px 0 var(--gold-dim);
+  }
+  .play-btn:active {
+    box-shadow: 1px 1px 0 var(--gold-dim);
+    transform: translate(3px, 3px);
   }
 
   .feedback-section { margin-top: 1rem; }
@@ -224,7 +228,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Pixelify Sans', monospace;
     font-size: 0.95rem;
     font-weight: 700;
     padding: 0.65rem 1.75rem;

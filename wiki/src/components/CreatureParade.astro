@@ -1,0 +1,115 @@
+---
+/**
+ * CreatureParade — infinite horizontal scroll strip of game character sprites.
+ *
+ * All sprites show their idle_south_0 frame (x=0, y=0 on the spritesheet).
+ * Every sprite is normalised to TARGET_H so the parade looks like a uniform row.
+ * The inner track is duplicated for a seamless CSS translateX(-50%) loop:
+ *   - padding-left = one gap width
+ *   - total inner width = 2 × (one-set-width + one gap)
+ *   - -50% lands exactly at the seam between set 1 and set 2
+ */
+
+// Target display height — all sprites scaled to this regardless of native frame size.
+// All frames happen to be square, so display width = TARGET_H too.
+const TARGET_H = 128; // px
+
+// Sprite data: natural frame size and full spritesheet dimensions.
+// background-position is always 0 0 (idle_south_0 is the top-left frame).
+const SPRITES = [
+  { id: 'loke',        label: 'Loke',         src: '/assets/sprites/characters/mistheim/heroes/loke/loke.png',                             fw: 76, fh: 76, sw: 6460, sh: 456  },
+  { id: 'skald',       label: 'Skald',        src: '/assets/sprites/characters/earth/heroes/skald/skald.png',                               fw: 48, fh: 48, sw: 864,  sh: 192  },
+  { id: 'tinkerer',    label: 'Tinkerer',     src: '/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',                         fw: 48, fh: 48, sw: 2304, sh: 288  },
+  { id: 'crow',        label: 'Crow',         src: '/assets/sprites/characters/earth/enemies/crow/crow.png',                                fw: 36, fh: 36, sw: 900,  sh: 144  },
+  { id: 'skag',        label: 'Skag',         src: '/assets/sprites/characters/earth/enemies/skag/skag.png',                                fw: 36, fh: 36, sw: 792,  sh: 144  },
+  { id: 'spider',      label: 'Spider',       src: '/assets/sprites/characters/earth/enemies/spider/spider.png',                            fw: 28, fh: 28, sw: 504,  sh: 112  },
+  { id: 'mini-velcrid',label: 'Mini-Velcrid', src: '/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.png',          fw: 92, fh: 92, sw: 2668, sh: 552  },
+];
+
+// Scale each sprite so its frame height = TARGET_H.
+// Since all frames are square, display width = TARGET_H too.
+const sprites = SPRITES.map(s => {
+  const scale = TARGET_H / s.fh;
+  return {
+    ...s,
+    dw:  TARGET_H,
+    dh:  TARGET_H,
+    bsw: Math.round(s.sw * scale),
+    bsh: Math.round(s.sh * scale),
+  };
+});
+
+const GAP_PX   = 48;  // must match CSS gap (3rem at 16px root)
+const STRIP_H  = 160; // strip height: TARGET_H + comfortable padding
+---
+
+<div class="parade" aria-hidden="true">
+  <div class="parade-inner" style={`padding-left: ${GAP_PX}px;`}>
+    {[...sprites, ...sprites].map((s) => (
+      <div
+        class="sprite"
+        title={s.label}
+        style={[
+          `width: ${s.dw}px`,
+          `height: ${s.dh}px`,
+          `background-image: url('${s.src}')`,
+          `background-size: ${s.bsw}px ${s.bsh}px`,
+          `background-position: 0 0`,
+        ].join('; ')}
+      />
+    ))}
+  </div>
+</div>
+
+<style define:vars={{ stripH: `${STRIP_H}px` }}>
+  .parade {
+    width: 100%;
+    height: var(--stripH);
+    overflow: hidden;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+
+    /* Sprites fade in/out at the edges */
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 6%,
+      black 94%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 6%,
+      black 94%,
+      transparent 100%
+    );
+  }
+
+  .parade-inner {
+    display: flex;
+    align-items: center;   /* vertically centre all sprites in the strip */
+    gap: 3rem;             /* 48px — must match GAP_PX above */
+    height: 100%;
+
+    animation: parade-scroll 30s linear infinite;
+    will-change: transform;
+  }
+
+  @keyframes parade-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .parade-inner { animation-play-state: paused; }
+  }
+
+  .sprite {
+    flex-shrink: 0;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+</style>

@@ -11,13 +11,13 @@
  *   - Row insert into creature_submissions; rollback upload on insert failure
  *
  * Pattern mirrors wiki/src/pages/playtest.astro: Supabase creds are baked in
- * at build time via VITE_* env vars and bridged to <script> via data attributes.
+ * at build time via PUBLIC_* env vars and bridged to <script> via data attributes.
  */
 import Base from '../../layouts/Base.astro';
 import { LICENSE_VERSION } from './license.astro';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 ---
 
 <Base
@@ -29,8 +29,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   <!-- License version passed to the insert -->
   <div id="license-ver" data-version={LICENSE_VERSION} hidden></div>
 
-  <h1>Submit a Creature</h1>
-  <p class="lead">
+  <h1 data-i18n="submit.title">Submit a Creature</h1>
+  <p class="lead" data-i18n="submit.lead">
     Share your fantasy creature with the Matlu world!
     Fill in as many fields as you can — the more detail you add, the better the chances
     it inspires a real in-game creature.
@@ -40,8 +40,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   <div id="draft-banner" class="draft-banner" hidden>
     <span id="draft-msg">You have an unfinished creature.</span>
     <div class="draft-actions">
-      <button type="button" id="btn-resume" class="btn-ghost">Resume</button>
-      <button type="button" id="btn-fresh" class="btn-ghost btn-ghost--warn">Start fresh</button>
+      <button type="button" id="btn-resume" class="btn-ghost" data-i18n="submit.draft_resume">Resume</button>
+      <button type="button" id="btn-fresh" class="btn-ghost btn-ghost--warn" data-i18n="submit.draft_fresh">Start fresh</button>
     </div>
   </div>
 
@@ -58,16 +58,16 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 1: Your creature ───────────────────────────────── -->
     <section class="form-section">
-      <h2>Your creature</h2>
+      <h2 data-i18n="submit.your_creature">Your creature</h2>
 
       <div class="field">
-        <label for="creature_name">Creature name <span class="req">*</span></label>
+        <label for="creature_name"><span data-i18n="submit.creature_name">Creature name</span> <span class="req">*</span></label>
         <input id="creature_name" name="creature_name" type="text" maxlength="120"
                placeholder="e.g. Gloomfin, Thornback, Velcrid" autocomplete="off" />
       </div>
 
       <div class="field">
-        <label for="world_name">Which world does it live in? <span class="hint">(optional)</span></label>
+        <label for="world_name"><span data-i18n="submit.world_name">Which world does it live in?</span> <span class="hint">(optional)</span></label>
         <input id="world_name" name="world_name" type="text" maxlength="120"
                placeholder="e.g. Spinolandet, The Living Sea…" autocomplete="off" />
       </div>
@@ -75,22 +75,22 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 2: About you ───────────────────────────────────── -->
     <section class="form-section">
-      <h2>About you</h2>
+      <h2 data-i18n="submit.about_you">About you</h2>
 
       <div class="field">
-        <label for="creator_name">Your name <span class="hint">(optional — used for credits)</span></label>
+        <label for="creator_name"><span data-i18n="submit.creator_name">Your name</span> <span class="hint">(optional — used for credits)</span></label>
         <input id="creator_name" name="creator_name" type="text" maxlength="120"
                placeholder="First name or nickname" autocomplete="name" />
       </div>
 
       <div class="field">
-        <label for="maker_age">Your age <span class="hint">(optional)</span></label>
+        <label for="maker_age"><span data-i18n="submit.maker_age">Your age</span> <span class="hint">(optional)</span></label>
         <input id="maker_age" name="maker_age" type="number" min="1" max="120"
                placeholder="e.g. 10" style="max-width:120px" />
       </div>
 
       <div class="field">
-        <label for="contact_email">Parent / guardian email <span class="hint">(optional — we may reach out about your creature)</span></label>
+        <label for="contact_email"><span data-i18n="submit.contact_email">Parent / guardian email</span> <span class="hint">(optional — we may reach out about your creature)</span></label>
         <input id="contact_email" name="contact_email" type="email" maxlength="254"
                placeholder="parent@example.com" autocomplete="email" />
       </div>
@@ -98,8 +98,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 3: Picture ─────────────────────────────────────── -->
     <section class="form-section">
-      <h2>Picture <span class="req">*</span></h2>
-      <p class="section-desc">
+      <h2><span data-i18n="submit.picture">Picture</span> <span class="req">*</span></h2>
+      <p class="section-desc" data-i18n="submit.picture_desc">
         Upload a drawing, painting, or photo. Any style — pencil sketch, crayon, digital — is great.
         Max 5 MB. Accepted: JPG, PNG, GIF, WebP.
       </p>
@@ -107,13 +107,13 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
         Images can't be saved in drafts — please pick your file again.
       </div>
       <div class="field">
-        <label for="art_file">Choose image <span class="req">*</span></label>
+        <label for="art_file"><span data-i18n="submit.choose_image">Choose image</span> <span class="req">*</span></label>
         <input id="art_file" name="art_file" type="file"
                accept="image/jpeg,image/png,image/gif,image/webp" />
         <span id="art_file_error" class="field-error" hidden></span>
       </div>
       <div class="field">
-        <label for="art_credit">Art credit <span class="hint">(leave blank to use your name above)</span></label>
+        <label for="art_credit"><span data-i18n="submit.art_credit">Art credit</span> <span class="hint">(leave blank to use your name above)</span></label>
         <input id="art_credit" name="art_credit" type="text" maxlength="120"
                placeholder="Who made the drawing?" />
       </div>
@@ -121,10 +121,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 4: What kind? ──────────────────────────────────── -->
     <section class="form-section">
-      <h2>What kind of creature is it?</h2>
+      <h2 data-i18n="submit.kind">What kind of creature is it?</h2>
 
       <div class="field">
-        <label for="kind_size">Size</label>
+        <label for="kind_size" data-i18n="submit.size">Size</label>
         <select id="kind_size" name="kind_size">
           <option value="">— choose —</option>
           <option value="tiny">Tiny (fits in your hand)</option>
@@ -136,7 +136,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <div class="field">
-        <label>How does it move? <span class="hint">(pick all that apply)</span></label>
+        <label><span data-i18n="submit.movement">How does it move?</span> <span class="hint">(pick all that apply)</span></label>
         <div class="checkbox-group">
           {['walk', 'swim', 'fly', 'burrow', 'crawl', 'slither'].map(m => (
             <label class="checkbox-label">
@@ -148,7 +148,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <div class="field">
-        <label>Does it live alone or in groups?</label>
+        <label data-i18n="submit.solitary">Does it live alone or in groups?</label>
         <div class="radio-row">
           <label class="radio-label"><input type="radio" name="kind_solitary" value="true" /> Alone</label>
           <label class="radio-label"><input type="radio" name="kind_solitary" value="false" /> Groups</label>
@@ -159,10 +159,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 5: Habitat ─────────────────────────────────────── -->
     <section class="form-section">
-      <h2>Where does it live?</h2>
+      <h2 data-i18n="submit.habitat">Where does it live?</h2>
 
       <div class="field">
-        <label>Biome / habitat <span class="hint">(pick all that apply)</span></label>
+        <label><span data-i18n="submit.biome">Biome / habitat</span> <span class="hint">(pick all that apply)</span></label>
         <div class="checkbox-group">
           {[
             ['forest','Forest'],['meadow','Meadow'],['mountain','Mountain'],
@@ -179,7 +179,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <div class="field">
-        <label for="habitat_climate">Climate</label>
+        <label for="habitat_climate" data-i18n="submit.climate">Climate</label>
         <select id="habitat_climate" name="habitat_climate">
           <option value="">— choose —</option>
           <option value="tropical">Tropical (hot and wet)</option>
@@ -191,7 +191,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <div class="field">
-        <label for="habitat_notes">Anything else about where it lives? <span class="hint">(optional)</span></label>
+        <label for="habitat_notes"><span data-i18n="submit.habitat_notes">Anything else about where it lives?</span> <span class="hint">(optional)</span></label>
         <textarea id="habitat_notes" name="habitat_notes" rows={2}
                   placeholder="e.g. 'hides under rocks near waterfalls'"></textarea>
       </div>
@@ -199,10 +199,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 6: Behaviour ───────────────────────────────────── -->
     <section class="form-section">
-      <h2>How does it behave?</h2>
+      <h2 data-i18n="submit.behaviour">How does it behave?</h2>
 
       <div class="field">
-        <label for="behaviour_threat">How dangerous is it?</label>
+        <label for="behaviour_threat" data-i18n="submit.threat">How dangerous is it?</label>
         <select id="behaviour_threat" name="behaviour_threat">
           <option value="">— choose —</option>
           <option value="friendly">Friendly — won't attack unless provoked</option>
@@ -214,7 +214,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <div class="field">
-        <label for="behaviour_notes">Any other behaviour notes? <span class="hint">(optional)</span></label>
+        <label for="behaviour_notes"><span data-i18n="submit.behaviour_notes">Any other behaviour notes?</span> <span class="hint">(optional)</span></label>
         <textarea id="behaviour_notes" name="behaviour_notes" rows={2}
                   placeholder="e.g. 'glows at night', 'leaves trails of flowers'"></textarea>
       </div>
@@ -222,10 +222,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 7: Food ────────────────────────────────────────── -->
     <section class="form-section">
-      <h2>What does it eat?</h2>
+      <h2 data-i18n="submit.food">What does it eat?</h2>
 
       <div class="field">
-        <label for="kind_diet">Diet</label>
+        <label for="kind_diet" data-i18n="submit.diet">Diet</label>
         <select id="kind_diet" name="kind_diet">
           <option value="">— choose —</option>
           <option value="herbivore">Herbivore (plants only)</option>
@@ -237,7 +237,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <div class="field">
-        <label for="food_notes">Favourite food or hunting style <span class="hint">(optional)</span></label>
+        <label for="food_notes"><span data-i18n="submit.food_notes">Favourite food or hunting style</span> <span class="hint">(optional)</span></label>
         <textarea id="food_notes" name="food_notes" rows={2}
                   placeholder="e.g. 'loves berries', 'hunts by mimicking sounds'"></textarea>
       </div>
@@ -245,10 +245,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 8: Special ─────────────────────────────────────── -->
     <section class="form-section">
-      <h2>Special things</h2>
+      <h2 data-i18n="submit.special">Special things</h2>
 
       <div class="field">
-        <label for="special_ability">Special ability or power <span class="hint">(optional)</span></label>
+        <label for="special_ability"><span data-i18n="submit.special_ability">Special ability or power</span> <span class="hint">(optional)</span></label>
         <input id="special_ability" name="special_ability" type="text" maxlength="240"
                placeholder="e.g. 'turns invisible in moonlight', 'heals nearby plants'" />
       </div>
@@ -256,21 +256,21 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 9: Story ───────────────────────────────────────── -->
     <section class="form-section">
-      <h2>The story <span class="req">*</span></h2>
-      <p class="section-desc">
+      <h2><span data-i18n="submit.story">The story</span> <span class="req">*</span></h2>
+      <p class="section-desc" data-i18n="submit.story_desc">
         Tell us about your creature in your own words. Where did it come from? What makes it
         special? What's it like to encounter one? At least 20 characters.
       </p>
 
       <div class="field">
-        <label for="lore_description">Description <span class="req">*</span></label>
+        <label for="lore_description"><span data-i18n="submit.description">Description</span> <span class="req">*</span></label>
         <textarea id="lore_description" name="lore_description" rows={6} maxlength="2000"
                   placeholder="Write at least a sentence or two about your creature…"></textarea>
         <span id="story-count" class="char-count">0 / 2000</span>
       </div>
 
       <div class="field">
-        <label for="lore_origin">Origin story <span class="hint">(optional — how did it come to exist?)</span></label>
+        <label for="lore_origin"><span data-i18n="submit.lore_origin">Origin story</span> <span class="hint">(optional — how did it come to exist?)</span></label>
         <textarea id="lore_origin" name="lore_origin" rows={3} maxlength="1000"
                   placeholder="e.g. 'Created when lightning struck an ancient oak…'"></textarea>
       </div>
@@ -278,12 +278,12 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- ── Section 10: Consent ────────────────────────────────────── -->
     <section class="form-section form-section--consent">
-      <h2>Consent</h2>
+      <h2 data-i18n="submit.consent">Consent</h2>
 
       <div class="field field--check">
         <label class="checkbox-label checkbox-label--block">
           <input type="checkbox" id="credits_opt_in" name="credits_opt_in" checked />
-          Credit me in the game if my creature is added
+          <span data-i18n="submit.credits_opt_in">Credit me in the game if my creature is added</span>
           <span class="hint">(your creator name will appear in the in-game credits)</span>
         </label>
       </div>
@@ -311,7 +311,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <!-- Submit -->
     <div class="submit-row">
-      <button type="submit" id="submit-btn" disabled title="">
+      <button type="submit" id="submit-btn" disabled title="" data-i18n="submit.submit_btn">
         Submit creature
       </button>
       <span id="submit-hint" class="submit-hint"></span>
@@ -323,6 +323,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
 <script>
   import { createClient } from '@supabase/supabase-js';
+  import { t } from '../../lib/i18n-codex';
 
   // ── Supabase client ───────────────────────────────────────────────────────
   const cfg = document.getElementById('supa-cfg') as HTMLElement;
@@ -542,10 +543,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     e.preventDefault();
 
     const file = artFile.files?.[0];
-    if (!file) { statusEl.textContent = 'Please add a picture.'; statusEl.className = 'form-status error'; return; }
+    if (!file) { statusEl.textContent = t('submit.no_picture'); statusEl.className = 'form-status error'; return; }
 
     submitBtn.disabled = true;
-    statusEl.textContent = 'Uploading picture…';
+    statusEl.textContent = t('submit.uploading');
     statusEl.className = 'form-status';
 
     // Generate upload path
@@ -560,14 +561,14 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     if (uploadErr) {
       console.error('Upload error:', uploadErr);
-      statusEl.textContent = 'Could not upload your picture. Please try again.';
+      statusEl.textContent = t('submit.upload_error');
       statusEl.className = 'form-status error';
       submitBtn.disabled = false;
       return;
     }
 
     // Collect form data
-    statusEl.textContent = 'Saving your creature…';
+    statusEl.textContent = t('submit.saving');
     const fd = new FormData(form);
     const { score } = computeScore();
 
@@ -609,7 +610,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       console.error('Insert error:', insertErr);
       // Best-effort rollback — delete the uploaded image
       await supabase.storage.from('creature-art').remove([storagePath]);
-      statusEl.textContent = 'Something went wrong saving your creature. Please try again.';
+      statusEl.textContent = t('submit.save_error');
       statusEl.className = 'form-status error';
       submitBtn.disabled = false;
       return;
@@ -619,7 +620,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     localStorage.removeItem(DRAFT_KEY);
     form.reset();
     updateProgress();
-    statusEl.textContent = '🎉 Thanks! Your creature is waiting to be approved. We\'ll review it soon!';
+    statusEl.textContent = t('submit.success');
     statusEl.className = 'form-status success';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -702,7 +703,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     font-size: 1.05rem;
     color: var(--accent-hi);
     margin: 0 0 1.1rem 0;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Pixelify Sans', monospace;
   }
   .form-section--consent { border-left: 3px solid var(--accent); }
   .section-desc { font-size: 0.875rem; color: var(--text-dim); margin: -0.5rem 0 1rem; }
@@ -791,19 +792,26 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     margin-top: 0.5rem;
   }
   button[type="submit"] {
-    background: var(--accent);
+    background: var(--gold);
     border: none;
-    border-radius: 7px;
-    color: #fff;
+    border-radius: 0;
+    color: #1a1200;
     cursor: pointer;
-    font-family: 'Syne', sans-serif;
+    font-family: 'Pixelify Sans', monospace;
     font-size: 1rem;
     font-weight: 700;
     padding: 0.7rem 2rem;
-    transition: background 0.15s;
+    box-shadow: 3px 3px 0 var(--gold-dim);
+    transition: box-shadow 0.08s, transform 0.08s;
   }
-  button[type="submit"]:hover:not(:disabled) { background: var(--accent-hi); }
-  button[type="submit"]:disabled { opacity: 0.45; cursor: not-allowed; }
+  button[type="submit"]:hover:not(:disabled) {
+    box-shadow: 4px 4px 0 var(--gold-dim);
+  }
+  button[type="submit"]:active:not(:disabled) {
+    box-shadow: 1px 1px 0 var(--gold-dim);
+    transform: translate(2px, 2px);
+  }
+  button[type="submit"]:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
   .submit-hint { font-size: 0.82rem; color: var(--text-dim); }
 
   .form-status { margin-top: 1.25rem; font-size: 0.95rem; min-height: 1.4em; }
