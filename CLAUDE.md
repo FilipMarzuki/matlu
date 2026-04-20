@@ -12,8 +12,8 @@ This repo contains three deployable projects:
 
 | Project | Directory | Vercel project | Purpose |
 | ------- | --------- | -------------- | ------- |
-| **Core Warden** (game) | `/` (root) | `matlu` | The Phaser 3 game |
-| **Matlu Codex** | `wiki/` | `matlu-wiki` | Community hub — lore, biomes, creatures, contribution forms. Audience: players, kids, contributors. |
+| **Core Warden** (game) | `/` (root) | `matlu` — [corewarden.app](https://corewarden.app) | The Phaser 3 game |
+| **Matlu Codex** | `wiki/` | `matlu-codex` — [codex.corewarden.com](https://codex.corewarden.com) | Community hub — lore, biomes, creatures, contribution forms. Audience: players, kids, contributors. |
 | **Agentic Experiments** | `dev/` | `matlu-dev` | AI/automation learning log — metrics, agent performance, dev blog. Audience: self (primary), external devs (secondary). |
 
 Each site has its own `package.json` and is built independently in CI.
