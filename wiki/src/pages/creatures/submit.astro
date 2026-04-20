@@ -1,0 +1,1172 @@
+---
+/**
+ * Creature submission form — the kid-facing page where players upload their
+ * own creatures to be reviewed for inclusion in Core Warden.
+ *
+ * Depends on:
+ *   - #334 Base layout (wiki/src/layouts/Base.astro)
+ *   - #335 A1 schema + bucket + license (creature_submissions table,
+ *     creature-art Storage bucket, LICENSE_VERSION export from license.astro)
+ *
+ * Key design decisions:
+ *   - Image uploaded to Storage BEFORE the DB row is inserted. If the insert
+ *     fails, the orphaned file is deleted (best-effort). This avoids rows
+ *     without images.
+ *   - Fields without a direct DB column (intelligence, activity_time, sounds,
+ *     weaknesses) are combined into the appropriate free-text columns
+ *     (behaviour_notes, special_ability) so no data is lost.
+ *   - localStorage draft uses key 'creature-draft-v1'; File objects cannot
+ *     round-trip through JSON so the image is never persisted.
+ */
+import Base from '../../layouts/Base.astro';
+import { LICENSE_VERSION } from './license.astro';
+
+// Baked in at Vercel build time — safe to expose (publishable key).
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+
+const movementOptions = ['walks', 'swims', 'flies', 'burrows', 'slithers'];
+const habitatOptions = [
+  'forest', 'desert', 'ocean', 'mountains', 'swamp',
+  'plains', 'cave', 'tundra', 'volcano', 'sky', 'ruins', 'city',
+];
+---
+
+<Base
+  title="Submit a Creature"
+  description="Design your own creature and submit it to the Matlu encyclopedia. It might appear in Core Warden!"
+>
+  <h1>Submit a Creature</h1>
+  <p class="lead">
+    Invent a creature that lives in the Matlu multiworld. Fill in as much as
+    you like — the more detail you give, the higher your creature's chance of
+    making it into the game!
+  </p>
+
+  <!-- Draft resume banner — shown by JS if localStorage has a saved draft -->
+  <div id="draft-banner" class="draft-banner" hidden>
+    <p>
+      You have an unfinished creature from <strong id="draft-time"></strong>.
+    </p>
+    <div class="draft-actions">
+      <button type="button" id="resume-btn" class="btn-secondary">Resume</button>
+      <button type="button" id="fresh-btn" class="btn-ghost">Start fresh</button>
+    </div>
+    <p class="image-note">
+      Your picture was not saved — please re-select it after resuming.
+    </p>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-section">
+    <div class="progress-header">
+      <span class="progress-label">Completion score</span>
+      <span id="progress-pct" class="progress-pct">0%</span>
+    </div>
+    <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-track">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+    <ul id="missing-list" class="missing-list" aria-label="Still needed"></ul>
+  </div>
+
+  <!-- Bridge server-side env vars + license version into the client script -->
+  <div
+    id="supa-cfg"
+    data-url={supabaseUrl}
+    data-key={supabaseKey}
+    data-license={LICENSE_VERSION}
+    hidden
+  ></div>
+
+  <form id="creature-form" novalidate>
+
+    <!-- ── 1. Identity ──────────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>Your creature</h2>
+
+      <div class="field">
+        <label for="creature_name">
+          Creature name <span class="req" aria-label="required">*</span>
+        </label>
+        <input
+          type="text"
+          id="creature_name"
+          name="creature_name"
+          required
+          maxlength="80"
+          placeholder="What is it called?"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="field">
+        <label for="creator_name">
+          Your name <span class="hint">(optional — how you want to be credited)</span>
+        </label>
+        <input
+          type="text"
+          id="creator_name"
+          name="creator_name"
+          maxlength="80"
+          placeholder="Your name or nickname"
+          autocomplete="name"
+        />
+      </div>
+
+      <div class="field field--narrow">
+        <label for="maker_age">
+          Your age <span class="hint">(optional)</span>
+        </label>
+        <input
+          type="number"
+          id="maker_age"
+          name="maker_age"
+          min="1"
+          max="120"
+          placeholder="e.g. 10"
+        />
+      </div>
+    </section>
+
+    <!-- ── 2. Picture ───────────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>Picture <span class="req" aria-label="required">*</span></h2>
+      <p class="section-desc">
+        Upload a drawing, painting, or photo of your creature. Any style is welcome!
+      </p>
+
+      <div class="field">
+        <label for="art_file">Upload your artwork</label>
+        <input
+          type="file"
+          id="art_file"
+          name="art_file"
+          accept="image/png,image/jpeg,image/webp,image/heic"
+          required
+        />
+        <span class="hint">PNG, JPG, WebP or HEIC &middot; max 5 MB</span>
+        <p id="file-error" class="field-error" hidden></p>
+        <div id="image-preview-wrap" class="image-preview-wrap" hidden>
+          <img id="image-preview" class="image-preview" alt="Your artwork preview" />
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. What kind of creature ─────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>What kind of creature?</h2>
+
+      <div class="field">
+        <label for="kind_size">
+          How big is it? <span class="hint">(optional)</span>
+        </label>
+        <select id="kind_size" name="kind_size">
+          <option value="">— pick one —</option>
+          <option value="tiny">Tiny — fits in your hand</option>
+          <option value="small">Small — like a cat</option>
+          <option value="medium">Medium — like a dog</option>
+          <option value="large">Large — like a horse</option>
+          <option value="colossal">Colossal — bigger than a house!</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>
+          How does it move? <span class="hint">(pick all that apply)</span>
+        </label>
+        <div class="checkbox-group">
+          {movementOptions.map(m => (
+            <label class="checkbox-label">
+              <input type="checkbox" name="kind_movement" value={m} />
+              {m.charAt(0).toUpperCase() + m.slice(1)}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="intelligence">
+          How smart is it? <span class="hint">(optional)</span>
+        </label>
+        <select id="intelligence" name="intelligence">
+          <option value="">— pick one —</option>
+          <option value="mindless">Mindless — acts on instinct only</option>
+          <option value="animal">Animal — like a dog or bird</option>
+          <option value="cunning">Cunning — clever, can solve puzzles</option>
+          <option value="sentient">Sentient — can talk or reason</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ── 4. Where it lives ─────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>Where does it live?</h2>
+
+      <div class="field">
+        <label>
+          Habitat <span class="hint">(pick all that apply)</span>
+        </label>
+        <div class="checkbox-group checkbox-group--wide">
+          {habitatOptions.map(h => (
+            <label class="checkbox-label">
+              <input type="checkbox" name="habitat_biome" value={h} />
+              {h.charAt(0).toUpperCase() + h.slice(1)}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="habitat_climate">
+          Climate <span class="hint">(optional)</span>
+        </label>
+        <select id="habitat_climate" name="habitat_climate">
+          <option value="">— pick one —</option>
+          <option value="cold">Cold</option>
+          <option value="temperate">Temperate</option>
+          <option value="hot">Hot</option>
+          <option value="any">Lives anywhere</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ── 5. Behaviour ──────────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>How does it behave?</h2>
+
+      <div class="field">
+        <label for="behaviour_threat">
+          Friendliness / danger level <span class="hint">(optional)</span>
+        </label>
+        <select id="behaviour_threat" name="behaviour_threat">
+          <option value="">— pick one —</option>
+          <option value="harmless">Harmless — wouldn't hurt a fly</option>
+          <option value="curious">Curious — approaches but is gentle</option>
+          <option value="defensive">Defensive — attacks only if threatened</option>
+          <option value="aggressive">Aggressive — attacks on sight</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="activity_time">
+          When is it active? <span class="hint">(optional)</span>
+        </label>
+        <select id="activity_time" name="activity_time">
+          <option value="">— pick one —</option>
+          <option value="day">Day (diurnal)</option>
+          <option value="night">Night (nocturnal)</option>
+          <option value="dawn_dusk">Dawn &amp; dusk (crepuscular)</option>
+          <option value="always">Always active</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="social_structure">
+          Does it live alone or in a group? <span class="hint">(optional)</span>
+        </label>
+        <select id="social_structure" name="social_structure">
+          <option value="">— pick one —</option>
+          <option value="lone">Lone — lives by itself</option>
+          <option value="group">Group — lives with others of its kind</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ── 6. Food ───────────────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>What does it eat?</h2>
+
+      <div class="field">
+        <label for="kind_diet">
+          Diet <span class="hint">(optional)</span>
+        </label>
+        <select id="kind_diet" name="kind_diet">
+          <option value="">— pick one —</option>
+          <option value="plants">Plants</option>
+          <option value="animals">Animals</option>
+          <option value="both">Both plants and animals</option>
+          <option value="unknown">Unknown</option>
+          <option value="other">Something else (explain in the story!)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="favorite_food">
+          Favourite food or hunting style <span class="hint">(optional)</span>
+        </label>
+        <textarea
+          id="favorite_food"
+          name="favorite_food"
+          rows={2}
+          placeholder="e.g. prefers glowing fish, ambushes from above, grazes on moonlight…"
+        ></textarea>
+      </div>
+    </section>
+
+    <!-- ── 7. Special ────────────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>Anything special?</h2>
+
+      <div class="field">
+        <label for="sounds">
+          What sounds does it make? <span class="hint">(optional)</span>
+        </label>
+        <input
+          type="text"
+          id="sounds"
+          name="sounds"
+          maxlength="200"
+          placeholder="e.g. chirps softly, roars, hums like a fridge…"
+        />
+      </div>
+
+      <div class="field">
+        <label for="special_powers">
+          Special powers or abilities <span class="hint">(optional)</span>
+        </label>
+        <textarea
+          id="special_powers"
+          name="special_powers"
+          rows={2}
+          placeholder="e.g. can turn invisible, shoots lightning bolts, heals other creatures…"
+        ></textarea>
+      </div>
+
+      <div class="field">
+        <label for="weaknesses">
+          Weaknesses <span class="hint">(optional)</span>
+        </label>
+        <input
+          type="text"
+          id="weaknesses"
+          name="weaknesses"
+          maxlength="200"
+          placeholder="e.g. afraid of bright light, melts in rain, hates loud music…"
+        />
+      </div>
+    </section>
+
+    <!-- ── 8. Story ──────────────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2>The story <span class="req" aria-label="required">*</span></h2>
+      <p class="section-desc">
+        Tell us everything about your creature. Where did it come from? What
+        does it do all day? Does it have friends? Any secrets?
+        The more you write, the better!
+      </p>
+
+      <div class="field">
+        <label for="lore_description">
+          Your creature's story <span class="req" aria-label="required">*</span>
+        </label>
+        <textarea
+          id="lore_description"
+          name="lore_description"
+          rows={7}
+          minlength="20"
+          maxlength="2000"
+          required
+          placeholder="Once upon a time, deep in the glowing forest…"
+        ></textarea>
+        <div class="char-row">
+          <span id="story-count" class="char-count">0 / 2000</span>
+          <span id="story-hint" class="char-hint"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 9. Consent ────────────────────────────────────────────────────── -->
+    <section class="form-section consent-section">
+      <h2>Before you submit</h2>
+
+      <div class="field checkbox-field">
+        <label class="checkbox-label checkbox-label--big">
+          <input type="checkbox" id="credits_opt_in" name="credits_opt_in" checked />
+          Add my name to the game credits if my creature is chosen
+        </label>
+      </div>
+
+      <div class="field checkbox-field">
+        <label class="checkbox-label checkbox-label--big">
+          <input type="checkbox" id="license_accepted" name="license_accepted" required />
+          I have read and agree to the
+          <a href="/creatures/license" target="_blank" rel="noopener">Creature Submission License</a>
+          <span class="req" aria-label="required">*</span>
+        </label>
+      </div>
+
+      <div class="field checkbox-field">
+        <label class="checkbox-label checkbox-label--big">
+          <input type="checkbox" id="parental_consent" name="parental_consent" required />
+          A parent or guardian has given permission for this submission
+          <span class="req" aria-label="required">*</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- ── Submit ────────────────────────────────────────────────────────── -->
+    <div class="submit-row">
+      <div class="submit-wrap">
+        <button type="submit" id="submit-btn" disabled>
+          Submit my creature
+        </button>
+        <p id="submit-hint" class="submit-hint" role="tooltip"></p>
+      </div>
+    </div>
+
+  </form>
+
+  <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  // ── Setup ─────────────────────────────────────────────────────────────────
+
+  const cfg = document.getElementById('supa-cfg') as HTMLElement;
+  const supabaseUrl = cfg.dataset.url ?? '';
+  const supabaseKey = cfg.dataset.key ?? '';
+  const licenseVersion = cfg.dataset.license ?? 'v1-2026-04';
+
+  // Untyped client — wiki doesn't import the game's database.types.ts.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient<any>(supabaseUrl, supabaseKey);
+
+  const form = document.getElementById('creature-form') as HTMLFormElement;
+  const statusEl = document.getElementById('form-status') as HTMLElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const submitHint = document.getElementById('submit-hint') as HTMLElement;
+  const progressBar = document.getElementById('progress-bar') as HTMLElement;
+  const progressTrack = document.getElementById('progress-track') as HTMLElement;
+  const progressPct = document.getElementById('progress-pct') as HTMLElement;
+  const missingList = document.getElementById('missing-list') as HTMLElement;
+  const draftBanner = document.getElementById('draft-banner') as HTMLElement;
+  const draftTimeEl = document.getElementById('draft-time') as HTMLElement;
+  const storyCountEl = document.getElementById('story-count') as HTMLElement;
+  const storyHintEl = document.getElementById('story-hint') as HTMLElement;
+  const imagePreviewWrap = document.getElementById('image-preview-wrap') as HTMLElement;
+  const imagePreview = document.getElementById('image-preview') as HTMLImageElement;
+  const fileErrorEl = document.getElementById('file-error') as HTMLElement;
+  const fileInput = document.getElementById('art_file') as HTMLInputElement;
+  const storyTextarea = document.getElementById('lore_description') as HTMLTextAreaElement;
+  const creditsCheckbox = document.getElementById('credits_opt_in') as HTMLInputElement;
+  const licenseCheckbox = document.getElementById('license_accepted') as HTMLInputElement;
+  const parentalCheckbox = document.getElementById('parental_consent') as HTMLInputElement;
+
+  const DRAFT_KEY = 'creature-draft-v1';
+  const ALLOWED_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/heic']);
+  const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+  // ── Scoring ───────────────────────────────────────────────────────────────
+
+  /**
+   * Calculates a 0–100 completion score.
+   *
+   * Required fields give 40 pts. Optional fields and story-length bonuses
+   * give up to 60 pts more. The progress bar turns amber at 40 and green at 70.
+   */
+  function calcScore(): { score: number; missing: string[] } {
+    const data = new FormData(form);
+    const creatureName = ((data.get('creature_name') as string | null) ?? '').trim();
+    const story = ((data.get('lore_description') as string | null) ?? '').trim();
+    const hasImage = (fileInput.files?.length ?? 0) > 0;
+
+    let score = 0;
+    const missing: string[] = [];
+
+    // Required — 40 pts
+    if (creatureName) { score += 15; } else { missing.push('Creature name'); }
+    if (hasImage) { score += 15; } else { missing.push('Picture'); }
+    if (story.length >= 20) {
+      score += 10;
+    } else {
+      missing.push(`Story (need at least 20 characters — you have ${story.length})`);
+    }
+
+    // Story length bonus — up to 15 optional pts
+    if (story.length >= 1500) { score += 15; }
+    else if (story.length >= 500) { score += 10; }
+    else if (story.length >= 100) { score += 5; }
+
+    // Other optional fields — 5 pts each, capped so total stays ≤ 100
+    const optChecks: boolean[] = [
+      !!((data.get('creator_name') as string | null) ?? '').trim(),
+      !!((data.get('kind_size') as string | null) ?? ''),
+      data.getAll('kind_movement').length > 0,
+      !!((data.get('kind_diet') as string | null) ?? ''),
+      data.getAll('habitat_biome').length > 0,
+      !!((data.get('habitat_climate') as string | null) ?? ''),
+      !!((data.get('behaviour_threat') as string | null) ?? ''),
+      !!((data.get('special_powers') as string | null) ?? '').trim(),
+      !!((data.get('intelligence') as string | null) ?? ''),
+    ];
+
+    let optPts = 0;
+    for (const filled of optChecks) {
+      if (filled) optPts += 5;
+    }
+
+    score = Math.min(100, score + optPts);
+    return { score, missing };
+  }
+
+  function updateProgress(): void {
+    const { score, missing } = calcScore();
+
+    progressBar.style.width = `${score}%`;
+    progressPct.textContent = `${score}%`;
+    progressTrack.setAttribute('aria-valuenow', String(score));
+
+    progressBar.classList.toggle('bar--red', score < 40);
+    progressBar.classList.toggle('bar--amber', score >= 40 && score < 70);
+    progressBar.classList.toggle('bar--green', score >= 70);
+
+    missingList.innerHTML = '';
+    for (const item of missing) {
+      const li = document.createElement('li');
+      li.textContent = item;
+      missingList.appendChild(li);
+    }
+
+    // Collect all blockers (required fields + consents) for submit button
+    const blockers: string[] = [...missing];
+    if (!licenseCheckbox.checked) blockers.push('License must be accepted');
+    if (!parentalCheckbox.checked) blockers.push('Parental consent required');
+
+    const canSubmit = blockers.length === 0;
+    submitBtn.disabled = !canSubmit;
+    const hintText = canSubmit ? '' : `Still needed: ${blockers.join(' · ')}`;
+    submitHint.textContent = hintText;
+    submitBtn.title = hintText;
+  }
+
+  // ── Story char counter ────────────────────────────────────────────────────
+
+  function updateStoryCounter(): void {
+    const len = storyTextarea.value.length;
+    storyCountEl.textContent = `${len} / 2000`;
+
+    if (len === 0) { storyHintEl.textContent = ''; }
+    else if (len < 20) { storyHintEl.textContent = `${20 - len} more to go!`; }
+    else if (len < 100) { storyHintEl.textContent = 'Good start!'; }
+    else if (len < 500) { storyHintEl.textContent = 'Nice! More detail = higher score.'; }
+    else { storyHintEl.textContent = 'Excellent detail!'; }
+  }
+
+  storyTextarea.addEventListener('input', updateStoryCounter);
+
+  // ── Image validation + preview ────────────────────────────────────────────
+
+  fileInput.addEventListener('change', () => {
+    fileErrorEl.hidden = true;
+    imagePreviewWrap.hidden = true;
+
+    const file = fileInput.files?.[0];
+    if (!file) { updateProgress(); return; }
+
+    if (!ALLOWED_MIMES.has(file.type)) {
+      fileErrorEl.textContent = 'Only PNG, JPG, WebP, and HEIC files are allowed.';
+      fileErrorEl.hidden = false;
+      fileInput.value = '';
+      updateProgress();
+      return;
+    }
+
+    if (file.size > MAX_FILE_BYTES) {
+      const mb = (file.size / 1024 / 1024).toFixed(1);
+      fileErrorEl.textContent = `File is too large (${mb} MB). Maximum is 5 MB.`;
+      fileErrorEl.hidden = false;
+      fileInput.value = '';
+      updateProgress();
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      imagePreview.src = reader.result as string;
+      imagePreviewWrap.hidden = false;
+    };
+    reader.readAsDataURL(file);
+
+    updateProgress();
+  });
+
+  // ── LocalStorage draft ────────────────────────────────────────────────────
+
+  interface DraftData {
+    savedAt: string;
+    fields: Record<string, string | string[]>;
+  }
+
+  let draftTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Captures all serialisable form values (excludes File objects). */
+  function captureFormValues(): Record<string, string | string[]> {
+    const data = new FormData(form);
+    const out: Record<string, string | string[]> = {};
+
+    const textFields = [
+      'creature_name', 'creator_name', 'maker_age', 'kind_size',
+      'intelligence', 'habitat_climate', 'behaviour_threat', 'activity_time',
+      'social_structure', 'kind_diet', 'favorite_food', 'sounds',
+      'special_powers', 'weaknesses', 'lore_description',
+    ];
+    for (const f of textFields) {
+      out[f] = (data.get(f) as string | null) ?? '';
+    }
+
+    out['kind_movement'] = data.getAll('kind_movement') as string[];
+    out['habitat_biome'] = data.getAll('habitat_biome') as string[];
+    out['credits_opt_in'] = creditsCheckbox.checked ? 'true' : 'false';
+    out['license_accepted'] = licenseCheckbox.checked ? 'true' : 'false';
+    out['parental_consent'] = parentalCheckbox.checked ? 'true' : 'false';
+
+    return out;
+  }
+
+  function saveDraft(): void {
+    const draft: DraftData = { savedAt: new Date().toISOString(), fields: captureFormValues() };
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* private mode */ }
+  }
+
+  function restoreDraft(draft: DraftData): void {
+    const { fields } = draft;
+
+    const textFields = [
+      'creature_name', 'creator_name', 'maker_age', 'kind_size',
+      'intelligence', 'habitat_climate', 'behaviour_threat', 'activity_time',
+      'social_structure', 'kind_diet', 'favorite_food', 'sounds',
+      'special_powers', 'weaknesses', 'lore_description',
+    ];
+    for (const f of textFields) {
+      const el = document.getElementById(f) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+      if (el && typeof fields[f] === 'string') el.value = fields[f] as string;
+    }
+
+    // Multi-checkbox groups
+    for (const group of ['kind_movement', 'habitat_biome']) {
+      const values = (fields[group] as string[] | undefined) ?? [];
+      document.querySelectorAll<HTMLInputElement>(`input[name="${group}"]`).forEach(cb => {
+        cb.checked = values.includes(cb.value);
+      });
+    }
+
+    creditsCheckbox.checked = fields['credits_opt_in'] === 'true';
+    licenseCheckbox.checked = fields['license_accepted'] === 'true';
+    parentalCheckbox.checked = fields['parental_consent'] === 'true';
+
+    updateStoryCounter();
+    updateProgress();
+  }
+
+  function clearDraft(): void {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  }
+
+  function scheduleSave(): void {
+    if (draftTimer !== null) clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraft, 500);
+  }
+
+  form.addEventListener('input', () => { scheduleSave(); updateProgress(); });
+  form.addEventListener('change', () => { scheduleSave(); updateProgress(); });
+
+  // ── Relative time ─────────────────────────────────────────────────────────
+
+  function relativeTime(iso: string): string {
+    const ms = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(ms / 60_000);
+    const hrs = Math.floor(ms / 3_600_000);
+    const days = Math.floor(ms / 86_400_000);
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (hrs > 0) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+    if (mins > 0) return `${mins} minute${mins > 1 ? 's' : ''} ago`;
+    return 'just now';
+  }
+
+  // ── Load draft on page load ───────────────────────────────────────────────
+
+  let pendingDraft: DraftData | null = null;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) {
+      pendingDraft = JSON.parse(raw) as DraftData;
+      draftTimeEl.textContent = relativeTime(pendingDraft.savedAt);
+      draftBanner.hidden = false;
+    }
+  } catch { /* ignore */ }
+
+  document.getElementById('resume-btn')?.addEventListener('click', () => {
+    if (pendingDraft) restoreDraft(pendingDraft);
+    draftBanner.hidden = true;
+  });
+
+  document.getElementById('fresh-btn')?.addEventListener('click', () => {
+    clearDraft();
+    pendingDraft = null;
+    draftBanner.hidden = true;
+    form.reset();
+    creditsCheckbox.checked = true;
+    imagePreviewWrap.hidden = true;
+    fileErrorEl.hidden = true;
+    updateStoryCounter();
+    updateProgress();
+  });
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = new FormData(form);
+
+    const creatureName = ((data.get('creature_name') as string | null) ?? '').trim();
+    const creatorNameRaw = ((data.get('creator_name') as string | null) ?? '').trim();
+    // DB column is NOT NULL — fall back to "Anonymous" so the constraint is satisfied.
+    const creatorName = creatorNameRaw || 'Anonymous';
+    const makerAgeRaw = ((data.get('maker_age') as string | null) ?? '').trim();
+    const makerAge = makerAgeRaw ? parseInt(makerAgeRaw, 10) : null;
+
+    const kindSize = ((data.get('kind_size') as string | null) ?? '') || null;
+    const kindMovement = data.getAll('kind_movement') as string[];
+    const intelligence = ((data.get('intelligence') as string | null) ?? '') || null;
+    const kindDiet = ((data.get('kind_diet') as string | null) ?? '') || null;
+    const socialStructure = (data.get('social_structure') as string | null) ?? '';
+    const kindSolitary =
+      socialStructure === 'lone' ? true :
+      socialStructure === 'group' ? false :
+      null;
+
+    const habitatBiome = data.getAll('habitat_biome') as string[];
+    const habitatClimate = ((data.get('habitat_climate') as string | null) ?? '') || null;
+
+    const behaviourThreat = ((data.get('behaviour_threat') as string | null) ?? '') || null;
+    const activityTime = ((data.get('activity_time') as string | null) ?? '') || null;
+
+    const favFood = ((data.get('favorite_food') as string | null) ?? '').trim();
+    const sounds = ((data.get('sounds') as string | null) ?? '').trim();
+    const specialPowers = ((data.get('special_powers') as string | null) ?? '').trim();
+    const weaknesses = ((data.get('weaknesses') as string | null) ?? '').trim();
+    const loreDescription = ((data.get('lore_description') as string | null) ?? '').trim();
+
+    // Combine fields that share a DB column. Intelligence, activity time, and
+    // sounds don't have their own columns so they're folded into behaviour_notes.
+    // Weaknesses are folded into special_ability alongside the powers.
+    const behaviourParts = [
+      intelligence ? `Intelligence: ${intelligence}` : '',
+      activityTime ? `Activity: ${activityTime}` : '',
+      sounds ? `Sounds: ${sounds}` : '',
+    ].filter(Boolean);
+    const behaviourNotes = behaviourParts.length ? behaviourParts.join('\n') : null;
+
+    const specialParts = [
+      specialPowers,
+      weaknesses ? `Weaknesses: ${weaknesses}` : '',
+    ].filter(Boolean);
+    const specialAbility = specialParts.length ? specialParts.join('\n') : null;
+
+    const foodNotes = favFood || null;
+    const creditsOptIn = creditsCheckbox.checked;
+
+    const { score } = calcScore();
+
+    const file = fileInput.files?.[0];
+    if (!file) {
+      statusEl.textContent = 'Please select a picture before submitting.';
+      statusEl.className = 'form-status error';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Uploading picture…';
+    statusEl.className = 'form-status';
+
+    // 1. Upload image to Storage before inserting the row.
+    //    Path: creature-art/pending/<uuid>.<ext>
+    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase();
+    const uuid = crypto.randomUUID();
+    const storagePath = `pending/${uuid}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('creature-art')
+      .upload(storagePath, file, { contentType: file.type, upsert: false });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      statusEl.textContent =
+        'Could not upload your picture — please check your connection and try again.';
+      statusEl.className = 'form-status error';
+      submitBtn.disabled = false;
+      updateProgress();
+      return;
+    }
+
+    // 2. Insert the row. If this fails, roll back by deleting the uploaded file.
+    statusEl.textContent = 'Saving your creature…';
+
+    const { error: insertError } = await supabase.from('creature_submissions').insert({
+      creature_name: creatureName,
+      creator_name: creatorName,
+      maker_age: makerAge,
+      art_path: storagePath,
+      kind_size: kindSize,
+      kind_movement: kindMovement.length > 0 ? kindMovement : null,
+      kind_diet: kindDiet,
+      kind_solitary: kindSolitary,
+      habitat_biome: habitatBiome.length > 0 ? habitatBiome : null,
+      habitat_climate: habitatClimate,
+      behaviour_threat: behaviourThreat,
+      behaviour_notes: behaviourNotes,
+      food_notes: foodNotes,
+      special_ability: specialAbility,
+      lore_description: loreDescription,
+      completion_score: score,
+      license_version: licenseVersion,
+      license_accepted: true,
+      parental_consent: true,
+      credits_opt_in: creditsOptIn,
+      approved: false,
+    });
+
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      // Best-effort rollback — delete the orphaned image.
+      await supabase.storage.from('creature-art').remove([storagePath]);
+
+      statusEl.textContent =
+        'Something went wrong saving your creature — please try again. ' +
+        '(Your picture was removed so nothing was saved half-way.)';
+      statusEl.className = 'form-status error';
+      submitBtn.disabled = false;
+      updateProgress();
+      return;
+    }
+
+    // 3. Success — clear everything.
+    clearDraft();
+    form.reset();
+    creditsCheckbox.checked = true;
+    imagePreviewWrap.hidden = true;
+    fileErrorEl.hidden = true;
+    updateStoryCounter();
+
+    statusEl.textContent =
+      'Thanks! Your creature is waiting to be approved. We\'ll review it soon!';
+    statusEl.className = 'form-status success';
+    updateProgress();
+  });
+
+  // ── Initial state ─────────────────────────────────────────────────────────
+
+  updateProgress();
+</script>
+
+<style>
+  h1 { font-size: 2rem; margin-top: 1.5rem; }
+  .lead { color: var(--text-dim); max-width: 600px; margin-bottom: 2rem; }
+
+  /* ── Draft banner ──────────────────────────────────────────────────────── */
+  .draft-banner {
+    background: var(--surface);
+    border: 1px solid var(--amber);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .draft-banner p { margin: 0; }
+  .draft-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .image-note {
+    font-size: 0.85rem;
+    color: var(--amber);
+  }
+
+  /* ── Buttons ───────────────────────────────────────────────────────────── */
+  .btn-secondary {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.5rem 1.25rem;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: var(--accent-hi); }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.5rem 1.25rem;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--text-dim); color: var(--text); }
+
+  /* ── Progress bar ──────────────────────────────────────────────────────── */
+  .progress-section {
+    margin-bottom: 2.5rem;
+    padding: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.6rem;
+  }
+  .progress-label { font-size: 0.9rem; color: var(--text-dim); }
+  .progress-pct { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; }
+
+  .progress-track {
+    height: 12px;
+    background: var(--surface-hi);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    border-radius: 999px;
+    width: 0%;
+    transition: width 0.25s ease, background 0.25s ease;
+    background: var(--red);
+  }
+  .progress-bar.bar--red   { background: var(--red); }
+  .progress-bar.bar--amber { background: var(--amber); }
+  .progress-bar.bar--green { background: var(--green); }
+
+  .missing-list {
+    margin-top: 0.75rem;
+    padding-left: 1.25rem;
+    list-style: disc;
+    font-size: 0.85rem;
+    color: var(--red);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .missing-list:empty { display: none; }
+
+  /* ── Form sections ─────────────────────────────────────────────────────── */
+  .form-section {
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .form-section h2 {
+    font-size: 1.2rem;
+    margin-bottom: 1.25rem;
+    color: var(--accent-hi);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.6rem;
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: -0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  /* ── Fields ────────────────────────────────────────────────────────────── */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+  }
+  .field:last-child { margin-bottom: 0; }
+  .field--narrow { max-width: 140px; }
+
+  label {
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .hint {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-weight: 400;
+  }
+  .req { color: var(--red); margin-left: 0.15em; }
+
+  input[type="text"],
+  input[type="number"],
+  textarea,
+  select {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    padding: 0.6rem 0.8rem;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; }
+  select { cursor: pointer; }
+
+  input[type="file"] {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .field-error {
+    color: var(--red);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+
+  /* ── Image preview ─────────────────────────────────────────────────────── */
+  .image-preview-wrap {
+    margin-top: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 320px;
+  }
+  .image-preview {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 240px;
+    object-fit: contain;
+    background: var(--surface-hi);
+  }
+
+  /* ── Checkboxes ────────────────────────────────────────────────────────── */
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.25rem;
+  }
+  .checkbox-group--wide {
+    gap: 0.5rem 1rem;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    user-select: none;
+  }
+  .checkbox-label:has(input:checked) { color: var(--text); }
+  .checkbox-label--big {
+    font-size: 1rem;
+    color: var(--text);
+    align-items: flex-start;
+    gap: 0.6rem;
+    line-height: 1.5;
+  }
+  .checkbox-label--big input { margin-top: 0.2em; flex-shrink: 0; }
+  input[type="checkbox"] {
+    accent-color: var(--accent-hi);
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+  }
+  .checkbox-field { margin-bottom: 1rem; }
+  .checkbox-field:last-child { margin-bottom: 0; }
+
+  /* ── Consent section ───────────────────────────────────────────────────── */
+  .consent-section { border-color: var(--accent); }
+
+  /* ── Story counter ─────────────────────────────────────────────────────── */
+  .char-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 0.25rem;
+  }
+  .char-count { font-size: 0.8rem; color: var(--text-dim); }
+  .char-hint { font-size: 0.8rem; color: var(--green); }
+
+  /* ── Submit row ────────────────────────────────────────────────────────── */
+  .submit-row {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+  .submit-wrap { display: inline-flex; flex-direction: column; gap: 0.5rem; }
+
+  button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 0.8rem 2.5rem;
+    transition: background 0.15s, box-shadow 0.15s;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
+  }
+  button[type="submit"]:hover:not(:disabled) {
+    background: var(--accent-hi);
+    box-shadow: 0 0 28px rgba(192, 132, 252, 0.5);
+  }
+  button[type="submit"]:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .submit-hint {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    max-width: 420px;
+    margin: 0;
+  }
+
+  /* ── Status message ────────────────────────────────────────────────────── */
+  .form-status {
+    margin-top: 1.25rem;
+    font-size: 1rem;
+    min-height: 1.5em;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+  }
+  .form-status:empty { padding: 0; }
+  .form-status.success {
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid var(--green);
+    color: var(--green);
+  }
+  .form-status.error {
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+
+  /* ── Mobile ─────────────────────────────────────────────────────────────── */
+  @media (max-width: 540px) {
+    .form-section { padding: 1rem; }
+    button[type="submit"] { width: 100%; }
+    .submit-wrap { width: 100%; }
+  }
+</style>
