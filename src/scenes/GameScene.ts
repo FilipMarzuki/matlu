@@ -54,6 +54,8 @@ import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
+import { WorldBlackboard } from '../ai/WorldBlackboard';
+import type { WorldSoundType } from '../ai/WorldBlackboard';
 
 // ── SimpleJoystick ────────────────────────────────────────────────────────────
 /**
@@ -635,6 +637,8 @@ export class GameScene extends Phaser.Scene {
   // Per-position corruption intensity — gives corruption organic geography instead
   // of uniform zone-wide darkening. Sampled each degradation tick.
   private corruptionField!: CorruptionField;
+  /** Shared world-level event bus for NPC awareness (FIL-413). */
+  private worldBlackboard!: WorldBlackboard;
 
   // ─── Path system ──────────────────────────────────────────────────────────────
   private pathSystem!: PathSystem;
@@ -1082,6 +1086,7 @@ export class GameScene extends Phaser.Scene {
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
     this.worldState = new WorldState(this, this.worldClock);
+    this.worldBlackboard = new WorldBlackboard();
 
     // SeasonSystem layers seasonal state (spring/rainy/summer/autumn/winter) on
     // top of the WorldClock day/night cycle. It advances every 3 in-game days by
@@ -1578,6 +1583,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    this.worldBlackboard.tick(delta);
     this.worldClock.update(delta);
     this.worldState.update(delta);
     this.updateDayNight(delta);
@@ -2395,6 +2401,7 @@ export class GameScene extends Phaser.Scene {
 
     // Camera shake on every successful hit — same intensity as the arena (FIL-124).
     this.cameras.main.shake(150, 0.004);
+    this.emitWorldCombatSignal(rabbit.x, rabbit.y, 240, 'combat', 0.6);
     // Contact hit sound — layered on top of the gesture whoosh for tactile feedback.
     if (this.audioAvailable) this.sound.play('sfx-swipe-hit', { volume: 0.55 * this.sfxVol });
 
@@ -2452,6 +2459,7 @@ export class GameScene extends Phaser.Scene {
       dist:    0,
       maxDist,
     });
+    this.emitWorldCombatSignal(px, py, 500, 'gunshot', 1.0);
 
     // Award XP per throw; bonus XP on the very first throw ever.
     this.skillSystem.addXP('throwing', 5);
@@ -2578,6 +2586,8 @@ export class GameScene extends Phaser.Scene {
     // Each rabbit kill nudges nearby road conditions back toward health.
     this.pathSystem.restoreNear(rx, ry, 300, 3);
     this.onZoneCleansed('rabbit', rx, ry);
+    this.emitWorldCombatSignal(rx, ry, 280, 'death', 0.75);
+    this.worldBlackboard.broadcastPlayerEvent(rx, ry, 'killed-enemy');
     // Resolve drop table — award gold and show floating feedback text
     this.resolveDrops('zombieRabbit', rx, ry);
     // Bonus XP for the first kill ever (silent — no UI shown).
@@ -2625,6 +2635,7 @@ export class GameScene extends Phaser.Scene {
     if (this.audioAvailable && this.cache.audio.has('sfx-enemy-death')) {
       this.sound.play('sfx-enemy-death', { volume: 0.3 * this.sfxVol, pan: this.stereoPan(animal.x) });
     }
+    this.emitWorldCombatSignal(animal.x, animal.y, 240, 'death', 0.6);
     animal.destroy();
   }
 
@@ -2647,6 +2658,23 @@ export class GameScene extends Phaser.Scene {
     this.worldState.setCleansePercent('zone-main', percent);
     this.pathSystem.restoreNear(e.x, e.y, 300, 3);
     this.onZoneCleansed('enemy', e.x, e.y);
+    this.emitWorldCombatSignal(e.x, e.y, 320, 'death', 0.9);
+    this.worldBlackboard.broadcastPlayerEvent(e.x, e.y, 'killed-enemy');
+  }
+
+  /**
+   * Centralized world-awareness bridge for combat moments in GameScene.
+   * Keeps event shape consistent as additional emit sites are added later.
+   */
+  private emitWorldCombatSignal(
+    x: number,
+    y: number,
+    radius: number,
+    type: WorldSoundType,
+    intensity: number,
+  ): void {
+    this.worldBlackboard.broadcastSound(x, y, radius, type, intensity);
+    this.worldBlackboard.broadcastCombat(x, y, Math.max(180, radius * 0.7), 2800);
   }
 
   /**
