@@ -32,6 +32,14 @@ const LABELS = [
   // State — applied manually or by agents to show active work
   { name: 'in-progress', color: '74d7c4', description: 'Currently being implemented' },
 
+  // Creature tracker — applied to auto-created pipeline tracker issues
+  { name: 'creature-tracker', color: '0075ca', description: 'Auto-created issue tracking a creature through the production pipeline' },
+  { name: 'status:approved',  color: '0e8a16', description: 'Creature tracker: approved by moderation' },
+  { name: 'status:balancing', color: 'e4e669', description: 'Creature tracker: balance pass in progress' },
+  { name: 'status:balanced',  color: 'bfd4f2', description: 'Creature tracker: balance pass complete' },
+  { name: 'status:in-game',   color: '1d76db', description: 'Creature tracker: shipped in Core Warden' },
+  { name: 'status:rejected',  color: 'b60205', description: 'Creature tracker: rejected during moderation' },
+
   // Category — used to classify issues by game area
   { name: 'systems',        color: 'f9d0c4', description: '' },
   { name: 'art',            color: 'f9d0c4', description: '' },

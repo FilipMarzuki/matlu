@@ -1,0 +1,326 @@
+---
+/**
+ * /creatures/[slug] — public detail page for an approved creature submission.
+ *
+ * Statically generated at build time from the creature_submissions table.
+ * Uses the anon key (public, read-only) since only approved rows are visible
+ * thanks to the RLS policy "anon_select_approved".
+ *
+ * The "Follow on GitHub" sidebar card (issue #345) is rendered only when the
+ * creature has a tracker_issue_number, which the approve endpoint sets.
+ */
+import { createClient } from '@supabase/supabase-js';
+import Base from '../../layouts/Base.astro';
+import type { CreatureRow } from '../../types/creature';
+
+export async function getStaticPaths() {
+  const supabase = createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+  );
+
+  const { data: creatures } = await supabase
+    .from('creature_submissions')
+    .select('slug')
+    .eq('approved', true)
+    .not('slug', 'is', null);
+
+  if (!creatures) return [];
+
+  return creatures.map((c) => ({ params: { slug: c.slug as string } }));
+}
+
+const { slug } = Astro.params;
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+);
+
+const { data: creature, error } = await supabase
+  .from('creature_submissions')
+  .select('*')
+  .eq('slug', slug)
+  .eq('approved', true)
+  .single();
+
+// In practice this branch never executes: getStaticPaths only yields slugs for
+// approved rows, so the same query must succeed. The guard is a safety net.
+const notFound = error || !creature;
+const row = creature as unknown as CreatureRow;
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const imageUrl = notFound || !row.art_path
+  ? null
+  : `${supabaseUrl}/storage/v1/object/public/creature-art/${row.art_path}`;
+
+const trackerUrl = notFound || !row.tracker_issue_number
+  ? null
+  : `https://github.com/FilipMarzuki/matlu/issues/${row.tracker_issue_number}`;
+
+const creatorName = notFound ? '' : row.credits_opt_in ? row.creator_name : 'Anonymous';
+
+// Display helpers
+const movementList = notFound ? null : row.kind_movement?.join(', ') ?? null;
+const biomeList = notFound ? null : row.habitat_biome?.join(', ') ?? null;
+---
+
+<Base
+  title={notFound ? 'Creature not found' : row.creature_name}
+  description={notFound ? undefined : (row.lore_description ?? `A creature from the Matlu multiworld.`)}
+>
+  <a href="/creatures" class="back">← Creatures</a>
+
+  {notFound && <p class="not-found">Creature not found.</p>}
+
+  {!notFound && <div class="layout">
+    <!-- ── Main content ──────────────────────────────────────────────────── -->
+    <article>
+      <header>
+        <div class="meta">
+          <span class="badge">Creature</span>
+          {row.world_name && <span class="world">{row.world_name}</span>}
+        </div>
+        <h1>{row.creature_name}</h1>
+        <p class="creator">Submitted by {creatorName}</p>
+      </header>
+
+      {imageUrl && (
+        <div class="art">
+          <img src={imageUrl} alt={`Artwork for ${row.creature_name}`} loading="lazy" />
+        </div>
+      )}
+
+      {row.lore_description && (
+        <section class="section">
+          <h2>About</h2>
+          <p class="lore">{row.lore_description}</p>
+        </section>
+      )}
+
+      <section class="section">
+        <h2>Kind</h2>
+        <dl class="facts">
+          {row.kind_size && <><dt>Size</dt><dd>{row.kind_size}</dd></>}
+          {movementList && <><dt>Movement</dt><dd>{movementList}</dd></>}
+          {row.kind_diet && <><dt>Diet</dt><dd>{row.kind_diet}</dd></>}
+          {row.kind_solitary !== null && (
+            <><dt>Social</dt><dd>{row.kind_solitary ? 'Solitary' : 'Group'}</dd></>
+          )}
+        </dl>
+      </section>
+
+      <section class="section">
+        <h2>Habitat</h2>
+        <dl class="facts">
+          {biomeList && <><dt>Biome</dt><dd>{biomeList}</dd></>}
+          {row.habitat_climate && <><dt>Climate</dt><dd>{row.habitat_climate}</dd></>}
+          {row.habitat_notes && <><dt>Notes</dt><dd>{row.habitat_notes}</dd></>}
+        </dl>
+      </section>
+
+      <section class="section">
+        <h2>Behaviour</h2>
+        <dl class="facts">
+          {row.behaviour_threat && <><dt>Threat level</dt><dd>{row.behaviour_threat}</dd></>}
+          {row.behaviour_notes && <><dt>Notes</dt><dd>{row.behaviour_notes}</dd></>}
+        </dl>
+      </section>
+
+      {row.special_ability && (
+        <section class="section">
+          <h2>Special ability</h2>
+          <p>{row.special_ability}</p>
+        </section>
+      )}
+    </article>
+
+    <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
+    <aside>
+      {trackerUrl && (
+        <div class="tracker-card">
+          <h3>Follow this creature's progress</h3>
+          <div class="divider" />
+          <p>
+            This creature has a tracker on GitHub where every update is posted.
+          </p>
+          <a href={trackerUrl} class="tracker-btn" target="_blank" rel="noopener noreferrer">
+            Open tracker on GitHub →
+          </a>
+          <p class="tracker-hint">
+            Bookmark or subscribe to get notified when it moves forward.
+          </p>
+        </div>
+      )}
+    </aside>
+  </div>}
+</Base>
+
+<style>
+  .back {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+  .back:hover { color: var(--accent-hi); text-decoration: none; }
+
+  .not-found { color: var(--text-dim); margin-top: 2rem; }
+
+  /* ── Two-column layout: article + sidebar ──── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  @media (min-width: 680px) {
+    .layout {
+      grid-template-columns: 1fr 280px;
+    }
+  }
+
+  /* ── Article ──────────────────────────────── */
+  article header { margin-bottom: 1.5rem; }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--accent-hi);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+  }
+
+  .world { font-size: 0.8rem; color: var(--text-dim); }
+
+  h1 { margin-bottom: 0.3rem; }
+
+  .creator {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .art {
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-height: 380px;
+  }
+
+  .art img {
+    display: block;
+    max-width: 100%;
+    max-height: 380px;
+    object-fit: contain;
+  }
+
+  .section { margin-bottom: 2rem; }
+
+  .section h2 {
+    font-size: 1rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+  }
+
+  .lore {
+    font-size: 1rem;
+    color: var(--text-dim);
+    line-height: 1.75;
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    margin: 0;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  .facts dt {
+    color: var(--text-dim);
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .facts dd { color: var(--text); }
+
+  /* ── Tracker sidebar card ─────────────────── */
+  .tracker-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .tracker-card h3 {
+    font-size: 0.95rem;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+  }
+
+  .tracker-card p {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  .tracker-btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.875rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    text-align: center;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+
+  .tracker-btn:hover {
+    background: var(--accent-hi);
+    box-shadow: 0 0 14px rgba(168, 85, 247, 0.35);
+    text-decoration: none;
+  }
+
+  .tracker-hint {
+    font-size: 0.78rem !important;
+    color: var(--text-dim);
+  }
+</style>
