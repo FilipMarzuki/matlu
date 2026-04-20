@@ -118,6 +118,22 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
         font-size: 0.9em;
         color: var(--text);
       }
+
+      footer {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem 2rem;
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        border-top: 1px solid var(--border);
+      }
+
+      footer a { color: var(--text-dim); }
+      footer a:hover { color: var(--accent-hi); text-decoration: none; }
+      footer span { opacity: 0.4; }
     </style>
   </head>
 
@@ -126,5 +142,10 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
     <main>
       <slot />
     </main>
+    <footer>
+      <a href="/credits">Credits</a>
+      <span>·</span>
+      <a href="/creatures/submit">Submit a creature</a>
+    </footer>
   </body>
 </html>

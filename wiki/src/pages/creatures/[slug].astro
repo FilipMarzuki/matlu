@@ -1,0 +1,251 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getWikiSupabase } from '../../lib/supabase';
+import type { CreatureSubmission } from '../../../../src/types/database.types';
+
+type ApprovedCreature = CreatureSubmission & { slug: string };
+
+export async function getStaticPaths() {
+  try {
+    const sb = getWikiSupabase();
+    const { data } = await sb
+      .from('creature_submissions')
+      .select('*')
+      .eq('approved', true)
+      .not('slug', 'is', null);
+
+    return (data ?? [])
+      .filter((c): c is ApprovedCreature => c.slug !== null)
+      .map((creature) => ({
+        params: { slug: creature.slug },
+        props: { creature },
+      }));
+  } catch {
+    return [];
+  }
+}
+
+interface Props {
+  creature: ApprovedCreature;
+}
+
+const { creature } = Astro.props;
+
+// Movement array → readable string
+function movementLabel(m: string[] | null): string {
+  return m && m.length > 0 ? m.join(', ') : '';
+}
+
+// Solitary boolean → readable string
+function solitaryLabel(s: boolean | null): string {
+  if (s === null) return '';
+  return s ? 'Solitary' : 'Social';
+}
+---
+
+<Base
+  title={creature.creature_name}
+  description={creature.lore_description?.slice(0, 150) ?? `A creature from the Matlu multiworld.`}
+>
+  <a href="/creatures" class="back">← All creatures</a>
+
+  <article>
+    <header>
+      <div class="meta">
+        {creature.kind_size && <span class="badge">{creature.kind_size}</span>}
+        {creature.world_name && <span class="world">{creature.world_name}</span>}
+      </div>
+      <h1>{creature.creature_name}</h1>
+      {creature.creator_name && (
+        <p class="maker">Submitted by {creature.creator_name}</p>
+      )}
+    </header>
+
+    {creature.art_path && (
+      <div class="art-wrap">
+        <img src={creature.art_path} alt={creature.creature_name} class="art" />
+        {creature.art_credit && (
+          <p class="art-credit">Art: {creature.art_credit}</p>
+        )}
+      </div>
+    )}
+
+    <div class="sections">
+      <!-- What kind -->
+      {(creature.kind_size || creature.kind_diet || movementLabel(creature.kind_movement) || solitaryLabel(creature.kind_solitary)) && (
+        <section>
+          <h2>What kind</h2>
+          <dl>
+            {creature.kind_size && <><dt>Size</dt><dd>{creature.kind_size}</dd></>}
+            {movementLabel(creature.kind_movement) && <><dt>Movement</dt><dd>{movementLabel(creature.kind_movement)}</dd></>}
+            {creature.kind_diet && <><dt>Diet</dt><dd>{creature.kind_diet}</dd></>}
+            {solitaryLabel(creature.kind_solitary) && <><dt>Social</dt><dd>{solitaryLabel(creature.kind_solitary)}</dd></>}
+          </dl>
+        </section>
+      )}
+
+      <!-- Where it lives -->
+      {(creature.habitat_biome?.length || creature.habitat_climate || creature.habitat_notes) && (
+        <section>
+          <h2>Where it lives</h2>
+          <dl>
+            {creature.habitat_biome && creature.habitat_biome.length > 0 && (
+              <><dt>Biome</dt><dd>{creature.habitat_biome.join(', ')}</dd></>
+            )}
+            {creature.habitat_climate && <><dt>Climate</dt><dd>{creature.habitat_climate}</dd></>}
+            {creature.habitat_notes && <><dt>Notes</dt><dd>{creature.habitat_notes}</dd></>}
+          </dl>
+        </section>
+      )}
+
+      <!-- Behavior -->
+      {(creature.behaviour_threat || creature.behaviour_notes) && (
+        <section>
+          <h2>Behavior</h2>
+          <dl>
+            {creature.behaviour_threat && <><dt>Threat level</dt><dd>{creature.behaviour_threat}</dd></>}
+            {creature.behaviour_notes && <><dt>Notes</dt><dd>{creature.behaviour_notes}</dd></>}
+          </dl>
+        </section>
+      )}
+
+      <!-- Food -->
+      {creature.food_notes && (
+        <section>
+          <h2>Food</h2>
+          <p>{creature.food_notes}</p>
+        </section>
+      )}
+
+      <!-- Special -->
+      {creature.special_ability && (
+        <section>
+          <h2>Special</h2>
+          <p>{creature.special_ability}</p>
+        </section>
+      )}
+
+      <!-- Story -->
+      {(creature.lore_description || creature.lore_origin) && (
+        <section>
+          <h2>Story</h2>
+          {creature.lore_description && <p>{creature.lore_description}</p>}
+          {creature.lore_origin && <p class="origin">{creature.lore_origin}</p>}
+        </section>
+      )}
+    </div>
+
+    <!-- Space reserved for future status ribbon (#342) and tracker sidebar (#343) -->
+  </article>
+</Base>
+
+<style>
+  .back {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+  .back:hover { color: var(--accent-hi); text-decoration: none; }
+
+  article { max-width: 680px; }
+
+  header { margin-bottom: 2rem; }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--accent-hi);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+  }
+
+  .world {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  h1 { margin-bottom: 0.5rem; }
+
+  .maker {
+    font-size: 0.875rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .art-wrap {
+    margin-bottom: 2rem;
+  }
+
+  .art {
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+
+  .art-credit {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 0.4rem;
+    margin-bottom: 0;
+  }
+
+  .sections {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  section h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1.25rem;
+  }
+
+  dt {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+  }
+
+  dd {
+    color: var(--text);
+    font-size: 0.875rem;
+    text-transform: capitalize;
+  }
+
+  section p {
+    color: var(--text);
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+  }
+
+  section p:last-child { margin-bottom: 0; }
+
+  .origin {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+</style>
