@@ -1,0 +1,159 @@
+---
+/**
+ * Credits page — FIL-433 (Creatures A3).
+ *
+ * Lists every contributor who opted in to in-game credits and has an approved
+ * creature. Grouped alphabetically by creator name.
+ *
+ * Data fetched at build time from creature_submissions WHERE
+ *   approved = true AND credits_opt_in = true AND creator_name IS NOT NULL.
+ */
+import Base from '../layouts/Base.astro';
+import { fetchCreditedCreatures, imageUrl } from '../lib/supabase-creatures';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const creatures = await fetchCreditedCreatures();
+
+// Group by creator name
+const byCreator = new Map<string, typeof creatures>();
+for (const c of creatures) {
+  const name = c.creator_name!;
+  if (!byCreator.has(name)) byCreator.set(name, []);
+  byCreator.get(name)!.push(c);
+}
+const creators = [...byCreator.entries()].sort(([a], [b]) => a.localeCompare(b));
+---
+
+<Base
+  title="Credits"
+  description="Everyone who contributed a creature to the Matlu multiworld encyclopedia."
+>
+  <h1>Credits</h1>
+  <p class="lead">
+    These are the creators who built the Matlu creature encyclopedia.
+    Every creature you see in the game started as someone's imagination.
+    Thank you!
+  </p>
+
+  {creators.length === 0 ? (
+    <div class="empty-state">
+      <p>No credited submissions yet.</p>
+      <p>
+        <a href="/creatures/submit">Submit a creature</a> — if you opt in to credits, your
+        name will appear here once it's approved.
+      </p>
+    </div>
+  ) : (
+    <div class="credits-list">
+      {creators.map(([name, creatureList]) => (
+        <section class="creator-section">
+          <h2 class="creator-name">{name}</h2>
+          <div class="creature-row">
+            {creatureList.map(c => {
+              const img = imageUrl(supabaseUrl, c.art_path);
+              return (
+                <a href={`/creatures/${c.slug}`} class="creature-chip">
+                  {img
+                    ? <img src={img} alt={c.creature_name} class="chip-img" loading="lazy" decoding="async" />
+                    : <span class="chip-placeholder">?</span>
+                  }
+                  <span class="chip-name">{c.creature_name}</span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  )}
+
+  <p class="footer-note">
+    Want to be listed here? <a href="/creatures/submit">Submit your own creature</a> and tick
+    the "credit me in the game" checkbox.
+  </p>
+</Base>
+
+<style>
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .lead {
+    color: var(--text-dim);
+    max-width: 580px;
+    margin-bottom: 2.5rem;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* ── Credits list ─────────────────────────────────────────────── */
+  .credits-list { display: flex; flex-direction: column; gap: 2rem; }
+
+  .creator-section {
+    border-left: 3px solid var(--accent);
+    padding-left: 1.25rem;
+  }
+  .creator-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    color: var(--accent-hi);
+    margin: 0 0 0.85rem 0;
+  }
+
+  /* ── Creature chips ───────────────────────────────────────────── */
+  .creature-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+  .creature-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 0.4rem 0.75rem 0.4rem 0.4rem;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.88rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .creature-chip:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(168,85,247,0.2);
+    text-decoration: none;
+  }
+
+  .chip-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 5px;
+    flex-shrink: 0;
+  }
+  .chip-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 5px;
+    background: var(--surface-hi, rgba(255,255,255,0.05));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: var(--border);
+    flex-shrink: 0;
+  }
+  .chip-name { font-weight: 600; color: var(--text); }
+
+  /* ── Empty / footer ───────────────────────────────────────────── */
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+  }
+  .footer-note {
+    margin-top: 3rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+  }
+</style>

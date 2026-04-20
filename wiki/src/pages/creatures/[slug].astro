@@ -1,0 +1,315 @@
+---
+/**
+ * Creature detail page — FIL-433 (Creatures A3).
+ *
+ * One page per approved creature slug. `getStaticPaths` fetches all approved
+ * rows at build time; unapproved / missing slugs are simply not generated (404).
+ *
+ * Layout intentionally leaves space for the future status ribbon (FIL-440 / C1)
+ * and tracker sidebar (FIL-441 / C2) — they'll slot in via `<!-- STATUS_RIBBON -->`
+ * and `<!-- TRACKER_SIDEBAR -->` placeholders.
+ */
+import Base from '../../layouts/Base.astro';
+import { fetchApprovedCreatures, imageUrl } from '../../lib/supabase-creatures';
+import type { Creature } from '../../lib/supabase-creatures';
+
+export async function getStaticPaths() {
+  const creatures = await fetchApprovedCreatures();
+  return creatures.map(c => ({
+    params: { slug: c.slug },
+    props: { creature: c },
+  }));
+}
+
+interface Props { creature: Creature }
+const { creature: c } = Astro.props;
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const img = imageUrl(supabaseUrl, c.art_path);
+
+// Helper: render a labelled field only when value is present
+function val(v: string | null | undefined): string {
+  return v?.trim() ?? '';
+}
+function arr(v: string[] | null | undefined): string[] {
+  return (v ?? []).filter(Boolean);
+}
+
+const sizeLabels: Record<string, string> = {
+  tiny: 'Tiny (fits in your hand)', small: 'Small (like a cat or dog)',
+  medium: 'Medium (like a person)', large: 'Large (like a horse or bear)',
+  huge: 'Huge (bigger than a house)',
+};
+const dietLabels: Record<string, string> = {
+  herbivore: 'Herbivore (plants only)', carnivore: 'Carnivore (meat only)',
+  omnivore: 'Omnivore (plants and meat)', insectivore: 'Insectivore (insects)',
+  other: 'Other / Unknown',
+};
+const threatLabels: Record<string, string> = {
+  friendly: 'Friendly', shy: 'Shy', neutral: 'Neutral',
+  territorial: 'Territorial', aggressive: 'Aggressive',
+};
+const climateLabels: Record<string, string> = {
+  tropical: 'Tropical', temperate: 'Temperate', arid: 'Arid / Desert',
+  cold: 'Cold / Polar', any: 'Adapts to any climate',
+};
+
+const movements = arr(c.kind_movement).map(m => m.charAt(0).toUpperCase() + m.slice(1));
+const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice(1));
+---
+
+<Base
+  title={c.creature_name}
+  description={c.lore_description ? c.lore_description.slice(0, 160) : `A creature from the Matlu multiworld.`}
+>
+  <div class="breadcrumb">
+    <a href="/creatures">&larr; All creatures</a>
+  </div>
+
+  <!-- STATUS_RIBBON: FIL-440 (C1) will insert a status ribbon here -->
+
+  <article class="creature">
+
+    <header class="creature-header">
+      <div class="creature-title">
+        <h1>{c.creature_name}</h1>
+        {c.world_name && <p class="world-tag">{c.world_name}</p>}
+        {c.creator_name && (
+          <p class="creator">Created by <strong>{c.art_credit ?? c.creator_name}</strong></p>
+        )}
+      </div>
+      <!-- TRACKER_SIDEBAR: FIL-441 (C2) will insert a GitHub tracker link here -->
+    </header>
+
+    <!-- Art -->
+    {img && (
+      <div class="art-wrap">
+        <img src={img} alt={`Drawing of ${c.creature_name}`} class="art" />
+        {c.art_credit && c.art_credit !== c.creator_name && (
+          <p class="art-credit">Art by {c.art_credit}</p>
+        )}
+      </div>
+    )}
+
+    <!-- What kind -->
+    {(val(c.kind_size) || movements.length || c.kind_solitary !== null) && (
+      <section class="detail-section">
+        <h2>What kind of creature</h2>
+        <dl>
+          {val(c.kind_size) && (
+            <>
+              <dt>Size</dt>
+              <dd>{sizeLabels[c.kind_size!] ?? c.kind_size}</dd>
+            </>
+          )}
+          {movements.length > 0 && (
+            <>
+              <dt>Movement</dt>
+              <dd>{movements.join(', ')}</dd>
+            </>
+          )}
+          {c.kind_solitary !== null && (
+            <>
+              <dt>Social</dt>
+              <dd>{c.kind_solitary ? 'Lives alone' : 'Lives in groups'}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    <!-- Habitat -->
+    {(biomes.length || val(c.habitat_climate) || val(c.habitat_notes)) && (
+      <section class="detail-section">
+        <h2>Where it lives</h2>
+        <dl>
+          {biomes.length > 0 && (
+            <>
+              <dt>Biome</dt>
+              <dd>{biomes.join(', ')}</dd>
+            </>
+          )}
+          {val(c.habitat_climate) && (
+            <>
+              <dt>Climate</dt>
+              <dd>{climateLabels[c.habitat_climate!] ?? c.habitat_climate}</dd>
+            </>
+          )}
+          {val(c.habitat_notes) && (
+            <>
+              <dt>Notes</dt>
+              <dd>{c.habitat_notes}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    <!-- Behaviour -->
+    {(val(c.behaviour_threat) || val(c.behaviour_notes)) && (
+      <section class="detail-section">
+        <h2>Behaviour</h2>
+        <dl>
+          {val(c.behaviour_threat) && (
+            <>
+              <dt>Danger level</dt>
+              <dd>{threatLabels[c.behaviour_threat!] ?? c.behaviour_threat}</dd>
+            </>
+          )}
+          {val(c.behaviour_notes) && (
+            <>
+              <dt>Notes</dt>
+              <dd>{c.behaviour_notes}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    <!-- Food -->
+    {(val(c.kind_diet) || val(c.food_notes)) && (
+      <section class="detail-section">
+        <h2>Food</h2>
+        <dl>
+          {val(c.kind_diet) && (
+            <>
+              <dt>Diet</dt>
+              <dd>{dietLabels[c.kind_diet!] ?? c.kind_diet}</dd>
+            </>
+          )}
+          {val(c.food_notes) && (
+            <>
+              <dt>Notes</dt>
+              <dd>{c.food_notes}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    <!-- Special -->
+    {val(c.special_ability) && (
+      <section class="detail-section">
+        <h2>Special ability</h2>
+        <p class="prose">{c.special_ability}</p>
+      </section>
+    )}
+
+    <!-- Story -->
+    {val(c.lore_description) && (
+      <section class="detail-section">
+        <h2>Story</h2>
+        <p class="prose">{c.lore_description}</p>
+        {val(c.lore_origin) && (
+          <>
+            <h3>Origin</h3>
+            <p class="prose">{c.lore_origin}</p>
+          </>
+        )}
+      </section>
+    )}
+
+  </article>
+
+  <div class="back-link">
+    <a href="/creatures">&larr; Back to all creatures</a>
+  </div>
+</Base>
+
+<style>
+  .breadcrumb {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--text-dim); }
+  .breadcrumb a:hover { color: var(--accent-hi); }
+
+  /* ── Header ───────────────────────────────────────────────────── */
+  .creature-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .creature-title h1 {
+    font-size: 2.2rem;
+    color: var(--accent-hi);
+    margin: 0 0 0.3rem 0;
+  }
+  .world-tag {
+    display: inline-block;
+    font-family: var(--mono, monospace);
+    font-size: 0.78rem;
+    color: var(--green, #4ade80);
+    border: 1px solid rgba(74,222,128,0.3);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.4rem;
+  }
+  .creator { font-size: 0.88rem; color: var(--text-dim); margin: 0; }
+  .creator strong { color: var(--text); }
+
+  /* ── Art ──────────────────────────────────────────────────────── */
+  .art-wrap {
+    margin-bottom: 2rem;
+    max-width: 560px;
+  }
+  .art {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+  .art-credit { font-size: 0.8rem; color: var(--text-dim); margin: 0.4rem 0 0; }
+
+  /* ── Detail sections ──────────────────────────────────────────── */
+  .detail-section {
+    margin-bottom: 1.75rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-section:last-of-type { border-bottom: none; }
+
+  .detail-section h2 {
+    font-size: 1.05rem;
+    color: var(--accent-hi);
+    font-family: 'Syne', sans-serif;
+    margin: 0 0 0.85rem 0;
+  }
+  .detail-section h3 {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin: 1.1rem 0 0.5rem;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 1.25rem;
+    font-size: 0.9rem;
+  }
+  dt { color: var(--text-dim); font-weight: 500; white-space: nowrap; padding-top: 0.05em; }
+  dd { color: var(--text); margin: 0; line-height: 1.5; }
+
+  .prose {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.7;
+    max-width: 640px;
+    margin: 0;
+    white-space: pre-wrap;
+  }
+
+  /* ── Back link ────────────────────────────────────────────────── */
+  .back-link { margin-top: 2.5rem; font-size: 0.88rem; }
+  .back-link a { color: var(--text-dim); }
+  .back-link a:hover { color: var(--accent-hi); }
+
+  @media (max-width: 520px) {
+    dl { grid-template-columns: 1fr; }
+    dt { font-size: 0.78rem; color: var(--text-dim); margin-bottom: -0.2rem; }
+  }
+</style>
