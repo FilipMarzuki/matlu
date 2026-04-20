@@ -36,8 +36,11 @@ test.afterAll(() => {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-async function bootGame(page: import('@playwright/test').Page) {
-  await page.goto('/');
+async function bootGame(
+  page: import('@playwright/test').Page,
+  route = '/',
+) {
+  await page.goto(route);
   await page.waitForFunction(
     () => !!(window as unknown as Record<string, unknown>)['__game'],
     { timeout: BOOT_MS },
@@ -93,7 +96,7 @@ async function capture(
 // ── 1. Main menu ──────────────────────────────────────────────────────────────
 
 test('screenshot: main menu', async ({ page }) => {
-  await bootGame(page);
+  await bootGame(page, '/menu');
 
   await page.waitForFunction(
     () => {
@@ -179,38 +182,14 @@ test('screenshot: pause menu', async ({ page }) => {
 // ── 5. Combat arena ───────────────────────────────────────────────────────────
 
 test('screenshot: combat arena', async ({ page }) => {
-  await bootGame(page);
+  await bootGame(page, '/arena');
 
-  // Wait for MainMenuScene to settle, then click the Arena button.
-  // This mirrors the real user flow and ensures CombatArenaScene starts in
-  // foreground mode (not as a background, which suppresses the HUD).
-  await page.waitForFunction(
-    () => {
-      const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-      return !!game?.scene?.getScene('MainMenuScene')?.sys?.settings?.active;
-    },
-    { timeout: BOOT_MS },
-  );
-  await page.waitForTimeout(1_000);
-
-  // Stop all background scenes and restart CombatArenaScene in foreground mode.
-  // Pass {} explicitly so Phaser doesn't reuse the stale { background: true }
-  // init data from the bgMode launch — that would suppress the HUD and nav panel.
-  await page.evaluate(() => {
-    const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    game?.scene?.stop('CombatArenaScene');
-    game?.scene?.stop('WilderviewScene');
-    game?.scene?.stop('MainMenuScene');
-    game?.scene?.start('CombatArenaScene', {});
-  });
-
-  // Wait until MainMenuScene is gone and CombatArenaScene is the only active scene.
+  // /arena already boots directly into CombatArenaScene as the foreground scene.
   await page.waitForFunction(
     () => {
       const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
-      const menuGone  = !g?.scene?.getScene('MainMenuScene')?.sys?.settings?.active;
       const arenaUp   = !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
-      return menuGone && arenaUp;
+      return arenaUp;
     },
     { timeout: 8_000 },
   );
