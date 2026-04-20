@@ -4463,13 +4463,12 @@ export class GameScene extends Phaser.Scene {
     const { x: isoSpawnX, y: isoSpawnY } = worldToIso(SPAWN_X, SPAWN_Y);
     this.player = this.add.container(isoSpawnX, isoSpawnY, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
-    // Depth = iso-Y (proportional to tx+ty) — valid painter sort for iso space.
-    // Updated every frame in update() to track position.
-    this.player.setDepth(isoSpawnY);
+    // Initial depth in the 0–235 isoDepth scale; update() corrects it every frame.
+    this.player.setDepth(isoDepth(SPAWN_X, SPAWN_Y));
 
     // Drop shadow — oval offset SE from the player's feet.
     this.playerShadow = this.add.ellipse(isoSpawnX + 6, isoSpawnY + 8, 22, 10, 0x000000, 0.22);
-    this.playerShadow.setDepth(isoSpawnY - 1);
+    this.playerShadow.setDepth(isoDepth(SPAWN_X, SPAWN_Y) - 0.1);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
