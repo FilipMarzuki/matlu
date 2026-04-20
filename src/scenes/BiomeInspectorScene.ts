@@ -9,9 +9,14 @@
  *
  * ## Controls
  *   LEFT / RIGHT or A / D   Cycle through all 12 biomes
+ *   Scroll wheel / +/-       Zoom in / out
  *   Click palette box        Jump directly to that biome
  *   E                        Remove the placed entity
  *   C                        Clear all placed objects
+ *
+ * ## Layout extras
+ *   NE corner                Ocean with 2-tile shoreline (rocky → sandy)
+ *   River                    Snaking sine-wave meander through the center band
  */
 
 import * as Phaser from 'phaser';
@@ -49,11 +54,15 @@ export class BiomeInspectorScene extends Phaser.Scene {
   })();
 
   // Layout constants lifted to class level so screenToTile() can access them.
-  private readonly GRID      = 30;
-  private readonly ISO_SCALE = 0.75;
-  private readonly ISO_W     = 24;
-  private readonly ISO_H     = 12;
-  private readonly PAL_AREA  = 68;
+  private readonly GRID     = 30;
+  private readonly PAL_AREA = 68;
+
+  // Zoom multiplier — mouse wheel / +/- keys adjust this, then refreshDisplay().
+  // ISO_W/H/SCALE are getters so all coordinate math automatically scales.
+  private zoomFactor = 1.0;
+  private get ISO_SCALE() { return 0.75 * this.zoomFactor; }
+  private get ISO_W()     { return 24   * this.zoomFactor; }
+  private get ISO_H()     { return 12   * this.zoomFactor; }
 
   // Computed in buildDisplay(), referenced by screenToTile() + isoPos().
   private originX = 0;
@@ -110,6 +119,24 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-D',     () => this.cycleBiome(+1));
     this.input.keyboard!.on('keydown-E',     () => this.clearEntity());
     this.input.keyboard!.on('keydown-C',     () => { this.clearObjects(); this.clearDecors(); });
+
+    // Zoom — scroll wheel or +/- keys. Clamp to [0.25, 3]. On zoom, entity/object
+    // graphics stay at old screen coords so we clear them to avoid misalignment.
+    const applyZoom = (factor: number) => {
+      this.zoomFactor = Phaser.Math.Clamp(this.zoomFactor * factor, 0.25, 3.0);
+      this.clearEntity();
+      this.clearObjects();
+      this.clearDecors();
+      this.refreshDisplay();
+    };
+    this.input.on('wheel',
+      (_: Phaser.Input.Pointer, __: unknown, ___: unknown, deltaY: number) => {
+        applyZoom(deltaY > 0 ? 0.88 : 1.0 / 0.88);
+      });
+    this.input.keyboard!.on('keydown-PLUS',        () => applyZoom(1.15));
+    this.input.keyboard!.on('keydown-NUMPAD_ADD',  () => applyZoom(1.15));
+    this.input.keyboard!.on('keydown-MINUS',       () => applyZoom(1 / 1.15));
+    this.input.keyboard!.on('keydown-NUMPAD_MINUS',() => applyZoom(1 / 1.15));
 
     // Click a tile to place entity or object. Palette / toolbar clicks produce
     // out-of-bounds tile coords, so screenToTile() returns null and nothing fires.
@@ -197,10 +224,15 @@ export class BiomeInspectorScene extends Phaser.Scene {
     const prevBiome = (this.selectedBiome + 11) % 12;
     const nextBiome = (this.selectedBiome + 1)  % 12;
 
-    const showRiver     = this.selectedBiome !== 0;
-    const riverMidRow   = topRows + Math.floor(centerRows / 2);
-    const riverStartRow = riverMidRow - 1;
-    const riverEndRow   = riverMidRow + 1;
+    const showRiver   = this.selectedBiome !== 0;
+    // River meanders through the center band using overlapping sine waves.
+    // Returns the column (tx) of the river center at a given row.
+    const riverCenter = (ty: number) =>
+      Math.round(this.GRID * 0.45 + Math.sin(ty * 0.35) * 5 + Math.cos(ty * 0.65) * 2);
+    const riverMidRow = topRows + Math.floor(centerRows / 2);
+
+    // NE ocean: tiles where (tx - ty) > OCEAN_CUT are sea; two tiles of shoreline inside.
+    const OCEAN_CUT = Math.floor(this.GRID * 0.48);  // ~14 at GRID=30
 
     const usableH  = H - this.PAL_AREA;
     const diamondH = this.GRID * this.ISO_H + this.ISO_H;
@@ -212,17 +244,37 @@ export class BiomeInspectorScene extends Phaser.Scene {
     // Draw each tile as a plain Image — avoids all Phaser 4 RenderTexture
     // command-buffer / render-mode complexity. 900 game objects is fine for a dev tool.
     for (let ty = 0; ty < this.GRID; ty++) {
-      const biomeIdx = ty < topRows
+      const landBiome = ty < topRows
         ? prevBiome
         : ty < topRows + centerRows
           ? this.selectedBiome
           : nextBiome;
 
-      const isRiver = showRiver && ty >= riverStartRow && ty < riverEndRow;
-
       for (let tx = 0; tx < this.GRID; tx++) {
-        const elev  = ((tx * 3 + ty * 7) % 10) / 10;
-        const frame = isRiver ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, elev);
+        const elev     = ((tx * 3 + ty * 7) % 10) / 10;
+        const oceanDist = (tx - ty) - OCEAN_CUT;  // > 0 = inside ocean
+        let frame: number;
+
+        if (oceanDist > 1) {
+          // Deep ocean (Sea biome, dark-blue water diamonds)
+          frame = isoTileFrame(0, elev);
+        } else if (oceanDist === 1) {
+          // Shallow ocean edge (light-blue water diamonds)
+          frame = ISO_RIVER_FRAME;  // light-blue shore water
+        } else if (oceanDist === 0) {
+          // Sandy shore — first land tile against water
+          frame = isoTileFrame(2, elev);
+        } else if (oceanDist === -1) {
+          // Rocky shore — second land tile from water
+          frame = isoTileFrame(1, elev);
+        } else if (showRiver && Math.abs(tx - riverCenter(ty)) <= 1) {
+          // Snaking river — 3-tile wide meander through center band
+          frame = ISO_RIVER_FRAME;
+        } else {
+          // Normal land biome (prev / selected / next band)
+          frame = isoTileFrame(landBiome, elev);
+        }
+
         const { x, y } = this.isoPos(tx, ty);
         const img = this.add.image(x, y - this.ISO_H / 2, 'iso-tiles', frame)
           .setScale(this.ISO_SCALE)
@@ -278,11 +330,24 @@ export class BiomeInspectorScene extends Phaser.Scene {
     );
 
     if (showRiver) {
-      const { y: riverLabelY } = this.isoPos(0, riverMidRow);
+      // Label at the river's meander point for the mid-row
+      const { x: riverLabelX, y: riverLabelY } = this.isoPos(riverCenter(riverMidRow), riverMidRow);
       this.bandLabels.push(
-        this.add.text(8, riverLabelY, '~ river ~',
+        this.add.text(riverLabelX, riverLabelY, '~ river ~',
           { fontSize: '11px', color: '#88ccff', stroke: '#000000', strokeThickness: 2 },
-        ).setOrigin(0, 0.5).setDepth(11),
+        ).setOrigin(0.5, 0.5).setDepth(11),
+      );
+    }
+
+    // Ocean label at the NE shoreline midpoint
+    const oceanLabelTy = Math.floor(this.GRID * 0.25);
+    const oceanLabelTx = OCEAN_CUT + oceanLabelTy + 3;
+    if (oceanLabelTx < this.GRID) {
+      const { x: olx, y: oly } = this.isoPos(oceanLabelTx, oceanLabelTy);
+      this.bandLabels.push(
+        this.add.text(olx, oly, '~ ocean ~',
+          { fontSize: '11px', color: '#4488ff', stroke: '#000000', strokeThickness: 2 },
+        ).setOrigin(0.5, 0.5).setDepth(11),
       );
     }
   }
@@ -319,7 +384,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
     }).setDepth(11);
 
     this.add.text(PAD, startY - 20,
-      'A/D: cycle biomes   click swatch: jump   E: clear entity   C: clear objects',
+      'A/D: cycle biomes   scroll/+−: zoom   click swatch: jump   E: clear entity   C: clear objects',
       { fontSize: '11px', color: '#aaaaaa', stroke: '#000000', strokeThickness: 2 },
     ).setDepth(11);
 
