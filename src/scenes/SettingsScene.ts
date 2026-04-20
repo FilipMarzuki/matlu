@@ -106,11 +106,11 @@ export class SettingsScene extends Phaser.Scene {
         .setDepth(802)
         .setInteractive({ useHandCursor: true });
 
-      // Read stored value; default 1.0 (100%).
+      // Read stored value; default 0.15 (15%) so new players start quiet.
       const stored  = typeof localStorage !== 'undefined'
-        ? parseFloat(localStorage.getItem(key) ?? '1')
-        : 1;
-      const initVal = Phaser.Math.Clamp(isNaN(stored) ? 1 : stored, 0, 1);
+        ? parseFloat(localStorage.getItem(key) ?? '0.15')
+        : 0.15;
+      const initVal = Phaser.Math.Clamp(isNaN(stored) ? 0.15 : stored, 0, 1);
 
       // Filled portion of the track to the left of the thumb.
       const fill = this.add

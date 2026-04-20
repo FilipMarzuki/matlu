@@ -590,6 +590,18 @@ export class NavScene extends Phaser.Scene {
           if (this.feedbackStatus) this.feedbackStatus.textContent = '';
         }, 2000);
       }
+    } catch (err) {
+      console.error('Feedback submit error:', err);
+      if (this.feedbackStatus) {
+        this.feedbackStatus.style.color = '#ff9966';
+        this.feedbackStatus.textContent = 'Error — try again';
+        setTimeout(() => {
+          if (this.feedbackStatus) {
+            this.feedbackStatus.textContent = '';
+            this.feedbackStatus.style.color = '#aaffaa';
+          }
+        }, 3000);
+      }
     } finally {
       this.feedbackInput.disabled   = false;
       this.feedbackSendBtn.disabled = false;

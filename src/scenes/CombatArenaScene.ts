@@ -154,6 +154,10 @@ export class CombatArenaScene extends Phaser.Scene {
   /** Looping combat/dungeon music track. Null until create() confirms audio is available. */
   private combatMusic: Phaser.Sound.BaseSound | null = null;
 
+  /** User-controlled volume multipliers; read from localStorage in create(). */
+  private musicVol = 0.15;
+  private sfxVol   = 0.15;
+
   /** Width of the right-side nav panel. Arena is shrunk to not go behind it. */
   private static readonly PANEL_W = 160;
 
@@ -277,6 +281,12 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Read user volume prefs; default 0.15 so new players start quiet.
+    const _mv = parseFloat(localStorage.getItem('matlu_music_vol') ?? '0.15');
+    const _sv = parseFloat(localStorage.getItem('matlu_sfx_vol')   ?? '0.15');
+    this.musicVol = isNaN(_mv) ? 0.15 : Phaser.Math.Clamp(_mv, 0, 1);
+    this.sfxVol   = isNaN(_sv) ? 0.15 : Phaser.Math.Clamp(_sv, 0, 1);
+
     this.aliveEnemies    = [];
     this.projectiles     = [];
     this.waveGroupIndex  = 0;
@@ -333,7 +343,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Start looping combat music. The track runs for the lifetime of the scene;
     // the SHUTDOWN handler stops it so it doesn't bleed back into GameScene.
     if (this.audioAvailable && this.cache.audio.has('combat-music')) {
-      this.combatMusic = this.sound.add('combat-music', { loop: true, volume: 0.4 });
+      this.combatMusic = this.sound.add('combat-music', { loop: true, volume: 0.4 * this.musicVol });
       this.combatMusic.play();
     }
 
@@ -383,7 +393,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
       // SFX: real 9mm crack with ±10% random pitch variation to avoid repetition fatigue.
       if (this.audioAvailable && this.cache.audio.has('sfx-gunshot')) {
-        this.sound.play('sfx-gunshot', { volume: 0.5, rate: 0.9 + Math.random() * 0.2 });
+        this.sound.play('sfx-gunshot', { volume: 0.5 * this.sfxVol, rate: 0.9 + Math.random() * 0.2 });
       }
     });
 
@@ -391,7 +401,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Played here (scene-side) so audio logic stays out of the entity.
     this.events.on('hero-reload', () => {
       if (this.audioAvailable && this.cache.audio.has('sfx-reload')) {
-        this.sound.play('sfx-reload', { volume: 0.7 });
+        this.sound.play('sfx-reload', { volume: 0.7 * this.sfxVol });
       }
     });
 
@@ -414,7 +424,7 @@ export class CombatArenaScene extends Phaser.Scene {
         const dist = Phaser.Math.Distance.Between(ev.x, ev.y, camX, camY);
         // Linear falloff: 1.0 at dist=0, 0.0 at dist=MAX_AMBIENT_DIST.
         const distFactor = Math.max(0, 1 - dist / MAX_AMBIENT_DIST);
-        const vol = ev.volume * distFactor;
+        const vol = ev.volume * distFactor * this.sfxVol;
         if (vol < 0.01) return; // too quiet to bother playing
         const rate = ev.pitchMin + Math.random() * (ev.pitchMax - ev.pitchMin);
         this.sound.play(ev.key, { volume: vol, rate });
@@ -435,7 +445,7 @@ export class CombatArenaScene extends Phaser.Scene {
         const camY = cam.scrollY + cam.height / 2;
         const dist = Phaser.Math.Distance.Between(ev.x, ev.y, camX, camY);
         const distFactor = Math.max(0, 1 - dist / MAX_COMBAT_DIST);
-        const vol = ev.volume * distFactor;
+        const vol = ev.volume * distFactor * this.sfxVol;
         if (vol < 0.01) return;
         const rate = ev.pitchMin + Math.random() * (ev.pitchMax - ev.pitchMin);
         this.sound.play(ev.key, { volume: vol, rate });
