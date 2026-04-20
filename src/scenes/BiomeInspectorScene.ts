@@ -211,11 +211,12 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
     this.terrainRt = this.add.renderTexture(0, 0, W, H - this.PAL_AREA).setDepth(0);
 
-    // Single reused Image avoids 900 allocations.
+    // Single reused Image avoids 900 allocations. NOT setVisible(false) — Phaser's
+    // WebGL renderer skips invisible objects when drawing to a RenderTexture.
+    // The image starts off-screen at (-9999, -9999) and is destroyed after the loop.
     const tileImg = this.add.image(-9999, -9999, 'iso-tiles', 0)
       .setScale(this.ISO_SCALE)
-      .setOrigin(0.5, 0)
-      .setVisible(false);
+      .setOrigin(0.5, 0);
 
     for (let ty = 0; ty < this.GRID; ty++) {
       const biomeIdx = ty < topRows
