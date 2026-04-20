@@ -1776,6 +1776,9 @@ export class GameScene extends Phaser.Scene {
     for (const child of this.rabbits.getChildren()) {
       const r = child as Phaser.GameObjects.Rectangle;
       const b = r.body as Phaser.Physics.Arcade.Body;
+      // Keep depth in sync with position each frame — rabbits move in ISO space,
+      // so reverse-project back to world coords to get the isoDepth painter key.
+      { const { x: _rWx, y: _rWy } = isoToWorld(r.x, r.y); r.setDepth(isoDepth(_rWx, _rWy)); }
       const state = r.getData('state') as RabbitState;
       const fleeUntil = r.getData('fleeUntil') as number;
       const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
@@ -3625,7 +3628,10 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 2; i++) {
       const offsetX = (i === 0 ? -1 : 1) * Phaser.Math.Between(30, 60);
       const offsetY = Phaser.Math.Between(-40, 40);
-      const r = this.add.rectangle(bx + offsetX, by + offsetY, 18, 18, 0x993333);
+      const wx = bx + offsetX;
+      const wy = by + offsetY;
+      const { x: _brIsoX, y: _brIsoY } = worldToIso(wx, wy);
+      const r = this.add.rectangle(_brIsoX, _brIsoY, 18, 18, 0x993333);
       this.physics.add.existing(r);
       (r.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
       r.setData('state',    'roaming' satisfies RabbitState);
@@ -3634,7 +3640,7 @@ export class GameScene extends Phaser.Scene {
       // Boss is near the portal — always Zone C speeds.
       r.setData('chaseSpeed', Math.round(CHASE_SPEED * 1.5));
       r.setData('fleeSpeed',  Math.round(FLEE_SPEED  * 1.5));
-      r.setDepth(r.y);
+      r.setDepth(isoDepth(wx, wy));
       this.rabbits.add(r);
     }
   }
@@ -6953,14 +6959,15 @@ export class GameScene extends Phaser.Scene {
 
     for (const def of defs) {
       const alreadyOpened = openedSet.has(def.id);
+      const { x: _chestIsoX, y: _chestIsoY } = worldToIso(def.x, def.y);
 
       // Frame 3 = fully open. Already-opened chests render immediately open
       // so the player doesn't see them "pop" closed on load.
-      const sprite = this.add.sprite(def.x, def.y, def.texture, alreadyOpened ? 3 : 0);
+      const sprite = this.add.sprite(_chestIsoX, _chestIsoY, def.texture, alreadyOpened ? 3 : 0);
       // Scale 2× matches other Mystic Woods decorations in the world (16 px → 32 px display).
       sprite.setScale(2.0);
-      // y-sort: depth = world-y so the player correctly occludes/underlaps the chest.
-      sprite.setDepth(def.y);
+      // isoDepth painter-sorts the chest against the player and other world objects.
+      sprite.setDepth(isoDepth(def.x, def.y));
       // Origin (0.5, 1): sprite is anchored at its bottom-centre, consistent with
       // all other world objects that use y-sorting.
       sprite.setOrigin(0.5, 1);
@@ -6971,7 +6978,7 @@ export class GameScene extends Phaser.Scene {
       // "E: Open" prompt — 8 px above the sprite top (sprite is 32 px tall at scale 2).
       // Depth 500 renders above all world objects.
       const prompt = this.add
-        .text(def.x, def.y - 40, t('ui.open'), {
+        .text(_chestIsoX, _chestIsoY - 40, t('ui.open'), {
           fontSize: '10px',
           color: '#f0ead6',
           backgroundColor: '#00000088',
