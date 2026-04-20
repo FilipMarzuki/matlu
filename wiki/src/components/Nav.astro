@@ -2,13 +2,13 @@
 const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://corewarden.app';
 
 const navItems = [
-  { href: '/',           label: 'Home'      },
-  { href: '/lore',       label: 'Lore'      },
-  { href: '/biomes',     label: 'Biomes'    },
-  { href: '/creatures',  label: 'Creatures' },
-  { href: '/playtest',   label: 'Playtest'  },
-  { href: '/screenshots', label: 'Screenshots' },
-  { href: '/credits',     label: 'Credits'     },
+  { href: '/',            en: 'Home',         sv: 'Hem'          },
+  { href: '/lore',        en: 'Lore',         sv: 'Lore'         },
+  { href: '/biomes',      en: 'Biomes',       sv: 'Biomer'       },
+  { href: '/creatures',   en: 'Creatures',    sv: 'Väsen'        },
+  { href: '/playtest',    en: 'Playtest',     sv: 'Testa spelet' },
+  { href: '/screenshots', en: 'Screenshots',  sv: 'Bilder'       },
+  { href: '/credits',     en: 'Credits',      sv: 'Skapare'      },
 ];
 
 const pathname = Astro.url.pathname;
@@ -20,25 +20,45 @@ const pathname = Astro.url.pathname;
     {navItems.map(item => (
       <li>
         <a href={item.href} class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}>
-          {item.label}
+          <span class="t-en">{item.en}</span>
+          <span class="t-sv">{item.sv}</span>
         </a>
       </li>
     ))}
   </ul>
-  <!-- Cross-links to other Matlu projects -->
-  <a href={`${gameUrl}/biome`} class="dev-link" target="_blank" rel="noopener">
-    World Forge →
-  </a>
-  <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" target="_blank" rel="noopener">
-    Dev Log →
-  </a>
+  <div class="right-group">
+    <!-- Language toggle: shows the OTHER language as the button label -->
+    <button id="lang-toggle" class="lang-btn" title="Switch language / Byt språk">
+      <span class="t-en">SV</span>
+      <span class="t-sv">EN</span>
+    </button>
+    <!-- Cross-links to other Matlu projects -->
+    <a href={`${gameUrl}/biome`} class="dev-link" target="_blank" rel="noopener">
+      World Forge →
+    </a>
+    <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" target="_blank" rel="noopener">
+      Dev Log →
+    </a>
+  </div>
 </nav>
+
+<script>
+  document.getElementById('lang-toggle')!.addEventListener('click', () => {
+    const html = document.documentElement;
+    const next = (html.getAttribute('data-lang') || 'en') === 'en' ? 'sv' : 'en';
+    html.setAttribute('data-lang', next);
+    html.lang = next;
+    localStorage.setItem('matlu-lang', next);
+    // Let other scripts react to the change
+    document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: next } }));
+  });
+</script>
 
 <style>
   nav {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    gap: 1.25rem;
     padding: 1rem 1.25rem;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
@@ -57,8 +77,30 @@ const pathname = Astro.url.pathname;
   a { color: var(--text-dim); font-size: 0.9rem; font-family: 'Outfit', sans-serif; }
   a:hover, a.active { color: var(--text); text-decoration: none; }
   a.active { color: var(--accent-hi); }
-  .dev-link {
+
+  .right-group {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .lang-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 0.2rem 0.5rem;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .lang-btn:hover { border-color: var(--accent); color: var(--accent-hi); }
+
+  .dev-link {
     color: var(--text-dim);
     font-size: 0.82rem;
     white-space: nowrap;
