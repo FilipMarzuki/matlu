@@ -22,6 +22,14 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Must run before body renders to avoid flash of wrong language -->
+    <script is:inline>
+      (function(){
+        var l = localStorage.getItem('matlu-lang') || 'en';
+        document.documentElement.setAttribute('data-lang', l);
+        document.documentElement.lang = l;
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta property="og:title" content={pageTitle} />
@@ -85,6 +93,12 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
         text-decoration: none;
       }
       a:hover { text-decoration: underline; }
+
+      /* ── Language toggle ────────────────────────────────────────────────── */
+      /* .t-en shown by default; .t-sv hidden. Flip when html[data-lang="sv"]. */
+      .t-sv { display: none; }
+      [data-lang="sv"] .t-en { display: none; }
+      [data-lang="sv"] .t-sv { display: inline; }
 
       /* ── Main content wrapper ────────────────────────────────────────────── */
       main {

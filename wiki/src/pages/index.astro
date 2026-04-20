@@ -15,13 +15,19 @@ const recentLore = allLore.slice(0, 3);
 >
   <!-- ── Hero ──────────────────────────────────────────────────────────── -->
   <section class="hero">
-    <h1>The Matlu Multiworld</h1>
+    <h1>
+      <span class="t-en">The Matlu Multiworld</span>
+      <span class="t-sv">Matlu-multiversum</span>
+    </h1>
     <p class="lead">
-      The world companion for <strong>Core Warden</strong> — lore, biomes, creatures, and more.
-      Explore the world, meet its peoples, and help bring its creatures to life.
+      <span class="t-en">The world companion for <strong>Core Warden</strong> — lore, biomes, creatures, and more.
+        Explore the world, meet its peoples, and help bring its creatures to life.</span>
+      <span class="t-sv">Världsguiden för <strong>Core Warden</strong> — lore, biomer, väsen och mer.
+        Utforska världen, möt dess folk och hjälp till att skapa väsen.</span>
     </p>
     <a href={gameUrl} class="cta" target="_blank" rel="noopener">
-      Play Core Warden →
+      <span class="t-en">Play Core Warden →</span>
+      <span class="t-sv">Spela Core Warden →</span>
     </a>
   </section>
 
@@ -29,7 +35,10 @@ const recentLore = allLore.slice(0, 3);
   <section class="section">
     <div class="section-head">
       <h2>📖 Lore</h2>
-      <a href="/lore" class="see-all">Browse all →</a>
+      <a href="/lore" class="see-all">
+        <span class="t-en">Browse all →</span>
+        <span class="t-sv">Visa alla →</span>
+      </a>
     </div>
 
     {recentLore.length > 0 ? (
@@ -47,8 +56,12 @@ const recentLore = allLore.slice(0, 3);
       </div>
     ) : (
       <div class="coming-soon">
-        <span>Lore entries coming soon.</span>
-        <a href="/lore">Visit the lore section →</a>
+        <span class="t-en">Lore entries coming soon.</span>
+        <span class="t-sv">Lore-inlägg kommer snart.</span>
+        <a href="/lore">
+          <span class="t-en">Visit the lore section →</span>
+          <span class="t-sv">Besök lore-sektionen →</span>
+        </a>
       </div>
     )}
   </section>
@@ -56,31 +69,54 @@ const recentLore = allLore.slice(0, 3);
   <!-- ── Biomes teaser ─────────────────────────────────────────────────── -->
   <section class="section">
     <div class="section-head">
-      <h2>🌍 Biomes</h2>
+      <h2>
+        <span class="t-en">🌍 Biomes</span>
+        <span class="t-sv">🌍 Biomer</span>
+      </h2>
     </div>
     <div class="coming-soon">
-      Biome cards coming soon — from Meadow to Deep Sea.
+      <span class="t-en">Biome cards coming soon — from Meadow to Deep Sea.</span>
+      <span class="t-sv">Biomkort kommer snart — från äng till djuphav.</span>
     </div>
   </section>
 
   <!-- ── Creatures teaser ──────────────────────────────────────────────── -->
   <section class="section">
     <div class="section-head">
-      <h2>🦎 Creatures</h2>
+      <h2>
+        <span class="t-en">🦎 Creatures</span>
+        <span class="t-sv">🦎 Väsen</span>
+      </h2>
     </div>
     <div class="coming-soon">
-      Creature gallery coming soon.
-      <a href="/creatures/submit">Submit a creature →</a>
+      <span class="t-en">Creature gallery coming soon.</span>
+      <span class="t-sv">Väsensgalleri kommer snart.</span>
+      <a href="/creatures/submit">
+        <span class="t-en">Submit a creature →</span>
+        <span class="t-sv">Skicka in ett väsen →</span>
+      </a>
     </div>
   </section>
 
   <!-- ── Contribute CTA ────────────────────────────────────────────────── -->
   <section class="contribute">
-    <h2>Contribute to the World</h2>
-    <p>The Matlu multiworld grows with the community. Submit a creature you've dreamed up, or play the game and share your feedback.</p>
+    <h2>
+      <span class="t-en">Contribute to the World</span>
+      <span class="t-sv">Bidra till världen</span>
+    </h2>
+    <p>
+      <span class="t-en">The Matlu multiworld grows with the community. Submit a creature you've dreamed up, or play the game and share your feedback.</span>
+      <span class="t-sv">Matlu-multiversum växer med gemenskapen. Skicka in ett väsen du drömt om, eller spela och dela din feedback.</span>
+    </p>
     <div class="cta-row">
-      <a href="/creatures/submit" class="btn btn-primary">Submit a creature</a>
-      <a href="/playtest" class="btn btn-secondary">Give feedback</a>
+      <a href="/creatures/submit" class="btn btn-primary">
+        <span class="t-en">Submit a creature</span>
+        <span class="t-sv">Skicka in ett väsen</span>
+      </a>
+      <a href="/playtest" class="btn btn-secondary">
+        <span class="t-en">Give feedback</span>
+        <span class="t-sv">Ge feedback</span>
+      </a>
     </div>
   </section>
 </Base>
