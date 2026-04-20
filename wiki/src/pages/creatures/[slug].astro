@@ -1,0 +1,361 @@
+---
+/**
+ * Creature detail page — /creatures/[slug]
+ *
+ * Shows the creature's public info plus a status ribbon (where it is in the
+ * production pipeline) and a timeline of past state changes.
+ *
+ * All data is fetched at Astro build time via getStaticPaths(). If Supabase
+ * returns no rows (e.g. CI with placeholder credentials), no pages are built
+ * — the build still succeeds.
+ *
+ * Data safety: only public-safe fields are selected. Internal fields
+ * (balance_notes, graphics_difficulty, graphics_notes, tracker_issue_number,
+ * contact_email, maker_age) are never fetched. creature_status_history.note
+ * is also never surfaced.
+ */
+
+import Base from '../../layouts/Base.astro';
+import {
+  fetchAllCreaturesWithSlugs,
+  fetchAllStatusHistory,
+  computeQueuePosition,
+  computeEtaDays,
+  relativeDate,
+  type CreaturePublic,
+  type HistoryEntry,
+} from '../../lib/creature-supabase';
+import { STATUS_DISPLAY, isKnownStatus, statusLabel } from '../../lib/creature-status';
+
+export async function getStaticPaths() {
+  const [creatures, allHistory] = await Promise.all([
+    fetchAllCreaturesWithSlugs(),
+    fetchAllStatusHistory(),
+  ]);
+
+  return creatures.map((creature) => {
+    // Only this creature's transitions for the timeline
+    const history = allHistory.filter((h) => h.creature_id === creature.id);
+    const queuePosition =
+      creature.status === 'queued'
+        ? computeQueuePosition(creatures, creature.id)
+        : null;
+    // ETA uses the full cross-creature history to compute the median
+    const etaDays = computeEtaDays(allHistory, creature.status);
+
+    return {
+      params: { slug: creature.slug },
+      props: { creature, history, queuePosition, etaDays },
+    };
+  });
+}
+
+interface Props {
+  creature: CreaturePublic;
+  history: HistoryEntry[];
+  queuePosition: number | null;
+  etaDays: number | null;
+}
+
+const { creature, history, queuePosition, etaDays } = Astro.props;
+
+const display = isKnownStatus(creature.status) ? STATUS_DISPLAY[creature.status] : null;
+
+// Build the ribbon copy, substituting queue position and rejected note
+let ribbonCopy = display?.copy ?? '';
+if (creature.status === 'queued' && queuePosition !== null) {
+  ribbonCopy = ribbonCopy.replace('{N}', String(queuePosition));
+} else if (creature.status === 'rejected' && creature.moderation_note) {
+  ribbonCopy = creature.moderation_note;
+}
+
+const etaDaysRounded = etaDays !== null ? Math.round(etaDays) : null;
+
+// Format movement array as comma-separated string
+const movementText = creature.kind_movement?.join(', ') ?? null;
+const biomeText = creature.habitat_biome?.join(', ') ?? null;
+---
+
+<Base
+  title={creature.creature_name}
+  description={`${creature.creature_name} — a creature from the Matlu multiworld, submitted by ${creature.creator_name}.`}
+>
+  <a href="/creatures" class="back">← Creatures</a>
+
+  <!-- ── Status ribbon ────────────────────────────────────────────────────────── -->
+  {display && (
+    <div
+      class="ribbon"
+      style={`border-left-color: ${display.borderColor};`}
+      aria-label={`Status: ${display.label}`}
+    >
+      <span class="ribbon-emoji" aria-hidden="true">{display.emoji}</span>
+      <div class="ribbon-text">
+        <strong class="ribbon-label">{display.label}</strong>
+        {ribbonCopy && <p class="ribbon-copy">{ribbonCopy}</p>}
+        {etaDaysRounded !== null && (
+          <p class="ribbon-eta">
+            Usually takes about {etaDaysRounded} day{etaDaysRounded === 1 ? '' : 's'} at this stage.
+          </p>
+        )}
+      </div>
+    </div>
+  )}
+
+  <!-- ── Creature header ──────────────────────────────────────────────────────── -->
+  <article>
+    <header>
+      <h1>{creature.creature_name}</h1>
+      <p class="byline">
+        Submitted by <strong>{creature.creator_name}</strong>
+        {creature.world_name && <> · World: <em>{creature.world_name}</em></>}
+      </p>
+    </header>
+
+    {creature.art_path && (
+      <div class="art-wrapper">
+        <img
+          src={`https://hbkwjqkykcggvtbuaqof.supabase.co/storage/v1/object/public/creature-art/${creature.art_path}`}
+          alt={`Creature art for ${creature.creature_name}`}
+          class="creature-art"
+          loading="lazy"
+        />
+      </div>
+    )}
+
+    <!-- Creature facts -->
+    {(creature.kind_size || movementText || creature.kind_diet) && (
+      <section class="facts">
+        <h2>About this creature</h2>
+        <dl>
+          {creature.kind_size && (
+            <>
+              <dt>Size</dt>
+              <dd>{creature.kind_size}</dd>
+            </>
+          )}
+          {movementText && (
+            <>
+              <dt>Movement</dt>
+              <dd>{movementText}</dd>
+            </>
+          )}
+          {creature.kind_diet && (
+            <>
+              <dt>Diet</dt>
+              <dd>{creature.kind_diet}</dd>
+            </>
+          )}
+          {biomeText && (
+            <>
+              <dt>Habitat</dt>
+              <dd>{biomeText}</dd>
+            </>
+          )}
+          {creature.special_ability && (
+            <>
+              <dt>Special ability</dt>
+              <dd>{creature.special_ability}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    {creature.lore_description && (
+      <section class="lore">
+        <h2>The creator's story</h2>
+        <p>{creature.lore_description}</p>
+      </section>
+    )}
+
+    <!-- ── Status timeline ──────────────────────────────────────────────────────── -->
+    {history.length > 0 && (
+      <section class="timeline-section">
+        <h2>Journey so far</h2>
+        <ol class="timeline" aria-label="Status history">
+          {history.map((entry, i) => {
+            const isLast = i === history.length - 1;
+            return (
+              <li class={`timeline-entry${isLast ? ' timeline-entry--current' : ''}`}>
+                <span class="timeline-dot" aria-hidden="true"></span>
+                <span class="timeline-label">
+                  {statusLabel(entry.to_status)}
+                </span>
+                <span class="timeline-date">{relativeDate(entry.changed_at)}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+    )}
+  </article>
+</Base>
+
+<style>
+  .back {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+  .back:hover { color: var(--accent-hi); text-decoration: none; }
+
+  /* ── Status ribbon ─────────────────────────────────────────────────────────── */
+  .ribbon {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid;   /* color set by inline style */
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .ribbon-emoji {
+    font-size: 1.75rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .ribbon-text { display: flex; flex-direction: column; gap: 0.25rem; }
+
+  .ribbon-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .ribbon-copy {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .ribbon-eta {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin: 0;
+    font-style: italic;
+  }
+
+  /* ── Creature header ───────────────────────────────────────────────────────── */
+  article { max-width: 680px; }
+
+  header { margin-bottom: 1.5rem; }
+
+  h1 { margin-bottom: 0.4rem; }
+
+  .byline {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  /* ── Art ───────────────────────────────────────────────────────────────────── */
+  .art-wrapper {
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    display: inline-block;
+  }
+
+  .creature-art {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+  }
+
+  /* ── Facts ─────────────────────────────────────────────────────────────────── */
+  .facts, .lore { margin-bottom: 2rem; }
+  .facts h2, .lore h2 { margin-bottom: 0.75rem; }
+
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1.25rem;
+  }
+
+  dt {
+    font-size: 0.8rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    padding-top: 0.1rem;
+  }
+
+  dd {
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .lore p { color: var(--text-dim); line-height: 1.7; }
+
+  /* ── Timeline ──────────────────────────────────────────────────────────────── */
+  .timeline-section { margin-top: 2rem; }
+  .timeline-section h2 { margin-bottom: 1rem; }
+
+  .timeline {
+    list-style: none;
+    position: relative;
+    padding-left: 1.5rem;
+  }
+
+  /* Dotted vertical rule connecting entries */
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.35rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    border-left: 2px dotted var(--border);
+  }
+
+  .timeline-entry {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    position: relative;
+    padding: 0.35rem 0;
+    font-size: 0.9rem;
+  }
+
+  .timeline-dot {
+    position: absolute;
+    left: -1.5rem;
+    top: 0.6rem;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .timeline-entry--current .timeline-dot {
+    background: var(--accent-hi);
+  }
+
+  .timeline-label {
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  .timeline-entry--current .timeline-label {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .timeline-date {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+</style>
