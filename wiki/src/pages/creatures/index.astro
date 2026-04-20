@@ -1,0 +1,207 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getWikiSupabase } from '../../lib/supabase';
+import type { CreatureSubmission } from '../../../../src/types/database.types';
+
+let creatures: CreatureSubmission[] = [];
+try {
+  const sb = getWikiSupabase();
+  const { data } = await sb
+    .from('creature_submissions')
+    .select('*')
+    .eq('approved', true)
+    .order('created_at', { ascending: false });
+  creatures = data ?? [];
+} catch {
+  // Degrades to empty state when Supabase is unavailable at build time
+}
+
+function typeLabel(c: CreatureSubmission): string {
+  const parts: string[] = [];
+  if (c.kind_size) parts.push(c.kind_size);
+  if (c.kind_diet) parts.push(c.kind_diet);
+  return parts.join(' · ');
+}
+---
+
+<Base title="Creatures" description="Browse all approved creatures in the Matlu multiworld.">
+  <div class="header">
+    <h1>Creatures</h1>
+    <p class="subtitle">Beasts, spirits, and oddities from across the Matlu multiworld.</p>
+    <a href="/creatures/submit" class="submit-cta">Submit a creature →</a>
+  </div>
+
+  {creatures.length === 0 ? (
+    <div class="empty">
+      <p>No creatures here yet — be the first to add one!</p>
+      <a href="/creatures/submit" class="empty-link">Submit your creature →</a>
+    </div>
+  ) : (
+    <div class="card-grid">
+      {creatures.map((c) => (
+        <a href={`/creatures/${c.slug}`} class="card">
+          {c.art_path ? (
+            <div class="thumb-wrap">
+              <img src={c.art_path} alt={c.creature_name} class="thumb" loading="lazy" />
+            </div>
+          ) : (
+            <div class="thumb-wrap thumb-placeholder" aria-hidden="true" />
+          )}
+          <div class="card-body">
+            <div class="card-top">
+              {typeLabel(c) && <span class="badge">{typeLabel(c)}</span>}
+              {c.world_name && <span class="world">{c.world_name}</span>}
+            </div>
+            <h3>{c.creature_name}</h3>
+            {c.creator_name && (
+              <p class="maker">made by {c.creator_name}</p>
+            )}
+            {c.lore_description && (
+              <p class="story">{c.lore_description.slice(0, 100)}{c.lore_description.length > 100 ? '…' : ''}</p>
+            )}
+          </div>
+        </a>
+      ))}
+    </div>
+  )}
+</Base>
+
+<style>
+  .header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 2rem;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .submit-cta {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--accent-hi);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.35rem 0.75rem;
+  }
+  .submit-cta:hover { background: rgba(168, 85, 247, 0.1); text-decoration: none; }
+
+  .empty {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-dim);
+  }
+
+  .empty-link {
+    display: inline-block;
+    margin-top: 1rem;
+    color: var(--accent-hi);
+    font-size: 0.9rem;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text);
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.12);
+    text-decoration: none;
+  }
+
+  .thumb-wrap {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--surface-hi);
+  }
+
+  .thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .thumb-placeholder {
+    background: linear-gradient(135deg, var(--surface-hi) 0%, var(--border) 100%);
+  }
+
+  .card-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--accent-hi);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+  }
+
+  .world {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .card h3 {
+    font-size: 1rem;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    color: var(--accent-hi);
+    margin: 0;
+  }
+
+  .maker {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .story {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
