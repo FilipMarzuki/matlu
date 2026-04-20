@@ -1,0 +1,290 @@
+---
+/**
+ * Creator profile page — /creators/<handle>
+ *
+ * Shows all approved creature submissions by a specific creator (all kids
+ * on the parent account, grouped by kid name).
+ *
+ * Static generation: getStaticPaths() queries account_profiles at build time
+ * (using the public SELECT policy). Pages are pre-built per known creator handle
+ * at deploy time. New creator profiles appear after the next Vercel deploy.
+ *
+ * If the Supabase tables don't exist yet (migration not applied), getStaticPaths
+ * catches the error and returns an empty array — the build still succeeds.
+ */
+import { createClient } from '@supabase/supabase-js';
+import Base from '../../layouts/Base.astro';
+
+interface AccountProfile {
+  user_id: string;
+  handle: string;
+  created_at: string;
+  paused: boolean;
+}
+
+interface CreatureSubmission {
+  id: string;
+  creature_name: string;
+  lore_description: string | null;
+  art_path: string | null;
+  kind_size: string | null;
+  habitat_biome: string[] | null;
+  slug: string | null;
+  creator_name: string;
+  kid_id: string | null;
+}
+
+interface AccountKid {
+  id: string;
+  kid_name: string;
+}
+
+interface Props {
+  profile: AccountProfile;
+  submissions: CreatureSubmission[];
+  kids: AccountKid[];
+}
+
+export async function getStaticPaths() {
+  const url = import.meta.env.VITE_SUPABASE_URL ?? '';
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+
+  if (!url || !key) return [];
+
+  try {
+    const supabase = createClient(url, key);
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from('account_profiles')
+      .select('user_id, handle, created_at, paused');
+
+    if (profilesError || !profiles) return [];
+
+    const paths = await Promise.all(
+      (profiles as unknown as AccountProfile[]).map(async (profile) => {
+        const [submissionsRes, kidsRes] = await Promise.all([
+          supabase
+            .from('creature_submissions')
+            .select('id, creature_name, lore_description, art_path, kind_size, habitat_biome, slug, creator_name, kid_id')
+            .eq('user_id', profile.user_id)
+            .eq('approved', true)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('account_kids')
+            .select('id, kid_name')
+            .eq('user_id', profile.user_id),
+        ]);
+
+        return {
+          params: { handle: profile.handle },
+          props: {
+            profile,
+            submissions: (submissionsRes.data ?? []) as unknown as CreatureSubmission[],
+            kids: (kidsRes.data ?? []) as unknown as AccountKid[],
+          } satisfies Props,
+        };
+      })
+    );
+
+    return paths;
+  } catch {
+    // Tables don't exist yet or Supabase is unreachable — skip static generation
+    return [];
+  }
+}
+
+const { profile, submissions, kids } = Astro.props as Props;
+
+const kidMap = new Map<string, string>(kids.map(k => [k.id, k.kid_name]));
+
+// Group submissions by kid_id (null = submitted without a kid context)
+const byKid = new Map<string | null, CreatureSubmission[]>();
+for (const sub of submissions) {
+  const key = sub.kid_id ?? null;
+  const group = byKid.get(key) ?? [];
+  group.push(sub);
+  byKid.set(key, group);
+}
+---
+
+<Base
+  title={`${profile.handle}'s creatures`}
+  description={`All approved creature submissions from ${profile.handle} on Matlu Codex.`}
+>
+  <div class="header">
+    <h1>{profile.handle}</h1>
+    <p class="meta">
+      Creator since {new Date(profile.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+      {profile.paused && <span class="paused-badge">Account paused</span>}
+    </p>
+  </div>
+
+  {profile.paused && (
+    <div class="paused-notice">
+      This creator has paused their account. Their creatures are still visible.
+    </div>
+  )}
+
+  {submissions.length === 0 ? (
+    <p class="empty">No approved creatures yet from this creator.</p>
+  ) : (
+    <div class="creatures">
+      {[...byKid.entries()].map(([kidId, subs]) => (
+        <section class="kid-group">
+          <h2 class="kid-heading">
+            {kidId !== null ? `Creatures by ${kidMap.get(kidId) ?? kidId}` : 'Creatures'}
+          </h2>
+          <div class="grid">
+            {subs.map(sub => (
+              <a
+                href={sub.slug ? `/creatures/${sub.slug}` : '#'}
+                class="creature-card"
+              >
+                {sub.art_path ? (
+                  <img
+                    src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/creature-art/${sub.art_path}`}
+                    alt={sub.creature_name}
+                    class="art"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div class="art-placeholder">No art yet</div>
+                )}
+                <div class="card-body">
+                  <h3>{sub.creature_name}</h3>
+                  {sub.lore_description && (
+                    <p class="lore">{sub.lore_description.slice(0, 100)}{sub.lore_description.length > 100 ? '…' : ''}</p>
+                  )}
+                  <div class="tags">
+                    {sub.kind_size && <span class="tag">{sub.kind_size}</span>}
+                    {(sub.habitat_biome ?? []).slice(0, 2).map(b => (
+                      <span class="tag">{b}</span>
+                    ))}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )}
+
+  <p class="back"><a href="/creatures">&larr; All creatures</a></p>
+</Base>
+
+<style>
+  .header { margin-bottom: 0.5rem; }
+
+  h1 { margin-bottom: 0.25rem; }
+
+  .meta {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .paused-badge {
+    font-size: 0.78rem;
+    background: var(--surface-hi);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  .paused-notice {
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+  }
+
+  .empty {
+    color: var(--text-dim);
+    margin-top: 2rem;
+  }
+
+  .kid-group { margin-bottom: 2.5rem; }
+
+  .kid-heading {
+    font-size: 1.1rem;
+    color: var(--accent-hi);
+    margin-bottom: 1rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .creature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.15s, transform 0.1s;
+    display: flex;
+    flex-direction: column;
+  }
+  .creature-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+
+  .art {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: var(--surface-hi);
+  }
+
+  .art-placeholder {
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--surface-hi);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .card-body { padding: 0.75rem; }
+  h3 { font-size: 0.95rem; margin-bottom: 0.35rem; }
+
+  .lore {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .tag {
+    font-size: 0.72rem;
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1rem 0.4rem;
+    color: var(--text-dim);
+    text-transform: capitalize;
+  }
+
+  .back { margin-top: 2rem; font-size: 0.88rem; }
+</style>

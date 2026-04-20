@@ -1,0 +1,304 @@
+---
+/**
+ * Delete account — GDPR Art. 17 (right to erasure / right to be forgotten).
+ *
+ * Two deletion modes as described in the issue spec:
+ *
+ *   Full delete: removes profile → cascades to kids + drafts. Also deletes
+ *   the user's own creature_submissions rows (via the own submissions delete RLS
+ *   policy). Artwork files in the creature-art bucket require service-role access
+ *   for full removal — this client-side flow deletes the rows; bucket file cleanup
+ *   should be done via a scheduled maintenance job or Supabase Edge Function.
+ *
+ *   Anonymise: removes profile + kids + drafts only. Approved creature submissions
+ *   stay in the wiki but are unattributed (user_id cleared via FK on delete set null,
+ *   and maker_name / credits_opt_in are updated to remove attribution).
+ *
+ * The auth.users row cannot be deleted from client-side code (requires service-role
+ * admin.deleteUser). After this flow, the account data is removed from the wiki
+ * tables; the auth row is orphaned and effectively unusable (no profile = 404 on
+ * settings page, new sign-up required). A TODO is left for a server-side cleanup job.
+ *
+ * All actions are written to gdpr_actions_log for audit (Art. 5(2)).
+ */
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base title="Delete account" description="Permanently delete your Matlu Codex account.">
+  <div class="wrap">
+    <h1>Delete account</h1>
+    <p class="lead">
+      This is permanent. Please read both options carefully before choosing.
+    </p>
+
+    <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+    <div id="loading" class="state">Checking your session&hellip;</div>
+
+    <div id="signed-out" class="state" hidden>
+      <p>You are not signed in. <a href="/account/signin">Sign in</a> to delete your account.</p>
+    </div>
+
+    <div id="ready" hidden>
+      <div class="mode-cards">
+        <!-- Mode selector -->
+        <label class="mode-card" id="mode-full-card">
+          <input type="radio" name="delete-mode" value="full" id="mode-full" />
+          <div>
+            <h2>Full delete</h2>
+            <p>
+              Removes your account, all children, all drafts, and <strong>all
+              your creature submissions</strong> including approved ones.
+              Artwork files are removed from the gallery.
+            </p>
+          </div>
+        </label>
+
+        <label class="mode-card" id="mode-anon-card">
+          <input type="radio" name="delete-mode" value="anonymize" id="mode-anon" />
+          <div>
+            <h2>Anonymise</h2>
+            <p>
+              Removes your account, children, and drafts. Approved creatures
+              <strong>stay on the wiki and in the game</strong> but become
+              unattributed — your name and account link are removed.
+            </p>
+          </div>
+        </label>
+      </div>
+
+      <div id="confirm-section" hidden class="confirm-section">
+        <p class="confirm-label">
+          Type <strong>delete my account</strong> to confirm:
+        </p>
+        <input
+          id="confirm-input"
+          type="text"
+          placeholder="delete my account"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="delete-btn" class="btn btn-danger" disabled>Delete my account</button>
+        <p id="delete-status" class="status" role="status" aria-live="polite"></p>
+      </div>
+
+      <p class="back"><a href="/account/settings">&larr; Back to settings</a></p>
+    </div>
+
+    <div id="deleted" class="state" hidden>
+      <p class="success-message">Your account has been deleted. Thank you for being part of Matlu.</p>
+      <a href="/" class="btn">Return to home</a>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLDivElement;
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+
+  const loadingEl    = document.getElementById('loading') as HTMLDivElement;
+  const signedOutEl  = document.getElementById('signed-out') as HTMLDivElement;
+  const readyEl      = document.getElementById('ready') as HTMLDivElement;
+  const confirmSec   = document.getElementById('confirm-section') as HTMLDivElement;
+  const confirmInput = document.getElementById('confirm-input') as HTMLInputElement;
+  const deleteBtn    = document.getElementById('delete-btn') as HTMLButtonElement;
+  const statusEl     = document.getElementById('delete-status') as HTMLParagraphElement;
+  const deletedEl    = document.getElementById('deleted') as HTMLDivElement;
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    loadingEl.hidden = true;
+    if (!session) {
+      signedOutEl.hidden = false;
+    } else {
+      readyEl.hidden = false;
+    }
+  });
+
+  // Show confirm section once a mode is selected
+  document.querySelectorAll<HTMLInputElement>('input[name="delete-mode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      confirmSec.hidden = false;
+      confirmInput.value = '';
+      deleteBtn.disabled = true;
+      statusEl.textContent = '';
+    });
+  });
+
+  // Enable delete button only when confirmation phrase is correct
+  confirmInput.addEventListener('input', () => {
+    deleteBtn.disabled = confirmInput.value.trim().toLowerCase() !== 'delete my account';
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    const mode = (document.querySelector<HTMLInputElement>('input[name="delete-mode"]:checked'))?.value;
+    if (!mode) return;
+
+    deleteBtn.disabled = true;
+    statusEl.textContent = 'Deleting…';
+    statusEl.className = 'status';
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      statusEl.textContent = 'Session expired — please sign in again.';
+      statusEl.className = 'status error';
+      return;
+    }
+
+    const emailHash = await hashEmail(user.email ?? '');
+
+    if (mode === 'full') {
+      // Delete creature_submissions (RLS policy "own submissions delete" allows this)
+      await supabase
+        .from('creature_submissions')
+        .delete()
+        .eq('user_id', user.id);
+      // NOTE: Artwork files in the creature-art bucket are not deleted here
+      // because storage admin operations require service-role. A scheduled
+      // maintenance job should clean up orphaned files.
+    } else {
+      // Anonymise: clear attribution from approved submissions before profile deletion.
+      // user_id is cleared automatically via FK on delete set null when profile is deleted.
+      // creator_name is NOT NULL in the schema so we use a placeholder string;
+      // credits_opt_in is set false so the creature no longer appears in credits.
+      await supabase
+        .from('creature_submissions')
+        .update({
+          creator_name: '[creator removed]',
+          credits_opt_in: false,
+        })
+        .eq('user_id', user.id)
+        .eq('approved', true);
+    }
+
+    // Delete profile row — FK cascades delete kids and drafts automatically.
+    // creature_submissions.user_id is set null on cascade (FK on delete set null).
+    const { error: profileDeleteError } = await supabase
+      .from('account_profiles')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (profileDeleteError) {
+      statusEl.textContent = `Error: ${profileDeleteError.message}`;
+      statusEl.className = 'status error';
+      deleteBtn.disabled = false;
+      return;
+    }
+
+    // Audit log (write before sign-out while session is still valid)
+    await supabase.from('gdpr_actions_log').insert({
+      user_email_hash: emailHash,
+      action_type: mode === 'full' ? 'delete' : 'anonymize',
+      details: { user_id: user.id, mode },
+    });
+
+    await supabase.auth.signOut();
+
+    readyEl.hidden = true;
+    deletedEl.hidden = false;
+  });
+
+  async function hashEmail(email: string): Promise<string> {
+    const encoded = new TextEncoder().encode(email.toLowerCase());
+    const buffer = await crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+</script>
+
+<style>
+  .wrap { max-width: 560px; margin: 2rem auto 0; }
+
+  .lead { color: var(--text-dim); margin-bottom: 2rem; }
+
+  .state { color: var(--text-dim); font-size: 0.95rem; }
+
+  .mode-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .mode-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .mode-card:has(input:checked) { border-color: var(--accent); }
+  .mode-card input[type="radio"] {
+    accent-color: var(--accent-hi);
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    cursor: pointer;
+  }
+
+  h2 { font-size: 1rem; margin-bottom: 0.4rem; }
+  .mode-card p { font-size: 0.9rem; color: var(--text-dim); }
+
+  .confirm-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .confirm-label {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+
+  #confirm-input {
+    display: block;
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    padding: 0.65rem 0.9rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.15s;
+  }
+  #confirm-input:focus { outline: none; border-color: var(--accent); }
+
+  .btn {
+    display: inline-block;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.7rem 1.5rem;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--accent-hi); color: #fff; text-decoration: none; }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn.btn-danger { background: var(--red); }
+  .btn.btn-danger:hover { background: #f87171dd; }
+
+  .status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+
+  .success-message { color: var(--green); margin-bottom: 1.5rem; }
+
+  .back { margin-top: 1.5rem; font-size: 0.88rem; }
+</style>

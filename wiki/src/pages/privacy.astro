@@ -1,0 +1,285 @@
+---
+/**
+ * Privacy Policy — required by GDPR Art. 13 (transparency at point of data collection).
+ * Linked from every page footer and from the account sign-up form.
+ *
+ * Versions are tracked so that future updates can be distinguished from what a
+ * specific user consented to at sign-up time (privacy_policy_version stored in
+ * account_profiles).
+ */
+import Base from '../layouts/Base.astro';
+
+export const PRIVACY_POLICY_VERSION = 'v1-2026-04';
+---
+
+<Base
+  title="Privacy Policy"
+  description="How Matlu Codex collects, uses, and protects your personal data."
+>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Version {PRIVACY_POLICY_VERSION} &mdash; April 2026</p>
+
+  <p class="lead">
+    This policy explains what personal data Matlu Codex collects, why we collect it,
+    who sees it, and what rights you have. We have written it in plain language because
+    many of our users are children, and their parents and guardians deserve a clear
+    explanation — not a wall of legal text.
+  </p>
+
+  <section>
+    <h2>1. Who we are</h2>
+    <p>
+      Matlu Codex is the community hub for the <em>Core Warden</em> game, part of the
+      Matlu multiworld project run by Fills Pills (Filip Marzuki). For GDPR purposes,
+      Fills Pills is the <strong>data controller</strong>.
+    </p>
+    <p>
+      Contact: <a href="https://github.com/FilipMarzuki/matlu/issues" target="_blank" rel="noopener">
+        open a GitHub issue
+      </a> or email us at the address listed on the GitHub profile. We aim to respond within
+      30 days as required by Art. 12(3).
+    </p>
+  </section>
+
+  <section>
+    <h2>2. What we collect and why</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Why we collect it</th>
+          <th>Lawful basis (GDPR Art. 6)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Parent / guardian email</strong></td>
+          <td>To send magic sign-in links and important account notices.</td>
+          <td>Consent (Art. 6(1)(a)) + contract performance (Art. 6(1)(b))</td>
+        </tr>
+        <tr>
+          <td><strong>Account handle</strong></td>
+          <td>To display on your public creator profile page.</td>
+          <td>Consent (Art. 6(1)(a))</td>
+        </tr>
+        <tr>
+          <td><strong>Child&rsquo;s first name / nickname and optional age</strong></td>
+          <td>To credit the creator of each submitted creature. No surnames, photos, school, or location are collected.</td>
+          <td>Parental consent (Art. 8 + Art. 6(1)(a))</td>
+        </tr>
+        <tr>
+          <td><strong>Creature submissions</strong> (drawings, descriptions, answers)</td>
+          <td>To display on the wiki and optionally include in the game per the <a href="/creatures/license">Creature License</a>.</td>
+          <td>Consent (Art. 6(1)(a))</td>
+        </tr>
+        <tr>
+          <td><strong>Creature drafts</strong></td>
+          <td>To let you resume work-in-progress submissions across devices.</td>
+          <td>Consent (Art. 6(1)(a))</td>
+        </tr>
+        <tr>
+          <td><strong>GDPR action log</strong></td>
+          <td>To maintain an audit trail when you exercise data-subject rights (export, delete, pause).</td>
+          <td>Legal obligation (Art. 6(1)(c), Art. 5(2))</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="note">
+      We do <strong>not</strong> collect IP addresses beyond Supabase infrastructure defaults,
+      use tracking cookies, run analytics, or share data with advertising networks.
+    </p>
+  </section>
+
+  <section>
+    <h2>3. Who else sees your data</h2>
+    <ul>
+      <li>
+        <strong>Supabase</strong> (EU region) — our database and authentication provider.
+        Data is stored in an EU data centre. Supabase Inc. (US parent) processes data under
+        Standard Contractual Clauses (SCCs) to cover any unavoidable cross-border flows
+        (Art. 46 transfer mechanism).
+      </li>
+      <li>
+        <strong>Vercel</strong> — serves the Matlu Codex website. Vercel processes request
+        metadata (IP, user agent) to route traffic; this is covered by Vercel&rsquo;s DPA.
+      </li>
+      <li>
+        We do <strong>not</strong> sell, rent, or share personal data with any third party
+        for marketing or analytics purposes.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4. How long we keep it</h2>
+    <table>
+      <thead>
+        <tr><th>Data</th><th>Retention period</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Active account data (profile, kids, drafts)</td><td>As long as the account is active.</td></tr>
+        <tr><td>Unsubmitted drafts</td><td>90 days after last update, then auto-deleted.</td></tr>
+        <tr><td>Rejected creature submissions</td><td>30 days after rejection, then auto-deleted (row + artwork file).</td></tr>
+        <tr><td>Approved creature submissions</td><td>Kept indefinitely unless you request deletion or anonymisation.</td></tr>
+        <tr><td>Inactive accounts</td><td>We email a warning after 24 months of inactivity. If there is no response within 30 days, the account and all associated data are deleted.</td></tr>
+        <tr><td>GDPR action log entries</td><td>Kept for 3 years for compliance audit purposes.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. Your rights</h2>
+    <p>
+      Under GDPR you have the following rights. You can exercise most of them from
+      <a href="/account/settings">Account Settings</a>.
+    </p>
+    <ul>
+      <li><strong>Access (Art. 15)</strong> — download a JSON file of everything we hold about you via <a href="/account/export">Account &rsaquo; Export my data</a>.</li>
+      <li><strong>Rectification (Art. 16)</strong> — update your handle or your children&rsquo;s names in Account Settings. For approved submissions, use the &ldquo;Request edit&rdquo; button (emails the admin).</li>
+      <li><strong>Erasure / right to be forgotten (Art. 17)</strong> — delete your account from <a href="/account/delete">Account &rsaquo; Delete account</a>. Choose <em>full delete</em> (removes everything) or <em>anonymise</em> (approved creatures stay on the wiki but are unattributed).</li>
+      <li><strong>Data portability (Art. 20)</strong> — the same JSON export from the access request is machine-readable and structured.</li>
+      <li><strong>Restrict processing (Art. 18)</strong> — pause your account in Account Settings. Your data is retained but no new processing happens.</li>
+      <li><strong>Object (Art. 21)</strong> — contact us to object to a specific processing activity.</li>
+      <li><strong>Withdraw consent (Art. 7(3))</strong> — withdrawing consent triggers the erasure flow described above.</li>
+    </ul>
+    <p>
+      All data-subject actions are logged in our GDPR audit trail. We will respond within
+      one month (Art. 12(3)).
+    </p>
+  </section>
+
+  <section>
+    <h2>6. Children</h2>
+    <p>
+      This service is <strong>not for children to use directly</strong>. Only parents or
+      guardians aged 18 or older may create accounts (EU Art. 8 — age of digital consent).
+      Children submit creatures via a grown-up&rsquo;s account. We do not knowingly collect
+      personal data directly from children.
+    </p>
+    <p>
+      If you believe a child has created an account directly, please contact us immediately
+      so we can delete it.
+    </p>
+  </section>
+
+  <section>
+    <h2>7. Cookies and tracking</h2>
+    <p>
+      We use <strong>one session cookie</strong> set by Supabase Auth to keep you signed in.
+      No tracking cookies, advertising cookies, or fingerprinting are used. You can sign out
+      at any time to clear the session cookie.
+    </p>
+  </section>
+
+  <section>
+    <h2>8. Security</h2>
+    <p>
+      All data is encrypted at rest (Supabase Postgres, AES-256) and in transit (HTTPS,
+      enforced by Vercel). We use passwordless magic-link authentication — there are no
+      passwords to steal. Row-Level Security (RLS) policies in the database ensure users
+      can only access their own data. No service-role key is present in client-side code.
+    </p>
+  </section>
+
+  <section>
+    <h2>9. Changes to this policy</h2>
+    <p>
+      If we make material changes, we will email you and ask you to accept the new version
+      on your next sign-in. The version identifier at the top of this page and stored in
+      your account record tells you exactly which version you agreed to.
+    </p>
+  </section>
+
+  <section>
+    <h2>10. Complaints</h2>
+    <p>
+      If you are unhappy with how we handle your data, you have the right to lodge a complaint
+      with your local data protection authority:
+    </p>
+    <ul>
+      <li>Sweden: <a href="https://www.imy.se" target="_blank" rel="noopener">Integritetsskyddsmyndigheten (IMY)</a></li>
+      <li>UK: <a href="https://ico.org.uk" target="_blank" rel="noopener">Information Commissioner&rsquo;s Office (ICO)</a></li>
+      <li>EU: find your national DPA at <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener">edpb.europa.eu</a></li>
+    </ul>
+  </section>
+</Base>
+
+<style>
+  .meta {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .lead {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    max-width: 680px;
+    margin-bottom: 2.5rem;
+  }
+
+  section {
+    margin-bottom: 2.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    color: var(--accent-hi);
+    margin-bottom: 1rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+
+  th {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+  }
+
+  td {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.5;
+    font-size: 0.88rem;
+  }
+
+  ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  li {
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .note {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    padding: 0.75rem 1rem;
+    background: var(--surface-hi);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    margin-top: 1rem;
+  }
+</style>

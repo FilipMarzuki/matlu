@@ -1,0 +1,190 @@
+---
+/**
+ * Data export — GDPR Art. 15 (right of access) + Art. 20 (data portability).
+ *
+ * Queries all personal data for the signed-in user and triggers a JSON download.
+ * All queries run client-side using the user's auth session — Supabase RLS
+ * ensures users can only read their own data without needing a service-role key.
+ *
+ * The exported JSON is machine-readable and structured (Art. 20 portability).
+ * Email comes from the session user object; all other data from the wiki tables.
+ *
+ * A GDPR audit entry is inserted into gdpr_actions_log after a successful export.
+ */
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base title="Export my data" description="Download all personal data held about your Matlu Codex account.">
+  <div class="wrap">
+    <h1>Export my data</h1>
+    <p class="lead">
+      Download a JSON file containing everything we hold about your account.
+      This satisfies your right of access (Art. 15) and data portability (Art. 20)
+      under GDPR.
+    </p>
+
+    <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+    <div id="loading" class="state">Checking your session&hellip;</div>
+
+    <div id="signed-out" class="state" hidden>
+      <p>You are not signed in. <a href="/account/signin">Sign in</a> to export your data.</p>
+    </div>
+
+    <div id="ready" hidden>
+      <div class="info-box">
+        <p>The export includes:</p>
+        <ul>
+          <li>Email address</li>
+          <li>Account handle and profile data</li>
+          <li>Children&rsquo;s names, ages, and slugs</li>
+          <li>Creature drafts (form data)</li>
+          <li>Creature submissions (rows only; artwork URLs are included)</li>
+        </ul>
+      </div>
+      <button id="export-btn" class="btn">Download my data (JSON)</button>
+      <p id="export-status" class="status" role="status" aria-live="polite"></p>
+      <p class="back"><a href="/account/settings">&larr; Back to settings</a></p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLDivElement;
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+
+  const loadingEl   = document.getElementById('loading') as HTMLDivElement;
+  const signedOutEl = document.getElementById('signed-out') as HTMLDivElement;
+  const readyEl     = document.getElementById('ready') as HTMLDivElement;
+  const exportBtn   = document.getElementById('export-btn') as HTMLButtonElement;
+  const statusEl    = document.getElementById('export-status') as HTMLParagraphElement;
+
+  supabase.auth.onAuthStateChange(async (_event, session) => {
+    loadingEl.hidden = true;
+    if (!session) {
+      signedOutEl.hidden = false;
+      return;
+    }
+    readyEl.hidden = false;
+  });
+
+  exportBtn.addEventListener('click', async () => {
+    exportBtn.disabled = true;
+    statusEl.textContent = 'Gathering your data…';
+    statusEl.className = 'status';
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      statusEl.textContent = 'Session expired — please sign in again.';
+      statusEl.className = 'status error';
+      exportBtn.disabled = false;
+      return;
+    }
+
+    const uid = user.id;
+
+    const [profileRes, kidsRes, draftsRes, submissionsRes] = await Promise.all([
+      supabase.from('account_profiles').select('*').eq('user_id', uid).maybeSingle(),
+      supabase.from('account_kids').select('*').eq('user_id', uid),
+      supabase.from('creature_drafts').select('*').eq('user_id', uid),
+      supabase.from('creature_submissions').select('*').eq('user_id', uid),
+    ]);
+
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      gdpr_note: 'This export was generated under GDPR Art. 15 (right of access) and Art. 20 (data portability).',
+      account: {
+        email: user.email,
+        created_at: user.created_at,
+        profile: profileRes.data,
+      },
+      kids: kidsRes.data ?? [],
+      drafts: draftsRes.data ?? [],
+      creature_submissions: submissionsRes.data ?? [],
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `matlu-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Audit log (Art. 5(2) accountability)
+    const emailHash = await hashEmail(user.email ?? '');
+    await supabase.from('gdpr_actions_log').insert({
+      user_email_hash: emailHash,
+      action_type: 'export',
+      details: {
+        profile_exported: !!profileRes.data,
+        kid_count: (kidsRes.data ?? []).length,
+        draft_count: (draftsRes.data ?? []).length,
+        submission_count: (submissionsRes.data ?? []).length,
+      },
+    });
+
+    statusEl.textContent = 'Download started.';
+    statusEl.className = 'status success';
+    exportBtn.disabled = false;
+  });
+
+  async function hashEmail(email: string): Promise<string> {
+    const encoded = new TextEncoder().encode(email.toLowerCase());
+    const buffer = await crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+</script>
+
+<style>
+  .wrap { max-width: 540px; margin: 2rem auto 0; }
+
+  .lead { color: var(--text-dim); margin-bottom: 2rem; }
+
+  .state { color: var(--text-dim); font-size: 0.95rem; }
+
+  .info-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .info-box p { margin-bottom: 0.75rem; }
+  .info-box ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    color: var(--text-dim);
+  }
+
+  .btn {
+    display: inline-block;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.7rem 1.5rem;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--accent-hi); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+
+  .back { margin-top: 2rem; font-size: 0.88rem; }
+</style>

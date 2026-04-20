@@ -1,0 +1,44 @@
+---
+/**
+ * Site-wide footer — linked from Base.astro.
+ *
+ * Required by GDPR (Art. 13 transparency): the privacy policy link must be
+ * reachable from every page so visitors know how their data is used.
+ */
+const year = new Date().getFullYear();
+---
+
+<footer>
+  <span class="copy">&copy; {year} Fills Pills</span>
+  <nav aria-label="Footer links">
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/creatures/license">Creature License</a>
+    <a href="https://github.com/FilipMarzuki/matlu" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</footer>
+
+<style>
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+
+  nav {
+    display: flex;
+    gap: 1.25rem;
+  }
+
+  a {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+  a:hover { color: var(--text); text-decoration: none; }
+</style>

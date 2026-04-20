@@ -1,0 +1,159 @@
+---
+/**
+ * Sign-in page — sends a Supabase magic-link to the user's email.
+ *
+ * After receiving the link by email, the user clicks it and is redirected
+ * back to /account/settings where their session is picked up automatically.
+ * No password is ever stored (passwordless auth, Art. 32 security principle).
+ *
+ * If the user is new (no account_profiles row), /account/settings will prompt
+ * them to complete sign-up instead. To start with the consent form, use
+ * /account/signup.
+ */
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base title="Sign in" description="Sign in to your Matlu Codex creator account.">
+  <div class="wrap">
+    <h1>Sign in</h1>
+    <p class="lead">
+      Enter your email and we&rsquo;ll send you a magic link — no password needed.
+    </p>
+
+    <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+    <form id="signin-form" novalidate>
+      <label for="email">Parent / guardian email</label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        placeholder="you@example.com"
+        autocomplete="email"
+        required
+      />
+      <button type="submit" id="submit-btn">Send magic link</button>
+    </form>
+
+    <p id="form-status" class="status" role="status" aria-live="polite"></p>
+
+    <p class="footer-note">
+      New here? <a href="/account/signup">Create an account</a> instead.
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLDivElement;
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+
+  const form = document.getElementById('signin-form') as HTMLFormElement;
+  const emailInput = document.getElementById('email') as HTMLInputElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const statusEl = document.getElementById('form-status') as HTMLParagraphElement;
+
+  // If already signed in, redirect to settings
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session) window.location.href = '/account/settings';
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = emailInput.value.trim();
+    if (!email) return;
+
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Sending…';
+    statusEl.className = 'status';
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        // After clicking the link, Supabase redirects here and the session
+        // is picked up automatically by the Supabase client on the page.
+        emailRedirectTo: `${window.location.origin}/account/settings`,
+      },
+    });
+
+    if (error) {
+      statusEl.textContent = `Error: ${error.message}`;
+      statusEl.className = 'status error';
+      submitBtn.disabled = false;
+    } else {
+      statusEl.textContent = 'Magic link sent! Check your email and click the link to sign in.';
+      statusEl.className = 'status success';
+      form.style.display = 'none';
+    }
+  });
+</script>
+
+<style>
+  .wrap {
+    max-width: 420px;
+    margin: 3rem auto 0;
+  }
+
+  h1 { margin-bottom: 0.5rem; }
+
+  .lead {
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  label {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  input[type="email"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    padding: 0.65rem 0.9rem;
+    transition: border-color 0.15s;
+  }
+  input[type="email"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.7rem 1.5rem;
+    transition: background 0.15s;
+    margin-top: 0.25rem;
+  }
+  button[type="submit"]:hover { background: var(--accent-hi); }
+  button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+
+  .footer-note {
+    margin-top: 2rem;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+  }
+</style>

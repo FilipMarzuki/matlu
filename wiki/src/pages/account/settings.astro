@@ -1,0 +1,583 @@
+---
+/**
+ * Account settings — the hub for all GDPR data-subject rights (Art. 15–22).
+ *
+ * On load this page:
+ *   1. Checks for a Supabase auth session (magic-link callback or existing session).
+ *   2. If session is new and localStorage has matlu_pending_profile, creates the
+ *      account_profiles row (first-time sign-up flow).
+ *   3. Displays the profile, kids list, and action buttons.
+ *
+ * Exposed rights:
+ *   • Access      (Art. 15) — link to /account/export
+ *   • Rectification (Art. 16) — edit handle + kid names inline
+ *   • Erasure     (Art. 17) — link to /account/delete
+ *   • Restriction (Art. 18) — pause / resume account
+ *   • Portability (Art. 20) — same export link
+ */
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base title="Account settings" description="Manage your Matlu Codex creator account.">
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+  <!-- Shown while checking auth state -->
+  <div id="loading" class="loading-state">
+    <p>Loading&hellip;</p>
+  </div>
+
+  <!-- Shown when not signed in -->
+  <div id="signed-out" class="wrap" hidden>
+    <h1>Account settings</h1>
+    <p class="lead">You are not signed in.</p>
+    <div class="cta-row">
+      <a href="/account/signin" class="btn">Sign in</a>
+      <a href="/account/signup" class="btn btn-outline">Create account</a>
+    </div>
+  </div>
+
+  <!-- Shown when signed in -->
+  <div id="signed-in" class="wrap" hidden>
+    <h1>Account settings</h1>
+    <p class="signed-in-as">Signed in as <strong id="account-email"></strong></p>
+
+    <!-- Profile section -->
+    <section class="card" id="profile-section">
+      <h2>Your profile</h2>
+      <div id="profile-loading" class="section-loading">Loading profile&hellip;</div>
+      <div id="profile-content" hidden>
+        <div class="field-row">
+          <span class="field-label">Handle</span>
+          <span id="profile-handle" class="field-value"></span>
+          <button id="edit-handle-btn" class="link-btn">Edit</button>
+        </div>
+        <div id="edit-handle-form" class="inline-edit" hidden>
+          <input id="new-handle" type="text" placeholder="new-handle" pattern="[a-z0-9-]+" minlength="3" maxlength="30" />
+          <button id="save-handle-btn" class="btn btn-sm">Save</button>
+          <button id="cancel-handle-btn" class="btn btn-sm btn-outline">Cancel</button>
+          <p id="handle-edit-status" class="inline-status" aria-live="polite"></p>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Member since</span>
+          <span id="profile-created" class="field-value dim"></span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Account status</span>
+          <span id="profile-status" class="field-value"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Kids section -->
+    <section class="card" id="kids-section">
+      <h2>Children on this account</h2>
+      <p class="section-note">First name or nickname only — no surnames stored.</p>
+      <ul id="kids-list" class="kids-list"></ul>
+      <form id="add-kid-form" class="add-kid-form">
+        <input id="kid-name" type="text" placeholder="Child's first name or nickname" maxlength="50" required />
+        <input id="kid-age" type="number" placeholder="Age (optional)" min="1" max="17" />
+        <button type="submit" class="btn btn-sm">Add child</button>
+      </form>
+      <p id="kid-status" class="inline-status" aria-live="polite"></p>
+    </section>
+
+    <!-- Data rights section -->
+    <section class="card">
+      <h2>Your data rights</h2>
+      <div class="rights-grid">
+        <div class="right-item">
+          <h3>Export your data</h3>
+          <p>Download a JSON file with everything we hold about you (Art. 15, 20).</p>
+          <a href="/account/export" class="btn btn-sm">Export data</a>
+        </div>
+        <div class="right-item">
+          <h3>Pause account</h3>
+          <p>Suspend data processing without deleting your account (Art. 18).</p>
+          <button id="pause-btn" class="btn btn-sm btn-outline">Pause account</button>
+        </div>
+        <div class="right-item danger-zone">
+          <h3>Delete account</h3>
+          <p>Permanently remove your account and all associated data (Art. 17).</p>
+          <a href="/account/delete" class="btn btn-sm btn-danger">Delete account</a>
+        </div>
+      </div>
+    </section>
+
+    <button id="signout-btn" class="btn btn-outline signout">Sign out</button>
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  interface PendingProfile {
+    handle: string;
+    privacyPolicyVersion: string;
+    licenseVersion: string;
+    parentalConfirmation: boolean;
+    consentTimestamp: string;
+  }
+
+  interface AccountProfile {
+    user_id: string;
+    handle: string;
+    created_at: string;
+    privacy_policy_version: string;
+    license_version: string;
+    parental_confirmation: boolean;
+    last_active_at: string;
+    paused: boolean;
+  }
+
+  interface AccountKid {
+    id: string;
+    user_id: string;
+    kid_name: string;
+    kid_slug: string;
+    kid_age: number | null;
+  }
+
+  const cfg = document.getElementById('supa-cfg') as HTMLDivElement;
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+
+  const loadingEl  = document.getElementById('loading') as HTMLDivElement;
+  const signedOutEl = document.getElementById('signed-out') as HTMLDivElement;
+  const signedInEl  = document.getElementById('signed-in') as HTMLDivElement;
+
+  function showState(state: 'loading' | 'signed-out' | 'signed-in') {
+    loadingEl.hidden  = state !== 'loading';
+    signedOutEl.hidden = state !== 'signed-out';
+    signedInEl.hidden  = state !== 'signed-in';
+  }
+
+  function toSlug(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  async function ensureProfile(userId: string): Promise<AccountProfile | null> {
+    // Check if profile already exists
+    const { data: existing } = await supabase
+      .from('account_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existing) return existing as unknown as AccountProfile;
+
+    // Try to create from pending signup data stored before the magic link was sent
+    const raw = localStorage.getItem('matlu_pending_profile');
+    if (!raw) return null;
+
+    let pending: PendingProfile;
+    try {
+      pending = JSON.parse(raw) as PendingProfile;
+    } catch {
+      return null;
+    }
+
+    const { data: created, error } = await supabase
+      .from('account_profiles')
+      .insert({
+        user_id: userId,
+        handle: pending.handle,
+        privacy_policy_version: pending.privacyPolicyVersion,
+        license_version: pending.licenseVersion,
+        parental_confirmation: pending.parentalConfirmation,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // Handle taken — redirect back to signup
+      console.error('Profile creation error:', error);
+      return null;
+    }
+
+    localStorage.removeItem('matlu_pending_profile');
+    return created as unknown as AccountProfile;
+  }
+
+  function renderProfile(profile: AccountProfile) {
+    const handleEl = document.getElementById('profile-handle') as HTMLSpanElement;
+    const createdEl = document.getElementById('profile-created') as HTMLSpanElement;
+    const statusEl = document.getElementById('profile-status') as HTMLSpanElement;
+
+    handleEl.textContent = profile.handle;
+    createdEl.textContent = new Date(profile.created_at).toLocaleDateString();
+    statusEl.textContent = profile.paused ? 'Paused' : 'Active';
+    statusEl.style.color = profile.paused ? 'var(--amber)' : 'var(--green)';
+
+    document.getElementById('profile-loading')!.hidden = true;
+    document.getElementById('profile-content')!.hidden = false;
+
+    // Update pause button label
+    const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement;
+    pauseBtn.textContent = profile.paused ? 'Resume account' : 'Pause account';
+    pauseBtn.dataset.paused = String(profile.paused);
+  }
+
+  function renderKids(kids: AccountKid[]) {
+    const list = document.getElementById('kids-list') as HTMLUListElement;
+    list.innerHTML = '';
+
+    if (kids.length === 0) {
+      list.innerHTML = '<li class="empty-note">No children added yet.</li>';
+      return;
+    }
+
+    for (const kid of kids) {
+      const li = document.createElement('li');
+      li.className = 'kid-item';
+      li.innerHTML = `
+        <span class="kid-name">${kid.kid_name}${kid.kid_age ? ` (age ${kid.kid_age})` : ''}</span>
+        <button class="link-btn remove-kid" data-id="${kid.id}">Remove</button>
+      `;
+      list.appendChild(li);
+    }
+
+    list.querySelectorAll('.remove-kid').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLButtonElement).dataset.id ?? '';
+        await supabase.from('account_kids').delete().eq('id', id);
+        await loadKids();
+      });
+    });
+  }
+
+  async function loadKids() {
+    const { data } = await supabase.from('account_kids').select('*');
+    renderKids((data ?? []) as unknown as AccountKid[]);
+  }
+
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (!session) {
+      showState('signed-out');
+      return;
+    }
+
+    showState('signed-in');
+
+    const emailEl = document.getElementById('account-email') as HTMLElement;
+    emailEl.textContent = session.user.email ?? '';
+
+    const profile = await ensureProfile(session.user.id);
+
+    if (!profile) {
+      // Profile creation failed (handle taken?) — redirect to signup
+      document.getElementById('profile-loading')!.textContent =
+        'Could not create profile — the chosen handle may already be taken. Please sign up again.';
+      return;
+    }
+
+    renderProfile(profile);
+    await loadKids();
+
+    // Update last_active_at
+    await supabase
+      .from('account_profiles')
+      .update({ last_active_at: new Date().toISOString() })
+      .eq('user_id', session.user.id);
+  });
+
+  // Handle editing
+  document.getElementById('edit-handle-btn')!.addEventListener('click', () => {
+    document.getElementById('edit-handle-form')!.hidden = false;
+    (document.getElementById('new-handle') as HTMLInputElement).focus();
+  });
+
+  document.getElementById('cancel-handle-btn')!.addEventListener('click', () => {
+    document.getElementById('edit-handle-form')!.hidden = true;
+  });
+
+  document.getElementById('save-handle-btn')!.addEventListener('click', async () => {
+    const newHandle = (document.getElementById('new-handle') as HTMLInputElement).value.trim().toLowerCase();
+    const statusEl = document.getElementById('handle-edit-status') as HTMLParagraphElement;
+
+    if (!/^[a-z0-9-]+$/.test(newHandle) || newHandle.length < 3) {
+      statusEl.textContent = 'Must be 3+ lowercase letters, numbers, or hyphens.';
+      statusEl.className = 'inline-status error';
+      return;
+    }
+
+    const { error } = await supabase
+      .from('account_profiles')
+      .update({ handle: newHandle })
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '');
+
+    if (error) {
+      statusEl.textContent = error.code === '23505' ? 'Handle already taken.' : error.message;
+      statusEl.className = 'inline-status error';
+    } else {
+      (document.getElementById('profile-handle') as HTMLSpanElement).textContent = newHandle;
+      document.getElementById('edit-handle-form')!.hidden = true;
+      statusEl.textContent = '';
+    }
+  });
+
+  // Add kid
+  document.getElementById('add-kid-form')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const nameInput = document.getElementById('kid-name') as HTMLInputElement;
+    const ageInput  = document.getElementById('kid-age') as HTMLInputElement;
+    const kidStatus = document.getElementById('kid-status') as HTMLParagraphElement;
+
+    const kidName = nameInput.value.trim();
+    const kidAge  = ageInput.value ? parseInt(ageInput.value, 10) : null;
+    const kidSlug = toSlug(kidName);
+
+    const { error } = await supabase.from('account_kids').insert({
+      user_id: user.id,
+      kid_name: kidName,
+      kid_slug: kidSlug,
+      kid_age: kidAge,
+    });
+
+    if (error) {
+      kidStatus.textContent = error.code === '23505' ? 'A child with that name already exists.' : error.message;
+      kidStatus.className = 'inline-status error';
+    } else {
+      nameInput.value = '';
+      ageInput.value = '';
+      kidStatus.textContent = '';
+      await loadKids();
+    }
+  });
+
+  // Pause / resume
+  document.getElementById('pause-btn')!.addEventListener('click', async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const btn = document.getElementById('pause-btn') as HTMLButtonElement;
+    const isPaused = btn.dataset.paused === 'true';
+
+    await supabase
+      .from('account_profiles')
+      .update({ paused: !isPaused })
+      .eq('user_id', user.id);
+
+    // Log the action
+    const emailHash = await hashEmail(user.email ?? '');
+    await supabase.from('gdpr_actions_log').insert({
+      user_email_hash: emailHash,
+      action_type: isPaused ? 'resume' : 'pause',
+      details: { user_id: user.id },
+    });
+
+    btn.dataset.paused = String(!isPaused);
+    btn.textContent = !isPaused ? 'Resume account' : 'Pause account';
+
+    const statusEl = document.getElementById('profile-status') as HTMLSpanElement;
+    statusEl.textContent = !isPaused ? 'Paused' : 'Active';
+    statusEl.style.color = !isPaused ? 'var(--amber)' : 'var(--green)';
+  });
+
+  // Sign out
+  document.getElementById('signout-btn')!.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  });
+
+  async function hashEmail(email: string): Promise<string> {
+    const encoded = new TextEncoder().encode(email.toLowerCase());
+    const buffer = await crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+</script>
+
+<style>
+  .wrap { max-width: 640px; margin: 2rem auto 0; }
+
+  .loading-state { padding: 3rem; text-align: center; color: var(--text-dim); }
+
+  .signed-in-as {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+    color: var(--accent-hi);
+    margin-bottom: 1rem;
+  }
+
+  h3 { font-size: 0.95rem; margin-bottom: 0.4rem; }
+
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-row:last-of-type { border-bottom: none; }
+
+  .field-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    width: 140px;
+    flex-shrink: 0;
+  }
+  .field-value { font-size: 0.95rem; }
+  .field-value.dim { color: var(--text-dim); }
+
+  .inline-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+  }
+
+  .inline-edit input {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.7rem;
+    flex: 1;
+    min-width: 140px;
+  }
+  .inline-edit input:focus { outline: none; border-color: var(--accent); }
+
+  .inline-status {
+    width: 100%;
+    font-size: 0.82rem;
+    min-height: 1.2em;
+  }
+  .inline-status.error   { color: var(--red); }
+  .inline-status.success { color: var(--green); }
+
+  .section-note {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+  }
+
+  .section-loading {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  .kids-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .kid-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-hi);
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+
+  .empty-note {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    padding: 0.5rem 0;
+  }
+
+  .add-kid-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .add-kid-form input {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.7rem;
+    flex: 1;
+    min-width: 160px;
+  }
+  .add-kid-form input:focus { outline: none; border-color: var(--accent); }
+
+  .rights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .right-item {
+    background: var(--surface-hi);
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+  }
+  .right-item p { margin-bottom: 0.75rem; }
+
+  .danger-zone { border: 1px solid rgba(248, 113, 113, 0.3); }
+
+  .btn {
+    display: inline-block;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.6rem 1.25rem;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--accent-hi); color: #fff; text-decoration: none; }
+  .btn.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .btn.btn-outline:hover { border-color: var(--accent); color: var(--text); }
+  .btn.btn-sm { font-size: 0.82rem; padding: 0.4rem 0.9rem; }
+  .btn.btn-danger { background: var(--red); }
+  .btn.btn-danger:hover { background: #f87171dd; }
+
+  .cta-row { display: flex; gap: 1rem; margin-top: 1.5rem; }
+
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--accent-hi);
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .link-btn:hover { color: var(--accent); }
+
+  .signout {
+    margin-top: 1rem;
+    width: auto;
+  }
+</style>

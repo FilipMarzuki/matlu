@@ -1,0 +1,374 @@
+---
+/**
+ * Sign-up page — collects email, a public handle, and three GDPR consent checkboxes.
+ *
+ * GDPR requirements met here:
+ *   Art. 7   — freely given, specific, informed, unambiguous consent
+ *   Art. 8   — parental consent checkbox confirms the adult is 18+ and is the
+ *               parent/guardian of the child(ren) using the account
+ *   Art. 13  — transparency: links to Privacy Policy and Creature License
+ *
+ * Consent data (handle, policy versions) is stored in localStorage before
+ * sending the magic link. When the user clicks the link and lands on
+ * /account/settings, that page reads localStorage, creates the account_profiles
+ * row with the correct consent record, and clears the pending data.
+ *
+ * Why localStorage instead of server-side state? The wiki is a static site with
+ * no server session. localStorage persists across page loads on the same device,
+ * which is where the user will also receive and click the magic link.
+ */
+import Base from '../../layouts/Base.astro';
+import { PRIVACY_POLICY_VERSION } from '../privacy.astro';
+import { LICENSE_VERSION } from '../creatures/license.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base title="Create account" description="Create a parent/guardian creator account on Matlu Codex.">
+  <div class="wrap">
+    <h1>Create an account</h1>
+    <p class="lead">
+      Accounts are for <strong>parents and guardians</strong> only. Kids submit creatures
+      through a grown-up&rsquo;s account — we never ask children for their email address.
+    </p>
+
+    <div
+      id="supa-cfg"
+      data-url={supabaseUrl}
+      data-key={supabaseKey}
+      data-privacy-version={PRIVACY_POLICY_VERSION}
+      data-license-version={LICENSE_VERSION}
+      hidden
+    ></div>
+
+    <form id="signup-form" novalidate>
+      <div class="field">
+        <label for="email">Your email (parent / guardian)</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="you@example.com"
+          autocomplete="email"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label for="handle">
+          Creator handle
+          <span class="hint">Public username — shown on your creator profile page.</span>
+        </label>
+        <div class="handle-row">
+          <span class="handle-prefix">matlu.vercel.app/creators/</span>
+          <input
+            id="handle"
+            name="handle"
+            type="text"
+            placeholder="your-handle"
+            pattern="[a-z0-9-]+"
+            minlength="3"
+            maxlength="30"
+            autocomplete="off"
+            required
+          />
+        </div>
+        <p id="handle-status" class="field-hint" aria-live="polite"></p>
+      </div>
+
+      <fieldset class="consent-group">
+        <legend>You must tick all three boxes to continue</legend>
+
+        <!-- Art. 8 — parental responsibility confirmation -->
+        <label class="checkbox-label">
+          <input type="checkbox" name="parental" required />
+          <span>
+            I am the parent or guardian of the child(ren) using this account,
+            and I am 18 or older.
+          </span>
+        </label>
+
+        <!-- Art. 13 transparency + Art. 6(1)(a) consent -->
+        <label class="checkbox-label">
+          <input type="checkbox" name="privacy" required />
+          <span>
+            I have read and agree to the
+            <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+          </span>
+        </label>
+
+        <!-- Art. 6(1)(a) consent for creature license -->
+        <label class="checkbox-label">
+          <input type="checkbox" name="license" required />
+          <span>
+            I have read and agree to the
+            <a href="/creatures/license" target="_blank" rel="noopener">Creature License</a>.
+          </span>
+        </label>
+      </fieldset>
+
+      <button type="submit" id="submit-btn">Create account &amp; send magic link</button>
+    </form>
+
+    <p id="form-status" class="status" role="status" aria-live="polite"></p>
+
+    <p class="footer-note">
+      Already have an account? <a href="/account/signin">Sign in</a> instead.
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLDivElement;
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+
+  const privacyVersion = cfg.dataset.privacyVersion ?? '';
+  const licenseVersion = cfg.dataset.licenseVersion ?? '';
+
+  const form = document.getElementById('signup-form') as HTMLFormElement;
+  const emailInput = document.getElementById('email') as HTMLInputElement;
+  const handleInput = document.getElementById('handle') as HTMLInputElement;
+  const handleStatus = document.getElementById('handle-status') as HTMLParagraphElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const statusEl = document.getElementById('form-status') as HTMLParagraphElement;
+
+  // Redirect if already signed in
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session) window.location.href = '/account/settings';
+  });
+
+  // Debounced handle availability check
+  let handleTimer: ReturnType<typeof setTimeout> | null = null;
+  handleInput.addEventListener('input', () => {
+    if (handleTimer) clearTimeout(handleTimer);
+    const val = handleInput.value.trim().toLowerCase();
+
+    if (!val) {
+      handleStatus.textContent = '';
+      return;
+    }
+
+    if (!/^[a-z0-9-]+$/.test(val) || val.length < 3) {
+      handleStatus.textContent = 'Handle must be 3+ lowercase letters, numbers, or hyphens.';
+      handleStatus.className = 'field-hint error';
+      return;
+    }
+
+    handleStatus.textContent = 'Checking…';
+    handleStatus.className = 'field-hint';
+
+    handleTimer = setTimeout(async () => {
+      const { data } = await supabase
+        .from('account_profiles')
+        .select('handle')
+        .eq('handle', val)
+        .maybeSingle();
+
+      if (data) {
+        handleStatus.textContent = 'That handle is already taken.';
+        handleStatus.className = 'field-hint error';
+      } else {
+        handleStatus.textContent = 'Handle is available.';
+        handleStatus.className = 'field-hint success';
+      }
+    }, 400);
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = emailInput.value.trim();
+    const handle = handleInput.value.trim().toLowerCase();
+    const data = new FormData(form);
+
+    if (!email || !handle) return;
+    if (!data.get('parental') || !data.get('privacy') || !data.get('license')) {
+      statusEl.textContent = 'Please tick all three consent checkboxes.';
+      statusEl.className = 'status error';
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(handle) || handle.length < 3) {
+      statusEl.textContent = 'Handle must be 3+ lowercase letters, numbers, or hyphens.';
+      statusEl.className = 'status error';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Sending magic link…';
+    statusEl.className = 'status';
+
+    // Store pending profile data in localStorage so /account/settings can
+    // create the account_profiles row after the magic-link auth completes.
+    const pendingProfile = {
+      handle,
+      privacyPolicyVersion: privacyVersion,
+      licenseVersion,
+      parentalConfirmation: true,
+      consentTimestamp: new Date().toISOString(),
+    };
+    localStorage.setItem('matlu_pending_profile', JSON.stringify(pendingProfile));
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/account/settings`,
+      },
+    });
+
+    if (error) {
+      statusEl.textContent = `Error: ${error.message}`;
+      statusEl.className = 'status error';
+      submitBtn.disabled = false;
+      localStorage.removeItem('matlu_pending_profile');
+    } else {
+      statusEl.textContent =
+        'Magic link sent! Check your email and click the link to complete sign-up.';
+      statusEl.className = 'status success';
+      form.style.display = 'none';
+    }
+  });
+</script>
+
+<style>
+  .wrap {
+    max-width: 520px;
+    margin: 2rem auto 0;
+  }
+
+  h1 { margin-bottom: 0.5rem; }
+
+  .lead {
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+  }
+
+  form { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+
+  label {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .hint {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    font-weight: 400;
+    margin-top: 0.15rem;
+  }
+
+  .handle-row {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .handle-row:focus-within { border-color: var(--accent); }
+
+  .handle-prefix {
+    padding: 0 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    border-right: 1px solid var(--border);
+    background: var(--surface-hi);
+  }
+
+  input[type="email"],
+  .handle-row input[type="text"] {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    padding: 0.65rem 0.9rem;
+    flex: 1;
+    min-width: 0;
+  }
+  input[type="email"]:focus,
+  .handle-row input[type="text"]:focus { outline: none; }
+
+  input[type="email"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: border-color 0.15s;
+  }
+  input[type="email"]:focus { border-color: var(--accent); }
+
+  .field-hint {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    min-height: 1.2em;
+  }
+  .field-hint.error   { color: var(--red); }
+  .field-hint.success { color: var(--green); }
+
+  .consent-group {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  legend {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    padding: 0 0.5rem;
+    font-family: 'Syne', sans-serif;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    accent-color: var(--accent-hi);
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    cursor: pointer;
+  }
+
+  button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.7rem 1.5rem;
+    transition: background 0.15s;
+  }
+  button[type="submit"]:hover { background: var(--accent-hi); }
+  button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .status { font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+
+  .footer-note {
+    margin-top: 2rem;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+  }
+</style>
