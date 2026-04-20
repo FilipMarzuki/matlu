@@ -1,0 +1,625 @@
+---
+/**
+ * Creature submission form — kids fill this in to contribute a fantasy creature.
+ * On submit: validates fields → uploads drawing to Supabase Storage
+ * (creature-art/pending/<uuid>.<ext>) → inserts a row in creature_submissions
+ * with approved=false. Moderation happens in /admin/creatures before anything
+ * goes public.
+ *
+ * Fields that don't have a dedicated DB column (creature_type, intelligence,
+ * activity_time, friendliness, social_structure, sounds, weaknesses) are packed
+ * into behaviour_notes as a JSON string so no data is lost.
+ */
+import Base from '../../layouts/Base.astro';
+import { LICENSE_VERSION } from './license.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+const licenseVersion = LICENSE_VERSION;
+---
+
+<Base title="Submit a Creature" description="Share your fantasy creature drawing with the Matlu world.">
+  <h1>Submit your creature</h1>
+  <p class="lead">
+    Draw a creature, give it a name and a story, and it might end up in the game!
+    No account needed — just fill in the form below.
+  </p>
+
+  <!-- Bridges server-side env vars to the client script via data attributes -->
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} data-lv={licenseVersion} hidden></div>
+
+  <form id="creature-form" novalidate>
+
+    <!-- ── About the creature ────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>About the creature</legend>
+
+      <div class="field">
+        <label for="creature_name">Creature name <span class="req">*</span></label>
+        <input type="text" id="creature_name" name="creature_name" maxlength="40" required
+          placeholder="e.g. Shadow Frog" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label for="creator_name">Your name <span class="hint">(optional)</span></label>
+        <p class="field-help">This goes on the creature card and in the Matlu credits page. Can be your first name or full name.</p>
+        <input type="text" id="creator_name" name="creator_name" maxlength="40"
+          placeholder="e.g. Zara or Zara Smith" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label for="maker_age">How old are you? <span class="hint">(optional)</span></label>
+        <input type="number" id="maker_age" name="maker_age" min="1" max="120" placeholder="10" />
+      </div>
+    </fieldset>
+
+    <!-- ── The picture ───────────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>The picture</legend>
+
+      <div class="field">
+        <label for="creature_image">Upload your drawing <span class="req">*</span></label>
+        <p class="field-help">
+          Take a photo of your drawing with your phone, or upload a digital drawing.
+          Please only upload the drawing — not a photo of a person.
+        </p>
+        <input type="file" id="creature_image" name="creature_image" accept="image/*" required />
+        <p class="field-hint">PNG, JPG, WebP or HEIC &middot; Max 5 MB</p>
+      </div>
+    </fieldset>
+
+    <!-- ── What kind of creature ─────────────────────────────────────────── -->
+    <fieldset>
+      <legend>What kind of creature is it?</legend>
+
+      <div class="field">
+        <label for="creature_type">Type</label>
+        <select id="creature_type" name="creature_type">
+          <option value="">— pick one —</option>
+          <option value="beast">Beast (animal-like)</option>
+          <option value="spirit">Spirit (magical or ghostly)</option>
+          <option value="fey">Fey (fairy or forest spirit)</option>
+          <option value="plant-being">Plant-being</option>
+          <option value="construct">Construct (built or made)</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="kind_size">Size</label>
+        <select id="kind_size" name="kind_size">
+          <option value="">— pick one —</option>
+          <option value="tiny">Tiny (cat-sized)</option>
+          <option value="small">Small (dog-sized)</option>
+          <option value="medium">Medium (person-sized)</option>
+          <option value="large">Large (horse-sized)</option>
+          <option value="huge">Huge (house-sized)</option>
+          <option value="enormous">Enormous (bigger than a house)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="intelligence">How smart is it?</label>
+        <select id="intelligence" name="intelligence">
+          <option value="">— pick one —</option>
+          <option value="animal">Like an animal — follows instincts</option>
+          <option value="semi-smart">Semi-smart — solves simple problems</option>
+          <option value="person">As smart as a person</option>
+          <option value="smarter">Smarter than a person</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>How does it move? <span class="hint">(pick all that apply)</span></label>
+        <div class="checkbox-grid">
+          {['walk', 'run', 'fly', 'swim', 'burrow', 'glide', 'teleport', 'slither'].map(v => (
+            <label class="check-label">
+              <input type="checkbox" name="movement" value={v} />
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </label>
+          ))}
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- ── Where it lives ───────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Where it lives</legend>
+
+      <div class="field">
+        <label>Habitat <span class="hint">(pick all that apply)</span></label>
+        <div class="checkbox-grid">
+          {['forest', 'cave', 'water', 'mountains', 'desert', 'snow', 'sky', 'underground', 'ruins', 'anywhere'].map(v => (
+            <label class="check-label">
+              <input type="checkbox" name="habitat" value={v} />
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="habitat_climate">Climate</label>
+        <select id="habitat_climate" name="habitat_climate">
+          <option value="">— pick one —</option>
+          <option value="hot">Hot</option>
+          <option value="cold">Cold</option>
+          <option value="wet">Wet</option>
+          <option value="dry">Dry</option>
+          <option value="any">Any climate</option>
+        </select>
+      </div>
+    </fieldset>
+
+    <!-- ── Behavior ──────────────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Behavior</legend>
+
+      <div class="field">
+        <label for="friendliness">How friendly is it?</label>
+        <select id="friendliness" name="friendliness">
+          <option value="">— pick one —</option>
+          <option value="friendly">Friendly — comes right up to you</option>
+          <option value="shy">Shy — runs away</option>
+          <option value="neutral">Neutral — ignores you</option>
+          <option value="grumpy">Grumpy — growls but doesn't attack</option>
+          <option value="mean">Mean — will chase you off</option>
+          <option value="scary">Scary — attacks on sight</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="activity_time">When is it active?</label>
+        <select id="activity_time" name="activity_time">
+          <option value="">— pick one —</option>
+          <option value="day">During the day</option>
+          <option value="night">At night</option>
+          <option value="both">Day and night</option>
+          <option value="dawn-dusk">Only at dawn and dusk</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="social_structure">Does it live alone or in groups?</label>
+        <select id="social_structure" name="social_structure">
+          <option value="">— pick one —</option>
+          <option value="alone">Alone</option>
+          <option value="pairs">In pairs</option>
+          <option value="small-groups">Small groups (3–5)</option>
+          <option value="packs">Big packs</option>
+          <option value="swarms">Huge swarms</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="danger_level">How dangerous is it?</label>
+        <select id="danger_level" name="danger_level">
+          <option value="">— pick one —</option>
+          <option value="harmless">Harmless — totally safe</option>
+          <option value="careful">Be careful — could hurt you by accident</option>
+          <option value="dangerous">Dangerous — stay away</option>
+          <option value="deadly">Deadly — very few survive an encounter</option>
+        </select>
+      </div>
+    </fieldset>
+
+    <!-- ── Food ─────────────────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Food</legend>
+
+      <div class="field">
+        <label for="kind_diet">What does it eat?</label>
+        <select id="kind_diet" name="kind_diet">
+          <option value="">— pick one —</option>
+          <option value="plants">Plants</option>
+          <option value="meat">Meat</option>
+          <option value="both">Both plants and meat</option>
+          <option value="magic-energy">Magic energy</option>
+          <option value="rocks">Rocks and minerals</option>
+          <option value="sunlight">Sunlight</option>
+          <option value="feelings">Feelings and emotions</option>
+          <option value="other">Something else</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="favorite_food">Favorite food <span class="hint">(optional)</span></label>
+        <input type="text" id="favorite_food" name="favorite_food" maxlength="100"
+          placeholder="e.g. moonberries, lost socks, the smell of rain…" />
+      </div>
+
+      <div class="field">
+        <label for="hunting_style">How does it get its food?</label>
+        <select id="hunting_style" name="hunting_style">
+          <option value="">— pick one —</option>
+          <option value="ambush">Ambush — hides and leaps</option>
+          <option value="chases">Chases prey</option>
+          <option value="traps">Sets traps</option>
+          <option value="scavenges">Scavenges leftovers</option>
+          <option value="no-hunt">Doesn't hunt — grazes or absorbs</option>
+        </select>
+      </div>
+    </fieldset>
+
+    <!-- ── Special stuff ─────────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Special stuff</legend>
+
+      <div class="field">
+        <label for="sounds">Sounds it makes <span class="hint">(optional)</span></label>
+        <input type="text" id="sounds" name="sounds" maxlength="200"
+          placeholder="e.g. low rumbling hum, high-pitched clicks when excited…" />
+      </div>
+
+      <div class="field">
+        <label for="special_ability">Special powers <span class="hint">(optional)</span></label>
+        <input type="text" id="special_ability" name="special_ability" maxlength="300"
+          placeholder="e.g. can turn invisible, breathes fire, reads minds…" />
+      </div>
+
+      <div class="field">
+        <label for="weaknesses">Weaknesses <span class="hint">(optional)</span></label>
+        <input type="text" id="weaknesses" name="weaknesses" maxlength="300"
+          placeholder="e.g. hates bright light, afraid of loud noises…" />
+      </div>
+    </fieldset>
+
+    <!-- ── The story ─────────────────────────────────────────────────────── -->
+    <fieldset>
+      <legend>The story</legend>
+
+      <div class="field">
+        <label for="lore_description">Tell us about your creature <span class="req">*</span></label>
+        <p class="field-help">How did it get its name? Where does it come from? Anything else we should know? (20–2000 characters)</p>
+        <textarea id="lore_description" name="lore_description" rows={6} maxlength="2000" required
+          placeholder="Once upon a time, deep in the mushroom forests of Matlu…"></textarea>
+        <span class="char-count"><span id="story-count">0</span> / 2000</span>
+      </div>
+    </fieldset>
+
+    <!-- ── Permission & credits ──────────────────────────────────────────── -->
+    <fieldset>
+      <legend>Permission &amp; credits</legend>
+
+      <div class="field check-field">
+        <label class="check-label big">
+          <input type="checkbox" name="credits_opt_in" id="credits_opt_in" value="true" checked />
+          Include my name in the credits
+        </label>
+        <p class="field-help">Only shows up if you filled in "Your name" above.</p>
+      </div>
+
+      <div class="field check-field">
+        <label class="check-label big">
+          <input type="checkbox" name="license_accepted" id="license_accepted" />
+          I agree to the <a href="/creatures/license" target="_blank" rel="noopener">creature license terms</a>
+          <span class="req">*</span>
+        </label>
+        <p class="field-help">
+          By submitting, you let Matlu use your creature in the game and on the wiki.
+          <a href="/creatures/license" target="_blank" rel="noopener">Click the link to read the full terms.</a>
+        </p>
+      </div>
+
+      <div class="field check-field">
+        <label class="check-label big">
+          <input type="checkbox" name="parental_consent" id="parental_consent" />
+          A parent or guardian has agreed to this too
+          <span class="req">*</span>
+        </label>
+        <p class="field-help">Ask a parent or grown-up to read the license with you before ticking this box. Required if you are under 18.</p>
+      </div>
+    </fieldset>
+
+    <button type="submit" id="submit-btn">Submit creature</button>
+  </form>
+
+  <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLElement;
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+  const licenseVersion = cfg.dataset.lv ?? 'v1-2026-04';
+
+  const form = document.getElementById('creature-form') as HTMLFormElement;
+  const statusEl = document.getElementById('form-status') as HTMLElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const storyTextarea = document.getElementById('lore_description') as HTMLTextAreaElement;
+  const storyCount = document.getElementById('story-count') as HTMLSpanElement;
+
+  storyTextarea.addEventListener('input', () => {
+    storyCount.textContent = storyTextarea.value.length.toString();
+  });
+
+  const ALLOWED_MIME = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/heic']);
+  const MAX_SIZE = 5 * 1024 * 1024;
+  const MIME_EXT: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'image/heic': 'heic',
+  };
+
+  function slugify(name: string, uid: string): string {
+    const base = name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return `${base || 'creature'}-${uid.substring(0, 6)}`;
+  }
+
+  function showError(msg: string): void {
+    statusEl.textContent = msg;
+    statusEl.className = 'form-status error';
+    submitBtn.disabled = false;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    statusEl.textContent = '';
+    statusEl.className = 'form-status';
+
+    const data = new FormData(form);
+
+    // Required field validation
+    const creatureName = ((data.get('creature_name') as string | null) ?? '').trim();
+    if (!creatureName) { showError('Please enter a name for your creature.'); return; }
+    if (creatureName.length > 40) { showError('Creature name must be 40 characters or less.'); return; }
+
+    const story = ((data.get('lore_description') as string | null) ?? '').trim();
+    if (story.length < 20) { showError('The story needs to be at least 20 characters long.'); return; }
+
+    if (!data.get('license_accepted')) {
+      showError('Please agree to the license terms before submitting.');
+      return;
+    }
+    if (!data.get('parental_consent')) {
+      showError('Parental or guardian consent is required. Please ask a grown-up first.');
+      return;
+    }
+
+    const fileInput = document.getElementById('creature_image') as HTMLInputElement;
+    const file = fileInput.files?.[0] ?? null;
+    if (!file) { showError('Please upload a drawing of your creature.'); return; }
+    if (!ALLOWED_MIME.has(file.type)) { showError('Please upload a PNG, JPG, WebP, or HEIC image.'); return; }
+    if (file.size > MAX_SIZE) { showError('The image is too large. Please use an image under 5 MB.'); return; }
+
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Uploading your drawing…';
+
+    try {
+      const uid = crypto.randomUUID();
+      const ext = MIME_EXT[file.type] ?? 'jpg';
+      const imagePath = `pending/${uid}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from('creature-art')
+        .upload(imagePath, file, { contentType: file.type });
+
+      if (uploadErr) throw new Error(`Image upload failed: ${uploadErr.message}`);
+
+      statusEl.textContent = 'Saving your creature…';
+
+      const creatorName = ((data.get('creator_name') as string | null) ?? '').trim();
+      const ageRaw = data.get('maker_age') as string | null;
+      const makerAge = ageRaw && ageRaw !== '' ? parseInt(ageRaw, 10) : null;
+
+      const movement = data.getAll('movement') as string[];
+      const habitat = data.getAll('habitat') as string[];
+
+      const socialRaw = (data.get('social_structure') as string | null) ?? '';
+      const kindSolitary = socialRaw === 'alone' ? true : socialRaw !== '' ? false : null;
+
+      // Pack unmapped fields into behaviour_notes so no submitted data is lost
+      const extra: Record<string, string> = {};
+      const creatureType = (data.get('creature_type') as string | null) ?? '';
+      const intelligence = (data.get('intelligence') as string | null) ?? '';
+      const activityTime = (data.get('activity_time') as string | null) ?? '';
+      const friendliness = (data.get('friendliness') as string | null) ?? '';
+      const sounds = ((data.get('sounds') as string | null) ?? '').trim();
+      const weaknesses = ((data.get('weaknesses') as string | null) ?? '').trim();
+      if (creatureType) extra.creature_type = creatureType;
+      if (intelligence) extra.intelligence = intelligence;
+      if (activityTime) extra.activity_time = activityTime;
+      if (friendliness) extra.friendliness = friendliness;
+      if (socialRaw) extra.social_structure = socialRaw;
+      if (sounds) extra.sounds = sounds;
+      if (weaknesses) extra.weaknesses = weaknesses;
+
+      const behaviourNotes = Object.keys(extra).length > 0 ? JSON.stringify(extra) : null;
+
+      const favoriteFood = ((data.get('favorite_food') as string | null) ?? '').trim();
+      const huntingStyle = (data.get('hunting_style') as string | null) ?? '';
+      const foodParts: string[] = [];
+      if (favoriteFood) foodParts.push(`Favorite food: ${favoriteFood}`);
+      if (huntingStyle) foodParts.push(`Hunts by: ${huntingStyle}`);
+      const foodNotes = foodParts.length > 0 ? foodParts.join(' | ') : null;
+
+      const slug = slugify(creatureName, uid);
+
+      const { error: insertErr } = await supabase.from('creature_submissions').insert({
+        creature_name: creatureName,
+        creator_name: creatorName,
+        maker_age: makerAge,
+        art_path: imagePath,
+        slug,
+        kind_size: (data.get('kind_size') as string | null) || null,
+        kind_movement: movement.length > 0 ? movement : null,
+        kind_diet: (data.get('kind_diet') as string | null) || null,
+        kind_solitary: kindSolitary,
+        habitat_biome: habitat.length > 0 ? habitat : null,
+        habitat_climate: (data.get('habitat_climate') as string | null) || null,
+        behaviour_threat: (data.get('danger_level') as string | null) || null,
+        behaviour_notes: behaviourNotes,
+        food_notes: foodNotes,
+        special_ability: ((data.get('special_ability') as string | null) ?? '').trim() || null,
+        lore_description: story,
+        license_accepted: true,
+        license_version: licenseVersion,
+        parental_consent: true,
+        credits_opt_in: data.get('credits_opt_in') === 'true',
+        approved: false,
+      });
+
+      if (insertErr) {
+        // Clean up orphaned image on insert failure
+        await supabase.storage.from('creature-art').remove([imagePath]);
+        throw new Error(`Submission failed: ${insertErr.message}`);
+      }
+
+      statusEl.textContent = 'Thanks! Your creature is waiting to be approved.';
+      statusEl.className = 'form-status success';
+      form.reset();
+      storyCount.textContent = '0';
+
+    } catch (err) {
+      console.error('Creature submit error:', err);
+      showError(err instanceof Error ? err.message : 'Something went wrong — please try again.');
+    }
+  });
+</script>
+
+<style>
+  h1 { font-size: 2rem; margin-top: 1.5rem; }
+  .lead { color: var(--text-dim); max-width: 600px; margin-bottom: 2rem; }
+
+  fieldset {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--surface);
+  }
+
+  legend {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--accent-hi);
+    padding: 0 0.5rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1.1rem;
+  }
+  .field:last-child { margin-bottom: 0; }
+
+  label {
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .hint { color: var(--text-dim); font-size: 0.85rem; font-weight: 400; }
+  .req { color: var(--accent-hi); font-weight: 700; }
+
+  .field-help {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .field-hint {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin: 0;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.8rem;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  textarea { resize: vertical; }
+
+  input[type="file"] {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  input[type="file"]::file-selector-button {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    margin-right: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .checkbox-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-top: 0.25rem;
+  }
+
+  .check-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+  .check-label.big { font-size: 0.95rem; color: var(--text); }
+  .check-label input[type="checkbox"] { accent-color: var(--accent-hi); width: 1rem; height: 1rem; cursor: pointer; flex-shrink: 0; }
+
+  .check-field { gap: 0.5rem; }
+
+  .char-count {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-align: right;
+  }
+
+  button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+    padding: 0.75rem 2rem;
+    transition: background 0.15s;
+  }
+  button[type="submit"]:hover { background: var(--accent-hi); }
+  button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .form-status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .form-status.success { color: var(--green); }
+  .form-status.error { color: var(--red); }
+
+  @media (max-width: 540px) {
+    fieldset { padding: 1rem; }
+    button[type="submit"] { width: 100%; }
+  }
+</style>

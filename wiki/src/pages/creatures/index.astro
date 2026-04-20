@@ -1,0 +1,190 @@
+---
+/**
+ * Creature gallery — shows all approved creature submissions as a card grid.
+ * Fetches live from Supabase client-side so newly approved creatures appear
+ * without requiring a site rebuild.
+ */
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base
+  title="Creatures"
+  description="Fantasy creatures submitted by Matlu players — the community creature encyclopedia."
+>
+  <h1>Creatures</h1>
+  <p class="lead">
+    A growing encyclopedia of fantasy creatures dreamed up by players.
+    Only approved creatures appear here.
+  </p>
+
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+  <a href="/creatures/submit" class="submit-btn">Submit your creature &rarr;</a>
+
+  <div id="gallery" class="gallery-grid">
+    <p class="loading">Loading creatures…</p>
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLElement;
+  const supabaseUrl = cfg.dataset.url ?? '';
+  const supabase = createClient(supabaseUrl, cfg.dataset.key ?? '');
+  const gallery = document.getElementById('gallery') as HTMLElement;
+
+  // HTML-escape user-generated content before injecting into innerHTML
+  function esc(s: string): string {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function storageUrl(path: string): string {
+    return `${supabaseUrl}/storage/v1/object/public/creature-art/${path}`;
+  }
+
+  async function loadGallery(): Promise<void> {
+    const { data, error } = await supabase
+      .from('creature_submissions')
+      .select('slug, creature_name, creator_name, art_path, lore_description, kind_movement')
+      .eq('approved', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      gallery.innerHTML = '<p class="empty">Could not load creatures — please try again later.</p>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      gallery.innerHTML = '<p class="empty">No creatures yet — be the first to <a href="/creatures/submit">submit one</a>!</p>';
+      return;
+    }
+
+    gallery.innerHTML = data.map(c => {
+      const slug = (c.slug as string | null) ?? '';
+      const name = (c.creature_name as string) ?? '';
+      const maker = (c.creator_name as string | null) ?? '';
+      const artPath = (c.art_path as string | null) ?? '';
+      const lore = (c.lore_description as string | null) ?? '';
+      const excerpt = lore.split('\n')[0].substring(0, 120);
+
+      const imgHtml = artPath
+        ? `<img src="${esc(storageUrl(artPath))}" alt="${esc(name)}" class="card-img" loading="lazy" />`
+        : `<div class="card-img-placeholder"></div>`;
+
+      const makerHtml = maker
+        ? `<p class="card-maker">by ${esc(maker)}</p>`
+        : '';
+
+      return `
+        <a href="/creatures/${esc(slug)}" class="creature-card">
+          ${imgHtml}
+          <div class="card-body">
+            <h3 class="card-name">${esc(name)}</h3>
+            ${makerHtml}
+            <p class="card-excerpt">${esc(excerpt)}</p>
+          </div>
+        </a>
+      `;
+    }).join('');
+  }
+
+  loadGallery();
+</script>
+
+<style>
+  h1 { font-size: 2rem; margin-top: 1.5rem; }
+  .lead { color: var(--text-dim); max-width: 560px; margin-bottom: 1.5rem; }
+
+  .submit-btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    margin-bottom: 2rem;
+    transition: background 0.15s;
+  }
+  .submit-btn:hover { background: var(--accent-hi); color: #fff; text-decoration: none; }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .creature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+    display: flex;
+    flex-direction: column;
+  }
+  .creature-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+
+  .card-img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+  .card-img-placeholder {
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--surface-hi);
+  }
+
+  .card-body {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+  }
+
+  .card-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .card-maker {
+    font-size: 0.8rem;
+    color: var(--accent-hi);
+    margin: 0;
+  }
+
+  .card-excerpt {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .loading, .empty {
+    color: var(--text-dim);
+    grid-column: 1 / -1;
+    padding: 2rem 0;
+  }
+</style>

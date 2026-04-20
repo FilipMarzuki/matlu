@@ -1,0 +1,148 @@
+---
+/**
+ * Credits page — lists every player who contributed an approved creature and
+ * opted into credits (credits_opt_in=true, creator_name not blank).
+ * Fetches client-side so newly approved contributors appear without a rebuild.
+ */
+import Base from '../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base
+  title="Credits"
+  description="Everyone who has contributed a creature to the Matlu creature encyclopedia."
+>
+  <h1>Creature Credits</h1>
+  <p class="lead">
+    These players shared their imagination and made the Matlu world richer.
+    Thank you!
+  </p>
+
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+  <div id="credits-list"></div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLElement;
+  const supabaseUrl = cfg.dataset.url ?? '';
+  const supabase = createClient(supabaseUrl, cfg.dataset.key ?? '');
+  const list = document.getElementById('credits-list') as HTMLElement;
+
+  function esc(s: string): string {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function storageUrl(path: string): string {
+    return `${supabaseUrl}/storage/v1/object/public/creature-art/${path}`;
+  }
+
+  async function loadCredits(): Promise<void> {
+    const { data, error } = await supabase
+      .from('creature_submissions')
+      .select('slug, creature_name, creator_name, art_path, created_at')
+      .eq('approved', true)
+      .eq('credits_opt_in', true)
+      .not('creator_name', 'is', null)
+      .neq('creator_name', '')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      list.innerHTML = '<p class="empty">Could not load credits — please try again later.</p>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p class="empty">No credits yet — be the first to <a href="/creatures/submit">submit a creature</a>!</p>';
+      return;
+    }
+
+    list.innerHTML = `
+      <table class="credits-table">
+        <thead>
+          <tr>
+            <th class="th-thumb"></th>
+            <th>Creature</th>
+            <th>Created by</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(c => {
+            const artPath = (c.art_path as string | null) ?? '';
+            const slug = (c.slug as string | null) ?? '';
+            const name = (c.creature_name as string) ?? '';
+            const maker = (c.creator_name as string | null) ?? '';
+            const imgHtml = artPath
+              ? `<img src="${esc(storageUrl(artPath))}" alt="" class="thumb" loading="lazy" />`
+              : `<div class="thumb-placeholder"></div>`;
+            return `
+              <tr>
+                <td class="td-thumb">${imgHtml}</td>
+                <td><a href="/creatures/${esc(slug)}">${esc(name)}</a></td>
+                <td>${esc(maker)}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  loadCredits();
+</script>
+
+<style>
+  h1 { font-size: 2rem; margin-top: 1.5rem; }
+  .lead { color: var(--text-dim); max-width: 560px; margin-bottom: 2rem; }
+
+  .credits-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  .credits-table th, .credits-table td {
+    padding: 0.65rem 0.85rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .credits-table th {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: 'Syne', sans-serif;
+  }
+
+  .th-thumb, .td-thumb { width: 48px; padding-right: 0.5rem; }
+
+  .thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+
+  .thumb-placeholder {
+    width: 40px;
+    height: 40px;
+    background: var(--surface-hi);
+    border-radius: 5px;
+    border: 1px solid var(--border);
+  }
+
+  .credits-table tbody tr:hover { background: var(--surface); }
+
+  .empty {
+    color: var(--text-dim);
+    padding: 2rem 0;
+  }
+</style>

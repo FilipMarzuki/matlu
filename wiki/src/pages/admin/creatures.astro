@@ -1,0 +1,406 @@
+---
+/**
+ * Admin moderation page — review pending creature submissions, approve or reject.
+ *
+ * Access is gated behind VITE_ADMIN_PASSWORD (checked client-side).
+ * Approve/reject actions use VITE_SUPABASE_SERVICE_ROLE_KEY so they can bypass
+ * RLS (anon has no UPDATE policy on creature_submissions).
+ *
+ * Security note: both the password and service-role key are baked into the static
+ * JS bundle. This is an accepted tradeoff for a hobby project ("keep it simple,
+ * this isn't a bank"). Anyone with the password can read the key from source too,
+ * so there's no meaningful extra exposure beyond the password gate itself.
+ * For a production system, replace this with Astro SSR + server-side session auth.
+ */
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl   = import.meta.env.VITE_SUPABASE_URL ?? '';
+const serviceKey    = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ?? '';
+const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD ?? '';
+---
+
+<Base title="Admin — Creatures" description="Moderate creature submissions.">
+  <h1>Creature Moderation</h1>
+
+  <div
+    id="admin-cfg"
+    data-url={supabaseUrl}
+    data-service-key={serviceKey}
+    data-admin-pw={adminPassword}
+    hidden
+  ></div>
+
+  <!-- Password gate -->
+  <div id="gate">
+    <form id="pw-form">
+      <div class="field">
+        <label for="pw-input">Admin password</label>
+        <input type="password" id="pw-input" name="password" autocomplete="current-password" />
+      </div>
+      <button type="submit">Enter</button>
+    </form>
+    <p id="pw-error" class="error" hidden>Wrong password.</p>
+  </div>
+
+  <!-- Admin UI (hidden until authenticated) -->
+  <div id="admin-ui" hidden>
+    <p class="section-desc">Showing pending submissions (not yet approved or rejected).</p>
+    <div id="pending-list"></div>
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg         = document.getElementById('admin-cfg') as HTMLElement;
+  const gate        = document.getElementById('gate') as HTMLElement;
+  const adminUi     = document.getElementById('admin-ui') as HTMLElement;
+  const pendingList = document.getElementById('pending-list') as HTMLElement;
+  const pwForm      = document.getElementById('pw-form') as HTMLFormElement;
+  const pwError     = document.getElementById('pw-error') as HTMLElement;
+
+  const supabaseUrl = cfg.dataset.url ?? '';
+  const adminPw     = cfg.dataset.adminPw ?? '';
+
+  // Two clients: anon (publishable key) for storage public reads, service role for writes
+  const serviceClient = createClient(supabaseUrl, cfg.dataset.serviceKey ?? '');
+
+  // ── Password gate ─────────────────────────────────────────────────────────
+
+  pwForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = (document.getElementById('pw-input') as HTMLInputElement).value;
+    if (input === adminPw && adminPw !== '') {
+      gate.hidden = true;
+      adminUi.hidden = false;
+      loadPending();
+    } else {
+      pwError.hidden = false;
+    }
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function esc(s: string): string {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function storageUrl(path: string): string {
+    return `${supabaseUrl}/storage/v1/object/public/creature-art/${path}`;
+  }
+
+  function slugFromName(name: string, id: string): string {
+    const base = name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return `${base || 'creature'}-${id.substring(0, 6)}`;
+  }
+
+  function extFromPath(path: string): string {
+    return path.split('.').pop() ?? 'jpg';
+  }
+
+  interface BehaviourExtra {
+    creature_type?: string;
+    intelligence?: string;
+    activity_time?: string;
+    friendliness?: string;
+    social_structure?: string;
+    sounds?: string;
+    weaknesses?: string;
+  }
+
+  function parseBehaviourNotes(raw: string | null): BehaviourExtra {
+    if (!raw) return {};
+    try { return JSON.parse(raw) as BehaviourExtra; } catch { return {}; }
+  }
+
+  // ── Load pending creatures ────────────────────────────────────────────────
+
+  async function loadPending(): Promise<void> {
+    pendingList.innerHTML = '<p class="loading">Loading…</p>';
+
+    const { data, error } = await serviceClient
+      .from('creature_submissions')
+      .select('*')
+      .eq('approved', false)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      pendingList.innerHTML = `<p class="error">Failed to load: ${esc(error.message)}</p>`;
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      pendingList.innerHTML = '<p class="empty">No pending submissions — all caught up!</p>';
+      return;
+    }
+
+    pendingList.innerHTML = data.map(c => {
+      const id         = c.id as string;
+      const name       = (c.creature_name as string) ?? '';
+      const maker      = (c.creator_name as string | null) ?? '';
+      const age        = (c.maker_age as number | null);
+      const artPath    = (c.art_path as string | null) ?? '';
+      const slug       = (c.slug as string | null) ?? slugFromName(name, id);
+      const lore       = (c.lore_description as string | null) ?? '';
+      const threat     = (c.behaviour_threat as string | null) ?? '';
+      const foodNotes  = (c.food_notes as string | null) ?? '';
+      const special    = (c.special_ability as string | null) ?? '';
+      const diet       = (c.kind_diet as string | null) ?? '';
+      const size       = (c.kind_size as string | null) ?? '';
+      const movement   = ((c.kind_movement as string[] | null) ?? []).join(', ');
+      const habitat    = ((c.habitat_biome as string[] | null) ?? []).join(', ');
+      const climate    = (c.habitat_climate as string | null) ?? '';
+      const extra      = parseBehaviourNotes(c.behaviour_notes as string | null);
+      const licVer     = (c.license_version as string | null) ?? '';
+      const imgHtml    = artPath
+        ? `<img src="${esc(storageUrl(artPath))}" alt="${esc(name)}" class="sub-img" />`
+        : '<div class="sub-img-placeholder"></div>';
+
+      return `
+        <div class="submission" id="sub-${esc(id)}">
+          <div class="sub-header">
+            ${imgHtml}
+            <div class="sub-meta">
+              <h3>${esc(name)}</h3>
+              ${maker ? `<p><strong>By:</strong> ${esc(maker)}${age ? ` (age ${age})` : ''}</p>` : ''}
+              ${size ? `<p><strong>Size:</strong> ${esc(size)}</p>` : ''}
+              ${extra.creature_type ? `<p><strong>Type:</strong> ${esc(extra.creature_type)}</p>` : ''}
+              ${extra.intelligence ? `<p><strong>Intelligence:</strong> ${esc(extra.intelligence)}</p>` : ''}
+              ${movement ? `<p><strong>Movement:</strong> ${esc(movement)}</p>` : ''}
+              ${habitat ? `<p><strong>Habitat:</strong> ${esc(habitat)}</p>` : ''}
+              ${climate ? `<p><strong>Climate:</strong> ${esc(climate)}</p>` : ''}
+              ${extra.friendliness ? `<p><strong>Friendliness:</strong> ${esc(extra.friendliness)}</p>` : ''}
+              ${extra.activity_time ? `<p><strong>Active:</strong> ${esc(extra.activity_time)}</p>` : ''}
+              ${extra.social_structure ? `<p><strong>Social:</strong> ${esc(extra.social_structure)}</p>` : ''}
+              ${threat ? `<p><strong>Danger:</strong> ${esc(threat)}</p>` : ''}
+              ${diet ? `<p><strong>Diet:</strong> ${esc(diet)}</p>` : ''}
+              ${foodNotes ? `<p><strong>Food notes:</strong> ${esc(foodNotes)}</p>` : ''}
+              ${special ? `<p><strong>Special:</strong> ${esc(special)}</p>` : ''}
+              ${extra.sounds ? `<p><strong>Sounds:</strong> ${esc(extra.sounds)}</p>` : ''}
+              ${extra.weaknesses ? `<p><strong>Weaknesses:</strong> ${esc(extra.weaknesses)}</p>` : ''}
+              <p class="license-note">License: ${esc(licVer)} &middot; Parental consent: ✓</p>
+            </div>
+          </div>
+
+          <div class="sub-story">
+            <strong>Story:</strong>
+            <p>${esc(lore)}</p>
+          </div>
+
+          <div class="sub-actions">
+            <button class="approve-btn btn-green" data-id="${esc(id)}" data-name="${esc(name)}" data-slug="${esc(slug)}" data-art="${esc(artPath)}" data-ext="${esc(extFromPath(artPath))}">
+              ✓ Approve
+            </button>
+            <button class="reject-btn btn-red" data-id="${esc(id)}">
+              ✗ Reject
+            </button>
+          </div>
+          <p class="action-status" id="status-${esc(id)}"></p>
+        </div>
+      `;
+    }).join('');
+
+    // Wire up buttons after rendering
+    document.querySelectorAll<HTMLButtonElement>('.approve-btn').forEach(btn => {
+      btn.addEventListener('click', () => approveCreature(btn));
+    });
+    document.querySelectorAll<HTMLButtonElement>('.reject-btn').forEach(btn => {
+      btn.addEventListener('click', () => rejectCreature(btn));
+    });
+  }
+
+  // ── Approve ───────────────────────────────────────────────────────────────
+
+  async function approveCreature(btn: HTMLButtonElement): Promise<void> {
+    const id      = btn.dataset.id ?? '';
+    const name    = btn.dataset.name ?? '';
+    const slug    = btn.dataset.slug ?? slugFromName(name, id);
+    const oldPath = btn.dataset.art ?? '';
+    const ext     = btn.dataset.ext ?? 'jpg';
+    const statusEl = document.getElementById(`status-${id}`) as HTMLElement;
+
+    btn.disabled = true;
+    statusEl.textContent = 'Approving…';
+    statusEl.className = 'action-status';
+
+    try {
+      // Move image from pending/ to approved/
+      if (oldPath) {
+        const newPath = `approved/${slug}.${ext}`;
+        const { error: moveErr } = await serviceClient.storage
+          .from('creature-art')
+          .move(oldPath, newPath);
+
+        if (moveErr) throw new Error(`Storage move failed: ${moveErr.message}`);
+
+        const { error: updateErr } = await serviceClient
+          .from('creature_submissions')
+          .update({ approved: true, art_path: newPath, slug })
+          .eq('id', id);
+
+        if (updateErr) throw new Error(`DB update failed: ${updateErr.message}`);
+      } else {
+        const { error: updateErr } = await serviceClient
+          .from('creature_submissions')
+          .update({ approved: true, slug })
+          .eq('id', id);
+
+        if (updateErr) throw new Error(`DB update failed: ${updateErr.message}`);
+      }
+
+      statusEl.textContent = '✓ Approved';
+      statusEl.className = 'action-status success';
+      const card = document.getElementById(`sub-${id}`);
+      setTimeout(() => card?.remove(), 1200);
+
+    } catch (err) {
+      console.error('Approve error:', err);
+      statusEl.textContent = err instanceof Error ? err.message : 'Error — check console.';
+      statusEl.className = 'action-status error';
+      btn.disabled = false;
+    }
+  }
+
+  // ── Reject ────────────────────────────────────────────────────────────────
+
+  async function rejectCreature(btn: HTMLButtonElement): Promise<void> {
+    const id = btn.dataset.id ?? '';
+    const statusEl = document.getElementById(`status-${id}`) as HTMLElement;
+
+    const note = prompt('Optional rejection note (not shown to submitter):') ?? '';
+
+    btn.disabled = true;
+    statusEl.textContent = 'Rejecting…';
+    statusEl.className = 'action-status';
+
+    try {
+      const update: Record<string, unknown> = {};
+      if (note) update.moderation_note = note;
+
+      if (Object.keys(update).length > 0) {
+        const { error } = await serviceClient
+          .from('creature_submissions')
+          .update(update)
+          .eq('id', id);
+        if (error) throw new Error(`DB update failed: ${error.message}`);
+      }
+
+      statusEl.textContent = '✗ Rejected';
+      statusEl.className = 'action-status error';
+      const card = document.getElementById(`sub-${id}`);
+      setTimeout(() => card?.remove(), 1200);
+
+    } catch (err) {
+      console.error('Reject error:', err);
+      statusEl.textContent = err instanceof Error ? err.message : 'Error — check console.';
+      statusEl.className = 'action-status error';
+      btn.disabled = false;
+    }
+  }
+</script>
+
+<style>
+  h1 { font-size: 2rem; margin-top: 1.5rem; }
+  .section-desc { color: var(--text-dim); margin-bottom: 1.5rem; }
+
+  /* Password gate */
+  #gate { max-width: 320px; }
+  .field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+  label { font-size: 0.95rem; }
+  input[type="password"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.8rem;
+  }
+  input[type="password"]:focus { outline: none; border-color: var(--accent); }
+
+  button {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.55rem 1.25rem;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-hi); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Submission cards */
+  .submission {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .sub-header {
+    display: flex;
+    gap: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .sub-img {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sub-img-placeholder {
+    width: 140px;
+    height: 140px;
+    background: var(--surface-hi);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .sub-meta h3 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+  .sub-meta p { font-size: 0.85rem; color: var(--text-dim); margin: 0.2rem 0; }
+  .license-note { color: var(--green) !important; margin-top: 0.5rem !important; }
+
+  .sub-story {
+    background: var(--surface-hi);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+  }
+  .sub-story p { color: var(--text-dim); margin-top: 0.35rem; white-space: pre-line; }
+
+  .sub-actions { display: flex; gap: 0.75rem; }
+
+  .btn-green { background: var(--green); color: #000; }
+  .btn-green:hover { background: #22c55e; }
+  .btn-red { background: var(--red); }
+  .btn-red:hover { background: #ef4444; }
+
+  .action-status { font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.2em; }
+  .action-status.success { color: var(--green); }
+  .action-status.error { color: var(--red); }
+
+  .loading, .empty { color: var(--text-dim); }
+  .error { color: var(--red); }
+
+  @media (max-width: 540px) {
+    .sub-header { flex-direction: column; }
+    .sub-img, .sub-img-placeholder { width: 100%; height: auto; aspect-ratio: 1; }
+  }
+</style>
