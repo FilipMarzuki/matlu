@@ -48,10 +48,11 @@ const CUSTOM_TILE_PACKS: Record<number, string> = {
 };
 
 const ENTITY_TYPES = [
-  { key: 'tinkerer', color: 0x44aaff, label: 'Tinkerer', atlasKey: 'tinkerer' as string | null },
-  { key: 'skald',    color: 0x7799ee, label: 'Skald',    atlasKey: 'skald'    as string | null },
-  { key: 'loke',     color: 0xaa55ff, label: 'Loke',     atlasKey: 'loke'     as string | null },
-  { key: 'Enemy',    color: 0xff4444, label: 'Enemy',    atlasKey: null },
+  { key: 'tinkerer',            color: 0x44aaff, label: 'Tinkerer',   atlasKey: 'tinkerer'            as string | null },
+  { key: 'skald',               color: 0x7799ee, label: 'Skald',      atlasKey: 'skald'               as string | null },
+  { key: 'loke',                color: 0xaa55ff, label: 'Loke',       atlasKey: 'loke'                as string | null },
+  { key: 'fargglad-kordororn',  color: 0x8b6914, label: 'Kordorörn',  atlasKey: 'fargglad-kordororn'  as string | null },
+  { key: 'Enemy',               color: 0xff4444, label: 'Enemy',      atlasKey: null },
   { key: 'NPC',      color: 0x44dd44, label: 'NPC',      atlasKey: null },
   { key: 'Animal',   color: 0xffaa22, label: 'Animal',   atlasKey: null },
 ] as const;
@@ -150,7 +151,12 @@ export class WorldForgeScene extends Phaser.Scene {
     this.load.spritesheet('iso-tiles',
       '/assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
-    this.load.image('cliff-face', '/assets/sprites/tilesets/cliff_face.png');
+    // Cliff strip tiles — south face, east face, and 3-section waterfall.
+    this.load.image('cliff-south',   '/assets/packs/cliff-strips/cliff-south.png');
+    this.load.image('cliff-east',    '/assets/packs/cliff-strips/cliff-east.png');
+    this.load.image('cliff-wf-top',  '/assets/packs/cliff-strips/cliff-wf-top.png');
+    this.load.image('cliff-wf-mid',  '/assets/packs/cliff-strips/cliff-wf-mid.png');
+    this.load.image('cliff-wf-bot',  '/assets/packs/cliff-strips/cliff-wf-bot.png');
 
     // Custom floor tiles — 4 variants per biome replacing the cluttered stock spritesheet.
     for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
@@ -169,6 +175,9 @@ export class WorldForgeScene extends Phaser.Scene {
     this.load.atlas('loke',
       '/assets/sprites/characters/mistheim/heroes/loke/loke.png',
       '/assets/sprites/characters/mistheim/heroes/loke/loke.json');
+    this.load.atlas('fargglad-kordororn',
+      '/assets/sprites/characters/earth/enemies/fargglad-kordororn/fargglad-kordororn.png',
+      '/assets/sprites/characters/earth/enemies/fargglad-kordororn/fargglad-kordororn.json');
   }
 
   create(): void {
@@ -466,12 +475,14 @@ export class WorldForgeScene extends Phaser.Scene {
                         : elevDist === 0 ? 0xb0b0b8
                         : 0xd8cfc4;
 
-        /** One vertical cliff column: centred at faceCX, top at faceTop. */
+        /** One vertical cliff column: centred at faceCX, top at faceTop.
+         *  face: 'south' | 'east' | 'wf' — picks the right strip texture and
+         *  drives the waterfall rendering path. */
         const drawCliffFace = (
           faceCX: number,
           faceTop: number,
           steps: number,
-          isWF: boolean,
+          face: 'south' | 'east' | 'wf',
           heightPad = 0,
         ): void => {
           const hw     = this.ISO_W / 2;
@@ -480,25 +491,50 @@ export class WorldForgeScene extends Phaser.Scene {
           const by     = Math.floor(faceTop);
           const bw     = Math.ceil(hw * 2);
           const bh     = Math.ceil(cliffH);
-          if (isWF) {
-            const gfx = this.add.graphics().setDepth(0);
-            gfx.fillStyle(0x1155aa, 0.93);
-            gfx.fillRect(bx, by, bw, bh);
-            gfx.fillStyle(0xbbeeff, 0.55);
-            for (let s = 0; s < 3; s++) {
-              const sx = faceCX - hw * 0.55 + s * (hw * 0.5);
-              gfx.fillRect(sx, by + 2, hw * 0.2, bh - 4);
+          const inv    = 1 / this.zoomFactor;
+          const rtW    = Math.max(1, Math.ceil(bw * inv));
+          const rtH    = Math.max(1, Math.ceil(bh * inv));
+
+          if (face === 'wf') {
+            // Waterfall — stack top / mid / bottom sections using pixel tiles.
+            // Each section is one native tile tall (32px); mid is repeated to fill.
+            const secH = ISO_TILE_NATIVE_SIZE;  // 32 native px per section
+            const topH = Math.min(secH, rtH);
+            const botH = rtH > secH ? Math.min(secH, rtH - secH) : 0;
+            const midH = Math.max(0, rtH - topH - botH);
+
+            // Top section
+            const rtTop = this.add.renderTexture(bx, by, rtW, Math.ceil(topH * this.zoomFactor))
+              .setDepth(0).setOrigin(0, 0);
+            rtTop.repeat('cliff-wf-top', 0, 0, 0, rtW, topH);
+            rtTop.render();
+            this.cliffObjs.push(rtTop);
+
+            // Middle (tiled)
+            if (midH > 0) {
+              const midY = by + Math.ceil(topH * this.zoomFactor);
+              const rtMid = this.add.renderTexture(bx, midY, rtW, Math.ceil(midH * this.zoomFactor))
+                .setDepth(0).setOrigin(0, 0);
+              rtMid.repeat('cliff-wf-mid', 0, 0, 0, rtW, midH);
+              rtMid.render();
+              this.cliffObjs.push(rtMid);
             }
-            gfx.lineStyle(1, 0x000000, 0.35);
-            gfx.strokeRect(bx, by, bw, bh);
-            this.cliffObjs.push(gfx);
+
+            // Bottom section
+            if (botH > 0) {
+              const botY = by + Math.ceil((topH + midH) * this.zoomFactor);
+              const rtBot = this.add.renderTexture(bx, botY, rtW, Math.ceil(botH * this.zoomFactor))
+                .setDepth(0).setOrigin(0, 0);
+              rtBot.repeat('cliff-wf-bot', 0, 0, 0, rtW, botH);
+              rtBot.render();
+              this.cliffObjs.push(rtBot);
+            }
           } else {
-            const inv = 1 / this.zoomFactor;
-            const rtW = Math.max(1, Math.ceil(bw * inv));
-            const rtH = Math.max(1, Math.ceil(bh * inv));
-            const rt  = this.add.renderTexture(bx, by, rtW, rtH)
+            // Rock face — south or east strip, tinted by biome distance.
+            const texKey = face === 'east' ? 'cliff-east' : 'cliff-south';
+            const rt = this.add.renderTexture(bx, by, rtW, rtH)
               .setDepth(0).setOrigin(0, 0).setScale(this.zoomFactor).setTint(cliffTint);
-            rt.repeat('cliff-face', 0, 0, 0, rtW, rtH);
+            rt.repeat(texKey, 0, 0, 0, rtW, rtH);
             rt.render();
             this.cliffObjs.push(rt);
           }
@@ -508,21 +544,21 @@ export class WorldForgeScene extends Phaser.Scene {
           const elevS = getElev(tx, ty + 1);
           if (tileElev > elevS) {
             const isWF = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
-            drawCliffFace(x, southRimY, tileElev - elevS, isWF, 0);
+            drawCliffFace(x, southRimY, tileElev - elevS, isWF ? 'wf' : 'south', 0);
           }
         }
 
         if (tileElev > 0 && tx + 1 < G) {
           const elevE = getElev(tx + 1, ty);
           if (tileElev > elevE) {
-            drawCliffFace(x + this.ISO_W / 2, eastWestRimY, tileElev - elevE, false, hh);
+            drawCliffFace(x + this.ISO_W / 2, eastWestRimY, tileElev - elevE, 'east', hh);
           }
         }
 
         if (tileElev > 0 && tx > 0) {
           const elevW = getElev(tx - 1, ty);
           if (tileElev > elevW) {
-            drawCliffFace(x - this.ISO_W / 2, eastWestRimY, tileElev - elevW, false, hh);
+            drawCliffFace(x - this.ISO_W / 2, eastWestRimY, tileElev - elevW, 'east', hh);
           }
         }
 

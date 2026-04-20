@@ -30,3 +30,4 @@ export { BroodMother, EggSac } from './BroodMother';
 export { Progenitor } from './Progenitor';
 export { Rampart } from './Rampart';
 export { Kronos } from './Kronos';
+export { FarggladKordororn } from './FarggladKordororn';
