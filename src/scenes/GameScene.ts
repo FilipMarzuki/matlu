@@ -377,6 +377,40 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 
 /** Fill colour per biome index — sourced from the canonical biomes.ts list. */
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
+/**
+ * Low-saturation tint per biome for the baked iso ground tiles.
+ * This pushes each region toward a distinct color identity (CrossCode-style)
+ * while keeping the underlying spritesheet shading and depth cues visible.
+ */
+const BIOME_TILE_TINTS: ReadonlyArray<number> = [
+  0x8fc8ff, // 0  Sea
+  0xa88a74, // 1  Rocky Shore
+  0xd8bf8e, // 2  Sandy Shore
+  0x6d8a64, // 3  Marsh / Bog
+  0x9c8569, // 4  Dry Heath
+  0x88a172, // 5  Coastal Heath
+  0x8fba73, // 6  Meadow
+  0x5a8f55, // 7  Forest
+  0x4d7b59, // 8  Spruce
+  0x756c88, // 9  Cold Granite (violet-leaning, HLD-like threat)
+  0x8a7b9a, // 10 Bare Summit
+  0xd8e7ff, // 11 Snow Field
+];
+
+/**
+ * Apply a small brightness delta to a packed RGB colour.
+ * Used for per-tile value noise so large biome fields keep texture at player scale.
+ */
+function shadeHexColor(hex: number, delta: number): number {
+  const r = (hex >> 16) & 0xff;
+  const g = (hex >> 8)  & 0xff;
+  const b =  hex        & 0xff;
+  const scale = 1 + Phaser.Math.Clamp(delta, -0.35, 0.35);
+  const nr = Math.round(Phaser.Math.Clamp(r * scale, 0, 255));
+  const ng = Math.round(Phaser.Math.Clamp(g * scale, 0, 255));
+  const nb = Math.round(Phaser.Math.Clamp(b * scale, 0, 255));
+  return (nr << 16) | (ng << 8) | nb;
+}
 
 /**
  * Resolve which biome index a tile belongs to from its noise values.
@@ -727,8 +761,8 @@ export class GameScene extends Phaser.Scene {
   /** All world-decoration images (trees, rocks, flowers, buildings, etc.) — toggled by H key or Decor button. */
   private decorImages: Phaser.GameObjects.Image[] = [];
   /** Whether decorations are currently visible. */
-  // Start hidden — ground-polish focus. Press H or use the World Dev Decor button to toggle.
-  private decorVisible = false;
+  // Start visible so biome texture reads immediately in normal play.
+  private decorVisible = true;
   /** Whether wildlife (rabbits, ground animals) is currently visible. */
   private animalsVisible = true;
   /** Individual layer visibility flags — tracked independently of the Decor master toggle. */
@@ -1169,15 +1203,15 @@ export class GameScene extends Phaser.Scene {
       this.tileDevW,
     );
 
-    // Hide all non-ground visuals on startup so the terrain bake can be
-    // evaluated in isolation. Press H to toggle everything back on.
-    for (const img of this.decorImages) img.setVisible(false);
-    this.pathGraphics.setVisible(false);
-    for (const ov of this.zoneOverlays.values()) ov.setVisible(false);
-    for (const g of this.settlementGlows) g.setVisible(false);
-    if (this.leavesEmitter)  this.leavesEmitter.emitting  = false;
-    if (this.pollenEmitter)  this.pollenEmitter.emitting   = false;
-    if (this.fireflyEmitter) this.fireflyEmitter.emitting  = false;
+    // Keep the world visually rich at startup while still respecting each
+    // individual layer toggle's default visibility flag.
+    for (const img of this.decorImages) img.setVisible(this.decorVisible);
+    this.pathGraphics.setVisible(this.pathsVisible);
+    for (const ov of this.zoneOverlays.values()) ov.setVisible(this.zonesVisible);
+    for (const g of this.settlementGlows) g.setVisible(this.settlementsVisible);
+    if (this.leavesEmitter)  this.leavesEmitter.emitting  = this.decorVisible && (this.worldClock?.phase === 'dawn' || this.worldClock?.phase === 'dusk');
+    if (this.pollenEmitter)  this.pollenEmitter.emitting   = this.decorVisible && (this.worldClock?.phase === 'morning' || this.worldClock?.phase === 'midday' || this.worldClock?.phase === 'afternoon');
+    if (this.fireflyEmitter) this.fireflyEmitter.emitting  = this.decorVisible && this.worldClock?.phase === 'night';
 
     this.spawnSettlementNpcs();
     this.createVendors();
@@ -5625,6 +5659,7 @@ export class GameScene extends Phaser.Scene {
   private drawProceduralTerrain(): void {
     const noise    = this.baseNoise;
     const detNoise = new FbmNoise(this.runSeed ^ 0xb5ad4ecb);
+    const microNoise = new FbmNoise(this.runSeed ^ 0x9e3779b9);
 
     const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
     const tilesY = Math.ceil(WORLD_H / TILE_SIZE);
@@ -5754,9 +5789,18 @@ export class GameScene extends Phaser.Scene {
         // Painter order: ty=0 (back) drawn first, ty=tilesY-1 (front) drawn last —
         // each row's front face is covered by the diamond of the next row forward.
         const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
-        const frame = (isRiverHere || isLakeHere) ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, detail);
+        // Mix medium + high frequency detail so adjacent tiles vary more at gameplay zoom.
+        const micro = microNoise.fbm(tx * DETAIL_SCALE * 2.8, ty * DETAIL_SCALE * 2.8, 2, 0.5);
+        const frameNoise = Phaser.Math.Clamp(detail * 0.55 + micro * 0.45, 0, 0.999);
+        const frame = (isRiverHere || isLakeHere) ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, frameNoise);
+        // Distinct biome tint + subtle value wobble gives each region a readable identity
+        // without replacing the underlying tile shading from the spritesheet.
+        const tintBase = (isRiverHere || isLakeHere)
+          ? (isLakeHere ? 0x87a9c8 : 0x6691bf)
+          : (BIOME_TILE_TINTS[biomeIdx] ?? 0xffffff);
+        const tint = shadeHexColor(tintBase, (micro - 0.5) * 0.28);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
-        tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+        tileImg.setTexture('iso-tiles', frame).setTint(tint).setPosition(isoX, isoY);
         terrainRt.draw(tileImg);
 
       }
@@ -5772,7 +5816,7 @@ export class GameScene extends Phaser.Scene {
         if (dx * dx + dy * dy <= 7) {
           const clearFrame = 40 + ((Math.abs(dx) * 2 + Math.abs(dy)) % 4); // frames 40–43 (grass)
           const { x: clearX, y: clearY } = worldToIso((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE);
-          tileImg.setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
+          tileImg.setTexture('iso-tiles', clearFrame).setTint(0x8fba73).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
         }
       }
