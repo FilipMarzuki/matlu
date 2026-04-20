@@ -41,7 +41,12 @@ const OBJECT_TYPES = [
 type ObjectKey = typeof OBJECT_TYPES[number]['key'];
 
 export class BiomeInspectorScene extends Phaser.Scene {
-  private selectedBiome = 6;
+  // Default to biome 6 (Meadow). The ?biome=<idx> URL param overrides this so
+  // the wiki's per-card "View in World Forge" links land on the right biome.
+  private selectedBiome = (() => {
+    const p = parseInt(new URLSearchParams(window.location.search).get('biome') ?? '', 10);
+    return (!isNaN(p) && p >= 0 && p < 12) ? p : 6;
+  })();
 
   // Layout constants lifted to class level so screenToTile() can access them.
   private readonly GRID      = 30;
