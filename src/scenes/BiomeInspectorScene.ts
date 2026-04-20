@@ -22,6 +22,7 @@
 import * as Phaser from 'phaser';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 import { BIOMES } from '../world/biomes';
+import { SimpleJoystick } from '../lib/SimpleJoystick';
 
 const BIOME_NAMES          = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
@@ -95,6 +96,14 @@ export class BiomeInspectorScene extends Phaser.Scene {
   // Decoration painter state (FIL-465) — per-biome scatter on tiles.
   private selectedDecorKey: string | null = null;
   private placedDecors = new Map<string, { gfx: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text }>();
+
+  // ── Touch controls ──────────────────────────────────────────────────────────
+  /** Joystick for touch navigation — null on non-touch devices. */
+  private joystick: SimpleJoystick | null = null;
+  /** Cooldown so a held joystick doesn't cycle biomes every frame. */
+  private joyCycleCooldown = 0;
+  /** Cooldown so zoom changes from joystick don't fire too fast. */
+  private joyZoomCooldown  = 0;
   // Decor toolbar buttons rebuilt on biome change (zone, gfx, text per type).
   private decorRowObjs: Phaser.GameObjects.GameObject[] = [];
   private decorSelBorder?: Phaser.GameObjects.Graphics;
@@ -152,6 +161,54 @@ export class BiomeInspectorScene extends Phaser.Scene {
         this.toggleDecor(tile.tx, tile.ty);
       }
     });
+
+    // ── Touch joystick (touch devices only) ──────────────────────────────────
+    // Left/right  → cycle biomes (with cooldown so a held push fires once)
+    // Up/down     → zoom in/out
+    if (navigator.maxTouchPoints > 0) {
+      const H     = this.scale.height;
+      const JOY_X = 120;
+      const JOY_Y = H - 120;
+      const JOY_R = 50;
+      const DEPTH = 9999;
+      const base  = this.add.circle(JOY_X, JOY_Y, JOY_R, 0x444444, 0.45).setScrollFactor(0).setDepth(DEPTH);
+      const thumb = this.add.circle(JOY_X, JOY_Y, 22,    0xcccccc, 0.60).setScrollFactor(0).setDepth(DEPTH);
+      this.joystick = new SimpleJoystick(this, JOY_X, JOY_Y, JOY_R, thumb);
+      void base;
+      this.input.addPointer(1);
+    }
+  }
+
+  override update(_time: number, delta: number): void {
+    if (!this.joystick || this.joystick.force < 10) {
+      // Drain cooldowns even when joystick is idle.
+      this.joyCycleCooldown = Math.max(0, this.joyCycleCooldown - delta);
+      this.joyZoomCooldown  = Math.max(0, this.joyZoomCooldown  - delta);
+      return;
+    }
+
+    const angle = this.joystick.rotation; // radians
+    const ax    = Math.cos(angle);        // -1 left … +1 right
+    const ay    = Math.sin(angle);        // -1 up   … +1 down
+
+    // Left / right — cycle biomes (500 ms cooldown between steps)
+    this.joyCycleCooldown = Math.max(0, this.joyCycleCooldown - delta);
+    if (this.joyCycleCooldown === 0 && Math.abs(ax) > 0.5) {
+      this.cycleBiome(ax > 0 ? 1 : -1);
+      this.joyCycleCooldown = 500;
+    }
+
+    // Up / down — zoom (150 ms cooldown for smooth feel)
+    this.joyZoomCooldown = Math.max(0, this.joyZoomCooldown - delta);
+    if (this.joyZoomCooldown === 0 && Math.abs(ay) > 0.5) {
+      const factor = ay < 0 ? 1.10 : 1 / 1.10;
+      this.zoomFactor = Phaser.Math.Clamp(this.zoomFactor * factor, 0.25, 3.0);
+      this.clearEntity();
+      this.clearObjects();
+      this.clearDecors();
+      this.refreshDisplay();
+      this.joyZoomCooldown = 150;
+    }
   }
 
   // ── Coordinate helpers ────────────────────────────────────────────────────────
