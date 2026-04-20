@@ -78,9 +78,17 @@ async function main() {
     );
     // GitHub Issues API also returns pull requests — exclude them.
     // Also exclude issues that also carry the "blocked" label.
+    // Sort: bugs and rework first (they affect players now), then everything else.
+    const hasLabel = (issue, name) => issue.labels.some(l => l.name === name);
+    const bugPriority = (issue) => {
+      if (hasLabel(issue, 'bug'))    return 0;
+      if (hasLabel(issue, 'rework')) return 1;
+      return 2;
+    };
     numbers = issues
       .filter(i => !i.pull_request)
-      .filter(i => !i.labels.some(l => l.name === 'blocked'))
+      .filter(i => !hasLabel(i, 'blocked'))
+      .sort((a, b) => bugPriority(a) - bugPriority(b))
       .map(i => i.number);
   }
 

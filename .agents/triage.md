@@ -76,7 +76,35 @@ If no clear duplicate, continue to step 1.
 Only if needed — check 1–3 files to verify the surface area exists.
 If the issue is self-explanatory, skip this step entirely.
 
-### 2. Decide label
+
+
+### 2. Apply type label if missing
+
+Check whether a type label (`bug`, `feature`, `chore`, `refactor`, `exploration`) is
+already on the issue:
+
+```bash
+gh issue view {{gh_issue_number}} --json labels --jq '.labels[].name'
+```
+
+If **no** type label is present, infer one and apply it:
+
+- Apply `bug` if the title or description contains any of: *broken, fix, bug, error,
+  crash, regression, doesn't work, not working, stopped working, wrong, incorrect,
+  fails, failure, missing (for something that existed before)*.
+- Apply `feature` for new functionality being added.
+- Apply `chore` for maintenance, deps, config, cleanup.
+- Apply `refactor` for restructuring without behaviour change.
+- Apply `exploration` for open-ended research or design spikes.
+
+```bash
+gh issue edit {{gh_issue_number}} --add-label "bug"   # (or whichever applies)
+```
+
+> **Why this matters:** `bug` issues are automatically promoted to the front of the
+> nightly agent queue so regressions are fixed before new features are built.
+
+### 3. Decide readiness label
 
 - `ready` — all criteria met.
 - `needs-refinement` — close but missing specifics. Add a short acceptance
@@ -85,7 +113,7 @@ If the issue is self-explanatory, skip this step entirely.
 - `too-large` — needs splitting. Comment suggests the split.
 - *(skip)* — purely creative. Comment: "Skipped — requires human creative input."
 
-### 3. Estimate T-shirt size
+### 4. Estimate T-shirt size
 
 Add a size label (`size:XS` through `size:XL`):
 
@@ -97,7 +125,7 @@ Add a size label (`size:XS` through `size:XL`):
 | L    | Multiple files, new module/system. |
 | XL   | Cross-cutting — should probably be split. |
 
-### 4. Check rework
+### 5. Check rework
 
 Apply the `rework` label **in addition to** the readiness label if any of:
 - Title/description contains: fix, broken, regression, revert, polish, tweak.
@@ -107,7 +135,7 @@ Apply the `rework` label **in addition to** the readiness label if any of:
 
 Note in the comment which prior change likely caused it.
 
-### 5. Update the GitHub issue
+### 6. Update the GitHub issue
 
 Apply label(s) and post a one-sentence comment. Then exit immediately.
 
