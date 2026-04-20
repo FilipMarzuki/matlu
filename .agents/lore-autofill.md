@@ -143,7 +143,96 @@ four hundred years and doesn't know it. An informal alliance between a Merfolk
   are not decorative details. They are how a reader knows where they are.
 - Add a final line: _Written by the lore historian agent_
 
-## STEP 6 — REPORT
+## STEP 6 — CREATURE PASS (auto-draft lore for balanced creatures)
+
+This step runs **after** steps 1–5. It uses Supabase to find approved creature submissions
+that have been balanced but have no Notion lore entry yet, and auto-drafts one for each.
+
+### Environment
+
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set as env vars.
+- Use the Supabase REST API: `{SUPABASE_URL}/rest/v1/{table}`.
+  - Headers: `apikey: {SUPABASE_SERVICE_ROLE_KEY}`, `Authorization: Bearer {SUPABASE_SERVICE_ROLE_KEY}`, `Content-Type: application/json`, `Prefer: return=minimal`.
+
+### 6a — Check Supabase availability
+
+Before querying, make a lightweight request (e.g. `GET /rest/v1/creature_submissions?limit=1`).
+If the request fails or returns a non-2xx status, print `[creature-pass] Supabase unreachable — skipping` and exit 0.
+**Do not error out** — the scheduled run is idempotent and next day will retry.
+
+### 6b — Fetch balanced creatures without lore entries
+
+```
+GET {SUPABASE_URL}/rest/v1/creature_submissions
+  ?select=id,creature_name,world_name,habitat_biome,habitat_notes,behaviour_notes,
+          food_notes,special_ability,lore_description,lore_origin,
+          kind_size,kind_movement,kind_diet,kind_solitary,behaviour_threat,
+          status_changed_at
+  &status=eq.balanced
+  &lore_entry_id=is.null
+  &order=status_changed_at.asc
+  &limit=10
+```
+
+Cap at **10 rows per run** to stay within Notion rate limits.
+If the result is empty, print `[creature-pass] No balanced creatures pending lore` and skip to 6e.
+
+### 6c — For each creature, create a Notion lore entry
+
+For every row returned:
+
+1. **Build the Notion page payload** using these creature fields:
+   - **Title** (Name property): `creature_name`
+   - **World** (select): `world_name` if set, otherwise `Mistheim`
+   - **Lore Status** (select): `draft`
+   - **Page content** (paragraph blocks): write 2–3 paragraphs in the lore historian voice
+     (same style as STEP 5 — grounded, sensory, first-person narrator). Draw on:
+     - `lore_description` (the creator's own words — honour their intent)
+     - `habitat_biome`, `habitat_notes`, `habitat_climate`
+     - `behaviour_notes`, `behaviour_threat`
+     - `food_notes`, `special_ability`
+     - `kind_size`, `kind_movement`, `kind_diet`, `kind_solitary`
+     - `lore_origin` (optional inspiration note — can inform tone)
+   - End the page with a paragraph: _Auto-drafted by the lore historian agent from a creature submission._
+
+2. **Create the Notion page** in the Creatures database (`4c71181b-2842-4301-b7cf-94572b3845a9`):
+   ```
+   POST https://api.notion.com/v1/pages
+   {
+     "parent": { "database_id": "4c71181b-2842-4301-b7cf-94572b3845a9" },
+     "properties": {
+       "Name": { "title": [{ "text": { "content": "<creature_name>" } }] },
+       "Lore Status": { "select": { "name": "draft" } }
+     },
+     "children": [ ... paragraph blocks ... ]
+   }
+   ```
+   - If Notion returns an error, print `[creature-pass] SKIP <creature_name>: <error>` and continue to the next row. Do not abort the whole pass.
+
+3. **Write back to Supabase** using the Notion page ID (`page.id`) and URL (`page.url`):
+   ```
+   PATCH {SUPABASE_URL}/rest/v1/creature_submissions?id=eq.<row_id>
+   {
+     "lore_entry_id": "<notion_page_id>",
+     "lore_entry_url": "<notion_page_url>",
+     "status": "lore-ready"
+   }
+   ```
+   - The status change to `lore-ready` will trigger the `creature_fsm_stamp_trigger`, updating `status_changed_at` automatically.
+   - If the PATCH fails, print `[creature-pass] WARN failed to update row <id> — Notion page <notion_page_id> was created but Supabase not updated`.
+
+4. Print `[creature-pass] OK <creature_name> → Notion <notion_page_url>`.
+
+### 6d — Idempotency check
+
+Rows with `lore_entry_id IS NOT NULL` are already filtered out by the query in 6b.
+Running the agent again is always a no-op for creatures that already have a lore entry.
+
+### 6e — Report creature pass results
+
+Print: how many creatures were processed, how many Notion pages were created, how many were skipped due to errors.
+
+## STEP 7 — FULL REPORT
 
 Print a summary: entries expanded, entries created, which databases were touched,
-which peoples from WORLD.md were covered.
+which peoples from WORLD.md were covered, and the creature pass summary from STEP 6.
