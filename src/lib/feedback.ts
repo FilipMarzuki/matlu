@@ -19,7 +19,7 @@ export async function insertFeedback(
   gameVersion: string,
   sessionId?: string
 ): Promise<void> {
-  if (!supabase) return;
+  if (!supabase) throw new Error('Supabase not configured');
 
   const row: MatluFeedbackInsert = {
     feedback_text: text,
