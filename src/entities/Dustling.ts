@@ -1,7 +1,7 @@
 /**
  * Dustling — tiny dust-mote enemy that swarms in a coordinated boid flock.
  *
- * 20 instances are spawned together in Vattenpandalandet. Each one calls
+ * 20 instances are spawned together in Mistheim. Each one calls
  * SwarmBrain.steer() every frame, adds the result to its current velocity,
  * then clamps to max speed. A gentle player-chase force keeps the cloud
  * tethered to the action while boids rules (separation/alignment/cohesion)

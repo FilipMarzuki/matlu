@@ -20,7 +20,7 @@ const BOLT_SPEED   = 420;
 const BOLT_COLOR   = 0xaaddff;
 
 /**
- * StormSovereign — Tier 4 Weather Wielder hero for Vattenpandalandet.
+ * StormSovereign — Tier 4 Weather Wielder hero for Mistheim.
  *
  * Emits a persistent rain-particle aura and exposes `monsoon()`, which:
  *   1. Deals flat damage to every enemy in the scene (not a spatial query).
