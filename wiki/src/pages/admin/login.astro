@@ -1,0 +1,88 @@
+---
+/**
+ * Admin login page — renders a password form.
+ * On success, /api/admin/login sets `admin_session` cookie and redirects here.
+ * Gate: if already authenticated, redirect straight to the pipeline.
+ */
+export const prerender = false;
+import { isAdminAuthenticated } from '../../lib/adminAuth';
+
+if (isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect('/admin/creatures');
+}
+
+const hasError = Astro.url.searchParams.has('error');
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Login — Matlu Codex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Outfit:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0d0d14; --surface: #13131e; --border: #2a2a3e;
+      --text: #e8e8f0; --text-dim: #9898b0;
+      --accent: #a855f7; --accent-hi: #c084fc; --red: #f87171;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; font-size: 16px; }
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem 2.25rem;
+      width: 100%;
+      max-width: 360px;
+    }
+    h1 { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 1.75rem; }
+    label { display: block; font-size: 0.875rem; color: var(--text-dim); margin-bottom: 0.35rem; }
+    input[type="password"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 1.25rem;
+      transition: border-color 0.15s;
+    }
+    input[type="password"]:focus { outline: none; border-color: var(--accent); }
+    button {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.65rem;
+      transition: background 0.15s;
+    }
+    button:hover { background: var(--accent-hi); }
+    .error-msg { color: var(--red); font-size: 0.875rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Admin Login</h1>
+    {hasError && <p class="error-msg">Incorrect password — try again.</p>}
+    <form method="POST" action="/api/admin/login">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required autofocus autocomplete="current-password" />
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>
