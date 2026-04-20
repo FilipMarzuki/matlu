@@ -241,7 +241,7 @@ coordination in the dark.
 
 ### Mana in Spinolandet
 
-Mana exists here, but it is not magic in any sense that Vattenpandalandet would recognise.
+Mana exists here, but it is not magic in any sense that Mistheim would recognise.
 It is a substrate — a property of the deep rock, of certain mineral formations, of the
 water in the deepest tunnels. Living things in Spinolandet have incorporated it the way
 Earth life incorporated iron: as a functional material, processed by specific organs,
@@ -339,17 +339,17 @@ give something they found last week and do not fully understand yet.
 
 ---
 
-## Vattenpandalandet
+## Mistheim
 
 ### What it is
 
-Vattenpandalandet is a world of stories and magic — a place where the conventions of fantasy
+Mistheim is a world of stories and magic — a place where the conventions of fantasy
 literature are not conventions but physics. Classes are real. Skills manifest as genuine
 supernatural ability. Inns are sanctuaries. Ancient ruins contain things that should stay buried.
 The seas are older than the civilisations that sail them.
 
 Think of every fantasy novel you have ever read, every RPG world you have ever inhabited, layered
-on top of each other until the seams show. That is Vattenpandalandet. It is a world that has
+on top of each other until the seams show. That is Mistheim. It is a world that has
 been through so many ages, so many heroes and apocalypses and rebirths, that it carries the weight
 of all of them simultaneously. The past is not backstory here. It is active and present and
 occasionally comes back to kill people.
@@ -373,7 +373,7 @@ how an inn should feel, and how to treat characters the world would call monster
 
 ### The system
 
-Every sapient being in Vattenpandalandet has a Class and levels within it. [Innkeeper].
+Every sapient being in Mistheim has a Class and levels within it. [Innkeeper].
 [Soldier]. [Fisherwoman]. [Bard]. Skills unlock at milestone levels — not mechanical bonuses,
 but genuine magic that reflects who you are. A [Chef] who cooks out of love unlocks different
 Skills than one who cooks for money.
@@ -386,12 +386,12 @@ something built it for a reason nobody remembers.
 Corruption interacts with the system directly. Corrupted individuals gain levels faster — and
 lose the meaning behind their Skills. A [Healer] who is corrupted may keep the Skill but find
 it works in reverse. An [Innkeeper] whose inn is corrupted finds the doors no longer bring
-warmth — strangers who eat there leave as enemies. Corruption in Vattenpandalandet does not
+warmth — strangers who eat there leave as enemies. Corruption in Mistheim does not
 destroy the system. It hollows it out and wears it like a costume.
 
 ### Runescript — the language of Myst
 
-Magic in Vattenpandalandet is not cast. It is written, and then executed.
+Magic in Mistheim is not cast. It is written, and then executed.
 
 The language is called Runescript by scholars who study it and simply *the marks* by
 everyone else. It uses the Elder Futhark rune alphabet as its glyphs — each of the
@@ -975,7 +975,7 @@ been able to determine which tradition came first.
 
 ---
 
-Vattenpandalandet's peoples are not divided into heroes and monsters. The beings the world
+Mistheim's peoples are not divided into heroes and monsters. The beings the world
 calls monsters are the ones whose complexity it cannot afford to acknowledge.
 
 **The Deepwalkers** — humanoid peoples of the coasts and deep places, clannish, with a
@@ -993,7 +993,7 @@ fixed territory. This includes itinerant [Bards], [Merchants], [Scholars], exile
 of every species. Inns exist to serve them. The Wandering People carry information across the
 world in ways that no institution controls, which makes them valuable and dangerous.
 
-**The Called** — people from elsewhere who arrived in Vattenpandalandet and did not leave.
+**The Called** — people from elsewhere who arrived in Mistheim and did not leave.
 Some fell from the sky. Some walked out of ruins that should have been empty. Some simply
 appeared. They carry knowledge from places the world does not have words for. They adapt,
 gain Classes, build lives. They are not always human. The system seems to accommodate anything.
@@ -1022,7 +1022,7 @@ neighbours. Corruption does not distinguish between those two failures.
 
 ### Inns
 
-An inn in Vattenpandalandet is a sanctuary. This is not metaphor — it is law older than the
+An inn in Mistheim is a sanctuary. This is not metaphor — it is law older than the
 current kingdoms. An innkeeper who keeps a true inn, who means it, gains Skills that enforce
 this: violence does not happen here, cold does not reach inside, strangers are briefly safe from
 the things that pursue them.
@@ -1035,7 +1035,7 @@ one thing that reliably slows it.
 
 ### Stories and art
 
-Stories are civilisation-building in Vattenpandalandet. The [Bard] class carries the same
+Stories are civilisation-building in Mistheim. The [Bard] class carries the same
 cultural weight as [General] or [King]. A story told well can change a city's politics.
 A [Bard] who is genuinely skilled can activate Skills that rewrite how people in a room
 perceive each other — not through illusion but through emotional truth. This is treated as
@@ -1057,11 +1057,11 @@ they built things that outlasted them.
 There were previous ages. Each one thought it was the last and most sophisticated. Each one
 ended. What ended them is not agreed upon and possibly also not fully gone.
 
-The ancient ruins of Vattenpandalandet are not set dressing. They are questions that the
+The ancient ruins of Mistheim are not set dressing. They are questions that the
 world cannot answer but cannot stop asking. Dungeoneers enter them for Skills and treasure and
 come out having seen something they are not able to describe. Some do not come out.
 
-### Writing Vattenpandalandet lore
+### Writing Mistheim lore
 
 The prose voice here is warmer and more oral than Earth's. Write as if you are a storyteller
 who has heard this story from someone who heard it from someone else — and each telling adds
@@ -1077,7 +1077,7 @@ Do not explain the system. The system is real and present and characters live in
 they do not lecture about it. A [Blacksmith] levelling does not monologue about Class
 mechanics. She just feels something shift and knows she is better at reading the metal.
 
-**Give characters a story before a power.** People in Vattenpandalandet think about the debt
+**Give characters a story before a power.** People in Mistheim think about the debt
 they owe, the person they cannot forgive, the inn they are trying to reach before dark, the
 argument they have been having for fifteen years. Their Class and their relationship to Myst
 are real — but they are not who the character is. They are what the character became.
@@ -1087,7 +1087,7 @@ that may or may not exist anymore. Their Class is [Chronicler] or [Cartographer]
 When writing any Mistheim character: begin with what they remember and what they have lost.
 The rest follows.
 
-### Reference works (Vattenpandalandet)
+### Reference works (Mistheim)
 
 | Work | What to borrow |
 |------|----------------|
@@ -2210,7 +2210,7 @@ say the situation has a name. The Pandor have the records. They are still decidi
 - Each world has a **pre-corruption baseline** and a **corrupted state**. When writing a new
   entry, be clear (implicitly) which state you are describing.
 - Corruption looks different on each world. On Earth: distortion and hyper-aggression.
-  On Spinolandet: simplification and loss of symbiosis. On Vattenpandalandet: The Dry —
+  On Spinolandet: simplification and loss of symbiosis. On Mistheim: The Dry —
   the Myst thins and stops flowing. Magic stops working. Stories lose their endings.
   Skills hollow out — a [Healer]'s touch closes wounds that re-open, an [Innkeeper]'s
   warmth becomes cold hospitality with nothing behind it. The landscape dries as a
@@ -2228,7 +2228,7 @@ say the situation has a name. The Pandor have the records. They are still decidi
 
 These are generic fantasy staples with roots in folklore, mythology, or public-domain sources.
 They appear across dozens of works and are not associated with any single author's specific
-treatment. Use them without restriction in Vattenpandalandet lore.
+treatment. Use them without restriction in Mistheim lore.
 
 | Creature | Notes for this world |
 |----------|----------------------|

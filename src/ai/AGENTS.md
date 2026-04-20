@@ -47,18 +47,39 @@ detail:        character.pixellab.detail
 proportions:   character.pixellab.proportions
 ```
 
-**Choosing `n_directions`:**
+**Choosing `body_type`, `template`, `n_directions`, and `view`:**
 
-| Value | When to use | Directions to generate |
-|-------|-------------|------------------------|
-| **5** | Default for humanoids, birds, any left-right symmetric character | `south, south-east, east, north-east, north` |
-| **4** | Radially symmetric creatures (spiders, blobs) where diagonal = cardinal rotated | `south, north, east, west` |
+PixelLab only supports two body types and 4 or 8 directions. Map creature archetypes as follows:
 
-**Why 5 for humanoids?** All humanoid/bird sprites are left-right symmetric. The engine mirrors the right-side directions to produce the left-side: SW = SE flipped, W = E flipped, NW = NE flipped. This gives full 8-direction coverage at ~37% lower credit cost than generating all 8.
+| Creature archetype | `body_type` | `template` | `n_directions` | `view` | Notes |
+|-------------------|-------------|------------|----------------|--------|-------|
+| Human / humanoid / robot | `humanoid` | — | 8 | `low top-down` | All humanoid templates available |
+| Bird on ground (raptor, walking) | `humanoid` | — | 8 | `low top-down` | Describe bird anatomy; use walking templates |
+| Bird flying / soaring | `humanoid` | — | 8 | `high top-down` | **Must use `mode: "pro"` AND custom animations for ALL anim states.** Standard humanoid templates produce poor results for flying birds. Pro mode gives correct wing anatomy and flight posture. Template animations also fail — `walking-4-frames` raises wings straight up like a human arm swing, completely wrong for flight. Requires user approval (20–40 gen/direction). |
+| Large quadruped (bear, boar, gorilla) | `quadruped` | `bear` | 8 | `low top-down` | Use `get_character()` after creation for available quad animations |
+| Apex predator (lion, tiger, wolf) | `quadruped` | `lion` | 8 | `low top-down` | |
+| Medium predator / domestic animal | `quadruped` | `dog` or `cat` | 8 | `low top-down` | `cat` = smaller/agile, `dog` = medium |
+| Horse / deer / ungulate | `quadruped` | `horse` | 8 | `low top-down` | |
+| Insect / spider / multi-limbed | `quadruped` | `cat` | 8 | `low top-down` | Closest template; describe extra limbs in text. Custom animations available but expensive |
+| Blob / amorphous | `humanoid` | — | 4 | `low top-down` | 4 directions sufficient — radially symmetric |
+| Fish / aquatic | `humanoid` | — | 4 | `high top-down` | High top-down for swimming view |
 
-When calling `create_character`, pass the specific `directions` list from `character.pixellab.directions` (not just the count). When calling `animate_character`, pass the same `directions` list.
+**`n_directions` is 4 or 8 — no other values are accepted.**
+Use 8 for anything with distinct left/right asymmetry or complex attack directions.
+Use 4 for radially symmetric or very simple creatures.
 
-If the spec entry does not have `directions` set, apply the defaults above based on `body_type`. Update `asset-spec.json` before creating the character.
+**Template animations** proceed automatically — 1 generation per direction, no approval needed.
+
+**Custom animations** (no `template_animation_id`) and **pro mode**: cost 20–40 generations
+per direction. Always call `animate_character` without `confirm_cost` first to see the
+total, show the user the cost, and only re-call with `confirm_cost: true` after explicit
+approval. Never queue custom/pro without approval.
+
+After calling `create_character`, check `get_character()` — the response lists all
+template animations available for that character's body type and template.
+Update `asset-spec.json` with the real template IDs before queueing.
+
+Note the `character_id` from the response. Store it as `_pixellabCharacterId` in `asset-spec.json` immediately so it survives if the session is interrupted.
 
 Note the `character_id` from the response. Store it as `_pixellabCharacterId` in `asset-spec.json` immediately so it survives if the session is interrupted.
 

@@ -76,8 +76,8 @@ src/
 │   ├── EarthHero.ts          # Base class for Earth faction heroes (signature ability interface)
 │   ├── EarthEnemies.ts       # Field-control Earth enemies: Signal Jammer, Infected APC, Scrap Golem
 │   ├── Blightfrog.ts         # Root-and-leap enemy; Spinolandet faction
-│   ├── CrackedGolem.ts       # Death-burst enemy; Vattenpandalandet faction
-│   ├── Dustling.ts           # Swarm enemy; Vattenpandalandet faction
+│   ├── CrackedGolem.ts       # Death-burst enemy; Mistheim faction
+│   ├── Dustling.ts           # Swarm enemy; Mistheim faction
 │   ├── PackStalker.ts        # Coordinated flanking trio; Spinolandet faction
 │   ├── SporeDrifter.ts       # Area-denial poison cloud enemy
 │   ├── Spineling.ts          # Fast fragile swarmer; Spinolandet faction
@@ -119,7 +119,7 @@ src/
 │   ├── Level1.ts             # Level 1 constants: zones, NPC positions, endings
 │   ├── Level1Paths.ts        # Level 1 hand-authored path segments
 │   ├── Level2.ts             # The Spine Reaches (Spinolandet) — scaffold
-│   ├── Level3.ts             # Vattenpandalandet Mist — scaffold
+│   ├── Level3.ts             # Mistheim Mist — scaffold
 │   ├── Level4.ts             # The Seam (convergence) — scaffold
 │   ├── Level5.ts             # The Source (ground zero) — scaffold
 │   ├── LevelRegistry.ts      # Index of all 5 levels; getLevelConfig(n) accessor (FIL-143)
