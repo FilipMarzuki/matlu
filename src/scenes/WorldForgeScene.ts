@@ -1,6 +1,6 @@
 /**
- * BiomeInspectorScene — dev tool for visually inspecting biome tile sets,
- * biome-boundary feathering, and decoration scatter.
+ * WorldForgeScene — interactive tool for designing and previewing biome tile sets,
+ * highland elevation, cliff faces, river/waterfall layout, and decoration scatter.
  *
  * Access: navigate to /biome in the URL.
  *
@@ -21,11 +21,31 @@
  */
 
 import * as Phaser from 'phaser';
-import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
+import { isoTileFrame, ISO_RIVER_FRAME, ISO_TILE_NATIVE_SIZE } from '../world/IsoTileMap';
 import { BIOMES } from '../world/biomes';
 
 const BIOME_NAMES          = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
+
+/**
+ * Biomes with custom AI-generated floor tiles.
+ * Key = biome index (matches BIOMES array), value = pack folder name under
+ * `public/assets/packs/<name>-tiles/`. Each pack has 4 variants: 0–2 main,
+ * 3 accent. Biome 0 (Sea) is excluded — handled by the ocean strip renderer.
+ */
+const CUSTOM_TILE_PACKS: Record<number, string> = {
+  1:  'rocky-shore',
+  2:  'sandy-shore',
+  3:  'marsh',
+  4:  'dry-heath',
+  5:  'coastal-heath',
+  6:  'meadow',
+  7:  'forest',
+  8:  'spruce',
+  9:  'cold-granite',
+  10: 'bare-summit',
+  11: 'snow-field',
+};
 
 const ENTITY_TYPES = [
   { key: 'tinkerer', color: 0x44aaff, label: 'Tinkerer', atlasKey: 'tinkerer' as string | null },
@@ -48,7 +68,16 @@ const OBJECT_TYPES = [
 
 type ObjectKey = typeof OBJECT_TYPES[number]['key'];
 
-export class BiomeInspectorScene extends Phaser.Scene {
+/** Runtime wander state for AI-driven NPC / Animal entities. */
+interface WanderState {
+  x: number; y: number;          // current screen-space foot position
+  vx: number; vy: number;        // velocity px/s
+  timer: number;                 // ms until next direction change
+  labelOffsetY: number;          // label y offset relative to foot y (negative = above)
+  speed: number;                 // walk speed in px/s
+}
+
+export class WorldForgeScene extends Phaser.Scene {
   // Default to biome 6 (Meadow). The ?biome=<idx> URL param overrides this so
   // the wiki's per-card "View in World Forge" links land on the right biome.
   private selectedBiome = (() => {
@@ -77,7 +106,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
   // Terrain layers (rebuilt on biome change).
   private tileImages:   Phaser.GameObjects.Image[]    = [];
-  private cliffObjs:    Phaser.GameObjects.Graphics[] = [];  // cliff-face graphics
+  private cliffObjs:    Phaser.GameObjects.GameObject[] = [];  // cliff faces (TileSprite) + waterfall (Graphics)
   private blendGfx?:    Phaser.GameObjects.Graphics;
   private gridGfx?:     Phaser.GameObjects.Graphics;
   private decorSprites: Phaser.GameObjects.Image[] = [];
@@ -109,12 +138,26 @@ export class BiomeInspectorScene extends Phaser.Scene {
   private decorRowObjs: Phaser.GameObjects.GameObject[] = [];
   private decorSelBorder?: Phaser.GameObjects.Graphics;
 
-  constructor() { super({ key: 'BiomeInspectorScene' }); }
+  // AI wander toggle — when on, placed NPC/Animal entities wander around the scene.
+  private aiEnabled = false;
+  private aiToggleGfx?:  Phaser.GameObjects.Graphics;
+  private aiToggleText?: Phaser.GameObjects.Text;
+  private liveWander: WanderState | null = null;
+
+  constructor() { super({ key: 'WorldForgeScene' }); }
 
   preload(): void {
     this.load.spritesheet('iso-tiles',
       '/assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
+    this.load.image('cliff-face', '/assets/sprites/tilesets/cliff_face.png');
+
+    // Custom floor tiles — 4 variants per biome replacing the cluttered stock spritesheet.
+    for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
+      for (let i = 0; i < 4; i++) {
+        this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
+      }
+    }
 
     // Hero atlases — loaded so entity spawner can show actual sprites.
     this.load.atlas('tinkerer',
@@ -291,13 +334,23 @@ export class BiomeInspectorScene extends Phaser.Scene {
     const riverMidDiag = Math.floor((ELEV_CUT + OCEAN_CUT) / 2);
 
     // ── Elevation ─────────────────────────────────────────────────────────────
-    // CLIFF_H: how many pixels a highland tile is raised on-screen.
+    // CLIFF_H: vertical screen offset per elevation level. Tied to the drawn
+    // tile height (native frame × ISO_SCALE) so one storey matches one iso cube
+    // in the spritesheet / custom packs — avoids gaps vs arbitrary ISO_H multiples.
     // getElev: returns 1 (highland) or 0 (lowland) for any tile — reuses the
     //   same curveDepth perturbation as the main tile loop so the cliff edge
     //   exactly matches the visual boundary.
-    const CLIFF_H  = Math.round(this.ISO_H * 3.5);
-    const getElev  = (tx: number, ty: number): 0 | 1 =>
-      (ELEV_CUT + curveDepth(tx - ty) - (tx + ty)) > 0 ? 1 : 0;
+    const CLIFF_H = Math.round(ISO_TILE_NATIVE_SIZE * this.ISO_SCALE);
+    // LEFT_CUT: tiles where tx−ty > LEFT_CUT are on the right half of the highland,
+    // which gets two-stage (stepped) elevation. Left/centre stays at full level-2 height.
+    const LEFT_CUT = Math.floor((this.GRID - 1) * 0.25);  // ~7 at GRID=30
+    const getElev  = (tx: number, ty: number): 0 | 1 | 2 => {
+      const h       = tx - ty;
+      const effDist = ELEV_CUT + curveDepth(h) - (tx + ty);
+      if (effDist <= 0) return 0;                        // lowland
+      if (h > LEFT_CUT) return effDist > 3 ? 2 : 1;     // right side: stepped (inner=2, outer=1)
+      return 2;                                           // left/centre: always double-height
+    };
 
     // ── Curved boundary helpers ───────────────────────────────────────────────
     // Each boundary is perturbed by two overlapping sine waves so it curves
@@ -347,123 +400,202 @@ export class BiomeInspectorScene extends Phaser.Scene {
         const oceanDist = diag - effOceanCut;   // > 0 = inside SE ocean
         const elevDist  = effElevCut - diag;    // > 0 = inside NW highlands
 
-        // River channel: starts just below the curved highland edge.
-        const onRiver = showRiver && diag > effElevCut + 1 && Math.abs(tx - riverCenter(diag)) <= 1;
-        let frame: number;
+        // River channel: flows N→S from the highlands all the way to the ocean.
+        // No diagonal restriction — river is visible in highlands too (shows as water tiles).
+        const onRiver = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
+        let frame: number = 0;
+        // Pack name from CUSTOM_TILE_PACKS when this tile should use a custom floor texture.
+        // Set in every branch that maps to a biome with a generated tile set.
+        let customPack: string | undefined;
 
         if (oceanDist > 1) {
-          frame = isoTileFrame(0, elev);           // deep ocean (river can't override this)
+          frame = isoTileFrame(0, elev);           // deep ocean — no custom tiles
         } else if (oceanDist === 1) {
-          frame = ISO_RIVER_FRAME;                 // shallow ocean — also river mouth colour
+          frame = ISO_RIVER_FRAME;                 // shallow ocean / river mouth
         } else if (oceanDist === 0) {
           // Sandy shore — river cuts through as a water channel
-          frame = onRiver ? ISO_RIVER_FRAME : isoTileFrame(2, elev);
+          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          else { frame = isoTileFrame(2, elev); customPack = CUSTOM_TILE_PACKS[2]; }
         } else if (oceanDist === -1) {
           // Rocky shore — river cuts through rather than leaving a rocky dam
-          frame = onRiver ? ISO_RIVER_FRAME : isoTileFrame(1, elev);
+          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          else { frame = isoTileFrame(1, elev); customPack = CUSTOM_TILE_PACKS[1]; }
         } else if (elevDist > 1) {
-          frame = isoTileFrame(11, elev);          // snow / high summit
+          // Snow field highlands — river shows as water
+          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          else { frame = isoTileFrame(11, elev); customPack = CUSTOM_TILE_PACKS[11]; }
         } else if (elevDist === 1) {
-          frame = isoTileFrame(10, elev);          // bare summit edge
+          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          else { frame = isoTileFrame(10, elev); customPack = CUSTOM_TILE_PACKS[10]; }
         } else if (elevDist === 0) {
-          frame = isoTileFrame(9, elev);           // cold granite
+          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          else { frame = isoTileFrame(9, elev); customPack = CUSTOM_TILE_PACKS[9]; }
         } else if (elevDist === -1) {
-          frame = isoTileFrame(4, elev);           // dry heath (highland foot)
+          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          else { frame = isoTileFrame(4, elev); customPack = CUSTOM_TILE_PACKS[4]; }
         } else if (onRiver) {
           frame = ISO_RIVER_FRAME;                 // N→S river body
         } else {
-          frame = isoTileFrame(landBiome, elev);   // land biome
+          frame = isoTileFrame(landBiome, elev);
+          customPack = CUSTOM_TILE_PACKS[landBiome];
         }
 
-        // Raise highland tiles by CLIFF_H so the terrain steps up visually.
-        const tileElev = elevDist > 0 ? 1 : 0;
+        // Raise highland tiles according to their elevation level (0 = flat, 1 = mid-step, 2 = peak).
+        const tileElev = getElev(tx, ty);   // 0 | 1 | 2
         const { x, y } = this.isoPos(tx, ty);
-        const img = this.add.image(x, y - this.ISO_H / 2 - tileElev * CLIFF_H, 'iso-tiles', frame)
-          .setScale(this.ISO_SCALE)
-          .setOrigin(0.5, 0)
-          .setDepth(0);
+        const posY = y - this.ISO_H / 2 - tileElev * CLIFF_H;
+        // Dual-grid tile variant hash — two ~6×6 patch grids offset by (3, 2) tiles
+        // so their edges never align. Fine noise blends between them at boundaries for
+        // fuzzy natural transitions. All 4 variants per biome share the same base material.
+        const px = Math.floor(tx / 6),       py = Math.floor(ty / 6);
+        const qx = Math.floor((tx + 3) / 6), qy = Math.floor((ty + 2) / 6);
+        const coarse  = ((px * 3571 ^ py * 2297 ^ px * py * 53) >>> 0) % 3;
+        const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
+        const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
+        const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
+
+        // South rim: bottom of the raised floor sprite in layout space (then draw cliffs
+        // before the floor image so the plateau paints over the wall top).
+        const floorDisplayH = ISO_TILE_NATIVE_SIZE * this.ISO_SCALE;
+        const southRimY     = Math.round(posY + floorDisplayH);
+        const hh            = this.ISO_H / 2;
+        const eastWestRimY  = southRimY - hh;
+
+        const cliffTint = elevDist > 1 ? 0xe0e4ee
+                        : elevDist === 1 ? 0xc4c8cc
+                        : elevDist === 0 ? 0xb0b0b8
+                        : 0xd8cfc4;
+
+        /** One vertical cliff column: centred at faceCX, top at faceTop. */
+        const drawCliffFace = (
+          faceCX: number,
+          faceTop: number,
+          steps: number,
+          isWF: boolean,
+          heightPad = 0,
+        ): void => {
+          const hw     = this.ISO_W / 2;
+          const cliffH = steps * CLIFF_H + Math.ceil(this.ISO_H / 2) + heightPad;
+          const bx     = Math.floor(faceCX - hw);
+          const by     = Math.floor(faceTop);
+          const bw     = Math.ceil(hw * 2);
+          const bh     = Math.ceil(cliffH);
+          if (isWF) {
+            const gfx = this.add.graphics().setDepth(0);
+            gfx.fillStyle(0x1155aa, 0.93);
+            gfx.fillRect(bx, by, bw, bh);
+            gfx.fillStyle(0xbbeeff, 0.55);
+            for (let s = 0; s < 3; s++) {
+              const sx = faceCX - hw * 0.55 + s * (hw * 0.5);
+              gfx.fillRect(sx, by + 2, hw * 0.2, bh - 4);
+            }
+            gfx.lineStyle(1, 0x000000, 0.35);
+            gfx.strokeRect(bx, by, bw, bh);
+            this.cliffObjs.push(gfx);
+          } else {
+            const inv = 1 / this.zoomFactor;
+            const rtW = Math.max(1, Math.ceil(bw * inv));
+            const rtH = Math.max(1, Math.ceil(bh * inv));
+            const rt  = this.add.renderTexture(bx, by, rtW, rtH)
+              .setDepth(0).setOrigin(0, 0).setScale(this.zoomFactor).setTint(cliffTint);
+            rt.repeat('cliff-face', 0, 0, 0, rtW, rtH);
+            rt.render();
+            this.cliffObjs.push(rt);
+          }
+        };
+
+        if (tileElev > 0 && ty + 1 < G) {
+          const elevS = getElev(tx, ty + 1);
+          if (tileElev > elevS) {
+            const isWF = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
+            drawCliffFace(x, southRimY, tileElev - elevS, isWF, 0);
+          }
+        }
+
+        if (tileElev > 0 && tx + 1 < G) {
+          const elevE = getElev(tx + 1, ty);
+          if (tileElev > elevE) {
+            drawCliffFace(x + this.ISO_W / 2, eastWestRimY, tileElev - elevE, false, hh);
+          }
+        }
+
+        if (tileElev > 0 && tx > 0) {
+          const elevW = getElev(tx - 1, ty);
+          if (tileElev > elevW) {
+            drawCliffFace(x - this.ISO_W / 2, eastWestRimY, tileElev - elevW, false, hh);
+          }
+        }
+
+        const img = customPack
+          ? this.add.image(x, posY, `${customPack}-${tileHash}`)
+              .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0)
+          : this.add.image(x, posY, 'iso-tiles', frame)
+              .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
         this.tileImages.push(img);
       }
     }
 
-    // ── Cliff-face pass ───────────────────────────────────────────────────────
-    // Created AFTER all tile images so they render on top (Phaser creation order
-    // within the same depth layer). For each highland tile that has a lower
-    // southern neighbour, fill the gap between the raised tile and ground level.
-    // Where the river crosses the edge → waterfall face instead of rock.
-    for (let cf = 0; cf < G * 2 - 1; cf++) {
-      const txMinC = Math.max(0, cf - (G - 1));
-      const txMaxC = Math.min(cf, G - 1);
-      for (let txC = txMinC; txC <= txMaxC; txC++) {
-        const tyC = cf - txC;
-        if (getElev(txC, tyC)       !== 1) continue;  // must be highland
-        if (tyC + 1 >= G)                  continue;
-        if (getElev(txC, tyC + 1)   !== 0) continue;  // south neighbour must be lowland
-
-        const { x: cx, y: cy } = this.isoPos(txC, tyC);
-        const hw     = this.ISO_W / 2;
-        // The bottom of the tile sprite at ground level is cy + ISO_H * 1.5.
-        // When raised by CLIFF_H that same edge moves up by CLIFF_H, leaving a gap.
-        const faceBottom = cy + this.ISO_H * 1.5;
-        const faceTop    = faceBottom - CLIFF_H;
-
-        const dC    = txC + tyC;
-        const isWF  = showRiver && Math.abs(txC - riverCenter(dC)) <= 1;
-
-        const gfx = this.add.graphics();  // depth 0 — created after tiles, renders on top
-
-        if (isWF) {
-          // Waterfall: deep-blue base + lighter vertical foam streaks
-          gfx.fillStyle(0x1155aa, 0.93);
-          gfx.fillRect(cx - hw, faceTop, hw * 2, CLIFF_H);
-          gfx.fillStyle(0xbbeeff, 0.55);
-          for (let s = 0; s < 3; s++) {
-            const sx = cx - hw * 0.55 + s * (hw * 0.5);
-            gfx.fillRect(sx, faceTop + 2, hw * 0.2, CLIFF_H - 4);
-          }
-        } else {
-          // Rocky cliff: dark base + lighter rim where light hits the top edge
-          gfx.fillStyle(0x2a1e10, 0.96);
-          gfx.fillRect(cx - hw, faceTop, hw * 2, CLIFF_H);
-          gfx.fillStyle(0x5c4a2e, 0.4);
-          gfx.fillRect(cx - hw, faceTop, hw * 2, CLIFF_H * 0.18);
-        }
-        // Thin outline
-        gfx.lineStyle(1, 0x000000, 0.35);
-        gfx.strokeRect(cx - hw, faceTop, hw * 2, CLIFF_H);
-
-        this.cliffObjs.push(gfx);
+    // Waterfall label — scan along the river path for the first elevation drop.
+    // This finds the exact curved cliff edge where the waterfall face is rendered,
+    // so the label always floats directly above it rather than using a straight cut estimate.
+    if (showRiver) {
+      let wfTx = -1, wfTy = -1, wfElevC = 0;
+      for (let d = 0; d < G * 2 - 1 && wfTx < 0; d++) {
+        const rtx = Phaser.Math.Clamp(riverCenter(d), 0, G - 1);
+        const rty = Phaser.Math.Clamp(d - rtx, 0, G - 1);
+        const eA  = getElev(rtx, rty);
+        const eB  = rty + 1 < G ? getElev(rtx, rty + 1) : 0;
+        if (eA > 0 && eB < eA) { wfTx = rtx; wfTy = rty; wfElevC = eA; }
+      }
+      if (wfTx >= 0) {
+        const { x: wlx, y: wly } = this.isoPos(wfTx, wfTy);
+        // Match south-rim anchor used for cliff faces (sprite bottom, not grid formula).
+        const wfPosY = wly - this.ISO_H / 2 - wfElevC * CLIFF_H;
+        const faceTopY = Math.round(wfPosY + ISO_TILE_NATIVE_SIZE * this.ISO_SCALE);
+        this.bandLabels.push(
+          this.add.text(wlx, faceTopY - 6, '\u2193 waterfall',
+            { fontSize: '11px', color: '#88eeff', stroke: '#000000', strokeThickness: 2 },
+          ).setOrigin(0.5, 1).setDepth(G * 2 + 10),
+        );
       }
     }
 
-    // Waterfall label — floats above the cliff tile where the river exits the highlands.
-    if (showRiver) {
-      const wfDiag = ELEV_CUT;
-      const wfTx   = Phaser.Math.Clamp(riverCenter(wfDiag), 0, G - 1);
-      const wfTy   = Phaser.Math.Clamp(wfDiag - wfTx, 0, G - 1);
-      const { x: wlx, y: wly } = this.isoPos(wfTx, wfTy);
-      this.bandLabels.push(
-        this.add.text(wlx, wly - CLIFF_H - 6, '\u2193 waterfall',
-          { fontSize: '11px', color: '#88eeff', stroke: '#000000', strokeThickness: 2 },
-        ).setOrigin(0.5, 1).setDepth(G * 2 + 10),
-      );
-    }
-
-    // Grid outline
+    // Grid — top surface only where it makes sense: full diamond when level with
+    // neighbours; otherwise open edges so strokes don’t project onto vertical cliffs
+    // or crawl up/down a height discontinuity (which looked like a broken mirror).
     this.gridGfx = this.add.graphics().setDepth(2);
-    this.gridGfx.lineStyle(1, 0x000000, 0.20);
+    const gGrid = this.gridGfx;
+    gGrid.lineStyle(1, 0x000000, 0.20);
     const hw = this.ISO_W / 2;
     const hh = this.ISO_H / 2;
+    const strokeSeg = (x0: number, y0: number, x1: number, y1: number, skip: boolean) => {
+      if (skip) return;
+      gGrid.beginPath();
+      gGrid.moveTo(x0, y0);
+      gGrid.lineTo(x1, y1);
+      gGrid.strokePath();
+    };
     for (let ty = 0; ty < this.GRID; ty++) {
       for (let tx = 0; tx < this.GRID; tx++) {
         const { x: cx, y: cy } = this.isoPos(tx, ty);
-        this.gridGfx.beginPath();
-        this.gridGfx.moveTo(cx,      cy - hh);
-        this.gridGfx.lineTo(cx + hw, cy);
-        this.gridGfx.lineTo(cx,      cy + hh);
-        this.gridGfx.lineTo(cx - hw, cy);
-        this.gridGfx.closePath();
-        this.gridGfx.strokePath();
+        const gElev = getElev(tx, ty);
+        const dy    = gElev * CLIFF_H;
+        const eN    = ty > 0 ? getElev(tx, ty - 1) : gElev;
+        const eS    = ty + 1 < this.GRID ? getElev(tx, ty + 1) : gElev;
+        const eE    = tx + 1 < this.GRID ? getElev(tx + 1, ty) : gElev;
+        const eW    = tx > 0 ? getElev(tx - 1, ty) : gElev;
+        const Nx = cx,          Ny = cy - dy;
+        const Ex = cx + hw,     Ey = cy + hh - dy;
+        const Sx = cx,          Sy = cy + hh * 2 - dy;
+        const Wx = cx - hw,     Wy = cy + hh - dy;
+        // N–E: hide when north is taller (grid would climb the cliff) or east drops.
+        strokeSeg(Nx, Ny, Ex, Ey, eN > gElev || eE < gElev);
+        // E–S: hide along south or east cliff.
+        strokeSeg(Ex, Ey, Sx, Sy, eS < gElev || eE < gElev);
+        // S–W: hide along south or west cliff.
+        strokeSeg(Sx, Sy, Wx, Wy, eS < gElev || eW < gElev);
+        // W–N: hide along west cliff or when north is taller.
+        strokeSeg(Wx, Wy, Nx, Ny, eW < gElev || eN > gElev);
       }
     }
 
@@ -636,7 +768,8 @@ export class BiomeInspectorScene extends Phaser.Scene {
     if      (this.selectedEntityKey) msg = `\u25b6 ${this.selectedEntityKey} — click tile to place  (E = remove)`;
     else if (this.selectedObjectKey) msg = `\u25b6 ${this.selectedObjectKey} — click tile to toggle  (C = clear all)`;
     else if (this.selectedDecorKey)  msg = `\u25b6 ${this.selectedDecorKey} — click tile to toggle  (C = clear all)`;
-    this.toolStatusText.setText(msg);
+    const aiTag = this.aiEnabled ? '  \u2665 AI wander on' : '';
+    this.toolStatusText.setText(msg + aiTag);
   }
 
   // ── Spawner toolbar ───────────────────────────────────────────────────────────
@@ -675,6 +808,23 @@ export class BiomeInspectorScene extends Phaser.Scene {
         .setDepth(15).setInteractive()
         .on('pointerdown', () => this.selectEntityType(et.key));
     }
+
+    // AI toggle button — right of entity buttons. Green when on, dim when off.
+    // Only affects NPC and Animal placements.
+    const AI_X = PAD + ENTITY_TYPES.length * (BTN_W + BTN_G) + 10;
+    this.add.text(AI_X, TOOL_Y - 13, 'AI:', {
+      fontSize: '10px', color: '#ffccff', stroke: '#000000', strokeThickness: 2,
+    }).setDepth(11);
+    const aiGfx = this.add.graphics({ x: AI_X, y: TOOL_Y }).setDepth(10);
+    aiGfx.fillStyle(0x223344, 0.7);
+    aiGfx.fillRect(0, 0, BTN_W, BTN_H);
+    this.aiToggleGfx = aiGfx;
+    this.aiToggleText = this.add.text(AI_X + BTN_W / 2, TOOL_Y + BTN_H / 2, 'off', {
+      fontSize: '10px', color: '#888888', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(13);
+    this.add.zone(AI_X + BTN_W / 2, TOOL_Y + BTN_H / 2, BTN_W, BTN_H)
+      .setDepth(15).setInteractive()
+      .on('pointerdown', () => this.toggleAI());
 
     const objStartX = W - OBJECT_TYPES.length * (BTN_W + BTN_G) - PAD + BTN_G;
     this.add.text(objStartX, TOOL_Y - 13, 'Objects:', {
@@ -742,35 +892,45 @@ export class BiomeInspectorScene extends Phaser.Scene {
       this.placedEntityLabel  = label;
     } else {
       // Generic placeholder (Enemy / NPC / Animal) — footprint + upright rect.
+      // Drawn in local coords (Graphics origin = foot position) so the whole
+      // shape can be repositioned via setPosition() when AI wander is active.
       const hw    = this.ISO_W * 0.5;
       const fh    = this.ISO_H * 0.5;
       const bodyH = this.ISO_H * 2.5;
       const bodyW = hw * 0.6;
 
-      const gfx = this.add.graphics().setDepth(5);
+      const gfx = this.add.graphics({ x: cx, y: footY }).setDepth(5);
 
-      // Footprint diamond (ground shadow)
+      // Footprint diamond in local coords — (0,0) = foot tip
       gfx.fillStyle(et.color as number, 0.35);
       gfx.beginPath();
-      gfx.moveTo(cx,      footY - fh);
-      gfx.lineTo(cx + hw, footY);
-      gfx.lineTo(cx,      footY + fh);
-      gfx.lineTo(cx - hw, footY);
+      gfx.moveTo(0,   -fh);
+      gfx.lineTo(hw,   0);
+      gfx.lineTo(0,    fh);
+      gfx.lineTo(-hw,  0);
       gfx.closePath();
       gfx.fillPath();
 
-      // Body rectangle (upright above tile)
+      // Body rectangle grows upward from foot
       gfx.fillStyle(et.color as number, 0.92);
-      gfx.fillRect(cx - bodyW / 2, footY - fh - bodyH, bodyW, bodyH);
+      gfx.fillRect(-bodyW / 2, -fh - bodyH, bodyW, bodyH);
       gfx.lineStyle(2, 0xffffff, 0.85);
-      gfx.strokeRect(cx - bodyW / 2, footY - fh - bodyH, bodyW, bodyH);
+      gfx.strokeRect(-bodyW / 2, -fh - bodyH, bodyW, bodyH);
 
-      const label = this.add.text(cx, footY - fh - bodyH - 4, et.label, {
+      const labelOffsetY = -fh - bodyH - 4;
+      const label = this.add.text(cx, footY + labelOffsetY, et.label, {
         fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5, 1).setDepth(6);
 
       this.placedEntity      = gfx;
       this.placedEntityLabel = label;
+
+      // Initialise wander AI for NPC / Animal when the toggle is on.
+      // Animals are skittish and faster; NPCs stroll slowly.
+      if (this.aiEnabled && (et.key === 'NPC' || et.key === 'Animal')) {
+        const speed = et.key === 'Animal' ? 55 : 32;
+        this.liveWander = { x: cx, y: footY, vx: 0, vy: 0, timer: 0, labelOffsetY, speed };
+      }
     }
   }
 
@@ -781,6 +941,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.placedEntitySprite = undefined;
     this.placedEntityLabel?.destroy();
     this.placedEntityLabel = undefined;
+    this.liveWander = null;
   }
 
   // ── Object placer (FIL-464) ───────────────────────────────────────────────────
@@ -1001,5 +1162,76 @@ export class BiomeInspectorScene extends Phaser.Scene {
       label.destroy();
     }
     this.placedDecors.clear();
+  }
+
+  // ── AI wander toggle ──────────────────────────────────────────────────────────
+
+  /**
+   * Flip the AI wander toggle on/off.
+   * When turned on, the next NPC/Animal placed will walk around autonomously.
+   * When turned off, any active wander is frozen in place (entity stays where it is).
+   */
+  private toggleAI(): void {
+    const BTN_W = 54;
+    const BTN_H = 24;
+    this.aiEnabled = !this.aiEnabled;
+
+    this.aiToggleGfx?.clear();
+    this.aiToggleGfx?.fillStyle(this.aiEnabled ? 0x336633 : 0x223344, this.aiEnabled ? 0.9 : 0.7);
+    this.aiToggleGfx?.fillRect(0, 0, BTN_W, BTN_H);
+    this.aiToggleText?.setText(this.aiEnabled ? 'on' : 'off');
+    this.aiToggleText?.setColor(this.aiEnabled ? '#aaffaa' : '#888888');
+
+    // Freeze any live entity in place when disabling
+    if (!this.aiEnabled) this.liveWander = null;
+
+    this.updateToolStatus();
+  }
+
+  // ── Per-frame AI wander ───────────────────────────────────────────────────────
+
+  /**
+   * Called by Phaser every frame. Advances the wander FSM for any live AI entity.
+   *
+   * The entity placeholder (Graphics + label) is repositioned each frame by
+   * updating the Graphics object's x/y — works because it was drawn in local
+   * coords with origin at the foot position (see placeEntity()).
+   */
+  override update(_time: number, delta: number): void {
+    if (!this.liveWander || !this.placedEntity) return;
+    const lw = this.liveWander;
+
+    // Wander FSM: tick direction timer and pick a new heading when it expires.
+    lw.timer -= delta;
+    if (lw.timer <= 0) {
+      // 25% chance to pause briefly (idle); otherwise walk in a random direction.
+      if (Math.random() < 0.25) {
+        lw.vx = 0;
+        lw.vy = 0;
+        lw.timer = Phaser.Math.Between(800, 2000);
+      } else {
+        const angle = Math.random() * Math.PI * 2;
+        lw.vx = Math.cos(angle) * lw.speed;
+        lw.vy = Math.sin(angle) * lw.speed;
+        lw.timer = Phaser.Math.Between(1500, 4000);
+      }
+    }
+
+    lw.x += lw.vx * (delta / 1000);
+    lw.y += lw.vy * (delta / 1000);
+
+    // Soft boundary: bounce off the usable world area edges so the entity
+    // never wanders into the palette or off screen.
+    const margin = 50;
+    const maxY   = this.scale.height - this.PAL_AREA - margin;
+    if (lw.x < margin)                    { lw.vx =  Math.abs(lw.vx); lw.x = margin; }
+    if (lw.x > this.scale.width - margin) { lw.vx = -Math.abs(lw.vx); lw.x = this.scale.width - margin; }
+    if (lw.y < margin)                    { lw.vy =  Math.abs(lw.vy); lw.y = margin; }
+    if (lw.y > maxY)                      { lw.vy = -Math.abs(lw.vy); lw.y = maxY; }
+
+    // Reposition the placeholder — Graphics was drawn at local (0,0), so
+    // moving its x/y translates the entire shape + footprint diamond.
+    this.placedEntity.setPosition(lw.x, lw.y);
+    this.placedEntityLabel?.setPosition(lw.x, lw.y + lw.labelOffsetY);
   }
 }

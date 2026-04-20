@@ -36,7 +36,7 @@
  *
  *  Zone 3 — Sporhvälvet (The Spore Vault)
  *    Deep Spinaria territory near the next portal. Pockets of
- *    Vattenpandalandet bleed begin appearing: magical springs that flow
+ *    Mistheim bleed begin appearing: magical springs that flow
  *    upward, water pooling on vertical surfaces. Two worlds' bleeds
  *    colliding.
  *
@@ -101,7 +101,7 @@ export const ZONES: Zone[] = [
   },
   {
     // Sporhvälvet — spore vault near the portal. Where two worlds' bleeds
-    // collide: Blight corruption and the first signs of Dry (Vattenpandalandet).
+    // collide: Blight corruption and the first signs of Dry (Mistheim).
     // Water flows sideways. Spore clouds drift through magical springs.
     id: 'zone-sporefall',
     x: 3300, y: 200, w: 1200, h: 800,
