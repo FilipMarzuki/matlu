@@ -1,0 +1,5745 @@
+{
+  "frames": [
+    {
+      "filename": "idle_south_0",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_1",
+      "frame": {
+        "x": 60,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_2",
+      "frame": {
+        "x": 120,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_3",
+      "frame": {
+        "x": 180,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_4",
+      "frame": {
+        "x": 240,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_5",
+      "frame": {
+        "x": 300,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_6",
+      "frame": {
+        "x": 360,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_7",
+      "frame": {
+        "x": 420,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_8",
+      "frame": {
+        "x": 480,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_9",
+      "frame": {
+        "x": 540,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_10",
+      "frame": {
+        "x": 600,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_11",
+      "frame": {
+        "x": 660,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_12",
+      "frame": {
+        "x": 720,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_13",
+      "frame": {
+        "x": 780,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_14",
+      "frame": {
+        "x": 840,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south_15",
+      "frame": {
+        "x": 900,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_16",
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_17",
+      "frame": {
+        "x": 1020,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_18",
+      "frame": {
+        "x": 1080,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_19",
+      "frame": {
+        "x": 1140,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_20",
+      "frame": {
+        "x": 1200,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_21",
+      "frame": {
+        "x": 1260,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_22",
+      "frame": {
+        "x": 1320,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_23",
+      "frame": {
+        "x": 1380,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_24",
+      "frame": {
+        "x": 1440,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_25",
+      "frame": {
+        "x": 1500,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_26",
+      "frame": {
+        "x": 1560,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_27",
+      "frame": {
+        "x": 1620,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_28",
+      "frame": {
+        "x": 1680,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_29",
+      "frame": {
+        "x": 1740,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_30",
+      "frame": {
+        "x": 1800,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south_31",
+      "frame": {
+        "x": 1860,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_32",
+      "frame": {
+        "x": 1920,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_33",
+      "frame": {
+        "x": 1980,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_34",
+      "frame": {
+        "x": 2040,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_35",
+      "frame": {
+        "x": 2100,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_36",
+      "frame": {
+        "x": 2160,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_37",
+      "frame": {
+        "x": 2220,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_38",
+      "frame": {
+        "x": 2280,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_39",
+      "frame": {
+        "x": 2340,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_40",
+      "frame": {
+        "x": 2400,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_41",
+      "frame": {
+        "x": 2460,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_42",
+      "frame": {
+        "x": 2520,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_43",
+      "frame": {
+        "x": 2580,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_44",
+      "frame": {
+        "x": 2640,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_45",
+      "frame": {
+        "x": 2700,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_46",
+      "frame": {
+        "x": 2760,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south_47",
+      "frame": {
+        "x": 2820,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_0",
+      "frame": {
+        "x": 0,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_1",
+      "frame": {
+        "x": 60,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_2",
+      "frame": {
+        "x": 120,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_3",
+      "frame": {
+        "x": 180,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_4",
+      "frame": {
+        "x": 240,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_5",
+      "frame": {
+        "x": 300,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_6",
+      "frame": {
+        "x": 360,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_7",
+      "frame": {
+        "x": 420,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_8",
+      "frame": {
+        "x": 480,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_9",
+      "frame": {
+        "x": 540,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_10",
+      "frame": {
+        "x": 600,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_11",
+      "frame": {
+        "x": 660,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_12",
+      "frame": {
+        "x": 720,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_13",
+      "frame": {
+        "x": 780,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_14",
+      "frame": {
+        "x": 840,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_south-east_15",
+      "frame": {
+        "x": 900,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_16",
+      "frame": {
+        "x": 960,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_17",
+      "frame": {
+        "x": 1020,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_18",
+      "frame": {
+        "x": 1080,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_19",
+      "frame": {
+        "x": 1140,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_20",
+      "frame": {
+        "x": 1200,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_21",
+      "frame": {
+        "x": 1260,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_22",
+      "frame": {
+        "x": 1320,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_23",
+      "frame": {
+        "x": 1380,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_24",
+      "frame": {
+        "x": 1440,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_25",
+      "frame": {
+        "x": 1500,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_26",
+      "frame": {
+        "x": 1560,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_27",
+      "frame": {
+        "x": 1620,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_28",
+      "frame": {
+        "x": 1680,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_29",
+      "frame": {
+        "x": 1740,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_30",
+      "frame": {
+        "x": 1800,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_south-east_31",
+      "frame": {
+        "x": 1860,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_32",
+      "frame": {
+        "x": 1920,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_33",
+      "frame": {
+        "x": 1980,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_34",
+      "frame": {
+        "x": 2040,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_35",
+      "frame": {
+        "x": 2100,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_36",
+      "frame": {
+        "x": 2160,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_37",
+      "frame": {
+        "x": 2220,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_38",
+      "frame": {
+        "x": 2280,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_39",
+      "frame": {
+        "x": 2340,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_40",
+      "frame": {
+        "x": 2400,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_41",
+      "frame": {
+        "x": 2460,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_42",
+      "frame": {
+        "x": 2520,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_43",
+      "frame": {
+        "x": 2580,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_44",
+      "frame": {
+        "x": 2640,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_45",
+      "frame": {
+        "x": 2700,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_46",
+      "frame": {
+        "x": 2760,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_south-east_47",
+      "frame": {
+        "x": 2820,
+        "y": 60,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_0",
+      "frame": {
+        "x": 0,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_1",
+      "frame": {
+        "x": 60,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_2",
+      "frame": {
+        "x": 120,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_3",
+      "frame": {
+        "x": 180,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_4",
+      "frame": {
+        "x": 240,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_5",
+      "frame": {
+        "x": 300,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_6",
+      "frame": {
+        "x": 360,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_7",
+      "frame": {
+        "x": 420,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_8",
+      "frame": {
+        "x": 480,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_9",
+      "frame": {
+        "x": 540,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_10",
+      "frame": {
+        "x": 600,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_11",
+      "frame": {
+        "x": 660,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_12",
+      "frame": {
+        "x": 720,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_13",
+      "frame": {
+        "x": 780,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_14",
+      "frame": {
+        "x": 840,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north-east_15",
+      "frame": {
+        "x": 900,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_16",
+      "frame": {
+        "x": 960,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_17",
+      "frame": {
+        "x": 1020,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_18",
+      "frame": {
+        "x": 1080,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_19",
+      "frame": {
+        "x": 1140,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_20",
+      "frame": {
+        "x": 1200,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_21",
+      "frame": {
+        "x": 1260,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_22",
+      "frame": {
+        "x": 1320,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_23",
+      "frame": {
+        "x": 1380,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_24",
+      "frame": {
+        "x": 1440,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_25",
+      "frame": {
+        "x": 1500,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_26",
+      "frame": {
+        "x": 1560,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_27",
+      "frame": {
+        "x": 1620,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_28",
+      "frame": {
+        "x": 1680,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_29",
+      "frame": {
+        "x": 1740,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_30",
+      "frame": {
+        "x": 1800,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north-east_31",
+      "frame": {
+        "x": 1860,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_32",
+      "frame": {
+        "x": 1920,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_33",
+      "frame": {
+        "x": 1980,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_34",
+      "frame": {
+        "x": 2040,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_35",
+      "frame": {
+        "x": 2100,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_36",
+      "frame": {
+        "x": 2160,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_37",
+      "frame": {
+        "x": 2220,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_38",
+      "frame": {
+        "x": 2280,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_39",
+      "frame": {
+        "x": 2340,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_40",
+      "frame": {
+        "x": 2400,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_41",
+      "frame": {
+        "x": 2460,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_42",
+      "frame": {
+        "x": 2520,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_43",
+      "frame": {
+        "x": 2580,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_44",
+      "frame": {
+        "x": 2640,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_45",
+      "frame": {
+        "x": 2700,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_46",
+      "frame": {
+        "x": 2760,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north-east_47",
+      "frame": {
+        "x": 2820,
+        "y": 120,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_0",
+      "frame": {
+        "x": 0,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_1",
+      "frame": {
+        "x": 60,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_2",
+      "frame": {
+        "x": 120,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_3",
+      "frame": {
+        "x": 180,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_4",
+      "frame": {
+        "x": 240,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_5",
+      "frame": {
+        "x": 300,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_6",
+      "frame": {
+        "x": 360,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_7",
+      "frame": {
+        "x": 420,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_8",
+      "frame": {
+        "x": 480,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_9",
+      "frame": {
+        "x": 540,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_10",
+      "frame": {
+        "x": 600,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_11",
+      "frame": {
+        "x": 660,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_12",
+      "frame": {
+        "x": 720,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_13",
+      "frame": {
+        "x": 780,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_14",
+      "frame": {
+        "x": 840,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_north_15",
+      "frame": {
+        "x": 900,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_16",
+      "frame": {
+        "x": 960,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_17",
+      "frame": {
+        "x": 1020,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_18",
+      "frame": {
+        "x": 1080,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_19",
+      "frame": {
+        "x": 1140,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_20",
+      "frame": {
+        "x": 1200,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_21",
+      "frame": {
+        "x": 1260,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_22",
+      "frame": {
+        "x": 1320,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_23",
+      "frame": {
+        "x": 1380,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_24",
+      "frame": {
+        "x": 1440,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_25",
+      "frame": {
+        "x": 1500,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_26",
+      "frame": {
+        "x": 1560,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_27",
+      "frame": {
+        "x": 1620,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_28",
+      "frame": {
+        "x": 1680,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_29",
+      "frame": {
+        "x": 1740,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_30",
+      "frame": {
+        "x": 1800,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_north_31",
+      "frame": {
+        "x": 1860,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_32",
+      "frame": {
+        "x": 1920,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_33",
+      "frame": {
+        "x": 1980,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_34",
+      "frame": {
+        "x": 2040,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_35",
+      "frame": {
+        "x": 2100,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_36",
+      "frame": {
+        "x": 2160,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_37",
+      "frame": {
+        "x": 2220,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_38",
+      "frame": {
+        "x": 2280,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_39",
+      "frame": {
+        "x": 2340,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_40",
+      "frame": {
+        "x": 2400,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_41",
+      "frame": {
+        "x": 2460,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_42",
+      "frame": {
+        "x": 2520,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_43",
+      "frame": {
+        "x": 2580,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_44",
+      "frame": {
+        "x": 2640,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_45",
+      "frame": {
+        "x": 2700,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_46",
+      "frame": {
+        "x": 2760,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_north_47",
+      "frame": {
+        "x": 2820,
+        "y": 180,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_0",
+      "frame": {
+        "x": 0,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_1",
+      "frame": {
+        "x": 60,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_2",
+      "frame": {
+        "x": 120,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_3",
+      "frame": {
+        "x": 180,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_4",
+      "frame": {
+        "x": 240,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_5",
+      "frame": {
+        "x": 300,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_6",
+      "frame": {
+        "x": 360,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_7",
+      "frame": {
+        "x": 420,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_8",
+      "frame": {
+        "x": 480,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_9",
+      "frame": {
+        "x": 540,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_10",
+      "frame": {
+        "x": 600,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_11",
+      "frame": {
+        "x": 660,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_12",
+      "frame": {
+        "x": 720,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_13",
+      "frame": {
+        "x": 780,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_14",
+      "frame": {
+        "x": 840,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_east_15",
+      "frame": {
+        "x": 900,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_16",
+      "frame": {
+        "x": 960,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_17",
+      "frame": {
+        "x": 1020,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_18",
+      "frame": {
+        "x": 1080,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_19",
+      "frame": {
+        "x": 1140,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_20",
+      "frame": {
+        "x": 1200,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_21",
+      "frame": {
+        "x": 1260,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_22",
+      "frame": {
+        "x": 1320,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_23",
+      "frame": {
+        "x": 1380,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_24",
+      "frame": {
+        "x": 1440,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_25",
+      "frame": {
+        "x": 1500,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_26",
+      "frame": {
+        "x": 1560,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_27",
+      "frame": {
+        "x": 1620,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_28",
+      "frame": {
+        "x": 1680,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_29",
+      "frame": {
+        "x": 1740,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_30",
+      "frame": {
+        "x": 1800,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "walk_east_31",
+      "frame": {
+        "x": 1860,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_32",
+      "frame": {
+        "x": 1920,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_33",
+      "frame": {
+        "x": 1980,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_34",
+      "frame": {
+        "x": 2040,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_35",
+      "frame": {
+        "x": 2100,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_36",
+      "frame": {
+        "x": 2160,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_37",
+      "frame": {
+        "x": 2220,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_38",
+      "frame": {
+        "x": 2280,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_39",
+      "frame": {
+        "x": 2340,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_40",
+      "frame": {
+        "x": 2400,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_41",
+      "frame": {
+        "x": 2460,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_42",
+      "frame": {
+        "x": 2520,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_43",
+      "frame": {
+        "x": 2580,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_44",
+      "frame": {
+        "x": 2640,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_45",
+      "frame": {
+        "x": 2700,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_46",
+      "frame": {
+        "x": 2760,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "attack_east_47",
+      "frame": {
+        "x": 2820,
+        "y": 240,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_0",
+      "frame": {
+        "x": 0,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_1",
+      "frame": {
+        "x": 60,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_2",
+      "frame": {
+        "x": 120,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_3",
+      "frame": {
+        "x": 180,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_4",
+      "frame": {
+        "x": 240,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_5",
+      "frame": {
+        "x": 300,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_6",
+      "frame": {
+        "x": 360,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_7",
+      "frame": {
+        "x": 420,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_8",
+      "frame": {
+        "x": 480,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_9",
+      "frame": {
+        "x": 540,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_10",
+      "frame": {
+        "x": 600,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_11",
+      "frame": {
+        "x": 660,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_12",
+      "frame": {
+        "x": 720,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_13",
+      "frame": {
+        "x": 780,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_14",
+      "frame": {
+        "x": 840,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    },
+    {
+      "filename": "idle_west_15",
+      "frame": {
+        "x": 900,
+        "y": 300,
+        "w": 60,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 60,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 60,
+        "h": 60
+      },
+      "duration": 150
+    }
+  ],
+  "meta": {
+    "app": "assemble-sprites",
+    "version": "1.0",
+    "image": "fargglad-kordororn.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 2880,
+      "h": 360
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "fargglad-kordororn_idle_south",
+        "from": 0,
+        "to": 15,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_walk_south",
+        "from": 16,
+        "to": 31,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_attack_south",
+        "from": 32,
+        "to": 47,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_idle_south-east",
+        "from": 48,
+        "to": 63,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_walk_south-east",
+        "from": 64,
+        "to": 79,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_attack_south-east",
+        "from": 80,
+        "to": 95,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_idle_north-east",
+        "from": 96,
+        "to": 111,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_walk_north-east",
+        "from": 112,
+        "to": 127,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_attack_north-east",
+        "from": 128,
+        "to": 143,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_idle_north",
+        "from": 144,
+        "to": 159,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_walk_north",
+        "from": 160,
+        "to": 175,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_attack_north",
+        "from": 176,
+        "to": 191,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_idle_east",
+        "from": 192,
+        "to": 207,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_walk_east",
+        "from": 208,
+        "to": 223,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_attack_east",
+        "from": 224,
+        "to": 239,
+        "direction": "forward"
+      },
+      {
+        "name": "fargglad-kordororn_idle_west",
+        "from": 240,
+        "to": 255,
+        "direction": "forward"
+      }
+    ]
+  }
+}

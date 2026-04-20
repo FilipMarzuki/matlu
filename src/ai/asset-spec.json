@@ -391,7 +391,7 @@
       "name": "Färgglad Kordorörn (from Loke Marzuki)",
       "world": "earth",
       "faction": "enemy",
-      "status": "pending",
+      "status": "done",
       "_pixellabCharacterId": "d37fb931-0d78-4900-9ed0-de1b91c73176",
       "_note": "Flying bird — requires mode:pro for base character AND all animations. Show total credit cost (20–40 gen/direction × 5 dirs × 6 animations) before queueing. All animations are custom.",
       "pixellab": {
@@ -400,7 +400,13 @@
         "body_type": "humanoid",
         "mode": "pro",
         "n_directions": 5,
-        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
         "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
         "view": "high top-down",
         "outline": "single color black outline",
@@ -408,12 +414,36 @@
         "detail": "medium detail"
       },
       "animations": [
-        { "id": "idle",   "template": "custom-large eagle in slow thermal soar, wings slightly tilted adjusting on updraft, wingtips flexing, head turning side to side", "status": "pending" },
-        { "id": "walk",   "template": "custom-broad-winged eagle in powered flapping flight, full wing-beat cycle, body rising and dipping with each stroke, talons trailing", "status": "pending" },
-        { "id": "attack", "template": "custom-eagle stoop: wings fold tight against body in steep dive, talons extending forward, then wings snap open to brake and sweep upward", "status": "pending" },
-        { "id": "hurt",   "template": "custom-eagle flinches mid-flight, one wing snapping back sharply, body rotating off-axis, then correcting with opposite wing", "status": "pending" },
-        { "id": "death",  "template": "custom-eagle losing flight: one wing folding inward while other beats weakly, tight spiral descent, final splayed impact against ground", "status": "pending" },
-        { "id": "alert",  "template": "custom-eagle snapping head toward target, wings spreading wide in threat display, body tilting aggressively toward threat", "status": "pending" }
+        {
+          "id": "idle",
+          "template": "custom-large eagle in slow thermal soar, wings slightly tilted adjusting on updraft, wingtips flexing, head turning side to side",
+          "status": "pending"
+        },
+        {
+          "id": "walk",
+          "template": "custom-broad-winged eagle in powered flapping flight, full wing-beat cycle, body rising and dipping with each stroke, talons trailing",
+          "status": "pending"
+        },
+        {
+          "id": "attack",
+          "template": "custom-eagle stoop: wings fold tight against body in steep dive, talons extending forward, then wings snap open to brake and sweep upward",
+          "status": "pending"
+        },
+        {
+          "id": "hurt",
+          "template": "custom-eagle flinches mid-flight, one wing snapping back sharply, body rotating off-axis, then correcting with opposite wing",
+          "status": "pending"
+        },
+        {
+          "id": "death",
+          "template": "custom-eagle losing flight: one wing folding inward while other beats weakly, tight spiral descent, final splayed impact against ground",
+          "status": "pending"
+        },
+        {
+          "id": "alert",
+          "template": "custom-eagle snapping head toward target, wings spreading wide in threat display, body tilting aggressively toward threat",
+          "status": "pending"
+        }
       ],
       "outputDir": "public/assets/sprites/characters/earth/enemies/fargglad-kordororn"
     },
