@@ -1,0 +1,435 @@
+---
+/**
+ * Admin moderation page — FIL-434 (Creatures A4).
+ *
+ * SSR-only (prerender = false). Password-gated: correct password → session
+ * cookie → list of pending creature submissions to approve or reject.
+ *
+ * POST handler on this same page processes the login form. Approve/reject
+ * actions go through /api/creatures/approve and /api/creatures/reject.
+ */
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import {
+  validatePassword,
+  sessionCookieValue,
+  isAuthorized,
+  COOKIE_NAME,
+} from '../../lib/admin-session';
+import { imageUrl } from '../../lib/supabase-creatures';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const serviceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+
+// ── POST: login form submission ──────────────────────────────────────────────
+let loginError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const submitted = data.get('password')?.toString() ?? '';
+
+  if (validatePassword(submitted)) {
+    // Set session cookie and redirect to GET (PRG pattern avoids double-submit)
+    Astro.response.headers.set('Set-Cookie', sessionCookieValue(submitted));
+    return Astro.redirect('/admin/creatures', 303);
+  } else {
+    loginError = 'Incorrect password.';
+  }
+}
+
+// ── Auth check ───────────────────────────────────────────────────────────────
+const cookieHeader = Astro.request.headers.get('cookie');
+const authed = isAuthorized(cookieHeader);
+
+// ── Fetch pending submissions (server-side, service-role key) ─────────────────
+type Pending = {
+  id: string;
+  creature_name: string;
+  creator_name: string | null;
+  maker_age: number | null;
+  contact_email: string | null;
+  world_name: string | null;
+  kind_size: string | null;
+  kind_diet: string | null;
+  kind_movement: string[] | null;
+  kind_solitary: boolean | null;
+  habitat_biome: string[] | null;
+  habitat_climate: string | null;
+  habitat_notes: string | null;
+  behaviour_threat: string | null;
+  behaviour_notes: string | null;
+  food_notes: string | null;
+  special_ability: string | null;
+  lore_description: string | null;
+  lore_origin: string | null;
+  art_path: string | null;
+  credits_opt_in: boolean;
+  license_accepted: boolean;
+  parental_consent: boolean;
+  completion_score: number | null;
+  created_at: string;
+  slug: string | null;
+};
+
+let pending: Pending[] = [];
+
+if (authed && serviceKey) {
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/creature_submissions?approved=eq.false&moderation_note=is.null&order=created_at.asc`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      }
+    );
+    if (res.ok) pending = await res.json();
+  } catch { /* network error — show empty list */ }
+}
+
+function timeAgo(isoStr: string): string {
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+---
+
+<Base title="Admin — Creatures">
+  <h1>Admin — Creature Moderation</h1>
+
+  {!authed ? (
+    <!-- Password gate -->
+    <div class="gate">
+      <p class="gate-desc">Enter the admin password to access pending submissions.</p>
+      <form method="POST" class="gate-form">
+        <input type="password" name="password" placeholder="Password" autofocus
+               autocomplete="current-password" required />
+        {loginError && <p class="error">{loginError}</p>}
+        <button type="submit">Unlock</button>
+      </form>
+    </div>
+  ) : (
+    <!-- Protected view -->
+    <div>
+      {pending.length === 0 ? (
+        <p class="empty">No pending submissions. All caught up!</p>
+      ) : (
+        <p class="count">{pending.length} pending submission{pending.length !== 1 ? 's' : ''}</p>
+      )}
+
+      <div class="submissions">
+        {pending.map(c => {
+          const img = c.art_path ? imageUrl(supabaseUrl, c.art_path) : null;
+          return (
+            <article class="submission" id={c.id}>
+              <header class="sub-header">
+                <div>
+                  <h2 class="sub-name">{c.creature_name}</h2>
+                  {c.world_name && <span class="sub-world">{c.world_name}</span>}
+                  <span class="sub-time">{timeAgo(c.created_at)}</span>
+                </div>
+                <div class="sub-score">
+                  <span class={`score-pill ${(c.completion_score ?? 0) >= 70 ? 'green' : (c.completion_score ?? 0) >= 40 ? 'amber' : 'red'}`}>
+                    {c.completion_score ?? 0}%
+                  </span>
+                </div>
+              </header>
+
+              <div class="sub-body">
+                {img && <img src={img} alt={c.creature_name} class="sub-img" />}
+
+                <div class="sub-details">
+                  <dl>
+                    {c.creator_name && <><dt>Creator</dt><dd>{c.creator_name}{c.maker_age ? ` (age ${c.maker_age})` : ''}</dd></>}
+                    {c.contact_email && <><dt>Email</dt><dd>{c.contact_email}</dd></>}
+                    {c.kind_size && <><dt>Size</dt><dd>{c.kind_size}</dd></>}
+                    {(c.kind_movement ?? []).length > 0 && <><dt>Movement</dt><dd>{(c.kind_movement ?? []).join(', ')}</dd></>}
+                    {c.kind_diet && <><dt>Diet</dt><dd>{c.kind_diet}</dd></>}
+                    {(c.habitat_biome ?? []).length > 0 && <><dt>Biome</dt><dd>{(c.habitat_biome ?? []).join(', ')}</dd></>}
+                    {c.habitat_climate && <><dt>Climate</dt><dd>{c.habitat_climate}</dd></>}
+                    {c.behaviour_threat && <><dt>Danger</dt><dd>{c.behaviour_threat}</dd></>}
+                    {c.special_ability && <><dt>Special</dt><dd>{c.special_ability}</dd></>}
+                  </dl>
+
+                  {c.habitat_notes && <p class="note-field"><strong>Habitat:</strong> {c.habitat_notes}</p>}
+                  {c.behaviour_notes && <p class="note-field"><strong>Behaviour:</strong> {c.behaviour_notes}</p>}
+                  {c.food_notes && <p class="note-field"><strong>Food:</strong> {c.food_notes}</p>}
+
+                  {c.lore_description && (
+                    <div class="lore-block">
+                      <strong>Story</strong>
+                      <p>{c.lore_description}</p>
+                    </div>
+                  )}
+                  {c.lore_origin && (
+                    <div class="lore-block">
+                      <strong>Origin</strong>
+                      <p>{c.lore_origin}</p>
+                    </div>
+                  )}
+
+                  <div class="consent-flags">
+                    <span class={c.license_accepted ? 'flag-ok' : 'flag-bad'}>
+                      {c.license_accepted ? '✓' : '✗'} License
+                    </span>
+                    <span class={c.parental_consent ? 'flag-ok' : 'flag-bad'}>
+                      {c.parental_consent ? '✓' : '✗'} Parental consent
+                    </span>
+                    <span class={c.credits_opt_in ? 'flag-ok' : 'flag-dim'}>
+                      {c.credits_opt_in ? '✓' : '–'} Credits opt-in
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Approve / Reject actions -->
+              <div class="actions">
+                <form class="approve-form" data-creature-id={c.id}>
+                  <button type="submit" class="btn-approve">Approve</button>
+                </form>
+                <form class="reject-form" data-creature-id={c.id}>
+                  <textarea name="note" placeholder="Rejection reason (shown internally, not to submitter)" rows={2}></textarea>
+                  <button type="submit" class="btn-reject">Reject</button>
+                </form>
+              </div>
+              <div class="action-status" id={`status-${c.id}`}></div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  )}
+</Base>
+
+<script>
+  // Approve / reject forms — POST to API routes via fetch, then hide card on success
+  document.querySelectorAll<HTMLFormElement>('.approve-form').forEach(form => {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = form.dataset.creatureId!;
+      const statusEl = document.getElementById(`status-${id}`)!;
+      const btn = form.querySelector('button')!;
+      btn.disabled = true;
+      statusEl.textContent = 'Approving…';
+      statusEl.className = '';
+
+      const res = await fetch('/api/creatures/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (res.ok) {
+        statusEl.textContent = 'Approved! Creature is now public.';
+        statusEl.className = 'status-ok';
+        document.getElementById(id)?.remove();
+      } else {
+        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }));
+        statusEl.textContent = `Error: ${error}`;
+        statusEl.className = 'status-err';
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll<HTMLFormElement>('.reject-form').forEach(form => {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = form.dataset.creatureId!;
+      const note = (form.querySelector<HTMLTextAreaElement>('[name=note]')?.value ?? '').trim();
+      const statusEl = document.getElementById(`status-${id}`)!;
+      const btn = form.querySelector('button')!;
+      btn.disabled = true;
+      statusEl.textContent = 'Rejecting…';
+      statusEl.className = '';
+
+      const res = await fetch('/api/creatures/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, note }),
+      });
+
+      if (res.ok) {
+        statusEl.textContent = 'Rejected and hidden.';
+        statusEl.className = 'status-ok';
+        document.getElementById(id)?.remove();
+      } else {
+        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }));
+        statusEl.textContent = `Error: ${error}`;
+        statusEl.className = 'status-err';
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  h1 { font-size: 1.8rem; margin-bottom: 1.5rem; }
+
+  /* ── Gate ─────────────────────────────────────────────────────── */
+  .gate {
+    max-width: 360px;
+    margin: 4rem auto;
+    text-align: center;
+  }
+  .gate-desc { color: var(--text-dim); margin-bottom: 1.5rem; }
+  .gate-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .gate-form input[type="password"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 1rem;
+    padding: 0.6rem 0.85rem;
+    text-align: center;
+  }
+  .gate-form input:focus { outline: none; border-color: var(--accent); }
+  .gate-form button {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.6rem;
+    transition: background 0.15s;
+  }
+  .gate-form button:hover { background: var(--accent-hi); }
+  .error { color: var(--red, #f87171); font-size: 0.88rem; margin: 0; }
+
+  /* ── Count / empty ────────────────────────────────────────────── */
+  .count, .empty { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  /* ── Submission card ──────────────────────────────────────────── */
+  .submissions { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .submission {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .sub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .sub-name { font-family: 'Syne', sans-serif; font-size: 1.1rem; color: var(--accent-hi); margin: 0 0 0.25rem 0; }
+  .sub-world {
+    font-size: 0.78rem;
+    color: var(--green, #4ade80);
+    font-family: var(--mono, monospace);
+    margin-right: 0.75rem;
+  }
+  .sub-time { font-size: 0.78rem; color: var(--text-dim); }
+  .score-pill {
+    font-family: var(--mono, monospace);
+    font-size: 0.82rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+  .score-pill.green { background: rgba(74,222,128,0.12); color: var(--green, #4ade80); }
+  .score-pill.amber { background: rgba(251,191,36,0.12); color: var(--amber, #fbbf24); }
+  .score-pill.red   { background: rgba(248,113,113,0.12); color: var(--red, #f87171); }
+
+  .sub-body {
+    display: flex;
+    gap: 1.25rem;
+    padding: 1.1rem;
+    flex-wrap: wrap;
+  }
+  .sub-img {
+    width: 180px;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .sub-details { flex: 1; min-width: 200px; }
+
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; font-size: 0.85rem; margin-bottom: 0.75rem; }
+  dt { color: var(--text-dim); }
+  dd { color: var(--text); margin: 0; }
+
+  .note-field { font-size: 0.85rem; color: var(--text-dim); margin: 0.4rem 0; }
+  .note-field strong { color: var(--text); }
+
+  .lore-block { margin-top: 0.75rem; }
+  .lore-block strong { font-size: 0.82rem; color: var(--text-dim); display: block; margin-bottom: 0.25rem; }
+  .lore-block p { font-size: 0.9rem; color: var(--text); margin: 0; line-height: 1.6; white-space: pre-wrap; }
+
+  .consent-flags { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.8rem; }
+  .flag-ok  { color: var(--green, #4ade80); }
+  .flag-bad { color: var(--red, #f87171); }
+  .flag-dim { color: var(--text-dim); }
+
+  /* ── Actions ──────────────────────────────────────────────────── */
+  .actions {
+    display: flex;
+    gap: 1rem;
+    padding: 0.85rem 1.1rem;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .approve-form, .reject-form { display: flex; gap: 0.5rem; align-items: flex-end; }
+  .reject-form { flex: 1; }
+  .reject-form textarea {
+    flex: 1;
+    background: var(--bg, #0f0f13);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+    resize: none;
+  }
+  .btn-approve, .btn-reject {
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    padding: 0.45rem 1.1rem;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-approve { background: var(--green, #4ade80); color: #000; }
+  .btn-approve:hover { filter: brightness(1.1); }
+  .btn-reject { background: rgba(248,113,113,0.18); color: var(--red, #f87171); border: 1px solid rgba(248,113,113,0.35); }
+  .btn-reject:hover { background: rgba(248,113,113,0.28); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .action-status {
+    padding: 0.4rem 1.1rem;
+    font-size: 0.85rem;
+    min-height: 1.5em;
+  }
+  .status-ok  { color: var(--green, #4ade80); }
+  .status-err { color: var(--red, #f87171); }
+
+  @media (max-width: 600px) {
+    .sub-img { width: 100%; height: auto; max-height: 240px; }
+    dl { grid-template-columns: 1fr; }
+  }
+</style>
