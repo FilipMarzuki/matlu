@@ -211,13 +211,8 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
     this.terrainRt = this.add.renderTexture(0, 0, W, H - this.PAL_AREA).setDepth(0);
 
-    // Single reused Image avoids 900 allocations. NOT setVisible(false) — Phaser's
-    // WebGL renderer skips invisible objects when drawing to a RenderTexture.
-    // The image starts off-screen at (-9999, -9999) and is destroyed after the loop.
-    const tileImg = this.add.image(-9999, -9999, 'iso-tiles', 0)
-      .setScale(this.ISO_SCALE)
-      .setOrigin(0.5, 0);
-
+    // Phaser 4 uses a command buffer for RenderTexture draws. stamp() captures
+    // key/frame/position as primitive values immediately — safe, no game object needed.
     for (let ty = 0; ty < this.GRID; ty++) {
       const biomeIdx = ty < topRows
         ? prevBiome
@@ -231,11 +226,14 @@ export class BiomeInspectorScene extends Phaser.Scene {
         const elev  = ((tx * 3 + ty * 7) % 10) / 10;
         const frame = isRiver ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, elev);
         const { x, y } = this.isoPos(tx, ty);
-        tileImg.setTexture('iso-tiles', frame).setPosition(x, y - this.ISO_H / 2);
-        this.terrainRt.draw(tileImg);
+        this.terrainRt.stamp('iso-tiles', frame, x, y - this.ISO_H / 2, {
+          scaleX: this.ISO_SCALE,
+          scaleY: this.ISO_SCALE,
+          originX: 0.5,
+          originY: 0,
+        });
       }
     }
-    tileImg.destroy();
 
     // Grid outline
     this.gridGfx = this.add.graphics().setDepth(2);
