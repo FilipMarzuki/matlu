@@ -60,7 +60,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
   private originY = 0;
 
   // Terrain layers (rebuilt on biome change).
-  private terrainRt?:   Phaser.GameObjects.RenderTexture;
+  private tileImages:   Phaser.GameObjects.Image[]    = [];
   private blendGfx?:    Phaser.GameObjects.Graphics;
   private gridGfx?:     Phaser.GameObjects.Graphics;
   private decorSprites: Phaser.GameObjects.Image[] = [];
@@ -169,8 +169,8 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
   /** Tears down terrain/blend/decor layers and rebuilds. Entity/object Graphics persist. */
   private refreshDisplay(): void {
-    this.terrainRt?.destroy();
-    this.terrainRt = undefined;
+    for (const img of this.tileImages) img.destroy();
+    this.tileImages = [];
     this.blendGfx?.destroy();
     this.blendGfx = undefined;
     this.gridGfx?.destroy();
@@ -209,10 +209,8 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.originX = W / 2;
     this.originY = Math.round((usableH - diamondH) / 2 + this.ISO_H / 2);
 
-    this.terrainRt = this.add.renderTexture(0, 0, W, H - this.PAL_AREA).setDepth(0);
-
-    // Phaser 4 uses a command buffer for RenderTexture draws. stamp() captures
-    // key/frame/position as primitive values immediately — safe, no game object needed.
+    // Draw each tile as a plain Image — avoids all Phaser 4 RenderTexture
+    // command-buffer / render-mode complexity. 900 game objects is fine for a dev tool.
     for (let ty = 0; ty < this.GRID; ty++) {
       const biomeIdx = ty < topRows
         ? prevBiome
@@ -226,12 +224,11 @@ export class BiomeInspectorScene extends Phaser.Scene {
         const elev  = ((tx * 3 + ty * 7) % 10) / 10;
         const frame = isRiver ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, elev);
         const { x, y } = this.isoPos(tx, ty);
-        this.terrainRt.stamp('iso-tiles', frame, x, y - this.ISO_H / 2, {
-          scaleX: this.ISO_SCALE,
-          scaleY: this.ISO_SCALE,
-          originX: 0.5,
-          originY: 0,
-        });
+        const img = this.add.image(x, y - this.ISO_H / 2, 'iso-tiles', frame)
+          .setScale(this.ISO_SCALE)
+          .setOrigin(0.5, 0)
+          .setDepth(0);
+        this.tileImages.push(img);
       }
     }
 
