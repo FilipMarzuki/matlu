@@ -5277,6 +5277,10 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('animalType', type);
     sprite.setData('animalState', 'roaming' satisfies AnimalState);
     sprite.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+    // Store world-space origin so runtime logic (flee distances, attract mode) can
+    // reference the original world position even though r.x/r.y are in ISO space.
+    sprite.setData('worldX', x);
+    sprite.setData('worldY', y);
   }
 
   private updateGroundAnimals(): void {
