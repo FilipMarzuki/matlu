@@ -79,6 +79,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
   private paletteBoxes:    Phaser.GameObjects.Graphics[] = [];
   private selectionBorder?: Phaser.GameObjects.Graphics;
   private biomeLabel?:      Phaser.GameObjects.Text;
+  private toolStatusText?:  Phaser.GameObjects.Text;   // "MC selected — click tile to place"
 
   // Entity spawner state (FIL-463) — one entity at a time.
   private selectedEntityKey: EntityKey | null = null;
@@ -241,38 +242,40 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.originX = W / 2;
     this.originY = Math.round((usableH - diamondH) / 2 + this.ISO_H / 2);
 
-    // Draw each tile as a plain Image — avoids all Phaser 4 RenderTexture
-    // command-buffer / render-mode complexity. 900 game objects is fine for a dev tool.
-    for (let ty = 0; ty < this.GRID; ty++) {
-      const landBiome = ty < topRows
-        ? prevBiome
-        : ty < topRows + centerRows
-          ? this.selectedBiome
-          : nextBiome;
+    // Painter's algorithm: iterate diagonals (constant tx+ty = back row) so
+    // each tile is created after every tile it could visually occlude.
+    // Same-depth objects in Phaser render in creation order, so this gives
+    // correct front-to-back layering for cube-style iso tiles with visible
+    // front faces — no per-tile depth values needed.
+    const G = this.GRID;
+    for (let sum = 0; sum < G * 2 - 1; sum++) {
+      const txMin = Math.max(0, sum - (G - 1));
+      const txMax = Math.min(sum, G - 1);
+      for (let tx = txMin; tx <= txMax; tx++) {
+        const ty = sum - tx;
 
-      for (let tx = 0; tx < this.GRID; tx++) {
-        const elev     = ((tx * 3 + ty * 7) % 10) / 10;
+        const landBiome = ty < topRows
+          ? prevBiome
+          : ty < topRows + centerRows
+            ? this.selectedBiome
+            : nextBiome;
+
+        const elev      = ((tx * 3 + ty * 7) % 10) / 10;
         const oceanDist = (tx - ty) - OCEAN_CUT;  // > 0 = inside ocean
         let frame: number;
 
         if (oceanDist > 1) {
-          // Deep ocean (Sea biome, dark-blue water diamonds)
-          frame = isoTileFrame(0, elev);
+          frame = isoTileFrame(0, elev);          // deep ocean
         } else if (oceanDist === 1) {
-          // Shallow ocean edge (light-blue water diamonds)
-          frame = ISO_RIVER_FRAME;  // light-blue shore water
+          frame = ISO_RIVER_FRAME;                // shallow ocean edge
         } else if (oceanDist === 0) {
-          // Sandy shore — first land tile against water
-          frame = isoTileFrame(2, elev);
+          frame = isoTileFrame(2, elev);          // sandy shore
         } else if (oceanDist === -1) {
-          // Rocky shore — second land tile from water
-          frame = isoTileFrame(1, elev);
+          frame = isoTileFrame(1, elev);          // rocky shore
         } else if (showRiver && Math.abs(tx - riverCenter(ty)) <= 1) {
-          // Snaking river — 3-tile wide meander through center band
-          frame = ISO_RIVER_FRAME;
+          frame = ISO_RIVER_FRAME;                // snaking river
         } else {
-          // Normal land biome (prev / selected / next band)
-          frame = isoTileFrame(landBiome, elev);
+          frame = isoTileFrame(landBiome, elev);  // land biome
         }
 
         const { x, y } = this.isoPos(tx, ty);
@@ -382,6 +385,9 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.biomeLabel = this.add.text(8, 8, '', {
       fontSize: '18px', color: '#ffe84d', stroke: '#000000', strokeThickness: 3,
     }).setDepth(11);
+    this.toolStatusText = this.add.text(this.scale.width - 8, 8, '', {
+      fontSize: '13px', color: '#aaffcc', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(1, 0).setDepth(11);
 
     this.add.text(PAD, startY - 20,
       'A/D: cycle biomes   scroll/+−: zoom   click swatch: jump   E: clear entity   C: clear objects',
@@ -404,6 +410,16 @@ export class BiomeInspectorScene extends Phaser.Scene {
     this.selectionBorder!.strokeRect(bx - 2, by - 2, BOX_W + 4, BOX_H + 4);
 
     this.biomeLabel!.setText(`World Forge \u2014 [${this.selectedBiome}]  ${BIOME_NAMES[this.selectedBiome]}`);
+  }
+
+  /** Updates the top-right status line with the currently active tool. */
+  private updateToolStatus(): void {
+    if (!this.toolStatusText) return;
+    let msg = '';
+    if      (this.selectedEntityKey) msg = `\u25b6 ${this.selectedEntityKey} — click tile to place  (E = remove)`;
+    else if (this.selectedObjectKey) msg = `\u25b6 ${this.selectedObjectKey} — click tile to toggle  (C = clear all)`;
+    else if (this.selectedDecorKey)  msg = `\u25b6 ${this.selectedDecorKey} — click tile to toggle  (C = clear all)`;
+    this.toolStatusText.setText(msg);
   }
 
   // ── Spawner toolbar ───────────────────────────────────────────────────────────
@@ -473,8 +489,9 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
   private selectEntityType(key: EntityKey): void {
     this.selectedEntityKey = this.selectedEntityKey === key ? null : key;
-    if (this.selectedEntityKey !== null) this.selectedObjectKey = null;
+    if (this.selectedEntityKey !== null) { this.selectedObjectKey = null; this.selectedDecorKey = null; }
     this.updateToolbarBorders();
+    this.updateToolStatus();
   }
 
   /**
@@ -489,24 +506,34 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
     const { x: cx, y: cy } = this.isoPos(tx, ty);
     const sx = cx;
-    const sy = cy + this.ISO_H / 2; // centre on tile surface, not north apex
-    const hw = this.ISO_W / 2 + 1;
-    const hh = this.ISO_H / 2 + 1;
+    // Place entity standing on the tile surface (cy = north apex, +ISO_H = south apex).
+    // Visual: diamond footprint on the ground + an upright filled rect for the body.
+    const footY = cy + this.ISO_H;  // south tip of the tile (ground level)
+    const hw    = this.ISO_W * 0.5; // footprint half-width matches tile
+    const fh    = this.ISO_H * 0.5; // footprint half-height
+    const bodyH = this.ISO_H * 2.5; // character body height (upright, above tile)
 
     const gfx = this.add.graphics().setDepth(5);
-    gfx.fillStyle(et.color, 0.88);
+
+    // Footprint diamond (ground shadow)
+    gfx.fillStyle(et.color, 0.35);
     gfx.beginPath();
-    gfx.moveTo(sx,      sy - hh);
-    gfx.lineTo(sx + hw, sy);
-    gfx.lineTo(sx,      sy + hh);
-    gfx.lineTo(sx - hw, sy);
+    gfx.moveTo(sx,      footY - fh);
+    gfx.lineTo(sx + hw, footY);
+    gfx.lineTo(sx,      footY + fh);
+    gfx.lineTo(sx - hw, footY);
     gfx.closePath();
     gfx.fillPath();
-    gfx.lineStyle(2, 0xffffff, 0.9);
-    gfx.strokePath();
 
-    const label = this.add.text(sx, sy - hh - 3, et.label, {
-      fontSize: '9px', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
+    // Body rectangle (upright above tile)
+    const bodyW = hw * 0.6;
+    gfx.fillStyle(et.color, 0.92);
+    gfx.fillRect(sx - bodyW / 2, footY - fh - bodyH, bodyW, bodyH);
+    gfx.lineStyle(2, 0xffffff, 0.85);
+    gfx.strokeRect(sx - bodyW / 2, footY - fh - bodyH, bodyW, bodyH);
+
+    const label = this.add.text(sx, footY - fh - bodyH - 4, et.label, {
+      fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(6);
 
     this.placedEntity = gfx;
@@ -524,8 +551,9 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
   private selectObjectType(key: ObjectKey): void {
     this.selectedObjectKey = this.selectedObjectKey === key ? null : key;
-    if (this.selectedObjectKey !== null) this.selectedEntityKey = null;
+    if (this.selectedObjectKey !== null) { this.selectedEntityKey = null; this.selectedDecorKey = null; }
     this.updateToolbarBorders();
+    this.updateToolStatus();
   }
 
   /**
@@ -689,6 +717,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
       this.selectedObjectKey = null;
     }
     this.updateToolbarBorders();
+    this.updateToolStatus();
   }
 
   /**
