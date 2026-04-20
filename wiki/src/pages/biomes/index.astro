@@ -1,8 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-// Pure data module — no Phaser imports, safe to import in Astro build step.
-// Path: wiki/src/pages/biomes/ → up 4 levels → repo root → src/world/biomes
-import { BIOMES } from '../../../../src/world/biomes';
+import { BIOMES } from '../../data/biomes';
 
 const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://corewarden.app';
 const worldForgeUrl = `${gameUrl}/biome`;
