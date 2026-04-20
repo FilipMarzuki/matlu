@@ -4615,7 +4615,10 @@ export class GameScene extends Phaser.Scene {
 
         // Centre of the river in world pixels at this row.
         const xCenter = (sum / count) * TILE_SIZE + TILE_SIZE / 2;
-        addBlock(xCenter - halfWidth, ty * TILE_SIZE, halfWidth * 2, TILE_SIZE);
+        // Project world-space coordinates to iso screen space before placing the barrier,
+        // consistent with the fixed belt/rim barriers below that already use worldToIso.
+        const { x: isoX, y: isoY } = worldToIso(xCenter - halfWidth, ty * TILE_SIZE);
+        addBlock(isoX, isoY, halfWidth * 2, TILE_SIZE);
       }
     }
 
