@@ -93,7 +93,7 @@ export class BiomeInspectorScene extends Phaser.Scene {
 
   preload(): void {
     this.load.spritesheet('iso-tiles',
-      'assets/packs/isometric tileset/spritesheet.png',
+      '/assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
   }
 
