@@ -1,0 +1,4 @@
+{
+  "framework": "astro",
+  "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qE \"^dev/\""
+}
