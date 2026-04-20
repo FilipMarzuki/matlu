@@ -208,7 +208,7 @@ export class Tinkerer extends EarthHero {
     super(scene, x, y, {
       maxHp:               100,
       speed:               80,
-      aggroRadius:         400,
+      aggroRadius:         1200,  // covers the full 960×960 dungeon arena diagonally
       attackDamage:        15,
       color:               0x996633,
       meleeRange:          36,
@@ -219,6 +219,9 @@ export class Tinkerer extends EarthHero {
       dashSpeedMultiplier: 5,    // higher peak; linear ease-out averages ~2.5×
       dashDurationMs:      350,  // longer window = slide/roll feel
       spriteKey:           'tinkerer',
+      // Hero is not subject to the dark-arena illumination penalty — she knows
+      // the dungeon layout and actively scans for threats at full aggro radius.
+      darkvision:          1,
     });
   }
 
