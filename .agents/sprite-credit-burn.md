@@ -214,20 +214,193 @@ If the total exceeds 600 credits, print a warning before each new entity:
 
 ---
 
-## STEP 8 — FINAL PUSH AND REPORT
+## COMMUNITY ATTRIBUTION FORMAT
 
-After all entities are processed (or credits exhausted):
+When writing entity-registry.json entries for community-submitted creatures, always use this exact structure for `source` and `attribution` so readers can identify community entries at a glance:
+
+```json
+{
+  "source": "community",
+  "attribution": {
+    "maker_name": "<creator_name — ONLY include if credits_opt_in = true, otherwise omit key entirely>",
+    "creature_submission_id": "<submission UUID>"
+  }
+}
+```
+
+Rules:
+- `source: "community"` is always present on community entries.
+- `attribution.maker_name` is included **only when** `credits_opt_in = true`. If false, omit the key entirely — do not set it to null.
+- `attribution.creature_submission_id` is always the UUID of the `creature_submissions` row.
+
+---
+
+## PASS 2 — COMMUNITY QUEUE
+
+After Pass 1 completes (or if Pass 1 had nothing to do), drain the creature submission queue.
+
+Skip Pass 2 and print `[Pass 2] Skipping — SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set.` if either env var is absent.
+
+### STEP 8a — FETCH THE QUEUE
+
+```bash
+QUEUE=$(curl -s \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Accept: application/json" \
+  "${SUPABASE_URL}/rest/v1/creature_submissions?status=eq.queued&order=queue_priority.asc,queued_at.asc&select=*")
+echo "$QUEUE"
+```
+
+Parse the returned JSON array. If empty, print `[Pass 2] No queued creatures — nothing to do.` and skip to STEP 9.
+
+### STEP 8b — PROCESS EACH QUEUED CREATURE
+
+For each creature in queue order:
+
+**8b-i. Set status to `'spriting'`**
+
+The `creature_status_history` trigger fires automatically — no manual INSERT needed.
+
+```bash
+curl -s -X PATCH \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  "${SUPABASE_URL}/rest/v1/creature_submissions?id=eq.<SUBMISSION_ID>" \
+  -d '{"status":"spriting"}'
+```
+
+**8b-ii. Derive entity fields**
+
+| Registry field | Source |
+|---|---|
+| `class` | `slug` converted to PascalCase (e.g. `kordororn` → `Kordororn`, `iron-wing-bat` → `IronWingBat`) |
+| `type` | `behaviour_threat = "hostile"` → `"enemy"` · anything else → `"neutral"` |
+| `world` | `world_name` lowercased/trimmed → `"earth"`, `"spinolandet"`, or `"vatten"`; default `"earth"` if unrecognised |
+| `personality` | `lore_description` (first 120 chars); else `creature_name` + brief summary from `behaviour_notes` |
+| `designNotes.sprite` | `graphics_notes` verbatim (primary); if null/empty, synthesize: `"{personality}, {world palette tones}, {kind_size} creature, {kind_movement joined}, top-down pixel art RPG"` |
+
+**8b-iii. Build the registry stub (using the community attribution format above)**
+
+```json
+{
+  "class": "<PascalCase from slug>",
+  "file": "src/entities/<PascalCase from slug>.ts",
+  "type": "<enemy|neutral>",
+  "world": "<earth|spinolandet|vatten>",
+  "source": "community",
+  "attribution": {
+    "maker_name": "<creator_name — only if credits_opt_in = true>",
+    "creature_submission_id": "<submission id UUID>"
+  },
+  "personality": "<derived above>",
+  "spriteKey": null,
+  "spritesheetJson": null,
+  "animTags": null,
+  "sounds": {
+    "ambient": null,
+    "alert": null,
+    "aggro": null,
+    "attack": null,
+    "hurt": null,
+    "death": null
+  },
+  "behavior": {
+    "buildTree": false,
+    "unaware": true,
+    "alert": false,
+    "tracking": false,
+    "combat": "<true if behaviour_threat = hostile, false otherwise>",
+    "flee": false,
+    "aggroRadius": "<400 if hostile, 200 otherwise>",
+    "hearingRadius": 200,
+    "sightMemoryMs": 1000
+  },
+  "designNotes": {
+    "sprite": "<graphics_notes or synthesized description>",
+    "animations": {},
+    "sounds": {}
+  }
+}
+```
+
+If `credits_opt_in = false`, omit the `maker_name` key entirely. Write the updated `entity-registry.json` to disk before calling PixelLab.
+
+**8b-iv. Generate the sprite — same flow as Pass 1 (STEPS 3–6)**
+
+`outputDir` = `public/assets/sprites/characters/<world>/<type>s/<slug>`
+
+Use `designNotes.sprite` as the PixelLab description. Derive body type, directions, and animations from entity type + personality using the same rules as STEPS 3–5. Then follow STEP 6a–6e exactly.
+
+**If `create_character` fails — credits exhausted:**
+
+1. Revert submission status:
+   ```bash
+   curl -s -X PATCH \
+     -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+     -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+     -H "Content-Type: application/json" \
+     -H "Prefer: return=minimal" \
+     "${SUPABASE_URL}/rest/v1/creature_submissions?id=eq.<SUBMISSION_ID>" \
+     -d '{"status":"queued"}'
+   ```
+2. Remove the stub entry just added to `entity-registry.json` (restore previous state).
+3. Remove any partial `asset-spec.json` entry.
+4. Stop processing the queue and skip to STEP 9.
+
+**8b-v. On successful assembly — update registry and submission**
+
+Update the stub entry (same as STEP 6f): set `spriteKey`, `spritesheetJson`, `animTags` from the assembled `{slug}.json` frameTags.
+
+Then mark the submission shipped:
+
+```bash
+SHIPPED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+curl -s -X PATCH \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  "${SUPABASE_URL}/rest/v1/creature_submissions?id=eq.<SUBMISSION_ID>" \
+  -d "{\"status\":\"in-game\",\"entity_id\":\"<slug>\",\"shipped_at\":\"$SHIPPED_AT\"}"
+```
+
+**8b-vi. Commit after each creature**
+
+```bash
+git add src/ai/asset-spec.json src/entities/entity-registry.json \
+        public/assets/sprites/characters/<world>/<type>s/<slug>/
+git commit -m "art(<slug>): community sprite — <creature_name>
+
+World: <world> | Type: <type> | Submission: <submission_id>
+Animations: <comma-separated animation names>
+<If credits_opt_in = true: 'Art by <creator_name>'>
+
+Generated by sprite-credit-burn agent (PixelLab MCP)."
+```
+
+Then move to the next queued creature.
+
+---
+
+## STEP 9 — FINAL PUSH AND REPORT
+
+After all entities and queued creatures are processed (or credits exhausted):
 
 ```bash
 git push origin main
 ```
 
 Print a summary:
-- How many entities were generated this run
+- How many entities were generated this run (Pass 1)
+- How many community creatures were shipped this run (Pass 2)
 - Which entities were skipped (already had sprites)
-- Which entity caused the stop (if credits exhausted)
+- Which entity or creature caused the stop (if credits exhausted)
 - Estimated credits used
 - Entities still needing sprites (if any remain)
+- Queued creatures not yet processed (if any remain)
 - Suggestion: re-run after the 9th when credits reset
 
 ---
