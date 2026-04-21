@@ -143,7 +143,99 @@ four hundred years and doesn't know it. An informal alliance between a Merfolk
   are not decorative details. They are how a reader knows where they are.
 - Add a final line: _Written by the lore historian agent_
 
-## STEP 6 — REPORT
+## STEP 6 — CREATURE PIPELINE PASS
+
+Wire the lore database to creature submissions that have passed balance review but
+don't yet have a Notion lore entry. This runs after STEP 5 every time.
+
+**Environment:**
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set as env vars.
+- Use the Supabase REST API: base `$SUPABASE_URL/rest/v1`, headers
+  `apikey: $SUPABASE_SERVICE_ROLE_KEY` and `Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY`.
+
+**If Supabase is unreachable** (network error, 5xx, DNS failure): log the error, skip
+this entire step, and exit 0. The scheduled run is idempotent — next day retries.
+
+### 6a — Fetch balanced creatures without lore entries
+
+```
+GET $SUPABASE_URL/rest/v1/creature_submissions
+  ?status=eq.balanced
+  &lore_entry_id=is.null
+  &order=status_changed_at.asc
+  &limit=10
+  &select=id,creature_name,creator_name,maker_age,world_name,lore_description,lore_origin,habitat_biome,habitat_climate,habitat_notes,behaviour_threat,behaviour_notes,food_notes,special_ability,biome_affinity,balance_notes,balance_tier,kind_size,kind_diet,kind_solitary,kind_movement
+Headers: apikey, Authorization, Accept: application/json
+```
+
+Cap: **process at most 10 rows per run** to avoid hitting Notion rate limits.
+
+If the result is an empty array: log "No balanced creatures pending lore" and skip to STEP 7.
+
+### 6b — For each creature row
+
+Process rows one at a time. On any error for a given row: log the error (creature name
++ error message) and continue to the next row. Do not abort the whole pass.
+
+**i. Build the Notion page payload**
+
+Title: `{creature_name}` (from the submission)
+
+Properties (use the Creatures database schema — `4c71181b-2842-4301-b7cf-94572b3845a9`):
+- `Name`: `{creature_name}`
+- `Lore Status`: `draft`
+- `World`: `{world_name}` (if present; use the select value that matches — `Earth`,
+  `Spinolandet`, `Vattenpandalandet`, or `Blended`)
+
+Page body blocks (in order):
+1. **H2 "Overview"** — 1–2 paragraphs. Ground the creature in its habitat and behaviour.
+   Draw on `habitat_biome`, `habitat_climate`, `habitat_notes`, `behaviour_threat`,
+   `behaviour_notes`. Write in the world-historian voice (not game-mechanic language).
+   If `lore_description` is present, honor the submitter's intent — expand, don't replace.
+2. **H2 "Diet & Special Traits"** — 1 paragraph. Use `food_notes`, `kind_diet`,
+   `special_ability`. If `special_ability` is present, frame it as something a naturalist
+   would record, not a stat block.
+3. **H2 "Balance Notes"** — 1 short paragraph. Use `balance_notes` and `balance_tier`.
+   Keep this terse — it's a design hint, not lore prose.
+4. **H2 "Origin (Submitter Notes)"** — the raw `lore_origin` text verbatim (if present),
+   in a blockquote. Attribute: *"Submitted by {creator_name}"*.
+5. **H2 "Status"** — `Auto-drafted from balanced submission. Awaiting editorial review.`
+6. Final italic line: *Written by the lore historian agent*
+
+**ii. Create the Notion page**
+
+```
+POST https://api.notion.com/v1/pages
+Headers: Authorization: Bearer $NOTION_API_KEY, Notion-Version: 2022-06-28, Content-Type: application/json
+Body:
+{
+  "parent": { "database_id": "4c71181b-2842-4301-b7cf-94572b3845a9" },
+  "properties": { ... },
+  "children": [ ... block array ... ]
+}
+```
+
+On success: capture `id` (Notion page UUID) and `url` from the response.
+
+**iii. Write back to Supabase**
+
+```
+PATCH $SUPABASE_URL/rest/v1/creature_submissions?id=eq.{submission_uuid}
+Headers: apikey, Authorization, Content-Type: application/json, Prefer: return=minimal
+Body: { "lore_entry_id": "<notion page id>", "lore_entry_url": "<notion page url>", "status": "lore-ready" }
+```
+
+The `status` column change to `lore-ready` is picked up by the B1 FSM trigger (#339),
+which records history automatically.
+
+### 6c — Log results
+
+After all rows are processed, print:
+- How many creatures were fetched
+- How many Notion pages were created successfully
+- How many failed (with names)
+
+## STEP 7 — REPORT
 
 Print a summary: entries expanded, entries created, which databases were touched,
-which peoples from WORLD.md were covered.
+which peoples from WORLD.md were covered. Include the creature pipeline results from STEP 6.

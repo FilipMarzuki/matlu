@@ -261,7 +261,7 @@ All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude
 | Backlog Cleanup | after Backlog Refinement | `.agents/hygiene.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
 | PR Grooming | after Dev Agent | `.agents/pr-merge.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `LINEAR_API_KEY`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files Linear bugs |
-| Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY` | Expands thin lore entries, generates new ones in Notion |
+| Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Expands thin lore entries, generates new ones in Notion; also auto-drafts lore pages for `balanced` creature submissions |
 | Lore from Features | `0 15 * * *` (daily) | `.agents/lore-features.md` | `NOTION_API_KEY` | Scans merged PRs for new game entities, creates Notion lore entries |
 | Entity Spec Fill | `0 16 * * *` (daily) | `.agents/entity-spec-fill.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` | Writes `designNotes` (sprite, animation, sound briefs) for all entities missing them in `entity-registry.json` |
 | Weekly Learning Summary | `0 7 * * 6` (Saturday) | `.agents/learning-summary.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes learning summary from the week's PRs, posts to Notion |
