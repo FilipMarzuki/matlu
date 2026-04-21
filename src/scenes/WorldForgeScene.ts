@@ -567,11 +567,7 @@ export class WorldForgeScene extends Phaser.Scene {
         const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
 
         if (hasCliff) {
-          // Replace flat strip faces + separate floor tile with a single isometric block tile.
-          // The block tile includes the top face (grass/stone/snow cap) and the visible cliff
-          // face(s) below it, giving proper 3D depth.
-          //
-          // Biome resolution mirrors the floor-tile logic above: elevation zones take priority
+          // Biome resolution mirrors the floor-tile logic: elevation zones take priority
           // over landBiome so the cliff material matches the floor material exactly.
           const cliffBiomeIdx = elevDist > 1   ? 11
                               : elevDist === 1  ? 10
@@ -581,24 +577,25 @@ export class WorldForgeScene extends Phaser.Scene {
                               : landBiome;
           const cliffKey = cliffKeyForBiome(cliffBiomeIdx);
 
-          // Stack block tiles to fill the full cliff face.
+          // Stack cliff wall tiles bottom-to-top, starting CLIFF_H/2 below the floor tile.
+          // Each tile contributes CLIFF_H/2 of visible wall face. The floor tile is drawn
+          // LAST so it renders on top, covering the wall tiles' cap diamonds at the rim.
           //
-          // Geometry (at zoom=1, CLIFF_H=24, ISO_H=12):
-          //   gap to fill  = maxDrop × CLIFF_H − ISO_H   (e.g. 1-step → 12px, 2-step → 36px)
-          //   each tile contributes CLIFF_H/2 = 12px of visible wall face
-          //   walls needed = 2×maxDrop − 1
-          //   total tiles  = 1 (cap) + (2×maxDrop − 1) = 2×maxDrop
-          //
-          // Tiles are drawn bottom-to-top (step high→0) so each upper tile (rendered later
-          // at depth=0) occludes the lower tile's exposed cap diamond, showing only the
-          // wall face strip. Cap (step=0) is drawn last and sits on top of everything.
-          const maxDrop  = Math.max(southDrop, eastDrop, westDrop);
-          const numTiles = maxDrop * 2 + 1; // +1 extra to fully close the bottom gap
-          for (let step = numTiles - 1; step >= 0; step--) {
+          // Tiles needed = maxDrop × 2  (each step needs 2 tiles to fill CLIFF_H of gap
+          // since each tile only exposes CLIFF_H/2 of wall below the tile above it).
+          const maxDrop = Math.max(southDrop, eastDrop, westDrop);
+          for (let step = maxDrop * 2; step >= 1; step--) {
             const tileImg = this.add.image(x, posY + step * (CLIFF_H / 2), cliffKey)
               .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
             this.tileImages.push(tileImg);
           }
+          // Floor tile drawn last — renders on top of wall tiles at the cliff rim.
+          const floorImg = customPack
+            ? this.add.image(x, posY, `${customPack}-${tileHash}`)
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0)
+            : this.add.image(x, posY, 'iso-tiles', frame)
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
+          this.tileImages.push(floorImg);
 
           // Waterfall strips rendered on top for river cliff tiles.
           if (southDrop > 0 && isWF) {
