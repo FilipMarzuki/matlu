@@ -580,8 +580,20 @@ export class WorldForgeScene extends Phaser.Scene {
                               : oceanDist < 0   ? 1   // rocky shore
                               : landBiome;
           const cliffKey = cliffKeyForBiome(cliffBiomeIdx);
+
+          // Scale the block tile to cover both the floor surface AND the full cliff face below.
+          // The tile has ~50% top face / ~50% wall face at its native height (ISO_TILE_NATIVE_SIZE).
+          // Without scaling, only 24px is covered but the cliff face needs up to 54px (2-step).
+          // X scale stays at ISO_SCALE (maintains grid width); Y scale stretches to fill the gap.
+          //
+          //   totalH = floor tile height + (steps × CLIFF_H + ISO_H/2)
+          //   cliffScaleY = totalH / ISO_TILE_NATIVE_SIZE
+          const maxDrop    = Math.max(southDrop, eastDrop, westDrop);
+          const cliffFaceH = maxDrop * CLIFF_H + Math.ceil(this.ISO_H / 2);
+          const cliffScaleY = (ISO_TILE_NATIVE_SIZE * this.ISO_SCALE + cliffFaceH)
+                              / ISO_TILE_NATIVE_SIZE;
           const cliffImg = this.add.image(x, posY, cliffKey)
-            .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
+            .setScale(this.ISO_SCALE, cliffScaleY).setOrigin(0.5, 0).setDepth(0);
           this.tileImages.push(cliffImg);
 
           // Waterfall strips rendered on top for river cliff tiles.
