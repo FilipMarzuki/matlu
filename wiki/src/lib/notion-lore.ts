@@ -6,7 +6,12 @@
  */
 
 import { Client } from '@notionhq/client';
-import type { PageObjectResponse, PartialPageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import type {
+  PageObjectResponse,
+  PartialPageObjectResponse,
+  PartialDatabaseObjectResponse,
+  DatabaseObjectResponse,
+} from '@notionhq/client/build/src/api-endpoints';
 
 // Database IDs from LORE.md
 const DBS = {
@@ -68,8 +73,10 @@ function extractSelect(page: PageObjectResponse, ...keys: string[]): string | nu
   return null;
 }
 
-function isFullPage(p: PageObjectResponse | PartialPageObjectResponse): p is PageObjectResponse {
-  return 'properties' in p;
+function isFullPage(
+  p: PageObjectResponse | PartialPageObjectResponse | PartialDatabaseObjectResponse | DatabaseObjectResponse
+): p is PageObjectResponse {
+  return 'properties' in p && p.object === 'page';
 }
 
 async function queryDb(client: Client, dbId: string, type: LoreType): Promise<LoreEntry[]> {

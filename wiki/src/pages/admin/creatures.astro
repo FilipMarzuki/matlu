@@ -1,12 +1,18 @@
 ---
 /**
- * Admin moderation page — FIL-434 (Creatures A4).
+ * Admin pipeline workspace — #340 (B2 pipeline redesign).
  *
- * SSR-only (prerender = false). Password-gated: correct password → session
- * cookie → list of pending creature submissions to approve or reject.
+ * Redesigns the original Inbox-only moderation page into a full tabbed
+ * pipeline workspace with per-creature editor panels. Creatures move through:
  *
- * POST handler on this same page processes the login form. Approve/reject
- * actions go through /api/creatures/approve and /api/creatures/reject.
+ *   submitted → approved → balanced → lore-ready → queued → spriting → in-game
+ *
+ * Each tab shows the creatures at that stage with count badges. Clicking a
+ * creature row expands an inline editor with stage-appropriate forms and
+ * status-transition buttons.
+ *
+ * SSR-only. Password-gated via admin_session cookie (see admin-session.ts).
+ * All mutations go through /api/creatures/* fetch calls from the client.
  */
 export const prerender = false;
 
@@ -15,35 +21,31 @@ import {
   validatePassword,
   sessionCookieValue,
   isAuthorized,
-  COOKIE_NAME,
 } from '../../lib/admin-session';
 import { imageUrl } from '../../lib/supabase-creatures';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
 const serviceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
-// ── POST: login form submission ──────────────────────────────────────────────
+// ── POST: login form ─────────────────────────────────────────────────────────
 let loginError: string | null = null;
 
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
   const submitted = data.get('password')?.toString() ?? '';
-
   if (validatePassword(submitted)) {
-    // Set session cookie and redirect to GET (PRG pattern avoids double-submit)
     Astro.response.headers.set('Set-Cookie', sessionCookieValue(submitted));
     return Astro.redirect('/admin/creatures', 303);
-  } else {
-    loginError = 'Incorrect password.';
   }
+  loginError = 'Incorrect password.';
 }
 
-// ── Auth check ───────────────────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────────────────────────
 const cookieHeader = Astro.request.headers.get('cookie');
 const authed = isAuthorized(cookieHeader);
 
-// ── Fetch pending submissions (server-side, service-role key) ─────────────────
-type Pending = {
+// ── Types ────────────────────────────────────────────────────────────────────
+type Creature = {
   id: string;
   creature_name: string;
   creator_name: string | null;
@@ -64,20 +66,32 @@ type Pending = {
   lore_description: string | null;
   lore_origin: string | null;
   art_path: string | null;
+  art_credit: string | null;
   credits_opt_in: boolean;
   license_accepted: boolean;
   parental_consent: boolean;
   completion_score: number | null;
   created_at: string;
   slug: string | null;
+  status: string;
+  balance_tier: string | null;
+  balance_notes: string | null;
+  biome_affinity: string[] | null;
+  lore_entry_id: string | null;
+  lore_entry_url: string | null;
+  graphics_difficulty: number | null;
+  graphics_notes: string | null;
+  queue_priority: number | null;
 };
 
-let pending: Pending[] = [];
+// ── Fetch all pipeline creatures (service-role, server-side) ─────────────────
+let allCreatures: Creature[] = [];
 
 if (authed && serviceKey) {
   try {
+    // Fetch everything except rejected rows in one query
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/creature_submissions?approved=eq.false&moderation_note=is.null&order=created_at.asc`,
+      `${supabaseUrl}/rest/v1/creature_submissions?status=neq.rejected&order=created_at.asc`,
       {
         headers: {
           apikey: serviceKey,
@@ -85,10 +99,23 @@ if (authed && serviceKey) {
         },
       }
     );
-    if (res.ok) pending = await res.json();
+    if (res.ok) allCreatures = await res.json();
   } catch { /* network error — show empty list */ }
 }
 
+// Group by status
+const byStatus = (s: string) => allCreatures.filter(c => c.status === s);
+const tabs = [
+  { key: 'submitted',  label: 'Inbox',          creatures: byStatus('submitted') },
+  { key: 'approved',   label: 'Needs dev work',  creatures: byStatus('approved') },
+  { key: 'balanced',   label: 'Balancing',       creatures: byStatus('balanced') },
+  { key: 'lore-ready', label: 'Lore-ready',      creatures: byStatus('lore-ready') },
+  { key: 'queued',     label: 'Queue',           creatures: byStatus('queued').sort((a, b) => (a.queue_priority ?? 999) - (b.queue_priority ?? 999)) },
+  { key: 'spriting',   label: 'Spriting',        creatures: byStatus('spriting') },
+  { key: 'in-game',    label: 'Shipped',         creatures: byStatus('in-game') },
+] as const;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(isoStr: string): string {
   const diff = Date.now() - new Date(isoStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -98,15 +125,30 @@ function timeAgo(isoStr: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 }
+
+const BIOMES = [
+  'Sea','Rocky Shore','Beach','Grassland','Savanna','Desert',
+  'Meadow','Woodland','Forest','Rainforest','Tundra','Glacier',
+];
+
+const BALANCE_TIERS = ['trivial','minor','standard','elite','boss'];
+
+const GRAPHICS_TOOLTIPS = [
+  '1 — Simple shape, solid fills, minimal shading',
+  '2 — Some detail, basic shading or texture',
+  '3 — Moderate complexity, multiple colours and features',
+  '4 — High detail, complex shading, distinct silhouette',
+  '5 — Very complex, animated elements or multi-frame sprite expected',
+];
 ---
 
-<Base title="Admin — Creatures">
-  <h1>Admin — Creature Moderation</h1>
+<Base title="Admin — Creatures Pipeline">
+  <h1>Creature Pipeline</h1>
 
   {!authed ? (
     <!-- Password gate -->
     <div class="gate">
-      <p class="gate-desc">Enter the admin password to access pending submissions.</p>
+      <p class="gate-desc">Enter the admin password to access the pipeline.</p>
       <form method="POST" class="gate-form">
         <input type="password" name="password" placeholder="Password" autofocus
                autocomplete="current-password" required />
@@ -115,154 +157,428 @@ function timeAgo(isoStr: string): string {
       </form>
     </div>
   ) : (
-    <!-- Protected view -->
-    <div>
-      {pending.length === 0 ? (
-        <p class="empty">No pending submissions. All caught up!</p>
-      ) : (
-        <p class="count">{pending.length} pending submission{pending.length !== 1 ? 's' : ''}</p>
-      )}
+    <!-- Pipeline workspace -->
+    <div id="pipeline">
 
-      <div class="submissions">
-        {pending.map(c => {
-          const img = c.art_path ? imageUrl(supabaseUrl, c.art_path) : null;
-          return (
-            <article class="submission" id={c.id}>
-              <header class="sub-header">
-                <div>
-                  <h2 class="sub-name">{c.creature_name}</h2>
-                  {c.world_name && <span class="sub-world">{c.world_name}</span>}
-                  <span class="sub-time">{timeAgo(c.created_at)}</span>
-                </div>
-                <div class="sub-score">
-                  <span class={`score-pill ${(c.completion_score ?? 0) >= 70 ? 'green' : (c.completion_score ?? 0) >= 40 ? 'amber' : 'red'}`}>
-                    {c.completion_score ?? 0}%
-                  </span>
-                </div>
-              </header>
+      <!-- Tab nav -->
+      <nav class="tab-nav" role="tablist">
+        {tabs.map((tab, i) => (
+          <button
+            class={`tab-btn${i === 0 ? ' active' : ''}`}
+            role="tab"
+            data-tab={tab.key}
+            aria-selected={i === 0 ? 'true' : 'false'}
+          >
+            {tab.label}
+            <span class={`badge${tab.creatures.length === 0 ? ' zero' : ''}`}>
+              {tab.creatures.length}
+            </span>
+          </button>
+        ))}
+      </nav>
 
-              <div class="sub-body">
-                {img && <img src={img} alt={c.creature_name} class="sub-img" />}
+      <!-- Tab panels -->
+      {tabs.map((tab, i) => (
+        <div
+          class="tab-panel"
+          role="tabpanel"
+          data-panel={tab.key}
+          hidden={i !== 0}
+        >
+          {tab.creatures.length === 0 ? (
+            <p class="empty">Nothing here yet.</p>
+          ) : (
+            <div class="creature-list">
+              {tab.creatures.map(c => {
+                const img = c.art_path ? imageUrl(supabaseUrl, c.art_path) : null;
+                return (
+                  <article class="creature-card" id={`card-${c.id}`} data-status={c.status}>
+                    <!-- Clickable header row -->
+                    <button class="card-toggle" data-id={c.id} aria-expanded="false">
+                      <div class="card-toggle-left">
+                        {img && <img src={img} alt={c.creature_name} class="thumb" />}
+                        <div>
+                          <span class="creature-name">{c.creature_name}</span>
+                          {c.world_name && <span class="world-tag">{c.world_name}</span>}
+                          <span class="time-tag">{timeAgo(c.created_at)}</span>
+                        </div>
+                      </div>
+                      <div class="card-toggle-right">
+                        <span class={`score-pill ${(c.completion_score ?? 0) >= 70 ? 'green' : (c.completion_score ?? 0) >= 40 ? 'amber' : 'red'}`}>
+                          {c.completion_score ?? 0}%
+                        </span>
+                        {c.balance_tier && <span class="tier-pill">{c.balance_tier}</span>}
+                        {c.graphics_difficulty && <span class="gfx-pill">gfx {c.graphics_difficulty}/5</span>}
+                        <span class="chevron">▾</span>
+                      </div>
+                    </button>
 
-                <div class="sub-details">
-                  <dl>
-                    {c.creator_name && <><dt>Creator</dt><dd>{c.creator_name}{c.maker_age ? ` (age ${c.maker_age})` : ''}</dd></>}
-                    {c.contact_email && <><dt>Email</dt><dd>{c.contact_email}</dd></>}
-                    {c.kind_size && <><dt>Size</dt><dd>{c.kind_size}</dd></>}
-                    {(c.kind_movement ?? []).length > 0 && <><dt>Movement</dt><dd>{(c.kind_movement ?? []).join(', ')}</dd></>}
-                    {c.kind_diet && <><dt>Diet</dt><dd>{c.kind_diet}</dd></>}
-                    {(c.habitat_biome ?? []).length > 0 && <><dt>Biome</dt><dd>{(c.habitat_biome ?? []).join(', ')}</dd></>}
-                    {c.habitat_climate && <><dt>Climate</dt><dd>{c.habitat_climate}</dd></>}
-                    {c.behaviour_threat && <><dt>Danger</dt><dd>{c.behaviour_threat}</dd></>}
-                    {c.special_ability && <><dt>Special</dt><dd>{c.special_ability}</dd></>}
-                  </dl>
+                    <!-- Expandable editor panel -->
+                    <div class="editor-panel" id={`editor-${c.id}`} hidden>
 
-                  {c.habitat_notes && <p class="note-field"><strong>Habitat:</strong> {c.habitat_notes}</p>}
-                  {c.behaviour_notes && <p class="note-field"><strong>Behaviour:</strong> {c.behaviour_notes}</p>}
-                  {c.food_notes && <p class="note-field"><strong>Food:</strong> {c.food_notes}</p>}
+                      <!-- ── Summary (read-only) ──────────────────────────── -->
+                      <section class="editor-section">
+                        <h3>Submission summary</h3>
+                        <div class="summary-body">
+                          {img && <img src={img} alt={c.creature_name} class="summary-img" />}
+                          <div>
+                            <dl>
+                              {c.creator_name && <><dt>Creator</dt><dd>{c.creator_name}{c.maker_age ? ` (age ${c.maker_age})` : ''}</dd></>}
+                              {c.contact_email && <><dt>Email</dt><dd>{c.contact_email}</dd></>}
+                              {c.kind_size && <><dt>Size</dt><dd>{c.kind_size}</dd></>}
+                              {(c.kind_movement ?? []).length > 0 && <><dt>Movement</dt><dd>{(c.kind_movement ?? []).join(', ')}</dd></>}
+                              {c.kind_diet && <><dt>Diet</dt><dd>{c.kind_diet}</dd></>}
+                              {(c.habitat_biome ?? []).length > 0 && <><dt>Biome</dt><dd>{(c.habitat_biome ?? []).join(', ')}</dd></>}
+                              {c.habitat_climate && <><dt>Climate</dt><dd>{c.habitat_climate}</dd></>}
+                              {c.behaviour_threat && <><dt>Danger</dt><dd>{c.behaviour_threat}</dd></>}
+                              {c.special_ability && <><dt>Special</dt><dd>{c.special_ability}</dd></>}
+                            </dl>
+                            {c.habitat_notes && <p class="note-field"><strong>Habitat:</strong> {c.habitat_notes}</p>}
+                            {c.behaviour_notes && <p class="note-field"><strong>Behaviour:</strong> {c.behaviour_notes}</p>}
+                            {c.food_notes && <p class="note-field"><strong>Food:</strong> {c.food_notes}</p>}
+                            {c.lore_description && (
+                              <div class="lore-block">
+                                <strong>Story</strong>
+                                <p>{c.lore_description}</p>
+                              </div>
+                            )}
+                            {c.lore_origin && (
+                              <div class="lore-block">
+                                <strong>Origin</strong>
+                                <p>{c.lore_origin}</p>
+                              </div>
+                            )}
+                            <div class="consent-flags">
+                              <span class={c.license_accepted ? 'flag-ok' : 'flag-bad'}>{c.license_accepted ? '✓' : '✗'} License</span>
+                              <span class={c.parental_consent ? 'flag-ok' : 'flag-bad'}>{c.parental_consent ? '✓' : '✗'} Parental consent</span>
+                              <span class={c.credits_opt_in ? 'flag-ok' : 'flag-dim'}>{c.credits_opt_in ? '✓' : '–'} Credits opt-in</span>
+                            </div>
+                          </div>
+                        </div>
+                      </section>
 
-                  {c.lore_description && (
-                    <div class="lore-block">
-                      <strong>Story</strong>
-                      <p>{c.lore_description}</p>
+                      <!-- ── Balance form ────────────────────────────────── -->
+                      <section class="editor-section">
+                        <h3>Balancing</h3>
+                        <form class="balance-form" data-id={c.id}>
+                          <div class="field-row">
+                            <label>
+                              Balance tier
+                              <select name="balance_tier">
+                                <option value="">— pick one —</option>
+                                {BALANCE_TIERS.map(t => (
+                                  <option value={t} selected={c.balance_tier === t}>{t}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                          <div class="field-row">
+                            <label>
+                              Balance notes
+                              <textarea name="balance_notes" rows={3} placeholder="Spawn rate, health, damage notes…">{c.balance_notes ?? ''}</textarea>
+                            </label>
+                          </div>
+                          <div class="field-row">
+                            <label>Biome affinity</label>
+                            <div class="checkbox-grid">
+                              {BIOMES.map(b => (
+                                <label class="check-label">
+                                  <input type="checkbox" name="biome_affinity" value={b}
+                                         checked={(c.biome_affinity ?? []).includes(b)} />
+                                  {b}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <div class="form-actions">
+                            <button type="submit" class="btn-secondary">Save balance data</button>
+                            <button type="button" class="btn-transition btn-approve"
+                                    data-id={c.id} data-to="balanced">
+                              Mark balanced →
+                            </button>
+                          </div>
+                          <p class="form-msg" id={`balance-msg-${c.id}`}></p>
+                        </form>
+                      </section>
+
+                      <!-- ── Lore ────────────────────────────────────────── -->
+                      <section class="editor-section">
+                        <h3>Lore</h3>
+                        {c.lore_entry_url ? (
+                          <p class="lore-link">
+                            Notion page: <a href={c.lore_entry_url} target="_blank" rel="noopener">{c.lore_entry_url}</a>
+                          </p>
+                        ) : (
+                          <div>
+                            <p class="dim-text">No Notion lore page yet. Creates a page in the Characters database and transitions to Lore-ready.</p>
+                            <button class="btn-lore btn-secondary" data-id={c.id}>
+                              Create Notion lore page
+                            </button>
+                            <p class="form-msg" id={`lore-msg-${c.id}`}></p>
+                          </div>
+                        )}
+                      </section>
+
+                      <!-- ── Graphics rating ─────────────────────────────── -->
+                      <section class="editor-section">
+                        <h3>Graphics rating</h3>
+                        <form class="rating-form" data-id={c.id}>
+                          <div class="gfx-rating-row">
+                            {([1,2,3,4,5] as const).map(n => (
+                              <button
+                                type="button"
+                                class={`gfx-btn${c.graphics_difficulty === n ? ' selected' : ''}`}
+                                data-rating={n}
+                                title={GRAPHICS_TOOLTIPS[n - 1]}
+                              >{n}</button>
+                            ))}
+                            <input type="hidden" name="graphics_difficulty" value={c.graphics_difficulty?.toString() ?? ''} />
+                          </div>
+                          <div class="field-row">
+                            <label>
+                              Graphics notes
+                              <textarea name="graphics_notes" rows={2} placeholder="Style, colour palette, reference links…">{c.graphics_notes ?? ''}</textarea>
+                            </label>
+                          </div>
+                          <div class="form-actions">
+                            <button type="submit" class="btn-secondary">Save rating &amp; move to Queue →</button>
+                          </div>
+                          <p class="form-msg" id={`rating-msg-${c.id}`}></p>
+                        </form>
+                      </section>
+
+                      <!-- ── Status transitions ──────────────────────────── -->
+                      <section class="editor-section editor-section--actions">
+                        <h3>Status transitions</h3>
+                        <div class="transition-row">
+                          <!-- Inbox actions -->
+                          {c.status === 'submitted' && (
+                            <>
+                              <button class="btn-transition btn-approve" data-id={c.id} data-to="approved">
+                                Approve →
+                              </button>
+                              <form class="reject-inline" data-id={c.id}>
+                                <textarea name="note" placeholder="Rejection reason (optional)" rows={2}></textarea>
+                                <button type="submit" class="btn-reject">Reject</button>
+                              </form>
+                            </>
+                          )}
+                          {c.status === 'queued' && (
+                            <button class="btn-transition btn-approve" data-id={c.id} data-to="spriting">
+                              Start spriting →
+                            </button>
+                          )}
+                          {c.status === 'spriting' && (
+                            <button class="btn-transition btn-approve" data-id={c.id} data-to="in-game">
+                              Mark shipped →
+                            </button>
+                          )}
+                        </div>
+                        <p class="form-msg" id={`trans-msg-${c.id}`}></p>
+                      </section>
+
                     </div>
-                  )}
-                  {c.lore_origin && (
-                    <div class="lore-block">
-                      <strong>Origin</strong>
-                      <p>{c.lore_origin}</p>
-                    </div>
-                  )}
-
-                  <div class="consent-flags">
-                    <span class={c.license_accepted ? 'flag-ok' : 'flag-bad'}>
-                      {c.license_accepted ? '✓' : '✗'} License
-                    </span>
-                    <span class={c.parental_consent ? 'flag-ok' : 'flag-bad'}>
-                      {c.parental_consent ? '✓' : '✗'} Parental consent
-                    </span>
-                    <span class={c.credits_opt_in ? 'flag-ok' : 'flag-dim'}>
-                      {c.credits_opt_in ? '✓' : '–'} Credits opt-in
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Approve / Reject actions -->
-              <div class="actions">
-                <form class="approve-form" data-creature-id={c.id}>
-                  <button type="submit" class="btn-approve">Approve</button>
-                </form>
-                <form class="reject-form" data-creature-id={c.id}>
-                  <textarea name="note" placeholder="Rejection reason (shown internally, not to submitter)" rows={2}></textarea>
-                  <button type="submit" class="btn-reject">Reject</button>
-                </form>
-              </div>
-              <div class="action-status" id={`status-${c.id}`}></div>
-            </article>
-          );
-        })}
-      </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )}
 </Base>
 
 <script>
-  // Approve / reject forms — POST to API routes via fetch, then hide card on success
-  document.querySelectorAll<HTMLFormElement>('.approve-form').forEach(form => {
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll<HTMLElement>('.tab-panel').forEach(p => { p.hidden = true; });
+
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      const panel = document.querySelector<HTMLElement>(`.tab-panel[data-panel="${btn.dataset.tab}"]`);
+      if (panel) panel.hidden = false;
+    });
+  });
+
+  // ── Expand / collapse editor panels ────────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.card-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id!;
+      const panel = document.getElementById(`editor-${id}`);
+      if (!panel) return;
+      const open = !panel.hidden;
+      panel.hidden = open;
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      btn.querySelector('.chevron')!.textContent = open ? '▾' : '▴';
+    });
+  });
+
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+  function setMsg(el: HTMLElement | null, text: string, ok: boolean) {
+    if (!el) return;
+    el.textContent = text;
+    el.className = `form-msg ${ok ? 'msg-ok' : 'msg-err'}`;
+  }
+
+  async function apiPost(path: string, body: Record<string, unknown>): Promise<{ ok: boolean; data: Record<string, unknown> }> {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+    return { ok: res.ok, data };
+  }
+
+  function removeCard(id: string) {
+    const card = document.getElementById(`card-${id}`);
+    card?.remove();
+    // Update badge count on the now-current tab
+    const activeTab = document.querySelector<HTMLButtonElement>('.tab-btn.active');
+    if (!activeTab) return;
+    const panelKey = activeTab.dataset.tab;
+    const panel = document.querySelector<HTMLElement>(`.tab-panel[data-panel="${panelKey}"]`);
+    const remaining = panel?.querySelectorAll('.creature-card').length ?? 0;
+    const badge = activeTab.querySelector('.badge');
+    if (badge) {
+      badge.textContent = String(remaining);
+      badge.classList.toggle('zero', remaining === 0);
+    }
+    if (remaining === 0 && panel) {
+      panel.innerHTML = '<p class="empty">Nothing here yet.</p>';
+    }
+  }
+
+  // ── Balance form ────────────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLFormElement>('.balance-form').forEach(form => {
     form.addEventListener('submit', async e => {
       e.preventDefault();
-      const id = form.dataset.creatureId!;
-      const statusEl = document.getElementById(`status-${id}`)!;
-      const btn = form.querySelector('button')!;
+      const id = form.dataset.id!;
+      const msg = document.getElementById(`balance-msg-${id}`);
+      const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
       btn.disabled = true;
-      statusEl.textContent = 'Approving…';
-      statusEl.className = '';
 
-      const res = await fetch('/api/creatures/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+      const fd = new FormData(form);
+      const biome_affinity = fd.getAll('biome_affinity').map(String);
+      const { ok, data } = await apiPost('/api/creatures/balance', {
+        id,
+        balance_tier: fd.get('balance_tier')?.toString() ?? '',
+        balance_notes: fd.get('balance_notes')?.toString() ?? '',
+        biome_affinity,
       });
+      setMsg(msg, ok ? 'Saved.' : `Error: ${data.error ?? 'unknown'}`, ok);
+      btn.disabled = false;
+    });
+  });
 
-      if (res.ok) {
-        statusEl.textContent = 'Approved! Creature is now public.';
-        statusEl.className = 'status-ok';
-        document.getElementById(id)?.remove();
+  // ── Status transition buttons (generic) ────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.btn-transition').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id!;
+      const to = btn.dataset.to!;
+      const msg = document.getElementById(`trans-msg-${id}`);
+      btn.disabled = true;
+
+      const { ok, data } = await apiPost('/api/creatures/status', { id, status: to });
+      if (ok) {
+        setMsg(msg, `Moved to ${to}.`, true);
+        setTimeout(() => removeCard(id), 800);
       } else {
-        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }));
-        statusEl.textContent = `Error: ${error}`;
-        statusEl.className = 'status-err';
+        setMsg(msg, `Error: ${data.error ?? 'unknown'}`, false);
         btn.disabled = false;
       }
     });
   });
 
-  document.querySelectorAll<HTMLFormElement>('.reject-form').forEach(form => {
+  // ── Reject inline form ──────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLFormElement>('.reject-inline').forEach(form => {
     form.addEventListener('submit', async e => {
       e.preventDefault();
-      const id = form.dataset.creatureId!;
+      const id = form.dataset.id!;
       const note = (form.querySelector<HTMLTextAreaElement>('[name=note]')?.value ?? '').trim();
-      const statusEl = document.getElementById(`status-${id}`)!;
-      const btn = form.querySelector('button')!;
+      const msg = document.getElementById(`trans-msg-${id}`);
+      const btn = form.querySelector<HTMLButtonElement>('button')!;
       btn.disabled = true;
-      statusEl.textContent = 'Rejecting…';
-      statusEl.className = '';
 
-      const res = await fetch('/api/creatures/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, note }),
-      });
-
-      if (res.ok) {
-        statusEl.textContent = 'Rejected and hidden.';
-        statusEl.className = 'status-ok';
-        document.getElementById(id)?.remove();
+      const { ok, data } = await apiPost('/api/creatures/reject', { id, note });
+      if (ok) {
+        setMsg(msg, 'Rejected.', true);
+        setTimeout(() => removeCard(id), 800);
       } else {
-        const { error } = await res.json().catch(() => ({ error: 'Unknown error' }));
-        statusEl.textContent = `Error: ${error}`;
-        statusEl.className = 'status-err';
+        setMsg(msg, `Error: ${data.error ?? 'unknown'}`, false);
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // ── Lore entry creation ─────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.btn-lore').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id!;
+      const msg = document.getElementById(`lore-msg-${id}`);
+      btn.disabled = true;
+      btn.textContent = 'Creating…';
+
+      const { ok, data } = await apiPost('/api/creatures/create-lore-entry', { id });
+      if (ok) {
+        const url = data.lore_entry_url as string | undefined;
+        if (url) {
+          const section = btn.closest('section')!;
+          section.innerHTML = `<h3>Lore</h3><p class="lore-link">Notion page: <a href="${url}" target="_blank" rel="noopener">${url}</a></p>`;
+        } else {
+          setMsg(msg, 'Notion page created! Refresh to see the link.', true);
+        }
+        // Move card to lore-ready tab after brief delay
+        setTimeout(() => removeCard(id), 1200);
+      } else {
+        setMsg(msg, `Error: ${data.error ?? 'unknown'}`, false);
+        btn.disabled = false;
+        btn.textContent = 'Create Notion lore page';
+      }
+    });
+  });
+
+  // ── Graphics rating picker ──────────────────────────────────────────────────
+  document.querySelectorAll<HTMLFormElement>('.rating-form').forEach(form => {
+    const hidden = form.querySelector<HTMLInputElement>('[name=graphics_difficulty]')!;
+
+    form.querySelectorAll<HTMLButtonElement>('.gfx-btn').forEach(gfxBtn => {
+      gfxBtn.addEventListener('click', () => {
+        form.querySelectorAll('.gfx-btn').forEach(b => b.classList.remove('selected'));
+        gfxBtn.classList.add('selected');
+        hidden.value = gfxBtn.dataset.rating!;
+      });
+    });
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = form.dataset.id!;
+      const msg = document.getElementById(`rating-msg-${id}`);
+      const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+      const rating = hidden.value;
+
+      if (!rating) {
+        setMsg(msg, 'Pick a rating first.', false);
+        return;
+      }
+      btn.disabled = true;
+
+      const { ok, data } = await apiPost('/api/creatures/rating', {
+        id,
+        graphics_difficulty: Number(rating),
+        graphics_notes: form.querySelector<HTMLTextAreaElement>('[name=graphics_notes]')?.value ?? '',
+      });
+      if (ok) {
+        setMsg(msg, 'Rating saved — moved to Queue.', true);
+        setTimeout(() => removeCard(id), 800);
+      } else {
+        setMsg(msg, `Error: ${data.error ?? 'unknown'}`, false);
         btn.disabled = false;
       }
     });
@@ -272,18 +588,10 @@ function timeAgo(isoStr: string): string {
 <style>
   h1 { font-size: 1.8rem; margin-bottom: 1.5rem; }
 
-  /* ── Gate ─────────────────────────────────────────────────────── */
-  .gate {
-    max-width: 360px;
-    margin: 4rem auto;
-    text-align: center;
-  }
+  /* ── Gate ─────────────────────────────────────────────────────────────────── */
+  .gate { max-width: 360px; margin: 4rem auto; text-align: center; }
   .gate-desc { color: var(--text-dim); margin-bottom: 1.5rem; }
-  .gate-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
+  .gate-form { display: flex; flex-direction: column; gap: 0.75rem; }
   .gate-form input[type="password"] {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -309,127 +617,260 @@ function timeAgo(isoStr: string): string {
   .gate-form button:hover { background: var(--accent-hi); }
   .error { color: var(--red, #f87171); font-size: 0.88rem; margin: 0; }
 
-  /* ── Count / empty ────────────────────────────────────────────── */
-  .count, .empty { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  /* ── Tab nav ──────────────────────────────────────────────────────────────── */
+  .tab-nav {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: -2px;
+    padding: 0.5rem 0.9rem;
+    transition: color 0.15s, border-color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    border-bottom-color: var(--accent);
+    color: var(--accent-hi);
+  }
 
-  /* ── Submission card ──────────────────────────────────────────── */
-  .submissions { display: flex; flex-direction: column; gap: 1.5rem; }
+  .badge {
+    background: rgba(168,85,247,0.18);
+    border-radius: 10px;
+    color: var(--accent-hi);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    min-width: 1.4em;
+    padding: 0.1em 0.45em;
+    text-align: center;
+  }
+  .badge.zero { background: var(--surface); color: var(--text-dim); }
 
-  .submission {
+  /* ── Tab panels ───────────────────────────────────────────────────────────── */
+  .empty { color: var(--text-dim); font-size: 0.9rem; padding: 1rem 0; }
+  .creature-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  /* ── Creature card ────────────────────────────────────────────────────────── */
+  .creature-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
   }
 
-  .sub-header {
+  .card-toggle {
+    background: transparent;
+    border: none;
+    cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.85rem 1.1rem;
-    border-bottom: 1px solid var(--border);
     gap: 1rem;
-    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+    width: 100%;
+    text-align: left;
+    transition: background 0.12s;
   }
-  .sub-name { font-family: 'Syne', sans-serif; font-size: 1.1rem; color: var(--accent-hi); margin: 0 0 0.25rem 0; }
-  .sub-world {
-    font-size: 0.78rem;
+  .card-toggle:hover { background: rgba(255,255,255,0.03); }
+  .card-toggle-left { display: flex; align-items: center; gap: 0.75rem; }
+  .card-toggle-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+
+  .thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .creature-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    color: var(--accent-hi);
+    display: block;
+  }
+  .world-tag {
+    font-size: 0.75rem;
     color: var(--green, #4ade80);
     font-family: var(--mono, monospace);
-    margin-right: 0.75rem;
+    margin-right: 0.5rem;
   }
-  .sub-time { font-size: 0.78rem; color: var(--text-dim); }
-  .score-pill {
+  .time-tag { font-size: 0.75rem; color: var(--text-dim); }
+
+  .score-pill, .tier-pill, .gfx-pill {
     font-family: var(--mono, monospace);
-    font-size: 0.82rem;
-    padding: 0.2rem 0.6rem;
+    font-size: 0.78rem;
+    padding: 0.15rem 0.5rem;
     border-radius: 4px;
     font-weight: 700;
   }
   .score-pill.green { background: rgba(74,222,128,0.12); color: var(--green, #4ade80); }
   .score-pill.amber { background: rgba(251,191,36,0.12); color: var(--amber, #fbbf24); }
   .score-pill.red   { background: rgba(248,113,113,0.12); color: var(--red, #f87171); }
+  .tier-pill { background: rgba(168,85,247,0.12); color: var(--accent-hi); }
+  .gfx-pill  { background: rgba(251,191,36,0.10); color: var(--amber, #fbbf24); }
+  .chevron { color: var(--text-dim); font-size: 0.85rem; }
 
-  .sub-body {
+  /* ── Editor panel ─────────────────────────────────────────────────────────── */
+  .editor-panel {
+    border-top: 1px solid var(--border);
+    padding: 1.25rem 1.1rem;
     display: flex;
-    gap: 1.25rem;
-    padding: 1.1rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 1.5rem;
   }
-  .sub-img {
-    width: 180px;
-    height: 180px;
-    object-fit: cover;
-    border-radius: 8px;
-    flex-shrink: 0;
+  .editor-section {
     border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
   }
-  .sub-details { flex: 1; min-width: 200px; }
+  .editor-section h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin: 0 0 0.75rem 0;
+  }
+  .editor-section--actions { background: rgba(0,0,0,0.2); }
 
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; font-size: 0.85rem; margin-bottom: 0.75rem; }
+  /* Summary */
+  .summary-body { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .summary-img { width: 140px; height: 140px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; }
+
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; font-size: 0.83rem; margin: 0 0 0.5rem 0; }
   dt { color: var(--text-dim); }
   dd { color: var(--text); margin: 0; }
 
-  .note-field { font-size: 0.85rem; color: var(--text-dim); margin: 0.4rem 0; }
+  .note-field { font-size: 0.83rem; color: var(--text-dim); margin: 0.3rem 0; }
   .note-field strong { color: var(--text); }
 
-  .lore-block { margin-top: 0.75rem; }
-  .lore-block strong { font-size: 0.82rem; color: var(--text-dim); display: block; margin-bottom: 0.25rem; }
-  .lore-block p { font-size: 0.9rem; color: var(--text); margin: 0; line-height: 1.6; white-space: pre-wrap; }
+  .lore-block { margin-top: 0.6rem; }
+  .lore-block strong { font-size: 0.78rem; color: var(--text-dim); display: block; margin-bottom: 0.2rem; }
+  .lore-block p { font-size: 0.87rem; color: var(--text); margin: 0; line-height: 1.6; white-space: pre-wrap; }
 
-  .consent-flags { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.8rem; }
+  .consent-flags { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.6rem; font-size: 0.78rem; }
   .flag-ok  { color: var(--green, #4ade80); }
   .flag-bad { color: var(--red, #f87171); }
   .flag-dim { color: var(--text-dim); }
 
-  /* ── Actions ──────────────────────────────────────────────────── */
-  .actions {
-    display: flex;
-    gap: 1rem;
-    padding: 0.85rem 1.1rem;
-    border-top: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-  .approve-form, .reject-form { display: flex; gap: 0.5rem; align-items: flex-end; }
-  .reject-form { flex: 1; }
-  .reject-form textarea {
-    flex: 1;
+  /* Forms */
+  .field-row { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+  .field-row label, label { font-size: 0.85rem; color: var(--text-dim); display: flex; flex-direction: column; gap: 0.3rem; }
+
+  select, textarea {
     background: var(--bg, #0f0f13);
     border: 1px solid var(--border);
     border-radius: 5px;
     color: var(--text);
     font-family: 'Outfit', sans-serif;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     padding: 0.4rem 0.6rem;
-    resize: none;
   }
-  .btn-approve, .btn-reject {
+  select { cursor: pointer; }
+  textarea { resize: vertical; }
+  select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+
+  .checkbox-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin-top: 0.25rem;
+  }
+  .check-label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.83rem;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .check-label input { cursor: pointer; }
+
+  .form-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.5rem; }
+
+  /* Buttons */
+  .btn-secondary, .btn-approve, .btn-reject {
     border: none;
     border-radius: 6px;
     cursor: pointer;
     font-family: 'Syne', sans-serif;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    padding: 0.45rem 1.1rem;
-    transition: background 0.15s;
+    padding: 0.4rem 0.9rem;
+    transition: filter 0.12s;
     white-space: nowrap;
   }
-  .btn-approve { background: var(--green, #4ade80); color: #000; }
+  .btn-secondary {
+    background: rgba(168,85,247,0.15);
+    color: var(--accent-hi);
+    border: 1px solid rgba(168,85,247,0.3);
+  }
+  .btn-secondary:hover { filter: brightness(1.15); }
+  .btn-approve {
+    background: var(--green, #4ade80);
+    color: #000;
+  }
   .btn-approve:hover { filter: brightness(1.1); }
-  .btn-reject { background: rgba(248,113,113,0.18); color: var(--red, #f87171); border: 1px solid rgba(248,113,113,0.35); }
+  .btn-reject {
+    background: rgba(248,113,113,0.18);
+    color: var(--red, #f87171);
+    border: 1px solid rgba(248,113,113,0.35);
+  }
   .btn-reject:hover { background: rgba(248,113,113,0.28); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .action-status {
-    padding: 0.4rem 1.1rem;
-    font-size: 0.85rem;
-    min-height: 1.5em;
+  .reject-inline { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+  .reject-inline textarea { width: 100%; }
+
+  .transition-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+
+  /* Graphics rating */
+  .gfx-rating-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .gfx-btn {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    height: 2.5rem;
+    transition: border-color 0.12s, color 0.12s;
+    width: 2.5rem;
   }
-  .status-ok  { color: var(--green, #4ade80); }
-  .status-err { color: var(--red, #f87171); }
+  .gfx-btn:hover { border-color: var(--accent); color: var(--text); }
+  .gfx-btn.selected { border-color: var(--amber, #fbbf24); color: var(--amber, #fbbf24); background: rgba(251,191,36,0.1); }
+
+  /* Lore */
+  .lore-link { font-size: 0.85rem; color: var(--text-dim); }
+  .lore-link a { color: var(--accent-hi); word-break: break-all; }
+  .dim-text { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.6rem; }
+
+  /* Feedback messages */
+  .form-msg { font-size: 0.83rem; margin: 0.35rem 0 0; min-height: 1.2em; }
+  .msg-ok  { color: var(--green, #4ade80); }
+  .msg-err { color: var(--red, #f87171); }
 
   @media (max-width: 600px) {
-    .sub-img { width: 100%; height: auto; max-height: 240px; }
+    .summary-img { width: 100%; height: auto; max-height: 220px; }
     dl { grid-template-columns: 1fr; }
+    .tab-btn { font-size: 0.78rem; padding: 0.4rem 0.6rem; }
   }
 </style>
