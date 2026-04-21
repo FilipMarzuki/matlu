@@ -139,7 +139,7 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 | Outcome | `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` |
 | State | `in-progress` |
 | Size | `size:xs`, `size:s`, `size:m`, `size:l`, `size:xl` (XS=1, S=2, M=3, L=5, XL=8 story points) |
-| Category | `systems`, `art`, `lore`, `infrastructure`, `world`, `hero`, `tech`, `ui-hud`, `ui-menus`, `audio`, `weapons`, `enemies`, `waves`, `upgrades`, `parts`, `mobile` |
+| Category | `systems` (generic), `systems:combat` (physics, AI, damage, projectiles), `systems:render` (iso, depth sort, camera, tiles), `art`, `lore`, `infrastructure`, `world`, `hero`, `tech`, `ui-hud`, `ui-menus`, `audio`, `weapons`, `enemies`, `waves`, `upgrades`, `parts`, `mobile` |
 
 **Every issue must carry exactly one `size:*` label.** When creating an issue (manual or via agent), always pick a T-shirt size based on codebase analysis. Missing size = triage agent will add one on the next pass.
 

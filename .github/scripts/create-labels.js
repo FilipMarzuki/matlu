@@ -41,7 +41,9 @@ const LABELS = [
   { name: 'size:xl', color: 'b60205', description: 'Extra-large — consider splitting (8 points)' },
 
   // Category — used to classify issues by game area
-  { name: 'systems',        color: 'f9d0c4', description: '' },
+  { name: 'systems',         color: 'f9d0c4', description: 'Cross-cutting engine work that does not fit combat or render' },
+  { name: 'systems:combat',  color: 'f9d0c4', description: 'Combat simulation — physics, AI, damage, projectiles, knockback' },
+  { name: 'systems:render',  color: 'f9d0c4', description: 'Rendering — iso projection, depth sort, camera, tiles, sprites' },
   { name: 'art',            color: 'f9d0c4', description: '' },
   { name: 'lore',           color: 'f9d0c4', description: '' },
   { name: 'infrastructure', color: 'f9d0c4', description: '' },
