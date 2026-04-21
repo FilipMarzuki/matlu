@@ -36,9 +36,9 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Piano menu theme (Free Orchestral Music Pack, CC0)
+    // Menu theme — Cozy Tunes Pro (licensed), gentle instrumental loop
     this.load.audio('music-menu', [
-      'assets/audio/Free Orchestral Music Pack/Lost Kingdom (Piano Menu).wav',
+      'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Wanderers Tale.ogg',
     ]);
     // Button click SFX (Kenney Impact Sounds, CC0)
     this.load.audio('sfx-click', [

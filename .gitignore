@@ -23,7 +23,7 @@ public/assets/audio/kenney_impact-sounds (1)/
 test-results/
 
 # Generated screenshots (run `npm run screenshot` to regenerate)
-screenshots/
+/screenshots/
 
 # Raw frames downloaded from PixelLab — assembled into spritesheets, not committed
 public/assets/sprites/_raw/
