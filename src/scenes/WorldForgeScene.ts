@@ -581,13 +581,20 @@ export class WorldForgeScene extends Phaser.Scene {
                               : landBiome;
           const cliffKey = cliffKeyForBiome(cliffBiomeIdx);
 
-          // Stack block tiles to fill the cliff face — one cap + one wall tile per step.
-          // Tiles are spaced CLIFF_H/2 apart so each tile's wall face overlaps the next
-          // tile's top face, hiding the intermediate cap diamonds. Draw bottom-up so each
-          // upper tile (drawn later, same depth=0) renders on top of the lower tile's
-          // visible top face — leaving only the wall face strip showing per step.
-          const maxDrop = Math.max(southDrop, eastDrop, westDrop);
-          for (let step = maxDrop; step >= 0; step--) {
+          // Stack block tiles to fill the full cliff face.
+          //
+          // Geometry (at zoom=1, CLIFF_H=24, ISO_H=12):
+          //   gap to fill  = maxDrop × CLIFF_H − ISO_H   (e.g. 1-step → 12px, 2-step → 36px)
+          //   each tile contributes CLIFF_H/2 = 12px of visible wall face
+          //   walls needed = 2×maxDrop − 1
+          //   total tiles  = 1 (cap) + (2×maxDrop − 1) = 2×maxDrop
+          //
+          // Tiles are drawn bottom-to-top (step high→0) so each upper tile (rendered later
+          // at depth=0) occludes the lower tile's exposed cap diamond, showing only the
+          // wall face strip. Cap (step=0) is drawn last and sits on top of everything.
+          const maxDrop  = Math.max(southDrop, eastDrop, westDrop);
+          const numTiles = maxDrop * 2;
+          for (let step = numTiles - 1; step >= 0; step--) {
             const tileImg = this.add.image(x, posY + step * (CLIFF_H / 2), cliffKey)
               .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
             this.tileImages.push(tileImg);
