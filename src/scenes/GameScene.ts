@@ -83,6 +83,22 @@ const DETAIL_SCALE = 0.22;
 const TEMP_SCALE  = 0.04; // temperature varies in broad N/S-ish bands
 const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
 
+// FIL-466: biome tile packs — individual images loaded as `${packName}-0` … `${packName}-3`.
+// Biome 0 (Sea) is absent; it falls back to the generic iso-tiles spritesheet.
+const CUSTOM_TILE_PACKS: Record<number, string> = {
+  1:  'rocky-shore',
+  2:  'sandy-shore',
+  3:  'marsh',
+  4:  'dry-heath',
+  5:  'coastal-heath',
+  6:  'meadow',
+  7:  'forest',
+  8:  'spruce',
+  9:  'cold-granite',
+  10: 'bare-summit',
+  11: 'snow-field',
+};
+
 // ─── Fog of war constants (FIL-217) ──────────────────────────────────────────
 // Three tile visibility states stored in the fogGrid Uint8Array.
 const FOG_UNSEEN  = 0; // never visited — fully black overlay
@@ -916,6 +932,16 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('iso-tiles',
       'assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
+
+    // FIL-466: biome tile packs — 4 individual images per biome (0.png … 3.png).
+    // Each image is loaded as a single-image texture keyed `${packName}-${i}` so
+    // drawProceduralTerrain() can call setTexture(`${packName}-${tileHash}`) directly
+    // without a frame argument.
+    for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
+      for (let i = 0; i < 4; i++) {
+        this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
+      }
+    }
 
     // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
     // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
@@ -5675,9 +5701,28 @@ export class GameScene extends Phaser.Scene {
         // Painter order: ty=0 (back) drawn first, ty=tilesY-1 (front) drawn last —
         // each row's front face is covered by the diamond of the next row forward.
         const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
-        const frame = (isRiverHere || isLakeHere) ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, detail);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
-        tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+        if (isRiverHere || isLakeHere) {
+          // FIL-466: water tiles always use the shared iso-tiles river frame.
+          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
+        } else if (biomeIdx in CUSTOM_TILE_PACKS) {
+          // FIL-466: dual-grid hash selects one of 4 same-material variants to
+          // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
+          // coarse2) are blended by a fine per-tile selector (fine). Hash formula
+          // matches BiomeInspectorScene exactly so both scenes look identical.
+          const packName = CUSTOM_TILE_PACKS[biomeIdx];
+          const px = Math.floor(tx / 6), py = Math.floor(ty / 6);
+          const qx = Math.floor((tx + 3) / 6), qy = Math.floor((ty + 2) / 6);
+          const coarse  = ((px * 3571 ^ py * 2297 ^ px * py * 53) >>> 0) % 3;
+          const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
+          const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
+          const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
+          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+        } else {
+          // FIL-466: biome 0 (Sea) — no pack; fall back to iso-tiles spritesheet.
+          const frame = isoTileFrame(biomeIdx, detail);
+          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+        }
         terrainRt.draw(tileImg);
 
       }
