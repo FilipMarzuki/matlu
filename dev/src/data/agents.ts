@@ -82,6 +82,13 @@ export const agents: AgentDef[] = [
     description: 'Writes a learning summary from the week\'s PRs, posts to Notion.',
   },
   {
+    name: 'Weekly Agent Dispatch',
+    schedule: 'Saturday 09:00 UTC',
+    cron: '0 9 * * 6',
+    promptFile: '.agents/weekly-dispatch.md',
+    description: 'Researches agentic dev topics and writes a weekly briefing to the Notion Weekly Dispatch database.',
+  },
+  {
     name: 'Weekly Architecture Review',
     schedule: 'Friday 17:00 UTC',
     cron: '0 17 * * 5',
