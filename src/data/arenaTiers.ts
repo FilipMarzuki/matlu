@@ -61,6 +61,7 @@ export type HeroKey =
   | 'loke'
   | 'maja-lind'
   | 'torsten-kraft'
+  | 'combat-engineer'
   | 'ironwing'
   | 'rampart'
   | 'kronos';
@@ -175,6 +176,25 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
       { label: 'Mixed Threat',      enemies: [Blightfrog, Spineling, Spineling] },
       { label: 'Tracker Hunt',      enemies: [TrackerUnit, TrackerUnit] },
       { label: 'Spineling Horde',   enemies: [Spineling, Spineling, Spineling, Spineling] },
+    ],
+  },
+
+  // ── Tier 3b — Combat Engineer (Loke T3) ───────────────────────────────────
+  // NOT READY — awaiting Combat Engineer sprite + deployable system (Children B/C/D).
+  // Same enemy mix as Tier 3 TorstenKraft — the hero loadout is what changes.
+  {
+    tier:    3,
+    label:   'Loke — Combat Engineer (T3)',
+    heroKey: 'combat-engineer',
+    ready:   false,
+    waveGroups: [
+      { label: 'Blightfrog Pair',  enemies: [Blightfrog, Blightfrog] },
+      { label: 'Spineling Sprint', enemies: [Spineling, Spineling, Spineling] },
+      { label: 'Drone Escort',     enemies: [GlitchDrone, GlitchDrone, GlitchDrone] },
+      { label: 'Crawler Screen',   enemies: [StaticCrawler, StaticCrawler, Blightfrog] },
+      { label: 'Mixed Threat',     enemies: [Blightfrog, Spineling, Spineling] },
+      { label: 'Tracker Hunt',     enemies: [TrackerUnit, TrackerUnit] },
+      { label: 'Spineling Horde',  enemies: [Spineling, Spineling, Spineling, Spineling] },
     ],
   },
 

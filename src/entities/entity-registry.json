@@ -1643,6 +1643,61 @@
           "death": "Soft thud of a small body falling, followed by a quiet sorrowful exhale. ~600 ms total."
         }
       }
+    },
+    {
+      "class": "CombatEngineer",
+      "file": "src/entities/CombatEngineer.ts",
+      "type": "hero",
+      "category": "arena-hero",
+      "world": "earth",
+      "tier": 3,
+      "personality": "Loke post-promotion. Field operator and gadget specialist. Slower than Tinkerer but tankier — exo-frame plating and a full deployable kit (Sentry Turret, Scout Drone, Proximity Mine, Barrier Shield). M12 Carbine as primary.",
+      "spriteKey": "combat-engineer",
+      "spritesheetJson": null,
+      "animTags": {
+        "idle": "combat-engineer_idle_south",
+        "walk": "combat-engineer_walk_south",
+        "attack": "combat-engineer_attack_south",
+        "hurt": "combat-engineer_hurt_south",
+        "death": "combat-engineer_death_south",
+        "alert": null
+      },
+      "sounds": {
+        "ambient": null,
+        "alert": null,
+        "aggro": null,
+        "attack": null,
+        "hurt": null,
+        "death": null
+      },
+      "behavior": {
+        "buildTree": true,
+        "unaware": true,
+        "alert": true,
+        "tracking": true,
+        "combat": true,
+        "flee": true,
+        "aggroRadius": 380,
+        "hearingRadius": null,
+        "sightMemoryMs": null
+      },
+      "designNotes": {
+        "sprite": "Loke as T3 Combat Engineer. Same facial features and ash-blond hair as Tinkerer-Loke, now older and harder. Milspec operator kit: olive-drab webbing vest, exo-frame reinforcement at shoulders and knees, M12 carbine held low-ready, utility pouches on belt, flip-up HUD visor on helmet. 32x32 top-down pixel art. Matches the Tinkerer-Loke colour palette — swap canvas jacket for exo-frame plating, keep face and hair identical.",
+        "animations": {
+          "idle": "Combat-ready idle: slight sway, head scanning side to side, carbine held diagonally across body. 6-8 frames at 6 fps.",
+          "walk": "Tactical walk: low-crouch movement, carbine raised, slight bob. 4 frames at 8 fps.",
+          "attack": "Carbine burst: pull up to aim (1 frame), fire with muzzle flash and recoil (2 frames), lower back to ready (1 frame). 4 frames at 12 fps.",
+          "hurt": "Sharp backward stagger, head flinch, visor flips up. 3 frames at 10 fps.",
+          "death": "Heavy armored fall — tips forward onto one knee, then collapses sideways. Exo-frame impact. 5 frames at 8 fps."
+        },
+        "sounds": {
+          "ambient": null,
+          "aggro": "Heavy boot step + mechanical exo-frame servo whine as CE takes a combat stance.",
+          "attack": "M12 Carbine burst: 3 rapid mechanical cracks (semi-auto rifle tone), brass ejection clink. ~200 ms total.",
+          "hurt": "Exo-frame impact crunch + grunt. Armoured hit — muffled, deeper than Tinkerer hurt.",
+          "death": "Heavy armored collapse: servo failure whine, then weighted metal-on-stone thud."
+        }
+      }
     }
   ]
 }

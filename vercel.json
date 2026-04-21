@@ -1,5 +1,6 @@
 {
   "outputDirectory": "dist",
   "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qvE \"^(wiki/|dev/)\"",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "git": { "deploymentEnabled": { "main": true } }
 }
