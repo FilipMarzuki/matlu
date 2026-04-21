@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import CreatureParade from '../components/CreatureParade.astro';
 import { fetchAllLore, TYPE_LABELS } from '../lib/notion-lore';
 
 const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://corewarden.app';
@@ -7,31 +8,74 @@ const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://corewarden.app';
 // 3 most-recent lore entries for the world teaser
 const allLore = await fetchAllLore();
 const recentLore = allLore.slice(0, 3);
+
+// Generate a pixel-jagged bottom edge for the hero divider.
+// Steps are 16px wide × 8px tall on a strict 8px grid, across 1200px.
+function jaggedPath(): string {
+  const W = 1200, H = 32, sw = 16;
+  const ys = [0, 8, 16, 24];
+  // Irregular but deterministic step sequence — avoids obvious repeating pattern
+  const seq = [2, 0, 3, 1, 2, 3, 0, 1, 3, 2, 0, 3, 1, 0, 2, 3, 1, 0, 2, 1];
+  let d = `M0,${H}`;
+  let x = 0;
+  let i = 0;
+  while (x < W) {
+    const y = H - ys[seq[i % seq.length]];
+    d += ` L${x},${y} L${Math.min(x + sw, W)},${y}`;
+    x += sw;
+    i++;
+  }
+  d += ` L${W},${H} Z`;
+  return d;
+}
+const dividerPath = jaggedPath();
 ---
 
 <Base
   title="Matlu Codex"
   description="Matlu Codex — lore, biomes, and creatures for Core Warden."
 >
-  <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+  <!-- ── Hero + parade live outside <main> via the named slot ───────────── -->
+  <Fragment slot="hero">
   <section class="hero">
-    <h1>
-      <span class="t-en">The Matlu Multiworld</span>
-      <span class="t-sv">Matlu-multiversum</span>
-    </h1>
-    <p class="lead">
-      <span class="t-en">The world companion for <strong>Core Warden</strong> — lore, biomes, creatures, and more.
-        Explore the world, meet its peoples, and help bring its creatures to life.</span>
-      <span class="t-sv">Världsguiden för <strong>Core Warden</strong> — lore, biomer, väsen och mer.
-        Utforska världen, möt dess folk och hjälp till att skapa väsen.</span>
-    </p>
-    <a href={gameUrl} class="cta" target="_blank" rel="noopener">
-      <span class="t-en">Play Core Warden →</span>
-      <span class="t-sv">Spela Core Warden →</span>
-    </a>
+    <!-- Game art background -->
+    <div class="hero-bg" aria-hidden="true"></div>
+    <!-- Dark gradient so text at bottom is always readable -->
+    <div class="hero-overlay" aria-hidden="true"></div>
+    <!-- Content centred to match main's max-width -->
+    <div class="hero-content">
+      <h1>
+        <span class="t-en">The Matlu Multiworld</span>
+        <span class="t-sv">Matlu-multiversum</span>
+      </h1>
+      <p class="lead">
+        <span class="t-en">The world companion for <strong>Core Warden</strong> — lore, biomes, creatures, and more.
+          Explore the world, meet its peoples, and help bring its creatures to life.</span>
+        <span class="t-sv">Världsguiden för <strong>Core Warden</strong> — lore, biomer, väsen och mer.
+          Utforska världen, möt dess folk och hjälp till att skapa väsen.</span>
+      </p>
+      <a href={gameUrl} class="cta" target="_blank" rel="noopener">
+        <span class="t-en">Play Core Warden →</span>
+        <span class="t-sv">Spela Core Warden →</span>
+      </a>
+    </div>
+    <!-- Pixel-stepped divider blends hero into the page background -->
+    <div class="hero-divider" aria-hidden="true">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 1200 32"
+        preserveAspectRatio="none"
+        width="100%"
+        height="32"
+      >
+        <path fill="#080d08" d={dividerPath} />
+      </svg>
+    </div>
   </section>
+  <CreatureParade />
+  </Fragment>
 
-  <!-- ── World teaser ──────────────────────────────────────────────────── -->
+  <!-- ── Lore teaser ───────────────────────────────────────────────────── -->
   <section class="section">
     <div class="section-head">
       <h2>📖 Lore</h2>
@@ -124,23 +168,58 @@ const recentLore = allLore.slice(0, 3);
 <style>
   /* ── Hero ───────────────────────────────────────────────────────────── */
   .hero {
-    padding: 3rem 0 3rem;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 3rem;
+    position: relative;
+    width: 100%;
+    min-height: 75vh;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
   }
 
-  .hero h1 {
-    font-size: 2.4rem;
-    color: var(--accent-hi);
-    text-shadow: 0 0 32px rgba(192, 132, 252, 0.25);
+  /* Game art — cover, anchored so the character silhouettes sit near bottom */
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background: url('/assets/hero-banner.png') center 35% / cover no-repeat;
+    z-index: 0;
+  }
+
+  /* Gradient: light at top (sky reads through), heavy at bottom (text legible) */
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(8, 13, 8, 0.05) 0%,
+      rgba(8, 13, 8, 0.35) 45%,
+      rgba(8, 13, 8, 0.82) 78%,
+      #080d08 100%
+    );
+    z-index: 1;
+  }
+
+  /* Text block — centred to match main's 860px max-width */
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3.5rem;
+  }
+
+  .hero-content h1 {
+    font-size: 2.6rem;
+    color: var(--gold);
+    text-shadow: 0 0 32px rgba(255, 224, 102, 0.35);
     margin-bottom: 1rem;
   }
 
   .lead {
     font-size: 1.05rem;
     color: var(--text-dim);
-    max-width: 520px;
-    margin-bottom: 1.5rem;
+    max-width: 500px;
+    margin-bottom: 1.75rem;
     line-height: 1.7;
   }
 
@@ -148,21 +227,29 @@ const recentLore = allLore.slice(0, 3);
 
   a.cta {
     display: inline-block;
-    background: var(--accent);
-    color: #fff;
-    font-size: 0.95rem;
-    font-family: 'Outfit', sans-serif;
-    font-weight: 600;
+    background: var(--gold);
+    color: #1a1200;
+    font-size: 0.9rem;
+    font-family: 'Pixelify Sans', monospace;
+    font-weight: 700;
     padding: 0.6rem 1.4rem;
-    border-radius: 6px;
+    border-radius: 0;
     text-decoration: none;
-    transition: background 0.15s, box-shadow 0.15s;
+    box-shadow: 3px 3px 0 var(--gold-dim);
+    transition: box-shadow 0.08s, transform 0.08s;
   }
 
-  a.cta:hover {
-    background: var(--accent-hi);
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
-    text-decoration: none;
+  a.cta:hover  { box-shadow: 4px 4px 0 var(--gold-dim); text-decoration: none; }
+  a.cta:active { box-shadow: 1px 1px 0 var(--gold-dim); transform: translate(2px, 2px); }
+
+  /* Pixel-stepped edge — fills with --bg color to mask the image bottom */
+  .hero-divider {
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    line-height: 0;
   }
 
   /* ── Sections ───────────────────────────────────────────────────────── */
@@ -175,15 +262,9 @@ const recentLore = allLore.slice(0, 3);
     margin-bottom: 1rem;
   }
 
-  .section-head h2 {
-    font-size: 1.25rem;
-    color: var(--text);
-  }
+  .section-head h2 { font-size: 1.25rem; color: var(--text); }
 
-  .see-all {
-    font-size: 0.85rem;
-    color: var(--accent-hi);
-  }
+  .see-all { font-size: 0.85rem; color: var(--accent-hi); }
 
   /* ── Card grid ──────────────────────────────────────────────────────── */
   .card-grid {
@@ -207,16 +288,11 @@ const recentLore = allLore.slice(0, 3);
 
   .card:hover {
     border-color: var(--accent);
-    box-shadow: 0 0 12px rgba(168, 85, 247, 0.12);
+    box-shadow: 0 0 12px rgba(95, 168, 95, 0.1);
     text-decoration: none;
   }
 
-  .card-top {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
+  .card-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
   .badge {
     font-family: 'Outfit', sans-serif;
@@ -224,21 +300,18 @@ const recentLore = allLore.slice(0, 3);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    background: rgba(168, 85, 247, 0.15);
-    color: var(--accent-hi);
+    background: var(--badge-bg);
+    color: var(--badge-text);
     border-radius: 4px;
     padding: 0.12rem 0.45rem;
   }
 
-  .world-tag {
-    font-size: 0.74rem;
-    color: var(--text-dim);
-  }
+  .world-tag { font-size: 0.74rem; color: var(--text-dim); }
 
   .card h3 {
     font-size: 0.95rem;
-    color: var(--accent-hi);
-    font-family: 'Syne', sans-serif;
+    color: var(--gold);
+    font-family: 'Pixelify Sans', monospace;
     font-weight: 700;
   }
 
@@ -268,7 +341,7 @@ const recentLore = allLore.slice(0, 3);
 
   .coming-soon a { color: var(--accent-hi); font-size: 0.875rem; }
 
-  /* ── Contribute ─────────────────────────────────────────────────────── */
+  /* ── Contribute CTA ─────────────────────────────────────────────────── */
   .contribute {
     margin-top: 1rem;
     padding: 2rem;
@@ -278,10 +351,7 @@ const recentLore = allLore.slice(0, 3);
     text-align: center;
   }
 
-  .contribute h2 {
-    font-size: 1.3rem;
-    margin-bottom: 0.75rem;
-  }
+  .contribute h2 { font-size: 1.3rem; margin-bottom: 0.75rem; }
 
   .contribute p {
     color: var(--text-dim);
@@ -309,15 +379,15 @@ const recentLore = allLore.slice(0, 3);
   }
 
   .btn-primary {
-    background: var(--accent);
-    color: #fff;
+    background: var(--gold);
+    color: #1a1200;
+    border-radius: 0;
+    box-shadow: 3px 3px 0 var(--gold-dim);
+    transition: box-shadow 0.08s, transform 0.08s;
   }
 
-  .btn-primary:hover {
-    background: var(--accent-hi);
-    text-decoration: none;
-    box-shadow: 0 0 16px rgba(168, 85, 247, 0.35);
-  }
+  .btn-primary:hover  { text-decoration: none; box-shadow: 4px 4px 0 var(--gold-dim); }
+  .btn-primary:active { box-shadow: 1px 1px 0 var(--gold-dim); transform: translate(2px, 2px); }
 
   .btn-secondary {
     background: var(--surface-hi);
@@ -326,8 +396,15 @@ const recentLore = allLore.slice(0, 3);
   }
 
   .btn-secondary:hover {
-    border-color: var(--accent);
+    border-color: var(--accent-hi);
     color: var(--accent-hi);
     text-decoration: none;
+  }
+
+  /* ── Mobile ─────────────────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .hero { min-height: 60vh; }
+    .hero-content h1 { font-size: 1.9rem; }
+    .hero-bg { background-position: 65% 35%; }
   }
 </style>

@@ -1,11 +1,11 @@
 /**
  * Canonical biome definitions — single source of truth for both the game
- * (GameScene, BiomeInspectorScene) and the wiki (Astro build step).
+ * (GameScene, WorldForgeScene) and the wiki (Astro build step).
  *
- * Ordering follows the 12-entry list from BiomeInspectorScene, which includes
+ * Ordering follows the 12-entry list from WorldForgeScene, which includes
  * "Meadow" at index 6 (absent from GameScene's older 11-entry classification).
  * GameScene's tileBiomeIdx() uses indices 0–5 and 7–11; index 6 (Meadow) is
- * available for future classification refinement and for the BiomeInspector UI.
+ * available for future classification refinement and for the World Forge UI.
  *
  * The `description` field contains 2–3 sentences of in-world lore prose.
  * Descriptions are intentionally grounded — written as if by someone who has

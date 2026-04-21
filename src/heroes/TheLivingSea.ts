@@ -43,7 +43,7 @@ const DEATH_ANIM_MS = 900;
 export type AbilityTag = 'projectile' | 'melee' | 'aoe' | 'unknown';
 
 /**
- * The Living Sea — Tier 5 Vattenpandalandet hero.
+ * The Living Sea — Tier 5 Mistheim hero.
  *
  * Has no fixed form: rendered as oscillating wave crests layered above a
  * deep-blue body, with a separate silhouette overlay that briefly appears

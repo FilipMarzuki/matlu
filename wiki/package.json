@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "prebuild": "node -e \"const{cpSync,existsSync,mkdirSync}=require('fs');const s='../screenshots';if(existsSync(s)){mkdirSync('public/screenshots',{recursive:true});cpSync(s,'public/screenshots',{recursive:true,force:true})}\"",
+    "test": "playwright test",
+    "sync-assets": "node -e \"const{cpSync,existsSync,mkdirSync}=require('fs');if(existsSync('../screenshots')){mkdirSync('public/screenshots',{recursive:true});cpSync('../screenshots','public/screenshots',{recursive:true,force:true})}mkdirSync('public/assets/sprites/characters',{recursive:true});cpSync('../public/assets/sprites/characters','public/assets/sprites/characters',{recursive:true,force:true})\"",
+    "predev": "npm run sync-assets",
+    "prebuild": "npm run sync-assets",
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
@@ -21,6 +24,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@playwright/test": "^1.59.1",
     "astro": "^6.1.7",
     "typescript": "^5.7.3"
   }

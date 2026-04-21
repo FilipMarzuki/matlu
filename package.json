@@ -18,6 +18,7 @@
     "arena-bot": "tsx scripts/arena-bot/run.ts",
     "audio:sync": "node scripts/sync-audio.js",
     "entity:audit": "tsx scripts/entity-audit.ts",
+    "cap:sync": "npm run build && npx cap sync",
     "unit": "vitest run",
     "dev:wiki": "npm run dev --prefix wiki",
     "dev:sites": "npm run dev --prefix wiki & npm run dev --prefix dev",
@@ -25,6 +26,9 @@
     "typecheck:all": "npm run typecheck && npm run typecheck --prefix wiki && npm run typecheck --prefix dev"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@logtail/browser": "^0.5.8",
     "@supabase/supabase-js": "^2.103.3",
     "phaser": "^4.0.0",
@@ -32,8 +36,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "googleapis": "^171.4.0",
     "@types/sharp": "^0.32.0",
+    "googleapis": "^171.4.0",
     "sharp": "^0.34.5",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",

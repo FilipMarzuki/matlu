@@ -1478,12 +1478,12 @@
       "name_en": "Vivid Condor Eagle",
       "name_sv": "Färgglad Kordorörn",
       "personality": "Apex soarer. Circles without urgency. Does not attack — waits until the moment is right.",
-      "spriteKey": null,
-      "spritesheetJson": null,
+      "spriteKey": "fargglad-kordororn",
+      "spritesheetJson": "public/assets/sprites/characters/earth/enemies/fargglad-kordororn/fargglad-kordororn.json",
       "animTags": {
-        "idle": null,
-        "walk": null,
-        "attack": null,
+        "idle": "fargglad-kordororn_idle_south",
+        "walk": "fargglad-kordororn_walk_south",
+        "attack": "fargglad-kordororn_attack_south",
         "hurt": null,
         "death": null,
         "alert": null

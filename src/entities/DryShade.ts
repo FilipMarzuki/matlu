@@ -1,5 +1,5 @@
 /**
- * DryShade — semi-transparent ability-drain enemy in Vattenpandalandet.
+ * DryShade — semi-transparent ability-drain enemy in Mistheim.
  *
  * Visually a faint, ghostly wisp (alpha 0.5) that drifts straight toward the
  * player. It deals no HP damage; instead, on contact it drains one ability

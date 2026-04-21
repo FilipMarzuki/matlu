@@ -26,20 +26,20 @@ import { StatsScene } from './scenes/StatsScene';
 import { LoreScene } from './scenes/LoreScene';
 import { ShopScene } from './scenes/ShopScene';
 import { ArenaSelectScene } from './scenes/ArenaSelectScene';
-import { BiomeInspectorScene } from './scenes/BiomeInspectorScene';
+import { WorldForgeScene } from './scenes/WorldForgeScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
 // navigating through the main menu. Vercel rewrites all paths to index.html
 // so these URLs work as direct links or bookmarks.
 //   /arena  → CombatArenaScene      (combat testing)
 //   /world  → GameScene             (world/wilderview testing)
-//   /biome  → BiomeInspectorScene   (biome tile + decoration dev tool)
+//   /biome  → WorldForgeScene       (biome tile + cliff + decoration design tool)
 //   /       → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, BiomeInspectorScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
-  if (path === '/biome') return [BiomeInspectorScene, ...all.filter(s => s !== BiomeInspectorScene)];
+  if (path === '/biome') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
   if (path === '/menu')  return all;
   // Default (/ and /arena): boot straight into arena/combat
   return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];

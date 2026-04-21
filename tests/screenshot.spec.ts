@@ -220,3 +220,34 @@ test('screenshot: combat arena', async ({ page }) => {
 
   await capture(page, '05-combat-arena.png', 'Combat arena — colosseum floor, ashlar walls, wave 1 enemies vs Tinkerer');
 });
+
+// ── 6. World Forge (iso view) ─────────────────────────────────────────────
+
+test('screenshot: world forge', async ({ page }) => {
+  // Navigate directly to /biome — main.ts routes this to WorldForgeScene first.
+  await page.goto('/biome');
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game'],
+    { timeout: BOOT_MS },
+  );
+  // Wait for the iso tile grid to finish rendering.
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!g?.scene?.getScene('WorldForgeScene')?.sys?.settings?.active;
+    },
+    { timeout: 12_000 },
+  );
+  await page.waitForTimeout(1_500);
+
+  await capture(page, '03c-dev-biome.png', 'World Forge iso view — two-stage highland elevation, river waterfall, biome bands');
+
+  // Zoom in 2× via keyboard then pan slightly NW to show the cliff edge in context.
+  for (let i = 0; i < 2; i++) await page.keyboard.press('Equal');
+  await page.waitForTimeout(300);
+  // Mild pan towards the highland cliff edge (NW corner of the map)
+  for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowLeft');
+  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(400);
+  await capture(page, '03c-dev-biome-zoom.png', 'World Forge zoomed 2× — cliff face strata, waterfall, and highland-to-lowland transition');
+});

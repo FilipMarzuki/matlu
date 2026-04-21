@@ -25,7 +25,7 @@ Canonical lore lives in Notion. IDs below let agents fetch entries directly.
 - When adding a new lore entry, set `Lore Status` to `draft`. Mark `final` only after the narrative has been reviewed.
 - Concept art goes on the entry's own page (inline image), not as a file attachment.
 - Never delete entries — set `Lore Status` to `deprecated` instead.
-- World names in database selects: `Earth`, `Spinolandet`, `Vattenpandalandet`, `Blended`
+- World names in database selects: `Earth`, `Spinolandet`, `Mistheim`, `Blended`
 - To fetch a database: use `notion-fetch` with the database ID above.
 - To list entries: use `notion-search` with a keyword, or `notion-fetch` the database ID directly.
 - To create an entry: use `notion-create-pages` with the database ID as `data_source_id` parent.

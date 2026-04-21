@@ -25,7 +25,7 @@ export interface TorrentConfig extends LivingEntityConfig {
 }
 
 /**
- * TheTorrent — Tier 3 Water Construct hero for Vattenpandalandet.
+ * TheTorrent — Tier 3 Water Construct hero for Mistheim.
  *
  * A ~2× human-height humanoid composed of animated water and a crystal core.
  * Unlike other heroes The Torrent is completely immune to knockback — its mass

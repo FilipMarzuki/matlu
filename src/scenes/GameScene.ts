@@ -308,7 +308,7 @@ interface BirdObject {
 /**
  * Short label per biome index — sourced from the canonical biomes.ts list.
  * Index 6 (Meadow) is never returned by tileBiomeIdx but exists in the data
- * for the BiomeInspector UI. Dev overlay uses indices 0–5 and 7–11.
+ * for the World Forge UI. Dev overlay uses indices 0–5 and 7–11.
  */
 const BIOME_LABELS = BIOMES.map(b => b.name);
 
@@ -752,12 +752,12 @@ export class GameScene extends Phaser.Scene {
     // FIL-115: Restore per-channel volume multipliers from localStorage so they are
     // ready before the sound graph is built in create().
     if (typeof localStorage !== 'undefined') {
-      const mv = parseFloat(localStorage.getItem('matlu_music_vol')    ?? '1');
-      const sv = parseFloat(localStorage.getItem('matlu_sfx_vol')      ?? '1');
-      const av = parseFloat(localStorage.getItem('matlu_ambience_vol') ?? '1');
-      this.musicVol    = isNaN(mv) ? 1 : Phaser.Math.Clamp(mv, 0, 1);
-      this.sfxVol      = isNaN(sv) ? 1 : Phaser.Math.Clamp(sv, 0, 1);
-      this.ambienceVol = isNaN(av) ? 1 : Phaser.Math.Clamp(av, 0, 1);
+      const mv = parseFloat(localStorage.getItem('matlu_music_vol')    ?? '0.15');
+      const sv = parseFloat(localStorage.getItem('matlu_sfx_vol')      ?? '0.15');
+      const av = parseFloat(localStorage.getItem('matlu_ambience_vol') ?? '0.15');
+      this.musicVol    = isNaN(mv) ? 0.15 : Phaser.Math.Clamp(mv, 0, 1);
+      this.sfxVol      = isNaN(sv) ? 0.15 : Phaser.Math.Clamp(sv, 0, 1);
+      this.ambienceVol = isNaN(av) ? 0.15 : Phaser.Math.Clamp(av, 0, 1);
     }
 
     // ── Audio ──────────────────────────────────────────────────────────────────
@@ -3230,7 +3230,7 @@ export class GameScene extends Phaser.Scene {
     Dustling.clearRegistry();
     Dustling.setPlayerGetter(() => ({ x: this.player.x, y: this.player.y }));
 
-    // Spawn 300 px west of the boss — inside the Vattenpandalandet entrance zone
+    // Spawn 300 px west of the boss — inside the Mistheim entrance zone
     // but not on top of the boss spawn point.
     const SWARM_X = BOSS_X - 300;
     const SWARM_Y = BOSS_Y;
@@ -3277,7 +3277,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Spawn DryShades in the Vattenpandalandet entrance area alongside the
+   * Spawn DryShades in the Mistheim entrance area alongside the
    * Dustling swarm. Five shades patrol loosely — enough to force the player
    * to be aware of ability charges without completely denying them.
    *

@@ -27,6 +27,9 @@ export class MainMenuScene extends Phaser.Scene {
   private activeBgKey: string = CombatArenaScene.KEY;
   /** Repeating timer that drives background swaps. */
   private bgSwapTimer!: Phaser.Time.TimerEvent;
+  /** User volume prefs; read from localStorage in create(). */
+  private musicVol = 0.15;
+  private sfxVol   = 0.15;
 
   constructor() {
     super({ key: 'MainMenuScene' });
@@ -48,6 +51,11 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    const _mv = parseFloat(localStorage.getItem('matlu_music_vol') ?? '0.15');
+    const _sv = parseFloat(localStorage.getItem('matlu_sfx_vol')   ?? '0.15');
+    this.musicVol = isNaN(_mv) ? 0.15 : Phaser.Math.Clamp(_mv, 0, 1);
+    this.sfxVol   = isNaN(_sv) ? 0.15 : Phaser.Math.Clamp(_sv, 0, 1);
+
     const { width, height } = this.cameras.main;
 
     // ── Background scene ─────────────────────────────────────────────────────
@@ -128,7 +136,7 @@ export class MainMenuScene extends Phaser.Scene {
     };
 
     const playClick = (): void => {
-      if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
+      if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 * this.sfxVol });
     };
 
     const addBtn = (label: string, action: () => void): void => {
@@ -142,7 +150,7 @@ export class MainMenuScene extends Phaser.Scene {
     addBtn(t('menu.stats'),      () => this.openStats());
     addBtn(t('menu.lore'),       () => this.openLore());
     addBtn(t('menu.credits'),    () => this.openCredits());
-    addBtn('Biome Inspector',    () => this.openBiomeInspector());
+    addBtn('World Forge',    () => this.openWorldForge());
 
     // Start with first button focused
     setFocus(0);
@@ -162,7 +170,7 @@ export class MainMenuScene extends Phaser.Scene {
     if (this.cache.audio.has('music-menu')) {
       const menuMusic = this.sound.add('music-menu', { loop: true, volume: 0 });
       menuMusic.play();
-      this.tweens.add({ targets: menuMusic, volume: 0.25, duration: 1500, ease: 'Sine.easeIn' });
+      this.tweens.add({ targets: menuMusic, volume: 0.25 * this.musicVol, duration: 1500, ease: 'Sine.easeIn' });
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => menuMusic.stop());
     }
 
@@ -218,12 +226,12 @@ export class MainMenuScene extends Phaser.Scene {
         btn.setStyle({ color: '#ffffff' });
         // Hover SFX on mouse devices only — touch entries don't count as hover
         if (this.game.device.os.desktop && this.cache.audio.has('sfx-hover')) {
-          this.sound.play('sfx-hover', { volume: 0.18 });
+          this.sound.play('sfx-hover', { volume: 0.18 * this.sfxVol });
         }
       })
       .on('pointerout',   () => btn.setStyle({ color: '#ffe066' }))
       .on('pointerdown',  () => {
-        if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
+        if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 * this.sfxVol });
         onClick();
       });
     return btn;
@@ -306,13 +314,13 @@ export class MainMenuScene extends Phaser.Scene {
     this.scene.launch('LoreScene', this.scene.key as unknown as object);
   }
 
-  private openBiomeInspector(): void {
+  private openWorldForge(): void {
     this.fadeMusicOut();
     this.bgSwapTimer.remove();
     this.scene.stop(this.activeBgKey);
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('BiomeInspectorScene');
+      this.scene.start('WorldForgeScene');
     });
   }
 }

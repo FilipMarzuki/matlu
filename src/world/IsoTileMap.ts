@@ -53,7 +53,7 @@
  *
  *   Frames 110–115 Pale sky-blue flat diamond tiles — very shallow / ice surface.
  *
- * ## Biome index mapping (matches GameScene.tileBiomeIdx / BiomeInspectorScene)
+ * ## Biome index mapping (matches GameScene.tileBiomeIdx / WorldForgeScene)
  *
  *   0  Sea            → deep water (90–104)
  *   1  Rocky shore    → dark rocky earth + coastal water (0–9)
@@ -68,6 +68,16 @@
  *   10 Bare summit    → earth + rocks at high elev (50–56)
  *   11 Snow field     → pale ice/snow surface (110–115)
  */
+
+// ── Frame geometry (spritesheet + custom biome packs) ─────────────────────────
+
+/**
+ * Native width/height of one iso ground frame in pixels. Matches the Phaser
+ * spritesheet `frameWidth` / `frameHeight` and the exported `*-tiles/*.png`
+ * packs in World Forge — cliff lift (`CLIFF_H`) is derived from this × scale
+ * so one elevation step matches one cube in the art.
+ */
+export const ISO_TILE_NATIVE_SIZE = 32;
 
 // ── Biome tile ranges ─────────────────────────────────────────────────────────
 

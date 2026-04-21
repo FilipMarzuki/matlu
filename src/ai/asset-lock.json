@@ -25,6 +25,21 @@
     "animating-2d7ac07a": "dash",
     "animating-c856d6be": "attack_ranged"
   },
+  "fargglad-kordororn": {
+    "large_eagle_in_slow_thermal_soar_wings_slightly_ti-93c6eb7f": "idle",
+    "large_eagle_in_slow_thermal_soar_wings_slightly_ti-5cb8ec1e": "idle",
+    "large_eagle_in_slow_thermal_soar_wings_slightly_ti-5abd92b1": "idle",
+    "large_eagle_in_slow_thermal_soar_wings_slightly_ti-76588a9c": "idle",
+    "broad-winged_eagle_in_powered_flapping_flight_full-d884fc2a": "walk",
+    "broad-winged_eagle_in_powered_flapping_flight_full-5ae37ea5": "walk",
+    "broad-winged_eagle_in_powered_flapping_flight_full-6be0a69b": "walk",
+    "broad-winged_eagle_in_powered_flapping_flight_full-b7857a79": "walk",
+    "eagle_stoop_wings_fold_tight_against_body_in_steep-50a30244": "attack",
+    "eagle_stoop_wings_fold_tight_against_body_in_steep-753b37db": "attack",
+    "eagle_stoop_wings_fold_tight_against_body_in_steep-49eff2a7": "attack",
+    "eagle_stoop_wings_fold_tight_against_body_in_steep-8f462c0a": "attack",
+    "eagle_stoop_wings_fold_tight_against_body_in_steep-fe75a212": "attack"
+  },
   "loke": {
     "Breathing_Idle-c9ad0733": "idle",
     "Running-7e30359a": "walk",
