@@ -258,14 +258,27 @@
   {
     "sessionId": "ae442780-4261-4835-88fd-9c16a5e37a73",
     "date": "2026-04-21",
-    "branch": "main",
+    "branch": "fix/461-513-512-backlog-cleanup",
     "issueId": null,
     "model": "claude-sonnet-4-6",
     "source": "claude-code",
     "inputTokens": 1,
-    "outputTokens": 340,
-    "cacheReadTokens": 54016,
-    "cacheWriteTokens": 1071,
-    "estimatedCostUsd": 0.0253
+    "outputTokens": 429,
+    "cacheReadTokens": 99516,
+    "cacheWriteTokens": 183,
+    "estimatedCostUsd": 0.037
+  },
+  {
+    "sessionId": "40e8b6f7-88a7-4ecb-88f2-977794b2117e",
+    "date": "2026-04-21",
+    "branch": "fix/461-513-512-backlog-cleanup",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 224,
+    "cacheReadTokens": 87761,
+    "cacheWriteTokens": 430,
+    "estimatedCostUsd": 0.0313
   }
 ]

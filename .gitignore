@@ -54,3 +54,6 @@ wiki/.astro/settings.json
 
 # Vercel deployment artifacts
 wiki/.vercel/
+
+# IDE workspace settings
+.vscode/

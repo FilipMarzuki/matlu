@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-04-17T13:43:38.619Z",
+  "simSeconds": 90,
+  "summary": {
+    "finalWave": 10,
+    "totalKills": 14,
+    "heroDeaths": 5
+  },
+  "balanceHints": [
+    "WARN: hero died frequently — enemies may be too strong",
+    "WARN: kill/wave ratio is low — enemies may be accumulating faster than the hero can clear"
+  ],
+  "snapshots": [
+    {
+      "simTime": 5,
+      "wave": 1,
+      "kills": 3,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 0
+    },
+    {
+      "simTime": 10,
+      "wave": 1,
+      "kills": 3,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 0
+    },
+    {
+      "simTime": 15,
+      "wave": 2,
+      "kills": 4,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 1
+    },
+    {
+      "simTime": 20,
+      "wave": 2,
+      "kills": 5,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 0
+    },
+    {
+      "simTime": 25,
+      "wave": 3,
+      "kills": 8,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 0
+    },
+    {
+      "simTime": 30,
+      "wave": 3,
+      "kills": 8,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 0
+    },
+    {
+      "simTime": 35,
+      "wave": 4,
+      "kills": 12,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 0
+    },
+    {
+      "simTime": 40,
+      "wave": 5,
+      "kills": 12,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 3
+    },
+    {
+      "simTime": 45,
+      "wave": 5,
+      "kills": 12,
+      "heroDeaths": 0,
+      "heroAlive": true,
+      "enemiesAlive": 3
+    },
+    {
+      "simTime": 50,
+      "wave": 6,
+      "kills": 12,
+      "heroDeaths": 0,
+      "heroAlive": false,
+      "enemiesAlive": 7
+    },
+    {
+      "simTime": 55,
+      "wave": 7,
+      "kills": 13,
+      "heroDeaths": 1,
+      "heroAlive": true,
+      "enemiesAlive": 9
+    },
+    {
+      "simTime": 60,
+      "wave": 7,
+      "kills": 13,
+      "heroDeaths": 1,
+      "heroAlive": true,
+      "enemiesAlive": 9
+    },
+    {
+      "simTime": 65,
+      "wave": 8,
+      "kills": 13,
+      "heroDeaths": 1,
+      "heroAlive": false,
+      "enemiesAlive": 13
+    },
+    {
+      "simTime": 70,
+      "wave": 9,
+      "kills": 14,
+      "heroDeaths": 2,
+      "heroAlive": true,
+      "enemiesAlive": 17
+    },
+    {
+      "simTime": 75,
+      "wave": 10,
+      "kills": 14,
+      "heroDeaths": 3,
+      "heroAlive": true,
+      "enemiesAlive": 21
+    },
+    {
+      "simTime": 80,
+      "wave": 10,
+      "kills": 14,
+      "heroDeaths": 4,
+      "heroAlive": true,
+      "enemiesAlive": 21
+    },
+    {
+      "simTime": 85,
+      "wave": 10,
+      "kills": 14,
+      "heroDeaths": 4,
+      "heroAlive": true,
+      "enemiesAlive": 21
+    },
+    {
+      "simTime": 90,
+      "wave": 10,
+      "kills": 14,
+      "heroDeaths": 5,
+      "heroAlive": true,
+      "enemiesAlive": 21
+    }
+  ]
+}
