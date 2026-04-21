@@ -143,7 +143,58 @@ four hundred years and doesn't know it. An informal alliance between a Merfolk
   are not decorative details. They are how a reader knows where they are.
 - Add a final line: _Written by the lore historian agent_
 
-## STEP 6 — REPORT
+## STEP 6 — AUTO-DRAFT LORE FOR BALANCED CREATURE SUBMISSIONS
+
+After your Notion lore work, also process creature submissions that have reached
+the `balanced` pipeline stage but have no Notion lore page yet.
+
+**Why:** The admin balance step fills in stats and biome affinity. Now the agent
+auto-drafts the Notion lore entry so the human only needs to review and polish,
+not write from scratch.
+
+### 6a. Fetch balanced creatures with no lore page
+
+```bash
+curl -s -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  "$SUPABASE_URL/rest/v1/creature_submissions?status=eq.balanced&lore_entry_id=is.null&select=id,creature_name,creator_name,maker_age,world_name,lore_description,lore_origin,balance_notes,balance_tier,biome_affinity,kind_size,kind_diet,kind_movement,behaviour_threat,special_ability"
+```
+
+(`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are available as env vars.)
+
+### 6b. For each creature
+
+1. **Write a Notion lore page** using the same style as STEP 5 above.
+   Pre-seed the page with:
+   - Creature name as the Notion page title.
+   - `lore_description` and `lore_origin` from the submission as the opening content.
+   - One paragraph you write expanding the lore — ground it in the world using WORLD.md
+     and the creature's `world_name` and `biome_affinity`.
+   - `balance_notes` as an internal callout block (so it's visible to reviewers but
+     clearly marked internal).
+   - `Lore Status` property set to `draft`.
+
+2. **Store the resulting page ID and URL** on the Supabase row:
+
+```bash
+curl -s -X PATCH \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=minimal" \
+  -d "{\"lore_entry_id\":\"{notion_page_id}\",\"lore_entry_url\":\"{notion_page_url}\",\"status\":\"lore-ready\"}" \
+  "$SUPABASE_URL/rest/v1/creature_submissions?id=eq.{creature.id}"
+```
+
+   Setting `status = 'lore-ready'` triggers the DB audit trigger to log the transition.
+
+### 6c. Rate-limit consideration
+
+Process at most **5 balanced creatures per run** to avoid overwhelming the Notion API.
+If there are more, print a note listing the skipped creatures.
+
+## STEP 7 — REPORT
 
 Print a summary: entries expanded, entries created, which databases were touched,
-which peoples from WORLD.md were covered.
+which peoples from WORLD.md were covered. Also list balanced creatures processed
+and any that were skipped.
