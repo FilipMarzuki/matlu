@@ -47,6 +47,20 @@ const CUSTOM_TILE_PACKS: Record<number, string> = {
   11: 'snow-field',
 };
 
+/**
+ * Maps biome index → isometric cliff block tile key.
+ * Elevation zones take priority (snow/stone highlands), lowlands fall back to earthy.
+ */
+const CLIFF_MAT: Record<number, string> = {
+  1:  'cliff-stone',   // rocky shore
+  3:  'cliff-peat',    // marsh
+  9:  'cliff-stone',   // cold granite
+  10: 'cliff-stone',   // bare summit
+  11: 'cliff-snow',    // snow field
+};
+const cliffKeyForBiome = (biomeIdx: number): string =>
+  CLIFF_MAT[biomeIdx] ?? 'cliff-earthy';
+
 const ENTITY_TYPES = [
   { key: 'tinkerer',            color: 0x44aaff, label: 'Tinkerer',   atlasKey: 'tinkerer'            as string | null },
   { key: 'skald',               color: 0x7799ee, label: 'Skald',      atlasKey: 'skald'               as string | null },
@@ -151,12 +165,17 @@ export class WorldForgeScene extends Phaser.Scene {
     this.load.spritesheet('iso-tiles',
       '/assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
-    // Cliff strip tiles — south face, east face, and 3-section waterfall.
-    this.load.image('cliff-south',   '/assets/packs/cliff-strips/cliff-south.png');
-    this.load.image('cliff-east',    '/assets/packs/cliff-strips/cliff-east.png');
+    // Cliff tiles — waterfall sections + PixelLab isometric block tiles per material.
+    // Rock face strips (cliff-south/cliff-east) replaced by the 3D block tiles below.
     this.load.image('cliff-wf-top',  '/assets/packs/cliff-strips/cliff-wf-top.png');
     this.load.image('cliff-wf-mid',  '/assets/packs/cliff-strips/cliff-wf-mid.png');
     this.load.image('cliff-wf-bot',  '/assets/packs/cliff-strips/cliff-wf-bot.png');
+    // PixelLab-generated isometric cliff block tiles (32×32, tile_shape:"block").
+    // Each shows the full 3D cube: top face + south/east side faces.
+    this.load.image('cliff-earthy', '/assets/packs/cliff-iso-gen/earthy_0.png');
+    this.load.image('cliff-snow',   '/assets/packs/cliff-iso-gen/snow_0.png');
+    this.load.image('cliff-peat',   '/assets/packs/cliff-iso-gen/peat_0.png');
+    this.load.image('cliff-stone',  '/assets/packs/cliff-iso-gen/stone_iso_0.png');
 
     // Custom floor tiles — 4 variants per biome replacing the cluttered stock spritesheet.
     for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
@@ -468,7 +487,7 @@ export class WorldForgeScene extends Phaser.Scene {
         const floorDisplayH = ISO_TILE_NATIVE_SIZE * this.ISO_SCALE;
         const southRimY     = Math.round(posY + floorDisplayH);
         const hh            = this.ISO_H / 2;
-        const eastWestRimY  = southRimY - hh;
+        void (southRimY - hh); // eastWestRimY — kept for when per-face strip cliffs return
 
         const cliffTint = elevDist > 1 ? 0xe0e4ee
                         : elevDist === 1 ? 0xc4c8cc
@@ -540,34 +559,44 @@ export class WorldForgeScene extends Phaser.Scene {
           }
         };
 
-        if (tileElev > 0 && ty + 1 < G) {
-          const elevS = getElev(tx, ty + 1);
-          if (tileElev > elevS) {
-            const isWF = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
-            drawCliffFace(x, southRimY, tileElev - elevS, isWF ? 'wf' : 'south', 0);
-          }
-        }
+        // Detect cliff edges — any direction where this tile drops to a lower neighbour.
+        const southDrop = tileElev > 0 && ty + 1 < G ? tileElev - getElev(tx, ty + 1) : 0;
+        const eastDrop  = tileElev > 0 && tx + 1 < G ? tileElev - getElev(tx + 1, ty) : 0;
+        const westDrop  = tileElev > 0 && tx > 0     ? tileElev - getElev(tx - 1, ty) : 0;
+        const isWF      = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
+        const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
 
-        if (tileElev > 0 && tx + 1 < G) {
-          const elevE = getElev(tx + 1, ty);
-          if (tileElev > elevE) {
-            drawCliffFace(x + this.ISO_W / 2, eastWestRimY, tileElev - elevE, 'east', hh);
-          }
-        }
+        if (hasCliff) {
+          // Replace flat strip faces + separate floor tile with a single isometric block tile.
+          // The block tile includes the top face (grass/stone/snow cap) and the visible cliff
+          // face(s) below it, giving proper 3D depth.
+          //
+          // Biome resolution mirrors the floor-tile logic above: elevation zones take priority
+          // over landBiome so the cliff material matches the floor material exactly.
+          const cliffBiomeIdx = elevDist > 1   ? 11
+                              : elevDist === 1  ? 10
+                              : elevDist === 0  ? 9
+                              : oceanDist === 0 ? 2   // sandy shore → earthy fallback
+                              : oceanDist < 0   ? 1   // rocky shore
+                              : landBiome;
+          const cliffKey = cliffKeyForBiome(cliffBiomeIdx);
+          const cliffImg = this.add.image(x, posY, cliffKey)
+            .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
+          this.tileImages.push(cliffImg);
 
-        if (tileElev > 0 && tx > 0) {
-          const elevW = getElev(tx - 1, ty);
-          if (tileElev > elevW) {
-            drawCliffFace(x - this.ISO_W / 2, eastWestRimY, tileElev - elevW, 'east', hh);
+          // Waterfall strips rendered on top for river cliff tiles.
+          if (southDrop > 0 && isWF) {
+            drawCliffFace(x, southRimY, southDrop, 'wf', 0);
           }
+        } else {
+          // No cliff — draw regular floor tile.
+          const img = customPack
+            ? this.add.image(x, posY, `${customPack}-${tileHash}`)
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0)
+            : this.add.image(x, posY, 'iso-tiles', frame)
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
+          this.tileImages.push(img);
         }
-
-        const img = customPack
-          ? this.add.image(x, posY, `${customPack}-${tileHash}`)
-              .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0)
-          : this.add.image(x, posY, 'iso-tiles', frame)
-              .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
-        this.tileImages.push(img);
       }
     }
 
