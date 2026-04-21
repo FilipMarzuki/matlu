@@ -209,6 +209,7 @@ export class Tinkerer extends EarthHero {
       maxHp:               100,
       speed:               80,
       aggroRadius:         400,
+      proximityRadius:     250,  // detect enemies in adjacent rooms; projectiles pass through walls (wallRects=[])
       attackDamage:        15,
       color:               0x996633,
       meleeRange:          36,
