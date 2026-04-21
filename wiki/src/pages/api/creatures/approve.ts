@@ -1,5 +1,5 @@
 /**
- * POST /api/creatures/approve — FIL-434 (Creatures A4).
+ * POST /api/creatures/approve — FIL-434 (Creatures A4) + FIL-445 (Creatures C2).
  *
  * Body: { id: string }
  * Auth: admin_session cookie (validated server-side)
@@ -9,6 +9,11 @@
  *   1. Fetch the creature row (service role → bypasses RLS)
  *   2. Move image from pending/<uuid>.<ext> to approved/<slug>.<ext> in Storage
  *   3. Update creature_submissions: approved=true, art_path=approved/…
+ *   4. (C2) Create a GitHub tracker issue and store tracker_issue_number
+ *
+ * GitHub token: GH_TRACKER_TOKEN (fine-grained PAT, issues:write on this repo).
+ * Set via Vercel project env vars. Tracker creation is non-fatal — approval
+ * succeeds even if the GitHub call fails.
  */
 export const prerender = false;
 
@@ -128,7 +133,98 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
+  // ── Create GitHub tracker issue (C2) ─────────────────────────────────────
+  // Non-fatal: if GH_TRACKER_TOKEN is absent or the API call fails, approval
+  // still succeeds. The tracker can be created manually later if needed.
+  const ghToken = import.meta.env.GH_TRACKER_TOKEN ?? '';
+  let trackerIssueNumber: number | null = null;
+
+  if (ghToken) {
+    try {
+      // Use credits_opt_in to decide whether to show the real name.
+      const makerDisplay = creature.credits_opt_in
+        ? (creature.creator_name as string)
+        : 'Anonymous';
+
+      const storyExcerpt = typeof creature.lore_description === 'string' && creature.lore_description.length > 0
+        ? creature.lore_description.slice(0, 300) + (creature.lore_description.length > 300 ? '…' : '')
+        : null;
+
+      const artUrl = newArtPath
+        ? `${supabaseUrl}/storage/v1/object/public/creature-art/${newArtPath}`
+        : null;
+
+      // Derive the codex base URL from the incoming request so we don't need
+      // a hard-coded env var — works for both Vercel production and preview URLs.
+      const reqUrl = new URL(request.url);
+      const codexBase = `${reqUrl.protocol}//${reqUrl.host}`;
+      const creatureSlug = (creature.slug as string | null) ?? (creature.id as string);
+      const creaturePageUrl = `${codexBase}/creatures/${creatureSlug}`;
+
+      const bodyLines: string[] = [
+        `## ${creature.creature_name as string}`,
+        '',
+        `**Maker:** ${makerDisplay}`,
+      ];
+      if (artUrl) bodyLines.push(`**Art:** ![creature art](${artUrl})`);
+      if (storyExcerpt) {
+        bodyLines.push('');
+        bodyLines.push(`> ${storyExcerpt}`);
+      }
+      bodyLines.push('');
+      bodyLines.push(`**Creature page:** ${creaturePageUrl}`);
+      bodyLines.push('');
+      bodyLines.push('---');
+      bodyLines.push(
+        `This issue tracks **${creature.creature_name as string}** through the production pipeline. ` +
+        `Subscribe (watch this issue) to get notified when its status changes — ` +
+        `from approval through balancing to appearing in the game.`
+      );
+
+      const ghRes = await fetch(
+        'https://api.github.com/repos/FilipMarzuki/matlu/issues',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${ghToken}`,
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: `[Creature] ${creature.creature_name as string} — production tracker`,
+            body: bodyLines.join('\n'),
+            labels: ['creature-tracker', 'status:approved'],
+            assignees: ['FilipMarzuki'],
+          }),
+        }
+      );
+
+      if (ghRes.ok) {
+        const ghIssue = (await ghRes.json()) as { number: number };
+        trackerIssueNumber = ghIssue.number;
+
+        // Store tracker_issue_number on the creature row.
+        await fetch(
+          `${supabaseUrl}/rest/v1/creature_submissions?id=eq.${encodeURIComponent(id)}`,
+          {
+            method: 'PATCH',
+            headers: {
+              apikey: serviceKey,
+              Authorization: `Bearer ${serviceKey}`,
+              'Content-Type': 'application/json',
+              Prefer: 'return=minimal',
+            },
+            body: JSON.stringify({ tracker_issue_number: trackerIssueNumber }),
+          }
+        );
+      }
+    } catch {
+      // Swallow — tracker creation failure must not block the approval response.
+    }
+  }
+
+  return new Response(JSON.stringify({ ok: true, tracker_issue_number: trackerIssueNumber }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
