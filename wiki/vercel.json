@@ -1,3 +1,4 @@
 {
-  "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qE \"^wiki/\""
+  "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qE \"^wiki/\"",
+  "git": { "deploymentEnabled": { "main": true } }
 }

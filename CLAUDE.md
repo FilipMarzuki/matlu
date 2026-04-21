@@ -139,6 +139,9 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 | Outcome | `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` |
 | State | `in-progress` |
 | Category | `systems`, `art`, `lore`, `infrastructure`, `world`, `hero`, `tech`, `ui-hud`, `ui-menus`, `audio`, `weapons`, `enemies`, `waves`, `upgrades`, `parts`, `mobile` |
+| Type | `type:feature`, `type:bug`, `type:refactor`, `type:perf`, `type:infra`, `type:docs`, `type:spike` |
+
+Every issue must carry exactly one `type:*` label.
 
 **Workflow:**
 

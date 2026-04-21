@@ -49,6 +49,15 @@ const LABELS = [
   { name: 'upgrades',       color: 'f9d0c4', description: '' },
   { name: 'parts',          color: 'f9d0c4', description: '' },
   { name: 'mobile',         color: 'f9d0c4', description: '' },
+
+  // Type — every issue must carry exactly one
+  { name: 'type:feature',  color: 'a2eeef', description: 'New capability' },
+  { name: 'type:bug',      color: 'd73a4a', description: 'Something broken' },
+  { name: 'type:refactor', color: 'c5def5', description: 'Code cleanup / restructure' },
+  { name: 'type:perf',     color: 'fbca04', description: 'Performance improvement' },
+  { name: 'type:infra',    color: '5319e7', description: 'CI, tooling, deployment' },
+  { name: 'type:docs',     color: '0075ca', description: 'Documentation only' },
+  { name: 'type:spike',    color: 'e99695', description: 'Research / exploration' },
 ];
 
 async function githubRequest(path, method = 'GET', body = null) {
