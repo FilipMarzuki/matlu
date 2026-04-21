@@ -764,9 +764,9 @@ export class GameScene extends Phaser.Scene {
       'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Tracks/Forgotten Biomes.ogg',
     ]);
     // FIL-117: night ambience — eerie presence sound fades in at dusk and peaks during night.
-    // Replace with a dedicated crickets/insect loop when one is sourced from freesound.org.
+    // `assets/audio/night-ambience.ogg` is optional and may be absent in some deployments;
+    // queue a guaranteed bundled clip so preload never emits decode errors for this key.
     this.load.audio('night-ambience', [
-      'assets/audio/night-ambience.ogg',
       'assets/audio/Cozy Tunes (Pro) v1.4/Cozy Tunes (Pro)/Audio/ogg/Sound Effects/stalker.ogg',
     ]);
     // ── Background music — four Cozy Tunes (Pro) tracks, one per day phase ────────
@@ -823,12 +823,13 @@ export class GameScene extends Phaser.Scene {
     }
 
     // FIL-47: ambient animal calls — positional volume/pan driven by nearest animal.
-    // Source files from Freesound.org CC0 or Kenney Animal Pack (see FIL-47 for links).
-    // Missing files are silently skipped via cache.audio.has() checks in create().
-    this.load.audio('animal-bird', 'assets/audio/animal/bird-call.ogg');
-    this.load.audio('animal-deer', 'assets/audio/animal/deer-call.ogg');
-    this.load.audio('animal-hare', 'assets/audio/animal/hare-rustle.ogg');
-    this.load.audio('animal-fox',  'assets/audio/animal/fox-bark.ogg');
+    // The dedicated `assets/audio/animal/*.ogg` files are optional (see README in that folder).
+    // Use bundled fallback clips so missing optional files cannot trigger decode errors in preload.
+    const animalFallbackBase = 'assets/audio/kenney_impact-sounds/Audio';
+    this.load.audio('animal-bird', `${animalFallbackBase}/impactSoft_medium_000.ogg`);
+    this.load.audio('animal-deer', `${animalFallbackBase}/impactSoft_medium_001.ogg`);
+    this.load.audio('animal-hare', `${animalFallbackBase}/impactSoft_medium_002.ogg`);
+    this.load.audio('animal-fox',  `${animalFallbackBase}/impactSoft_medium_003.ogg`);
 
     // ── Terrain tilesets (Mystic Woods 2.2, preferred for Level 1) ───────────────
     // plains.png  — 96×192, 16×16 tiles (6 cols × 12 rows = 72 frames)
