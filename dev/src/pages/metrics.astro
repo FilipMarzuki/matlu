@@ -15,6 +15,8 @@ type WeekRow = {
   prs_merged: number | null;
   issues_completed: number | null;
   rework_rate_pct: string | null;
+  refactor_ratio_pct: number | null;
+  total_pr_count: number | null;
   agent_success_rate_pct: string | null;
   cognitive_load_total: number | null;
   ai_total_cost_usd: string | null;
@@ -28,7 +30,7 @@ if (supabaseUrl && !supabaseUrl.includes('example')) {
   const sb = createClient(supabaseUrl, supabaseKey);
   const { data } = await sb
     .from('stats_weekly')
-    .select('week_of, prs_merged, issues_completed, rework_rate_pct, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted')
+    .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, total_pr_count, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted')
     .order('week_of', { ascending: true });
   rows = (data as WeekRow[]) ?? [];
 }
@@ -37,13 +39,14 @@ if (supabaseUrl && !supabaseUrl.includes('example')) {
 const labels = rows.map(r =>
   new Date(r.week_of).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 );
-const prsData     = rows.map(r => r.prs_merged ?? 0);
-const issuesData  = rows.map(r => r.issues_completed ?? 0);
-const reworkData  = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
-const cogLoadData = rows.map(r => r.cognitive_load_total ?? 0);
-const agentData   = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
-const aiCostData      = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
-const churnAddedData  = rows.map(r => r.total_lines_added ?? 0);
+const prsData          = rows.map(r => r.prs_merged ?? 0);
+const issuesData       = rows.map(r => r.issues_completed ?? 0);
+const reworkData       = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
+const refactorData     = rows.map(r => r.refactor_ratio_pct ?? 0);
+const cogLoadData      = rows.map(r => r.cognitive_load_total ?? 0);
+const agentData        = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
+const aiCostData       = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
+const churnAddedData   = rows.map(r => r.total_lines_added ?? 0);
 const churnDeletedData = rows.map(r => r.total_lines_deleted ?? 0);
 
 // Latest row's cognitive load top-10 for the hotspots table
@@ -60,6 +63,20 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   ) : (
     <div class="dashboard">
 
+        {/* Latest-week stat cards — refactor ratio and rework rate side by side */}
+      <div class="stat-cards">
+        <div class="stat-card">
+          <span class="stat-label">Refactor ratio</span>
+          <span class="stat-value">{latest?.refactor_ratio_pct != null ? `${latest.refactor_ratio_pct}%` : '—'}</span>
+          <span class="stat-sub">intentional restructuring this week</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Rework rate</span>
+          <span class="stat-value">{latest?.rework_rate_pct != null ? `${parseFloat(String(latest.rework_rate_pct)).toFixed(0)}%` : '—'}</span>
+          <span class="stat-sub">files re-touched from prior 3 weeks</span>
+        </div>
+      </div>
+
       <div class="chart-grid">
         <div class="chart-box">
           <h2>PRs merged / week</h2>
@@ -72,6 +89,10 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
         <div class="chart-box">
           <h2>Rework rate %</h2>
           <canvas id="chart-rework"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Refactor ratio %</h2>
+          <canvas id="chart-refactor"></canvas>
         </div>
         <div class="chart-box">
           <h2>Cognitive load index</h2>
@@ -120,7 +141,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 )}
 
-<script define:vars={{ labels, prsData, issuesData, reworkData, cogLoadData, agentData, aiCostData, churnAddedData, churnDeletedData }}>
+<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, agentData, aiCostData, churnAddedData, churnDeletedData }}>
   // Runs client-side once Chart.js CDN script has loaded
   if (typeof Chart === 'undefined') {
     // CDN not loaded (e.g. no data rendered), skip
@@ -165,12 +186,13 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
       });
     };
 
-    line('chart-prs',     prsData);
-    line('chart-issues',  issuesData);
-    line('chart-rework',  reworkData,  '#f87171');
-    line('chart-cogload', cogLoadData, '#fbbf24');
-    bar('chart-agent',   agentData,   ACCENT2);
-    line('chart-cost',   aiCostData,  '#4ade80');
+    line('chart-prs',      prsData);
+    line('chart-issues',   issuesData);
+    line('chart-rework',   reworkData,   '#f87171');
+    line('chart-refactor', refactorData, '#fb923c');
+    line('chart-cogload',  cogLoadData,  '#fbbf24');
+    bar('chart-agent',     agentData,    ACCENT2);
+    line('chart-cost',     aiCostData,   '#4ade80');
 
     // Grouped bar chart: lines added (green) + lines deleted (red) per week
     const churnCtx = document.getElementById('chart-churn');
@@ -215,6 +237,41 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     font-size: 0.9rem;
     color: var(--text-dim);
     padding: 2rem 0;
+  }
+
+  .stat-cards {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 180px;
+  }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--accent-hi);
+    line-height: 1;
+  }
+  .stat-sub {
+    font-size: 0.78rem;
+    color: var(--text-dim);
   }
 
   .chart-grid {
