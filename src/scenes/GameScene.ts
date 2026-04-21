@@ -5200,6 +5200,9 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('animalType', type);
     sprite.setData('animalState', 'roaming' satisfies AnimalState);
     sprite.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+    // Store world-space origin so flee/approach distance calcs remain in world space.
+    sprite.setData('worldX', x);
+    sprite.setData('worldY', y);
   }
 
   private updateGroundAnimals(): void {
