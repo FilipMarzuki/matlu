@@ -35,6 +35,21 @@ export interface Creature {
   art_credit: string | null;
   credits_opt_in: boolean;
   created_at: string;
+  // Tracker fields (FIL-440 / C1)
+  status: string | null;
+  moderation_note: string | null;  // shown publicly only for rejected status
+}
+
+/**
+ * One row from creature_status_history — intentionally omits the `note` column
+ * (internal moderator notes; never surfaced to the public).
+ */
+export interface StatusHistoryEntry {
+  id: string;
+  creature_id: string;
+  from_status: string | null;
+  to_status: string;
+  changed_at: string;
 }
 
 const SELECT_COLS = [
@@ -44,6 +59,7 @@ const SELECT_COLS = [
   'behaviour_threat','behaviour_notes','food_notes',
   'special_ability','lore_description','lore_origin',
   'art_path','art_credit','credits_opt_in','created_at',
+  'status','moderation_note',
 ].join(',');
 
 function getClient(): { url: string; key: string } | null {
@@ -101,4 +117,98 @@ export async function fetchCreditedCreatures(): Promise<Creature[]> {
 export function imageUrl(supabaseUrl: string, artPath: string | null): string | null {
   if (!artPath) return null;
   return `${supabaseUrl}/storage/v1/object/public/creature-art/${artPath}`;
+}
+
+// ── Tracker: status history + queue ───────────────────────────────────────────
+
+/**
+ * Fetches all status history entries, ordered chronologically.
+ * The `note` column (internal moderator note) is intentionally excluded from
+ * the select — it must never be surfaced publicly.
+ */
+export async function fetchAllStatusHistory(): Promise<StatusHistoryEntry[]> {
+  const client = getClient();
+  if (!client) return [];
+  try {
+    const res = await fetch(
+      `${client.url}/rest/v1/creature_status_history?select=id,creature_id,from_status,to_status,changed_at&order=changed_at.asc`,
+      {
+        headers: {
+          apikey: client.key,
+          Authorization: `Bearer ${client.key}`,
+        },
+      }
+    );
+    if (!res.ok) return [];
+    return await res.json() as StatusHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetches all creatures currently in the drawing queue, ordered by
+ * queue_priority ascending (position 1 = next to be drawn).
+ * Returns only id + queue_priority — no sensitive fields.
+ */
+export async function fetchQueuedPositions(): Promise<Array<{ id: string; queue_priority: number | null }>> {
+  const client = getClient();
+  if (!client) return [];
+  try {
+    const res = await fetch(
+      `${client.url}/rest/v1/creature_submissions?approved=eq.true&status=eq.queued&select=id,queue_priority&order=queue_priority.asc`,
+      {
+        headers: {
+          apikey: client.key,
+          Authorization: `Bearer ${client.key}`,
+        },
+      }
+    );
+    if (!res.ok) return [];
+    return await res.json() as Array<{ id: string; queue_priority: number | null }>;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Computes the median number of days creatures spend in each status,
+ * based on all available history transitions.
+ *
+ * Returns an empty object for any status with fewer than 3 data points
+ * (too little data to be meaningful per spec).
+ */
+export function computeMedianEtaDays(history: StatusHistoryEntry[]): Record<string, number> {
+  // Group entries by creature, sorted by changed_at
+  const byCreature = new Map<string, StatusHistoryEntry[]>();
+  for (const entry of history) {
+    const arr = byCreature.get(entry.creature_id) ?? [];
+    arr.push(entry);
+    byCreature.set(entry.creature_id, arr);
+  }
+
+  // For each creature, compute how many days it spent in each state
+  const durations: Record<string, number[]> = {};
+  for (const entries of byCreature.values()) {
+    entries.sort((a, b) => a.changed_at.localeCompare(b.changed_at));
+    for (let i = 0; i < entries.length - 1; i++) {
+      const status = entries[i].to_status;
+      const startMs = new Date(entries[i].changed_at).getTime();
+      const endMs = new Date(entries[i + 1].changed_at).getTime();
+      const days = (endMs - startMs) / 86_400_000;
+      (durations[status] ??= []).push(days);
+    }
+  }
+
+  // Compute median per status; skip if sample < 3
+  const result: Record<string, number> = {};
+  for (const [status, vals] of Object.entries(durations)) {
+    if (vals.length < 3) continue;
+    const sorted = [...vals].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    result[status] = sorted.length % 2 === 0
+      ? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2
+      : (sorted[mid] ?? 0);
+  }
+  return result;
 }
