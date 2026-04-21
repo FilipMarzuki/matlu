@@ -34,6 +34,7 @@ export interface Creature {
   art_path: string | null;
   art_credit: string | null;
   credits_opt_in: boolean;
+  tracker_issue_number: number | null;
   created_at: string;
 }
 
@@ -43,7 +44,7 @@ const SELECT_COLS = [
   'habitat_biome','habitat_climate','habitat_notes',
   'behaviour_threat','behaviour_notes','food_notes',
   'special_ability','lore_description','lore_origin',
-  'art_path','art_credit','credits_opt_in','created_at',
+  'art_path','art_credit','credits_opt_in','tracker_issue_number','created_at',
 ].join(',');
 
 function getClient(): { url: string; key: string } | null {

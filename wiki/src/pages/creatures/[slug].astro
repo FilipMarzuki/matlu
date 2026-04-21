@@ -78,7 +78,24 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
           <p class="creator">Created by <strong>{c.art_credit ?? c.creator_name}</strong></p>
         )}
       </div>
-      <!-- TRACKER_SIDEBAR: FIL-441 (C2) will insert a GitHub tracker link here -->
+      {c.tracker_issue_number && (
+        <aside class="tracker-card">
+          <p class="tracker-title">Follow this creature's progress</p>
+          <hr class="tracker-rule" />
+          <p class="tracker-body">
+            This creature has a tracker on GitHub where every update is posted.
+          </p>
+          <a
+            href={`https://github.com/FilipMarzuki/matlu/issues/${c.tracker_issue_number}`}
+            class="tracker-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open tracker on GitHub →
+          </a>
+          <p class="tracker-hint">Bookmark or subscribe to get notified when it moves forward.</p>
+        </aside>
+      )}
     </header>
 
     <!-- Art -->
@@ -311,5 +328,50 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   @media (max-width: 520px) {
     dl { grid-template-columns: 1fr; }
     dt { font-size: 0.78rem; color: var(--text-dim); margin-bottom: -0.2rem; }
+  }
+
+  /* ── Tracker sidebar card ─────────────────────────────────────────── */
+  .tracker-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    background: var(--surface, rgba(255,255,255,0.03));
+    min-width: 200px;
+    max-width: 260px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+  .tracker-title {
+    font-weight: 600;
+    color: var(--accent-hi);
+    margin: 0 0 0.5rem;
+    font-size: 0.88rem;
+  }
+  .tracker-rule {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 0.75rem;
+  }
+  .tracker-body {
+    color: var(--text);
+    margin: 0 0 0.75rem;
+    line-height: 1.5;
+  }
+  .tracker-link {
+    display: inline-block;
+    font-weight: 600;
+    color: var(--accent-hi);
+    text-decoration: none;
+    margin-bottom: 0.75rem;
+  }
+  .tracker-link:hover { text-decoration: underline; }
+  .tracker-hint {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin: 0;
+    line-height: 1.4;
+  }
+  @media (max-width: 620px) {
+    .tracker-card { max-width: 100%; }
   }
 </style>
