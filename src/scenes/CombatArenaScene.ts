@@ -31,6 +31,13 @@ interface Room {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+/** Biome index → asset pack folder name. Mirrors GameScene for cross-scene consistency. */
+const CUSTOM_TILE_PACKS: Record<number, string> = {
+  1: 'rocky-shore', 2: 'sandy-shore', 3: 'marsh', 4: 'dry-heath',
+  5: 'coastal-heath', 6: 'meadow', 7: 'forest', 8: 'spruce',
+  9: 'cold-granite', 10: 'bare-summit', 11: 'snow-field',
+};
+
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
 const MAX_ALIVE       = 15;   // total alive enemy cap (kept lower so kill rate stays meaningful)
 const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence begins
@@ -283,6 +290,14 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/tilesets/arena/dungeon_torch.png',
       { frameWidth: 16, frameHeight: 16 },
     );
+
+    // Biome iso tile images — loaded now so the iso floor RenderTexture can use
+    // them when it is built. Each pack ships 4 tile variants (0–3).
+    for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
+      for (let i = 0; i < 4; i++) {
+        this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
+      }
+    }
   }
 
   create(): void {
