@@ -79,17 +79,22 @@ void main() {
   vec4 col = texture2D(uMainSampler, clamp(uv, 0.001, 0.999));
 
   float lum    = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-  vec3  violet = vec3(lum * 0.55, lum * 0.28, lum * 0.75 + 0.08);
-  col.rgb      = mix(col.rgb, violet, uCorruption * 0.45);
+  vec3  violet = vec3(lum * 0.30, lum * 0.10, lum * 0.48 + 0.12);
+  col.rgb      = mix(col.rgb, violet, uCorruption * 0.72);
 
   float pulse    = 0.5 + 0.5 * sin(uTime * 1.3);
   float dist     = length(outTexCoord - 0.5) * 1.7;
-  float vignette = 1.0 - smoothstep(0.35, 0.90, dist);
-  col.rgb       *= mix(1.0, vignette, uCorruption * 0.35 * (0.7 + 0.3 * pulse));
+  float vignette = 1.0 - smoothstep(0.28, 0.86, dist);
+  col.rgb       *= mix(1.0, vignette, uCorruption * 0.58 * (0.65 + 0.35 * pulse));
+
+  // Add patchy "dead zones" so corruption feels geographic rather than a flat tint.
+  float blotch = fbm(outTexCoord * 6.0 + vec2(uTime * 0.04, -uTime * 0.03));
+  float blotchMask = smoothstep(0.45, 0.80, blotch);
+  col.rgb *= 1.0 - blotchMask * uCorruption * 0.28;
 
   float flicker = step(0.975,
     noise(outTexCoord * 22.0 + vec2(uTime * 9.0, uTime * 3.5)));
-  col.rgb += flicker * vec3(0.45, 0.0, 0.65) * uCorruption * 0.35;
+  col.rgb += flicker * vec3(0.65, 0.05, 0.90) * uCorruption * 0.45;
 
   gl_FragColor = vec4(col.rgb, col.a);
 }
