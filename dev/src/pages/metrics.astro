@@ -19,6 +19,8 @@ type WeekRow = {
   cognitive_load_total: number | null;
   ai_total_cost_usd: string | null;
   cognitive_load_top10: Array<{ file: string; score: number; lines: number }> | null;
+  total_lines_added: number | null;
+  total_lines_deleted: number | null;
 };
 
 let rows: WeekRow[] = [];
@@ -26,7 +28,7 @@ if (supabaseUrl && !supabaseUrl.includes('example')) {
   const sb = createClient(supabaseUrl, supabaseKey);
   const { data } = await sb
     .from('stats_weekly')
-    .select('week_of, prs_merged, issues_completed, rework_rate_pct, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd, cognitive_load_top10')
+    .select('week_of, prs_merged, issues_completed, rework_rate_pct, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted')
     .order('week_of', { ascending: true });
   rows = (data as WeekRow[]) ?? [];
 }
@@ -40,7 +42,9 @@ const issuesData  = rows.map(r => r.issues_completed ?? 0);
 const reworkData  = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
 const cogLoadData = rows.map(r => r.cognitive_load_total ?? 0);
 const agentData   = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
-const aiCostData  = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
+const aiCostData      = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
+const churnAddedData  = rows.map(r => r.total_lines_added ?? 0);
+const churnDeletedData = rows.map(r => r.total_lines_deleted ?? 0);
 
 // Latest row's cognitive load top-10 for the hotspots table
 const latest = rows.at(-1);
@@ -81,6 +85,10 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
           <h2>Cumulative AI cost (USD)</h2>
           <canvas id="chart-cost"></canvas>
         </div>
+        <div class="chart-box chart-box--wide">
+          <h2>Code churn — lines added / removed per week</h2>
+          <canvas id="chart-churn"></canvas>
+        </div>
       </div>
 
       {hotspots.length > 0 && (
@@ -112,7 +120,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 )}
 
-<script define:vars={{ labels, prsData, issuesData, reworkData, cogLoadData, agentData, aiCostData }}>
+<script define:vars={{ labels, prsData, issuesData, reworkData, cogLoadData, agentData, aiCostData, churnAddedData, churnDeletedData }}>
   // Runs client-side once Chart.js CDN script has loaded
   if (typeof Chart === 'undefined') {
     // CDN not loaded (e.g. no data rendered), skip
@@ -163,6 +171,39 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     line('chart-cogload', cogLoadData, '#fbbf24');
     bar('chart-agent',   agentData,   ACCENT2);
     line('chart-cost',   aiCostData,  '#4ade80');
+
+    // Grouped bar chart: lines added (green) + lines deleted (red) per week
+    const churnCtx = document.getElementById('chart-churn');
+    if (churnCtx) {
+      new Chart(churnCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Lines added',
+              data: churnAddedData,
+              backgroundColor: '#4ade80',
+            },
+            {
+              label: 'Lines deleted',
+              data: churnDeletedData,
+              backgroundColor: '#f87171',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true, labels: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+          },
+          scales: {
+            x: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+            y: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true },
+          },
+        },
+      });
+    }
   }
 </script>
 
@@ -187,6 +228,9 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 1.25rem;
+  }
+  .chart-box--wide {
+    grid-column: 1 / -1;
   }
   .chart-box h2 {
     font-family: var(--mono);
