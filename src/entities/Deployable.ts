@@ -11,14 +11,8 @@
  *
  * 1. Hero calls `DeployableManager.add(new SomeConcrete(...))`.
  * 2. `DeployableManager.update(delta)` calls `tick(delta)` each frame.
- * 3. `tick()` returns `false` (or `this.lifetimeMs` runs out) → manager calls
- *    `cleanup()` and removes the instance from the active set.
- *
- * ## What is NOT here yet
- *
- * - Concrete subclasses (SentryTurret, MineField) — CombatEngineer Children B/C
- * - Collision/overlap registration — Children B/C wire into CombatArenaScene
- * - Visual effects on deploy / destroy — Children C/D
+ * 3. `tick()` returns `false` (or `this.lifetimeMs` / `this.hp` runs out) →
+ *    manager calls `cleanup()` and removes the instance from the active set.
  */
 
 import * as Phaser from 'phaser';
@@ -34,6 +28,11 @@ export abstract class Deployable extends Phaser.GameObjects.Sprite {
    */
   protected lifetimeMs: number;
 
+  /** Current hit points. Enemies can damage deployables; reaches 0 → tick returns false. */
+  hp: number;
+  /** Maximum hit points. */
+  readonly maxHp: number;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -41,12 +40,24 @@ export abstract class Deployable extends Phaser.GameObjects.Sprite {
     texture: string,
     owner: Phaser.GameObjects.GameObject,
     lifetimeMs: number,
+    maxHp: number,
   ) {
     super(scene, x, y, texture);
     // Register with the scene's display list so the sprite is rendered.
     scene.add.existing(this);
-    this.owner = owner;
+    this.owner      = owner;
     this.lifetimeMs = lifetimeMs;
+    this.maxHp      = maxHp;
+    this.hp         = maxHp;
+  }
+
+  /**
+   * Apply incoming damage to this deployable. Returns remaining HP.
+   * Callers (e.g. arena overlap handlers) should check `hp <= 0` after calling.
+   */
+  takeDamage(amount: number): number {
+    this.hp = Math.max(0, this.hp - amount);
+    return this.hp;
   }
 
   /**

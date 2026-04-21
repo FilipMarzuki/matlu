@@ -152,8 +152,12 @@ export class CombatArenaScene extends Phaser.Scene {
   /** P1 dash — G key (replaces Shift). */
   private dashKey!:   Phaser.Input.Keyboard.Key;
   private shootKey!:  Phaser.Input.Keyboard.Key;
-  /** E key — deploy proximity mine (Tinkerer Tier 2 gadget). */
+  /** E key — deploy proximity mine (Tinkerer) / Scout Drone (CombatEngineer). */
   private gadgetKey!: Phaser.Input.Keyboard.Key;
+  /** Q key — deploy Sentry Turret (CombatEngineer only). */
+  private turretKey!: Phaser.Input.Keyboard.Key;
+  /** R key — deploy Proximity Mine (CombatEngineer only). */
+  private deployMineKey!: Phaser.Input.Keyboard.Key;
 
   /** True once the player reaches GADGET_UNLOCK_KILLS — gates the mine ability. */
   private gadgetUnlocked = false;
@@ -397,6 +401,12 @@ export class CombatArenaScene extends Phaser.Scene {
       this.cameras.main.shake(120, 0.006);
     });
 
+    // BarrierShield physics — register a collider between enemies and the barrier
+    // so they physically cannot walk through it (arcade static body).
+    this.events.on('barrier-placed', (barrier: Phaser.GameObjects.Sprite) => {
+      this.physics.add.collider(this.aliveEnemies as unknown as Phaser.GameObjects.GameObject[], barrier);
+    });
+
     // Gunshot effects — emitted by the Tinkerer in both AI and player modes.
     // Plays a metallic-crack SFX (pitched up), adds a micro camera shake for
     // recoil feel, and briefly flashes a muzzle bloom at the shot origin.
@@ -499,8 +509,10 @@ export class CombatArenaScene extends Phaser.Scene {
       // G replaces Shift as the P1 dash key — Shift was triggering browser shortcuts.
       this.dashKey   = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.G);
       this.shootKey  = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
-      // E deploys a proximity mine — only active after GADGET_UNLOCK_KILLS.
-      this.gadgetKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+      // E: mine (Tinkerer) / drone (CombatEngineer). Q: turret. R: mine deploy (CombatEngineer).
+      this.gadgetKey     = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+      this.turretKey     = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+      this.deployMineKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
       // Gamepad button events — fired once per press, so no per-frame debounce needed.
       // Axis reading (movement) still happens per-frame in the update methods.
@@ -1105,6 +1117,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // so they must be explicitly disposed here rather than relying on destroy().
     if (this.hero instanceof Tinkerer) this.hero.destroyMines();
     else if (this.hero instanceof TorstenKraft) this.hero.destroyMines();
+    else if (this.hero instanceof CombatEngineer) this.hero.destroyDeployables();
     this.gadgetUnlocked = false;
     if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
 
@@ -1624,10 +1637,24 @@ export class CombatArenaScene extends Phaser.Scene {
       this.hero.tryMelee();
     }
 
-    // Ranged — F (just-pressed) or touch button
-    if (Phaser.Input.Keyboard.JustDown(this.shootKey) || this.touchRanged) {
-      this.touchRanged = false;
-      this.hero.tryRanged();
+    if (this.hero instanceof CombatEngineer) {
+      // ── CombatEngineer deploy keys: Q=Turret, E=Drone, R=Mine, F=Shield ──────
+      // F replaces the ranged-fire key for this hero — carbine fires automatically
+      // via the behaviour tree. Child D will expose manual burst-fire.
+      if (Phaser.Input.Keyboard.JustDown(this.turretKey))     this.hero.deployTurret();
+      if (Phaser.Input.Keyboard.JustDown(this.gadgetKey))     this.hero.deployDrone();
+      if (Phaser.Input.Keyboard.JustDown(this.deployMineKey)) this.hero.deployMine();
+      if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
+        // Facing angle: derive from current movement direction (or default right).
+        const facingAngle = (dx !== 0 || dy !== 0) ? Math.atan2(dy, dx) : 0;
+        this.hero.deployShield(facingAngle);
+      }
+    } else {
+      // ── All other heroes: F = ranged fire ───────────────────────────────────
+      if (Phaser.Input.Keyboard.JustDown(this.shootKey) || this.touchRanged) {
+        this.touchRanged = false;
+        this.hero.tryRanged();
+      }
     }
 
     // Dash — G (just-pressed) or touch button; direction required
@@ -1638,8 +1665,8 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // Signature / gadget — E (just-pressed).
     // Tinkerer: deploy proximity mine (gated by kill count unlock).
-    // Other EarthHero subclasses: fire signature (no kill-count gate; subclass guards its own cooldown).
-    if (Phaser.Input.Keyboard.JustDown(this.gadgetKey)) {
+    // CombatEngineer: E already handled above (drone). Other EarthHeroes: fire signature.
+    if (!(this.hero instanceof CombatEngineer) && Phaser.Input.Keyboard.JustDown(this.gadgetKey)) {
       if (this.hero instanceof Tinkerer && this.gadgetUnlocked) {
         this.hero.deployMine();
       } else if (this.hero instanceof EarthHero) {
@@ -1726,9 +1753,10 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
 
-    // Clean up mines and reset gadget state before respawning.
+    // Clean up mines/deployables and reset gadget state before respawning.
     if (this.hero instanceof Tinkerer) this.hero.destroyMines();
     else if (this.hero instanceof TorstenKraft) this.hero.destroyMines();
+    else if (this.hero instanceof CombatEngineer) this.hero.destroyDeployables();
     this.gadgetUnlocked = false;
     if (!this.bgMode) this.hudGadget.setText('MINE: locked').setColor('#555555');
 
