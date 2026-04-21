@@ -101,6 +101,15 @@ async function getGitHubStats() {
     ? Math.round((fixRevertCount / mergedCount) * 100)
     : 0;
 
+  // Refactor PRs — intentional restructuring vs new feature work.
+  // Keyword list mirrors the issue spec so the metric stays consistent.
+  const REFACTOR_RE = /\b(refactor|rewrite|rebuild|restructure|rename|cleanup|clean\s+up|simplify|migrate|extract|split|reorgani[sz]e)\b/i;
+  const refactorPrs = merged.filter(pr => REFACTOR_RE.test(pr.title));
+  const refactorCount    = refactorPrs.length;
+  const refactorRatioPct = mergedCount
+    ? Math.round((refactorCount / mergedCount) * 100)
+    : 0;
+
   // CI pass rate: workflow runs in the last 7 days
   const runs = await ghGet(
     `/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=100&created=>=${weekAgoISO}`
@@ -162,6 +171,8 @@ async function getGitHubStats() {
     openPrAvgAgeDays,
     totalLinesAdded,
     totalLinesDeleted,
+    refactorCount,
+    refactorRatioPct,
   };
 }
 
@@ -762,6 +773,7 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   h2('Quality');
   li(`CI pass rate: **${gh.ciPassRate}%**`);
   li(`PRs with fix/revert in title: **${gh.fixRevertCount}** (${gh.fixRevertPct}%)`);
+  li(`Refactor ratio: **${gh.refactorRatioPct}%** (${gh.refactorCount} of ${gh.mergedCount} PRs with refactor/rewrite/cleanup keywords)`);
   lines.push('');
 
   h2('Automation');
@@ -1012,6 +1024,11 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       total_files_changed:      rework?.totalFiles      ?? null,
       top_rework_file:          rework?.topReworkFiles?.[0]?.file    ?? null,
       top_rework_hits:          rework?.topReworkFiles?.[0]?.changes ?? null,
+
+      // ── Refactor ratio ───────────────────────────────────────────────────────
+      refactor_pr_count:        gh.refactorCount,
+      total_pr_count:           gh.mergedCount,
+      refactor_ratio_pct:       gh.refactorRatioPct,
 
       // ── Cognitive load ──────────────────────────────────────────────────────
       cognitive_load_total:     cogLoad?.totalScore     ?? null,
