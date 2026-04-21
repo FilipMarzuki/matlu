@@ -213,14 +213,14 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude
 
 ## Nightly agent
 
-`.github/workflows/agent-nightly.yml` — per-issue runner. Cron (`0 2 * * *`) + `workflow_dispatch`. Fetches Linear Backlog issues with the `ready` label via `.github/scripts/fetch-agent-issues.js`, then fans out in a matrix (`max-parallel: 3`, `fail-fast: false`) and spawns one isolated Claude Code session per issue via `.github/scripts/run-agent.js`. Per-session prompt lives in `.agents/per-issue.md`.
+`.github/workflows/agent-nightly.yml` — per-issue runner. Cron (`0 2 * * *`) + `workflow_dispatch`. Fetches GitHub Issues with the `ready` label via `.github/scripts/fetch-agent-issues.js`, then fans out in a matrix (`max-parallel: 3`, `fail-fast: false`) and spawns one isolated Claude Code session per issue via `.github/scripts/run-agent.js`. Per-session prompt lives in `.agents/per-issue.md`.
 
-The per-issue runner requires `LINEAR_API_KEY` plus one of two Claude credentials as repo secrets:
+The per-issue runner requires one of two Claude credentials as repo secrets:
 
 - **`CLAUDE_CODE_OAUTH_TOKEN`** (preferred) — generated locally via `claude setup-token`; usage counts against your Claude Pro/Max/Team-premium subscription quota so you avoid pay-as-you-go API billing.
 - **`ANTHROPIC_API_KEY`** — fallback, pay-as-you-go. Set this instead if you don't have a Claude Code subscription seat.
 
-It also expects four labels to already exist in Linear: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
+It also expects four labels to exist in GitHub Issues: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
 
 On-demand runs: trigger `Dev Agent` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.
 
@@ -228,20 +228,20 @@ On-demand runs: trigger `Dev Agent` from the Actions tab, optionally pinning it 
 
 `.github/workflows/agent-triage.yml` — nightly cron (`0 22 * * *`, 22:00 UTC) + `workflow_dispatch`. Runs 4 hours before the implementation agent (02:00 UTC) so any issue triaged as `ready` tonight is immediately picked up. Sweeps Backlog issues that haven't been triaged (no `ready`, `needs-refinement`, `blocked`, `too-large`, or `agent:*` label) and spawns one Claude Code session per issue to assess readiness for the nightly implementation agent.
 
-The triage agent **reads the codebase but never writes code**. Its output is Linear labels + description edits + comments. Per-session prompt lives in `.agents/triage.md`.
+The triage agent **reads the codebase but never writes code**. Its output is GitHub labels + description edits + comments. Per-session prompt lives in `.agents/triage.md`.
 
 Scripts: `.github/scripts/fetch-triage-issues.js` (query un-triaged issues) + `.github/scripts/run-triage.js` (per-issue runner).
 
-Same secrets as the nightly agent (`LINEAR_API_KEY` + `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`).
+Same secrets as the nightly agent (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`).
 
-Triage labels (pre-created on the Fills Pills team):
+Triage labels (in GitHub Issues):
 - `ready` — agent can pick this up in the nightly run.
 - `needs-refinement` — close but missing specifics; description has been edited.
 - `blocked` — hard dependency on another issue or missing infrastructure.
 - `too-large` — needs to be split into 2+ smaller issues.
 - `rework` — issue fixes/reverts/polishes something recently shipped. Applied alongside a readiness label.
 
-The triage agent also sets the Linear `estimate` field using T-shirt sizes (XS=1, S=2, M=3, L=5, XL=8) based on codebase analysis.
+The triage agent also sets an effort estimate using T-shirt sizes (XS=1, S=2, M=3, L=5, XL=8) based on codebase analysis.
 
 ### Rework tracking
 
@@ -258,15 +258,15 @@ All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude
 
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
-| Backlog Cleanup | after Backlog Refinement | `.agents/hygiene.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
-| PR Grooming | after Dev Agent | `.agents/pr-merge.md` | `LINEAR_API_KEY`, `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
-| Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `LINEAR_API_KEY`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files Linear bugs |
+| Backlog Cleanup | after Backlog Refinement | `.agents/hygiene.md` | `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
+| PR Grooming | after Dev Agent | `.agents/pr-merge.md` | `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
+| Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `GITHUB_TOKEN`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files GitHub bugs |
 | Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY` | Expands thin lore entries, generates new ones in Notion |
 | Lore from Features | `0 15 * * *` (daily) | `.agents/lore-features.md` | `NOTION_API_KEY` | Scans merged PRs for new game entities, creates Notion lore entries |
 | Entity Spec Fill | `0 16 * * *` (daily) | `.agents/entity-spec-fill.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` | Writes `designNotes` (sprite, animation, sound briefs) for all entities missing them in `entity-registry.json` |
 | Weekly Learning Summary | `0 7 * * 6` (Saturday) | `.agents/learning-summary.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes learning summary from the week's PRs, posts to Notion |
-| Weekly Architecture Review | `0 17 * * 5` (Friday) | `.agents/architecture-review.md` | `LINEAR_API_KEY` | Updates ARCHITECTURE.md, flags concerns, creates Linear issue |
-| **Weekly Engineering Stats** | `0 8 * * 0` (Sunday) | `collect-stats.js` (script, not agent) | `LINEAR_API_KEY`, `GITHUB_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTION_API_KEY` | Collects delivery/quality/rework metrics; writes to Supabase `stats_weekly` + `cognitive_load`; triggers Vercel rebuild |
+| Weekly Architecture Review | `0 17 * * 5` (Friday) | `.agents/architecture-review.md` | `GITHUB_TOKEN` | Updates ARCHITECTURE.md, flags concerns, creates GitHub issue |
+| **Weekly Engineering Stats** | `0 8 * * 0` (Sunday) | `collect-stats.js` (script, not agent) | `GITHUB_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTION_API_KEY` | Collects delivery/quality/rework metrics; writes to Supabase `stats_weekly` + `cognitive_load`; triggers Vercel rebuild |
 | Weekly Release Notes | after Weekly Engineering Stats | `.agents/release-notes.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes release notes from merged PRs, posts to Notion |
-| Agent Performance Log | after Weekly Release Notes | `.agents/agent-perf-log.md` | `LINEAR_API_KEY`, `NOTION_API_KEY` | Queries Linear for agent:* outcome labels, creates weekly summary child page in Notion "Agent Performance Log" |
+| Agent Performance Log | after Weekly Release Notes | `.agents/agent-perf-log.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Queries GitHub Issues for agent:* outcome labels, creates weekly summary child page in Notion "Agent Performance Log" |
 | **Sprite Credit Burn** | **manual only** (`workflow_dispatch`) | `.agents/sprite-credit-burn.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Generates PixelLab sprites for all entities missing them (Pass 1), then drains queued community creature submissions (Pass 2); commits after each entity/creature; stops cleanly when credits run out. Run before the 9th of the month. |

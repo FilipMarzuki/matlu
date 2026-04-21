@@ -8,7 +8,7 @@ file Linear bugs for any not already tracked.
 
 - `BETTERSTACK_CONNECT_USER` — Better Stack Connect username
 - `BETTERSTACK_CONNECT_PASS` — Better Stack Connect password
-- `LINEAR_API_KEY` — Linear API key
+- `GITHUB_TOKEN` — GitHub API token
 
 Connect endpoint: `https://eu-fsn-3-connect.betterstackdata.com`
 Log collection: `t523686_matlu_logs`

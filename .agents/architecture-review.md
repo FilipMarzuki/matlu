@@ -15,7 +15,7 @@ architectural patterns worth tracking (e.g. shared data contracts, API surface c
 
 ## Environment
 
-- `LINEAR_API_KEY` — Linear API key (env var).
+- `GITHUB_TOKEN` — GitHub API token (env var).
 
 Today's date: run `date -u +%Y-%m-%d` to get it.
 

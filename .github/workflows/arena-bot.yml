@@ -46,7 +46,6 @@ jobs:
         # report.ts reads screenshots/arena-testplay-report.json, compares metrics
         # against healthy thresholds, posts a summary comment on FIL-188, and
         # creates one bug issue per out-of-range metric. Exits 0 gracefully if
-        # LINEAR_API_KEY is not set (e.g. on forks).
-        run: npx tsx scripts/arena-bot/report.ts
+run: npx tsx scripts/arena-bot/report.ts
         env:
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

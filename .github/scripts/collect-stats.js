@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Weekly engineering stats collector.
-// Queries GitHub REST API + Linear GraphQL, posts to Supabase (master),
+// Queries GitHub REST API, posts to Supabase (master),
 // then pushes a copy to Notion so stats are visible there too.
 // Runs via GitHub Actions — all credentials come from environment secrets.
 // Uses only Node.js built-ins (fetch is available in Node 18+).
@@ -17,7 +17,6 @@ const __dirname  = dirname(__filename);
 const GITHUB_TOKEN              = process.env.GITHUB_TOKEN;
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const LINEAR_API_KEY            = process.env.LINEAR_API_KEY;
 const VERCEL_DEPLOY_HOOK        = process.env.VERCEL_DEPLOY_HOOK;
 const VERCEL_TOKEN              = process.env.VERCEL_TOKEN;
 const VERCEL_PROJECT_ID         = process.env.VERCEL_PROJECT_ID;
@@ -273,77 +272,59 @@ async function getPixelLabStats() {
   }
 }
 
-// ── Linear lead time (DORA metric 2) ─────────────────────────────────────────
+// ── GitHub Issues lead time (DORA metric 2) ──────────────────────────────────
 
 /**
- * Queries Linear GraphQL for issues completed in the last 14 days and computes
- * lead time (completedAt − createdAt) for this week and the prior week.
+ * Queries GitHub Issues for issues closed in the last 14 days and computes
+ * lead time (closed_at − created_at) for this week and the prior week.
  *
  * Lead time is the most direct measure of delivery speed: from the moment an
  * issue is created to the moment it is marked done. Long lead times indicate
  * batching, blocking, or incomplete issue decomposition.
  *
- * Returns null gracefully when LINEAR_API_KEY is absent.
+ * Returns null gracefully when GITHUB_TOKEN is absent.
  */
-async function getLinearLeadTimeStats() {
-  if (!LINEAR_API_KEY) {
-    console.log('LINEAR_API_KEY not set — skipping lead time stats.');
+async function getGitHubLeadTimeStats() {
+  if (!GITHUB_TOKEN) {
+    console.log('GITHUB_TOKEN not set — skipping lead time stats.');
     return null;
   }
 
-  const query = `
-    query LeadTime($after: DateTimeOrDuration!) {
-      issues(
-        filter: { completedAt: { gte: $after } }
-        first: 250
-        orderBy: updatedAt
-      ) {
-        nodes {
-          id
-          completedAt
-          createdAt
-        }
-      }
-    }
-  `;
-
-  let nodes;
+  // Paginate through all closed issues updated since two weeks ago.
+  const closed = [];
+  let nextPath = `/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=closed&since=${twoWeeksAgo.toISOString()}&per_page=100`;
   try {
-    const res = await fetch('https://api.linear.app/graphql', {
-      method: 'POST',
-      headers: {
-        Authorization: LINEAR_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { after: twoWeeksAgo.toISOString() },
-      }),
-    });
-    if (!res.ok) {
-      console.warn(`Linear GraphQL → ${res.status}`);
-      return null;
+    while (nextPath) {
+      const res = await fetch(`https://api.github.com${nextPath}`, {
+        headers: {
+          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github+json',
+        },
+      });
+      if (!res.ok) {
+        console.warn(`GitHub Issues API → ${res.status}`);
+        return null;
+      }
+      const page = await res.json();
+      closed.push(...page.filter(i => !i.pull_request && i.closed_at));
+      const link = res.headers.get('link');
+      const next = link?.match(/<https:\/\/api\.github\.com([^>]+)>;\s*rel="next"/);
+      nextPath = next ? next[1] : null;
     }
-    const data = await res.json();
-    if (data.errors) {
-      console.warn('Linear GraphQL errors:', JSON.stringify(data.errors));
-      return null;
-    }
-    nodes = data.data?.issues?.nodes ?? [];
   } catch (e) {
-    console.warn('getLinearLeadTimeStats failed:', e.message);
+    console.warn('getGitHubLeadTimeStats failed:', e.message);
     return null;
   }
 
-  // Split into this-week and last-week buckets by completedAt.
-  const thisWeekNodes = nodes.filter(n => new Date(n.completedAt) >= weekAgo);
-  const lastWeekNodes = nodes.filter(
-    n => new Date(n.completedAt) >= twoWeeksAgo && new Date(n.completedAt) < weekAgo,
+  // Split into this-week and last-week buckets by closed_at.
+  const thisWeekNodes = closed.filter(n => new Date(n.closed_at) >= weekAgo);
+  const lastWeekNodes = closed.filter(
+    n => new Date(n.closed_at) >= twoWeeksAgo && new Date(n.closed_at) < weekAgo,
   );
 
-  // Lead time in fractional days (completedAt − createdAt).
+  // Lead time in fractional days (closed_at − created_at).
   const leadDays = (n) =>
-    (new Date(n.completedAt) - new Date(n.createdAt)) / (1000 * 60 * 60 * 24);
+    (new Date(n.closed_at) - new Date(n.created_at)) / (1000 * 60 * 60 * 24);
 
   const p90 = (arr) => {
     if (!arr.length) return null;
@@ -833,7 +814,7 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   li(`Avg issue cycle time: **${linear.avgCycleTime} days**`);
   if (leadTime?.thisWeek?.avg !== null && leadTime?.thisWeek?.avg !== undefined) {
     const trendArrow = leadTime.trend === 'improving' ? ' ↓' : leadTime.trend === 'degrading' ? ' ↑⚠️' : '';
-    li(`Lead time (Linear, this week): **${leadTime.thisWeek.avg}d** avg / **${leadTime.thisWeek.p90}d** p90 (n=${leadTime.thisWeek.count})${trendArrow}`);
+    li(`Lead time (GitHub Issues, this week): **${leadTime.thisWeek.avg}d** avg / **${leadTime.thisWeek.p90}d** p90 (n=${leadTime.thisWeek.count})${trendArrow}`);
     if (leadTime.lastWeek?.avg !== null && leadTime.lastWeek?.avg !== undefined) {
       li(`Lead time (last week): ${leadTime.lastWeek.avg}d avg / ${leadTime.lastWeek.p90}d p90 (n=${leadTime.lastWeek.count})`);
     }
@@ -1365,7 +1346,7 @@ async function main() {
     getPixelLabStats(),
     getDeployStats(),
     getAgentOutcomeStats(),
-    getLinearLeadTimeStats(),
+    getGitHubLeadTimeStats(),
   ]);
 
   // Synchronous stats — run after async work so the build step doesn't block network calls
@@ -1378,7 +1359,7 @@ async function main() {
   const bugFileBreakdown = await getBugFileBreakdown();
 
   console.log('GitHub stats:', gh);
-  console.log('Linear stats:', linear);
+  console.log('Issue stats:', linear);
   console.log('Commit spread:', commitSpread);
   console.log('Bundle:', bundle);
   console.log('PixelLab:', pixellab);

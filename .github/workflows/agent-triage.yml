@@ -46,7 +46,6 @@ jobs:
       - name: Fetch un-triaged Backlog issues
         id: fetch
         env:
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${{ inputs.issue_id }}" ]; then
@@ -85,7 +84,6 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
-          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
         run: node .github/scripts/run-triage.js "${{ matrix.issue }}"
 

@@ -1,12 +1,5 @@
 {
   "mcpServers": {
-    "linear": {
-      "type": "http",
-      "url": "https://mcp.linear.app/mcp",
-      "headers": {
-        "Authorization": "Bearer ${LINEAR_API_KEY}"
-      }
-    },
     "pixellab": {
       "type": "http",
       "url": "https://api.pixellab.ai/mcp"

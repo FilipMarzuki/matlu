@@ -35,7 +35,6 @@ jobs:
       - name: Run diagram generator
         env:
           NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
-          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
           MATLU_WIKI_PUSH_TOKEN:   ${{ secrets.MATLU_WIKI_PUSH_TOKEN }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
         run: node .github/scripts/generate-diagrams.js

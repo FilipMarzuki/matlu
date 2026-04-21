@@ -24,7 +24,6 @@ const REPO_ROOT  = path.join(__dirname, '../..');
 
 const NOTION_API_KEY       = process.env.NOTION_API_KEY;
 const NOTION_BLOG_PAGE_ID  = process.env.NOTION_BLOG_PAGE_ID || '33f843c0-718f-8197-8972-fb2b6e44754a';
-const LINEAR_API_KEY       = process.env.LINEAR_API_KEY;
 if (!NOTION_API_KEY) { console.error('Missing NOTION_API_KEY'); process.exit(1); }
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
@@ -87,29 +86,25 @@ function scanSceneNames() {
     .map(f => f.replace('.ts', ''));
 }
 
-// ── Linear query ──────────────────────────────────────────────────────────────
+// ── GitHub Issues query ───────────────────────────────────────────────────────
 
-async function getLinearOpenCount() {
-  if (!LINEAR_API_KEY) return null;
+async function getGitHubOpenCount() {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return null;
   try {
-    const res = await fetch('https://api.linear.app/graphql', {
-      method: 'POST',
-      headers: {
-        Authorization: LINEAR_API_KEY.replace(/^Bearer\s+/i, ''),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: `{
-          issues(filter: { state: { type: { in: ["backlog","unstarted"] } } }, first: 1) {
-            pageInfo { total }
-          }
-        }`,
-      }),
-    });
-    const json = await res.json();
-    return json?.data?.issues?.pageInfo?.total ?? null;
+    const res = await fetch(
+      'https://api.github.com/search/issues?q=repo:FilipMarzuki/matlu+is:issue+is:open&per_page=1',
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+        },
+      }
+    );
+    const data = await res.json();
+    return data.total_count ?? null;
   } catch (e) {
-    console.warn('Linear query failed:', e.message);
+    console.warn('GitHub Issues query failed:', e.message);
     return null;
   }
 }
@@ -118,8 +113,8 @@ async function getLinearOpenCount() {
 
 function buildPipelineDiagram(openIssues) {
   const backlogLabel = openIssues !== null
-    ? `Linear Backlog\\n${openIssues} open issues`
-    : 'Linear Backlog';
+    ? `GitHub Issues\\n${openIssues} open`
+    : 'GitHub Issues';
   return `flowchart LR
     LB["${backlogLabel}"]
     TA["Triage Agent\\n22:00 UTC"]
@@ -305,7 +300,7 @@ async function main() {
   console.log(`  Found ${Object.keys(entityHierarchy).length} entity classes, ${sceneNames.length} scenes`);
 
   console.log('Querying Linear...');
-  const openIssues = await getLinearOpenCount();
+  const openIssues = await getGitHubOpenCount();
   console.log(`  Open issues: ${openIssues ?? 'unavailable'}`);
 
   console.log('Generating Mermaid diagrams...');

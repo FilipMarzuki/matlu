@@ -7,7 +7,6 @@ rest in a safe order — resolving conflicts when needed.
 Credentials are available as environment variables:
 
 - `GITHUB_TOKEN` / `GH_TOKEN` — GitHub API, scoped to this repo
-- `LINEAR_API_KEY` — Linear GraphQL API (https://api.linear.app/graphql)
 
 The runner has `gh`, `git`, `node`, and `npm` pre-installed.
 

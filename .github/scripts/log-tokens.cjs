@@ -8,7 +8,7 @@
 //
 // Manual mode (Cursor, cloud agents, any external tool):
 //   node log-tokens.cjs --manual <issueId> <inputTokens> <outputTokens> [cacheRead] [cacheWrite]
-//   Example: node log-tokens.cjs --manual FIL-148 45000 8000
+//   Example: node log-tokens.cjs --manual 148 45000 8000
 //   Uses a generated session ID based on date+issue to deduplicate same-day manual entries.
 
 const fs   = require('fs');
@@ -126,9 +126,10 @@ function estimateCost({ inputTokens, outputTokens, cacheReadTokens, cacheWriteTo
 function getBranchInfo() {
   try {
     const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
-    // Match patterns like FIL-146, FIL-12, etc.
-    const match = branch.match(/([A-Z]+-\d+)/i);
-    const issueId = match ? match[1].toUpperCase() : null;
+    // Match claude/42-slug (GitHub issue branches) or legacy FIL-146 pattern
+    const ghMatch = branch.match(/claude\/(\d+)/);
+    const legacyMatch = branch.match(/([A-Z]+-\d+)/i);
+    const issueId = ghMatch ? `#${ghMatch[1]}` : (legacyMatch ? legacyMatch[1].toUpperCase() : null);
     return { branch, issueId };
   } catch (e) {
     return { branch: 'unknown', issueId: null };

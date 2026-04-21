@@ -43,7 +43,6 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
-          LINEAR_API_KEY:          ${{ secrets.LINEAR_API_KEY }}
           NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
         run: |
           npx --yes @anthropic-ai/claude-code --print \

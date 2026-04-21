@@ -147,7 +147,6 @@ checkout → node 20 → npm ci → node .github/scripts/collect-stats.js
 ```
 NOTION_API_KEY
 NOTION_STATS_PAGE_ID
-LINEAR_API_KEY
 PIXELLAB_API_KEY
 VERCEL_DEPLOY_HOOK        (optional — triggers matlu-wiki rebuild)
 VERCEL_TOKEN              (optional — read production deployments from Vercel)
@@ -180,8 +179,8 @@ All agents end their session with `npm run log-tokens` to commit token usage to 
 {
   "sessionId": "uuid",
   "date": "2026-04-11",
-  "branch": "claude/FIL-146-choice-tracking-endings",
-  "issueId": "FIL-146",
+  "branch": "claude/146-choice-tracking-endings",
+  "issueId": "#146",
   "model": "claude-sonnet-4-6",
   "source": "claude-code",
   "inputTokens": 12000,
@@ -195,7 +194,7 @@ All agents end their session with `npm run log-tokens` to commit token usage to 
 **Written by**:
 - Local sessions: `.claude/settings.json` Stop hook → `node .github/scripts/log-tokens.cjs`
 - Cloud agents: final step in each trigger prompt → `npm run log-tokens`
-- Manual (Cursor): `node .github/scripts/log-tokens.cjs --manual FIL-148 45000 8000`
+- Manual (Cursor): `node .github/scripts/log-tokens.cjs --manual 148 45000 8000`
 
 **Read by**: `stats.yml` → `collect-stats.js → getAiStats()` for weekly AI usage section.
 
@@ -208,7 +207,6 @@ All agents end their session with `npm run log-tokens` to commit token usage to 
 | `GITHUB_TOKEN` | `stats.yml` (auto) | GitHub API — PRs, CI runs, commits |
 | `NOTION_API_KEY` | `stats.yml`, cloud agents | Post pages to Notion |
 | `NOTION_STATS_PAGE_ID` | `stats.yml` | Parent page for weekly stats children |
-| `LINEAR_API_KEY` | `stats.yml`, cloud agents | Query issues and projects |
 | `PIXELLAB_API_KEY` | `stats.yml` | Balance endpoint |
 | `VERCEL_DEPLOY_HOOK` | `stats.yml` | POST to rebuild matlu-wiki after stats |
 | `VERCEL_TOKEN` | `stats.yml` | Vercel personal access token — read production deployments for DORA metrics |

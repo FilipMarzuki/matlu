@@ -9,7 +9,7 @@
 // Usage:
 //   node .github/scripts/log-session-tokens.js \
 //     --workflow "Dev Agent" \
-//     [--issue FIL-42]         # Linear issue ID; hygiene passes "FIL-42:mark-done" — colon is stripped
+//     [--issue 42]             # GitHub issue number; hygiene passes "42:mark-done" — colon is stripped
 //     [--branch my-branch]     # defaults to `git rev-parse --abbrev-ref HEAD`
 //
 // Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
