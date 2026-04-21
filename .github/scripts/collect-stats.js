@@ -80,10 +80,13 @@ async function getGitHubStats() {
     merged.map(pr => ghGet(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}`))
   );
 
-  const prSizes         = prDetails.map(pr => (pr.additions || 0) + (pr.deletions || 0));
-  const avgPrSize       = Math.round(avg(prSizes));
+  const prSizes           = prDetails.map(pr => (pr.additions || 0) + (pr.deletions || 0));
+  const avgPrSize         = Math.round(avg(prSizes));
   const totalLinesAdded   = prDetails.reduce((s, pr) => s + (pr.additions || 0), 0);
   const totalLinesDeleted = prDetails.reduce((s, pr) => s + (pr.deletions || 0), 0);
+  const avgFilesChanged   = Math.round(avg(prDetails.map(pr => pr.changed_files || 0)));
+  const avgLinesAdded     = Math.round(avg(prDetails.map(pr => pr.additions     || 0)));
+  const avgLinesDeleted   = Math.round(avg(prDetails.map(pr => pr.deletions     || 0)));
   const mergedCount  = merged.length;
 
   // Merge time (hours from created_at → merged_at)
@@ -158,6 +161,9 @@ async function getGitHubStats() {
   return {
     mergedCount,
     avgPrSize,
+    avgFilesChanged,
+    avgLinesAdded,
+    avgLinesDeleted,
     avgMergeTime,
     fixRevertCount,
     fixRevertPct,
@@ -997,6 +1003,9 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       human_prs:                gh.humanMergedCount,
       agent_prs:                gh.agentMergedCount,
       avg_pr_size:              gh.avgPrSize,
+      avg_files_changed:        gh.avgFilesChanged,
+      avg_lines_added:          gh.avgLinesAdded,
+      avg_lines_deleted:        gh.avgLinesDeleted,
       issues_completed:         linear.completedCount,
       active_days:              commitSpread?.activeDays   ?? null,
       total_commits:            commitSpread?.totalCommits ?? null,

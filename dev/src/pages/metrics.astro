@@ -24,6 +24,9 @@ type WeekRow = {
   cognitive_load_top10: Array<{ file: string; score: number; lines: number }> | null;
   total_lines_added: number | null;
   total_lines_deleted: number | null;
+  avg_files_changed: number | null;
+  avg_lines_added: number | null;
+  avg_lines_deleted: number | null;
 };
 
 let rows: WeekRow[] = [];
@@ -31,7 +34,7 @@ if (supabaseUrl && !supabaseUrl.includes('example')) {
   const sb = createClient(supabaseUrl, supabaseKey);
   const { data } = await sb
     .from('stats_weekly')
-    .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, total_pr_count, agent_success_rate_pct, cognitive_load_total, cognitive_load_density, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted')
+    .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, total_pr_count, agent_success_rate_pct, cognitive_load_total, cognitive_load_density, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted, avg_files_changed, avg_lines_added, avg_lines_deleted')
     .order('week_of', { ascending: true });
   rows = (data as WeekRow[]) ?? [];
 }
@@ -50,8 +53,9 @@ const agentData          = rows.map(r => parseFloat(r.agent_success_rate_pct ?? 
 const aiCostData         = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
 const churnAddedData     = rows.map(r => r.total_lines_added ?? 0);
 const churnDeletedData   = rows.map(r => r.total_lines_deleted ?? 0);
+const filesData          = rows.map(r => r.avg_files_changed ?? 0);
 
-// Latest row's cognitive load top-10 for the hotspots table
+// Latest row for number cards
 const latest = rows.at(-1);
 const hotspots = latest?.cognitive_load_top10 ?? [];
 ---
@@ -108,11 +112,35 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
           <h2>Cumulative AI cost (USD)</h2>
           <canvas id="chart-cost"></canvas>
         </div>
+        <div class="chart-box">
+          <h2>Avg files changed / PR</h2>
+          <canvas id="chart-files"></canvas>
+        </div>
         <div class="chart-box chart-box--wide">
           <h2>Code churn — lines added / removed per week</h2>
           <canvas id="chart-churn"></canvas>
         </div>
       </div>
+
+      {latest && (latest.avg_files_changed !== null || latest.avg_lines_added !== null) && (
+        <section class="pr-size">
+          <h2>PR size <span class="hint">(latest week)</span></h2>
+          <div class="stat-row">
+            <div class="stat-card">
+              <span class="stat-label">Avg files / PR</span>
+              <span class="stat-value">{latest.avg_files_changed ?? '—'}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Avg lines added / PR</span>
+              <span class="stat-value added">+{latest.avg_lines_added ?? '—'}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Avg lines deleted / PR</span>
+              <span class="stat-value deleted">−{latest.avg_lines_deleted ?? '—'}</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {hotspots.length > 0 && (
         <section class="hotspots">
@@ -143,7 +171,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 )}
 
-<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, cogLoadDensityData, agentData, aiCostData, churnAddedData, churnDeletedData }}>
+<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, cogLoadDensityData, agentData, aiCostData, churnAddedData, churnDeletedData, filesData }}>
   // Runs client-side once Chart.js CDN script has loaded
   if (typeof Chart === 'undefined') {
     // CDN not loaded (e.g. no data rendered), skip
@@ -242,6 +270,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
 
     bar('chart-agent',     agentData,    ACCENT2);
     line('chart-cost',     aiCostData,   '#4ade80');
+    bar('chart-files',     filesData,    '#60a5fa');
 
     // Grouped bar chart: lines added (green) + lines deleted (red) per week
     const churnCtx = document.getElementById('chart-churn');
@@ -348,11 +377,45 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     margin-bottom: 1rem;
   }
 
-  .hotspots h2 {
+  .hotspots h2, .pr-size h2 {
     font-size: 1rem;
     margin-bottom: 1rem;
   }
   .hint { font-size: 0.8rem; color: var(--text-dim); font-weight: 400; }
+
+  .pr-size {
+    margin-bottom: 2.5rem;
+  }
+  .stat-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 160px;
+  }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-value.added  { color: #4ade80; }
+  .stat-value.deleted { color: #f87171; }
 
   table {
     width: 100%;
