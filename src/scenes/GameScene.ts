@@ -3555,7 +3555,7 @@ export class GameScene extends Phaser.Scene {
       // Boss is near the portal — always Zone C speeds.
       r.setData('chaseSpeed', Math.round(CHASE_SPEED * 1.5));
       r.setData('fleeSpeed',  Math.round(FLEE_SPEED  * 1.5));
-      r.setDepth(r.y);
+      { const { x: _bRabWx, y: _bRabWy } = isoToWorld(r.x, r.y); r.setDepth(isoDepth(_bRabWx, _bRabWy)); }
       this.rabbits.add(r);
     }
   }
@@ -6208,8 +6208,8 @@ export class GameScene extends Phaser.Scene {
     // Drift helper — picks a new random target within 120 px and tweens to it,
     // then calls itself again on completion for continuous ambient movement.
     const drift = (img: Phaser.GameObjects.Image) => {
-      const nx = Phaser.Math.Clamp(img.x + (rand() - 0.5) * 240, 0, WORLD_W);
-      const ny = Phaser.Math.Clamp(img.y + (rand() - 0.5) * 240, 0, WORLD_H);
+      const nx = Phaser.Math.Clamp(img.x + (rand() - 0.5) * 240, 0, ISO_WORLD_W);
+      const ny = Phaser.Math.Clamp(img.y + (rand() - 0.5) * 240, 0, ISO_WORLD_H);
       this.tweens.add({
         targets: img, x: nx, y: ny,
         duration: 3000 + rand() * 3000,
@@ -6242,9 +6242,10 @@ export class GameScene extends Phaser.Scene {
 
         // 60 % butterflies, 40 % bees (matches approximate flower/clover split)
         const key = rand() < 0.6 ? 'butterfly-tex' : 'bee-tex';
-        const img = this.add.image(x, y, key);
+        const { x: _beeIsoX, y: _beeIsoY } = worldToIso(x, y);
+        const img = this.add.image(_beeIsoX, _beeIsoY, key);
         this.decorImages.push(img);
-        img.setDepth(2 + y / WORLD_H).setScale(1.5);
+        img.setDepth(isoDepth(x, y)).setScale(1.5);
 
         // Wing flutter — ±8° at 180 ms; butterflies slightly faster than bees
         this.tweens.add({
@@ -6874,14 +6875,14 @@ export class GameScene extends Phaser.Scene {
 
     for (const def of defs) {
       const alreadyOpened = openedSet.has(def.id);
+      const { x: _lcIsoX, y: _lcIsoY } = worldToIso(def.x, def.y);
 
       // Frame 3 = fully open. Already-opened chests render immediately open
       // so the player doesn't see them "pop" closed on load.
-      const sprite = this.add.sprite(def.x, def.y, def.texture, alreadyOpened ? 3 : 0);
+      const sprite = this.add.sprite(_lcIsoX, _lcIsoY, def.texture, alreadyOpened ? 3 : 0);
       // Scale 2× matches other Mystic Woods decorations in the world (16 px → 32 px display).
       sprite.setScale(2.0);
-      // y-sort: depth = world-y so the player correctly occludes/underlaps the chest.
-      sprite.setDepth(def.y);
+      sprite.setDepth(isoDepth(def.x, def.y));
       // Origin (0.5, 1): sprite is anchored at its bottom-centre, consistent with
       // all other world objects that use y-sorting.
       sprite.setOrigin(0.5, 1);
@@ -6892,7 +6893,7 @@ export class GameScene extends Phaser.Scene {
       // "E: Open" prompt — 8 px above the sprite top (sprite is 32 px tall at scale 2).
       // Depth 500 renders above all world objects.
       const prompt = this.add
-        .text(def.x, def.y - 40, t('ui.open'), {
+        .text(_lcIsoX, _lcIsoY - 40, t('ui.open'), {
           fontSize: '10px',
           color: '#f0ead6',
           backgroundColor: '#00000088',
