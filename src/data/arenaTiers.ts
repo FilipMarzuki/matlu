@@ -90,6 +90,13 @@ export interface ArenaTierConfig {
    * Non-ready tiers are preserved here as the roadmap for future implementation.
    */
   ready: boolean;
+  /**
+   * Biome floor tile pack index. Defaults to 7 (Forest) when absent.
+   * 1=Rocky Shore  2=Sandy Shore  3=Marsh      4=Dry Heath  5=Coastal Heath
+   * 6=Meadow       7=Forest       8=Spruce      9=Cold Granite
+   * 10=Bare Summit 11=Snow Field
+   */
+  biomeIndex?: number;
 }
 
 // ── Tier configs ──────────────────────────────────────────────────────────────
@@ -101,10 +108,11 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
   // This is also the default when no config is passed (CI / screenshots).
   // READY: Tinkerer sprite + abilities are complete.
   {
-    tier:    1,
-    label:   'Tier 1 — Tinkerer',
-    heroKey: 'tinkerer',
-    ready:   true,
+    tier:       1,
+    label:      'Tier 1 — Tinkerer',
+    heroKey:    'tinkerer',
+    biomeIndex: 7,
+    ready:      true,
     waveGroups: [
       { label: 'Hatchling Rush',  enemies: [BabyVelcrid, BabyVelcrid, BabyVelcrid] },
       { label: 'Scout Pair',      enemies: [VelcridJuvenile, VelcridJuvenile] },
@@ -119,10 +127,11 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
   // to reward positioning over raw DPS. No burrow surprises; no AoE threats.
   // READY: Loke sprite + slingshot AI complete.
   {
-    tier:    0,
-    label:   'Prologue — Loke',
-    heroKey: 'loke',
-    ready:   true,
+    tier:       0,
+    label:      'Prologue — Loke',
+    heroKey:    'loke',
+    biomeIndex: 6,
+    ready:      true,
     waveGroups: [
       { label: 'First Contact',  enemies: [BabyVelcrid, BabyVelcrid] },
       { label: 'Scout Pair',     enemies: [VelcridJuvenile] },
