@@ -34,6 +34,11 @@ interface EntityEntry {
   type:            'enemy' | 'hero' | 'summon' | 'neutral';
   world:           string;
   personality:     string;
+  source?:         string;
+  attribution?: {
+    maker_name?:              string;
+    creature_submission_id?:  string;
+  } | null;
   spriteKey:       string | null;
   spritesheetJson: string | null;
   animTags: {
