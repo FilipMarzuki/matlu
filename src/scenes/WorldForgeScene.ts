@@ -593,7 +593,7 @@ export class WorldForgeScene extends Phaser.Scene {
           // at depth=0) occludes the lower tile's exposed cap diamond, showing only the
           // wall face strip. Cap (step=0) is drawn last and sits on top of everything.
           const maxDrop  = Math.max(southDrop, eastDrop, westDrop);
-          const numTiles = maxDrop * 2;
+          const numTiles = maxDrop * 2 + 1; // +1 extra to fully close the bottom gap
           for (let step = numTiles - 1; step >= 0; step--) {
             const tileImg = this.add.image(x, posY + step * (CLIFF_H / 2), cliffKey)
               .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
