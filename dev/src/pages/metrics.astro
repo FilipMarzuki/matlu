@@ -19,6 +19,7 @@ type WeekRow = {
   total_pr_count: number | null;
   agent_success_rate_pct: string | null;
   cognitive_load_total: number | null;
+  cognitive_load_density: number | null;
   ai_total_cost_usd: string | null;
   cognitive_load_top10: Array<{ file: string; score: number; lines: number }> | null;
   total_lines_added: number | null;
@@ -30,7 +31,7 @@ if (supabaseUrl && !supabaseUrl.includes('example')) {
   const sb = createClient(supabaseUrl, supabaseKey);
   const { data } = await sb
     .from('stats_weekly')
-    .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, total_pr_count, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted')
+    .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, total_pr_count, agent_success_rate_pct, cognitive_load_total, cognitive_load_density, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted')
     .order('week_of', { ascending: true });
   rows = (data as WeekRow[]) ?? [];
 }
@@ -39,15 +40,16 @@ if (supabaseUrl && !supabaseUrl.includes('example')) {
 const labels = rows.map(r =>
   new Date(r.week_of).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 );
-const prsData          = rows.map(r => r.prs_merged ?? 0);
-const issuesData       = rows.map(r => r.issues_completed ?? 0);
-const reworkData       = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
-const refactorData     = rows.map(r => r.refactor_ratio_pct ?? 0);
-const cogLoadData      = rows.map(r => r.cognitive_load_total ?? 0);
-const agentData        = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
-const aiCostData       = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
-const churnAddedData   = rows.map(r => r.total_lines_added ?? 0);
-const churnDeletedData = rows.map(r => r.total_lines_deleted ?? 0);
+const prsData            = rows.map(r => r.prs_merged ?? 0);
+const issuesData         = rows.map(r => r.issues_completed ?? 0);
+const reworkData         = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
+const refactorData       = rows.map(r => r.refactor_ratio_pct ?? 0);
+const cogLoadData        = rows.map(r => r.cognitive_load_total ?? 0);
+const cogLoadDensityData = rows.map(r => r.cognitive_load_density ?? 0);
+const agentData          = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
+const aiCostData         = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
+const churnAddedData     = rows.map(r => r.total_lines_added ?? 0);
+const churnDeletedData   = rows.map(r => r.total_lines_deleted ?? 0);
 
 // Latest row's cognitive load top-10 for the hotspots table
 const latest = rows.at(-1);
@@ -95,7 +97,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
           <canvas id="chart-refactor"></canvas>
         </div>
         <div class="chart-box">
-          <h2>Cognitive load index</h2>
+          <h2>Cognitive load index <span class="hint">(raw · density/1k lines)</span></h2>
           <canvas id="chart-cogload"></canvas>
         </div>
         <div class="chart-box">
@@ -141,7 +143,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 )}
 
-<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, agentData, aiCostData, churnAddedData, churnDeletedData }}>
+<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, cogLoadDensityData, agentData, aiCostData, churnAddedData, churnDeletedData }}>
   // Runs client-side once Chart.js CDN script has loaded
   if (typeof Chart === 'undefined') {
     // CDN not loaded (e.g. no data rendered), skip
@@ -190,7 +192,54 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     line('chart-issues',   issuesData);
     line('chart-rework',   reworkData,   '#f87171');
     line('chart-refactor', refactorData, '#fb923c');
-    line('chart-cogload',  cogLoadData,  '#fbbf24');
+
+    // Dual-axis cognitive load: raw score (left) + density per 1k lines (right)
+    const cogCtx = document.getElementById('chart-cogload');
+    if (cogCtx) {
+      new Chart(cogCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Raw score',
+              data: cogLoadData,
+              borderColor: '#fbbf24',
+              backgroundColor: 'rgba(251,191,36,0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 4,
+              pointBackgroundColor: '#fbbf24',
+              yAxisID: 'y',
+            },
+            {
+              label: 'Density / 1k lines',
+              data: cogLoadDensityData,
+              borderColor: '#fb923c',
+              backgroundColor: 'rgba(251,146,60,0.08)',
+              fill: false,
+              tension: 0.3,
+              pointRadius: 4,
+              pointBackgroundColor: '#fb923c',
+              borderDash: [4, 3],
+              yAxisID: 'y2',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true, labels: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+          },
+          scales: {
+            x:  { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+            y:  { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true, position: 'left' },
+            y2: { grid: { drawOnChartArea: false }, ticks: { color: '#fb923c', font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true, position: 'right' },
+          },
+        },
+      });
+    }
+
     bar('chart-agent',     agentData,    ACCENT2);
     line('chart-cost',     aiCostData,   '#4ade80');
 
