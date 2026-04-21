@@ -80,8 +80,10 @@ async function getGitHubStats() {
     merged.map(pr => ghGet(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}`))
   );
 
-  const prSizes      = prDetails.map(pr => (pr.additions || 0) + (pr.deletions || 0));
-  const avgPrSize    = Math.round(avg(prSizes));
+  const prSizes         = prDetails.map(pr => (pr.additions || 0) + (pr.deletions || 0));
+  const avgPrSize       = Math.round(avg(prSizes));
+  const totalLinesAdded   = prDetails.reduce((s, pr) => s + (pr.additions || 0), 0);
+  const totalLinesDeleted = prDetails.reduce((s, pr) => s + (pr.deletions || 0), 0);
   const mergedCount  = merged.length;
 
   // Merge time (hours from created_at → merged_at)
@@ -158,6 +160,8 @@ async function getGitHubStats() {
     agentSuccessRate,
     openPrCount,
     openPrAvgAgeDays,
+    totalLinesAdded,
+    totalLinesDeleted,
   };
 }
 
@@ -992,6 +996,10 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       test_file_count:          quality?.testFileCount  ?? null,
       lines_added:              quality?.linesAdded     ?? null,
       lines_deleted:            quality?.linesDeleted   ?? null,
+
+      // ── Code churn (PR-level totals) ────────────────────────────────────────
+      total_lines_added:        gh.totalLinesAdded,
+      total_lines_deleted:      gh.totalLinesDeleted,
 
       // ── Automation ──────────────────────────────────────────────────────────
       agent_pr_share_pct:       gh.agentPrPct,
