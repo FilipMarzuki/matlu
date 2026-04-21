@@ -1,0 +1,325 @@
+---
+/**
+ * /account/signup — Create a new parent/guardian creator account.
+ *
+ * GDPR requirements (issue #331):
+ *   - Three separate opt-in checkboxes (Art. 7 — granular, freely-given consent)
+ *   - Parental confirmation checkbox (Art. 8 — parental consent for under-16s)
+ *   - Privacy Policy acceptance
+ *   - Creature License acceptance
+ *
+ * On success a magic link is sent. The callback page creates the
+ * account_profiles row (first sign-in = signup).
+ */
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import { PRIVACY_POLICY_VERSION } from '../../lib/supabase-auth';
+import { LICENSE_VERSION } from '../creatures/license.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base
+  title="Create Account"
+  description="Create a parent/guardian creator account for Matlu Codex."
+>
+  <div id="supa-cfg"
+    data-url={supabaseUrl}
+    data-key={supabaseKey}
+    data-ppv={PRIVACY_POLICY_VERSION}
+    data-lv={LICENSE_VERSION}
+    hidden
+  ></div>
+
+  <div class="auth-card">
+    <h1>
+      <span class="t-en">Create account</span>
+      <span class="t-sv">Skapa konto</span>
+    </h1>
+    <p class="lead">
+      <span class="t-en">
+        Accounts are for <strong>parents and guardians only</strong>. Children
+        submit creatures through a grown-up's account.
+      </span>
+      <span class="t-sv">
+        Konton är bara för <strong>föräldrar och vårdnadshavare</strong>. Barn skickar in väsen via en vuxens konto.
+      </span>
+    </p>
+
+    <form id="signup-form" novalidate>
+      <div class="field">
+        <label for="handle">
+          <span class="t-en">Choose a handle (public username)</span>
+          <span class="t-sv">Välj ett användarnamn (synligt publikt)</span>
+          <span class="req"> *</span>
+        </label>
+        <input
+          id="handle"
+          type="text"
+          name="handle"
+          required
+          maxlength="40"
+          pattern="[a-z0-9_-]+"
+          placeholder="e.g. dragon-parent"
+          autocomplete="username"
+        />
+        <span class="hint">
+          <span class="t-en">Lowercase letters, numbers, hyphens, and underscores only.</span>
+          <span class="t-sv">Bara gemener, siffror, bindestreck och understreck.</span>
+        </span>
+      </div>
+
+      <div class="field">
+        <label for="email">
+          <span class="t-en">Your email address</span>
+          <span class="t-sv">Din e-postadress</span>
+          <span class="req"> *</span>
+        </label>
+        <input
+          id="email"
+          type="email"
+          name="email"
+          required
+          autocomplete="email"
+          placeholder="parent@example.com"
+        />
+      </div>
+
+      <!-- GDPR consent checkboxes — three separate boxes, each required -->
+      <div class="consent-section">
+        <h2>
+          <span class="t-en">Consent</span>
+          <span class="t-sv">Samtycke</span>
+        </h2>
+
+        <div class="field field--check">
+          <label class="checkbox-label">
+            <input type="checkbox" id="cb_parental" name="cb_parental" required />
+            <span>
+              <span class="t-en">
+                I am the parent or guardian of the child(ren) using this account,
+                and I am 18 or older.
+              </span>
+              <span class="t-sv">
+                Jag är förälder eller vårdnadshavare för barnet/barnen som använder detta konto och är 18 år eller äldre.
+              </span>
+              <span class="req"> *</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="field field--check">
+          <label class="checkbox-label">
+            <input type="checkbox" id="cb_privacy" name="cb_privacy" required />
+            <span>
+              <span class="t-en">
+                I have read and agree to the
+                <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+              </span>
+              <span class="t-sv">
+                Jag har läst och godkänner
+                <a href="/privacy" target="_blank" rel="noopener">integritetspolicyn</a>.
+              </span>
+              <span class="req"> *</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="field field--check">
+          <label class="checkbox-label">
+            <input type="checkbox" id="cb_license" name="cb_license" required />
+            <span>
+              <span class="t-en">
+                I have read and agree to the
+                <a href="/creatures/license" target="_blank" rel="noopener">Creature License</a>.
+              </span>
+              <span class="t-sv">
+                Jag har läst och godkänner
+                <a href="/creatures/license" target="_blank" rel="noopener">Väsenslicensen</a>.
+              </span>
+              <span class="req"> *</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" id="submit-btn" disabled>
+        <span class="t-en">Create account &amp; send link</span>
+        <span class="t-sv">Skapa konto och skicka länk</span>
+      </button>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <p class="switch-link">
+      <span class="t-en">Already have an account? <a href="/account/signin">Sign in</a>.</span>
+      <span class="t-sv">Har du redan ett konto? <a href="/account/signin">Logga in</a>.</span>
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createBrowserClient } from '../../lib/supabase-auth';
+
+  const supabase = createBrowserClient();
+  const cfg      = document.getElementById('supa-cfg') as HTMLElement;
+  const form     = document.getElementById('signup-form') as HTMLFormElement;
+  const btn      = document.getElementById('submit-btn') as HTMLButtonElement;
+  const status   = document.getElementById('status') as HTMLElement;
+
+  const ppv = cfg.dataset.ppv ?? '';
+  const lv  = cfg.dataset.lv ?? '';
+
+  // Enable submit only when all three checkboxes are checked
+  function updateBtn(): void {
+    const parental = (document.getElementById('cb_parental') as HTMLInputElement).checked;
+    const privacy  = (document.getElementById('cb_privacy')  as HTMLInputElement).checked;
+    const license  = (document.getElementById('cb_license')  as HTMLInputElement).checked;
+    btn.disabled = !(parental && privacy && license);
+  }
+  form.addEventListener('change', updateBtn);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email  = (document.getElementById('email')  as HTMLInputElement).value.trim();
+    const handle = (document.getElementById('handle') as HTMLInputElement).value.trim().toLowerCase();
+
+    if (!email || !handle) return;
+    if (!/^[a-z0-9_-]+$/.test(handle)) {
+      status.textContent =
+        document.documentElement.getAttribute('data-lang') === 'sv'
+          ? 'Användarnamnet får bara innehålla gemener, siffror, bindestreck och understreck.'
+          : 'Handle may only contain lowercase letters, numbers, hyphens, and underscores.';
+      status.className = 'status error';
+      return;
+    }
+
+    btn.disabled = true;
+    status.textContent = '';
+    status.className = 'status';
+
+    // Store consent metadata in localStorage so the callback page can write
+    // account_profiles after the magic link is clicked and session is created.
+    localStorage.setItem('signup-intent', JSON.stringify({
+      handle,
+      privacyPolicyVersion: ppv,
+      licenseVersion: lv,
+      savedAt: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/account/callback?intent=signup`,
+        shouldCreateUser: true,
+        data: { handle },
+      },
+    });
+
+    if (error) {
+      status.textContent = error.message;
+      status.className = 'status error';
+      btn.disabled = false;
+      return;
+    }
+
+    status.textContent =
+      document.documentElement.getAttribute('data-lang') === 'sv'
+        ? 'Länk skickad! Kolla din e-post och klicka på länken för att slutföra din registrering.'
+        : 'Link sent! Check your email and click the link to finish creating your account.';
+    status.className = 'status success';
+    btn.disabled = false;
+  });
+</script>
+
+<style>
+  .auth-card {
+    max-width: 480px;
+    margin: 3rem auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+  .lead { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.1rem; }
+  .field--check { flex-direction: row; align-items: flex-start; }
+  label { font-size: 0.92rem; }
+  .req { color: var(--red); }
+  .hint { font-size: 0.8rem; color: var(--text-dim); }
+
+  input[type="text"],
+  input[type="email"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.92rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+
+  .consent-section {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 1rem 1rem 0.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .consent-section h2 {
+    font-size: 0.95rem;
+    color: var(--accent-hi);
+    margin-bottom: 0.75rem;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+    line-height: 1.5;
+  }
+  input[type="checkbox"] {
+    accent-color: var(--accent-hi);
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+    cursor: pointer;
+  }
+
+  button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    border-radius: 7px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.65rem 1.5rem;
+    width: 100%;
+    transition: background 0.15s;
+  }
+  button[type="submit"]:hover:not(:disabled) { background: var(--accent-hi); }
+  button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+
+  .switch-link {
+    margin-top: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+</style>

@@ -108,6 +108,23 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
       }
 
       /* ── Code ────────────────────────────────────────────────────────────── */
+      /* ── Footer ──────────────────────────────────────────────────────────── */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 1.25rem 1.5rem;
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      footer a { color: var(--text-dim); font-size: 0.8rem; }
+      footer a:hover { color: var(--accent-hi); text-decoration: none; }
+      footer .sep { opacity: 0.4; }
+
+      /* ── Code ────────────────────────────────────────────────────────────── */
       code {
         font-family: 'Cascadia Code', 'Fira Code', monospace;
         font-size: 0.88em;
@@ -140,5 +157,24 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
     <main>
       <slot />
     </main>
+    <footer>
+      <span class="t-en">Matlu Codex &mdash; a Core Warden community hub.</span>
+      <span class="t-sv">Matlu Codex &mdash; en Core Warden-gemenskap.</span>
+      <span class="sep">&middot;</span>
+      <a href="/privacy">
+        <span class="t-en">Privacy Policy</span>
+        <span class="t-sv">Integritetspolicy</span>
+      </a>
+      <span class="sep">&middot;</span>
+      <a href="/creatures/license">
+        <span class="t-en">Creature License</span>
+        <span class="t-sv">Väsenslicens</span>
+      </a>
+      <span class="sep">&middot;</span>
+      <a href="/account/signin">
+        <span class="t-en">Creator Account</span>
+        <span class="t-sv">Skaparkonto</span>
+      </a>
+    </footer>
   </body>
 </html>

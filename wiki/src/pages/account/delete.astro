@@ -1,0 +1,259 @@
+---
+/**
+ * /account/delete — Confirm account deletion (Art. 17 GDPR — right to erasure).
+ *
+ * Two modes:
+ *   full     — removes account, kids, drafts, and all creature submissions
+ *              (rows + bucket files). Creature is gone entirely.
+ *   anonymize — removes account, kids, and drafts. Approved creatures remain
+ *              on the wiki but user_id, creator_name are cleared, and
+ *              credits_opt_in is set to false, so they are unattributed.
+ *
+ * Both modes write to gdpr_actions_log (Art. 5(2) accountability).
+ *
+ * Typed confirmation ("delete my account") prevents accidental deletion.
+ */
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base
+  title="Delete Account"
+  description="Permanently delete your Matlu Codex creator account."
+>
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+  <div id="page-content" hidden>
+    <h1 style="color:var(--red)">
+      <span class="t-en">Delete account</span>
+      <span class="t-sv">Radera konto</span>
+    </h1>
+    <p class="lead">
+      <span class="t-en">
+        This action is permanent and cannot be undone. Choose how you want
+        your submitted creatures handled, then type <strong>delete my account</strong>
+        to confirm.
+      </span>
+      <span class="t-sv">
+        Den här åtgärden är permanent och kan inte ångras. Välj hur du vill att dina inlämnade väsen hanteras och skriv
+        <strong>delete my account</strong> för att bekräfta.
+      </span>
+    </p>
+
+    <div class="mode-cards">
+      <label class="mode-card" id="mode-full-label">
+        <input type="radio" name="delete-mode" value="full" checked />
+        <div class="mode-card-body">
+          <h3>
+            <span class="t-en">Full delete</span>
+            <span class="t-sv">Fullständig radering</span>
+          </h3>
+          <p>
+            <span class="t-en">
+              Removes everything — your account, kids, drafts, and all creature
+              submissions (rows and images). Nothing remains.
+            </span>
+            <span class="t-sv">
+              Tar bort allt — konto, barn, utkast och alla väseninlämningar (rader och bilder). Ingenting finns kvar.
+            </span>
+          </p>
+        </div>
+      </label>
+
+      <label class="mode-card" id="mode-anon-label">
+        <input type="radio" name="delete-mode" value="anonymize" />
+        <div class="mode-card-body">
+          <h3>
+            <span class="t-en">Anonymise my creatures</span>
+            <span class="t-sv">Anonymisera mina väsen</span>
+          </h3>
+          <p>
+            <span class="t-en">
+              Removes your account, kids, and drafts. Approved creatures stay
+              on the wiki but have their creator name cleared and credits opt-out
+              set — they remain unattributed.
+            </span>
+            <span class="t-sv">
+              Tar bort konto, barn och utkast. Godkända väsen stannar på wikin men skaparnamntet rensas och kreditering stängs av — de är anonyma.
+            </span>
+          </p>
+        </div>
+      </label>
+    </div>
+
+    <div class="confirm-section">
+      <label for="confirm-input">
+        <span class="t-en">
+          Type <strong>delete my account</strong> to confirm:
+        </span>
+        <span class="t-sv">
+          Skriv <strong>delete my account</strong> för att bekräfta:
+        </span>
+      </label>
+      <input
+        id="confirm-input"
+        type="text"
+        placeholder="delete my account"
+        autocomplete="off"
+      />
+    </div>
+
+    <div class="btn-row">
+      <button id="delete-btn" class="btn-danger" disabled>
+        <span class="t-en">Delete my account</span>
+        <span class="t-sv">Radera mitt konto</span>
+      </button>
+      <a href="/account/settings" class="btn-outline">
+        <span class="t-en">Cancel</span>
+        <span class="t-sv">Avbryt</span>
+      </a>
+    </div>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </div>
+
+  <div id="auth-loading">
+    <p style="color:var(--text-dim);margin-top:3rem;text-align:center">
+      <span class="t-en">Loading…</span>
+      <span class="t-sv">Laddar…</span>
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createBrowserClient } from '../../lib/supabase-auth';
+
+  const supabase = createBrowserClient();
+  const loading  = document.getElementById('auth-loading') as HTMLElement;
+  const content  = document.getElementById('page-content') as HTMLElement;
+  const confirmInput = document.getElementById('confirm-input') as HTMLInputElement;
+  const deleteBtn    = document.getElementById('delete-btn') as HTMLButtonElement;
+  const status       = document.getElementById('status') as HTMLElement;
+  const isSv         = () => document.documentElement.getAttribute('data-lang') === 'sv';
+  const t            = (en: string, sv: string) => isSv() ? sv : en;
+
+  const CONFIRM_PHRASE = 'delete my account';
+
+  async function init(): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = '/account/signin'; return; }
+
+    loading.hidden = true;
+    content.hidden = false;
+    const token = session.access_token;
+
+    // Enable delete button only when confirmation phrase is typed
+    confirmInput.addEventListener('input', () => {
+      deleteBtn.disabled = confirmInput.value.trim().toLowerCase() !== CONFIRM_PHRASE;
+    });
+
+    deleteBtn.addEventListener('click', async () => {
+      if (confirmInput.value.trim().toLowerCase() !== CONFIRM_PHRASE) return;
+
+      const mode = (document.querySelector('input[name="delete-mode"]:checked') as HTMLInputElement)?.value ?? 'full';
+
+      deleteBtn.disabled = true;
+      status.textContent = t('Deleting account…', 'Raderar konto…');
+      status.className = 'status';
+
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mode }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        status.textContent = t(
+          `Deletion failed: ${err.error ?? 'unknown'}. Please try again or contact us.`,
+          `Radering misslyckades: ${err.error ?? 'okänt'}. Försök igen eller kontakta oss.`,
+        );
+        status.className = 'status error';
+        deleteBtn.disabled = false;
+        return;
+      }
+
+      // Session is now invalid — sign out and redirect
+      await supabase.auth.signOut();
+      window.location.href = '/?deleted=1';
+    });
+  }
+
+  init();
+</script>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+  .lead { color: var(--text-dim); max-width: 580px; margin-bottom: 1.5rem; font-size: 0.95rem; }
+
+  .mode-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+  .mode-card {
+    display: flex;
+    gap: 0.75rem;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .mode-card:has(input:checked) { border-color: var(--red); }
+  .mode-card input[type="radio"] { accent-color: var(--red); flex-shrink: 0; margin-top: 3px; }
+  .mode-card-body h3 { font-size: 0.95rem; margin-bottom: 0.35rem; }
+  .mode-card-body p { font-size: 0.82rem; color: var(--text-dim); margin: 0; }
+
+  .confirm-section { margin-bottom: 1.5rem; }
+  .confirm-section label { display: block; font-size: 0.92rem; margin-bottom: 0.5rem; }
+  input[type="text"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.92rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    max-width: 380px;
+    transition: border-color 0.15s;
+  }
+  input:focus { outline: none; border-color: var(--red); }
+
+  .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+
+  .btn-danger {
+    background: var(--red);
+    border: none;
+    border-radius: 7px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.65rem 1.5rem;
+    transition: opacity 0.15s;
+  }
+  .btn-danger:hover:not(:disabled) { opacity: 0.85; }
+  .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-outline {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    padding: 0.45rem 1rem;
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent-hi); text-decoration: none; }
+
+  .status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+</style>

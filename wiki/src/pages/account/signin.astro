@@ -1,0 +1,165 @@
+---
+/**
+ * /account/signin — Magic-link sign-in for existing accounts.
+ *
+ * Sends a Supabase magic link to the parent/guardian's email. After clicking
+ * the link, the browser lands on /account/callback which exchanges the PKCE
+ * code for a session. New users should use /account/signup instead.
+ */
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base
+  title="Sign In"
+  description="Sign in to your Matlu Codex creator account."
+>
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+  <div class="auth-card">
+    <h1>
+      <span class="t-en">Sign in</span>
+      <span class="t-sv">Logga in</span>
+    </h1>
+    <p class="lead">
+      <span class="t-en">
+        Enter the parent or guardian email for this account. We'll send a
+        sign-in link — no password needed.
+      </span>
+      <span class="t-sv">
+        Ange förälderns eller vårdnadshavarens e-post. Vi skickar en inloggningslänk — inget lösenord behövs.
+      </span>
+    </p>
+
+    <form id="signin-form" novalidate>
+      <div class="field">
+        <label for="email">
+          <span class="t-en">Parent / guardian email</span>
+          <span class="t-sv">Förälderns e-post</span>
+          <span class="req"> *</span>
+        </label>
+        <input
+          id="email"
+          type="email"
+          name="email"
+          required
+          autocomplete="email"
+          placeholder="parent@example.com"
+        />
+      </div>
+
+      <button type="submit" id="submit-btn">
+        <span class="t-en">Send sign-in link</span>
+        <span class="t-sv">Skicka inloggningslänk</span>
+      </button>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <p class="switch-link">
+      <span class="t-en">Don't have an account yet? <a href="/account/signup">Create one</a>.</span>
+      <span class="t-sv">Har du inget konto ännu? <a href="/account/signup">Skapa ett</a>.</span>
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createBrowserClient } from '../../lib/supabase-auth';
+
+  const supabase = createBrowserClient();
+  const form     = document.getElementById('signin-form') as HTMLFormElement;
+  const btn      = document.getElementById('submit-btn') as HTMLButtonElement;
+  const status   = document.getElementById('status') as HTMLElement;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+    if (!email) return;
+
+    btn.disabled = true;
+    status.textContent = '';
+    status.className = 'status';
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/account/callback`,
+        shouldCreateUser: false,
+      },
+    });
+
+    if (error) {
+      status.textContent = error.message;
+      status.className = 'status error';
+      btn.disabled = false;
+      return;
+    }
+
+    status.textContent =
+      document.documentElement.getAttribute('data-lang') === 'sv'
+        ? 'Länk skickad! Kolla din e-post och klicka på länken.'
+        : 'Link sent! Check your email and click the link.';
+    status.className = 'status success';
+    btn.disabled = false;
+  });
+</script>
+
+<style>
+  .auth-card {
+    max-width: 440px;
+    margin: 3rem auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+  .lead { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.25rem; }
+  label { font-size: 0.92rem; }
+  .req { color: var(--red); }
+
+  input[type="email"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.92rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+
+  button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    border-radius: 7px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.65rem 1.5rem;
+    width: 100%;
+    transition: background 0.15s;
+  }
+  button[type="submit"]:hover:not(:disabled) { background: var(--accent-hi); }
+  button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+
+  .switch-link {
+    margin-top: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+</style>

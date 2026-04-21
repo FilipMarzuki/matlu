@@ -41,6 +41,26 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       Fyll i så många fält du kan — ju mer detaljer, desto större chans att det inspirerar ett riktigt spelväsen.</span>
   </p>
 
+  <!-- Auth state banner (populated by JS) -->
+  <div id="auth-banner" class="auth-banner" hidden>
+    <span class="t-en">Signed in as <strong id="auth-handle"></strong></span>
+    <span class="t-sv">Inloggad som <strong id="auth-handle-sv"></strong></span>
+    <span class="auth-sep">&middot;</span>
+    <a href="/account/settings"><span class="t-en">Settings</span><span class="t-sv">Inställningar</span></a>
+    <span class="auth-sep">&middot;</span>
+    <button type="button" id="signout-btn" class="btn-link">
+      <span class="t-en">Sign out</span><span class="t-sv">Logga ut</span>
+    </button>
+  </div>
+  <div id="signin-nudge" class="info-note">
+    <span class="t-en">
+      <a href="/account/signin">Sign in</a> to save your draft across devices and track your submissions.
+    </span>
+    <span class="t-sv">
+      <a href="/account/signin">Logga in</a> för att spara ditt utkast på alla enheter och följa dina inlämningar.
+    </span>
+  </div>
+
   <!-- Draft resume banner (shown by JS if localStorage draft exists) -->
   <div id="draft-banner" class="draft-banner" hidden>
     <span id="draft-msg"></span>
@@ -130,6 +150,17 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
         </label>
         <input id="contact_email" name="contact_email" type="email" maxlength="254"
                placeholder="parent@example.com" autocomplete="email" />
+      </div>
+
+      <!-- Kid attribution (shown when signed in — links the submission to a kid on the account) -->
+      <div class="field" id="kid-field" hidden>
+        <label for="kid_select">
+          <span class="t-en">Who made this creature? (optional)</span>
+          <span class="t-sv">Vem skapade det här väsenet? (valfritt)</span>
+        </label>
+        <select id="kid_select" name="kid_select">
+          <option value="">— <span class="t-en">choose a kid or leave blank</span><span class="t-sv">välj ett barn eller lämna tomt</span> —</option>
+        </select>
       </div>
     </section>
 
@@ -485,8 +516,141 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
   // ── Supabase client ───────────────────────────────────────────────────────
   const cfg = document.getElementById('supa-cfg') as HTMLElement;
-  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '', {
+    auth: { persistSession: true, autoRefreshToken: true },
+  });
   const LICENSE_VERSION = (document.getElementById('license-ver') as HTMLElement).dataset.version ?? 'v1-2026-04';
+
+  // ── Auth state ─────────────────────────────────────────────────────────────
+  let currentUserId: string | null = null;
+  let currentToken: string | null = null;
+  let selectedKidId: string | null = null;
+
+  async function initAuth(): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      // Show sign-in nudge, keep kid field hidden
+      const nudge = document.getElementById('signin-nudge') as HTMLElement;
+      nudge.hidden = false;
+      return;
+    }
+
+    currentUserId = session.user.id;
+    currentToken  = session.access_token;
+
+    // Hide nudge, show auth banner
+    (document.getElementById('signin-nudge') as HTMLElement).hidden = true;
+    const banner = document.getElementById('auth-banner') as HTMLElement;
+    banner.hidden = false;
+
+    // Load profile handle
+    const profileRes = await fetch('/api/account/profile', {
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+    if (profileRes.ok) {
+      const profile: { handle: string } | null = await profileRes.json();
+      if (profile) {
+        const handleEl   = document.getElementById('auth-handle')    as HTMLElement;
+        const handleElSv = document.getElementById('auth-handle-sv') as HTMLElement;
+        handleEl.textContent   = `@${profile.handle}`;
+        handleElSv.textContent = `@${profile.handle}`;
+      }
+    }
+
+    // Load kids and populate dropdown
+    const kidsRes = await fetch('/api/account/kids', {
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+    if (kidsRes.ok) {
+      const kids: Array<{ id: string; kid_name: string; kid_age: number | null }> = await kidsRes.json();
+      if (kids.length) {
+        const sel = document.getElementById('kid_select') as HTMLSelectElement;
+        kids.forEach(k => {
+          const opt = document.createElement('option');
+          opt.value = k.id;
+          opt.textContent = k.kid_name + (k.kid_age ? ` (${k.kid_age})` : '');
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change', () => {
+          selectedKidId = sel.value || null;
+          // Auto-fill creator_name from kid name
+          if (selectedKidId) {
+            const kid = kids.find(k => k.id === selectedKidId);
+            if (kid) {
+              const nameInput = document.getElementById('creator_name') as HTMLInputElement;
+              if (!nameInput.value) nameInput.value = kid.kid_name;
+            }
+          }
+          // Load cloud draft for the newly selected kid
+          loadCloudDraft(selectedKidId);
+        });
+        (document.getElementById('kid-field') as HTMLElement).hidden = false;
+      }
+    }
+
+    // Sign out button
+    document.getElementById('signout-btn')?.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.reload();
+    });
+
+    // Load cloud draft for the default (no kid selected)
+    await loadCloudDraft(null);
+  }
+
+  // ── Cloud draft ────────────────────────────────────────────────────────────
+  // Fetches the cloud draft for (user, kid) and shows resume banner if it's
+  // newer than any local draft (or if there's no local draft).
+  async function loadCloudDraft(kidId: string | null): Promise<void> {
+    if (!currentToken) return;
+    const url = kidId ? `/api/drafts/get?kid_id=${kidId}` : '/api/drafts/get';
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${currentToken}` } });
+    if (!res.ok) return;
+    const cloud: { draft_data: Record<string, unknown>; updated_at: string } | null = await res.json();
+    if (!cloud) return;
+
+    const localRaw = localStorage.getItem(DRAFT_KEY);
+    const localTs  = localRaw ? (JSON.parse(localRaw) as Record<string, unknown>).savedAt as string : null;
+
+    // Show cloud resume banner if cloud draft is newer (or no local draft)
+    const cloudIsNewer = !localTs || new Date(cloud.updated_at) > new Date(localTs);
+    if (cloudIsNewer && cloud.draft_data) {
+      const existingBanner = document.getElementById('draft-banner') as HTMLElement;
+      // If already visible (local draft), update message to mention cloud
+      const draftMsgEl = document.getElementById('draft-msg') as HTMLElement;
+      const when = relativeTime(cloud.updated_at);
+      draftMsgEl.textContent = t(
+        `You have a cloud draft from ${when}. Resume it?`,
+        `Du har ett molnutkast från ${when}. Vill du fortsätta?`,
+      );
+      existingBanner.hidden = false;
+
+      document.getElementById('btn-resume')?.addEventListener('click', () => {
+        restoreDraft(cloud.draft_data);
+        imageHint.hidden = false;
+        existingBanner.hidden = true;
+        updateProgress();
+      }, { once: true });
+    }
+  }
+
+  // Cloud auto-save: debounced 5 s (longer than localStorage 500 ms to reduce API calls)
+  let cloudSaveTimer: ReturnType<typeof setTimeout>;
+  function scheduleCloudSave(): void {
+    if (!currentToken) return;
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(async () => {
+      const draft = captureDraft();
+      await fetch('/api/drafts/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentToken}`,
+        },
+        body: JSON.stringify({ kid_id: selectedKidId, draft_data: draft }),
+      });
+    }, 5000);
+  }
 
   // ── Translate select options on lang change ───────────────────────────────
   // Options use data-en / data-sv attributes set in the HTML.
@@ -569,6 +733,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     saveTimer = setTimeout(() => {
       try { localStorage.setItem(DRAFT_KEY, JSON.stringify(captureDraft())); } catch { /* storage full */ }
     }, 500);
+    scheduleCloudSave();
   }
 
   // ── Progress scoring ──────────────────────────────────────────────────────
@@ -680,6 +845,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   // Re-run progress labels when the user switches language mid-fill.
   document.addEventListener('langchange', () => updateProgress());
 
+  // Initialise auth state (non-blocking — UI works without sign-in)
+  initAuth();
+
   // ── Draft banner ──────────────────────────────────────────────────────────
   function relativeTime(isoStr: string): string {
     const diff = Date.now() - new Date(isoStr).getTime();
@@ -759,6 +927,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     const row = {
       creature_name:    fd.get('creature_name')?.toString().trim() ?? '',
       creator_name:     fd.get('creator_name')?.toString().trim() || null,
+      user_id:          currentUserId ?? null,
+      kid_id:           selectedKidId ?? null,
       maker_age:        fd.get('maker_age') ? Number(fd.get('maker_age')) : null,
       contact_email:    fd.get('contact_email')?.toString().trim() || null,
       world_name:       fd.get('world_name')?.toString().trim() || null,
@@ -813,6 +983,33 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 <style>
   h1 { font-size: 2rem; margin-bottom: 0.5rem; }
   .lead { color: var(--text-dim); max-width: 580px; margin-bottom: 2rem; font-size: 1rem; }
+
+  /* ── Auth banner ──────────────────────────────────────────────── */
+  .auth-banner {
+    background: rgba(74, 222, 128, 0.07);
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.88rem;
+    color: var(--text);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .auth-sep { opacity: 0.4; }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--accent-hi);
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .btn-link:hover { color: var(--accent); }
 
   /* ── Draft banner ─────────────────────────────────────────────── */
   .draft-banner {
