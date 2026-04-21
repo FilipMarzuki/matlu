@@ -1,0 +1,221 @@
+---
+/**
+ * /creators/[handle] — Public creator profile page.
+ *
+ * Shows all approved creature submissions linked to the account identified
+ * by this handle. Creatures are grouped by kid_name where available.
+ *
+ * Build-time static generation: fetches account + submissions at build time.
+ * Falls back to an empty page if the handle doesn't exist.
+ */
+import Base from '../../layouts/Base.astro';
+import { imageUrl } from '../../lib/supabase-creatures';
+
+export async function getStaticPaths() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const key         = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+
+  if (!supabaseUrl || !key) return [];
+
+  const hdrs = { apikey: key, Authorization: `Bearer ${key}` };
+
+  try {
+    // Fetch all public profiles
+    const profilesRes = await fetch(
+      `${supabaseUrl}/rest/v1/account_profiles?select=user_id,handle,paused`,
+      { headers: hdrs }
+    );
+    if (!profilesRes.ok) return [];
+
+    const profiles: Array<{ user_id: string; handle: string; paused: boolean }> =
+      await profilesRes.json();
+
+    // Only show non-paused profiles
+    const active = profiles.filter(p => !p.paused);
+
+    const paths = await Promise.all(
+      active.map(async (p) => {
+        // Fetch approved creature submissions for this user
+        const subRes = await fetch(
+          `${supabaseUrl}/rest/v1/creature_submissions?user_id=eq.${encodeURIComponent(p.user_id)}&approved=eq.true&select=id,slug,creature_name,creator_name,world_name,kind_size,art_path,lore_description,kid_id`,
+          { headers: hdrs }
+        );
+        const submissions: Array<{
+          id: string;
+          slug: string | null;
+          creature_name: string;
+          creator_name: string | null;
+          world_name: string | null;
+          kind_size: string | null;
+          art_path: string | null;
+          lore_description: string | null;
+          kid_id: string | null;
+        }> = subRes.ok ? await subRes.json() : [];
+
+        // Fetch kids for this account
+        const kidsRes = await fetch(
+          `${supabaseUrl}/rest/v1/account_kids?user_id=eq.${encodeURIComponent(p.user_id)}&select=id,kid_name`,
+          { headers: hdrs }
+        );
+        const kids: Array<{ id: string; kid_name: string }> =
+          kidsRes.ok ? await kidsRes.json() : [];
+
+        const kidMap = new Map(kids.map(k => [k.id, k.kid_name]));
+
+        return {
+          params: { handle: p.handle },
+          props: { handle: p.handle, submissions, kidMap: Object.fromEntries(kidMap), supabaseUrl },
+        };
+      })
+    );
+
+    return paths;
+  } catch {
+    // Gracefully return no paths when Supabase is unreachable (CI placeholder URL)
+    return [];
+  }
+}
+
+interface Props {
+  handle: string;
+  submissions: Array<{
+    id: string;
+    slug: string | null;
+    creature_name: string;
+    creator_name: string | null;
+    world_name: string | null;
+    kind_size: string | null;
+    art_path: string | null;
+    lore_description: string | null;
+    kid_id: string | null;
+  }>;
+  kidMap: Record<string, string>;
+  supabaseUrl: string;
+}
+
+const { handle, submissions, kidMap, supabaseUrl } = Astro.props;
+---
+
+<Base
+  title={`@${handle} — Creator Profile`}
+  description={`Creature submissions by @${handle} on Matlu Codex.`}
+>
+  <div class="profile-header">
+    <h1>@{handle}</h1>
+    <p class="subtitle">
+      <span class="t-en">Creator profile — {submissions.length} creature{submissions.length !== 1 ? 's' : ''} submitted</span>
+      <span class="t-sv">Skaparprofil — {submissions.length} väsen inlämnade</span>
+    </p>
+  </div>
+
+  {submissions.length === 0 ? (
+    <p class="empty">
+      <span class="t-en">No approved creatures yet.</span>
+      <span class="t-sv">Inga godkända väsen ännu.</span>
+    </p>
+  ) : (
+    <div class="creature-grid">
+      {submissions.map((s) => {
+        const artUrl = imageUrl(supabaseUrl, s.art_path);
+        const slug = s.slug ?? s.id;
+        const kidName = s.kid_id ? kidMap[s.kid_id] : null;
+        const excerpt = s.lore_description
+          ? s.lore_description.slice(0, 120) + (s.lore_description.length > 120 ? '…' : '')
+          : null;
+
+        return (
+          <a href={`/creatures/${slug}`} class="creature-card">
+            {artUrl && (
+              <img
+                src={artUrl}
+                alt={s.creature_name}
+                class="creature-img"
+                loading="lazy"
+                width="200"
+                height="200"
+              />
+            )}
+            <div class="creature-info">
+              <h3>{s.creature_name}</h3>
+              {kidName && (
+                <p class="by-line">
+                  <span class="t-en">by</span>
+                  <span class="t-sv">av</span>
+                  {' '}{kidName}
+                </p>
+              )}
+              {s.world_name && <span class="tag">{s.world_name}</span>}
+              {s.kind_size && <span class="tag tag--size">{s.kind_size}</span>}
+              {excerpt && <p class="excerpt">{excerpt}</p>}
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  )}
+
+  <p class="back-link">
+    <a href="/creatures">
+      <span class="t-en">← All creatures</span>
+      <span class="t-sv">← Alla väsen</span>
+    </a>
+  </p>
+</Base>
+
+<style>
+  .profile-header { margin-bottom: 2rem; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--text-dim); font-size: 0.95rem; }
+
+  .empty { color: var(--text-dim); font-size: 0.95rem; margin-top: 1.5rem; }
+
+  .creature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .creature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .creature-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+
+  .creature-img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: var(--surface-hi);
+  }
+
+  .creature-info { padding: 0.9rem; }
+  .creature-info h3 { font-size: 1rem; margin-bottom: 0.35rem; }
+
+  .by-line { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.35rem; }
+
+  .tag {
+    display: inline-block;
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.72rem;
+    padding: 0.1rem 0.45rem;
+    color: var(--text-dim);
+    margin: 0.1rem 0.15rem 0.1rem 0;
+  }
+  .tag--size { border-color: rgba(168,85,247,0.3); color: var(--accent-hi); }
+
+  .excerpt { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.5rem; line-height: 1.45; }
+
+  .back-link { font-size: 0.88rem; margin-top: 1.5rem; }
+</style>

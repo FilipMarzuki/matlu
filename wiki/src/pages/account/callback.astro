@@ -1,0 +1,130 @@
+---
+/**
+ * /account/callback — Supabase PKCE auth callback.
+ *
+ * Supabase sends the user here after they click the magic link.
+ * The URL contains ?code=... (PKCE flow). Client-side JS exchanges the code
+ * for a session via supabase.auth.exchangeCodeForSession(code).
+ *
+ * For new accounts (?intent=signup), the page reads the signup-intent from
+ * localStorage and creates the account_profiles row via the API.
+ */
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base title="Signing in…" description="Completing sign-in to Matlu Codex.">
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+  <div class="callback-wrap">
+    <p id="msg" class="msg">
+      <span class="t-en">Signing you in…</span>
+      <span class="t-sv">Loggar in dig…</span>
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createBrowserClient } from '../../lib/supabase-auth';
+
+  const supabase = createBrowserClient();
+  const msg      = document.getElementById('msg') as HTMLElement;
+  const isSv     = () => document.documentElement.getAttribute('data-lang') === 'sv';
+  const t        = (en: string, sv: string) => isSv() ? sv : en;
+
+  async function handleCallback(): Promise<void> {
+    const params = new URLSearchParams(window.location.search);
+    const code   = params.get('code');
+    const intent = params.get('intent'); // 'signup' | null
+
+    if (!code) {
+      msg.textContent = t(
+        'No sign-in code found. Please try signing in again.',
+        'Ingen inloggningskod hittades. Försök logga in igen.',
+      );
+      return;
+    }
+
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error || !data.session) {
+      msg.textContent = t(
+        `Sign-in failed: ${error?.message ?? 'unknown error'}. Please try again.`,
+        `Inloggning misslyckades: ${error?.message ?? 'okänt fel'}. Försök igen.`,
+      );
+      return;
+    }
+
+    const userId = data.session.user.id;
+    const token  = data.session.access_token;
+
+    if (intent === 'signup') {
+      // Read consent metadata saved by signup page
+      let signupData: {
+        handle: string;
+        privacyPolicyVersion: string;
+        licenseVersion: string;
+      } | null = null;
+
+      try {
+        const raw = localStorage.getItem('signup-intent');
+        if (raw) signupData = JSON.parse(raw);
+      } catch { /* ignore */ }
+
+      if (signupData) {
+        // Create account_profiles row — use service-role via API route
+        const res = await fetch('/api/account/create-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            userId,
+            handle: signupData.handle,
+            privacyPolicyVersion: signupData.privacyPolicyVersion,
+            licenseVersion: signupData.licenseVersion,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'unknown' }));
+          msg.textContent = t(
+            `Account creation failed: ${err.error ?? 'unknown'}. Your session is active — try again.`,
+            `Kontoskapandet misslyckades: ${err.error ?? 'okänt'}. Din session är aktiv — försök igen.`,
+          );
+          return;
+        }
+
+        localStorage.removeItem('signup-intent');
+      }
+    } else {
+      // Existing account — update last_active_at
+      await fetch('/api/account/touch', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+
+    msg.textContent = t('Signed in! Redirecting…', 'Inloggad! Omdirigerar…');
+    window.location.href = '/account/settings';
+  }
+
+  handleCallback();
+</script>
+
+<style>
+  .callback-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 40vh;
+  }
+  .msg {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+</style>
