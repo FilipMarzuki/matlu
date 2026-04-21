@@ -17,14 +17,22 @@ const bodyHtml = rawMd ? String(await marked(rawMd)) : '';
 ---
 
 <Base title={entry.title} description={entry.summary || `${TYPE_LABELS[entry.type]} in the Matlu multiworld.`}>
-  <a href="/lore" class="back">← Lore</a>
+  <a href="/lore" class="back">
+    <span class="t-en">← Lore</span>
+    <span class="t-sv">← Lore</span>
+  </a>
 
   <article>
     <header>
       <div class="meta">
         <span class="badge">{TYPE_LABELS[entry.type]}</span>
         {entry.world && <span class="world">{entry.world}</span>}
-        {entry.status !== 'final' && <span class="draft">draft</span>}
+        {entry.status !== 'final' && (
+        <span class="draft">
+          <span class="t-en">draft</span>
+          <span class="t-sv">utkast</span>
+        </span>
+      )}
       </div>
       <h1>{entry.title}</h1>
       {entry.summary && <p class="summary">{entry.summary}</p>}
@@ -33,7 +41,10 @@ const bodyHtml = rawMd ? String(await marked(rawMd)) : '';
     {bodyHtml ? (
       <div class="body prose" set:html={bodyHtml} />
     ) : (
-      <p class="no-body">Full entry content coming soon.</p>
+      <p class="no-body">
+        <span class="t-en">Full entry content coming soon.</span>
+        <span class="t-sv">Fullständigt innehåll kommer snart.</span>
+      </p>
     )}
   </article>
 </Base>

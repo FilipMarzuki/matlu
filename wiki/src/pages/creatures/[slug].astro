@@ -64,7 +64,8 @@ const { creature: c, history, queuePosition, etaMap } = Astro.props;
 // ── Ribbon ────────────────────────────────────────────────────────────────────
 
 const statusInfo = getStatusInfo(c.status);
-const ribbonCopy = getCopy(c.status, statusInfo, queuePosition, c.moderation_note);
+const ribbonCopy   = getCopy(c.status, statusInfo, queuePosition, c.moderation_note, 'en');
+const ribbonCopySv = getCopy(c.status, statusInfo, queuePosition, c.moderation_note, 'sv');
 const etaDays = c.status ? (etaMap[c.status] ?? null) : null;
 const etaRounded = etaDays !== null ? Math.round(etaDays) : null;
 
@@ -86,6 +87,7 @@ function relativeDate(isoString: string): string {
 
 interface TimelineEntry {
   label: string;
+  labelSv: string;
   emoji: string;
   date: string;
   isCurrent: boolean;
@@ -95,6 +97,7 @@ const timelineEntries: TimelineEntry[] = history.map((entry, i) => {
   const info = getStatusInfo(entry.to_status);
   return {
     label: info.label,
+    labelSv: info.labelSv,
     emoji: info.emoji,
     date: relativeDate(entry.changed_at),
     isCurrent: i === history.length - 1,
@@ -104,6 +107,11 @@ const timelineEntries: TimelineEntry[] = history.map((entry, i) => {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
 const img = imageUrl(supabaseUrl, c.art_path);
 
+// Derive sprite paths from entity_id, e.g. "earth/enemies/fargglad-kordororn"
+const spriteSlug = c.entity_id ? c.entity_id.split('/').pop() : null;
+const spritePng  = spriteSlug ? `/assets/sprites/characters/${c.entity_id}/${spriteSlug}.png` : null;
+const spriteJson = spriteSlug ? `/assets/sprites/characters/${c.entity_id}/${spriteSlug}.json` : null;
+
 // Helper: render a labelled field only when value is present
 function val(v: string | null | undefined): string {
   return v?.trim() ?? '';
@@ -112,27 +120,56 @@ function arr(v: string[] | null | undefined): string[] {
   return (v ?? []).filter(Boolean);
 }
 
-const sizeLabels: Record<string, string> = {
+const sizeEn: Record<string, string> = {
   tiny: 'Tiny (fits in your hand)', small: 'Small (like a cat or dog)',
   medium: 'Medium (like a person)', large: 'Large (like a horse or bear)',
   huge: 'Huge (bigger than a house)',
 };
-const dietLabels: Record<string, string> = {
+const sizeSv: Record<string, string> = {
+  tiny: 'Pytteliten (får plats i handen)', small: 'Liten (som en katt eller hund)',
+  medium: 'Mellanstor (som en person)', large: 'Stor (som en häst eller björn)',
+  huge: 'Jättelik (större än ett hus)',
+};
+const dietEn: Record<string, string> = {
   herbivore: 'Herbivore (plants only)', carnivore: 'Carnivore (meat only)',
   omnivore: 'Omnivore (plants and meat)', insectivore: 'Insectivore (insects)',
   other: 'Other / Unknown',
 };
-const threatLabels: Record<string, string> = {
+const dietSv: Record<string, string> = {
+  herbivore: 'Växtätare (bara växter)', carnivore: 'Köttätare (bara kött)',
+  omnivore: 'Allätare (växter och kött)', insectivore: 'Insektsätare (insekter)',
+  other: 'Annat / Okänt',
+};
+const threatEn: Record<string, string> = {
   friendly: 'Friendly', shy: 'Shy', neutral: 'Neutral',
   territorial: 'Territorial', aggressive: 'Aggressive',
 };
-const climateLabels: Record<string, string> = {
+const threatSv: Record<string, string> = {
+  friendly: 'Vänligt', shy: 'Blygt', neutral: 'Neutralt',
+  territorial: 'Revirkänsligt', aggressive: 'Aggressivt',
+};
+const climateEn: Record<string, string> = {
   tropical: 'Tropical', temperate: 'Temperate', arid: 'Arid / Desert',
   cold: 'Cold / Polar', any: 'Adapts to any climate',
 };
+const climateSv: Record<string, string> = {
+  tropical: 'Tropiskt', temperate: 'Tempererat', arid: 'Torrt / Öken',
+  cold: 'Kallt / Polärt', any: 'Anpassar sig till alla klimat',
+};
+const movementSv: Record<string, string> = {
+  walk: 'Går', swim: 'Simmar', fly: 'Flyger',
+  burrow: 'Gräver', crawl: 'Kryper', slither: 'Slingrar',
+};
+const biomeSv: Record<string, string> = {
+  forest: 'Skog', meadow: 'Äng', mountain: 'Berg', desert: 'Öken',
+  ocean: 'Hav', river: 'Å / Sjö', swamp: 'Träsk / Mosse',
+  tundra: 'Tundra / Arktis', underground: 'Under jord / Grotta', sky: 'Himmel / Moln',
+};
 
-const movements = arr(c.kind_movement).map(m => m.charAt(0).toUpperCase() + m.slice(1));
-const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice(1));
+const movements_en = arr(c.kind_movement).map(m => m.charAt(0).toUpperCase() + m.slice(1));
+const movements_sv = arr(c.kind_movement).map(m => movementSv[m] ?? m);
+const biomes_en = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice(1));
+const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
 ---
 
 <Base
@@ -140,18 +177,28 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   description={c.lore_description ? c.lore_description.slice(0, 160) : `A creature from the Matlu multiworld.`}
 >
   <div class="breadcrumb">
-    <a href="/creatures">&larr; All creatures</a>
+    <a href="/creatures">
+      <span class="t-en">&larr; All creatures</span>
+      <span class="t-sv">&larr; Alla väsen</span>
+    </a>
   </div>
 
-  <!-- ── Status ribbon (FIL-440 / C1) ──────────────────────────────────────── -->
+  <!-- ── Status ribbon ──────────────────────────────────────────────────────── -->
   <div class="status-ribbon" style={`--ribbon-color: ${statusInfo.borderColor}`}>
     <div class="ribbon-icon" aria-hidden="true">{statusInfo.emoji}</div>
     <div class="ribbon-body">
-      <div class="ribbon-label">{statusInfo.label}</div>
-      <div class="ribbon-copy">{ribbonCopy}</div>
+      <div class="ribbon-label">
+        <span class="t-en">{statusInfo.label}</span>
+        <span class="t-sv">{statusInfo.labelSv}</span>
+      </div>
+      <div class="ribbon-copy">
+        <span class="t-en">{ribbonCopy}</span>
+        <span class="t-sv">{ribbonCopySv}</span>
+      </div>
       {etaRounded !== null && (
         <div class="ribbon-eta">
-          Usually takes about {etaRounded} {etaRounded === 1 ? 'day' : 'days'} at this stage.
+          <span class="t-en">Usually takes about {etaRounded} {etaRounded === 1 ? 'day' : 'days'} at this stage.</span>
+          <span class="t-sv">Tar vanligtvis ungefär {etaRounded} {etaRounded === 1 ? 'dag' : 'dagar'} i det här stadiet.</span>
         </div>
       )}
     </div>
@@ -164,15 +211,23 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
         <h1>{c.creature_name}</h1>
         {c.world_name && <p class="world-tag">{c.world_name}</p>}
         {c.creator_name && (
-          <p class="creator">Created by <strong>{c.art_credit ?? c.creator_name}</strong></p>
+          <p class="creator">
+            <span class="t-en">Created by</span>
+            <span class="t-sv">Skapad av</span>
+            {' '}<strong>{c.art_credit ?? c.creator_name}</strong>
+          </p>
         )}
       </div>
       {c.tracker_issue_number && (
         <aside class="tracker-card">
-          <p class="tracker-title">Follow this creature's progress</p>
+          <p class="tracker-title">
+            <span class="t-en">Follow this creature's progress</span>
+            <span class="t-sv">Följ det här väsenets resa</span>
+          </p>
           <hr class="tracker-rule" />
           <p class="tracker-body">
-            This creature has a tracker on GitHub where every update is posted.
+            <span class="t-en">This creature has a tracker on GitHub where every update is posted.</span>
+            <span class="t-sv">Det här väsenet har en spårare på GitHub där alla uppdateringar publiceras.</span>
           </p>
           <a
             href={`https://github.com/FilipMarzuki/matlu/issues/${c.tracker_issue_number}`}
@@ -180,44 +235,72 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
             target="_blank"
             rel="noopener noreferrer"
           >
-            Open tracker on GitHub →
+            <span class="t-en">Open tracker on GitHub →</span>
+            <span class="t-sv">Öppna spåraren på GitHub →</span>
           </a>
-          <p class="tracker-hint">Bookmark or subscribe to get notified when it moves forward.</p>
+          <p class="tracker-hint">
+            <span class="t-en">Bookmark or subscribe to get notified when it moves forward.</span>
+            <span class="t-sv">Bokmärk eller prenumerera för att få ett meddelande när det går vidare.</span>
+          </p>
         </aside>
       )}
     </header>
 
-    <!-- Art -->
-    {img && (
-      <div class="art-wrap">
-        <img src={img} alt={`Drawing of ${c.creature_name}`} class="art" />
-        {c.art_credit && c.art_credit !== c.creator_name && (
-          <p class="art-credit">Art by {c.art_credit}</p>
-        )}
-      </div>
-    )}
+    <!-- Art + in-game sprite (side by side when both present) -->
+    <div class="media-row">
+      {img && (
+        <div class="art-wrap">
+          <img src={img} alt={`Drawing of ${c.creature_name}`} class="art" />
+          {c.art_credit && c.art_credit !== c.creator_name && (
+            <p class="art-credit">
+              <span class="t-en">Art by</span>
+              <span class="t-sv">Konst av</span>
+              {' '}{c.art_credit}
+            </p>
+          )}
+        </div>
+      )}
+      {spritePng && spriteJson && (
+        <div class="sprite-wrap">
+          <p class="sprite-label">
+            <span class="t-en">In-game sprite</span>
+            <span class="t-sv">Spelsprit</span>
+          </p>
+          <canvas id="sprite-canvas" data-png={spritePng} data-json={spriteJson} class="sprite-canvas"></canvas>
+        </div>
+      )}
+    </div>
 
     <!-- What kind -->
-    {(val(c.kind_size) || movements.length || c.kind_solitary !== null) && (
+    {(val(c.kind_size) || movements_en.length || c.kind_solitary !== null) && (
       <section class="detail-section">
-        <h2>What kind of creature</h2>
+        <h2><span class="t-en">What kind of creature</span><span class="t-sv">Vad för sorts väsen</span></h2>
         <dl>
           {val(c.kind_size) && (
             <>
-              <dt>Size</dt>
-              <dd>{sizeLabels[c.kind_size!] ?? c.kind_size}</dd>
+              <dt><span class="t-en">Size</span><span class="t-sv">Storlek</span></dt>
+              <dd>
+                <span class="t-en">{sizeEn[c.kind_size!] ?? c.kind_size}</span>
+                <span class="t-sv">{sizeSv[c.kind_size!] ?? c.kind_size}</span>
+              </dd>
             </>
           )}
-          {movements.length > 0 && (
+          {movements_en.length > 0 && (
             <>
-              <dt>Movement</dt>
-              <dd>{movements.join(', ')}</dd>
+              <dt><span class="t-en">Movement</span><span class="t-sv">Rörelse</span></dt>
+              <dd>
+                <span class="t-en">{movements_en.join(', ')}</span>
+                <span class="t-sv">{movements_sv.join(', ')}</span>
+              </dd>
             </>
           )}
           {c.kind_solitary !== null && (
             <>
-              <dt>Social</dt>
-              <dd>{c.kind_solitary ? 'Lives alone' : 'Lives in groups'}</dd>
+              <dt><span class="t-en">Social</span><span class="t-sv">Socialt</span></dt>
+              <dd>
+                <span class="t-en">{c.kind_solitary ? 'Lives alone' : 'Lives in groups'}</span>
+                <span class="t-sv">{c.kind_solitary ? 'Lever ensamt' : 'Lever i grupp'}</span>
+              </dd>
             </>
           )}
         </dl>
@@ -225,25 +308,31 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     )}
 
     <!-- Habitat -->
-    {(biomes.length || val(c.habitat_climate) || val(c.habitat_notes)) && (
+    {(biomes_en.length || val(c.habitat_climate) || val(c.habitat_notes)) && (
       <section class="detail-section">
-        <h2>Where it lives</h2>
+        <h2><span class="t-en">Where it lives</span><span class="t-sv">Var det lever</span></h2>
         <dl>
-          {biomes.length > 0 && (
+          {biomes_en.length > 0 && (
             <>
-              <dt>Biome</dt>
-              <dd>{biomes.join(', ')}</dd>
+              <dt><span class="t-en">Biome</span><span class="t-sv">Biom</span></dt>
+              <dd>
+                <span class="t-en">{biomes_en.join(', ')}</span>
+                <span class="t-sv">{biomes_sv.join(', ')}</span>
+              </dd>
             </>
           )}
           {val(c.habitat_climate) && (
             <>
-              <dt>Climate</dt>
-              <dd>{climateLabels[c.habitat_climate!] ?? c.habitat_climate}</dd>
+              <dt><span class="t-en">Climate</span><span class="t-sv">Klimat</span></dt>
+              <dd>
+                <span class="t-en">{climateEn[c.habitat_climate!] ?? c.habitat_climate}</span>
+                <span class="t-sv">{climateSv[c.habitat_climate!] ?? c.habitat_climate}</span>
+              </dd>
             </>
           )}
           {val(c.habitat_notes) && (
             <>
-              <dt>Notes</dt>
+              <dt><span class="t-en">Notes</span><span class="t-sv">Anteckningar</span></dt>
               <dd>{c.habitat_notes}</dd>
             </>
           )}
@@ -254,17 +343,20 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     <!-- Behaviour -->
     {(val(c.behaviour_threat) || val(c.behaviour_notes)) && (
       <section class="detail-section">
-        <h2>Behaviour</h2>
+        <h2><span class="t-en">Behaviour</span><span class="t-sv">Beteende</span></h2>
         <dl>
           {val(c.behaviour_threat) && (
             <>
-              <dt>Danger level</dt>
-              <dd>{threatLabels[c.behaviour_threat!] ?? c.behaviour_threat}</dd>
+              <dt><span class="t-en">Danger level</span><span class="t-sv">Farlighetsnivå</span></dt>
+              <dd>
+                <span class="t-en">{threatEn[c.behaviour_threat!] ?? c.behaviour_threat}</span>
+                <span class="t-sv">{threatSv[c.behaviour_threat!] ?? c.behaviour_threat}</span>
+              </dd>
             </>
           )}
           {val(c.behaviour_notes) && (
             <>
-              <dt>Notes</dt>
+              <dt><span class="t-en">Notes</span><span class="t-sv">Anteckningar</span></dt>
               <dd>{c.behaviour_notes}</dd>
             </>
           )}
@@ -275,17 +367,20 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     <!-- Food -->
     {(val(c.kind_diet) || val(c.food_notes)) && (
       <section class="detail-section">
-        <h2>Food</h2>
+        <h2><span class="t-en">Food</span><span class="t-sv">Mat</span></h2>
         <dl>
           {val(c.kind_diet) && (
             <>
-              <dt>Diet</dt>
-              <dd>{dietLabels[c.kind_diet!] ?? c.kind_diet}</dd>
+              <dt><span class="t-en">Diet</span><span class="t-sv">Kost</span></dt>
+              <dd>
+                <span class="t-en">{dietEn[c.kind_diet!] ?? c.kind_diet}</span>
+                <span class="t-sv">{dietSv[c.kind_diet!] ?? c.kind_diet}</span>
+              </dd>
             </>
           )}
           {val(c.food_notes) && (
             <>
-              <dt>Notes</dt>
+              <dt><span class="t-en">Notes</span><span class="t-sv">Anteckningar</span></dt>
               <dd>{c.food_notes}</dd>
             </>
           )}
@@ -296,7 +391,7 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     <!-- Special -->
     {val(c.special_ability) && (
       <section class="detail-section">
-        <h2>Special ability</h2>
+        <h2><span class="t-en">Special ability</span><span class="t-sv">Speciell förmåga</span></h2>
         <p class="prose">{c.special_ability}</p>
       </section>
     )}
@@ -304,11 +399,11 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     <!-- Story -->
     {val(c.lore_description) && (
       <section class="detail-section">
-        <h2>Story</h2>
+        <h2><span class="t-en">Story</span><span class="t-sv">Historien</span></h2>
         <p class="prose">{c.lore_description}</p>
         {val(c.lore_origin) && (
           <>
-            <h3>Origin</h3>
+            <h3><span class="t-en">Origin</span><span class="t-sv">Ursprung</span></h3>
             <p class="prose">{c.lore_origin}</p>
           </>
         )}
@@ -320,15 +415,24 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   <!-- ── Status timeline (FIL-440 / C1) ───────────────────────────────────── -->
   {timelineEntries.length > 0 && (
     <section class="timeline-section">
-      <h2 class="timeline-heading">Journey so far</h2>
+      <h2 class="timeline-heading">
+        <span class="t-en">Journey so far</span>
+        <span class="t-sv">Resan hittills</span>
+      </h2>
       <ol class="timeline">
         {timelineEntries.map(entry => (
           <li class={`timeline-entry${entry.isCurrent ? ' timeline-entry--current' : ''}`}>
             <span class="timeline-dot" aria-hidden="true"></span>
             <span class="timeline-text">
               {entry.isCurrent
-                ? <strong>{entry.emoji} {entry.label}</strong>
-                : <>{entry.emoji} {entry.label}</>
+                ? <>
+                    <strong class="t-en">{entry.emoji} {entry.label}</strong>
+                    <strong class="t-sv">{entry.emoji} {entry.labelSv}</strong>
+                  </>
+                : <>
+                    <span class="t-en">{entry.emoji} {entry.label}</span>
+                    <span class="t-sv">{entry.emoji} {entry.labelSv}</span>
+                  </>
               }
               <span class="timeline-date">{entry.date}</span>
             </span>
@@ -339,7 +443,10 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   )}
 
   <div class="back-link">
-    <a href="/creatures">&larr; Back to all creatures</a>
+    <a href="/creatures">
+      <span class="t-en">&larr; Back to all creatures</span>
+      <span class="t-sv">&larr; Tillbaka till alla väsen</span>
+    </a>
   </div>
 </Base>
 
@@ -534,9 +641,17 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   .back-link a { color: var(--text-dim); }
   .back-link a:hover { color: var(--accent-hi); }
 
+  /* ── Media row ────────────────────────────────────────────────── */
+  .media-row { display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap; margin-bottom: 2rem; }
+  .art-wrap { flex: 1; min-width: 200px; max-width: 480px; margin-bottom: 0; }
+  .sprite-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+  .sprite-label { font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+  .sprite-canvas { image-rendering: pixelated; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.3); }
+
   @media (max-width: 520px) {
     dl { grid-template-columns: 1fr; }
     dt { font-size: 0.78rem; color: var(--text-dim); margin-bottom: -0.2rem; }
+    .media-row { flex-direction: column; }
   }
 
   /* ── Tracker sidebar card ─────────────────────────────────────────── */
@@ -584,3 +699,44 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     .tracker-card { max-width: 100%; }
   }
 </style>
+
+<script>
+  const canvas = document.getElementById('sprite-canvas') as HTMLCanvasElement | null;
+  if (canvas) {
+    const ctx = canvas.getContext('2d')!;
+
+    fetch(canvas.dataset.json!)
+      .then(r => r.json())
+      .then((data: { frames: Array<{ filename: string; frame: { x: number; y: number; w: number; h: number }; duration: number }> }) => {
+        let frames = data.frames.filter(f => f.filename.startsWith('idle_south'));
+        if (!frames.length) frames = data.frames.slice(0, 4);
+        frames.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
+        if (!frames.length) return;
+
+        const SCALE = 3;
+        canvas.width  = frames[0].frame.w * SCALE;
+        canvas.height = frames[0].frame.h * SCALE;
+        ctx.imageSmoothingEnabled = false;
+
+        let fi = 0, elapsed = 0, lastTs = 0;
+        function draw(ts: number) {
+          const dt = lastTs ? ts - lastTs : 0;
+          lastTs = ts;
+          elapsed += dt;
+          if (elapsed >= frames[fi].duration) { elapsed -= frames[fi].duration; fi = (fi + 1) % frames.length; }
+          const f = frames[fi].frame;
+          ctx.clearRect(0, 0, canvas!.width, canvas!.height);
+          ctx.drawImage(img, f.x, f.y, f.w, f.h, 0, 0, f.w * SCALE, f.h * SCALE);
+          requestAnimationFrame(draw);
+        }
+
+        // Set onload before src so it fires even if image is already cached
+        const img = new Image();
+        img.onload = () => requestAnimationFrame(draw);
+        img.src = canvas.dataset.png!;
+        // If already complete (cached), kick off manually
+        if (img.complete) requestAnimationFrame(draw);
+      })
+      .catch(() => {});
+  }
+</script>

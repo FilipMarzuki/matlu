@@ -22,6 +22,7 @@ export type CreatureStatus =
 export interface StatusInfo {
   /** Short public label shown in the ribbon heading. */
   label: string;
+  labelSv: string;
   /** Decorative emoji prefix (optional per spec). */
   emoji: string;
   /**
@@ -30,63 +31,73 @@ export interface StatusInfo {
    * For 'rejected': use getCopy() to inject the moderation note.
    */
   copy: string;
+  copySv: string;
   /** CSS colour for the ribbon's left border. */
   borderColor: string;
 }
 
 export const STATUS_MAP: Record<CreatureStatus, StatusInfo> = {
   submitted: {
-    label: 'Waiting for review',
+    label: 'Waiting for review', labelSv: 'Väntar på granskning',
     emoji: '⏳',
     copy: 'The Matlu team is reading your creature!',
+    copySv: 'Matlu-teamet läser ditt väsen!',
     borderColor: '#9ca3af',
   },
   approved: {
-    label: 'Accepted!',
+    label: 'Accepted!', labelSv: 'Accepterat!',
     emoji: '🎉',
     copy: 'Your creature made it in. Next up: powers and story.',
+    copySv: 'Ditt väsen kom med. Nästa steg: krafter och historia.',
     borderColor: '#4ade80',
   },
   balanced: {
-    label: 'Getting its powers',
+    label: 'Getting its powers', labelSv: 'Får sina krafter',
     emoji: '⚔️',
     copy: 'Figuring out what your creature can do in battle.',
+    copySv: 'Bestämmer vad ditt väsen kan göra i strid.',
     borderColor: '#f59e0b',
   },
   'lore-ready': {
-    label: 'Getting its story',
+    label: 'Getting its story', labelSv: 'Får sin historia',
     emoji: '📖',
     copy: 'Writing where your creature fits in the world.',
+    copySv: 'Skriver var ditt väsen hör hemma i världen.',
     borderColor: '#818cf8',
   },
   'graphics-rated': {
-    label: 'Ready for drawing',
+    label: 'Ready for drawing', labelSv: 'Redo att tecknas',
     emoji: '🎨',
     copy: 'Waiting its turn to be drawn.',
+    copySv: 'Väntar på sin tur att tecknas.',
     borderColor: '#fb923c',
   },
   queued: {
-    label: 'In line to be drawn',
+    label: 'In line to be drawn', labelSv: 'I kön för att tecknas',
     emoji: '⏲️',
-    copy: 'In line to be drawn.',  // replaced by getCopy() with actual position
+    copy: 'In line to be drawn.',
+    copySv: 'I kön för att tecknas.',
     borderColor: '#fbbf24',
   },
   spriting: {
-    label: 'Being drawn right now!',
+    label: 'Being drawn right now!', labelSv: 'Tecknas just nu!',
     emoji: '✏️',
     copy: 'The pixel artist is working on your creature.',
+    copySv: 'Pixelkonstnären arbetar med ditt väsen.',
     borderColor: '#34d399',
   },
   'in-game': {
-    label: 'In the game!',
+    label: 'In the game!', labelSv: 'I spelet!',
     emoji: '🎮',
     copy: 'Play Matlu to find your creature.',
+    copySv: 'Spela Matlu för att hitta ditt väsen.',
     borderColor: '#60a5fa',
   },
   rejected: {
-    label: 'Not going to the game',
+    label: 'Not going to the game', labelSv: 'Kom inte med i spelet',
     emoji: '❌',
-    copy: '',  // replaced by getCopy() with moderation_note
+    copy: '',
+    copySv: '',
     borderColor: '#f87171',
   },
 };
@@ -106,14 +117,15 @@ export function getCopy(
   info: StatusInfo,
   queuePosition: number | null,
   moderationNote: string | null,
+  lang: 'en' | 'sv' = 'en',
 ): string {
   if (status === 'queued') {
-    return queuePosition !== null
-      ? `Position #${queuePosition} in the drawing queue.`
-      : 'In line to be drawn.';
+    if (lang === 'sv') return queuePosition !== null ? `Plats #${queuePosition} i teckningskön.` : 'I kön för att tecknas.';
+    return queuePosition !== null ? `Position #${queuePosition} in the drawing queue.` : 'In line to be drawn.';
   }
   if (status === 'rejected') {
+    if (lang === 'sv') return moderationNote?.trim() || 'Det här väsenet valdes inte ut till spelet.';
     return moderationNote?.trim() || 'This creature was not selected for the game.';
   }
-  return info.copy;
+  return lang === 'sv' ? info.copySv : info.copy;
 }

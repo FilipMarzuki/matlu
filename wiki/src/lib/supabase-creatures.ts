@@ -39,6 +39,7 @@ export interface Creature {
   // Tracker fields (FIL-440 / C1)
   status: string | null;
   moderation_note: string | null;  // shown publicly only for rejected status
+  entity_id: string | null;
 }
 
 /**
@@ -60,7 +61,7 @@ const SELECT_COLS = [
   'behaviour_threat','behaviour_notes','food_notes',
   'special_ability','lore_description','lore_origin',
   'art_path','art_credit','credits_opt_in','tracker_issue_number','created_at',
-  'status','moderation_note',
+  'status','moderation_note','entity_id',
 ].join(',');
 
 function getClient(): { url: string; key: string } | null {

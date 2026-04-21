@@ -28,17 +28,27 @@ const biomes = BIOMES.map((b) => ({
 ---
 
 <Base title="Biomes" description="Every biome in the Matlu multiworld — from Sea to Snow Field.">
-  <h1 data-i18n="biomes.title">Biomes</h1>
-  <p class="subtitle" data-i18n="biomes.subtitle">The twelve terrain types of Mistheim, from sea level to permanent snowfield.</p>
+  <h1>
+    <span class="t-en">Biomes</span>
+    <span class="t-sv">Biomer</span>
+  </h1>
+  <p class="subtitle">
+    <span class="t-en">The twelve terrain types of Mistheim, from sea level to permanent snowfield.</span>
+    <span class="t-sv">De tolv terrängtyper i Mistheim, från havsnivå till permanent snöfält.</span>
+  </p>
 
   <!-- World Forge promo -->
   <div class="world-forge-card">
     <div class="world-forge-info">
-      <h2 data-i18n="biomes.world_forge_heading">World Forge</h2>
-      <p data-i18n="biomes.world_forge_desc">Explore every biome in Core Warden — inspect tile palettes, decoration scatter, and biome boundaries in real time. Works in your browser.</p>
+      <h2>World Forge</h2>
+      <p>
+        <span class="t-en">Explore every biome in Core Warden — inspect tile palettes, decoration scatter, and biome boundaries in real time. Works in your browser.</span>
+        <span class="t-sv">Utforska varje biom i Core Warden — inspektera kakelmönster, dekorationer och biomgränser i realtid. Fungerar i din webbläsare.</span>
+      </p>
     </div>
-    <a href={worldForgeUrl} class="world-forge-btn" data-i18n="biomes.world_forge_btn" target="_blank" rel="noopener">
-      Open World Forge →
+    <a href={worldForgeUrl} class="world-forge-btn" target="_blank" rel="noopener">
+      <span class="t-en">Open World Forge →</span>
+      <span class="t-sv">Öppna World Forge →</span>
     </a>
   </div>
 
@@ -67,21 +77,27 @@ const biomes = BIOMES.map((b) => ({
           <!-- Env stats: elev / temp / moist -->
           <div class="stats">
             <div class="stat">
-              <span class="stat-label">Elev</span>
+              <span class="stat-label">
+                <span class="t-en">Elev</span><span class="t-sv">Höjd</span>
+              </span>
               <div class="bar-track">
                 <div class="bar-fill" style={`width: ${pct(b.elev)};`} />
               </div>
               <span class="stat-val">{Math.round(b.elev * 100)}</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Temp</span>
+              <span class="stat-label">
+                <span class="t-en">Temp</span><span class="t-sv">Temp</span>
+              </span>
               <div class="bar-track">
                 <div class="bar-fill bar-temp" style={`width: ${pct(b.temp)};`} />
               </div>
               <span class="stat-val">{Math.round(b.temp * 100)}</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Moist</span>
+              <span class="stat-label">
+                <span class="t-en">Moist</span><span class="t-sv">Fukt</span>
+              </span>
               <div class="bar-track">
                 <div class="bar-fill bar-moist" style={`width: ${pct(b.moist)};`} />
               </div>
