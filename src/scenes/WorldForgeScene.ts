@@ -581,20 +581,17 @@ export class WorldForgeScene extends Phaser.Scene {
                               : landBiome;
           const cliffKey = cliffKeyForBiome(cliffBiomeIdx);
 
-          // Scale the block tile to cover both the floor surface AND the full cliff face below.
-          // The tile has ~50% top face / ~50% wall face at its native height (ISO_TILE_NATIVE_SIZE).
-          // Without scaling, only 24px is covered but the cliff face needs up to 54px (2-step).
-          // X scale stays at ISO_SCALE (maintains grid width); Y scale stretches to fill the gap.
-          //
-          //   totalH = floor tile height + (steps × CLIFF_H + ISO_H/2)
-          //   cliffScaleY = totalH / ISO_TILE_NATIVE_SIZE
-          const maxDrop    = Math.max(southDrop, eastDrop, westDrop);
-          const cliffFaceH = maxDrop * CLIFF_H + Math.ceil(this.ISO_H / 2);
-          const cliffScaleY = (ISO_TILE_NATIVE_SIZE * this.ISO_SCALE + cliffFaceH)
-                              / ISO_TILE_NATIVE_SIZE;
-          const cliffImg = this.add.image(x, posY, cliffKey)
-            .setScale(this.ISO_SCALE, cliffScaleY).setOrigin(0.5, 0).setDepth(0);
-          this.tileImages.push(cliffImg);
+          // Stack block tiles to fill the cliff face — one cap + one wall tile per step.
+          // Tiles are spaced CLIFF_H/2 apart so each tile's wall face overlaps the next
+          // tile's top face, hiding the intermediate cap diamonds. Draw bottom-up so each
+          // upper tile (drawn later, same depth=0) renders on top of the lower tile's
+          // visible top face — leaving only the wall face strip showing per step.
+          const maxDrop = Math.max(southDrop, eastDrop, westDrop);
+          for (let step = maxDrop; step >= 0; step--) {
+            const tileImg = this.add.image(x, posY + step * (CLIFF_H / 2), cliffKey)
+              .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
+            this.tileImages.push(tileImg);
+          }
 
           // Waterfall strips rendered on top for river cliff tiles.
           if (southDrop > 0 && isWF) {
