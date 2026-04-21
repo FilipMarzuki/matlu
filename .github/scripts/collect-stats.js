@@ -744,6 +744,64 @@ async function getAgentOutcomeStats() {
   };
 }
 
+// ── Bug file breakdown ────────────────────────────────────────────────────────
+
+/**
+ * Scans merged PRs from the last 4 weeks that are labelled 'bug' or have
+ * a title containing fix/bug/crash/broken, then counts how many such PRs
+ * touched each file. Returns [{file, bug_pr_count}] sorted by count desc.
+ *
+ * This complements the runtime error hotspot data from Better Stack so we
+ * can show a combined view on the AEX metrics dashboard.
+ */
+async function getBugFileBreakdown() {
+  const fourWeeksAgo    = new Date(now - 28 * 24 * 60 * 60 * 1000);
+  const bugTitlePattern = /\b(fix|bug|crash|broken)\b/i;
+
+  try {
+    const prs = await ghGet(
+      `/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=closed&per_page=100&sort=updated&direction=desc`
+    );
+
+    const bugPrs = prs.filter(pr => {
+      if (!pr.merged_at || new Date(pr.merged_at) < fourWeeksAgo) return false;
+      const hasBugLabel = (pr.labels ?? []).some(l => l.name === 'bug');
+      const hasBugTitle = bugTitlePattern.test(pr.title);
+      return hasBugLabel || hasBugTitle;
+    });
+
+    if (!bugPrs.length) return [];
+
+    // Count distinct file appearances across all bug PRs (each file counted
+    // once per PR even if it has multiple hunks in that PR).
+    const fileCounts = {};
+    for (const pr of bugPrs) {
+      try {
+        const files = await ghGet(
+          `/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}/files?per_page=100`
+        );
+        const seen = new Set();
+        for (const f of files) {
+          if (!seen.has(f.filename)) {
+            fileCounts[f.filename] = (fileCounts[f.filename] || 0) + 1;
+            seen.add(f.filename);
+          }
+        }
+      } catch (e) {
+        console.warn(`getBugFileBreakdown: files fetch failed for PR #${pr.number}:`, e.message);
+      }
+    }
+
+    return Object.entries(fileCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([file, bug_pr_count]) => ({ file, bug_pr_count }));
+  } catch (e) {
+    console.warn('getBugFileBreakdown failed:', e.message);
+    return null;
+  }
+}
+
 // ── Slugify ───────────────────────────────────────────────────────────────────
 
 function slugify(title) {
@@ -977,7 +1035,7 @@ function getReworkStats() {
 
 // ── Post to Supabase ──────────────────────────────────────────────────────────
 
-async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime }) {
+async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime, bugFileBreakdown }) {
   const ao = agentOutcome;
   const aiTotalTokens = ai
     ? (ai.totalInput + ai.totalOutput + ai.totalCacheRead + ai.totalCacheWrite)
@@ -1093,6 +1151,9 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       agent_outcome_wrong_interp: ao?.wrongInterp  ?? null,
       agent_failure_rate_pct:     ao?.failureRate  ?? null,
       agent_outcome_by_type:      ao?.byType       ?? null,
+
+      // ── Bug file breakdown (4-week merged bug PRs per file) ──────────────────
+      bug_file_breakdown:         bugFileBreakdown ?? null,
     }),
   });
 
@@ -1313,7 +1374,8 @@ async function main() {
   const quality = getCodeQualityStats();
   const rework  = getReworkStats();
   // getAiStats is async: merges local token-log.json + Supabase ai_sessions
-  const ai      = await getAiStats();
+  const ai               = await getAiStats();
+  const bugFileBreakdown = await getBugFileBreakdown();
 
   console.log('GitHub stats:', gh);
   console.log('Linear stats:', linear);
@@ -1342,7 +1404,7 @@ async function main() {
     leadTime:      leadTime     ?? null,
   };
   await postToSupabase(weekLabel, content, metrics, {
-    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime,
+    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime, bugFileBreakdown,
   });
   await postCognitiveLoad({ gh, linear, rework, cogLoad });
   await postToNotion(weekLabel, content);
