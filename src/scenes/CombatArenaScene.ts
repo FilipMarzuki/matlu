@@ -228,9 +228,9 @@ export class CombatArenaScene extends Phaser.Scene {
     // or "cricket stridulation single" and drop the OGGs into
     // public/assets/audio/creatures/. The scene skips playback gracefully if
     // the files are absent (audioAvailable guard in the event handler below).
-    this.load.audio('sfx-velcrid-chirp-0', 'assets/audio/creatures/mini-velcrid-chirp-0.ogg');
-    this.load.audio('sfx-velcrid-chirp-1', 'assets/audio/creatures/mini-velcrid-chirp-1.ogg');
-    this.load.audio('sfx-velcrid-chirp-2', 'assets/audio/creatures/mini-velcrid-chirp-2.ogg');
+    this.load.audio('sfx-velcrid-chirp-0', 'assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-0.ogg');
+    this.load.audio('sfx-velcrid-chirp-1', 'assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-1.ogg');
+    this.load.audio('sfx-velcrid-chirp-2', 'assets/audio/creatures/mini-velcrid/mini-velcrid-chirp-2.ogg');
 
     // VelcridJuvenile combat sounds — placeholder CC0 audio until proper creature
     // recordings are sourced (see scripts/download-creature-sounds.js).
