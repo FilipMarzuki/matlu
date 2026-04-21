@@ -640,6 +640,7 @@ function getCognitiveLoadStats() {
     const branchRe = /\b(if|else\s+if|for|while|case)\b|\?\s|&&|\|\|/g;
     const results = [];
     let totalScore = 0;
+    let totalLines = 0;
 
     for (const filePath of files) {
       const content = readFileSync(filePath, 'utf8');
@@ -647,6 +648,7 @@ function getCognitiveLoadStats() {
       const branches = (content.match(branchRe) || []).length;
       const score = Math.round(lines * branches / 1000);
       totalScore += score;
+      totalLines += lines;
 
       const relative = filePath.replace(srcDir + '/', '');
       results.push({ file: relative, lines, branches, score });
@@ -656,7 +658,12 @@ function getCognitiveLoadStats() {
     const top10 = results.slice(0, 10);
     const fileCount = files.length;
 
-    return { top10, totalScore, fileCount };
+    // Complexity per 1,000 lines — tracks branchiness independent of codebase size
+    const loadDensity  = totalLines > 0 ? Math.round((totalScore / (totalLines / 1000)) * 100) / 100 : 0;
+    // Average load per file — tracks per-file complexity trend
+    const avgFileLoad  = fileCount  > 0 ? Math.round((totalScore / fileCount) * 100) / 100 : 0;
+
+    return { top10, totalScore, fileCount, totalLines, loadDensity, avgFileLoad };
   } catch (e) {
     console.warn('getCognitiveLoadStats failed:', e.message);
     return null;
@@ -1031,11 +1038,14 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       refactor_ratio_pct:       gh.refactorRatioPct,
 
       // ── Cognitive load ──────────────────────────────────────────────────────
-      cognitive_load_total:     cogLoad?.totalScore     ?? null,
-      cognitive_load_top_file:  cogLoad?.top10?.[0]?.file  ?? null,
-      cognitive_load_top_score: cogLoad?.top10?.[0]?.score ?? null,
-      ts_file_count:            cogLoad?.fileCount      ?? null,
-      cognitive_load_top10:     cogLoad?.top10          ?? null,
+      cognitive_load_total:          cogLoad?.totalScore   ?? null,
+      cognitive_load_top_file:       cogLoad?.top10?.[0]?.file  ?? null,
+      cognitive_load_top_score:      cogLoad?.top10?.[0]?.score ?? null,
+      ts_file_count:                 cogLoad?.fileCount    ?? null,
+      cognitive_load_top10:          cogLoad?.top10        ?? null,
+      cognitive_load_total_lines:    cogLoad?.totalLines   ?? null,
+      cognitive_load_density:        cogLoad?.loadDensity  ?? null,
+      cognitive_load_avg_file_load:  cogLoad?.avgFileLoad  ?? null,
 
       // ── AI usage ────────────────────────────────────────────────────────────
       ai_sessions:              ai?.sessions            ?? null,
@@ -1204,7 +1214,7 @@ async function postToNotion(title, content) {
 //   in_progress × 7 → max 28 pts (4 issues)
 //   rework_rate × 0.12 → max 12 pts (100%)
 
-async function postCognitiveLoad({ gh, linear, rework }) {
+async function postCognitiveLoad({ gh, linear, rework, cogLoad }) {
   const openPrs    = gh.openPrCount        ?? 0;
   const avgAge     = gh.openPrAvgAgeDays   ?? 0;
   const inProg     = linear.inProgressCount ?? 0;
@@ -1241,6 +1251,9 @@ async function postCognitiveLoad({ gh, linear, rework }) {
         avg_pr_age_days:    Math.round(avgAge * 10) / 10,
         issues_in_progress: inProg,
         rework_rate:        reworkRate,
+        total_lines:        cogLoad?.totalLines  ?? null,
+        load_density:       cogLoad?.loadDensity ?? null,
+        avg_file_load:      cogLoad?.avgFileLoad ?? null,
         details: {
           rework_files_recent:  rework?.totalFiles      ?? 0,
           rework_files_overlap: rework?.reworkFileCount ?? 0,
@@ -1322,7 +1335,7 @@ async function main() {
   await postToSupabase(weekLabel, content, metrics, {
     gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime,
   });
-  await postCognitiveLoad({ gh, linear, rework });
+  await postCognitiveLoad({ gh, linear, rework, cogLoad });
   await postToNotion(weekLabel, content);
 
   await triggerVercelDeploy();
