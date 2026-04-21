@@ -11,13 +11,13 @@
  *   - Row insert into creature_submissions; rollback upload on insert failure
  *
  * Pattern mirrors wiki/src/pages/playtest.astro: Supabase creds are baked in
- * at build time via PUBLIC_* env vars and bridged to <script> via data attributes.
+ * at build time via VITE_* env vars and bridged to <script> via data attributes.
  */
 import Base from '../../layouts/Base.astro';
 import { LICENSE_VERSION } from './license.astro';
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
-const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 ---
 
 <Base
@@ -29,19 +29,50 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
   <!-- License version passed to the insert -->
   <div id="license-ver" data-version={LICENSE_VERSION} hidden></div>
 
-  <h1 data-i18n="submit.title">Submit a Creature</h1>
-  <p class="lead" data-i18n="submit.lead">
-    Share your fantasy creature with the Matlu world!
-    Fill in as many fields as you can — the more detail you add, the better the chances
-    it inspires a real in-game creature.
+  <h1>
+    <span class="t-en">Submit a Creature</span>
+    <span class="t-sv">Skicka in ett väsen</span>
+  </h1>
+  <p class="lead">
+    <span class="t-en">Share your fantasy creature with the Matlu world!
+      Fill in as many fields as you can — the more detail you add, the better the chances
+      it inspires a real in-game creature.</span>
+    <span class="t-sv">Dela ditt fantasiväsen med Matlu-världen!
+      Fyll i så många fält du kan — ju mer detaljer, desto större chans att det inspirerar ett riktigt spelväsen.</span>
   </p>
+
+  <!-- Auth state banner (populated by JS) -->
+  <div id="auth-banner" class="auth-banner" hidden>
+    <span class="t-en">Signed in as <strong id="auth-handle"></strong></span>
+    <span class="t-sv">Inloggad som <strong id="auth-handle-sv"></strong></span>
+    <span class="auth-sep">&middot;</span>
+    <a href="/account/settings"><span class="t-en">Settings</span><span class="t-sv">Inställningar</span></a>
+    <span class="auth-sep">&middot;</span>
+    <button type="button" id="signout-btn" class="btn-link">
+      <span class="t-en">Sign out</span><span class="t-sv">Logga ut</span>
+    </button>
+  </div>
+  <div id="signin-nudge" class="info-note">
+    <span class="t-en">
+      <a href="/account/signin">Sign in</a> to save your draft across devices and track your submissions.
+    </span>
+    <span class="t-sv">
+      <a href="/account/signin">Logga in</a> för att spara ditt utkast på alla enheter och följa dina inlämningar.
+    </span>
+  </div>
 
   <!-- Draft resume banner (shown by JS if localStorage draft exists) -->
   <div id="draft-banner" class="draft-banner" hidden>
-    <span id="draft-msg">You have an unfinished creature.</span>
+    <span id="draft-msg"></span>
     <div class="draft-actions">
-      <button type="button" id="btn-resume" class="btn-ghost" data-i18n="submit.draft_resume">Resume</button>
-      <button type="button" id="btn-fresh" class="btn-ghost btn-ghost--warn" data-i18n="submit.draft_fresh">Start fresh</button>
+      <button type="button" id="btn-resume" class="btn-ghost">
+        <span class="t-en">Resume</span>
+        <span class="t-sv">Fortsätt</span>
+      </button>
+      <button type="button" id="btn-fresh" class="btn-ghost btn-ghost--warn">
+        <span class="t-en">Start fresh</span>
+        <span class="t-sv">Börja om</span>
+      </button>
     </div>
   </div>
 
@@ -50,7 +81,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     <div class="progress-bar-track">
       <div id="progress-bar" class="progress-bar" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
-    <span id="progress-label" class="progress-label">0% complete</span>
+    <span id="progress-label" class="progress-label">0%</span>
   </div>
   <p id="missing-fields" class="missing-fields" hidden></p>
 
@@ -58,16 +89,27 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 1: Your creature ───────────────────────────────── -->
     <section class="form-section">
-      <h2 data-i18n="submit.your_creature">Your creature</h2>
+      <h2>
+        <span class="t-en">Your creature</span>
+        <span class="t-sv">Ditt väsen</span>
+      </h2>
 
       <div class="field">
-        <label for="creature_name"><span data-i18n="submit.creature_name">Creature name</span> <span class="req">*</span></label>
+        <label for="creature_name">
+          <span class="t-en">Creature name</span>
+          <span class="t-sv">Väsenets namn</span>
+          <span class="req"> *</span>
+        </label>
         <input id="creature_name" name="creature_name" type="text" maxlength="120"
                placeholder="e.g. Gloomfin, Thornback, Velcrid" autocomplete="off" />
       </div>
 
       <div class="field">
-        <label for="world_name"><span data-i18n="submit.world_name">Which world does it live in?</span> <span class="hint">(optional)</span></label>
+        <label for="world_name">
+          <span class="t-en">Which world does it live in?</span>
+          <span class="t-sv">Vilken värld lever det i?</span>
+          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+        </label>
         <input id="world_name" name="world_name" type="text" maxlength="120"
                placeholder="e.g. Spinolandet, The Living Sea…" autocomplete="off" />
       </div>
@@ -75,45 +117,88 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 2: About you ───────────────────────────────────── -->
     <section class="form-section">
-      <h2 data-i18n="submit.about_you">About you</h2>
+      <h2>
+        <span class="t-en">About you</span>
+        <span class="t-sv">Om dig</span>
+      </h2>
 
       <div class="field">
-        <label for="creator_name"><span data-i18n="submit.creator_name">Your name</span> <span class="hint">(optional — used for credits)</span></label>
+        <label for="creator_name">
+          <span class="t-en">Your name</span>
+          <span class="t-sv">Ditt namn</span>
+          <span class="hint"> (<span class="t-en">optional — used for credits</span><span class="t-sv">valfritt — används i krediter</span>)</span>
+        </label>
         <input id="creator_name" name="creator_name" type="text" maxlength="120"
                placeholder="First name or nickname" autocomplete="name" />
       </div>
 
       <div class="field">
-        <label for="maker_age"><span data-i18n="submit.maker_age">Your age</span> <span class="hint">(optional)</span></label>
+        <label for="maker_age">
+          <span class="t-en">Your age</span>
+          <span class="t-sv">Din ålder</span>
+          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+        </label>
         <input id="maker_age" name="maker_age" type="number" min="1" max="120"
                placeholder="e.g. 10" style="max-width:120px" />
       </div>
 
       <div class="field">
-        <label for="contact_email"><span data-i18n="submit.contact_email">Parent / guardian email</span> <span class="hint">(optional — we may reach out about your creature)</span></label>
+        <label for="contact_email">
+          <span class="t-en">Parent / guardian email</span>
+          <span class="t-sv">Förälder / vårdnadshavares e-post</span>
+          <span class="hint"> (<span class="t-en">optional — we may reach out about your creature</span><span class="t-sv">valfritt — vi kan höra av oss om ditt väsen</span>)</span>
+        </label>
         <input id="contact_email" name="contact_email" type="email" maxlength="254"
                placeholder="parent@example.com" autocomplete="email" />
+      </div>
+
+      <!-- Kid attribution (shown when signed in — links the submission to a kid on the account) -->
+      <div class="field" id="kid-field" hidden>
+        <label for="kid_select">
+          <span class="t-en">Who made this creature? (optional)</span>
+          <span class="t-sv">Vem skapade det här väsenet? (valfritt)</span>
+        </label>
+        <select id="kid_select" name="kid_select">
+          <option value="">— <span class="t-en">choose a kid or leave blank</span><span class="t-sv">välj ett barn eller lämna tomt</span> —</option>
+        </select>
       </div>
     </section>
 
     <!-- ── Section 3: Picture ─────────────────────────────────────── -->
     <section class="form-section">
-      <h2><span data-i18n="submit.picture">Picture</span> <span class="req">*</span></h2>
-      <p class="section-desc" data-i18n="submit.picture_desc">
-        Upload a drawing, painting, or photo. Any style — pencil sketch, crayon, digital — is great.
-        Max 5 MB. Accepted: JPG, PNG, GIF, WebP.
+      <h2>
+        <span class="t-en">Picture</span>
+        <span class="t-sv">Bild</span>
+        <span class="req"> *</span>
+      </h2>
+      <p class="section-desc">
+        <span class="t-en">Upload a drawing, painting, or photo. Any style — pencil sketch, crayon, digital — is great.
+          Max 5 MB. Accepted: JPG, PNG, GIF, WebP.
+          <strong>Please only upload the drawing — not a photo of a person.</strong></span>
+        <span class="t-sv">Ladda upp en teckning, målning eller foto. Alla stilar fungerar — blyerts, krita, digitalt.
+          Max 5 MB. Godkänt: JPG, PNG, GIF, WebP.
+          <strong>Ladda bara upp teckningen — inte ett foto på en person.</strong></span>
       </p>
       <div id="image-resume-hint" class="info-note" hidden>
-        Images can't be saved in drafts — please pick your file again.
+        <span class="t-en">Images can't be saved in drafts — please pick your file again.</span>
+        <span class="t-sv">Bilder sparas inte i utkast — välj din fil igen.</span>
       </div>
       <div class="field">
-        <label for="art_file"><span data-i18n="submit.choose_image">Choose image</span> <span class="req">*</span></label>
+        <label for="art_file">
+          <span class="t-en">Choose image</span>
+          <span class="t-sv">Välj bild</span>
+          <span class="req"> *</span>
+        </label>
         <input id="art_file" name="art_file" type="file"
                accept="image/jpeg,image/png,image/gif,image/webp" />
         <span id="art_file_error" class="field-error" hidden></span>
       </div>
       <div class="field">
-        <label for="art_credit"><span data-i18n="submit.art_credit">Art credit</span> <span class="hint">(leave blank to use your name above)</span></label>
+        <label for="art_credit">
+          <span class="t-en">Art credit</span>
+          <span class="t-sv">Bildkrediter</span>
+          <span class="hint"> (<span class="t-en">leave blank to use your name above</span><span class="t-sv">lämna tomt för att använda ditt namn ovan</span>)</span>
+        </label>
         <input id="art_credit" name="art_credit" type="text" maxlength="120"
                placeholder="Who made the drawing?" />
       </div>
@@ -121,77 +206,128 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 4: What kind? ──────────────────────────────────── -->
     <section class="form-section">
-      <h2 data-i18n="submit.kind">What kind of creature is it?</h2>
+      <h2>
+        <span class="t-en">What kind of creature is it?</span>
+        <span class="t-sv">Vad för sorts väsen är det?</span>
+      </h2>
 
       <div class="field">
-        <label for="kind_size" data-i18n="submit.size">Size</label>
+        <label for="kind_size">
+          <span class="t-en">Size</span>
+          <span class="t-sv">Storlek</span>
+        </label>
         <select id="kind_size" name="kind_size">
-          <option value="">— choose —</option>
-          <option value="tiny">Tiny (fits in your hand)</option>
-          <option value="small">Small (like a cat or dog)</option>
-          <option value="medium">Medium (like a person)</option>
-          <option value="large">Large (like a horse or bear)</option>
-          <option value="huge">Huge (bigger than a house)</option>
+          <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
+          <option value="tiny" data-en="Tiny (fits in your hand)" data-sv="Pytteliten (får plats i handen)">Tiny (fits in your hand)</option>
+          <option value="small" data-en="Small (like a cat or dog)" data-sv="Liten (som en katt eller hund)">Small (like a cat or dog)</option>
+          <option value="medium" data-en="Medium (like a person)" data-sv="Mellanstor (som en person)">Medium (like a person)</option>
+          <option value="large" data-en="Large (like a horse or bear)" data-sv="Stor (som en häst eller björn)">Large (like a horse or bear)</option>
+          <option value="huge" data-en="Huge (bigger than a house)" data-sv="Jättelik (större än ett hus)">Huge (bigger than a house)</option>
         </select>
       </div>
 
       <div class="field">
-        <label><span data-i18n="submit.movement">How does it move?</span> <span class="hint">(pick all that apply)</span></label>
+        <label>
+          <span class="t-en">How does it move?</span>
+          <span class="t-sv">Hur rör det sig?</span>
+          <span class="hint"> (<span class="t-en">pick all that apply</span><span class="t-sv">välj alla som stämmer</span>)</span>
+        </label>
         <div class="checkbox-group">
-          {['walk', 'swim', 'fly', 'burrow', 'crawl', 'slither'].map(m => (
+          {([
+            ['walk',    'Walk',    'Går'],
+            ['swim',    'Swim',    'Simmar'],
+            ['fly',     'Fly',     'Flyger'],
+            ['burrow',  'Burrow',  'Gräver'],
+            ['crawl',   'Crawl',   'Kryper'],
+            ['slither', 'Slither', 'Slingrar'],
+          ] as [string, string, string][]).map(([v, en, sv]) => (
             <label class="checkbox-label">
-              <input type="checkbox" name="kind_movement" value={m} />
-              {m.charAt(0).toUpperCase() + m.slice(1)}
+              <input type="checkbox" name="kind_movement" value={v} />
+              <span class="t-en">{en}</span>
+              <span class="t-sv">{sv}</span>
             </label>
           ))}
         </div>
       </div>
 
       <div class="field">
-        <label data-i18n="submit.solitary">Does it live alone or in groups?</label>
+        <label>
+          <span class="t-en">Does it live alone or in groups?</span>
+          <span class="t-sv">Lever det ensamt eller i grupp?</span>
+        </label>
         <div class="radio-row">
-          <label class="radio-label"><input type="radio" name="kind_solitary" value="true" /> Alone</label>
-          <label class="radio-label"><input type="radio" name="kind_solitary" value="false" /> Groups</label>
-          <label class="radio-label"><input type="radio" name="kind_solitary" value="" checked /> Not sure</label>
+          <label class="radio-label">
+            <input type="radio" name="kind_solitary" value="true" />
+            <span class="t-en">Alone</span><span class="t-sv">Ensamt</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="kind_solitary" value="false" />
+            <span class="t-en">Groups</span><span class="t-sv">Grupp</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="kind_solitary" value="" checked />
+            <span class="t-en">Not sure</span><span class="t-sv">Vet ej</span>
+          </label>
         </div>
       </div>
     </section>
 
     <!-- ── Section 5: Habitat ─────────────────────────────────────── -->
     <section class="form-section">
-      <h2 data-i18n="submit.habitat">Where does it live?</h2>
+      <h2>
+        <span class="t-en">Where does it live?</span>
+        <span class="t-sv">Var lever det?</span>
+      </h2>
 
       <div class="field">
-        <label><span data-i18n="submit.biome">Biome / habitat</span> <span class="hint">(pick all that apply)</span></label>
+        <label>
+          <span class="t-en">Biome / habitat</span>
+          <span class="t-sv">Biom / livsmiljö</span>
+          <span class="hint"> (<span class="t-en">pick all that apply</span><span class="t-sv">välj alla som stämmer</span>)</span>
+        </label>
         <div class="checkbox-group">
-          {[
-            ['forest','Forest'],['meadow','Meadow'],['mountain','Mountain'],
-            ['desert','Desert'],['ocean','Ocean / Sea'],['river','River / Lake'],
-            ['swamp','Swamp / Bog'],['tundra','Tundra / Arctic'],
-            ['underground','Underground / Cave'],['sky','Sky / Clouds'],
-          ].map(([v, l]) => (
+          {([
+            ['forest',      'Forest',           'Skog'],
+            ['meadow',      'Meadow',            'Äng'],
+            ['mountain',    'Mountain',          'Berg'],
+            ['desert',      'Desert',            'Öken'],
+            ['ocean',       'Ocean / Sea',       'Hav'],
+            ['river',       'River / Lake',      'Å / Sjö'],
+            ['swamp',       'Swamp / Bog',       'Träsk / Mosse'],
+            ['tundra',      'Tundra / Arctic',   'Tundra / Arktis'],
+            ['underground', 'Underground / Cave','Under jord / Grotta'],
+            ['sky',         'Sky / Clouds',      'Himmel / Moln'],
+          ] as [string, string, string][]).map(([v, en, sv]) => (
             <label class="checkbox-label">
               <input type="checkbox" name="habitat_biome" value={v} />
-              {l}
+              <span class="t-en">{en}</span>
+              <span class="t-sv">{sv}</span>
             </label>
           ))}
         </div>
       </div>
 
       <div class="field">
-        <label for="habitat_climate" data-i18n="submit.climate">Climate</label>
+        <label for="habitat_climate">
+          <span class="t-en">Climate</span>
+          <span class="t-sv">Klimat</span>
+        </label>
         <select id="habitat_climate" name="habitat_climate">
-          <option value="">— choose —</option>
-          <option value="tropical">Tropical (hot and wet)</option>
-          <option value="temperate">Temperate (mild)</option>
-          <option value="arid">Arid (hot and dry)</option>
-          <option value="cold">Cold / Polar</option>
-          <option value="any">Adapts to any climate</option>
+          <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
+          <option value="tropical" data-en="Tropical (hot and wet)" data-sv="Tropiskt (varmt och fuktigt)">Tropical (hot and wet)</option>
+          <option value="temperate" data-en="Temperate (mild)" data-sv="Tempererat (milt)">Temperate (mild)</option>
+          <option value="arid" data-en="Arid (hot and dry)" data-sv="Torrt (varmt och torrt)">Arid (hot and dry)</option>
+          <option value="cold" data-en="Cold / Polar" data-sv="Kallt / Polärt">Cold / Polar</option>
+          <option value="any" data-en="Adapts to any climate" data-sv="Anpassar sig till vilket klimat som helst">Adapts to any climate</option>
         </select>
       </div>
 
       <div class="field">
-        <label for="habitat_notes"><span data-i18n="submit.habitat_notes">Anything else about where it lives?</span> <span class="hint">(optional)</span></label>
+        <label for="habitat_notes">
+          <span class="t-en">Anything else about where it lives?</span>
+          <span class="t-sv">Något annat om var det lever?</span>
+          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+        </label>
         <textarea id="habitat_notes" name="habitat_notes" rows={2}
                   placeholder="e.g. 'hides under rocks near waterfalls'"></textarea>
       </div>
@@ -199,22 +335,32 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 6: Behaviour ───────────────────────────────────── -->
     <section class="form-section">
-      <h2 data-i18n="submit.behaviour">How does it behave?</h2>
+      <h2>
+        <span class="t-en">How does it behave?</span>
+        <span class="t-sv">Hur beter det sig?</span>
+      </h2>
 
       <div class="field">
-        <label for="behaviour_threat" data-i18n="submit.threat">How dangerous is it?</label>
+        <label for="behaviour_threat">
+          <span class="t-en">How dangerous is it?</span>
+          <span class="t-sv">Hur farligt är det?</span>
+        </label>
         <select id="behaviour_threat" name="behaviour_threat">
-          <option value="">— choose —</option>
-          <option value="friendly">Friendly — won't attack unless provoked</option>
-          <option value="shy">Shy — runs away from people</option>
-          <option value="neutral">Neutral — ignores people</option>
-          <option value="territorial">Territorial — attacks if you get too close</option>
-          <option value="aggressive">Aggressive — attacks on sight</option>
+          <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
+          <option value="friendly" data-en="Friendly — won't attack unless provoked" data-sv="Vänligt — attackerar bara om det provoceras">Friendly — won't attack unless provoked</option>
+          <option value="shy" data-en="Shy — runs away from people" data-sv="Blygt — springer ifrån människor">Shy — runs away from people</option>
+          <option value="neutral" data-en="Neutral — ignores people" data-sv="Neutralt — ignorerar människor">Neutral — ignores people</option>
+          <option value="territorial" data-en="Territorial — attacks if you get too close" data-sv="Revirkänsligt — attackerar om du kommer för nära">Territorial — attacks if you get too close</option>
+          <option value="aggressive" data-en="Aggressive — attacks on sight" data-sv="Aggressivt — attackerar direkt">Aggressive — attacks on sight</option>
         </select>
       </div>
 
       <div class="field">
-        <label for="behaviour_notes"><span data-i18n="submit.behaviour_notes">Any other behaviour notes?</span> <span class="hint">(optional)</span></label>
+        <label for="behaviour_notes">
+          <span class="t-en">Any other behaviour notes?</span>
+          <span class="t-sv">Andra beteendeanteckningar?</span>
+          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+        </label>
         <textarea id="behaviour_notes" name="behaviour_notes" rows={2}
                   placeholder="e.g. 'glows at night', 'leaves trails of flowers'"></textarea>
       </div>
@@ -222,22 +368,32 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 7: Food ────────────────────────────────────────── -->
     <section class="form-section">
-      <h2 data-i18n="submit.food">What does it eat?</h2>
+      <h2>
+        <span class="t-en">What does it eat?</span>
+        <span class="t-sv">Vad äter det?</span>
+      </h2>
 
       <div class="field">
-        <label for="kind_diet" data-i18n="submit.diet">Diet</label>
+        <label for="kind_diet">
+          <span class="t-en">Diet</span>
+          <span class="t-sv">Kost</span>
+        </label>
         <select id="kind_diet" name="kind_diet">
-          <option value="">— choose —</option>
-          <option value="herbivore">Herbivore (plants only)</option>
-          <option value="carnivore">Carnivore (meat only)</option>
-          <option value="omnivore">Omnivore (plants and meat)</option>
-          <option value="insectivore">Insectivore (insects)</option>
-          <option value="other">Other / Unknown</option>
+          <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
+          <option value="herbivore" data-en="Herbivore (plants only)" data-sv="Växtätare (bara växter)">Herbivore (plants only)</option>
+          <option value="carnivore" data-en="Carnivore (meat only)" data-sv="Köttätare (bara kött)">Carnivore (meat only)</option>
+          <option value="omnivore" data-en="Omnivore (plants and meat)" data-sv="Allätare (växter och kött)">Omnivore (plants and meat)</option>
+          <option value="insectivore" data-en="Insectivore (insects)" data-sv="Insektsätare (insekter)">Insectivore (insects)</option>
+          <option value="other" data-en="Other / Unknown" data-sv="Annat / Okänt">Other / Unknown</option>
         </select>
       </div>
 
       <div class="field">
-        <label for="food_notes"><span data-i18n="submit.food_notes">Favourite food or hunting style</span> <span class="hint">(optional)</span></label>
+        <label for="food_notes">
+          <span class="t-en">Favourite food or hunting style</span>
+          <span class="t-sv">Favoritmat eller jaktstil</span>
+          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+        </label>
         <textarea id="food_notes" name="food_notes" rows={2}
                   placeholder="e.g. 'loves berries', 'hunts by mimicking sounds'"></textarea>
       </div>
@@ -245,10 +401,17 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 8: Special ─────────────────────────────────────── -->
     <section class="form-section">
-      <h2 data-i18n="submit.special">Special things</h2>
+      <h2>
+        <span class="t-en">Special things</span>
+        <span class="t-sv">Speciella egenskaper</span>
+      </h2>
 
       <div class="field">
-        <label for="special_ability"><span data-i18n="submit.special_ability">Special ability or power</span> <span class="hint">(optional)</span></label>
+        <label for="special_ability">
+          <span class="t-en">Special ability or power</span>
+          <span class="t-sv">Speciell förmåga eller kraft</span>
+          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+        </label>
         <input id="special_ability" name="special_ability" type="text" maxlength="240"
                placeholder="e.g. 'turns invisible in moonlight', 'heals nearby plants'" />
       </div>
@@ -256,21 +419,35 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 9: Story ───────────────────────────────────────── -->
     <section class="form-section">
-      <h2><span data-i18n="submit.story">The story</span> <span class="req">*</span></h2>
-      <p class="section-desc" data-i18n="submit.story_desc">
-        Tell us about your creature in your own words. Where did it come from? What makes it
-        special? What's it like to encounter one? At least 20 characters.
+      <h2>
+        <span class="t-en">The story</span>
+        <span class="t-sv">Historien</span>
+        <span class="req"> *</span>
+      </h2>
+      <p class="section-desc">
+        <span class="t-en">Tell us about your creature in your own words. Where did it come from? What makes it
+          special? What's it like to encounter one? At least 20 characters.</span>
+        <span class="t-sv">Berätta om ditt väsen med egna ord. Var kom det ifrån? Vad gör det speciellt?
+          Hur är det att möta ett? Minst 20 tecken.</span>
       </p>
 
       <div class="field">
-        <label for="lore_description"><span data-i18n="submit.description">Description</span> <span class="req">*</span></label>
+        <label for="lore_description">
+          <span class="t-en">Description</span>
+          <span class="t-sv">Beskrivning</span>
+          <span class="req"> *</span>
+        </label>
         <textarea id="lore_description" name="lore_description" rows={6} maxlength="2000"
                   placeholder="Write at least a sentence or two about your creature…"></textarea>
         <span id="story-count" class="char-count">0 / 2000</span>
       </div>
 
       <div class="field">
-        <label for="lore_origin"><span data-i18n="submit.lore_origin">Origin story</span> <span class="hint">(optional — how did it come to exist?)</span></label>
+        <label for="lore_origin">
+          <span class="t-en">Origin story</span>
+          <span class="t-sv">Ursprungsberättelse</span>
+          <span class="hint"> (<span class="t-en">optional — how did it come to exist?</span><span class="t-sv">valfritt — hur uppstod det?</span>)</span>
+        </label>
         <textarea id="lore_origin" name="lore_origin" rows={3} maxlength="1000"
                   placeholder="e.g. 'Created when lightning struck an ancient oak…'"></textarea>
       </div>
@@ -278,13 +455,18 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- ── Section 10: Consent ────────────────────────────────────── -->
     <section class="form-section form-section--consent">
-      <h2 data-i18n="submit.consent">Consent</h2>
+      <h2>
+        <span class="t-en">Consent</span>
+        <span class="t-sv">Samtycke</span>
+      </h2>
 
       <div class="field field--check">
         <label class="checkbox-label checkbox-label--block">
           <input type="checkbox" id="credits_opt_in" name="credits_opt_in" checked />
-          <span data-i18n="submit.credits_opt_in">Credit me in the game if my creature is added</span>
-          <span class="hint">(your creator name will appear in the in-game credits)</span>
+          <span class="t-en">Credit me in the game if my creature is added
+            <span class="hint">(your creator name will appear in the in-game credits)</span></span>
+          <span class="t-sv">Ge mig krediter om mitt väsen läggs till
+            <span class="hint">(ditt skaparnamn visas i spelets krediter)</span></span>
         </label>
       </div>
 
@@ -292,7 +474,8 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
         <label class="checkbox-label checkbox-label--block">
           <input type="checkbox" id="license_accepted" name="license_accepted" />
           <span>
-            I agree to the <a href="/creatures/license" target="_blank" rel="noopener">Creature Submission License</a>
+            <span class="t-en">I agree to the <a href="/creatures/license" target="_blank" rel="noopener">Creature Submission License</a></span>
+            <span class="t-sv">Jag godkänner <a href="/creatures/license" target="_blank" rel="noopener">Väsensinlämningslicensen</a></span>
             <span class="req"> *</span>
           </span>
         </label>
@@ -302,7 +485,8 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
         <label class="checkbox-label checkbox-label--block">
           <input type="checkbox" id="parental_consent" name="parental_consent" />
           <span>
-            A parent or guardian has read the license and gives permission for this submission
+            <span class="t-en">A parent or guardian has read the license and gives permission for this submission</span>
+            <span class="t-sv">En förälder eller vårdnadshavare har läst licensen och ger tillstånd för denna inlämning</span>
             <span class="req"> *</span>
           </span>
         </label>
@@ -311,8 +495,9 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <!-- Submit -->
     <div class="submit-row">
-      <button type="submit" id="submit-btn" disabled title="" data-i18n="submit.submit_btn">
-        Submit creature
+      <button type="submit" id="submit-btn" disabled title="">
+        <span class="t-en">Submit creature</span>
+        <span class="t-sv">Skicka in väsen</span>
       </button>
       <span id="submit-hint" class="submit-hint"></span>
     </div>
@@ -323,12 +508,159 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
 <script>
   import { createClient } from '@supabase/supabase-js';
-  import { t } from '../../lib/i18n-codex';
+
+  // ── Language helper ───────────────────────────────────────────────────────
+  // Reads current html[data-lang] at call time so it reacts to live switches.
+  const isSv = (): boolean => document.documentElement.getAttribute('data-lang') === 'sv';
+  function t(en: string, sv: string): string { return isSv() ? sv : en; }
 
   // ── Supabase client ───────────────────────────────────────────────────────
   const cfg = document.getElementById('supa-cfg') as HTMLElement;
-  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '');
+  const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '', {
+    auth: { persistSession: true, autoRefreshToken: true },
+  });
   const LICENSE_VERSION = (document.getElementById('license-ver') as HTMLElement).dataset.version ?? 'v1-2026-04';
+
+  // ── Auth state ─────────────────────────────────────────────────────────────
+  let currentUserId: string | null = null;
+  let currentToken: string | null = null;
+  let selectedKidId: string | null = null;
+
+  async function initAuth(): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      // Show sign-in nudge, keep kid field hidden
+      const nudge = document.getElementById('signin-nudge') as HTMLElement;
+      nudge.hidden = false;
+      return;
+    }
+
+    currentUserId = session.user.id;
+    currentToken  = session.access_token;
+
+    // Hide nudge, show auth banner
+    (document.getElementById('signin-nudge') as HTMLElement).hidden = true;
+    const banner = document.getElementById('auth-banner') as HTMLElement;
+    banner.hidden = false;
+
+    // Load profile handle
+    const profileRes = await fetch('/api/account/profile', {
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+    if (profileRes.ok) {
+      const profile: { handle: string } | null = await profileRes.json();
+      if (profile) {
+        const handleEl   = document.getElementById('auth-handle')    as HTMLElement;
+        const handleElSv = document.getElementById('auth-handle-sv') as HTMLElement;
+        handleEl.textContent   = `@${profile.handle}`;
+        handleElSv.textContent = `@${profile.handle}`;
+      }
+    }
+
+    // Load kids and populate dropdown
+    const kidsRes = await fetch('/api/account/kids', {
+      headers: { Authorization: `Bearer ${currentToken}` },
+    });
+    if (kidsRes.ok) {
+      const kids: Array<{ id: string; kid_name: string; kid_age: number | null }> = await kidsRes.json();
+      if (kids.length) {
+        const sel = document.getElementById('kid_select') as HTMLSelectElement;
+        kids.forEach(k => {
+          const opt = document.createElement('option');
+          opt.value = k.id;
+          opt.textContent = k.kid_name + (k.kid_age ? ` (${k.kid_age})` : '');
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change', () => {
+          selectedKidId = sel.value || null;
+          // Auto-fill creator_name from kid name
+          if (selectedKidId) {
+            const kid = kids.find(k => k.id === selectedKidId);
+            if (kid) {
+              const nameInput = document.getElementById('creator_name') as HTMLInputElement;
+              if (!nameInput.value) nameInput.value = kid.kid_name;
+            }
+          }
+          // Load cloud draft for the newly selected kid
+          loadCloudDraft(selectedKidId);
+        });
+        (document.getElementById('kid-field') as HTMLElement).hidden = false;
+      }
+    }
+
+    // Sign out button
+    document.getElementById('signout-btn')?.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.reload();
+    });
+
+    // Load cloud draft for the default (no kid selected)
+    await loadCloudDraft(null);
+  }
+
+  // ── Cloud draft ────────────────────────────────────────────────────────────
+  // Fetches the cloud draft for (user, kid) and shows resume banner if it's
+  // newer than any local draft (or if there's no local draft).
+  async function loadCloudDraft(kidId: string | null): Promise<void> {
+    if (!currentToken) return;
+    const url = kidId ? `/api/drafts/get?kid_id=${kidId}` : '/api/drafts/get';
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${currentToken}` } });
+    if (!res.ok) return;
+    const cloud: { draft_data: Record<string, unknown>; updated_at: string } | null = await res.json();
+    if (!cloud) return;
+
+    const localRaw = localStorage.getItem(DRAFT_KEY);
+    const localTs  = localRaw ? (JSON.parse(localRaw) as Record<string, unknown>).savedAt as string : null;
+
+    // Show cloud resume banner if cloud draft is newer (or no local draft)
+    const cloudIsNewer = !localTs || new Date(cloud.updated_at) > new Date(localTs);
+    if (cloudIsNewer && cloud.draft_data) {
+      const existingBanner = document.getElementById('draft-banner') as HTMLElement;
+      // If already visible (local draft), update message to mention cloud
+      const draftMsgEl = document.getElementById('draft-msg') as HTMLElement;
+      const when = relativeTime(cloud.updated_at);
+      draftMsgEl.textContent = t(
+        `You have a cloud draft from ${when}. Resume it?`,
+        `Du har ett molnutkast från ${when}. Vill du fortsätta?`,
+      );
+      existingBanner.hidden = false;
+
+      document.getElementById('btn-resume')?.addEventListener('click', () => {
+        restoreDraft(cloud.draft_data);
+        imageHint.hidden = false;
+        existingBanner.hidden = true;
+        updateProgress();
+      }, { once: true });
+    }
+  }
+
+  // Cloud auto-save: debounced 5 s (longer than localStorage 500 ms to reduce API calls)
+  let cloudSaveTimer: ReturnType<typeof setTimeout>;
+  function scheduleCloudSave(): void {
+    if (!currentToken) return;
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(async () => {
+      const draft = captureDraft();
+      await fetch('/api/drafts/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentToken}`,
+        },
+        body: JSON.stringify({ kid_id: selectedKidId, draft_data: draft }),
+      });
+    }, 5000);
+  }
+
+  // ── Translate select options on lang change ───────────────────────────────
+  // Options use data-en / data-sv attributes set in the HTML.
+  function translateSelects(): void {
+    document.querySelectorAll<HTMLOptionElement>('[data-en]').forEach(opt => {
+      opt.textContent = isSv() ? (opt.dataset.sv ?? opt.dataset.en ?? '') : (opt.dataset.en ?? '');
+    });
+  }
+  translateSelects();
+  document.addEventListener('langchange', translateSelects);
 
   // ── Form elements ─────────────────────────────────────────────────────────
   const form        = document.getElementById('submit-form') as HTMLFormElement;
@@ -401,6 +733,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     saveTimer = setTimeout(() => {
       try { localStorage.setItem(DRAFT_KEY, JSON.stringify(captureDraft())); } catch { /* storage full */ }
     }, 500);
+    scheduleCloudSave();
   }
 
   // ── Progress scoring ──────────────────────────────────────────────────────
@@ -410,36 +743,37 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     let score = 0;
 
     // Required (40 pts total)
-    if (fd.get('creature_name')?.toString().trim()) score += 10; else missing.push('Creature name');
+    if (fd.get('creature_name')?.toString().trim()) score += 10; else missing.push(t('Creature name', 'Väsenets namn'));
     const story = fd.get('lore_description')?.toString().trim() ?? '';
-    if (story.length >= 20) score += 20; else missing.push('Description (min 20 characters)');
+    if (story.length >= 20) score += 20; else missing.push(t('Description (min 20 characters)', 'Beskrivning (minst 20 tecken)'));
     const file = (form.elements.namedItem('art_file') as HTMLInputElement).files?.[0];
-    if (file) score += 10; else missing.push('Picture');
+    if (file) score += 10; else missing.push(t('Picture', 'Bild'));
 
     // Consent (not in score — just gates submit)
     const licenseOk = (form.elements.namedItem('license_accepted') as HTMLInputElement).checked;
     const parentOk  = (form.elements.namedItem('parental_consent') as HTMLInputElement).checked;
-    if (!licenseOk) missing.push('License agreement');
-    if (!parentOk)  missing.push('Parental consent');
+    if (!licenseOk) missing.push(t('License agreement', 'Licensavtal'));
+    if (!parentOk)  missing.push(t('Parental consent', 'Föräldrars samtycke'));
 
     // Optional bonuses (up to 60 pts)
-    const opt: [string, string][] = [
-      ['kind_size',         'Size'],
-      ['habitat_climate',   'Climate'],
-      ['behaviour_threat',  'Danger level'],
-      ['kind_diet',         'Diet'],
-      ['world_name',        'World name'],
-      ['creator_name',      'Your name'],
-      ['special_ability',   'Special ability'],
-      ['lore_origin',       'Origin story'],
-      ['habitat_notes',     'Habitat notes'],
-      ['food_notes',        'Food notes'],
-      ['behaviour_notes',   'Behaviour notes'],
+    const opt: [string, string, string][] = [
+      ['kind_size',        'Size',           'Storlek'],
+      ['habitat_climate',  'Climate',        'Klimat'],
+      ['behaviour_threat', 'Danger level',   'Farlighetsnivå'],
+      ['kind_diet',        'Diet',           'Kost'],
+      ['world_name',       'World name',     'Världsnamn'],
+      ['creator_name',     'Your name',      'Ditt namn'],
+      ['special_ability',  'Special ability','Speciell förmåga'],
+      ['lore_origin',      'Origin story',   'Ursprungsberättelse'],
+      ['habitat_notes',    'Habitat notes',  'Livsmiljöanteckningar'],
+      ['food_notes',       'Food notes',     'Matanteckningar'],
+      ['behaviour_notes',  'Behaviour notes','Beteendeanteckningar'],
     ];
     const ptsEach = Math.floor(60 / opt.length);
     for (const [field] of opt) {
       if (fd.get(field)?.toString().trim()) score += ptsEach;
     }
+
     // Movement checkboxes
     if (fd.getAll('kind_movement').length > 0) score += ptsEach;
     // Habitat biome checkboxes
@@ -461,17 +795,17 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     progressBar.style.width = `${score}%`;
     progressBar.setAttribute('aria-valuenow', String(score));
     progressBar.className = 'progress-bar' + (score >= 70 ? ' green' : score >= 40 ? ' amber' : ' red');
-    progressLbl.textContent = `${score}% complete`;
+    progressLbl.textContent = `${score}% ${t('complete', 'klart')}`;
 
     if (missing.length) {
-      missingEl.textContent = 'Still needed: ' + missing.join(', ');
+      missingEl.textContent = t('Still needed: ', 'Saknas fortfarande: ') + missing.join(', ');
       missingEl.hidden = false;
     } else {
       missingEl.hidden = true;
     }
 
     submitBtn.disabled = !canSubmit;
-    submitBtn.title = canSubmit ? '' : 'Complete the required fields first';
+    submitBtn.title = canSubmit ? '' : t('Complete the required fields first', 'Fyll i de obligatoriska fälten först');
     submitHint.textContent = canSubmit ? '' : missing.join(' · ');
   }
 
@@ -488,11 +822,14 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     artFileErr.hidden = true;
     if (file) {
       if (!ALLOWED_MIME.includes(file.type)) {
-        artFileErr.textContent = 'Please choose a JPG, PNG, GIF, or WebP image.';
+        artFileErr.textContent = t('Please choose a JPG, PNG, GIF, or WebP image.', 'Välj en JPG-, PNG-, GIF- eller WebP-bild.');
         artFileErr.hidden = false;
         artFile.value = '';
       } else if (file.size > MAX_SIZE) {
-        artFileErr.textContent = `Image is too large (${(file.size/1024/1024).toFixed(1)} MB). Max 5 MB.`;
+        artFileErr.textContent = t(
+          `Image is too large (${(file.size/1024/1024).toFixed(1)} MB). Max 5 MB.`,
+          `Bilden är för stor (${(file.size/1024/1024).toFixed(1)} MB). Max 5 MB.`,
+        );
         artFileErr.hidden = false;
         artFile.value = '';
       }
@@ -504,6 +841,12 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
   form.addEventListener('input',  () => { updateProgress(); scheduleSave(); });
   form.addEventListener('change', () => { updateProgress(); scheduleSave(); });
   updateProgress();
+
+  // Re-run progress labels when the user switches language mid-fill.
+  document.addEventListener('langchange', () => updateProgress());
+
+  // Initialise auth state (non-blocking — UI works without sign-in)
+  initAuth();
 
   // ── Draft banner ──────────────────────────────────────────────────────────
   function relativeTime(isoStr: string): string {
@@ -520,8 +863,10 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
   if (savedRaw) {
     try {
       const draft = JSON.parse(savedRaw) as Record<string, unknown>;
-      draftMsg.textContent = `You have an unfinished creature from ${relativeTime(draft.savedAt as string)}. ` +
-        'Pick up where you left off?';
+      draftMsg.textContent = t(
+        `You have an unfinished creature from ${relativeTime(draft.savedAt as string)}. Pick up where you left off?`,
+        `Du har ett osparat väsen från ${relativeTime(draft.savedAt as string)}. Vill du fortsätta?`,
+      );
       draftBanner.hidden = false;
 
       document.getElementById('btn-resume')!.addEventListener('click', () => {
@@ -543,10 +888,14 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     e.preventDefault();
 
     const file = artFile.files?.[0];
-    if (!file) { statusEl.textContent = t('submit.no_picture'); statusEl.className = 'form-status error'; return; }
+    if (!file) {
+      statusEl.textContent = t('Please add a picture.', 'Lägg till en bild.');
+      statusEl.className = 'form-status error';
+      return;
+    }
 
     submitBtn.disabled = true;
-    statusEl.textContent = t('submit.uploading');
+    statusEl.textContent = t('Uploading picture…', 'Laddar upp bild…');
     statusEl.className = 'form-status';
 
     // Generate upload path
@@ -561,14 +910,14 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     if (uploadErr) {
       console.error('Upload error:', uploadErr);
-      statusEl.textContent = t('submit.upload_error');
+      statusEl.textContent = t('Could not upload your picture. Please try again.', 'Kunde inte ladda upp din bild. Försök igen.');
       statusEl.className = 'form-status error';
       submitBtn.disabled = false;
       return;
     }
 
     // Collect form data
-    statusEl.textContent = t('submit.saving');
+    statusEl.textContent = t('Saving your creature…', 'Sparar ditt väsen…');
     const fd = new FormData(form);
     const { score } = computeScore();
 
@@ -578,6 +927,8 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     const row = {
       creature_name:    fd.get('creature_name')?.toString().trim() ?? '',
       creator_name:     fd.get('creator_name')?.toString().trim() || null,
+      user_id:          currentUserId ?? null,
+      kid_id:           selectedKidId ?? null,
       maker_age:        fd.get('maker_age') ? Number(fd.get('maker_age')) : null,
       contact_email:    fd.get('contact_email')?.toString().trim() || null,
       world_name:       fd.get('world_name')?.toString().trim() || null,
@@ -610,7 +961,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
       console.error('Insert error:', insertErr);
       // Best-effort rollback — delete the uploaded image
       await supabase.storage.from('creature-art').remove([storagePath]);
-      statusEl.textContent = t('submit.save_error');
+      statusEl.textContent = t('Something went wrong saving your creature. Please try again.', 'Något gick fel när väsenet sparades. Försök igen.');
       statusEl.className = 'form-status error';
       submitBtn.disabled = false;
       return;
@@ -620,7 +971,10 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     localStorage.removeItem(DRAFT_KEY);
     form.reset();
     updateProgress();
-    statusEl.textContent = t('submit.success');
+    statusEl.textContent = t(
+      '🎉 Thanks! Your creature is waiting to be approved. We\'ll review it soon!',
+      '🎉 Tack! Ditt väsen väntar på godkännande. Vi granskar det snart!',
+    );
     statusEl.className = 'form-status success';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -629,6 +983,33 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 <style>
   h1 { font-size: 2rem; margin-bottom: 0.5rem; }
   .lead { color: var(--text-dim); max-width: 580px; margin-bottom: 2rem; font-size: 1rem; }
+
+  /* ── Auth banner ──────────────────────────────────────────────── */
+  .auth-banner {
+    background: rgba(74, 222, 128, 0.07);
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.88rem;
+    color: var(--text);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .auth-sep { opacity: 0.4; }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--accent-hi);
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .btn-link:hover { color: var(--accent); }
 
   /* ── Draft banner ─────────────────────────────────────────────── */
   .draft-banner {
@@ -703,7 +1084,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     font-size: 1.05rem;
     color: var(--accent-hi);
     margin: 0 0 1.1rem 0;
-    font-family: 'Pixelify Sans', monospace;
+    font-family: 'Syne', sans-serif;
   }
   .form-section--consent { border-left: 3px solid var(--accent); }
   .section-desc { font-size: 0.875rem; color: var(--text-dim); margin: -0.5rem 0 1rem; }
@@ -792,26 +1173,19 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     margin-top: 0.5rem;
   }
   button[type="submit"] {
-    background: var(--gold);
+    background: var(--accent);
     border: none;
-    border-radius: 0;
-    color: #1a1200;
+    border-radius: 7px;
+    color: #fff;
     cursor: pointer;
-    font-family: 'Pixelify Sans', monospace;
+    font-family: 'Syne', sans-serif;
     font-size: 1rem;
     font-weight: 700;
     padding: 0.7rem 2rem;
-    box-shadow: 3px 3px 0 var(--gold-dim);
-    transition: box-shadow 0.08s, transform 0.08s;
+    transition: background 0.15s;
   }
-  button[type="submit"]:hover:not(:disabled) {
-    box-shadow: 4px 4px 0 var(--gold-dim);
-  }
-  button[type="submit"]:active:not(:disabled) {
-    box-shadow: 1px 1px 0 var(--gold-dim);
-    transform: translate(2px, 2px);
-  }
-  button[type="submit"]:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+  button[type="submit"]:hover:not(:disabled) { background: var(--accent-hi); }
+  button[type="submit"]:disabled { opacity: 0.45; cursor: not-allowed; }
   .submit-hint { font-size: 0.82rem; color: var(--text-dim); }
 
   .form-status { margin-top: 1.25rem; font-size: 0.95rem; min-height: 1.4em; }

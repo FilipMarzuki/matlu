@@ -10,40 +10,105 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
+type BugFileRow = { file: string; bug_pr_count: number };
+type ErrorFileRow = { filename: string; occurrences: number; error_count: number; warn_count: number };
+
 type WeekRow = {
   week_of: string;
   prs_merged: number | null;
   issues_completed: number | null;
   rework_rate_pct: string | null;
+  refactor_ratio_pct: number | null;
+  total_pr_count: number | null;
   agent_success_rate_pct: string | null;
   cognitive_load_total: number | null;
+  cognitive_load_density: number | null;
   ai_total_cost_usd: string | null;
   cognitive_load_top10: Array<{ file: string; score: number; lines: number }> | null;
+  total_lines_added: number | null;
+  total_lines_deleted: number | null;
+  avg_files_changed: number | null;
+  avg_lines_added: number | null;
+  avg_lines_deleted: number | null;
+  bug_file_breakdown: BugFileRow[] | null;
+  top_rework_file: string | null;
+};
+
+type ErrorMetricsRow = {
+  recorded_at: string;
+  error_file_breakdown: ErrorFileRow[] | null;
+};
+
+type HotspotRow = {
+  file: string;
+  runtimeErrors: number;
+  bugPrs: number;
+  isHighRisk: boolean;
+  isReworkHotspot: boolean;
 };
 
 let rows: WeekRow[] = [];
+let errorMetricsLatest: ErrorMetricsRow | null = null;
 if (supabaseUrl && !supabaseUrl.includes('example')) {
   const sb = createClient(supabaseUrl, supabaseKey);
-  const { data } = await sb
-    .from('stats_weekly')
-    .select('week_of, prs_merged, issues_completed, rework_rate_pct, agent_success_rate_pct, cognitive_load_total, ai_total_cost_usd, cognitive_load_top10')
-    .order('week_of', { ascending: true });
-  rows = (data as WeekRow[]) ?? [];
+  const [{ data: statsData }, { data: errorData }] = await Promise.all([
+    sb
+      .from('stats_weekly')
+      .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, total_pr_count, agent_success_rate_pct, cognitive_load_total, cognitive_load_density, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted, avg_files_changed, avg_lines_added, avg_lines_deleted, bug_file_breakdown, top_rework_file')
+      .order('week_of', { ascending: true }),
+    sb
+      .from('error_metrics')
+      .select('recorded_at, error_file_breakdown')
+      .order('recorded_at', { ascending: false })
+      .limit(1),
+  ]);
+  rows = (statsData as WeekRow[] | null) ?? [];
+  errorMetricsLatest = ((errorData as ErrorMetricsRow[] | null) ?? [])[0] ?? null;
 }
+
+// Build the Error Hotspots merged table from runtime errors + bug PRs
+const latest = rows.at(-1);
+const errorBreakdown: ErrorFileRow[] = errorMetricsLatest?.error_file_breakdown ?? [];
+const bugBreakdown: BugFileRow[] = latest?.bug_file_breakdown ?? [];
+const topReworkFile: string | null = latest?.top_rework_file ?? null;
+
+const fileMap = new Map<string, { runtimeErrors: number; bugPrs: number }>();
+for (const row of errorBreakdown) {
+  fileMap.set(row.filename, { runtimeErrors: row.occurrences, bugPrs: 0 });
+}
+for (const row of bugBreakdown) {
+  const existing = fileMap.get(row.file) ?? { runtimeErrors: 0, bugPrs: 0 };
+  fileMap.set(row.file, { ...existing, bugPrs: row.bug_pr_count });
+}
+
+const errorHotspots: HotspotRow[] = [...fileMap.entries()]
+  .map(([file, d]) => ({
+    file,
+    runtimeErrors: d.runtimeErrors,
+    bugPrs: d.bugPrs,
+    isHighRisk: d.runtimeErrors > 0 && d.bugPrs > 0,
+    isReworkHotspot: file === topReworkFile,
+  }))
+  .sort((a, b) => (b.runtimeErrors + b.bugPrs * 2) - (a.runtimeErrors + a.bugPrs * 2))
+  .slice(0, 20);
 
 // Prepare chart datasets (oldest → newest for time axis)
 const labels = rows.map(r =>
   new Date(r.week_of).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 );
-const prsData     = rows.map(r => r.prs_merged ?? 0);
-const issuesData  = rows.map(r => r.issues_completed ?? 0);
-const reworkData  = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
-const cogLoadData = rows.map(r => r.cognitive_load_total ?? 0);
-const agentData   = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
-const aiCostData  = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
+const prsData            = rows.map(r => r.prs_merged ?? 0);
+const issuesData         = rows.map(r => r.issues_completed ?? 0);
+const reworkData         = rows.map(r => parseFloat(r.rework_rate_pct ?? '0'));
+const refactorData       = rows.map(r => r.refactor_ratio_pct ?? 0);
+const cogLoadData        = rows.map(r => r.cognitive_load_total ?? 0);
+const cogLoadDensityData = rows.map(r => r.cognitive_load_density ?? 0);
+const agentData          = rows.map(r => parseFloat(r.agent_success_rate_pct ?? '0'));
+const aiCostData         = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'));
+const churnAddedData     = rows.map(r => r.total_lines_added ?? 0);
+const churnDeletedData   = rows.map(r => r.total_lines_deleted ?? 0);
+const filesData          = rows.map(r => r.avg_files_changed ?? 0);
 
 // Latest row's cognitive load top-10 for the hotspots table
-const latest = rows.at(-1);
 const hotspots = latest?.cognitive_load_top10 ?? [];
 ---
 
@@ -55,6 +120,20 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     <p class="empty">No data yet — stats are collected weekly.</p>
   ) : (
     <div class="dashboard">
+
+        {/* Latest-week stat cards — refactor ratio and rework rate side by side */}
+      <div class="stat-cards">
+        <div class="stat-card">
+          <span class="stat-label">Refactor ratio</span>
+          <span class="stat-value">{latest?.refactor_ratio_pct != null ? `${latest.refactor_ratio_pct}%` : '—'}</span>
+          <span class="stat-sub">intentional restructuring this week</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Rework rate</span>
+          <span class="stat-value">{latest?.rework_rate_pct != null ? `${parseFloat(String(latest.rework_rate_pct)).toFixed(0)}%` : '—'}</span>
+          <span class="stat-sub">files re-touched from prior 3 weeks</span>
+        </div>
+      </div>
 
       <div class="chart-grid">
         <div class="chart-box">
@@ -70,7 +149,11 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
           <canvas id="chart-rework"></canvas>
         </div>
         <div class="chart-box">
-          <h2>Cognitive load index</h2>
+          <h2>Refactor ratio %</h2>
+          <canvas id="chart-refactor"></canvas>
+        </div>
+        <div class="chart-box">
+          <h2>Cognitive load index <span class="hint">(raw · density/1k lines)</span></h2>
           <canvas id="chart-cogload"></canvas>
         </div>
         <div class="chart-box">
@@ -81,7 +164,35 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
           <h2>Cumulative AI cost (USD)</h2>
           <canvas id="chart-cost"></canvas>
         </div>
+        <div class="chart-box">
+          <h2>Avg files changed / PR</h2>
+          <canvas id="chart-files"></canvas>
+        </div>
+        <div class="chart-box chart-box--wide">
+          <h2>Code churn — lines added / removed per week</h2>
+          <canvas id="chart-churn"></canvas>
+        </div>
       </div>
+
+      {latest && (latest.avg_files_changed !== null || latest.avg_lines_added !== null) && (
+        <section class="pr-size">
+          <h2>PR size <span class="hint">(latest week)</span></h2>
+          <div class="stat-row">
+            <div class="stat-card">
+              <span class="stat-label">Avg files / PR</span>
+              <span class="stat-value">{latest.avg_files_changed ?? '—'}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Avg lines added / PR</span>
+              <span class="stat-value added">+{latest.avg_lines_added ?? '—'}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Avg lines deleted / PR</span>
+              <span class="stat-value deleted">−{latest.avg_lines_deleted ?? '—'}</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {hotspots.length > 0 && (
         <section class="hotspots">
@@ -103,6 +214,38 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
         </section>
       )}
 
+      {errorHotspots.length > 0 && (
+        <section class="hotspots error-hotspots">
+          <h2>Error hotspots <span class="hint">(runtime errors 7d + bug PRs 4w)</span></h2>
+          <p class="hotspot-legend">
+            <span class="badge high-risk">high risk</span> = appears in both runtime errors and bug PRs.
+            <span class="badge rework">rework</span> = also top rework hotspot.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Runtime errors (7d)</th>
+                <th>Bug PRs (4w)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {errorHotspots.map(h => (
+                <tr class:list={[{ 'row-high-risk': h.isHighRisk }]}>
+                  <td class="file">
+                    {h.file}
+                    {h.isHighRisk && <span class="badge high-risk">high risk</span>}
+                    {h.isReworkHotspot && <span class="badge rework">rework</span>}
+                  </td>
+                  <td class:list={[{ 'num-alert': h.runtimeErrors > 0 }]}>{h.runtimeErrors}</td>
+                  <td class:list={[{ 'num-alert': h.bugPrs > 0 }]}>{h.bugPrs}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
     </div>
   )}
 </Base>
@@ -112,7 +255,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 )}
 
-<script define:vars={{ labels, prsData, issuesData, reworkData, cogLoadData, agentData, aiCostData }}>
+<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, cogLoadDensityData, agentData, aiCostData, churnAddedData, churnDeletedData, filesData }}>
   // Runs client-side once Chart.js CDN script has loaded
   if (typeof Chart === 'undefined') {
     // CDN not loaded (e.g. no data rendered), skip
@@ -157,12 +300,94 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
       });
     };
 
-    line('chart-prs',     prsData);
-    line('chart-issues',  issuesData);
-    line('chart-rework',  reworkData,  '#f87171');
-    line('chart-cogload', cogLoadData, '#fbbf24');
-    bar('chart-agent',   agentData,   ACCENT2);
-    line('chart-cost',   aiCostData,  '#4ade80');
+    line('chart-prs',      prsData);
+    line('chart-issues',   issuesData);
+    line('chart-rework',   reworkData,   '#f87171');
+    line('chart-refactor', refactorData, '#fb923c');
+
+    // Dual-axis cognitive load: raw score (left) + density per 1k lines (right)
+    const cogCtx = document.getElementById('chart-cogload');
+    if (cogCtx) {
+      new Chart(cogCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Raw score',
+              data: cogLoadData,
+              borderColor: '#fbbf24',
+              backgroundColor: 'rgba(251,191,36,0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 4,
+              pointBackgroundColor: '#fbbf24',
+              yAxisID: 'y',
+            },
+            {
+              label: 'Density / 1k lines',
+              data: cogLoadDensityData,
+              borderColor: '#fb923c',
+              backgroundColor: 'rgba(251,146,60,0.08)',
+              fill: false,
+              tension: 0.3,
+              pointRadius: 4,
+              pointBackgroundColor: '#fb923c',
+              borderDash: [4, 3],
+              yAxisID: 'y2',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true, labels: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+          },
+          scales: {
+            x:  { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+            y:  { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true, position: 'left' },
+            y2: { grid: { drawOnChartArea: false }, ticks: { color: '#fb923c', font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true, position: 'right' },
+          },
+        },
+      });
+    }
+
+    bar('chart-agent',     agentData,    ACCENT2);
+    line('chart-cost',     aiCostData,   '#4ade80');
+    bar('chart-files',     filesData,    '#60a5fa');
+
+    // Grouped bar chart: lines added (green) + lines deleted (red) per week
+    const churnCtx = document.getElementById('chart-churn');
+    if (churnCtx) {
+      new Chart(churnCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Lines added',
+              data: churnAddedData,
+              backgroundColor: '#4ade80',
+            },
+            {
+              label: 'Lines deleted',
+              data: churnDeletedData,
+              backgroundColor: '#f87171',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true, labels: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+          },
+          scales: {
+            x: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+            y: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true },
+          },
+        },
+      });
+    }
   }
 </script>
 
@@ -174,6 +399,41 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     font-size: 0.9rem;
     color: var(--text-dim);
     padding: 2rem 0;
+  }
+
+  .stat-cards {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 180px;
+  }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--accent-hi);
+    line-height: 1;
+  }
+  .stat-sub {
+    font-size: 0.78rem;
+    color: var(--text-dim);
   }
 
   .chart-grid {
@@ -188,6 +448,9 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     border-radius: 6px;
     padding: 1.25rem;
   }
+  .chart-box--wide {
+    grid-column: 1 / -1;
+  }
   .chart-box h2 {
     font-family: var(--mono);
     font-size: 0.75rem;
@@ -198,11 +461,45 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
     margin-bottom: 1rem;
   }
 
-  .hotspots h2 {
+  .hotspots h2, .pr-size h2 {
     font-size: 1rem;
     margin-bottom: 1rem;
   }
   .hint { font-size: 0.8rem; color: var(--text-dim); font-weight: 400; }
+
+  .pr-size {
+    margin-bottom: 2.5rem;
+  }
+  .stat-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 160px;
+  }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-value.added  { color: #4ade80; }
+  .stat-value.deleted { color: #f87171; }
 
   table {
     width: 100%;
@@ -232,4 +529,33 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   td.score { color: var(--accent-hi); font-family: var(--mono); }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: var(--surface-hi); }
+
+  .error-hotspots { margin-top: 2.5rem; }
+  .hotspot-legend {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+  }
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 0.4rem;
+  }
+  .badge.high-risk {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+  }
+  .badge.rework {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+  }
+  tr.row-high-risk td { background: rgba(248, 113, 113, 0.06); }
+  tr.row-high-risk:hover td { background: rgba(248, 113, 113, 0.12); }
+  td.num-alert { color: #f87171; font-family: var(--mono); font-weight: 600; }
 </style>

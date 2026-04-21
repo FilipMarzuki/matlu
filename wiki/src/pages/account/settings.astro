@@ -1,0 +1,476 @@
+---
+/**
+ * /account/settings — Creator account management.
+ *
+ * GDPR rights accessible here (Art. 15–21):
+ *   - View profile + kids (access, Art. 15)
+ *   - Edit handle and kids (rectification, Art. 16)
+ *   - Download data export (portability, Art. 20)
+ *   - Pause account (restriction, Art. 18)
+ *   - Delete account (erasure, Art. 17 / withdraw consent, Art. 7(3))
+ *
+ * Auth: Supabase session in localStorage. Client JS redirects to /account/signin
+ * if no session found.
+ */
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base
+  title="Account Settings"
+  description="Manage your Matlu Codex creator account."
+>
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+  <!-- Hidden until auth is confirmed by JS -->
+  <div id="page-content" hidden>
+    <div class="page-header">
+      <h1>
+        <span class="t-en">Account Settings</span>
+        <span class="t-sv">Kontoinställningar</span>
+      </h1>
+      <button id="signout-btn" class="btn-ghost btn-ghost--sm">
+        <span class="t-en">Sign out</span>
+        <span class="t-sv">Logga ut</span>
+      </button>
+    </div>
+
+    <!-- Profile section -->
+    <section class="card" id="profile-section">
+      <h2>
+        <span class="t-en">Profile</span>
+        <span class="t-sv">Profil</span>
+      </h2>
+      <p class="meta">
+        <span class="t-en">Email:</span>
+        <span class="t-sv">E-post:</span>
+        <strong id="user-email"></strong>
+      </p>
+      <p class="meta">
+        <span class="t-en">Handle:</span>
+        <span class="t-sv">Användarnamn:</span>
+        <strong id="user-handle"></strong>
+      </p>
+      <p class="meta" id="profile-paused-note" hidden style="color:var(--amber)">
+        <span class="t-en">⚠ Account is paused. Submissions are hidden.</span>
+        <span class="t-sv">⚠ Kontot är pausat. Inlämningar är dolda.</span>
+      </p>
+
+      <div class="btn-row" style="margin-top:1rem">
+        <a href="#kids" class="btn-outline">
+          <span class="t-en">Manage kids</span>
+          <span class="t-sv">Hantera barn</span>
+        </a>
+        <a href={`/creators/${''}`} id="profile-link" class="btn-outline">
+          <span class="t-en">View creator profile</span>
+          <span class="t-sv">Se skaparprofil</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Kids section -->
+    <section class="card" id="kids-section">
+      <h2 id="kids">
+        <span class="t-en">Kids on this account</span>
+        <span class="t-sv">Barn på det här kontot</span>
+      </h2>
+      <div id="kids-list" class="kids-list"></div>
+
+      <form id="add-kid-form" class="add-kid-form">
+        <h3>
+          <span class="t-en">Add a kid</span>
+          <span class="t-sv">Lägg till ett barn</span>
+        </h3>
+        <div class="field-row">
+          <div class="field">
+            <label for="kid-name">
+              <span class="t-en">Name or nickname</span>
+              <span class="t-sv">Namn eller smeknamn</span>
+              <span class="req"> *</span>
+            </label>
+            <input id="kid-name" type="text" maxlength="60" placeholder="e.g. Alex" />
+          </div>
+          <div class="field">
+            <label for="kid-age">
+              <span class="t-en">Age</span>
+              <span class="t-sv">Ålder</span>
+              <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+            </label>
+            <input id="kid-age" type="number" min="1" max="120" style="max-width:90px" />
+          </div>
+        </div>
+        <button type="submit" class="btn-primary">
+          <span class="t-en">Add kid</span>
+          <span class="t-sv">Lägg till barn</span>
+        </button>
+        <p id="kid-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <!-- Data rights section -->
+    <section class="card">
+      <h2>
+        <span class="t-en">Your data rights</span>
+        <span class="t-sv">Dina datarättigheter</span>
+      </h2>
+      <p class="section-desc">
+        <span class="t-en">
+          Under GDPR you can export, pause, or delete your account at any time.
+          See our <a href="/privacy">Privacy Policy</a> for details.
+        </span>
+        <span class="t-sv">
+          Enligt GDPR kan du exportera, pausa eller radera ditt konto när som helst.
+          Se vår <a href="/privacy">integritetspolicy</a> för detaljer.
+        </span>
+      </p>
+
+      <div class="rights-grid">
+        <div class="right-item">
+          <h3>
+            <span class="t-en">Download your data</span>
+            <span class="t-sv">Ladda ner din data</span>
+          </h3>
+          <p>
+            <span class="t-en">Export a JSON file with all your personal data (Art. 15, 20).</span>
+            <span class="t-sv">Exportera en JSON-fil med all din persondata (Art. 15, 20).</span>
+          </p>
+          <a href="/account/export" class="btn-outline">
+            <span class="t-en">Export data</span>
+            <span class="t-sv">Exportera data</span>
+          </a>
+        </div>
+
+        <div class="right-item">
+          <h3 id="pause-resume-heading">
+            <span class="t-en">Pause account</span>
+            <span class="t-sv">Pausa konto</span>
+          </h3>
+          <p id="pause-resume-desc">
+            <span class="t-en">
+              Hide your submissions and pause data processing while keeping
+              your account (Art. 18). Resumable at any time.
+            </span>
+            <span class="t-sv">
+              Dölj dina inlämningar och pausa databehandling medan du behåller kontot (Art. 18). Kan återupptas när som helst.
+            </span>
+          </p>
+          <button id="pause-resume-btn" class="btn-outline">
+            <span class="t-en">Pause account</span>
+            <span class="t-sv">Pausa konto</span>
+          </button>
+          <p id="pause-status" class="status" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="right-item right-item--danger">
+          <h3>
+            <span class="t-en">Delete account</span>
+            <span class="t-sv">Radera konto</span>
+          </h3>
+          <p>
+            <span class="t-en">
+              Permanently delete your account, kids, and drafts. Approved
+              creatures can be fully deleted or anonymised (Art. 17).
+            </span>
+            <span class="t-sv">
+              Radera kontot, barn och utkast permanent. Godkända väsen kan raderas helt eller anonymiseras (Art. 17).
+            </span>
+          </p>
+          <a href="/account/delete" class="btn-danger">
+            <span class="t-en">Delete account…</span>
+            <span class="t-sv">Radera konto…</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="auth-loading">
+    <p style="color:var(--text-dim);margin-top:3rem;text-align:center">
+      <span class="t-en">Loading…</span>
+      <span class="t-sv">Laddar…</span>
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createBrowserClient } from '../../lib/supabase-auth';
+
+  const supabase   = createBrowserClient();
+  const loading    = document.getElementById('auth-loading') as HTMLElement;
+  const content    = document.getElementById('page-content') as HTMLElement;
+
+  async function init(): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      window.location.href = '/account/signin';
+      return;
+    }
+
+    const token = session.access_token;
+
+    // Load profile + kids from API
+    const [profileRes, kidsRes] = await Promise.all([
+      fetch('/api/account/profile', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/account/kids',    { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+
+    const profile: { handle: string; paused: boolean } | null =
+      profileRes.ok ? await profileRes.json() : null;
+    const kids: Array<{ id: string; kid_name: string; kid_age: number | null }> =
+      kidsRes.ok ? await kidsRes.json() : [];
+
+    // Populate UI
+    (document.getElementById('user-email') as HTMLElement).textContent = session.user.email ?? '';
+    const handle = profile?.handle ?? '';
+    (document.getElementById('user-handle') as HTMLElement).textContent = `@${handle}`;
+    const profileLink = document.getElementById('profile-link') as HTMLAnchorElement;
+    profileLink.href = `/creators/${handle}`;
+
+    const isPaused = profile?.paused ?? false;
+    if (isPaused) {
+      (document.getElementById('profile-paused-note') as HTMLElement).hidden = false;
+      updatePauseBtn(true);
+    }
+
+    renderKids(kids);
+
+    loading.hidden = true;
+    content.hidden = false;
+
+    // Sign out
+    document.getElementById('signout-btn')!.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = '/';
+    });
+
+    // Add kid form
+    document.getElementById('add-kid-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = (document.getElementById('kid-name') as HTMLInputElement).value.trim();
+      const age  = (document.getElementById('kid-age')  as HTMLInputElement).value;
+      if (!name) return;
+
+      const kidStatus = document.getElementById('kid-status') as HTMLElement;
+      kidStatus.textContent = '';
+      kidStatus.className = 'status';
+
+      const res = await fetch('/api/account/kids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name, age: age ? Number(age) : null }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        kidStatus.textContent = err.error ?? 'Failed to add kid.';
+        kidStatus.className = 'status error';
+        return;
+      }
+
+      const newKid = await res.json();
+      kids.push(newKid);
+      renderKids(kids);
+      (document.getElementById('kid-name') as HTMLInputElement).value = '';
+      (document.getElementById('kid-age') as HTMLInputElement).value = '';
+      kidStatus.textContent =
+        document.documentElement.getAttribute('data-lang') === 'sv'
+          ? 'Barn tillagt!'
+          : 'Kid added!';
+      kidStatus.className = 'status success';
+    });
+
+    // Pause / resume
+    document.getElementById('pause-resume-btn')!.addEventListener('click', async () => {
+      const action = isPaused ? 'resume' : 'pause';
+      const res = await fetch(`/api/account/${action}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const pauseStatus = document.getElementById('pause-status') as HTMLElement;
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        pauseStatus.textContent = 'Action failed. Please try again.';
+        pauseStatus.className = 'status error';
+      }
+    });
+  }
+
+  function updatePauseBtn(paused: boolean): void {
+    const btn     = document.getElementById('pause-resume-btn') as HTMLButtonElement;
+    const heading = document.getElementById('pause-resume-heading') as HTMLElement;
+    const desc    = document.getElementById('pause-resume-desc') as HTMLElement;
+    if (paused) {
+      btn.innerHTML     = `<span class="t-en">Resume account</span><span class="t-sv">Återaktivera konto</span>`;
+      heading.innerHTML = `<span class="t-en">Account paused</span><span class="t-sv">Konto pausat</span>`;
+      desc.innerHTML    = `<span class="t-en">Your submissions are currently hidden. Resume to make them visible again.</span><span class="t-sv">Dina inlämningar är dolda. Återaktivera för att göra dem synliga igen.</span>`;
+    }
+  }
+
+  function renderKids(kids: Array<{ id: string; kid_name: string; kid_age: number | null }>): void {
+    const list = document.getElementById('kids-list') as HTMLElement;
+    if (!kids.length) {
+      list.innerHTML = `<p class="empty"><span class="t-en">No kids yet. Add one below to attribute creature submissions.</span><span class="t-sv">Inga barn ännu. Lägg till ett nedan för att koppla inlämningar.</span></p>`;
+      return;
+    }
+    list.innerHTML = kids.map(k => `
+      <div class="kid-row">
+        <span class="kid-name">${escHtml(k.kid_name)}${k.kid_age ? ` (${k.kid_age})` : ''}</span>
+      </div>
+    `).join('');
+  }
+
+  function escHtml(s: string): string {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  init();
+</script>
+
+<style>
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  h1 { font-size: 1.75rem; margin: 0; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .card h2 { font-size: 1.1rem; color: var(--accent-hi); margin-bottom: 0.75rem; }
+
+  .meta { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+  .meta strong { color: var(--text); margin-left: 0.35rem; }
+
+  .section-desc { font-size: 0.88rem; color: var(--text-dim); margin-bottom: 1.25rem; }
+
+  .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.5rem 1.25rem;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: var(--accent-hi); }
+
+  .btn-outline {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    padding: 0.45rem 1rem;
+    text-decoration: none;
+    cursor: pointer;
+    background: none;
+    font-family: 'Outfit', sans-serif;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent-hi); text-decoration: none; }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.3rem 0.75rem;
+    transition: border-color 0.15s;
+  }
+  .btn-ghost--sm { font-size: 0.82rem; padding: 0.25rem 0.6rem; }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent-hi); }
+
+  .btn-danger {
+    display: inline-block;
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    color: var(--red);
+    font-size: 0.88rem;
+    padding: 0.45rem 1rem;
+    text-decoration: none;
+    font-family: 'Outfit', sans-serif;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-danger:hover { background: rgba(248,113,113,0.1); text-decoration: none; color: var(--red); }
+
+  .rights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .right-item {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .right-item--danger { border-color: rgba(248,113,113,0.35); }
+  .right-item h3 { font-size: 0.95rem; margin: 0; }
+  .right-item p { font-size: 0.82rem; color: var(--text-dim); margin: 0; flex: 1; }
+
+  .add-kid-form {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .add-kid-form h3 { font-size: 0.95rem; margin-bottom: 0.75rem; }
+
+  .field-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.75rem; }
+  label { font-size: 0.88rem; color: var(--text); }
+  .req { color: var(--red); }
+  .hint { font-size: 0.78rem; color: var(--text-dim); }
+
+  input[type="text"],
+  input[type="number"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.45rem 0.65rem;
+    transition: border-color 0.15s;
+    min-width: 140px;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+
+  .kids-list { margin-bottom: 1rem; }
+  .kid-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .kid-name { color: var(--text); }
+  .empty { font-size: 0.85rem; color: var(--text-dim); }
+
+  .status { font-size: 0.85rem; min-height: 1.3em; margin-top: 0.5rem; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+</style>

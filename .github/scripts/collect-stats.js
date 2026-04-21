@@ -80,8 +80,13 @@ async function getGitHubStats() {
     merged.map(pr => ghGet(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}`))
   );
 
-  const prSizes      = prDetails.map(pr => (pr.additions || 0) + (pr.deletions || 0));
-  const avgPrSize    = Math.round(avg(prSizes));
+  const prSizes           = prDetails.map(pr => (pr.additions || 0) + (pr.deletions || 0));
+  const avgPrSize         = Math.round(avg(prSizes));
+  const totalLinesAdded   = prDetails.reduce((s, pr) => s + (pr.additions || 0), 0);
+  const totalLinesDeleted = prDetails.reduce((s, pr) => s + (pr.deletions || 0), 0);
+  const avgFilesChanged   = Math.round(avg(prDetails.map(pr => pr.changed_files || 0)));
+  const avgLinesAdded     = Math.round(avg(prDetails.map(pr => pr.additions     || 0)));
+  const avgLinesDeleted   = Math.round(avg(prDetails.map(pr => pr.deletions     || 0)));
   const mergedCount  = merged.length;
 
   // Merge time (hours from created_at → merged_at)
@@ -97,6 +102,15 @@ async function getGitHubStats() {
   const fixRevertCount = fixOrRevert.length;
   const fixRevertPct   = mergedCount
     ? Math.round((fixRevertCount / mergedCount) * 100)
+    : 0;
+
+  // Refactor PRs — intentional restructuring vs new feature work.
+  // Keyword list mirrors the issue spec so the metric stays consistent.
+  const REFACTOR_RE = /\b(refactor|rewrite|rebuild|restructure|rename|cleanup|clean\s+up|simplify|migrate|extract|split|reorgani[sz]e)\b/i;
+  const refactorPrs = merged.filter(pr => REFACTOR_RE.test(pr.title));
+  const refactorCount    = refactorPrs.length;
+  const refactorRatioPct = mergedCount
+    ? Math.round((refactorCount / mergedCount) * 100)
     : 0;
 
   // CI pass rate: workflow runs in the last 7 days
@@ -147,6 +161,9 @@ async function getGitHubStats() {
   return {
     mergedCount,
     avgPrSize,
+    avgFilesChanged,
+    avgLinesAdded,
+    avgLinesDeleted,
     avgMergeTime,
     fixRevertCount,
     fixRevertPct,
@@ -158,6 +175,10 @@ async function getGitHubStats() {
     agentSuccessRate,
     openPrCount,
     openPrAvgAgeDays,
+    totalLinesAdded,
+    totalLinesDeleted,
+    refactorCount,
+    refactorRatioPct,
   };
 }
 
@@ -625,6 +646,7 @@ function getCognitiveLoadStats() {
     const branchRe = /\b(if|else\s+if|for|while|case)\b|\?\s|&&|\|\|/g;
     const results = [];
     let totalScore = 0;
+    let totalLines = 0;
 
     for (const filePath of files) {
       const content = readFileSync(filePath, 'utf8');
@@ -632,6 +654,7 @@ function getCognitiveLoadStats() {
       const branches = (content.match(branchRe) || []).length;
       const score = Math.round(lines * branches / 1000);
       totalScore += score;
+      totalLines += lines;
 
       const relative = filePath.replace(srcDir + '/', '');
       results.push({ file: relative, lines, branches, score });
@@ -641,7 +664,12 @@ function getCognitiveLoadStats() {
     const top10 = results.slice(0, 10);
     const fileCount = files.length;
 
-    return { top10, totalScore, fileCount };
+    // Complexity per 1,000 lines — tracks branchiness independent of codebase size
+    const loadDensity  = totalLines > 0 ? Math.round((totalScore / (totalLines / 1000)) * 100) / 100 : 0;
+    // Average load per file — tracks per-file complexity trend
+    const avgFileLoad  = fileCount  > 0 ? Math.round((totalScore / fileCount) * 100) / 100 : 0;
+
+    return { top10, totalScore, fileCount, totalLines, loadDensity, avgFileLoad };
   } catch (e) {
     console.warn('getCognitiveLoadStats failed:', e.message);
     return null;
@@ -716,6 +744,64 @@ async function getAgentOutcomeStats() {
   };
 }
 
+// ── Bug file breakdown ────────────────────────────────────────────────────────
+
+/**
+ * Scans merged PRs from the last 4 weeks that are labelled 'bug' or have
+ * a title containing fix/bug/crash/broken, then counts how many such PRs
+ * touched each file. Returns [{file, bug_pr_count}] sorted by count desc.
+ *
+ * This complements the runtime error hotspot data from Better Stack so we
+ * can show a combined view on the AEX metrics dashboard.
+ */
+async function getBugFileBreakdown() {
+  const fourWeeksAgo    = new Date(now - 28 * 24 * 60 * 60 * 1000);
+  const bugTitlePattern = /\b(fix|bug|crash|broken)\b/i;
+
+  try {
+    const prs = await ghGet(
+      `/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=closed&per_page=100&sort=updated&direction=desc`
+    );
+
+    const bugPrs = prs.filter(pr => {
+      if (!pr.merged_at || new Date(pr.merged_at) < fourWeeksAgo) return false;
+      const hasBugLabel = (pr.labels ?? []).some(l => l.name === 'bug');
+      const hasBugTitle = bugTitlePattern.test(pr.title);
+      return hasBugLabel || hasBugTitle;
+    });
+
+    if (!bugPrs.length) return [];
+
+    // Count distinct file appearances across all bug PRs (each file counted
+    // once per PR even if it has multiple hunks in that PR).
+    const fileCounts = {};
+    for (const pr of bugPrs) {
+      try {
+        const files = await ghGet(
+          `/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${pr.number}/files?per_page=100`
+        );
+        const seen = new Set();
+        for (const f of files) {
+          if (!seen.has(f.filename)) {
+            fileCounts[f.filename] = (fileCounts[f.filename] || 0) + 1;
+            seen.add(f.filename);
+          }
+        }
+      } catch (e) {
+        console.warn(`getBugFileBreakdown: files fetch failed for PR #${pr.number}:`, e.message);
+      }
+    }
+
+    return Object.entries(fileCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([file, bug_pr_count]) => ({ file, bug_pr_count }));
+  } catch (e) {
+    console.warn('getBugFileBreakdown failed:', e.message);
+    return null;
+  }
+}
+
 // ── Slugify ───────────────────────────────────────────────────────────────────
 
 function slugify(title) {
@@ -758,6 +844,7 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   h2('Quality');
   li(`CI pass rate: **${gh.ciPassRate}%**`);
   li(`PRs with fix/revert in title: **${gh.fixRevertCount}** (${gh.fixRevertPct}%)`);
+  li(`Refactor ratio: **${gh.refactorRatioPct}%** (${gh.refactorCount} of ${gh.mergedCount} PRs with refactor/rewrite/cleanup keywords)`);
   lines.push('');
 
   h2('Automation');
@@ -948,7 +1035,7 @@ function getReworkStats() {
 
 // ── Post to Supabase ──────────────────────────────────────────────────────────
 
-async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime }) {
+async function postToSupabase(title, content, metrics, { gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime, bugFileBreakdown }) {
   const ao = agentOutcome;
   const aiTotalTokens = ai
     ? (ai.totalInput + ai.totalOutput + ai.totalCacheRead + ai.totalCacheWrite)
@@ -974,6 +1061,9 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       human_prs:                gh.humanMergedCount,
       agent_prs:                gh.agentMergedCount,
       avg_pr_size:              gh.avgPrSize,
+      avg_files_changed:        gh.avgFilesChanged,
+      avg_lines_added:          gh.avgLinesAdded,
+      avg_lines_deleted:        gh.avgLinesDeleted,
       issues_completed:         linear.completedCount,
       active_days:              commitSpread?.activeDays   ?? null,
       total_commits:            commitSpread?.totalCommits ?? null,
@@ -993,6 +1083,10 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       lines_added:              quality?.linesAdded     ?? null,
       lines_deleted:            quality?.linesDeleted   ?? null,
 
+      // ── Code churn (PR-level totals) ────────────────────────────────────────
+      total_lines_added:        gh.totalLinesAdded,
+      total_lines_deleted:      gh.totalLinesDeleted,
+
       // ── Automation ──────────────────────────────────────────────────────────
       agent_pr_share_pct:       gh.agentPrPct,
       agent_success_rate_pct:   gh.agentSuccessRate,
@@ -1005,12 +1099,20 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       top_rework_file:          rework?.topReworkFiles?.[0]?.file    ?? null,
       top_rework_hits:          rework?.topReworkFiles?.[0]?.changes ?? null,
 
+      // ── Refactor ratio ───────────────────────────────────────────────────────
+      refactor_pr_count:        gh.refactorCount,
+      total_pr_count:           gh.mergedCount,
+      refactor_ratio_pct:       gh.refactorRatioPct,
+
       // ── Cognitive load ──────────────────────────────────────────────────────
-      cognitive_load_total:     cogLoad?.totalScore     ?? null,
-      cognitive_load_top_file:  cogLoad?.top10?.[0]?.file  ?? null,
-      cognitive_load_top_score: cogLoad?.top10?.[0]?.score ?? null,
-      ts_file_count:            cogLoad?.fileCount      ?? null,
-      cognitive_load_top10:     cogLoad?.top10          ?? null,
+      cognitive_load_total:          cogLoad?.totalScore   ?? null,
+      cognitive_load_top_file:       cogLoad?.top10?.[0]?.file  ?? null,
+      cognitive_load_top_score:      cogLoad?.top10?.[0]?.score ?? null,
+      ts_file_count:                 cogLoad?.fileCount    ?? null,
+      cognitive_load_top10:          cogLoad?.top10        ?? null,
+      cognitive_load_total_lines:    cogLoad?.totalLines   ?? null,
+      cognitive_load_density:        cogLoad?.loadDensity  ?? null,
+      cognitive_load_avg_file_load:  cogLoad?.avgFileLoad  ?? null,
 
       // ── AI usage ────────────────────────────────────────────────────────────
       ai_sessions:              ai?.sessions            ?? null,
@@ -1049,6 +1151,9 @@ async function postToSupabase(title, content, metrics, { gh, linear, commitSprea
       agent_outcome_wrong_interp: ao?.wrongInterp  ?? null,
       agent_failure_rate_pct:     ao?.failureRate  ?? null,
       agent_outcome_by_type:      ao?.byType       ?? null,
+
+      // ── Bug file breakdown (4-week merged bug PRs per file) ──────────────────
+      bug_file_breakdown:         bugFileBreakdown ?? null,
     }),
   });
 
@@ -1179,7 +1284,7 @@ async function postToNotion(title, content) {
 //   in_progress × 7 → max 28 pts (4 issues)
 //   rework_rate × 0.12 → max 12 pts (100%)
 
-async function postCognitiveLoad({ gh, linear, rework }) {
+async function postCognitiveLoad({ gh, linear, rework, cogLoad }) {
   const openPrs    = gh.openPrCount        ?? 0;
   const avgAge     = gh.openPrAvgAgeDays   ?? 0;
   const inProg     = linear.inProgressCount ?? 0;
@@ -1216,6 +1321,9 @@ async function postCognitiveLoad({ gh, linear, rework }) {
         avg_pr_age_days:    Math.round(avgAge * 10) / 10,
         issues_in_progress: inProg,
         rework_rate:        reworkRate,
+        total_lines:        cogLoad?.totalLines  ?? null,
+        load_density:       cogLoad?.loadDensity ?? null,
+        avg_file_load:      cogLoad?.avgFileLoad ?? null,
         details: {
           rework_files_recent:  rework?.totalFiles      ?? 0,
           rework_files_overlap: rework?.reworkFileCount ?? 0,
@@ -1266,7 +1374,8 @@ async function main() {
   const quality = getCodeQualityStats();
   const rework  = getReworkStats();
   // getAiStats is async: merges local token-log.json + Supabase ai_sessions
-  const ai      = await getAiStats();
+  const ai               = await getAiStats();
+  const bugFileBreakdown = await getBugFileBreakdown();
 
   console.log('GitHub stats:', gh);
   console.log('Linear stats:', linear);
@@ -1295,9 +1404,9 @@ async function main() {
     leadTime:      leadTime     ?? null,
   };
   await postToSupabase(weekLabel, content, metrics, {
-    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime,
+    gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime, bugFileBreakdown,
   });
-  await postCognitiveLoad({ gh, linear, rework });
+  await postCognitiveLoad({ gh, linear, rework, cogLoad });
   await postToNotion(weekLabel, content);
 
   await triggerVercelDeploy();

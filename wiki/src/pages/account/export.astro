@@ -1,0 +1,145 @@
+---
+/**
+ * /account/export — Trigger a JSON data export (Art. 15, 20 GDPR).
+ *
+ * This page is a client-side wrapper that calls POST /api/account/export.
+ * The API returns a JSON blob the browser downloads as a file.
+ */
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base
+  title="Export Your Data"
+  description="Download a copy of all personal data held about your account."
+>
+  <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+  <div id="page-content" hidden>
+    <h1>
+      <span class="t-en">Export your data</span>
+      <span class="t-sv">Exportera din data</span>
+    </h1>
+    <p class="lead">
+      <span class="t-en">
+        Your export will include: account profile, kids, creature drafts,
+        and all your creature submissions with image URLs.
+        The file is a structured JSON you can open in any text editor.
+        (Art. 15 and 20 GDPR)
+      </span>
+      <span class="t-sv">
+        Din export innehåller: kontoprofil, barn, väsenutkast och alla dina väseninlämningar med bild-URLer.
+        Filen är JSON som kan öppnas i valfri textredigerare. (Art. 15 och 20 GDPR)
+      </span>
+    </p>
+
+    <button id="export-btn" class="btn-primary">
+      <span class="t-en">Download data export</span>
+      <span class="t-sv">Ladda ner dataexport</span>
+    </button>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <p class="back-link">
+      <a href="/account/settings">
+        <span class="t-en">← Back to settings</span>
+        <span class="t-sv">← Tillbaka till inställningar</span>
+      </a>
+    </p>
+  </div>
+
+  <div id="auth-loading">
+    <p style="color:var(--text-dim);margin-top:3rem;text-align:center">
+      <span class="t-en">Loading…</span>
+      <span class="t-sv">Laddar…</span>
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { createBrowserClient } from '../../lib/supabase-auth';
+
+  const supabase = createBrowserClient();
+  const loading  = document.getElementById('auth-loading') as HTMLElement;
+  const content  = document.getElementById('page-content') as HTMLElement;
+  const status   = document.getElementById('status') as HTMLElement;
+  const btn      = document.getElementById('export-btn') as HTMLButtonElement;
+  const isSv     = () => document.documentElement.getAttribute('data-lang') === 'sv';
+  const t        = (en: string, sv: string) => isSv() ? sv : en;
+
+  async function init(): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = '/account/signin'; return; }
+
+    loading.hidden = true;
+    content.hidden = false;
+    const token = session.access_token;
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      status.textContent = t('Generating export…', 'Genererar export…');
+      status.className = 'status';
+
+      const res = await fetch('/api/account/export', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        status.textContent = t(
+          `Export failed: ${err.error ?? 'unknown'}`,
+          `Export misslyckades: ${err.error ?? 'okänt'}`,
+        );
+        status.className = 'status error';
+        btn.disabled = false;
+        return;
+      }
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `matlu-data-export-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      status.textContent = t('Export downloaded!', 'Export nedladdad!');
+      status.className = 'status success';
+      btn.disabled = false;
+    });
+  }
+
+  init();
+</script>
+
+<style>
+  h1 { margin-bottom: 0.5rem; }
+  .lead { color: var(--text-dim); max-width: 580px; margin-bottom: 2rem; font-size: 0.95rem; }
+
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    border-radius: 7px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 0.7rem 1.75rem;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hi); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .status.success { color: var(--green); }
+  .status.error   { color: var(--red); }
+
+  .back-link { margin-top: 2rem; font-size: 0.88rem; }
+</style>

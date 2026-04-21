@@ -2,13 +2,13 @@
 const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://corewarden.app';
 
 const navItems = [
-  { href: '/',            label: 'Home',        i18n: 'nav.home'        },
-  { href: '/lore',        label: 'Lore',        i18n: 'nav.lore'        },
-  { href: '/biomes',      label: 'Biomes',      i18n: 'nav.biomes'      },
-  { href: '/creatures',   label: 'Creatures',   i18n: 'nav.creatures'   },
-  { href: '/playtest',    label: 'Playtest',    i18n: 'nav.playtest'    },
-  { href: '/screenshots', label: 'Screenshots', i18n: 'nav.screenshots' },
-  { href: '/credits',     label: 'Credits',     i18n: 'nav.credits'     },
+  { href: '/',            en: 'Home',         sv: 'Hem'          },
+  { href: '/lore',        en: 'Lore',         sv: 'Lore'         },
+  { href: '/biomes',      en: 'Biomes',       sv: 'Biomer'       },
+  { href: '/creatures',   en: 'Creatures',    sv: 'Väsen'        },
+  { href: '/playtest',    en: 'Playtest',     sv: 'Testa spelet' },
+  { href: '/screenshots', en: 'Screenshots',  sv: 'Bilder'       },
+  { href: '/credits',     en: 'Credits',      sv: 'Skapare'      },
 ];
 
 const pathname = Astro.url.pathname;
@@ -19,145 +19,94 @@ const pathname = Astro.url.pathname;
   <ul>
     {navItems.map(item => (
       <li>
-        <a
-          href={item.href}
-          data-i18n={item.i18n}
-          class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}
-        >
-          {item.label}
+        <a href={item.href} class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}>
+          <span class="t-en">{item.en}</span>
+          <span class="t-sv">{item.sv}</span>
         </a>
       </li>
     ))}
   </ul>
-  <!-- Cross-links to other Matlu projects -->
-  <a href={`${gameUrl}/biome`} class="dev-link" data-i18n="nav.world_forge" target="_blank" rel="noopener">
-    World Forge →
-  </a>
-  <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" data-i18n="nav.dev_log" target="_blank" rel="noopener">
-    Dev Log →
-  </a>
-  <!-- Language toggle -->
-  <div class="lang-toggle">
-    <button class="lang-btn" data-lang="en">EN</button>
-    <button class="lang-btn" data-lang="sv">SV</button>
+  <div class="right-group">
+    <!-- Language toggle: shows the OTHER language as the button label -->
+    <button id="lang-toggle" class="lang-btn" title="Switch language / Byt språk">
+      <span class="t-en">SV</span>
+      <span class="t-sv">EN</span>
+    </button>
+    <!-- Cross-links to other Matlu projects -->
+    <a href={`${gameUrl}/biome`} class="dev-link" target="_blank" rel="noopener">
+      World Forge →
+    </a>
+    <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" target="_blank" rel="noopener">
+      Dev Log →
+    </a>
   </div>
 </nav>
+
+<script>
+  document.getElementById('lang-toggle')!.addEventListener('click', () => {
+    const html = document.documentElement;
+    const next = (html.getAttribute('data-lang') || 'en') === 'en' ? 'sv' : 'en';
+    html.setAttribute('data-lang', next);
+    html.lang = next;
+    localStorage.setItem('matlu-lang', next);
+    // Let other scripts react to the change
+    document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: next } }));
+  });
+</script>
 
 <style>
   nav {
     display: flex;
     align-items: center;
-    gap: 1.75rem;
-    padding: 0.85rem 1.25rem;
+    gap: 1.25rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
     background: var(--surface);
-    /* Pixel art double-border on the bottom — game HUD feel */
-    border-bottom: 2px solid var(--border);
-    box-shadow:
-      0 2px 0 var(--bg),
-      0 4px 0 var(--border),
-      0 4px 24px rgba(0,0,0,0.6);
-    position: relative;
-    z-index: 100;
+    box-shadow: 0 1px 0 rgba(168, 85, 247, 0.12);
   }
-
-  /* Site title — Pixelify Sans in gold, matches game button color */
   .site-title {
-    color: var(--gold);
-    font-family: 'Pixelify Sans', monospace;
-    font-size: 1.1rem;
-    font-weight: 700;
+    color: var(--accent-hi);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
     white-space: nowrap;
-    text-shadow:
-      0 0 10px rgba(255, 224, 102, 0.5),
-      0 0 28px rgba(255, 224, 102, 0.2);
-    letter-spacing: 0.03em;
-    text-decoration: none;
+    text-shadow: 0 0 16px rgba(192, 132, 252, 0.4);
+    letter-spacing: 0.02em;
   }
-  .site-title:hover { text-decoration: none; opacity: 0.9; }
+  ul { display: flex; gap: 1.25rem; list-style: none; }
+  a { color: var(--text-dim); font-size: 0.9rem; font-family: 'Outfit', sans-serif; }
+  a:hover, a.active { color: var(--text); text-decoration: none; }
+  a.active { color: var(--accent-hi); }
 
-  ul { display: flex; gap: 1.1rem; list-style: none; }
-  a {
-    color: var(--text-dim);
-    font-size: 0.85rem;
-    font-family: 'Pixelify Sans', monospace;
-    transition: color 0.1s;
-  }
-  a:hover { color: var(--text); text-decoration: none; }
-  a.active {
-    color: var(--gold);
-    text-shadow: 0 0 8px rgba(255, 224, 102, 0.35);
-    text-decoration: none;
-  }
-
-  .dev-link {
+  .right-group {
     margin-left: auto;
-    color: var(--text-dim);
-    font-size: 0.75rem;
-    font-family: 'Pixelify Sans', monospace;
-    white-space: nowrap;
-    border: 2px solid var(--border);
-    padding: 0.2rem 0.55rem;
-    border-radius: 0;   /* square = pixel art */
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .dev-link:hover {
-    color: var(--text);
-    text-decoration: none;
-    border-color: var(--accent-hi);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  /* ── Language toggle ─────────────────────────────────────────────── */
-  .lang-toggle {
-    display: flex;
-    gap: 1px;
-    margin-left: 0.25rem;
-  }
   .lang-btn {
     background: none;
-    border: 2px solid var(--border);
-    border-radius: 0;   /* square pixel corners */
+    border: 1px solid var(--border);
+    border-radius: 4px;
     color: var(--text-dim);
     cursor: pointer;
-    font-family: 'Pixelify Sans', monospace;
-    font-size: 0.7rem;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 0.15rem 0.4rem;
-    transition: border-color 0.1s, color 0.1s, background 0.1s;
+    letter-spacing: 0.06em;
+    padding: 0.2rem 0.5rem;
+    transition: border-color 0.15s, color 0.15s;
   }
-  .lang-btn:hover { color: var(--text); border-color: var(--accent-hi); }
-  .lang-btn.active {
-    color: #1a1200;
-    background: var(--gold);
-    border-color: var(--gold);
-    text-shadow: none;
+  .lang-btn:hover { border-color: var(--accent); color: var(--accent-hi); }
+
+  .dev-link {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
   }
+  .dev-link:hover { color: var(--text); text-decoration: none; border-color: var(--accent); }
 </style>
-
-<script>
-  import { getLanguage, setLanguage, applyTranslations } from '../lib/i18n-codex';
-
-  function updateActive(lang: string) {
-    document.querySelectorAll<HTMLElement>('.lang-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.lang === lang);
-    });
-  }
-
-  // Mark active button on load
-  updateActive(getLanguage());
-
-  document.querySelectorAll<HTMLButtonElement>('.lang-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const lang = btn.dataset.lang as 'en' | 'sv';
-      setLanguage(lang);
-      updateActive(lang);
-      // Re-apply to any elements the nav init script may have missed
-      applyTranslations(lang);
-    });
-  });
-
-  // Keep active state in sync when language changes from another source
-  window.addEventListener('codex:langchange', (e) => {
-    updateActive((e as CustomEvent<{ lang: string }>).detail.lang);
-  });
-</script>

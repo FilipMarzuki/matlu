@@ -1,0 +1,70 @@
+---
+/**
+ * Read-only display of a creature submission's core fields.
+ * Used by admin/creatures.astro across multiple pipeline tabs.
+ */
+export interface Props {
+  creature: {
+    kind_size: string | null;
+    kind_movement: string[] | null;
+    kind_diet: string | null;
+    kind_solitary: boolean | null;
+    habitat_biome: string[] | null;
+    habitat_climate: string | null;
+    habitat_notes: string | null;
+    behaviour_threat: string | null;
+    behaviour_notes: string | null;
+    food_notes: string | null;
+    special_ability: string | null;
+    lore_description: string | null;
+    lore_origin: string | null;
+    contact_email: string | null;
+    world_name: string | null;
+  };
+}
+
+const { creature: c } = Astro.props;
+---
+
+<dl class="facts">
+  {c.world_name         && <><dt>World</dt><dd>{c.world_name}</dd></>}
+  {c.kind_size          && <><dt>Size</dt><dd>{c.kind_size}</dd></>}
+  {(c.kind_movement ?? []).length > 0 && <><dt>Movement</dt><dd>{(c.kind_movement ?? []).join(', ')}</dd></>}
+  {c.kind_diet          && <><dt>Diet</dt><dd>{c.kind_diet}</dd></>}
+  {c.kind_solitary !== null && <><dt>Social</dt><dd>{c.kind_solitary ? 'Solitary' : 'Group'}</dd></>}
+  {(c.habitat_biome ?? []).length > 0 && <><dt>Biome</dt><dd>{(c.habitat_biome ?? []).join(', ')}</dd></>}
+  {c.habitat_climate    && <><dt>Climate</dt><dd>{c.habitat_climate}</dd></>}
+  {c.behaviour_threat   && <><dt>Danger</dt><dd>{c.behaviour_threat}</dd></>}
+  {c.special_ability    && <><dt>Special</dt><dd>{c.special_ability}</dd></>}
+  {c.contact_email      && <><dt>Contact</dt><dd>{c.contact_email}</dd></>}
+</dl>
+
+{c.habitat_notes     && <p class="note-field"><strong>Habitat:</strong> {c.habitat_notes}</p>}
+{c.behaviour_notes   && <p class="note-field"><strong>Behaviour:</strong> {c.behaviour_notes}</p>}
+{c.food_notes        && <p class="note-field"><strong>Food:</strong> {c.food_notes}</p>}
+{c.lore_description  && (
+  <div class="lore-block">
+    <strong>Story</strong>
+    <p>{c.lore_description}</p>
+  </div>
+)}
+{c.lore_origin && (
+  <div class="lore-block">
+    <strong>Origin</strong>
+    <p>{c.lore_origin}</p>
+  </div>
+)}
+
+<style>
+  .facts {
+    display: grid; grid-template-columns: max-content 1fr;
+    gap: 0.25rem 0.75rem; font-size: 0.82rem; margin: 0 0 0.4rem;
+  }
+  .facts dt { color: var(--text-dim); }
+  .facts dd  { color: var(--text); margin: 0; }
+  .note-field { font-size: 0.82rem; color: var(--text-dim); margin: 0.3rem 0 0; }
+  .note-field strong { color: var(--text); }
+  .lore-block { margin-top: 0.5rem; }
+  .lore-block strong { font-size: 0.78rem; color: var(--text-dim); display: block; margin-bottom: 0.2rem; }
+  .lore-block p { font-size: 0.88rem; color: var(--text); margin: 0; line-height: 1.6; white-space: pre-wrap; }
+</style>

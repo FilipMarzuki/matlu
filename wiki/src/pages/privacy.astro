@@ -1,0 +1,232 @@
+---
+/**
+ * Privacy Policy — GDPR-compliant, plain-language.
+ * Required by issue #331 (Art. 13 transparency).
+ *
+ * PRIVACY_POLICY_VERSION is exported so account_profiles.privacy_policy_version
+ * records exactly which version the user consented to at signup.
+ */
+import Base from '../layouts/Base.astro';
+export { PRIVACY_POLICY_VERSION } from '../lib/supabase-auth';
+---
+
+<Base
+  title="Privacy Policy"
+  description="How Matlu Codex collects, uses, and protects your personal data. GDPR-compliant."
+>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Version v1-2026-04 &mdash; April 2026</p>
+
+  <p class="lead">
+    This policy explains what personal data Matlu Codex collects, why, and how
+    you can control it. We keep it plain so kids and parents can both understand.
+  </p>
+
+  <section>
+    <h2>1. Who we are</h2>
+    <p>
+      Matlu Codex is a community hub for the Core Warden game, run by Filip
+      Marzuki. Contact: <a href="mailto:privacy@corewarden.app">privacy@corewarden.app</a>.
+      This is the named contact for all data-protection enquiries and the
+      data controller for the purposes of EU GDPR.
+    </p>
+  </section>
+
+  <section>
+    <h2>2. What we collect and why</h2>
+    <table>
+      <thead>
+        <tr><th>Data</th><th>Why</th><th>Lawful basis</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Parent / guardian email address</td>
+          <td>So we can send magic sign-in links and important account notices.</td>
+          <td>Consent + contract (Art. 6(1)(a)(b))</td>
+        </tr>
+        <tr>
+          <td>Account handle (public username)</td>
+          <td>Displayed on your creator profile page.</td>
+          <td>Consent (Art. 6(1)(a))</td>
+        </tr>
+        <tr>
+          <td>Child's first name or nickname, optional age</td>
+          <td>
+            So the creator of each creature is credited correctly. No surname,
+            no photo of the child, no school, no location.
+          </td>
+          <td>Parental consent (Art. 6(1)(a), Art. 8)</td>
+        </tr>
+        <tr>
+          <td>Creature drawings, descriptions, and answers</td>
+          <td>
+            To show on the wiki and, with your permission, inspire in-game
+            creatures per the <a href="/creatures/license">Creature License</a>.
+          </td>
+          <td>Consent (Art. 6(1)(a))</td>
+        </tr>
+        <tr>
+          <td>Form drafts</td>
+          <td>So you can resume an unfinished submission from any device.</td>
+          <td>Consent (Art. 6(1)(a))</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">We do not collect analytics, use tracking cookies, or fingerprint devices.</p>
+  </section>
+
+  <section>
+    <h2>3. Who else sees it</h2>
+    <ul>
+      <li>
+        <strong>Supabase</strong> — our database and file-storage provider.
+        Data is stored in an <strong>EU region</strong> (eu-central-1).
+        Supabase Inc. (US) acts as a sub-processor under Standard Contractual
+        Clauses for any unavoidable cross-border transfers.
+      </li>
+      <li>
+        <strong>Vercel</strong> — hosts this website. Pages are served from
+        edge locations globally; no personal data is stored by Vercel beyond
+        standard access logs.
+      </li>
+    </ul>
+    <p>We do not sell, rent, or share your data with any third party for marketing.</p>
+  </section>
+
+  <section>
+    <h2>4. How long we keep it</h2>
+    <ul>
+      <li><strong>Active accounts</strong> — as long as the account is active.</li>
+      <li><strong>Unsubmitted drafts</strong> — deleted automatically after 90 days.</li>
+      <li><strong>Rejected submissions</strong> — deleted automatically after 30 days.</li>
+      <li>
+        <strong>Inactive accounts</strong> — if there is no login for 24 months
+        we will email a warning. If there is no response within 30 days the
+        account and all associated data are deleted.
+      </li>
+      <li>
+        <strong>Approved submissions</strong> — kept indefinitely, unless you
+        ask us to delete or anonymise them via <a href="/account/settings">Account Settings</a>.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. Your rights</h2>
+    <p>
+      You can exercise any of these rights via
+      <a href="/account/settings">Account Settings</a> or by emailing
+      <a href="mailto:privacy@corewarden.app">privacy@corewarden.app</a>.
+    </p>
+    <ul>
+      <li><strong>Access (Art. 15)</strong> — download a JSON of everything we hold.</li>
+      <li><strong>Rectification (Art. 16)</strong> — edit your handle, kids' names or ages.</li>
+      <li>
+        <strong>Erasure / right to be forgotten (Art. 17)</strong> — delete your
+        account. You choose: full delete (removes everything) or anonymise
+        (creatures stay on the wiki but are unattributed).
+      </li>
+      <li><strong>Data portability (Art. 20)</strong> — the export JSON is machine-readable.</li>
+      <li>
+        <strong>Restriction (Art. 18)</strong> — pause your account. Your
+        submissions are hidden while paused; no new data is processed.
+      </li>
+      <li>
+        <strong>Withdraw consent (Art. 7(3))</strong> — same as erasure; withdrawing
+        triggers the deletion flow.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. Children</h2>
+    <p>
+      This service is <strong>not for children to use directly</strong>. Only
+      parents or guardians (18+) can create accounts. Children submit creatures
+      via a grown-up's account. We do not knowingly collect personal data
+      directly from children.
+    </p>
+  </section>
+
+  <section>
+    <h2>7. Cookies</h2>
+    <p>
+      We set <strong>one cookie</strong> — a session cookie to keep you signed in.
+      No advertising cookies. No tracking cookies. No third-party analytics scripts.
+    </p>
+  </section>
+
+  <section>
+    <h2>8. Security</h2>
+    <ul>
+      <li>All data is encrypted at rest by Supabase Postgres.</li>
+      <li>All connections use HTTPS (enforced by Vercel).</li>
+      <li>
+        We use passwordless (magic-link) authentication — no passwords to steal
+        or leak.
+      </li>
+      <li>Service-role database keys are never sent to the browser.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>9. Changes to this policy</h2>
+    <p>
+      If we update this policy, we will email you and ask you to accept the new
+      version on next sign-in. The version number above will also change.
+    </p>
+  </section>
+
+  <section>
+    <h2>10. Complaints</h2>
+    <p>
+      If you are unhappy with how we handle your data, you can contact your
+      local data protection authority. For Sweden: <a href="https://www.imy.se" target="_blank" rel="noopener">Integritetsskyddsmyndigheten (IMY)</a>.
+    </p>
+  </section>
+</Base>
+
+<style>
+  h1 { margin-bottom: 0.25rem; }
+  .meta { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.5rem; }
+  .lead { color: var(--text-dim); max-width: 600px; margin-bottom: 2rem; }
+
+  section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-child { border-bottom: none; }
+
+  h2 { margin-bottom: 0.75rem; color: var(--accent-hi); font-size: 1.15rem; }
+
+  ul { padding-left: 1.5rem; }
+  ul li { margin-bottom: 0.5rem; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+  th {
+    background: var(--surface);
+    color: var(--accent-hi);
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+  }
+  td {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+
+  .note {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+</style>

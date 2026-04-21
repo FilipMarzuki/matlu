@@ -46,6 +46,39 @@ If the result is empty, print "No errors in the last 24h" and exit cleanly.
 
 ---
 
+## STEP 1b — QUERY ERROR FILE BREAKDOWN (LAST 7 DAYS)
+
+Run a second aggregation query that groups by filename to identify which files
+are generating the most errors. Store the result for STEP 4.
+
+```bash
+curl -s \
+  -u "$BETTERSTACK_CONNECT_USER:$BETTERSTACK_CONNECT_PASS" \
+  -H 'Content-type: plain/text' \
+  -X POST 'https://eu-fsn-3-connect.betterstackdata.com?output_format_pretty_row_numbers=0' \
+  -d "SELECT
+        JSONExtractString(raw, 'filename') AS filename,
+        count() AS occurrences,
+        countIf(JSONExtractString(raw, 'level') = 'error') AS error_count,
+        countIf(JSONExtractString(raw, 'level') = 'warn')  AS warn_count
+      FROM remote(t523686_matlu_logs)
+      WHERE dt >= now() - INTERVAL 7 DAY
+        AND JSONExtractString(raw, 'level') IN ('error', 'warn')
+        AND JSONExtractString(raw, 'filename') != ''
+      GROUP BY filename
+      ORDER BY occurrences DESC
+      LIMIT 20
+      FORMAT JSONEachRow"
+```
+
+Parse the JSONEachRow response into an array of objects with keys:
+`filename`, `occurrences`, `error_count`, `warn_count`.
+
+If the query fails, set `error_file_breakdown` to `null` and continue — it
+must not block the Linear bug-filing steps.
+
+---
+
 ## STEP 2 — CHECK EXISTING LINEAR ISSUES
 
 For each error row, search Linear for an open issue matching the message:
@@ -118,7 +151,8 @@ curl -s -X POST "$SUPABASE_URL/rest/v1/error_metrics" \
     "total_warn_occurrences": <sum of occurrences across all warn rows>,
     "linear_issues_filed": <number of new Linear issues created this run>,
     "top_errors": <JSON array of top 5 error rows: [{message, occurrences, first_seen}]>,
-    "top_warns":  <JSON array of top 5 warn rows:  [{message, occurrences, first_seen}]>
+    "top_warns":  <JSON array of top 5 warn rows:  [{message, occurrences, first_seen}]>,
+    "error_file_breakdown": <JSON array from STEP 1b: [{filename, occurrences, error_count, warn_count}], or null if query failed>
   }'
 ```
 

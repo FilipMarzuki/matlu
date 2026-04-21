@@ -54,86 +54,7 @@ import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
-
-// ── SimpleJoystick ────────────────────────────────────────────────────────────
-/**
- * Minimal virtual joystick that replaces the phaser4-rex-plugins dependency.
- *
- * phaser4-rex-plugins references `Phaser` as a global (legacy UMD pattern) at
- * module evaluation time — before Vite/ESM even starts our game code. That
- * causes `ReferenceError: Phaser is not defined` and the canvas never appears.
- *
- * This class exposes the two properties GameScene actually reads:
- *   - `force`    — distance from centre (0 when idle, up to radius px when active)
- *   - `rotation` — angle in radians pointing from centre → thumb
- *
- * The joystick is fixed-position and claims the first pointer that touches
- * within 2× the base radius of the joystick centre.
- */
-class SimpleJoystick {
-  force    = 0;
-  rotation = 0;
-
-  private pointerId: number | null = null;
-  private readonly cx: number;
-  private readonly cy: number;
-  private readonly radius: number;
-  private readonly thumb: Phaser.GameObjects.Arc;
-
-  constructor(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    radius: number,
-    thumb: Phaser.GameObjects.Arc,
-  ) {
-    this.cx     = x;
-    this.cy     = y;
-    this.radius = radius;
-    this.thumb  = thumb;
-
-    scene.input.on('pointerdown',    this.onDown, this);
-    scene.input.on('pointermove',    this.onMove, this);
-    scene.input.on('pointerup',      this.onUp,   this);
-    scene.input.on('pointerupoutside', this.onUp, this);
-  }
-
-  private onDown(pointer: Phaser.Input.Pointer): void {
-    if (this.pointerId !== null) return;
-    const dx = pointer.x - this.cx;
-    const dy = pointer.y - this.cy;
-    if (dx * dx + dy * dy > (this.radius * 2) ** 2) return;
-    this.pointerId = pointer.id;
-    this.updateThumb(pointer);
-  }
-
-  private onMove(pointer: Phaser.Input.Pointer): void {
-    if (pointer.id !== this.pointerId) return;
-    this.updateThumb(pointer);
-  }
-
-  private onUp(pointer: Phaser.Input.Pointer): void {
-    if (pointer.id !== this.pointerId) return;
-    this.pointerId = null;
-    this.force     = 0;
-    this.rotation  = 0;
-    this.thumb.setPosition(this.cx, this.cy);
-  }
-
-  private updateThumb(pointer: Phaser.Input.Pointer): void {
-    const dx   = pointer.x - this.cx;
-    const dy   = pointer.y - this.cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist === 0) return;
-    const clamped = Math.min(dist, this.radius);
-    this.force    = clamped;
-    this.rotation = Math.atan2(dy, dx);
-    this.thumb.setPosition(
-      this.cx + (dx / dist) * clamped,
-      this.cy + (dy / dist) * clamped,
-    );
-  }
-}
+import { SimpleJoystick } from '../lib/SimpleJoystick';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
 // Set a flag to true to enable that category; false to skip it entirely.
@@ -161,6 +82,22 @@ const DETAIL_SCALE = 0.22;
 // but independent so they vary orthogonally to elevation.
 const TEMP_SCALE  = 0.04; // temperature varies in broad N/S-ish bands
 const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
+
+// FIL-466: biome tile packs — individual images loaded as `${packName}-0` … `${packName}-3`.
+// Biome 0 (Sea) is absent; it falls back to the generic iso-tiles spritesheet.
+const CUSTOM_TILE_PACKS: Record<number, string> = {
+  1:  'rocky-shore',
+  2:  'sandy-shore',
+  3:  'marsh',
+  4:  'dry-heath',
+  5:  'coastal-heath',
+  6:  'meadow',
+  7:  'forest',
+  8:  'spruce',
+  9:  'cold-granite',
+  10: 'bare-summit',
+  11: 'snow-field',
+};
 
 // ─── Fog of war constants (FIL-217) ──────────────────────────────────────────
 // Three tile visibility states stored in the fogGrid Uint8Array.
@@ -995,6 +932,16 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('iso-tiles',
       'assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
+
+    // FIL-466: biome tile packs — 4 individual images per biome (0.png … 3.png).
+    // Each image is loaded as a single-image texture keyed `${packName}-${i}` so
+    // drawProceduralTerrain() can call setTexture(`${packName}-${tileHash}`) directly
+    // without a frame argument.
+    for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
+      for (let i = 0; i < 4; i++) {
+        this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
+      }
+    }
 
     // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
     // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
@@ -3634,7 +3581,7 @@ export class GameScene extends Phaser.Scene {
       // Boss is near the portal — always Zone C speeds.
       r.setData('chaseSpeed', Math.round(CHASE_SPEED * 1.5));
       r.setData('fleeSpeed',  Math.round(FLEE_SPEED  * 1.5));
-      r.setDepth(r.y);
+      { const { x: _bRabWx, y: _bRabWy } = isoToWorld(r.x, r.y); r.setDepth(isoDepth(_bRabWx, _bRabWy)); }
       this.rabbits.add(r);
     }
   }
@@ -4463,13 +4410,13 @@ export class GameScene extends Phaser.Scene {
     const { x: isoSpawnX, y: isoSpawnY } = worldToIso(SPAWN_X, SPAWN_Y);
     this.player = this.add.container(isoSpawnX, isoSpawnY, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
-    // Depth = iso-Y (proportional to tx+ty) — valid painter sort for iso space.
-    // Updated every frame in update() to track position.
-    this.player.setDepth(isoSpawnY);
+    // Depth uses isoDepth(wx, wy) = (wx + wy) / WORLD_TILE_SIZE so it shares the
+    // same 0–235 scale as trees/entities. Updated every frame in update().
+    this.player.setDepth(isoDepth(SPAWN_X, SPAWN_Y));
 
     // Drop shadow — oval offset SE from the player's feet.
     this.playerShadow = this.add.ellipse(isoSpawnX + 6, isoSpawnY + 8, 22, 10, 0x000000, 0.22);
-    this.playerShadow.setDepth(isoSpawnY - 1);
+    this.playerShadow.setDepth(isoDepth(SPAWN_X, SPAWN_Y) - 0.1);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -4552,8 +4499,10 @@ export class GameScene extends Phaser.Scene {
     this.navigationBarriers = this.physics.add.staticGroup();
 
     // Thin helper — adds one invisible static collision rectangle to the group.
+    // x, y are the world-space top-left corner; the center is projected to iso screen space.
     const addBlock = (x: number, y: number, w: number, h: number): void => {
-      const rect = this.add.rectangle(x + w / 2, y + h / 2, w, h, 0x000000, 0);
+      const { x: isoX, y: isoY } = worldToIso(x + w / 2, y + h / 2);
+      const rect = this.add.rectangle(isoX, isoY, w, h, 0x000000, 0);
       this.physics.add.existing(rect, true);
       this.navigationBarriers.add(rect);
     };
@@ -4621,14 +4570,14 @@ export class GameScene extends Phaser.Scene {
 
     // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
     // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
-    { const { x: _bx, y: _by } = worldToIso(0,    1240); addBlock(_bx, _by, 1930, 100); }
-    { const { x: _bx, y: _by } = worldToIso(2020, 1240); addBlock(_bx, _by, 360,  100); }
-    { const { x: _bx, y: _by } = worldToIso(2470, 1240); addBlock(_bx, _by, 2030, 100); }
+    addBlock(0,    1240, 1930, 100);
+    addBlock(2020, 1240, 360,  100);
+    addBlock(2470, 1240, 2030, 100);
 
     // ── Highland Rim (y 830–920) — gap at x 2830–2930 ────────────────────────
     // Gap aligns with forest-path-2 / paved-plateau-1 junction.
-    { const { x: _bx, y: _by } = worldToIso(0,    830); addBlock(_bx, _by, 2830, 90); }
-    { const { x: _bx, y: _by } = worldToIso(2930, 830); addBlock(_bx, _by, 1570, 90); }
+    addBlock(0,    830, 2830, 90);
+    addBlock(2930, 830, 1570, 90);
 
     this.navigationBarriers.refresh();
   }
@@ -5277,6 +5226,9 @@ export class GameScene extends Phaser.Scene {
     sprite.setData('animalType', type);
     sprite.setData('animalState', 'roaming' satisfies AnimalState);
     sprite.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+    // Store world-space origin so flee/approach distance calcs remain in world space.
+    sprite.setData('worldX', x);
+    sprite.setData('worldY', y);
   }
 
   private updateGroundAnimals(): void {
@@ -5754,9 +5706,28 @@ export class GameScene extends Phaser.Scene {
         // Painter order: ty=0 (back) drawn first, ty=tilesY-1 (front) drawn last —
         // each row's front face is covered by the diamond of the next row forward.
         const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
-        const frame = (isRiverHere || isLakeHere) ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, detail);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
-        tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+        if (isRiverHere || isLakeHere) {
+          // FIL-466: water tiles always use the shared iso-tiles river frame.
+          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
+        } else if (biomeIdx in CUSTOM_TILE_PACKS) {
+          // FIL-466: dual-grid hash selects one of 4 same-material variants to
+          // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
+          // coarse2) are blended by a fine per-tile selector (fine). Hash formula
+          // matches BiomeInspectorScene exactly so both scenes look identical.
+          const packName = CUSTOM_TILE_PACKS[biomeIdx];
+          const px = Math.floor(tx / 6), py = Math.floor(ty / 6);
+          const qx = Math.floor((tx + 3) / 6), qy = Math.floor((ty + 2) / 6);
+          const coarse  = ((px * 3571 ^ py * 2297 ^ px * py * 53) >>> 0) % 3;
+          const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
+          const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
+          const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
+          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+        } else {
+          // FIL-466: biome 0 (Sea) — no pack; fall back to iso-tiles spritesheet.
+          const frame = isoTileFrame(biomeIdx, detail);
+          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+        }
         terrainRt.draw(tileImg);
 
       }
@@ -6287,8 +6258,8 @@ export class GameScene extends Phaser.Scene {
     // Drift helper — picks a new random target within 120 px and tweens to it,
     // then calls itself again on completion for continuous ambient movement.
     const drift = (img: Phaser.GameObjects.Image) => {
-      const nx = Phaser.Math.Clamp(img.x + (rand() - 0.5) * 240, 0, WORLD_W);
-      const ny = Phaser.Math.Clamp(img.y + (rand() - 0.5) * 240, 0, WORLD_H);
+      const nx = Phaser.Math.Clamp(img.x + (rand() - 0.5) * 240, 0, ISO_WORLD_W);
+      const ny = Phaser.Math.Clamp(img.y + (rand() - 0.5) * 240, 0, ISO_WORLD_H);
       this.tweens.add({
         targets: img, x: nx, y: ny,
         duration: 3000 + rand() * 3000,
@@ -6321,9 +6292,10 @@ export class GameScene extends Phaser.Scene {
 
         // 60 % butterflies, 40 % bees (matches approximate flower/clover split)
         const key = rand() < 0.6 ? 'butterfly-tex' : 'bee-tex';
-        const img = this.add.image(x, y, key);
+        const { x: _beeIsoX, y: _beeIsoY } = worldToIso(x, y);
+        const img = this.add.image(_beeIsoX, _beeIsoY, key);
         this.decorImages.push(img);
-        img.setDepth(2 + y / WORLD_H).setScale(1.5);
+        img.setDepth(isoDepth(x, y)).setScale(1.5);
 
         // Wing flutter — ±8° at 180 ms; butterflies slightly faster than bees
         this.tweens.add({
@@ -6953,14 +6925,14 @@ export class GameScene extends Phaser.Scene {
 
     for (const def of defs) {
       const alreadyOpened = openedSet.has(def.id);
+      const { x: _lcIsoX, y: _lcIsoY } = worldToIso(def.x, def.y);
 
       // Frame 3 = fully open. Already-opened chests render immediately open
       // so the player doesn't see them "pop" closed on load.
-      const sprite = this.add.sprite(def.x, def.y, def.texture, alreadyOpened ? 3 : 0);
+      const sprite = this.add.sprite(_lcIsoX, _lcIsoY, def.texture, alreadyOpened ? 3 : 0);
       // Scale 2× matches other Mystic Woods decorations in the world (16 px → 32 px display).
       sprite.setScale(2.0);
-      // y-sort: depth = world-y so the player correctly occludes/underlaps the chest.
-      sprite.setDepth(def.y);
+      sprite.setDepth(isoDepth(def.x, def.y));
       // Origin (0.5, 1): sprite is anchored at its bottom-centre, consistent with
       // all other world objects that use y-sorting.
       sprite.setOrigin(0.5, 1);
@@ -6971,7 +6943,7 @@ export class GameScene extends Phaser.Scene {
       // "E: Open" prompt — 8 px above the sprite top (sprite is 32 px tall at scale 2).
       // Depth 500 renders above all world objects.
       const prompt = this.add
-        .text(def.x, def.y - 40, t('ui.open'), {
+        .text(_lcIsoX, _lcIsoY - 40, t('ui.open'), {
           fontSize: '10px',
           color: '#f0ead6',
           backgroundColor: '#00000088',

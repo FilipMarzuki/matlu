@@ -19,6 +19,7 @@ import { BurrowHole } from '../entities/BurrowHole';
 import { BroodMother, EggSac } from '../entities/BroodMother';
 import { GlitchDrone } from '../entities/EarthEnemies';
 import { ArenaTierConfig, EnemyCtor, TIER_CONFIGS } from '../data/arenaTiers';
+import { SimpleJoystick } from '../lib/SimpleJoystick';
 
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
@@ -29,6 +30,13 @@ interface Room {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
+/** Biome index → asset pack folder name. Mirrors GameScene for cross-scene consistency. */
+const CUSTOM_TILE_PACKS: Record<number, string> = {
+  1: 'rocky-shore', 2: 'sandy-shore', 3: 'marsh', 4: 'dry-heath',
+  5: 'coastal-heath', 6: 'meadow', 7: 'forest', 8: 'spruce',
+  9: 'cold-granite', 10: 'bare-summit', 11: 'snow-field',
+};
 
 const SPAWN_X_OFFSET  = 80;   // px from arena right edge
 const MAX_ALIVE       = 15;   // total alive enemy cap (kept lower so kill rate stays meaningful)
@@ -147,6 +155,14 @@ export class CombatArenaScene extends Phaser.Scene {
 
   /** True once the player reaches GADGET_UNLOCK_KILLS — gates the mine ability. */
   private gadgetUnlocked = false;
+
+  // ── Touch controls ──────────────────────────────────────────────────────────
+  /** Virtual joystick — only created on touch devices. */
+  private joystick: SimpleJoystick | null = null;
+  /** Tracks which touch pointers are currently pressing each action button. */
+  private touchMelee  = false;
+  private touchRanged = false;
+  private touchDash   = false;
 
   // ── Audio ───────────────────────────────────────────────────────────────────
   private audioAvailable = false;
@@ -278,6 +294,14 @@ export class CombatArenaScene extends Phaser.Scene {
       'assets/sprites/tilesets/arena/dungeon_torch.png',
       { frameWidth: 16, frameHeight: 16 },
     );
+
+    // Biome iso tile images — loaded now so the iso floor RenderTexture can use
+    // them when it is built. Each pack ships 4 tile variants (0–3).
+    for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
+      for (let i = 0; i < 4; i++) {
+        this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
+      }
+    }
   }
 
   create(): void {
@@ -497,6 +521,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
       this.buildHud();
       this.launchNavPanel();
+      this.buildTouchControls();
     }
   }
 
@@ -1552,23 +1577,32 @@ export class CombatArenaScene extends Phaser.Scene {
       }
     }
 
+    // Virtual joystick — overrides keyboard/gamepad when active on touch devices.
+    if (this.joystick && this.joystick.force > 10) {
+      dx = Math.cos(this.joystick.rotation);
+      dy = Math.sin(this.joystick.rotation);
+    }
+
     const spd = 160; // px/s — comfortable player speed
     // StaticGhost applies controlsInverted — negate axes for the duration.
     const inv = this.hero.controlsInverted ? -1 : 1;
     this.hero.setMoveVelocity(dx * spd * inv, dy * spd * inv);
 
-    // Melee — Space (just-pressed, no auto-repeat)
-    if (Phaser.Input.Keyboard.JustDown(this.meleeKey)) {
+    // Melee — Space (just-pressed) or touch button
+    if (Phaser.Input.Keyboard.JustDown(this.meleeKey) || this.touchMelee) {
+      this.touchMelee = false;
       this.hero.tryMelee();
     }
 
-    // Ranged — F (just-pressed)
-    if (Phaser.Input.Keyboard.JustDown(this.shootKey)) {
+    // Ranged — F (just-pressed) or touch button
+    if (Phaser.Input.Keyboard.JustDown(this.shootKey) || this.touchRanged) {
+      this.touchRanged = false;
       this.hero.tryRanged();
     }
 
-    // Dash — G (just-pressed); direction required
-    if (Phaser.Input.Keyboard.JustDown(this.dashKey) && (dx !== 0 || dy !== 0)) {
+    // Dash — G (just-pressed) or touch button; direction required
+    if ((Phaser.Input.Keyboard.JustDown(this.dashKey) || this.touchDash) && (dx !== 0 || dy !== 0)) {
+      this.touchDash = false;
       this.hero.tryDash(dx, dy);
     }
 
@@ -1585,6 +1619,58 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // Let the entity tick its animation + dash physics + HP bar.
     this.hero.update(delta);
+  }
+
+  /**
+   * Creates the virtual joystick and action buttons for touch devices.
+   * Hidden on non-touch devices (mouse/keyboard only).
+   *
+   * Layout:
+   *   Left  side — movement joystick (bottom-left)
+   *   Right side — action buttons in an arc: melee (largest), ranged, dash
+   */
+  private buildTouchControls(): void {
+    if (navigator.maxTouchPoints === 0) return;
+
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const DEPTH = 9999;
+
+    // ── Movement joystick (bottom-left) ──────────────────────────────────────
+    const JOY_X = 120;
+    const JOY_Y = H - 120;
+    const JOY_R = 50;
+
+    const joyBase  = this.add.circle(JOY_X, JOY_Y, JOY_R, 0x444444, 0.45).setScrollFactor(0).setDepth(DEPTH);
+    const joyThumb = this.add.circle(JOY_X, JOY_Y, 22,    0xcccccc, 0.60).setScrollFactor(0).setDepth(DEPTH);
+    this.joystick = new SimpleJoystick(this, JOY_X, JOY_Y, JOY_R, joyThumb);
+    void joyBase; // referenced only for rendering
+
+    // ── Action buttons (bottom-right) ────────────────────────────────────────
+    // Three circular touch zones — pointerdown sets the flag consumed by
+    // updatePlayerHeroInput() on the next frame.
+    const makeBtn = (
+      x: number, y: number, r: number, color: number, label: string,
+      onTap: () => void,
+    ) => {
+      const circle = this.add.circle(x, y, r, color, 0.50).setScrollFactor(0).setDepth(DEPTH).setInteractive();
+      this.add.text(x, y, label, {
+        fontFamily: 'monospace', fontSize: '13px', color: '#ffffff',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH + 1).setAlpha(0.85);
+
+      circle.on('pointerdown', () => { onTap(); });
+      return circle;
+    };
+
+    // Melee — large button, bottom-right
+    makeBtn(W - 90,  H - 90,  44, 0xee4444, 'ATK',  () => { this.touchMelee  = true; });
+    // Ranged — above-left of melee
+    makeBtn(W - 175, H - 110, 34, 0x4488ee, 'SHOT', () => { this.touchRanged = true; });
+    // Dash  — above melee
+    makeBtn(W - 100, H - 185, 30, 0xeeaa22, 'DASH', () => { this.touchDash   = true; });
+
+    // Allow multi-touch so joystick + buttons work simultaneously.
+    this.input.addPointer(2);
   }
 
   /**

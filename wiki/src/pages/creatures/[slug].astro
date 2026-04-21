@@ -5,24 +5,101 @@
  * One page per approved creature slug. `getStaticPaths` fetches all approved
  * rows at build time; unapproved / missing slugs are simply not generated (404).
  *
- * Layout intentionally leaves space for the future status ribbon (FIL-440 / C1)
- * and tracker sidebar (FIL-441 / C2) — they'll slot in via `<!-- STATUS_RIBBON -->`
- * and `<!-- TRACKER_SIDEBAR -->` placeholders.
+ * FIL-440 (C1): status ribbon + timeline are rendered server-side at build time.
+ * All tracker data (history, queue position, ETA) is fetched once in
+ * getStaticPaths and distributed to each page via props to avoid N+1 queries.
  */
 import Base from '../../layouts/Base.astro';
-import { fetchApprovedCreatures, imageUrl } from '../../lib/supabase-creatures';
-import type { Creature } from '../../lib/supabase-creatures';
+import {
+  fetchApprovedCreatures,
+  fetchAllStatusHistory,
+  fetchQueuedPositions,
+  computeMedianEtaDays,
+  imageUrl,
+} from '../../lib/supabase-creatures';
+import type { Creature, StatusHistoryEntry } from '../../lib/supabase-creatures';
+import { getStatusInfo, getCopy } from '../../lib/creature-status';
 
 export async function getStaticPaths() {
-  const creatures = await fetchApprovedCreatures();
+  const [creatures, allHistory, queuedPositions] = await Promise.all([
+    fetchApprovedCreatures(),
+    fetchAllStatusHistory(),
+    fetchQueuedPositions(),
+  ]);
+
+  // Group history entries by creature_id (already sorted asc by changed_at)
+  const historyByCreature = new Map<string, StatusHistoryEntry[]>();
+  for (const entry of allHistory) {
+    const arr = historyByCreature.get(entry.creature_id) ?? [];
+    arr.push(entry);
+    historyByCreature.set(entry.creature_id, arr);
+  }
+
+  // Build queue-position map: id → 1-indexed rank (lowest queue_priority first)
+  const queuePos = new Map<string, number>();
+  queuedPositions.forEach((c, i) => queuePos.set(c.id, i + 1));
+
+  // Median days per status — shared across all pages, computed once
+  const etaMap = computeMedianEtaDays(allHistory);
+
   return creatures.map(c => ({
     params: { slug: c.slug },
-    props: { creature: c },
+    props: {
+      creature: c,
+      history: historyByCreature.get(c.id) ?? [],
+      queuePosition: queuePos.get(c.id) ?? null,
+      etaMap,
+    },
   }));
 }
 
-interface Props { creature: Creature }
-const { creature: c } = Astro.props;
+interface Props {
+  creature: Creature;
+  history: StatusHistoryEntry[];
+  queuePosition: number | null;
+  etaMap: Record<string, number>;
+}
+const { creature: c, history, queuePosition, etaMap } = Astro.props;
+
+// ── Ribbon ────────────────────────────────────────────────────────────────────
+
+const statusInfo = getStatusInfo(c.status);
+const ribbonCopy = getCopy(c.status, statusInfo, queuePosition, c.moderation_note);
+const etaDays = c.status ? (etaMap[c.status] ?? null) : null;
+const etaRounded = etaDays !== null ? Math.round(etaDays) : null;
+
+// ── Timeline ──────────────────────────────────────────────────────────────────
+
+/** Human-readable relative date, computed at build time. */
+function relativeDate(isoString: string): string {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return '1 month ago';
+  if (months < 12) return `${months} months ago`;
+  const years = Math.floor(months / 12);
+  return years === 1 ? '1 year ago' : `${years} years ago`;
+}
+
+interface TimelineEntry {
+  label: string;
+  emoji: string;
+  date: string;
+  isCurrent: boolean;
+}
+
+const timelineEntries: TimelineEntry[] = history.map((entry, i) => {
+  const info = getStatusInfo(entry.to_status);
+  return {
+    label: info.label,
+    emoji: info.emoji,
+    date: relativeDate(entry.changed_at),
+    isCurrent: i === history.length - 1,
+  };
+});
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
 const img = imageUrl(supabaseUrl, c.art_path);
@@ -66,7 +143,19 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     <a href="/creatures">&larr; All creatures</a>
   </div>
 
-  <!-- STATUS_RIBBON: FIL-440 (C1) will insert a status ribbon here -->
+  <!-- ── Status ribbon (FIL-440 / C1) ──────────────────────────────────────── -->
+  <div class="status-ribbon" style={`--ribbon-color: ${statusInfo.borderColor}`}>
+    <div class="ribbon-icon" aria-hidden="true">{statusInfo.emoji}</div>
+    <div class="ribbon-body">
+      <div class="ribbon-label">{statusInfo.label}</div>
+      <div class="ribbon-copy">{ribbonCopy}</div>
+      {etaRounded !== null && (
+        <div class="ribbon-eta">
+          Usually takes about {etaRounded} {etaRounded === 1 ? 'day' : 'days'} at this stage.
+        </div>
+      )}
+    </div>
+  </div>
 
   <article class="creature">
 
@@ -78,7 +167,7 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
           <p class="creator">Created by <strong>{c.art_credit ?? c.creator_name}</strong></p>
         )}
       </div>
-      <!-- TRACKER_SIDEBAR: FIL-441 (C2) will insert a GitHub tracker link here -->
+      <!-- TRACKER_SIDEBAR: FIL-441 (C2) will insert a tracker link here -->
     </header>
 
     <!-- Art -->
@@ -211,6 +300,27 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
 
   </article>
 
+  <!-- ── Status timeline (FIL-440 / C1) ───────────────────────────────────── -->
+  {timelineEntries.length > 0 && (
+    <section class="timeline-section">
+      <h2 class="timeline-heading">Journey so far</h2>
+      <ol class="timeline">
+        {timelineEntries.map(entry => (
+          <li class={`timeline-entry${entry.isCurrent ? ' timeline-entry--current' : ''}`}>
+            <span class="timeline-dot" aria-hidden="true"></span>
+            <span class="timeline-text">
+              {entry.isCurrent
+                ? <strong>{entry.emoji} {entry.label}</strong>
+                : <>{entry.emoji} {entry.label}</>
+              }
+              <span class="timeline-date">{entry.date}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
+
   <div class="back-link">
     <a href="/creatures">&larr; Back to all creatures</a>
   </div>
@@ -224,6 +334,105 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   }
   .breadcrumb a { color: var(--text-dim); }
   .breadcrumb a:hover { color: var(--accent-hi); }
+
+  /* ── Status ribbon ────────────────────────────────────────────────── */
+  .status-ribbon {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--ribbon-color, #9ca3af);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+  .ribbon-icon {
+    font-size: 1.6rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+  .ribbon-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent-hi);
+    margin-bottom: 0.2rem;
+  }
+  .ribbon-copy {
+    font-size: 0.9rem;
+    color: var(--text);
+    font-style: italic;
+  }
+  .ribbon-eta {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  /* ── Timeline ─────────────────────────────────────────────────────── */
+  .timeline-section {
+    margin-top: 2rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .timeline-heading {
+    font-size: 1.05rem;
+    color: var(--accent-hi);
+    font-family: 'Syne', sans-serif;
+    margin-bottom: 1rem;
+  }
+  .timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+  }
+  /* Vertical rule running through the dots */
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.4rem;
+    top: 0.55rem;
+    bottom: 0.55rem;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 0.4rem 0;
+    position: relative;
+  }
+  .timeline-dot {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid var(--bg);
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    position: relative;
+    z-index: 1;
+  }
+  .timeline-entry--current .timeline-dot {
+    background: var(--accent-hi);
+  }
+  .timeline-text {
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .timeline-text strong {
+    color: var(--accent-hi);
+  }
+  .timeline-date {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
 
   /* ── Header ───────────────────────────────────────────────────── */
   .creature-header {

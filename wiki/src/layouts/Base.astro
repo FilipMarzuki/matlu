@@ -22,6 +22,14 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Must run before body renders to avoid flash of wrong language -->
+    <script is:inline>
+      (function(){
+        var l = localStorage.getItem('matlu-lang') || 'en';
+        document.documentElement.setAttribute('data-lang', l);
+        document.documentElement.lang = l;
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta property="og:title" content={pageTitle} />
@@ -126,12 +134,35 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
       }
       a:hover { text-decoration: underline; }
 
+      /* ── Language toggle ────────────────────────────────────────────────── */
+      /* .t-en shown by default; .t-sv hidden. Flip when html[data-lang="sv"]. */
+      .t-sv { display: none; }
+      [data-lang="sv"] .t-en { display: none; }
+      [data-lang="sv"] .t-sv { display: inline; }
+
       /* ── Main content wrapper ────────────────────────────────────────────── */
       main {
         max-width: 860px;
         margin: 0 auto;
         padding: 2rem 1.5rem 4rem;
       }
+
+      /* ── Code ────────────────────────────────────────────────────────────── */
+      /* ── Footer ──────────────────────────────────────────────────────────── */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 1.25rem 1.5rem;
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      footer a { color: var(--text-dim); font-size: 0.8rem; }
+      footer a:hover { color: var(--accent-hi); text-decoration: none; }
+      footer .sep { opacity: 0.4; }
 
       /* ── Code ────────────────────────────────────────────────────────────── */
       code {
@@ -200,6 +231,25 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
     <main>
       <slot />
     </main>
+    <footer>
+      <span class="t-en">Matlu Codex &mdash; a Core Warden community hub.</span>
+      <span class="t-sv">Matlu Codex &mdash; en Core Warden-gemenskap.</span>
+      <span class="sep">&middot;</span>
+      <a href="/privacy">
+        <span class="t-en">Privacy Policy</span>
+        <span class="t-sv">Integritetspolicy</span>
+      </a>
+      <span class="sep">&middot;</span>
+      <a href="/creatures/license">
+        <span class="t-en">Creature License</span>
+        <span class="t-sv">Väsenslicens</span>
+      </a>
+      <span class="sep">&middot;</span>
+      <a href="/account/signin">
+        <span class="t-en">Creator Account</span>
+        <span class="t-sv">Skaparkonto</span>
+      </a>
+    </footer>
   </body>
 </html>
 
