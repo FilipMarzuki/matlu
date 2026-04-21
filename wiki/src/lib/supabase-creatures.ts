@@ -35,6 +35,18 @@ export interface Creature {
   art_credit: string | null;
   credits_opt_in: boolean;
   created_at: string;
+  // Pipeline fields added by #332
+  status: string;
+  tracker_issue_number: number | null;
+  moderation_note: string | null;
+}
+
+/** One row from creature_status_history — public fields only. */
+export interface CreatureStatusEntry {
+  id: string;
+  changed_at: string;
+  from_status: string | null;
+  to_status: string;
 }
 
 const SELECT_COLS = [
@@ -44,6 +56,7 @@ const SELECT_COLS = [
   'behaviour_threat','behaviour_notes','food_notes',
   'special_ability','lore_description','lore_origin',
   'art_path','art_credit','credits_opt_in','created_at',
+  'status','tracker_issue_number','moderation_note',
 ].join(',');
 
 function getClient(): { url: string; key: string } | null {
@@ -64,7 +77,7 @@ async function query(client: { url: string; key: string }, params: string): Prom
     }
   );
   if (!res.ok) return [];
-  const rows: (Creature & { slug: string | null })[] = await res.json();
+  const rows: (Omit<Creature, 'slug'> & { slug: string | null })[] = await res.json();
   // Normalise: if slug column is null, fall back to id
   return rows.map(r => ({ ...r, slug: r.slug ?? r.id }));
 }
@@ -95,6 +108,36 @@ export async function fetchCreditedCreatures(): Promise<Creature[]> {
 }
 
 /**
+ * Fetch status history for all creatures in one query, grouped by creature_id.
+ * Used by getStaticPaths in [slug].astro to avoid N+1 DB calls at build time.
+ */
+export async function fetchAllCreatureHistory(): Promise<Record<string, CreatureStatusEntry[]>> {
+  const client = getClient();
+  if (!client) return {};
+  try {
+    const res = await fetch(
+      `${client.url}/rest/v1/creature_status_history?order=changed_at.asc&select=id,changed_at,from_status,to_status,creature_id`,
+      {
+        headers: {
+          apikey: client.key,
+          Authorization: `Bearer ${client.key}`,
+        },
+      }
+    );
+    if (!res.ok) return {};
+    const rows: (CreatureStatusEntry & { creature_id: string })[] = await res.json();
+    const grouped: Record<string, CreatureStatusEntry[]> = {};
+    for (const { creature_id, ...entry } of rows) {
+      if (!grouped[creature_id]) grouped[creature_id] = [];
+      grouped[creature_id].push(entry);
+    }
+    return grouped;
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Returns the public URL for a creature's image.
  * The creature-art bucket is public, so no signed URL needed.
  */
@@ -102,3 +145,48 @@ export function imageUrl(supabaseUrl: string, artPath: string | null): string | 
   if (!artPath) return null;
   return `${supabaseUrl}/storage/v1/object/public/creature-art/${artPath}`;
 }
+
+// ── Status display helpers ────────────────────────────────────────────────────
+// Translate internal pipeline status values into kid-friendly copy.
+// Used both in Astro pages and in API routes that build GitHub issue content.
+
+interface StatusDisplay {
+  label: string;
+  copy: string;
+  eta: string;
+  icon: string;
+}
+
+const STATUS_DISPLAY: Record<string, StatusDisplay> = {
+  submitted:       { label: 'Waiting for review',    icon: '⏳', copy: 'The Matlu team is reading your creature!',                         eta: 'Usually takes about 1–3 days at this stage.' },
+  approved:        { label: 'Accepted!',              icon: '✅', copy: 'Your creature made it in. Next up: powers and story.',              eta: 'Usually takes about 1–2 days at this stage.' },
+  balanced:        { label: 'Getting its powers',     icon: '⚔️',  copy: 'Figuring out what your creature can do in battle.',               eta: 'Usually takes about 2–3 days at this stage.' },
+  'lore-ready':    { label: 'Getting its story',      icon: '📖', copy: 'Writing where your creature fits in the world.',                   eta: 'Usually takes about 2–3 days at this stage.' },
+  'graphics-rated':{ label: 'Ready for drawing',      icon: '🎨', copy: 'Waiting its turn to be drawn.',                                   eta: 'Usually takes about 1–2 days at this stage.' },
+  queued:          { label: 'In line to be drawn',    icon: '📋', copy: 'In the drawing queue — check back soon!',                         eta: 'Queue size varies — usually a few days to a week.' },
+  spriting:        { label: 'Being drawn right now!', icon: '✏️',  copy: 'The pixel artist is working on your creature.',                  eta: 'Usually takes about 1–2 weeks.' },
+  'in-game':       { label: 'In the game!',           icon: '🎮', copy: 'Play Matlu to find your creature.',                               eta: '' },
+  rejected:        { label: 'Not going to the game',  icon: '❌', copy: 'The Matlu team decided this one won\'t ship. Thank you for submitting!', eta: '' },
+};
+
+export function getStatusDisplay(status: string): StatusDisplay {
+  return STATUS_DISPLAY[status] ?? {
+    label: status,
+    icon: '🔵',
+    copy: '',
+    eta: '',
+  };
+}
+
+/** Label colors for GitHub status labels. */
+export const STATUS_LABEL_COLORS: Record<string, string> = {
+  submitted:        'ededed',
+  approved:         '2da44e',
+  balanced:         'e69138',
+  'lore-ready':     '9065b0',
+  'graphics-rated': 'e4b429',
+  queued:           '5319e7',
+  spriting:         'd93f0b',
+  'in-game':        '0e8a16',
+  rejected:         'b60205',
+};

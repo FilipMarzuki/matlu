@@ -1,28 +1,45 @@
 ---
 /**
- * Creature detail page — FIL-433 (Creatures A3).
+ * Creature detail page — FIL-433 (Creatures A3), FIL-333 (status ribbon + tracker).
  *
  * One page per approved creature slug. `getStaticPaths` fetches all approved
- * rows at build time; unapproved / missing slugs are simply not generated (404).
+ * rows and all status history at build time; unapproved / missing slugs are
+ * simply not generated (404).
  *
- * Layout intentionally leaves space for the future status ribbon (FIL-440 / C1)
- * and tracker sidebar (FIL-441 / C2) — they'll slot in via `<!-- STATUS_RIBBON -->`
- * and `<!-- TRACKER_SIDEBAR -->` placeholders.
+ * FIL-333 adds:
+ *   - Status ribbon: full-width banner showing kid-friendly pipeline state.
+ *   - Timeline: chronological list of state transitions from creature_status_history.
+ *   - Tracker sidebar: link to the GitHub tracking issue if one was created.
  */
 import Base from '../../layouts/Base.astro';
-import { fetchApprovedCreatures, imageUrl } from '../../lib/supabase-creatures';
-import type { Creature } from '../../lib/supabase-creatures';
+import {
+  fetchApprovedCreatures,
+  fetchAllCreatureHistory,
+  imageUrl,
+  getStatusDisplay,
+} from '../../lib/supabase-creatures';
+import type { Creature, CreatureStatusEntry } from '../../lib/supabase-creatures';
 
 export async function getStaticPaths() {
-  const creatures = await fetchApprovedCreatures();
+  // Batch both queries in parallel to avoid sequential round-trips at build time.
+  const [creatures, allHistory] = await Promise.all([
+    fetchApprovedCreatures(),
+    fetchAllCreatureHistory(),
+  ]);
   return creatures.map(c => ({
     params: { slug: c.slug },
-    props: { creature: c },
+    props: {
+      creature: c,
+      history: allHistory[c.id] ?? [],
+    },
   }));
 }
 
-interface Props { creature: Creature }
-const { creature: c } = Astro.props;
+interface Props {
+  creature: Creature;
+  history: CreatureStatusEntry[];
+}
+const { creature: c, history } = Astro.props;
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
 const img = imageUrl(supabaseUrl, c.art_path);
@@ -56,6 +73,25 @@ const climateLabels: Record<string, string> = {
 
 const movements = arr(c.kind_movement).map(m => m.charAt(0).toUpperCase() + m.slice(1));
 const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice(1));
+
+// Status display helpers
+const status = getStatusDisplay(c.status);
+
+// Show rejection note if set (already public — shown on the submission form after rejection)
+const rejectionNote = c.status === 'rejected' && val(c.moderation_note)
+  ? c.moderation_note
+  : null;
+
+// Format a timestamp as "Apr 20, 2026" for the timeline
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
+const trackerUrl = c.tracker_issue_number !== null
+  ? `https://github.com/FilipMarzuki/matlu/issues/${c.tracker_issue_number}`
+  : null;
 ---
 
 <Base
@@ -66,7 +102,35 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     <a href="/creatures">&larr; All creatures</a>
   </div>
 
-  <!-- STATUS_RIBBON: FIL-440 (C1) will insert a status ribbon here -->
+  <!-- Status ribbon (FIL-333 C1) -->
+  <div class={`status-ribbon status-${c.status}`}>
+    <span class="status-icon" aria-hidden="true">{status.icon}</span>
+    <div class="status-body">
+      <div class="status-label">{status.label}</div>
+      <div class="status-copy">
+        {status.copy}
+        {rejectionNote && <span class="rejection-note"> {rejectionNote}</span>}
+      </div>
+      {status.eta && <div class="status-eta">{status.eta}</div>}
+    </div>
+  </div>
+
+  <!-- Timeline (FIL-333 C1) — shown only when there are recorded transitions -->
+  {history.length > 0 && (
+    <ol class="status-timeline" aria-label="Creature journey">
+      {history.map((entry, i) => {
+        const d = getStatusDisplay(entry.to_status);
+        const isCurrent = i === history.length - 1;
+        return (
+          <li class={`timeline-entry${isCurrent ? ' current' : ''}`}>
+            <span class="tl-dot" aria-hidden="true"></span>
+            <span class="tl-date">{fmtDate(entry.changed_at)}</span>
+            <span class="tl-label">{isCurrent ? '(current) ' : ''}{d.label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  )}
 
   <article class="creature">
 
@@ -78,7 +142,25 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
           <p class="creator">Created by <strong>{c.art_credit ?? c.creator_name}</strong></p>
         )}
       </div>
-      <!-- TRACKER_SIDEBAR: FIL-441 (C2) will insert a GitHub tracker link here -->
+
+      <!-- Tracker sidebar (FIL-333 C2) — only shown when a GitHub tracker exists -->
+      {trackerUrl && (
+        <aside class="tracker-sidebar">
+          <div class="tracker-title">Follow this creature's progress</div>
+          <p class="tracker-desc">
+            This creature has a tracker on GitHub where every update is posted.
+          </p>
+          <a
+            href={trackerUrl}
+            class="tracker-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open tracker on GitHub &rarr;
+          </a>
+          <p class="tracker-hint">Bookmark or subscribe to get notified when it moves forward.</p>
+        </aside>
+      )}
     </header>
 
     <!-- Art -->
@@ -225,7 +307,87 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   .breadcrumb a { color: var(--text-dim); }
   .breadcrumb a:hover { color: var(--accent-hi); }
 
-  /* ── Header ───────────────────────────────────────────────────── */
+  /* ── Status ribbon ────────────────────────────────────────────────── */
+  .status-ribbon {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  /* Tint border by status group */
+  .status-ribbon.status-in-game   { border-color: rgba(14,138,22,0.5);   background: rgba(14,138,22,0.08); }
+  .status-ribbon.status-spriting  { border-color: rgba(217,63,11,0.4);   background: rgba(217,63,11,0.07); }
+  .status-ribbon.status-rejected  { border-color: rgba(182,2,5,0.4);     background: rgba(182,2,5,0.07);   }
+  .status-ribbon.status-approved  { border-color: rgba(45,164,78,0.4);   background: rgba(45,164,78,0.07); }
+
+  .status-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; margin-top: 0.1rem; }
+
+  .status-body { display: flex; flex-direction: column; gap: 0.2rem; }
+  .status-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+  }
+  .status-copy { font-size: 0.9rem; color: var(--text-dim); }
+  .rejection-note { font-style: italic; }
+  .status-eta  { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.1rem; }
+
+  /* ── Timeline ─────────────────────────────────────────────────────── */
+  .status-timeline {
+    list-style: none;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .timeline-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0;
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    position: relative;
+  }
+  /* Connecting line between dots */
+  .timeline-entry:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: calc(50% + 6px);
+    width: 2px;
+    height: calc(100% - 2px);
+    background: var(--border);
+  }
+  .tl-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .timeline-entry.current .tl-dot { background: var(--accent-hi); }
+  .timeline-entry.current { color: var(--text); }
+  .tl-date {
+    min-width: 100px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .tl-label { color: inherit; }
+
+  /* ── Header ───────────────────────────────────────────────────────── */
   .creature-header {
     display: flex;
     justify-content: space-between;
@@ -252,7 +414,49 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   .creator { font-size: 0.88rem; color: var(--text-dim); margin: 0; }
   .creator strong { color: var(--text); }
 
-  /* ── Art ──────────────────────────────────────────────────────── */
+  /* ── Tracker sidebar ──────────────────────────────────────────────── */
+  .tracker-sidebar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    max-width: 260px;
+    flex-shrink: 0;
+  }
+  .tracker-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+  .tracker-desc {
+    font-size: 0.83rem;
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+  }
+  .tracker-link {
+    display: block;
+    background: var(--accent);
+    color: #fff;
+    text-align: center;
+    padding: 0.5rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    margin-bottom: 0.6rem;
+  }
+  .tracker-link:hover { background: var(--accent-hi); color: #fff; text-decoration: none; }
+  .tracker-hint {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  /* ── Art ──────────────────────────────────────────────────────────── */
   .art-wrap {
     margin-bottom: 2rem;
     max-width: 560px;
@@ -265,7 +469,7 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   }
   .art-credit { font-size: 0.8rem; color: var(--text-dim); margin: 0.4rem 0 0; }
 
-  /* ── Detail sections ──────────────────────────────────────────── */
+  /* ── Detail sections ──────────────────────────────────────────────── */
   .detail-section {
     margin-bottom: 1.75rem;
     padding-bottom: 1.75rem;
@@ -303,7 +507,7 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
     white-space: pre-wrap;
   }
 
-  /* ── Back link ────────────────────────────────────────────────── */
+  /* ── Back link ────────────────────────────────────────────────────── */
   .back-link { margin-top: 2.5rem; font-size: 0.88rem; }
   .back-link a { color: var(--text-dim); }
   .back-link a:hover { color: var(--accent-hi); }
@@ -311,5 +515,7 @@ const biomes = arr(c.habitat_biome).map(b => b.charAt(0).toUpperCase() + b.slice
   @media (max-width: 520px) {
     dl { grid-template-columns: 1fr; }
     dt { font-size: 0.78rem; color: var(--text-dim); margin-bottom: -0.2rem; }
+    .tracker-sidebar { max-width: 100%; }
+    .tl-date { min-width: 80px; font-size: 0.8rem; }
   }
 </style>

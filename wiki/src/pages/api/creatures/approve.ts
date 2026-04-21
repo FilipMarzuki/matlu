@@ -1,5 +1,5 @@
 /**
- * POST /api/creatures/approve — FIL-434 (Creatures A4).
+ * POST /api/creatures/approve — FIL-434 (Creatures A4), FIL-333 (tracker).
  *
  * Body: { id: string }
  * Auth: admin_session cookie (validated server-side)
@@ -8,12 +8,14 @@
  * Actions:
  *   1. Fetch the creature row (service role → bypasses RLS)
  *   2. Move image from pending/<uuid>.<ext> to approved/<slug>.<ext> in Storage
- *   3. Update creature_submissions: approved=true, art_path=approved/…
+ *   3. Update creature_submissions: approved=true, art_path=approved/…, status=approved
+ *   4. (FIL-333) Create GitHub tracker issue; store tracker_issue_number on the row
  */
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { isAuthorized } from '../../../lib/admin-session';
+import { createTrackerIssue } from '../../../lib/github-tracker';
 
 export const POST: APIRoute = async ({ request }) => {
   // ── Auth ────────────────────────────────────────────────────────────────
@@ -126,6 +128,35 @@ export const POST: APIRoute = async ({ request }) => {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  // ── Create GitHub tracker issue (FIL-333) ───────────────────────────────
+  // Best-effort: if GITHUB_TOKEN is absent or GitHub is unreachable, we still
+  // return success.  The tracker can be created manually later.
+  const githubToken = import.meta.env.GITHUB_TOKEN ?? '';
+  if (githubToken) {
+    const issueNumber = await createTrackerIssue(githubToken, {
+      creature_name:   creature.creature_name,
+      creator_name:    creature.creator_name ?? null,
+      credits_opt_in:  creature.credits_opt_in ?? false,
+      world_name:      creature.world_name ?? null,
+      kind_size:       creature.kind_size ?? null,
+      lore_description:creature.lore_description ?? null,
+      slug:            creature.slug ?? null,
+      id:              creature.id,
+    });
+
+    if (issueNumber !== null) {
+      // Store the issue number on the row so the wiki can link to it
+      await fetch(
+        `${supabaseUrl}/rest/v1/creature_submissions?id=eq.${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          headers: { ...headers, Prefer: 'return=minimal' },
+          body: JSON.stringify({ tracker_issue_number: issueNumber }),
+        }
+      );
+    }
   }
 
   return new Response(JSON.stringify({ ok: true }), {
