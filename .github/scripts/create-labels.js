@@ -32,6 +32,14 @@ const LABELS = [
   // State — applied manually or by agents to show active work
   { name: 'in-progress', color: '74d7c4', description: 'Currently being implemented' },
 
+  // Size — T-shirt sizing (XS=1, S=2, M=3, L=5, XL=8 story points).
+  // Every issue should carry exactly one size:* label; the triage agent sets it.
+  { name: 'size:xs', color: 'c2e0c6', description: 'Trivial — <1h focused work (1 point)' },
+  { name: 'size:s',  color: '8ad18a', description: 'Small — half-day focused work (2 points)' },
+  { name: 'size:m',  color: 'fbca04', description: 'Medium — one day focused work (3 points)' },
+  { name: 'size:l',  color: 'd93f0b', description: 'Large — multi-day feature (5 points)' },
+  { name: 'size:xl', color: 'b60205', description: 'Extra-large — consider splitting (8 points)' },
+
   // Category — used to classify issues by game area
   { name: 'systems',        color: 'f9d0c4', description: '' },
   { name: 'art',            color: 'f9d0c4', description: '' },

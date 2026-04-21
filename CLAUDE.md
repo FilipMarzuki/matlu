@@ -138,14 +138,17 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 | Readiness | `ready`, `needs-refinement`, `blocked`, `too-large` |
 | Outcome | `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` |
 | State | `in-progress` |
+| Size | `size:xs`, `size:s`, `size:m`, `size:l`, `size:xl` (XS=1, S=2, M=3, L=5, XL=8 story points) |
 | Category | `systems`, `art`, `lore`, `infrastructure`, `world`, `hero`, `tech`, `ui-hud`, `ui-menus`, `audio`, `weapons`, `enemies`, `waves`, `upgrades`, `parts`, `mobile` |
+
+**Every issue must carry exactly one `size:*` label.** When creating an issue (manual or via agent), always pick a T-shirt size based on codebase analysis. Missing size = triage agent will add one on the next pass.
 
 **Workflow:**
 
 - Pick the highest-priority open issue labelled `ready` (or without a blocking label)
 - Apply the `in-progress` label when you start
 - After implementing: open a PR with `Closes #<issue-number>` in the body — GitHub closes the issue automatically on merge
-- Run `.github/scripts/create-labels.js` to create all required labels idempotently
+- Run `.github/scripts/create-labels.js` to create all required labels idempotently (or trigger the `Create Labels` workflow from the Actions tab)
 
 Label conventions (Type, Domain, Effort labels) are documented in **[`LABELS.md`](LABELS.md)**.
 

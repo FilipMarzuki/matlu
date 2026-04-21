@@ -1,0 +1,24 @@
+name: Create Labels
+
+# One-shot job: creates all labels defined in .github/scripts/create-labels.js.
+# Idempotent — safe to re-run any time via the Actions tab.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Create labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/create-labels.js
