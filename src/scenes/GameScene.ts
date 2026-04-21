@@ -4473,8 +4473,10 @@ export class GameScene extends Phaser.Scene {
     this.navigationBarriers = this.physics.add.staticGroup();
 
     // Thin helper — adds one invisible static collision rectangle to the group.
+    // x, y are the world-space top-left corner; the center is projected to iso screen space.
     const addBlock = (x: number, y: number, w: number, h: number): void => {
-      const rect = this.add.rectangle(x + w / 2, y + h / 2, w, h, 0x000000, 0);
+      const { x: isoX, y: isoY } = worldToIso(x + w / 2, y + h / 2);
+      const rect = this.add.rectangle(isoX, isoY, w, h, 0x000000, 0);
       this.physics.add.existing(rect, true);
       this.navigationBarriers.add(rect);
     };
@@ -4542,14 +4544,14 @@ export class GameScene extends Phaser.Scene {
 
     // ── Forest Belt (y 1240–1340) — gaps at x 1930–2020 and x 2380–2470 ─────
     // Left gap aligns with animal-trail-5 exit (x:1950), right gap with forest-path-1 entry.
-    { const { x: _bx, y: _by } = worldToIso(0,    1240); addBlock(_bx, _by, 1930, 100); }
-    { const { x: _bx, y: _by } = worldToIso(2020, 1240); addBlock(_bx, _by, 360,  100); }
-    { const { x: _bx, y: _by } = worldToIso(2470, 1240); addBlock(_bx, _by, 2030, 100); }
+    addBlock(0,    1240, 1930, 100);
+    addBlock(2020, 1240, 360,  100);
+    addBlock(2470, 1240, 2030, 100);
 
     // ── Highland Rim (y 830–920) — gap at x 2830–2930 ────────────────────────
     // Gap aligns with forest-path-2 / paved-plateau-1 junction.
-    { const { x: _bx, y: _by } = worldToIso(0,    830); addBlock(_bx, _by, 2830, 90); }
-    { const { x: _bx, y: _by } = worldToIso(2930, 830); addBlock(_bx, _by, 1570, 90); }
+    addBlock(0,    830, 2830, 90);
+    addBlock(2930, 830, 1570, 90);
 
     this.navigationBarriers.refresh();
   }
