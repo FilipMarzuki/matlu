@@ -141,3 +141,68 @@ export function isoInputAngleToWorld(screenAngle: number): number {
   // so to convert screen input → world direction we rotate 45° CCW.
   return screenAngle - Math.PI / 4;
 }
+
+// ── CombatArenaScene coordinate system ───────────────────────────────────────
+//
+// The arena uses a smaller grid (60×60 cells, 16 px per cell) than the main
+// world. The iso tile sprites are the same size — one arena cell maps to one
+// iso tile diamond on screen. These constants and transforms parallel the world
+// ones above but use ARENA_CELL as the tile size.
+
+/** Size of one arena grid cell in world pixels. */
+export const ARENA_CELL = 16;
+/** Number of arena columns (east–west axis). */
+export const ARENA_COLS = 60;
+/** Number of arena rows (north–south axis). */
+export const ARENA_ROWS = 60;
+
+/**
+ * X offset so the NW edge of the arena grid (tx=0, ty=ARENA_ROWS) lands at
+ * iso-x = 0.
+ *
+ * Value: ARENA_ROWS × (ISO_TILE_W / 2) = 60 × 16 = 960.
+ */
+export const ARENA_ISO_ORIGIN_X = ARENA_ROWS * (ISO_TILE_W / 2); // 960
+
+/** Total isometric width of the arena bounding box in px. */
+export const ARENA_ISO_W = (ARENA_COLS + ARENA_ROWS) * (ISO_TILE_W / 2); // 1920
+
+/**
+ * Total isometric height of the arena bounding box in px.
+ * Includes the front-face overhang of the southernmost tile row (ISO_TILE_H).
+ */
+export const ARENA_ISO_H = (ARENA_COLS + ARENA_ROWS) * (ISO_TILE_H / 2) + ISO_TILE_H; // 976
+
+/**
+ * Convert an arena world-space pixel position to isometric screen coordinates.
+ *
+ * One arena cell (ARENA_CELL = 16 px world) maps to one iso tile diamond.
+ * The returned (x, y) is the north apex of the tile — use setOrigin(0.5, 0)
+ * when placing tile sprites.
+ *
+ * @param wx  Arena world x in pixels (0..ARENA_COLS * ARENA_CELL)
+ * @param wy  Arena world y in pixels (0..ARENA_ROWS * ARENA_CELL)
+ */
+export function worldToArenaIso(wx: number, wy: number): { x: number; y: number } {
+  const tx = wx / ARENA_CELL;
+  const ty = wy / ARENA_CELL;
+  return {
+    x: ARENA_ISO_ORIGIN_X + (tx - ty) * (ISO_TILE_W / 2),
+    y:                       (tx + ty) * (ISO_TILE_H / 2),
+  };
+}
+
+/**
+ * Painter-sort depth key for an entity at arena world position (wx, wy).
+ *
+ * Higher value = rendered later = appears closer to the camera (in front).
+ * Mirrors {@link isoDepth} but uses ARENA_CELL as the tile unit.
+ *
+ * Use: `sprite.setDepth(arenaIsoDepth(body.x, body.y))`
+ *
+ * @param wx  Arena world x in pixels
+ * @param wy  Arena world y in pixels
+ */
+export function arenaIsoDepth(wx: number, wy: number): number {
+  return (wx + wy) / ARENA_CELL;
+}
