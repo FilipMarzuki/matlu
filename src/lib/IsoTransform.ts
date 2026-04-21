@@ -141,3 +141,48 @@ export function isoInputAngleToWorld(screenAngle: number): number {
   // so to convert screen input → world direction we rotate 45° CCW.
   return screenAngle - Math.PI / 4;
 }
+
+// ── Arena coordinate system ───────────────────────────────────────────────────
+// The combat arena uses a smaller tile size (16 px) and a fixed 60×60 grid,
+// different from the overworld (WORLD_TILE_SIZE=32, 141×94 grid). These
+// constants and functions mirror the overworld equivalents for the arena.
+
+/**
+ * Arena tile size in world-px. Matches ARENA_BSP_CONFIG.cellSize = 16.
+ * Mirrored here so IsoTransform stays a self-contained pure-math module.
+ */
+export const ARENA_CELL_SIZE = 16;
+
+/** Arena grid dimensions — mirror of ARENA_BSP_CONFIG.cols / .rows = 60. */
+export const ARENA_COLS = 60;
+export const ARENA_ROWS = 60;
+
+/**
+ * X offset for the arena iso origin so the NW corner of the grid sits at x = 0.
+ * ARENA_ROWS × (ISO_TILE_W / 2) = 60 × 16 = 960.
+ */
+export const ARENA_ISO_ORIGIN_X = ARENA_ROWS * (ISO_TILE_W / 2); // 960
+
+/**
+ * Convert an arena world-space pixel position to isometric screen coordinates.
+ * Returns the north apex of the tile diamond (same anchor convention as worldToIso).
+ *
+ * @param wx  Arena world x in pixels (0..ARENA_COLS × ARENA_CELL_SIZE)
+ * @param wy  Arena world y in pixels (0..ARENA_ROWS × ARENA_CELL_SIZE)
+ */
+export function worldToArenaIso(wx: number, wy: number): { x: number; y: number } {
+  const tx = wx / ARENA_CELL_SIZE;
+  const ty = wy / ARENA_CELL_SIZE;
+  return {
+    x: ARENA_ISO_ORIGIN_X + (tx - ty) * (ISO_TILE_W / 2),
+    y: (tx + ty) * (ISO_TILE_H / 2),
+  };
+}
+
+/**
+ * Painter-sort depth key for an object at arena world position (wx, wy).
+ * Mirrors isoDepth but scaled to ARENA_CELL_SIZE instead of WORLD_TILE_SIZE.
+ */
+export function arenaIsoDepth(wx: number, wy: number): number {
+  return (wx + wy) / ARENA_CELL_SIZE;
+}
