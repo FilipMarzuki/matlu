@@ -9,22 +9,19 @@
  * Carbine and a full deployable kit replace it. The exo-frame makes him slower
  * but significantly harder to put down.
  *
- * ## What's implemented here (Child A — scaffolding)
+ * ## What's implemented here (Child C — deployable kit)
  *
- * - Class skeleton extending EarthHero with Tier-3 stats
- * - `useSignature()` stub — logs and no-ops until Child C wires the deployable system
- * - Behaviour tree: mirrors Tinkerer's tree (escape → ranged → melee → chase)
- *   since the Carbine and deployable bindings land in Children C/D
- * - Placeholder sprite key (`combat-engineer`) — missing-animation warnings are
- *   acceptable at this stage
- * - `designNotes` for the sprite-credit-burn agent
+ * - All 4 deployable types: SentryTurret (Q), ScoutDrone (E), ProximityMine (R),
+ *   BarrierShield (F)
+ * - Per-kind cooldown timers and active-cap enforcement
+ * - DeployableManager integration (ticked in updateBehaviour)
+ * - useSignature() — Deployable Overcharge: resets all deploy cooldowns,
+ *   overclocks the Sentry Turret for 4 s (scanInterval halved)
  *
  * ## What is NOT here yet
  *
  * - M12 Carbine burst-fire mechanic (Child D)
- * - Deployable system (Children B/C)
- * - Deployable HUD (Child D)
- * - Q/E/R/F keybindings (Child C)
+ * - Deployable HUD slot panel (Child D)
  * - Real sprite and animations (PixelLab generation via sprite-credit-burn)
  *
  * ## Stats rationale
@@ -44,6 +41,12 @@ import {
   BtCooldown,
 } from '../ai/BehaviorTree';
 import { EarthHero } from './EarthHero';
+import { DeployableManager } from '../systems/DeployableManager';
+import { SentryTurret } from './deployables/SentryTurret';
+import { ScoutDrone } from './deployables/ScoutDrone';
+import { ProximityMine } from './deployables/ProximityMine';
+import { BarrierShield } from './deployables/BarrierShield';
+import { TURRET, DRONE, MINE, SHIELD } from '../data/deployableConfigs';
 
 // ── Tier stats ────────────────────────────────────────────────────────────────
 
@@ -74,8 +77,7 @@ const SWARM_R    = 120;
 const SWARM_CAP  = 4;
 
 /**
- * CombatEngineer — Loke at Tier 3. EarthHero subclass with deployable-oriented
- * kit. Most abilities are stubs pending Children B/C/D.
+ * CombatEngineer — Loke at Tier 3. EarthHero subclass with a full deployable kit.
  *
  * Sprite: 'combat-engineer' (not yet generated — missing-anim warnings expected).
  *
@@ -93,10 +95,31 @@ export class CombatEngineer extends EarthHero {
 
   /**
    * Signature ability cooldown.
-   * Longer than Tinkerer (8 s) — the Engineer's signature will be a powerful
-   * deployable-overcharge rather than a simple dash (Child C).
+   * Longer than Tinkerer (8 s) — Deployable Overcharge resets all deploy cooldowns
+   * and overclocks the Sentry Turret for 4 s.
    */
   readonly signatureCooldownMs = 12_000;
+
+  // ── Deployable system ─────────────────────────────────────────────────────
+
+  private readonly deployMgr = new DeployableManager();
+
+  /** Per-kind cooldown timers (count down to 0, then deploy is available). */
+  private turretCd  = 0;
+  private droneCd   = 0;
+  private mineCd    = 0;
+  private shieldCd  = 0;
+
+  /** Per-kind active-instance counters (enforces cap). */
+  private turretCount = 0;
+  private droneCount  = 0;
+  private mineCount   = 0;
+  private shieldCount = 0;
+
+  /** Whether the signature Overcharge is active. */
+  private overchargeActive  = false;
+  private overchargeTimer   = 0;
+  private readonly OVERCHARGE_DURATION_MS = 4_000;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -126,18 +149,114 @@ export class CombatEngineer extends EarthHero {
     this.damageReduction = DMG_REDUCE;
   }
 
-  // ── Signature ability (stub) ──────────────────────────────────────────────────
+  // ── Deploy actions (called by CombatArenaScene key handlers) ─────────────────
+
+  /** Returns true if a turret can be placed right now. */
+  get turretReady(): boolean {
+    return this.turretCd <= 0 && this.turretCount < TURRET.cap;
+  }
+  get droneReady(): boolean {
+    return this.droneCd <= 0 && this.droneCount < DRONE.cap;
+  }
+  get mineReady(): boolean {
+    return this.mineCd <= 0 && this.mineCount < MINE.cap;
+  }
+  get shieldReady(): boolean {
+    return this.shieldCd <= 0 && this.shieldCount < SHIELD.cap;
+  }
+
+  /** Remaining cooldown in ms for each deploy slot (0 = ready). */
+  get turretCooldownMs(): number  { return this.turretCd; }
+  get droneCooldownMs():  number  { return this.droneCd; }
+  get mineCooldownMs():   number  { return this.mineCd; }
+  get shieldCooldownMs(): number  { return this.shieldCd; }
+
+  /** Place a Sentry Turret at the engineer's feet (if ready). */
+  deployTurret(): void {
+    if (!this.turretReady) return;
+    const t = new SentryTurret(this.scene, this.x, this.y, this, () => this.opponents);
+    this.deployMgr.add(t);
+    this.turretCount++;
+    this.turretCd = TURRET.cooldownMs;
+    // Decrement counter when the turret is removed.
+    t.once('destroy', () => { this.turretCount = Math.max(0, this.turretCount - 1); });
+  }
+
+  /** Spawn a Scout Drone that orbits the engineer. */
+  deployDrone(): void {
+    if (!this.droneReady) return;
+    const d = new ScoutDrone(this.scene, this.x, this.y, this, () => this.opponents);
+    this.deployMgr.add(d);
+    this.droneCount++;
+    d.once('destroy', () => { this.droneCount = Math.max(0, this.droneCount - 1); });
+  }
+
+  /** Plant a Proximity Mine at the engineer's feet. */
+  deployMine(): void {
+    if (!this.mineReady) return;
+    const m = new ProximityMine(this.scene, this.x, this.y, this, () => this.opponents);
+    this.deployMgr.add(m);
+    this.mineCount++;
+    m.once('destroy', () => { this.mineCount = Math.max(0, this.mineCount - 1); });
+  }
 
   /**
-   * Deployable Overcharge — triggers a boost mode that reduces all deploy
-   * cooldowns to 0 and overclocks the Sentry Turret for 4 s.
-   *
-   * Stub: logs and returns until Child C wires the deployable system.
-   * Player-input code may call this freely — the stub is a safe no-op.
+   * Erect a Barrier Shield oriented perpendicular to the engineer's current
+   * movement direction. Falls back to facing right when standing still.
+   */
+  deployShield(facingAngle = 0): void {
+    if (!this.shieldReady) return;
+    const s = new BarrierShield(this.scene, this.x, this.y, this, facingAngle);
+    this.deployMgr.add(s);
+    this.shieldCount++;
+    s.once('destroy', () => { this.shieldCount = Math.max(0, this.shieldCount - 1); });
+  }
+
+  // ── Signature ability: Deployable Overcharge ──────────────────────────────────
+
+  /**
+   * Deployable Overcharge — resets all four deploy cooldowns to 0 and overclocks
+   * the Sentry Turret's scan rate for 4 s. Let the hero be aggressive about
+   * immediately re-placing kit after popping the overcharge.
    */
   useSignature(): void {
-    // Stub — Deployable Overcharge not yet implemented (wired in Child C).
-    console.log('[CombatEngineer] useSignature called — stub, no-op until Child C');
+    this.turretCd = 0;
+    this.droneCd  = 0;
+    this.mineCd   = 0;
+    this.shieldCd = 0;
+
+    this.overchargeActive = true;
+    this.overchargeTimer  = this.OVERCHARGE_DURATION_MS;
+    // Visual cue: brief green flash on the camera (Container entities don't support setTint).
+    this.scene.cameras.main.flash(200, 0, 180, 0, true);
+  }
+
+  // ── Per-frame tick ────────────────────────────────────────────────────────────
+
+  override updateBehaviour(delta: number): void {
+    super.updateBehaviour(delta);  // runs the BT
+
+    // Tick all active deployables.
+    this.deployMgr.update(delta);
+
+    // Count-down per-kind cooldown timers.
+    if (this.turretCd > 0) this.turretCd = Math.max(0, this.turretCd - delta);
+    if (this.droneCd  > 0) this.droneCd  = Math.max(0, this.droneCd  - delta);
+    if (this.mineCd   > 0) this.mineCd   = Math.max(0, this.mineCd   - delta);
+    if (this.shieldCd > 0) this.shieldCd = Math.max(0, this.shieldCd - delta);
+
+    // Overcharge timer.
+    if (this.overchargeActive) {
+      this.overchargeTimer -= delta;
+      if (this.overchargeTimer <= 0) {
+        this.overchargeActive = false;
+      }
+    }
+  }
+
+  /** Clean up all active deployables when the engineer dies or the scene shuts down. */
+  destroyDeployables(): void {
+    this.deployMgr.destroyAll();
   }
 
   // ── Behaviour tree ────────────────────────────────────────────────────────────
@@ -146,8 +265,8 @@ export class CombatEngineer extends EarthHero {
    * AI behaviour tree for uncontrolled-hero mode.
    *
    * Mirrors the Tinkerer tree (escape dash → ranged → melee → gap-close → chase
-   * → wander) without the mine-deploy node (deployable system is Child B/C).
-   * Child D will extend this with Carbine burst-fire and deploy triggers.
+   * → wander). Child D will extend this with Carbine burst-fire and AI deploy
+   * triggers (e.g. auto-drop mine when swarmed).
    */
   protected buildTree(): BtNode {
     const swarmPressure = (cx: number, cy: number): number =>
