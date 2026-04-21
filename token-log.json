@@ -228,5 +228,44 @@
     "cacheReadTokens": 36957,
     "cacheWriteTokens": 59,
     "estimatedCostUsd": 0.0181
+  },
+  {
+    "sessionId": "c01a983a-d9a8-4b35-8b20-939db0f7c821",
+    "date": "2026-04-21",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 30,
+    "cacheReadTokens": 39418,
+    "cacheWriteTokens": 791,
+    "estimatedCostUsd": 0.0152
+  },
+  {
+    "sessionId": "6dd5b232-0a90-4a4f-8639-7650d83025af",
+    "date": "2026-04-21",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 160,
+    "cacheReadTokens": 148623,
+    "cacheWriteTokens": 348,
+    "estimatedCostUsd": 0.0483
+  },
+  {
+    "sessionId": "ae442780-4261-4835-88fd-9c16a5e37a73",
+    "date": "2026-04-21",
+    "branch": "main",
+    "issueId": null,
+    "model": "claude-sonnet-4-6",
+    "source": "claude-code",
+    "inputTokens": 1,
+    "outputTokens": 340,
+    "cacheReadTokens": 54016,
+    "cacheWriteTokens": 1071,
+    "estimatedCostUsd": 0.0253
   }
 ]
