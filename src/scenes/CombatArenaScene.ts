@@ -332,6 +332,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.createAnimsFromAseprite('tinkerer');
     this.createAnimsFromAseprite('mini-velcrid');
     this.createAnimsFromAseprite('npc-wanderer');
+    this.createAnimsFromAseprite('loke');
 
     // Torch flicker — 3-frame loop at 6 fps (~167 ms/frame) for a slow, warm
     // candle feel. Defined once here; each torch sprite calls play('torch_flicker')

@@ -5722,7 +5722,7 @@ export class GameScene extends Phaser.Scene {
           // FIL-466: dual-grid hash selects one of 4 same-material variants to
           // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
           // coarse2) are blended by a fine per-tile selector (fine). Hash formula
-          // matches BiomeInspectorScene exactly so both scenes look identical.
+          // matches WorldForgeScene exactly so both scenes look identical.
           const packName = CUSTOM_TILE_PACKS[biomeIdx];
           const px = Math.floor(tx / 6), py = Math.floor(ty / 6);
           const qx = Math.floor((tx + 3) / 6), qy = Math.floor((ty + 2) / 6);
