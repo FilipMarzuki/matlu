@@ -33,13 +33,15 @@ import { WorldForgeScene } from './scenes/WorldForgeScene';
 // so these URLs work as direct links or bookmarks.
 //   /arena  → CombatArenaScene      (combat testing)
 //   /world  → GameScene             (world/wilderview testing)
-//   /biome  → WorldForgeScene       (biome tile + cliff + decoration design tool)
-//   /       → MainMenuScene         (default — full game flow)
+//   /biome      → WorldForgeScene       (biome tile + cliff + decoration design tool)
+//   /worldforge → WorldForgeScene       (alias)
+//   /wf         → WorldForgeScene       (short alias)
+//   /           → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
   const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
-  if (path === '/biome') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
+  if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
   if (path === '/menu')  return all;
   // Default (/ and /arena): boot straight into arena/combat
   return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
