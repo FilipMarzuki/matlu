@@ -300,6 +300,49 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * Per-biome tint strengths applied to terrain tiles.
+ * Stronger values give each region a clearer color identity at gameplay zoom.
+ */
+const BIOME_TINT_STRENGTH: ReadonlyArray<number> = [
+  0.22, // Sea
+  0.34, // Rocky Shore
+  0.30, // Sandy Shore
+  0.34, // Marsh / Bog
+  0.28, // Dry Heath
+  0.30, // Coastal Heath
+  0.32, // Meadow
+  0.42, // Forest
+  0.46, // Spruce
+  0.24, // Cold Granite
+  0.20, // Bare Summit
+  0.16, // Snow Field
+];
+
+/** Linear RGB blend between two packed hex colors. */
+function blendHex(from: number, to: number, t: number): number {
+  const clampedT = Math.max(0, Math.min(1, t));
+  const fr = (from >> 16) & 0xff;
+  const fg = (from >> 8) & 0xff;
+  const fb = from & 0xff;
+  const tr = (to >> 16) & 0xff;
+  const tg = (to >> 8) & 0xff;
+  const tb = to & 0xff;
+  const r = Math.round(fr + (tr - fr) * clampedT);
+  const g = Math.round(fg + (tg - fg) * clampedT);
+  const b = Math.round(fb + (tb - fb) * clampedT);
+  return (r << 16) | (g << 8) | b;
+}
+
+/** Brighten/darken a packed hex color by multiplying each channel. */
+function scaleHex(color: number, amount: number): number {
+  const scale = Math.max(0, amount);
+  const r = Math.max(0, Math.min(255, Math.round(((color >> 16) & 0xff) * scale)));
+  const g = Math.max(0, Math.min(255, Math.round(((color >> 8) & 0xff) * scale)));
+  const b = Math.max(0, Math.min(255, Math.round((color & 0xff) * scale)));
+  return (r << 16) | (g << 8) | b;
+}
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -5663,8 +5706,10 @@ export class GameScene extends Phaser.Scene {
           }
         }
 
-        biomeGrid[ty * tilesX + tx]    = val;
-        biomeIdxGrid[ty * tilesX + tx] = tileBiomeIdx(val, temp, effectiveMoist);
+        const tileIdx = ty * tilesX + tx;
+        const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
+        biomeGrid[tileIdx] = val;
+        biomeIdxGrid[tileIdx] = biomeIdx;
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -5674,10 +5719,19 @@ export class GameScene extends Phaser.Scene {
         // worldToIso() result lands at the top-centre of the sprite (north apex).
         // Painter order: ty=0 (back) drawn first, ty=tilesY-1 (front) drawn last —
         // each row's front face is covered by the diamond of the next row forward.
-        const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
         const frame = (isRiverHere || isLakeHere) ? ISO_RIVER_FRAME : isoTileFrame(biomeIdx, detail);
+        // Blend each tile toward its biome color and add deterministic micro-variation
+        // so regions read as distinct from gameplay distance (CrossCode-like clarity).
+        const baseTint = blendHex(
+          0xffffff,
+          BIOME_OVERLAY_COLORS[biomeIdx] ?? 0xffffff,
+          BIOME_TINT_STRENGTH[biomeIdx] ?? 0.28,
+        );
+        const micro = (((tx * 73856093) ^ (ty * 19349663)) & 0xff) / 255;
+        const tone = Phaser.Math.Clamp(0.86 + detail * 0.20 + (micro - 0.5) * 0.26, 0.72, 1.18);
+        const tileTint = scaleHex(baseTint, tone);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
-        tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+        tileImg.setTexture('iso-tiles', frame).setTint(tileTint).setPosition(isoX, isoY);
         terrainRt.draw(tileImg);
 
       }
@@ -5693,7 +5747,7 @@ export class GameScene extends Phaser.Scene {
         if (dx * dx + dy * dy <= 7) {
           const clearFrame = 40 + ((Math.abs(dx) * 2 + Math.abs(dy)) % 4); // frames 40–43 (grass)
           const { x: clearX, y: clearY } = worldToIso((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE);
-          tileImg.setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
+          tileImg.setTexture('iso-tiles', clearFrame).setTint(0xffffff).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
         }
       }
