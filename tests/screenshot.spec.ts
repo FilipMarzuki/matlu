@@ -36,8 +36,11 @@ test.afterAll(() => {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-async function bootGame(page: import('@playwright/test').Page) {
-  await page.goto('/');
+async function bootGame(
+  page: import('@playwright/test').Page,
+  route = '/',
+) {
+  await page.goto(route);
   await page.waitForFunction(
     () => !!(window as unknown as Record<string, unknown>)['__game'],
     { timeout: BOOT_MS },
@@ -93,7 +96,7 @@ async function capture(
 // ── 1. Main menu ──────────────────────────────────────────────────────────────
 
 test('screenshot: main menu', async ({ page }) => {
-  await bootGame(page);
+  await bootGame(page, '/menu');
 
   await page.waitForFunction(
     () => {
@@ -179,7 +182,7 @@ test('screenshot: pause menu', async ({ page }) => {
 // ── 5. Combat arena ───────────────────────────────────────────────────────────
 
 test('screenshot: combat arena', async ({ page }) => {
-  await bootGame(page);
+  await bootGame(page, '/menu');
 
   // Wait for MainMenuScene to settle, then click the Arena button.
   // This mirrors the real user flow and ensures CombatArenaScene starts in
