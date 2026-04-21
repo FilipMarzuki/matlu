@@ -1529,7 +1529,10 @@ export class GameScene extends Phaser.Scene {
     this.updateCorruptedCrows(time);
     this.updateCorruptedWisps(time);
     this.updateRangedProjectiles(delta);
-    if (this.bossAlive && this.boss) this.boss.update(delta);
+    if (this.bossAlive && this.boss) {
+      this.boss.update(delta);
+      this.boss.setDepth(isoDepth(this.boss.x, this.boss.y));
+    }
     this.updateDustlings(delta);
     this.updateDryShades(delta);
     if (this.arenaHero) this.updateArenaHero(delta);
@@ -2130,7 +2133,7 @@ export class GameScene extends Phaser.Scene {
     const half = SWIPE_ARC / 2;
 
     const gfx = this.add.graphics();
-    gfx.setDepth(50);
+    gfx.setDepth(this.player.depth);
     gfx.fillStyle(0x88ddff, alpha);
     gfx.beginPath();
     gfx.moveTo(px, py);
@@ -2359,7 +2362,7 @@ export class GameScene extends Phaser.Scene {
 
     // Teal bolt — distinct colour from the blue swipe arc (0x88ddff).
     const arc = this.add.arc(px, py, RANGED_RADIUS, 0, 360, false, 0x44ddcc)
-      .setDepth(50)
+      .setDepth(this.player.depth)
       .setStrokeStyle(1, 0xaaffee);
 
     // Throwing skill extends max travel distance by 1 % per level — skilled
@@ -2640,7 +2643,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const delay = i * 45;
       const dot = this.add.circle(sx, sy, 3, 0xffffcc, 1);
-      dot.setDepth(60);
+      dot.setDepth(this.player.depth);
       const tObj = { t: 0 };
       const isLast = i === count - 1;
       this.tweens.add({
@@ -2852,9 +2855,8 @@ export class GameScene extends Phaser.Scene {
           // behind the player so a softer echo suits them visually.
           0.50 - i * 0.08,
         );
-        // Use the player's live Y as depth so the ghost renders just behind the player
-        // in the same raw-Y system used by chunk trees and ground animals.
-        ghost.setDepth(this.player.y - 1);
+        // Render ghost just behind the player using the player's current isoDepth.
+        ghost.setDepth(this.player.depth - 0.1);
         this.tweens.add({
           targets:  ghost,
           alpha:    0,
@@ -3061,13 +3063,13 @@ export class GameScene extends Phaser.Scene {
     this.portal = this.add.circle(PORTAL_X, PORTAL_Y, PORTAL_RADIUS, 0x6644ff, 0.35);
     this.portal.setStrokeStyle(3, 0xffffff, 0.6);
     this.portal.setAlpha(0);
-    this.portal.setDepth(25);
+    this.portal.setDepth(isoDepth(PORTAL_X, PORTAL_Y));
     this.physics.add.existing(this.portal, true);
     const pb = this.portal.body as Phaser.Physics.Arcade.StaticBody;
     pb.setCircle(PORTAL_RADIUS);
 
     this.portalGfx = this.add.graphics({ x: PORTAL_X, y: PORTAL_Y });
-    this.portalGfx.setDepth(24);
+    this.portalGfx.setDepth(isoDepth(PORTAL_X, PORTAL_Y) - 1);
 
     this.physics.add.overlap(this.player, this.portal, () => {
       if (!this.portalActive) return;
@@ -3153,7 +3155,7 @@ export class GameScene extends Phaser.Scene {
    */
   private createBoss(): void {
     this.boss = new CorruptedGuardian(this, BOSS_X, BOSS_Y);
-    this.boss.setDepth(BOSS_Y);   // raw-Y depth so it sorts with other objects
+    this.boss.setDepth(isoDepth(BOSS_X, BOSS_Y));
     // Provide a player position getter — boss uses this to aim charges.
     this.boss.setTarget(() => ({ x: this.player.x, y: this.player.y }));
 
@@ -3217,7 +3219,7 @@ export class GameScene extends Phaser.Scene {
         SWARM_X + Math.cos(angle) * radius,
         SWARM_Y + Math.sin(angle) * radius,
       );
-      d.setDepth(SWARM_Y);
+      d.setDepth(isoDepth(d.x, d.y));
       this.physics.add.existing(d);
       (d.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
       this.enemies.add(d);
@@ -3234,7 +3236,10 @@ export class GameScene extends Phaser.Scene {
   private updateDustlings(delta: number): void {
     // Spread to a snapshot so registry mutations during death don't skip entries.
     const live = [...Dustling.getLiveSwarm()];
-    for (const d of live) d.update(delta);
+    for (const d of live) {
+      d.update(delta);
+      if (d.isAlive) d.setDepth(isoDepth(d.x, d.y));
+    }
 
     const anyAlive = Dustling.getLiveSwarm().length > 0;
     if (this.dustlingSwarmAlive && !anyAlive) {
@@ -3275,7 +3280,7 @@ export class GameScene extends Phaser.Scene {
         SWARM_X + Math.cos(angle) * radius,
         SWARM_Y + Math.sin(angle) * radius,
       );
-      shade.setDepth(SWARM_Y);
+      shade.setDepth(isoDepth(shade.x, shade.y));
       this.physics.add.existing(shade);
       (shade.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
 
@@ -3302,7 +3307,10 @@ export class GameScene extends Phaser.Scene {
   /** Tick all live DryShades each frame. */
   private updateDryShades(delta: number): void {
     for (const shade of this.dryShades) {
-      if (shade.isAlive) shade.update(delta);
+      if (shade.isAlive) {
+        shade.update(delta);
+        shade.setDepth(isoDepth(shade.x, shade.y));
+      }
     }
   }
 
@@ -3405,7 +3413,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const pos of SPAWN_POSITIONS) {
       const golem = new CrackedGolem(this, pos.x, pos.y);
-      golem.setDepth(pos.y);
+      golem.setDepth(isoDepth(pos.x, pos.y));
       golem.setPlayerTarget(() => {
         // Expose the player as a Damageable for death-burst projectile targeting.
         // The player satisfies the Damageable interface via LivingEntity.
@@ -3447,7 +3455,10 @@ export class GameScene extends Phaser.Scene {
    */
   private updateGolems(delta: number): void {
     for (const golem of this.golems) {
-      if (golem.isAlive) golem.update(delta);
+      if (golem.isAlive) {
+        golem.update(delta);
+        golem.setDepth(isoDepth(golem.x, golem.y));
+      }
     }
 
     if (this.golemProjectiles.length === 0) return;
@@ -3555,7 +3566,7 @@ export class GameScene extends Phaser.Scene {
       // Boss is near the portal — always Zone C speeds.
       r.setData('chaseSpeed', Math.round(CHASE_SPEED * 1.5));
       r.setData('fleeSpeed',  Math.round(FLEE_SPEED  * 1.5));
-      r.setDepth(r.y);
+      r.setDepth(isoDepth(r.x, r.y));
       this.rabbits.add(r);
     }
   }
@@ -4384,13 +4395,12 @@ export class GameScene extends Phaser.Scene {
     const { x: isoSpawnX, y: isoSpawnY } = worldToIso(SPAWN_X, SPAWN_Y);
     this.player = this.add.container(isoSpawnX, isoSpawnY, [this.playerSprite, this.playerBody, this.playerIndicator]);
     this.player.setSize(BODY_RADIUS * 2, BODY_RADIUS * 2);
-    // Depth = iso-Y (proportional to tx+ty) — valid painter sort for iso space.
-    // Updated every frame in update() to track position.
-    this.player.setDepth(isoSpawnY);
+    // Depth = isoDepth at spawn — updated every frame in update() to track position.
+    this.player.setDepth(isoDepth(SPAWN_X, SPAWN_Y));
 
     // Drop shadow — oval offset SE from the player's feet.
     this.playerShadow = this.add.ellipse(isoSpawnX + 6, isoSpawnY + 8, 22, 10, 0x000000, 0.22);
-    this.playerShadow.setDepth(isoSpawnY - 1);
+    this.playerShadow.setDepth(isoDepth(SPAWN_X, SPAWN_Y) - 0.1);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -4579,11 +4589,9 @@ export class GameScene extends Phaser.Scene {
           const ox  = (rng() - 0.5) * 18;
           const oy  = (rng() - 0.5) * 18;
           const key = treeTex[Math.floor(rng() * treeTex.length)];
-          // Raw Y depth so trees Y-sort with the player — when the player passes
-          // through a gap and stands north of the belt, trees (depth ~1245–1335)
-          // correctly render in front of the player (depth = player.y < 1240).
+          const { x: _treeWx, y: _treeWy } = isoToWorld(tx + ox, ty + oy);
           this.decorImages.push(
-            this.add.image(tx + ox, ty + oy, key).setScale(0.5).setDepth(ty + oy),
+            this.add.image(tx + ox, ty + oy, key).setScale(0.5).setDepth(isoDepth(_treeWx, _treeWy)),
           );
         }
       }
@@ -4599,11 +4607,11 @@ export class GameScene extends Phaser.Scene {
         for (let ty = sy + 12; ty < sy + sh - 12; ty += 28) {
           const ox = (rng() - 0.5) * 18;
           const oy = (rng() - 0.5) * 18;
-          // Raw Y depth — same rationale as forest-belt trees above.
+          const { x: _rockWx, y: _rockWy } = isoToWorld(tx + ox, ty + oy);
           this.decorImages.push(
             this.add.image(tx + ox, ty + oy, 'rock-grass')
               .setScale(0.5 + rng() * 0.5)
-              .setDepth(ty + oy),
+              .setDepth(isoDepth(_rockWx, _rockWy)),
           );
         }
       }
