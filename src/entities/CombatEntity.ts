@@ -14,6 +14,7 @@ import {
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
 import { hasLineOfSight, sampleIllumination, SIGHT_CHECK_INTERVAL_MS } from '../combat/SightLineSystem';
 import { calcSpread, applySpread, isPartialCover } from '../combat/Accuracy';
+import { worldToArenaIso, arenaIsoDepth } from '../lib/IsoTransform';
 
 export { SIGHT_CHECK_INTERVAL_MS };
 
@@ -308,6 +309,17 @@ export abstract class CombatEntity extends Enemy {
   controlsInverted = false;
   private controlsInvertedTimer = 0;
 
+  // ── Iso mode (CombatArena) ────────────────────────────────────────────────
+  /** Arena world-space x in px. Physics body lives here; sprite display is separate. */
+  protected _wx = 0;
+  /** Arena world-space y in px. Physics body lives here; sprite display is separate. */
+  protected _wy = 0;
+  /**
+   * When true, _isoSync() projects (_wx, _wy) to iso screen coords each tick.
+   * Set by CombatArenaScene after spawning. False keeps non-arena usage unchanged.
+   */
+  isoMode = false;
+
   /**
    * Obstacle AABBs used for line-of-sight checks. Populated by the arena
    * scene via setWallRects() when physics are added to this entity.
@@ -538,6 +550,39 @@ export abstract class CombatEntity extends Enemy {
    */
   setWallRects(rects: readonly Phaser.Geom.Rectangle[]): void {
     this.wallRects = rects;
+  }
+
+  // ── Iso mode API (CombatArena) ────────────────────────────────────────────
+
+  /**
+   * Set the entity's arena world position and move the physics body to (wx, wy).
+   *
+   * Only the physics body origin is updated — the sprite's display position is
+   * intentionally left unchanged. _isoSync() handles the visual side each tick.
+   * Velocity and AI steering continue through Arcade physics as normal.
+   *
+   * @param wx  Arena world x in pixels (0..960)
+   * @param wy  Arena world y in pixels (0..960)
+   */
+  setWorldPos(wx: number, wy: number): void {
+    this._wx = wx;
+    this._wy = wy;
+    (this.body as Phaser.Physics.Arcade.Body | undefined)?.reset(wx, wy);
+  }
+
+  /**
+   * Project the arena world position (_wx, _wy) to isometric screen coordinates
+   * and move the sprite's display position and depth accordingly.
+   *
+   * Called at the end of every tick so the visual follows the physics body without
+   * ever being placed at physics coordinates. No-op when isoMode is false, keeping
+   * non-arena usage (top-down preview, unit tests) completely unchanged.
+   */
+  _isoSync(): void {
+    if (!this.isoMode) return;
+    const iso = worldToArenaIso(this._wx, this._wy);
+    this.setPosition(iso.x, iso.y);
+    this.setDepth(arenaIsoDepth(this._wx, this._wy));
   }
 
   /**
@@ -906,6 +951,7 @@ export abstract class CombatEntity extends Enemy {
 
     this.refreshHpBar();
     this.updateSpriteAnimation(delta);
+    if (this.isoMode) this._isoSync();
   }
 
   // ── Player-control API ────────────────────────────────────────────────────
