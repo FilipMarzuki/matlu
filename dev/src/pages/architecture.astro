@@ -1,41 +1,181 @@
 ---
 /**
- * Renders ARCHITECTURE.md from the repo root.
- * Kept fresh automatically by the weekly architecture review agent.
+ * Infrastructure and tooling overview for Core Warden / Matlu multiworld.
+ * Diagram rendered client-side by Mermaid; prose sections explain each layer.
+ * The diagram definition lives in the <script> block (not inline HTML) so that
+ * Astro's template parser doesn't choke on Mermaid's arrow syntax (e.g. <-->).
  */
 import Base from '../layouts/Base.astro';
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-import { marked } from 'marked';
-
-// Resolve relative to this file (dev/src/pages/) — 3 levels up = repo root
-const __here = dirname(fileURLToPath(import.meta.url));
-const mdPath = join(__here, '../../../ARCHITECTURE.md');
-
-let html = '';
-let readError = '';
-try {
-  const raw = readFileSync(mdPath, 'utf-8');
-  html = String(await marked(raw));
-} catch (e) {
-  readError = `Could not read ARCHITECTURE.md: ${e instanceof Error ? e.message : String(e)}`;
-}
 ---
 
-<Base title="Architecture" description="Core Warden system architecture — auto-updated weekly by the architecture review agent.">
+<Base
+  title="Architecture"
+  description="Core Warden infrastructure and tooling overview — what the project is built on and how the pieces connect."
+>
   <h1>Architecture</h1>
   <p class="meta">
-    Source: <code>ARCHITECTURE.md</code> at repo root &mdash;
-    auto-updated by the weekly architecture review agent.
+    Infrastructure and tooling overview — what Core Warden is built on and how the pieces connect.
   </p>
 
-  {readError ? (
-    <p class="error">{readError}</p>
-  ) : (
-    <div class="md-body" set:html={html} />
-  )}
+  <!-- ── Diagram ─────────────────────────────────────────────────────────── -->
+  <section class="diagram-section">
+    <h2>System diagram</h2>
+    <div id="arch-diagram" class="mermaid-wrap">
+      <p class="loading">Loading diagram…</p>
+    </div>
+  </section>
+
+  <!-- ── Prose sections ─────────────────────────────────────────────────── -->
+  <section class="prose-sections">
+
+    <div class="layer">
+      <h2>Frontend</h2>
+      <p>
+        Three separate apps, each deployed to its own Vercel project.
+        <strong>Core Warden</strong> (the game) is a Phaser 3 + TypeScript single-page app on
+        <a href="https://corewarden.app" target="_blank" rel="noopener">corewarden.app</a> —
+        a top-down action RPG playable in the browser, targeting Android tablets and desktop
+        keyboards.
+        <strong>Matlu Codex</strong> is a static Astro 6 site for players and contributors:
+        lore pages fetched from Notion at build time, a creature gallery, and a community
+        submission form with Supabase Storage for art uploads.
+        <strong>Agentic Experiments</strong> (this site) is an Astro 6 dev log tracking agent
+        performance, weekly metrics, and architecture decisions; audience is the development
+        team (primary) and curious external developers (secondary).
+      </p>
+    </div>
+
+    <div class="layer">
+      <h2>Data</h2>
+      <p>
+        Supabase hosts all persistent data.
+        The <code>matlu_runs</code> table stores leaderboard entries — each run's score,
+        timestamp, and player identifier — written by the game client and read back for the
+        leaderboard screen.
+        <code>stats_weekly</code> and <code>cognitive_load</code> store aggregated delivery
+        metrics written by the weekly <code>collect-stats.js</code> script and surfaced on
+        this site's metrics dashboard.
+        Supabase Storage holds creature-art uploads submitted through the Codex contribution
+        form (binary blobs; Postgres stores only the URL).
+      </p>
+    </div>
+
+    <div class="layer">
+      <h2>Agents</h2>
+      <p>
+        All agent workflows run as GitHub Actions cron jobs.
+        The <strong>Triage Agent</strong> (22:00 UTC nightly) sweeps unlabelled Linear backlog
+        issues, assesses each against the codebase, and applies readiness labels
+        (<code>ready</code>, <code>needs-refinement</code>, <code>blocked</code>,
+        <code>too-large</code>) so the implementation agent always has triaged work to pick up.
+        The <strong>Nightly Agent</strong> (02:00 UTC) selects <code>ready</code> issues, spawns
+        an isolated Claude Code session per issue (max 3 in parallel), and opens a pull request
+        for each completed one.
+        The <strong>Error Monitor</strong> checks Better Stack daily for unresolved errors and
+        files Linear bugs automatically.
+        Other weekly agents handle lore auto-fill, sprite generation, release notes,
+        architecture review, and the PR grooming / backlog hygiene passes.
+      </p>
+    </div>
+
+    <div class="layer">
+      <h2>Tooling</h2>
+      <p>
+        Two MCP servers are active in the project.
+        <strong>PixelLab MCP</strong> generates pixel-art sprites on demand — characters,
+        isometric tiles, tilesets — assembled into spritesheets and committed to
+        <code>public/assets/sprites/</code> via the Sprite Credit Burn workflow.
+        <strong>Linear MCP</strong> lets agents read and update issue metadata without
+        leaving the Claude Code session.
+        Key scripts: <code>collect-stats.js</code> (weekly metrics aggregation),
+        <code>fetch-agent-issues.js</code> (selects issues for the nightly run),
+        <code>create-labels.js</code> (idempotent label bootstrap), and
+        <code>npm run sprites:assemble</code> (assembles raw frames into spritesheets).
+        CI runs on every push to <code>main</code> and <code>claude/**</code> branches:
+        <code>tsc --noEmit</code> + <code>vite build</code> for the game, and
+        <code>astro check</code> + <code>astro build</code> for both Astro sites.
+      </p>
+    </div>
+
+  </section>
 </Base>
+
+<script>
+  import mermaid from 'mermaid';
+
+  // Diagram definition as a JS string so Astro's HTML parser never sees
+  // Mermaid's arrow syntax (e.g. <-->) and tries to parse it as HTML.
+  const DIAGRAM = `
+flowchart TD
+    subgraph frontend ["Frontend — Vercel"]
+        G["Game
+Phaser 3 · TypeScript
+corewarden.app"]
+        C["Matlu Codex
+Astro 6
+codex.corewarden.com"]
+        AE["Agentic Experiments
+Astro 6
+agentic-experiments.vercel.app"]
+    end
+
+    subgraph data ["Data — Supabase"]
+        DB[("matlu_runs
+stats_weekly · cognitive_load")]
+        ST[("Storage
+creature art uploads")]
+    end
+
+    subgraph agents ["Agents — GitHub Actions"]
+        TA["Triage Agent
+Claude Code · 22:00 UTC nightly"]
+        NA["Nightly Agent
+Claude Code · 02:00 UTC nightly"]
+        EM["Error Monitor
+Better Stack · 07:00 UTC daily"]
+    end
+
+    LIN["Linear
+Issue Tracking"]
+    NOTION["Notion
+Lore Content"]
+    PL["PixelLab MCP
+Pixel Art Generation"]
+
+    G <-->|leaderboard reads / writes| DB
+    AE <-->|weekly metrics| DB
+    C -->|creature art| ST
+    C <-->|lore pages at build time| NOTION
+    TA -->|labels + refines backlog| LIN
+    NA -->|opens PRs, labels issues| LIN
+    EM -->|files bugs| LIN
+    PL -.->|sprites committed to git| G
+  `.trim();
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1a1a24',
+      primaryTextColor: '#d4d4e0',
+      primaryBorderColor: '#7c6ff7',
+      lineColor: '#6b6b80',
+      secondaryColor: '#111118',
+      tertiaryColor: '#0a0a0f',
+      nodeBorder: '#222230',
+      clusterBkg: '#111118',
+      clusterBorder: '#222230',
+      titleColor: '#a89ff9',
+      edgeLabelBackground: '#111118',
+    },
+  });
+
+  const el = document.getElementById('arch-diagram');
+  if (el) {
+    const { svg } = await mermaid.render('arch-svg', DIAGRAM);
+    el.innerHTML = svg;
+  }
+</script>
 
 <style>
   h1 { margin-bottom: 0.4rem; }
@@ -44,52 +184,68 @@ try {
     font-size: 0.82rem;
     color: var(--text-dim);
     font-family: var(--mono);
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
     border-bottom: 1px solid var(--border);
     padding-bottom: 1rem;
   }
 
-  .error {
-    color: var(--red);
-    font-family: var(--mono);
-    font-size: 0.9rem;
+  /* ── Section headings ──────────────────────────────────────────────────── */
+  h2 {
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 0.9rem;
+    margin-top: 0;
   }
 
-  .md-body { max-width: 720px; line-height: 1.75; }
-  .md-body :global(h1) { display: none; }
-  .md-body :global(h2) { margin: 2rem 0 0.75rem; color: var(--accent-hi); }
-  .md-body :global(h3) { margin: 1.5rem 0 0.6rem; }
-  .md-body :global(h4) { margin: 1.25rem 0 0.5rem; color: var(--text-dim); }
-  .md-body :global(p)  { margin-bottom: 1rem; }
-  .md-body :global(ul),
-  .md-body :global(ol) { padding-left: 1.5rem; margin-bottom: 1rem; }
-  .md-body :global(li) { margin-bottom: 0.3rem; }
-  .md-body :global(table) {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 1.5rem;
-    font-size: 0.87rem;
+  /* ── Diagram ────────────────────────────────────────────────────────────── */
+  .diagram-section {
+    margin-bottom: 3rem;
   }
-  .md-body :global(th),
-  .md-body :global(td) {
+
+  .mermaid-wrap {
+    background: var(--surface);
     border: 1px solid var(--border);
-    padding: 0.4rem 0.75rem;
-    text-align: left;
+    border-radius: 8px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    text-align: center;
+    min-height: 80px;
   }
-  .md-body :global(th) {
-    background: var(--surface-hi);
+
+  .loading {
     font-family: var(--mono);
     font-size: 0.82rem;
-  }
-  .md-body :global(blockquote) {
-    border-left: 3px solid var(--accent);
-    padding-left: 1rem;
     color: var(--text-dim);
-    margin: 1.5rem 0;
   }
-  .md-body :global(hr) {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 2rem 0;
+
+  /* Mermaid injects an SVG — center it */
+  .mermaid-wrap :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ── Prose layers ───────────────────────────────────────────────────────── */
+  .prose-sections {
+    display: grid;
+    gap: 2rem;
+    max-width: 720px;
+  }
+
+  .layer {
+    border-left: 3px solid var(--accent);
+    padding-left: 1.25rem;
+  }
+
+  .layer p {
+    font-size: 0.92rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+    margin: 0;
+  }
+
+  .layer a {
+    color: var(--accent-hi);
   }
 </style>
