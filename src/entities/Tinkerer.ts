@@ -210,6 +210,7 @@ export class Tinkerer extends EarthHero {
       speed:               80,
       aggroRadius:         400,
       proximityRadius:     250,  // detect enemies in adjacent rooms; projectiles pass through walls (wallRects=[])
+      darkvision:          1,    // hero always targets at full aggroRadius — lighting should not impair player targeting
       attackDamage:        15,
       color:               0x996633,
       meleeRange:          36,
