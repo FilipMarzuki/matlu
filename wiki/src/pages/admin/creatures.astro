@@ -99,7 +99,7 @@ if (authed && serviceKey) {
   try {
     // Inbox: unmoderated submissions
     const inboxRes = await fetch(
-      `${supabaseUrl}/rest/v1/creature_submissions?approved=eq.false&moderation_note=is.null&order=created_at.asc`,
+      `${supabaseUrl}/rest/v1/creature_submissions?status=eq.submitted&order=created_at.asc`,
       { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
     );
     if (inboxRes.ok) groups.inbox = await inboxRes.json();
@@ -134,8 +134,8 @@ function timeAgo(iso: string): string {
 const DIFF_LABELS = ['', 'Trivial', 'Easy', 'Standard', 'Complex', 'Hard'];
 const TABS: Array<{ id: string; label: string; key: GroupKey }> = [
   { id: 'inbox',      label: 'Inbox',      key: 'inbox'      },
-  { id: 'approved',   label: 'Approved',   key: 'approved'   },
-  { id: 'balanced',   label: 'Balanced',   key: 'balanced'   },
+  { id: 'approved',   label: 'Needs dev work', key: 'approved'   },
+  { id: 'balanced',   label: 'Balancing',      key: 'balanced'   },
   { id: 'lore-ready', label: 'Lore-ready', key: 'lore-ready' },
   { id: 'queued',     label: 'Queue',      key: 'queued'     },
   { id: 'spriting',   label: 'Spriting',   key: 'spriting'   },
