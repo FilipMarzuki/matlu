@@ -25,10 +25,12 @@ jobs:
 
       - name: Run lore auto-fill session
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
-          NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
-          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN:   ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTION_API_KEY:            ${{ secrets.NOTION_API_KEY }}
+          GITHUB_TOKEN:              ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           npx --yes @anthropic-ai/claude-code --print \
             --permission-mode bypassPermissions \
