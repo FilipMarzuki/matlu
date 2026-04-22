@@ -1,0 +1,35 @@
+name: GDPR Retention
+
+# Copy this file to .github/workflows/gdpr-retention.yml to activate.
+# The nightly agent token lacks `workflows` write permission, so this file
+# was placed here for manual promotion instead.
+#
+# Required secrets (already configured for agent workflows):
+#   SUPABASE_URL              — Supabase project API URL
+#   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role secret key
+
+on:
+  schedule:
+    # Every Saturday at 03:00 UTC — runs before the weekly stats/agent jobs.
+    - cron: '0 3 * * 6'
+  workflow_dispatch:
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    # No GitHub API calls needed — only Supabase REST + storage.
+    permissions:
+      contents: none
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Run GDPR retention cleanup
+        run: node scripts/gdpr/retention.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
