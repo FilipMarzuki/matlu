@@ -1,70 +1,124 @@
 /**
  * Build-time GitHub Issues fetcher for FilipMarzuki/matlu.
  *
- * Used by any page that needs to display or filter the project's issue list.
- * All fetches run during `astro build` — no client-side API calls.
+ * Imported by wiki and dev pages at Astro build time — never runs in the browser.
+ * Uses a single GraphQL round-trip with cursor-based pagination.
  *
- * Requires:
- *   GITHUB_TOKEN — personal access token or Actions token with repo:read
+ * Usage:
+ *   const issues = await fetchIssues({ token: import.meta.env.GITHUB_TOKEN ?? '' });
  *
- * Gracefully returns [] when the token is absent or any fetch fails.
+ * Cache: writes .cache/issues.json after each fetch for debugging.
  */
 
-const REPO = 'FilipMarzuki/matlu';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 
-/** Category labels that map to the `cluster` field. */
-const CATEGORY_LABELS = new Set([
-  'systems', 'art', 'lore', 'infrastructure', 'world', 'hero',
-  'tech', 'ui-hud', 'ui-menus', 'audio', 'weapons', 'enemies',
-  'waves', 'upgrades', 'parts', 'mobile',
-]);
+const REPO_OWNER = 'FilipMarzuki';
+const REPO_NAME  = 'matlu';
 
 export interface Issue {
-  number:       number;
-  title:        string;
+  number:      number;
+  title:       string;
   /** First 200 chars of body, stripped of common markdown syntax. */
-  bodyExcerpt:  string;
-  url:          string;
-  /** All label names attached to this issue. */
-  labels:       string[];
-  /** T-shirt size from a `size:*` label (e.g. "S", "M"), or null. */
-  size:         string | null;
-  /** Issue type from a `type:*` label (e.g. "feature", "bug"), or null. */
-  type:         string | null;
-  /** Category cluster from category labels (e.g. "systems", "art"), or null. */
-  cluster:      string | null;
-  state:        'open' | 'closed';
-  createdAt:    string;
-  closedAt:     string | null;
-  /** Outcome from an `agent:*` label (e.g. "success", "partial"), or null. */
-  agentOutcome: string | null;
+  bodyExcerpt: string;
+  url:         string;
+  labels:      string[];
+  size:        'xs' | 's' | 'm' | 'l' | 'xl' | null;
+  type:        'feature' | 'bug' | 'refactor' | 'perf' | 'infra' | 'docs' | 'spike' | null;
+  /** Category cluster derived from CLUSTER_BY_LABEL. Defaults to 'other'. */
+  cluster:     string;
+  state:       'open' | 'closed';
+  createdAt:   string;
+  closedAt:    string | null;
+  agentOutcome: 'success' | 'partial' | 'failed' | 'wrong-interpretation' | null;
 }
 
-function getToken(): string | null {
-  return import.meta.env.GITHUB_TOKEN ?? null;
+/**
+ * Maps category labels to cluster names. Priority order: first match wins.
+ * Single source of truth shared by wiki and dev — do not diverge these files.
+ */
+const CLUSTER_BY_LABEL: Record<string, string> = {
+  world:            'worlds',
+  hero:             'heroes-combat',
+  weapons:          'heroes-combat',
+  'systems:combat': 'heroes-combat',
+  enemies:          'creatures',
+  lore:             'lore',
+  waves:            'gameplay',
+  upgrades:         'gameplay',
+  parts:            'gameplay',
+  art:              'art',
+  audio:            'art',
+  'ui-hud':         'art',
+  'ui-menus':       'art',
+  mobile:           'art',
+  systems:          'engine',
+  'systems:render': 'engine',
+  tech:             'engine',
+  infrastructure:   'engine',
+};
+
+/** Returns the cluster for the first label in `labels` that appears in CLUSTER_BY_LABEL. */
+export function deriveCluster(labels: string[]): string {
+  for (const label of labels) {
+    const cluster = CLUSTER_BY_LABEL[label];
+    if (cluster !== undefined) return cluster;
+  }
+  return 'other';
 }
 
-// Raw shape returned by the GitHub REST API.
-interface GhLabel { name: string }
-interface GhIssue {
-  number:     number;
-  title:      string;
-  body:       string | null;
-  html_url:   string;
-  labels:     GhLabel[];
-  state:      string;
-  created_at: string;
-  closed_at:  string | null;
-  pull_request?: unknown; // present only on PRs — we skip these
+// ─── GraphQL plumbing ────────────────────────────────────────────────────────
+
+const VALID_SIZES  = new Set<string>(['xs', 's', 'm', 'l', 'xl']);
+const VALID_TYPES  = new Set<string>(['feature', 'bug', 'refactor', 'perf', 'infra', 'docs', 'spike']);
+const VALID_AGENTS = new Set<string>(['success', 'partial', 'failed', 'wrong-interpretation']);
+
+interface GhNode {
+  number:    number;
+  title:     string;
+  body:      string | null;
+  url:       string;
+  state:     'OPEN' | 'CLOSED';
+  createdAt: string;
+  closedAt:  string | null;
+  labels:    { nodes: { name: string }[] };
 }
 
-function mapIssue(raw: GhIssue): Issue {
-  const labelNames = raw.labels.map(l => l.name);
+interface GhPageInfo { hasNextPage: boolean; endCursor: string | null }
 
-  const sizeLabel = labelNames.find(l => l.startsWith('size:'));
-  const typeLabel = labelNames.find(l => l.startsWith('type:'));
-  const agentLabel = labelNames.find(l => l.startsWith('agent:'));
-  const clusterLabel = labelNames.find(l => CATEGORY_LABELS.has(l));
+interface GhResponse {
+  data: {
+    repository: {
+      issues: { nodes: GhNode[]; pageInfo: GhPageInfo };
+    };
+  };
+}
+
+const QUERY = `
+  query($owner: String!, $name: String!, $states: [IssueState!], $after: String) {
+    repository(owner: $owner, name: $name) {
+      issues(
+        first: 100
+        states: $states
+        after: $after
+        orderBy: { field: CREATED_AT, direction: DESC }
+      ) {
+        nodes {
+          number title body url state createdAt closedAt
+          labels(first: 20) { nodes { name } }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+`;
+
+function mapNode(raw: GhNode): Issue {
+  const labelNames = raw.labels.nodes.map(l => l.name);
+
+  const sizeRaw  = labelNames.find(l => l.startsWith('size:'))?.slice('size:'.length).toLowerCase();
+  const typeRaw  = labelNames.find(l => l.startsWith('type:'))?.slice('type:'.length).toLowerCase();
+  const agentRaw = labelNames.find(l => l.startsWith('agent:'))?.slice('agent:'.length).toLowerCase();
 
   const bodyExcerpt = (raw.body ?? '')
     .replace(/[#*`_~>]/g, '')
@@ -73,54 +127,75 @@ function mapIssue(raw: GhIssue): Issue {
     .slice(0, 200);
 
   return {
-    number:       raw.number,
-    title:        raw.title,
+    number:      raw.number,
+    title:       raw.title,
     bodyExcerpt,
-    url:          raw.html_url,
-    labels:       labelNames,
-    size:         sizeLabel ? sizeLabel.slice('size:'.length) : null,
-    type:         typeLabel ? typeLabel.slice('type:'.length) : null,
-    cluster:      clusterLabel ?? null,
-    state:        raw.state === 'closed' ? 'closed' : 'open',
-    createdAt:    raw.created_at,
-    closedAt:     raw.closed_at,
-    agentOutcome: agentLabel ? agentLabel.slice('agent:'.length) : null,
+    url:         raw.url,
+    labels:      labelNames,
+    size:        VALID_SIZES.has(sizeRaw ?? '')  ? (sizeRaw  as Issue['size'])  : null,
+    type:        VALID_TYPES.has(typeRaw ?? '')  ? (typeRaw  as Issue['type'])  : null,
+    cluster:     deriveCluster(labelNames),
+    state:       raw.state === 'CLOSED' ? 'closed' : 'open',
+    createdAt:   raw.createdAt,
+    closedAt:    raw.closedAt,
+    agentOutcome: VALID_AGENTS.has(agentRaw ?? '') ? (agentRaw as Issue['agentOutcome']) : null,
   };
 }
 
-async function fetchPage(token: string, page: number): Promise<GhIssue[]> {
-  const res = await fetch(
-    `https://api.github.com/repos/${REPO}/issues?state=all&per_page=100&page=${page}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
+async function fetchPage(
+  token:  string,
+  states: string[],
+  after:  string | null,
+): Promise<{ nodes: GhNode[]; pageInfo: GhPageInfo }> {
+  const res = await fetch('https://api.github.com/graphql', {
+    method:  'POST',
+    headers: {
+      Authorization:  `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
-  );
-  if (!res.ok) return [];
-  return res.json() as Promise<GhIssue[]>;
+    body: JSON.stringify({
+      query: QUERY,
+      variables: { owner: REPO_OWNER, name: REPO_NAME, states, after },
+    }),
+  });
+  if (!res.ok) return { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+  const json = (await res.json()) as GhResponse;
+  return json.data.repository.issues;
 }
 
-/** Fetches all issues (and filters out pull requests), newest first. */
-export async function fetchIssues(): Promise<Issue[]> {
-  const token = getToken();
-  if (!token) return [];
+/**
+ * Fetches issues via GitHub GraphQL, paginating 100 at a time.
+ * Returns [] if the token is missing or any network error occurs.
+ * Writes a debug cache to .cache/issues.json (non-fatal if write fails).
+ */
+export async function fetchIssues(opts: {
+  token: string;
+  state?: 'open' | 'all';
+}): Promise<Issue[]> {
+  if (!opts.token) return [];
+
+  // GitHub GraphQL IssueState enum uses uppercase.
+  const states = opts.state === 'open' ? ['OPEN'] : ['OPEN', 'CLOSED'];
 
   try {
     const all: Issue[] = [];
-    let page = 1;
-    while (true) {
-      const batch = await fetchPage(token, page);
-      for (const raw of batch) {
-        // GitHub's /issues endpoint includes PRs — skip them.
-        if (raw.pull_request) continue;
-        all.push(mapIssue(raw));
-      }
-      if (batch.length < 100) break;
-      page++;
+    let cursor: string | null = null;
+
+    do {
+      const page = await fetchPage(opts.token, states, cursor);
+      for (const node of page.nodes) all.push(mapNode(node));
+      if (!page.pageInfo.hasNextPage) break;
+      cursor = page.pageInfo.endCursor;
+    } while (true);
+
+    // Write cache for debugging / build inspection — non-fatal on failure.
+    try {
+      mkdirSync('.cache', { recursive: true });
+      writeFileSync(join('.cache', 'issues.json'), JSON.stringify(all, null, 2));
+    } catch {
+      // Intentionally swallowed — cache write should never break the build.
     }
+
     return all;
   } catch {
     return [];
