@@ -1,4 +1,6 @@
 export { Entity } from './Entity';
+export { Deployable } from './Deployable';
+export type { DeployableConfig, DeployableTeam, PlacementRules } from './Deployable';
 export { LivingEntity } from './LivingEntity';
 export type { LivingEntityConfig } from './LivingEntity';
 export { WildlifeAnimal } from './WildlifeAnimal';
