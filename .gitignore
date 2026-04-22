@@ -52,6 +52,10 @@ token-log.json
 dev/.astro/
 wiki/.astro/settings.json
 
+# Build-time issue cache written by github-issues.ts
+wiki/.cache/
+dev/.cache/
+
 # Vercel deployment artifacts
 wiki/.vercel/
 
