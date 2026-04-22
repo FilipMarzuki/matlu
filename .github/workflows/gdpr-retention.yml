@@ -1,10 +1,9 @@
 name: GDPR Retention
 
-# Copy this file to .github/workflows/gdpr-retention.yml to activate.
-# The nightly agent token lacks `workflows` write permission, so this file
-# was placed here for manual promotion instead.
+# Weekly cron that drains expired drafts and soft-deleted accounts per the
+# retention policy in scripts/gdpr/retention.js.
 #
-# Required secrets (already configured for agent workflows):
+# Required secrets (already configured for other agent workflows):
 #   SUPABASE_URL              — Supabase project API URL
 #   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role secret key
 
