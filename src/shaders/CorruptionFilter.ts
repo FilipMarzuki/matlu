@@ -78,18 +78,25 @@ void main() {
   vec2 uv = outTexCoord + warp * 0.014 * uCorruption;
   vec4 col = texture2D(uMainSampler, clamp(uv, 0.001, 0.999));
 
-  float lum    = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-  vec3  violet = vec3(lum * 0.55, lum * 0.28, lum * 0.75 + 0.08);
-  col.rgb      = mix(col.rgb, violet, uCorruption * 0.45);
+  float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+  // Keep biome identity visible by tinting relative to source colour first,
+  // then push only the darker bands toward deep purple-black.
+  col.rgb = mix(col.rgb, col.rgb * vec3(0.90, 0.72, 1.08), uCorruption * 0.24);
+  float shadowMask = 1.0 - smoothstep(0.14, 0.58, lum);
+  vec3 shadowTint  = vec3(0.10, 0.03, 0.16);
+  vec3 shadowGrade = col.rgb * vec3(0.46, 0.30, 0.72) + shadowTint * 0.42;
+  col.rgb = mix(col.rgb, shadowGrade, uCorruption * shadowMask * 0.72);
+  // Slight contrast boost keeps biome bands from collapsing into flat grey.
+  col.rgb = clamp((col.rgb - 0.5) * (1.0 + uCorruption * 0.28) + 0.5, 0.0, 1.0);
 
   float pulse    = 0.5 + 0.5 * sin(uTime * 1.3);
   float dist     = length(outTexCoord - 0.5) * 1.7;
-  float vignette = 1.0 - smoothstep(0.35, 0.90, dist);
-  col.rgb       *= mix(1.0, vignette, uCorruption * 0.35 * (0.7 + 0.3 * pulse));
+  float vignette = 1.0 - smoothstep(0.30, 0.88, dist);
+  col.rgb       *= mix(1.0, vignette, uCorruption * 0.52 * (0.65 + 0.35 * pulse));
 
-  float flicker = step(0.975,
+  float flicker = step(0.977,
     noise(outTexCoord * 22.0 + vec2(uTime * 9.0, uTime * 3.5)));
-  col.rgb += flicker * vec3(0.45, 0.0, 0.65) * uCorruption * 0.35;
+  col.rgb += flicker * vec3(0.62, 0.05, 0.86) * uCorruption * 0.28;
 
   gl_FragColor = vec4(col.rgb, col.a);
 }
