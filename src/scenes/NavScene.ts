@@ -220,21 +220,21 @@ export class NavScene extends Phaser.Scene {
 
     // ── World section ──────────────────────────────────────────────────────────
     this.worldHeader    = mkHeader('World', 'world');
-    // Decor (trees/rocks/flowers + particles) — starts hidden → no ✓
+    // Decor (trees/rocks/flowers + particles) — starts visible → show ✓
     this.decorBtn       = mkBtn('Decor',       '#ffcc88', '#332200aa',
-      () => this.game.events.emit('nav-toggle-decor'));
+      () => this.game.events.emit('nav-toggle-decor'), true);
     // Animals — start visible → show ✓
     this.animalsBtn     = mkBtn('Animals',     '#aaffaa', '#002200aa',
       () => this.game.events.emit('nav-toggle-animals'), true);
-    // Paths — starts hidden
+    // Paths — starts visible
     this.pathsBtn       = mkBtn('Paths',       '#88ccff', '#001133aa',
-      () => this.game.events.emit('nav-toggle-paths'));
-    // Zones — starts hidden
+      () => this.game.events.emit('nav-toggle-paths'), true);
+    // Zones — starts visible
     this.zonesBtn       = mkBtn('Zones',       '#ffaacc', '#220011aa',
-      () => this.game.events.emit('nav-toggle-zones'));
-    // Settlements — starts hidden
+      () => this.game.events.emit('nav-toggle-zones'), true);
+    // Settlements — starts visible
     this.settlementsBtn = mkBtn('Settlements', '#ffdd88', '#221100aa',
-      () => this.game.events.emit('nav-toggle-settlements'));
+      () => this.game.events.emit('nav-toggle-settlements'), true);
     // Fog — starts visible → show ✓
     this.fogBtn         = mkBtn('Fog',         '#aaccff', '#112233aa',
       () => this.game.events.emit('nav-toggle-fog'), true);
