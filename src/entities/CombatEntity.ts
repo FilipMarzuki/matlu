@@ -880,6 +880,10 @@ export abstract class CombatEntity extends Enemy {
           this.projectileColor,
           // Merge opponents and extra targets so projectiles can hit BurrowHoles too.
           (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
+          18,
+          350,
+          undefined,
+          this,
         );
         // Emit on the SCENE event bus (not this.emit) so CombatArenaScene can
         // listen with a single handler rather than per-entity listeners.
@@ -1061,6 +1065,10 @@ export abstract class CombatEntity extends Enemy {
       this.projectileSpeed, this.projectileDamage,
       this.projectileColor,
       (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
+      18,
+      350,
+      undefined,
+      this,
     );
     this.scene.events.emit('projectile-spawned', p);
     this.attackAnimId    = 'attack_ranged';

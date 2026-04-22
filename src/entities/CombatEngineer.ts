@@ -41,6 +41,7 @@ import {
   BtCooldown,
 } from '../ai/BehaviorTree';
 import { EarthHero } from './EarthHero';
+import { Deployable } from './Deployable';
 import { DeployableManager } from '../systems/DeployableManager';
 import { SentryTurret } from './deployables/SentryTurret';
 import { ScoutDrone } from './deployables/ScoutDrone';
@@ -188,6 +189,7 @@ export class CombatEngineer extends EarthHero {
     const d = new ScoutDrone(this.scene, this.x, this.y, this, () => this.opponents);
     this.deployMgr.add(d);
     this.droneCount++;
+    this.droneCd = DRONE.cooldownMs;
     d.once('destroy', () => { this.droneCount = Math.max(0, this.droneCount - 1); });
   }
 
@@ -197,6 +199,7 @@ export class CombatEngineer extends EarthHero {
     const m = new ProximityMine(this.scene, this.x, this.y, this, () => this.opponents);
     this.deployMgr.add(m);
     this.mineCount++;
+    this.mineCd = MINE.cooldownMs;
     m.once('destroy', () => { this.mineCount = Math.max(0, this.mineCount - 1); });
   }
 
@@ -209,6 +212,7 @@ export class CombatEngineer extends EarthHero {
     const s = new BarrierShield(this.scene, this.x, this.y, this, facingAngle);
     this.deployMgr.add(s);
     this.shieldCount++;
+    this.shieldCd = SHIELD.cooldownMs;
     s.once('destroy', () => { this.shieldCount = Math.max(0, this.shieldCount - 1); });
   }
 
@@ -257,6 +261,15 @@ export class CombatEngineer extends EarthHero {
   /** Clean up all active deployables when the engineer dies or the scene shuts down. */
   destroyDeployables(): void {
     this.deployMgr.destroyAll();
+    this.turretCount = 0;
+    this.droneCount = 0;
+    this.mineCount = 0;
+    this.shieldCount = 0;
+  }
+
+  /** Snapshot of currently active deployables (used by scene-side projectile targeting). */
+  getActiveDeployables(): readonly Deployable[] {
+    return this.deployMgr.getActive();
   }
 
   // ── Behaviour tree ────────────────────────────────────────────────────────────

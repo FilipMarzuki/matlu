@@ -61,6 +61,14 @@ export abstract class Deployable extends Phaser.GameObjects.Sprite {
   }
 
   /**
+   * Returns true when this deployable can still be targeted and damaged.
+   * Mirrors the Damageable shape used by Projectile.
+   */
+  get isAlive(): boolean {
+    return this.active && this.hp > 0;
+  }
+
+  /**
    * Per-frame update called by `DeployableManager`.
    *
    * @param delta - Time elapsed since the last frame in milliseconds.

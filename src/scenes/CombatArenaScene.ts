@@ -11,6 +11,7 @@ import { Kronos } from '../entities/Kronos';
 import { MajaLind } from '../entities/MajaLind';
 import { TorstenKraft } from '../entities/TorstenKraft';
 import { CombatEngineer } from '../entities/CombatEngineer';
+import { Deployable } from '../entities/Deployable';
 import { Loke } from '../entities/heroes/Loke';
 import { Projectile } from '../entities/Projectile';
 import { ArenaBlackboard } from '../ai/ArenaBlackboard';
@@ -71,6 +72,8 @@ export class CombatArenaScene extends Phaser.Scene {
   private heroAlive    = true;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
+  /** Hero-team deployables that can be damaged by enemy projectiles. */
+  private heroDeployables: Deployable[] = [];
   private readonly blackboard = new ArenaBlackboard();
 
   /**
@@ -604,7 +607,14 @@ export class CombatArenaScene extends Phaser.Scene {
     for (const e of this.aliveEnemies) e.update(delta);
 
     // ── Projectiles ───────────────────────────────────────────────────────────
-    for (const p of this.projectiles) p.tick(delta);
+    this.syncHeroExtraDamageables();
+    for (const p of this.projectiles) {
+      if (this.isEnemyProjectileBlockedByShield(p)) {
+        p.destroy();
+        continue;
+      }
+      p.tick(delta);
+    }
     this.projectiles = this.projectiles.filter(p => !p.isExpired);
 
     // ── Prune enemies that just died ──────────────────────────────────────────
@@ -1178,6 +1188,46 @@ export class CombatArenaScene extends Phaser.Scene {
       e.setSwarmNeighbours(this.aliveEnemies);
       e.setBlackboard(this.blackboard);
     }
+  }
+
+  /**
+   * Treat active deployables as extra static damageables so hostile projectiles
+   * can hit them (turret/drone/shield), matching FIL-523 targetability rules.
+   */
+  private syncHeroExtraDamageables(): void {
+    if (!(this.hero instanceof CombatEngineer)) {
+      this.heroDeployables = [];
+      this.hero.setExtraDamageables(this.activeHoles);
+      return;
+    }
+
+    const deployables = this.hero
+      .getActiveDeployables()
+      .filter((d): d is Deployable => d.isAlive);
+    this.heroDeployables = deployables;
+    this.hero.setExtraDamageables([...this.activeHoles, ...deployables]);
+  }
+
+  /**
+   * Returns true when the projectile is currently inside any active barrier
+   * shield hitbox. Enemy projectiles are destroyed on contact so shields act as
+   * tactical cover without needing per-projectile physics colliders.
+   */
+  private isEnemyProjectileBlockedByShield(projectile: Projectile): boolean {
+    const source = projectile.source as { owner?: Phaser.GameObjects.GameObject } | null;
+    if (source === this.hero) return false;
+    if (source?.owner === this.hero) return false;
+
+    for (const deployable of this.heroDeployables) {
+      if (deployable.constructor.name !== 'BarrierShield') continue;
+      const body = deployable.body as Phaser.Physics.Arcade.StaticBody | null;
+      if (!body || !body.enable) continue;
+
+      const withinX = projectile.x >= body.x && projectile.x <= body.x + body.width;
+      const withinY = projectile.y >= body.y && projectile.y <= body.y + body.height;
+      if (withinX && withinY) return true;
+    }
+    return false;
   }
 
   // ── BurrowHole management ─────────────────────────────────────────────────────
@@ -1829,6 +1879,14 @@ export class CombatArenaScene extends Phaser.Scene {
     body.setOffset(-8, -8);
     body.setCollideWorldBounds(true);
     this.physics.add.collider(entity, this.obstacles);
+    // Any enemy spawned while a BarrierShield is active still needs a collider
+    // registered, otherwise only enemies that existed at placement time block.
+    if (entity !== this.hero) {
+      for (const deployable of this.heroDeployables) {
+        if (deployable.constructor.name !== 'BarrierShield') continue;
+        this.physics.add.collider(entity, deployable);
+      }
+    }
     // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
   }

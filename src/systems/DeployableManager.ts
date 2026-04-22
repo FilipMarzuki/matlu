@@ -51,6 +51,15 @@ export class DeployableManager {
    * Call this in the scene's shutdown handler to prevent dangling game objects
    * after the scene is stopped.
    */
+  getActive(): readonly Deployable[] {
+    return Array.from(this.active);
+  }
+
+  /**
+   * Tear down all active deployables.
+   * Call this in the scene's shutdown handler to prevent dangling game objects
+   * after the scene is stopped.
+   */
   destroyAll(): void {
     for (const d of this.active) d.cleanup();
     this.active.clear();

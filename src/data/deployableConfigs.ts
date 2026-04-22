@@ -64,8 +64,8 @@ export const MINE = {
   blastDamage:    30,
   /** Outer blast radius. Damage halves at the edge (linear falloff). */
   blastRadius:    40,
-  /** Max mines active at once. */
-  cap:            3,
+  /** Max mines active at once (3rd placement should be rejected). */
+  cap:            2,
   cooldownMs:     2_000,
 };
 

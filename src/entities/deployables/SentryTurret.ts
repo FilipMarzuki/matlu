@@ -111,6 +111,10 @@ export class SentryTurret extends Deployable {
       TURRET.shotDamage,
       TURRET.shotColor,
       this.getTargets() as Damageable[],
+      undefined,
+      undefined,
+      undefined,
+      this,
     );
     // The arena scene listens for 'projectile-spawned' and adds projectiles to
     // its tick loop. See CombatArenaScene line ~391.

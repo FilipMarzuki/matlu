@@ -84,6 +84,10 @@ export class ScoutDrone extends Deployable {
           this.scene, nx, ny, angle,
           DRONE.shotSpeed, DRONE.shotDamage, DRONE.shotColor,
           this.getTargets() as Damageable[],
+          undefined,
+          undefined,
+          undefined,
+          this,
         );
         this.scene.events.emit('projectile-spawned', p);
       }

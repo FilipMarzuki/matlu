@@ -40,12 +40,18 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   private readonly maxRange: number;
   private readonly targets: Damageable[];
   private readonly onHitCb: ((target: Damageable) => void) | undefined;
+  private readonly sourceEntity: unknown;
   private distanceTravelled = 0;
   private expired = false;
 
   /** True once the projectile has hit a target, exceeded range, or gone off-bounds. */
   get isExpired(): boolean {
     return this.expired;
+  }
+
+  /** Entity or object that spawned this projectile (hero, enemy, deployable). */
+  get source(): unknown {
+    return this.sourceEntity;
   }
 
   /**
@@ -63,6 +69,8 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
    *                    the projectile destroys itself. Use this to apply effects
    *                    (e.g. root, slow) from the spawning entity without
    *                    coupling Projectile to any specific entity type.
+   * @param source    - Optional emitter object used by scene-level systems
+   *                    (e.g. shield filtering) to distinguish friendly shots.
    */
   constructor(
     scene:     Phaser.Scene,
@@ -76,6 +84,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     hitRadius: number = 18,
     maxRange:  number = 350,
     onHit?:    (target: Damageable) => void,
+    source?:   unknown,
   ) {
     // Rectangle(scene, x, y, width, height, fillColor)
     // 12×2 px gives a tracer-round silhouette — narrow and elongated.
@@ -95,6 +104,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.maxRange  = maxRange;
     this.targets   = targets;
     this.onHitCb   = onHit;
+    this.sourceEntity = source;
   }
 
   /**
