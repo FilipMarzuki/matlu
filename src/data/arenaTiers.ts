@@ -180,13 +180,13 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
   },
 
   // ── Tier 3b — Combat Engineer (Loke T3) ───────────────────────────────────
-  // NOT READY — awaiting Combat Engineer sprite + deployable system (Children B/C/D).
+  // READY: CombatEngineer class is wired in CombatArenaScene and can be selected.
   // Same enemy mix as Tier 3 TorstenKraft — the hero loadout is what changes.
   {
     tier:    3,
     label:   'Loke — Combat Engineer (T3)',
     heroKey: 'combat-engineer',
-    ready:   false,
+    ready:   true,
     waveGroups: [
       { label: 'Blightfrog Pair',  enemies: [Blightfrog, Blightfrog] },
       { label: 'Spineling Sprint', enemies: [Spineling, Spineling, Spineling] },
