@@ -43,6 +43,7 @@
 
 import * as Phaser from 'phaser';
 import { worldToIso, isoDepth, WORLD_TILE_SIZE } from '../lib/IsoTransform';
+export { updateIsoDepths } from './IsoDepth';
 
 // ── Entity body ───────────────────────────────────────────────────────────────
 
@@ -177,28 +178,5 @@ export function syncSpriteToWorld(sprite: Phaser.GameObjects.Sprite): void {
   sprite.setDepth(isoDepth(wx, wy) + wz / WORLD_TILE_SIZE);
 }
 
-// ── Batch depth sort (M1.2) ───────────────────────────────────────────────────
-
-/**
- * Update the painter-sort depth for every sprite in `entities` each frame.
- *
- * Designed to be called in the scene's `update()` loop after physics:
- *   `updateIsoDepths(this.aliveEntities);`
- *
- * Performance: reads two numbers and sets one number per sprite — no object
- * allocation, no Phaser event emission. Safe to call for 50+ entities at 60fps.
- *
- * Missing wx/wy/wz values default to 0 (ground-level, world origin).
- *
- * @param entities — any iterable of sprites that carry wx/wy/wz in sprite.data
- */
-export function updateIsoDepths(
-  entities: Iterable<Phaser.GameObjects.Sprite>,
-): void {
-  for (const sprite of entities) {
-    const wx: number = sprite.getData('wx') ?? 0;
-    const wy: number = sprite.getData('wy') ?? 0;
-    const wz: number = sprite.getData('wz') ?? 0;
-    sprite.setDepth(isoDepth(wx, wy) + wz / WORLD_TILE_SIZE);
-  }
-}
+// updateIsoDepths is exported above (re-exported from ./IsoDepth) so it is
+// available to callers that import from CombatPhysics.
