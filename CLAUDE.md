@@ -136,7 +136,7 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 | Group | Labels |
 | ----- | ------ |
 | Readiness | `ready`, `needs-refinement`, `blocked`, `too-large` |
-| Outcome | `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` |
+| Outcome | `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation`, `agent:already-shipped` |
 | State | `in-progress` |
 | Category | `systems`, `art`, `lore`, `infrastructure`, `world`, `hero`, `tech`, `ui-hud`, `ui-menus`, `audio`, `weapons`, `enemies`, `waves`, `upgrades`, `parts`, `mobile` |
 | Type | `type:feature`, `type:bug`, `type:refactor`, `type:perf`, `type:infra`, `type:docs`, `type:spike` |
@@ -223,7 +223,7 @@ The per-issue runner requires one of two Claude credentials as repo secrets:
 - **`CLAUDE_CODE_OAUTH_TOKEN`** (preferred) — generated locally via `claude setup-token`; usage counts against your Claude Pro/Max/Team-premium subscription quota so you avoid pay-as-you-go API billing.
 - **`ANTHROPIC_API_KEY`** — fallback, pay-as-you-go. Set this instead if you don't have a Claude Code subscription seat.
 
-It also expects four labels to exist in GitHub Issues: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation` — create them before the first run.
+It also expects five labels to exist in GitHub Issues: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation`, `agent:already-shipped` — create them before the first run.
 
 On-demand runs: trigger `Dev Agent` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.
 

@@ -22,6 +22,7 @@ const LABELS = [
   { name: 'agent:partial',              color: 'e4e669', description: 'Agent made partial progress; blocked or incomplete' },
   { name: 'agent:failed',               color: 'b60205', description: 'Agent was unable to make progress' },
   { name: 'agent:wrong-interpretation', color: 'd93f0b', description: 'Agent misread the issue; see comment for details' },
+  { name: 'agent:already-shipped',      color: '0e8a16', description: 'Feature already on main; issue closed without re-implementation' },
 
   // Readiness — applied by the triage agent
   { name: 'ready',            color: '0075ca', description: 'Ready for the nightly implementation agent' },

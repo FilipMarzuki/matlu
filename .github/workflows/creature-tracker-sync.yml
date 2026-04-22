@@ -1,0 +1,39 @@
+name: Creature Tracker Sync
+
+# Poller that reads unposted rows in creature_status_history and posts bot
+# comments + label swaps on the matching GitHub tracker issues. Runs every
+# 10 minutes so contributors see near-real-time updates on their creatures.
+#
+# Required secrets:
+#   SUPABASE_URL              — Supabase project API URL
+#   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role secret key
+#   GH_TRACKER_TOKEN          — fine-grained PAT with issues:write on this repo
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: creature-tracker-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: none
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Post status-change comments to GitHub tracker issues
+        run: node .github/scripts/creature-tracker-sync.js
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GH_TRACKER_TOKEN:          ${{ secrets.GH_TRACKER_TOKEN }}

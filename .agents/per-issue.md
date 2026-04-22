@@ -45,6 +45,36 @@ The runner has already fetched the issue. Its metadata is below.
 
 ---
 
+## Step 0 — Supersession check (do this FIRST, before any coding)
+
+Safety net for issues that became `ready` before the feature actually shipped
+via another PR. Skip this and you'll open a duplicate PR like #575 did.
+
+1. Extract 2–3 concrete code artifacts from the acceptance criteria — file
+   paths, function/class names, API route paths, component names.
+2. Grep `main` for them:
+   ```bash
+   git grep -l 'ArtifactName\|/api/route/path' origin/main -- 'wiki/src' 'src' 'supabase'
+   ```
+3. Check merged PRs referencing this issue:
+   ```bash
+   gh pr list --state merged --search "#{{gh_issue_number}}" --json number,title --limit 5
+   ```
+
+If **most or all** artifacts exist and/or a merged PR already closes this issue,
+**do not implement**. Instead:
+
+```bash
+gh issue edit {{gh_issue_number}} --add-label "agent:already-shipped"
+gh issue comment {{gh_issue_number}} --body "✅ Already shipped — [file/PR references]. Not opening a duplicate PR."
+gh issue close {{gh_issue_number}}
+```
+Then exit cleanly. Do not create a branch, push, or open a PR.
+
+If clearly not shipped, continue to implementation.
+
+---
+
 ## Wrap-up
 
 When implementation is complete, run the exact commands below. Do not skip
