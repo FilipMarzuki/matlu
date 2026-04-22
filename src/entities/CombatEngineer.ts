@@ -9,19 +9,19 @@
  * Carbine and a full deployable kit replace it. The exo-frame makes him slower
  * but significantly harder to put down.
  *
- * ## What's implemented here (Child C — deployable kit)
+ * ## What's implemented here (Child C + Child D)
  *
  * - All 4 deployable types: SentryTurret (Q), ScoutDrone (E), ProximityMine (R),
  *   BarrierShield (F)
- * - Per-kind cooldown timers and active-cap enforcement
+ * - Per-kind cooldown timers, active-cap enforcement, cap-hit event emission
  * - DeployableManager integration (ticked in updateBehaviour)
  * - useSignature() — Deployable Overcharge: resets all deploy cooldowns,
  *   overclocks the Sentry Turret for 4 s (scanInterval halved)
+ * - M12 Carbine 3-round burst-fire with ±3° spread, 24-round mag, 1.1 s reload
+ * - tryRanged() player-mode burst trigger; BT AI burst node
  *
- * ## What is NOT here yet
+ * ## Still pending
  *
- * - M12 Carbine burst-fire mechanic (Child D)
- * - Deployable HUD slot panel (Child D)
  * - Real sprite and animations (PixelLab generation via sprite-credit-burn)
  *
  * ## Stats rationale
@@ -41,6 +41,7 @@ import {
   BtCooldown,
 } from '../ai/BehaviorTree';
 import { EarthHero } from './EarthHero';
+import { Projectile, Damageable } from './Projectile';
 import { DeployableManager } from '../systems/DeployableManager';
 import { SentryTurret } from './deployables/SentryTurret';
 import { ScoutDrone } from './deployables/ScoutDrone';
@@ -57,14 +58,27 @@ const SPEED        = 68;
 /** Incoming damage multiplier. 0.88 = 12% flat reduction from exo-frame padding. */
 const DMG_REDUCE   = 0.88;
 
-// ── Carbine placeholder stats (Child D will refine to burst-fire) ─────────────
+// ── M12 Carbine stats (Child D) ───────────────────────────────────────────────
 
-/** Damage per shot (placeholder; Carbine burst mechanic comes in Child D). */
+/** Damage per shot — modest; burst multiplies total per trigger. */
 const PROJ_DAMAGE  = 6;
 /** Projectile speed px/s — slightly slower than Tinkerer's 420 (heavier round). */
 const PROJ_SPEED   = 380;
 /** Tracer colour — warm amber to distinguish from Tinkerer's pale yellow. */
 const PROJ_COLOR   = 0xff9944;
+
+/** Total rounds in a full magazine (8 bursts × 3). */
+const CARBINE_MAG_SIZE = 24;
+/** Rounds fired per trigger pull. */
+const CARBINE_BURST_SIZE = 3;
+/** ms between consecutive shots within a burst (3 shots over ~150 ms). */
+const CARBINE_BURST_INTERVAL_MS = 50;
+/** Full reload duration after the magazine empties. */
+const CARBINE_RELOAD_MS = 1100;
+/** Half-cone spread in degrees — tight military-grade accuracy. */
+const CARBINE_ACCURACY_DEG = 3;
+/** Minimum gap between burst triggers in player mode. */
+const CARBINE_INTER_BURST_MS = 350;
 
 // ── Behaviour tree tuning ─────────────────────────────────────────────────────
 
@@ -72,7 +86,7 @@ const MELEE_R    = 32;   // px — matches meleeRange below
 const DASH_MIN   = MELEE_R;
 const DASH_MAX   = 280;
 const RANGED_MIN = 60;
-const RANGED_MAX = 210;  // slightly shorter than Tinkerer's 230 (Carbine is close-mid)
+const RANGED_MAX = 280;  // Carbine effective range (matches issue spec)
 const SWARM_R    = 120;
 const SWARM_CAP  = 4;
 
@@ -120,6 +134,21 @@ export class CombatEngineer extends EarthHero {
   private overchargeActive  = false;
   private overchargeTimer   = 0;
   private readonly OVERCHARGE_DURATION_MS = 4_000;
+
+  // ── M12 Carbine burst-fire state ──────────────────────────────────────────────
+
+  /** Rounds remaining in the current magazine. */
+  private carbineMag         = CARBINE_MAG_SIZE;
+  /** True while the reload animation/timer is running. */
+  private carbineReloading   = false;
+  /** Countdown to reload completion. */
+  private carbineReloadTimer = 0;
+  /** True while a 3-round burst is in flight. */
+  private carbineBurstFiring     = false;
+  /** Shots still to fire in the current burst. */
+  private carbineBurstShotsLeft  = 0;
+  /** Countdown to the next shot within the burst. */
+  private carbineBurstTimer      = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
@@ -171,32 +200,56 @@ export class CombatEngineer extends EarthHero {
   get mineCooldownMs():   number  { return this.mineCd; }
   get shieldCooldownMs(): number  { return this.shieldCd; }
 
+  /** Active instance counts — read by DeployableHUD. */
+  get turretActiveCount(): number { return this.turretCount; }
+  get droneActiveCount():  number { return this.droneCount; }
+  get mineActiveCount():   number { return this.mineCount; }
+  get shieldActiveCount(): number { return this.shieldCount; }
+
+  /** Rounds remaining in the current magazine. */
+  get carbineAmmo(): number { return this.carbineMag; }
+  /** True while reloading — used by the arena HUD. */
+  get carbineIsReloading(): boolean { return this.carbineReloading; }
+
   /** Place a Sentry Turret at the engineer's feet (if ready). */
   deployTurret(): void {
-    if (!this.turretReady) return;
+    if (this.turretCd > 0) return;
+    if (this.turretCount >= TURRET.cap) {
+      this.scene.events.emit('deployable:cap-hit', 'turret');
+      return;
+    }
     const t = new SentryTurret(this.scene, this.x, this.y, this, () => this.opponents);
     this.deployMgr.add(t);
     this.turretCount++;
     this.turretCd = TURRET.cooldownMs;
-    // Decrement counter when the turret is removed.
     t.once('destroy', () => { this.turretCount = Math.max(0, this.turretCount - 1); });
   }
 
   /** Spawn a Scout Drone that orbits the engineer. */
   deployDrone(): void {
-    if (!this.droneReady) return;
+    if (this.droneCd > 0) return;
+    if (this.droneCount >= DRONE.cap) {
+      this.scene.events.emit('deployable:cap-hit', 'drone');
+      return;
+    }
     const d = new ScoutDrone(this.scene, this.x, this.y, this, () => this.opponents);
     this.deployMgr.add(d);
     this.droneCount++;
+    this.droneCd = DRONE.cooldownMs;
     d.once('destroy', () => { this.droneCount = Math.max(0, this.droneCount - 1); });
   }
 
   /** Plant a Proximity Mine at the engineer's feet. */
   deployMine(): void {
-    if (!this.mineReady) return;
+    if (this.mineCd > 0) return;
+    if (this.mineCount >= MINE.cap) {
+      this.scene.events.emit('deployable:cap-hit', 'mine');
+      return;
+    }
     const m = new ProximityMine(this.scene, this.x, this.y, this, () => this.opponents);
     this.deployMgr.add(m);
     this.mineCount++;
+    this.mineCd = MINE.cooldownMs;
     m.once('destroy', () => { this.mineCount = Math.max(0, this.mineCount - 1); });
   }
 
@@ -205,11 +258,76 @@ export class CombatEngineer extends EarthHero {
    * movement direction. Falls back to facing right when standing still.
    */
   deployShield(facingAngle = 0): void {
-    if (!this.shieldReady) return;
+    if (this.shieldCd > 0) return;
+    if (this.shieldCount >= SHIELD.cap) {
+      this.scene.events.emit('deployable:cap-hit', 'shield');
+      return;
+    }
     const s = new BarrierShield(this.scene, this.x, this.y, this, facingAngle);
     this.deployMgr.add(s);
     this.shieldCount++;
+    this.shieldCd = SHIELD.cooldownMs;
     s.once('destroy', () => { this.shieldCount = Math.max(0, this.shieldCount - 1); });
+  }
+
+  // ── M12 Carbine ───────────────────────────────────────────────────────────────
+
+  /**
+   * Gate ranged fire: false while reloading, mid-burst, or mag empty.
+   * The BT checks this before starting a new burst in AI mode.
+   */
+  protected override canShoot(): boolean {
+    return !this.carbineReloading && !this.carbineBurstFiring && this.carbineMag > 0;
+  }
+
+  /**
+   * Player-mode burst trigger — called when the player presses the fire key.
+   *
+   * Starts a 3-round burst. Shots fire at CARBINE_BURST_INTERVAL_MS apart via
+   * the updateBehaviour() tick, so this method just arms the burst state and
+   * sets an inter-burst cooldown on attackTimer.
+   */
+  override tryRanged(): void {
+    if (this.carbineBurstFiring) return;
+    if (this.carbineReloading)   return;
+    if (this.attackTimer > 0)    return;
+    if (this.carbineMag <= 0)    { this.startCarbineReload(); return; }
+
+    this.carbineBurstShotsLeft = Math.min(CARBINE_BURST_SIZE, this.carbineMag);
+    this.carbineBurstFiring    = true;
+    this.carbineBurstTimer     = 0;           // fire first shot immediately
+    this.attackTimer           = CARBINE_INTER_BURST_MS;
+  }
+
+  private startCarbineReload(): void {
+    if (this.carbineReloading) return;
+    this.carbineReloading   = true;
+    this.carbineReloadTimer = CARBINE_RELOAD_MS;
+    this.scene.events.emit('hero-reload');
+  }
+
+  /**
+   * Fire one Carbine round toward the nearest living opponent with ±3° spread.
+   * Called by the burst tick in updateBehaviour().
+   */
+  private fireCarbineShot(): void {
+    const target = this.findNearestLivingOpponent();
+    if (!target) return;
+
+    const baseAngle = Math.atan2(target.y - this.y, target.x - this.x);
+    const spread    = (Math.random() * 2 - 1) * Phaser.Math.DegToRad(CARBINE_ACCURACY_DEG);
+    const angle     = baseAngle + spread;
+
+    const p = new Projectile(
+      this.scene, this.x, this.y, angle,
+      PROJ_SPEED, PROJ_DAMAGE,
+      PROJ_COLOR,
+      (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
+    );
+    this.scene.events.emit('projectile-spawned', p);
+    this.attackAnimId    = 'attack_ranged';
+    this.attackAnimTimer = this.attackAnimDuration;
+    this.scene.events.emit('hero-shot', this.x, this.y, angle);
   }
 
   // ── Signature ability: Deployable Overcharge ──────────────────────────────────
@@ -234,6 +352,36 @@ export class CombatEngineer extends EarthHero {
   // ── Per-frame tick ────────────────────────────────────────────────────────────
 
   override updateBehaviour(delta: number): void {
+    // ── Carbine burst tick ────────────────────────────────────────────────────
+    // Each burst fires CARBINE_BURST_SIZE shots at CARBINE_BURST_INTERVAL_MS
+    // apart.  This runs before super.updateBehaviour() so the BT reads an
+    // accurate canShoot() state immediately after a burst completes.
+    if (this.carbineBurstFiring) {
+      if (this.carbineBurstTimer > 0) {
+        this.carbineBurstTimer = Math.max(0, this.carbineBurstTimer - delta);
+      }
+      if (this.carbineBurstTimer === 0) {
+        this.fireCarbineShot();
+        this.carbineBurstShotsLeft--;
+        this.carbineMag = Math.max(0, this.carbineMag - 1);
+        if (this.carbineBurstShotsLeft <= 0 || this.carbineMag <= 0) {
+          this.carbineBurstFiring = false;
+          if (this.carbineMag <= 0) this.startCarbineReload();
+        } else {
+          this.carbineBurstTimer = CARBINE_BURST_INTERVAL_MS;
+        }
+      }
+    }
+
+    // ── Carbine reload tick ───────────────────────────────────────────────────
+    if (this.carbineReloading) {
+      this.carbineReloadTimer = Math.max(0, this.carbineReloadTimer - delta);
+      if (this.carbineReloadTimer === 0) {
+        this.carbineReloading = false;
+        this.carbineMag       = CARBINE_MAG_SIZE;
+      }
+    }
+
     super.updateBehaviour(delta);  // runs the BT
 
     // Tick all active deployables.
@@ -264,9 +412,9 @@ export class CombatEngineer extends EarthHero {
   /**
    * AI behaviour tree for uncontrolled-hero mode.
    *
-   * Mirrors the Tinkerer tree (escape dash → ranged → melee → gap-close → chase
-   * → wander). Child D will extend this with Carbine burst-fire and AI deploy
-   * triggers (e.g. auto-drop mine when swarmed).
+   * Escape dash → melee bash → Carbine burst → gap-close dash → chase → wander.
+   * The Carbine node arms a 3-round burst via carbineBurstFiring state; shots
+   * fire through updateBehaviour() each frame rather than ctx.shootAt().
    */
   protected buildTree(): BtNode {
     const swarmPressure = (cx: number, cy: number): number =>
@@ -313,26 +461,25 @@ export class CombatEngineer extends EarthHero {
         }),
       ]),
 
-      // 3. Carbine (placeholder pistol-style until Child D burst-fire lands).
+      // 3. M12 Carbine burst — fires 3-round burst when target is in effective range.
+      //    The BtCooldown of 900 ms gates re-entry; the burst itself takes ~150 ms
+      //    and fires via updateBehaviour(), so canShoot() is false mid-burst.
       new BtCooldown(
         new BtSequence([
           new BtCondition(ctx => {
-            if (!ctx.opponent) return false;
+            if (!ctx.opponent || !this.canShoot()) return false;
             const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
             return d >= RANGED_MIN && d <= RANGED_MAX;
           }),
-          new BtAction(ctx => {
-            this.attackAnimId = 'attack_ranged';
-            const shotAngle = Math.atan2(
-              ctx.opponent!.y - ctx.y,
-              ctx.opponent!.x - ctx.x,
-            );
-            ctx.shootAt(ctx.opponent!.x, ctx.opponent!.y);
-            this.scene.events.emit('hero-shot', ctx.x, ctx.y, shotAngle);
+          new BtAction(_ctx => {
+            // Arm the burst; shots fire through updateBehaviour() each frame.
+            this.carbineBurstShotsLeft = Math.min(CARBINE_BURST_SIZE, this.carbineMag);
+            this.carbineBurstFiring    = true;
+            this.carbineBurstTimer     = 0;
             return 'success';
           }),
         ]),
-        820,  // ms — slightly slower than Tinkerer burst to reflect single-shot placeholder
+        900,  // inter-burst cooldown for AI (burst takes ~150 ms, leaves ~750 ms pause)
       ),
 
       // 4. Gap-close dash toward target.

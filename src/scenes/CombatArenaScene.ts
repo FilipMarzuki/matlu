@@ -23,6 +23,7 @@ import { ArenaTierConfig, EnemyCtor, TIER_CONFIGS } from '../data/arenaTiers';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { worldToArenaIso, arenaIsoDepth, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { DeployableManager } from '../systems/DeployableManager';
+import { DeployableHUD } from '../ui/DeployableHUD';
 
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
@@ -156,6 +157,9 @@ export class CombatArenaScene extends Phaser.Scene {
   private hudKills!:  Phaser.GameObjects.Text;
   private hudGadget!: Phaser.GameObjects.Text;
 
+  /** Four-slot deployable panel — only created when active hero is CombatEngineer. */
+  private deployableHud: DeployableHUD | null = null;
+
   // ── Player control ──────────────────────────────────────────────────────────
   /** When true the player drives the hero with WASD/arrows + attack keys. */
   private heroPlayerMode = false;
@@ -181,6 +185,8 @@ export class CombatArenaScene extends Phaser.Scene {
   private touchMelee  = false;
   private touchRanged = false;
   private touchDash   = false;
+  /** Previous-frame left-mouse state — used to detect just-pressed for Carbine fire. */
+  private _prevMouseLeft = false;
 
   // ── Audio ───────────────────────────────────────────────────────────────────
   private audioAvailable = false;
@@ -695,10 +701,22 @@ export class CombatArenaScene extends Phaser.Scene {
             const secs = (this.hero.gadgetCooldownRemaining / 1000).toFixed(1);
             this.hudGadget.setText(`MINE [E]: ${secs}s`).setColor('#aaaaaa');
           }
+        } else if (this.hero instanceof CombatEngineer) {
+          // Carbine ammo readout — shows rounds remaining or reload status.
+          if (this.hero.carbineIsReloading) {
+            this.hudGadget.setText('CARBINE: reloading').setColor('#888888');
+          } else {
+            this.hudGadget.setText(`CARBINE: ${this.hero.carbineAmmo}/24`).setColor('#ff9944');
+          }
         } else if (this.hero instanceof EarthHero && !(this.hero instanceof Tinkerer)) {
-          // Non-Tinkerer Earth heroes show their signature name; subclass owns cooldown display.
+          // Non-Tinkerer, non-CombatEngineer Earth heroes show their signature name.
           this.hudGadget.setText(`SIG [E]: ${this.hero.name}`).setColor('#88ddff');
         }
+      }
+
+      // Deployable slot panel — tick every frame while playing as CombatEngineer.
+      if (this.deployableHud && this.hero instanceof CombatEngineer) {
+        this.deployableHud.update(this.hero, delta);
       }
     }
   }
@@ -1460,6 +1478,12 @@ export class CombatArenaScene extends Phaser.Scene {
       .text(12, 92, 'MINE: locked', { ...base, color: '#555555' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
 
+    // Deployable slot panel — only for CombatEngineer.
+    if (this.hero instanceof CombatEngineer) {
+      // Position panel 58 px above the bottom edge so the key labels clear the edge.
+      this.deployableHud = new DeployableHUD(this, 12, this.scale.height - 58);
+    }
+
     this.buildZoomSlider();
   }
 
@@ -1658,9 +1682,16 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     if (this.hero instanceof CombatEngineer) {
-      // ── CombatEngineer deploy keys: Q=Turret, E=Drone, R=Mine, F=Shield ──────
-      // F replaces the ranged-fire key for this hero — carbine fires automatically
-      // via the behaviour tree. Child D will expose manual burst-fire.
+      // ── CombatEngineer: mouse-left = Carbine burst, Q/E/R/F = deployables ──────
+      // Left mouse button triggers a 3-round Carbine burst (the "primary fire" for
+      // this hero).  F is reserved for Shield deploy — it can't double as ranged fire.
+      const mouseLeft = this.input.mousePointer.leftButtonDown();
+      const mouseJustDown = mouseLeft && !this._prevMouseLeft;
+      if (mouseJustDown || this.touchRanged) {
+        this.touchRanged = false;
+        this.hero.tryRanged();
+      }
+      this._prevMouseLeft = mouseLeft;
       if (Phaser.Input.Keyboard.JustDown(this.turretKey))     this.hero.deployTurret();
       if (Phaser.Input.Keyboard.JustDown(this.gadgetKey))     this.hero.deployDrone();
       if (Phaser.Input.Keyboard.JustDown(this.deployMineKey)) this.hero.deployMine();
