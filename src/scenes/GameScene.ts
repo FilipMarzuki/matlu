@@ -55,6 +55,7 @@ import { layoutSettlement } from '../world/SettlementLayout';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
+import { DeployableManager } from '../systems/DeployableManager';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
 // Set a flag to true to enable that category; false to skip it entirely.
@@ -358,6 +359,12 @@ function elevHeatColor(t: number): number {
 }
 
 export class GameScene extends Phaser.Scene {
+  /**
+   * Scene-level deployable registry. Used for dev-console testing and any
+   * future system that places deployables in the overworld.
+   */
+  deployables!: DeployableManager;
+
   private player!: Phaser.GameObjects.Container;
   private playerShadow!: Phaser.GameObjects.Ellipse;
   private playerBody!: Phaser.GameObjects.Arc;
@@ -1025,6 +1032,9 @@ export class GameScene extends Phaser.Scene {
     // FIL-444: physics world expanded to isometric canvas size.
     this.physics.world.setBounds(0, 0, ISO_WORLD_W, ISO_WORLD_H);
 
+    // Scene-level deployable manager — accessible as `scene.deployables.place({...})`.
+    this.deployables = new DeployableManager(this);
+
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
     this.worldState = new WorldState(this, this.worldClock);
@@ -1044,13 +1054,14 @@ export class GameScene extends Phaser.Scene {
     // Placeholder map data — replaced by parseLdtkLevel() once LDtk export exists
     this.mapData = emptyLdtkLevel(WORLD_W, WORLD_H, TILE_SIZE);
 
-    // Tear down WorldState when scene shuts down
+    // Tear down WorldState and deployables when scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.musicTrack?.stop();
       // Stop ambient loops so they don't bleed into other scenes (e.g. CombatArenaScene).
       this.ambienceSound?.stop();
       this.oceanAmbienceSound?.stop();
       this.worldState.destroy();
+      this.deployables.destroyAll();
       // Persist explored fog state so revisiting areas doesn't reset the fog.
       this.saveFogOfWar();
     });
@@ -1527,6 +1538,7 @@ export class GameScene extends Phaser.Scene {
     this.worldClock.update(delta);
     this.worldState.update(delta);
     this.updateDayNight(delta);
+    this.deployables.update(delta);
     if (this.attractMode) {
       this.updateAttractMode(time, delta);
     } else {

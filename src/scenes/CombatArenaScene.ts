@@ -22,6 +22,7 @@ import { GlitchDrone } from '../entities/EarthEnemies';
 import { ArenaTierConfig, EnemyCtor, TIER_CONFIGS } from '../data/arenaTiers';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { worldToArenaIso, arenaIsoDepth, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
+import { DeployableManager } from '../systems/DeployableManager';
 
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
@@ -69,6 +70,17 @@ export class CombatArenaScene extends Phaser.Scene {
   private hero!:         CombatEntity;
   private obstacles!:   Phaser.Physics.Arcade.StaticGroup;
   private heroAlive    = true;
+
+  /**
+   * Scene-level deployable registry. Accessible from the dev console as
+   * `scene.deployables.place({...config})` to test placement without
+   * running the full CombatEngineer gadget pipeline.
+   *
+   * CombatEngineer has its own internal DeployableManager for its four gadgets
+   * (turret/drone/mine/shield); this scene-level manager is for any deployable
+   * placed via the generic `place()` API or by future systems.
+   */
+  deployables!: DeployableManager;
   private aliveEnemies: CombatEntity[] = [];
   private projectiles:  Projectile[]   = [];
   private readonly blackboard = new ArenaBlackboard();
@@ -334,6 +346,10 @@ export class CombatArenaScene extends Phaser.Scene {
     this._lastHudAlive   = -1;
     this._lastHudKills   = -1;
 
+    // Scene-level deployable manager — accessible from the dev console as
+    // `scene.deployables.place({...})`. Separate from CombatEngineer's internal manager.
+    this.deployables = new DeployableManager(this);
+
     this.buildDungeon();
 
     // ── Stone shimmer filter (Phaser 4) ─────────────────────────────────────
@@ -384,11 +400,12 @@ export class CombatArenaScene extends Phaser.Scene {
       this.combatMusic.play();
     }
 
-    // Clean up combat music and any active burrow holes when leaving the arena.
+    // Clean up combat music, deployables, and any active burrow holes when leaving the arena.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.combatMusic?.stop();
       this.combatMusic = null;
       this.clearHoles();
+      this.deployables.destroyAll();
     });
 
     // Projectile listener lives for the whole scene — enemies and hero both fire.
@@ -562,6 +579,9 @@ export class CombatArenaScene extends Phaser.Scene {
 
   override update(_time: number, delta: number): void {
     this.blackboard.tick(delta);
+    // Tick the scene-level deployable manager (PlaceholderDeployables placed via
+    // the dev console or future systems). CombatEngineer ticks its own manager.
+    this.deployables.update(delta);
 
     // ── Hero (P1) ─────────────────────────────────────────────────────────────
     if (this.heroAlive) {
