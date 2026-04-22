@@ -19,6 +19,8 @@ type WeekRow = {
   issues_completed: number | null;
   rework_rate_pct: string | null;
   refactor_ratio_pct: number | null;
+  refactor_pr_count: number | null;
+  fix_revert_count: number | null;
   total_pr_count: number | null;
   agent_success_rate_pct: string | null;
   cognitive_load_total: number | null;
@@ -54,7 +56,7 @@ if (supabaseUrl && !supabaseUrl.includes('example')) {
   const [{ data: statsData }, { data: errorData }] = await Promise.all([
     sb
       .from('stats_weekly')
-      .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, total_pr_count, agent_success_rate_pct, cognitive_load_total, cognitive_load_density, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted, avg_files_changed, avg_lines_added, avg_lines_deleted, bug_file_breakdown, top_rework_file')
+      .select('week_of, prs_merged, issues_completed, rework_rate_pct, refactor_ratio_pct, refactor_pr_count, fix_revert_count, total_pr_count, agent_success_rate_pct, cognitive_load_total, cognitive_load_density, ai_total_cost_usd, cognitive_load_top10, total_lines_added, total_lines_deleted, avg_files_changed, avg_lines_added, avg_lines_deleted, bug_file_breakdown, top_rework_file')
       .order('week_of', { ascending: true }),
     sb
       .from('error_metrics')
@@ -107,6 +109,16 @@ const aiCostData         = rows.map(r => parseFloat(r.ai_total_cost_usd ?? '0'))
 const churnAddedData     = rows.map(r => r.total_lines_added ?? 0);
 const churnDeletedData   = rows.map(r => r.total_lines_deleted ?? 0);
 const filesData          = rows.map(r => r.avg_files_changed ?? 0);
+
+// PR type breakdown: feature = total − refactor − fix (floor at 0)
+const prTypeRefactorData = rows.map(r => r.refactor_pr_count ?? 0);
+const prTypeFixData      = rows.map(r => r.fix_revert_count ?? 0);
+const prTypeFeatureData  = rows.map(r => {
+  const total   = r.total_pr_count ?? r.prs_merged ?? 0;
+  const refact  = r.refactor_pr_count ?? 0;
+  const fix     = r.fix_revert_count ?? 0;
+  return Math.max(0, total - refact - fix);
+});
 
 // Latest row's cognitive load top-10 for the hotspots table
 const hotspots = latest?.cognitive_load_top10 ?? [];
@@ -171,6 +183,10 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
         <div class="chart-box chart-box--wide">
           <h2>Code churn — lines added / removed per week</h2>
           <canvas id="chart-churn"></canvas>
+        </div>
+        <div class="chart-box chart-box--wide">
+          <h2>PR type breakdown — feature / refactor / fix per week</h2>
+          <canvas id="chart-pr-type"></canvas>
         </div>
       </div>
 
@@ -255,7 +271,7 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 )}
 
-<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, cogLoadDensityData, agentData, aiCostData, churnAddedData, churnDeletedData, filesData }}>
+<script define:vars={{ labels, prsData, issuesData, reworkData, refactorData, cogLoadData, cogLoadDensityData, agentData, aiCostData, churnAddedData, churnDeletedData, filesData, prTypeFeatureData, prTypeRefactorData, prTypeFixData }}>
   // Runs client-side once Chart.js CDN script has loaded
   if (typeof Chart === 'undefined') {
     // CDN not loaded (e.g. no data rendered), skip
@@ -384,6 +400,47 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
           scales: {
             x: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
             y: { grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true },
+          },
+        },
+      });
+    }
+
+    // Stacked bar chart: feature vs refactor vs fix PRs per week
+    const prTypeCtx = document.getElementById('chart-pr-type');
+    if (prTypeCtx) {
+      new Chart(prTypeCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Feature',
+              data: prTypeFeatureData,
+              backgroundColor: '#60a5fa',
+              stack: 'prs',
+            },
+            {
+              label: 'Refactor',
+              data: prTypeRefactorData,
+              backgroundColor: '#fb923c',
+              stack: 'prs',
+            },
+            {
+              label: 'Fix / revert',
+              data: prTypeFixData,
+              backgroundColor: '#f87171',
+              stack: 'prs',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true, labels: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+          },
+          scales: {
+            x: { stacked: true, grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } } },
+            y: { stacked: true, grid: { color: GRID }, ticks: { color: TEXT, font: { family: 'JetBrains Mono, monospace', size: 11 } }, beginAtZero: true },
           },
         },
       });
