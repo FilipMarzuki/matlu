@@ -188,10 +188,15 @@ curl -s -X PATCH \
 
    Setting `status = 'lore-ready'` triggers the DB audit trigger to log the transition.
 
-### 6c. Rate-limit consideration
+### 6c. Fail-safes
 
-Process at most **5 balanced creatures per run** to avoid overwhelming the Notion API.
-If there are more, print a note listing the skipped creatures.
+- If Notion page creation fails for a single row, log the error (creature name + error
+  message) and continue to the next row — do not abort the whole run.
+- If Supabase is unreachable (connection refused, 5xx, DNS failure), print a warning and
+  exit 0. The scheduled run is idempotent — tomorrow's run will retry.
+- Process at most **10 balanced creatures per run** to avoid overwhelming the Notion API.
+  If there are more, print a note listing the skipped creature names so an operator can
+  see the queue depth.
 
 ## STEP 7 — REPORT
 
