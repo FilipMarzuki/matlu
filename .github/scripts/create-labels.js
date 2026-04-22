@@ -51,14 +51,14 @@ const LABELS = [
   { name: 'parts',          color: 'f9d0c4', description: '' },
   { name: 'mobile',         color: 'f9d0c4', description: '' },
 
-  // Type — every issue must carry exactly one
-  { name: 'type:feature',  color: 'a2eeef', description: 'New capability' },
-  { name: 'type:bug',      color: 'd73a4a', description: 'Something broken' },
-  { name: 'type:refactor', color: 'c5def5', description: 'Code cleanup / restructure' },
-  { name: 'type:perf',     color: 'fbca04', description: 'Performance improvement' },
-  { name: 'type:infra',    color: '5319e7', description: 'CI, tooling, deployment' },
-  { name: 'type:docs',     color: '0075ca', description: 'Documentation only' },
-  { name: 'type:spike',    color: 'e99695', description: 'Research / exploration' },
+  // Type — work type taxonomy (one per issue, set by triage agent at intake).
+  { name: 'type:feature',  color: 'a2eeef', description: 'New user-facing capability' },
+  { name: 'type:bug',      color: 'd73a4a', description: 'Broken behaviour being fixed' },
+  { name: 'type:refactor', color: 'c5def5', description: 'Code reshape, zero behaviour change' },
+  { name: 'type:perf',     color: 'fbca04', description: 'Making existing behaviour faster/cheaper' },
+  { name: 'type:infra',    color: '5319e7', description: 'CI, deploy, tooling, agent pipelines' },
+  { name: 'type:docs',     color: '0075ca', description: 'Words only — README, ARCHITECTURE, plans' },
+  { name: 'type:spike',    color: 'e99695', description: 'Time-boxed research, no deliverable' },
 ];
 
 async function githubRequest(path, method = 'GET', body = null) {
