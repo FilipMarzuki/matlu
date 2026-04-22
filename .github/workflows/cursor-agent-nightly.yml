@@ -1,22 +1,149 @@
-name: Cursor Agent — Nightly
+name: DevCycle 1 — Dev Agent (Marvin)
+
+# Single-issue Cursor agent runner. Same loop pattern as Bender (Claude)
+# but uses the Cursor CLI. Picks the highest-priority ready issue, implements
+# it, opens a PR with a marvin/ branch prefix.
+#
+# The PR flows through the shared pipeline: CI → Review → Merge.
+# After merge, this workflow is re-triggered for the next issue.
 
 on:
   schedule:
-    - cron: '0 0 * * *' # midnight UTC
-  workflow_dispatch: # allow manual trigger for testing
+    - cron: '0 4 * * *'
+  workflow_run:
+    workflows: ["DevCycle 4 — Merge"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      issue_id:
+        description: 'GitHub issue number to run (e.g. 42). Leave blank to pick the top priority.'
+        required: false
+        type: string
+
+concurrency:
+  group: agent-marvin
+  cancel-in-progress: false
 
 jobs:
-  cursor-agent:
+  gate:
     runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
     steps:
+      - name: Check if this was triggered by a Marvin branch
+        id: check-origin
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            if [[ "$BRANCH" != marvin/* ]]; then
+              echo "Merge was for branch '$BRANCH' — not a Marvin PR, skipping"
+              echo "is_marvin=false" >> $GITHUB_OUTPUT
+            else
+              echo "is_marvin=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "is_marvin=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check cycle cap
+        id: check
+        if: steps.check-origin.outputs.is_marvin == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MAX_RUNS=10
+          CUTOFF=$(date -u -d '8 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          RECENT=$(gh api "repos/${{ github.repository }}/actions/workflows/cursor-agent-nightly.yml/runs" \
+            --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\")] | length")
+          echo "Marvin runs in last 8 hours: $RECENT (max: $MAX_RUNS)"
+          if [ "$RECENT" -lt "$MAX_RUNS" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "Cycle cap reached — stopping Marvin for this night"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  fetch-issue:
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      issue:     ${{ steps.first.outputs.issue }}
+      has_issue: ${{ steps.first.outputs.has_issue }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Fetch top-priority issue
+        id: pick
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/fetch-agent-issues.js
+
+      - name: Pick first issue
+        id: first
+        run: |
+          ISSUES='${{ steps.pick.outputs.issues }}'
+          FIRST=$(echo "$ISSUES" | node -e "
+            const d = require('fs').readFileSync(0,'utf8').trim();
+            const arr = JSON.parse(d);
+            if (arr.length > 0) {
+              console.log(arr[0]);
+            }
+          ")
+          if [ -n "$FIRST" ]; then
+            echo "issue=$FIRST" >> $GITHUB_OUTPUT
+            echo "has_issue=true" >> $GITHUB_OUTPUT
+            echo "Picked issue #$FIRST"
+          else
+            echo "has_issue=false" >> $GITHUB_OUTPUT
+            echo "No eligible issues found"
+          fi
+
+  run-agent:
+    needs: fetch-issue
+    if: needs.fetch-issue.outputs.has_issue == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Install Cursor CLI
-        # See exact install command at: https://cursor.com/docs/cli/github-actions
         run: curl -fsSL https://cursor.com/install-cli.sh | sh
 
-      - name: Run Cursor background agent
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run Cursor session for issue #${{ needs.fetch-issue.outputs.issue }}
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-        run: |
-          cursor agent \
-            --prompt "Check the Linear project for Matlu. Find issues that are in 'Todo' or 'Backlog' state and marked as ready for development. Pick the easiest one (smallest scope, well-defined). Implement it fully: write the code, run the build to verify it compiles, open a GitHub PR, post the PR link as a comment on the Linear issue, and mark the issue as Done." \
-            --model claude-sonnet-4-6
+          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/run-agent-marvin.js "${{ needs.fetch-issue.outputs.issue }}"
+
+      - name: Log token usage
+        if: always()
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/log-session-tokens.js --workflow "DevCycle 1 — Dev Agent (Marvin)" --issue "${{ needs.fetch-issue.outputs.issue }}"

@@ -26,8 +26,8 @@ jobs:
 
       - name: Run error monitor session
         env:
-          CLAUDE_CODE_OAUTH_TOKEN:    ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY:          ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN:    ${{ secrets.CLAUDE_CODE_PERSONAL }}
+          
           LINEAR_API_KEY:             ${{ secrets.LINEAR_API_KEY }}
           BETTERSTACK_API_TOKEN:      ${{ secrets.BETTERSTACK_API_TOKEN }}
           BETTERSTACK_CONNECT_USER:   ${{ secrets.BETTERSTACK_CONNECT_USER }}

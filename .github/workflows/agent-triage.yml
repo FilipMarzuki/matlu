@@ -1,4 +1,4 @@
-name: Backlog Refinement
+name: Refinement 1 — Triage
 
 # Nightly triage runner for Matlu's Linear backlog.
 #
@@ -18,7 +18,7 @@ name: Backlog Refinement
 on:
   schedule:
     # 22:00 UTC every day — 4 hours before the implementation cron (02:00 UTC).
-    - cron: '0 22 * * *'
+    - cron: '30 0 * * *'
   workflow_dispatch:
     inputs:
       issue_id:
@@ -82,8 +82,7 @@ jobs:
 
       - name: Run triage session for ${{ matrix.issue }}
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
         run: node .github/scripts/run-triage.js "${{ matrix.issue }}"
 
@@ -92,5 +91,5 @@ jobs:
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node .github/scripts/log-session-tokens.js --workflow "Backlog Refinement" --issue "${{ matrix.issue }}"
+        run: node .github/scripts/log-session-tokens.js --workflow "Refinement 1 — Triage" --issue "${{ matrix.issue }}"
       # [token-logging-added]

@@ -1,12 +1,11 @@
-# Matlu Per-Issue Agent
+# Matlu Per-Issue Agent (Marvin)
 
-You are an isolated Claude Code session working on **exactly one** GitHub issue
+You are an isolated Cursor agent session working on **exactly one** GitHub issue
 for the **Matlu** Phaser 3 game project. This session has no knowledge of
 other issues and must not broaden its scope.
 
 Credentials are available as environment variables:
 
-- `ANTHROPIC_API_KEY` — injected by the runner for Claude Code itself
 - `GITHUB_TOKEN` — GitHub API token, scoped to this repo. Use for `gh` and REST.
 - `GH_TOKEN` — alias of `GITHUB_TOKEN`, picked up automatically by `gh`.
 
@@ -45,36 +44,6 @@ The runner has already fetched the issue. Its metadata is below.
 
 ---
 
-## Step 0 — Supersession check (do this FIRST, before any coding)
-
-Safety net for issues that became `ready` before the feature actually shipped
-via another PR. Skip this and you'll open a duplicate PR like #575 did.
-
-1. Extract 2–3 concrete code artifacts from the acceptance criteria — file
-   paths, function/class names, API route paths, component names.
-2. Grep `main` for them:
-   ```bash
-   git grep -l 'ArtifactName\|/api/route/path' origin/main -- 'wiki/src' 'src' 'supabase'
-   ```
-3. Check merged PRs referencing this issue:
-   ```bash
-   gh pr list --state merged --search "#{{gh_issue_number}}" --json number,title --limit 5
-   ```
-
-If **most or all** artifacts exist and/or a merged PR already closes this issue,
-**do not implement**. Instead:
-
-```bash
-gh issue edit {{gh_issue_number}} --add-label "agent:already-shipped"
-gh issue comment {{gh_issue_number}} --body "✅ Already shipped — [file/PR references]. Not opening a duplicate PR."
-gh issue close {{gh_issue_number}}
-```
-Then exit cleanly. Do not create a branch, push, or open a PR.
-
-If clearly not shipped, continue to implementation.
-
----
-
 ## Wrap-up
 
 When implementation is complete, run the exact commands below. Do not skip
@@ -83,7 +52,7 @@ any step. Do not ask for permission — you are in a disposable CI sandbox.
 ### 1. Commit and push
 
 ```bash
-git checkout -b bender/{{issue_id_lower}}-<short-slug>
+git checkout -b marvin/{{issue_id_lower}}-<short-slug>
 git add -A
 git commit -m "#{{gh_issue_number}}: <issue title>"
 git push -u origin HEAD
@@ -99,7 +68,7 @@ no reviewable PR. Use `gh` (pre-installed, already authenticated via
 ```bash
 gh pr create \
   --base main \
-  --head bender/{{issue_id_lower}}-<short-slug> \
+  --head marvin/{{issue_id_lower}}-<short-slug> \
   --title "#{{gh_issue_number}}: <issue title>" \
   --body "Closes #{{gh_issue_number}}
 
@@ -134,16 +103,16 @@ Write a comment summarising what was done and include the PR URL from step 2.
 include these three lines so the weekly performance log can record it:
 
 ```
-Wrong interpretation: [1–2 sentences on what the issue asked for]
-What was attempted: [1–2 sentences on what was actually built/tried]
-Root cause: [why the reading was wrong — ambiguous wording, missing context, assumed scope, etc.]
+Wrong interpretation: [1-2 sentences on what the issue asked for]
+What was attempted: [1-2 sentences on what was actually built/tried]
+Root cause: [why the reading was wrong - ambiguous wording, missing context, assumed scope, etc.]
 ```
 
 **If you touched files or systems outside the direct scope of #{{gh_issue_number}}**
 and it was genuinely necessary, include a scope note:
 
 ```
-Scope note: also modified [file/system] — [reason it was necessary]
+Scope note: also modified [file/system] - [reason it was necessary]
 ```
 
 ```bash

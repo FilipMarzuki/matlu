@@ -88,6 +88,7 @@ async function main() {
     numbers = issues
       .filter(i => !i.pull_request)
       .filter(i => !hasLabel(i, 'blocked'))
+      .filter(i => !hasLabel(i, 'agent:in-progress'))
       .sort((a, b) => bugPriority(a) - bugPriority(b))
       .map(i => i.number);
   }

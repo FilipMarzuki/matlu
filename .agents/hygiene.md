@@ -1,4 +1,4 @@
-# Matlu Hygiene Agent
+# Matlu Refinement 2 — Hygiene Agent
 
 You are performing a **single hygiene task** on one GitHub issue for the Matlu Phaser 3 game project.
 **Do not write code, commit, or push anything.**

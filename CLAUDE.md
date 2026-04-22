@@ -253,7 +253,7 @@ Rework = fixing something that was recently shipped. Tracked in two ways:
 1. **Per-issue** — triage agent applies the `rework` label when it detects fix/regression/polish patterns in the title or recently-changed files.
 2. **Weekly metric** — `collect-stats.js` computes rework rate (% of files changed this week that were also changed in prior 3 weeks), top rework hotspots, and posts to a dedicated Notion database for trend charting.
 
-On-demand: trigger `Backlog Refinement` from the Actions tab, optionally pinning to one issue via `issue_id`.
+On-demand: trigger `Refinement 1 — Triage` from the Actions tab, optionally pinning to one issue via `issue_id`.
 
 ## Scheduled agent workflows
 
@@ -261,8 +261,8 @@ All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude
 
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
-| Backlog Cleanup | after Backlog Refinement | `.agents/hygiene.md` | `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
-| PR Grooming | after Dev Agent | `.agents/pr-merge.md` | `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
+| Refinement 2 — Hygiene | after Refinement 1 — Triage | `.agents/hygiene.md` | `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
+| DevCycle 5 — Grooming | after DevCycle 1 — Dev Agent | `.agents/pr-merge.md` | `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `GITHUB_TOKEN`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files GitHub bugs |
 | Lore Auto-fill | `0 14 * * *` (daily) | `.agents/lore-autofill.md` | `NOTION_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Expands thin lore entries, generates new ones in Notion; auto-drafts Notion lore pages for `balanced` creature submissions and flips their status to `lore-ready` |
 | Lore from Features | `0 15 * * *` (daily) | `.agents/lore-features.md` | `NOTION_API_KEY` | Scans merged PRs for new game entities, creates Notion lore entries |

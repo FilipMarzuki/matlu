@@ -1,10 +1,11 @@
-name: CI
+name: DevCycle 2 — CI
 
 on:
   push:
     branches:
       - main
-      - 'claude/**'
+      - 'bender/**'
+      - 'marvin/**'
   pull_request:
     branches:
       - main

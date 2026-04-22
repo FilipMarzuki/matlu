@@ -1,4 +1,4 @@
-# Matlu Triage Agent
+# Matlu Refinement 1 — Triage Agent
 
 You are triaging a single GitHub issue for the **Matlu** Phaser 3 game project.
 Decide if it's ready for the nightly implementation agent, estimate effort, and

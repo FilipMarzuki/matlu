@@ -1,36 +1,79 @@
-name: Dev Agent
+name: DevCycle 1 — Dev Agent (Bender)
 
-# Per-issue nightly runner for Matlu's Claude Code agent.
+# Single-issue runner. Picks the highest-priority ready issue, implements it,
+# and opens a PR. The PR then flows through the DevCycle pipeline:
+#   CI → Review → Merge → (re-trigger Dev Agent for the next issue)
 #
-# One isolated Claude Code session per Linear issue. See FIL-198 for the
-# full rationale — isolated sessions prevent context bleed between issues,
-# keep costs per-issue predictable, and let a failure on one issue not
-# halt the rest.
+# One issue at a time ensures each PR merges cleanly before the next one
+# starts — no conflicts, no wasted work.
+#
+# The loop is capped at MAX_DEVCYCLE_RUNS per 8-hour window to prevent
+# runaway spending. Each cycle is ~15–30 min so 10 runs finishes well
+# within one night.
 
 on:
   schedule:
-    # 02:00 UTC every day. Matches the cadence called out in FIL-198.
     - cron: '0 2 * * *'
+  workflow_run:
+    workflows: ["DevCycle 4 — Merge"]
+    types: [completed]
   workflow_dispatch:
-    # Manual trigger — either run the full Backlog scan, or pass a single
-    # issue ID for an on-demand mid-day run.
     inputs:
       issue_id:
-        description: 'Linear issue ID to run (e.g. FIL-42). Leave blank to scan the full Backlog.'
+        description: 'GitHub issue number to run (e.g. 42). Leave blank to pick the top priority.'
         required: false
         type: string
 
 concurrency:
-  # Don't let two scheduled runs overlap. workflow_dispatch runs also queue.
   group: agent-nightly
   cancel-in-progress: false
 
 jobs:
-  fetch-issues:
+  gate:
     runs-on: ubuntu-latest
     outputs:
-      issues:     ${{ steps.fetch.outputs.issues }}
-      has_issues: ${{ steps.fetch.outputs.has_issues }}
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check if this was triggered by a Bender branch
+        id: check-origin
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            if [[ "$BRANCH" != bender/* ]]; then
+              echo "Merge was for branch '$BRANCH' — not a Bender PR, skipping"
+              echo "is_bender=false" >> $GITHUB_OUTPUT
+            else
+              echo "is_bender=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "is_bender=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check cycle cap
+        id: check
+        if: steps.check-origin.outputs.is_bender == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MAX_RUNS=10
+          CUTOFF=$(date -u -d '8 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          RECENT=$(gh api "repos/${{ github.repository }}/actions/workflows/agent-nightly.yml/runs" \
+            --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\")] | length")
+          echo "Bender runs in last 8 hours: $RECENT (max: $MAX_RUNS)"
+          if [ "$RECENT" -lt "$MAX_RUNS" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "Cycle cap reached — stopping Bender for this night"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  fetch-issue:
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      issue:     ${{ steps.first.outputs.issue }}
+      has_issue: ${{ steps.first.outputs.has_issue }}
     steps:
       - uses: actions/checkout@v6
 
@@ -38,38 +81,52 @@ jobs:
         with:
           node-version: '20.19.0'
 
-      - name: Fetch eligible Linear issues
-        id: fetch
+      - name: Fetch top-priority issue
+        id: pick
         env:
-          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${{ inputs.issue_id }}" ]; then
             node .github/scripts/fetch-agent-issues.js --issue "${{ inputs.issue_id }}"
           else
             node .github/scripts/fetch-agent-issues.js
           fi
+          # fetch-agent-issues.js writes issues=[...] to GITHUB_OUTPUT.
+          # We only want the first one.
+
+      - name: Pick first issue
+        id: first
+        run: |
+          ISSUES='${{ steps.pick.outputs.issues }}'
+          FIRST=$(echo "$ISSUES" | node -e "
+            const d = require('fs').readFileSync(0,'utf8').trim();
+            const arr = JSON.parse(d);
+            if (arr.length > 0) {
+              console.log(arr[0]);
+              process.exitCode = 0;
+            } else {
+              process.exitCode = 0;
+            }
+          ")
+          if [ -n "$FIRST" ]; then
+            echo "issue=$FIRST" >> $GITHUB_OUTPUT
+            echo "has_issue=true" >> $GITHUB_OUTPUT
+            echo "Picked issue #$FIRST"
+          else
+            echo "has_issue=false" >> $GITHUB_OUTPUT
+            echo "No eligible issues found"
+          fi
 
   run-agent:
-    needs: fetch-issues
-    # Skip the matrix entirely when there's nothing to do — otherwise the
-    # matrix would try to fan out over [] and the job would still spin up.
-    if: needs.fetch-issues.outputs.has_issues == 'true'
+    needs: fetch-issue
+    if: needs.fetch-issue.outputs.has_issue == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      # fail-fast: false is the whole point of this refactor. Each issue must
-      # stand alone — a failure in one must not cancel the others.
-      fail-fast: false
-      # Cap concurrent sessions so we don't hammer the Anthropic / Linear APIs.
-      max-parallel: 2
-      matrix:
-        issue: ${{ fromJson(needs.fetch-issues.outputs.issues) }}
+    timeout-minutes: 30
     permissions:
-      contents: write      # agent commits to its own branch
-      pull-requests: write # agent opens a PR at the end
-      issues: write        # future-proofing in case we move to GH issues too
+      contents: write
+      pull-requests: write
+      issues: write
     env:
-      # Placeholder Vite vars so any `npm run build` inside the session
-      # bundles cleanly without repo secrets. Mirrors ci.yml.
       VITE_SUPABASE_URL: https://example.supabase.co
       VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
     steps:
@@ -85,31 +142,18 @@ jobs:
 
       - name: Configure git identity
         run: |
-          # Use the standard github-actions[bot] identity. The previous
-          # matlu-agent[bot] email wasn't tied to a real GitHub account, so
-          # Vercel refused to build preview deploys for agent-authored PRs
-          # ("No GitHub account was found matching the commit author email").
-          # github-actions[bot] is the sanctioned CI-author identity; Vercel
-          # recognises it and attaches previews normally.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Run per-issue Claude Code session
+      - name: Run Claude Code session for issue #${{ needs.fetch-issue.outputs.issue }}
         env:
-          # Prefer the subscription OAuth token (generated via `claude
-          # setup-token`) so usage is billed against the Claude Pro/Max/Team-
-          # premium quota rather than pay-as-you-go API credits. ANTHROPIC_API_KEY
-          # is kept as an optional fallback — set one or the other as a repo
-          # secret. run-agent.js picks whichever is present.
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
-        run: node .github/scripts/run-agent.js "${{ matrix.issue }}"
+        run: node .github/scripts/run-agent.js "${{ needs.fetch-issue.outputs.issue }}"
 
       - name: Log token usage
         if: always()
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node .github/scripts/log-session-tokens.js --workflow "Dev Agent" --issue "${{ matrix.issue }}"
-      # [token-logging-added]
+        run: node .github/scripts/log-session-tokens.js --workflow "DevCycle 1 — Dev Agent" --issue "${{ needs.fetch-issue.outputs.issue }}"

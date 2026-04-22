@@ -21,7 +21,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NOTION_API_KEY:           ${{ secrets.NOTION_API_KEY }}
       PIXELLAB_API_KEY:         ${{ secrets.PIXELLAB_API_KEY }}
-      ANTHROPIC_API_KEY:        ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN:  ${{ secrets.CLAUDE_CODE_PERSONAL }}
 
     steps:
       - uses: actions/checkout@v4

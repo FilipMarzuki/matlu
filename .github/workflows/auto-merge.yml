@@ -1,15 +1,14 @@
-name: Auto-merge on CI pass
+name: DevCycle 4 — Merge
 
-# When CI completes successfully on a PR branch, squash-merge the PR automatically.
-# This removes the manual merge step for both agent-opened and manually-opened PRs.
+# Squash-merges a PR after the Review agent completes — but only if the
+# PR has been approved. This ensures every merge goes through CI + Review.
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["DevCycle 3 — Review"]
     types: [completed]
 
 jobs:
   auto-merge:
-    # Only run when CI passed on a pull_request event (not direct pushes to main)
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -26,8 +25,24 @@ jobs:
             --jq '.[0].number // empty')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Squash-merge PR
+      - name: Check for approval
         if: steps.find-pr.outputs.pr_number != ''
+        id: check-approval
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APPROVED=$(gh api \
+            "repos/${{ github.repository }}/pulls/${{ steps.find-pr.outputs.pr_number }}/reviews" \
+            --jq '[.[] | select(.state == "APPROVED")] | length')
+          echo "approved=$APPROVED" >> $GITHUB_OUTPUT
+          if [ "$APPROVED" -gt 0 ]; then
+            echo "PR #${{ steps.find-pr.outputs.pr_number }} is approved"
+          else
+            echo "PR #${{ steps.find-pr.outputs.pr_number }} is NOT approved — skipping merge"
+          fi
+
+      - name: Squash-merge PR
+        if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

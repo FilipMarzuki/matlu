@@ -1,18 +1,13 @@
-name: PR Grooming
+name: DevCycle 5 — Grooming
 
-# Processes all open PRs: closes superseded ones, merges clean ones in
-# dependency order, rebases and resolves conflicts for dirty ones.
+# End-of-night sweep: closes superseded PRs, rebases dirty ones, merges
+# anything the per-PR pipeline missed. Runs once at 06:00 UTC (after the
+# DevCycle loop has had ~4 hours to process issues). Also available manually.
 # Prompt lives in .agents/pr-merge.md.
-#
-# Chain: fires via workflow_run when the Dev Agent completes, so the order
-# each night is: refinement (22:00) → cleanup (~22:15) → dev agent (02:00) → grooming (~02:30).
-# The grooming agent checks CI status before merging, so it handles the case
-# where CI is still running on freshly-created PRs.
 
 on:
-  workflow_run:
-    workflows: ["Dev Agent"]
-    types: [completed]
+  schedule:
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -39,8 +34,7 @@ jobs:
 
       - name: Run PR queue grooming session
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN:                ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -41,8 +41,8 @@ jobs:
 
       - name: Run agent performance log session
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
+          
           NOTION_API_KEY:          ${{ secrets.NOTION_API_KEY }}
         run: |
           npx --yes @anthropic-ai/claude-code --print \

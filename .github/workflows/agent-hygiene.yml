@@ -1,6 +1,6 @@
-name: Backlog Cleanup
+name: Refinement 2 — Hygiene
 
-# Per-issue cleanup runner. Fires after every Backlog Refinement run and cleans
+# Per-issue cleanup runner. Fires after every Refinement 1 — Triage run and cleans
 # up three drift patterns in the Linear backlog:
 #
 #   mark-done  — In Progress issues whose PR is merged → move to Done
@@ -11,8 +11,8 @@ name: Backlog Cleanup
 # and nightly implementation agents). A failure on one issue does not
 # block the others.
 #
-# Chain: fires via workflow_run when Backlog Refinement completes. After
-# cleanup, re-triggers Backlog Refinement so newly-split sub-issues get
+# Chain: fires via workflow_run when Refinement 1 — Triage completes. After
+# cleanup, re-triggers Refinement 1 — Triage so newly-split sub-issues get
 # triaged the same night they're created. Capped at MAX_REFINEMENT_RUNS=3
 # total per 6-hour window to prevent runaway loops — each cycle is ~30 min
 # so 3 runs still finishes well before the 02:00 UTC Dev Agent.
@@ -25,7 +25,7 @@ name: Backlog Cleanup
 
 on:
   workflow_run:
-    workflows: ["Backlog Refinement"]
+    workflows: ["Refinement 1 — Triage"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -85,8 +85,7 @@ jobs:
 
       - name: Run hygiene session for ${{ matrix.issue }}
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
           GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
         run: node .github/scripts/run-hygiene.js "${{ matrix.issue }}"
 
@@ -97,7 +96,7 @@ jobs:
     if: always() && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Re-trigger Backlog Refinement (max 3 runs per 6-hour window)
+      - name: Re-trigger Refinement 1 — Triage (max 3 runs per 6-hour window)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -105,9 +104,9 @@ jobs:
           CUTOFF=$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%SZ)
           RECENT=$(gh api "repos/${{ github.repository }}/actions/workflows/agent-triage.yml/runs" \
             --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\")] | length")
-          echo "Backlog Refinement runs in last 6 hours: $RECENT (max: $MAX_RUNS)"
+          echo "Refinement 1 — Triage runs in last 6 hours: $RECENT (max: $MAX_RUNS)"
           if [ "$RECENT" -lt "$MAX_RUNS" ]; then
-            echo "Dispatching Backlog Refinement (cycle $((RECENT + 1)) of $MAX_RUNS)"
+            echo "Dispatching Refinement 1 — Triage (cycle $((RECENT + 1)) of $MAX_RUNS)"
             gh workflow run agent-triage.yml --repo ${{ github.repository }}
           else
             echo "Cap reached — stopping refinement chain for this cycle"
@@ -118,5 +117,5 @@ jobs:
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node .github/scripts/log-session-tokens.js --workflow "Backlog Cleanup"
+        run: node .github/scripts/log-session-tokens.js --workflow "Refinement 2 — Hygiene"
       # [token-logging-added]
