@@ -37,14 +37,36 @@ import { WorldForgeScene } from './scenes/WorldForgeScene';
 //   /worldforge → WorldForgeScene       (alias)
 //   /wf         → WorldForgeScene       (short alias)
 //   /           → MainMenuScene         (default — full game flow)
-const path = window.location.pathname.replace(/\/$/, '');
-const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene];
-  if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
-  if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
-  if (path === '/menu')  return all;
-  // Default (/ and /arena): boot straight into arena/combat
-  return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
+//
+// Query-param routing is intentionally supported too:
+//   /?scene=world
+//   /?scene=biome
+// This gives us a host-agnostic fallback when direct-path rewrites are missing.
+type RouteTarget = 'menu' | 'world' | 'worldforge' | 'combat';
+
+const path = window.location.pathname.replace(/\/$/, '') || '/';
+const sceneParam = new URLSearchParams(window.location.search).get('scene')?.toLowerCase();
+const routeTarget = (() : RouteTarget => {
+  if (sceneParam === 'menu') return 'menu';
+  if (sceneParam === 'world') return 'world';
+  if (sceneParam === 'biome' || sceneParam === 'worldforge' || sceneParam === 'wf') return 'worldforge';
+  if (sceneParam === 'arena' || sceneParam === 'combat') return 'combat';
+
+  if (path === '/menu') return 'menu';
+  if (path === '/world') return 'world';
+  if (path === '/biome' || path === '/worldforge' || path === '/wf') return 'worldforge';
+  // Default (/ and /arena): boot straight into arena/combat.
+  return 'combat';
+})();
+
+const allScenes: Array<Phaser.Types.Scenes.SceneType> = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene];
+const prioritizeScene = (scene: Phaser.Types.Scenes.SceneType): Array<Phaser.Types.Scenes.SceneType> => [scene, ...allScenes.filter((s) => s !== scene)];
+
+const sceneOrder = (() : Array<Phaser.Types.Scenes.SceneType> => {
+  if (routeTarget === 'menu') return allScenes;
+  if (routeTarget === 'world') return prioritizeScene(GameScene);
+  if (routeTarget === 'worldforge') return prioritizeScene(WorldForgeScene);
+  return prioritizeScene(CombatArenaScene);
 })();
 
 const game = new Phaser.Game({
