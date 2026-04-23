@@ -1,14 +1,16 @@
 # Submission to Entity Agent
 
 Converts an approved creature submission from the Matlu Codex into a complete game
-entity spec: expanded lore, balanced stats, behavior model, design notes (sprite +
-animations + sounds), PixelLab asset spec, Notion lore page, and a GitHub issue to
-track implementation. Does NOT generate sprites — only prepares everything so the
-sprite-credit-burn agent (or a manual run) can generate on the first try.
+entity spec: expanded lore, behavior model, design notes (sprite + animations + sounds),
+PixelLab asset spec, Notion lore page, and a GitHub issue to track implementation.
+The agent also **balances the creature's stats** — the submission is raw input from a
+kid; this agent decides HP, damage, speed, aggro radius etc. by analyzing the submission
+and calibrating against existing entities. Does NOT generate sprites — only prepares
+everything so the sprite-credit-burn agent can generate on the first try.
 
 Run manually via `workflow_dispatch`. One submission per run.
 Input: `SUBMISSION_ID` env var (UUID from `creature_submissions.id`).
-If not set, pick the oldest row where `status = 'balanced' AND converted_at IS NULL`.
+If not set, pick the oldest row where `status = 'approved' AND converted_at IS NULL`.
 
 ---
 
@@ -37,7 +39,7 @@ Query Supabase for the submission:
 ```sql
 SELECT * FROM public.creature_submissions
 WHERE id = '<SUBMISSION_ID>'
-   OR (status = 'balanced' AND converted_at IS NULL AND '<SUBMISSION_ID>' = '')
+   OR (status = 'approved' AND converted_at IS NULL AND '<SUBMISSION_ID>' = '')
 ORDER BY created_at ASC
 LIMIT 1;
 ```
@@ -50,7 +52,6 @@ Extract and hold these fields for the rest of the run:
 - `special_ability`, `lore_description`, `lore_origin`
 - `visual_description`, `audio_description`
 - `art_path` (storage path for the submitted image)
-- `balance_tier`, `biome_affinity`
 
 Derive the entity slug: lowercase the creature name, replace spaces and special chars with
 hyphens, strip diacritics. E.g. "Färgglad Kordorörn" → `fargglad-kordororn`.
@@ -122,10 +123,11 @@ players narratively, how it connects to the world themes. This guides future wri
 
 ---
 
-## STEP 5 — BUILD THE BEHAVIOR MODEL AND BALANCE STATS
+## STEP 5 — BALANCE STATS AND BUILD BEHAVIOR MODEL
 
-Design the complete AI behavior for this entity AND calibrate its stats to fit
-harmoniously within the existing entity population.
+The submission is raw creative input from a kid — "large", "aggressive", "carnivore",
+"lives in forests". Your job is to turn those qualitative descriptions into concrete,
+balanced game stats that fit the existing entity population.
 
 ### 5a. Analyze existing entity stats
 
@@ -136,7 +138,8 @@ and build a mental model of the stat distribution:
 - What gaps exist in the roster that this creature could fill?
 
 The new creature's stats must feel like they belong in the same game — not too strong,
-not too weak relative to peers of similar size and threat.
+not too weak relative to peers of similar size and threat. A kid saying "super powerful"
+doesn't mean it gets 999 HP — it means it should be at the upper end of its size tier.
 
 ### 5b. Movement type
 

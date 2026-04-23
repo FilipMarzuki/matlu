@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       submission_id:
-        description: 'creature_submissions UUID (leave blank to pick oldest balanced+unconverted)'
+        description: 'creature_submissions UUID (leave blank to pick oldest approved+unconverted)'
         required: false
         default: ''
 
