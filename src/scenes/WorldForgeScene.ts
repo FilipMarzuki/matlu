@@ -121,8 +121,14 @@ export class WorldForgeScene extends Phaser.Scene {
 
   // Terrain layers (rebuilt on biome change).
   private tileImages:   Phaser.GameObjects.Image[]    = [];
-  private cliffObjs:    Phaser.GameObjects.GameObject[] = [];  // cliff faces (TileSprite) + waterfall (Graphics)
-  private blendGfx?:    Phaser.GameObjects.Graphics;
+  // Waterfall animation: 5-frame loop at 6 FPS, matching the chunky pixel art feel.
+  private static readonly WF_FRAMES = 5;
+  private static readonly WF_FRAME_MS = 1000 / 6;  // ~167ms per frame
+  private wfTimer = 0;
+  private wfFrame = 0;
+  private wfSprites: Phaser.GameObjects.Image[] = [];
+  private splashEmitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
+  private _splashCounter = 0;
   private gridGfx?:     Phaser.GameObjects.Graphics;
   private decorSprites: Phaser.GameObjects.Image[] = [];
   private bandLabels:   Phaser.GameObjects.Text[]  = [];
@@ -165,11 +171,11 @@ export class WorldForgeScene extends Phaser.Scene {
     this.load.spritesheet('iso-tiles',
       '/assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
-    // Cliff tiles — waterfall sections + PixelLab isometric block tiles per material.
-    // Rock face strips (cliff-south/cliff-east) replaced by the 3D block tiles below.
-    this.load.image('cliff-wf-top',  '/assets/packs/cliff-strips/cliff-wf-top.png');
-    this.load.image('cliff-wf-mid',  '/assets/packs/cliff-strips/cliff-wf-mid.png');
-    this.load.image('cliff-wf-bot',  '/assets/packs/cliff-strips/cliff-wf-bot.png');
+    // Cliff tiles — PixelLab isometric block tiles per material.
+    // Waterfall: 5-frame lineless block tiles (32x32) — stacked to fill cliff height.
+    for (let i = 0; i < 5; i++) {
+      this.load.image(`waterfall-${i}`, `/assets/packs/waterfall-tiles/${i}.png`);
+    }
     // PixelLab-generated isometric cliff block tiles (32×32, tile_shape:"block").
     // Each shows the full 3D cube: top face + south/east side faces.
     this.load.image('cliff-earthy', '/assets/packs/cliff-iso-gen/earthy_0.png');
@@ -216,6 +222,15 @@ export class WorldForgeScene extends Phaser.Scene {
     const fitH    = (usableH          * 0.95) / ((this.GRID + 1) * 12);
     this.zoomFactor = Math.min(fitW, fitH);
 
+    // Tiny 2x2 white pixel for splash particles (generated once).
+    if (!this.textures.exists('splash-dot')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff);
+      g.fillRect(0, 0, 2, 2);
+      g.generateTexture('splash-dot', 2, 2);
+      g.destroy();
+    }
+
     this.buildDisplay();
     this.buildPalette();
     this.buildSpawnerToolbar();
@@ -260,6 +275,17 @@ export class WorldForgeScene extends Phaser.Scene {
         this.toggleDecor(tile.tx, tile.ty);
       }
     });
+
+    // Camera pan — right-click drag or middle-mouse drag.
+    this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
+      if (!ptr.isDown) return;
+      if (ptr.button === 2 || ptr.button === 1) {
+        const cam = this.cameras.main;
+        cam.scrollX -= (ptr.x - ptr.prevPosition.x) / cam.zoom;
+        cam.scrollY -= (ptr.y - ptr.prevPosition.y) / cam.zoom;
+      }
+    });
+    this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   // ── Coordinate helpers ────────────────────────────────────────────────────────
@@ -318,10 +344,11 @@ export class WorldForgeScene extends Phaser.Scene {
   private refreshDisplay(): void {
     for (const img of this.tileImages) img.destroy();
     this.tileImages = [];
-    for (const g of this.cliffObjs) g.destroy();
-    this.cliffObjs = [];
-    this.blendGfx?.destroy();
-    this.blendGfx = undefined;
+    for (const s of this.wfSprites) s.destroy();
+    this.wfSprites = [];
+    for (const e of this.splashEmitters) e.destroy();
+    this.splashEmitters = [];
+    this._splashCounter = 0;
     this.gridGfx?.destroy();
     this.gridGfx = undefined;
     for (const s of this.decorSprites) s.destroy();
@@ -431,6 +458,23 @@ export class WorldForgeScene extends Phaser.Scene {
         // River channel: flows N→S from the highlands all the way to the ocean.
         // No diagonal restriction — river is visible in highlands too (shows as water tiles).
         const onRiver = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
+
+        // Splash pool: lowland tiles at the foot of the waterfall cliff.
+        // Check all 8 neighbours (orthogonal + diagonal) — if any is elevated
+        // and on the river, this tile borders the waterfall and should be water.
+        const myElev = getElev(tx, ty);
+        const atWfBase = showRiver && myElev === 0 && (() => {
+          for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = tx + dx, ny = ty + dy;
+              if (nx < 0 || ny < 0 || nx >= G || ny >= G) continue;
+              if (getElev(nx, ny) > 0 && Math.abs(nx - riverCenter(nx + ny)) <= 1) return true;
+            }
+          }
+          return false;
+        })();
+
         let frame: number = 0;
         // Pack name from CUSTOM_TILE_PACKS when this tile should use a custom floor texture.
         // Set in every branch that maps to a biome with a generated tile set.
@@ -450,18 +494,18 @@ export class WorldForgeScene extends Phaser.Scene {
           else { frame = isoTileFrame(1, elev); customPack = CUSTOM_TILE_PACKS[1]; }
         } else if (elevDist > 1) {
           // Snow field highlands — river shows as water
-          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
           else { frame = isoTileFrame(11, elev); customPack = CUSTOM_TILE_PACKS[11]; }
         } else if (elevDist === 1) {
-          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
           else { frame = isoTileFrame(10, elev); customPack = CUSTOM_TILE_PACKS[10]; }
         } else if (elevDist === 0) {
-          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
           else { frame = isoTileFrame(9, elev); customPack = CUSTOM_TILE_PACKS[9]; }
         } else if (elevDist === -1) {
-          if (onRiver) { frame = ISO_RIVER_FRAME; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
           else { frame = isoTileFrame(4, elev); customPack = CUSTOM_TILE_PACKS[4]; }
-        } else if (onRiver) {
+        } else if (onRiver || atWfBase) {
           frame = ISO_RIVER_FRAME;                 // N→S river body
         } else {
           frame = isoTileFrame(landBiome, elev);
@@ -482,83 +526,6 @@ export class WorldForgeScene extends Phaser.Scene {
         const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
         const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
 
-        // South rim: bottom of the raised floor sprite in layout space (then draw cliffs
-        // before the floor image so the plateau paints over the wall top).
-        const floorDisplayH = ISO_TILE_NATIVE_SIZE * this.ISO_SCALE;
-        const southRimY     = Math.round(posY + floorDisplayH);
-        const hh            = this.ISO_H / 2;
-        void (southRimY - hh); // eastWestRimY — kept for when per-face strip cliffs return
-
-        const cliffTint = elevDist > 1 ? 0xe0e4ee
-                        : elevDist === 1 ? 0xc4c8cc
-                        : elevDist === 0 ? 0xb0b0b8
-                        : 0xd8cfc4;
-
-        /** One vertical cliff column: centred at faceCX, top at faceTop.
-         *  face: 'south' | 'east' | 'wf' — picks the right strip texture and
-         *  drives the waterfall rendering path. */
-        const drawCliffFace = (
-          faceCX: number,
-          faceTop: number,
-          steps: number,
-          face: 'south' | 'east' | 'wf',
-          heightPad = 0,
-        ): void => {
-          const hw     = this.ISO_W / 2;
-          const cliffH = steps * CLIFF_H + Math.ceil(this.ISO_H / 2) + heightPad;
-          const bx     = Math.floor(faceCX - hw);
-          const by     = Math.floor(faceTop);
-          const bw     = Math.ceil(hw * 2);
-          const bh     = Math.ceil(cliffH);
-          const inv    = 1 / this.zoomFactor;
-          const rtW    = Math.max(1, Math.ceil(bw * inv));
-          const rtH    = Math.max(1, Math.ceil(bh * inv));
-
-          if (face === 'wf') {
-            // Waterfall — stack top / mid / bottom sections using pixel tiles.
-            // Each section is one native tile tall (32px); mid is repeated to fill.
-            const secH = ISO_TILE_NATIVE_SIZE;  // 32 native px per section
-            const topH = Math.min(secH, rtH);
-            const botH = rtH > secH ? Math.min(secH, rtH - secH) : 0;
-            const midH = Math.max(0, rtH - topH - botH);
-
-            // Top section
-            const rtTop = this.add.renderTexture(bx, by, rtW, Math.ceil(topH * this.zoomFactor))
-              .setDepth(0).setOrigin(0, 0);
-            rtTop.repeat('cliff-wf-top', 0, 0, 0, rtW, topH);
-            rtTop.render();
-            this.cliffObjs.push(rtTop);
-
-            // Middle (tiled)
-            if (midH > 0) {
-              const midY = by + Math.ceil(topH * this.zoomFactor);
-              const rtMid = this.add.renderTexture(bx, midY, rtW, Math.ceil(midH * this.zoomFactor))
-                .setDepth(0).setOrigin(0, 0);
-              rtMid.repeat('cliff-wf-mid', 0, 0, 0, rtW, midH);
-              rtMid.render();
-              this.cliffObjs.push(rtMid);
-            }
-
-            // Bottom section
-            if (botH > 0) {
-              const botY = by + Math.ceil((topH + midH) * this.zoomFactor);
-              const rtBot = this.add.renderTexture(bx, botY, rtW, Math.ceil(botH * this.zoomFactor))
-                .setDepth(0).setOrigin(0, 0);
-              rtBot.repeat('cliff-wf-bot', 0, 0, 0, rtW, botH);
-              rtBot.render();
-              this.cliffObjs.push(rtBot);
-            }
-          } else {
-            // Rock face — south or east strip, tinted by biome distance.
-            const texKey = face === 'east' ? 'cliff-east' : 'cliff-south';
-            const rt = this.add.renderTexture(bx, by, rtW, rtH)
-              .setDepth(0).setOrigin(0, 0).setScale(this.zoomFactor).setTint(cliffTint);
-            rt.repeat(texKey, 0, 0, 0, rtW, rtH);
-            rt.render();
-            this.cliffObjs.push(rt);
-          }
-        };
-
         // Detect cliff edges — any direction where this tile drops to a lower neighbour.
         const southDrop = tileElev > 0 && ty + 1 < G ? tileElev - getElev(tx, ty + 1) : 0;
         const eastDrop  = tileElev > 0 && tx + 1 < G ? tileElev - getElev(tx + 1, ty) : 0;
@@ -577,17 +544,58 @@ export class WorldForgeScene extends Phaser.Scene {
                               : landBiome;
           const cliffKey = cliffKeyForBiome(cliffBiomeIdx);
 
-          // Stack cliff wall tiles bottom-to-top, starting CLIFF_H/2 below the floor tile.
-          // Each tile contributes CLIFF_H/2 of visible wall face. The floor tile is drawn
-          // LAST so it renders on top, covering the wall tiles' cap diamonds at the rim.
-          //
-          // Tiles needed = maxDrop × 2  (each step needs 2 tiles to fill CLIFF_H of gap
-          // since each tile only exposes CLIFF_H/2 of wall below the tile above it).
           const maxDrop = Math.max(southDrop, eastDrop, westDrop);
+          const useWF   = southDrop > 0 && isWF;
+
+          // Stack cliff wall tiles. Waterfall tiles replace rock where the river crosses.
+          const wallKey = useWF ? `waterfall-${this.wfFrame}` : cliffKey;
           for (let step = maxDrop * 2; step >= 1; step--) {
-            const tileImg = this.add.image(x, posY + step * (CLIFF_H / 2), cliffKey)
+            const tileImg = this.add.image(x, posY + step * (CLIFF_H / 2), wallKey)
               .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
             this.tileImages.push(tileImg);
+            if (useWF) this.wfSprites.push(tileImg);
+          }
+          // Splash particles along the bottom edge of waterfall columns —
+          // the line where falling water hits the pool surface.
+          if (useWF) {
+            // Bottom of cliff stack in screen space: the lowest block's south rim.
+            const baseY = posY + maxDrop * CLIFF_H + this.ISO_H * 0.5 + CLIFF_H / 2;
+            const hw = this.ISO_W / 2;
+            const hh = this.ISO_H / 2;
+            const splashCfg = {
+              speed: { min: 8, max: 20 },
+              angle: { min: 240, max: 300 },
+              scale: { start: 1.2 * this.zoomFactor, end: 0.2 * this.zoomFactor },
+              alpha: { start: 0.9, end: 0 },
+              lifespan: { min: 500, max: 1200 },
+              frequency: 100,
+              quantity: 2,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              emitZone: {
+                type: 'random',
+                source: new Phaser.Geom.Rectangle(
+                  -this.ISO_W * 0.1, -this.ISO_H * 0.05,
+                  this.ISO_W * 0.2, this.ISO_H * 0.1,
+                ),
+              } as any,
+            };
+            // South-facing edge: SW corner, SW mid, S centre, SE mid, SE corner.
+            // No emitters on the north side — that's behind the waterfall.
+            const emitterPositions = [
+              { ex: x - hw,        ey: baseY },              // SW corner
+              { ex: x - hw * 0.5,  ey: baseY + hh * 0.5 },  // SW mid
+              { ex: x,             ey: baseY + hh },         // S centre
+              { ex: x + hw * 0.5,  ey: baseY + hh * 0.5 },  // SE mid
+              { ex: x + hw,        ey: baseY },              // SE corner
+            ];
+            for (let ei = 0; ei < emitterPositions.length; ei++) {
+              this._splashCounter = (this._splashCounter ?? 0) + 1;
+              if (this._splashCounter === 4 || this._splashCounter === 5) continue;
+              const { ex, ey } = emitterPositions[ei];
+              this.splashEmitters.push(
+                this.add.particles(ex, ey, 'splash-dot', splashCfg).setDepth(2),
+              );
+            }
           }
           // Floor tile drawn last — renders on top of wall tiles at the cliff rim.
           const floorImg = customPack
@@ -596,11 +604,6 @@ export class WorldForgeScene extends Phaser.Scene {
             : this.add.image(x, posY, 'iso-tiles', frame)
                 .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
           this.tileImages.push(floorImg);
-
-          // Waterfall strips rendered on top for river cliff tiles.
-          if (southDrop > 0 && isWF) {
-            drawCliffFace(x, southRimY, southDrop, 'wf', 0);
-          }
         } else {
           // No cliff — draw regular floor tile.
           const img = customPack
@@ -743,6 +746,19 @@ export class WorldForgeScene extends Phaser.Scene {
         ).setOrigin(0.5, 0.5).setDepth(11),
       );
     }
+
+    // Cardinal direction labels at the 4 tips of the iso diamond.
+    const compassStyle = { fontSize: '12px', color: '#aaaaaa', stroke: '#000000', strokeThickness: 3 };
+    const { x: nx, y: ny } = this.isoPos(0, 0);
+    const { x: ex, y: ey } = this.isoPos(G - 1, 0);
+    const { x: sx, y: sy } = this.isoPos(G - 1, G - 1);
+    const { x: wx, y: wy } = this.isoPos(0, G - 1);
+    this.bandLabels.push(
+      this.add.text(nx, ny - 14, 'N', compassStyle).setOrigin(0.5, 1).setDepth(11),
+      this.add.text(ex + 16, ey, 'E', compassStyle).setOrigin(0, 0.5).setDepth(11),
+      this.add.text(sx, sy + this.ISO_H + 6, 'S', compassStyle).setOrigin(0.5, 0).setDepth(11),
+      this.add.text(wx - 16, wy, 'W', compassStyle).setOrigin(1, 0.5).setDepth(11),
+    );
   }
 
   // ── Palette UI ────────────────────────────────────────────────────────────────
@@ -1276,6 +1292,17 @@ export class WorldForgeScene extends Phaser.Scene {
    * coords with origin at the foot position (see placeEntity()).
    */
   override update(_time: number, delta: number): void {
+    // Waterfall animation — cycle block tiles through 5 frames at 6 FPS.
+    if (this.wfSprites.length > 0) {
+      this.wfTimer += delta;
+      if (this.wfTimer >= WorldForgeScene.WF_FRAME_MS) {
+        this.wfTimer -= WorldForgeScene.WF_FRAME_MS;
+        this.wfFrame = (this.wfFrame + 1) % WorldForgeScene.WF_FRAMES;
+        const wfKey = `waterfall-${this.wfFrame}`;
+        for (const s of this.wfSprites) s.setTexture(wfKey);
+      }
+    }
+
     if (!this.liveWander || !this.placedEntity) return;
     const lw = this.liveWander;
 
