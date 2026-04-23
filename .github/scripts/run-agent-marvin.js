@@ -92,11 +92,14 @@ function renderPrompt(issue) {
 
 function runCursor(prompt) {
   // `cursor-agent -p` is Cursor's print/headless mode — analogous to
-  // `claude --print`. The prompt is a positional argument.
-  const argv = ['-p', prompt];
+  // `claude --print`. `--trust` skips the "Workspace Trust Required" prompt
+  // that fires on first use of a directory; in CI there's no human to
+  // accept it. (`--yolo` and `-f` are alternatives shown in cursor-agent's
+  // own error message.) The prompt is a positional argument.
+  const argv = ['-p', '--trust', prompt];
 
   console.log(
-    `[run-agent-marvin] Spawning: cursor-agent -p <prompt ${prompt.length} chars>`
+    `[run-agent-marvin] Spawning: cursor-agent -p --trust <prompt ${prompt.length} chars>`
   );
 
   const result = spawnSync('cursor-agent', argv, {
