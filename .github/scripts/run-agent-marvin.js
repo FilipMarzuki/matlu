@@ -92,16 +92,15 @@ function renderPrompt(issue) {
 
 function runCursor(prompt) {
   // `cursor-agent -p` is print/headless mode — analogous to `claude --print`.
-  // `--yolo` bypasses every permission prompt (directory trust, shell tool
-  // approval, edit approval) — Cursor's equivalent of Claude Code's
+  // `-f` (force) bypasses every permission prompt (directory trust, shell
+  // tool approval, edit approval) — Cursor's equivalent of Claude Code's
   // `bypassPermissions`. Required in CI: --trust alone only covers directory
-  // trust, leaving git/gh calls blocked. Without it, the agent reads/edits
-  // files but silently can't run shell commands, exits 0, produces no PR.
-  // The prompt is a positional argument.
-  const argv = ['-p', '--yolo', prompt];
+  // trust, leaving git/gh calls blocked. Trying -f (short form from the
+  // error message "Pass --trust, --yolo, or -f") after --yolo was rejected.
+  const argv = ['-p', '-f', prompt];
 
   console.log(
-    `[run-agent-marvin] Spawning: cursor-agent -p --yolo <prompt ${prompt.length} chars>`
+    `[run-agent-marvin] Spawning: cursor-agent -p -f <prompt ${prompt.length} chars>`
   );
 
   const result = spawnSync('cursor-agent', argv, {
