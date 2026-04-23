@@ -24,6 +24,8 @@ import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { worldToArenaIso, arenaIsoDepth, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { DeployableManager } from '../systems/DeployableManager';
 import { DeployableHUD } from '../ui/DeployableHUD';
+import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
+import { CreditCard } from '../ui/CreditCard';
 
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
@@ -159,6 +161,8 @@ export class CombatArenaScene extends Phaser.Scene {
 
   /** Four-slot deployable panel — only created when active hero is CombatEngineer. */
   private deployableHud: DeployableHUD | null = null;
+
+  private communityEncounter!: CommunityEncounterCoordinator;
 
   // ── Player control ──────────────────────────────────────────────────────────
   /** When true the player drives the hero with WASD/arrows + attack keys. */
@@ -355,6 +359,8 @@ export class CombatArenaScene extends Phaser.Scene {
     // Scene-level deployable manager — accessible from the dev console as
     // `scene.deployables.place({...})`. Separate from CombatEngineer's internal manager.
     this.deployables = new DeployableManager(this);
+    this.communityEncounter = new CommunityEncounterCoordinator(this);
+    new CreditCard(this);
 
     this.buildDungeon();
 
@@ -628,6 +634,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // ── Enemies ───────────────────────────────────────────────────────────────
     for (const e of this.aliveEnemies) e.update(delta);
+    this.communityEncounter.update();
 
     // ── Projectiles ───────────────────────────────────────────────────────────
     for (const p of this.projectiles) p.tick(delta);
@@ -1244,6 +1251,7 @@ export class CombatArenaScene extends Phaser.Scene {
       this.addPhysics(enemy);
       enemy.setOpponent(this.hero);
       this.aliveEnemies.push(enemy);
+      this.communityEncounter.watchCombatEntity(enemy);
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
       this.syncEnemyCoordination();
     });
@@ -1270,6 +1278,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.addPhysics(bm);
     bm.setOpponent(this.hero);
     this.aliveEnemies.push(bm);
+    this.communityEncounter.watchCombatEntity(bm);
 
     // Wire each sac as an independent targetable entity.
     for (const sac of bm.getSacs()) {
@@ -1277,6 +1286,7 @@ export class CombatArenaScene extends Phaser.Scene {
         this.addPhysics(sac);
         sac.setOpponent(this.hero);
         this.aliveEnemies.push(sac);
+        this.communityEncounter.watchCombatEntity(sac);
         // Start the periodic Spineling spawn timer after physics is ready.
         sac.startSpawning();
       }
@@ -1293,6 +1303,7 @@ export class CombatArenaScene extends Phaser.Scene {
       this.addPhysics(spineling);
       spineling.setOpponent(this.hero);
       this.aliveEnemies.push(spineling);
+      this.communityEncounter.watchCombatEntity(spineling);
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
       this.syncEnemyCoordination();
     });
@@ -1305,6 +1316,7 @@ export class CombatArenaScene extends Phaser.Scene {
       this.addPhysics(drone);
       drone.setOpponent(this.hero);
       this.aliveEnemies.push(drone);
+      this.communityEncounter.watchCombatEntity(drone);
       if (this.heroAlive) this.hero.setOpponents(this.aliveEnemies);
       this.syncEnemyCoordination();
     });
@@ -1358,6 +1370,7 @@ export class CombatArenaScene extends Phaser.Scene {
       this.addPhysics(e);
       e.setOpponent(this.hero);
       this.aliveEnemies.push(e);
+      this.communityEncounter.watchCombatEntity(e);
     }
 
     log.info('wave_spawned', {
