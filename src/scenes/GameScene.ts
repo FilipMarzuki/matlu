@@ -358,6 +358,48 @@ function elevHeatColor(t: number): number {
        |  Math.round(ab + (bb - ab) * u);
 }
 
+/**
+ * Per-biome tint multipliers used during terrain bake.
+ * Values stay close to white because sprite tint is multiplicative — this keeps
+ * tile material detail readable while still nudging each biome toward a distinct
+ * palette identity (CrossCode-style zone readability).
+ */
+const BIOME_GRADE_TINTS: readonly number[] = [
+  0xb9d2f0, // Sea
+  0xc2ad92, // Rocky Shore
+  0xe3d7ab, // Sandy Shore
+  0xa4bc8f, // Marsh / Bog
+  0xc3aa87, // Dry Heath
+  0xacc08f, // Coastal Heath
+  0xa0c98a, // Meadow
+  0x90b183, // Forest
+  0x7f9f88, // Spruce
+  0xa8acb2, // Cold Granite
+  0xb4b0b7, // Bare Summit
+  0xdde8f6, // Snow Field
+];
+
+/**
+ * Biome tint + small per-tile value jitter.
+ * Jitter is deterministic (tile coords + noise detail) so texture remains stable
+ * across frames and adds fine-scale breakup at the player's viewing distance.
+ */
+function gradedTileTint(biomeIdx: number, detail: number, tx: number, ty: number): number {
+  const baseTint = BIOME_GRADE_TINTS[biomeIdx] ?? 0xffffff;
+  const c = Phaser.Display.Color.IntegerToColor(baseTint);
+
+  const hash = ((tx * 73856093) ^ (ty * 19349663)) >>> 0;
+  const tileJitter = ((hash & 7) - 3.5) / 36; // ~[-0.097, +0.097]
+  const detailBias = (detail - 0.5) * 0.10;   // ~[-0.05, +0.05]
+  const gain = Phaser.Math.Clamp(1 + tileJitter + detailBias, 0.86, 1.12);
+
+  return Phaser.Display.Color.GetColor(
+    Phaser.Math.Clamp(Math.round(c.red   * gain), 0, 255),
+    Phaser.Math.Clamp(Math.round(c.green * gain), 0, 255),
+    Phaser.Math.Clamp(Math.round(c.blue  * gain), 0, 255),
+  );
+}
+
 export class GameScene extends Phaser.Scene {
   /**
    * Scene-level deployable registry. Used for dev-console testing and any
@@ -5727,9 +5769,13 @@ export class GameScene extends Phaser.Scene {
         // each row's front face is covered by the diamond of the next row forward.
         const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
+        const tint = isRiverHere || isLakeHere
+          ? 0xc5dcf0
+          : gradedTileTint(biomeIdx, detail, tx, ty);
+
         if (isRiverHere || isLakeHere) {
           // FIL-466: water tiles always use the shared iso-tiles river frame.
-          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
+          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY).setTint(tint);
         } else if (biomeIdx in CUSTOM_TILE_PACKS) {
           // FIL-466: dual-grid hash selects one of 4 same-material variants to
           // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
@@ -5742,11 +5788,11 @@ export class GameScene extends Phaser.Scene {
           const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
           const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
           const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
-          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY).setTint(tint);
         } else {
           // FIL-466: biome 0 (Sea) — no pack; fall back to iso-tiles spritesheet.
           const frame = isoTileFrame(biomeIdx, detail);
-          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY).setTint(tint);
         }
         terrainRt.draw(tileImg);
 
