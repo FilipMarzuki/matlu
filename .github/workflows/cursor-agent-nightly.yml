@@ -86,7 +86,12 @@ jobs:
         id: pick
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node .github/scripts/fetch-agent-issues.js
+        run: |
+          if [ -n "${{ inputs.issue_id }}" ]; then
+            node .github/scripts/fetch-agent-issues.js --issue "${{ inputs.issue_id }}"
+          else
+            node .github/scripts/fetch-agent-issues.js
+          fi
 
       - name: Pick first issue
         id: first
