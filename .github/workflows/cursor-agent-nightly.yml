@@ -150,6 +150,17 @@ jobs:
           GH_TOKEN:       ${{ secrets.GH_TRACKER_TOKEN }}
         run: node .github/scripts/run-agent-marvin.js "${{ needs.fetch-issue.outputs.issue }}"
 
+      - name: Clean up stale in-progress label on failure
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          echo "Non-success exit — cleaning up labels on #$ISSUE"
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
+          gh api -X POST "repos/${{ github.repository }}/issues/$ISSUE/labels" \
+            -f 'labels[]=agent:failed' || true
+
       - name: Log token usage
         if: always()
         env:

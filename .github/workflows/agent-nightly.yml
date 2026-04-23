@@ -166,6 +166,19 @@ jobs:
           GH_TOKEN:                ${{ secrets.GH_TRACKER_TOKEN }}
         run: node .github/scripts/run-agent.js "${{ needs.fetch-issue.outputs.issue }}"
 
+      - name: Clean up stale in-progress label on failure
+        # Only runs if the Claude session timed out, crashed, or was cancelled.
+        # On success, the session itself handles label bookkeeping.
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          echo "Non-success exit — cleaning up labels on #$ISSUE"
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
+          gh api -X POST "repos/${{ github.repository }}/issues/$ISSUE/labels" \
+            -f 'labels[]=agent:failed' || true
+
       - name: Log token usage
         if: always()
         env:
