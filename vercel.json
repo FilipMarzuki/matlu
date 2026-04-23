@@ -2,5 +2,5 @@
   "outputDirectory": "dist",
   "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qvE \"^(wiki/|dev/)\"",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-  "git": { "deploymentEnabled": { "main": true } }
+  "git": { "deploymentEnabled": { "main": false } }
 }

@@ -1,5 +1,5 @@
 {
   "framework": "astro",
   "ignoreCommand": "! git diff HEAD^ HEAD --name-only | grep -qE \"^dev/\"",
-  "git": { "deploymentEnabled": { "main": true } }
+  "git": { "deploymentEnabled": { "main": false } }
 }
