@@ -6031,10 +6031,30 @@ export class GameScene extends Phaser.Scene {
   private stampCorruptedLandmarks(): void {
     for (const lm of CORRUPTED_LANDMARKS) {
       this.stampChunk(CORRUPTED_CLEARING, lm.x, lm.y);
-      // Dark purple aura — very low alpha so it doesn't dominate the palette,
-      // but creates a clear "something happened here" visual signal.
+      // Corruption footprint pass:
+      // Layered circles build a "blight core" (near-black) with a purple falloff.
+      // This keeps landmarks unmistakably threatening at map-overview scale while
+      // preserving readability of underlying tile detail.
       const { x: _lmIsoX, y: _lmIsoY } = worldToIso(lm.x, lm.y);
-      this.add.circle(_lmIsoX, _lmIsoY, 90, 0x220022, 0.18).setDepth(0.05);
+      this.add.circle(_lmIsoX, _lmIsoY, 155, 0x120b1e, 0.24).setDepth(0.05);
+      this.add.circle(_lmIsoX, _lmIsoY, 108, 0x2a123a, 0.36).setDepth(0.051);
+      this.add.circle(_lmIsoX, _lmIsoY, 62,  0x06050a, 0.48).setDepth(0.052);
+
+      // Jagged rim reads as a corrupted scar instead of a clean radial glow.
+      const rim = this.add.graphics().setDepth(0.053);
+      rim.lineStyle(4, 0x4d1b6b, 0.32);
+      const pts: Phaser.Math.Vector2[] = [];
+      const k = (lm.x * 31 + lm.y * 17) >>> 0;
+      for (let i = 0; i <= 14; i++) {
+        const a = (Math.PI * 2 * i) / 14;
+        const n = ((k ^ (i * 2654435761)) >>> 0) & 15;
+        const r = 122 + (n - 7) * 3; // deterministic jaggedness per landmark
+        pts.push(new Phaser.Math.Vector2(
+          _lmIsoX + Math.cos(a) * r,
+          _lmIsoY + Math.sin(a) * r * 0.72,
+        ));
+      }
+      rim.strokePoints(pts, true);
     }
   }
 
