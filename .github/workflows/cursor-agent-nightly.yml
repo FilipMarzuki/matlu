@@ -6,6 +6,11 @@ name: DevCycle 1 — Dev Agent (Marvin)
 #
 # The PR flows through the shared pipeline: CI → Review → Merge.
 # After merge, this workflow is re-triggered for the next issue.
+#
+# Required repo secret: AGENT_PAT — a GitHub PAT with `contents:write`,
+# `pull-requests:write`, and `workflows:write` scopes. Pushes and PR opens
+# must use a PAT (not the built-in GITHUB_TOKEN), because GitHub suppresses
+# `push` / `pull_request` triggers when actions create them with GITHUB_TOKEN.
 
 on:
   schedule:
@@ -117,6 +122,9 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
     steps:
       - uses: actions/checkout@v6
+        with:
+          # PAT so the push of marvin/<branch> fires DevCycle 2 — CI.
+          token: ${{ secrets.AGENT_PAT }}
 
       - uses: actions/setup-node@v6
         with:
@@ -137,8 +145,9 @@ jobs:
       - name: Run Cursor session for issue #${{ needs.fetch-issue.outputs.issue }}
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
+          # AGENT_PAT so the PR Marvin opens triggers DevCycle 2 — CI.
+          GITHUB_TOKEN:   ${{ secrets.AGENT_PAT }}
+          GH_TOKEN:       ${{ secrets.AGENT_PAT }}
         run: node .github/scripts/run-agent-marvin.js "${{ needs.fetch-issue.outputs.issue }}"
 
       - name: Log token usage

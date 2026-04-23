@@ -10,6 +10,12 @@ name: DevCycle 1 — Dev Agent (Bender)
 # The loop is capped at MAX_DEVCYCLE_RUNS per 8-hour window to prevent
 # runaway spending. Each cycle is ~15–30 min so 10 runs finishes well
 # within one night.
+#
+# Required repo secret: AGENT_PAT — a GitHub PAT (fine-grained or classic)
+# with `contents:write`, `pull-requests:write`, and `workflows:write` scopes.
+# Pushes and PR opens must use a PAT (not the built-in GITHUB_TOKEN), because
+# GitHub suppresses `push` / `pull_request` triggers when actions create them
+# with GITHUB_TOKEN — that would stop DevCycle 2 — CI from firing on the PR.
 
 on:
   schedule:
@@ -131,6 +137,11 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
     steps:
       - uses: actions/checkout@v6
+        with:
+          # PAT so the push of bender/<branch> fires DevCycle 2 — CI.
+          # actions/checkout stores this token in .git/config, so subsequent
+          # `git push` calls from the Claude session reuse the PAT automatically.
+          token: ${{ secrets.AGENT_PAT }}
 
       - uses: actions/setup-node@v6
         with:
@@ -148,7 +159,10 @@ jobs:
       - name: Run Claude Code session for issue #${{ needs.fetch-issue.outputs.issue }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
-          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
+          # AGENT_PAT for both git push and gh pr create so the resulting PR
+          # triggers DevCycle 2 — CI (which then chains Review → Merge).
+          GITHUB_TOKEN:            ${{ secrets.AGENT_PAT }}
+          GH_TOKEN:                ${{ secrets.AGENT_PAT }}
         run: node .github/scripts/run-agent.js "${{ needs.fetch-issue.outputs.issue }}"
 
       - name: Log token usage
