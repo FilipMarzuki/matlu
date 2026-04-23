@@ -245,10 +245,10 @@ export class WorldForgeScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-E',     () => this.clearEntity());
     this.input.keyboard!.on('keydown-C',     () => { this.clearObjects(); this.clearDecors(); });
 
-    // Zoom — scroll wheel or +/- keys. Clamp to [0.25, 3]. On zoom, entity/object
+    // Zoom — scroll wheel or +/- keys. Clamp to [0.25, 6]. On zoom, entity/object
     // graphics stay at old screen coords so we clear them to avoid misalignment.
     const applyZoom = (factor: number) => {
-      this.zoomFactor = Phaser.Math.Clamp(this.zoomFactor * factor, 0.25, 3.0);
+      this.zoomFactor = Phaser.Math.Clamp(this.zoomFactor * factor, 0.25, 6.0);
       this.clearEntity();
       this.clearObjects();
       this.clearDecors();
