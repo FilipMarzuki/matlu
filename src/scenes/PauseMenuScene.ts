@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { t } from '../lib/i18n';
+import { DiscoveryScene } from './DiscoveryScene';
 
 /**
  * PauseMenuScene — in-game pause overlay.
@@ -55,7 +56,7 @@ export class PauseMenuScene extends Phaser.Scene {
     // Opaque panel — needs to be interactive so clicks on it don't fall through
     // to the backdrop and accidentally dismiss the menu.
     const panelW = 260;
-    const panelH = 210;
+    const panelH = 256;
     this.add
       .rectangle(cx, cy, panelW, panelH, 0x111a11, 0.95)
       .setScrollFactor(0)
@@ -79,12 +80,13 @@ export class PauseMenuScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(802);
 
-    // Buttons — stacked vertically inside the panel
-    const btnY  = cy - 14;
+    // Buttons — stacked vertically inside the panel (4 buttons, centered)
+    const btnY  = cy - 36;
     const btnGap = 46;
-    this.makeButton(cx, btnY,              t('pause.resume'),   () => this.resumeGame());
-    this.makeButton(cx, btnY + btnGap,     t('pause.settings'), () => this.openSettings());
-    this.makeButton(cx, btnY + btnGap * 2, t('pause.quit'),     () => this.quitToMenu());
+    this.makeButton(cx, btnY,              t('pause.resume'),    () => this.resumeGame());
+    this.makeButton(cx, btnY + btnGap,     t('pause.discovery'), () => this.openDiscovery());
+    this.makeButton(cx, btnY + btnGap * 2, t('pause.settings'),  () => this.openSettings());
+    this.makeButton(cx, btnY + btnGap * 3, t('pause.quit'),      () => this.quitToMenu());
 
     // Keyboard shortcuts — ESC and P both resume, matching common game conventions
     this.input.keyboard?.on('keydown-ESC', () => this.resumeGame());
@@ -136,6 +138,13 @@ export class PauseMenuScene extends Phaser.Scene {
     // physics.world.resume() call required.
     this.scene.stop();
     this.scene.resume('GameScene');
+  }
+
+  private openDiscovery(): void {
+    // Follow the same caller-key pattern as openSettings() — pause this scene
+    // so the discovery overlay runs on top, then it resumes us on close.
+    this.scene.pause();
+    this.scene.launch(DiscoveryScene.KEY, this.scene.key as unknown as object);
   }
 
   private openSettings(): void {

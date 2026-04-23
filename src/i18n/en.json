@@ -28,6 +28,7 @@
   "settings.language_label": "Language",
   "pause.title": "Paused",
   "pause.resume": "Resume",
+  "pause.discovery": "Discovery",
   "pause.settings": "Settings",
   "pause.quit": "Main Menu",
   "gameover.title": "You were corrupted",
