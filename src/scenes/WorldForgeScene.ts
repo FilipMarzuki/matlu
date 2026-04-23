@@ -460,17 +460,15 @@ export class WorldForgeScene extends Phaser.Scene {
         const onRiver = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
 
         // Splash pool: lowland tiles at the foot of the waterfall cliff.
-        // Check all 8 neighbours (orthogonal + diagonal) — if any is elevated
-        // and on the river, this tile borders the waterfall and should be water.
+        // Check 4 orthogonal neighbours — if any is elevated and on the river,
+        // this tile borders the waterfall and should be water.
         const myElev = getElev(tx, ty);
         const atWfBase = showRiver && myElev === 0 && (() => {
-          for (let dx = -1; dx <= 1; dx++) {
-            for (let dy = -1; dy <= 1; dy++) {
-              if (dx === 0 && dy === 0) continue;
-              const nx = tx + dx, ny = ty + dy;
-              if (nx < 0 || ny < 0 || nx >= G || ny >= G) continue;
-              if (getElev(nx, ny) > 0 && Math.abs(nx - riverCenter(nx + ny)) <= 1) return true;
-            }
+          const neighbours = [[0,-1],[0,1],[-1,0],[1,0]];
+          for (const [dx, dy] of neighbours) {
+            const nx = tx + dx, ny = ty + dy;
+            if (nx < 0 || ny < 0 || nx >= G || ny >= G) continue;
+            if (getElev(nx, ny) > 0 && Math.abs(nx - riverCenter(nx + ny)) <= 1) return true;
           }
           return false;
         })();
@@ -480,18 +478,24 @@ export class WorldForgeScene extends Phaser.Scene {
         // Set in every branch that maps to a biome with a generated tile set.
         let customPack: string | undefined;
 
+        // Shoreline biome depends on the adjacent land — warm/soft biomes get sandy,
+        // cold/rocky biomes get rocky shore, marsh stays marshy.
+        const SHORE_FOR_BIOME: Record<number, number> = {
+          1: 1, 2: 2, 3: 3,   // rocky/sandy/marsh stay themselves
+          4: 2, 5: 1, 6: 2,   // dry heath→sandy, coastal heath→rocky, meadow→sandy
+          7: 2, 8: 1, 9: 1,   // forest→sandy, spruce→rocky, cold granite→rocky
+          10: 1, 11: 1,       // bare summit→rocky, snow→rocky
+        };
+        const shoreBiome = SHORE_FOR_BIOME[landBiome] ?? 2;
+
         if (oceanDist > 1) {
           frame = isoTileFrame(0, elev);           // deep ocean — no custom tiles
-        } else if (oceanDist === 1) {
+        } else if (oceanDist > 0) {
           frame = ISO_RIVER_FRAME;                 // shallow ocean / river mouth
         } else if (oceanDist === 0) {
-          // Sandy shore — river cuts through as a water channel
+          // Shoreline — 1 tile wide, biome-dependent
           if (onRiver) { frame = ISO_RIVER_FRAME; }
-          else { frame = isoTileFrame(2, elev); customPack = CUSTOM_TILE_PACKS[2]; }
-        } else if (oceanDist === -1) {
-          // Rocky shore — river cuts through rather than leaving a rocky dam
-          if (onRiver) { frame = ISO_RIVER_FRAME; }
-          else { frame = isoTileFrame(1, elev); customPack = CUSTOM_TILE_PACKS[1]; }
+          else { frame = isoTileFrame(shoreBiome, elev); customPack = CUSTOM_TILE_PACKS[shoreBiome]; }
         } else if (elevDist > 1) {
           // Snow field highlands — river shows as water
           if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
@@ -501,10 +505,10 @@ export class WorldForgeScene extends Phaser.Scene {
           else { frame = isoTileFrame(10, elev); customPack = CUSTOM_TILE_PACKS[10]; }
         } else if (elevDist === 0) {
           if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
-          else { frame = isoTileFrame(9, elev); customPack = CUSTOM_TILE_PACKS[9]; }
+          else { frame = isoTileFrame(landBiome, elev); customPack = CUSTOM_TILE_PACKS[landBiome]; }
         } else if (elevDist === -1) {
           if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
-          else { frame = isoTileFrame(4, elev); customPack = CUSTOM_TILE_PACKS[4]; }
+          else { frame = isoTileFrame(landBiome, elev); customPack = CUSTOM_TILE_PACKS[landBiome]; }
         } else if (onRiver || atWfBase) {
           frame = ISO_RIVER_FRAME;                 // N→S river body
         } else {
