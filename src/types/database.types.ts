@@ -155,6 +155,7 @@ export type Database = {
           approved_at: string | null
           art_credit: string | null
           art_path: string | null
+          audio_description: string | null
           balance_notes: string | null
           balance_tier: string | null
           behaviour_notes: string | null
@@ -196,6 +197,7 @@ export type Database = {
           status: string
           status_changed_at: string | null
           tracker_issue_number: number | null
+          visual_description: string | null
           world_name: string | null
         }
         Insert: {
@@ -203,6 +205,7 @@ export type Database = {
           approved_at?: string | null
           art_credit?: string | null
           art_path?: string | null
+          audio_description?: string | null
           balance_notes?: string | null
           balance_tier?: string | null
           behaviour_notes?: string | null
@@ -244,6 +247,7 @@ export type Database = {
           status?: string
           status_changed_at?: string | null
           tracker_issue_number?: number | null
+          visual_description?: string | null
           world_name?: string | null
         }
         Update: {
@@ -251,6 +255,7 @@ export type Database = {
           approved_at?: string | null
           art_credit?: string | null
           art_path?: string | null
+          audio_description?: string | null
           balance_notes?: string | null
           balance_tier?: string | null
           behaviour_notes?: string | null
@@ -292,6 +297,7 @@ export type Database = {
           status?: string
           status_changed_at?: string | null
           tracker_issue_number?: number | null
+          visual_description?: string | null
           world_name?: string | null
         }
         Relationships: []

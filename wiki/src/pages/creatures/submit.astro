@@ -415,6 +415,26 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
         <input id="special_ability" name="special_ability" type="text" maxlength="240"
                placeholder="e.g. 'turns invisible in moonlight', 'heals nearby plants'" />
       </div>
+
+      <div class="field">
+        <label for="visual_description">
+          <span class="t-en">What does it look like?</span>
+          <span class="t-sv">Hur ser det ut?</span>
+          <span class="hint"> (<span class="t-en">optional — helps our artists draw it</span><span class="t-sv">valfritt — hjälper våra konstnärer att rita det</span>)</span>
+        </label>
+        <textarea id="visual_description" name="visual_description" rows="3" maxlength="1000"
+                  placeholder="e.g. 'dark blue scales, glowing yellow eyes, two small horns, a long tail with fins'"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="audio_description">
+          <span class="t-en">What does it sound like?</span>
+          <span class="t-sv">Hur låter det?</span>
+          <span class="hint"> (<span class="t-en">optional — helps us create its sound effects</span><span class="t-sv">valfritt — hjälper oss skapa dess ljudeffekter</span>)</span>
+        </label>
+        <textarea id="audio_description" name="audio_description" rows="2" maxlength="500"
+                  placeholder="e.g. 'low rumbling purr, hisses when angry, chirps to call its young'"></textarea>
+      </div>
     </section>
 
     <!-- ── Section 9: Story ───────────────────────────────────────── -->
@@ -768,6 +788,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       ['habitat_notes',    'Habitat notes',  'Livsmiljöanteckningar'],
       ['food_notes',       'Food notes',     'Matanteckningar'],
       ['behaviour_notes',  'Behaviour notes','Beteendeanteckningar'],
+      ['visual_description','Visual description','Visuell beskrivning'],
+      ['audio_description', 'Audio description', 'Ljudbeskrivning'],
     ];
     const ptsEach = Math.floor(60 / opt.length);
     for (const [field] of opt) {
@@ -945,8 +967,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       behaviour_notes:  fd.get('behaviour_notes')?.toString().trim() || null,
       food_notes:       fd.get('food_notes')?.toString().trim() || null,
       special_ability:  fd.get('special_ability')?.toString().trim() || null,
-      lore_description: fd.get('lore_description')?.toString().trim() || null,
-      lore_origin:      fd.get('lore_origin')?.toString().trim() || null,
+      lore_description:    fd.get('lore_description')?.toString().trim() || null,
+      lore_origin:         fd.get('lore_origin')?.toString().trim() || null,
+      visual_description:  fd.get('visual_description')?.toString().trim() || null,
+      audio_description:   fd.get('audio_description')?.toString().trim() || null,
       credits_opt_in:   (form.elements.namedItem('credits_opt_in') as HTMLInputElement).checked,
       license_accepted: true,
       license_version:  LICENSE_VERSION,
