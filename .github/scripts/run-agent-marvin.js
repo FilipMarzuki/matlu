@@ -92,20 +92,29 @@ function renderPrompt(issue) {
 
 function runCursor(prompt) {
   // `cursor-agent -p` is Cursor's print/headless mode — analogous to
-  // `claude --print`. `--force` auto-approves file edits and tool calls
-  // (equivalent to Claude Code's bypassPermissions); required in CI since
-  // there's nowhere to answer prompts. The prompt is a positional argument.
-  const result = spawnSync(
-    'cursor-agent',
-    ['-p', '--force', prompt],
-    {
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        CURSOR_API_KEY,
-      },
-    }
+  // `claude --print`. The prompt is a positional argument.
+  const argv = ['-p', prompt];
+
+  console.log(
+    `[run-agent-marvin] Spawning: cursor-agent -p <prompt ${prompt.length} chars>`
   );
+
+  const result = spawnSync('cursor-agent', argv, {
+    stdio: ['inherit', 'inherit', 'inherit'],
+    env: {
+      ...process.env,
+      CURSOR_API_KEY,
+    },
+  });
+
+  // Loud diagnostics: if cursor-agent exits silently, we at least see why.
+  console.log(
+    `[run-agent-marvin] cursor-agent finished: status=${result.status} signal=${result.signal ?? 'none'}`
+  );
+  if (result.error) {
+    console.error('[run-agent-marvin] spawn error:', result.error);
+  }
+
   return result.status === 0;
 }
 
