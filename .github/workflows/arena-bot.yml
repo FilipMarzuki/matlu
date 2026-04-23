@@ -42,10 +42,7 @@ jobs:
         env:
           CI: true
 
-      - name: Post regression report to Linear
-        # report.ts reads screenshots/arena-testplay-report.json, compares metrics
-        # against healthy thresholds, posts a summary comment on FIL-188, and
-        # creates one bug issue per out-of-range metric. Exits 0 gracefully if
-run: npx tsx scripts/arena-bot/report.ts
+      - name: Post regression report
+        run: npx tsx scripts/arena-bot/report.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

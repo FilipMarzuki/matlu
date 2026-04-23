@@ -51,9 +51,8 @@ jobs:
         with:
           node-version: '20.19.0'
 
-      - name: Fetch hygiene tasks from Linear
+      - name: Fetch hygiene tasks
         id: fetch
-        env:
         run: |
           if [ -n "${{ inputs.issue }}" ]; then
             node .github/scripts/fetch-hygiene-issues.js --issue "${{ inputs.issue }}"
