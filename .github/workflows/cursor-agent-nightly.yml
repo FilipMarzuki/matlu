@@ -135,7 +135,18 @@ jobs:
         run: npm ci
 
       - name: Install Cursor CLI
-        run: curl -fsSL https://cursor.com/install-cli.sh | sh
+        # Installs the `cursor-agent` binary to ~/.local/bin. We append that
+        # directory to GITHUB_PATH so subsequent steps find it.
+        run: |
+          curl -fsSL https://cursor.com/install | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Cursor CLI
+        # Fail fast if install broke or PATH didn't take. Also prints the
+        # version into the run log so drift in the CLI is visible later.
+        run: |
+          which cursor-agent
+          cursor-agent --version
 
       - name: Configure git identity
         run: |

@@ -91,9 +91,13 @@ function renderPrompt(issue) {
 // ── Cursor invocation ─────────────────────────────────────────────────────────
 
 function runCursor(prompt) {
+  // `cursor-agent -p` is Cursor's print/headless mode — analogous to
+  // `claude --print`. `--force` auto-approves file edits and tool calls
+  // (equivalent to Claude Code's bypassPermissions); required in CI since
+  // there's nowhere to answer prompts. The prompt is a positional argument.
   const result = spawnSync(
-    'cursor',
-    ['agent', '--prompt', prompt],
+    'cursor-agent',
+    ['-p', '--force', prompt],
     {
       stdio: 'inherit',
       env: {
