@@ -1,0 +1,123 @@
+---
+/**
+ * Three-tier creator achievement row for /creators/[handle].
+ * Badges 1–2: earned/locked from build-time data. Badge 3: reserved until
+ * encounter tracking lands (#581) — always locked with a "Coming soon" hint.
+ */
+interface Props {
+  firstEarned: boolean;
+  inGameEarned: boolean;
+}
+
+const { firstEarned, inGameEarned } = Astro.props;
+
+// Pipeline colours (see creature-status.ts) for left-border accents
+const cFirst = firstEarned ? '#fbbf24' : '#6b7280';
+const cGame = inGameEarned ? '#60a5fa' : '#6b7280';
+const cPop = '#6b7280';
+---
+
+<div class="creator-badges" role="list" aria-label="Creator achievements">
+  <div
+    class:list={['creator-badge', 'status-ribbon', firstEarned ? 'is-earned' : 'is-locked']}
+    style={`--ribbon-color: ${cFirst}`}
+    role="listitem"
+  >
+    <div class="ribbon-icon" aria-hidden="true">🥚</div>
+    <div class="ribbon-body">
+      <p class="ribbon-copy">
+        <span class="t-en">Submitted your first creature!</span>
+        <span class="t-sv">Skickat in ditt första väsen!</span>
+      </p>
+    </div>
+  </div>
+
+  <div
+    class:list={['creator-badge', 'status-ribbon', inGameEarned ? 'is-earned' : 'is-locked']}
+    style={`--ribbon-color: ${cGame}`}
+    role="listitem"
+  >
+    <div class="ribbon-icon" aria-hidden="true">🎨</div>
+    <div class="ribbon-body">
+      <p class="ribbon-copy">
+        <span class="t-en">Your creature is in the game!</span>
+        <span class="t-sv">Ditt väsen är i spelet!</span>
+      </p>
+    </div>
+  </div>
+
+  <div
+    class="creator-badge status-ribbon is-locked is-soon"
+    style={`--ribbon-color: ${cPop}`}
+    role="listitem"
+    title="Coming soon"
+  >
+    <div class="ribbon-icon" aria-hidden="true">🌟</div>
+    <div class="ribbon-body">
+      <p class="ribbon-copy">
+        <span class="t-en">A creature of yours has been met 100+ times!</span>
+        <span class="t-sv">Ett av dina väsen har mötts över 100 gånger!</span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .creator-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .creator-badge {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--ribbon-color, #9ca3af);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    flex: 1 1 200px;
+    min-width: min(100%, 9.5rem);
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .creator-badge .ribbon-icon {
+    font-size: 1.35rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  .creator-badge .ribbon-body {
+    min-width: 0;
+  }
+
+  .creator-badge .ribbon-copy {
+    font-size: 0.88rem;
+    color: var(--text);
+    font-style: italic;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .creator-badge.is-earned {
+    box-shadow: 0 0 16px color-mix(in srgb, var(--ribbon-color) 35%, transparent);
+  }
+
+  .creator-badge.is-locked {
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
+
+  .creator-badge.is-soon {
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
+
+  .creator-badge.is-soon .ribbon-copy {
+    color: var(--text-dim);
+  }
+</style>

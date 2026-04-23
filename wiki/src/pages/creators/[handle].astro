@@ -9,7 +9,8 @@
  * Falls back to an empty page if the handle doesn't exist.
  */
 import Base from '../../layouts/Base.astro';
-import { imageUrl } from '../../lib/supabase-creatures';
+import CreatorBadges from '../../components/CreatorBadges.astro';
+import { fetchCreatorCreatures, imageUrl } from '../../lib/supabase-creatures';
 
 export async function getStaticPaths() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -35,22 +36,23 @@ export async function getStaticPaths() {
 
     const paths = await Promise.all(
       active.map(async (p) => {
-        // Fetch approved creature submissions for this user
-        const subRes = await fetch(
-          `${supabaseUrl}/rest/v1/creature_submissions?user_id=eq.${encodeURIComponent(p.user_id)}&approved=eq.true&select=id,slug,creature_name,creator_name,world_name,kind_size,art_path,lore_description,kid_id`,
-          { headers: hdrs }
-        );
-        const submissions: Array<{
-          id: string;
-          slug: string | null;
-          creature_name: string;
-          creator_name: string | null;
-          world_name: string | null;
-          kind_size: string | null;
-          art_path: string | null;
-          lore_description: string | null;
-          kid_id: string | null;
-        }> = subRes.ok ? await subRes.json() : [];
+        const allCreatures = await fetchCreatorCreatures(p.user_id);
+        const submissions = allCreatures
+          .filter((c) => c.approved)
+          .map((c) => ({
+            id: c.id,
+            slug: c.slug,
+            creature_name: c.creature_name,
+            creator_name: c.creator_name,
+            world_name: c.world_name,
+            kind_size: c.kind_size,
+            art_path: c.art_path,
+            lore_description: c.lore_description,
+            kid_id: c.kid_id,
+          }));
+
+        const firstEarned = allCreatures.length >= 1;
+        const inGameEarned = allCreatures.some((c) => c.status === 'in-game');
 
         // Fetch kids for this account
         const kidsRes = await fetch(
@@ -64,7 +66,14 @@ export async function getStaticPaths() {
 
         return {
           params: { handle: p.handle },
-          props: { handle: p.handle, submissions, kidMap: Object.fromEntries(kidMap), supabaseUrl },
+          props: {
+            handle: p.handle,
+            submissions,
+            kidMap: Object.fromEntries(kidMap),
+            supabaseUrl,
+            firstBadgeEarned: firstEarned,
+            inGameBadgeEarned: inGameEarned,
+          },
         };
       })
     );
@@ -80,7 +89,7 @@ interface Props {
   handle: string;
   submissions: Array<{
     id: string;
-    slug: string | null;
+    slug: string;
     creature_name: string;
     creator_name: string | null;
     world_name: string | null;
@@ -91,9 +100,11 @@ interface Props {
   }>;
   kidMap: Record<string, string>;
   supabaseUrl: string;
+  firstBadgeEarned: boolean;
+  inGameBadgeEarned: boolean;
 }
 
-const { handle, submissions, kidMap, supabaseUrl } = Astro.props;
+const { handle, submissions, kidMap, supabaseUrl, firstBadgeEarned, inGameBadgeEarned } = Astro.props;
 ---
 
 <Base
@@ -107,6 +118,8 @@ const { handle, submissions, kidMap, supabaseUrl } = Astro.props;
       <span class="t-sv">Skaparprofil — {submissions.length} väsen inlämnade</span>
     </p>
   </div>
+
+  <CreatorBadges firstEarned={firstBadgeEarned} inGameEarned={inGameBadgeEarned} />
 
   {submissions.length === 0 ? (
     <p class="empty">

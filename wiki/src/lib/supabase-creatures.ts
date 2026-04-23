@@ -87,6 +87,61 @@ async function query(client: { url: string; key: string }, params: string): Prom
   return rows.map(r => ({ ...r, slug: r.slug ?? r.id }));
 }
 
+/**
+ * All creature submissions for one account, newest first.
+ * The query does not filter on `approved` — RLS may still return only
+ * public-safe rows. Used for creator profiles: badge 1 and the visible grid
+ * (filter to `approved` in the page when needed).
+ */
+export interface CreatorProfileCreature {
+  id: string;
+  slug: string;
+  creature_name: string;
+  creator_name: string | null;
+  world_name: string | null;
+  kind_size: string | null;
+  art_path: string | null;
+  lore_description: string | null;
+  kid_id: string | null;
+  approved: boolean;
+  status: string | null;
+}
+
+const CREATOR_PROFILE_SELECT = [
+  'id',
+  'slug',
+  'creature_name',
+  'creator_name',
+  'world_name',
+  'kind_size',
+  'art_path',
+  'lore_description',
+  'kid_id',
+  'approved',
+  'status',
+].join(',');
+
+export async function fetchCreatorCreatures(userId: string): Promise<CreatorProfileCreature[]> {
+  const client = getClient();
+  if (!client) return [];
+  try {
+    const res = await fetch(
+      `${client.url}/rest/v1/creature_submissions?user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&select=${CREATOR_PROFILE_SELECT}`,
+      {
+        headers: {
+          apikey: client.key,
+          Authorization: `Bearer ${client.key}`,
+        },
+      }
+    );
+    if (!res.ok) return [];
+    const rows: (CreatorProfileCreature & { slug: string | null })[] = await res.json();
+    return rows.map((r) => ({ ...r, slug: r.slug ?? r.id }));
+  } catch {
+    return [];
+  }
+}
+
 /** All approved creatures, newest first. */
 export async function fetchApprovedCreatures(): Promise<Creature[]> {
   const client = getClient();
