@@ -1,0 +1,20 @@
+name: Daily Vercel Deploy
+
+on:
+  schedule:
+    # Once a day at 06:00 UTC — after nightly agents finish
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Game (corewarden.app)
+        run: curl -s -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_GAME }}"
+
+      - name: Deploy Codex (codex.corewarden.com)
+        run: curl -s -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_CODEX }}"
+
+      - name: Deploy Agentic Experiments
+        run: curl -s -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_AEX }}"
