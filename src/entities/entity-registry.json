@@ -1501,7 +1501,11 @@
       },
       "sounds": {
         "ambient": {
-          "keys": ["sfx-kordororn-ambient-0", "sfx-kordororn-ambient-1", "sfx-kordororn-ambient-2"],
+          "keys": [
+            "sfx-kordororn-ambient-0",
+            "sfx-kordororn-ambient-1",
+            "sfx-kordororn-ambient-2"
+          ],
           "files": [
             "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-ambient-0.ogg",
             "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-ambient-1.ogg",
@@ -1520,7 +1524,10 @@
           "status": "pending"
         },
         "attack": {
-          "keys": ["sfx-kordororn-attack-windup", "sfx-kordororn-attack-impact"],
+          "keys": [
+            "sfx-kordororn-attack-windup",
+            "sfx-kordororn-attack-impact"
+          ],
           "files": [
             "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-attack-windup.ogg",
             "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-attack-impact.ogg"
@@ -1528,7 +1535,11 @@
           "status": "pending"
         },
         "hurt": {
-          "keys": ["sfx-kordororn-hurt-0", "sfx-kordororn-hurt-1", "sfx-kordororn-hurt-2"],
+          "keys": [
+            "sfx-kordororn-hurt-0",
+            "sfx-kordororn-hurt-1",
+            "sfx-kordororn-hurt-2"
+          ],
           "files": [
             "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-hurt-0.ogg",
             "public/assets/audio/creatures/fargglad-kordororn/fargglad-kordororn-hurt-1.ogg",
@@ -1584,7 +1595,8 @@
           "hurt": "Sharp broken shriek, high and short, suggests surprise. ~150 ms per variant. Freesound: 'eagle pain shriek short CC0', 'raptor distress call sharp', 'large bird hurt flapping CC0'.",
           "death": "Descending cry — starts at full pitch, drops in volume and frequency over ~400 ms, ends with a dull impact thud. ~600 ms total. Freesound: 'eagle dying descending call CC0', 'raptor death spiral call fade', 'large bird crash land'."
         }
-      }
+      },
+      "credits_opt_in": true
     },
     {
       "class": "Loke",

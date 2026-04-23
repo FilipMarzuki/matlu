@@ -53,6 +53,7 @@ import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
+import { loadDiscovery, saveDiscovery, type WorldId } from '../lib/discoveryState';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { DeployableManager } from '../systems/DeployableManager';
@@ -566,6 +567,12 @@ export class GameScene extends Phaser.Scene {
   /** Projectiles spawned by golem death bursts — ticked and pruned each frame. */
   private golemProjectiles: Projectile[] = [];
 
+  // ── Discovery tracking (FIL-581) ─────────────────────────────────────────────
+  /** Class names of enemies that have entered camera view at least once. */
+  private seenCreatureClasses: Set<string> = new Set();
+  /** World identifier used when writing to discovery state. */
+  private readonly activeWorld: WorldId = 'earth';
+
   // ── Upgrade shrine (FIL-130) ──────────────────────────────────────────────────
   private readonly shrinePos       = { x: 380, y: 2760 };
   private shrineDialogActive       = false;
@@ -1064,6 +1071,7 @@ export class GameScene extends Phaser.Scene {
       this.deployables.destroyAll();
       // Persist explored fog state so revisiting areas doesn't reset the fog.
       this.saveFogOfWar();
+      this.saveDiscoveryData();
     });
 
     this.runSeed = Math.floor(Math.random() * 0xffffffff);
@@ -1574,6 +1582,7 @@ export class GameScene extends Phaser.Scene {
     this.updateDryShades(delta);
     if (this.arenaHero) this.updateArenaHero(delta);
     this.updateGolems(delta);
+    this.checkCreatureSightings();
     this.updateGroundAnimals();
     this.updateBirds(time, delta);
     if (this.portalActive) {
@@ -3960,6 +3969,58 @@ export class GameScene extends Phaser.Scene {
       localStorage.setItem(FOG_LS_KEY, JSON.stringify(seenIndices));
     } catch {
       // localStorage quota exceeded or unavailable — fog state will reset on next load.
+    }
+  }
+
+  /**
+   * Persist discovery data (discovered biomes + seen creature classes) to
+   * localStorage, merging with any state from previous sessions.
+   * Called on SHUTDOWN alongside saveFogOfWar().
+   */
+  private saveDiscoveryData(): void {
+    let data = loadDiscovery();
+
+    // Derive discovered biome indices by cross-referencing fog with biome grid.
+    if (this.fogGrid && this.tileDevBiome) {
+      const found = new Set<number>();
+      for (let i = 0; i < this.fogGrid.length; i++) {
+        if (this.fogGrid[i] > FOG_UNSEEN) found.add(this.tileDevBiome[i]);
+      }
+      const existing = new Set(data.biomesByWorld[this.activeWorld] ?? []);
+      for (const idx of found) existing.add(idx);
+      data = {
+        ...data,
+        biomesByWorld: { ...data.biomesByWorld, [this.activeWorld]: [...existing] },
+      };
+    }
+
+    // Merge creature classes seen this session.
+    if (this.seenCreatureClasses.size > 0) {
+      const merged = new Set([...data.seenCreatureClasses, ...this.seenCreatureClasses]);
+      data = { ...data, seenCreatureClasses: [...merged] };
+    }
+
+    saveDiscovery(data);
+  }
+
+  /**
+   * Check whether any tracked enemy has entered the camera viewport this frame.
+   * Adds its class name to seenCreatureClasses (idempotent Set.add).
+   * Called every frame from update() — cheap since it's O(n) Set operations.
+   */
+  private checkCreatureSightings(): void {
+    const view = this.cameras.main.worldView;
+    for (const d of this.dustlings) {
+      if (view.contains(d.x, d.y)) this.seenCreatureClasses.add('Dustling');
+    }
+    for (const s of this.dryShades) {
+      if (view.contains(s.x, s.y)) this.seenCreatureClasses.add('DryShade');
+    }
+    for (const g of this.golems) {
+      if (view.contains(g.x, g.y)) this.seenCreatureClasses.add('CrackedGolem');
+    }
+    if (this.bossAlive && this.boss && view.contains(this.boss.x, this.boss.y)) {
+      this.seenCreatureClasses.add('CorruptedGuardian');
     }
   }
 
