@@ -1,12 +1,14 @@
 # Submission to Entity Agent
 
-Converts an approved creature submission from the Matlu Codex into a complete, playable
-game entity: expanded lore, behavior model, design notes, PixelLab sprites, sound spec,
-Notion lore page, and a Linear issue to track implementation.
+Converts an approved creature submission from the Matlu Codex into a complete game
+entity spec: expanded lore, balanced stats, behavior model, design notes (sprite +
+animations + sounds), PixelLab asset spec, Notion lore page, and a GitHub issue to
+track implementation. Does NOT generate sprites — only prepares everything so the
+sprite-credit-burn agent (or a manual run) can generate on the first try.
 
 Run manually via `workflow_dispatch`. One submission per run.
 Input: `SUBMISSION_ID` env var (UUID from `creature_submissions.id`).
-If not set, pick the oldest row where `approved = true AND converted_at IS NULL`.
+If not set, pick the oldest row where `status = 'balanced' AND converted_at IS NULL`.
 
 ---
 
@@ -16,15 +18,15 @@ Read these files fully before writing anything:
 
 1. `WORLD.md` — tone, worlds, visual aesthetic, narrative register
 2. `docs/entity-spec.md` — entity schema, behavior states, animation/sound requirements
-3. `src/ai/AGENTS.md` — PixelLab generation protocol (required for sprite steps)
-4. `src/entities/entity-registry.json` — existing entities (learn the naming and style)
-5. `src/ai/asset-spec.json` — existing asset specs (learn the structure)
+3. `src/ai/AGENTS.md` — PixelLab generation protocol (body type table, direction rules)
+4. `src/entities/entity-registry.json` — **all existing entities** (learn naming, style, AND stat ranges for balancing)
+5. `src/ai/asset-spec.json` — existing asset specs (learn the structure + available animation templates)
 
 Key things to lock in before proceeding:
 - The three world palettes (earth / spinolandet / vatten)
 - The behavior state machine (Unaware → Alert → Tracking → Combat)
-- The PixelLab credit budget rules (get approval before animations)
 - The entity slug format: lowercase, hyphens, ASCII only (e.g. `fargglad-kordororn`)
+- **Stat ranges** of existing entities — you will calibrate the new creature to fit
 
 ---
 
@@ -35,7 +37,7 @@ Query Supabase for the submission:
 ```sql
 SELECT * FROM public.creature_submissions
 WHERE id = '<SUBMISSION_ID>'
-   OR (approved = true AND converted_at IS NULL AND '<SUBMISSION_ID>' = '')
+   OR (status = 'balanced' AND converted_at IS NULL AND '<SUBMISSION_ID>' = '')
 ORDER BY created_at ASC
 LIMIT 1;
 ```
@@ -46,7 +48,9 @@ Extract and hold these fields for the rest of the run:
 - `habitat_biome`, `habitat_climate`, `habitat_notes`
 - `behaviour_threat`, `behaviour_notes`, `food_notes`
 - `special_ability`, `lore_description`, `lore_origin`
+- `visual_description`, `audio_description`
 - `art_path` (storage path for the submitted image)
+- `balance_tier`, `biome_affinity`
 
 Derive the entity slug: lowercase the creature name, replace spaces and special chars with
 hyphens, strip diacritics. E.g. "Färgglad Kordorörn" → `fargglad-kordororn`.
@@ -118,17 +122,28 @@ players narratively, how it connects to the world themes. This guides future wri
 
 ---
 
-## STEP 5 — BUILD THE BEHAVIOR MODEL
+## STEP 5 — BUILD THE BEHAVIOR MODEL AND BALANCE STATS
 
-Design the complete AI behavior for this entity. Output a JSON block that will go into
-the registry's `behavior` field, plus a narrative description for the Linear issue.
+Design the complete AI behavior for this entity AND calibrate its stats to fit
+harmoniously within the existing entity population.
 
-### 5a. Movement type
+### 5a. Analyze existing entity stats
+
+Before picking any numbers, read every entity in `src/entities/entity-registry.json`
+and build a mental model of the stat distribution:
+- What HP, damage, speed, aggro ranges do existing entities use?
+- How do these scale with size and threat level?
+- What gaps exist in the roster that this creature could fill?
+
+The new creature's stats must feel like they belong in the same game — not too strong,
+not too weak relative to peers of similar size and threat.
+
+### 5b. Movement type
 
 Determine primary locomotion: `flying`, `walking`, `swimming`, `burrowing`.
 For flying entities: they hover at a fixed Y offset above ground — specify offset in px.
 
-### 5b. State machine parameters
+### 5c. State machine parameters
 
 Reason from submission data (threat level, habitat, diet, solitary/group) to set:
 
@@ -140,39 +155,20 @@ Reason from submission data (threat level, habitat, diet, solitary/group) to set
   "tracking":      true,
   "combat":        true,
   "flee":          false,
-  "aggroRadius":   <px — wider for flying apex predators, ~600–900>,
-  "hearingRadius": <px — aerial: lower than aggro (~200–350)>,
-  "sightMemoryMs": <ms — how long it chases after losing visual>,
+  "aggroRadius":   "<px — calibrate against existing entities of similar size/threat>",
+  "hearingRadius": "<px — usually 40-60% of aggroRadius>",
+  "sightMemoryMs": "<ms — how long it chases after losing visual>",
   "movementType":  "<flying|walking|swimming>",
-  "flyHeight":     <px above ground, flying only — e.g. 48>,
-  "speed":         <px/s — small/fast: 80–120, large/soaring: 50–80>,
-  "attackRange":   <px — melee dive: 64–96, ranged: 200–300>
+  "flyHeight":     "<px above ground, flying only — e.g. 48>",
+  "speed":         "<px/s — calibrate against existing>",
+  "attackRange":   "<px — melee: 48-96, ranged: 200-300>"
 }
 ```
 
-### 5c. Attack pattern
+### 5d. Stats calibration
 
-Describe the full attack loop in plain text (this becomes the Linear issue body):
-- How does it transition from tracking to attack?
-- What is the wind-up behavior (circling, altitude gain, hovering)?
-- What is the attack motion (dive, swoop, grab, bite)?
-- What happens after: retreat to altitude, circle again, or repeat?
-- Any special mechanic (kidnap small player, knockback, area denial)?
-
-### 5d. Special mechanics
-
-List any mechanics beyond the standard state machine. Examples:
-- Nesting site (returns to nest when low HP instead of fleeing the area)
-- Grab mechanic (latches onto player, dealing DoT until shaken off)
-- Altitude zones (only attacks while above a threshold — dives below to attack)
-- Seasonal behavior (nesting season = more aggressive)
-
-### 5e. Stats calibration
-
-Calibrate all numerical stats so they feel realistic relative to the existing entity population.
-**Read `src/entities/entity-registry.json` to see actual ranges before picking numbers.**
-
-Use the following tier guidelines — these reflect the observed distribution in the registry:
+Use these tier guidelines as a starting point, then **cross-check against 2–3 existing
+entities of similar size/threat** in the registry to ensure consistency:
 
 **Size tier → HP and aggro baseline:**
 
@@ -182,48 +178,65 @@ Use the following tier guidelines — these reflect the observed distribution in
 | Small         | 20–45    | 150–250               | 300–500               | 90–120       |
 | Medium        | 45–90    | 200–350               | 400–650               | 70–100       |
 | Large         | 90–180   | 300–500               | 500–800               | 50–80        |
-| Apex / Giant  | 180–400  | 500–800               | 700–1000              | 40–65        |
+| Huge / Apex   | 180–400  | 500–800               | 700–1000              | 40–65        |
 
 **Threat level → damage and sightMemoryMs:**
 
 | `behaviour_threat` | damage per hit | sightMemoryMs | flee state |
 |--------------------|----------------|---------------|------------|
-| Passive            | 0              | 600–1000      | true       |
-| Cautious           | 2–6            | 800–1500      | true       |
-| Defensive          | 5–12           | 1200–2500     | false      |
-| Aggressive         | 10–22          | 2000–4000     | false      |
-| Apex predator      | 18–40          | 3000–5500     | false      |
+| friendly           | 0              | 600–1000      | true       |
+| shy                | 0              | 400–800       | true       |
+| neutral            | 2–6            | 800–1500      | true       |
+| territorial        | 5–15           | 1200–2500     | false      |
+| aggressive         | 10–25          | 2000–4000     | false      |
 
-**Diet modifier (on top of threat):**
+**Diet modifier:**
 - Herbivore: –20% damage, +10% speed, flee = true unless very large
 - Omnivore: no modifier
 - Carnivore: +10% damage, –5% speed
-- Apex carnivore: +20% damage, hearingRadius +30%
+- Insectivore: –10% damage, small creatures
 
 **Solitary vs group:**
 - Solitary: standard aggroRadius
 - Group / pack: aggroRadius –15% (relies on pack coordination), sightMemoryMs +20%
 
-After picking values from the tiers, cross-check against two or three entities of similar
-size/threat in the registry to make sure the numbers feel consistent, not like outliers.
+After picking values from the tiers, **list which existing entities you compared against
+and explain why the new stats are appropriate** — include this reasoning in the commit
+message and GitHub issue.
 
-Store the combat stats as a `stats` sub-object in the registry entry (alongside `behavior`):
+Store the combat stats as a `stats` sub-object in the registry entry:
 
 ```json
 "stats": {
-  "hp":            <integer>,
-  "damage":        <integer — per hit, raw>,
-  "speed":         <px/s>,
-  "aggroRadius":   <px>,
-  "hearingRadius": <px>,
-  "sightMemoryMs": <ms>,
-  "attackRange":   <px>,
-  "attackCooldownMs": <ms — 600–2000 depending on attack style>
+  "hp":               "<integer>",
+  "damage":           "<integer — per hit, raw>",
+  "speed":            "<px/s>",
+  "aggroRadius":      "<px>",
+  "hearingRadius":    "<px>",
+  "sightMemoryMs":    "<ms>",
+  "attackRange":      "<px>",
+  "attackCooldownMs": "<ms — 600–2000 depending on attack style>"
 }
 ```
 
 Also copy `aggroRadius`, `hearingRadius`, `sightMemoryMs`, `speed`, and `attackRange`
-into the `behavior` object (step 5b) so both are consistent.
+into the `behavior` object (step 5c) so both are consistent.
+
+### 5e. Attack pattern
+
+Describe the full attack loop in plain text:
+- How does it transition from tracking to attack?
+- What is the wind-up behavior?
+- What is the attack motion?
+- What happens after: retreat, circle again, or repeat?
+- Any special mechanic (knockback, area denial, grab, etc.)?
+
+### 5f. Special mechanics
+
+List any mechanics beyond the standard state machine. Examples:
+- Nesting site (returns to nest when low HP instead of fleeing the area)
+- Grab mechanic (latches onto player, dealing DoT until shaken off)
+- Seasonal behavior (nesting season = more aggressive)
 
 ---
 
@@ -231,19 +244,18 @@ into the `behavior` object (step 5b) so both are consistent.
 
 Write the full `designNotes` object following `docs/entity-spec.md` rules.
 
-For the sprite description, reference the submitted artwork image at `art_path` in the
-`creature-art` storage bucket — describe what you see and how to translate it to the
-game's pixel art style and palette.
+Use the submission's `visual_description` and `audio_description` as primary sources
+when available. Expand and sharpen them to meet the quality bar.
 
 ```json
 "designNotes": {
-  "sprite": "<2–4 sentences: body shape, size relative to 32px grid, palette, what makes it readable at a glance. Reference the submitted artwork colors faithfully.>",
+  "sprite": "<2–4 sentences: body shape, size relative to 32px grid, palette, what makes it readable at a glance>",
   "animations": {
     "idle":   "<What body part moves, rhythm, frame count + fps>",
-    "walk":   "<Locomotion — for flying: soaring wing cycle. Frame count + fps>",
-    "attack": "<CRITICAL: wind-up (≥3 frames) → commit → recovery. For aerial: dive entry + grab/impact + ascent>",
+    "walk":   "<Locomotion style. Frame count + fps>",
+    "attack": "<CRITICAL: wind-up (≥3 frames) → commit → recovery. Frame counts + fps>",
     "hurt":   "<2–3 frame flinch — brief, distinct from idle>",
-    "death":  "<Full sequence — for flying: spiral down, crash landing, settle>"
+    "death":  "<Full sequence — what happens to the body, dissolve/crumple/etc.>"
   },
   "sounds": {
     "ambient": "<Sound character + ~duration ms + freesound.org search terms>",
@@ -255,60 +267,93 @@ game's pixel art style and palette.
 }
 ```
 
+### Quality bar
+
+Every description must be specific enough that:
+1. A pixel artist can open Aseprite and start drawing without asking questions
+2. A sound designer can search freesound.org and know immediately if a sound matches
+3. Descriptions are consistent with the entity's world
+
+**Bad** (too vague): "Makes an attacking sound when it attacks"
+**Good**: "A short wet snap — like snapping a hollow reed — duration ~60ms. No reverb. The impact should feel small and precise, not meaty."
+
+### World-specific tone
+
+- **spinolandet**: organic, chitin, fluid, bio-horror. Clicks, wet sounds, insectoid. Jerky, twitchy movement.
+- **earth**: mechanical, degraded technology, glitch. Electronic, metallic, corrupted digital. Weighted, physical movement.
+- **vatten**: aquatic, flowing, jade-green. Bubbles, currents, fish-scale scrapes. Smooth, undulating movement.
+
 ---
 
-## STEP 7 — LIST ALL ANIMATIONS NEEDED
+## STEP 7 — DETERMINE REQUIRED ANIMATIONS
 
-Produce a complete animation manifest. Use 8 directions for most creatures (4 for
-radially symmetric). Leave template IDs as `TBD` — confirm with `get_character()` after
-creation, since available templates depend on body_type and quadruped template.
+List all animations this creature needs, with the recommended PixelLab template for each.
+Do NOT generate sprites — just document what's needed so the sprite agent can execute later.
 
-Example for a flying bird (humanoid body type, high top-down, 8 directions):
+### 7a. Choose body type and PixelLab params
 
-| Animation ID | PixelLab template | Notes |
-|-------------|------------------|-------|
-| `idle`      | `breathing-idle` | Hover/circling — slow wing beat |
-| `walk`      | `walking-4-frames` | Wing-beat cycle while soaring |
-| `attack`    | `jumping-1` | Dive entry; custom action may be needed for full dive+grab |
-| `hurt`      | `taking-punch` | Flinch mid-air |
-| `death`     | `falling-back-death` | Spiral descent + crash landing |
-| `alert`     | custom: "head snapping alert, wings spreading wide" | 1-shot on aggro — custom, show cost to user first |
+Use this table:
 
-Example for a quadruped (bear template):
-Omit the table — call `get_character()` first and list whatever templates it returns.
-Quadruped animation names are not known until creation.
+| Creature form | body_type | template | n_directions | view |
+|---|---|---|---|---|
+| Upright biped / humanoid | humanoid | — | 5 | low top-down |
+| Bird (walking) | humanoid | — | 5 | low top-down |
+| Bird (flying) | humanoid | — | 5 | high top-down |
+| Large beast | quadruped | bear or lion | 5 | low top-down |
+| Small animal | quadruped | cat or dog | 5 | low top-down |
+| Hoofed animal | quadruped | horse | 5 | low top-down |
+| Insect / spider | quadruped | cat | 5 | low top-down |
+| Fish / aquatic | humanoid | — | 4 | high top-down |
+| Blob / amorphous | humanoid | — | 4 | low top-down |
 
-**Important:** template names in the asset spec are placeholders until `get_character()`
-confirms what's available. Always update `asset-spec.json` before queueing animations.
+### 7b. Animation manifest
+
+For each required animation, specify:
+
+| Animation | Template | frameDurationMs | Priority | Notes |
+|-----------|----------|----------------|----------|-------|
+| idle | breathing-idle | 150 | 1 (required) | What it looks like at rest |
+| walk | walking-4-frames | 100 | 2 (required) | Locomotion style |
+| attack | lead-jab / custom:... | 80 | 3 (combat only) | Must telegraph ≥3 frames |
+| hurt | taking-punch | 80 | 4 (combat only) | Distinct from idle |
+| death | falling-back-death | 80 | 5 (required) | Final sequence |
+| alert | custom:... | 100 | 6 (optional) | "I see you" moment |
+
+Rules:
+- **Minimum set** (all creatures): idle, walk, death
+- **Combat creatures** (territorial/aggressive): add attack + hurt
+- **Passive creatures** (friendly/shy/neutral): skip attack, optionally skip hurt
+- **Custom animations**: flag these as expensive (20–40 gens/direction) with a cost note
+- **Flying birds**: MUST use `mode: "pro"` — note this and the higher credit cost
+
+### 7c. Graphics difficulty rating
+
+Score 1–5:
+- 1: simple shape, 4 directions, idle+walk+death only
+- 2: standard humanoid or quadruped, template animations only
+- 3: quadruped with non-standard template or 5+ animations
+- 4: custom animations needed, unusual body shape
+- 5: flying creature (high top-down + pro mode), multiple custom animations
 
 ---
 
 ## STEP 8 — WRITE THE SOUND SPEC
 
-For each required sound file, specify:
+For each required sound, specify:
 - Filename (convention: `public/assets/audio/creatures/<slug>/<slug>-<state>-<n>.ogg`)
 - Duration target in ms
-- Freesound.org search query (be specific — terms a sound designer would use)
-- Backup search query (if first returns nothing useful)
-- Character description (one sentence — what it sounds like)
-
-Produce this as a markdown table AND as the JSON structure that goes in the registry's
-`sounds` field (with `status: "pending"` for all files).
+- Freesound.org search query (be specific)
+- Character description (one sentence)
 
 Minimum files required:
 - 3× ambient variants
-- 1× alert
 - 1× aggro
-- 1× attack-windup
-- 1× attack-impact
+- 1× attack
 - 3× hurt variants
 - 1× death
 
-For a flying bird-type creature in Spinolandet, consider:
-- Ambient: wing beats, air displacement, or beak sounds
-- Aggro: a sharp raptor-like cry translated through the world's bio-filter
-- Attack: wing-rush and impact thud
-- Death: a descending cry cutting to silence
+Produce this as a markdown table AND as the JSON structure for the registry's `sounds`
+field (with `status: "pending"` for all files).
 
 ---
 
@@ -316,16 +361,17 @@ For a flying bird-type creature in Spinolandet, consider:
 
 Add a new entry to `src/entities/entity-registry.json`.
 
-The entry must follow the schema in `docs/entity-spec.md`. Use these values:
-
 ```jsonc
 {
-  "class": "<PascalCase from creature name, e.g. FarggladeKordororn>",
+  "class": "<PascalCase from creature name>",
   "file": "src/entities/<ClassName>.ts",
   "type": "enemy",
   "world": "<assigned world>",
+  "name_en": "<English name>",
+  "name_sv": "<Swedish name>",
   "submissionId": "<creature_submissions UUID>",
   "submissionCreator": "<creator_name> (age <maker_age>)",
+  "credits_opt_in": "<from submission>",
   "personality": "<one-line flavor from lore — spare, specific>",
   "spriteKey": null,
   "spritesheetJson": null,
@@ -337,9 +383,10 @@ The entry must follow the schema in `docs/entity-spec.md`. Use these values:
     "death":  null,
     "alert":  null
   },
-  "sounds": { <full sounds object from step 8 with status: "pending"> },
-  "behavior": { <full behavior object from step 5b> },
-  "designNotes": { <full designNotes from step 6> }
+  "sounds": { "<full sounds object from step 8 with status: pending>" },
+  "behavior": { "<full behavior object from step 5c>" },
+  "stats": { "<full stats object from step 5d>" },
+  "designNotes": { "<full designNotes from step 6>" }
 }
 ```
 
@@ -348,26 +395,6 @@ Write the updated registry back to disk using Edit.
 ---
 
 ## STEP 10 — ADD TO ASSET SPEC
-
-First, determine the correct PixelLab params using this table (full rationale in `src/ai/AGENTS.md`):
-
-| Creature archetype | `body_type` | `template` | `n_directions` | `view` |
-|-------------------|-------------|------------|----------------|--------|
-| Human / humanoid / robot | `humanoid` | — | 8 | `low top-down` |
-| Bird on ground (walking raptor) | `humanoid` | — | 8 | `low top-down` |
-| Bird flying / soaring | `humanoid` | — | 8 | `high top-down` | **`mode: "pro"` required** — standard templates produce unusable results |
-| Large quadruped (bear, boar) | `quadruped` | `bear` | 8 | `low top-down` |
-| Apex predator (lion, wolf) | `quadruped` | `lion` | 8 | `low top-down` |
-| Medium predator / dog-like | `quadruped` | `dog` or `cat` | 8 | `low top-down` |
-| Horse / deer / ungulate | `quadruped` | `horse` | 8 | `low top-down` |
-| Insect / spider / multi-limbed | `quadruped` | `cat` | 8 | `low top-down` |
-| Blob / amorphous | `humanoid` | — | 4 | `low top-down` |
-| Fish / aquatic | `humanoid` | — | 4 | `high top-down` |
-
-For **flying birds**: standard humanoid templates produce poor results (tested empirically —
-crow with standard = unusable, great tit with pro = good). Always use `mode: "pro"` for
-the base character, and custom `action_description` for all animations. Show the user the
-credit cost before queueing (20–40 gen/direction).
 
 Add a new character entry to `src/ai/asset-spec.json` under `characters[]`:
 
@@ -379,23 +406,19 @@ Add a new character entry to `src/ai/asset-spec.json` under `characters[]`:
   "faction": "enemy",
   "status": "pending",
   "pixellab": {
-    "description": "<1–2 sentences: appearance, artwork colors, 'top-down pixel art RPG, <world> palette'>",
+    "description": "<1–2 sentences: appearance from designNotes.sprite, 'top-down pixel art RPG, <world> palette'>",
     "size": 32,
-    "body_type": "<humanoid|quadruped — from table above>",
-    "template": "<bear|cat|dog|horse|lion — quadruped only, omit for humanoid>",
-    "n_directions": <8 for most, 4 for radially symmetric>,
-    "view": "<low top-down|high top-down — from table above>",
+    "body_type": "<from step 7a>",
+    "template": "<quadruped template if applicable>",
+    "n_directions": "<from step 7a>",
+    "view": "<from step 7a>",
     "outline": "single color black outline",
     "shading": "basic shading",
     "detail": "medium detail"
   },
   "animations": [
-    { "id": "idle",   "template": "<check get_character() — e.g. breathing-idle>",     "status": "pending" },
-    { "id": "walk",   "template": "<check get_character() — e.g. walking-4-frames>",   "status": "pending" },
-    { "id": "attack", "template": "<check get_character() — e.g. lead-jab>",           "status": "pending" },
-    { "id": "death",  "template": "<check get_character() — e.g. falling-back-death>", "status": "pending" }
+    "<from step 7b — each with id, template, frameDurationMs, status: pending>"
   ],
-  "_note": "Animation templates are placeholders — call get_character() after creation and update with real IDs",
   "outputDir": "public/assets/sprites/characters/<world>/enemies/<entity-slug>/"
 }
 ```
@@ -404,78 +427,28 @@ Write the updated spec back to disk.
 
 ---
 
-## STEP 11 — GENERATE SPRITES WITH PIXELLAB
+## STEP 11 — UPDATE SUBMISSION IN SUPABASE
 
-Follow `src/ai/AGENTS.md` exactly. Summary:
+Update the creature submission with enriched data:
 
-### 11a. Create base character
-Call `create_character` with the `pixellab` params from the asset spec entry.
-Save the returned `character_id` to `asset-spec.json` as `_pixellabCharacterId`.
-
-### 11b. Get approval before animations
-Call `get_character(character_id, include_preview: true)`.
-Display the preview to the user and ask:
-> "Does [creature name] look right? Approve to queue template animations (auto, ~1 credit/direction),
-> or describe what to change."
-
-If rejected: call `delete_character`, update the description in asset-spec.json, retry.
-
-### 11b′. Approval rules for animations
-- **Template animations** (`template_animation_id` set): queue automatically after sprite approval, no extra confirmation needed.
-- **Custom animations** (no template) or **pro mode**: call `animate_character` WITHOUT `confirm_cost` first to show the user the credit cost. Only proceed with `confirm_cost: true` after explicit user approval.
-
-### 11c. Queue animations one at a time
-Check `get_character` for available template IDs (body type determines what's available).
-Update the animation list in asset-spec.json with the real template IDs.
-Queue one animation, poll every 60s until `completed`, then queue the next.
-8 concurrent slots — base uses 4, leaving 4, so queue one animation at a time.
-
-### 11d. Download and extract
-Once all animations are `completed`:
-```bash
-node scripts/extract-character.mjs --id <characterId> --zip-url <zipUrl>
+```sql
+UPDATE public.creature_submissions
+SET
+  visual_description = '<enriched visual description>',
+  audio_description  = '<enriched audio description>',
+  graphics_notes     = '<PixelLab-optimized prompt from designNotes.sprite>',
+  graphics_difficulty = <1-5 from step 7c>,
+  converted_at       = NOW(),
+  entity_class       = '<ClassName>'
+WHERE id = '<submission UUID>';
 ```
-
-### 11e. Assemble spritesheet
-```bash
-npm run sprites:assemble -- --id <entity-slug>
-```
-
-If assembly succeeds, update the registry entry's `spriteKey` and `spritesheetJson`.
 
 ---
 
-## STEP 12 — SOUND SEARCH
+## STEP 12 — CREATE NOTION LORE PAGE
 
-For each sound file in the spec (step 8), perform a web search on freesound.org using
-the search query. For each:
-
-1. Search: `site:freesound.org <query> CC0`
-2. If a strong match is found: note the URL, duration, license, and attribution
-3. If no match: note the backup query result or mark as "needs custom recording"
-
-Output a sound findings report as a markdown file at:
-`docs/sounds/<entity-slug>-sound-report.md`
-
-Format:
-```markdown
-# Sound Report: <creature_name>
-
-## ambient-0
-- **Query:** <search query>
-- **Match:** <freesound.org URL or "no match">
-- **Duration:** <ms>
-- **Notes:** <any processing needed — pitch shift, trim, etc.>
-```
-
-Do not download or embed any audio files — just document the findings. A human or the
-audio agent will do the actual download and placement.
-
----
-
-## STEP 13 — CREATE NOTION LORE PAGE
-
-Using the NOTION_API_KEY, create a new page in the Creatures database in Notion.
+Using the NOTION_API_KEY, create a new page in the Creatures database in Notion
+(database ID: `4c71181b-2842-4301-b7cf-94572b3845a9`).
 
 Page title: `<creature_name>`
 
@@ -484,121 +457,144 @@ Page body (in this order):
 2. H2: "Origin" → lore text 4c
 3. H2: "Encounter Note" → lore text 4d
 4. H2: "Submitted By" → "{creator_name}, age {maker_age}"
-5. H2: "Design Notes" → link to entity-registry.json entry (GitHub link to the file)
-6. H2: "Status" → "Converting — sprites pending review"
-
-If you don't know the Creatures database ID, search Notion for a page titled "Creatures"
-or similar to find it.
+5. H2: "Design Notes" → link to entity-registry.json (GitHub permalink)
+6. H2: "Status" → "Entity spec complete — sprites pending"
 
 ---
 
-## STEP 14 — CREATE LINEAR ISSUE
+## STEP 13 — CREATE GITHUB ISSUE
 
-Create a Linear issue in the current team to track entity implementation:
+Create a GitHub issue in `FilipMarzuki/matlu` to track implementation.
 
-**Title:** `feat(entity): implement <creature_name> (<world>)`
+**Title:** `Creature: implement <creature_name> (<world>)`
 
-**Description:**
-```
-Submitted by <creator_name> (age <maker_age>) via the Matlu Codex creature form.
+**Labels:** `type:feature`, `ready`, `art`, `audio`
 
-## What to implement
+**Body:**
+```markdown
+## Summary
 
-<behavior model narrative from step 5c>
+Community creature submitted by **<creator_name>** (age <maker_age>) via the Codex.
+Converted to entity spec by the submission-to-entity agent.
 
-## Special mechanics
+## Creature overview
 
-<special mechanics from step 5d>
+- **Name:** <name_en> / <name_sv>
+- **World:** <world>
+- **Size:** <kind_size>
+- **Threat:** <behaviour_threat>
+- **Special:** <special_ability or "none">
 
-## Asset status
+## Stats
 
-- [ ] Sprite: pending PixelLab generation (see asset-spec.json)
-- [ ] Animations: queued after sprite approval
-- [ ] Sound files: see docs/sounds/<slug>-sound-report.md
-- [ ] Entity class: src/entities/<ClassName>.ts (stub needed)
-- [ ] Registry: ✅ added to entity-registry.json
+| Stat | Value | Comparable to |
+|------|-------|---------------|
+| HP | <hp> | <similar entity name> (<their hp>) |
+| Damage | <damage> | <similar entity name> (<their damage>) |
+| Speed | <speed> px/s | <similar entity name> (<their speed>) |
+| Aggro radius | <aggroRadius> px | <similar entity name> (<their radius>) |
+| Attack range | <attackRange> px | |
+| Sight memory | <sightMemoryMs> ms | |
 
-## Files changed
+## Animations needed
 
-- `src/entities/entity-registry.json` — registry entry added
-- `src/ai/asset-spec.json` — PixelLab spec added
-- `docs/sounds/<slug>-sound-report.md` — sound search report
+| Animation | PixelLab template | Difficulty | Notes |
+|-----------|------------------|------------|-------|
+<from step 7b>
+
+**Graphics difficulty:** <1-5> — <brief reason>
+
+## Sounds needed
+
+<count> sound files specified in entity-registry.json. See `designNotes.sounds` for
+freesound.org search queries.
+
+## Checklist
+
+- [x] Entity registry entry (`src/entities/entity-registry.json`)
+- [x] Asset spec (`src/ai/asset-spec.json`)
+- [x] Design notes (sprite, animations, sounds)
+- [x] Balanced stats (compared against <entity names>)
+- [x] Notion lore page
+- [ ] PixelLab sprites (run sprite-credit-burn or manual)
+- [ ] Sound files (download from freesound or record)
+- [ ] Entity TypeScript class (`src/entities/<ClassName>.ts`)
 
 ## Submission
 
-Creature: <creature_name>
-World: <world>
-Submission ID: <UUID>
+- Creature: <creature_name>
+- World: <world>
+- Submission ID: `<UUID>`
 ```
 
-Label: `systems`, `art`, `audio`
-Estimate: M (3 points — new entity from scratch)
+Save the issue number.
 
 ---
 
-## STEP 15 — MARK SUBMISSION AS CONVERTED
+## STEP 14 — LINK ISSUE TO SUBMISSION
 
-Update the submission row in Supabase:
+Update the submission row with the GitHub issue number:
 
 ```sql
 UPDATE public.creature_submissions
-SET
-  converted_at   = NOW(),
-  entity_class   = '<ClassName>',
-  linear_issue_id = '<Linear issue ID from step 14>'
+SET tracker_issue_number = <issue_number>
 WHERE id = '<submission UUID>';
-```
-
-If `converted_at`, `entity_class`, or `linear_issue_id` columns don't exist, run this
-migration first:
-
-```sql
-ALTER TABLE public.creature_submissions
-  ADD COLUMN IF NOT EXISTS converted_at    TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS entity_class    TEXT,
-  ADD COLUMN IF NOT EXISTS linear_issue_id TEXT;
 ```
 
 ---
 
-## STEP 16 — COMMIT AND OPEN PR
+## STEP 15 — COMMIT AND PUSH
 
 Stage and commit:
 ```bash
-git add src/entities/entity-registry.json
-git add src/ai/asset-spec.json
-git add docs/sounds/<slug>-sound-report.md
+git add src/entities/entity-registry.json src/ai/asset-spec.json
 git commit -m "feat(entity): add <creature_name> from community submission
 
 Submitted by <creator_name> (age <maker_age>).
 World: <world>. Submission ID: <UUID>.
 
-- Entity registry entry with full behavior model + design notes
-- PixelLab asset spec (sprites pending approval)
-- Sound search report at docs/sounds/<slug>-sound-report.md
+Stats balanced against <entity1>, <entity2> — <brief reasoning>.
+Graphics difficulty: <N>/5.
+
+- Entity registry entry with behavior model, stats, and design notes
+- PixelLab asset spec (sprites pending generation)
 - Notion lore page created
+- GitHub issue #<number> created
 
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
-git push
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
+
+git push origin main
 ```
-
-Open a PR targeting `main`. PR description should include:
-- The submitted artwork image (link to Supabase storage public URL)
-- The in-game description (4a)
-- The behavior model summary
-- A checklist of what's done and what's pending (sprites, sounds, TS class)
-- Credit to the submitter
 
 ---
 
-## STEP 17 — REPORT
+## STEP 16 — REPORT
 
 Print a final summary:
-- Creature name and assigned world
-- Behavior model summary (movement type, aggro radius, attack pattern)
-- Animations queued (list which templates were used)
-- Sounds needed (count) + any freesound matches found
-- Notion page URL
-- Linear issue URL
-- PR URL
-- Any decisions that needed judgment calls (world assignment, behavior choices, etc.)
+
+```
+=== Creature Conversion Complete ===
+
+Creature:    <name_en> / <name_sv>
+World:       <world>
+Creator:     <creator_name> (age <maker_age>)
+
+Stats:
+  HP: <hp>  |  Damage: <damage>  |  Speed: <speed> px/s
+  Aggro: <aggroRadius> px  |  Attack range: <attackRange> px
+  Balanced against: <entity1> (<hp1> HP), <entity2> (<hp2> HP)
+
+Animations:  <count> (<list>)
+  Difficulty: <N>/5
+  Custom animations needed: <yes/no — if yes, list which>
+
+Sounds:      <count> files specified (all pending)
+
+GitHub issue: #<number>
+Notion page:  <url if available>
+
+Next steps:
+  - Run sprite-credit-burn agent to generate sprites
+  - Download/record sound files per designNotes.sounds
+  - Implement entity class at src/entities/<ClassName>.ts
+```

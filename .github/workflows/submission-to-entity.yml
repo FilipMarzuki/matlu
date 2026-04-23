@@ -1,26 +1,29 @@
 name: Submission to Entity
 
-# Manual trigger only — sprite generation costs real credits and needs human approval
-# mid-run for the PixelLab preview step.
+# Converts a balanced creature submission into a full entity spec:
+# lore, balanced stats, behavior model, design notes, asset spec,
+# Notion lore page, and GitHub issue. Does NOT generate sprites.
+#
+# Trigger: manual via workflow_dispatch (one submission per run).
+# To auto-trigger on status change, add a poller or Supabase webhook.
 on:
   workflow_dispatch:
     inputs:
       submission_id:
-        description: 'creature_submissions UUID (leave blank to pick oldest approved+unconverted)'
+        description: 'creature_submissions UUID (leave blank to pick oldest balanced+unconverted)'
         required: false
         default: ''
 
 jobs:
   convert:
     runs-on: ubuntu-latest
-    timeout-minutes: 120   # PixelLab generation + polling can take 30–60 min
+    timeout-minutes: 30
 
     env:
       SUBMISSION_ID:            ${{ inputs.submission_id }}
       SUPABASE_URL:             ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NOTION_API_KEY:           ${{ secrets.NOTION_API_KEY }}
-      PIXELLAB_API_KEY:         ${{ secrets.PIXELLAB_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN:  ${{ secrets.CLAUDE_CODE_PERSONAL }}
 
     steps:
@@ -36,7 +39,7 @@ jobs:
       - name: Run submission-to-entity agent
         run: |
           npx claude \
-            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,mcp__supabase__execute_sql,mcp__supabase__apply_migration,mcp__pixellab__create_character,mcp__pixellab__get_character,mcp__pixellab__animate_character,mcp__pixellab__delete_character,mcp__linear__save_issue,mcp__linear__list_teams,mcp__linear__list_issue_statuses,mcp__linear__list_issue_labels,mcp__notion__notion-create-pages,mcp__notion__notion-search,mcp__github-mcp__create_pull_request,mcp__github-mcp__create_branch" \
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch,mcp__supabase__execute_sql,mcp__supabase__apply_migration,mcp__supabase__generate_typescript_types,mcp__github-mcp__create_issue,mcp__github-mcp__add_issue_comment,mcp__github-mcp__get_issue,mcp__notion__notion-create-pages,mcp__notion__notion-search,mcp__notion__notion-fetch" \
             --print \
-            --max-turns 120 \
+            --max-turns 80 \
             -p "$(cat .agents/submission-to-entity.md)"
