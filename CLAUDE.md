@@ -223,6 +223,8 @@ The per-issue runner requires one of two Claude credentials as repo secrets:
 - **`CLAUDE_CODE_OAUTH_TOKEN`** (preferred) — generated locally via `claude setup-token`; usage counts against your Claude Pro/Max/Team-premium subscription quota so you avoid pay-as-you-go API billing.
 - **`ANTHROPIC_API_KEY`** — fallback, pay-as-you-go. Set this instead if you don't have a Claude Code subscription seat.
 
+It also requires **`GH_TRACKER_TOKEN`** — a GitHub PAT (fine-grained or classic) with `contents:write`, `pull-requests:write`, and `workflows:write`. The built-in `GITHUB_TOKEN` cannot be used for the branch push or PR open, because GitHub suppresses downstream `push` / `pull_request` triggers for those cases — which would prevent DevCycle 2 — CI (and therefore Review and Merge) from firing on agent-authored PRs. Both Bender (`agent-nightly.yml`) and Marvin (`cursor-agent-nightly.yml`) use this secret (already provisioned for `creature-tracker-sync.yml`).
+
 It also expects five labels to exist in GitHub Issues: `agent:success`, `agent:partial`, `agent:failed`, `agent:wrong-interpretation`, `agent:already-shipped` — create them before the first run.
 
 On-demand runs: trigger `Dev Agent` from the Actions tab, optionally pinning it to one issue via the `issue_id` input.

@@ -91,17 +91,34 @@ function renderPrompt(issue) {
 // ── Cursor invocation ─────────────────────────────────────────────────────────
 
 function runCursor(prompt) {
-  const result = spawnSync(
-    'cursor',
-    ['agent', '--prompt', prompt],
-    {
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        CURSOR_API_KEY,
-      },
-    }
+  // `cursor-agent -p` is print/headless mode — analogous to `claude --print`.
+  // `-f` (force) bypasses every permission prompt (directory trust, shell
+  // tool approval, edit approval) — Cursor's equivalent of Claude Code's
+  // `bypassPermissions`. Required in CI: --trust alone only covers directory
+  // trust, leaving git/gh calls blocked. Trying -f (short form from the
+  // error message "Pass --trust, --yolo, or -f") after --yolo was rejected.
+  const argv = ['-p', '-f', prompt];
+
+  console.log(
+    `[run-agent-marvin] Spawning: cursor-agent -p -f <prompt ${prompt.length} chars>`
   );
+
+  const result = spawnSync('cursor-agent', argv, {
+    stdio: ['inherit', 'inherit', 'inherit'],
+    env: {
+      ...process.env,
+      CURSOR_API_KEY,
+    },
+  });
+
+  // Loud diagnostics: if cursor-agent exits silently, we at least see why.
+  console.log(
+    `[run-agent-marvin] cursor-agent finished: status=${result.status} signal=${result.signal ?? 'none'}`
+  );
+  if (result.error) {
+    console.error('[run-agent-marvin] spawn error:', result.error);
+  }
+
   return result.status === 0;
 }
 

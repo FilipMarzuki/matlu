@@ -57,6 +57,8 @@ import { loadDiscovery, saveDiscovery, type WorldId } from '../lib/discoveryStat
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { DeployableManager } from '../systems/DeployableManager';
+import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
+import { CreditCard } from '../ui/CreditCard';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
 // Set a flag to true to enable that category; false to skip it entirely.
@@ -365,6 +367,7 @@ export class GameScene extends Phaser.Scene {
    * future system that places deployables in the overworld.
    */
   deployables!: DeployableManager;
+  private communityEncounter!: CommunityEncounterCoordinator;
 
   private player!: Phaser.GameObjects.Container;
   private playerShadow!: Phaser.GameObjects.Ellipse;
@@ -1041,6 +1044,8 @@ export class GameScene extends Phaser.Scene {
 
     // Scene-level deployable manager — accessible as `scene.deployables.place({...})`.
     this.deployables = new DeployableManager(this);
+    this.communityEncounter = new CommunityEncounterCoordinator(this);
+    new CreditCard(this);
 
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
@@ -1543,6 +1548,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
+    this.communityEncounter.update();
     this.worldClock.update(delta);
     this.worldState.update(delta);
     this.updateDayNight(delta);
@@ -3201,6 +3207,7 @@ export class GameScene extends Phaser.Scene {
    */
   private createBoss(): void {
     this.boss = new CorruptedGuardian(this, BOSS_X, BOSS_Y);
+    this.communityEncounter.watchGameObject(this.boss, this.boss.constructor.name);
     this.boss.setDepth(isoDepth(BOSS_X, BOSS_Y));
     // Provide a player position getter — boss uses this to aim charges.
     this.boss.setTarget(() => ({ x: this.player.x, y: this.player.y }));
@@ -3270,6 +3277,7 @@ export class GameScene extends Phaser.Scene {
       (d.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
       this.enemies.add(d);
       this.dustlings.push(d);
+      this.communityEncounter.watchGameObject(d, d.constructor.name);
     }
 
     this.dustlingSwarmAlive = true;
@@ -3347,6 +3355,7 @@ export class GameScene extends Phaser.Scene {
       // can iterate all live entities without knowing their concrete types.
       this.enemies.add(shade);
       this.dryShades.push(shade);
+      this.communityEncounter.watchGameObject(shade, shade.constructor.name);
     }
   }
 
@@ -3487,6 +3496,7 @@ export class GameScene extends Phaser.Scene {
 
       this.enemies.add(golem);
       this.golems.push(golem);
+      this.communityEncounter.watchGameObject(golem, golem.constructor.name);
     }
 
     // Collect projectiles from golem death bursts and tick them each frame.
