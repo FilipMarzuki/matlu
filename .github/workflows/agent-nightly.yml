@@ -22,7 +22,10 @@ on:
   schedule:
     - cron: '0 2 * * *'
   workflow_run:
-    workflows: ["DevCycle 4 — Merge"]
+    # Both Merge and Grooming can land a Bender PR on main — the loop has to
+    # wake up for either. Listening only to DevCycle 4 stalled the loop
+    # overnight when DevCycle 5 force-merged #582.
+    workflows: ["DevCycle 4 — Merge", "DevCycle 5 — Grooming"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -45,8 +48,16 @@ jobs:
         id: check-origin
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            WORKFLOW="${{ github.event.workflow_run.name }}"
             BRANCH="${{ github.event.workflow_run.head_branch }}"
-            if [[ "$BRANCH" != bender/* ]]; then
+            # DevCycle 5 — Grooming runs on main and doesn't expose which
+            # branch it merged, so let fetch-issue decide whether there's
+            # eligible work. DevCycle 4 — Merge does run on the PR's head
+            # branch, so we keep the bender/* guard for it to avoid Bender
+            # waking up every time a Marvin PR merges.
+            if [ "$WORKFLOW" = "DevCycle 5 — Grooming" ]; then
+              echo "is_bender=true" >> $GITHUB_OUTPUT
+            elif [[ "$BRANCH" != bender/* ]]; then
               echo "Merge was for branch '$BRANCH' — not a Bender PR, skipping"
               echo "is_bender=false" >> $GITHUB_OUTPUT
             else
@@ -128,7 +139,7 @@ jobs:
     needs: fetch-issue
     if: needs.fetch-issue.outputs.has_issue == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: write
       pull-requests: write
@@ -168,7 +179,8 @@ jobs:
 
       - name: Clean up stale in-progress label on failure
         # Only runs if the Claude session timed out, crashed, or was cancelled.
-        # On success, the session itself handles label bookkeeping.
+        # On success, the session itself handles the outcome label; we just
+        # reconcile residue via the next step.
         if: failure() || cancelled()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -178,6 +190,20 @@ jobs:
           gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
           gh api -X POST "repos/${{ github.repository }}/issues/$ISSUE/labels" \
             -f 'labels[]=agent:failed' || true
+
+      - name: Reconcile labels on success
+        # Remove residual bookkeeping labels (agent:in-progress always, and any
+        # stale agent:failed from an earlier timed-out run). Leave whatever
+        # outcome label the Claude session applied (agent:success, agent:partial,
+        # agent:wrong-interpretation, etc.) untouched.
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          echo "Success exit — reconciling bookkeeping labels on #$ISSUE"
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:failed" || true
 
       - name: Log token usage
         if: always()

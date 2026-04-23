@@ -16,7 +16,7 @@ on:
   schedule:
     - cron: '0 4 * * *'
   workflow_run:
-    workflows: ["DevCycle 4 — Merge"]
+    workflows: ["DevCycle 4 — Merge", "DevCycle 5 — Grooming"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -39,8 +39,12 @@ jobs:
         id: check-origin
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            WORKFLOW="${{ github.event.workflow_run.name }}"
             BRANCH="${{ github.event.workflow_run.head_branch }}"
-            if [[ "$BRANCH" != marvin/* ]]; then
+            # Grooming runs on main; always let fetch-issue decide.
+            if [ "$WORKFLOW" = "DevCycle 5 — Grooming" ]; then
+              echo "is_marvin=true" >> $GITHUB_OUTPUT
+            elif [[ "$BRANCH" != marvin/* ]]; then
               echo "Merge was for branch '$BRANCH' — not a Marvin PR, skipping"
               echo "is_marvin=false" >> $GITHUB_OUTPUT
             else
@@ -176,6 +180,19 @@ jobs:
           gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
           gh api -X POST "repos/${{ github.repository }}/issues/$ISSUE/labels" \
             -f 'labels[]=agent:failed' || true
+
+      - name: Reconcile labels on success
+        # Remove residual bookkeeping labels after a successful run. Leaves
+        # whatever outcome label Cursor applied (agent:success, agent:partial,
+        # etc.) so only one status label remains on the issue.
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          echo "Success exit — reconciling bookkeeping labels on #$ISSUE"
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:failed" || true
 
       - name: Log token usage
         if: always()
