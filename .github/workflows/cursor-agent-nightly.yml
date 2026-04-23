@@ -181,6 +181,19 @@ jobs:
           gh api -X POST "repos/${{ github.repository }}/issues/$ISSUE/labels" \
             -f 'labels[]=agent:failed' || true
 
+      - name: Reconcile labels on success
+        # Remove residual bookkeeping labels after a successful run. Leaves
+        # whatever outcome label Cursor applied (agent:success, agent:partial,
+        # etc.) so only one status label remains on the issue.
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          echo "Success exit — reconciling bookkeeping labels on #$ISSUE"
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:failed" || true
+
       - name: Log token usage
         if: always()
         env:

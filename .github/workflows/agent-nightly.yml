@@ -179,7 +179,8 @@ jobs:
 
       - name: Clean up stale in-progress label on failure
         # Only runs if the Claude session timed out, crashed, or was cancelled.
-        # On success, the session itself handles label bookkeeping.
+        # On success, the session itself handles the outcome label; we just
+        # reconcile residue via the next step.
         if: failure() || cancelled()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -189,6 +190,20 @@ jobs:
           gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
           gh api -X POST "repos/${{ github.repository }}/issues/$ISSUE/labels" \
             -f 'labels[]=agent:failed' || true
+
+      - name: Reconcile labels on success
+        # Remove residual bookkeeping labels (agent:in-progress always, and any
+        # stale agent:failed from an earlier timed-out run). Leave whatever
+        # outcome label the Claude session applied (agent:success, agent:partial,
+        # agent:wrong-interpretation, etc.) untouched.
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          echo "Success exit — reconciling bookkeeping labels on #$ISSUE"
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
+          gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:failed" || true
 
       - name: Log token usage
         if: always()
