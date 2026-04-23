@@ -129,6 +129,7 @@ export class WorldForgeScene extends Phaser.Scene {
   private wfSprites: Phaser.GameObjects.Image[] = [];
   private splashEmitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
   private _splashCounter = 0;
+  private _foamCounter = 0;
   private gridGfx?:     Phaser.GameObjects.Graphics;
   private decorSprites: Phaser.GameObjects.Image[] = [];
   private bandLabels:   Phaser.GameObjects.Text[]  = [];
@@ -349,6 +350,7 @@ export class WorldForgeScene extends Phaser.Scene {
     for (const e of this.splashEmitters) e.destroy();
     this.splashEmitters = [];
     this._splashCounter = 0;
+    this._foamCounter = 0;
     this.gridGfx?.destroy();
     this.gridGfx = undefined;
     for (const s of this.decorSprites) s.destroy();
@@ -559,6 +561,46 @@ export class WorldForgeScene extends Phaser.Scene {
             this.tileImages.push(tileImg);
             if (useWF) this.wfSprites.push(tileImg);
           }
+          // Foam at the top of waterfall columns — same config as bottom splash
+          // but positioned at the cliff lip where water flows over the edge.
+          if (useWF) {
+            const foamBaseY = posY + this.ISO_H * 0.5 + CLIFF_H / 2;
+            const hw = this.ISO_W / 2;
+            const hh = this.ISO_H / 2;
+            const foamCfg = {
+              speed: { min: 10, max: 22 },
+              angle: { min: 80, max: 100 },
+              accelerationY: 15,
+              scale: { start: 0.6 * this.zoomFactor, end: 0.1 * this.zoomFactor },
+              alpha: { start: 0.7, end: 0 },
+              lifespan: { min: 1500, max: 3000 },
+              frequency: 100,
+              quantity: 2,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              emitZone: {
+                type: 'random',
+                source: new Phaser.Geom.Rectangle(
+                  -this.ISO_W * 0.15, -this.ISO_H * 0.1,
+                  this.ISO_W * 0.3, this.ISO_H * 0.2,
+                ),
+              } as any,
+            };
+            const foamPositions = [
+              { ex: x - hw,        ey: foamBaseY },              // SW corner
+              { ex: x - hw * 0.5,  ey: foamBaseY + hh * 0.5 },  // SW mid
+              { ex: x,             ey: foamBaseY + hh },         // S centre
+              { ex: x + hw * 0.5,  ey: foamBaseY + hh * 0.5 },  // SE mid
+              { ex: x + hw,        ey: foamBaseY },              // SE corner
+            ];
+            for (let fi = 0; fi < foamPositions.length; fi++) {
+              this._foamCounter = (this._foamCounter ?? 0) + 1;
+              if (this._foamCounter === 1 || this._foamCounter === 4 || this._foamCounter === 5 || this._foamCounter === 10) continue;
+              const { ex, ey } = foamPositions[fi];
+              this.splashEmitters.push(
+                this.add.particles(ex, ey, 'splash-dot', foamCfg).setDepth(0.2),
+              );
+            }
+          }
           // Splash particles along the bottom edge of waterfall columns —
           // the line where falling water hits the pool surface.
           if (useWF) {
@@ -624,30 +666,6 @@ export class WorldForgeScene extends Phaser.Scene {
       }
     }
 
-    // Waterfall label — scan along the river path for the first elevation drop.
-    // This finds the exact curved cliff edge where the waterfall face is rendered,
-    // so the label always floats directly above it rather than using a straight cut estimate.
-    if (showRiver) {
-      let wfTx = -1, wfTy = -1, wfElevC = 0;
-      for (let d = 0; d < G * 2 - 1 && wfTx < 0; d++) {
-        const rtx = Phaser.Math.Clamp(riverCenter(d), 0, G - 1);
-        const rty = Phaser.Math.Clamp(d - rtx, 0, G - 1);
-        const eA  = getElev(rtx, rty);
-        const eB  = rty + 1 < G ? getElev(rtx, rty + 1) : 0;
-        if (eA > 0 && eB < eA) { wfTx = rtx; wfTy = rty; wfElevC = eA; }
-      }
-      if (wfTx >= 0) {
-        const { x: wlx, y: wly } = this.isoPos(wfTx, wfTy);
-        // Match south-rim anchor used for cliff faces (sprite bottom, not grid formula).
-        const wfPosY = wly - this.ISO_H / 2 - wfElevC * CLIFF_H;
-        const faceTopY = Math.round(wfPosY + ISO_TILE_NATIVE_SIZE * this.ISO_SCALE);
-        this.bandLabels.push(
-          this.add.text(wlx, faceTopY - 6, '\u2193 waterfall',
-            { fontSize: '11px', color: '#88eeff', stroke: '#000000', strokeThickness: 2 },
-          ).setOrigin(0.5, 1).setDepth(G * 2 + 10),
-        );
-      }
-    }
 
     // Grid — top surface only where it makes sense: full diamond when level with
     // neighbours; otherwise open edges so strokes don’t project onto vertical cliffs
@@ -742,18 +760,6 @@ export class WorldForgeScene extends Phaser.Scene {
       );
     }
 
-    // Highlands label — centred inside the NW elevation strip.
-    // Both tx and ty are small here so tx+ty < ELEV_CUT.
-    const elevLabelTx = Math.floor(this.GRID * 0.12);
-    const elevLabelTy = Math.floor(this.GRID * 0.12);
-    if (elevLabelTx + elevLabelTy < ELEV_CUT) {
-      const { x: hlx, y: hly } = this.isoPos(elevLabelTx, elevLabelTy);
-      this.bandLabels.push(
-        this.add.text(hlx, hly, '~ highlands ~',
-          { fontSize: '11px', color: '#ccddff', stroke: '#000000', strokeThickness: 2 },
-        ).setOrigin(0.5, 0.5).setDepth(11),
-      );
-    }
 
     // Cardinal direction labels at the 4 tips of the iso diamond.
     const compassStyle = { fontSize: '12px', color: '#aaaaaa', stroke: '#000000', strokeThickness: 3 };
