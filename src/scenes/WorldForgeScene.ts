@@ -602,19 +602,23 @@ export class WorldForgeScene extends Phaser.Scene {
             }
           }
           // Floor tile drawn last — renders on top of wall tiles at the cliff rim.
+          // All cliff floor tiles at depth 0.1 so they render above wall tiles
+          // from this column and neighbouring waterfall columns.
+          const floorDepth = 0.1;
           const floorImg = customPack
             ? this.add.image(x, posY, `${customPack}-${tileHash}`)
-                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0)
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(floorDepth)
             : this.add.image(x, posY, 'iso-tiles', frame)
-                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(floorDepth);
           this.tileImages.push(floorImg);
         } else {
           // No cliff — draw regular floor tile.
+          const tileDepth = frame === ISO_RIVER_FRAME ? 0.1 : 0;
           const img = customPack
             ? this.add.image(x, posY, `${customPack}-${tileHash}`)
-                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0)
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(tileDepth)
             : this.add.image(x, posY, 'iso-tiles', frame)
-                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(0);
+                .setScale(this.ISO_SCALE).setOrigin(0.5, 0).setDepth(tileDepth);
           this.tileImages.push(img);
         }
       }
