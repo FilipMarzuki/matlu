@@ -25,7 +25,18 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
     <!-- Must run before body renders to avoid flash of wrong language -->
     <script is:inline>
       (function(){
-        var l = localStorage.getItem('matlu-lang') || 'en';
+        var fromUrl = null;
+        try {
+          if (window.location && window.location.search) {
+            var q = new URLSearchParams(window.location.search);
+            var p = q.get('lang');
+            if (p === 'sv' || p === 'en') fromUrl = p;
+          }
+        } catch (e) {}
+        var l = fromUrl;
+        if (!l) l = (typeof localStorage !== 'undefined' && localStorage.getItem('matlu-lang')) || 'en';
+        if (!l) l = 'en';
+        if (fromUrl && typeof localStorage !== 'undefined') localStorage.setItem('matlu-lang', l);
         document.documentElement.setAttribute('data-lang', l);
         document.documentElement.lang = l;
       })();
