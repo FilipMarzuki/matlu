@@ -11,11 +11,12 @@ name: DevCycle 1 — Dev Agent (Bender)
 # runaway spending. Each cycle is ~15–30 min so 10 runs finishes well
 # within one night.
 #
-# Required repo secret: AGENT_PAT — a GitHub PAT (fine-grained or classic)
-# with `contents:write`, `pull-requests:write`, and `workflows:write` scopes.
-# Pushes and PR opens must use a PAT (not the built-in GITHUB_TOKEN), because
-# GitHub suppresses `push` / `pull_request` triggers when actions create them
-# with GITHUB_TOKEN — that would stop DevCycle 2 — CI from firing on the PR.
+# Required repo secret: GH_TRACKER_TOKEN — a GitHub PAT (fine-grained or
+# classic) with `contents:write`, `pull-requests:write`, and `workflows:write`
+# scopes. Pushes and PR opens must use a PAT (not the built-in GITHUB_TOKEN),
+# because GitHub suppresses `push` / `pull_request` triggers when actions
+# create them with GITHUB_TOKEN — that would stop DevCycle 2 — CI from firing
+# on the PR.
 
 on:
   schedule:
@@ -141,7 +142,7 @@ jobs:
           # PAT so the push of bender/<branch> fires DevCycle 2 — CI.
           # actions/checkout stores this token in .git/config, so subsequent
           # `git push` calls from the Claude session reuse the PAT automatically.
-          token: ${{ secrets.AGENT_PAT }}
+          token: ${{ secrets.GH_TRACKER_TOKEN }}
 
       - uses: actions/setup-node@v6
         with:
@@ -159,10 +160,10 @@ jobs:
       - name: Run Claude Code session for issue #${{ needs.fetch-issue.outputs.issue }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
-          # AGENT_PAT for both git push and gh pr create so the resulting PR
-          # triggers DevCycle 2 — CI (which then chains Review → Merge).
-          GITHUB_TOKEN:            ${{ secrets.AGENT_PAT }}
-          GH_TOKEN:                ${{ secrets.AGENT_PAT }}
+          # GH_TRACKER_TOKEN (PAT) for both git push and gh pr create so the
+          # resulting PR triggers DevCycle 2 — CI (which then chains Review → Merge).
+          GITHUB_TOKEN:            ${{ secrets.GH_TRACKER_TOKEN }}
+          GH_TOKEN:                ${{ secrets.GH_TRACKER_TOKEN }}
         run: node .github/scripts/run-agent.js "${{ needs.fetch-issue.outputs.issue }}"
 
       - name: Log token usage
