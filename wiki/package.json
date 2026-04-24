@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "test": "playwright test",
-    "sync-assets": "node -e \"const{cpSync,existsSync,mkdirSync}=require('fs');if(existsSync('../screenshots')){mkdirSync('public/screenshots',{recursive:true});cpSync('../screenshots','public/screenshots',{recursive:true,force:true})}mkdirSync('public/assets/sprites/characters',{recursive:true});cpSync('../public/assets/sprites/characters','public/assets/sprites/characters',{recursive:true,force:true})\"",
+    "sync-assets": "node -e \"const{cpSync,existsSync,mkdirSync}=require('fs');if(existsSync('../screenshots')){mkdirSync('public/screenshots',{recursive:true});cpSync('../screenshots','public/screenshots',{recursive:true,force:true})}if(existsSync('../public/assets/sprites/characters')){mkdirSync('public/assets/sprites/characters',{recursive:true});cpSync('../public/assets/sprites/characters','public/assets/sprites/characters',{recursive:true,force:true})}\"",
     "predev": "npm run sync-assets",
     "prebuild": "npm run sync-assets",
     "build": "astro build",
