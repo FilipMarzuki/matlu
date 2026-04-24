@@ -11,7 +11,7 @@
  *   3. Update creature_submissions: approved=true, art_path=approved/…
  *   4. (C2) Create a GitHub tracker issue and store tracker_issue_number
  *
- * GitHub token: GH_TRACKER_TOKEN (fine-grained PAT, issues:write on this repo).
+ * GitHub token: CODEX_ISSUE_CREATOR (fine-grained PAT, issues:write on this repo).
  * Set via Vercel project env vars. Tracker creation is non-fatal — approval
  * succeeds even if the GitHub call fails.
  */
@@ -134,9 +134,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // ── Create GitHub tracker issue (C2) ─────────────────────────────────────
-  // Non-fatal: if GH_TRACKER_TOKEN is absent or the API call fails, approval
+  // Non-fatal: if CODEX_ISSUE_CREATOR is absent or the API call fails, approval
   // still succeeds. The tracker can be created manually later if needed.
-  const ghToken = import.meta.env.GH_TRACKER_TOKEN ?? '';
+  const ghToken = import.meta.env.CODEX_ISSUE_CREATOR ?? '';
   let trackerIssueNumber: number | null = null;
 
   if (ghToken) {

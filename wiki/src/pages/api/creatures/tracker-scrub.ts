@@ -9,7 +9,7 @@
  * that is handled by #331's deletion cascade.
  *
  * Auth: admin_session cookie (same gate as approve/reject).
- * Key: GH_TRACKER_TOKEN (fine-grained PAT, issues:write on this repo).
+ * Key: CODEX_ISSUE_CREATOR (fine-grained PAT, issues:write on this repo).
  * SUPABASE_SERVICE_ROLE_KEY: used to fetch the creature row (tracker_issue_number).
  */
 export const prerender = false;
@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
   const serviceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
-  const ghToken = import.meta.env.GH_TRACKER_TOKEN ?? '';
+  const ghToken = import.meta.env.CODEX_ISSUE_CREATOR ?? '';
 
   if (!supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
@@ -84,7 +84,7 @@ export const POST: APIRoute = async ({ request, url }) => {
   }
 
   if (!ghToken) {
-    return new Response(JSON.stringify({ error: 'GH_TRACKER_TOKEN not configured' }), {
+    return new Response(JSON.stringify({ error: 'CODEX_ISSUE_CREATOR not configured' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
