@@ -38,10 +38,42 @@ export class ExplorationMap {
         const dx = x - cx;
         const dy = y - cy;
         if (dx * dx + dy * dy > r2) continue;
+        // Line-of-sight check: walk from (cx,cy) to (x,y) via Bresenham.
+        // If any wall tile blocks the path, this tile is not visible.
+        if (!this.hasLOS(cx, cy, x, y, grid)) continue;
         const idx = y * this.cols + x;
         if (grid[idx] === 0) this.explored[idx] = 1;
       }
     }
+  }
+
+  /**
+   * Bresenham line-of-sight: returns false if any wall tile (grid=1)
+   * lies on the line from (x0,y0) to (x1,y1). The target tile itself
+   * is excluded from the wall check so walls adjacent to floor are
+   * still revealed (you can see a wall face even if the wall cell is solid).
+   */
+  private hasLOS(
+    x0: number, y0: number, x1: number, y1: number,
+    grid: ArrayLike<number>,
+  ): boolean {
+    let dx = Math.abs(x1 - x0);
+    let dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    let cx = x0;
+    let cy = y0;
+
+    while (cx !== x1 || cy !== y1) {
+      const e2 = 2 * err;
+      if (e2 > -dy) { err -= dy; cx += sx; }
+      if (e2 <  dx) { err += dx; cy += sy; }
+      // Stop before the target tile — only intermediate tiles block sight.
+      if (cx === x1 && cy === y1) break;
+      if (grid[cy * this.cols + cx] !== 0) return false; // wall blocks LOS
+    }
+    return true;
   }
 
   /** Check if a single tile has been explored. */
