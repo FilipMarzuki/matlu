@@ -1,5 +1,6 @@
 ---
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import Base from '../../layouts/Base.astro';
 
 interface RegistryEntity {
@@ -58,10 +59,8 @@ function resolveSpritePreview(entity: RegistryEntity): string | null {
   return `/${entity.spritesheetJson.slice('public/'.length).replace(/\.json$/, '.png')}`;
 }
 
-const registryText = await readFile(
-  new URL('../../../../src/entities/entity-registry.json', import.meta.url),
-  'utf8'
-);
+const registryPath = resolve(process.cwd(), '../src/entities/entity-registry.json');
+const registryText = await readFile(registryPath, 'utf8');
 const registry = JSON.parse(registryText) as RegistryData;
 
 const creatures: CreatureCard[] = registry.entities
