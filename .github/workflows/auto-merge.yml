@@ -12,18 +12,32 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       pull-requests: write
       contents: write
     steps:
-      - name: Find PR for this commit
+      # Download the PR number from the Review artifact instead of looking
+      # it up by commit SHA — workflow_run chains lose the original head_sha
+      # (we'd see main's HEAD, not the PR branch tip).
+      - name: Download PR number from Review
         id: find-pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=$(gh api \
-            "repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}/pulls" \
-            --jq '.[0].number // empty')
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          # Download the review-result artifact from the triggering Review run
+          RUN_ID=${{ github.event.workflow_run.id }}
+          ARTIFACT_URL=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name == "review-result") | .archive_download_url' 2>/dev/null || true)
+
+          if [ -n "$ARTIFACT_URL" ]; then
+            gh api "$ARTIFACT_URL" > /tmp/artifact.zip
+            unzip -o /tmp/artifact.zip -d /tmp/review-result
+            PR_NUMBER=$(cat /tmp/review-result/pr_number)
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "Found PR #$PR_NUMBER from Review artifact"
+          else
+            echo "No review-result artifact found — Review may have skipped"
+          fi
 
       - name: Check for approval
         if: steps.find-pr.outputs.pr_number != ''

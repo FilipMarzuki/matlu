@@ -81,3 +81,19 @@ jobs:
           npx --yes @anthropic-ai/claude-code --print \
             --permission-mode bypassPermissions \
             "$PROMPT"
+
+      # Pass the PR number to DevCycle 4 — Merge via artifact, because
+      # workflow_run chains lose the original head_sha (Merge would see
+      # main's HEAD instead of the PR branch tip).
+      - name: Save PR number for Merge
+        if: steps.find-pr.outputs.pr_number != ''
+        run: |
+          mkdir -p /tmp/review-result
+          echo "${{ steps.find-pr.outputs.pr_number }}" > /tmp/review-result/pr_number
+
+      - uses: actions/upload-artifact@v4
+        if: steps.find-pr.outputs.pr_number != ''
+        with:
+          name: review-result
+          path: /tmp/review-result/pr_number
+          retention-days: 1
