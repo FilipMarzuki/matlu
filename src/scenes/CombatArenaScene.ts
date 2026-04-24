@@ -48,12 +48,11 @@ const CUSTOM_TILE_PACKS: Record<number, string> = {
   9: 'cold-granite', 10: 'bare-summit', 11: 'snow-field',
 };
 
-const SPAWN_X_OFFSET  = 80;   // px from arena right edge
 const MAX_ALIVE       = 15;   // total alive enemy cap (kept lower so kill rate stays meaningful)
 const HERO_RESPAWN_MS = 3000; // ms hero lies dead before the reset sequence begins
 
-/** Kill count at which the mine gadget unlocks, simulating the Tier 1 → Tier 2 transition. */
-const GADGET_UNLOCK_KILLS = 10;
+/** Kill count at which the mine gadget unlocks. Disabled — set to Infinity to skip. */
+const GADGET_UNLOCK_KILLS = Infinity;
 
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
@@ -122,6 +121,12 @@ export class CombatArenaScene extends Phaser.Scene {
   /** Debug overlay showing explored tiles — redrawn every 500ms in design mode. */
   private exploredGfx: Phaser.GameObjects.Graphics | null = null;
   private exploredGfxTimer = 0;
+  /** Auto-restart: regenerate dungeon when hero reaches exit. */
+  private autoRestart = ARENA_DEBUG;
+  /** Design mode: whether enemies spawn. Toggled via nav button. */
+  private enemiesEnabled = true;
+  /** Debug spawn labels — cleared each wave so old ones don't linger. */
+  private spawnLabels: Phaser.GameObjects.Text[] = [];
 
   /**
    * Active tier configuration — set by init() from the data passed via
@@ -151,7 +156,7 @@ export class CombatArenaScene extends Phaser.Scene {
   private waveNumber     = 0;
   private killCount      = 0;
 
-  private mainSpawnTimer = ARENA_DEBUG ? Infinity : 3000;
+  private mainSpawnTimer = 3000;
 
   /** Active BurrowHole instances — populated by FIL-293 wave placement. */
   private activeHoles: BurrowHole[] = [];
@@ -379,7 +384,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
-    this.mainSpawnTimer  = ARENA_DEBUG ? Infinity : 3000;
+    this.mainSpawnTimer  = 3000;
     this.heroAlive       = true;
     this._lastHudWave    = -1;
     this._lastHudAlive   = -1;
@@ -600,6 +605,13 @@ export class CombatArenaScene extends Phaser.Scene {
         },
       );
 
+      // Auto-restart when hero reaches the exit room.
+      this.events.on('hero-reached-exit', () => {
+        if (this.autoRestart) {
+          this.time.delayedCall(2000, () => this.scene.restart());
+        }
+      });
+
       this.buildHud();
       this.launchNavPanel();
       this.buildTouchControls();
@@ -738,7 +750,7 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Main wave spawn timer ─────────────────────────────────────────────────
-    if (this.aliveEnemies.length < MAX_ALIVE) {
+    if (this.enemiesEnabled && this.aliveEnemies.length < MAX_ALIVE) {
       this.mainSpawnTimer -= delta;
       if (this.mainSpawnTimer <= 0) {
         this.spawnWaveGroup();
@@ -822,7 +834,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.wallRects = [];
 
     // ── Generate BSP layout (seed is fixed for deterministic CI screenshots) ──
-    const SEED = 0xdead_beef;
+    const SEED = (Math.random() * 0xffffffff) >>> 0;
     const layout = bspGenerate(SEED, ARENA_BSP_CONFIG);
     this.dungeonLayout = layout;
 
@@ -1119,8 +1131,12 @@ export class CombatArenaScene extends Phaser.Scene {
         const wx = col * CELL + CELL / 2;
         const wy = row * CELL + CELL / 2;
 
+        // Track wall rect for line-of-sight checks (world space).
+        this.wallRects.push(new Phaser.Geom.Rectangle(
+          col * CELL, row * CELL, CELL, CELL,
+        ));
+
         // Zone with a full-tile StaticBody — invisible physics blocker.
-        // The Zone itself has no visual; walls appear as dark background.
         const zone = this.add.zone(wx, wy, CELL, CELL);
         this.physics.add.existing(zone, true);
         this.obstacles.add(zone);
@@ -1414,7 +1430,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.time.delayedCall(FADE_MS, () => {
       this.spawnHero();
       this.hero.setPlayerControlled(this.heroPlayerMode);
-      this.mainSpawnTimer = ARENA_DEBUG ? Infinity : 3000;
+      this.mainSpawnTimer = 3000;
     });
   }
 
@@ -1600,21 +1616,54 @@ export class CombatArenaScene extends Phaser.Scene {
     // travel to reach the hero — giving the player a moment to prepare.
     // Falls back to the right-edge spawn when no other rooms are available.
     const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
+    // Always spawn inside a dungeon room — never outside the maze.
+    // Fall back to the hero room if no other rooms exist.
     const spawnRoom = candidateRooms.length > 0
       ? candidateRooms[Math.floor(Math.random() * candidateRooms.length)]
-      : null;
+      : this.heroRoom ?? this.rooms[0];
 
     const spawnPositions = spawnRoom
       ? this.spreadInRoom(spawnRoom, ctors.length)
-      : this.spreadY(ctors.length).map(y => ({ x: this.arenaX + this.arenaW - SPAWN_X_OFFSET, y }));
+      : [{ x: this.arenaX + this.arenaW * 0.5, y: this.arenaY + this.arenaH * 0.5 }];
+
+    // Clear old spawn labels before placing new ones.
+    if (ARENA_DEBUG) {
+      for (const lbl of this.spawnLabels) lbl.destroy();
+      this.spawnLabels = [];
+    }
+
+    // Validate spawn positions are on floor tiles — skip any that land in walls.
+    const CELL = ARENA_BSP_CONFIG.cellSize;
+    const gridCols = ARENA_BSP_CONFIG.cols;
+    const gridValues = this.dungeonLayout?.tiles.values;
 
     for (let i = 0; i < ctors.length; i++) {
-      const { x: spawnX, y: spawnY } = spawnPositions[i];
+      const pos = spawnPositions[i] ?? spawnPositions[0];
+      const { x: spawnX, y: spawnY } = pos;
+
+      // Check the tile at this spawn position is a floor tile.
+      if (gridValues) {
+        const tc = Math.floor(spawnX / CELL);
+        const tr = Math.floor(spawnY / CELL);
+        if (gridValues[tr * gridCols + tc] !== 0) continue; // skip wall spawns
+      }
+
       const e = new ctors[i](this, spawnX, spawnY);
       this.addPhysics(e);
       e.setOpponent(this.hero);
       this.aliveEnemies.push(e);
       this.communityEncounter.watchCombatEntity(e);
+
+      if (ARENA_DEBUG) {
+        const iso = worldToArenaIso(spawnX, spawnY);
+        const tc = Math.floor(spawnX / CELL);
+        const tr = Math.floor(spawnY / CELL);
+        const lbl = this.add.text(iso.x, iso.y - 20, `#${i} (${tc},${tr})`, {
+          fontSize: '20px', color: '#ff3333', fontFamily: 'monospace',
+          resolution: 2, stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0.5, 1).setDepth(300);
+        this.spawnLabels.push(lbl);
+      }
     }
 
     log.info('wave_spawned', {
@@ -1659,12 +1708,20 @@ export class CombatArenaScene extends Phaser.Scene {
       const cx = room.x + room.w / 2;
       const cy = room.y + room.h / 2;
 
-      // Guard: if the centre falls inside a wall rect, skip this room rather
-      // than placing a hole inside geometry.
-      const blocked = this.wallRects.some(r => r.contains(cx, cy));
-      if (blocked) continue;
+      // Guard: verify the centre tile is actually a floor tile.
+      const CELL = ARENA_BSP_CONFIG.cellSize;
+      const tc = Math.floor(cx / CELL);
+      const tr = Math.floor(cy / CELL);
+      const gv = this.dungeonLayout?.tiles.values;
+      if (gv && gv[tr * ARENA_BSP_CONFIG.cols + tc] !== 0) continue;
 
-      const hole = new BurrowHole(this, cx, cy);
+      // BurrowHole extends LivingEntity (not CombatEntity) — no _isoSync.
+      // Project to iso manually so the visual renders on the iso map.
+      const holeIso = worldToArenaIso(cx, cy);
+      const hole = new BurrowHole(this, holeIso.x, holeIso.y);
+      // Store world coords so spawned enemies get world-space positions.
+      hole.setData('worldX', cx);
+      hole.setData('worldY', cy);
       this.registerHole(hole, BabyVelcrid, 3500);
     }
 
@@ -1879,6 +1936,31 @@ export class CombatArenaScene extends Phaser.Scene {
       this.resetArena();
     }, this);
 
+    // NavScene button → toggle auto-restart on exit.
+    this.game.events.on('nav-toggle-auto-restart', (on: boolean) => {
+      this.autoRestart = on;
+    }, this);
+
+    // NavScene button → pause/resume the combat scene.
+    this.game.events.on('nav-toggle-pause', (paused: boolean) => {
+      if (paused) {
+        this.scene.pause();
+      } else {
+        this.scene.resume();
+      }
+    }, this);
+
+    // NavScene button → toggle enemy spawning.
+    this.game.events.on('nav-toggle-enemies', (on: boolean) => {
+      this.enemiesEnabled = on;
+      if (!on) {
+        // Kill all alive enemies and clear burrow holes immediately.
+        for (const e of this.aliveEnemies) { if (e.active) e.destroy(); }
+        this.aliveEnemies = [];
+        this.clearHoles();
+      }
+    }, this);
+
     // NavScene button → full scene restart (new dungeon + respawn).
     this.game.events.on('nav-rebuild-arena', () => {
       this.scene.restart();
@@ -1900,6 +1982,9 @@ export class CombatArenaScene extends Phaser.Scene {
       this.game.events.off('nav-toggle-play-mode', undefined, this);
       this.game.events.off('nav-reset-arena', undefined, this);
       this.game.events.off('nav-rebuild-arena', undefined, this);
+      this.game.events.off('nav-toggle-auto-restart', undefined, this);
+      this.game.events.off('nav-toggle-pause', undefined, this);
+      this.game.events.off('nav-toggle-enemies', undefined, this);
       this.game.events.off('nav-toggle-design', undefined, this);
     });
   }
@@ -1945,7 +2030,7 @@ export class CombatArenaScene extends Phaser.Scene {
       dy = Math.sin(this.joystick.rotation);
     }
 
-    const spd = 160; // px/s — comfortable player speed
+    const spd = 80; // px/s — tuned for iso scale
     // StaticGhost applies controlsInverted — negate axes for the duration.
     const inv = this.hero.controlsInverted ? -1 : 1;
     this.hero.setMoveVelocity(dx * spd * inv, dy * spd * inv);
@@ -2074,7 +2159,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex = 0;
     this.waveNumber     = 0;
     this.killCount      = 0;
-    this.mainSpawnTimer = ARENA_DEBUG ? Infinity : 3000;
+    this.mainSpawnTimer = 3000;
     this._lastHudWave   = -1;
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
@@ -2171,24 +2256,42 @@ export class CombatArenaScene extends Phaser.Scene {
    * margin from each edge so entities don't clip wall visuals on spawn.
    * Alternates slight X offsets so multiple entities don't stack on the same pixel.
    */
+  /**
+   * Picks `count` spawn positions on verified floor tiles inside a room.
+   * Collects all floor tile centers in the room, shuffles, and takes the
+   * first `count`. Falls back to room center if no floor tiles found.
+   */
   private spreadInRoom(room: Room, count: number): { x: number; y: number }[] {
-    const cx      = room.x + room.w / 2;
-    const marginY = room.h * 0.2;
-    const y0      = room.y + marginY;
-    const y1      = room.y + room.h - marginY;
-    if (count === 1) return [{ x: cx, y: (y0 + y1) / 2 }];
-    const step = (y1 - y0) / (count - 1);
-    return Array.from({ length: count }, (_, i) => ({
-      x: cx + (i % 2 === 0 ? -room.w * 0.1 : room.w * 0.1),
-      y: y0 + i * step,
-    }));
+    const CELL = ARENA_BSP_CONFIG.cellSize;
+    const cols = ARENA_BSP_CONFIG.cols;
+    const gv = this.dungeonLayout?.tiles.values;
+    if (!gv) return [{ x: room.x + room.w / 2, y: room.y + room.h / 2 }];
+
+    // Collect all floor tile centers inside this room (with 1-tile margin from edges).
+    const floorTiles: { x: number; y: number }[] = [];
+    const startCol = Math.floor(room.x / CELL) + 1;
+    const endCol   = Math.floor((room.x + room.w) / CELL) - 1;
+    const startRow = Math.floor(room.y / CELL) + 1;
+    const endRow   = Math.floor((room.y + room.h) / CELL) - 1;
+
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = startCol; c <= endCol; c++) {
+        if (gv[r * cols + c] === 0) {
+          floorTiles.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2 });
+        }
+      }
+    }
+
+    if (floorTiles.length === 0) {
+      return [{ x: room.x + room.w / 2, y: room.y + room.h / 2 }];
+    }
+
+    // Shuffle and pick up to `count` positions.
+    for (let i = floorTiles.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [floorTiles[i], floorTiles[j]] = [floorTiles[j], floorTiles[i]];
+    }
+    return floorTiles.slice(0, count);
   }
 
-  private spreadY(count: number): number[] {
-    const mid = this.arenaY + this.arenaH / 2;
-    if (count === 1) return [mid];
-    const margin = this.arenaH * 0.15;
-    const step   = (this.arenaH - margin * 2) / (count - 1);
-    return Array.from({ length: count }, (_, i) => this.arenaY + margin + i * step);
-  }
 }

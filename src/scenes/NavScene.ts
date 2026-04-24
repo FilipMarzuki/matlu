@@ -297,7 +297,61 @@ export class NavScene extends Phaser.Scene {
       .on('pointerover', () => rebuildBtn.setStyle({ color: '#ddaaff' }))
       .on('pointerout',  () => rebuildBtn.setStyle({ color: '#cc88ff' }));
 
-    this.resetBtn = this.add.text(cx, divY + 110, 'Reset', {
+    // Auto-restart toggle — on by default in design mode
+    let autoOn = new URLSearchParams(location.search).has('debug');
+    const autoBtn = this.add.text(cx, divY + 88, autoOn ? 'Auto ✓' : 'Auto ✗', {
+      fontSize: '13px', color: autoOn ? '#88ff88' : '#888888',
+      backgroundColor: '#112211aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup', () => {
+        autoOn = !autoOn;
+        autoBtn.setText(autoOn ? 'Auto ✓' : 'Auto ✗');
+        autoBtn.setStyle({ color: autoOn ? '#88ff88' : '#888888' });
+        this.game.events.emit('nav-toggle-auto-restart', autoOn);
+      })
+      .on('pointerover', () => autoBtn.setStyle({ color: '#aaffaa' }))
+      .on('pointerout', () => autoBtn.setStyle({ color: autoOn ? '#88ff88' : '#888888' }));
+
+    // Enemies toggle
+    let enemiesOn = true;
+    const enemiesBtn = this.add.text(cx, divY + 110, 'Enemies ✓', {
+      fontSize: '13px', color: '#88ff88',
+      backgroundColor: '#112211aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup', () => {
+        enemiesOn = !enemiesOn;
+        enemiesBtn.setText(enemiesOn ? 'Enemies ✓' : 'Enemies ✗');
+        enemiesBtn.setStyle({ color: enemiesOn ? '#88ff88' : '#888888' });
+        this.game.events.emit('nav-toggle-enemies', enemiesOn);
+      })
+      .on('pointerover', () => enemiesBtn.setStyle({ color: '#aaffaa' }))
+      .on('pointerout', () => enemiesBtn.setStyle({ color: enemiesOn ? '#88ff88' : '#888888' }));
+
+    // Pause toggle
+    let paused = false;
+    const pauseBtn = this.add.text(cx, divY + 132, 'Pause', {
+      fontSize: '13px', color: '#ffdd44',
+      backgroundColor: '#222211aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup', () => {
+        paused = !paused;
+        pauseBtn.setText(paused ? 'Resume' : 'Pause');
+        pauseBtn.setStyle({ color: paused ? '#44ff44' : '#ffdd44' });
+        this.game.events.emit('nav-toggle-pause', paused);
+      })
+      .on('pointerover', () => pauseBtn.setStyle({ color: '#ffff88' }))
+      .on('pointerout', () => pauseBtn.setStyle({ color: paused ? '#44ff44' : '#ffdd44' }));
+
+    this.resetBtn = this.add.text(cx, divY + 176, 'Reset', {
       fontSize: '13px', color: '#ff9966',
       backgroundColor: '#220011aa',
       padding: { x: 10, y: 5 },
@@ -313,7 +367,7 @@ export class NavScene extends Phaser.Scene {
         fontSize: '10px', color: '#3a5a3a', align: 'center',
       }).setOrigin(0.5, 1);
 
-    this.arenaGroup = this.add.group([this.playAiBtn, designBtn, rebuildBtn, this.resetBtn, arenaHint]);
+    this.arenaGroup = this.add.group([this.playAiBtn, designBtn, rebuildBtn, autoBtn, enemiesBtn, pauseBtn, this.resetBtn, arenaHint]);
 
     // ── Initial layout + mode ──────────────────────────────────────────────────
     this.rebuildLayout();

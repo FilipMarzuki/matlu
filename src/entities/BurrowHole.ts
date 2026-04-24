@@ -89,12 +89,12 @@ export class BurrowHole extends LivingEntity {
       if (!this.isAlive || !this.scene?.sys.isActive()) return;
       this.endPreSpawnGlow();
 
-      const enemy = new enemyCtor(this.scene, this.x, this.y);
-      // Start scaled to zero so the tween animates from invisible.
+      // Use stored world coords for enemy spawn (this.x/y may be iso-projected).
+      const wx = (this.getData('worldX') as number) ?? this.x;
+      const wy = (this.getData('worldY') as number) ?? this.y;
+      const enemy = new enemyCtor(this.scene, wx, wy);
       enemy.setScale(0);
 
-      // Crawl-out scale tween — Back easing gives a brief overshoot that sells
-      // the "popping out of the ground" feel better than a linear scale.
       this.scene.tweens.add({
         targets:  enemy,
         scaleX:   1,

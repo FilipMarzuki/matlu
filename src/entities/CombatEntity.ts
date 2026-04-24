@@ -393,15 +393,18 @@ export abstract class CombatEntity extends Enemy {
   constructor(scene: Phaser.Scene, x: number, y: number, config: CombatEntityConfig) {
     // Bake a small random speed offset so swarm members move at slightly
     // different speeds — creates the uneven texture of a real insect swarm.
-    super(scene, x, y, { ...config, speed: config.speed + Phaser.Math.FloatBetween(-15, 15) });
+    // Scale speed down for iso view — world distances appear shorter in the
+    // diamond projection so original speeds felt too fast.
+    const isoSpeedScale = 0.55;
+    super(scene, x, y, { ...config, speed: (config.speed * isoSpeedScale) + Phaser.Math.FloatBetween(-8, 8) });
     // Store world-space position for iso projection (_isoSync reads these).
     this._wx = x;
     this._wy = y;
     this.meleeRange       = config.meleeRange;
     this.attackCooldownMs = config.attackCooldownMs;
 
-    this.dashSpeedMultiplier = config.dashSpeedMultiplier ?? 4.5;
-    this.dashDurationMs      = config.dashDurationMs      ?? 180;
+    this.dashSpeedMultiplier = config.dashSpeedMultiplier ?? 3.0;
+    this.dashDurationMs      = config.dashDurationMs      ?? 120;
 
     this.projectileDamage = config.projectileDamage;
     this.projectileSpeed  = config.projectileSpeed  ?? 260;
@@ -670,12 +673,15 @@ export abstract class CombatEntity extends Enemy {
       return;
     }
 
-    this.canSeeTarget = hasLineOfSight(this.x, this.y, target.x, target.y, obstacles);
+    // Use world coords for LOS — obstacles are in world space.
+    const targetEntity = target as unknown as CombatEntity;
+    const twx = targetEntity._wx ?? target.x;
+    const twy = targetEntity._wy ?? target.y;
+    this.canSeeTarget = hasLineOfSight(this._wx, this._wy, twx, twy, obstacles);
 
     if (this.canSeeTarget) {
-      // Refresh the "last seen" snapshot so the memory window starts from now.
       this.lastSeenTimestamp  = now;
-      this.lastKnownPosition  = { x: target.x, y: target.y };
+      this.lastKnownPosition  = { x: twx, y: twy };
     }
     // When canSeeTarget is false: leave lastSeenTimestamp and lastKnownPosition
     // unchanged — updateBehaviour() uses them for the memory-window "searching" path.
@@ -776,7 +782,8 @@ export abstract class CombatEntity extends Enemy {
     let effectiveOpponent: { x: number; y: number } | null = null;
     if (target) {
       if (this.canSeeTarget) {
-        effectiveOpponent = { x: target.x, y: target.y };
+        // Use world coords — BT movement primitives operate in world space.
+        effectiveOpponent = { x: target._wx, y: target._wy };
       } else if (
         this.lastKnownPosition !== null &&
         this.lastSeenTimestamp > 0 &&
@@ -830,18 +837,17 @@ export abstract class CombatEntity extends Enemy {
     this.hadTargetLastFrame = hasTarget;
 
     const ctx: CombatContext = {
-      x:     this.x,
-      y:     this.y,
+      x:     this._wx,
+      y:     this._wy,
       hp:    this.hp,
       maxHp: this.maxHp,
 
       opponent: effectiveOpponent,
 
       moveToward: (tx, ty) => {
-        // No-op during dash or freeze so the burst / lock isn't overwritten.
         if (!physBody || this.isDashing || this.frozen) return;
-        const dx  = tx - this.x;
-        const dy  = ty - this.y;
+        const dx  = tx - this._wx;
+        const dy  = ty - this._wy;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
         physBody.setVelocity((dx / len) * this.speed, (dy / len) * this.speed);
       },
@@ -882,22 +888,21 @@ export abstract class CombatEntity extends Enemy {
         // Line-of-sight check — skip the shot if a pillar is in the way.
         // Prevents enemies from firing through solid obstacles.
         if (!this.hasLineOfSight(
-          new Phaser.Math.Vector2(this.x, this.y),
+          new Phaser.Math.Vector2(this._wx, this._wy),
           new Phaser.Math.Vector2(tx, ty),
         )) return;
         // Apply accuracy spread: range-based + movement penalty + partial-cover penalty.
-        // The enemy's body velocity reflects actual movement this frame.
         const eBody = this.getPhysicsBody();
         const eVel  = eBody?.velocity;
         const eSpd  = eVel ? Math.sqrt(eVel.x * eVel.x + eVel.y * eVel.y) : 0;
         const eSpeedFraction = this.speed > 0 ? Math.min(eSpd / this.speed, 1) : 0;
-        const eDist     = Phaser.Math.Distance.Between(this.x, this.y, tx, ty);
-        const eInCover  = isPartialCover(this.x, this.y, tx, ty, this.wallRects);
+        const eDist     = Phaser.Math.Distance.Between(this._wx, this._wy, tx, ty);
+        const eInCover  = isPartialCover(this._wx, this._wy, tx, ty, this.wallRects);
         const eSpread   = calcSpread(eDist, eSpeedFraction, eInCover);
-        const angle     = applySpread(Math.atan2(ty - this.y, tx - this.x), eSpread);
+        const angle     = applySpread(Math.atan2(ty - this._wy, tx - this._wx), eSpread);
 
         const p = new Projectile(
-          this.scene, this.x, this.y, angle,
+          this.scene, this._wx, this._wy, angle,
           this.projectileSpeed, this.projectileDamage,
           this.projectileColor,
           // Merge opponents and extra targets so projectiles can hit BurrowHoles too.
@@ -914,43 +919,46 @@ export abstract class CombatEntity extends Enemy {
       // ── New: directional dash ──────────────────────────────────────────────
       dash: (tx, ty) => {
         if (this.isDashing || !physBody) return;
-        // Line-of-sight check — don't charge directly through a pillar.
-        // The entity will hold its current position this frame and retry
-        // next frame once it has orbited to a clear angle.
+        // Use world coords for the LOS check — wallRects are in world space.
         if (!this.hasLineOfSight(
-          new Phaser.Math.Vector2(this.x, this.y),
+          new Phaser.Math.Vector2(this._wx, this._wy),
           new Phaser.Math.Vector2(tx, ty),
         )) return;
-        const dx  = tx - this.x;
-        const dy  = ty - this.y;
+        const dx  = tx - this._wx;
+        const dy  = ty - this._wy;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        // Cap dash distance to prevent tunnelling through walls.
+        // The dash travels at most dashDurationMs * dashSpeed pixels.
+        // If that exceeds the LOS-clear distance, shorten the duration.
         const spd = this.speed * this.dashSpeedMultiplier;
+        const maxDist = spd * (this.dashDurationMs / 1000);
+        const clampedDuration = len < maxDist
+          ? this.dashDurationMs * (len / maxDist)
+          : this.dashDurationMs;
         this.dashVx    = (dx / len) * spd;
         this.dashVy    = (dy / len) * spd;
-        this.dashTimer = this.dashDurationMs;
+        this.dashTimer = clampedDuration;
         this.isDashing = true;
         physBody.setVelocity(this.dashVx, this.dashVy);
       },
 
       steerAway: (fromX, fromY) => {
         if (!physBody || this.isDashing) return;
-        const dx = this.x - fromX;
-        const dy = this.y - fromY;
+        const dx = this._wx - fromX;
+        const dy = this._wy - fromY;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
         physBody.setVelocity((dx / len) * this.speed, (dy / len) * this.speed);
       },
 
       orbitAround: (cx, cy, radius, cw) => {
         if (!physBody || this.isDashing) return;
-        // Advance the orbit angle so the entity moves along the arc at this.speed.
-        // arc speed = radius × angular_speed  →  angular_speed = speed / radius
-        const curAngle  = Math.atan2(this.y - cy, this.x - cx);
+        const curAngle  = Math.atan2(this._wy - cy, this._wx - cx);
         const angSpeed  = this.speed / Math.max(radius, 1);
         const nextAngle = curAngle + (cw ? 1 : -1) * angSpeed * (delta / 1000);
         const tx = cx + Math.cos(nextAngle) * radius;
         const ty = cy + Math.sin(nextAngle) * radius;
-        const dx = tx - this.x;
-        const dy = ty - this.y;
+        const dx = tx - this._wx;
+        const dy = ty - this._wy;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
         physBody.setVelocity((dx / len) * this.speed, (dy / len) * this.speed);
       },
@@ -1074,12 +1082,12 @@ export abstract class CombatEntity extends Enemy {
     const speedFraction = this.speed > 0 ? Math.min(currentSpeed / this.speed, 1) : 0;
 
     const dist    = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
-    const inCover = isPartialCover(this.x, this.y, target.x, target.y, this.wallRects);
+    const inCover = isPartialCover(this._wx, this._wy, target._wx, target._wy, this.wallRects);
     const spread  = calcSpread(dist, speedFraction, inCover);
-    const angle   = applySpread(Math.atan2(target.y - this.y, target.x - this.x), spread);
+    const angle   = applySpread(Math.atan2(target._wy - this._wy, target._wx - this._wx), spread);
 
     const p = new Projectile(
-      this.scene, this.x, this.y, angle,
+      this.scene, this._wx, this._wy, angle,
       this.projectileSpeed, this.projectileDamage,
       this.projectileColor,
       (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
@@ -1181,7 +1189,8 @@ export abstract class CombatEntity extends Enemy {
     for (const o of this.opponents) {
       // Skip dead or stealth/disguised enemies — not valid aggro targets.
       if (!o.isAlive || !o.isTargetable) continue;
-      const d = Phaser.Math.Distance.Between(this.x, this.y, o.x, o.y);
+      // Use world coords for distance — iso coords distort distances.
+      const d = Phaser.Math.Distance.Between(this._wx, this._wy, o._wx, o._wy);
 
       // Light-adjusted aggro radius — illumination is sampled at the TARGET's
       // position, not the entity's: a player hiding in a dark corner is harder

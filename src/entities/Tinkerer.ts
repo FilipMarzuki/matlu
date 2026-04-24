@@ -225,7 +225,7 @@ export class Tinkerer extends EarthHero {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, {
       maxHp:               100,
-      speed:               80,
+      speed:               45,
       aggroRadius:         400,
       proximityRadius:     250,  // detect enemies in adjacent rooms; projectiles pass through walls (wallRects=[])
       darkvision:          1,    // hero always targets at full aggroRadius — lighting should not impair player targeting
@@ -274,14 +274,14 @@ export class Tinkerer extends EarthHero {
       return this.followPath();
     }
 
-    // Stuck detection — if velocity is near zero for 30+ frames, abandon
+    // Stuck detection — if velocity is near zero for 15+ frames, abandon
     // the current path and replan next tick.
     const body = this.getPhysicsBody();
     if (body) {
       const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2);
-      if (speed < 5) {
+      if (speed < 8) {
         this.stuckFrames++;
-        if (this.stuckFrames > 30) {
+        if (this.stuckFrames > 15) {
           this.currentPath = null;
           this.stuckFrames = 0;
           return 'success'; // triggers replan
@@ -379,6 +379,14 @@ export class Tinkerer extends EarthHero {
       }
     }
 
+    // Invalidate exploration path when entering combat — hero position will
+    // have changed by the time combat ends, so the old path is stale.
+    if (this.opponents.some(o => o.isAlive && o.isTargetable &&
+      Phaser.Math.Distance.Between(this._wx, this._wy, o._wx, o._wy) < this.aggroRadius)) {
+      this.currentPath = null;
+      this.stuckFrames = 0;
+    }
+
     super.updateBehaviour(delta);
   }
 
@@ -455,8 +463,8 @@ export class Tinkerer extends EarthHero {
     );
     if (rangedThreats.length > 0) {
       return rangedThreats.reduce((best, o) =>
-        Phaser.Math.Distance.Between(this.x, this.y, o.x, o.y) <
-        Phaser.Math.Distance.Between(this.x, this.y, best.x, best.y) ? o : best,
+        Phaser.Math.Distance.Between(this._wx, this._wy, o._wx, o._wy) <
+        Phaser.Math.Distance.Between(this._wx, this._wy, best._wx, best._wy) ? o : best,
       );
     }
     return this.findNearestLivingOpponent();
@@ -475,7 +483,7 @@ export class Tinkerer extends EarthHero {
 
     const swarmPressure = (cx: number, cy: number): number =>
       this.opponents.filter(
-        o => o.isAlive && Phaser.Math.Distance.Between(cx, cy, o.x, o.y) < SWARM_R,
+        o => o.isAlive && Phaser.Math.Distance.Between(cx, cy, o._wx, o._wy) < SWARM_R,
       ).length;
 
     return new BtSelector([
@@ -488,10 +496,10 @@ export class Tinkerer extends EarthHero {
           }),
           new BtAction(ctx => {
             const near = this.opponents.filter(
-              o => o.isAlive && Phaser.Math.Distance.Between(ctx.x, ctx.y, o.x, o.y) < SWARM_R,
+              o => o.isAlive && Phaser.Math.Distance.Between(ctx.x, ctx.y, o._wx, o._wy) < SWARM_R,
             );
-            const avgX = near.reduce((s, o) => s + o.x, 0) / near.length;
-            const avgY = near.reduce((s, o) => s + o.y, 0) / near.length;
+            const avgX = near.reduce((s, o) => s + o._wx, 0) / near.length;
+            const avgY = near.reduce((s, o) => s + o._wy, 0) / near.length;
             ctx.dash(ctx.x + (ctx.x - avgX) * 3, ctx.y + (ctx.y - avgY) * 3);
             return 'success';
           }),
@@ -535,7 +543,12 @@ export class Tinkerer extends EarthHero {
           new BtCondition(ctx => {
             if (!ctx.opponent) return false;
             const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
-            return d >= RANGED_MIN && d <= RANGED_MAX;
+            if (d < RANGED_MIN || d > RANGED_MAX) return false;
+            // Only shoot if we have clear LOS — don't waste ammo on walls.
+            return this.hasLineOfSight(
+              new Phaser.Math.Vector2(this._wx, this._wy),
+              new Phaser.Math.Vector2(ctx.opponent.x, ctx.opponent.y),
+            );
           }),
           new BtAction(ctx => {
             this.attackAnimId = 'attack_ranged';
@@ -579,6 +592,11 @@ export class Tinkerer extends EarthHero {
         new BtAction(() => {
           const tx = Math.floor(this._wx / this.cellSize);
           const ty = Math.floor(this._wy / this.cellSize);
+          // Check if hero has arrived at the exit tile.
+          if (this.exitTile && tx === this.exitTile.x && ty === this.exitTile.y) {
+            this.scene.events.emit('hero-reached-exit');
+            return 'success';
+          }
           if (!this.currentPath || this.pathIdx >= this.currentPath.length) {
             this.currentPath = aStarPath(
               this.dungeonGrid!, this.dungeonCols, this.dungeonRows,
