@@ -259,10 +259,13 @@ On-demand: trigger `Refinement 1 — Triage` from the Actions tab, optionally pi
 
 ## Scheduled agent workflows
 
-All agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude Code session with the corresponding prompt from `.agents/`. All support `workflow_dispatch` for manual runs.
+Most agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude Code session with the corresponding prompt from `.agents/`. All support `workflow_dispatch` for manual runs.
+
+**Submission to Entity** also runs when a new row is inserted into `creature_submissions`: Supabase **Database Webhook** (INSERT) → Edge Function `supabase/functions/trigger-entity-pipeline` → GitHub `workflow_dispatch` with `submission_id`. Configure the webhook in the Supabase dashboard (Database → Webhooks); set Edge Function secret `GH_TRACKER_TOKEN` to match the repo PAT.
 
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
+| **Submission to Entity** | **on insert** (`creature_submissions`) + manual | `.agents/submission-to-entity.md` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTION_API_KEY`, `CLAUDE_CODE_PERSONAL` → `CLAUDE_CODE_OAUTH_TOKEN` in job; `GH_TRACKER_TOKEN` (Edge Function secret) | Converts a new community creature submission into entity spec + Notion + GitHub issue; auto-dispatched via `trigger-entity-pipeline` |
 | Refinement 2 — Hygiene | after Refinement 1 — Triage | `.agents/hygiene.md` | `GITHUB_TOKEN` | Marks Done if PR merged, splits `too-large` issues, enriches `needs-refinement` descriptions |
 | DevCycle 5 — Grooming | after DevCycle 1 — Dev Agent | `.agents/pr-merge.md` | `GITHUB_TOKEN` | Triages open PRs: closes superseded, merges clean, rebases dirty |
 | Better Stack Error Monitor | `0 7 * * *` (daily) | `.agents/error-monitor.md` | `GITHUB_TOKEN`, `BETTERSTACK_API_TOKEN` | Checks Better Stack for unresolved errors, files GitHub bugs |
