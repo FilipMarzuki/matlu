@@ -681,14 +681,14 @@ export class GameScene extends Phaser.Scene {
   /** All world-decoration images (trees, rocks, flowers, buildings, etc.) — toggled by H key or Decor button. */
   private decorImages: Phaser.GameObjects.Image[] = [];
   /** Whether decorations are currently visible. */
-  // Start hidden — ground-polish focus. Press H or use the World Dev Decor button to toggle.
-  private decorVisible = false;
+  // Default visible for normal gameplay readability; H/World Dev can still hide for terrain audits.
+  private decorVisible = true;
   /** Whether wildlife (rabbits, ground animals) is currently visible. */
   private animalsVisible = true;
   /** Individual layer visibility flags — tracked independently of the Decor master toggle. */
-  private pathsVisible       = false; // pathGraphics hidden at startup
-  private zonesVisible       = false; // zoneOverlays hidden at startup
-  private settlementsVisible = false; // settlementGlows hidden at startup
+  private pathsVisible       = true;
+  private zonesVisible       = true;
+  private settlementsVisible = true;
   private fogVisible         = true;  // fogRt is visible by default
 
   /** Raw elevation value per tile [0,1.2] — stored during terrain bake. */
@@ -1139,15 +1139,15 @@ export class GameScene extends Phaser.Scene {
       this.tileDevW,
     );
 
-    // Hide all non-ground visuals on startup so the terrain bake can be
-    // evaluated in isolation. Press H to toggle everything back on.
-    for (const img of this.decorImages) img.setVisible(false);
-    this.pathGraphics.setVisible(false);
-    for (const ov of this.zoneOverlays.values()) ov.setVisible(false);
-    for (const g of this.settlementGlows) g.setVisible(false);
-    if (this.leavesEmitter)  this.leavesEmitter.emitting  = false;
-    if (this.pollenEmitter)  this.pollenEmitter.emitting   = false;
-    if (this.fireflyEmitter) this.fireflyEmitter.emitting  = false;
+    // Keep world readability layers visible by default (terrain + decor + overlays).
+    // Dev audits can still hide them with H / World Dev panel toggles.
+    for (const img of this.decorImages) img.setVisible(this.decorVisible);
+    this.pathGraphics.setVisible(this.pathsVisible);
+    for (const ov of this.zoneOverlays.values()) ov.setVisible(this.zonesVisible);
+    for (const g of this.settlementGlows) g.setVisible(this.settlementsVisible);
+    if (this.leavesEmitter)  this.leavesEmitter.emitting  = this.decorVisible && (this.worldClock?.phase === 'dawn' || this.worldClock?.phase === 'dusk');
+    if (this.pollenEmitter)  this.pollenEmitter.emitting  = this.decorVisible && (this.worldClock?.phase === 'morning' || this.worldClock?.phase === 'midday' || this.worldClock?.phase === 'afternoon');
+    if (this.fireflyEmitter) this.fireflyEmitter.emitting = this.decorVisible && this.worldClock?.phase === 'night';
 
     this.spawnSettlementNpcs();
     this.createVendors();
