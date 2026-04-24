@@ -95,9 +95,15 @@ jobs:
     if: always() && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
       - name: Re-trigger Refinement 1 — Triage (max 3 runs per 6-hour window)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TRACKER_TOKEN }}
         run: |
           MAX_RUNS=3
           CUTOFF=$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%SZ)
