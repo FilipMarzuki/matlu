@@ -318,6 +318,24 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 
 /** Fill colour per biome index — sourced from the canonical biomes.ts list. */
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
+/**
+ * Per-biome tint strength for terrain bake color wash.
+ * Higher = stronger hue identity for that biome.
+ */
+const BIOME_TINT_STRENGTH: readonly number[] = [
+  0.26, // Sea
+  0.24, // Rocky shore
+  0.22, // Sandy shore
+  0.30, // Marsh / bog
+  0.21, // Dry heath
+  0.24, // Coastal heath
+  0.28, // Meadow
+  0.33, // Forest
+  0.35, // Spruce
+  0.20, // Cold granite
+  0.16, // Bare summit
+  0.12, // Snow field
+];
 
 /**
  * Resolve which biome index a tile belongs to from its noise values.
@@ -359,6 +377,21 @@ function elevHeatColor(t: number): number {
   return (Math.round(ar + (br - ar) * u) << 16)
        | (Math.round(ag + (bg - ag) * u) <<  8)
        |  Math.round(ab + (bb - ab) * u);
+}
+
+/**
+ * Blend a hue toward white so we can apply a subtle tile tint (instead of a
+ * full multiply tint that would crush value/contrast in dark biomes).
+ */
+function whiteMixedTint(color: number, strength: number): number {
+  const t = Phaser.Math.Clamp(strength, 0, 1);
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  const mr = Math.round(255 + (r - 255) * t);
+  const mg = Math.round(255 + (g - 255) * t);
+  const mb = Math.round(255 + (b - 255) * t);
+  return (mr << 16) | (mg << 8) | mb;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -5819,7 +5852,14 @@ export class GameScene extends Phaser.Scene {
           const frame = isoTileFrame(biomeIdx, detail);
           tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
         }
+        // Add a light biome color wash so each region has a clearer dominant hue
+        // at gameplay scale (CrossCode readability), while preserving pixel detail.
+        const baseTint = BIOME_TINT_STRENGTH[biomeIdx] ?? 0.2;
+        const microVariation = (detail - 0.5) * 0.10 + (effectiveMoist - 0.5) * 0.04;
+        const tintStrength = Phaser.Math.Clamp(baseTint + microVariation, 0.08, 0.40);
+        tileImg.setTint(whiteMixedTint(BIOME_OVERLAY_COLORS[biomeIdx] ?? 0xffffff, tintStrength));
         terrainRt.draw(tileImg);
+        tileImg.clearTint();
 
       }
     }
