@@ -101,6 +101,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="req"> *</span>
         </label>
         <input id="creature_name" name="creature_name" type="text" maxlength="120"
+               data-placeholder-en="e.g. Gloomfin, Thornback, Velcrid"
+               data-placeholder-sv="t.ex. Dimfena, Tornrygg, Krilltand"
                placeholder="e.g. Gloomfin, Thornback, Velcrid" autocomplete="off" />
       </div>
 
@@ -111,6 +113,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
         </label>
         <input id="world_name" name="world_name" type="text" maxlength="120"
+               data-placeholder-en="e.g. Spinolandet, The Living Sea…"
+               data-placeholder-sv="t.ex. Spinolandet, Det levande havet…"
                placeholder="e.g. Spinolandet, The Living Sea…" autocomplete="off" />
       </div>
     </section>
@@ -129,6 +133,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional — used for credits</span><span class="t-sv">valfritt — används i krediter</span>)</span>
         </label>
         <input id="creator_name" name="creator_name" type="text" maxlength="120"
+               data-placeholder-en="First name or nickname"
+               data-placeholder-sv="Förnamn eller smeknamn"
                placeholder="First name or nickname" autocomplete="name" />
       </div>
 
@@ -159,7 +165,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="t-sv">Vem skapade det här väsenet? (valfritt)</span>
         </label>
         <select id="kid_select" name="kid_select">
-          <option value="">— <span class="t-en">choose a kid or leave blank</span><span class="t-sv">välj ett barn eller lämna tomt</span> —</option>
+          <option value=""
+                  data-en="— choose a kid or leave blank —"
+                  data-sv="— välj ett barn eller lämna tomt —">— choose a kid or leave blank —</option>
         </select>
       </div>
     </section>
@@ -200,6 +208,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">leave blank to use your name above</span><span class="t-sv">lämna tomt för att använda ditt namn ovan</span>)</span>
         </label>
         <input id="art_credit" name="art_credit" type="text" maxlength="120"
+               data-placeholder-en="Who made the drawing?"
+               data-placeholder-sv="Vem gjorde teckningen?"
                placeholder="Who made the drawing?" />
       </div>
     </section>
@@ -329,6 +339,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
         </label>
         <textarea id="habitat_notes" name="habitat_notes" rows={2}
+                  data-placeholder-en="e.g. 'hides under rocks near waterfalls'"
+                  data-placeholder-sv="t.ex. 'gömmer sig under stenar nära vattenfall'"
                   placeholder="e.g. 'hides under rocks near waterfalls'"></textarea>
       </div>
     </section>
@@ -362,6 +374,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
         </label>
         <textarea id="behaviour_notes" name="behaviour_notes" rows={2}
+                  data-placeholder-en="e.g. 'glows at night', 'leaves trails of flowers'"
+                  data-placeholder-sv="t.ex. 'lyser om natten', 'lämnar blomspår efter sig'"
                   placeholder="e.g. 'glows at night', 'leaves trails of flowers'"></textarea>
       </div>
     </section>
@@ -395,6 +409,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
         </label>
         <textarea id="food_notes" name="food_notes" rows={2}
+                  data-placeholder-en="e.g. 'loves berries', 'hunts by mimicking sounds'"
+                  data-placeholder-sv="t.ex. 'älskar bär', 'jagar genom att härma ljud'"
                   placeholder="e.g. 'loves berries', 'hunts by mimicking sounds'"></textarea>
       </div>
     </section>
@@ -413,6 +429,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
         </label>
         <input id="special_ability" name="special_ability" type="text" maxlength="240"
+               data-placeholder-en="e.g. 'turns invisible in moonlight', 'heals nearby plants'"
+               data-placeholder-sv="t.ex. 'blir osynligt i månsken', 'helar växter i närheten'"
                placeholder="e.g. 'turns invisible in moonlight', 'heals nearby plants'" />
       </div>
 
@@ -423,6 +441,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional — helps our artists draw it</span><span class="t-sv">valfritt — hjälper våra konstnärer att rita det</span>)</span>
         </label>
         <textarea id="visual_description" name="visual_description" rows="3" maxlength="1000"
+                  data-placeholder-en="e.g. 'dark blue scales, glowing yellow eyes, two small horns, a long tail with fins'"
+                  data-placeholder-sv="t.ex. 'mörkblå fjäll, glödande gula ögon, två små horn, en lång svans med fenor'"
                   placeholder="e.g. 'dark blue scales, glowing yellow eyes, two small horns, a long tail with fins'"></textarea>
       </div>
 
@@ -433,6 +453,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional — helps us create its sound effects</span><span class="t-sv">valfritt — hjälper oss skapa dess ljudeffekter</span>)</span>
         </label>
         <textarea id="audio_description" name="audio_description" rows="2" maxlength="500"
+                  data-placeholder-en="e.g. 'low rumbling purr, hisses when angry, chirps to call its young'"
+                  data-placeholder-sv="t.ex. 'lågt muller, fräser när det är argt, kvittrar till sina ungar'"
                   placeholder="e.g. 'low rumbling purr, hisses when angry, chirps to call its young'"></textarea>
       </div>
     </section>
@@ -458,6 +480,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="req"> *</span>
         </label>
         <textarea id="lore_description" name="lore_description" rows={6} maxlength="2000"
+                  data-placeholder-en="Write at least a sentence or two about your creature…"
+                  data-placeholder-sv="Skriv minst en eller två meningar om ditt väsen…"
                   placeholder="Write at least a sentence or two about your creature…"></textarea>
         <span id="story-count" class="char-count">0 / 2000</span>
       </div>
@@ -469,6 +493,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <span class="hint"> (<span class="t-en">optional — how did it come to exist?</span><span class="t-sv">valfritt — hur uppstod det?</span>)</span>
         </label>
         <textarea id="lore_origin" name="lore_origin" rows={3} maxlength="1000"
+                  data-placeholder-en="e.g. 'Created when lightning struck an ancient oak…'"
+                  data-placeholder-sv="t.ex. 'Skapades när blixten slog ner i en urgammal ek…'"
                   placeholder="e.g. 'Created when lightning struck an ancient oak…'"></textarea>
       </div>
     </section>
@@ -679,8 +705,21 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       opt.textContent = isSv() ? (opt.dataset.sv ?? opt.dataset.en ?? '') : (opt.dataset.en ?? '');
     });
   }
+  // Inputs / textareas use data-placeholder-en / data-placeholder-sv because
+  // `placeholder` is a text attribute that can't hold `<span class="t-en">`.
+  function translatePlaceholders(): void {
+    document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+      '[data-placeholder-en]'
+    ).forEach(el => {
+      const en = el.dataset.placeholderEn ?? '';
+      const sv = el.dataset.placeholderSv ?? en;
+      el.placeholder = isSv() ? sv : en;
+    });
+  }
   translateSelects();
+  translatePlaceholders();
   document.addEventListener('langchange', translateSelects);
+  document.addEventListener('langchange', translatePlaceholders);
 
   // ── Form elements ─────────────────────────────────────────────────────────
   const form        = document.getElementById('submit-form') as HTMLFormElement;
@@ -874,11 +913,12 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   function relativeTime(isoStr: string): string {
     const diff = Date.now() - new Date(isoStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 2) return 'just now';
-    if (mins < 60) return `${mins} minutes ago`;
+    if (mins < 2) return t('just now', 'just nu');
+    if (mins < 60) return t(`${mins} minutes ago`, `för ${mins} minuter sedan`);
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} hour${hrs !== 1 ? 's' : ''} ago`;
-    return `${Math.floor(hrs / 24)} day${Math.floor(hrs/24) !== 1 ? 's' : ''} ago`;
+    if (hrs < 24) return t(`${hrs} hour${hrs !== 1 ? 's' : ''} ago`, `för ${hrs} timm${hrs !== 1 ? 'ar' : 'e'} sedan`);
+    const days = Math.floor(hrs / 24);
+    return t(`${days} day${days !== 1 ? 's' : ''} ago`, `för ${days} dag${days !== 1 ? 'ar' : ''} sedan`);
   }
 
   const savedRaw = localStorage.getItem(DRAFT_KEY);
