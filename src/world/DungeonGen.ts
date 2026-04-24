@@ -751,6 +751,10 @@ export interface BspDungeonLayout extends DungeonLayout {
    */
   startRoomIndex: number;
   /**
+   * Index into rooms[] of the exit — the room farthest from the start.
+   */
+  exitRoomIndex: number;
+  /**
    * Index into rooms[] of the "vault" — the second-largest room.
    * Reserved for high-value encounters or secrets in future content passes.
    */
@@ -1041,7 +1045,7 @@ export function bspGenerate(seed: number, config: BspDungeonConfig): BspDungeonL
   if (rooms.length === 0) {
     const centre: Vec2 = { x: (cols / 2) * cellSize, y: (rows / 2) * cellSize };
     const tiles: IntGridLayer = { identifier: 'DungeonCollision', cellSize, cols, rows, values: grid };
-    return { tiles, rooms: [], spawnPoints: [], entryPoint: centre, exitPoint: centre, startRoomIndex: 0, vaultRoomIndex: 0 };
+    return { tiles, rooms: [], spawnPoints: [], entryPoint: centre, exitPoint: centre, startRoomIndex: 0, exitRoomIndex: 0, vaultRoomIndex: 0 };
   }
 
   // ── 9. Derive spawn points ────────────────────────────────────────────────────
@@ -1094,6 +1098,6 @@ export function bspGenerate(seed: number, config: BspDungeonConfig): BspDungeonL
 
   return {
     tiles, rooms, spawnPoints, entryPoint, exitPoint,
-    startRoomIndex, vaultRoomIndex,
+    startRoomIndex, exitRoomIndex, vaultRoomIndex,
   };
 }

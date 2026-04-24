@@ -310,10 +310,12 @@ export abstract class CombatEntity extends Enemy {
   private controlsInvertedTimer = 0;
 
   // ── Iso mode (CombatArena) ────────────────────────────────────────────────
-  /** Arena world-space x in px. Physics body lives here; sprite display is separate. */
-  protected _wx = 0;
-  /** Arena world-space y in px. Physics body lives here; sprite display is separate. */
-  protected _wy = 0;
+  /** Arena world-space x in px. Physics proxy lives here; sprite display is iso-projected. */
+  _wx = 0;
+  /** Arena world-space y in px. Physics proxy lives here; sprite display is iso-projected. */
+  _wy = 0;
+  /** Invisible zone whose physics body stays in world space for collisions. */
+  physicsProxy: Phaser.GameObjects.Zone | null = null;
   /**
    * When true, _isoSync() projects (_wx, _wy) to iso screen coords each tick.
    * Set by CombatArenaScene after spawning. False keeps non-arena usage unchanged.
@@ -502,7 +504,7 @@ export abstract class CombatEntity extends Enemy {
     this.swarmWeights = { ...PANIC_WEIGHTS };
 
     // Immediate burst away from the scare source — feels like a startled insect.
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (physBody && !this.isDashing) {
       const dx  = this.x - ox;
       const dy  = this.y - oy;
@@ -524,7 +526,7 @@ export abstract class CombatEntity extends Enemy {
   applyFrozen(ms: number): void {
     this.frozen = true;
     this.frozenTimer = Math.max(this.frozenTimer, ms);
-    (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(0, 0);
+    (this.getPhysicsBody())?.setVelocity(0, 0);
   }
 
   /**
@@ -570,7 +572,7 @@ export abstract class CombatEntity extends Enemy {
   setWorldPos(wx: number, wy: number): void {
     this._wx = wx;
     this._wy = wy;
-    (this.body as Phaser.Physics.Arcade.Body | undefined)?.reset(wx, wy);
+    (this.getPhysicsBody())?.reset(wx, wy);
   }
 
   /**
@@ -581,7 +583,25 @@ export abstract class CombatEntity extends Enemy {
    * ever being placed at physics coordinates. No-op when isoMode is false, keeping
    * non-arena usage (top-down preview, unit tests) completely unchanged.
    */
+  /** Get the physics body — uses proxy zone if available, else this.body. */
+  getPhysicsBody(): Phaser.Physics.Arcade.Body | undefined {
+    if (this.physicsProxy) {
+      return this.physicsProxy.body as Phaser.Physics.Arcade.Body | undefined;
+    }
+    return this.body as Phaser.Physics.Arcade.Body | undefined;
+  }
+
   _isoSync(): void {
+    const body = this.getPhysicsBody();
+    if (body) {
+      this._wx = body.center.x;
+      this._wy = body.center.y;
+      // Keep the proxy zone's transform in sync so Phaser's internal
+      // updateFromGameObject() doesn't reset the body to stale coords.
+      if (this.physicsProxy) {
+        this.physicsProxy.setPosition(this._wx, this._wy);
+      }
+    }
     const iso = worldToArenaIso(this._wx, this._wy);
     this.setPosition(iso.x, iso.y);
     this.setDepth(arenaIsoDepth(this._wx, this._wy));
@@ -687,7 +707,7 @@ export abstract class CombatEntity extends Enemy {
       if (this.frozenTimer === 0) this.frozen = false;
       // Keep velocity zeroed every frame while frozen so accumulated forces
       // (boids, knockback) don't gradually push the entity.
-      (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(0, 0);
+      (this.getPhysicsBody())?.setVelocity(0, 0);
       this.refreshHpBar();
       this.updateSpriteAnimation(delta);
       return;
@@ -701,8 +721,8 @@ export abstract class CombatEntity extends Enemy {
       if (this.controlsInvertedTimer === 0) this.controlsInverted = false;
     }
 
-    // Physics body — may be undefined if the scene hasn't added it yet.
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    // Physics body — uses proxy zone in iso mode, else the entity's own body.
+    const physBody = this.getPhysicsBody();
 
     // ── Root check — applied by applyRoot() (e.g. Blightfrog tongue) ─────────
     //
@@ -867,7 +887,7 @@ export abstract class CombatEntity extends Enemy {
         )) return;
         // Apply accuracy spread: range-based + movement penalty + partial-cover penalty.
         // The enemy's body velocity reflects actual movement this frame.
-        const eBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+        const eBody = this.getPhysicsBody();
         const eVel  = eBody?.velocity;
         const eSpd  = eVel ? Math.sqrt(eVel.x * eVel.x + eVel.y * eVel.y) : 0;
         const eSpeedFraction = this.speed > 0 ? Math.min(eSpd / this.speed, 1) : 0;
@@ -967,7 +987,7 @@ export abstract class CombatEntity extends Enemy {
    */
   setMoveVelocity(vx: number, vy: number): void {
     if (this.isDashing || this.frozen) return;
-    (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(vx, vy);
+    (this.getPhysicsBody())?.setVelocity(vx, vy);
   }
 
   /**
@@ -997,7 +1017,7 @@ export abstract class CombatEntity extends Enemy {
     if (nearest) {
       faceAngle = Math.atan2(nearest.y - this.y, nearest.x - this.x);
     } else {
-      const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+      const body = this.getPhysicsBody();
       if (body && (body.velocity.x !== 0 || body.velocity.y !== 0)) {
         faceAngle = Math.atan2(body.velocity.y, body.velocity.x);
       }
@@ -1048,7 +1068,7 @@ export abstract class CombatEntity extends Enemy {
     if (this.attackTimer > 0 || !this.projectileDamage || !this.canShoot()) return;
     const target = this.findNearestLivingOpponent();
     if (!target) return;
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     const vel = physBody?.velocity;
     const currentSpeed  = vel ? Math.sqrt(vel.x * vel.x + vel.y * vel.y) : 0;
     const speedFraction = this.speed > 0 ? Math.min(currentSpeed / this.speed, 1) : 0;
@@ -1077,7 +1097,7 @@ export abstract class CombatEntity extends Enemy {
    */
   tryDash(dx: number, dy: number): void {
     if (this.isDashing) return;
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (!physBody) return;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const spd = this.speed * this.dashSpeedMultiplier;
@@ -1101,7 +1121,7 @@ export abstract class CombatEntity extends Enemy {
 
     this.attackAnimTimer = Math.max(0, this.attackAnimTimer - delta);
 
-    const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const body = this.getPhysicsBody();
     const vx   = body?.velocity.x ?? 0;
     const vy   = body?.velocity.y ?? 0;
     const spd  = Math.sqrt(vx * vx + vy * vy);
@@ -1230,7 +1250,7 @@ export abstract class CombatEntity extends Enemy {
     });
 
     // Knockback: brief velocity burst away from attacker.
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (physBody) {
       const angle = Math.atan2(this.y - fromY, this.x - fromX);
       physBody.setVelocity(Math.cos(angle) * 80, Math.sin(angle) * 80);
@@ -1257,7 +1277,7 @@ export abstract class CombatEntity extends Enemy {
       if (this.active) this.bodyRect.setFillStyle(this.bodyColor);
     });
 
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (physBody) {
       const angle = Math.atan2(this.y - fromY, this.x - fromX);
       physBody.setVelocity(Math.cos(angle) * 240, Math.sin(angle) * 240);
@@ -1299,7 +1319,7 @@ export abstract class CombatEntity extends Enemy {
   protected override onDeath(): void {
     this.emitCombatSound('death');
 
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     physBody?.setVelocity(0, 0);
 
     // Random linger before fade — multiple deaths don't all vanish in sync.
@@ -1432,7 +1452,7 @@ export abstract class CombatEntity extends Enemy {
    */
   private applySwarmForce(): void {
     if (this.swarmNeighbours.length === 0 || this.isDashing || this.suppressSeparation) return;
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (!physBody) return;
 
     // Build neighbour snapshots — skip self and dead entities.
@@ -2055,7 +2075,7 @@ export class BruteCarapace extends CombatEntity {
       phaseTimer = Math.max(0, phaseTimer - delta);
       chargeCd   = Math.max(0, chargeCd   - delta);
 
-      const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+      const physBody = this.getPhysicsBody();
 
       // ── Recovery: briefly stunned after the charge ────────────────────────
       if (phase === 'recovery') {

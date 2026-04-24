@@ -119,6 +119,9 @@ export class CombatArenaScene extends Phaser.Scene {
 
   /** Point light that follows the hero — keeps nearby tiles visible as they move. */
   private heroLight: Phaser.GameObjects.Light | null = null;
+  /** Debug overlay showing explored tiles — redrawn every 500ms in design mode. */
+  private exploredGfx: Phaser.GameObjects.Graphics | null = null;
+  private exploredGfxTimer = 0;
 
   /**
    * Active tier configuration — set by init() from the data passed via
@@ -639,6 +642,42 @@ export class CombatArenaScene extends Phaser.Scene {
       }
     }
 
+    // ── Design mode: explored-tile overlay (red grid on explored cells) ─────
+    if (ARENA_DEBUG && this.heroAlive && this.hero instanceof Tinkerer) {
+      this.exploredGfxTimer -= delta;
+      if (this.exploredGfxTimer <= 0) {
+        this.exploredGfxTimer = 500; // redraw every 500ms
+        const map = (this.hero as Tinkerer).getExplorationMap();
+        const grid = this.dungeonLayout?.tiles.values;
+        if (map && grid) {
+          if (!this.exploredGfx) {
+            this.exploredGfx = this.add.graphics().setDepth(0.3);
+          }
+          this.exploredGfx.clear();
+          this.exploredGfx.lineStyle(1, 0xff4444, 0.6);
+          const cols = ARENA_BSP_CONFIG.cols;
+          const rows = ARENA_BSP_CONFIG.rows;
+          const CELL = ARENA_BSP_CONFIG.cellSize;
+          const hw = ISO_TILE_W / 2;
+          const hh = ISO_TILE_H / 2;
+          for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+              if (grid[row * cols + col] !== 0) continue;
+              if (!map.isExplored(col, row)) continue;
+              const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
+              this.exploredGfx.beginPath();
+              this.exploredGfx.moveTo(isoX,      isoY);
+              this.exploredGfx.lineTo(isoX + hw, isoY + hh);
+              this.exploredGfx.lineTo(isoX,      isoY + ISO_TILE_H);
+              this.exploredGfx.lineTo(isoX - hw, isoY + hh);
+              this.exploredGfx.closePath();
+              this.exploredGfx.strokePath();
+            }
+          }
+        }
+      }
+    }
+
     // ── Camera — follow hero ──────────────────────────────────────────────────
     if (!ARENA_DEBUG && !this.bgMode && this.heroAlive) {
       this.cameras.main.centerOn(this.hero.x, this.hero.y);
@@ -958,34 +997,40 @@ export class CombatArenaScene extends Phaser.Scene {
       this.add.text(w.x - 20, w.y, 'W', labelStyle).setOrigin(1, 0.5).setDepth(200);
     }
 
-    // ── Design mode: green diamonds on start room ───────────────────────────
-    if (ARENA_DEBUG && layout.startRoomIndex !== undefined) {
-      const sr = layout.rooms[layout.startRoomIndex];
-      const spawnGfx = this.add.graphics().setDepth(0.5);
-      spawnGfx.fillStyle(0x00ff66, 0.35);
-      spawnGfx.lineStyle(1, 0x00ff66, 0.9);
-      for (let row = sr.row; row < sr.row + sr.h; row++) {
-        for (let col = sr.col; col < sr.col + sr.w; col++) {
-          if (tv(col, row) !== 0) continue;
-          const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
-          const hw = ISO_TILE_W / 2;
-          const hh = ISO_TILE_H / 2;
-          spawnGfx.beginPath();
-          spawnGfx.moveTo(isoX,      isoY);
-          spawnGfx.lineTo(isoX + hw, isoY + hh);
-          spawnGfx.lineTo(isoX,      isoY + ISO_TILE_H);
-          spawnGfx.lineTo(isoX - hw, isoY + hh);
-          spawnGfx.closePath();
-          spawnGfx.fillPath();
-          spawnGfx.strokePath();
+    // ── Design mode: colored room overlays ──────────────────────────────────
+    if (ARENA_DEBUG) {
+      const drawRoomOverlay = (roomIdx: number, color: number) => {
+        const rm = layout.rooms[roomIdx];
+        if (!rm) return;
+        const gfx = this.add.graphics().setDepth(0.5);
+        gfx.fillStyle(color, 0.35);
+        gfx.lineStyle(1, color, 0.9);
+        for (let row = rm.row; row < rm.row + rm.h; row++) {
+          for (let col = rm.col; col < rm.col + rm.w; col++) {
+            if (tv(col, row) !== 0) continue;
+            const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
+            const hw = ISO_TILE_W / 2;
+            const hh = ISO_TILE_H / 2;
+            gfx.beginPath();
+            gfx.moveTo(isoX,      isoY);
+            gfx.lineTo(isoX + hw, isoY + hh);
+            gfx.lineTo(isoX,      isoY + ISO_TILE_H);
+            gfx.lineTo(isoX - hw, isoY + hh);
+            gfx.closePath();
+            gfx.fillPath();
+            gfx.strokePath();
+          }
         }
-      }
+      };
+      drawRoomOverlay(layout.startRoomIndex, 0x00ff66); // green = start
+      drawRoomOverlay(layout.exitRoomIndex,  0x3399ff); // blue  = exit
     }
 
     // ── Iso wall blocks ─────────────────────────────────────────────────────────
     // Place cliff block images on every border wall tile. Origin (0.5, 0) aligns
     // the north apex of the block with worldToArenaIso(). Each block gets its
     // own painter-sort depth for correct occlusion with entities.
+    const occludingWalls: Phaser.GameObjects.Image[] = [];
     for (let row = 0; row < dRows; row++) {
       for (let col = 0; col < dCols; col++) {
         if (tv(col, row) !== 1) continue;
@@ -1000,23 +1045,60 @@ export class CombatArenaScene extends Phaser.Scene {
 
         const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
         const wallDepth = arenaIsoDepth(col * CELL, row * CELL) + 0.5;
-        // Walls south or SE of floor tiles occlude the player in iso view —
-        // make them semi-transparent so the area behind remains visible.
+        // In iso view the camera looks from the NW, so walls on the south
+        // or east edge of floor areas visually occlude them. Only immediately
+        // adjacent walls get transparency — deeper walls stay opaque.
         const occludesFloor =
-          tv(col, row - 1) === 0 ||     // directly south (iso: behind)
-          tv(col - 1, row - 1) === 0;   // SE (iso: behind-right)
-        const alpha = occludesFloor ? 0.25 : 1;
-        // Bottom block
-        this.add.image(isoX, isoY, 'cliff-block')
-          .setOrigin(0.5, 0)
-          .setDepth(wallDepth)
-          .setAlpha(alpha);
-        // Stacked block — shifted up by 16 px (front-face height of the iso cube)
-        this.add.image(isoX, isoY - 16, 'cliff-block')
-          .setOrigin(0.5, 0)
-          .setDepth(wallDepth + 0.1)
-          .setAlpha(alpha);
+          tv(col, row - 1) === 0 ||       // floor directly N (wall is S edge)
+          tv(col - 1, row) === 0 ||       // floor directly W (wall is E edge)
+          tv(col - 1, row - 1) === 0;     // floor NW (wall is SE corner)
+        const alpha = occludesFloor ? 0.35 : 1;
+        // Stack 3 cliff blocks vertically — each shifted up by 16 px
+        for (let layer = 0; layer < 3; layer++) {
+          const block = this.add.image(isoX, isoY - layer * 16, 'cliff-block')
+            .setOrigin(0.5, 0)
+            .setDepth(wallDepth + layer * 0.1)
+            .setAlpha(alpha);
+          if (occludesFloor) occludingWalls.push(block);
+        }
       }
+    }
+
+    // ── Design mode: wall transparency slider ────────────────────────────────
+    if (ARENA_DEBUG && occludingWalls.length > 0) {
+      const W = this.cameras.main.width;
+      const sliderX = W - 160;
+      const sliderY = 120;
+      const sliderW = 120;
+
+      this.add.text(sliderX + sliderW / 2, sliderY - 14, 'Wall α', {
+        fontSize: '11px', color: '#cccccc', fontFamily: 'monospace',
+      }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(400);
+
+      // Track background
+      const track = this.add.graphics().setScrollFactor(0).setDepth(400);
+      track.fillStyle(0x333333, 0.8);
+      track.fillRect(sliderX, sliderY, sliderW, 8);
+
+      // Thumb
+      let currentAlpha = 0.35;
+      const thumbX = sliderX + currentAlpha * sliderW;
+      const thumb = this.add.circle(thumbX, sliderY + 4, 8, 0xffcc00)
+        .setScrollFactor(0).setDepth(401).setInteractive({ draggable: true });
+
+      // Value label
+      const valLabel = this.add.text(sliderX + sliderW / 2, sliderY + 18,
+        `${Math.round(currentAlpha * 100)}%`, {
+          fontSize: '10px', color: '#ffcc00', fontFamily: 'monospace',
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(400);
+
+      thumb.on('drag', (_: Phaser.Input.Pointer, dragX: number) => {
+        const clamped = Phaser.Math.Clamp(dragX, sliderX, sliderX + sliderW);
+        thumb.x = clamped;
+        currentAlpha = (clamped - sliderX) / sliderW;
+        valLabel.setText(`${Math.round(currentAlpha * 100)}%`);
+        for (const wall of occludingWalls) wall.setAlpha(currentAlpha);
+      });
     }
 
     // ── Wall physics bodies ────────────────────────────────────────────────────
@@ -1253,6 +1335,19 @@ export class CombatArenaScene extends Phaser.Scene {
     this.addPhysics(this.hero);
     this.hero.setOpponents(this.aliveEnemies);
     this.heroAlive = true;
+
+    // Give the hero the dungeon grid so it can explore autonomously.
+    if (this.dungeonLayout && this.hero instanceof Tinkerer) {
+      const exitRoom = this.dungeonLayout.rooms[this.dungeonLayout.exitRoomIndex];
+      (this.hero as Tinkerer).initExploration(
+        this.dungeonLayout.tiles.values,
+        ARENA_BSP_CONFIG.cols,
+        ARENA_BSP_CONFIG.rows,
+        ARENA_BSP_CONFIG.cellSize,
+        Math.floor(exitRoom.cx),
+        Math.floor(exitRoom.cy),
+      );
+    }
 
     // ── Hero lantern light ────────────────────────────────────────────────────
     // A dim, slightly cool-white point light that travels with the hero.
@@ -2048,21 +2143,17 @@ export class CombatArenaScene extends Phaser.Scene {
   }
 
   private addPhysics(entity: CombatEntity): void {
-    this.physics.add.existing(entity);
-    const body = entity.body as Phaser.Physics.Arcade.Body;
-    // Explicit 16×16 hitbox centered on the entity origin.
-    // Without this, Phaser sizes the body from the Container's bounding box,
-    // which includes the HP bar sitting ~30 px above the sprite — making the
-    // body off-center and taller than intended.  A fixed body ensures every
-    // entity type gets a consistent, centered hitbox that matches the derivation
-    // in WALL_INSET (body half = 8).
-    body.setSize(16, 16);
-    body.setOffset(-8, -8);
+    // Create an invisible proxy zone in WORLD space for physics collisions.
+    // The entity container renders at ISO coords — decoupling physics from
+    // display prevents Phaser's body-position sync from breaking iso projection.
+    const proxy = this.add.zone(entity._wx, entity._wy, 16, 16);
+    this.physics.add.existing(proxy);
+    const body = proxy.body as Phaser.Physics.Arcade.Body;
+    body.setSize(10, 10);
     body.setCollideWorldBounds(true);
-    this.physics.add.collider(entity, this.obstacles);
-    // Enable iso projection — _isoSync() will project (wx, wy) to screen each tick.
+    this.physics.add.collider(proxy, this.obstacles);
+    entity.physicsProxy = proxy;
     entity.isoMode = true;
-    // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
   }
 

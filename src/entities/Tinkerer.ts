@@ -10,6 +10,8 @@ import {
   BtCooldown,
 } from '../ai/BehaviorTree';
 import { EarthHero } from './EarthHero';
+import { aStarPath, TilePoint } from '../ai/AStarGrid';
+import { ExplorationMap } from '../ai/ExplorationMap';
 
 // ── Magazine constants ─────────────────────────────────────────────────────────
 
@@ -198,6 +200,22 @@ export class Tinkerer extends EarthHero {
   /** Counts down from MINE_COOLDOWN_MS after each deploy; 0 = ready. */
   private gadgetTimer = 0;
 
+  // ── Exploration state (dungeon AI) ──────────────────────────────────────────
+  private explorationMap: ExplorationMap | null = null;
+  private dungeonGrid: ArrayLike<number> | null = null;
+  private dungeonCols = 0;
+  private dungeonRows = 0;
+  private cellSize = 16;
+  private exitTile: { x: number; y: number } | null = null;
+  private exitFound = false;
+  private currentPath: TilePoint[] | null = null;
+  private pathIdx = 0;
+  /** Sight radius in tiles — how far the hero "sees" for exploration purposes. */
+  private readonly SIGHT_R = 5;
+
+  /** Expose exploration state for debug visualization. */
+  getExplorationMap(): ExplorationMap | null { return this.explorationMap; }
+
   /** Total cooldown duration — read by the arena HUD to display remaining time. */
   readonly gadgetCooldownMs = MINE_COOLDOWN_MS;
 
@@ -230,9 +248,75 @@ export class Tinkerer extends EarthHero {
     return !this.isReloading && this.magShots > 0;
   }
 
+  /**
+   * Walk toward the next waypoint in currentPath using world-space coords.
+   * Sets velocity directly on the physics body to avoid the iso-space
+   * mismatch in ctx.moveToward().
+   */
+  /** Frames the hero has been near-stationary while following a path. */
+  private stuckFrames = 0;
+
+  private followPath(): 'running' | 'success' {
+    if (!this.currentPath || this.pathIdx >= this.currentPath.length) return 'success';
+    const wp = this.currentPath[this.pathIdx];
+    const wpx = (wp.x + 0.5) * this.cellSize;
+    const wpy = (wp.y + 0.5) * this.cellSize;
+    const dx = wpx - this._wx;
+    const dy = wpy - this._wy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Generous arrival threshold — wall collisions can push the hero
+    // slightly off the exact waypoint center.
+    if (dist < 14) {
+      this.pathIdx++;
+      this.stuckFrames = 0;
+      if (this.pathIdx >= this.currentPath.length) return 'success';
+      return this.followPath();
+    }
+
+    // Stuck detection — if velocity is near zero for 30+ frames, abandon
+    // the current path and replan next tick.
+    const body = this.getPhysicsBody();
+    if (body) {
+      const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2);
+      if (speed < 5) {
+        this.stuckFrames++;
+        if (this.stuckFrames > 30) {
+          this.currentPath = null;
+          this.stuckFrames = 0;
+          return 'success'; // triggers replan
+        }
+      } else {
+        this.stuckFrames = 0;
+      }
+      body.setVelocity((dx / dist) * this.speed, (dy / dist) * this.speed);
+    }
+    return 'running';
+  }
+
   /** Advance magazine when the AI fires via ctx.shootAt. */
   protected override onShotFired(): void {
     this.advanceMag();
+  }
+
+  // ── Exploration API (called by CombatArenaScene after spawn) ────────────────
+
+  /**
+   * Give the hero the dungeon grid and exit location so it can explore
+   * autonomously when not player-controlled.
+   */
+  initExploration(
+    grid: ArrayLike<number>, cols: number, rows: number,
+    cellSize: number, exitTileX: number, exitTileY: number,
+  ): void {
+    this.dungeonGrid = grid;
+    this.dungeonCols = cols;
+    this.dungeonRows = rows;
+    this.cellSize = cellSize;
+    this.explorationMap = new ExplorationMap(cols, rows);
+    this.exitTile = { x: exitTileX, y: exitTileY };
+    this.exitFound = false;
+    this.currentPath = null;
   }
 
   // ── Magazine helpers ──────────────────────────────────────────────────────────
@@ -285,6 +369,16 @@ export class Tinkerer extends EarthHero {
       this.activeMines = this.activeMines.filter(m => !toDetonate.includes(m));
     }
 
+    // Reveal tiles around the hero each tick for exploration AI.
+    if (this.explorationMap && this.dungeonGrid) {
+      const tx = Math.floor(this._wx / this.cellSize);
+      const ty = Math.floor(this._wy / this.cellSize);
+      this.explorationMap.reveal(tx, ty, this.SIGHT_R, this.dungeonGrid);
+      if (this.exitTile && this.explorationMap.isExplored(this.exitTile.x, this.exitTile.y)) {
+        this.exitFound = true;
+      }
+    }
+
     super.updateBehaviour(delta);
   }
 
@@ -303,7 +397,7 @@ export class Tinkerer extends EarthHero {
     const target = this.findNearestLivingOpponent();
     if (!target) return;
 
-    const body    = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const body    = this.getPhysicsBody();
     const isStill = body
       ? Math.hypot(body.velocity.x, body.velocity.y) < STILL_THRESHOLD
       : false;
@@ -479,7 +573,45 @@ export class Tinkerer extends EarthHero {
         }),
       ]),
 
-      // 6. Wander
+      // 6. Path to exit (once discovered, no enemies nearby)
+      new BtSequence([
+        new BtCondition(() => this.exitFound && this.exitTile !== null && this.dungeonGrid !== null),
+        new BtAction(() => {
+          const tx = Math.floor(this._wx / this.cellSize);
+          const ty = Math.floor(this._wy / this.cellSize);
+          if (!this.currentPath || this.pathIdx >= this.currentPath.length) {
+            this.currentPath = aStarPath(
+              this.dungeonGrid!, this.dungeonCols, this.dungeonRows,
+              tx, ty, this.exitTile!.x, this.exitTile!.y,
+            );
+            this.pathIdx = 0;
+            if (!this.currentPath) return 'failure';
+          }
+          return this.followPath();
+        }),
+      ]),
+
+      // 7. Explore — walk toward nearest unexplored floor tile
+      new BtSequence([
+        new BtCondition(() => this.explorationMap !== null && !this.exitFound && this.dungeonGrid !== null),
+        new BtAction(() => {
+          const tx = Math.floor(this._wx / this.cellSize);
+          const ty = Math.floor(this._wy / this.cellSize);
+          if (!this.currentPath || this.pathIdx >= this.currentPath.length) {
+            const target = this.explorationMap!.nearestUnexplored(tx, ty, this.dungeonGrid!);
+            if (!target) return 'failure';
+            this.currentPath = aStarPath(
+              this.dungeonGrid!, this.dungeonCols, this.dungeonRows,
+              tx, ty, target.x, target.y,
+            );
+            this.pathIdx = 0;
+            if (!this.currentPath) return 'failure';
+          }
+          return this.followPath();
+        }),
+      ]),
+
+      // 8. Wander (fallback)
       new BtAction((ctx, d) => { ctx.wander(d); return 'running'; }),
     ]);
   }
