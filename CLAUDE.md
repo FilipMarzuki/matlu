@@ -150,6 +150,14 @@ Every issue must carry exactly one `type:*` label.
 - After implementing: open a PR with `Closes #<issue-number>` in the body — GitHub closes the issue automatically on merge
 - Run `.github/scripts/create-labels.js` to create all required labels idempotently
 
+**All work must have an issue.** If you're doing work that doesn't have a GitHub Issue yet (bug fixes, ad-hoc requests, infrastructure changes, etc.), create one *before* committing. Every issue must have:
+- A clear title describing the change
+- One `type:*` label (e.g. `type:bug`, `type:infra`, `type:refactor`)
+- At least one category label (e.g. `infrastructure`, `systems`)
+- The commit or PR must reference the issue (`Closes #N` or `Fixes #N`)
+
+This ensures all work is tracked, labelled, and visible in metrics/reports.
+
 Label conventions (Type, Domain, Effort labels) are documented in **[`LABELS.md`](LABELS.md)**.
 
 ## When implementing a task
