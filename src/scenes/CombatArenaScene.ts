@@ -21,7 +21,11 @@ import { BroodMother, EggSac } from '../entities/BroodMother';
 import { GlitchDrone } from '../entities/EarthEnemies';
 import { ArenaTierConfig, EnemyCtor, TIER_CONFIGS } from '../data/arenaTiers';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
-import { worldToArenaIso, arenaIsoDepth, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
+import {
+  worldToArenaIso, arenaIsoDepth,
+  ISO_TILE_W, ISO_TILE_H,
+  ARENA_ISO_W, ARENA_ISO_H,
+} from '../lib/IsoTransform';
 import { DeployableManager } from '../systems/DeployableManager';
 import { DeployableHUD } from '../ui/DeployableHUD';
 import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
@@ -54,6 +58,24 @@ const GADGET_UNLOCK_KILLS = 10;
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
 const DUNGEON_ZOOM = 3.5;
+
+/**
+ * Design mode — toggle via `?debug` query param or browser console:
+ *   `window.__ARENA_DEBUG = true` then reload.
+ *
+ * When active:
+ * - Zoom starts at 0.8 (zoomed out to see whole arena)
+ * - Scroll-wheel zoom + right/middle-drag pan
+ * - No enemy spawning
+ * - No sound
+ * - No lighting / torches / shadows
+ * - White diamond grid overlay on floor cells
+ * - Red outline on wall diamonds
+ * - Light gray background
+ */
+const ARENA_DEBUG =
+  (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__ARENA_DEBUG === true) ||
+  (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug'));
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
@@ -126,7 +148,7 @@ export class CombatArenaScene extends Phaser.Scene {
   private waveNumber     = 0;
   private killCount      = 0;
 
-  private mainSpawnTimer = 3000;  // first group fires after 3 s
+  private mainSpawnTimer = ARENA_DEBUG ? Infinity : 3000;
 
   /** Active BurrowHole instances — populated by FIL-293 wave placement. */
   private activeHoles: BurrowHole[] = [];
@@ -336,6 +358,10 @@ export class CombatArenaScene extends Phaser.Scene {
         this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
       }
     }
+
+    // Isometric cliff/wall block — 32×32 cube with front face, used for
+    // dungeon wall tiles in place of the flat gray diamond Graphics.
+    this.load.image('cliff-block', '/assets/packs/cliff-iso-gen/stone_iso_0.png');
   }
 
   create(): void {
@@ -350,7 +376,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
-    this.mainSpawnTimer  = 3000;
+    this.mainSpawnTimer  = ARENA_DEBUG ? Infinity : 3000;
     this.heroAlive       = true;
     this._lastHudWave    = -1;
     this._lastHudAlive   = -1;
@@ -361,6 +387,8 @@ export class CombatArenaScene extends Phaser.Scene {
     this.deployables = new DeployableManager(this);
     this.communityEncounter = new CommunityEncounterCoordinator(this);
     new CreditCard(this);
+
+    if (ARENA_DEBUG) this.sound.mute = true;
 
     this.buildDungeon();
 
@@ -612,14 +640,14 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Camera — follow hero ──────────────────────────────────────────────────
-    if (!this.bgMode && this.heroAlive) {
+    if (!ARENA_DEBUG && !this.bgMode && this.heroAlive) {
       this.cameras.main.centerOn(this.hero.x, this.hero.y);
     }
 
     // ── Hero lantern — track hero position ───────────────────────────────────
     // Phaser.GameObjects.Light is not a scene child (it doesn't have x/y
     // auto-updated), so we must sync its position manually each frame.
-    if (this.heroLight && this.heroAlive) {
+    if (!ARENA_DEBUG && this.heroLight && this.heroAlive) {
       this.heroLight.setPosition(this.hero.x, this.hero.y);
     }
 
@@ -772,15 +800,49 @@ export class CombatArenaScene extends Phaser.Scene {
     this.arenaH = worldH;
 
     // ── Camera ──────────────────────────────────────────────────────────────
-    this.cameras.main.setBackgroundColor(0x120d08); // deep cave black
+    this.cameras.main.setBackgroundColor(ARENA_DEBUG ? 0x444444 : 0x120d08);
     // DUNGEON_ZOOM 3.5 → viewport shows ≈229×171 px ≈ 14×11 tiles at once.
     // The camera bounds here are the full dungeon world; the hero-follow in
     // update() centres the viewport on the hero, clamped to these bounds.
-    this.cameras.main.setZoom(DUNGEON_ZOOM);
-    this.cameras.main.setBounds(0, 0, worldW, worldH);
-    // Pre-center on the entry point so bgMode (menu background) shows the
+    this.cameras.main.setZoom(ARENA_DEBUG ? 0.8 : DUNGEON_ZOOM);
+    // Camera bounds use the iso bounding box — the projected diamond is wider
+    // and shorter than the world-space square (1920×976 vs 960×960).
+    // In debug mode, remove bounds so we can pan freely to inspect edges.
+    if (!ARENA_DEBUG) this.cameras.main.setBounds(0, 0, ARENA_ISO_W, ARENA_ISO_H);
+    // Pre-center on the entry point (projected to iso) so bgMode shows the
     // start room on the first frame before the hero-follow loop kicks in.
-    this.cameras.main.centerOn(layout.entryPoint.x, layout.entryPoint.y);
+    const entryIso = worldToArenaIso(layout.entryPoint.x, layout.entryPoint.y);
+    this.cameras.main.centerOn(entryIso.x, entryIso.y);
+
+    // ── Design mode: zoom + pan controls ────────────────────────────────────
+    if (ARENA_DEBUG) {
+      this.input.on('wheel',
+        (_: Phaser.Input.Pointer, __: unknown, ___: unknown, deltaY: number) => {
+          const cam = this.cameras.main;
+          const factor = deltaY > 0 ? 0.88 : 1.0 / 0.88;
+          cam.setZoom(Phaser.Math.Clamp(cam.zoom * factor, 0.3, 8.0));
+        });
+      // Any mouse button drag pans the camera.
+      this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
+        if (!ptr.isDown) return;
+        const cam = this.cameras.main;
+        cam.scrollX -= (ptr.x - ptr.prevPosition.x) / cam.zoom;
+        cam.scrollY -= (ptr.y - ptr.prevPosition.y) / cam.zoom;
+      });
+      this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // Arrow keys pan the camera (300 px/s adjusted by zoom).
+      const PAN_SPEED = 300;
+      const arrows = this.input.keyboard!.createCursorKeys();
+      this.events.on('update', (_t: number, dt: number) => {
+        const cam = this.cameras.main;
+        const step = (PAN_SPEED * dt) / (1000 * cam.zoom);
+        if (arrows.left.isDown)  cam.scrollX -= step;
+        if (arrows.right.isDown) cam.scrollX += step;
+        if (arrows.up.isDown)    cam.scrollY -= step;
+        if (arrows.down.isDown)  cam.scrollY += step;
+      });
+    }
 
     // ── Physics world bounds ─────────────────────────────────────────────────
     this.physics.world.setBounds(0, 0, worldW, worldH);
@@ -801,7 +863,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Each torch then adds a point light (addLight in createTorchGlow()) that
     // illuminates nearby tiles with a warm cone.  Tiles farther away from any
     // torch remain near-black because the point light's falloff is quadratic.
-    this.lights.enable().setAmbientColor(0x1e1610);
+    if (!ARENA_DEBUG) this.lights.enable().setAmbientColor(0x1e1610);
 
     const { values } = layout.tiles;
 
@@ -811,75 +873,165 @@ export class CombatArenaScene extends Phaser.Scene {
       return values[r * dCols + c] ?? 1;
     };
 
-    // ── Tile rendering ─────────────────────────────────────────────────────────
-    // Floor tiles are rendered at depth -1.  Wall edge overlay tiles sit at
-    // depth 0 (above floor, below entities which start at depth 10+).
-    const FRAME_CLEAN = 12; // Wang tile index 15 — all-upper (clean stone)
-    const FRAME_WORN  = 6;  // Wang tile index  6 — half-worn variant
-
-    for (let row = 0; row < dRows; row++) {
-      for (let col = 0; col < dCols; col++) {
-        if (tv(col, row) !== 0) continue; // wall tiles — no floor render needed
-
-        const wx = col * CELL + CELL / 2;
-        const wy = row * CELL + CELL / 2;
-
-        // Hash-driven Wang frame picks; same formula as the old buildRooms().
-        const hash  = (col * 31 + row * 17 + col * row * 7) % 100;
-        const frame = hash < 12 ? FRAME_WORN : FRAME_CLEAN;
-        // setLighting(true) opts this tile into Phaser 4's lighting system.
-        // The renderer will modulate each tile's pixel colour by the combined
-        // contribution of every active Phaser.GameObjects.Light in the scene,
-        // attenuated by distance.  Tiles with no nearby light source fade to
-        // the ambient colour set above.  Tiles near a torch warm up naturally.
-        this.add.image(wx, wy, 'dungeon_floor', frame).setDepth(-1).setLighting(true);
-
-      }
-    }
-
-    // ── Iso wall top faces ─────────────────────────────────────────────────────
-    // Each border wall tile gets a filled iso diamond rendered in iso-space,
-    // replacing the old dungeon_wall_top image tiles. One Graphics object per
-    // tile so each carries its own painter-sort depth for correct occlusion
-    // when entities pass in front of or behind different wall columns.
-    {
-      const hw = ISO_TILE_W / 2;
-      const hh = ISO_TILE_H / 2;
-      for (let row = 0; row < dRows; row++) {
-        for (let col = 0; col < dCols; col++) {
-          if (tv(col, row) !== 1) continue;
-          const bordersFloor =
-            tv(col - 1, row) === 0 || tv(col + 1, row) === 0 ||
-            tv(col, row - 1) === 0 || tv(col, row + 1) === 0;
-          if (!bordersFloor) continue;
-
-          const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
-          const topGfx = this.add.graphics();
-          topGfx.fillStyle(0x555555);
-          // Draw the diamond as an explicit path (avoids Vector2 type requirement of fillPoints).
-          topGfx.beginPath();
-          topGfx.moveTo(isoX,      isoY);               // N apex
-          topGfx.lineTo(isoX + hw, isoY + hh);          // E
-          topGfx.lineTo(isoX,      isoY + ISO_TILE_H);  // S
-          topGfx.lineTo(isoX - hw, isoY + hh);          // W
-          topGfx.closePath();
-          topGfx.fillPath();
-          topGfx.setDepth(arenaIsoDepth(col * CELL, row * CELL) + 0.5);
+    // ── Diagonal leak closure ─────────────────────────────────────────────────
+    // If two floor tiles touch only diagonally (the two shared-edge cells are
+    // both walls), the wall diamonds leave a visible gap at the corner.  Fix by
+    // converting one of the wall cells to floor so the corridor widens and the
+    // walls become fully edge-connected.
+    for (let r = 0; r < dRows - 1; r++) {
+      for (let c = 0; c < dCols - 1; c++) {
+        // Check both diagonal pairs: (c,r)↔(c+1,r+1) and (c+1,r)↔(c,r+1)
+        if (tv(c, r) === 0 && tv(c + 1, r + 1) === 0 &&
+            tv(c + 1, r) === 1 && tv(c, r + 1) === 1) {
+          values[r * dCols + (c + 1)] = 0; // open one cell to close the gap
+        }
+        if (tv(c + 1, r) === 0 && tv(c, r + 1) === 0 &&
+            tv(c, r) === 1 && tv(c + 1, r + 1) === 1) {
+          values[r * dCols + c] = 0; // open one cell to close the gap
         }
       }
     }
 
+    // ── Iso floor RenderTexture ──────────────────────────────────────────────
+    // Stamp iso diamond tiles onto a single RenderTexture in painter order
+    // (back-to-front). Same pattern as GameScene.drawProceduralTerrain().
+    // Using cold-granite biome pack (index 9) for dark stone dungeon feel.
+    const DUNGEON_BIOME = 'cold-granite';
+
+
+    for (let row = 0; row < dRows; row++) {
+      for (let col = 0; col < dCols; col++) {
+        if (tv(col, row) !== 0) continue; // skip wall cells
+
+        const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
+
+        // Dual-grid hash variant selection — two overlapping 6×6 patch grids
+        // blended by a fine per-tile selector. Matches GameScene exactly so
+        // both scenes share the same visual language.
+        const px = Math.floor(col / 6), py = Math.floor(row / 6);
+        const qx = Math.floor((col + 3) / 6), qy = Math.floor((row + 2) / 6);
+        const coarse  = ((px * 3571 ^ py * 2297 ^ px * py * 53) >>> 0) % 3;
+        const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
+        const fine    = ((col * 1597 ^ row * 2833 ^ (col + row) * 743) >>> 0) % 7;
+        const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
+
+        const texKey = `${DUNGEON_BIOME}-${tileHash}`;
+        // TODO: revisit RenderTexture batching for performance once visuals are final
+        const tile = this.add.image(isoX, isoY, texKey).setOrigin(0.5, 0).setDepth(-1);
+        if (!ARENA_DEBUG) tile.setLighting(true);
+      }
+    }
+
+    // ── Design mode: white diamond grid overlay on floor cells ──────────────
+    if (ARENA_DEBUG) {
+      const gridGfx = this.add.graphics().setDepth(0);
+      gridGfx.lineStyle(1, 0xffffff, 0.8);
+      for (let row = 0; row < dRows; row++) {
+        for (let col = 0; col < dCols; col++) {
+          if (tv(col, row) !== 0) continue;
+          const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
+          const hw = ISO_TILE_W / 2;
+          const hh = ISO_TILE_H / 2;
+          gridGfx.beginPath();
+          gridGfx.moveTo(isoX,      isoY);
+          gridGfx.lineTo(isoX + hw, isoY + hh);
+          gridGfx.lineTo(isoX,      isoY + ISO_TILE_H);
+          gridGfx.lineTo(isoX - hw, isoY + hh);
+          gridGfx.closePath();
+          gridGfx.strokePath();
+        }
+      }
+    }
+
+    // ── Design mode: cardinal direction labels at iso diamond edges ─────────
+    if (ARENA_DEBUG) {
+      const labelStyle = { fontSize: '18px', color: '#ffff00', fontFamily: 'monospace' };
+      const wSz = dCols * CELL; // 960
+      const hSz = dRows * CELL; // 960
+      const n = worldToArenaIso(0, 0);
+      const e = worldToArenaIso(wSz, 0);
+      const s = worldToArenaIso(wSz, hSz);
+      const w = worldToArenaIso(0, hSz);
+      this.add.text(n.x, n.y - 20, 'N', labelStyle).setOrigin(0.5, 1).setDepth(200);
+      this.add.text(e.x + 20, e.y, 'E', labelStyle).setOrigin(0, 0.5).setDepth(200);
+      this.add.text(s.x, s.y + 20, 'S', labelStyle).setOrigin(0.5, 0).setDepth(200);
+      this.add.text(w.x - 20, w.y, 'W', labelStyle).setOrigin(1, 0.5).setDepth(200);
+    }
+
+    // ── Design mode: green diamonds on start room ───────────────────────────
+    if (ARENA_DEBUG && layout.startRoomIndex !== undefined) {
+      const sr = layout.rooms[layout.startRoomIndex];
+      const spawnGfx = this.add.graphics().setDepth(0.5);
+      spawnGfx.fillStyle(0x00ff66, 0.35);
+      spawnGfx.lineStyle(1, 0x00ff66, 0.9);
+      for (let row = sr.row; row < sr.row + sr.h; row++) {
+        for (let col = sr.col; col < sr.col + sr.w; col++) {
+          if (tv(col, row) !== 0) continue;
+          const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
+          const hw = ISO_TILE_W / 2;
+          const hh = ISO_TILE_H / 2;
+          spawnGfx.beginPath();
+          spawnGfx.moveTo(isoX,      isoY);
+          spawnGfx.lineTo(isoX + hw, isoY + hh);
+          spawnGfx.lineTo(isoX,      isoY + ISO_TILE_H);
+          spawnGfx.lineTo(isoX - hw, isoY + hh);
+          spawnGfx.closePath();
+          spawnGfx.fillPath();
+          spawnGfx.strokePath();
+        }
+      }
+    }
+
+    // ── Iso wall blocks ─────────────────────────────────────────────────────────
+    // Place cliff block images on every border wall tile. Origin (0.5, 0) aligns
+    // the north apex of the block with worldToArenaIso(). Each block gets its
+    // own painter-sort depth for correct occlusion with entities.
+    for (let row = 0; row < dRows; row++) {
+      for (let col = 0; col < dCols; col++) {
+        if (tv(col, row) !== 1) continue;
+        // 8-connected check: render wall if ANY neighbouring cell (including
+        // diagonals) is floor. This ensures walls fully enclose the floor area.
+        const bordersFloor =
+          tv(col - 1, row) === 0 || tv(col + 1, row) === 0 ||
+          tv(col, row - 1) === 0 || tv(col, row + 1) === 0 ||
+          tv(col - 1, row - 1) === 0 || tv(col + 1, row - 1) === 0 ||
+          tv(col - 1, row + 1) === 0 || tv(col + 1, row + 1) === 0;
+        if (!bordersFloor) continue;
+
+        const { x: isoX, y: isoY } = worldToArenaIso(col * CELL, row * CELL);
+        const wallDepth = arenaIsoDepth(col * CELL, row * CELL) + 0.5;
+        // Walls south or SE of floor tiles occlude the player in iso view —
+        // make them semi-transparent so the area behind remains visible.
+        const occludesFloor =
+          tv(col, row - 1) === 0 ||     // directly south (iso: behind)
+          tv(col - 1, row - 1) === 0;   // SE (iso: behind-right)
+        const alpha = occludesFloor ? 0.25 : 1;
+        // Bottom block
+        this.add.image(isoX, isoY, 'cliff-block')
+          .setOrigin(0.5, 0)
+          .setDepth(wallDepth)
+          .setAlpha(alpha);
+        // Stacked block — shifted up by 16 px (front-face height of the iso cube)
+        this.add.image(isoX, isoY - 16, 'cliff-block')
+          .setOrigin(0.5, 0)
+          .setDepth(wallDepth + 0.1)
+          .setAlpha(alpha);
+      }
+    }
+
     // ── Wall physics bodies ────────────────────────────────────────────────────
-    // One StaticBody Zone per wall tile that directly borders floor (4-connected).
-    // Interior wall tiles (surrounded entirely by other walls) are unreachable —
-    // skipping them halves the body count with no gameplay difference.
+    // One StaticBody Zone per wall tile that borders floor (8-connected).
+    // Matches the visual wall rendering above — diagonal walls get bodies too
+    // so entities can't clip through corner gaps.
     for (let row = 0; row < dRows; row++) {
       for (let col = 0; col < dCols; col++) {
         if (tv(col, row) !== 1) continue;
 
         const bordersFloor =
           tv(col - 1, row) === 0 || tv(col + 1, row) === 0 ||
-          tv(col, row - 1) === 0 || tv(col, row + 1) === 0;
+          tv(col, row - 1) === 0 || tv(col, row + 1) === 0 ||
+          tv(col - 1, row - 1) === 0 || tv(col + 1, row - 1) === 0 ||
+          tv(col - 1, row + 1) === 0 || tv(col + 1, row + 1) === 0;
         if (!bordersFloor) continue;
 
         const wx = col * CELL + CELL / 2;
@@ -906,19 +1058,15 @@ export class CombatArenaScene extends Phaser.Scene {
     this.heroRoom = this.rooms[layout.startRoomIndex] ?? this.rooms[0] ?? null;
 
     // ── Torch decorations ──────────────────────────────────────────────────────
-    // One flickering torch near the north wall of each of the first 6 rooms.
-    // The 'torch_flicker' animation is created in create() before buildDungeon()
-    // is called, so it is always available here.
-    for (let i = 0; i < Math.min(6, layout.rooms.length); i++) {
-      const r  = layout.rooms[i];
-      const tx = r.cx * CELL;
-      // Position: 1 tile below the room's north-wall row so the sprite sits on floor.
-      const ty = (r.row + 1) * CELL + CELL / 2;
-
-      this.createTorchGlow(tx, ty);
-
-      const torchSprite = this.add.sprite(tx, ty, 'dungeon_torch').setDepth(2);
-      torchSprite.play({ key: 'torch_flicker', startFrame: Math.floor(Math.random() * 3) });
+    if (!ARENA_DEBUG) {
+      for (let i = 0; i < Math.min(6, layout.rooms.length); i++) {
+        const r  = layout.rooms[i];
+        const tx = r.cx * CELL;
+        const ty = (r.row + 1) * CELL + CELL / 2;
+        this.createTorchGlow(tx, ty);
+        const torchSprite = this.add.sprite(tx, ty, 'dungeon_torch').setDepth(2);
+        torchSprite.play({ key: 'torch_flicker', startFrame: Math.floor(Math.random() * 3) });
+      }
     }
 
     // ── Ambient dust motes ─────────────────────────────────────────────────────
@@ -937,12 +1085,12 @@ export class CombatArenaScene extends Phaser.Scene {
     }).setDepth(3);
 
     // ── Wall-base shadow ───────────────────────────────────────────────────────
-    // Thin dark strip immediately below each room's north wall tile row adds a
-    // sense of wall thickness — same technique as the old buildRooms().
-    const shadowGfx = this.add.graphics().setDepth(1);
-    shadowGfx.fillStyle(0x000000, 0.32);
-    for (const r of this.rooms) {
-      shadowGfx.fillRect(r.x, r.y + CELL, r.w, 4);
+    if (!ARENA_DEBUG) {
+      const shadowGfx = this.add.graphics().setDepth(1);
+      shadowGfx.fillStyle(0x000000, 0.32);
+      for (const r of this.rooms) {
+        shadowGfx.fillRect(r.x, r.y + CELL, r.w, 4);
+      }
     }
   }
 
@@ -1120,11 +1268,12 @@ export class CombatArenaScene extends Phaser.Scene {
     // radius=96: enough to illuminate a small corridor or the immediate area
     // around the hero (~6 tiles at DUNGEON_ZOOM=3.5) without washing out the
     // torch falloff drama in larger rooms.
-    if (this.heroLight) {
-      // On respawn, reuse the existing Light object — just move it.
-      this.heroLight.setPosition(heroX, heroY);
-    } else {
-      this.heroLight = this.lights.addLight(heroX, heroY, 96, 0xd0e8ff, 0.7);
+    if (!ARENA_DEBUG) {
+      if (this.heroLight) {
+        this.heroLight.setPosition(heroX, heroY);
+      } else {
+        this.heroLight = this.lights.addLight(heroX, heroY, 96, 0xd0e8ff, 0.7);
+      }
     }
   }
 
@@ -1170,7 +1319,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.time.delayedCall(FADE_MS, () => {
       this.spawnHero();
       this.hero.setPlayerControlled(this.heroPlayerMode);
-      this.mainSpawnTimer = 3000; // restart wave timer
+      this.mainSpawnTimer = ARENA_DEBUG ? Infinity : 3000;
     });
   }
 
@@ -1635,10 +1784,28 @@ export class CombatArenaScene extends Phaser.Scene {
       this.resetArena();
     }, this);
 
+    // NavScene button → full scene restart (new dungeon + respawn).
+    this.game.events.on('nav-rebuild-arena', () => {
+      this.scene.restart();
+    }, this);
+
+    // NavScene button → toggle design/debug mode.
+    this.game.events.on('nav-toggle-design', () => {
+      const url = new URL(location.href);
+      if (url.searchParams.has('debug')) {
+        url.searchParams.delete('debug');
+      } else {
+        url.searchParams.set('debug', '');
+      }
+      location.href = url.toString();
+    }, this);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('nav-goto-wilderview', undefined, this);
       this.game.events.off('nav-toggle-play-mode', undefined, this);
       this.game.events.off('nav-reset-arena', undefined, this);
+      this.game.events.off('nav-rebuild-arena', undefined, this);
+      this.game.events.off('nav-toggle-design', undefined, this);
     });
   }
 
@@ -1812,7 +1979,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex = 0;
     this.waveNumber     = 0;
     this.killCount      = 0;
-    this.mainSpawnTimer = 3000;
+    this.mainSpawnTimer = ARENA_DEBUG ? Infinity : 3000;
     this._lastHudWave   = -1;
     this._lastHudAlive  = -1;
     this._lastHudKills  = -1;
@@ -1893,6 +2060,8 @@ export class CombatArenaScene extends Phaser.Scene {
     body.setOffset(-8, -8);
     body.setCollideWorldBounds(true);
     this.physics.add.collider(entity, this.obstacles);
+    // Enable iso projection — _isoSync() will project (wx, wy) to screen each tick.
+    entity.isoMode = true;
     // Give the entity the obstacle AABBs so its BT can call hasLineOfSight().
     entity.setWallRects(this.wallRects);
   }

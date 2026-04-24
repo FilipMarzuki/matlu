@@ -273,7 +273,31 @@ export class NavScene extends Phaser.Scene {
         color: this.playAiBtn.text === 'AI' ? '#ffffff' : '#88aaff',
       }));
 
-    this.resetBtn = this.add.text(cx, divY + 66, 'Reset', {
+    // Design mode toggle — restarts arena with ?debug flag
+    const designBtn = this.add.text(cx, divY + 44, 'Design', {
+      fontSize: '13px', color: '#66ccaa',
+      backgroundColor: '#112211aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup', () => this.game.events.emit('nav-toggle-design'))
+      .on('pointerover', () => designBtn.setStyle({ color: '#99ffcc' }))
+      .on('pointerout',  () => designBtn.setStyle({ color: '#66ccaa' }));
+
+    // Rebuild — full scene restart (regenerates dungeon + respawns hero)
+    const rebuildBtn = this.add.text(cx, divY + 66, 'Rebuild', {
+      fontSize: '13px', color: '#cc88ff',
+      backgroundColor: '#110022aa',
+      padding: { x: 10, y: 5 },
+      fixedWidth: BTN_W, align: 'center',
+    }).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup',   () => this.game.events.emit('nav-rebuild-arena'))
+      .on('pointerover', () => rebuildBtn.setStyle({ color: '#ddaaff' }))
+      .on('pointerout',  () => rebuildBtn.setStyle({ color: '#cc88ff' }));
+
+    this.resetBtn = this.add.text(cx, divY + 110, 'Reset', {
       fontSize: '13px', color: '#ff9966',
       backgroundColor: '#220011aa',
       padding: { x: 10, y: 5 },
@@ -289,7 +313,7 @@ export class NavScene extends Phaser.Scene {
         fontSize: '10px', color: '#3a5a3a', align: 'center',
       }).setOrigin(0.5, 1);
 
-    this.arenaGroup = this.add.group([this.playAiBtn, this.resetBtn, arenaHint]);
+    this.arenaGroup = this.add.group([this.playAiBtn, designBtn, rebuildBtn, this.resetBtn, arenaHint]);
 
     // ── Initial layout + mode ──────────────────────────────────────────────────
     this.rebuildLayout();

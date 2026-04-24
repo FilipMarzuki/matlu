@@ -318,7 +318,7 @@ export abstract class CombatEntity extends Enemy {
    * When true, _isoSync() projects (_wx, _wy) to iso screen coords each tick.
    * Set by CombatArenaScene after spawning. False keeps non-arena usage unchanged.
    */
-  isoMode = false;
+  isoMode = true;
 
   /**
    * Obstacle AABBs used for line-of-sight checks. Populated by the arena
@@ -392,6 +392,9 @@ export abstract class CombatEntity extends Enemy {
     // Bake a small random speed offset so swarm members move at slightly
     // different speeds — creates the uneven texture of a real insect swarm.
     super(scene, x, y, { ...config, speed: config.speed + Phaser.Math.FloatBetween(-15, 15) });
+    // Store world-space position for iso projection (_isoSync reads these).
+    this._wx = x;
+    this._wy = y;
     this.meleeRange       = config.meleeRange;
     this.attackCooldownMs = config.attackCooldownMs;
 
@@ -579,7 +582,6 @@ export abstract class CombatEntity extends Enemy {
    * non-arena usage (top-down preview, unit tests) completely unchanged.
    */
   _isoSync(): void {
-    if (!this.isoMode) return;
     const iso = worldToArenaIso(this._wx, this._wy);
     this.setPosition(iso.x, iso.y);
     this.setDepth(arenaIsoDepth(this._wx, this._wy));
@@ -951,7 +953,7 @@ export abstract class CombatEntity extends Enemy {
 
     this.refreshHpBar();
     this.updateSpriteAnimation(delta);
-    if (this.isoMode) this._isoSync();
+    this._isoSync();
   }
 
   // ── Player-control API ────────────────────────────────────────────────────
