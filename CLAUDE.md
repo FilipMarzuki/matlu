@@ -269,7 +269,9 @@ On-demand: trigger `Refinement 1 — Triage` from the Actions tab, optionally pi
 
 Most agent workflows run as GitHub Actions cron jobs. Each spawns a single Claude Code session with the corresponding prompt from `.agents/`. All support `workflow_dispatch` for manual runs.
 
-**Submission to Entity** also runs when a new row is inserted into `creature_submissions`: Supabase **Database Webhook** (INSERT) → Edge Function `supabase/functions/trigger-entity-pipeline` → GitHub `workflow_dispatch` with `submission_id`. Configure the webhook in the Supabase dashboard (Database → Webhooks); set Edge Function secret `GH_TRACKER_TOKEN` to match the repo PAT.
+**Submission to Entity** also runs when a new row is inserted into `creature_submissions`: Supabase **Database Webhook** (INSERT) → Edge Function `supabase/functions/trigger-entity-pipeline` → GitHub `workflow_dispatch` with `submission_id`. Under normal conditions the Actions run should start within about 30 seconds of the insert.
+
+**Operator checklist (after merge):** (1) Deploy: `supabase functions deploy trigger-entity-pipeline` from the repo root with the [Supabase CLI](https://supabase.com/docs/guides/cli) linked to the project. (2) Secret: `supabase secrets set GH_TRACKER_TOKEN=<PAT>` — same token as the GitHub repo secret `GH_TRACKER_TOKEN` (needs permission to dispatch workflows on `FilipMarzuki/matlu`, e.g. fine-grained PAT with Actions write or classic `workflow` scope). (3) **Database → Webhooks:** table `creature_submissions`, event **INSERT**, URL `https://<project-ref>.supabase.co/functions/v1/trigger-entity-pipeline`, header **`Authorization: Bearer <service_role_jwt>`** so the Edge Function accepts the call when JWT verification is on. Manual `workflow_dispatch` stays available for retries.
 
 | Workflow | Cron (UTC) | Prompt | Secrets | Description |
 | -------- | ---------- | ------ | ------- | ----------- |
