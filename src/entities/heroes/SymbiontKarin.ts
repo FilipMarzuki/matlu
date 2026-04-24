@@ -72,7 +72,7 @@ export class SymbiontKarin extends HeroEntity {
 
     if (this.blurActive) {
       this.blurTimer -= delta;
-      const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+      const body = this.getPhysicsBody();
       if (this.blurTimer <= 0) {
         this.blurActive = false;
         body?.setVelocity(0, 0);
@@ -97,7 +97,7 @@ export class SymbiontKarin extends HeroEntity {
   useBlurDash(dx: number, dy: number): boolean {
     if (this.cooldownRemaining > 0 || this.blurActive) return false;
 
-    const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const body = this.getPhysicsBody();
     if (!body) return false;
 
     const originX = this.x;

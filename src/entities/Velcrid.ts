@@ -166,7 +166,7 @@ export class VelcridJuvenile extends CombatEntity {
           } else {
             // Recover: drift backward away from the hop target at low speed so
             // the juvenile keeps moving rather than freezing dead in place.
-            const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+            const physBody = this.getPhysicsBody();
             if (physBody) {
               const awayX = this.x - hopTargetX;
               const awayY = this.y - hopTargetY;
@@ -384,7 +384,7 @@ export class VelcridAdult extends CombatEntity {
         new BtAction((ctx, delta) => {
           const opp      = ctx.opponent!;
           const dist     = Phaser.Math.Distance.Between(ctx.x, ctx.y, opp.x, opp.y);
-          const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+          const physBody = this.getPhysicsBody();
 
           burrowCd   = Math.max(0, burrowCd   - delta);
           phaseTimer = Math.max(0, phaseTimer - delta);
@@ -524,7 +524,7 @@ export class VelcridAdult extends CombatEntity {
       //    5–10 s, making the arena feel inhabited even before combat starts.
       //    Re-uses the same fade/burst VFX as the combat burrow for consistency.
       new BtAction((ctx, d) => {
-        const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+        const physBody = this.getPhysicsBody();
         ubTimer = Math.max(0, ubTimer - d);
 
         if (ubPhase === 'idle') {

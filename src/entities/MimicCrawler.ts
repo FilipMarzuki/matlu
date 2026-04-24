@@ -95,7 +95,7 @@ export class MimicCrawler extends CombatEntity {
   override updateBehaviour(delta: number): void {
     if (this.disguised) {
       // Stay completely still while disguised — movement would reveal the trick.
-      const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+      const physBody = this.getPhysicsBody();
       physBody?.setVelocity(0, 0);
 
       // Check reveal condition against every tracked opponent (heroes).

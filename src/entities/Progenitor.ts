@@ -208,7 +208,7 @@ export class Progenitor extends CombatEntity {
     this.phaseDuration = PHASE_DUR_MS;
     this.isTargetable  = false;
     this.setAlpha(0);
-    const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const body = this.getPhysicsBody();
     if (body) { body.setVelocity(0, 0); body.enable = false; }
 
     // Snap to within PHASE_DIST px of the nearest opponent.
@@ -227,7 +227,7 @@ export class Progenitor extends CombatEntity {
     this.isTargetable = true;
     this.phaseTimer  = PHASE_CD_MS;
 
-    const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const body = this.getPhysicsBody();
     if (body) body.enable = true;
 
     // Reappear with a flash.
@@ -296,7 +296,7 @@ export class Progenitor extends CombatEntity {
           const dx  = opp.x - this.x;
           const dy  = opp.y - this.y;
           const len = Math.sqrt(dx * dx + dy * dy) || 1;
-          const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+          const body = this.getPhysicsBody();
           body?.setVelocity((dx / len) * spd, (dy / len) * spd);
           return 'running';
         }),

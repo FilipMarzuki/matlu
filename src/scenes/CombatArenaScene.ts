@@ -155,6 +155,8 @@ export class CombatArenaScene extends Phaser.Scene {
   private waveGroupIndex = 0;
   private waveNumber     = 0;
   private killCount      = 0;
+  /** Dungeons cleared this session — increments each time hero reaches the exit. */
+  private levelsCleared  = 0;
 
   private mainSpawnTimer = 3000;
 
@@ -384,6 +386,7 @@ export class CombatArenaScene extends Phaser.Scene {
     this.waveGroupIndex  = 0;
     this.waveNumber      = 0;
     this.killCount       = 0;
+    this.levelsCleared   = this.game.registry.get('dungeonLevelsCleared') ?? 0;
     this.mainSpawnTimer  = 3000;
     this.heroAlive       = true;
     this._lastHudWave    = -1;
@@ -607,6 +610,13 @@ export class CombatArenaScene extends Phaser.Scene {
 
       // Auto-restart when hero reaches the exit room.
       this.events.on('hero-reached-exit', () => {
+        this.levelsCleared++;
+        this.game.registry.set('dungeonLevelsCleared', this.levelsCleared);
+        log.info('dungeon_cleared', {
+          level: this.levelsCleared,
+          kills: this.killCount,
+          wave: this.waveNumber,
+        });
         if (this.autoRestart) {
           this.time.delayedCall(2000, () => this.scene.restart());
         }
@@ -774,7 +784,7 @@ export class CombatArenaScene extends Phaser.Scene {
       this.p1HpBarFill.scaleX = this.heroAlive ? Math.max(0, this.hero.hpFraction) : 0;
       this.p2HpBarFill.scaleX = this.hero2?.isAlive ? Math.max(0, this.hero2.hpFraction) : 0;
 
-      if (this.waveNumber      !== this._lastHudWave)  { this.hudWave.setText(`Wave ${this.waveNumber}`);         this._lastHudWave  = this.waveNumber; }
+      if (this.waveNumber      !== this._lastHudWave)  { this.hudWave.setText(`Lvl ${this.levelsCleared + 1} · Wave ${this.waveNumber}`); this._lastHudWave  = this.waveNumber; }
       if (this.aliveEnemies.length !== this._lastHudAlive) { this.hudAlive.setText(`Alive: ${this.aliveEnemies.length}`); this._lastHudAlive = this.aliveEnemies.length; }
       if (this.killCount       !== this._lastHudKills) { this.hudKills.setText(`Kills: ${this.killCount}`);       this._lastHudKills = this.killCount; }
 

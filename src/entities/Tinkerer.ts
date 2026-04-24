@@ -12,6 +12,7 @@ import {
 import { EarthHero } from './EarthHero';
 import { aStarPath, TilePoint } from '../ai/AStarGrid';
 import { ExplorationMap } from '../ai/ExplorationMap';
+import { worldToArenaIso, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 
 // ── Magazine constants ─────────────────────────────────────────────────────────
 
@@ -212,9 +213,84 @@ export class Tinkerer extends EarthHero {
   private pathIdx = 0;
   /** Sight radius in tiles — how far the hero "sees" for exploration purposes. */
   private readonly SIGHT_R = 5;
+  /** Current exploration target tile — hero commits to this until it's explored. */
+  private exploreTarget: { x: number; y: number } | null = null;
+  /** Which BT node owns the current path — prevents cross-node path confusion. */
+  private pathOwner: 'explore' | 'exit' | 'hole' | null = null;
+  /** Debug: golden diamond marker showing the hero's current target tile. */
+  private targetMarker: Phaser.GameObjects.Graphics | null = null;
+  /** Debug: purple diamond marker showing the hero's current combat target. */
+  private combatMarker: Phaser.GameObjects.Graphics | null = null;
 
   /** Expose exploration state for debug visualization. */
   getExplorationMap(): ExplorationMap | null { return this.explorationMap; }
+
+  /** Update the floating gold diamond over the hero's current target tile. */
+  private updateTargetMarker(): void {
+    // Determine target tile based on which BT node owns the path.
+    let targetTile: { x: number; y: number } | null = null;
+    if (this.pathOwner === 'explore' && this.exploreTarget) {
+      targetTile = this.exploreTarget;
+    } else if (this.pathOwner === 'exit' && this.exitTile) {
+      targetTile = this.exitTile;
+    } else if (this.pathOwner === 'hole' && this.currentPath && this.currentPath.length > 0) {
+      targetTile = this.currentPath[this.currentPath.length - 1];
+    }
+
+    if (!targetTile) {
+      if (this.targetMarker) { this.targetMarker.setVisible(false); }
+      return;
+    }
+
+    const { x: isoX, y: isoY } = worldToArenaIso(
+      (targetTile.x + 0.5) * this.cellSize,
+      (targetTile.y + 0.5) * this.cellSize,
+    );
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
+
+    if (!this.targetMarker) {
+      this.targetMarker = this.scene.add.graphics().setDepth(250);
+    }
+    this.targetMarker.setVisible(true);
+    this.targetMarker.clear();
+    this.targetMarker.fillStyle(0xffdd00, 0.5);
+    this.targetMarker.lineStyle(2, 0xffdd00, 1);
+    // Float 6px above the tile.
+    const floatY = isoY - 6 + Math.sin(this.scene.time.now / 300) * 3;
+    this.targetMarker.beginPath();
+    this.targetMarker.moveTo(isoX,      floatY);
+    this.targetMarker.lineTo(isoX + hw, floatY + hh);
+    this.targetMarker.lineTo(isoX,      floatY + ISO_TILE_H);
+    this.targetMarker.lineTo(isoX - hw, floatY + hh);
+    this.targetMarker.closePath();
+    this.targetMarker.fillPath();
+    this.targetMarker.strokePath();
+
+    // ── Purple diamond on current combat target (enemy or BurrowHole) ──────
+    const combatTarget = this.findTargetOpponent();
+    if (combatTarget && this.canSeeTarget) {
+      const cIso = worldToArenaIso(combatTarget._wx, combatTarget._wy);
+      if (!this.combatMarker) {
+        this.combatMarker = this.scene.add.graphics().setDepth(251);
+      }
+      this.combatMarker.setVisible(true);
+      this.combatMarker.clear();
+      this.combatMarker.fillStyle(0xaa44ff, 0.5);
+      this.combatMarker.lineStyle(2, 0xaa44ff, 1);
+      const cFloatY = cIso.y - 6 + Math.sin(this.scene.time.now / 250) * 3;
+      this.combatMarker.beginPath();
+      this.combatMarker.moveTo(cIso.x,      cFloatY);
+      this.combatMarker.lineTo(cIso.x + hw, cFloatY + hh);
+      this.combatMarker.lineTo(cIso.x,      cFloatY + ISO_TILE_H);
+      this.combatMarker.lineTo(cIso.x - hw, cFloatY + hh);
+      this.combatMarker.closePath();
+      this.combatMarker.fillPath();
+      this.combatMarker.strokePath();
+    } else if (this.combatMarker) {
+      this.combatMarker.setVisible(false);
+    }
+  }
 
   /** Total cooldown duration — read by the arena HUD to display remaining time. */
   readonly gadgetCooldownMs = MINE_COOLDOWN_MS;
@@ -275,16 +351,22 @@ export class Tinkerer extends EarthHero {
     }
 
     // Stuck detection — if velocity is near zero for 15+ frames, abandon
-    // the current path and replan next tick.
+    // the path and mark the target tile as explored so BFS picks a different
+    // destination next time (prevents stuck loops on unreachable tiles).
     const body = this.getPhysicsBody();
     if (body) {
       const speed = Math.sqrt(body.velocity.x ** 2 + body.velocity.y ** 2);
       if (speed < 8) {
         this.stuckFrames++;
         if (this.stuckFrames > 15) {
+          // Mark the target tile as explored to avoid retargeting it.
+          if (this.exploreTarget && this.explorationMap) {
+            this.explorationMap.markExplored(this.exploreTarget.x, this.exploreTarget.y);
+          }
+          this.exploreTarget = null;
           this.currentPath = null;
           this.stuckFrames = 0;
-          return 'success'; // triggers replan
+          return 'success';
         }
       } else {
         this.stuckFrames = 0;
@@ -379,10 +461,13 @@ export class Tinkerer extends EarthHero {
       }
     }
 
-    // Invalidate exploration path when entering combat — hero position will
-    // have changed by the time combat ends, so the old path is stale.
-    if (this.opponents.some(o => o.isAlive && o.isTargetable &&
-      Phaser.Math.Distance.Between(this._wx, this._wy, o._wx, o._wy) < this.aggroRadius)) {
+    // Debug: update target marker diamond.
+    this.updateTargetMarker();
+
+    // Invalidate exploration path only when the hero can actually SEE an enemy
+    // (canSeeTarget is set by updateSightLine). This prevents constant replanning
+    // when enemies are nearby but behind walls.
+    if (this.canSeeTarget && this.currentPath) {
       this.currentPath = null;
       this.stuckFrames = 0;
     }
@@ -507,21 +592,6 @@ export class Tinkerer extends EarthHero {
         4000,
       ),
 
-      // 1b. Deploy mine when flanked — lay a trap before retreating or melee-ing
-      // The BtCooldown here mirrors gadgetTimer so the BT doesn't re-attempt
-      // the deploy on every frame while the mine cooldown ticks down.
-      new BtCooldown(
-        new BtSequence([
-          new BtCondition(() => this.isGadgetReady && this.activeMines.length < MINE_MAX),
-          new BtCondition(ctx => swarmPressure(ctx.x, ctx.y) >= 2),
-          new BtAction(() => {
-            this.deployMine();
-            return 'success';
-          }),
-        ]),
-        MINE_COOLDOWN_MS,
-      ),
-
       // 2. Melee bash (suppressed when swarmed)
       new BtSequence([
         new BtCondition(ctx => {
@@ -534,6 +604,61 @@ export class Tinkerer extends EarthHero {
           ctx.attack();
           ctx.stop();
           return 'success';
+        }),
+      ]),
+
+      // 2b. Destroy visible BurrowHoles — top priority to cut off reinforcements.
+      // Only fires when the hero can see a hole (LOS check). Shoots if in range,
+      // otherwise walks toward it using A*.
+      new BtSequence([
+        new BtCondition(() => this.extraDamageables.some(d => {
+          if (!d.isAlive) return false;
+          const go = d as unknown as Phaser.GameObjects.GameObject;
+          const wx = (go.getData?.('worldX') as number | undefined) ?? d.x;
+          const wy = (go.getData?.('worldY') as number | undefined) ?? d.y;
+          return this.hasLineOfSight(
+            new Phaser.Math.Vector2(this._wx, this._wy),
+            new Phaser.Math.Vector2(wx, wy),
+          );
+        })),
+        new BtAction(ctx => {
+          let nearest: Damageable | null = null;
+          let nearestDist = Infinity;
+          let holeWx = 0, holeWy = 0;
+          for (const d of this.extraDamageables) {
+            if (!d.isAlive) continue;
+            const go = d as unknown as Phaser.GameObjects.GameObject;
+            const wx = (go.getData?.('worldX') as number | undefined) ?? d.x;
+            const wy = (go.getData?.('worldY') as number | undefined) ?? d.y;
+            if (!this.hasLineOfSight(
+              new Phaser.Math.Vector2(this._wx, this._wy),
+              new Phaser.Math.Vector2(wx, wy),
+            )) continue;
+            const dist = Phaser.Math.Distance.Between(this._wx, this._wy, wx, wy);
+            if (dist < nearestDist) { nearestDist = dist; nearest = d; holeWx = wx; holeWy = wy; }
+          }
+          if (!nearest) return 'failure';
+
+          // In ranged distance — shoot it.
+          if (nearestDist >= RANGED_MIN && nearestDist <= RANGED_MAX) {
+            ctx.shootAt(holeWx, holeWy);
+            ctx.stop();
+            return 'running';
+          }
+
+          // Walk toward it using A*.
+          if (this.pathOwner !== 'hole') { this.currentPath = null; this.pathOwner = 'hole'; }
+          if (!this.currentPath || this.pathIdx >= this.currentPath.length) {
+            const tx = Math.floor(this._wx / this.cellSize);
+            const ty = Math.floor(this._wy / this.cellSize);
+            this.currentPath = aStarPath(
+              this.dungeonGrid!, this.dungeonCols, this.dungeonRows,
+              tx, ty, Math.floor(holeWx / this.cellSize), Math.floor(holeWy / this.cellSize),
+            );
+            this.pathIdx = 0;
+            if (!this.currentPath) return 'failure';
+          }
+          return this.followPath();
         }),
       ]),
 
@@ -597,6 +722,7 @@ export class Tinkerer extends EarthHero {
             this.scene.events.emit('hero-reached-exit');
             return 'success';
           }
+          if (this.pathOwner !== 'exit') { this.currentPath = null; this.pathOwner = 'exit'; }
           if (!this.currentPath || this.pathIdx >= this.currentPath.length) {
             this.currentPath = aStarPath(
               this.dungeonGrid!, this.dungeonCols, this.dungeonRows,
@@ -615,15 +741,33 @@ export class Tinkerer extends EarthHero {
         new BtAction(() => {
           const tx = Math.floor(this._wx / this.cellSize);
           const ty = Math.floor(this._wy / this.cellSize);
+
+          // Clear stale path from other BT nodes.
+          if (this.pathOwner !== 'explore') { this.currentPath = null; this.pathOwner = 'explore'; }
+
+          // Commit to a target tile until it's explored — prevents zigzagging.
+          if (this.exploreTarget && this.explorationMap!.isExplored(
+            this.exploreTarget.x, this.exploreTarget.y)) {
+            this.exploreTarget = null;
+            this.currentPath = null;
+          }
+
           if (!this.currentPath || this.pathIdx >= this.currentPath.length) {
-            const target = this.explorationMap!.nearestUnexplored(tx, ty, this.dungeonGrid!);
-            if (!target) return 'failure';
+            if (!this.exploreTarget) {
+              this.exploreTarget = this.explorationMap!.nearestUnexplored(tx, ty, this.dungeonGrid!);
+            }
+            if (!this.exploreTarget) return 'failure';
             this.currentPath = aStarPath(
               this.dungeonGrid!, this.dungeonCols, this.dungeonRows,
-              tx, ty, target.x, target.y,
+              tx, ty, this.exploreTarget.x, this.exploreTarget.y,
             );
             this.pathIdx = 0;
-            if (!this.currentPath) return 'failure';
+            if (!this.currentPath) {
+              // Can't reach this target — mark it and try another next tick.
+              this.explorationMap!.markExplored(this.exploreTarget.x, this.exploreTarget.y);
+              this.exploreTarget = null;
+              return 'failure';
+            }
           }
           return this.followPath();
         }),

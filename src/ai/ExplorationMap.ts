@@ -76,6 +76,13 @@ export class ExplorationMap {
     return true;
   }
 
+  /** Force-mark a single tile as explored (e.g. unreachable tiles). */
+  markExplored(tx: number, ty: number): void {
+    if (tx >= 0 && ty >= 0 && tx < this.cols && ty < this.rows) {
+      this.explored[ty * this.cols + tx] = 1;
+    }
+  }
+
   /** Check if a single tile has been explored. */
   isExplored(tx: number, ty: number): boolean {
     if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return false;
@@ -92,6 +99,8 @@ export class ExplorationMap {
     grid: ArrayLike<number>,
   ): { x: number; y: number } | null {
     const visited = new Uint8Array(this.cols * this.rows);
+    // BFS distance per node — used to collect candidates at similar depth.
+    const dist = new Uint16Array(this.cols * this.rows);
     const queue: number[] = [];
     const startIdx = cy * this.cols + cx;
 
@@ -102,6 +111,11 @@ export class ExplorationMap {
     const DX = [1, -1, 0, 0];
     const DY = [0, 0, 1, -1];
 
+    // Collect up to 5 candidates within 4 tiles of the nearest one,
+    // then pick one randomly. This adds variety to exploration routes.
+    const candidates: { x: number; y: number }[] = [];
+    let firstDist = -1;
+
     while (queue.length > 0 && count < MAX_BFS) {
       const cur = queue.shift()!;
       count++;
@@ -109,9 +123,12 @@ export class ExplorationMap {
       const curX = cur % this.cols;
       const curY = (cur - curX) / this.cols;
 
-      // Found an unexplored floor tile — return it.
       if (this.explored[cur] === 0 && grid[cur] === 0) {
-        return { x: curX, y: curY };
+        if (firstDist < 0) firstDist = dist[cur];
+        // Only collect candidates within 4 BFS steps of the nearest.
+        if (dist[cur] - firstDist > 4) break;
+        candidates.push({ x: curX, y: curY });
+        if (candidates.length >= 5) break;
       }
 
       for (let d = 0; d < 4; d++) {
@@ -121,10 +138,12 @@ export class ExplorationMap {
         const ni = ny * this.cols + nx;
         if (visited[ni] || grid[ni] !== 0) continue;
         visited[ni] = 1;
+        dist[ni] = dist[cur] + 1;
         queue.push(ni);
       }
     }
 
-    return null; // everything reachable is explored
+    if (candidates.length === 0) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
   }
 }

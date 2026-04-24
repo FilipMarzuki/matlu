@@ -106,7 +106,7 @@ export class Venomantis extends CombatEntity {
     this.isTargetable    = false;
     this.setAlpha(0);
 
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (physBody) {
       physBody.setVelocity(0, 0);
       physBody.enable = false;
@@ -129,7 +129,7 @@ export class Venomantis extends CombatEntity {
     this.isVanished    = false;
     this.isTargetable  = true;
 
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (physBody) physBody.enable = true;
 
     // Flash tween: alpha spike (0 → 1.5 → 1) over ~300 ms.

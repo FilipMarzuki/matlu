@@ -54,7 +54,7 @@ export class GlitchDrone extends CombatEntity {
     super.updateBehaviour(delta);
     // Skip jitter while frozen — velocity is already locked at zero
     if (this.frozen) return;
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (!physBody) return;
     physBody.setVelocity(
       physBody.velocity.x + (Math.random() - 0.5) * DRONE_JITTER,
@@ -222,7 +222,7 @@ export class RustBerserker extends CombatEntity {
   override updateBehaviour(delta: number): void {
     super.updateBehaviour(delta);
     if (this.frozen) return;
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (!physBody) return;
     physBody.setVelocity(
       physBody.velocity.x + (Math.random() - 0.5) * BERSERK_JITTER,
@@ -668,7 +668,7 @@ export class TitanPrototype extends CombatEntity {
       if (!ctx.opponent) { ctx.wander(delta); return 'running'; }
 
       const dist     = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
-      const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+      const physBody = this.getPhysicsBody();
 
       if (this.phase === 1) {
         // ── Artillery: stay at range, back off if hero closes in ─────────────
@@ -764,7 +764,7 @@ export class TitanHalf extends CombatEntity {
       if (!ctx.opponent) { ctx.wander(delta); return 'running'; }
 
       const dist     = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
-      const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+      const physBody = this.getPhysicsBody();
 
       if (dist <= this.meleeRange) {
         ctx.attack();
@@ -908,7 +908,7 @@ export class StaticGhost extends CombatEntity {
   override updateBehaviour(delta: number): void {
     // Phase through walls on the first frame after addPhysics() wires a body.
     if (!this.phaseEnabled) {
-      const body = this.body as Phaser.Physics.Arcade.Body | undefined;
+      const body = this.getPhysicsBody();
       if (body) {
         body.checkCollision.none = true;
         this.phaseEnabled = true;

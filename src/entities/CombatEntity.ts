@@ -346,14 +346,6 @@ export abstract class CombatEntity extends Enemy {
    * The behavior tree moves toward this position during the memory window
    * instead of the target's real (potentially hidden) position.
    */
-  private lastKnownPosition: { x: number; y: number } | null = null;
-
-  /**
-   * Phaser scene-time (ms) of the last frame in which canSeeTarget was true.
-   * Zero until updateSightLine confirms sight at least once — entities that
-   * have never seen the target wander rather than walking to a stale position.
-   */
-  private lastSeenTimestamp = 0;
 
   /** Scene-time (ms) when the next scheduled sight check should fire. */
   private nextSightCheck = 0;
@@ -679,12 +671,6 @@ export abstract class CombatEntity extends Enemy {
     const twy = targetEntity._wy ?? target.y;
     this.canSeeTarget = hasLineOfSight(this._wx, this._wy, twx, twy, obstacles);
 
-    if (this.canSeeTarget) {
-      this.lastSeenTimestamp  = now;
-      this.lastKnownPosition  = { x: twx, y: twy };
-    }
-    // When canSeeTarget is false: leave lastSeenTimestamp and lastKnownPosition
-    // unchanged — updateBehaviour() uses them for the memory-window "searching" path.
   }
 
   // ── Abstract ───────────────────────────────────────────────────────────────
@@ -772,28 +758,15 @@ export abstract class CombatEntity extends Enemy {
     //
     // Three states drive enemy AI:
     //   1. canSeeTarget true  → real target position   (active aggro)
-    //   2. canSeeTarget false, memory window active → lastKnownPosition (searching)
-    //   3. canSeeTarget false, memory expired or never seen → null (wander)
-    //
-    // lastSeenTimestamp stays 0 until the first updateSightLine() call confirms
-    // sight, ensuring enemies that spawn without LOS wander rather than charging
-    // toward position 0,0.
-    const now = this.scene.time.now;
+    // Two states: canSeeTarget → active aggro, else → no target (wander/explore).
     let effectiveOpponent: { x: number; y: number } | null = null;
     if (target) {
       if (this.canSeeTarget) {
-        // Use world coords — BT movement primitives operate in world space.
         effectiveOpponent = { x: target._wx, y: target._wy };
-      } else if (
-        this.lastKnownPosition !== null &&
-        this.lastSeenTimestamp > 0 &&
-        now - this.lastSeenTimestamp < this.sightMemoryMs
-      ) {
-        // Enemy lost sight but remembers where it last saw the target.
-        // Moving toward lastKnownPosition creates a "searching" feel for free —
-        // the enemy walks to the spot where it lost the trail, then wanders.
-        effectiveOpponent = this.lastKnownPosition;
       }
+      // No memory-based chasing — in a walled dungeon, losing sight means
+      // the target is behind a wall. Chasing lastKnownPosition causes
+      // entities to walk into walls and get stuck.
     }
 
     // ── Hearing / alert state (FIL-374) ─────────────────────────────────────
@@ -1214,6 +1187,11 @@ export abstract class CombatEntity extends Enemy {
 
       // Outside proximity AND outside light-adjusted aggroRadius → ignore.
       if (d > this.proximityRadius && d > effectiveAggro) continue;
+      // Must have line-of-sight — don't acquire targets through walls.
+      if (this.wallRects.length > 0 && !this.hasLineOfSight(
+        new Phaser.Math.Vector2(this._wx, this._wy),
+        new Phaser.Math.Vector2(o._wx, o._wy),
+      )) continue;
       if (d < nearestDist) {
         nearestDist = d;
         nearest = o;

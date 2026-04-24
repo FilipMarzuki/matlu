@@ -81,7 +81,7 @@ export class Rampart extends EarthHero {
     if (this.anchored) return;
     this.anchored = true;
 
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     physBody?.setVelocity(0, 0);
 
     // `attackCooldownMs` is declared readonly on CombatEntity to prevent
@@ -112,7 +112,7 @@ export class Rampart extends EarthHero {
     // Re-zero velocity every frame while anchored because the BT's wander /
     // moveToward branches would otherwise keep writing new velocity values.
     if (this.anchored) {
-      (this.body as Phaser.Physics.Arcade.Body | undefined)?.setVelocity(0, 0);
+      (this.getPhysicsBody())?.setVelocity(0, 0);
     }
     super.updateBehaviour(delta);
   }

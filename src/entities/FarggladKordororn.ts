@@ -70,7 +70,7 @@ export class FarggladKordororn extends CombatEntity {
 
     if (!this.isOrbiting || this.frozen) return;
 
-    const physBody = this.body as Phaser.Physics.Arcade.Body | undefined;
+    const physBody = this.getPhysicsBody();
     if (!physBody) return;
 
     // Flip circle direction occasionally for unpredictability

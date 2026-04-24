@@ -122,6 +122,6 @@ export class Blightfrog extends CombatEntity {
     this.setPosition(tx, ty);
     // Reset the physics body position to match — without this the body stays at
     // the old coordinates for one frame, causing a visible "ghost" step.
-    (this.body as Phaser.Physics.Arcade.Body | undefined)?.reset(tx, ty);
+    (this.getPhysicsBody())?.reset(tx, ty);
   }
 }
