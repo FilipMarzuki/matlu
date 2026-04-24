@@ -3,8 +3,6 @@ import { LivingEntity } from './LivingEntity';
 import { CombatEntity } from './CombatEntity';
 import { emitDigBurst } from './Velcrid';
 
-const HOLE_RADIUS = 20;
-const CRACK_COUNT = 5;
 
 /** Constructor type for any CombatEntity subclass that takes (scene, x, y). */
 type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
@@ -23,16 +21,16 @@ const PRE_SPAWN_WARN_MS = 800;
  *   destroyed  — scale-to-zero tween + dig-burst particles
  */
 export class BurrowHole extends LivingEntity {
-  private gfx: Phaser.GameObjects.Graphics;
+  private sprite: Phaser.GameObjects.Image;
   private idleTween: Phaser.Tweens.Tween | null = null;
-  private preSpawnActive = false;
   private spawnTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, maxHp = 3) {
     super(scene, x, y, { maxHp });
-    this.gfx = scene.add.graphics();
-    this.add(this.gfx);
-    this.updateVisuals(1);
+    // Use sprite if texture exists, fall back to placeholder if not loaded.
+    const texKey = scene.textures.exists('burrow-idle') ? 'burrow-idle' : '__DEFAULT';
+    this.sprite = scene.add.image(0, 0, texKey).setOrigin(0.5, 0.5);
+    this.add(this.sprite);
     this.startIdlePulse();
   }
 
@@ -114,18 +112,21 @@ export class BurrowHole extends LivingEntity {
 
   /** Begin the pre-spawn glow ~800 ms before the 'hole-spawned' event fires. */
   startPreSpawnGlow(): void {
-    this.preSpawnActive = true;
-    this.updateVisuals(this.hpFraction);
+    if (this.scene.textures.exists('burrow-active')) {
+      this.sprite.setTexture('burrow-active');
+    }
   }
 
-  /** Revert to normal visuals after the spawn event fires. */
   endPreSpawnGlow(): void {
-    this.preSpawnActive = false;
-    this.updateVisuals(this.hpFraction);
+    if (this.scene.textures.exists('burrow-idle')) {
+      this.sprite.setTexture('burrow-idle');
+    }
   }
 
   protected override onDamaged(_amount: number): void {
-    this.updateVisuals(this.hpFraction);
+    // Flash red on hit.
+    this.sprite.setTint(0xff4444);
+    this.scene.time.delayedCall(100, () => this.sprite.clearTint());
   }
 
   protected override onDeath(): void {
@@ -140,7 +141,10 @@ export class BurrowHole extends LivingEntity {
       return;
     }
     this.idleTween?.stop();
-    // Scale the whole Container to zero so the gfx child collapses with it.
+    // Swap to destroyed sprite, then shrink and destroy.
+    if (this.scene.textures.exists('burrow-destroyed')) {
+      this.sprite.setTexture('burrow-destroyed');
+    }
     this.scene.tweens.add({
       targets: this,
       scaleX: 0.1,
@@ -149,7 +153,6 @@ export class BurrowHole extends LivingEntity {
       ease: 'Cubic.easeIn',
       onComplete: () => {
         emitDigBurst(this.scene, this.x, this.y);
-        // Call super.onDeath() only now so destroy() doesn't cancel the tween.
         super.onDeath();
       },
     });
@@ -166,39 +169,4 @@ export class BurrowHole extends LivingEntity {
     });
   }
 
-  /**
-   * Redraws all visuals from scratch. Called only on state transitions
-   * (damage, pre-spawn start/end) — not every frame — to avoid per-frame
-   * Graphics buffer clears.
-   */
-  private updateVisuals(hpFraction: number): void {
-    this.gfx.clear();
-
-    // Base hole — dark grey normally, warm off-white when a spawn is imminent.
-    const baseColor = this.preSpawnActive ? 0xddddcc : 0x333333;
-    this.gfx.fillStyle(baseColor, 1);
-    this.gfx.fillCircle(0, 0, HOLE_RADIUS);
-
-    // Inner glow visible only during pre-spawn.
-    if (this.preSpawnActive) {
-      this.gfx.fillStyle(0xffffff, 0.8);
-      this.gfx.fillCircle(0, 0, 10);
-    }
-
-    // Crack lines — none at full HP, max CRACK_COUNT at 1 HP.
-    const crackCount = Math.round((1 - hpFraction) * CRACK_COUNT);
-    if (crackCount > 0) {
-      this.gfx.lineStyle(1.5, 0x111111, 1);
-      // Cracks extend further as HP drops.
-      const maxLen = HOLE_RADIUS * (1 - hpFraction + 0.3);
-      for (let i = 0; i < crackCount; i++) {
-        const angle = (i / CRACK_COUNT) * Math.PI * 2;
-        this.gfx.strokeLineShape(new Phaser.Geom.Line(
-          0, 0,
-          Math.cos(angle) * maxLen,
-          Math.sin(angle) * maxLen,
-        ));
-      }
-    }
-  }
 }

@@ -35,8 +35,8 @@ const ARENA_READY_MS = 8_000;
 const OUT_DIR        = path.resolve('screenshots');
 
 // Simulation parameters — adjust to taste.
-// 90 sim-seconds at 60fps = 5 400 ticks total.
-const SIM_SECONDS      = 90;
+// 300 sim-seconds at 60fps = 18 000 ticks total.
+const SIM_SECONDS      = 300;
 const BATCH_SECONDS    = 5;            // sim-seconds per evaluate() call
 const DELTA            = 16.67;        // ms per tick (~60fps)
 const TICKS_PER_BATCH  = Math.round(BATCH_SECONDS * 1_000 / DELTA);
@@ -114,7 +114,7 @@ async function injectSimState(page: import('@playwright/test').Page) {
 
 // ── Testplay spec ─────────────────────────────────────────────────────────────
 
-test('arena testplay — 90 sim-seconds balance report', async ({ page }) => {
+test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   await bootGame(page);

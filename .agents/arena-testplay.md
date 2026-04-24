@@ -1,6 +1,6 @@
 # Arena Testplay
 
-Runs CombatArenaScene for 90 simulated seconds using `sys.step()` to
+Runs CombatArenaScene for 300 simulated seconds using `sys.step()` to
 fast-forward the game loop deterministically. Produces a JSON balance report
 and periodic screenshots without needing a display.
 
@@ -18,7 +18,7 @@ npm run arena:testplay:headed
 
 Output files are written to `screenshots/`:
 - `arena-testplay-report.json` — balance metrics (read this first)
-- `arena-testplay-{15,30,45,60,75,90}s.png` — periodic snapshots
+- `arena-testplay-{15,30,...,300}s.png` — periodic snapshots
 
 ## Reading the report
 
@@ -43,9 +43,10 @@ Each `snapshots` entry covers 5 simulated seconds.
 
 | Metric         | Target range | Signal if outside range |
 |----------------|--------------|-------------------------|
-| `finalWave`    | 5–9          | <5: spawns too slow, >9: spawns too fast |
-| `totalKills`   | 15–40        | <10: hero AI struggling; >50: hero is overpowered |
-| `heroDeaths`   | 0–2          | ≥5: enemies too strong; 0 across many waves: enemies too weak |
+| `finalWave`    | 10–25        | <10: spawns too slow, >25: spawns too fast |
+| `totalKills`   | 30–100       | <20: hero AI struggling; >120: hero is overpowered |
+| `heroDeaths`   | 0–5          | ≥8: enemies too strong; 0 across many waves: enemies too weak |
+| `levelsCleared`| 1–3          | 0: hero never found exit; >3: dungeon too small/easy |
 
 ## What to look for
 

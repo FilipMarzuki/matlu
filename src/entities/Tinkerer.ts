@@ -607,20 +607,26 @@ export class Tinkerer extends EarthHero {
         }),
       ]),
 
-      // 2b. Destroy visible BurrowHoles — top priority to cut off reinforcements.
-      // Only fires when the hero can see a hole (LOS check). Shoots if in range,
-      // otherwise walks toward it using A*.
+      // 2b. Destroy visible BurrowHoles — cut off reinforcements.
+      // Skipped if any enemy is within melee range (self-defence takes priority).
       new BtSequence([
-        new BtCondition(() => this.extraDamageables.some(d => {
-          if (!d.isAlive) return false;
-          const go = d as unknown as Phaser.GameObjects.GameObject;
-          const wx = (go.getData?.('worldX') as number | undefined) ?? d.x;
-          const wy = (go.getData?.('worldY') as number | undefined) ?? d.y;
-          return this.hasLineOfSight(
-            new Phaser.Math.Vector2(this._wx, this._wy),
-            new Phaser.Math.Vector2(wx, wy),
-          );
-        })),
+        new BtCondition(ctx => {
+          // Don't hunt holes while enemies are in melee range.
+          if (ctx.opponent) {
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            if (d < MELEE_R * 2) return false;
+          }
+          return this.extraDamageables.some(dd => {
+            if (!dd.isAlive) return false;
+            const go = dd as unknown as Phaser.GameObjects.GameObject;
+            const wx = (go.getData?.('worldX') as number | undefined) ?? dd.x;
+            const wy = (go.getData?.('worldY') as number | undefined) ?? dd.y;
+            return this.hasLineOfSight(
+              new Phaser.Math.Vector2(this._wx, this._wy),
+              new Phaser.Math.Vector2(wx, wy),
+            );
+          });
+        }),
         new BtAction(ctx => {
           let nearest: Damageable | null = null;
           let nearestDist = Infinity;
@@ -686,32 +692,9 @@ export class Tinkerer extends EarthHero {
         750,
       ),
 
-      // 4. Gap-close dash
-      new BtCooldown(
-        new BtSequence([
-          new BtCondition(ctx => {
-            if (!ctx.opponent) return false;
-            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
-            return d > DASH_MIN && d < DASH_MAX;
-          }),
-          new BtAction(ctx => {
-            ctx.dash(ctx.opponent!.x, ctx.opponent!.y);
-            return 'success';
-          }),
-        ]),
-        3000,
-      ),
-
-      // 5. Chase
-      new BtSequence([
-        new BtCondition(ctx => ctx.opponent !== null),
-        new BtAction(ctx => {
-          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
-          return 'running';
-        }),
-      ]),
-
-      // 6. Path to exit (once discovered, no enemies nearby)
+      // 4. Path to exit — once discovered, prioritise escaping over chasing.
+      // Melee (2) and pistol (3) still fire if enemies are in range/LOS,
+      // but the hero won't chase enemies away from the exit path.
       new BtSequence([
         new BtCondition(() => this.exitFound && this.exitTile !== null && this.dungeonGrid !== null),
         new BtAction(() => {
@@ -732,6 +715,31 @@ export class Tinkerer extends EarthHero {
             if (!this.currentPath) return 'failure';
           }
           return this.followPath();
+        }),
+      ]),
+
+      // 5. Gap-close dash (only when exit not yet found)
+      new BtCooldown(
+        new BtSequence([
+          new BtCondition(ctx => {
+            if (!ctx.opponent || this.exitFound) return false;
+            const d = Phaser.Math.Distance.Between(ctx.x, ctx.y, ctx.opponent.x, ctx.opponent.y);
+            return d > DASH_MIN && d < DASH_MAX;
+          }),
+          new BtAction(ctx => {
+            ctx.dash(ctx.opponent!.x, ctx.opponent!.y);
+            return 'success';
+          }),
+        ]),
+        3000,
+      ),
+
+      // 6. Chase (only when exit not yet found)
+      new BtSequence([
+        new BtCondition(ctx => ctx.opponent !== null && !this.exitFound),
+        new BtAction(ctx => {
+          ctx.moveToward(ctx.opponent!.x, ctx.opponent!.y);
+          return 'running';
         }),
       ]),
 

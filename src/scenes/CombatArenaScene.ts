@@ -125,8 +125,6 @@ export class CombatArenaScene extends Phaser.Scene {
   private autoRestart = ARENA_DEBUG;
   /** Design mode: whether enemies spawn. Toggled via nav button. */
   private enemiesEnabled = true;
-  /** Debug spawn labels — cleared each wave so old ones don't linger. */
-  private spawnLabels: Phaser.GameObjects.Text[] = [];
 
   /**
    * Active tier configuration — set by init() from the data passed via
@@ -151,6 +149,7 @@ export class CombatArenaScene extends Phaser.Scene {
    * so the hero always has a moment to orient before the first enemies arrive.
    */
   private heroRoom: Room | null = null;
+  private exitRoom: Room | null = null;
 
   private waveGroupIndex = 0;
   private waveNumber     = 0;
@@ -368,6 +367,14 @@ export class CombatArenaScene extends Phaser.Scene {
         this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
       }
     }
+
+    // BurrowHole sprites — idle (dark pit), active (glowing), destroyed (rubble).
+    this.load.image('burrow-idle',      'assets/sprites/tilesets/arena/burrow_idle.png');
+    this.load.image('burrow-active',    'assets/sprites/tilesets/arena/burrow_active.png');
+    this.load.image('burrow-destroyed', 'assets/sprites/tilesets/arena/burrow_destroyed.png');
+
+    // Exit portal — placed at the center of the exit room.
+    this.load.image('portal', 'assets/sprites/tilesets/arena/portal.png');
 
     // Isometric cliff/wall block — 32×32 cube with front face, used for
     // dungeon wall tiles in place of the flat gray diamond Graphics.
@@ -760,7 +767,7 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Main wave spawn timer ─────────────────────────────────────────────────
-    if (this.enemiesEnabled && this.aliveEnemies.length < MAX_ALIVE) {
+    if (this.enemiesEnabled && this.aliveEnemies.length < this.maxAlive) {
       this.mainSpawnTimer -= delta;
       if (this.mainSpawnTimer <= 0) {
         this.spawnWaveGroup();
@@ -1048,6 +1055,36 @@ export class CombatArenaScene extends Phaser.Scene {
       drawRoomOverlay(layout.exitRoomIndex,  0x3399ff); // blue  = exit
     }
 
+    // ── Exit portal — placed at the center of the exit room ─────────────────
+    {
+      const exitRoom = layout.rooms[layout.exitRoomIndex];
+      const portalWx = exitRoom.cx * CELL;
+      const portalWy = exitRoom.cy * CELL;
+      const portalIso = worldToArenaIso(portalWx, portalWy);
+      const portal = this.add.image(portalIso.x, portalIso.y, 'portal')
+        .setOrigin(0.5, 0.5)
+        .setDepth(arenaIsoDepth(portalWx, portalWy));
+      // Gentle bob + breathing pulse for a glowing portal feel.
+      this.tweens.add({
+        targets: portal,
+        y: portalIso.y - 4,
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.tweens.add({
+        targets: portal,
+        scaleX: { from: 0.9, to: 1.1 },
+        scaleY: { from: 0.9, to: 1.1 },
+        alpha:  { from: 0.7, to: 1.0 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
     // ── Iso wall blocks ─────────────────────────────────────────────────────────
     // Place cliff block images on every border wall tile. Origin (0.5, 0) aligns
     // the north apex of the block with worldToArenaIso(). Each block gets its
@@ -1164,6 +1201,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // Hero starts in the entry (largest) room — most space to orient at spawn.
     this.heroRoom = this.rooms[layout.startRoomIndex] ?? this.rooms[0] ?? null;
+    this.exitRoom = this.rooms[layout.exitRoomIndex] ?? null;
 
     // ── Torch decorations ──────────────────────────────────────────────────────
     if (!ARENA_DEBUG) {
@@ -1512,7 +1550,7 @@ export class CombatArenaScene extends Phaser.Scene {
     hole.startSpawning(enemyCtor, intervalMs);
 
     hole.on('hole-spawned', (enemy: CombatEntity) => {
-      if (this.aliveEnemies.length >= MAX_ALIVE) {
+      if (this.aliveEnemies.length >= this.maxAlive) {
         // Arena is full — skip this spawn rather than queuing; the next tick
         // will try again.
         if (enemy.active) enemy.destroy();
@@ -1565,7 +1603,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Spineling spawns from sacs route through this handler — mirrors registerHole.
     this.events.on('broodmother-spawn-spineling', (spineling: CombatEntity) => {
       if (!this.heroAlive) return;
-      if (this.aliveEnemies.length >= MAX_ALIVE) {
+      if (this.aliveEnemies.length >= this.maxAlive) {
         // Arena is full — skip this spawn.
         if (spineling.active) spineling.destroy();
         return;
@@ -1581,7 +1619,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // GlitchDrone spawns emitted by SwarmMatrix — mirrors broodmother-spawn-spineling.
     this.events.on('spawn-glitch-drone', (x: number, y: number) => {
       if (!this.heroAlive) return;
-      if (this.aliveEnemies.length >= MAX_ALIVE) return;
+      if (this.aliveEnemies.length >= this.maxAlive) return;
       const drone = new GlitchDrone(this, x, y);
       this.addPhysics(drone);
       drone.setOpponent(this.hero);
@@ -1620,12 +1658,14 @@ export class CombatArenaScene extends Phaser.Scene {
     const cycle = Math.floor((this.waveNumber - 1) / waveGroups.length);
     const ctors: EnemyCtor[] = [...group.enemies];
     const escalationCtor = waveGroups[0].enemies[0];
-    for (let i = 0; i < Math.min(cycle, 3); i++) ctors.push(escalationCtor);
+    // Escalation cap grows with dungeon level — later dungeons get more extras.
+    const escalationCap = 3 + this.levelsCleared;
+    for (let i = 0; i < Math.min(cycle, escalationCap); i++) ctors.push(escalationCtor);
 
     // Spawn in a room other than the hero's starting room so enemies must
     // travel to reach the hero — giving the player a moment to prepare.
     // Falls back to the right-edge spawn when no other rooms are available.
-    const candidateRooms = this.rooms.filter(r => r !== this.heroRoom);
+    const candidateRooms = this.rooms.filter(r => r !== this.heroRoom && r !== this.exitRoom);
     // Always spawn inside a dungeon room — never outside the maze.
     // Fall back to the hero room if no other rooms exist.
     const spawnRoom = candidateRooms.length > 0
@@ -1636,11 +1676,6 @@ export class CombatArenaScene extends Phaser.Scene {
       ? this.spreadInRoom(spawnRoom, ctors.length)
       : [{ x: this.arenaX + this.arenaW * 0.5, y: this.arenaY + this.arenaH * 0.5 }];
 
-    // Clear old spawn labels before placing new ones.
-    if (ARENA_DEBUG) {
-      for (const lbl of this.spawnLabels) lbl.destroy();
-      this.spawnLabels = [];
-    }
 
     // Validate spawn positions are on floor tiles — skip any that land in walls.
     const CELL = ARENA_BSP_CONFIG.cellSize;
@@ -1664,16 +1699,6 @@ export class CombatArenaScene extends Phaser.Scene {
       this.aliveEnemies.push(e);
       this.communityEncounter.watchCombatEntity(e);
 
-      if (ARENA_DEBUG) {
-        const iso = worldToArenaIso(spawnX, spawnY);
-        const tc = Math.floor(spawnX / CELL);
-        const tr = Math.floor(spawnY / CELL);
-        const lbl = this.add.text(iso.x, iso.y - 20, `#${i} (${tc},${tr})`, {
-          fontSize: '20px', color: '#ff3333', fontFamily: 'monospace',
-          resolution: 2, stroke: '#000000', strokeThickness: 3,
-        }).setOrigin(0.5, 1).setDepth(300);
-        this.spawnLabels.push(lbl);
-      }
     }
 
     log.info('wave_spawned', {
@@ -1744,9 +1769,16 @@ export class CombatArenaScene extends Phaser.Scene {
   // ── Wave timing ───────────────────────────────────────────────────────────────
 
   private nextMainInterval(): number {
-    // Floor raised to 7500 ms (was 5000) — late waves previously spawned faster
-    // than the hero could kill, causing enemies to accumulate to the MAX_ALIVE cap.
-    return Math.max(7500, 10000 - this.waveNumber * 400);
+    // Base interval shrinks with wave number and dungeon level.
+    // Each cleared level reduces the floor by 500ms and speeds ramp-up.
+    const levelBonus = this.levelsCleared * 500;
+    const floor = Math.max(4000, 7500 - levelBonus);
+    return Math.max(floor, 10000 - this.waveNumber * 400 - levelBonus);
+  }
+
+  /** Max alive enemies scales with dungeon level. */
+  private get maxAlive(): number {
+    return MAX_ALIVE + this.levelsCleared * 3;
   }
 
   // ── HUD ───────────────────────────────────────────────────────────────────────

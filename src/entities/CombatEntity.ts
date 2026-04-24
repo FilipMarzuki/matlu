@@ -778,7 +778,7 @@ export abstract class CombatEntity extends Enemy {
     // positive LOS check on arrival, the entity promotes to full tracking.
     if (!effectiveOpponent && this.hearingRadius > 0 && this.blackboard) {
       for (const ev of this.blackboard.soundEvents) {
-        const d = Phaser.Math.Distance.Between(this.x, this.y, ev.x, ev.y);
+        const d = Phaser.Math.Distance.Between(this._wx, this._wy, ev.x, ev.y);
         if (d <= Math.min(this.hearingRadius, ev.radius)) {
           this.alertOrigin = { x: ev.x, y: ev.y };
           this.alertTimer  = 3000;
@@ -835,7 +835,7 @@ export abstract class CombatEntity extends Enemy {
         if (this.attackTimer > 0 || !target) return;
         target.takeDamage(this.attackDamage);
         // Apply hit feedback (flash + knockback) from this entity's position.
-        target.onHitBy(this.x, this.y);
+        target.onHitBy(this._wx, this._wy);
         this.attackTimer = this.attackCooldownMs;
         // Hold the attack animation for 40% of the cooldown duration.
         this.attackAnimTimer = this.attackAnimDuration;
@@ -1017,7 +1017,7 @@ export abstract class CombatEntity extends Enemy {
 
       opp.takeDamage(this.attackDamage);
       // Knockback impulse: 3× stronger than the old onHitBy default.
-      opp.onHitByMelee(this.x, this.y);
+      opp.onHitByMelee(this._wx, this._wy);
       hitAny = true;
     }
 
@@ -1446,10 +1446,10 @@ export abstract class CombatEntity extends Enemy {
     const neighbours: BoidsNeighbour[] = [];
     for (const nb of this.swarmNeighbours) {
       if ((nb as unknown) === (this as unknown) || !nb.isAlive) continue;
-      const nbBody = nb.body as Phaser.Physics.Arcade.Body | undefined;
+      const nbBody = (nb as CombatEntity).getPhysicsBody();
       neighbours.push({
-        x:  nb.x,
-        y:  nb.y,
+        x:  nb._wx,
+        y:  nb._wy,
         vx: nbBody?.velocity.x ?? 0,
         vy: nbBody?.velocity.y ?? 0,
       });
@@ -1457,7 +1457,7 @@ export abstract class CombatEntity extends Enemy {
 
     if (neighbours.length === 0) return;
 
-    const impulse = SwarmBrain.steer(this.x, this.y, this.speed, neighbours, this.swarmWeights);
+    const impulse = SwarmBrain.steer(this._wx, this._wy, this.speed, neighbours, this.swarmWeights);
 
     // Add a tiny per-frame jitter so perfectly-synchronised entities drift apart
     // naturally, even when all weights are zero (e.g. during full panic alignment=0).
