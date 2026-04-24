@@ -1,7 +1,10 @@
 /**
  * Supabase Edge Function: receives Database Webhook payloads for `creature_submissions`
- * and dispatches the GitHub Actions workflow `submission-to-entity.yml` with the new
- * row's UUID. Requires secret `GH_TRACKER_TOKEN` (PAT with `workflows:write`).
+ * INSERT events and dispatches the GitHub Actions workflow `submission-to-entity.yml`
+ * with the new row's UUID.
+ *
+ * Secrets: `GH_TRACKER_TOKEN` (PAT able to dispatch that workflow on FilipMarzuki/matlu).
+ * Deploy, webhook, and header setup: see CLAUDE.md → "Submission to Entity".
  */
 const GITHUB_API_VERSION = "2022-11-28";
 const WORKFLOW_DISPATCH_URL =

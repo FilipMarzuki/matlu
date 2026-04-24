@@ -14,6 +14,9 @@ One submission per run.
 Input: `SUBMISSION_ID` env var (UUID from `creature_submissions.id`).
 If not set, pick the oldest row where `status = 'submitted' AND converted_at IS NULL`.
 
+The agent is scoped to **`status = 'submitted'`** (the Codex insert default). There is no separate
+**`approved`** status gate before this agent runs—every new row is eligible once inserted.
+
 ---
 
 ## STEP 1 — READ THE WORLD BIBLE AND SPECS

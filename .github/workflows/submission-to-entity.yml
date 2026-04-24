@@ -5,7 +5,9 @@ name: Submission to Entity
 # Notion lore page, and GitHub issue. Does NOT generate sprites.
 #
 # Trigger: Supabase Database Webhook on creature_submissions INSERT → Edge Function
-# `trigger-entity-pipeline` → this workflow. Manual workflow_dispatch remains for retries.
+# `supabase/functions/trigger-entity-pipeline` → GitHub API workflow_dispatch.
+# Edge Function secret: GH_TRACKER_TOKEN. Webhook: Authorization Bearer <service_role>.
+# Manual workflow_dispatch remains for retries. See CLAUDE.md (Submission to Entity) for setup.
 on:
   workflow_dispatch:
     inputs:
