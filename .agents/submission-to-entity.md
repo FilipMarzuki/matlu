@@ -1,16 +1,18 @@
 # Submission to Entity Agent
 
-Converts an approved creature submission from the Matlu Codex into a complete game
-entity spec: expanded lore, behavior model, design notes (sprite + animations + sounds),
+Converts a creature submission from the Matlu Codex (inserted with `status = 'submitted'`)
+into a complete game entity spec: expanded lore, behavior model, design notes (sprite + animations + sounds),
 PixelLab asset spec, Notion lore page, and a GitHub issue to track implementation.
 The agent also **balances the creature's stats** — the submission is raw input from a
 kid; this agent decides HP, damage, speed, aggro radius etc. by analyzing the submission
 and calibrating against existing entities. Does NOT generate sprites — only prepares
 everything so the sprite-credit-burn agent can generate on the first try.
 
-Run manually via `workflow_dispatch`. One submission per run.
+Normally triggered automatically when a submission is inserted (Supabase webhook → Edge Function
+`trigger-entity-pipeline`). You can still run manually via `workflow_dispatch` for retries.
+One submission per run.
 Input: `SUBMISSION_ID` env var (UUID from `creature_submissions.id`).
-If not set, pick the oldest row where `status = 'approved' AND converted_at IS NULL`.
+If not set, pick the oldest row where `status = 'submitted' AND converted_at IS NULL`.
 
 ---
 
@@ -39,7 +41,7 @@ Query Supabase for the submission:
 ```sql
 SELECT * FROM public.creature_submissions
 WHERE id = '<SUBMISSION_ID>'
-   OR (status = 'approved' AND converted_at IS NULL AND '<SUBMISSION_ID>' = '')
+   OR (status = 'submitted' AND converted_at IS NULL AND '<SUBMISSION_ID>' = '')
 ORDER BY created_at ASC
 LIMIT 1;
 ```

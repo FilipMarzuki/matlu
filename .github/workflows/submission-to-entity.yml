@@ -1,16 +1,16 @@
 name: Submission to Entity
 
-# Converts a balanced creature submission into a full entity spec:
+# Converts a submitted creature submission into a full entity spec:
 # lore, balanced stats, behavior model, design notes, asset spec,
 # Notion lore page, and GitHub issue. Does NOT generate sprites.
 #
-# Trigger: manual via workflow_dispatch (one submission per run).
-# To auto-trigger on status change, add a poller or Supabase webhook.
+# Trigger: Supabase Database Webhook on creature_submissions INSERT → Edge Function
+# `trigger-entity-pipeline` → this workflow. Manual workflow_dispatch remains for retries.
 on:
   workflow_dispatch:
     inputs:
       submission_id:
-        description: 'creature_submissions UUID (leave blank to pick oldest approved+unconverted)'
+        description: 'creature_submissions UUID (leave blank to pick oldest submitted+unconverted)'
         required: false
         default: ''
 
