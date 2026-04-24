@@ -1,116 +1,146 @@
 ---
-/**
- * Creature gallery — FIL-433 (Creatures A3).
- *
- * Shows a card grid of all approved creature submissions.
- * All data fetched at build time; images served from the public creature-art bucket.
- */
+import { readFile } from 'node:fs/promises';
 import Base from '../../layouts/Base.astro';
-import { fetchApprovedCreatures, imageUrl } from '../../lib/supabase-creatures';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
-const creatures = await fetchApprovedCreatures();
-
-function excerpt(text: string | null, max = 100): string {
-  if (!text) return '';
-  return text.length <= max ? text : text.slice(0, max).trimEnd() + '…';
+interface RegistryEntity {
+  class: string;
+  type: 'enemy' | 'hero' | 'summon' | string;
+  category?: string;
+  world?: string;
+  personality?: string;
+  spritesheetJson?: string | null;
+  name_en?: string;
+  name_sv?: string;
+  submissionCreator?: string;
 }
 
-function sizeLabel(s: string | null): string {
-  const map: Record<string, string> = {
-    tiny: 'Tiny', small: 'Small', medium: 'Medium', large: 'Large', huge: 'Huge',
-  };
-  return s ? (map[s] ?? s) : '';
+interface RegistryData {
+  entities: RegistryEntity[];
 }
+
+interface CreatureCard {
+  id: string;
+  name: string;
+  world: string;
+  typeLabel: string;
+  personality: string | null;
+  spritePreview: string | null;
+  creator: string | null;
+}
+
+function humanize(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isCreatureEntity(entity: RegistryEntity): boolean {
+  if (entity.type === 'enemy' || entity.type === 'summon') return true;
+  return entity.type === 'hero' && entity.category === 'npc-world-character';
+}
+
+function resolveTypeLabel(entity: RegistryEntity): string {
+  if (entity.type === 'enemy') return 'Enemy';
+  if (entity.type === 'summon') return 'Summon';
+  if (entity.type === 'hero' && entity.category === 'npc-world-character') return 'NPC';
+  return humanize(entity.type);
+}
+
+function resolveDisplayName(entity: RegistryEntity): string {
+  return entity.name_en ?? humanize(entity.class);
+}
+
+function resolveSpritePreview(entity: RegistryEntity): string | null {
+  if (!entity.spritesheetJson) return null;
+  if (!entity.spritesheetJson.startsWith('public/')) return null;
+  return `/${entity.spritesheetJson.slice('public/'.length).replace(/\.json$/, '.png')}`;
+}
+
+const registryText = await readFile(
+  new URL('../../../../src/entities/entity-registry.json', import.meta.url),
+  'utf8'
+);
+const registry = JSON.parse(registryText) as RegistryData;
+
+const creatures: CreatureCard[] = registry.entities
+  .filter((entity: RegistryEntity): boolean => isCreatureEntity(entity))
+  .map((entity: RegistryEntity): CreatureCard => ({
+    id: entity.class,
+    name: resolveDisplayName(entity),
+    world: entity.world ? humanize(entity.world) : 'Unknown',
+    typeLabel: resolveTypeLabel(entity),
+    personality: entity.personality ?? null,
+    spritePreview: resolveSpritePreview(entity),
+    creator: entity.submissionCreator ?? null,
+  }))
+  .sort((a: CreatureCard, b: CreatureCard): number => {
+    const worldCompare = a.world.localeCompare(b.world);
+    return worldCompare !== 0 ? worldCompare : a.name.localeCompare(b.name);
+  });
 ---
 
-<Base title="Creatures" description="Meet the fantasy creatures of the Matlu multiworld — submitted by players and fans.">
+<Base title="Creatures" description="Animals, enemies, and NPCs that inhabit each region of the Matlu multiworld.">
   <h1>
     <span class="t-en">Creatures</span>
     <span class="t-sv">Väsen</span>
   </h1>
   <p class="lead">
-    <span class="t-en">Meet the fantasy creatures of the Matlu multiworld — imagined and submitted by our community.</span>
-    <span class="t-sv">Möt fantasiväsendena i Matlu-multiversum — föreställda och inskickade av vår gemenskap.</span>
-    <a href="/creatures/submit" class="submit-link">
-      <span class="t-en">Submit your own →</span>
-      <span class="t-sv">Skicka in ditt eget →</span>
-    </a>
+    <span class="t-en">A registry-backed field guide of creatures across Matlu worlds.</span>
+    <span class="t-sv">En registerbaserad fälthandbok över väsen i Matlus världar.</span>
   </p>
 
-  {creatures.length === 0 ? (
-    <div class="empty-state">
-      <p class="empty-title">
-        <span class="t-en">No creatures yet!</span>
-        <span class="t-sv">Inga väsen än!</span>
-      </p>
-      <p class="empty-desc">
-        <span class="t-en">Be the first to add a creature to the encyclopedia.</span>
-        <span class="t-sv">Bli den första att lägga till ett väsen i encyklopedin.</span>
-      </p>
-      <a href="/creatures/submit" class="btn-primary">
-        <span class="t-en">Submit a creature →</span>
-        <span class="t-sv">Skicka in ett väsen →</span>
-      </a>
-    </div>
-  ) : (
-    <div class="grid">
-      {creatures.map(c => {
-        const img = imageUrl(supabaseUrl, c.art_path);
-        return (
-          <a href={`/creatures/${c.slug}`} class="card">
-            <div class="card-img">
-              {img
-                ? <img src={img} alt={c.creature_name} loading="lazy" decoding="async" />
-                : <div class="card-img-placeholder">?</div>
-              }
-            </div>
-            <div class="card-body">
-              <h2 class="card-name">{c.creature_name}</h2>
-              {c.creator_name && (
-                <p class="card-creator">
-                  <span class="t-en">by</span>
-                  <span class="t-sv">av</span>
-                  {' '}{c.creator_name}
-                </p>
-              )}
-              <div class="card-tags">
-                {c.kind_size && <span class="tag">{sizeLabel(c.kind_size)}</span>}
-                {c.world_name && <span class="tag tag--world">{c.world_name}</span>}
-              </div>
-              {c.lore_description && (
-                <p class="card-excerpt">{excerpt(c.lore_description)}</p>
-              )}
-            </div>
-          </a>
-        );
-      })}
-    </div>
-  )}
+  <div class="grid">
+    {creatures.map((creature) => (
+      <article id={creature.id} class="card">
+        <div class="card-img">
+          {creature.spritePreview
+            ? (
+              <img
+                src={creature.spritePreview}
+                alt={`${creature.name} sprite`}
+                loading="lazy"
+                decoding="async"
+                onerror="this.style.display='none'; this.nextElementSibling?.classList.add('show')"
+              />
+            )
+            : null}
+          <div class:list={['card-img-placeholder', !creature.spritePreview && 'show']}>?</div>
+        </div>
+
+        <div class="card-body">
+          <h2 class="card-name">{creature.name}</h2>
+
+          <div class="card-tags">
+            <span class="tag">{creature.typeLabel}</span>
+            <span class="tag tag--world">{creature.world}</span>
+          </div>
+
+          {creature.personality ? <p class="card-excerpt">{creature.personality}</p> : null}
+          {creature.creator ? <p class="card-credit">Creator: {creature.creator}</p> : null}
+        </div>
+      </article>
+    ))}
+  </div>
 </Base>
 
 <style>
   h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+
   .lead {
     color: var(--text-dim);
     font-size: 1rem;
     margin-bottom: 2rem;
     max-width: 560px;
   }
-  .submit-link {
-    color: var(--accent-hi);
-    font-weight: 600;
-    white-space: nowrap;
-  }
 
-  /* ── Grid ─────────────────────────────────────────────────────── */
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 1.25rem;
   }
 
-  /* ── Card ─────────────────────────────────────────────────────── */
   .card {
     display: flex;
     flex-direction: column;
@@ -118,36 +148,42 @@ function sizeLabel(s: string | null): string {
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
-    color: var(--text);
-    text-decoration: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .card:hover {
-    border-color: var(--accent);
-    box-shadow: 0 0 16px rgba(168,85,247,0.15);
-    text-decoration: none;
   }
 
   .card-img {
     width: 100%;
     aspect-ratio: 4 / 3;
-    background: var(--surface-hi, rgba(255,255,255,0.04));
+    background: var(--surface-hi, rgba(255, 255, 255, 0.04));
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
   }
+
   .card-img img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    image-rendering: pixelated;
+    background: rgba(0, 0, 0, 0.18);
   }
+
   .card-img-placeholder {
-    font-size: 3rem;
+    display: none;
+    font-size: 2.4rem;
     color: var(--border);
   }
 
-  .card-body { padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+  .card-img-placeholder.show { display: block; }
+
+  .card-body {
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+  }
 
   .card-name {
     font-family: 'Pixelify Sans', monospace;
@@ -155,22 +191,27 @@ function sizeLabel(s: string | null): string {
     color: var(--accent-hi);
     margin: 0;
   }
-  .card-creator { font-size: 0.8rem; color: var(--text-dim); margin: 0; }
 
-  .card-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
   .tag {
     font-family: var(--mono, monospace);
     font-size: 0.72rem;
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
-    background: rgba(168,85,247,0.1);
+    background: rgba(168, 85, 247, 0.1);
     color: var(--accent-hi);
-    border: 1px solid rgba(168,85,247,0.25);
+    border: 1px solid rgba(168, 85, 247, 0.25);
   }
+
   .tag--world {
-    background: rgba(74,222,128,0.08);
+    background: rgba(74, 222, 128, 0.08);
     color: var(--green, #4ade80);
-    border-color: rgba(74,222,128,0.2);
+    border-color: rgba(74, 222, 128, 0.2);
   }
 
   .card-excerpt {
@@ -180,28 +221,9 @@ function sizeLabel(s: string | null): string {
     line-height: 1.5;
   }
 
-  /* ── Empty state ──────────────────────────────────────────────── */
-  .empty-state {
-    text-align: center;
-    padding: 4rem 2rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
+  .card-credit {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-dim);
   }
-  .empty-title { font-family: 'Pixelify Sans', monospace; font-size: 1.3rem; color: var(--accent-hi); margin: 0; }
-  .empty-desc { color: var(--text-dim); font-size: 0.95rem; margin: 0; }
-  .btn-primary {
-    display: inline-block;
-    background: var(--accent);
-    color: #fff;
-    font-family: 'Pixelify Sans', monospace;
-    font-weight: 700;
-    padding: 0.6rem 1.5rem;
-    border-radius: 7px;
-    text-decoration: none;
-    margin-top: 0.5rem;
-    transition: background 0.15s;
-  }
-  .btn-primary:hover { background: var(--accent-hi); color: #fff; text-decoration: none; }
 </style>
