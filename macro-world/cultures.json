@@ -1,9 +1,9 @@
 {
-  "_doc": "Settlement culture definitions. Each culture drives layout geometry, building placement, and spatial feel. The generator reads numeric modifiers and trait flags — it never switches on culture id. Agents can add new cultures freely; unknown traits are ignored until handler code exists. See culture-traits.json for the trait registry.",
+  "_doc": "Settlement culture definitions. Each culture drives layout geometry, building placement, and spatial feel. The generator reads numeric modifiers and trait flags — it never switches on culture id. Agents can add new cultures freely; unknown traits are ignored until handler code exists. See culture-traits.json for the trait registry. Cultures are race-agnostic: many races can share one culture; use racePreferences for soft weighted hints to the settlement generator.",
   "_schema": {
-    "id":                   "Unique kebab-case identifier",
+    "id":                   "Unique kebab-case identifier — race-agnostic (no race prefix)",
     "name":                 "Display name for the culture",
-    "raceAffinity":         "Which race ids commonly build this way (soft link, not exclusive)",
+    "racePreferences":      "Optional weighted map of race ids to preference weights (e.g. { \"human\": 0.6, \"pandor\": 0.3 }). Absent or empty means sample from regional demographics only.",
     "spacing":              "0.5 (dense) → 1.5 (spread out) — multiplier on base building gap",
     "organicness":          "0 (rigid grid) → 1 (winding paths, irregular placement)",
     "hierarchyScale":       "How much the primary building dominates: 1.0 = same size, 2.0 = twice as large",
@@ -18,9 +18,9 @@
 
   "cultures": [
     {
-      "id": "human-seafaring",
+      "id": "coastborn",
       "name": "Coastborn",
-      "raceAffinity": ["human"],
+      "racePreferences": { "human": 1.0 },
       "spacing": 0.85,
       "organicness": 0.3,
       "hierarchyScale": 1.4,
@@ -33,9 +33,9 @@
       "traits": ["fire-centred"]
     },
     {
-      "id": "human-highland",
+      "id": "ridgefolk",
       "name": "Ridgefolk",
-      "raceAffinity": ["human"],
+      "racePreferences": { "human": 1.0 },
       "spacing": 1.1,
       "organicness": 0.4,
       "hierarchyScale": 1.2,
@@ -48,9 +48,9 @@
       "traits": ["fire-centred", "wind-oriented"]
     },
     {
-      "id": "human-agrarian",
+      "id": "fieldborn",
       "name": "Fieldborn",
-      "raceAffinity": ["human"],
+      "racePreferences": { "human": 1.0 },
       "spacing": 1.3,
       "organicness": 0.4,
       "hierarchyScale": 1.1,
@@ -63,9 +63,9 @@
       "traits": ["seasonal-shift"]
     },
     {
-      "id": "human-fortress",
+      "id": "wallborn",
       "name": "Wallborn",
-      "raceAffinity": ["human"],
+      "racePreferences": { "human": 1.0 },
       "spacing": 0.7,
       "organicness": 0.15,
       "hierarchyScale": 1.5,
@@ -78,9 +78,9 @@
       "traits": ["fortified-perimeter", "symmetry-obsessed"]
     },
     {
-      "id": "dvergr-hold",
+      "id": "mountainhold",
       "name": "Dvergr Holds",
-      "raceAffinity": ["dvergr"],
+      "racePreferences": { "dvergr": 1.0 },
       "spacing": 0.6,
       "organicness": 0.1,
       "hierarchyScale": 1.6,
@@ -93,9 +93,9 @@
       "traits": ["subterranean-preference", "carved-not-built", "fortified-perimeter", "mechanical-integration"]
     },
     {
-      "id": "sylphari-enclave",
+      "id": "sylvan-enclave",
       "name": "Sylphari Enclaves",
-      "raceAffinity": ["sylphari"],
+      "racePreferences": { "sylphari": 1.0 },
       "spacing": 1.3,
       "organicness": 0.8,
       "hierarchyScale": 1.1,
@@ -108,9 +108,9 @@
       "traits": ["living-architecture", "elevated-construction", "bridges-between", "no-central-plaza"]
     },
     {
-      "id": "goblin-market",
+      "id": "bazaar-folk",
       "name": "Goblin Warrens",
-      "raceAffinity": ["goblin"],
+      "racePreferences": { "goblin": 1.0 },
       "spacing": 0.6,
       "organicness": 0.7,
       "hierarchyScale": 1.0,
@@ -123,9 +123,9 @@
       "traits": ["chaos-builders", "ruin-incorporators", "vertical-stacking"]
     },
     {
-      "id": "pandor-waterstead",
+      "id": "waterstead",
       "name": "Pandor Watersteads",
-      "raceAffinity": ["pandor"],
+      "racePreferences": { "pandor": 1.0 },
       "spacing": 1.0,
       "organicness": 0.5,
       "hierarchyScale": 1.3,
@@ -138,9 +138,9 @@
       "traits": ["water-integrated", "elevated-construction", "flooded-intentionally"]
     },
     {
-      "id": "troll-steading",
+      "id": "steading",
       "name": "Troll Steadings",
-      "raceAffinity": ["troll"],
+      "racePreferences": { "troll": 1.0 },
       "spacing": 1.5,
       "organicness": 0.9,
       "hierarchyScale": 1.8,
@@ -153,9 +153,9 @@
       "traits": ["carved-not-built", "no-central-plaza"]
     },
     {
-      "id": "draak-remnant",
+      "id": "dragonkin-remnant",
       "name": "Draak Remnants",
-      "raceAffinity": ["draak"],
+      "racePreferences": { "draak": 1.0 },
       "spacing": 0.7,
       "organicness": 0.2,
       "hierarchyScale": 2.0,
@@ -168,9 +168,9 @@
       "traits": ["symmetry-obsessed", "fortified-perimeter", "light-sensitive"]
     },
     {
-      "id": "sandhari-caravan",
+      "id": "caravan-folk",
       "name": "Sandhari Caravan Camps",
-      "raceAffinity": ["sandhari"],
+      "racePreferences": { "sandhari": 1.0 },
       "spacing": 1.2,
       "organicness": 0.6,
       "hierarchyScale": 1.3,
@@ -183,9 +183,9 @@
       "traits": ["nomadic-core", "wind-oriented", "seasonal-shift"]
     },
     {
-      "id": "korallfolk-reef",
+      "id": "reefborn",
       "name": "Korallfolk Reefs",
-      "raceAffinity": ["korallfolk"],
+      "racePreferences": { "korallfolk": 1.0 },
       "spacing": 0.5,
       "organicness": 0.9,
       "hierarchyScale": 1.5,
@@ -198,9 +198,9 @@
       "traits": ["living-architecture", "water-integrated", "flooded-intentionally"]
     },
     {
-      "id": "steppevarg-camp",
+      "id": "steppe-camp",
       "name": "Steppevarg Camps",
-      "raceAffinity": ["steppevarg"],
+      "racePreferences": { "steppevarg": 1.0 },
       "spacing": 1.3,
       "organicness": 0.5,
       "hierarchyScale": 1.2,
@@ -213,9 +213,9 @@
       "traits": ["nomadic-core", "fire-centred", "seasonal-shift", "wind-oriented"]
     },
     {
-      "id": "vindfarare-eyrie",
+      "id": "windfarer-eyrie",
       "name": "Vindfarare Eyries",
-      "raceAffinity": ["vindfarare"],
+      "racePreferences": { "vindfarare": 1.0 },
       "spacing": 1.0,
       "organicness": 0.6,
       "hierarchyScale": 1.3,
@@ -228,9 +228,9 @@
       "traits": ["vertical-stacking", "bridges-between", "elevated-construction", "carved-not-built"]
     },
     {
-      "id": "chitinvavare-nest",
+      "id": "nestborne",
       "name": "Chitinvävare Nests",
-      "raceAffinity": ["chitinvavare"],
+      "racePreferences": { "chitinvavare": 1.0 },
       "spacing": 0.4,
       "organicness": 1.0,
       "hierarchyScale": 1.7,
@@ -243,9 +243,9 @@
       "traits": ["secreted-structures", "communal-walls", "builds-underground", "scent-marked"]
     },
     {
-      "id": "rotfolk-grove",
+      "id": "grovekin",
       "name": "Rotfolk Groves",
-      "raceAffinity": ["rotfolk"],
+      "racePreferences": { "rotfolk": 1.0 },
       "spacing": 1.4,
       "organicness": 1.0,
       "hierarchyScale": 1.0,
@@ -258,9 +258,9 @@
       "traits": ["living-architecture", "no-central-plaza", "builds-underground"]
     },
     {
-      "id": "grynfolk-workshop",
+      "id": "workshop-collective",
       "name": "Grynfolk Workshop-Towns",
-      "raceAffinity": ["grynfolk"],
+      "racePreferences": { "grynfolk": 1.0 },
       "spacing": 0.6,
       "organicness": 0.3,
       "hierarchyScale": 1.1,
@@ -273,9 +273,9 @@
       "traits": ["mechanical-integration", "vertical-stacking", "communal-walls"]
     },
     {
-      "id": "kristallbundna-resonance",
+      "id": "crystal-resonance",
       "name": "Kristallbundna Resonance Sites",
-      "raceAffinity": ["kristallbundna"],
+      "racePreferences": { "kristallbundna": 1.0 },
       "spacing": 0.8,
       "organicness": 0.4,
       "hierarchyScale": 1.5,
@@ -288,9 +288,9 @@
       "traits": ["crystal-resonant", "symmetry-obsessed", "song-mapped"]
     },
     {
-      "id": "vandoda-refuge",
+      "id": "refuge-keepers",
       "name": "Vandoda Refuges",
-      "raceAffinity": ["vandoda"],
+      "racePreferences": { "vandoda": 1.0 },
       "spacing": 0.7,
       "organicness": 0.6,
       "hierarchyScale": 1.0,
@@ -303,9 +303,9 @@
       "traits": ["ruin-incorporators", "fortified-perimeter", "light-sensitive"]
     },
     {
-      "id": "sjovandrare-harbor",
+      "id": "harborfolk",
       "name": "Sjovandrare Harbors",
-      "raceAffinity": ["sjovandrare"],
+      "racePreferences": { "sjovandrare": 1.0 },
       "spacing": 1.1,
       "organicness": 0.7,
       "hierarchyScale": 1.2,
@@ -318,9 +318,9 @@
       "traits": ["water-integrated", "elevated-construction", "song-mapped", "seasonal-shift"]
     },
     {
-      "id": "jarnborn-encampment",
+      "id": "ironborne-encampment",
       "name": "Jarnborn Encampments",
-      "raceAffinity": ["jarnborn"],
+      "racePreferences": { "jarnborn": 1.0 },
       "spacing": 0.9,
       "organicness": 0.2,
       "hierarchyScale": 1.0,
@@ -333,9 +333,9 @@
       "traits": ["ruin-incorporators", "mechanical-integration", "symmetry-obsessed"]
     },
     {
-      "id": "skogsvattar-thicket",
+      "id": "thicket-dwellers",
       "name": "Skogsvattar Thickets",
-      "raceAffinity": ["skogsvattar"],
+      "racePreferences": { "skogsvattar": 1.0 },
       "spacing": 0.3,
       "organicness": 1.0,
       "hierarchyScale": 1.0,

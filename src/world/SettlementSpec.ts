@@ -142,8 +142,15 @@ export interface SettlementSite {
   tradeRouteCount: number;
   /** How many other settlements are within interaction range. */
   nearbySettlements: number;
-  /** Culture id from cultures.json — assigned by the macro map. */
+  /** Culture id from cultures.json — assigned by the macro map. Race-agnostic: multiple races may share a culture. */
   cultureId: string;
+  /**
+   * Optional weighted race preferences for this settlement, inherited from the
+   * culture's `racePreferences` map. Keys are race ids; values are relative
+   * weights (e.g. `{ human: 0.6, pandor: 0.3 }`). Absent or empty means the
+   * generator samples races from regional demographics only.
+   */
+  racePreferences?: { [raceId: string]: number };
 }
 
 // ── Full settlement spec (output of generation) ──────────────────────────────
@@ -164,8 +171,14 @@ export interface SettlementSpec {
   purpose: SettlementPurpose;
   /** Acquired economic activities from growth and adjacency. */
   secondary: SecondaryTrait[];
-  /** Culture id — drives layout modifiers and building shapes. */
+  /** Culture id — drives layout modifiers and building shapes. Race-agnostic: multiple races may share one culture. */
   cultureId: string;
+  /**
+   * Optional weighted race preferences for this settlement. Keys are race ids;
+   * values are relative weights (e.g. `{ human: 0.6, pandor: 0.3 }`). Absent
+   * or empty means the generator samples races from regional demographics only.
+   */
+  racePreferences?: { [raceId: string]: number };
   /** Rare unique buildings / events. */
   anomalies: Anomaly[];
   /** Approximate radius in world pixels for the layout engine. */
