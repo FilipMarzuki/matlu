@@ -23,6 +23,7 @@ import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
 import { BIOMES }            from '../world/biomes';
+import { CUSTOM_TILE_PACKS, preloadTilePacks } from '../world/TilePacks';
 import { WindSystem }        from '../systems/WindSystem';
 import {
   DIAGONAL_RIVERS,
@@ -87,21 +88,8 @@ const DETAIL_SCALE = 0.22;
 const TEMP_SCALE  = 0.04; // temperature varies in broad N/S-ish bands
 const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
 
-// FIL-466: biome tile packs — individual images loaded as `${packName}-0` … `${packName}-3`.
-// Biome 0 (Sea) is absent; it falls back to the generic iso-tiles spritesheet.
-const CUSTOM_TILE_PACKS: Record<number, string> = {
-  1:  'rocky-shore',
-  2:  'sandy-shore',
-  3:  'marsh',
-  4:  'dry-heath',
-  5:  'coastal-heath',
-  6:  'meadow',
-  7:  'forest',
-  8:  'spruce',
-  9:  'cold-granite',
-  10: 'bare-summit',
-  11: 'snow-field',
-};
+// FIL-466: biome tile packs now live in `src/world/TilePacks.ts` so all scenes
+// that render iso terrain share one source of truth (and the preload loop).
 
 // ─── Fog of war constants (FIL-217) ──────────────────────────────────────────
 // Three tile visibility states stored in the fogGrid Uint8Array.
@@ -949,15 +937,10 @@ export class GameScene extends Phaser.Scene {
       'assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
 
-    // FIL-466: biome tile packs — 4 individual images per biome (0.png … 3.png).
-    // Each image is loaded as a single-image texture keyed `${packName}-${i}` so
-    // drawProceduralTerrain() can call setTexture(`${packName}-${tileHash}`) directly
-    // without a frame argument.
-    for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
-      for (let i = 0; i < 4; i++) {
-        this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
-      }
-    }
+    // FIL-466: biome tile packs — 4 individual images per biome (0.png … 3.png),
+    // keyed `${packName}-${i}` so drawProceduralTerrain() can call
+    // setTexture(`${packName}-${tileHash}`) directly. Shared with the other scenes.
+    preloadTilePacks(this);
 
     // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
     // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
