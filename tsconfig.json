@@ -8,10 +8,11 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
     "types": ["vite/client"],
+    "resolveJsonModule": true,
     "isolatedModules": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts", "vite.config.ts"]
+  "include": ["src/**/*.ts", "vite.config.ts", "macro-world/*.json"]
 }
