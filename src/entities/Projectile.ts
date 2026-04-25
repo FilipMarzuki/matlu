@@ -1,5 +1,4 @@
 import * as Phaser from 'phaser';
-import { worldToArenaIso } from '../lib/IsoTransform';
 
 /**
  * Minimal interface for projectile targets — avoids importing LivingEntity
@@ -43,9 +42,6 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   private readonly onHitCb: ((target: Damageable) => void) | undefined;
   private distanceTravelled = 0;
   private expired = false;
-  /** World-space position — projectile logic runs here; display is iso-projected. */
-  private _wx: number;
-  private _wy: number;
 
   /** True once the projectile has hit a target, exceeded range, or gone off-bounds. */
   get isExpired(): boolean {
@@ -54,9 +50,9 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
 
   /**
    * @param scene     - Phaser scene (projectile adds itself to display list)
-   * @param x         - World spawn X
-   * @param y         - World spawn Y
-   * @param angle     - Travel direction in radians
+   * @param x         - Iso spawn X (screen space)
+   * @param y         - Iso spawn Y (screen space)
+   * @param angle     - Travel direction in radians (iso space)
    * @param speed     - Travel speed in px/s
    * @param damage    - Damage dealt on hit
    * @param color     - Fill colour (0xRRGGBB)
@@ -99,12 +95,6 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
     this.maxRange  = maxRange;
     this.targets   = targets;
     this.onHitCb   = onHit;
-    this._wx       = x;
-    this._wy       = y;
-
-    // Project initial position to iso for display.
-    const iso = worldToArenaIso(x, y);
-    this.setPosition(iso.x, iso.y);
   }
 
   /**
@@ -114,16 +104,13 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   tick(delta: number): void {
     if (this.expired) return;
 
-    // Move in world space.
-    const dx = this.vx * (delta / 1000);
-    const dy = this.vy * (delta / 1000);
-    this._wx += dx;
-    this._wy += dy;
+    // Move in iso space.
+    const dt = delta / 1000;
+    const dx = this.vx * dt;
+    const dy = this.vy * dt;
+    this.x += dx;
+    this.y += dy;
     this.distanceTravelled += Math.sqrt(dx * dx + dy * dy);
-
-    // Project to iso for display.
-    const iso = worldToArenaIso(this._wx, this._wy);
-    this.setPosition(iso.x, iso.y);
 
     // Self-destruct when range is exceeded.
     if (this.distanceTravelled >= this.maxRange) {
@@ -131,12 +118,10 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
       return;
     }
 
-    // Hit detection in world space — use _wx/_wy on targets (CombatEntity).
+    // Hit detection in iso space — target.x/y are iso screen coords (_isoSync keeps them current).
     for (const target of this.targets) {
       if (!target.isAlive) continue;
-      const twx = (target as unknown as { _wx?: number })._wx ?? target.x;
-      const twy = (target as unknown as { _wy?: number })._wy ?? target.y;
-      const dist = Phaser.Math.Distance.Between(this._wx, this._wy, twx, twy);
+      const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
       if (dist < this.hitRadius) {
         target.takeDamage(this.damage);
         this.onHitCb?.(target);
