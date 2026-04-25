@@ -6056,10 +6056,29 @@ export class GameScene extends Phaser.Scene {
   private stampCorruptedLandmarks(): void {
     for (const lm of CORRUPTED_LANDMARKS) {
       this.stampChunk(CORRUPTED_CLEARING, lm.x, lm.y);
-      // Dark purple aura — very low alpha so it doesn't dominate the palette,
-      // but creates a clear "something happened here" visual signal.
       const { x: _lmIsoX, y: _lmIsoY } = worldToIso(lm.x, lm.y);
-      this.add.circle(_lmIsoX, _lmIsoY, 90, 0x220022, 0.18).setDepth(0.05);
+
+      // Iso ground is visually squashed, so use wide ellipses instead of screen
+      // circles. The black core + purple fringe makes corruption read as a
+      // threatening ground material, not just a grey tint over normal terrain.
+      this.add.ellipse(_lmIsoX, _lmIsoY + 16, 230, 104, 0x050008, 0.42).setDepth(0.04);
+      this.add.ellipse(_lmIsoX, _lmIsoY + 12, 170,  76, 0x1b0028, 0.58).setDepth(0.05);
+      this.add.ellipse(_lmIsoX, _lmIsoY + 10,  92,  42, 0x050006, 0.54).setDepth(0.06);
+
+      const cracks = this.add.graphics().setDepth(0.07);
+      cracks.lineStyle(3, 0x8f28ff, 0.36);
+      for (let i = 0; i < 7; i++) {
+        const angle = (Math.PI * 2 * i) / 7 + (lm.x + lm.y) * 0.0007;
+        const innerX = _lmIsoX + Math.cos(angle) * 28;
+        const innerY = _lmIsoY + 12 + Math.sin(angle) * 12;
+        const outerX = _lmIsoX + Math.cos(angle) * (78 + (i % 3) * 11);
+        const outerY = _lmIsoY + 12 + Math.sin(angle) * (30 + (i % 2) * 8);
+        cracks.beginPath();
+        cracks.moveTo(innerX, innerY);
+        cracks.lineTo((innerX + outerX) / 2 + Math.sin(angle) * 10, (innerY + outerY) / 2);
+        cracks.lineTo(outerX, outerY);
+        cracks.strokePath();
+      }
     }
   }
 
