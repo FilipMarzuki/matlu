@@ -696,19 +696,24 @@ export class SettlementForgeScene extends Phaser.Scene {
       ly -= 18;
     }
 
-    // ── Feedback button ─────────────────────────────────────────────────────
+    // ── Feedback button (prominent, bottom-centre) ────────────────────────
     this.feedbackBtn?.destroy();
     this.feedbackBtn = this.add.text(
-      this.scale.width / 2, this.scale.height - 16,
-      '[ F — Send Feedback ]',
+      this.scale.width / 2, this.scale.height - 10,
+      'Send Feedback / Report Bug  (F)',
       {
-        fontSize: '12px', color: '#aaccff', fontFamily: 'monospace',
-        backgroundColor: '#1a1a2ecc', padding: { x: 12, y: 6 },
+        fontSize: '16px', color: '#1a1a2e', fontFamily: 'monospace',
+        backgroundColor: '#aaccff', padding: { x: 24, y: 10 },
+        fontStyle: 'bold',
       },
     ).setOrigin(0.5, 1).setDepth(100).setScrollFactor(0).setInteractive({ useHandCursor: true });
     this.feedbackBtn.on('pointerdown', () => this.toggleFeedback());
-    this.feedbackBtn.on('pointerover', () => this.feedbackBtn?.setColor('#ffffff'));
-    this.feedbackBtn.on('pointerout',  () => this.feedbackBtn?.setColor('#aaccff'));
+    this.feedbackBtn.on('pointerover', () => {
+      this.feedbackBtn?.setBackgroundColor('#ffffff');
+    });
+    this.feedbackBtn.on('pointerout', () => {
+      this.feedbackBtn?.setBackgroundColor('#aaccff');
+    });
   }
 
   // ── Feedback overlay (DOM) ─────────────────────────────────────────────────
@@ -740,8 +745,34 @@ export class SettlementForgeScene extends Phaser.Scene {
     }
   }
 
+  /** Capture the Phaser canvas as a data URL (PNG). */
+  private captureScreenshot(): string {
+    try {
+      return this.game.canvas.toDataURL('image/png');
+    } catch {
+      return '';
+    }
+  }
+
+  /** Build a human-readable summary of the current settlement for the form. */
+  private buildingSummary(): string {
+    const cats: Record<string, string[]> = {};
+    for (const b of this.buildings) {
+      if (!cats[b.category]) cats[b.category] = [];
+      cats[b.category].push(b.id);
+    }
+    return Object.entries(cats)
+      .map(([cat, ids]) => `${cat}: ${ids.join(', ')}`)
+      .join('\n');
+  }
+
   private openFeedback(): void {
     if (this.feedbackOverlay) return;
+
+    // Capture screenshot BEFORE the overlay covers the canvas
+    const screenshot = this.captureScreenshot();
+    const culture = getAllCultures()[this.currentCultureIdx];
+    const summary = this.buildingSummary();
 
     const overlay = document.createElement('div');
     overlay.id = 'sf-feedback-overlay';
@@ -750,70 +781,100 @@ export class SettlementForgeScene extends Phaser.Scene {
         #sf-feedback-overlay {
           position: fixed; inset: 0; z-index: 9999;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(0,0,0,0.6); font-family: 'Outfit', sans-serif;
+          background: rgba(0,0,0,0.7); font-family: 'Outfit', sans-serif;
         }
         #sf-feedback-box {
-          background: #1a1a2e; border: 1px solid #444466; border-radius: 8px;
-          padding: 24px; max-width: 420px; width: 90%; color: #ccccdd;
+          background: #1a1a2e; border: 1px solid #556; border-radius: 10px;
+          padding: 24px; max-width: 560px; width: 94%; color: #ccccdd;
+          max-height: 90vh; overflow-y: auto;
         }
-        #sf-feedback-box h3 { margin: 0 0 4px; color: #aaccff; font-size: 16px; }
-        #sf-feedback-box .context { font-size: 11px; color: #888; margin-bottom: 12px; font-family: monospace; }
+        #sf-feedback-box h3 { margin: 0 0 12px; color: #aaccff; font-size: 18px; }
+
+        .sf-screenshot {
+          width: 100%; border-radius: 6px; border: 1px solid #334;
+          margin-bottom: 12px;
+        }
+
+        .sf-params {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
+          font-size: 12px; font-family: monospace; color: #999;
+          background: #0d0d1a; padding: 10px 12px; border-radius: 6px;
+          margin-bottom: 12px;
+        }
+        .sf-params .label { color: #667; }
+        .sf-params .value { color: #aab; }
+
+        .sf-buildings-detail {
+          font-size: 11px; font-family: monospace; color: #778;
+          background: #0d0d1a; padding: 8px 12px; border-radius: 6px;
+          margin-bottom: 12px; white-space: pre-wrap; line-height: 1.5;
+          max-height: 100px; overflow-y: auto;
+        }
+
         #sf-feedback-box textarea {
-          width: 100%; min-height: 100px; background: #0d0d1a; border: 1px solid #444466;
-          border-radius: 4px; color: #ccccdd; padding: 8px; font-size: 13px;
+          width: 100%; min-height: 80px; background: #0d0d1a; border: 1px solid #446;
+          border-radius: 6px; color: #dde; padding: 10px; font-size: 14px;
           font-family: 'Outfit', sans-serif; resize: vertical;
         }
         #sf-feedback-box textarea:focus { outline: none; border-color: #aaccff; }
-        #sf-feedback-box .btn-row { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+        #sf-feedback-box textarea::placeholder { color: #556; }
+
+        .sf-btn-row { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
         #sf-feedback-box button {
-          padding: 6px 16px; border-radius: 4px; cursor: pointer;
-          font-family: 'Outfit', sans-serif; font-size: 13px; border: 1px solid #444466;
+          padding: 8px 20px; border-radius: 6px; cursor: pointer;
+          font-family: 'Outfit', sans-serif; font-size: 14px; border: none;
         }
-        #sf-feedback-box .submit-btn { background: #2a4a6a; color: #aaccff; }
-        #sf-feedback-box .submit-btn:hover { background: #3a5a7a; }
-        #sf-feedback-box .submit-btn:disabled { opacity: 0.5; cursor: default; }
-        #sf-feedback-box .cancel-btn { background: none; color: #888; }
-        #sf-feedback-box .cancel-btn:hover { color: #ccc; }
-        #sf-feedback-box .status { font-size: 12px; margin-top: 8px; min-height: 18px; }
-        #sf-feedback-box .status.ok { color: #66cc66; }
-        #sf-feedback-box .status.err { color: #cc6666; }
+        .sf-submit-btn { background: #aaccff; color: #1a1a2e; font-weight: 700; }
+        .sf-submit-btn:hover { background: #ccddff; }
+        .sf-submit-btn:disabled { opacity: 0.5; cursor: default; }
+        .sf-cancel-btn { background: #2a2a3e; color: #888; border: 1px solid #444 !important; }
+        .sf-cancel-btn:hover { color: #ccc; background: #333; }
+        .sf-status { font-size: 13px; margin-top: 10px; min-height: 20px; text-align: center; }
+        .sf-status.ok { color: #66cc66; }
+        .sf-status.err { color: #cc6666; }
+        .sf-attached-note { font-size: 11px; color: #556; margin-top: 8px; text-align: center; }
       </style>
       <div id="sf-feedback-box">
-        <h3>Settlement Forge Feedback</h3>
-        <div class="context">
-          Tier ${this.currentTier} ${TIER_NAMES[this.currentTier]}
-          &middot; ${GEOGRAPHIES[this.currentGeoIdx]}
-          &middot; ${PURPOSES[this.currentPurposeIdx]}
-          &middot; ${getAllCultures()[this.currentCultureIdx].name}
-          &middot; seed ${this.currentSeed}
-          &middot; ${this.buildings.length} buildings
+        <h3>Send Feedback / Report a Bug</h3>
+
+        ${screenshot ? `<img src="${screenshot}" class="sf-screenshot" alt="Settlement preview" />` : ''}
+
+        <div class="sf-params">
+          <span class="label">Tier</span>    <span class="value">${this.currentTier} ${TIER_NAMES[this.currentTier]}</span>
+          <span class="label">Geography</span> <span class="value">${GEOGRAPHIES[this.currentGeoIdx]}</span>
+          <span class="label">Purpose</span> <span class="value">${PURPOSES[this.currentPurposeIdx]}</span>
+          <span class="label">Culture</span> <span class="value">${culture.name}</span>
+          <span class="label">Seed</span>    <span class="value">${this.currentSeed}</span>
+          <span class="label">Buildings</span> <span class="value">${this.buildings.length}</span>
+          <span class="label">Secondary</span> <span class="value">${this.spec?.secondary.length ? this.spec.secondary.join(', ') : 'none'}</span>
+          <span class="label">Anomalies</span> <span class="value">${this.spec?.anomalies.length ? this.spec.anomalies.map(a => a.type).join(', ') : 'none'}</span>
         </div>
-        <textarea id="sf-feedback-text" placeholder="What do you think of this settlement layout? Anything feel off? Ideas for improvement?"></textarea>
-        <div class="btn-row">
-          <button class="cancel-btn" id="sf-cancel">Cancel</button>
-          <button class="submit-btn" id="sf-submit">Send</button>
+
+        <div class="sf-buildings-detail">${summary}</div>
+
+        <textarea id="sf-feedback-text" placeholder="What do you think? Does the layout make sense for this type of settlement? Anything missing or out of place?"></textarea>
+
+        <div class="sf-btn-row">
+          <button class="sf-cancel-btn" id="sf-cancel">Cancel</button>
+          <button class="sf-submit-btn" id="sf-submit">Send Feedback</button>
         </div>
-        <div class="status" id="sf-status"></div>
+        <div class="sf-status" id="sf-status"></div>
+        <div class="sf-attached-note">Screenshot and settlement data are automatically attached.</div>
       </div>
     `;
 
     document.body.appendChild(overlay);
     this.feedbackOverlay = overlay;
 
-    // Focus the textarea
     const textarea = document.getElementById('sf-feedback-text') as HTMLTextAreaElement;
     setTimeout(() => textarea?.focus(), 50);
 
-    // Cancel
     document.getElementById('sf-cancel')!.addEventListener('click', () => this.closeFeedback());
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) this.closeFeedback();
     });
-
-    // Submit
     document.getElementById('sf-submit')!.addEventListener('click', () => this.submitFeedback());
 
-    // Escape key
     const escHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { this.closeFeedback(); document.removeEventListener('keydown', escHandler); }
     };
@@ -842,11 +903,13 @@ export class SettlementForgeScene extends Phaser.Scene {
     if (statusEl) { statusEl.textContent = 'Sending...'; statusEl.className = 'status'; }
 
     try {
-      // Pack settlement context into session_id so it's queryable alongside the text
+      // Pack settlement context + building list into session_id
+      const ctx = JSON.parse(this.settlementContext());
+      ctx.buildingList = this.buildings.map(b => b.id);
       await insertFeedback(
         `[Settlement Forge] ${text}`,
         GAME_VERSION,
-        this.settlementContext(),
+        JSON.stringify(ctx),
       );
       if (statusEl) { statusEl.textContent = 'Thanks! Feedback sent.'; statusEl.className = 'status ok'; }
       setTimeout(() => this.closeFeedback(), 1500);
