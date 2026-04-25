@@ -21,6 +21,11 @@
  */
 
 import * as Phaser from 'phaser';
+import { CombatEntity } from '../entities/CombatEntity';
+import { FarggladKordororn } from '../entities/FarggladKordororn';
+import { HeroEntity } from '../entities/HeroEntity';
+import { Tinkerer } from '../entities/Tinkerer';
+import { Loke } from '../entities/heroes/Loke';
 import { isoTileFrame, ISO_RIVER_FRAME, ISO_TILE_NATIVE_SIZE } from '../world/IsoTileMap';
 import { BIOMES } from '../world/biomes';
 
@@ -92,6 +97,8 @@ interface WanderState {
   speed: number;                 // walk speed in px/s
 }
 
+type CombatEntityConstructor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
+
 export class WorldForgeScene extends Phaser.Scene {
   // Default to biome 6 (Meadow). The ?biome=<idx> URL param overrides this so
   // the wiki's per-card "View in World Forge" links land on the right biome.
@@ -147,6 +154,16 @@ export class WorldForgeScene extends Phaser.Scene {
   private placedEntitySprite?: Phaser.GameObjects.Sprite;
   private placedEntityLabel?:  Phaser.GameObjects.Text;
   private entitySelBorder?:   Phaser.GameObjects.Graphics;
+  /** Live CombatEntity instance when AI is on for a named entity (Loke, Tinkerer, Kordorörn). */
+  private placedLiveEntity: CombatEntity | null = null;
+  /** Tile coords of the last placement, so re-placing after AI toggle works. */
+  private lastPlacedTile: { tx: number; ty: number } | null = null;
+  /** Maps EntityKey to the real entity class when a WorldForge preview can run full BT AI. */
+  private readonly ENTITY_CLASS_MAP: Partial<Record<EntityKey, CombatEntityConstructor>> = {
+    loke: Loke,
+    tinkerer: Tinkerer,
+    'fargglad-kordororn': FarggladKordororn,
+  };
 
   // Object placer state (FIL-464) — multiple objects across tiles.
   private selectedObjectKey: ObjectKey | null = null;
@@ -160,7 +177,7 @@ export class WorldForgeScene extends Phaser.Scene {
   private decorRowObjs: Phaser.GameObjects.GameObject[] = [];
   private decorSelBorder?: Phaser.GameObjects.Graphics;
 
-  // AI wander toggle — when on, placed NPC/Animal entities wander around the scene.
+  // AI wander toggle — when on, placeholders wander and named entities run their BTs.
   private aiEnabled = false;
   private aiToggleGfx?:  Phaser.GameObjects.Graphics;
   private aiToggleText?: Phaser.GameObjects.Text;
@@ -208,6 +225,9 @@ export class WorldForgeScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor('#000000');
+    for (const et of ENTITY_TYPES) {
+      if (et.atlasKey) this.createAtlasAnimations(et.atlasKey);
+    }
 
     // Auto-fit: find the zoom that makes the iso diamond fill ~95% of the
     // tighter screen dimension, leaving only a small margin on each side.
@@ -918,7 +938,7 @@ export class WorldForgeScene extends Phaser.Scene {
     }
 
     // AI toggle button — right of entity buttons. Green when on, dim when off.
-    // Only affects NPC and Animal placements.
+    // Affects placeholder wanderers plus named entities that have CombatEntity classes.
     const AI_X = PAD + ENTITY_TYPES.length * (BTN_W + BTN_G) + 10;
     this.add.text(AI_X, TOOL_Y - 13, 'AI:', {
       fontSize: '10px', color: '#ffccff', stroke: '#000000', strokeThickness: 2,
@@ -978,6 +998,7 @@ export class WorldForgeScene extends Phaser.Scene {
   private placeEntity(tx: number, ty: number): void {
     this.clearEntity();
     if (this.selectedEntityKey === null) return;
+    this.lastPlacedTile = { tx, ty };
     const et = ENTITY_TYPES.find(e => e.key === this.selectedEntityKey)!;
 
     const { x: cx, y: cy } = this.isoPos(tx, ty);
@@ -985,19 +1006,36 @@ export class WorldForgeScene extends Phaser.Scene {
     const footY = cy + this.ISO_H;
 
     if (et.atlasKey) {
-      // Hero — show real idle sprite. Scale matches the tile grid:
-      // ISO_SCALE = 0.75 * zoomFactor, same multiplier used for tiles.
-      const sprite = this.add.sprite(cx, footY, et.atlasKey, 'idle_south_0')
-        .setScale(this.ISO_SCALE)
-        .setOrigin(0.5, 1)
-        .setDepth(5);
+      const EntityClass = this.ENTITY_CLASS_MAP[et.key];
+      if (this.aiEnabled && EntityClass) {
+        // Spawn the real gameplay entity so its BehaviorTree runs in WorldForge.
+        const entity = new EntityClass(this, cx, footY);
+        this.physics.add.existing(entity);
+        entity.isoMode = false;
+        entity.setWallRects([]); // WorldForge has no blocking combat walls.
+        entity.setDepth(5);
+        if (entity instanceof HeroEntity) entity.setAutoPlay(true);
 
-      const label = this.add.text(cx, footY - sprite.displayHeight - 4, et.label, {
-        fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-      }).setOrigin(0.5, 1).setDepth(6);
+        const label = this.add.text(cx, footY - 32, et.label, {
+          fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0.5, 1).setDepth(6);
 
-      this.placedEntitySprite = sprite;
-      this.placedEntityLabel  = label;
+        this.placedLiveEntity = entity;
+        this.placedEntityLabel = label;
+      } else {
+        // Static sprite mode preserves the original WorldForge preview behaviour.
+        const sprite = this.add.sprite(cx, footY, et.atlasKey, 'idle_south_0')
+          .setScale(this.ISO_SCALE)
+          .setOrigin(0.5, 1)
+          .setDepth(5);
+
+        const label = this.add.text(cx, footY - sprite.displayHeight - 4, et.label, {
+          fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0.5, 1).setDepth(6);
+
+        this.placedEntitySprite = sprite;
+        this.placedEntityLabel  = label;
+      }
     } else {
       // Generic placeholder (Enemy / NPC / Animal) — footprint + upright rect.
       // Drawn in local coords (Graphics origin = foot position) so the whole
@@ -1033,16 +1071,18 @@ export class WorldForgeScene extends Phaser.Scene {
       this.placedEntity      = gfx;
       this.placedEntityLabel = label;
 
-      // Initialise wander AI for NPC / Animal when the toggle is on.
-      // Animals are skittish and faster; NPCs stroll slowly.
-      if (this.aiEnabled && (et.key === 'NPC' || et.key === 'Animal')) {
-        const speed = et.key === 'Animal' ? 55 : 32;
+      // Initialise wander AI for generic placeholders when the toggle is on.
+      // Enemies move more aggressively; animals are skittish; NPCs stroll slowly.
+      if (this.aiEnabled && (et.key === 'NPC' || et.key === 'Animal' || et.key === 'Enemy')) {
+        const speed = et.key === 'Enemy' ? 44 : et.key === 'Animal' ? 55 : 32;
         this.liveWander = { x: cx, y: footY, vx: 0, vy: 0, timer: 0, labelOffsetY, speed };
       }
     }
   }
 
-  private clearEntity(): void {
+  private clearEntity(preserveLastPlacedTile = false): void {
+    this.placedLiveEntity?.destroy();
+    this.placedLiveEntity = null;
     this.placedEntity?.destroy();
     this.placedEntity = undefined;
     this.placedEntitySprite?.destroy();
@@ -1050,6 +1090,7 @@ export class WorldForgeScene extends Phaser.Scene {
     this.placedEntityLabel?.destroy();
     this.placedEntityLabel = undefined;
     this.liveWander = null;
+    if (!preserveLastPlacedTile) this.lastPlacedTile = null;
   }
 
   // ── Object placer (FIL-464) ───────────────────────────────────────────────────
@@ -1294,6 +1335,11 @@ export class WorldForgeScene extends Phaser.Scene {
     if (!this.aiEnabled) this.liveWander = null;
 
     this.updateToolStatus();
+
+    // Rebuild the current placement so named entities swap between static
+    // preview sprites and live behavior-tree entities without leaving orphans.
+    const tile = this.lastPlacedTile;
+    if (tile) this.placeEntity(tile.tx, tile.ty);
   }
 
   // ── Per-frame AI wander ───────────────────────────────────────────────────────
@@ -1315,6 +1361,14 @@ export class WorldForgeScene extends Phaser.Scene {
         const wfKey = `waterfall-${this.wfFrame}`;
         for (const s of this.wfSprites) s.setTexture(wfKey);
       }
+    }
+
+    if (this.aiEnabled && this.placedLiveEntity) {
+      this.placedLiveEntity.update(delta);
+      this.placedEntityLabel?.setPosition(
+        this.placedLiveEntity.x,
+        this.placedLiveEntity.y - 32,
+      );
     }
 
     if (!this.liveWander || !this.placedEntity) return;
@@ -1352,5 +1406,52 @@ export class WorldForgeScene extends Phaser.Scene {
     // moving its x/y translates the entire shape + footprint diamond.
     this.placedEntity.setPosition(lw.x, lw.y);
     this.placedEntityLabel?.setPosition(lw.x, lw.y + lw.labelOffsetY);
+  }
+
+  /**
+   * WorldForge loads character sheets as atlases for static frame preview. Live
+   * CombatEntity sprites need Phaser animations, so build them from atlas frame
+   * names using the same `{textureKey}_{state}_{dir}` keys CombatEntity expects.
+   */
+  private createAtlasAnimations(textureKey: string): void {
+    const texture = this.textures.get(textureKey);
+    const frameNames = texture.getFrameNames(false);
+    const dirs = ['south', 'south-east', 'east', 'north-east', 'north'] as const;
+    for (const dir of dirs) {
+      const suffix = `_${dir}`;
+      const stateNames = new Set<string>();
+      for (const frameName of frameNames) {
+        const numberedSuffix = `${suffix}_`;
+        const numberedSuffixIndex = frameName.lastIndexOf(numberedSuffix);
+        const prefix = frameName.endsWith(suffix)
+          ? frameName.slice(0, -suffix.length)
+          : numberedSuffixIndex >= 0
+            ? frameName.slice(0, numberedSuffixIndex)
+            : '';
+        if (prefix) stateNames.add(prefix);
+      }
+
+      for (const state of stateNames) {
+        const animKey = `${textureKey}_${state}_${dir}`;
+        if (this.anims.exists(animKey)) continue;
+        const frames = frameNames
+          .filter(frameName => frameName === `${state}_${dir}` || frameName.startsWith(`${state}_${dir}_`))
+          .sort((a, b) => this.frameIndex(a) - this.frameIndex(b))
+          .map(frame => ({ key: textureKey, frame }));
+        if (frames.length === 0) continue;
+        this.anims.create({
+          key: animKey,
+          frames,
+          frameRate: state === 'idle' ? 6 : 9,
+          repeat: -1,
+        });
+      }
+    }
+  }
+
+  private frameIndex(frameName: string): number {
+    const raw = frameName.slice(frameName.lastIndexOf('_') + 1);
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isNaN(parsed) ? 0 : parsed;
   }
 }

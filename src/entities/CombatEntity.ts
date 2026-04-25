@@ -587,6 +587,16 @@ export abstract class CombatEntity extends Enemy {
   }
 
   _isoSync(): void {
+    if (!this.isoMode) {
+      const body = this.getPhysicsBody();
+      if (body) {
+        this._wx = body.center.x;
+        this._wy = body.center.y;
+        this.setPosition(this._wx, this._wy);
+      }
+      return;
+    }
+
     const body = this.getPhysicsBody();
     if (body) {
       this._wx = body.center.x;
