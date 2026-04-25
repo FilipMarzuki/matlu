@@ -251,3 +251,99 @@ test('screenshot: world forge', async ({ page }) => {
   await page.waitForTimeout(400);
   await capture(page, '03c-dev-biome-zoom.png', 'World Forge zoomed 2× — cliff face strata, waterfall, and highland-to-lowland transition');
 });
+
+// ── 7. Settlement Forge — default (tier 3, forest, logging) ─────────────────
+
+test('screenshot: settlement forge default', async ({ page }) => {
+  await page.goto('/sf');
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game'],
+    { timeout: BOOT_MS },
+  );
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!g?.scene?.getScene('SettlementForgeScene')?.sys?.settings?.active;
+    },
+    { timeout: 12_000 },
+  );
+  await page.waitForTimeout(1_500);
+
+  await capture(
+    page,
+    '07a-settlement-forge-default.png',
+    'Settlement Forge — tier 3 village, forest, logging, default culture and seed',
+  );
+});
+
+// ── 8. Settlement Forge — tier 5 stronghold trading hub ─────────────────────
+
+test('screenshot: settlement forge stronghold', async ({ page }) => {
+  await page.goto('/sf?tier=5&purpose=trading-hub&geo=plains');
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game'],
+    { timeout: BOOT_MS },
+  );
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!g?.scene?.getScene('SettlementForgeScene')?.sys?.settings?.active;
+    },
+    { timeout: 12_000 },
+  );
+  await page.waitForTimeout(1_500);
+
+  await capture(
+    page,
+    '07b-settlement-forge-stronghold.png',
+    'Settlement Forge — tier 5 stronghold, plains, trading-hub, max buildings',
+  );
+});
+
+// ── 9. Settlement Forge — tier 1 outpost, mountain mining ───────────────────
+
+test('screenshot: settlement forge outpost', async ({ page }) => {
+  await page.goto('/sf?tier=1&purpose=mining&geo=mountain');
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game'],
+    { timeout: BOOT_MS },
+  );
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!g?.scene?.getScene('SettlementForgeScene')?.sys?.settings?.active;
+    },
+    { timeout: 12_000 },
+  );
+  await page.waitForTimeout(1_500);
+
+  await capture(
+    page,
+    '07c-settlement-forge-outpost.png',
+    'Settlement Forge — tier 1 outpost, mountain, mining, minimal buildings',
+  );
+});
+
+// ── 10. Settlement Forge — Dvergr culture, garrison ─────────────────────────
+
+test('screenshot: settlement forge dvergr garrison', async ({ page }) => {
+  await page.goto('/sf?tier=4&purpose=garrison&geo=mountain&culture=dvergr-hold');
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game'],
+    { timeout: BOOT_MS },
+  );
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      return !!g?.scene?.getScene('SettlementForgeScene')?.sys?.settings?.active;
+    },
+    { timeout: 12_000 },
+  );
+  await page.waitForTimeout(1_500);
+
+  await capture(
+    page,
+    '07d-settlement-forge-dvergr.png',
+    'Settlement Forge — tier 4 town, mountain, garrison, Dvergr Hold culture (tight spacing, high hierarchy)',
+  );
+});
