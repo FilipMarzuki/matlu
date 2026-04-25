@@ -27,6 +27,7 @@ import { LoreScene } from './scenes/LoreScene';
 import { ShopScene } from './scenes/ShopScene';
 import { ArenaSelectScene } from './scenes/ArenaSelectScene';
 import { WorldForgeScene } from './scenes/WorldForgeScene';
+import { SettlementForgeScene } from './scenes/SettlementForgeScene';
 import { DiscoveryScene } from './scenes/DiscoveryScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
@@ -37,12 +38,15 @@ import { DiscoveryScene } from './scenes/DiscoveryScene';
 //   /biome      → WorldForgeScene       (biome tile + cliff + decoration design tool)
 //   /worldforge → WorldForgeScene       (alias)
 //   /wf         → WorldForgeScene       (short alias)
+//   /sf              → SettlementForgeScene  (settlement generation preview tool)
+//   /settlementforge → SettlementForgeScene  (alias)
 //   /           → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
   if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
+  if (path === '/sf' || path === '/settlementforge') return [SettlementForgeScene, ...all.filter(s => s !== SettlementForgeScene)];
   if (path === '/menu')  return all;
   // Default (/ and /arena): boot straight into arena/combat
   return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
