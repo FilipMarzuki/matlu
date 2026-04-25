@@ -53,6 +53,8 @@ jobs:
 
       - name: Fetch hygiene tasks
         id: fetch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${{ inputs.issue }}" ]; then
             node .github/scripts/fetch-hygiene-issues.js --issue "${{ inputs.issue }}"
