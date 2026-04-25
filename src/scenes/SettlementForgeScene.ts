@@ -33,6 +33,7 @@ import {
   type ResolvedBuilding,
 } from '../world/SettlementGenerator';
 import type { SettlementSpec } from '../world/SettlementSpec';
+import { insertFeedback, GAME_VERSION } from '../lib/feedback';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,10 @@ export class SettlementForgeScene extends Phaser.Scene {
   private legendGfx: Phaser.GameObjects.Graphics | null = null;
   private legendLabels: Phaser.GameObjects.Text[] = [];
 
+  // ── Feedback overlay ───────────────────────────────────────────────────────
+  private feedbackOverlay: HTMLDivElement | null = null;
+  private feedbackBtn: Phaser.GameObjects.Text | null = null;
+
   constructor() { super({ key: 'SettlementForgeScene' }); }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -164,6 +169,7 @@ export class SettlementForgeScene extends Phaser.Scene {
     kb.on('keydown-THREE', () => this.setTier(3));
     kb.on('keydown-FOUR',  () => this.setTier(4));
     kb.on('keydown-FIVE',  () => this.setTier(5));
+    kb.on('keydown-F',     () => this.toggleFeedback());
 
     // ── Zoom ─────────────────────────────────────────────────────────────────
     const applyZoom = (factor: number) => {
@@ -629,6 +635,7 @@ export class SettlementForgeScene extends Phaser.Scene {
       'R            Re-roll seed',
       'Scroll +/-   Zoom',
       'Right-drag   Pan',
+      'F            Feedback',
     ];
 
     this.hudText = this.add.text(10, 10, lines.join('\n'), {
@@ -687,6 +694,166 @@ export class SettlementForgeScene extends Phaser.Scene {
       this.legendLabels.push(label);
 
       ly -= 18;
+    }
+
+    // ── Feedback button ─────────────────────────────────────────────────────
+    this.feedbackBtn?.destroy();
+    this.feedbackBtn = this.add.text(
+      this.scale.width / 2, this.scale.height - 16,
+      '[ F — Send Feedback ]',
+      {
+        fontSize: '12px', color: '#aaccff', fontFamily: 'monospace',
+        backgroundColor: '#1a1a2ecc', padding: { x: 12, y: 6 },
+      },
+    ).setOrigin(0.5, 1).setDepth(100).setScrollFactor(0).setInteractive({ useHandCursor: true });
+    this.feedbackBtn.on('pointerdown', () => this.toggleFeedback());
+    this.feedbackBtn.on('pointerover', () => this.feedbackBtn?.setColor('#ffffff'));
+    this.feedbackBtn.on('pointerout',  () => this.feedbackBtn?.setColor('#aaccff'));
+  }
+
+  // ── Feedback overlay (DOM) ─────────────────────────────────────────────────
+
+  /** Build the current settlement params as a compact JSON string for context. */
+  private settlementContext(): string {
+    const cultures = getAllCultures();
+    const culture = cultures[this.currentCultureIdx];
+    return JSON.stringify({
+      source: 'settlement-forge',
+      tier: this.currentTier,
+      tierName: TIER_NAMES[this.currentTier],
+      geography: GEOGRAPHIES[this.currentGeoIdx],
+      purpose: PURPOSES[this.currentPurposeIdx],
+      culture: culture.id,
+      cultureName: culture.name,
+      seed: this.currentSeed,
+      buildings: this.buildings.length,
+      secondary: this.spec?.secondary ?? [],
+      anomalies: this.spec?.anomalies.map(a => a.type) ?? [],
+    });
+  }
+
+  private toggleFeedback(): void {
+    if (this.feedbackOverlay) {
+      this.closeFeedback();
+    } else {
+      this.openFeedback();
+    }
+  }
+
+  private openFeedback(): void {
+    if (this.feedbackOverlay) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'sf-feedback-overlay';
+    overlay.innerHTML = `
+      <style>
+        #sf-feedback-overlay {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(0,0,0,0.6); font-family: 'Outfit', sans-serif;
+        }
+        #sf-feedback-box {
+          background: #1a1a2e; border: 1px solid #444466; border-radius: 8px;
+          padding: 24px; max-width: 420px; width: 90%; color: #ccccdd;
+        }
+        #sf-feedback-box h3 { margin: 0 0 4px; color: #aaccff; font-size: 16px; }
+        #sf-feedback-box .context { font-size: 11px; color: #888; margin-bottom: 12px; font-family: monospace; }
+        #sf-feedback-box textarea {
+          width: 100%; min-height: 100px; background: #0d0d1a; border: 1px solid #444466;
+          border-radius: 4px; color: #ccccdd; padding: 8px; font-size: 13px;
+          font-family: 'Outfit', sans-serif; resize: vertical;
+        }
+        #sf-feedback-box textarea:focus { outline: none; border-color: #aaccff; }
+        #sf-feedback-box .btn-row { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+        #sf-feedback-box button {
+          padding: 6px 16px; border-radius: 4px; cursor: pointer;
+          font-family: 'Outfit', sans-serif; font-size: 13px; border: 1px solid #444466;
+        }
+        #sf-feedback-box .submit-btn { background: #2a4a6a; color: #aaccff; }
+        #sf-feedback-box .submit-btn:hover { background: #3a5a7a; }
+        #sf-feedback-box .submit-btn:disabled { opacity: 0.5; cursor: default; }
+        #sf-feedback-box .cancel-btn { background: none; color: #888; }
+        #sf-feedback-box .cancel-btn:hover { color: #ccc; }
+        #sf-feedback-box .status { font-size: 12px; margin-top: 8px; min-height: 18px; }
+        #sf-feedback-box .status.ok { color: #66cc66; }
+        #sf-feedback-box .status.err { color: #cc6666; }
+      </style>
+      <div id="sf-feedback-box">
+        <h3>Settlement Forge Feedback</h3>
+        <div class="context">
+          Tier ${this.currentTier} ${TIER_NAMES[this.currentTier]}
+          &middot; ${GEOGRAPHIES[this.currentGeoIdx]}
+          &middot; ${PURPOSES[this.currentPurposeIdx]}
+          &middot; ${getAllCultures()[this.currentCultureIdx].name}
+          &middot; seed ${this.currentSeed}
+          &middot; ${this.buildings.length} buildings
+        </div>
+        <textarea id="sf-feedback-text" placeholder="What do you think of this settlement layout? Anything feel off? Ideas for improvement?"></textarea>
+        <div class="btn-row">
+          <button class="cancel-btn" id="sf-cancel">Cancel</button>
+          <button class="submit-btn" id="sf-submit">Send</button>
+        </div>
+        <div class="status" id="sf-status"></div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    this.feedbackOverlay = overlay;
+
+    // Focus the textarea
+    const textarea = document.getElementById('sf-feedback-text') as HTMLTextAreaElement;
+    setTimeout(() => textarea?.focus(), 50);
+
+    // Cancel
+    document.getElementById('sf-cancel')!.addEventListener('click', () => this.closeFeedback());
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) this.closeFeedback();
+    });
+
+    // Submit
+    document.getElementById('sf-submit')!.addEventListener('click', () => this.submitFeedback());
+
+    // Escape key
+    const escHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { this.closeFeedback(); document.removeEventListener('keydown', escHandler); }
+    };
+    document.addEventListener('keydown', escHandler);
+  }
+
+  private closeFeedback(): void {
+    this.feedbackOverlay?.remove();
+    this.feedbackOverlay = null;
+    // Re-focus the Phaser canvas so keyboard controls work again
+    this.game.canvas.focus();
+  }
+
+  private async submitFeedback(): Promise<void> {
+    const textarea = document.getElementById('sf-feedback-text') as HTMLTextAreaElement | null;
+    const statusEl = document.getElementById('sf-status');
+    const submitBtn = document.getElementById('sf-submit') as HTMLButtonElement | null;
+    const text = textarea?.value.trim();
+
+    if (!text) {
+      if (statusEl) { statusEl.textContent = 'Please write something first.'; statusEl.className = 'status err'; }
+      return;
+    }
+
+    if (submitBtn) submitBtn.disabled = true;
+    if (statusEl) { statusEl.textContent = 'Sending...'; statusEl.className = 'status'; }
+
+    try {
+      // Pack settlement context into session_id so it's queryable alongside the text
+      await insertFeedback(
+        `[Settlement Forge] ${text}`,
+        GAME_VERSION,
+        this.settlementContext(),
+      );
+      if (statusEl) { statusEl.textContent = 'Thanks! Feedback sent.'; statusEl.className = 'status ok'; }
+      setTimeout(() => this.closeFeedback(), 1500);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      if (statusEl) { statusEl.textContent = `Failed: ${msg}`; statusEl.className = 'status err'; }
+      if (submitBtn) submitBtn.disabled = false;
     }
   }
 }
