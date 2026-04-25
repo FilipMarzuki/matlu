@@ -871,11 +871,16 @@ export abstract class CombatEntity extends Enemy {
         const eSpeedFraction = this.speed > 0 ? Math.min(eSpd / this.speed, 1) : 0;
         const eDist     = Phaser.Math.Distance.Between(this._wx, this._wy, tx, ty);
         const eInCover  = isPartialCover(this._wx, this._wy, tx, ty, this.wallRects);
-        const eSpread   = calcSpread(eDist, eSpeedFraction, eInCover);
-        const angle     = applySpread(Math.atan2(ty - this._wy, tx - this._wx), eSpread);
+        const eSpread     = calcSpread(eDist, eSpeedFraction, eInCover);
+        const eIsoOrigin  = worldToArenaIso(this._wx, this._wy);
+        const eIsoTarget  = worldToArenaIso(tx, ty);
+        const angle       = applySpread(
+          Math.atan2(eIsoTarget.y - eIsoOrigin.y, eIsoTarget.x - eIsoOrigin.x),
+          eSpread,
+        );
 
         const p = new Projectile(
-          this.scene, this._wx, this._wy, angle,
+          this.scene, eIsoOrigin.x, eIsoOrigin.y, angle,
           this.projectileSpeed, this.projectileDamage,
           this.projectileColor,
           // Merge opponents and extra targets so projectiles can hit BurrowHoles too.
@@ -1054,13 +1059,18 @@ export abstract class CombatEntity extends Enemy {
     const currentSpeed  = vel ? Math.sqrt(vel.x * vel.x + vel.y * vel.y) : 0;
     const speedFraction = this.speed > 0 ? Math.min(currentSpeed / this.speed, 1) : 0;
 
-    const dist    = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
-    const inCover = isPartialCover(this._wx, this._wy, target._wx, target._wy, this.wallRects);
-    const spread  = calcSpread(dist, speedFraction, inCover);
-    const angle   = applySpread(Math.atan2(target._wy - this._wy, target._wx - this._wx), spread);
+    const dist      = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
+    const inCover   = isPartialCover(this._wx, this._wy, target._wx, target._wy, this.wallRects);
+    const spread    = calcSpread(dist, speedFraction, inCover);
+    const isoOrigin = worldToArenaIso(this._wx, this._wy);
+    const isoTarget = worldToArenaIso(target._wx, target._wy);
+    const angle     = applySpread(
+      Math.atan2(isoTarget.y - isoOrigin.y, isoTarget.x - isoOrigin.x),
+      spread,
+    );
 
     const p = new Projectile(
-      this.scene, this._wx, this._wy, angle,
+      this.scene, isoOrigin.x, isoOrigin.y, angle,
       this.projectileSpeed, this.projectileDamage,
       this.projectileColor,
       (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
