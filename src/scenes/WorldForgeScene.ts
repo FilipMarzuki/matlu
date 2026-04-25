@@ -23,29 +23,10 @@
 import * as Phaser from 'phaser';
 import { isoTileFrame, ISO_RIVER_FRAME, ISO_TILE_NATIVE_SIZE } from '../world/IsoTileMap';
 import { BIOMES } from '../world/biomes';
+import { CUSTOM_TILE_PACKS, preloadTilePacks } from '../world/TilePacks';
 
 const BIOME_NAMES          = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
-
-/**
- * Biomes with custom AI-generated floor tiles.
- * Key = biome index (matches BIOMES array), value = pack folder name under
- * `public/assets/packs/<name>-tiles/`. Each pack has 4 variants: 0–2 main,
- * 3 accent. Biome 0 (Sea) is excluded — handled by the ocean strip renderer.
- */
-const CUSTOM_TILE_PACKS: Record<number, string> = {
-  1:  'rocky-shore',
-  2:  'sandy-shore',
-  3:  'marsh',
-  4:  'dry-heath',
-  5:  'coastal-heath',
-  6:  'meadow',
-  7:  'forest',
-  8:  'spruce',
-  9:  'cold-granite',
-  10: 'bare-summit',
-  11: 'snow-field',
-};
 
 /**
  * Maps biome index → isometric cliff block tile key.
@@ -185,11 +166,7 @@ export class WorldForgeScene extends Phaser.Scene {
     this.load.image('cliff-stone',  '/assets/packs/cliff-iso-gen/stone_iso_0.png');
 
     // Custom floor tiles — 4 variants per biome replacing the cluttered stock spritesheet.
-    for (const packName of Object.values(CUSTOM_TILE_PACKS)) {
-      for (let i = 0; i < 4; i++) {
-        this.load.image(`${packName}-${i}`, `/assets/packs/${packName}-tiles/${i}.png`);
-      }
-    }
+    preloadTilePacks(this);
 
     // Hero atlases — loaded so entity spawner can show actual sprites.
     this.load.atlas('tinkerer',
