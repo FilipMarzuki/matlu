@@ -31,3 +31,7 @@ cd dev && npm install && npm run dev
 - **Wiki + Dev blog**: Astro 6, TypeScript, Supabase, Notion API
 - **CI**: GitHub Actions — builds all three sites on every push
 - **Deploy**: Vercel (auto-deploy on push to `main`)
+
+## License
+
+Matlu uses split licensing: source code is available under the [MIT License](LICENSE), original Matlu-created assets are available under [CC BY 4.0](LICENSE-ASSETS.md), and third-party assets keep their own licenses. See [NOTICE.md](NOTICE.md) for the full licensing notice and the current third-party asset license references.

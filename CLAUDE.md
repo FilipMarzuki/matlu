@@ -49,6 +49,27 @@ Put each source pack in its **own folder** under **`public/assets/packs/<pack-na
 
 After adding or renaming files, run **`npm run assets:manifest`**. That writes **`public/assets/manifest.json`** — a flat catalog grouped by pack (`id`, `path`, `assets[]` with `relative` and `url`) so agents can pick files without walking the tree.
 
+## Licensing
+
+Matlu source code is licensed under **MIT** (`LICENSE`). Original Matlu-created
+assets are licensed under **CC-BY 4.0** (`LICENSE-ASSETS.md`). Third-party assets
+keep their own licenses and must be documented in `NOTICE.md` and/or a license
+file beside the imported pack.
+
+When adding assets:
+
+- Do not commit third-party assets unless they are documented in
+  `public/assets/manifest.json` (for source packs) and have a ship-safe license
+  recorded in `NOTICE.md` or beside the asset.
+- Do not introduce CC-BY-NC, non-commercial-only, no-redistribution, or otherwise
+  non-ship-safe assets for game content unless a separate issue explicitly tracks
+  the legal/product decision.
+- Attribute new original assets as "Matlu / Core Warden by Filip Marzuki and
+  contributors" in metadata or manifest notes when practical.
+- Preserve upstream license files for third-party packs exactly as shipped.
+- Add `SPDX-License-Identifier: MIT` to new source files when the file format
+  supports comments.
+
 ## AI asset generation (PixelLab)
 
 Custom pixel art is generated via the **PixelLab MCP** (available in this project via `.mcp.json`).
