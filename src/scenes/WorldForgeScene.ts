@@ -996,7 +996,7 @@ export class WorldForgeScene extends Phaser.Scene {
    * Depth 5 — above terrain (0) and grid (2), below palette UI (10+).
    */
   private placeEntity(tx: number, ty: number): void {
-    this.clearEntity();
+    this.clearEntity(true);
     if (this.selectedEntityKey === null) return;
     this.lastPlacedTile = { tx, ty };
     const et = ENTITY_TYPES.find(e => e.key === this.selectedEntityKey)!;
