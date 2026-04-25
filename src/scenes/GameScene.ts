@@ -7497,6 +7497,8 @@ export class GameScene extends Phaser.Scene {
   private buildDevBiomeGfx(): void {
     if (!this.tileDevBiome) return;
     const tilesX = this.tileDevW;
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
 
     const groups = new Map<number, number[]>();
     for (let i = 0, len = this.tileDevBiome.length; i < len; i++) {
@@ -7510,7 +7512,14 @@ export class GameScene extends Phaser.Scene {
     for (const [color, coords] of groups) {
       gfx.fillStyle(color, 0.82);
       for (let j = 0; j < coords.length; j += 2) {
-        gfx.fillRect(coords[j], coords[j + 1], TILE_SIZE, TILE_SIZE);
+        const { x: isoX, y: isoY } = worldToIso(coords[j], coords[j + 1]);
+        gfx.beginPath();
+        gfx.moveTo(isoX,      isoY);
+        gfx.lineTo(isoX + hw, isoY + hh);
+        gfx.lineTo(isoX,      isoY + ISO_TILE_H);
+        gfx.lineTo(isoX - hw, isoY + hh);
+        gfx.closePath();
+        gfx.fillPath();
       }
     }
     this.devBiomeGfx = gfx;
