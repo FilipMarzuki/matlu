@@ -10,6 +10,7 @@ Canonical lore lives in Notion. IDs below let agents fetch entries directly.
 | Creatures  | `4c71181b-2842-4301-b7cf-94572b3845a9` | All fauna: wildlife, corrupted, bosses, critters |
 | Characters | `751f1b85-0c99-4e1b-a0a5-c39a5422498a` | Named NPCs, antagonists, allies |
 | Cultures   | `2928281c-057d-4632-8834-98cd2d873912` | Ways-of-living: default race cultures, settlement cultures, organizational. `Culture ID` is auto-increment `CULT-N`. Cultural axes live here. |
+| Settlement Approaches | `991a8cd3-7cc5-4e9e-a067-0bbf1f38421b` | How settlements are built — layout, geometry, spatial feel. `Approach ID` is auto-increment `SETT-N`. Mirrors `macro-world/cultures.json`. |
 | Factions   | `833dd954-974b-422d-adb2-14a51f30af16` | Organisations and factions across all three worlds. `Culture` relation links to Culture DB. |
 | Worlds     | `466886c8-a11c-46e7-b974-a58b8ee6647d` | The three worlds + the blended state |
 | Locations  | `e374f3c2-e431-4e96-ab00-0dd21a6223b5` | Named places, regions, landmarks |
