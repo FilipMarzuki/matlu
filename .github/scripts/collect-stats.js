@@ -181,6 +181,47 @@ async function getGitHubStats() {
   };
 }
 
+/**
+ * Completed workflow runs for Bender (`agent-nightly.yml`) and Marvin
+ * (`cursor-agent-nightly.yml`) in the last 7 days. Helps spot silent gaps
+ * when cron runs fail before opening a PR.
+ */
+async function getNightlyAgentWorkflowStats() {
+  if (!GITHUB_TOKEN) {
+    console.log('GITHUB_TOKEN not set — skipping nightly agent workflow stats.');
+    return null;
+  }
+
+  const workflows = [
+    { key: 'bender', file: 'agent-nightly.yml' },
+    { key: 'marvin', file: 'cursor-agent-nightly.yml' },
+  ];
+
+  const out = { bender: null, marvin: null };
+
+  for (const w of workflows) {
+    try {
+      const data = await ghGet(
+        `/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${w.file}/runs?per_page=100&created=>=${weekAgoISO}`
+      );
+      const completed = (data.workflow_runs || []).filter(r => r.conclusion != null);
+      const success = completed.filter(r => r.conclusion === 'success').length;
+      const total = completed.length;
+      out[w.key] = {
+        workflowFile:    w.file,
+        runsCompleted:   total,
+        runsSucceeded:   success,
+        successRatePct:  total ? Math.round((success / total) * 100) : null,
+      };
+    } catch (e) {
+      console.warn(`getNightlyAgentWorkflowStats(${w.key}):`, e.message);
+    }
+  }
+
+  if (!out.bender && !out.marvin) return null;
+  return out;
+}
+
 // ── Commit spread ────────────────────────────────────────────────────────────
 
 async function getCommitSpread() {
@@ -796,7 +837,7 @@ function slugify(title) {
 
 // ── Build markdown ────────────────────────────────────────────────────────────
 
-function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime) {
+function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime, nightlyAgentWorkflows) {
   const lines = [];
   const h2 = (t) => { lines.push(`## ${t}`, ''); };
   const li = (t) => lines.push(`- ${t}`);
@@ -831,6 +872,16 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   h2('Automation');
   li(`Agent PRs this week: **${gh.agentMergedCount}** (${gh.agentPrPct}% of merged)`);
   if (gh.agentSuccessRate !== null) li(`Agent success rate: **${gh.agentSuccessRate}%** (merged / closed claude/ PRs)`);
+  if (nightlyAgentWorkflows?.bender) {
+    const b = nightlyAgentWorkflows.bender;
+    const pct = b.successRatePct != null ? `${b.successRatePct}%` : '—';
+    li(`Nightly Bender workflow runs (completed): **${b.runsCompleted}** — **${pct}** success`);
+  }
+  if (nightlyAgentWorkflows?.marvin) {
+    const m = nightlyAgentWorkflows.marvin;
+    const pct = m.successRatePct != null ? `${m.successRatePct}%` : '—';
+    li(`Nightly Marvin workflow runs (completed): **${m.runsCompleted}** — **${pct}** success`);
+  }
   lines.push('');
 
   if (agentOutcome) {
@@ -1339,7 +1390,7 @@ async function triggerVercelDeploy() {
 async function main() {
   console.log(`Collecting stats for ${weekLabel}...`);
 
-  const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome, leadTime] = await Promise.all([
+  const [gh, linear, commitSpread, pixellab, deployStats, agentOutcome, leadTime, nightlyAgentWorkflows] = await Promise.all([
     getGitHubStats(),
     getIssueStats(),
     getCommitSpread(),
@@ -1347,6 +1398,7 @@ async function main() {
     getDeployStats(),
     getAgentOutcomeStats(),
     getGitHubLeadTimeStats(),
+    getNightlyAgentWorkflowStats(),
   ]);
 
   // Synchronous stats — run after async work so the build step doesn't block network calls
@@ -1368,13 +1420,14 @@ async function main() {
   console.log('Cognitive load:', cogLoad ? `total=${cogLoad.totalScore}, top=${cogLoad.top10[0]?.file}` : 'N/A');
   console.log('Rework:', rework ? `rate=${rework.reworkRate}%, files=${rework.reworkFileCount}/${rework.totalFiles}` : 'N/A');
   console.log('Agent outcomes:', agentOutcome ? `total=${agentOutcome.total}, failureRate=${agentOutcome.failureRate}%` : 'N/A');
+  console.log('Nightly agent workflows:', nightlyAgentWorkflows);
 
-  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime);
+  const content = buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, deployStats, ai, quality, rework, agentOutcome, leadTime, nightlyAgentWorkflows);
   const metrics = {
     delivery:      { mergedCount: gh.mergedCount, humanMergedCount: gh.humanMergedCount, agentMergedCount: gh.agentMergedCount, avgPrSize: gh.avgPrSize, completedCount: linear.completedCount, activeDays: commitSpread?.activeDays ?? null, totalCommits: commitSpread?.totalCommits ?? null },
     velocity:      { avgMergeTime: gh.avgMergeTime, avgCycleTime: linear.avgCycleTime, reworkRate: linear.reworkRate },
     quality:       { ciPassRate: gh.ciPassRate, fixRevertCount: gh.fixRevertCount, fixRevertPct: gh.fixRevertPct, ...(quality ?? {}) },
-    automation:    { agentMergedCount: gh.agentMergedCount, agentPrPct: gh.agentPrPct, agentSuccessRate: gh.agentSuccessRate },
+    automation:    { agentMergedCount: gh.agentMergedCount, agentPrPct: gh.agentPrPct, agentSuccessRate: gh.agentSuccessRate, nightlyAgentWorkflows: nightlyAgentWorkflows ?? null },
     cognitiveLoad: cogLoad      ?? null,
     rework:        rework       ?? null,
     aiUsage:       ai           ?? null,
