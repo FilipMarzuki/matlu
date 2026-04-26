@@ -810,10 +810,10 @@ export class SettlementForgeScene extends Phaser.Scene {
         const alpha = underBuilding ? 0.15 : (road.main ? 0.7 : 0.55);
         this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
 
-        // Number label on every road tile (high depth so always visible)
+        // Coordinate label on every road tile (high depth so always visible)
         const { x, y } = this.isoPos(road.tx, road.ty);
-        const roadLabel = this.add.text(x, y + this.ISO_H / 2, `${ri}`, {
-          fontSize: '9px',
+        const roadLabel = this.add.text(x, y + this.ISO_H / 2, `${road.tx},${road.ty}`, {
+          fontSize: '7px',
           color: road.main ? '#ffee88' : '#ffaa44',
           fontFamily: 'monospace',
           stroke: '#000000',
@@ -852,9 +852,10 @@ export class SettlementForgeScene extends Phaser.Scene {
       }).setOrigin(0.5, 0.5).setDepth(10 + (p.tx + p.ty) * 0.01 + 0.001);
       this.labelObjects.push(numLabel);
 
-      // Name label above
+      // Name + coordinates label above
       const labelY = y + this.ISO_H / 2 - heightPx - 6;
-      const label = this.add.text(x, labelY, p.building.id, {
+      const label = this.add.text(x, labelY,
+        `${p.building.id} (${p.tx},${p.ty}) ${p.widthT}x${p.depthT}`, {
         fontSize: '7px', color: '#cccccc', fontFamily: 'monospace',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 1).setDepth(10 + (p.tx + p.ty) * 0.01);
