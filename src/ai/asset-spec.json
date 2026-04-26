@@ -591,6 +591,50 @@
         }
       ],
       "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-child"
+    },
+    {
+      "id": "human-agrarian-militia",
+      "name": "Militia (Human Agrarian)",
+      "world": "mistheim",
+      "faction": "agrarian",
+      "status": "pending",
+      "_comment": "Tier-2 hamlet defender — farmer who doubles as militia. Forest-green sash + simple billhook (held overhead in walk/idle, lowered on jab). Per #307 guard/militia rule.",
+      "pixellab": {
+        "description": "human peasant militiaman, woollen padded tunic, forest-green sash diagonally across chest, leather bracers, simple billhook polearm held resting on shoulder, sturdy boots, watchful posture, anime-fantasy aesthetic, clean linework, soft expressive face, natural-fibre clothing, low-saturation earthy palette with forest-green accent, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jab",
+          "template": "lead-jab",
+          "frameDurationMs": 90
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-militia"
     }
   ],
   "tilesets": [
