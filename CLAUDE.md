@@ -115,6 +115,7 @@ dev/                    # Agentic Experiments — AI/automation dev log (Astro 6
 - Keep game logic in scene classes; don't add abstractions speculatively
 - Run `npm run typecheck` and `npm run build` before pushing
 - **Settlements live in Mistheim.** There is no separate worldgen for other realms — the 22 cultures (`macro-world/cultures.json`) all populate Mistheim. Spinolandet, Earth, and other narrative realms exist as lore but have no procedural settlement system.
+- **Cultures are race-agnostic.** Many races can share a culture. Culture IDs have no race prefix (e.g. `coastborn`, not `human-seafaring`). `racePreferences` is an optional weighted hint; absent means sample from regional demographics.
 
 ## Current milestone
 
