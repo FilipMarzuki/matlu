@@ -35,24 +35,19 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
-      - name: Check if this was triggered by a Marvin branch
+      - name: Check origin (always pass — fetch-issue decides eligibility)
         id: check-origin
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            WORKFLOW="${{ github.event.workflow_run.name }}"
-            BRANCH="${{ github.event.workflow_run.head_branch }}"
-            # Grooming runs on main; always let fetch-issue decide.
-            if [ "$WORKFLOW" = "DevCycle 5 — Grooming" ]; then
-              echo "is_marvin=true" >> $GITHUB_OUTPUT
-            elif [[ "$BRANCH" != marvin/* ]]; then
-              echo "Merge was for branch '$BRANCH' — not a Marvin PR, skipping"
-              echo "is_marvin=false" >> $GITHUB_OUTPUT
-            else
-              echo "is_marvin=true" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "is_marvin=true" >> $GITHUB_OUTPUT
-          fi
+          # DevCycle 4 — Merge fires workflow_run with head_branch=main due to
+          # chained workflow_run context loss (the original PR's branch is not
+          # propagated through CI → Review → Merge). The previous marvin/*
+          # check therefore always rejected DevCycle 4 events, breaking the
+          # post-merge wake chain.
+          #
+          # Letting fetch-issue decide is correct: if no eligible work exists
+          # it exits cleanly. Cron + workflow_dispatch + workflow_run all flow
+          # through the same path now.
+          echo "is_marvin=true" >> $GITHUB_OUTPUT
 
       - name: Check cycle cap
         id: check
