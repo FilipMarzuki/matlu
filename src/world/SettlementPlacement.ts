@@ -196,11 +196,11 @@ function generateRoads(
 // ── Main placement algorithm ─────────────────────────────────────────────────
 
 /**
- * Generate roads then place buildings on a tile grid without overlaps.
+ * Generate roads, then place buildings one at a time, connecting each
+ * to the path network immediately after placement.
  *
- * Buildings prefer road-adjacent positions (within 2 tiles of a road).
- * If no road-adjacent spot is found within the first 60 attempts, falls
- * back to pure zone-ring placement.
+ * This guarantees every building is connected — the network grows with
+ * each building, so there's never a disconnect.
  */
 export function placeBuildings(input: PlacementInput): PlacementResult {
   const { buildings, radiusTiles, gridSize, tileSize, seed, zoneFracs,
@@ -210,28 +210,36 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
   const rng = mulberry32(seed + 13);
   const gap = 1.0;
 
-  // Phase 0: generate road network
+  // Step 0: generate main road network
   const roads = generateRoads(streetPattern, mid, radiusTiles, gridSize, roadRng);
+
+  // The connected set: all tiles reachable from the road network.
+  // Grows with every building that gets connected.
+  const connected = new Set(roads.set);
+  if (connected.size === 0) {
+    // No main roads — seed with centre tile
+    connected.add(tileKey(mid, mid));
+  }
 
   const placed: Array<{ tx: number; ty: number; size: number }> = [];
   const result: PlacedBuilding[] = [];
+  const connectorPaths: RoadTile[] = [];
 
-  /** Check if a position is adjacent to a road tile (within dist tiles). */
-  const nearRoad = (tx: number, ty: number, dist: number): boolean => {
+  // Check helpers (use connected set which grows over time)
+  const nearConnected = (tx: number, ty: number, dist: number): boolean => {
     for (let dx = -dist; dx <= dist; dx++) {
       for (let dy = -dist; dy <= dist; dy++) {
-        if (roads.set.has(tileKey(tx + dx, ty + dy))) return true;
+        if (connected.has(tileKey(tx + dx, ty + dy))) return true;
       }
     }
     return false;
   };
 
-  /** Check if a position overlaps a road tile (buildings shouldn't sit on roads). */
-  const onRoad = (tx: number, ty: number, widthT: number): boolean => {
+  const onConnected = (tx: number, ty: number, widthT: number): boolean => {
     const half = Math.ceil(widthT / 2);
     for (let dx = -half; dx <= half; dx++) {
       for (let dy = -half; dy <= half; dy++) {
-        if (roads.set.has(tileKey(tx + dx, ty + dy))) return true;
+        if (connected.has(tileKey(tx + dx, ty + dy))) return true;
       }
     }
     return false;
@@ -241,9 +249,13 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     const frac = zoneFracs[building.zone] ?? zoneFracs['middle'] ?? { min: 0.38, max: 0.65 };
     const widthT = Math.max(1, Math.round(building.w / tileSize));
     const depthT = widthT;
-    const hasRoads = roads.tiles.length > 0;
 
-    // Phase 1: try road-adjacent placement first (60 attempts), then any zone (60 more)
+    // ── Place the building ────────────────────────────────────────────────
+    let placedTx = mid;
+    let placedTy = mid;
+    let wasFallback = false;
+
+    // Try 120 positions: first 60 prefer near connected tiles, rest anywhere in zone
     let success = false;
     for (let attempt = 0; attempt < 120; attempt++) {
       const angle = rng() * Math.PI * 2;
@@ -255,169 +267,99 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
       const ty = Math.round(mid + Math.sin(angle) * dist);
 
       if (tx < 1 || ty < 1 || tx >= gridSize - 1 || ty >= gridSize - 1) continue;
+      if (onConnected(tx, ty, widthT)) continue; // don't sit on paths
 
-      // Don't place on top of roads
-      if (hasRoads && onRoad(tx, ty, widthT)) continue;
+      // First 60: prefer near the connected network
+      if (attempt < 60 && !nearConnected(tx, ty, 2)) continue;
 
-      // First 60 attempts: prefer road-adjacent positions
-      if (hasRoads && attempt < 60 && !nearRoad(tx, ty, 2)) continue;
-
-      const overlaps = placed.some(p =>
-        rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, gap));
-
-      if (!overlaps) {
-        placed.push({ tx, ty, size: widthT });
-        result.push({ tx, ty, widthT, depthT, building, fallback: false });
-        success = true;
+      if (!placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, gap))) {
+        placedTx = tx; placedTy = ty; success = true;
         break;
       }
     }
 
-    if (success) continue;
-
-    // Phase 2: spiral outward from zone midpoint
-    const baseAngle = rng() * Math.PI * 2;
-    const baseDist = radiusTiles * (frac.min + frac.max) / 2;
-    let foundFallback = false;
-    for (let ring = 0; ring < 8 && !foundFallback; ring++) {
-      for (let step = 0; step < 12; step++) {
-        const a = baseAngle + (step / 12) * Math.PI * 2;
-        const d = baseDist + ring * 1.5;
-        const tx = Math.round(mid + Math.cos(a) * d);
-        const ty = Math.round(mid + Math.sin(a) * d);
-        if (tx < 1 || ty < 1 || tx >= gridSize - 1 || ty >= gridSize - 1) continue;
-        if (hasRoads && onRoad(tx, ty, widthT)) continue;
-        const overlaps = placed.some(p =>
-          rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, gap));
-        if (!overlaps) {
-          placed.push({ tx, ty, size: widthT });
-          result.push({ tx, ty, widthT, depthT, building, fallback: true });
-          foundFallback = true;
-          break;
+    if (!success) {
+      // Spiral fallback
+      const baseAngle = rng() * Math.PI * 2;
+      const baseDist = radiusTiles * (frac.min + frac.max) / 2;
+      for (let ring = 0; ring < 10 && !success; ring++) {
+        for (let step = 0; step < 16; step++) {
+          const a = baseAngle + (step / 16) * Math.PI * 2;
+          const d = baseDist + ring * 1.5;
+          const tx = Math.round(mid + Math.cos(a) * d);
+          const ty = Math.round(mid + Math.sin(a) * d);
+          if (tx < 1 || ty < 1 || tx >= gridSize - 1 || ty >= gridSize - 1) continue;
+          if (!placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, gap))) {
+            placedTx = tx; placedTy = ty; success = true; wasFallback = true;
+            break;
+          }
         }
       }
-    }
-
-    // Phase 3: last resort — force place
-    if (!foundFallback) {
-      const tx = Math.round(mid + Math.cos(baseAngle) * baseDist);
-      const ty = Math.round(mid + Math.sin(baseAngle) * baseDist);
-      placed.push({ tx, ty, size: widthT });
-      result.push({ tx, ty, widthT, depthT, building, fallback: true });
-    }
-  }
-
-  // Phase 4: connect buildings to road network with secondary paths
-  const pathRng = mulberry32(seed + 31);
-  const connectorPaths = connectBuildings(result, roads.set, placed, gridSize, pathRng);
-
-  // Merge main roads + connector paths (connectors are marked main=false)
-  const allRoads = [...roads.tiles, ...connectorPaths];
-
-  return { buildings: result, roads: allRoads };
-}
-
-// ── Building-to-road connector paths ─────────────────────────────────────────
-
-/**
- * Connect every building to the road/path network. Guaranteed connectivity.
- *
- * Simple approach that always works:
- * 1. Start with road tiles as "connected".
- * 2. Sort buildings by distance to nearest connected tile (closest first).
- * 3. For each building, find nearest edge tile to connected network.
- * 4. Run A* with NO obstacle avoidance (guaranteed to find a path on an
- *    open grid). Paths may cross building footprints — that's OK, they're
- *    ground-level under the buildings.
- * 5. Apply wobble for organic feel, then mark new tiles as connected.
- *
- * The greedy sort + incremental connected set means each new path extends
- * the network, so later buildings have shorter paths — producing a natural
- * branching tree structure.
- */
-function connectBuildings(
-  buildings: PlacedBuilding[],
-  roadSet: TileSet,
-  placed: Array<{ tx: number; ty: number; size: number }>,
-  gridSize: number,
-  rng: () => number,
-): RoadTile[] {
-  if (buildings.length === 0) return [];
-
-  const connected = new Set(roadSet);
-  const paths: RoadTile[] = [];
-
-  // Seed connected set if empty (pattern=none)
-  if (connected.size === 0) {
-    const mid = Math.floor(gridSize / 2);
-    connected.add(tileKey(mid, mid));
-    paths.push({ tx: mid, ty: mid, main: false });
-  }
-
-  // Occupied set only used for wobble avoidance (cosmetic), not for A*
-  const occupied = new Set<string>();
-  for (const p of placed) {
-    const half = Math.ceil(p.size / 2);
-    for (let dx = -half; dx <= half; dx++) {
-      for (let dy = -half; dy <= half; dy++) {
-        occupied.add(tileKey(p.tx + dx, p.ty + dy));
+      if (!success) {
+        // Force place at zone midpoint
+        placedTx = Math.round(mid + Math.cos(rng() * Math.PI * 2) * baseDist);
+        placedTy = Math.round(mid + Math.sin(rng() * Math.PI * 2) * baseDist);
+        wasFallback = true;
       }
     }
-  }
 
-  // Sort: closest to connected first (greedy — extends the network outward)
-  const sorted = [...buildings];
-  sorted.sort((a, b) => {
-    const distA = nearestConnectedDist(a.tx, a.ty, connected);
-    const distB = nearestConnectedDist(b.tx, b.ty, connected);
-    return distA - distB;
-  });
+    placed.push({ tx: placedTx, ty: placedTy, size: widthT });
+    result.push({ tx: placedTx, ty: placedTy, widthT, depthT, building, fallback: wasFallback });
 
-  for (const building of sorted) {
-    const half = Math.ceil(building.widthT / 2);
+    // ── Connect this building to the network ──────────────────────────────
+    const half = Math.ceil(widthT / 2);
 
     // Find the edge tile closest to a connected tile
-    let bestStart = { tx: building.tx + half + 1, ty: building.ty };
+    let bestEdge = { tx: placedTx + half + 1, ty: placedTy };
     let bestDist = Infinity;
     for (let dx = -(half + 1); dx <= half + 1; dx++) {
       for (let dy = -(half + 1); dy <= half + 1; dy++) {
         if (Math.abs(dx) <= half && Math.abs(dy) <= half) continue;
-        const etx = building.tx + dx;
-        const ety = building.ty + dy;
+        const etx = placedTx + dx;
+        const ety = placedTy + dy;
         if (etx < 0 || ety < 0 || etx >= gridSize || ety >= gridSize) continue;
+        if (connected.has(tileKey(etx, ety))) { bestDist = 0; bestEdge = { tx: etx, ty: ety }; break; }
         const d = nearestConnectedDist(etx, ety, connected);
-        if (d < bestDist) { bestDist = d; bestStart = { tx: etx, ty: ety }; }
+        if (d < bestDist) { bestDist = d; bestEdge = { tx: etx, ty: ety }; }
       }
+      if (bestDist === 0) break;
     }
 
-    // Already touching — just mark it
-    if (connected.has(tileKey(bestStart.tx, bestStart.ty)) || bestDist === 0) {
-      const k = tileKey(bestStart.tx, bestStart.ty);
-      connected.add(k);
+    // Already touching the network
+    if (bestDist === 0) {
+      connected.add(tileKey(bestEdge.tx, bestEdge.ty));
       continue;
     }
 
-    // A* with NO obstacles — guaranteed path on an open grid
-    let rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, new Set(), gridSize);
-
-    // Fallback (shouldn't happen, but just in case)
-    if (rawPath.length === 0) {
-      rawPath = straightLineToConnected(bestStart.tx, bestStart.ty, connected, gridSize);
+    // A* from edge tile to nearest connected tile (no obstacles — guaranteed)
+    let path = astarToConnected(bestEdge.tx, bestEdge.ty, connected, new Set(), gridSize);
+    if (path.length === 0) {
+      path = straightLineToConnected(bestEdge.tx, bestEdge.ty, connected, gridSize);
     }
 
-    // Wobble avoids occupied tiles cosmetically but doesn't block the path
-    const wobbly = wobblePath(rawPath, occupied, connected, gridSize, rng);
+    // Add wobble for organic feel
+    const wobbly = wobblePath(path, new Set(), connected, gridSize, rng);
     for (const p of wobbly) {
       const k = tileKey(p.tx, p.ty);
       if (!connected.has(k)) {
         connected.add(k);
-        paths.push(p);
+        connectorPaths.push(p);
       }
     }
   }
 
-  return paths;
+  // Merge main roads + connector paths
+  const allRoads = [
+    ...roads.tiles,
+    // For pattern=none, include the centre seed tile
+    ...(roads.tiles.length === 0 ? [{ tx: mid, ty: mid, main: false as const }] : []),
+    ...connectorPaths,
+  ];
+
+  return { buildings: result, roads: allRoads };
 }
+
+// (connectBuildings was removed — connection is now interleaved with placement)
 
 /** Manhattan distance to the nearest tile in the connected set. */
 function nearestConnectedDist(tx: number, ty: number, connected: TileSet): number {
