@@ -6,7 +6,7 @@ Canonical lore lives in Notion. IDs below let agents fetch entries directly.
 
 | Database   | Notion ID                              | Purpose |
 |------------|----------------------------------------|---------|
-| Races      | `34e843c0-718f-81a3-b4c8-c0ff6839bd21` | Visual + anatomical race canon (`npm run races:sync` cache: `data/notion-races-cache.json`) |
+| Races      | `34e843c0-718f-81a3-b4c8-c0ff6839bd21` | Biology, visual canon, origin narrative. 15 canonical Peoples + relations. `Race ID` is auto-increment `RACE-N`. (`npm run races:sync` cache: `data/notion-races-cache.json`) |
 | Creatures  | `4c71181b-2842-4301-b7cf-94572b3845a9` | All fauna: wildlife, corrupted, bosses, critters |
 | Characters | `751f1b85-0c99-4e1b-a0a5-c39a5422498a` | Named NPCs, antagonists, allies |
 | Factions   | `833dd954-974b-422d-adb2-14a51f30af16` | Organisations and factions across all three worlds |
@@ -27,7 +27,7 @@ Canonical lore lives in Notion. IDs below let agents fetch entries directly.
 - Concept art goes on the entry's own page (inline image), not as a file attachment.
 - Never delete entries — set `Lore Status` to `deprecated` instead.
 - World names in database selects: `Earth`, `Spinolandet`, `Mistheim`, `Blended`
-- **Race / People IDs:** the canonical names are the 15 Mistheim Peoples (TitleCase). See `docs/peoples-and-races.md` for the canon and the cultures.json mapping. `AXES.md` holds the cultural-axes scoring per People.
+- **Race / People IDs:** each Race entry has an auto-increment `Race ID` (`RACE-1`, `RACE-2`, …) — use this for stable references. The `Name` (title) is the display name and can be renamed. The canonical 15 Mistheim Peoples are listed in `docs/peoples-and-races.md`. `AXES.md` holds the cultural-axes scoring per People. Old agent-invented entries (Human, Sandhari, Jarnborn, etc.) are marked `deprecated`.
 - To fetch a database: use `notion-fetch` with the database ID above.
 - To list entries: use `notion-search` with a keyword, or `notion-fetch` the database ID directly.
 - To create an entry: use `notion-create-pages` with the database ID as `data_source_id` parent.
