@@ -776,11 +776,16 @@ export class SettlementForgeScene extends Phaser.Scene {
     const mainRoadCount = roads.filter(r => r.main).length;
     const connectorCount = roads.filter(r => !r.main).length;
     console.log(`[SF] buildings: ${placements.length}, roads: ${roads.length} (main: ${mainRoadCount}, connectors: ${connectorCount}), culture: ${culture.id}, pattern: ${culture.streetPattern}, seed: ${this.currentSeed}, gridSize: ${this.gridSize}, radiusTiles: ${(this.spec.radius / this.TILE).toFixed(1)}`);
-    // Log first 5 buildings + their nearest connector
-    for (let i = 0; i < Math.min(5, placements.length); i++) {
+    // Log all buildings with footprint range + which road tiles are inside
+    for (let i = 0; i < placements.length; i++) {
       const b = placements[i];
-      const nearbyRoads = roads.filter(r => Math.abs(r.tx - b.tx) <= 4 && Math.abs(r.ty - b.ty) <= 4);
-      console.log(`  [B${i+1}] ${b.building.id} @(${b.tx},${b.ty}) w=${b.widthT} | ${nearbyRoads.length} road tiles within 4`);
+      const bh = Math.ceil(b.widthT / 2);
+      const insideRoads = roads
+        .map((r, ri) => ({ ri, ...r }))
+        .filter(r => Math.abs(r.tx - b.tx) <= bh && Math.abs(r.ty - b.ty) <= bh);
+      if (insideRoads.length > 0) {
+        console.log(`  [B${i+1}] ${b.building.id} @(${b.tx},${b.ty}) w=${b.widthT} half=${bh} footprint=(${b.tx-bh},${b.ty-bh})→(${b.tx+bh},${b.ty+bh}) | ${insideRoads.length} road tiles INSIDE: ${insideRoads.map(r => `#${r.ri}@(${r.tx},${r.ty})`).join(', ')}`);
+      }
     }
 
     // Build a set of tiles occupied by building base footprints
