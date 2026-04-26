@@ -35,6 +35,9 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
+      - name: Heartbeat
+        run: echo "Marvin cycle started at $(date -u) — event=${{ github.event_name }}"
+
       - name: Check origin (always pass — fetch-issue decides eligibility)
         id: check-origin
         run: |
@@ -126,6 +129,13 @@ jobs:
             echo "has_issue=false" >> $GITHUB_OUTPUT
             echo "No eligible issues found"
           fi
+
+      - name: Write idle summary
+        if: steps.first.outputs.has_issue != 'true'
+        run: |
+          echo "## Marvin Cycle Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No eligible issues found." >> $GITHUB_STEP_SUMMARY
 
   run-agent:
     needs: fetch-issue
@@ -238,3 +248,35 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node .github/scripts/log-session-tokens.js --workflow "DevCycle 1 — Dev Agent (Marvin)" --issue "${{ needs.fetch-issue.outputs.issue }}"
+
+      - name: Write run summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          REPO="${{ github.repository }}"
+
+          PR_INFO=$(gh pr list --repo "$REPO" \
+            --search "Closes #$ISSUE in:body" --state all --limit 5 \
+            --json number,url --jq 'first // empty' 2>/dev/null || echo "")
+          PR_NUM=$(echo "$PR_INFO" | jq -r '.number // empty' 2>/dev/null || echo "")
+          PR_URL=$(echo "$PR_INFO" | jq -r '.url // empty' 2>/dev/null || echo "")
+
+          OUTCOME_LABEL=$(gh issue view "$ISSUE" --repo "$REPO" \
+            --json labels \
+            --jq '[.labels[] | select(.name | startswith("agent:")) | .name] | first // "none"' \
+            2>/dev/null || echo "unknown")
+
+          {
+            echo "## Marvin Cycle Summary"
+            echo ""
+            echo "- Picked issue **#$ISSUE**"
+            if [ -n "$PR_NUM" ]; then
+              echo "- Opened PR **[#$PR_NUM]($PR_URL)**"
+              echo "- Applied label: \`$OUTCOME_LABEL\`"
+            else
+              echo "- No PR opened — job status: \`${{ job.status }}\`"
+              echo "- Applied label: \`$OUTCOME_LABEL\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

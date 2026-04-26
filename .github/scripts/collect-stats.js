@@ -137,9 +137,11 @@ async function getGitHubStats() {
     .slice(0, 5);
 
   // Agent vs human PR ratio
-  // claude/ branches are opened by the nightly/scheduled cloud agents
-  const agentMerged = merged.filter(pr => (pr.head?.ref || '').startsWith('claude/'));
-  const agentPrPct  = mergedCount ? Math.round((agentMerged.length / mergedCount) * 100) : 0;
+  // claude/ branches are opened by Bender (Claude nightly agent)
+  // marvin/ branches are opened by Marvin (Cursor nightly agent)
+  const agentMerged  = merged.filter(pr => (pr.head?.ref || '').startsWith('claude/'));
+  const marvinMerged = merged.filter(pr => (pr.head?.ref || '').startsWith('marvin/'));
+  const agentPrPct   = mergedCount ? Math.round((agentMerged.length / mergedCount) * 100) : 0;
 
   // Agent success rate: among all claude/ PRs closed this week, what % were merged?
   const agentClosed = prs.filter(pr =>
@@ -148,6 +150,15 @@ async function getGitHubStats() {
   );
   const agentSuccessRate = agentClosed.length
     ? Math.round((agentClosed.filter(pr => pr.merged_at).length / agentClosed.length) * 100)
+    : null;
+
+  // Marvin success rate: among all marvin/ PRs closed this week, what % were merged?
+  const marvinClosed = prs.filter(pr =>
+    (pr.head?.ref || '').startsWith('marvin/') &&
+    pr.closed_at && new Date(pr.closed_at) >= weekAgo
+  );
+  const marvinSuccessRate = marvinClosed.length
+    ? Math.round((marvinClosed.filter(pr => pr.merged_at).length / marvinClosed.length) * 100)
     : null;
 
   // Open PRs — count and average age (for cognitive load snapshot)
@@ -168,10 +179,12 @@ async function getGitHubStats() {
     fixRevertPct,
     ciPassRate,
     top5Files,
-    agentMergedCount:  agentMerged.length,
-    humanMergedCount:  merged.length - agentMerged.length,
+    agentMergedCount:   agentMerged.length,
+    marvinMergedCount:  marvinMerged.length,
+    humanMergedCount:   merged.length - agentMerged.length - marvinMerged.length,
     agentPrPct,
     agentSuccessRate,
+    marvinSuccessRate,
     openPrCount,
     openPrAvgAgeDays,
     totalLinesAdded,
@@ -829,8 +842,10 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
   lines.push('');
 
   h2('Automation');
-  li(`Agent PRs this week: **${gh.agentMergedCount}** (${gh.agentPrPct}% of merged)`);
-  if (gh.agentSuccessRate !== null) li(`Agent success rate: **${gh.agentSuccessRate}%** (merged / closed claude/ PRs)`);
+  li(`Bender PRs this week: **${gh.agentMergedCount}** (${gh.agentPrPct}% of merged)`);
+  if (gh.agentSuccessRate !== null) li(`Bender success rate: **${gh.agentSuccessRate}%** (merged / closed claude/ PRs)`);
+  li(`Marvin PRs this week: **${gh.marvinMergedCount}**`);
+  if (gh.marvinSuccessRate !== null) li(`Marvin success rate: **${gh.marvinSuccessRate}%** (merged / closed marvin/ PRs)`);
   lines.push('');
 
   if (agentOutcome) {
