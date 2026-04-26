@@ -772,6 +772,11 @@ export class SettlementForgeScene extends Phaser.Scene {
       streetPattern: (culture.streetPattern ?? 'none') as 'grid' | 'radial' | 'organic' | 'linear' | 'none' | 'branching',
     });
 
+    // Debug: log placement stats
+    const mainRoadCount = roads.filter(r => r.main).length;
+    const connectorCount = roads.filter(r => !r.main).length;
+    console.log(`[SF] buildings: ${placements.length}, roads: ${roads.length} (main: ${mainRoadCount}, connectors: ${connectorCount}), culture: ${culture.id}, pattern: ${culture.streetPattern}, seed: ${this.currentSeed}`);
+
     // Render roads on the ground plane (depth 0.5, between ground and buildings)
     if (roads.length > 0) {
       const roadGfx = this.add.graphics().setDepth(0.5);

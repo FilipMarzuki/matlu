@@ -235,11 +235,12 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     return false;
   };
 
-  const onConnected = (tx: number, ty: number, widthT: number): boolean => {
+  // Only avoid placing buildings ON main road tiles (not connector paths)
+  const onMainRoad = (tx: number, ty: number, widthT: number): boolean => {
     const half = Math.ceil(widthT / 2);
     for (let dx = -half; dx <= half; dx++) {
       for (let dy = -half; dy <= half; dy++) {
-        if (connected.has(tileKey(tx + dx, ty + dy))) return true;
+        if (roads.set.has(tileKey(tx + dx, ty + dy))) return true;
       }
     }
     return false;
@@ -267,7 +268,7 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
       const ty = Math.round(mid + Math.sin(angle) * dist);
 
       if (tx < 1 || ty < 1 || tx >= gridSize - 1 || ty >= gridSize - 1) continue;
-      if (onConnected(tx, ty, widthT)) continue; // don't sit on paths
+      if (onMainRoad(tx, ty, widthT)) continue; // don't sit on main roads
 
       // First 60: prefer near the connected network
       if (attempt < 60 && !nearConnected(tx, ty, 2)) continue;
