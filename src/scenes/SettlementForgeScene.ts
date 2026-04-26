@@ -782,8 +782,8 @@ export class SettlementForgeScene extends Phaser.Scene {
       const roadGfx = this.add.graphics().setDepth(0.5);
       this.buildingObjects.push(roadGfx);
       for (const road of roads) {
-        const roadColor = road.main ? 0xc9a96e : 0xa08855;
-        const alpha = road.main ? 0.55 : 0.35;
+        const roadColor = road.main ? 0xd4b87a : 0xffaa44;
+        const alpha = road.main ? 0.7 : 0.6;
         this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
       }
     }
