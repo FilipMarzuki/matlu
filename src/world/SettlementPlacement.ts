@@ -195,17 +195,21 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
   // ── Generate main roads ────────────────────────────────────────────────
   const mainRoads = generateRoads(streetPattern, mid, radiusTiles, gridSize, roadRng);
 
-  // Main road set — only these are valid A* targets (prevents disconnected networks)
+  // Main road set — only main tiles are valid A* targets (prevents disconnected networks)
   const mainRoadSet = new Set<string>();
   for (const r of mainRoads) {
-    mainRoadSet.add(`${r.tx},${r.ty}`);
+    if (r.main) mainRoadSet.add(`${r.tx},${r.ty}`);
   }
-  if (mainRoads.length === 0) {
+  if (mainRoadSet.size === 0) {
     mainRoadSet.add(`${mid},${mid}`);
   }
 
-  // Full path set — includes main roads + connector paths (used for placement avoidance)
-  const allPathSet = new Set(mainRoadSet);
+  // Full path set — ALL road tiles (main + secondary) used for placement avoidance
+  const allPathSet = new Set<string>();
+  for (const r of mainRoads) {
+    allPathSet.add(`${r.tx},${r.ty}`);
+  }
+  for (const k of mainRoadSet) allPathSet.add(k);
 
   const placed: Array<{ tx: number; ty: number; size: number }> = [];
   const result: PlacedBuilding[] = [];
@@ -252,7 +256,7 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     }
 
     if (!success) {
-      // Spiral fallback
+      // Spiral fallback — same checks as primary placement
       const baseAngle = rng() * Math.PI * 2;
       const baseDist = radiusTiles * (frac.min + frac.max) / 2;
       for (let ring = 0; ring < 10 && !success; ring++) {
@@ -262,10 +266,18 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
           const tx = Math.round(mid + Math.cos(a) * d);
           const ty = Math.round(mid + Math.sin(a) * d);
           if (tx - half < 0 || ty - half < 0 || tx + half >= gridSize || ty + half >= gridSize) continue;
-          if (!placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, 1.0))) {
-            placedTx = tx; placedTy = ty; success = true; wasFallback = true;
-            break;
+          // Check roads/paths
+          let hitsPath = false;
+          for (let ddx = -half; ddx <= half && !hitsPath; ddx++) {
+            for (let ddy = -half; ddy <= half && !hitsPath; ddy++) {
+              if (allPathSet.has(`${tx + ddx},${ty + ddy}`)) hitsPath = true;
+            }
           }
+          if (hitsPath) continue;
+          // Check other buildings
+          if (placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, 1.0))) continue;
+          placedTx = tx; placedTy = ty; success = true; wasFallback = true;
+          break;
         }
       }
     }
