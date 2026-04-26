@@ -142,7 +142,7 @@ export interface SettlementSite {
   tradeRouteCount: number;
   /** How many other settlements are within interaction range. */
   nearbySettlements: number;
-  /** Culture id from cultures.json — assigned by the macro map. Race-agnostic: multiple races may share a culture. */
+  /** Settlement-culture id from settlement-cultures.json — assigned by the macro map. Race-agnostic: multiple races may share a settlement culture. */
   cultureId: string;
   /**
    * Optional weighted race preferences for this settlement, inherited from the

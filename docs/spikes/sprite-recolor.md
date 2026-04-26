@@ -17,7 +17,7 @@ Runtime recoloring is **partially** viable for Matlu today: **`setTint`** is fre
 
 ### 1. Color vs silhouette (cultures)
 
-Settlement **cultures** in `macro-world/cultures.json` differ strongly in **architecture** (roof style, footprint shapes, fortified vs open). That does not automatically define NPC costume rules, but it signals that **visual identity is not “hue swap only.”** For heroes and guards, expect **some** cultures to need different **silhouettes** (cloak vs tabard, headgear), not just palette. When silhouette differs, **layered sprites** or **separate baked frames** win; pure `setTint` or palette shader cannot add a missing hat.
+Settlement **cultures** in `macro-world/settlement-cultures.json` differ strongly in **architecture** (roof style, footprint shapes, fortified vs open). That does not automatically define NPC costume rules, but it signals that **visual identity is not “hue swap only.”** For heroes and guards, expect **some** cultures to need different **silhouettes** (cloak vs tabard, headgear), not just palette. When silhouette differs, **layered sprites** or **separate baked frames** win; pure `setTint` or palette shader cannot add a missing hat.
 
 ### 2. PixelLab output discipline (measured)
 

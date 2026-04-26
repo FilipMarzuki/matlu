@@ -26,7 +26,7 @@ Canonical lore lives in Notion. IDs below let agents fetch entries directly.
 - Concept art goes on the entry's own page (inline image), not as a file attachment.
 - Never delete entries — set `Lore Status` to `deprecated` instead.
 - World names in database selects: `Earth`, `Spinolandet`, `Mistheim`, `Blended`
-- **Race / People IDs:** the canonical names are the 15 Mistheim Peoples (TitleCase). See `docs/peoples-and-races.md` for the canon and the cultures.json mapping. `AXES.md` holds the cultural-axes scoring per People.
+- **Race / Culture / Faction taxonomy:** see `docs/race-and-culture.md` for the three core entities and how they relate. The 15 canonical Race IDs (TitleCase) come from there; cultural axes (`AXES.md`) belong on Culture entries, not Race.
 - To fetch a database: use `notion-fetch` with the database ID above.
 - To list entries: use `notion-search` with a keyword, or `notion-fetch` the database ID directly.
 - To create an entry: use `notion-create-pages` with the database ID as `data_source_id` parent.

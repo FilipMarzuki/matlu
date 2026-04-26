@@ -1,9 +1,9 @@
 {
-  "_doc": "Settlement culture definitions. Each culture drives layout geometry, building placement, and spatial feel. The generator reads numeric modifiers and trait flags — it never switches on culture id. Agents can add new cultures freely; unknown traits are ignored until handler code exists. See culture-traits.json for the trait registry. Cultures are race-agnostic: many Peoples can share one culture; use racePreferences for soft weighted hints to the settlement generator. Race IDs are the 15 canonical Mistheim Peoples (TitleCase, see docs/peoples-and-races.md and AXES.md).",
+  "_doc": "Settlement-culture definitions — a code-level subset of the master Culture concept (see docs/race-and-culture.md). Each entry drives layout geometry, building placement, and spatial feel. The generator reads numeric modifiers and trait flags — it never switches on settlement-culture id. Agents can add new entries freely; unknown traits are ignored until handler code exists. See culture-traits.json for the trait registry. Settlement cultures are race-agnostic: many Races can share one settlement culture; use racePreferences for soft weighted hints to the settlement generator. Race IDs are the 15 canonical Mistheim Races (TitleCase, see docs/race-and-culture.md and AXES.md).",
   "_schema": {
     "id":                   "Unique kebab-case identifier — race-agnostic (no race prefix)",
     "name":                 "Display name for the culture",
-    "racePreferences":      "Optional weighted map of People IDs to preference weights summing to ≤ 1.0 (e.g. { \"Markfolk\": 0.7, \"Bergfolk\": 0.3 }). Absent or empty means sample from regional demographics only. People IDs MUST come from docs/peoples-and-races.md.",
+    "racePreferences":      "Optional weighted map of Race IDs to preference weights summing to ≤ 1.0 (e.g. { \"Markfolk\": 0.7, \"Bergfolk\": 0.3 }). Absent or empty means sample from regional demographics only. Race IDs MUST come from docs/race-and-culture.md.",
     "spacing":              "0.5 (dense) → 1.5 (spread out) — multiplier on base building gap",
     "organicness":          "0 (rigid grid) → 1 (winding paths, irregular placement)",
     "hierarchyScale":       "How much the primary building dominates: 1.0 = same size, 2.0 = twice as large",
