@@ -76,8 +76,27 @@ async function main() {
     const issues = await fetchAllPages(
       `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&per_page=100`
     );
+
+    // Fetch all open PRs and build a set of issue numbers that already have an
+    // in-flight agent PR (bender/* or marvin/*). This prevents the race condition
+    // where agent:in-progress is removed after a successful run but the PR hasn't
+    // merged yet, causing a second agent cycle to pick the same issue.
+    const openPRs = await fetchAllPages(
+      `https://api.github.com/repos/${REPO}/pulls?state=open&per_page=100`
+    );
+    const issuesWithAgentPR = new Set();
+    for (const pr of openPRs) {
+      const branch = pr.head?.ref || '';
+      if (!branch.startsWith('bender/') && !branch.startsWith('marvin/')) continue;
+      const body = pr.body || '';
+      for (const m of body.matchAll(/\b(?:closes|fixes|resolves)\s+#(\d+)/gi)) {
+        issuesWithAgentPR.add(parseInt(m[1], 10));
+      }
+    }
+
     // GitHub Issues API also returns pull requests — exclude them.
-    // Also exclude issues that also carry the "blocked" label.
+    // Also exclude issues that also carry the "blocked" label, are in-progress,
+    // or already have an open agent-authored PR in flight.
     // Sort: bugs and rework first (they affect players now), then everything else.
     const hasLabel = (issue, name) => issue.labels.some(l => l.name === name);
     const bugPriority = (issue) => {
@@ -89,6 +108,7 @@ async function main() {
       .filter(i => !i.pull_request)
       .filter(i => !hasLabel(i, 'blocked'))
       .filter(i => !hasLabel(i, 'agent:in-progress'))
+      .filter(i => !issuesWithAgentPR.has(i.number))
       .sort((a, b) => bugPriority(a) - bugPriority(b))
       .map(i => i.number);
   }
