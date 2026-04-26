@@ -35,6 +35,9 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
+      - name: Heartbeat
+        run: echo "Marvin cycle started at $(date -u) — event=${{ github.event_name }}"
+
       - name: Check origin (always pass — fetch-issue decides eligibility)
         id: check-origin
         run: |
@@ -238,3 +241,88 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node .github/scripts/log-session-tokens.js --workflow "DevCycle 1 — Dev Agent (Marvin)" --issue "${{ needs.fetch-issue.outputs.issue }}"
+
+  marvin-outcome-summary:
+    name: Marvin outcome summary
+    needs: [gate, fetch-issue, run-agent]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Write run summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Marvin cycle outcome"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| event | \`${{ github.event_name }}\` |"
+            echo "| gate | \`${{ needs.gate.result }}\` |"
+            echo "| fetch-issue | \`${{ needs.fetch-issue.result }}\` |"
+            echo "| run-agent | \`${{ needs.run-agent.result }}\` |"
+            echo "| should_run (gate) | \`${{ needs.gate.outputs.should_run }}\` |"
+            echo "| has_issue | \`${{ needs.fetch-issue.outputs.has_issue }}\` |"
+            echo "| picked issue | \`${{ needs.fetch-issue.outputs.issue }}\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          GATE="${{ needs.gate.result }}"
+          FETCH="${{ needs.fetch-issue.result }}"
+          RUNAGENT="${{ needs.run-agent.result }}"
+          SHOULD="${{ needs.gate.outputs.should_run }}"
+          HAS_ISSUE="${{ needs.fetch-issue.outputs.has_issue }}"
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          REPO="${{ github.repository }}"
+
+          OUTCOME_LINE=""
+
+          if [ "$GATE" != "success" ]; then
+            OUTCOME_LINE="Gate job did not succeed (conclusion: $GATE). Fetch-issue and run-agent may have been skipped."
+          elif [ "$SHOULD" != "true" ]; then
+            OUTCOME_LINE="Cycle cap or gate declined: should_run=$SHOULD — fetch-issue and run-agent were not started."
+          elif [ "$FETCH" != "success" ]; then
+            OUTCOME_LINE="Fetch-issue did not succeed (conclusion: $FETCH)."
+          elif [ "$HAS_ISSUE" != "true" ]; then
+            OUTCOME_LINE="No eligible issues found (idle path)."
+          elif [ -z "$ISSUE" ]; then
+            OUTCOME_LINE="Inconsistent state: has_issue true but issue number empty."
+          elif [ "$RUNAGENT" = "success" ]; then
+            PR_NUM=$(gh pr list --repo "$REPO" --state all \
+              --search "Closes #${ISSUE} in:body" \
+              --json number,headRefName \
+              --jq '[.[] | select((.headRefName // "") | startswith("marvin/"))] | sort_by(.number) | reverse | .[0].number // empty' 2>/dev/null || true)
+            if [ -z "$PR_NUM" ]; then
+              PR_NUM=$(gh pr list --repo "$REPO" --state all \
+                --search "Closes #${ISSUE} in:body" \
+                --json number --jq '.[0].number // empty' 2>/dev/null || true)
+            fi
+            LABELS=$(gh issue view "$ISSUE" --repo "$REPO" --json labels \
+              --jq '[.labels[].name] | map(select(test("^agent:"))) | join(", ")' 2>/dev/null || echo "(unable to read labels)")
+            if [ -n "$PR_NUM" ]; then
+              OUTCOME_LINE="Picked issue #${ISSUE}, opened PR #${PR_NUM}, applied label(s): ${LABELS}."
+            else
+              OUTCOME_LINE="Picked issue #${ISSUE}, run-agent succeeded but no matching PR found in search (verify in repo); labels on issue: ${LABELS}."
+            fi
+          elif [ "$RUNAGENT" = "failure" ] || [ "$RUNAGENT" = "cancelled" ]; then
+            PR_NUM=$(gh pr list --repo "$REPO" --state all \
+              --search "Closes #${ISSUE} in:body" \
+              --json number --jq '.[0].number // empty' 2>/dev/null || true)
+            if [ -n "$PR_NUM" ]; then
+              OUTCOME_LINE="Picked issue #${ISSUE}, run-agent $RUNAGENT — PR #${PR_NUM} may exist; see job logs for cursor-agent exit status."
+            else
+              OUTCOME_LINE="Picked issue #${ISSUE}, no PR opened, run-agent conclusion: $RUNAGENT (see run-agent logs for [run-agent-marvin] cursor-agent finished: status=)."
+            fi
+          else
+            OUTCOME_LINE="Picked issue #${ISSUE} but run-agent was not executed or ended with: $RUNAGENT."
+          fi
+
+          {
+            echo "### One-line outcome"
+            echo "$OUTCOME_LINE"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"

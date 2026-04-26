@@ -150,6 +150,26 @@ async function getGitHubStats() {
     ? Math.round((agentClosed.filter(pr => pr.merged_at).length / agentClosed.length) * 100)
     : null;
 
+  // Marvin (Cursor nightly) — completed workflow runs in the last 7 days
+  let marvinWorkflowRuns = 0;
+  let marvinWorkflowSuccessRatePct = null;
+  try {
+    const marvinData = await ghGet(
+      `/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/cursor-agent-nightly.yml/runs?per_page=100`
+    );
+    const marvinCompleted = (marvinData.workflow_runs || []).filter(
+      r => r.created_at && new Date(r.created_at) >= weekAgo && r.conclusion
+    );
+    marvinWorkflowRuns = marvinCompleted.length;
+    marvinWorkflowSuccessRatePct = marvinWorkflowRuns
+      ? Math.round(
+          (marvinCompleted.filter(r => r.conclusion === 'success').length / marvinWorkflowRuns) * 100
+        )
+      : null;
+  } catch (e) {
+    console.warn('Marvin workflow stats failed:', e.message);
+  }
+
   // Open PRs — count and average age (for cognitive load snapshot)
   const openPrList       = await ghGet(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=open&per_page=100`);
   const openPrCount      = openPrList.length;
@@ -172,6 +192,8 @@ async function getGitHubStats() {
     humanMergedCount:  merged.length - agentMerged.length,
     agentPrPct,
     agentSuccessRate,
+    marvinWorkflowRuns,
+    marvinWorkflowSuccessRatePct,
     openPrCount,
     openPrAvgAgeDays,
     totalLinesAdded,
@@ -830,7 +852,14 @@ function buildMarkdown(gh, linear, commitSpread, bundle, pixellab, cogLoad, depl
 
   h2('Automation');
   li(`Agent PRs this week: **${gh.agentMergedCount}** (${gh.agentPrPct}% of merged)`);
-  if (gh.agentSuccessRate !== null) li(`Agent success rate: **${gh.agentSuccessRate}%** (merged / closed claude/ PRs)`);
+  if (gh.agentSuccessRate !== null) {
+    li(`Bender success rate: **${gh.agentSuccessRate}%** (merged / closed claude/ PRs)`);
+  }
+  li(
+    `Marvin (Cursor nightly): **${gh.marvinWorkflowRuns}** completed workflow runs, **${
+      gh.marvinWorkflowSuccessRatePct !== null ? `${gh.marvinWorkflowSuccessRatePct}%` : '—'
+    }** success (GitHub Actions)`
+  );
   lines.push('');
 
   if (agentOutcome) {
@@ -1374,7 +1403,13 @@ async function main() {
     delivery:      { mergedCount: gh.mergedCount, humanMergedCount: gh.humanMergedCount, agentMergedCount: gh.agentMergedCount, avgPrSize: gh.avgPrSize, completedCount: linear.completedCount, activeDays: commitSpread?.activeDays ?? null, totalCommits: commitSpread?.totalCommits ?? null },
     velocity:      { avgMergeTime: gh.avgMergeTime, avgCycleTime: linear.avgCycleTime, reworkRate: linear.reworkRate },
     quality:       { ciPassRate: gh.ciPassRate, fixRevertCount: gh.fixRevertCount, fixRevertPct: gh.fixRevertPct, ...(quality ?? {}) },
-    automation:    { agentMergedCount: gh.agentMergedCount, agentPrPct: gh.agentPrPct, agentSuccessRate: gh.agentSuccessRate },
+    automation:    {
+      agentMergedCount: gh.agentMergedCount,
+      agentPrPct: gh.agentPrPct,
+      agentSuccessRate: gh.agentSuccessRate,
+      marvinWorkflowRuns: gh.marvinWorkflowRuns,
+      marvinWorkflowSuccessRatePct: gh.marvinWorkflowSuccessRatePct,
+    },
     cognitiveLoad: cogLoad      ?? null,
     rework:        rework       ?? null,
     aiUsage:       ai           ?? null,
