@@ -74,22 +74,6 @@ async function main() {
     }
     numbers = [issueNum];
   } else {
-    // Open agent PRs still reference their issue after reconciliation removes
-    // agent:in-progress; exclude those issues so a fast wake chain cannot pick
-    // the same work twice before merge.
-    const openPRs = await fetchAllPages(
-      `https://api.github.com/repos/${REPO}/pulls?state=open&per_page=100`
-    );
-    const issuesWithAgentPR = new Set();
-    for (const pr of openPRs) {
-      const branch = pr.head?.ref || '';
-      if (!branch.startsWith('bender/') && !branch.startsWith('marvin/')) continue;
-      const body = pr.body || '';
-      for (const m of body.matchAll(/\b(?:closes|fixes|resolves)\s+#(\d+)/gi)) {
-        issuesWithAgentPR.add(parseInt(m[1], 10));
-      }
-    }
-
     // Fetch all open issues with the "ready" label.
     const issues = await fetchAllPages(
       `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&per_page=100`
