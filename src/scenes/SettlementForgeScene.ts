@@ -783,14 +783,22 @@ export class SettlementForgeScene extends Phaser.Scene {
       console.log(`  [B${i+1}] ${b.building.id} @(${b.tx},${b.ty}) w=${b.widthT} | ${nearbyRoads.length} road tiles within 4`);
     }
 
-    // Render roads on the ground plane (depth 0.5, between ground and buildings)
+    // Render main roads on ground plane, connectors on top for visibility
     if (roads.length > 0) {
-      const roadGfx = this.add.graphics().setDepth(0.5);
-      this.buildingObjects.push(roadGfx);
+      // Main roads: ground level
+      const mainGfx = this.add.graphics().setDepth(0.5);
+      this.buildingObjects.push(mainGfx);
+      // Connectors: rendered above buildings so they're always visible
+      const connGfx = this.add.graphics().setDepth(50);
+      this.buildingObjects.push(connGfx);
+
       for (const road of roads) {
-        const roadColor = road.main ? 0xd4b87a : 0xffaa44;
-        const alpha = road.main ? 0.7 : 0.6;
-        this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
+        if (road.main) {
+          this.drawIsoDiamond(mainGfx, road.tx, road.ty, 0xd4b87a, 0.7);
+        } else {
+          // Bright orange connector paths, always visible
+          this.drawIsoDiamond(connGfx, road.tx, road.ty, 0xff6600, 0.5);
+        }
       }
     }
 
