@@ -308,6 +308,41 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * Subtle in-world colour wash per biome. The tile packs carry texture, while
+ * this transparent layer gives each region a readable CrossCode-style colour
+ * identity at map scale.
+ */
+const BIOME_WASH_COLORS: readonly number[] = [
+  0x0f4f78, // Sea
+  0x8f7240, // Rocky Shore
+  0xd4a94f, // Sandy Shore
+  0x496a38, // Marsh / Bog
+  0xa57434, // Dry Heath
+  0x6f8f3d, // Coastal Heath
+  0x68a747, // Meadow
+  0x2f7f3c, // Forest
+  0x1f5e46, // Spruce
+  0x5f6670, // Cold Granite
+  0x8a8276, // Bare Summit
+  0xc7d9e8, // Snow Field
+];
+
+const BIOME_WASH_ALPHAS: readonly number[] = [
+  0.10, // Sea already has a strong blue material
+  0.24,
+  0.30,
+  0.28,
+  0.28,
+  0.26,
+  0.24,
+  0.30,
+  0.32,
+  0.30,
+  0.24,
+  0.22,
+];
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -5694,6 +5729,22 @@ export class GameScene extends Phaser.Scene {
       .setScale(1)
       .setOrigin(0.5, 0)
       .setVisible(false);
+    const washTile = this.add.polygon(
+      -9999,
+      -9999,
+      [
+        0,
+        0,
+        ISO_TILE_W / 2,
+        ISO_TILE_H / 2,
+        0,
+        ISO_TILE_H,
+        -ISO_TILE_W / 2,
+        ISO_TILE_H / 2,
+      ],
+      0xffffff,
+      1,
+    ).setVisible(false);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5807,6 +5858,22 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // A low-alpha wash per biome gives the map distinct readable colour regions
+    // without replacing the pixel-art tile texture underneath.
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const idx = ty * tilesX + tx;
+        const biomeIdx = biomeIdxGrid[idx] ?? 0;
+        const color = BIOME_WASH_COLORS[biomeIdx] ?? 0xffffff;
+        const alpha = BIOME_WASH_ALPHAS[biomeIdx] ?? 0.18;
+        const { x: isoX, y: isoY } = worldToIso(tx * TILE_SIZE, ty * TILE_SIZE);
+        washTile
+          .setPosition(isoX, isoY)
+          .setFillStyle(color, alpha + (((tx * 13 + ty * 17) % 5) - 2) * 0.012);
+        terrainRt.draw(washTile);
+      }
+    }
+
     // Spawn clearing — stamp grass tiles (iso-tiles frame 40, bright green top) over the
     // surrounding biome so the player spawns in a recognisable open clearing.
     // FIL-444: positions use worldToIso so clearing stamps land on iso diamond tiles.
@@ -5829,6 +5896,7 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    washTile.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
