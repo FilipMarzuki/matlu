@@ -799,8 +799,8 @@ export class SettlementForgeScene extends Phaser.Scene {
       const roadGfx = this.add.graphics().setDepth(0.5);
       this.buildingObjects.push(roadGfx);
       for (const road of roads) {
-        // Skip connectors under buildings (main roads always render)
-        if (!road.main && baseTiles.has(`${road.tx},${road.ty}`)) continue;
+        // Skip any road tile inside a building's base footprint
+        if (baseTiles.has(`${road.tx},${road.ty}`)) continue;
         const roadColor = road.main ? 0xd4b87a : 0xc9a050;
         const alpha = road.main ? 0.7 : 0.55;
         this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
