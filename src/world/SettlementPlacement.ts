@@ -82,10 +82,12 @@ function stampBuilding(grid: Uint8Array, cols: number, cx: number, cy: number, h
   }
 }
 
-/** Mark a tile as road (0 = passable) on the grid. */
-function stampRoad(grid: Uint8Array, cols: number, tx: number, ty: number): void {
+/** Mark a tile as road (0 = passable) — but never clear a building wall. */
+function stampRoad(grid: Uint8Array, cols: number, tx: number, ty: number, buildingWalls: Set<string>): void {
   if (tx >= 0 && ty >= 0 && tx < cols && ty < cols) {
-    grid[ty * cols + tx] = 0;
+    if (!buildingWalls.has(`${tx},${ty}`)) {
+      grid[ty * cols + tx] = 0;
+    }
   }
 }
 
@@ -187,6 +189,9 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
   // ── Flat grid: 0 = passable, 1 = wall ──────────────────────────────────
   const grid = new Uint8Array(gridSize * gridSize); // all 0 = passable
 
+  // Permanent building walls — stampRoad will never clear these
+  const buildingWalls = new Set<string>();
+
   // ── Generate main roads ────────────────────────────────────────────────
   const mainRoads = generateRoads(streetPattern, mid, radiusTiles, gridSize, roadRng);
 
@@ -269,6 +274,12 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     placed.push({ tx: placedTx, ty: placedTy, size: widthT });
     result.push({ tx: placedTx, ty: placedTy, widthT, depthT, building, fallback: wasFallback });
     stampBuilding(grid, gridSize, placedTx, placedTy, half);
+    // Lock these tiles so no path can ever clear them
+    for (let dx = -half; dx <= half; dx++) {
+      for (let dy = -half; dy <= half; dy++) {
+        buildingWalls.add(`${placedTx + dx},${placedTy + dy}`);
+      }
+    }
 
     // ── Connect: walk from entrance to nearest MAIN road ────────────────────
     // Try all tiles on each cardinal side (not just centre of each side)
@@ -349,17 +360,19 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
       for (const wp of path) {
         connectorPaths.push({ tx: wp.x, ty: wp.y, main: false });
         allPathSet.add(`${wp.x},${wp.y}`);
-        stampRoad(grid, gridSize, wp.x, wp.y);
+        stampRoad(grid, gridSize, wp.x, wp.y, buildingWalls);
       }
     } else {
-      // A* failed — straight line, clearing walls as we go
+      // A* failed — straight line, skipping building walls
       let cx = bestEntrance.tx;
       let cy = bestEntrance.ty;
       for (let step = 0; step < 80; step++) {
         if (mainRoadSet.has(`${cx},${cy}`)) break;
-        connectorPaths.push({ tx: cx, ty: cy, main: false });
-        allPathSet.add(`${cx},${cy}`);
-        grid[cy * gridSize + cx] = 0; // force passable
+        if (!buildingWalls.has(`${cx},${cy}`)) {
+          connectorPaths.push({ tx: cx, ty: cy, main: false });
+          allPathSet.add(`${cx},${cy}`);
+          stampRoad(grid, gridSize, cx, cy, buildingWalls);
+        }
         const dx = goalTx - cx;
         const dy = goalTy - cy;
         if (dx === 0 && dy === 0) break;
