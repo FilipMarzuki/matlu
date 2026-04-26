@@ -513,13 +513,14 @@ export function selectBuildings(
 
 // ── Radius derivation ────────────────────────────────────────────────────────
 
-/** Base radius in world pixels per tier. Culture spacing scales this. */
+/** Base radius in world pixels per tier. Culture spacing scales this.
+ *  Sized for WORLD_TILE_SIZE=32 buildings (2x scale from original 16px). */
 const TIER_RADIUS: Record<SettlementTier, number> = {
-  1: 60,
-  2: 90,
-  3: 130,
-  4: 180,
-  5: 240,
+  1: 120,
+  2: 200,
+  3: 300,
+  4: 420,
+  5: 560,
 };
 
 // ── Main generator ───────────────────────────────────────────────────────────

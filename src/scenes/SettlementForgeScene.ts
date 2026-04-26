@@ -32,6 +32,7 @@ import {
   getAllCultures,
   type ResolvedBuilding,
 } from '../world/SettlementGenerator';
+import { placeBuildings } from '../world/SettlementPlacement';
 import type { SettlementSpec } from '../world/SettlementSpec';
 import { insertFeedback, GAME_VERSION } from '../lib/feedback';
 
@@ -90,8 +91,9 @@ export class SettlementForgeScene extends Phaser.Scene {
 
   // ── Iso grid constants ─────────────────────────────────────────────────────
   // Settlement radius in world-px maps to a tile grid. We use a fixed grid
-  // and scale buildings into it. TILE = 16 matches SettlementLayout.ts.
-  private readonly TILE = 16;
+  // and scale buildings into it. TILE = 32 matches WORLD_TILE_SIZE so one
+  // tile ≈ one character standing spot.
+  private readonly TILE = 32;
 
   // Zoom and iso helpers — mirrors WorldForgeScene pattern.
   private zoomFactor = 1.0;
@@ -127,6 +129,9 @@ export class SettlementForgeScene extends Phaser.Scene {
   // ── Feedback overlay ───────────────────────────────────────────────────────
   private feedbackOverlay: HTMLDivElement | null = null;
   private feedbackBtn: Phaser.GameObjects.Text | null = null;
+
+  // ── Control panel (DOM) ───────────────────────────────────────────────────
+  private controlPanel: HTMLDivElement | null = null;
 
   constructor() { super({ key: 'SettlementForgeScene' }); }
 
@@ -183,6 +188,9 @@ export class SettlementForgeScene extends Phaser.Scene {
     kb.on('keydown-MINUS',        () => applyZoom(1 / 1.15));
     kb.on('keydown-NUMPAD_MINUS', () => applyZoom(1 / 1.15));
 
+    // ── DOM control panel ─────────────────────────────────────────────────────
+    this.buildControlPanel();
+
     // ── Pan ──────────────────────────────────────────────────────────────────
     this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
       if (!ptr.isDown) return;
@@ -195,6 +203,238 @@ export class SettlementForgeScene extends Phaser.Scene {
     this.game.canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     this.regenerate();
+  }
+
+  // ── Favorites (localStorage) ────────────────────────────────────────────────
+
+  private static readonly FAV_KEY = 'sf-favorites';
+
+  private loadFavorites(): Array<{ name: string; tier: number; geoIdx: number; purposeIdx: number; cultureIdx: number; seed: number }> {
+    try {
+      return JSON.parse(localStorage.getItem(SettlementForgeScene.FAV_KEY) ?? '[]');
+    } catch { return []; }
+  }
+
+  private saveFavorites(favs: Array<{ name: string; tier: number; geoIdx: number; purposeIdx: number; cultureIdx: number; seed: number }>): void {
+    localStorage.setItem(SettlementForgeScene.FAV_KEY, JSON.stringify(favs));
+  }
+
+  private addFavorite(name: string): void {
+    const favs = this.loadFavorites();
+    favs.push({
+      name,
+      tier: this.currentTier,
+      geoIdx: this.currentGeoIdx,
+      purposeIdx: this.currentPurposeIdx,
+      cultureIdx: this.currentCultureIdx,
+      seed: this.currentSeed,
+    });
+    this.saveFavorites(favs);
+    this.refreshFavoritesList();
+  }
+
+  private loadFavorite(idx: number): void {
+    const favs = this.loadFavorites();
+    const f = favs[idx];
+    if (!f) return;
+    this.currentTier = f.tier as SettlementTier;
+    this.currentGeoIdx = f.geoIdx;
+    this.currentPurposeIdx = f.purposeIdx;
+    this.currentCultureIdx = f.cultureIdx;
+    this.currentSeed = f.seed;
+    this.syncControlPanel();
+    this.regenerate();
+  }
+
+  private deleteFavorite(idx: number): void {
+    const favs = this.loadFavorites();
+    favs.splice(idx, 1);
+    this.saveFavorites(favs);
+    this.refreshFavoritesList();
+  }
+
+  // ── DOM Control Panel ─────────────────────────────────────────────────────
+
+  private buildControlPanel(): void {
+    // Remove previous if scene restarts
+    document.getElementById('sf-control-panel')?.remove();
+
+    const cultures = getAllCultures();
+    const panel = document.createElement('div');
+    panel.id = 'sf-control-panel';
+    panel.innerHTML = `
+      <style>
+        #sf-control-panel {
+          position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+          background: #12121eee; border-right: 1px solid #334;
+          font-family: monospace; font-size: 12px; color: #ccd;
+          padding: 12px; overflow-y: auto; z-index: 500;
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        #sf-control-panel h3 { margin: 0; color: #aaccff; font-size: 14px; }
+        #sf-control-panel label { color: #889; font-size: 11px; display: block; margin-bottom: 2px; }
+        #sf-control-panel select, #sf-control-panel input {
+          width: 100%; background: #1a1a2e; color: #dde; border: 1px solid #446;
+          border-radius: 4px; padding: 4px 6px; font-family: monospace; font-size: 12px;
+        }
+        #sf-control-panel select:focus, #sf-control-panel input:focus {
+          outline: none; border-color: #aaccff;
+        }
+        #sf-control-panel .sf-btn {
+          background: #2a2a4e; color: #aab; border: 1px solid #446;
+          border-radius: 4px; padding: 5px 10px; cursor: pointer;
+          font-family: monospace; font-size: 11px; width: 100%;
+        }
+        #sf-control-panel .sf-btn:hover { background: #3a3a5e; color: #fff; }
+        #sf-control-panel .sf-btn-primary { background: #446688; color: #fff; }
+        #sf-control-panel .sf-btn-primary:hover { background: #5577aa; }
+        #sf-control-panel .sf-divider { border-top: 1px solid #334; margin: 4px 0; }
+        #sf-control-panel .sf-fav-item {
+          display: flex; align-items: center; gap: 4px; padding: 3px 0;
+        }
+        #sf-control-panel .sf-fav-name {
+          flex: 1; color: #aaccff; cursor: pointer; overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap;
+        }
+        #sf-control-panel .sf-fav-name:hover { text-decoration: underline; }
+        #sf-control-panel .sf-fav-del {
+          color: #664; cursor: pointer; font-size: 14px; line-height: 1;
+        }
+        #sf-control-panel .sf-fav-del:hover { color: #c66; }
+        #sf-fav-list { max-height: 180px; overflow-y: auto; }
+      </style>
+      <h3>Settlement Forge</h3>
+
+      <div>
+        <label>Culture</label>
+        <select id="sf-culture">
+          ${cultures.map((c, i) => `<option value="${i}"${i === this.currentCultureIdx ? ' selected' : ''}>${c.name}</option>`).join('')}
+        </select>
+      </div>
+
+      <div>
+        <label>Tier</label>
+        <select id="sf-tier">
+          ${[1,2,3,4,5].map(t => `<option value="${t}"${t === this.currentTier ? ' selected' : ''}>${t} — ${TIER_NAMES[t]}</option>`).join('')}
+        </select>
+      </div>
+
+      <div>
+        <label>Purpose</label>
+        <select id="sf-purpose">
+          ${PURPOSES.map((p, i) => `<option value="${i}"${i === this.currentPurposeIdx ? ' selected' : ''}>${p}</option>`).join('')}
+        </select>
+      </div>
+
+      <div>
+        <label>Geography</label>
+        <select id="sf-geo">
+          ${GEOGRAPHIES.map((g, i) => `<option value="${i}"${i === this.currentGeoIdx ? ' selected' : ''}>${g}</option>`).join('')}
+        </select>
+      </div>
+
+      <div>
+        <label>Seed</label>
+        <input type="number" id="sf-seed" value="${this.currentSeed}" />
+      </div>
+
+      <button class="sf-btn" id="sf-reroll">Re-roll seed (R)</button>
+
+      <div class="sf-divider"></div>
+
+      <h3>Favorites</h3>
+      <div style="display:flex;gap:4px;">
+        <input type="text" id="sf-fav-name" placeholder="Name this preset" style="flex:1" />
+        <button class="sf-btn sf-btn-primary" id="sf-fav-save" style="width:auto;padding:4px 8px;">Save</button>
+      </div>
+      <div id="sf-fav-list"></div>
+    `;
+
+    document.body.appendChild(panel);
+    this.controlPanel = panel;
+
+    // Wire up change handlers
+    const sel = (id: string) => document.getElementById(id) as HTMLSelectElement;
+    const inp = (id: string) => document.getElementById(id) as HTMLInputElement;
+
+    sel('sf-culture').addEventListener('change', (e) => {
+      this.currentCultureIdx = parseInt((e.target as HTMLSelectElement).value, 10);
+      this.regenerate();
+    });
+    sel('sf-tier').addEventListener('change', (e) => {
+      this.currentTier = parseInt((e.target as HTMLSelectElement).value, 10) as SettlementTier;
+      this.regenerate();
+    });
+    sel('sf-purpose').addEventListener('change', (e) => {
+      this.currentPurposeIdx = parseInt((e.target as HTMLSelectElement).value, 10);
+      this.regenerate();
+    });
+    sel('sf-geo').addEventListener('change', (e) => {
+      this.currentGeoIdx = parseInt((e.target as HTMLSelectElement).value, 10);
+      this.regenerate();
+    });
+    inp('sf-seed').addEventListener('change', (e) => {
+      this.currentSeed = parseInt((e.target as HTMLInputElement).value, 10) || 42;
+      this.regenerate();
+    });
+    document.getElementById('sf-reroll')!.addEventListener('click', () => {
+      this.reroll();
+      inp('sf-seed').value = String(this.currentSeed);
+    });
+
+    // Favorites
+    document.getElementById('sf-fav-save')!.addEventListener('click', () => {
+      const nameInput = inp('sf-fav-name');
+      const name = nameInput.value.trim();
+      if (!name) return;
+      this.addFavorite(name);
+      nameInput.value = '';
+    });
+
+    this.refreshFavoritesList();
+  }
+
+  /** Keep dropdowns in sync after loading a favorite or keyboard cycling. */
+  private syncControlPanel(): void {
+    const sel = (id: string) => document.getElementById(id) as HTMLSelectElement | null;
+    const inp = (id: string) => document.getElementById(id) as HTMLInputElement | null;
+    const s1 = sel('sf-culture'); if (s1) s1.value = String(this.currentCultureIdx);
+    const s2 = sel('sf-tier');    if (s2) s2.value = String(this.currentTier);
+    const s3 = sel('sf-purpose'); if (s3) s3.value = String(this.currentPurposeIdx);
+    const s4 = sel('sf-geo');     if (s4) s4.value = String(this.currentGeoIdx);
+    const i1 = inp('sf-seed');    if (i1) i1.value = String(this.currentSeed);
+  }
+
+  private refreshFavoritesList(): void {
+    const list = document.getElementById('sf-fav-list');
+    if (!list) return;
+    const favs = this.loadFavorites();
+    if (favs.length === 0) {
+      list.innerHTML = '<div style="color:#556;font-size:11px;padding:4px 0;">No favorites saved yet.</div>';
+      return;
+    }
+    list.innerHTML = favs.map((f, i) => `
+      <div class="sf-fav-item">
+        <span class="sf-fav-name" data-idx="${i}" title="${TIER_NAMES[f.tier]} / ${PURPOSES[f.purposeIdx]} / ${GEOGRAPHIES[f.geoIdx]}">${f.name}</span>
+        <span class="sf-fav-del" data-idx="${i}" title="Delete">×</span>
+      </div>
+    `).join('');
+
+    // Click handlers
+    list.querySelectorAll('.sf-fav-name').forEach(el => {
+      el.addEventListener('click', () => this.loadFavorite(parseInt((el as HTMLElement).dataset.idx!, 10)));
+    });
+    list.querySelectorAll('.sf-fav-del').forEach(el => {
+      el.addEventListener('click', () => this.deleteFavorite(parseInt((el as HTMLElement).dataset.idx!, 10)));
+    });
+  }
+
+  /** Clean up DOM elements when scene shuts down. */
+  shutdown(): void {
+    this.controlPanel?.remove();
+    this.controlPanel = null;
+    this.feedbackOverlay?.remove();
+    this.feedbackOverlay = null;
   }
 
   // ── Iso coordinate helpers ─────────────────────────────────────────────────
@@ -315,26 +555,31 @@ export class SettlementForgeScene extends Phaser.Scene {
   private cycleCulture(dir: number): void {
     const n = getAllCultures().length;
     this.currentCultureIdx = (this.currentCultureIdx + dir + n) % n;
+    this.syncControlPanel();
     this.regenerate();
   }
 
   private cyclePurpose(dir: number): void {
     this.currentPurposeIdx = (this.currentPurposeIdx + dir + PURPOSES.length) % PURPOSES.length;
+    this.syncControlPanel();
     this.regenerate();
   }
 
   private cycleGeo(): void {
     this.currentGeoIdx = (this.currentGeoIdx + 1) % GEOGRAPHIES.length;
+    this.syncControlPanel();
     this.regenerate();
   }
 
   private setTier(t: SettlementTier): void {
     this.currentTier = t;
+    this.syncControlPanel();
     this.regenerate();
   }
 
   private reroll(): void {
     this.currentSeed = Math.floor(Math.random() * 0xffffffff);
+    this.syncControlPanel();
     this.regenerate();
   }
 
@@ -513,66 +758,28 @@ export class SettlementForgeScene extends Phaser.Scene {
   private renderBuildings(): void {
     if (!this.spec) return;
 
-    const mid = Math.floor(this.gridSize / 2);
-    const radiusTiles = this.spec.radius / this.TILE;
-    const placeRng = mulberry32(this.currentSeed + 13);
+    const cultures = getAllCultures();
+    const culture = cultures[this.currentCultureIdx];
 
-    // Track placed positions for collision avoidance
-    const placed: Array<{ tx: number; ty: number; size: number }> = [];
+    // Use the extracted pure placement algorithm (now returns roads + buildings)
+    const { buildings: placements, roads } = placeBuildings({
+      buildings: this.buildings,
+      radiusTiles: this.spec.radius / this.TILE,
+      gridSize: this.gridSize,
+      tileSize: this.TILE,
+      seed: this.currentSeed,
+      zoneFracs: ZONE_FRAC,
+      streetPattern: (culture.streetPattern ?? 'none') as 'grid' | 'radial' | 'organic' | 'linear' | 'none' | 'branching',
+    });
 
-    // Sort buildings: inner civic first (already sorted by generator)
-    // Render in painter's order: we collect all placements first, then
-    // draw back-to-front (sorted by tx+ty).
-    const placements: Array<{
-      tx: number; ty: number;
-      widthT: number; depthT: number; heightPx: number;
-      color: number; building: ResolvedBuilding;
-    }> = [];
-
-    for (const building of this.buildings) {
-      const frac = ZONE_FRAC[building.zone] ?? ZONE_FRAC.middle;
-      const color = CAT_COLORS[building.category] ?? 0x888888;
-
-      // Building size in tiles (width from registry, proportional)
-      const widthT = Math.max(1, Math.round(building.w / this.TILE));
-      const depthT = widthT; // square footprint
-      const hMult = HEIGHT_MULT[building.heightHint] ?? 0.6;
-      const heightPx = Math.round(building.w * hMult * this.zoomFactor * 0.5);
-
-      // Try up to 40 positions in the zone ring
-      let success = false;
-      for (let attempt = 0; attempt < 40; attempt++) {
-        const angle = placeRng() * Math.PI * 2;
-        const dist = radiusTiles * (frac.min + placeRng() * (frac.max - frac.min));
-        const tx = Math.round(mid + Math.cos(angle) * dist);
-        const ty = Math.round(mid + Math.sin(angle) * dist);
-
-        // Bounds check
-        if (tx < 1 || ty < 1 || tx >= this.gridSize - 1 || ty >= this.gridSize - 1) continue;
-
-        // Overlap check
-        const overlaps = placed.some(p => {
-          const minDist = (widthT + p.size) / 2 + 0.8;
-          const ddx = tx - p.tx;
-          const ddy = ty - p.ty;
-          return ddx * ddx + ddy * ddy < minDist * minDist;
-        });
-
-        if (!overlaps) {
-          placed.push({ tx, ty, size: widthT });
-          placements.push({ tx, ty, widthT, depthT, heightPx, color, building });
-          success = true;
-          break;
-        }
-      }
-
-      // Fallback: place at ring midpoint (may overlap)
-      if (!success) {
-        const angle = placeRng() * Math.PI * 2;
-        const dist = radiusTiles * (frac.min + frac.max) / 2;
-        const tx = Math.round(mid + Math.cos(angle) * dist);
-        const ty = Math.round(mid + Math.sin(angle) * dist);
-        placements.push({ tx, ty, widthT, depthT, heightPx, color: this.darken(color, 0.6), building });
+    // Render roads on the ground plane (depth 0.5, between ground and buildings)
+    if (roads.length > 0) {
+      const roadGfx = this.add.graphics().setDepth(0.5);
+      this.buildingObjects.push(roadGfx);
+      for (const road of roads) {
+        const roadColor = road.main ? 0xc9a96e : 0xa08855;
+        const alpha = road.main ? 0.55 : 0.35;
+        this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
       }
     }
 
@@ -581,14 +788,20 @@ export class SettlementForgeScene extends Phaser.Scene {
 
     // Draw
     for (const p of placements) {
+      const color = p.fallback
+        ? this.darken(CAT_COLORS[p.building.category] ?? 0x888888, 0.6)
+        : CAT_COLORS[p.building.category] ?? 0x888888;
+      const hMult = HEIGHT_MULT[p.building.heightHint] ?? 0.6;
+      const heightPx = Math.round(p.building.w * hMult * this.zoomFactor * 0.5);
+
       const gfx = this.add.graphics().setDepth(2 + (p.tx + p.ty) * 0.01);
       this.buildingObjects.push(gfx);
 
-      this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, p.heightPx, p.color, 0.85);
+      this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, heightPx, color, 0.85);
 
       // Label
       const { x, y } = this.isoPos(p.tx, p.ty);
-      const labelY = y + this.ISO_H / 2 - p.heightPx - 4;
+      const labelY = y + this.ISO_H / 2 - heightPx - 4;
       const label = this.add.text(x, labelY, p.building.id, {
         fontSize: '7px', color: '#ffffff', fontFamily: 'monospace',
         stroke: '#000000', strokeThickness: 2,
@@ -612,33 +825,15 @@ export class SettlementForgeScene extends Phaser.Scene {
     const cultures = getAllCultures();
     const culture = cultures[this.currentCultureIdx];
 
-    // ── Top-left: settlement info + controls ─────────────────────────────
+    // ── Top-left: generated stats (compact — controls are in the DOM panel) ─
     const lines = [
-      'Settlement Forge',
-      '',
-      `Tier:      ${this.spec.tier} - ${TIER_NAMES[this.spec.tier]}`,
-      `Geography: ${GEOGRAPHIES[this.currentGeoIdx]}`,
-      `Purpose:   ${PURPOSES[this.currentPurposeIdx]}`,
-      `Culture:   ${culture.name} (${culture.id})`,
-      `Seed:      ${this.currentSeed}`,
       `Radius:    ${this.spec.radius}px  (${Math.ceil(this.spec.radius / this.TILE)} tiles)`,
-      '',
       `Secondary: ${this.spec.secondary.length ? this.spec.secondary.join(', ') : 'none'}`,
       `Anomalies: ${this.spec.anomalies.length ? this.spec.anomalies.map(a => a.type).join(', ') : 'none'}`,
       `Buildings: ${this.buildings.length}`,
-      '',
-      '-- Controls --',
-      'A/D  L/R     Culture',
-      'W/S  U/D     Purpose',
-      '1-5          Tier',
-      'G            Geography',
-      'R            Re-roll seed',
-      'Scroll +/-   Zoom',
-      'Right-drag   Pan',
-      'F            Feedback',
     ];
 
-    this.hudText = this.add.text(10, 10, lines.join('\n'), {
+    this.hudText = this.add.text(250, 10, lines.join('\n'), {
       fontSize: '11px', color: '#ccccdd', fontFamily: 'monospace',
       backgroundColor: '#1a1a2ecc', padding: { x: 8, y: 6 }, lineSpacing: 2,
     }).setDepth(100).setScrollFactor(0);

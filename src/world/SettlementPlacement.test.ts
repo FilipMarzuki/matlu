@@ -1,0 +1,270 @@
+/**
+ * SettlementPlacement tests — overlap prevention, roads, determinism, edge cases.
+ *
+ * Pure-TypeScript tests: no Phaser or browser globals required.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { rectsOverlap, placeBuildings, type PlacementInput } from './SettlementPlacement';
+import type { ResolvedBuilding } from './SettlementGenerator';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const ZONE_FRACS = {
+  inner:  { min: 0.10, max: 0.38 },
+  middle: { min: 0.38, max: 0.65 },
+  outer:  { min: 0.65, max: 0.90 },
+};
+
+function makeBuilding(overrides: Partial<ResolvedBuilding> = {}): ResolvedBuilding {
+  return {
+    id: 'test-building',
+    role: 'test',
+    category: 'residential',
+    zone: 'middle',
+    w: 32,
+    heightHint: 'standard',
+    placementHints: [],
+    loreHook: '',
+    ...overrides,
+  };
+}
+
+function makeInput(buildings: ResolvedBuilding[], overrides: Partial<PlacementInput> = {}): PlacementInput {
+  return {
+    buildings,
+    radiusTiles: 10,
+    gridSize: 24,
+    tileSize: 16,
+    seed: 42,
+    zoneFracs: ZONE_FRACS,
+    ...overrides,
+  };
+}
+
+// ── rectsOverlap ─────────────────────────────────────────────────────────────
+
+describe('rectsOverlap', () => {
+  it('detects overlapping same-position rects', () => {
+    expect(rectsOverlap(5, 5, 2, 5, 5, 2, 0)).toBe(true);
+  });
+
+  it('detects overlapping adjacent rects with gap', () => {
+    expect(rectsOverlap(5, 5, 2, 7, 5, 2, 1)).toBe(true);
+  });
+
+  it('allows non-overlapping rects', () => {
+    expect(rectsOverlap(5, 5, 2, 10, 5, 2, 1)).toBe(false);
+  });
+
+  it('checks both axes independently', () => {
+    expect(rectsOverlap(0, 5, 2, 10, 5, 2, 0)).toBe(false);
+    expect(rectsOverlap(5, 0, 2, 5, 10, 2, 0)).toBe(false);
+  });
+
+  it('handles different-sized buildings', () => {
+    expect(rectsOverlap(5, 5, 4, 7, 5, 2, 0)).toBe(true);
+    expect(rectsOverlap(5, 5, 4, 8, 5, 2, 0)).toBe(false);
+  });
+
+  it('zero gap means touching edges do not overlap', () => {
+    expect(rectsOverlap(5, 5, 2, 7, 5, 2, 0)).toBe(false);
+    expect(rectsOverlap(5, 5, 2, 6, 5, 2, 0)).toBe(true);
+  });
+});
+
+// ── placeBuildings — building placement ──────────────────────────────────────
+
+describe('placeBuildings', () => {
+  it('places a single building without overlap', () => {
+    const { buildings } = placeBuildings(makeInput([makeBuilding()]));
+    expect(buildings).toHaveLength(1);
+    expect(buildings[0].fallback).toBe(false);
+  });
+
+  it('places all buildings — none lost', () => {
+    const blds = Array.from({ length: 20 }, (_, i) =>
+      makeBuilding({ id: `b-${i}`, w: 16, zone: i < 5 ? 'inner' : i < 12 ? 'middle' : 'outer' }));
+    const { buildings } = placeBuildings(makeInput(blds));
+    expect(buildings).toHaveLength(20);
+  });
+
+  it('no two buildings overlap (AABB with 1-tile gap)', () => {
+    const blds = Array.from({ length: 30 }, (_, i) =>
+      makeBuilding({ id: `b-${i}`, w: 24, zone: i < 8 ? 'inner' : i < 20 ? 'middle' : 'outer' }));
+    const { buildings } = placeBuildings(makeInput(blds));
+
+    for (let i = 0; i < buildings.length; i++) {
+      for (let j = i + 1; j < buildings.length; j++) {
+        const a = buildings[i];
+        const b = buildings[j];
+        const overlaps = rectsOverlap(a.tx, a.ty, a.widthT, b.tx, b.ty, b.widthT, 1.0);
+        if (overlaps) {
+          expect(a.fallback && b.fallback).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('is deterministic — same seed same result', () => {
+    const blds = Array.from({ length: 15 }, (_, i) =>
+      makeBuilding({ id: `b-${i}`, w: 20 }));
+    const a = placeBuildings(makeInput(blds, { seed: 999 }));
+    const b = placeBuildings(makeInput(blds, { seed: 999 }));
+    expect(a.buildings.map(p => [p.tx, p.ty])).toEqual(b.buildings.map(p => [p.tx, p.ty]));
+    expect(a.roads.length).toEqual(b.roads.length);
+  });
+
+  it('different seeds produce different placements', () => {
+    const blds = Array.from({ length: 10 }, (_, i) =>
+      makeBuilding({ id: `b-${i}` }));
+    const a = placeBuildings(makeInput(blds, { seed: 1 }));
+    const b = placeBuildings(makeInput(blds, { seed: 2 }));
+    const posA = a.buildings.map(p => `${p.tx},${p.ty}`).join('|');
+    const posB = b.buildings.map(p => `${p.tx},${p.ty}`).join('|');
+    expect(posA).not.toEqual(posB);
+  });
+
+  it('handles the problematic seed 3206051854', () => {
+    const blds = [
+      makeBuilding({ id: 'longhouse', w: 40, zone: 'inner', category: 'civic' }),
+      makeBuilding({ id: 'well', w: 10, zone: 'inner', category: 'civic' }),
+      makeBuilding({ id: 'shrine', w: 16, zone: 'inner', category: 'religious' }),
+      makeBuilding({ id: 'smithy', w: 24, zone: 'inner', category: 'industry' }),
+      makeBuilding({ id: 'inn', w: 28, zone: 'inner', category: 'commerce' }),
+      makeBuilding({ id: 'cottage-1', w: 20, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'cottage-2', w: 20, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'cottage-3', w: 20, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'dwelling-1', w: 26, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'dwelling-2', w: 26, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'tavern', w: 24, zone: 'middle', category: 'commerce' }),
+      makeBuilding({ id: 'workshop', w: 20, zone: 'middle', category: 'industry' }),
+      makeBuilding({ id: 'sawmill', w: 22, zone: 'outer', category: 'industry' }),
+      makeBuilding({ id: 'watchtower', w: 12, zone: 'outer', category: 'military' }),
+      makeBuilding({ id: 'barn', w: 24, zone: 'outer', category: 'infrastructure' }),
+      makeBuilding({ id: 'granary', w: 18, zone: 'inner', category: 'infrastructure' }),
+      makeBuilding({ id: 'farmstead', w: 28, zone: 'outer', category: 'residential' }),
+      makeBuilding({ id: 'storage-shed', w: 14, zone: 'outer', category: 'infrastructure' }),
+    ];
+
+    const { buildings } = placeBuildings(makeInput(blds, { seed: 3206051854, radiusTiles: 8 }));
+    expect(buildings).toHaveLength(blds.length);
+
+    let overlapCount = 0;
+    for (let i = 0; i < buildings.length; i++) {
+      for (let j = i + 1; j < buildings.length; j++) {
+        if (rectsOverlap(
+          buildings[i].tx, buildings[i].ty, buildings[i].widthT,
+          buildings[j].tx, buildings[j].ty, buildings[j].widthT, 1.0,
+        )) {
+          overlapCount++;
+        }
+      }
+    }
+    expect(overlapCount).toBe(0);
+  });
+
+  it('handles dense packing — many large buildings on small grid', () => {
+    const blds = Array.from({ length: 25 }, (_, i) =>
+      makeBuilding({ id: `big-${i}`, w: 32, zone: i < 8 ? 'inner' : i < 18 ? 'middle' : 'outer' }));
+    const { buildings } = placeBuildings(makeInput(blds, { gridSize: 20, radiusTiles: 8 }));
+    expect(buildings).toHaveLength(25);
+  });
+
+  it('buildings stay within grid bounds', () => {
+    const blds = Array.from({ length: 15 }, (_, i) =>
+      makeBuilding({ id: `b-${i}`, zone: 'outer' }));
+    const gridSize = 24;
+    const { buildings } = placeBuildings(makeInput(blds, { gridSize }));
+    for (const p of buildings) {
+      expect(p.tx).toBeGreaterThanOrEqual(1);
+      expect(p.ty).toBeGreaterThanOrEqual(1);
+      expect(p.tx).toBeLessThan(gridSize - 1);
+      expect(p.ty).toBeLessThan(gridSize - 1);
+    }
+  });
+
+  it('respects zone placement — inner buildings closer to centre', () => {
+    const innerBuilding = makeBuilding({ id: 'civic', w: 16, zone: 'inner' });
+    const outerBuilding = makeBuilding({ id: 'shed', w: 16, zone: 'outer' });
+    const { buildings } = placeBuildings(makeInput([innerBuilding, outerBuilding]));
+
+    const mid = Math.floor(24 / 2);
+    const innerDist = Math.sqrt((buildings[0].tx - mid) ** 2 + (buildings[0].ty - mid) ** 2);
+    const outerDist = Math.sqrt((buildings[1].tx - mid) ** 2 + (buildings[1].ty - mid) ** 2);
+    expect(innerDist).toBeLessThan(outerDist);
+  });
+});
+
+// ── placeBuildings — road generation ─────────────────────────────────────────
+
+describe('road generation', () => {
+  it('pattern=none produces no roads', () => {
+    const { roads } = placeBuildings(makeInput([], { streetPattern: 'none' }));
+    expect(roads).toHaveLength(0);
+  });
+
+  it('pattern=grid produces cross-shaped roads', () => {
+    const { roads } = placeBuildings(makeInput([], { streetPattern: 'grid', radiusTiles: 8 }));
+    expect(roads.length).toBeGreaterThan(10);
+    // Should have tiles on both axes through centre
+    const mid = Math.floor(24 / 2);
+    const onHorizontal = roads.filter(r => r.ty === mid);
+    const onVertical = roads.filter(r => r.tx === mid);
+    expect(onHorizontal.length).toBeGreaterThan(5);
+    expect(onVertical.length).toBeGreaterThan(5);
+  });
+
+  it('pattern=radial produces spoke roads from centre', () => {
+    const { roads } = placeBuildings(makeInput([], { streetPattern: 'radial', radiusTiles: 8 }));
+    expect(roads.length).toBeGreaterThan(10);
+    // Centre tile should be a road
+    const mid = Math.floor(24 / 2);
+    expect(roads.some(r => r.tx === mid && r.ty === mid)).toBe(true);
+  });
+
+  it('pattern=linear produces a main road with short cross-street', () => {
+    const { roads } = placeBuildings(makeInput([], { streetPattern: 'linear', radiusTiles: 8 }));
+    expect(roads.length).toBeGreaterThan(10);
+    const main = roads.filter(r => r.main);
+    const secondary = roads.filter(r => !r.main);
+    expect(main.length).toBeGreaterThan(secondary.length);
+  });
+
+  it('pattern=branching produces a trunk with branches', () => {
+    const { roads } = placeBuildings(makeInput([], { streetPattern: 'branching', radiusTiles: 8 }));
+    expect(roads.length).toBeGreaterThan(10);
+    const main = roads.filter(r => r.main);
+    const secondary = roads.filter(r => !r.main);
+    expect(main.length).toBeGreaterThan(0);
+    expect(secondary.length).toBeGreaterThan(0);
+  });
+
+  it('pattern=organic produces winding paths toward centre', () => {
+    const { roads } = placeBuildings(makeInput([], { streetPattern: 'organic', radiusTiles: 8 }));
+    expect(roads.length).toBeGreaterThan(5);
+    // Should reach the centre
+    const mid = Math.floor(24 / 2);
+    const nearCentre = roads.some(r =>
+      Math.abs(r.tx - mid) <= 1 && Math.abs(r.ty - mid) <= 1);
+    expect(nearCentre).toBe(true);
+  });
+
+  it('roads are deterministic for same seed', () => {
+    const a = placeBuildings(makeInput([], { streetPattern: 'radial', seed: 77 }));
+    const b = placeBuildings(makeInput([], { streetPattern: 'radial', seed: 77 }));
+    expect(a.roads.map(r => `${r.tx},${r.ty}`)).toEqual(b.roads.map(r => `${r.tx},${r.ty}`));
+  });
+
+  it('buildings avoid road tiles', () => {
+    const blds = Array.from({ length: 10 }, (_, i) =>
+      makeBuilding({ id: `b-${i}`, w: 32 }));
+    const { buildings, roads } = placeBuildings(makeInput(blds, { streetPattern: 'grid', radiusTiles: 8 }));
+    const roadSet = new Set(roads.map(r => `${r.tx},${r.ty}`));
+
+    // No building centre should land on a road tile
+    for (const b of buildings) {
+      expect(roadSet.has(`${b.tx},${b.ty}`)).toBe(false);
+    }
+  });
+});

@@ -302,7 +302,7 @@ describe('selectBuildings', () => {
   });
 
   it('culture hierarchyScale affects first civic building size', () => {
-    const culture = getCulture('dvergr-hold');
+    const culture = getCulture('mountainhold');
     expect(culture).toBeDefined();
 
     const rng1 = mulberry32(42);
