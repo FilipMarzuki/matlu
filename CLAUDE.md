@@ -226,7 +226,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude
 
 ## Nightly agent
 
-`.github/workflows/agent-nightly.yml` — per-issue runner. Cron (`0 2 * * *`) + `workflow_dispatch`. Fetches GitHub Issues with the `ready` label via `.github/scripts/fetch-agent-issues.js`, then fans out in a matrix (`max-parallel: 3`, `fail-fast: false`) and spawns one isolated Claude Code session per issue via `.github/scripts/run-agent.js`. Per-session prompt lives in `.agents/per-issue.md`.
+`.github/workflows/agent-nightly.yml` — single-issue-per-cycle runner. Cron (`0 2 * * *`) + `workflow_dispatch` + `workflow_run` (re-wakes after each Bender PR merges). Each cycle fetches the highest-priority `ready` issue via `.github/scripts/fetch-agent-issues.js`, runs one Claude Code session via `.github/scripts/run-agent.js`, and opens a PR. The PR flows through DevCycle 2 — CI → 3 — Review → 4 — Merge (or 5 — Grooming), and the merge's `workflow_run` event wakes Bender for the next cycle. Capped at 10 cycles per 8-hour window. Per-session prompt lives in `.agents/per-issue.md`.
 
 The per-issue runner requires one of two Claude credentials as repo secrets:
 
