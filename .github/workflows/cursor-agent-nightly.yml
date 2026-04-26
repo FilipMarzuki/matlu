@@ -35,6 +35,9 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
+      - name: Heartbeat
+        run: echo "Marvin cycle started at $(date -u) — event=${{ github.event_name }}"
+
       - name: Check origin (always pass — fetch-issue decides eligibility)
         id: check-origin
         run: |
@@ -132,6 +135,8 @@ jobs:
     if: needs.fetch-issue.outputs.has_issue == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      exit_code: ${{ steps.cursor_session.outputs.exit_code }}
     permissions:
       contents: write
       pull-requests: write
@@ -173,12 +178,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Run Cursor session for issue #${{ needs.fetch-issue.outputs.issue }}
+        id: cursor_session
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           # GH_TRACKER_TOKEN (PAT) so the PR Marvin opens triggers DevCycle 2 — CI.
           GITHUB_TOKEN:   ${{ secrets.GH_TRACKER_TOKEN }}
           GH_TOKEN:       ${{ secrets.GH_TRACKER_TOKEN }}
-        run: node .github/scripts/run-agent-marvin.js "${{ needs.fetch-issue.outputs.issue }}"
+        run: |
+          node .github/scripts/run-agent-marvin.js "${{ needs.fetch-issue.outputs.issue }}"
+          ec=$?
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
+          exit $ec
 
       - name: Clean up stale in-progress label on failure
         if: failure() || cancelled()
@@ -238,3 +248,67 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node .github/scripts/log-session-tokens.js --workflow "DevCycle 1 — Dev Agent (Marvin)" --issue "${{ needs.fetch-issue.outputs.issue }}"
+
+  workflow-summary:
+    name: Marvin cycle summary
+    needs: [gate, fetch-issue, run-agent]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Write run outcome summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          GATE_RESULT: ${{ needs.gate.result }}
+          SHOULD_RUN: ${{ needs.gate.outputs.should_run }}
+          FETCH_RESULT: ${{ needs.fetch-issue.result }}
+          HAS_ISSUE: ${{ needs.fetch-issue.outputs.has_issue }}
+          ISSUE: ${{ needs.fetch-issue.outputs.issue }}
+          AGENT_RESULT: ${{ needs.run-agent.result }}
+          EXIT_CODE: ${{ needs.run-agent.outputs.exit_code }}
+        run: |
+          {
+            echo '## Marvin cycle outcome'
+            echo ''
+            if [ "$GATE_RESULT" != 'success' ]; then
+              echo "Gate job result: \`$GATE_RESULT\` — Marvin did not complete a normal cycle (check earlier jobs)."
+            elif [ "$SHOULD_RUN" != 'true' ]; then
+              echo '**Idle (gate):** Cycle cap reached — \`should_run=false\`. No issue fetch or agent run this cycle.'
+            elif [ "$FETCH_RESULT" = 'failure' ]; then
+              echo '**Failure:** Issue fetch job failed before an issue could be picked.'
+            elif [ "$HAS_ISSUE" != 'true' ]; then
+              echo '**Idle:** No eligible issues found.'
+            elif [ "$AGENT_RESULT" = 'skipped' ]; then
+              echo "**Unexpected:** Issue #$ISSUE was picked but run-agent did not run (skipped)."
+            elif [ "$AGENT_RESULT" = 'success' ]; then
+              PR_NUM=$(gh pr list --repo "$REPO" --state all --limit 40 \
+                --json number,headRefName,body \
+                --jq ".[] | select(.headRefName | startswith(\"marvin/\")) | select(.body | contains(\"#${ISSUE}\")) | .number" \
+                | head -1 || true)
+              PR_NUM=${PR_NUM:-}
+              LABELS=$(gh issue view "$ISSUE" --repo "$REPO" --json labels \
+                --jq '[.labels[].name] | map(select(startswith("agent:"))) | join(", ")' 2>/dev/null || echo '')
+              LABELS=${LABELS:-'(none detected)'}
+              if [ -n "$PR_NUM" ]; then
+                echo "**Success:** Picked issue #$ISSUE, opened PR #$PR_NUM, agent labels: $LABELS"
+              else
+                echo "**Success (verify):** Picked issue #$ISSUE, run-agent succeeded but no \`marvin/*\` PR referencing #$ISSUE was found in recent PRs. Agent labels: $LABELS"
+              fi
+            else
+              PR_NUM=$(gh pr list --repo "$REPO" --state all --limit 40 \
+                --json number,headRefName,body \
+                --jq ".[] | select(.headRefName | startswith(\"marvin/\")) | select(.body | contains(\"#${ISSUE}\")) | .number" \
+                | head -1 || true)
+              PR_NUM=${PR_NUM:-}
+              EC=${EXIT_CODE:-unknown}
+              if [ -n "$PR_NUM" ]; then
+                echo "**Partial / failed:** Picked issue #$ISSUE, run-agent result: \`$AGENT_RESULT\`, PR #$PR_NUM exists, cursor exit code: $EC"
+              else
+                echo "**Failure:** Picked issue #$ISSUE, no PR opened, cursor exit code: $EC (run-agent: \`$AGENT_RESULT\`)"
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
