@@ -143,6 +143,10 @@ to Peoples, Factions, and Cultures.
 
 ## Backfill: Mistheim peoples
 
+> **Source of truth:** The live axis values now live on Culture DB entries in Notion
+> (one `default-of-race` Culture per People). The table below is kept for documentation
+> but may drift — prefer the Notion Culture DB for current values.
+
 First-pass scores from WORLD.md. Verify and revise.
 
 | People | Tradition | Survival | Tight | Context | Mode | Top values |
