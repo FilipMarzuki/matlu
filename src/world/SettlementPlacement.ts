@@ -190,16 +190,17 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
   // ── Generate main roads ────────────────────────────────────────────────
   const mainRoads = generateRoads(streetPattern, mid, radiusTiles, gridSize, roadRng);
 
-  // Mark road tiles as passable (they already are 0, but track them)
-  const roadSet = new Set<string>();
+  // Main road set — only these are valid A* targets (prevents disconnected networks)
+  const mainRoadSet = new Set<string>();
   for (const r of mainRoads) {
-    roadSet.add(`${r.tx},${r.ty}`);
+    mainRoadSet.add(`${r.tx},${r.ty}`);
+  }
+  if (mainRoads.length === 0) {
+    mainRoadSet.add(`${mid},${mid}`);
   }
 
-  // If no main roads, seed with centre tile
-  if (mainRoads.length === 0) {
-    roadSet.add(`${mid},${mid}`);
-  }
+  // Full path set — includes main roads + connector paths (used for placement avoidance)
+  const allPathSet = new Set(mainRoadSet);
 
   const placed: Array<{ tx: number; ty: number; size: number }> = [];
   const result: PlacedBuilding[] = [];
@@ -229,14 +230,14 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
 
       if (tx - half < 0 || ty - half < 0 || tx + half >= gridSize || ty + half >= gridSize) continue;
 
-      // Don't overlap main roads
-      let hitsRoad = false;
-      for (let dx = -half; dx <= half && !hitsRoad; dx++) {
-        for (let dy = -half; dy <= half && !hitsRoad; dy++) {
-          if (roadSet.has(`${tx + dx},${ty + dy}`)) hitsRoad = true;
+      // Don't overlap any road or path tile
+      let hitsPath = false;
+      for (let dx = -half; dx <= half && !hitsPath; dx++) {
+        for (let dy = -half; dy <= half && !hitsPath; dy++) {
+          if (allPathSet.has(`${tx + dx},${ty + dy}`)) hitsPath = true;
         }
       }
-      if (hitsRoad) continue;
+      if (hitsPath) continue;
 
       // Don't overlap other buildings
       if (placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, 1.0))) continue;
@@ -269,73 +270,96 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     result.push({ tx: placedTx, ty: placedTy, widthT, depthT, building, fallback: wasFallback });
     stampBuilding(grid, gridSize, placedTx, placedTy, half);
 
-    // ── Connect: walk from entrance to nearest road ───────────────────────
-    // Pick entrance: try each cardinal side, pick the one closest to a road
-    const entrances = [
-      { tx: placedTx, ty: placedTy - half - 1 }, // North
-      { tx: placedTx, ty: placedTy + half + 1 }, // South
-      { tx: placedTx - half - 1, ty: placedTy }, // West
-      { tx: placedTx + half + 1, ty: placedTy }, // East
-    ].filter(e => e.tx >= 0 && e.ty >= 0 && e.tx < gridSize && e.ty < gridSize);
+    // ── Connect: walk from entrance to nearest MAIN road ────────────────────
+    // Try all tiles on each cardinal side (not just centre of each side)
+    const entrances: Array<{ tx: number; ty: number }> = [];
+    // North side
+    for (let dx = -half; dx <= half; dx++)
+      entrances.push({ tx: placedTx + dx, ty: placedTy - half - 1 });
+    // South side
+    for (let dx = -half; dx <= half; dx++)
+      entrances.push({ tx: placedTx + dx, ty: placedTy + half + 1 });
+    // West side
+    for (let dy = -half; dy <= half; dy++)
+      entrances.push({ tx: placedTx - half - 1, ty: placedTy + dy });
+    // East side
+    for (let dy = -half; dy <= half; dy++)
+      entrances.push({ tx: placedTx + half + 1, ty: placedTy + dy });
 
-    // Find entrance closest to any road/path tile
-    let bestEntrance = entrances[0];
+    // Filter valid + passable entrances
+    const validEntrances = entrances.filter(e =>
+      e.tx >= 0 && e.ty >= 0 && e.tx < gridSize && e.ty < gridSize &&
+      grid[e.ty * gridSize + e.tx] === 0);
+
+    // Find entrance closest to any MAIN road tile (not connector paths)
+    let bestEntrance: { tx: number; ty: number } | null = null;
     let bestDist = Infinity;
-    for (const e of entrances) {
-      if (grid[e.ty * gridSize + e.tx] === 1) continue; // blocked by another building
-      for (const rk of roadSet) {
+    for (const e of validEntrances) {
+      for (const rk of mainRoadSet) {
         const [rx, ry] = rk.split(',').map(Number);
         const d = Math.abs(e.tx - rx) + Math.abs(e.ty - ry);
         if (d < bestDist) { bestDist = d; bestEntrance = e; }
       }
     }
 
+    // If no valid entrance (all sides blocked), try clearing one
+    if (!bestEntrance && entrances.length > 0) {
+      // Pick any in-bounds entrance, force it passable
+      const fallbackE = entrances.find(e =>
+        e.tx >= 0 && e.ty >= 0 && e.tx < gridSize && e.ty < gridSize);
+      if (fallbackE) {
+        grid[fallbackE.ty * gridSize + fallbackE.tx] = 0;
+        bestEntrance = fallbackE;
+        bestDist = Infinity;
+        for (const rk of mainRoadSet) {
+          const [rx, ry] = rk.split(',').map(Number);
+          const d = Math.abs(fallbackE.tx - rx) + Math.abs(fallbackE.ty - ry);
+          if (d < bestDist) { bestDist = d; }
+        }
+      }
+    }
+
     if (!bestEntrance) continue;
 
-    // Entrance tile must be passable
-    grid[bestEntrance.ty * gridSize + bestEntrance.tx] = 0;
-
-    // Find nearest road tile as A* target
+    // Find nearest MAIN road tile as A* goal
     let goalTx = mid;
     let goalTy = mid;
     let goalDist = Infinity;
-    for (const rk of roadSet) {
+    for (const rk of mainRoadSet) {
       const [rx, ry] = rk.split(',').map(Number);
       const d = Math.abs(bestEntrance.tx - rx) + Math.abs(bestEntrance.ty - ry);
       if (d < goalDist) { goalDist = d; goalTx = rx; goalTy = ry; }
     }
 
-    // Already on a road
+    // Already on a main road
     if (goalDist === 0) {
-      roadSet.add(`${bestEntrance.tx},${bestEntrance.ty}`);
+      allPathSet.add(`${bestEntrance.tx},${bestEntrance.ty}`);
       connectorPaths.push({ tx: bestEntrance.tx, ty: bestEntrance.ty, main: false });
       continue;
     }
 
-    // A* from entrance to nearest road tile
+    // A* from entrance to nearest main road tile
     const path = aStarPath(grid, gridSize, gridSize, bestEntrance.tx, bestEntrance.ty, goalTx, goalTy);
 
     if (path) {
       // Emit entrance tile
       connectorPaths.push({ tx: bestEntrance.tx, ty: bestEntrance.ty, main: false });
-      roadSet.add(`${bestEntrance.tx},${bestEntrance.ty}`);
+      allPathSet.add(`${bestEntrance.tx},${bestEntrance.ty}`);
 
-      // Emit each path tile, mark as road so future buildings can connect to it
       for (const wp of path) {
         connectorPaths.push({ tx: wp.x, ty: wp.y, main: false });
-        roadSet.add(`${wp.x},${wp.y}`);
-        // Keep path passable on grid
+        allPathSet.add(`${wp.x},${wp.y}`);
         stampRoad(grid, gridSize, wp.x, wp.y);
       }
     } else {
-      // A* failed (fully blocked) — force straight line
+      // A* failed — straight line, clearing walls as we go
       let cx = bestEntrance.tx;
       let cy = bestEntrance.ty;
-      for (let step = 0; step < 60; step++) {
-        if (roadSet.has(`${cx},${cy}`)) break;
+      for (let step = 0; step < 80; step++) {
+        if (mainRoadSet.has(`${cx},${cy}`)) break;
         connectorPaths.push({ tx: cx, ty: cy, main: false });
-        roadSet.add(`${cx},${cy}`);
-        stampRoad(grid, gridSize, cx, cy);
+        allPathSet.add(`${cx},${cy}`);
+        grid[cy * gridSize + cx] = 0; // force passable
         const dx = goalTx - cx;
         const dy = goalTy - cy;
         if (dx === 0 && dy === 0) break;
