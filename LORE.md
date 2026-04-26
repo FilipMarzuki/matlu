@@ -6,6 +6,7 @@ Canonical lore lives in Notion. IDs below let agents fetch entries directly.
 
 | Database   | Notion ID                              | Purpose |
 |------------|----------------------------------------|---------|
+| Races      | `34e843c0-718f-81a3-b4c8-c0ff6839bd21` | Visual + anatomical race canon (`npm run races:sync` cache: `data/notion-races-cache.json`) |
 | Creatures  | `4c71181b-2842-4301-b7cf-94572b3845a9` | All fauna: wildlife, corrupted, bosses, critters |
 | Characters | `751f1b85-0c99-4e1b-a0a5-c39a5422498a` | Named NPCs, antagonists, allies |
 | Factions   | `833dd954-974b-422d-adb2-14a51f30af16` | Organisations and factions across all three worlds |
