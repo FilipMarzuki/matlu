@@ -342,6 +342,9 @@ const BIOME_WASH_ALPHAS: readonly number[] = [
   0.22,
 ];
 
+const CORRUPTION_GROUND_THRESHOLD = 0.38;
+const CORRUPTION_GROUND_MAX_ALPHA = 0.58;
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -5745,6 +5748,22 @@ export class GameScene extends Phaser.Scene {
       0xffffff,
       1,
     ).setVisible(false);
+    const corruptionTile = this.add.polygon(
+      -9999,
+      -9999,
+      [
+        0,
+        0,
+        ISO_TILE_W / 2,
+        ISO_TILE_H / 2,
+        0,
+        ISO_TILE_H,
+        -ISO_TILE_W / 2,
+        ISO_TILE_H / 2,
+      ],
+      0x12051f,
+      1,
+    ).setVisible(false);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5874,6 +5893,30 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Corruption needs readable geography, not only a full-screen tint. Dark
+    // purple-black patches sit directly on the terrain so players can identify
+    // dangerous ground at both player scale and overview scale.
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+        const wy = ty * TILE_SIZE + TILE_SIZE / 2;
+        const localCorruption = this.corruptionField.sample(wx, wy, 1);
+        if (localCorruption < CORRUPTION_GROUND_THRESHOLD) continue;
+
+        const t = Phaser.Math.Clamp(
+          (localCorruption - CORRUPTION_GROUND_THRESHOLD) / (0.9 - CORRUPTION_GROUND_THRESHOLD),
+          0,
+          1,
+        );
+        const { x: isoX, y: isoY } = worldToIso(tx * TILE_SIZE, ty * TILE_SIZE);
+        const accent = ((tx * 9283 ^ ty * 6899) & 3) === 0;
+        corruptionTile
+          .setPosition(isoX, isoY)
+          .setFillStyle(accent ? 0x2b073b : 0x12051f, 0.18 + t * CORRUPTION_GROUND_MAX_ALPHA);
+        terrainRt.draw(corruptionTile);
+      }
+    }
+
     // Spawn clearing — stamp grass tiles (iso-tiles frame 40, bright green top) over the
     // surrounding biome so the player spawns in a recognisable open clearing.
     // FIL-444: positions use worldToIso so clearing stamps land on iso diamond tiles.
@@ -5897,6 +5940,7 @@ export class GameScene extends Phaser.Scene {
 
     tileImg.destroy();
     washTile.destroy();
+    corruptionTile.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
