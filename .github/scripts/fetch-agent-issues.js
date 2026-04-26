@@ -94,6 +94,25 @@ async function main() {
     const issues = await fetchAllPages(
       `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&per_page=100`
     );
+
+    // Fetch all open PRs and build a set of issue numbers that already have an
+    // in-flight agent PR (bender/* or marvin/*). This prevents the race condition
+    // where agent:in-progress is removed after a successful run but the PR hasn't
+    // merged yet, causing the next cycle to pick the same issue again.
+    const openPRs = await fetchAllPages(
+      `https://api.github.com/repos/${REPO}/pulls?state=open&per_page=100`
+    );
+    const issuesWithAgentPR = new Set();
+    for (const pr of openPRs) {
+      const branch = pr.head?.ref ?? '';
+      if (!branch.startsWith('bender/') && !branch.startsWith('marvin/')) continue;
+      const body = pr.body ?? '';
+      for (const m of body.matchAll(/\b(?:closes|fixes|resolves)\s+#(\d+)/gi)) {
+        issuesWithAgentPR.add(parseInt(m[1], 10));
+      }
+    }
+    console.error(`[fetch] ${issuesWithAgentPR.size} issue(s) blocked by in-flight agent PRs: ${JSON.stringify([...issuesWithAgentPR])}`);
+
     // GitHub Issues API also returns pull requests — exclude them.
     // Also exclude issues that also carry the "blocked" label.
     // Sort: bugs and rework first (they affect players now), then everything else.
