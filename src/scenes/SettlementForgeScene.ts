@@ -787,7 +787,8 @@ export class SettlementForgeScene extends Phaser.Scene {
     placements.sort((a, b) => (a.tx + a.ty) - (b.tx + b.ty));
 
     // Draw
-    for (const p of placements) {
+    for (let i = 0; i < placements.length; i++) {
+      const p = placements[i];
       const color = p.fallback
         ? this.darken(CAT_COLORS[p.building.category] ?? 0x888888, 0.6)
         : CAT_COLORS[p.building.category] ?? 0x888888;
@@ -799,11 +800,19 @@ export class SettlementForgeScene extends Phaser.Scene {
 
       this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, heightPx, color, 0.85);
 
-      // Label
+      // Number ID on building top face
       const { x, y } = this.isoPos(p.tx, p.ty);
-      const labelY = y + this.ISO_H / 2 - heightPx - 4;
+      const numY = y + this.ISO_H / 2 - heightPx * 0.5;
+      const numLabel = this.add.text(x, numY, `${i + 1}`, {
+        fontSize: '11px', color: '#ffffff', fontFamily: 'monospace',
+        stroke: '#000000', strokeThickness: 3, fontStyle: 'bold',
+      }).setOrigin(0.5, 0.5).setDepth(10 + (p.tx + p.ty) * 0.01 + 0.001);
+      this.labelObjects.push(numLabel);
+
+      // Name label above
+      const labelY = y + this.ISO_H / 2 - heightPx - 6;
       const label = this.add.text(x, labelY, p.building.id, {
-        fontSize: '7px', color: '#ffffff', fontFamily: 'monospace',
+        fontSize: '7px', color: '#cccccc', fontFamily: 'monospace',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 1).setDepth(10 + (p.tx + p.ty) * 0.01);
       this.labelObjects.push(label);

@@ -380,10 +380,9 @@ function connectBuildings(
     let bestStart = { tx: building.tx + half + 1, ty: building.ty };
     let bestDist = Infinity;
 
-    // Check all edge tiles around the building
+    // Check all edge tiles around the building (1 tile out from footprint)
     for (let dx = -(half + 1); dx <= half + 1; dx++) {
       for (let dy = -(half + 1); dy <= half + 1; dy++) {
-        // Only edge tiles (not inside the footprint)
         if (Math.abs(dx) <= half && Math.abs(dy) <= half) continue;
         const etx = building.tx + dx;
         const ety = building.ty + dy;
@@ -403,10 +402,25 @@ function connectBuildings(
       continue;
     }
 
-    // A* from bestStart to nearest connected tile, then add wobble
-    let rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, occupied, gridSize);
+    // Build a local occupied set that EXCLUDES this building's own footprint
+    // so A* can path through tiles adjacent to the building we're connecting.
+    const localOccupied = new Set(occupied);
+    for (let dx = -half; dx <= half; dx++) {
+      for (let dy = -half; dy <= half; dy++) {
+        localOccupied.delete(tileKey(building.tx + dx, building.ty + dy));
+      }
+    }
+    // Also clear 1-tile border around this building so paths can reach its edge
+    for (let dx = -(half + 1); dx <= half + 1; dx++) {
+      for (let dy = -(half + 1); dy <= half + 1; dy++) {
+        localOccupied.delete(tileKey(building.tx + dx, building.ty + dy));
+      }
+    }
 
-    // If A* failed (blocked by buildings), retry without obstacle avoidance
+    // A* from bestStart to nearest connected tile
+    let rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, localOccupied, gridSize);
+
+    // If A* failed (still blocked), retry without any obstacle avoidance
     if (rawPath.length === 0) {
       rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, new Set(), gridSize);
     }
@@ -495,7 +509,7 @@ function astarToConnected(
   const closed = new Set<string>();
 
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  const MAX_ITER = 2000; // safety limit
+  const MAX_ITER = 5000; // safety limit — grids can be 40x40+ at higher tiers
 
   for (let iter = 0; iter < MAX_ITER && open.length > 0; iter++) {
     // Pop node with lowest f
