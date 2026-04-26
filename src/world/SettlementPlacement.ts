@@ -408,9 +408,10 @@ function connectBuildings(
       continue;
     }
 
-    // Trace a path from bestStart toward nearest connected tile
-    const path = tracePath(bestStart.tx, bestStart.ty, connected, occupied, gridSize, rng);
-    for (const p of path) {
+    // A* from bestStart to nearest connected tile, then add wobble
+    const rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, occupied, gridSize);
+    const wobbly = wobblePath(rawPath, occupied, connected, gridSize, rng);
+    for (const p of wobbly) {
       const k = tileKey(p.tx, p.ty);
       if (!connected.has(k)) {
         connected.add(k);
@@ -425,11 +426,10 @@ function connectBuildings(
 /** Manhattan distance to the nearest tile in the connected set. */
 function nearestConnectedDist(tx: number, ty: number, connected: TileSet): number {
   if (connected.has(tileKey(tx, ty))) return 0;
-  // Search outward in rings (fast for nearby connections)
-  for (let r = 1; r <= 30; r++) {
+  for (let r = 1; r <= 40; r++) {
     for (let dx = -r; dx <= r; dx++) {
       for (let dy = -r; dy <= r; dy++) {
-        if (Math.abs(dx) + Math.abs(dy) > r) continue; // diamond search
+        if (Math.abs(dx) + Math.abs(dy) > r) continue;
         if (connected.has(tileKey(tx + dx, ty + dy))) return r;
       }
     }
@@ -437,101 +437,153 @@ function nearestConnectedDist(tx: number, ty: number, connected: TileSet): numbe
   return 999;
 }
 
+// ── A* pathfinding ───────────────────────────────────────────────────────────
+
+interface AStarNode {
+  tx: number;
+  ty: number;
+  g: number;       // cost from start
+  f: number;       // g + heuristic
+  parent: AStarNode | null;
+}
+
 /**
- * Trace a grid path from (sx,sy) toward the nearest connected tile.
- * Steps toward the target with random wobble to avoid straight lines.
- * Avoids occupied tiles (building footprints).
+ * A* pathfinding from (sx,sy) to the nearest tile in the connected set.
+ * Avoids occupied tiles (building footprints) unless they're in the
+ * connected set (roads through buildings are OK).
+ *
+ * Returns the path as RoadTile[] or empty array if unreachable.
  */
-function tracePath(
+function astarToConnected(
   sx: number, sy: number,
   connected: TileSet,
   occupied: Set<string>,
   gridSize: number,
-  rng: () => number,
 ): RoadTile[] {
-  const path: RoadTile[] = [];
-  let cx = sx;
-  let cy = sy;
-  const visited = new Set<string>();
-  visited.add(tileKey(cx, cy));
-
-  // Find target: nearest connected tile
-  let targetX = cx;
-  let targetY = cy;
+  // Find the nearest connected tile as heuristic target
+  let targetX = sx;
+  let targetY = sy;
   let bestDist = Infinity;
-  for (let r = 1; r <= 40; r++) {
+  for (let r = 1; r <= 50; r++) {
     let found = false;
     for (let dx = -r; dx <= r; dx++) {
       for (let dy = -r; dy <= r; dy++) {
         if (Math.abs(dx) + Math.abs(dy) > r) continue;
-        if (connected.has(tileKey(cx + dx, cy + dy))) {
+        if (connected.has(tileKey(sx + dx, sy + dy))) {
           const d = dx * dx + dy * dy;
-          if (d < bestDist) { bestDist = d; targetX = cx + dx; targetY = cy + dy; found = true; }
+          if (d < bestDist) { bestDist = d; targetX = sx + dx; targetY = sy + dy; found = true; }
         }
       }
     }
     if (found) break;
   }
+  if (bestDist === Infinity) return []; // no connected tile reachable
 
-  // Step toward target with wobble
-  for (let step = 0; step < 60; step++) {
-    if (connected.has(tileKey(cx, cy))) break;
+  const heuristic = (tx: number, ty: number) =>
+    Math.abs(tx - targetX) + Math.abs(ty - targetY);
 
-    path.push({ tx: cx, ty: cy, main: false });
+  const start: AStarNode = { tx: sx, ty: sy, g: 0, f: heuristic(sx, sy), parent: null };
 
-    const dx = targetX - cx;
-    const dy = targetY - cy;
-    if (dx === 0 && dy === 0) break;
+  // Open set as a simple sorted array (settlement grids are small, <50x50)
+  const open: AStarNode[] = [start];
+  const closed = new Set<string>();
 
-    // Pick primary direction toward target
-    let nx = cx;
-    let ny = cy;
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const MAX_ITER = 2000; // safety limit
 
-    // 70% move toward target, 30% wobble perpendicular
-    if (rng() < 0.7) {
-      // Move along the longer axis
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        nx += dx > 0 ? 1 : -1;
-      } else {
-        ny += dy > 0 ? 1 : -1;
+  for (let iter = 0; iter < MAX_ITER && open.length > 0; iter++) {
+    // Pop node with lowest f
+    let bestIdx = 0;
+    for (let i = 1; i < open.length; i++) {
+      if (open[i].f < open[bestIdx].f) bestIdx = i;
+    }
+    const current = open[bestIdx];
+    open.splice(bestIdx, 1);
+
+    const ck = tileKey(current.tx, current.ty);
+    if (closed.has(ck)) continue;
+    closed.add(ck);
+
+    // Goal: reached a connected tile
+    if (connected.has(ck)) {
+      // Reconstruct path
+      const path: RoadTile[] = [];
+      let node: AStarNode | null = current;
+      while (node) {
+        path.push({ tx: node.tx, ty: node.ty, main: false });
+        node = node.parent;
       }
-    } else {
-      // Wobble perpendicular
+      path.reverse();
+      return path;
+    }
+
+    // Expand neighbours
+    for (const [ddx, ddy] of DIRS) {
+      const nx = current.tx + ddx;
+      const ny = current.ty + ddy;
+      if (nx < 0 || ny < 0 || nx >= gridSize || ny >= gridSize) continue;
+
+      const nk = tileKey(nx, ny);
+      if (closed.has(nk)) continue;
+
+      // Can traverse connected tiles (roads) even if "occupied"
+      if (occupied.has(nk) && !connected.has(nk)) continue;
+
+      const g = current.g + 1;
+      const f = g + heuristic(nx, ny);
+      open.push({ tx: nx, ty: ny, g, f, parent: current });
+    }
+  }
+
+  return []; // no path found
+}
+
+/**
+ * Add wobble to an A* path so it looks foot-worn rather than computed.
+ * For each interior point, 20% chance to jitter 1 tile perpendicular
+ * (if the jittered tile is passable).
+ */
+function wobblePath(
+  path: RoadTile[],
+  occupied: Set<string>,
+  connected: TileSet,
+  gridSize: number,
+  rng: () => number,
+): RoadTile[] {
+  if (path.length <= 2) return path;
+
+  const result: RoadTile[] = [path[0]];
+
+  for (let i = 1; i < path.length - 1; i++) {
+    const prev = path[i - 1];
+    const curr = path[i];
+    const next = path[i + 1];
+
+    if (rng() < 0.2) {
+      // Direction of travel
+      const dx = next.tx - prev.tx;
+      const dy = next.ty - prev.ty;
+
+      // Perpendicular offset
+      let wx: number, wy: number;
       if (Math.abs(dx) >= Math.abs(dy)) {
-        ny += rng() > 0.5 ? 1 : -1;
+        wx = curr.tx;
+        wy = curr.ty + (rng() > 0.5 ? 1 : -1);
       } else {
-        nx += rng() > 0.5 ? 1 : -1;
+        wx = curr.tx + (rng() > 0.5 ? 1 : -1);
+        wy = curr.ty;
+      }
+
+      const wk = tileKey(wx, wy);
+      if (wx >= 0 && wy >= 0 && wx < gridSize && wy < gridSize &&
+          !occupied.has(wk) || connected.has(wk)) {
+        result.push({ tx: wx, ty: wy, main: false });
       }
     }
 
-    // Bounds + collision check
-    if (nx < 0 || ny < 0 || nx >= gridSize || ny >= gridSize) continue;
-    const nk = tileKey(nx, ny);
-    if (occupied.has(nk) && !connected.has(nk)) {
-      // Try to step around the obstacle
-      const alt1 = { tx: cx + (dy !== 0 ? 1 : 0), ty: cy + (dx !== 0 ? 1 : 0) };
-      const alt2 = { tx: cx - (dy !== 0 ? 1 : 0), ty: cy - (dx !== 0 ? 1 : 0) };
-      const ak1 = tileKey(alt1.tx, alt1.ty);
-      const ak2 = tileKey(alt2.tx, alt2.ty);
-      if (!occupied.has(ak1) && !visited.has(ak1)) {
-        nx = alt1.tx; ny = alt1.ty;
-      } else if (!occupied.has(ak2) && !visited.has(ak2)) {
-        nx = alt2.tx; ny = alt2.ty;
-      } else {
-        continue; // stuck — skip this step
-      }
-    }
-
-    if (visited.has(tileKey(nx, ny))) continue;
-    visited.add(tileKey(nx, ny));
-    cx = nx;
-    cy = ny;
+    result.push(curr);
   }
 
-  // Add final tile if we reached the connected network
-  if (connected.has(tileKey(cx, cy))) {
-    path.push({ tx: cx, ty: cy, main: false });
-  }
-
-  return path;
+  result.push(path[path.length - 1]);
+  return result;
 }
