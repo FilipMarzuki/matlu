@@ -808,11 +808,12 @@ export class SettlementForgeScene extends Phaser.Scene {
         // Number label on every road tile (high depth so always visible)
         const { x, y } = this.isoPos(road.tx, road.ty);
         const roadLabel = this.add.text(x, y + this.ISO_H / 2, `${ri}`, {
-          fontSize: '6px',
+          fontSize: '9px',
           color: road.main ? '#ffee88' : '#ffaa44',
           fontFamily: 'monospace',
           stroke: '#000000',
-          strokeThickness: 2,
+          strokeThickness: 3,
+          fontStyle: 'bold',
         }).setOrigin(0.5, 0.5).setDepth(100);
         this.labelObjects.push(roadLabel);
       }
