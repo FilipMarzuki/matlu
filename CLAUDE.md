@@ -228,6 +228,16 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude
 
 `.github/workflows/agent-nightly.yml` — single-issue-per-cycle runner. Cron (`0 2 * * *`) + `workflow_dispatch` + `workflow_run` (re-wakes after each Bender PR merges). Each cycle fetches the highest-priority `ready` issue via `.github/scripts/fetch-agent-issues.js`, runs one Claude Code session via `.github/scripts/run-agent.js`, and opens a PR. The PR flows through DevCycle 2 — CI → 3 — Review → 4 — Merge (or 5 — Grooming), and the merge's `workflow_run` event wakes Bender for the next cycle. Capped at 10 cycles per 8-hour window. Per-session prompt lives in `.agents/per-issue.md`.
 
+`.github/workflows/cursor-agent-nightly.yml` — sibling runner using the Cursor
+CLI instead of Claude Code. Same single-issue-per-cycle architecture as Bender.
+Cron (`0 4 * * *`) + `workflow_dispatch` + `workflow_run` (re-wakes after each
+Marvin PR merges, same chain as Bender). Branch prefix `marvin/`. Per-session
+prompt lives in `.agents/per-issue-marvin.md`. Picks from the same
+`.github/scripts/fetch-agent-issues.js` queue Bender uses, so the two agents
+share the work pool — whoever's gate fires first claims the highest-priority
+issue. Capped at 10 cycles per 8-hour window, separately from Bender's cap.
+Required secret: `CURSOR_API_KEY` (in addition to `GH_TRACKER_TOKEN`).
+
 The per-issue runner requires one of two Claude credentials as repo secrets:
 
 - **`CLAUDE_CODE_OAUTH_TOKEN`** (preferred) — generated locally via `claude setup-token`; usage counts against your Claude Pro/Max/Team-premium subscription quota so you avoid pay-as-you-go API billing.
