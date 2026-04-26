@@ -783,22 +783,27 @@ export class SettlementForgeScene extends Phaser.Scene {
       console.log(`  [B${i+1}] ${b.building.id} @(${b.tx},${b.ty}) w=${b.widthT} | ${nearbyRoads.length} road tiles within 4`);
     }
 
-    // Render main roads on ground plane, connectors on top for visibility
-    if (roads.length > 0) {
-      // Main roads: ground level
-      const mainGfx = this.add.graphics().setDepth(0.5);
-      this.buildingObjects.push(mainGfx);
-      // Connectors: rendered above buildings so they're always visible
-      const connGfx = this.add.graphics().setDepth(50);
-      this.buildingObjects.push(connGfx);
-
-      for (const road of roads) {
-        if (road.main) {
-          this.drawIsoDiamond(mainGfx, road.tx, road.ty, 0xd4b87a, 0.7);
-        } else {
-          // Bright orange connector paths, always visible
-          this.drawIsoDiamond(connGfx, road.tx, road.ty, 0xff6600, 0.5);
+    // Build a set of tiles occupied by building base footprints
+    const baseTiles = new Set<string>();
+    for (const p of placements) {
+      const bh = Math.ceil(p.widthT / 2);
+      for (let dx = -bh; dx <= bh; dx++) {
+        for (let dy = -bh; dy <= bh; dy++) {
+          baseTiles.add(`${p.tx + dx},${p.ty + dy}`);
         }
+      }
+    }
+
+    // Render roads — skip connector tiles that fall inside building bases
+    if (roads.length > 0) {
+      const roadGfx = this.add.graphics().setDepth(0.5);
+      this.buildingObjects.push(roadGfx);
+      for (const road of roads) {
+        // Skip connectors under buildings (main roads always render)
+        if (!road.main && baseTiles.has(`${road.tx},${road.ty}`)) continue;
+        const roadColor = road.main ? 0xd4b87a : 0xc9a050;
+        const alpha = road.main ? 0.7 : 0.55;
+        this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
       }
     }
 

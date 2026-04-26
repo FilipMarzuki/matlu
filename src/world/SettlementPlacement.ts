@@ -308,35 +308,46 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     result.push({ tx: placedTx, ty: placedTy, widthT, depthT, building, fallback: wasFallback });
 
     // ── Connect this building to the MAIN ROAD network ─────────────────────
-    // Always run A* from building edge to nearest main road tile (or centre
-    // seed for pattern=none). This guarantees a visible path from every
-    // building all the way to a real road, not just to another building's
-    // edge tile.
+    // Path connects from a straight side (N/S/E/W) of the building base,
+    // not from corners. This creates proper "entrance" paths.
     const half = Math.ceil(widthT / 2);
+    const targetSet = roads.set.size > 0 ? roads.set : connected;
 
-    // Find the edge tile closest to a main road tile
-    let bestEdge = { tx: placedTx + half + 1, ty: placedTy };
-    let bestDist = Infinity;
-    for (let dx = -(half + 1); dx <= half + 1; dx++) {
-      for (let dy = -(half + 1); dy <= half + 1; dy++) {
-        if (Math.abs(dx) <= half && Math.abs(dy) <= half) continue;
-        const etx = placedTx + dx;
-        const ety = placedTy + dy;
-        if (etx < 0 || ety < 0 || etx >= gridSize || ety >= gridSize) continue;
-        // Distance to nearest main road (not any connected tile)
-        const d = nearestConnectedDist(etx, ety, roads.set.size > 0 ? roads.set : connected);
-        if (d < bestDist) { bestDist = d; bestEdge = { tx: etx, ty: ety }; }
-      }
+    // Candidate edge tiles: only N/S/E/W straight sides (not corners)
+    const candidates: Array<{ tx: number; ty: number }> = [];
+    // North edge: same tx range as building, ty = placedTy - half - 1
+    for (let dx = -half; dx <= half; dx++) {
+      candidates.push({ tx: placedTx + dx, ty: placedTy - half - 1 });
+    }
+    // South edge
+    for (let dx = -half; dx <= half; dx++) {
+      candidates.push({ tx: placedTx + dx, ty: placedTy + half + 1 });
+    }
+    // West edge
+    for (let dy = -half; dy <= half; dy++) {
+      candidates.push({ tx: placedTx - half - 1, ty: placedTy + dy });
+    }
+    // East edge
+    for (let dy = -half; dy <= half; dy++) {
+      candidates.push({ tx: placedTx + half + 1, ty: placedTy + dy });
     }
 
-    // A* from edge tile to nearest main road (no obstacles — guaranteed)
-    const targetSet = roads.set.size > 0 ? roads.set : connected;
+    // Pick the candidate closest to a main road tile
+    let bestEdge = candidates[0] ?? { tx: placedTx + half + 1, ty: placedTy };
+    let bestDist = Infinity;
+    for (const c of candidates) {
+      if (c.tx < 0 || c.ty < 0 || c.tx >= gridSize || c.ty >= gridSize) continue;
+      const d = nearestConnectedDist(c.tx, c.ty, targetSet);
+      if (d < bestDist) { bestDist = d; bestEdge = c; }
+    }
+
+    // A* from edge tile to nearest main road (cardinal directions only)
     let path = astarToConnected(bestEdge.tx, bestEdge.ty, targetSet, new Set(), gridSize);
     if (path.length === 0) {
       path = straightLineToConnected(bestEdge.tx, bestEdge.ty, targetSet, gridSize);
     }
 
-    // Emit all path tiles (visible path from building to road)
+    // Emit all path tiles — renderer will skip those under buildings
     for (const p of path) {
       const k = tileKey(p.tx, p.ty);
       connected.add(k);
