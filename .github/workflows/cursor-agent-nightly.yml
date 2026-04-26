@@ -189,6 +189,34 @@ jobs:
           gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:in-progress" || true
           gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:failed" || true
 
+      - name: Swap mislabelled agent:already-shipped → agent:success
+        # Step 0 of .agents/per-issue-marvin.md is the only legitimate place
+        # for agent:already-shipped (supersession exit, no PR opened). If the
+        # session reached Step 3 and opened a PR, the model sometimes
+        # mis-applies already-shipped instead of agent:success — see #658.
+        # This guard catches that and swaps the label so weekly stats and
+        # human readers see the correct outcome.
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE="${{ needs.fetch-issue.outputs.issue }}"
+          HAS_LABEL=$(gh issue view "$ISSUE" --repo "${{ github.repository }}" --json labels \
+            --jq '[.labels[] | select(.name == "agent:already-shipped")] | length')
+          if [ "$HAS_LABEL" -eq 0 ]; then
+            echo "No agent:already-shipped on #$ISSUE — nothing to reconcile."
+            exit 0
+          fi
+          HAS_PR=$(gh pr list --repo "${{ github.repository }}" --state all \
+            --search "#$ISSUE in:body" --json number --jq 'length')
+          if [ "$HAS_PR" -gt 0 ]; then
+            echo "Mislabel: agent:already-shipped on #$ISSUE but PR exists → swap to agent:success"
+            gh api -X DELETE "repos/${{ github.repository }}/issues/$ISSUE/labels/agent:already-shipped" || true
+            gh api -X POST "repos/${{ github.repository }}/issues/$ISSUE/labels" -f 'labels[]=agent:success' || true
+          else
+            echo "agent:already-shipped on #$ISSUE with no PR — legitimate Step 0 exit, leaving as-is."
+          fi
+
       - name: Log token usage
         if: always()
         env:
