@@ -307,5 +307,231 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     }
   }
 
-  return { buildings: result, roads: roads.tiles };
+  // Phase 4: connect buildings to road network with secondary paths
+  const pathRng = mulberry32(seed + 31);
+  const connectorPaths = connectBuildings(result, roads.set, placed, gridSize, pathRng);
+
+  // Merge main roads + connector paths (connectors are marked main=false)
+  const allRoads = [...roads.tiles, ...connectorPaths];
+
+  return { buildings: result, roads: allRoads };
+}
+
+// ── Building-to-road connector paths ─────────────────────────────────────────
+
+/**
+ * Connect each building to the nearest road/path tile via grid-stepping.
+ *
+ * Algorithm:
+ * 1. Start with the road network as "connected" tiles.
+ * 2. Sort buildings by distance to nearest connected tile (closest first).
+ * 3. For each building, trace a path from its edge to the nearest connected
+ *    tile, stepping through the grid while avoiding building footprints.
+ * 4. Add wobble so paths look foot-worn, not ruler-drawn.
+ * 5. New path tiles become "connected" so subsequent buildings can reach them.
+ *
+ * For `none` pattern (no main roads), the first building's position seeds
+ * the connected set, and all others connect to it — creating a natural
+ * web of foot paths.
+ */
+function connectBuildings(
+  buildings: PlacedBuilding[],
+  roadSet: TileSet,
+  placed: Array<{ tx: number; ty: number; size: number }>,
+  gridSize: number,
+  rng: () => number,
+): RoadTile[] {
+  if (buildings.length === 0) return [];
+
+  // Working copy of connected tiles — starts as road network
+  const connected = new Set(roadSet);
+  const paths: RoadTile[] = [];
+
+  // If no roads at all, seed with the centre-most building's adjacent tile
+  if (connected.size === 0 && buildings.length > 0) {
+    const mid = Math.floor(gridSize / 2);
+    // Find building closest to centre
+    let best = buildings[0];
+    let bestDist = Infinity;
+    for (const b of buildings) {
+      const d = (b.tx - mid) ** 2 + (b.ty - mid) ** 2;
+      if (d < bestDist) { bestDist = d; best = b; }
+    }
+    // Seed an adjacent tile
+    const seedTx = best.tx + Math.ceil(best.widthT / 2) + 1;
+    const seedTy = best.ty;
+    connected.add(tileKey(seedTx, seedTy));
+    paths.push({ tx: seedTx, ty: seedTy, main: false });
+  }
+
+  // Build a set of occupied tiles (building footprints) for avoidance
+  const occupied = new Set<string>();
+  for (const p of placed) {
+    const half = Math.ceil(p.size / 2);
+    for (let dx = -half; dx <= half; dx++) {
+      for (let dy = -half; dy <= half; dy++) {
+        occupied.add(tileKey(p.tx + dx, p.ty + dy));
+      }
+    }
+  }
+
+  // Sort buildings: closest to any connected tile first (greedy)
+  const sorted = [...buildings];
+  sorted.sort((a, b) => {
+    const distA = nearestConnectedDist(a.tx, a.ty, connected);
+    const distB = nearestConnectedDist(b.tx, b.ty, connected);
+    return distA - distB;
+  });
+
+  for (const building of sorted) {
+    // Find the building-edge tile closest to any connected tile
+    const half = Math.ceil(building.widthT / 2);
+    let bestStart = { tx: building.tx + half + 1, ty: building.ty };
+    let bestDist = Infinity;
+
+    // Check all edge tiles around the building
+    for (let dx = -(half + 1); dx <= half + 1; dx++) {
+      for (let dy = -(half + 1); dy <= half + 1; dy++) {
+        // Only edge tiles (not inside the footprint)
+        if (Math.abs(dx) <= half && Math.abs(dy) <= half) continue;
+        const etx = building.tx + dx;
+        const ety = building.ty + dy;
+        if (etx < 0 || ety < 0 || etx >= gridSize || ety >= gridSize) continue;
+        const d = nearestConnectedDist(etx, ety, connected);
+        if (d < bestDist) { bestDist = d; bestStart = { tx: etx, ty: ety }; }
+      }
+    }
+
+    // Already adjacent to connected network — no path needed
+    if (bestDist <= 1) {
+      connected.add(tileKey(bestStart.tx, bestStart.ty));
+      continue;
+    }
+
+    // Trace a path from bestStart toward nearest connected tile
+    const path = tracePath(bestStart.tx, bestStart.ty, connected, occupied, gridSize, rng);
+    for (const p of path) {
+      const k = tileKey(p.tx, p.ty);
+      if (!connected.has(k)) {
+        connected.add(k);
+        paths.push(p);
+      }
+    }
+  }
+
+  return paths;
+}
+
+/** Manhattan distance to the nearest tile in the connected set. */
+function nearestConnectedDist(tx: number, ty: number, connected: TileSet): number {
+  if (connected.has(tileKey(tx, ty))) return 0;
+  // Search outward in rings (fast for nearby connections)
+  for (let r = 1; r <= 30; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.abs(dx) + Math.abs(dy) > r) continue; // diamond search
+        if (connected.has(tileKey(tx + dx, ty + dy))) return r;
+      }
+    }
+  }
+  return 999;
+}
+
+/**
+ * Trace a grid path from (sx,sy) toward the nearest connected tile.
+ * Steps toward the target with random wobble to avoid straight lines.
+ * Avoids occupied tiles (building footprints).
+ */
+function tracePath(
+  sx: number, sy: number,
+  connected: TileSet,
+  occupied: Set<string>,
+  gridSize: number,
+  rng: () => number,
+): RoadTile[] {
+  const path: RoadTile[] = [];
+  let cx = sx;
+  let cy = sy;
+  const visited = new Set<string>();
+  visited.add(tileKey(cx, cy));
+
+  // Find target: nearest connected tile
+  let targetX = cx;
+  let targetY = cy;
+  let bestDist = Infinity;
+  for (let r = 1; r <= 40; r++) {
+    let found = false;
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.abs(dx) + Math.abs(dy) > r) continue;
+        if (connected.has(tileKey(cx + dx, cy + dy))) {
+          const d = dx * dx + dy * dy;
+          if (d < bestDist) { bestDist = d; targetX = cx + dx; targetY = cy + dy; found = true; }
+        }
+      }
+    }
+    if (found) break;
+  }
+
+  // Step toward target with wobble
+  for (let step = 0; step < 60; step++) {
+    if (connected.has(tileKey(cx, cy))) break;
+
+    path.push({ tx: cx, ty: cy, main: false });
+
+    const dx = targetX - cx;
+    const dy = targetY - cy;
+    if (dx === 0 && dy === 0) break;
+
+    // Pick primary direction toward target
+    let nx = cx;
+    let ny = cy;
+
+    // 70% move toward target, 30% wobble perpendicular
+    if (rng() < 0.7) {
+      // Move along the longer axis
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        nx += dx > 0 ? 1 : -1;
+      } else {
+        ny += dy > 0 ? 1 : -1;
+      }
+    } else {
+      // Wobble perpendicular
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        ny += rng() > 0.5 ? 1 : -1;
+      } else {
+        nx += rng() > 0.5 ? 1 : -1;
+      }
+    }
+
+    // Bounds + collision check
+    if (nx < 0 || ny < 0 || nx >= gridSize || ny >= gridSize) continue;
+    const nk = tileKey(nx, ny);
+    if (occupied.has(nk) && !connected.has(nk)) {
+      // Try to step around the obstacle
+      const alt1 = { tx: cx + (dy !== 0 ? 1 : 0), ty: cy + (dx !== 0 ? 1 : 0) };
+      const alt2 = { tx: cx - (dy !== 0 ? 1 : 0), ty: cy - (dx !== 0 ? 1 : 0) };
+      const ak1 = tileKey(alt1.tx, alt1.ty);
+      const ak2 = tileKey(alt2.tx, alt2.ty);
+      if (!occupied.has(ak1) && !visited.has(ak1)) {
+        nx = alt1.tx; ny = alt1.ty;
+      } else if (!occupied.has(ak2) && !visited.has(ak2)) {
+        nx = alt2.tx; ny = alt2.ty;
+      } else {
+        continue; // stuck — skip this step
+      }
+    }
+
+    if (visited.has(tileKey(nx, ny))) continue;
+    visited.add(tileKey(nx, ny));
+    cx = nx;
+    cy = ny;
+  }
+
+  // Add final tile if we reached the connected network
+  if (connected.has(tileKey(cx, cy))) {
+    path.push({ tx: cx, ty: cy, main: false });
+  }
+
+  return path;
 }
