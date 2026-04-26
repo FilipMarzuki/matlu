@@ -29,6 +29,7 @@ import { ArenaSelectScene } from './scenes/ArenaSelectScene';
 import { WorldForgeScene } from './scenes/WorldForgeScene';
 import { DiscoveryScene } from './scenes/DiscoveryScene';
 import { SettlementScene } from './scenes/SettlementScene';
+import { SpriteRecolorSpikeScene } from './scenes/SpriteRecolorSpikeScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
 // navigating through the main menu. Vercel rewrites all paths to index.html
@@ -40,13 +41,15 @@ import { SettlementScene } from './scenes/SettlementScene';
 //   /wf          → WorldForgeScene       (short alias)
 //   /settlement  → SettlementScene       (settlement build mode — placeholder)
 //   /build       → SettlementScene       (alias)
+//   /recolor     → SpriteRecolorSpikeScene (issue #703 — palette / tint POC)
 //   /            → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementScene, SpriteRecolorSpikeScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
   if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
   if (path === '/settlement' || path === '/build') return [SettlementScene, ...all.filter(s => s !== SettlementScene)];
+  if (path === '/recolor') return [SpriteRecolorSpikeScene, ...all.filter(s => s !== SpriteRecolorSpikeScene)];
   if (path === '/menu')  return all;
   // Default (/ and /arena): boot straight into arena/combat
   return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
