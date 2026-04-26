@@ -807,12 +807,14 @@ export class SettlementForgeScene extends Phaser.Scene {
       }
     }
 
+    // Tag each placement with its original placement order before sorting
+    const tagged = placements.map((p, idx) => ({ ...p, placementOrder: idx + 1 }));
+
     // Sort by iso depth (tx + ty) so back buildings render first
-    placements.sort((a, b) => (a.tx + a.ty) - (b.tx + b.ty));
+    tagged.sort((a, b) => (a.tx + a.ty) - (b.tx + b.ty));
 
     // Draw
-    for (let i = 0; i < placements.length; i++) {
-      const p = placements[i];
+    for (const p of tagged) {
       const color = p.fallback
         ? this.darken(CAT_COLORS[p.building.category] ?? 0x888888, 0.6)
         : CAT_COLORS[p.building.category] ?? 0x888888;
@@ -824,10 +826,10 @@ export class SettlementForgeScene extends Phaser.Scene {
 
       this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, heightPx, color, 0.85);
 
-      // Number ID on building top face
+      // Number = placement order (not render order)
       const { x, y } = this.isoPos(p.tx, p.ty);
       const numY = y + this.ISO_H / 2 - heightPx * 0.5;
-      const numLabel = this.add.text(x, numY, `${i + 1}`, {
+      const numLabel = this.add.text(x, numY, `${p.placementOrder}`, {
         fontSize: '11px', color: '#ffffff', fontFamily: 'monospace',
         stroke: '#000000', strokeThickness: 3, fontStyle: 'bold',
       }).setOrigin(0.5, 0.5).setDepth(10 + (p.tx + p.ty) * 0.01 + 0.001);
