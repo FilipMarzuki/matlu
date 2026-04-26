@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Fetches GitHub Issues eligible for the per-issue nightly agent.
 //
-// Eligibility: open issues with "ready" label but NOT "blocked".
+// Eligibility: open issues with "ready" label but NOT "blocked", and not
+// already targeted by an open bender/* or marvin/* PR (avoids duplicate
+// agent cycles while a PR is in flight).
 //
 // Emits a JSON array of GitHub issue numbers (e.g. [42, 43]) on stdout.
 // In GitHub Actions, also appends `issues=[...]` to $GITHUB_OUTPUT so the
@@ -72,6 +74,22 @@ async function main() {
     }
     numbers = [issueNum];
   } else {
+    // Open agent PRs still reference their issue after reconciliation removes
+    // agent:in-progress; exclude those issues so a fast wake chain cannot pick
+    // the same work twice before merge.
+    const openPRs = await fetchAllPages(
+      `https://api.github.com/repos/${REPO}/pulls?state=open&per_page=100`
+    );
+    const issuesWithAgentPR = new Set();
+    for (const pr of openPRs) {
+      const branch = pr.head?.ref || '';
+      if (!branch.startsWith('bender/') && !branch.startsWith('marvin/')) continue;
+      const body = pr.body || '';
+      for (const m of body.matchAll(/\b(?:closes|fixes|resolves)\s+#(\d+)/gi)) {
+        issuesWithAgentPR.add(parseInt(m[1], 10));
+      }
+    }
+
     // Fetch all open issues with the "ready" label.
     const issues = await fetchAllPages(
       `https://api.github.com/repos/${REPO}/issues?state=open&labels=ready&per_page=100`
@@ -89,6 +107,7 @@ async function main() {
       .filter(i => !i.pull_request)
       .filter(i => !hasLabel(i, 'blocked'))
       .filter(i => !hasLabel(i, 'agent:in-progress'))
+      .filter(i => !issuesWithAgentPR.has(i.number))
       .sort((a, b) => bugPriority(a) - bugPriority(b))
       .map(i => i.number);
   }
