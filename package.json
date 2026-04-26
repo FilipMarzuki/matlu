@@ -17,6 +17,7 @@
     "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed",
     "arena-bot": "tsx scripts/arena-bot/run.ts",
     "audio:sync": "node scripts/sync-audio.js",
+    "races:sync": "node scripts/sync-races.mjs",
     "entity:audit": "tsx scripts/entity-audit.ts",
     "cap:sync": "npm run build && npx cap sync",
     "unit": "vitest run",
