@@ -794,16 +794,27 @@ export class SettlementForgeScene extends Phaser.Scene {
       }
     }
 
-    // Render roads — skip connector tiles that fall inside building bases
+    // Render roads with tile numbers for debugging
     if (roads.length > 0) {
       const roadGfx = this.add.graphics().setDepth(0.5);
       this.buildingObjects.push(roadGfx);
-      for (const road of roads) {
-        // Skip any road tile inside a building's base footprint
-        if (baseTiles.has(`${road.tx},${road.ty}`)) continue;
+      for (let ri = 0; ri < roads.length; ri++) {
+        const road = roads[ri];
+        const underBuilding = baseTiles.has(`${road.tx},${road.ty}`);
         const roadColor = road.main ? 0xd4b87a : 0xc9a050;
-        const alpha = road.main ? 0.7 : 0.55;
+        const alpha = underBuilding ? 0.15 : (road.main ? 0.7 : 0.55);
         this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
+
+        // Number label on every road tile (high depth so always visible)
+        const { x, y } = this.isoPos(road.tx, road.ty);
+        const roadLabel = this.add.text(x, y + this.ISO_H / 2, `${ri}`, {
+          fontSize: '6px',
+          color: road.main ? '#ffee88' : '#ffaa44',
+          fontFamily: 'monospace',
+          stroke: '#000000',
+          strokeThickness: 2,
+        }).setOrigin(0.5, 0.5).setDepth(100);
+        this.labelObjects.push(roadLabel);
       }
     }
 
