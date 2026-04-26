@@ -307,10 +307,14 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     placed.push({ tx: placedTx, ty: placedTy, size: widthT });
     result.push({ tx: placedTx, ty: placedTy, widthT, depthT, building, fallback: wasFallback });
 
-    // ── Connect this building to the network ──────────────────────────────
+    // ── Connect this building to the MAIN ROAD network ─────────────────────
+    // Always run A* from building edge to nearest main road tile (or centre
+    // seed for pattern=none). This guarantees a visible path from every
+    // building all the way to a real road, not just to another building's
+    // edge tile.
     const half = Math.ceil(widthT / 2);
 
-    // Find the edge tile closest to a connected tile
+    // Find the edge tile closest to a main road tile
     let bestEdge = { tx: placedTx + half + 1, ty: placedTy };
     let bestDist = Infinity;
     for (let dx = -(half + 1); dx <= half + 1; dx++) {
@@ -319,35 +323,23 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
         const etx = placedTx + dx;
         const ety = placedTy + dy;
         if (etx < 0 || ety < 0 || etx >= gridSize || ety >= gridSize) continue;
-        if (connected.has(tileKey(etx, ety))) { bestDist = 0; bestEdge = { tx: etx, ty: ety }; break; }
-        const d = nearestConnectedDist(etx, ety, connected);
+        // Distance to nearest main road (not any connected tile)
+        const d = nearestConnectedDist(etx, ety, roads.set.size > 0 ? roads.set : connected);
         if (d < bestDist) { bestDist = d; bestEdge = { tx: etx, ty: ety }; }
       }
-      if (bestDist === 0) break;
     }
 
-    // Always emit at least the edge tile as a visible "driveway"
-    const edgeKey = tileKey(bestEdge.tx, bestEdge.ty);
-    if (!connected.has(edgeKey)) {
-      connectorPaths.push({ tx: bestEdge.tx, ty: bestEdge.ty, main: false });
-    }
-    connected.add(edgeKey);
-
-    // If already touching, we're done — the edge tile is the driveway
-    if (bestDist === 0) continue;
-
-    // A* from edge tile to nearest connected tile (no obstacles — guaranteed)
-    let path = astarToConnected(bestEdge.tx, bestEdge.ty, connected, new Set(), gridSize);
+    // A* from edge tile to nearest main road (no obstacles — guaranteed)
+    const targetSet = roads.set.size > 0 ? roads.set : connected;
+    let path = astarToConnected(bestEdge.tx, bestEdge.ty, targetSet, new Set(), gridSize);
     if (path.length === 0) {
-      path = straightLineToConnected(bestEdge.tx, bestEdge.ty, connected, gridSize);
+      path = straightLineToConnected(bestEdge.tx, bestEdge.ty, targetSet, gridSize);
     }
 
-    // Add wobble for organic feel
-    const wobbly = wobblePath(path, new Set(), connected, gridSize, rng);
-    for (const p of wobbly) {
+    // Emit all path tiles (visible path from building to road)
+    for (const p of path) {
       const k = tileKey(p.tx, p.ty);
       connected.add(k);
-      // Always emit path tiles so they're visible (even if overlapping existing roads)
       connectorPaths.push(p);
     }
   }
@@ -526,52 +518,4 @@ function straightLineToConnected(
   return path;
 }
 
-/**
- * Add wobble to an A* path so it looks foot-worn rather than computed.
- * For each interior point, 20% chance to jitter 1 tile perpendicular
- * (if the jittered tile is passable).
- */
-function wobblePath(
-  path: RoadTile[],
-  occupied: Set<string>,
-  connected: TileSet,
-  gridSize: number,
-  rng: () => number,
-): RoadTile[] {
-  if (path.length <= 2) return path;
-
-  const result: RoadTile[] = [path[0]];
-
-  for (let i = 1; i < path.length - 1; i++) {
-    const prev = path[i - 1];
-    const curr = path[i];
-    const next = path[i + 1];
-
-    if (rng() < 0.2) {
-      // Direction of travel
-      const dx = next.tx - prev.tx;
-      const dy = next.ty - prev.ty;
-
-      // Perpendicular offset
-      let wx: number, wy: number;
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        wx = curr.tx;
-        wy = curr.ty + (rng() > 0.5 ? 1 : -1);
-      } else {
-        wx = curr.tx + (rng() > 0.5 ? 1 : -1);
-        wy = curr.ty;
-      }
-
-      const wk = tileKey(wx, wy);
-      if (wx >= 0 && wy >= 0 && wx < gridSize && wy < gridSize &&
-          !occupied.has(wk) || connected.has(wk)) {
-        result.push({ tx: wx, ty: wy, main: false });
-      }
-    }
-
-    result.push(curr);
-  }
-
-  result.push(path[path.length - 1]);
-  return result;
-}
+// wobblePath removed — clean A* paths for now, wobble can be added later
