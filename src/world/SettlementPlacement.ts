@@ -320,19 +320,20 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
 // ── Building-to-road connector paths ─────────────────────────────────────────
 
 /**
- * Connect each building to the nearest road/path tile via grid-stepping.
+ * Connect every building to the road/path network. Guaranteed connectivity.
  *
- * Algorithm:
- * 1. Start with the road network as "connected" tiles.
+ * Simple approach that always works:
+ * 1. Start with road tiles as "connected".
  * 2. Sort buildings by distance to nearest connected tile (closest first).
- * 3. For each building, trace a path from its edge to the nearest connected
- *    tile, stepping through the grid while avoiding building footprints.
- * 4. Add wobble so paths look foot-worn, not ruler-drawn.
- * 5. New path tiles become "connected" so subsequent buildings can reach them.
+ * 3. For each building, find nearest edge tile to connected network.
+ * 4. Run A* with NO obstacle avoidance (guaranteed to find a path on an
+ *    open grid). Paths may cross building footprints — that's OK, they're
+ *    ground-level under the buildings.
+ * 5. Apply wobble for organic feel, then mark new tiles as connected.
  *
- * For `none` pattern (no main roads), the first building's position seeds
- * the connected set, and all others connect to it — creating a natural
- * web of foot paths.
+ * The greedy sort + incremental connected set means each new path extends
+ * the network, so later buildings have shorter paths — producing a natural
+ * branching tree structure.
  */
 function connectBuildings(
   buildings: PlacedBuilding[],
@@ -343,19 +344,17 @@ function connectBuildings(
 ): RoadTile[] {
   if (buildings.length === 0) return [];
 
-  // Working copy of connected tiles — starts as road network
   const connected = new Set(roadSet);
   const paths: RoadTile[] = [];
 
-  // If no roads at all, seed with the settlement centre tile.
-  // This gives A* a reachable target for every building.
+  // Seed connected set if empty (pattern=none)
   if (connected.size === 0) {
     const mid = Math.floor(gridSize / 2);
     connected.add(tileKey(mid, mid));
     paths.push({ tx: mid, ty: mid, main: false });
   }
 
-  // Build a set of occupied tiles (building footprints) for avoidance
+  // Occupied set only used for wobble avoidance (cosmetic), not for A*
   const occupied = new Set<string>();
   for (const p of placed) {
     const half = Math.ceil(p.size / 2);
@@ -366,7 +365,7 @@ function connectBuildings(
     }
   }
 
-  // Sort buildings: closest to any connected tile first (greedy)
+  // Sort: closest to connected first (greedy — extends the network outward)
   const sorted = [...buildings];
   sorted.sort((a, b) => {
     const distA = nearestConnectedDist(a.tx, a.ty, connected);
@@ -375,12 +374,11 @@ function connectBuildings(
   });
 
   for (const building of sorted) {
-    // Find the building-edge tile closest to any connected tile
     const half = Math.ceil(building.widthT / 2);
+
+    // Find the edge tile closest to a connected tile
     let bestStart = { tx: building.tx + half + 1, ty: building.ty };
     let bestDist = Infinity;
-
-    // Check all edge tiles around the building (1 tile out from footprint)
     for (let dx = -(half + 1); dx <= half + 1; dx++) {
       for (let dy = -(half + 1); dy <= half + 1; dy++) {
         if (Math.abs(dx) <= half && Math.abs(dy) <= half) continue;
@@ -392,44 +390,22 @@ function connectBuildings(
       }
     }
 
-    // Already adjacent to connected network — just mark the edge tile
-    if (bestDist <= 1) {
+    // Already touching — just mark it
+    if (connected.has(tileKey(bestStart.tx, bestStart.ty)) || bestDist === 0) {
       const k = tileKey(bestStart.tx, bestStart.ty);
-      if (!connected.has(k)) {
-        connected.add(k);
-        paths.push({ tx: bestStart.tx, ty: bestStart.ty, main: false });
-      }
+      connected.add(k);
       continue;
     }
 
-    // Build a local occupied set that EXCLUDES this building's own footprint
-    // so A* can path through tiles adjacent to the building we're connecting.
-    const localOccupied = new Set(occupied);
-    for (let dx = -half; dx <= half; dx++) {
-      for (let dy = -half; dy <= half; dy++) {
-        localOccupied.delete(tileKey(building.tx + dx, building.ty + dy));
-      }
-    }
-    // Also clear 1-tile border around this building so paths can reach its edge
-    for (let dx = -(half + 1); dx <= half + 1; dx++) {
-      for (let dy = -(half + 1); dy <= half + 1; dy++) {
-        localOccupied.delete(tileKey(building.tx + dx, building.ty + dy));
-      }
-    }
+    // A* with NO obstacles — guaranteed path on an open grid
+    let rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, new Set(), gridSize);
 
-    // A* from bestStart to nearest connected tile
-    let rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, localOccupied, gridSize);
-
-    // If A* failed (still blocked), retry without any obstacle avoidance
-    if (rawPath.length === 0) {
-      rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, new Set(), gridSize);
-    }
-
-    // Last resort: straight-line walk ignoring everything
+    // Fallback (shouldn't happen, but just in case)
     if (rawPath.length === 0) {
       rawPath = straightLineToConnected(bestStart.tx, bestStart.ty, connected, gridSize);
     }
 
+    // Wobble avoids occupied tiles cosmetically but doesn't block the path
     const wobbly = wobblePath(rawPath, occupied, connected, gridSize, rng);
     for (const p of wobbly) {
       const k = tileKey(p.tx, p.ty);
