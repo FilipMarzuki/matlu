@@ -329,3 +329,56 @@ describe('connector paths', () => {
     }
   });
 });
+
+// ── Seed 42 full connectivity audit across all street patterns ───────────────
+
+describe('seed 42 connectivity audit', () => {
+  const patterns = ['grid', 'radial', 'linear', 'branching', 'organic', 'none'] as const;
+
+  for (const pattern of patterns) {
+    it(`all buildings connected with pattern=${pattern}`, () => {
+      const blds = [
+        makeBuilding({ id: 'longhouse', w: 75, zone: 'inner', category: 'civic' }),
+        makeBuilding({ id: 'well', w: 12, zone: 'inner', category: 'civic' }),
+        makeBuilding({ id: 'shrine', w: 16, zone: 'inner', category: 'religious' }),
+        makeBuilding({ id: 'smithy', w: 40, zone: 'inner', category: 'industry' }),
+        makeBuilding({ id: 'inn', w: 52, zone: 'inner', category: 'commerce' }),
+        makeBuilding({ id: 'granary', w: 36, zone: 'inner', category: 'infrastructure' }),
+        makeBuilding({ id: 'cottage-1', w: 36, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'cottage-2', w: 36, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'cottage-3', w: 36, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'dwelling-1', w: 48, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'dwelling-2', w: 48, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'tavern', w: 40, zone: 'middle', category: 'commerce' }),
+        makeBuilding({ id: 'workshop', w: 36, zone: 'middle', category: 'industry' }),
+        makeBuilding({ id: 'sawmill', w: 52, zone: 'outer', category: 'industry' }),
+        makeBuilding({ id: 'watchtower', w: 22, zone: 'outer', category: 'military' }),
+        makeBuilding({ id: 'barn', w: 50, zone: 'outer', category: 'infrastructure' }),
+        makeBuilding({ id: 'farmstead', w: 58, zone: 'outer', category: 'residential' }),
+        makeBuilding({ id: 'storage-shed', w: 20, zone: 'outer', category: 'infrastructure' }),
+      ];
+
+      const { buildings, roads } = placeBuildings(makeInput(blds, {
+        seed: 42, radiusTiles: 10, gridSize: 30, streetPattern: pattern,
+      }));
+
+      expect(buildings).toHaveLength(blds.length);
+
+      const roadSet = new Set(roads.map(r => `${r.tx},${r.ty}`));
+      const disconnected: string[] = [];
+
+      for (const b of buildings) {
+        const half = Math.ceil(b.widthT / 2);
+        let adjacent = false;
+        for (let dx = -(half + 2); dx <= half + 2 && !adjacent; dx++) {
+          for (let dy = -(half + 2); dy <= half + 2 && !adjacent; dy++) {
+            if (roadSet.has(`${b.tx + dx},${b.ty + dy}`)) adjacent = true;
+          }
+        }
+        if (!adjacent) disconnected.push(`${b.building.id} @(${b.tx},${b.ty})`);
+      }
+
+      expect(disconnected).toEqual([]);
+    });
+  }
+});

@@ -347,21 +347,12 @@ function connectBuildings(
   const connected = new Set(roadSet);
   const paths: RoadTile[] = [];
 
-  // If no roads at all, seed with the centre-most building's adjacent tile
-  if (connected.size === 0 && buildings.length > 0) {
+  // If no roads at all, seed with the settlement centre tile.
+  // This gives A* a reachable target for every building.
+  if (connected.size === 0) {
     const mid = Math.floor(gridSize / 2);
-    // Find building closest to centre
-    let best = buildings[0];
-    let bestDist = Infinity;
-    for (const b of buildings) {
-      const d = (b.tx - mid) ** 2 + (b.ty - mid) ** 2;
-      if (d < bestDist) { bestDist = d; best = b; }
-    }
-    // Seed an adjacent tile
-    const seedTx = best.tx + Math.ceil(best.widthT / 2) + 1;
-    const seedTy = best.ty;
-    connected.add(tileKey(seedTx, seedTy));
-    paths.push({ tx: seedTx, ty: seedTy, main: false });
+    connected.add(tileKey(mid, mid));
+    paths.push({ tx: mid, ty: mid, main: false });
   }
 
   // Build a set of occupied tiles (building footprints) for avoidance
@@ -402,14 +393,29 @@ function connectBuildings(
       }
     }
 
-    // Already adjacent to connected network — no path needed
+    // Already adjacent to connected network — just mark the edge tile
     if (bestDist <= 1) {
-      connected.add(tileKey(bestStart.tx, bestStart.ty));
+      const k = tileKey(bestStart.tx, bestStart.ty);
+      if (!connected.has(k)) {
+        connected.add(k);
+        paths.push({ tx: bestStart.tx, ty: bestStart.ty, main: false });
+      }
       continue;
     }
 
     // A* from bestStart to nearest connected tile, then add wobble
-    const rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, occupied, gridSize);
+    let rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, occupied, gridSize);
+
+    // If A* failed (blocked by buildings), retry without obstacle avoidance
+    if (rawPath.length === 0) {
+      rawPath = astarToConnected(bestStart.tx, bestStart.ty, connected, new Set(), gridSize);
+    }
+
+    // Last resort: straight-line walk ignoring everything
+    if (rawPath.length === 0) {
+      rawPath = straightLineToConnected(bestStart.tx, bestStart.ty, connected, gridSize);
+    }
+
     const wobbly = wobblePath(rawPath, occupied, connected, gridSize, rng);
     for (const p of wobbly) {
       const k = tileKey(p.tx, p.ty);
@@ -536,6 +542,52 @@ function astarToConnected(
   }
 
   return []; // no path found
+}
+
+/**
+ * Straight-line walk from (sx,sy) toward the nearest connected tile.
+ * Ignores all obstacles — used as last resort when A* can't find a path.
+ */
+function straightLineToConnected(
+  sx: number, sy: number,
+  connected: TileSet,
+  gridSize: number,
+): RoadTile[] {
+  // Find target
+  let targetX = sx;
+  let targetY = sy;
+  let bestDist = Infinity;
+  for (let r = 1; r <= 50; r++) {
+    let found = false;
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.abs(dx) + Math.abs(dy) > r) continue;
+        if (connected.has(tileKey(sx + dx, sy + dy))) {
+          const d = dx * dx + dy * dy;
+          if (d < bestDist) { bestDist = d; targetX = sx + dx; targetY = sy + dy; found = true; }
+        }
+      }
+    }
+    if (found) break;
+  }
+
+  const path: RoadTile[] = [];
+  let cx = sx;
+  let cy = sy;
+  for (let i = 0; i < 80; i++) {
+    if (cx === targetX && cy === targetY) break;
+    path.push({ tx: cx, ty: cy, main: false });
+    const dx = targetX - cx;
+    const dy = targetY - cy;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      cx += dx > 0 ? 1 : -1;
+    } else {
+      cy += dy > 0 ? 1 : -1;
+    }
+    if (cx < 0 || cy < 0 || cx >= gridSize || cy >= gridSize) break;
+  }
+  path.push({ tx: targetX, ty: targetY, main: false });
+  return path;
 }
 
 /**
