@@ -1,0 +1,133 @@
+name: Agent Heartbeat — alert on nightly silence
+
+# Daily check that catches silent failures of the nightly agents (Bender,
+# Marvin). Two distinct silent-failure modes have been observed:
+#
+#   1. GitHub Actions cron silently skipped (free-tier reliability issue).
+#      No workflow run record exists for the scheduled time.
+#   2. Cron ran but the run failed before any visible label / PR / comment.
+#
+# This workflow runs every day at 14:00 UTC (well after both Bender's 02:00
+# and Marvin's 04:00 cron windows). For each agent it counts workflow runs
+# in the last 24 hours. If either count is 0, an alert issue is filed (or
+# a follow-up comment is posted on an existing open alert) so the silence
+# is visible without manual log diving.
+#
+# Output: a single GitHub issue labelled `agent-silence-alert`. Idempotent —
+# subsequent silent days post comments rather than creating duplicate issues.
+# Owner closes the issue when the silence is resolved.
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  issues: write
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count last-24h runs per agent
+        id: counts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          REPO="${{ github.repository }}"
+          CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          echo "Cutoff (24h ago): $CUTOFF"
+
+          BENDER=$(gh api "repos/$REPO/actions/workflows/agent-nightly.yml/runs?per_page=100" \
+            --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\")] | length")
+          MARVIN=$(gh api "repos/$REPO/actions/workflows/cursor-agent-nightly.yml/runs?per_page=100" \
+            --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\")] | length")
+
+          echo "Bender runs in last 24h: $BENDER"
+          echo "Marvin runs in last 24h: $MARVIN"
+          echo "bender=$BENDER" >> $GITHUB_OUTPUT
+          echo "marvin=$MARVIN" >> $GITHUB_OUTPUT
+
+          # Detect silence — either agent at zero is alert-worthy.
+          if [ "$BENDER" -eq 0 ] && [ "$MARVIN" -eq 0 ]; then
+            SCOPE="both Bender and Marvin"
+          elif [ "$BENDER" -eq 0 ]; then
+            SCOPE="Bender"
+          elif [ "$MARVIN" -eq 0 ]; then
+            SCOPE="Marvin"
+          else
+            SCOPE=""
+          fi
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+          if [ -n "$SCOPE" ]; then
+            echo "Silence detected: $SCOPE"
+            echo "alert=true" >> $GITHUB_OUTPUT
+          else
+            echo "All agents fired within last 24h — no alert."
+            echo "alert=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: File or update silence alert
+        if: steps.counts.outputs.alert == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          REPO="${{ github.repository }}"
+          SCOPE="${{ steps.counts.outputs.scope }}"
+          BENDER="${{ steps.counts.outputs.bender }}"
+          MARVIN="${{ steps.counts.outputs.marvin }}"
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Ensure the agent-silence-alert label exists. Idempotent — if the
+          # label already exists, the API call returns 422 and we ignore it.
+          # Useful safety net for the first run before create-labels.js has
+          # been re-run after merging this workflow.
+          gh api -X POST "repos/$REPO/labels" \
+            -f name="agent-silence-alert" \
+            -f color="b60205" \
+            -f description="Heartbeat detected nightly agent silence > 24h" \
+            >/dev/null 2>&1 || true
+
+          # Idempotency: look for an existing open alert and comment on it
+          # rather than spawning duplicates. One open alert per silence window.
+          EXISTING=$(gh issue list --repo "$REPO" --state open \
+            --label agent-silence-alert --json number --jq '.[0].number // empty')
+
+          BODY=$(cat <<EOF
+          **Heartbeat at $NOW** — silence detected for **$SCOPE**.
+
+          | Agent | Workflow | Runs in last 24h |
+          | ----- | -------- | ---------------- |
+          | Bender | \`agent-nightly.yml\` | $BENDER |
+          | Marvin | \`cursor-agent-nightly.yml\` | $MARVIN |
+
+          ## Likely causes (by frequency)
+
+          1. **GitHub Actions cron skipped** — free-tier scheduled jobs are dropped under load. Documented behaviour. Verify by checking the workflow's run history for the scheduled time; if no run exists, the cron didn't fire.
+          2. **Run failed before visible artefacts** — gate rejected, fetch-issue errored, or runner step crashed. Check Actions logs for the most recent run that did fire.
+          3. **All ready issues exhausted** — fetch-agent-issues.js returns empty. Less alarming but worth checking the backlog.
+
+          ## Suggested actions
+
+          - Open the [Bender runs](https://github.com/$REPO/actions/workflows/agent-nightly.yml) and [Marvin runs](https://github.com/$REPO/actions/workflows/cursor-agent-nightly.yml) pages and filter by the silent window.
+          - Manually re-trigger via \`workflow_dispatch\` to recover from a missed cron.
+          - Close this issue when the silence is resolved (next successful run will not auto-close).
+
+          ---
+          Generated by \`agent-heartbeat.yml\`.
+          EOF
+          )
+
+          if [ -n "$EXISTING" ]; then
+            echo "Existing alert #$EXISTING is open — posting follow-up comment."
+            echo "$BODY" | gh issue comment "$EXISTING" --repo "$REPO" --body-file -
+          else
+            echo "No open alert — creating new issue."
+            echo "$BODY" | gh issue create --repo "$REPO" \
+              --title "Agent silence alert — $SCOPE silent > 24h ($NOW)" \
+              --label "agent-silence-alert,type:bug,infrastructure" \
+              --body-file -
+          fi
