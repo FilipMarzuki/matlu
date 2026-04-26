@@ -44,28 +44,19 @@ jobs:
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
-      - name: Check if this was triggered by a Bender branch
+      - name: Check origin (always pass — fetch-issue decides eligibility)
         id: check-origin
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            WORKFLOW="${{ github.event.workflow_run.name }}"
-            BRANCH="${{ github.event.workflow_run.head_branch }}"
-            # DevCycle 5 — Grooming runs on main and doesn't expose which
-            # branch it merged, so let fetch-issue decide whether there's
-            # eligible work. DevCycle 4 — Merge does run on the PR's head
-            # branch, so we keep the bender/* guard for it to avoid Bender
-            # waking up every time a Marvin PR merges.
-            if [ "$WORKFLOW" = "DevCycle 5 — Grooming" ]; then
-              echo "is_bender=true" >> $GITHUB_OUTPUT
-            elif [[ "$BRANCH" != bender/* ]]; then
-              echo "Merge was for branch '$BRANCH' — not a Bender PR, skipping"
-              echo "is_bender=false" >> $GITHUB_OUTPUT
-            else
-              echo "is_bender=true" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "is_bender=true" >> $GITHUB_OUTPUT
-          fi
+          # DevCycle 4 — Merge fires workflow_run with head_branch=main due to
+          # chained workflow_run context loss (the original PR's branch is not
+          # propagated through CI → Review → Merge). The previous bender/*
+          # check therefore always rejected DevCycle 4 events, breaking the
+          # post-merge wake chain.
+          #
+          # Letting fetch-issue decide is correct: if no eligible work exists
+          # it exits cleanly. Cron + workflow_dispatch + workflow_run all flow
+          # through the same path now.
+          echo "is_bender=true" >> $GITHUB_OUTPUT
 
       - name: Check cycle cap
         id: check
