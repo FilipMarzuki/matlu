@@ -36,10 +36,13 @@
  */
 
 import * as Phaser from 'phaser';
+import type { WorldBlackboard, WorldCombatEvent, WorldSoundEvent } from '../ai/WorldBlackboard';
 
 // ── Direction helpers ─────────────────────────────────────────────────────────
 // Same 8-sector mapping used by CombatEntity — left-side dirs mirror right-side.
 type CanonDir = 'south' | 'south-east' | 'east' | 'north-east' | 'north';
+type NpcPersonality = 'friendly' | 'fearful' | 'suspicious' | 'brave';
+type NpcState = 'wander' | 'flee' | 'investigate';
 
 const DIR_MAP: Record<number, [CanonDir, boolean]> = {
    0: ['east',       false],
@@ -59,6 +62,33 @@ function resolveDir(vx: number, vy: number): [CanonDir, boolean] {
   return DIR_MAP[sector] ?? ['south', false];
 }
 
+const PERSONALITY_HEARING_RADIUS: Record<NpcPersonality, number> = {
+  friendly: 250,
+  fearful: 400,
+  suspicious: 180,
+  brave: 300,
+};
+
+const PERSONALITY_PANIC_MULTIPLIER: Record<NpcPersonality, number> = {
+  friendly: 1,
+  fearful: 1.6,
+  suspicious: 0.7,
+  brave: 0,
+};
+
+const SOUND_PANIC_DURATION_MS: Record<WorldSoundEvent['type'], number> = {
+  gunshot: 5000,
+  explosion: 10000,
+  death: 4000,
+  scream: 6000,
+  combat: 5000,
+};
+
+const INVESTIGATE_DURATION_MS = 8000;
+const INVESTIGATE_ARRIVAL_RADIUS = 60;
+const FLEE_SPEED_MULTIPLIER = 1.4;
+const RECENTLY_PANICKED_MS = 30000;
+
 // ── Config ────────────────────────────────────────────────────────────────────
 
 export interface HumanoidNPCConfig {
@@ -71,6 +101,10 @@ export interface HumanoidNPCConfig {
   name: string;
   /** Lines shown in order; cycles on repeat. */
   dialogLines: string[];
+  /** Lines used briefly after the NPC has fled from danger. Defaults to dialogLines. */
+  frightenedDialogLines?: string[];
+  /** Personality controls hearing distance and flee/investigate response. Default: friendly. */
+  personality?: NpcPersonality;
   /** Walk speed in px/s. Default: 48. */
   walkSpeed?: number;
   /** Player must be within this many px to trigger interaction. Default: 80. */
@@ -85,6 +119,9 @@ export interface HumanoidNPCConfig {
 export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   private readonly npcName: string;
   private readonly dialogLines: string[];
+  private readonly frightenedDialogLines: string[];
+  private readonly personality: NpcPersonality;
+  private readonly hearingRadius: number;
   private readonly walkSpeed: number;
   private readonly interactRadius: number;
   private readonly wanderIntervalMin: number;
@@ -94,6 +131,13 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   private wanderVx = 0;
   private wanderVy = 0;
   private wanderTimer = 0;
+  private npcState: NpcState = 'wander';
+  private blackboard: WorldBlackboard | null = null;
+  private threatOrigin: { x: number; y: number } | null = null;
+  private threatMemoryMs = 0;
+  private investigateTarget: { x: number; y: number } | null = null;
+  private investigateTimerMs = 0;
+  private recentlyPanickedMs = 0;
 
   // Animation state — persisted to avoid restarting the same anim every frame
   private facingDir: CanonDir = 'south';
@@ -119,6 +163,9 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
 
     this.npcName           = config.name;
     this.dialogLines       = config.dialogLines;
+    this.frightenedDialogLines = config.frightenedDialogLines ?? config.dialogLines;
+    this.personality       = config.personality ?? 'friendly';
+    this.hearingRadius     = PERSONALITY_HEARING_RADIUS[this.personality];
     this.walkSpeed         = config.walkSpeed         ?? 48;
     this.interactRadius    = config.interactRadius    ?? 80;
     this.wanderIntervalMin = config.wanderIntervalMin ?? 1200;
@@ -162,12 +209,11 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
    * @param playerY  Current player world-y
    */
   tick(delta: number, playerX: number, playerY: number): void {
-    // ── Wander ────────────────────────────────────────────────────────────────
-    this.wanderTimer -= delta;
-    if (this.wanderTimer <= 0) this.pickNewWanderDir();
+    this.recentlyPanickedMs = Math.max(0, this.recentlyPanickedMs - delta);
+    this.checkHearing();
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setVelocity(this.wanderVx, this.wanderVy);
+    this.updateMovementState(delta, body);
 
     // ── Depth — refresh so y-sorting with the hero works ────────────────────
     this.setDepth(this.y);
@@ -195,6 +241,159 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  setBlackboard(blackboard: WorldBlackboard): void {
+    this.blackboard = blackboard;
+  }
+
+  private checkHearing(): void {
+    if (!this.blackboard) return;
+
+    for (const event of this.blackboard.soundEvents) {
+      const effectiveRadius = Math.min(event.radius, this.hearingRadius);
+      const distance = Phaser.Math.Distance.Between(
+        this.x,
+        this.y,
+        event.origin.x,
+        event.origin.y,
+      );
+
+      if (distance <= effectiveRadius) {
+        this.onHearSound(event);
+        break;
+      }
+    }
+  }
+
+  private onHearSound(event: WorldSoundEvent): void {
+    if (this.personality === 'brave') {
+      this.transitionToInvestigate(event.origin);
+      return;
+    }
+
+    const durationMs =
+      SOUND_PANIC_DURATION_MS[event.type] *
+      event.intensity *
+      PERSONALITY_PANIC_MULTIPLIER[this.personality];
+
+    if (durationMs <= 0) return;
+    this.transitionToFlee(event.origin, durationMs);
+  }
+
+  private updateMovementState(delta: number, body: Phaser.Physics.Arcade.Body): void {
+    if (this.npcState === 'flee') {
+      this.tickFlee(delta, body);
+      return;
+    }
+
+    if (this.npcState === 'investigate') {
+      this.tickInvestigate(delta, body);
+      return;
+    }
+
+    this.wanderTimer -= delta;
+    if (this.wanderTimer <= 0) this.pickNewWanderDir();
+    body.setVelocity(this.wanderVx, this.wanderVy);
+  }
+
+  private transitionToFlee(origin: { x: number; y: number }, durationMs: number): void {
+    const wasFleeing = this.npcState === 'flee';
+    this.npcState = 'flee';
+    this.threatOrigin = { x: origin.x, y: origin.y };
+    this.threatMemoryMs = Math.max(this.threatMemoryMs, durationMs);
+    this.investigateTarget = null;
+    this.investigateTimerMs = 0;
+
+    if (!wasFleeing) {
+      // Herd panic: one fleeing NPC becomes a small social signal to nearby NPCs.
+      this.blackboard?.broadcastSound(this.x, this.y, 120, 'scream', 0.4);
+    }
+  }
+
+  private transitionToInvestigate(origin: { x: number; y: number }): void {
+    if (this.npcState === 'flee') return;
+    this.npcState = 'investigate';
+    this.investigateTarget = { x: origin.x, y: origin.y };
+    this.investigateTimerMs = INVESTIGATE_DURATION_MS;
+    this.threatOrigin = null;
+    this.threatMemoryMs = 0;
+  }
+
+  private tickFlee(delta: number, body: Phaser.Physics.Arcade.Body): void {
+    if (!this.threatOrigin) {
+      this.transitionToWander();
+      body.setVelocity(this.wanderVx, this.wanderVy);
+      return;
+    }
+
+    this.refreshThreatMemoryFromCombatEvents();
+    this.threatMemoryMs -= delta;
+
+    if (this.threatMemoryMs <= 0) {
+      this.recentlyPanickedMs = RECENTLY_PANICKED_MS;
+      this.transitionToWander();
+      body.setVelocity(this.wanderVx, this.wanderVy);
+      return;
+    }
+
+    const dx = this.x - this.threatOrigin.x;
+    const dy = this.y - this.threatOrigin.y;
+    const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    const speed = this.walkSpeed * FLEE_SPEED_MULTIPLIER;
+    this.wanderVx = (dx / distance) * speed;
+    this.wanderVy = (dy / distance) * speed;
+    body.setVelocity(this.wanderVx, this.wanderVy);
+  }
+
+  private tickInvestigate(delta: number, body: Phaser.Physics.Arcade.Body): void {
+    if (!this.investigateTarget) {
+      this.transitionToWander();
+      body.setVelocity(this.wanderVx, this.wanderVy);
+      return;
+    }
+
+    this.investigateTimerMs -= delta;
+    const dx = this.investigateTarget.x - this.x;
+    const dy = this.investigateTarget.y - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance <= INVESTIGATE_ARRIVAL_RADIUS || this.investigateTimerMs <= 0) {
+      this.transitionToWander();
+      body.setVelocity(this.wanderVx, this.wanderVy);
+      return;
+    }
+
+    const safeDistance = Math.max(1, distance);
+    this.wanderVx = (dx / safeDistance) * this.walkSpeed;
+    this.wanderVy = (dy / safeDistance) * this.walkSpeed;
+    body.setVelocity(this.wanderVx, this.wanderVy);
+  }
+
+  private refreshThreatMemoryFromCombatEvents(): void {
+    if (!this.blackboard) return;
+
+    for (const event of this.blackboard.combatEvents) {
+      if (this.isCombatEventThreatening(event)) {
+        this.threatMemoryMs = Math.max(this.threatMemoryMs, 1000);
+        return;
+      }
+    }
+  }
+
+  private isCombatEventThreatening(event: WorldCombatEvent): boolean {
+    const dx = this.x - event.origin.x;
+    const dy = this.y - event.origin.y;
+    return Math.sqrt(dx * dx + dy * dy) <= Math.min(event.radius, this.hearingRadius);
+  }
+
+  private transitionToWander(): void {
+    this.npcState = 'wander';
+    this.threatOrigin = null;
+    this.threatMemoryMs = 0;
+    this.investigateTarget = null;
+    this.investigateTimerMs = 0;
+    this.pickNewWanderDir();
+  }
 
   private pickNewWanderDir(): void {
     const pause = Math.random() < 0.2;
@@ -233,8 +432,9 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   }
 
   private triggerDialog(): void {
-    if (this.dialogLines.length === 0) return;
-    const line = this.dialogLines[this.dialogIndex % this.dialogLines.length];
+    const activeLines = this.recentlyPanickedMs > 0 ? this.frightenedDialogLines : this.dialogLines;
+    if (activeLines.length === 0) return;
+    const line = activeLines[this.dialogIndex % activeLines.length];
     this.dialogIndex++;
     this.scene.events.emit('npc-interact', { name: this.npcName, line });
   }
