@@ -661,6 +661,12 @@ export class CombatArenaScene extends Phaser.Scene {
       }
     }
 
+    if (this.heroAlive) {
+      // Keep the rendered hero projected from its physics-space body before
+      // camera/light code reads the current frame's position.
+      this.hero._isoSync();
+    }
+
     // ── Design mode: explored-tile overlay (red grid on explored cells) ─────
     if (ARENA_DEBUG && this.heroAlive && this.hero instanceof Tinkerer) {
       this.exploredGfxTimer -= delta;
@@ -699,7 +705,8 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // ── Camera — follow hero ──────────────────────────────────────────────────
     if (!ARENA_DEBUG && !this.bgMode && this.heroAlive) {
-      this.cameras.main.centerOn(this.hero.x, this.hero.y);
+      const { x: isoX, y: isoY } = worldToArenaIso(this.hero._wx, this.hero._wy);
+      this.cameras.main.centerOn(isoX, isoY);
     }
 
     // ── Hero lantern — track hero position ───────────────────────────────────
