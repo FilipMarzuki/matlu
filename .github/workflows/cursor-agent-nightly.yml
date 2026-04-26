@@ -57,9 +57,24 @@ jobs:
         run: |
           MAX_RUNS=10
           CUTOFF=$(date -u -d '8 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-          RECENT=$(gh api "repos/${{ github.repository }}/actions/workflows/cursor-agent-nightly.yml/runs" \
-            --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\")] | length")
-          echo "Marvin runs in last 8 hours: $RECENT (max: $MAX_RUNS)"
+
+          # Count only runs where the run-agent job actually executed (i.e.,
+          # consumed Cursor budget). Runs that exited at gate or fetch level
+          # have run-agent.conclusion == "skipped" and don't count toward the
+          # cap, since they didn't burn budget. See #671 for the rationale.
+          RUN_IDS=$(gh api "repos/${{ github.repository }}/actions/workflows/cursor-agent-nightly.yml/runs?per_page=100" \
+            --jq "[.workflow_runs[] | select(.created_at > \"$CUTOFF\") | .id] | .[]")
+          RECENT=0
+          for RUN_ID in $RUN_IDS; do
+            HAS_JOB=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/jobs" \
+              --jq '[.jobs[] | select(.name == "run-agent" and .conclusion != "skipped")] | length' \
+              2>/dev/null || echo 0)
+            if [ "$HAS_JOB" -gt 0 ]; then
+              RECENT=$((RECENT + 1))
+            fi
+          done
+
+          echo "Marvin substantive runs in last 8 hours: $RECENT (max: $MAX_RUNS)"
           if [ "$RECENT" -lt "$MAX_RUNS" ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
           else
