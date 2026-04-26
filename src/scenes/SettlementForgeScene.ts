@@ -775,7 +775,13 @@ export class SettlementForgeScene extends Phaser.Scene {
     // Debug: log placement stats
     const mainRoadCount = roads.filter(r => r.main).length;
     const connectorCount = roads.filter(r => !r.main).length;
-    console.log(`[SF] buildings: ${placements.length}, roads: ${roads.length} (main: ${mainRoadCount}, connectors: ${connectorCount}), culture: ${culture.id}, pattern: ${culture.streetPattern}, seed: ${this.currentSeed}`);
+    console.log(`[SF] buildings: ${placements.length}, roads: ${roads.length} (main: ${mainRoadCount}, connectors: ${connectorCount}), culture: ${culture.id}, pattern: ${culture.streetPattern}, seed: ${this.currentSeed}, gridSize: ${this.gridSize}, radiusTiles: ${(this.spec.radius / this.TILE).toFixed(1)}`);
+    // Log first 5 buildings + their nearest connector
+    for (let i = 0; i < Math.min(5, placements.length); i++) {
+      const b = placements[i];
+      const nearbyRoads = roads.filter(r => Math.abs(r.tx - b.tx) <= 4 && Math.abs(r.ty - b.ty) <= 4);
+      console.log(`  [B${i+1}] ${b.building.id} @(${b.tx},${b.ty}) w=${b.widthT} | ${nearbyRoads.length} road tiles within 4`);
+    }
 
     // Render roads on the ground plane (depth 0.5, between ground and buildings)
     if (roads.length > 0) {
