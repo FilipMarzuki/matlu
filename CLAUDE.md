@@ -114,6 +114,8 @@ dev/                    # Agentic Experiments — AI/automation dev log (Astro 6
 - Design for landscape tablet (800×600 minimum)
 - Keep game logic in scene classes; don't add abstractions speculatively
 - Run `npm run typecheck` and `npm run build` before pushing
+- **Settlements live in Mistheim.** There is no separate worldgen for other realms — the 22 cultures (`macro-world/cultures.json`) all populate Mistheim. Spinolandet, Earth, and other narrative realms exist as lore but have no procedural settlement system.
+- **Cultures are race-agnostic.** Many races can share a culture. Culture IDs have no race prefix (e.g. `coastborn`, not `human-seafaring`). `racePreferences` is an optional weighted hint; absent means sample from regional demographics.
 
 ## Current milestone
 
@@ -224,7 +226,17 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to `main` and `claude
 
 ## Nightly agent
 
-`.github/workflows/agent-nightly.yml` — per-issue runner. Cron (`0 2 * * *`) + `workflow_dispatch`. Fetches GitHub Issues with the `ready` label via `.github/scripts/fetch-agent-issues.js`, then fans out in a matrix (`max-parallel: 3`, `fail-fast: false`) and spawns one isolated Claude Code session per issue via `.github/scripts/run-agent.js`. Per-session prompt lives in `.agents/per-issue.md`.
+`.github/workflows/agent-nightly.yml` — single-issue-per-cycle runner. Cron (`0 2 * * *`) + `workflow_dispatch` + `workflow_run` (re-wakes after each Bender PR merges). Each cycle fetches the highest-priority `ready` issue via `.github/scripts/fetch-agent-issues.js`, runs one Claude Code session via `.github/scripts/run-agent.js`, and opens a PR. The PR flows through DevCycle 2 — CI → 3 — Review → 4 — Merge (or 5 — Grooming), and the merge's `workflow_run` event wakes Bender for the next cycle. Capped at 10 cycles per 8-hour window. Per-session prompt lives in `.agents/per-issue.md`.
+
+`.github/workflows/cursor-agent-nightly.yml` — sibling runner using the Cursor
+CLI instead of Claude Code. Same single-issue-per-cycle architecture as Bender.
+Cron (`0 4 * * *`) + `workflow_dispatch` + `workflow_run` (re-wakes after each
+Marvin PR merges, same chain as Bender). Branch prefix `marvin/`. Per-session
+prompt lives in `.agents/per-issue-marvin.md`. Picks from the same
+`.github/scripts/fetch-agent-issues.js` queue Bender uses, so the two agents
+share the work pool — whoever's gate fires first claims the highest-priority
+issue. Capped at 10 cycles per 8-hour window, separately from Bender's cap.
+Required secret: `CURSOR_API_KEY` (in addition to `GH_TRACKER_TOKEN`).
 
 The per-issue runner requires one of two Claude credentials as repo secrets:
 

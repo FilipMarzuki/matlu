@@ -79,6 +79,12 @@ Capture the returned PR URL — you need it for step 4.
 
 ### 3. Apply **one** outcome label on the GitHub issue
 
+**You opened a PR in Step 2 — therefore the label MUST be one of the four
+below. NEVER use `agent:already-shipped` here. That label is exclusively
+for Step 0 (supersession exit, no PR opened). If you reached Step 3, the
+work is shipped *by your PR* — `agent:success` is the right answer in
+the overwhelming majority of cases.**
+
 Labels already exist on the repo (pre-created by the operator):
 
 - `agent:success` — implementation matches the acceptance criteria and the

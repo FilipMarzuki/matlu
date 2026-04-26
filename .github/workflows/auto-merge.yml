@@ -58,7 +58,12 @@ jobs:
       - name: Squash-merge PR
         if: steps.find-pr.outputs.pr_number != '' && steps.check-approval.outputs.approved > 0
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use GH_TRACKER_TOKEN (PAT) so the merge fires the workflow_run
+          # event Bender / Marvin listen for. GitHub suppresses workflow_run
+          # triggers for actions performed with the built-in GITHUB_TOKEN
+          # (anti-recursion safeguard) — same reason agent-nightly checks out
+          # with GH_TRACKER_TOKEN on the push side.
+          GH_TOKEN: ${{ secrets.GH_TRACKER_TOKEN }}
         run: |
           echo "Merging PR #${{ steps.find-pr.outputs.pr_number }}"
           gh pr merge ${{ steps.find-pr.outputs.pr_number }} \

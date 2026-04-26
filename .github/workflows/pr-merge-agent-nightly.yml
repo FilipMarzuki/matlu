@@ -35,8 +35,12 @@ jobs:
       - name: Run PR queue grooming session
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
-          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN:                ${{ secrets.GITHUB_TOKEN }}
+          # GH_TRACKER_TOKEN (PAT) so any merges this session performs fire
+          # the workflow_run event that wakes Bender / Marvin for the next
+          # cycle. GITHUB_TOKEN suppresses downstream workflow_run events
+          # (anti-recursion safeguard) and breaks the chain.
+          GITHUB_TOKEN:            ${{ secrets.GH_TRACKER_TOKEN }}
+          GH_TOKEN:                ${{ secrets.GH_TRACKER_TOKEN }}
         run: |
           npx --yes @anthropic-ai/claude-code --print \
             --permission-mode bypassPermissions \
