@@ -13,6 +13,7 @@ Canonical lore lives in Notion. IDs below let agents fetch entries directly.
 | Settlement Approaches | `991a8cd3-7cc5-4e9e-a067-0bbf1f38421b` | How settlements are built — layout, geometry, spatial feel. `Approach ID` is auto-increment `SETT-N`. Mirrors `macro-world/cultures.json`. |
 | Architecture | `8102794b-3235-4e4b-b0b9-f8cd261e874d` | Building form, materials, construction philosophy. `Architecture ID` is auto-increment `ARCH-N`. Linked to Cultures via affinity table. |
 | Culture–Architecture Affinities | `6e1e0fb7-519f-4f99-ac32-cdcbdb8eb4dd` | Junction: which cultures favor which architectural styles, with affinity weight (0–1) and context. |
+| Building Registry | `45b2d6aa-ca55-44d4-9349-c061636ad85e` | Every structure that can appear in a settlement. `Building ID` is auto-increment `BLDG-N`. 58 entries by tier/zone/category. Mirrors `macro-world/building-registry.json`. |
 | Factions   | `833dd954-974b-422d-adb2-14a51f30af16` | Organisations and factions across all three worlds. `Culture` relation links to Culture DB. |
 | Worlds     | `466886c8-a11c-46e7-b974-a58b8ee6647d` | The three worlds + the blended state |
 | Locations  | `e374f3c2-e431-4e96-ab00-0dd21a6223b5` | Named places, regions, landmarks |
