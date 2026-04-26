@@ -325,11 +325,15 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
       if (bestDist === 0) break;
     }
 
-    // Already touching the network
-    if (bestDist === 0) {
-      connected.add(tileKey(bestEdge.tx, bestEdge.ty));
-      continue;
+    // Always emit at least the edge tile as a visible "driveway"
+    const edgeKey = tileKey(bestEdge.tx, bestEdge.ty);
+    if (!connected.has(edgeKey)) {
+      connectorPaths.push({ tx: bestEdge.tx, ty: bestEdge.ty, main: false });
     }
+    connected.add(edgeKey);
+
+    // If already touching, we're done — the edge tile is the driveway
+    if (bestDist === 0) continue;
 
     // A* from edge tile to nearest connected tile (no obstacles — guaranteed)
     let path = astarToConnected(bestEdge.tx, bestEdge.ty, connected, new Set(), gridSize);
@@ -341,10 +345,9 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     const wobbly = wobblePath(path, new Set(), connected, gridSize, rng);
     for (const p of wobbly) {
       const k = tileKey(p.tx, p.ty);
-      if (!connected.has(k)) {
-        connected.add(k);
-        connectorPaths.push(p);
-      }
+      connected.add(k);
+      // Always emit path tiles so they're visible (even if overlapping existing roads)
+      connectorPaths.push(p);
     }
   }
 
