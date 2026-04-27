@@ -635,6 +635,50 @@
         }
       ],
       "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-militia"
+    },
+    {
+      "id": "human-agrarian-smith",
+      "name": "Smith (Human Agrarian)",
+      "world": "mistheim",
+      "faction": "agrarian",
+      "status": "pending",
+      "_comment": "Settlement blacksmith. Burly silhouette, burnt-orange leather apron, hammer prop. Signature = anvil hammer swing (custom).",
+      "pixellab": {
+        "description": "broad-shouldered human blacksmith, bare arms, sleeveless wool undershirt, burnt-orange leather apron with hammer holster, heavy soot-stained boots, leather wrist guards, soot smudges on forearms, anime-fantasy aesthetic, clean linework, soft expressive face, natural-fibre clothing, low-saturation earthy palette with burnt-orange accent, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "hammer",
+          "template": "custom-blacksmith swinging a hammer down onto an anvil, full overhead arc, recoil at apex with small spark burst, return to ready stance",
+          "frameDurationMs": 110
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-smith"
     }
   ],
   "tilesets": [
