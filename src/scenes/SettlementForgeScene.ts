@@ -68,10 +68,8 @@ const ZONE_FRAC: Record<string, { min: number; max: number }> = {
   outer:  { min: 0.65, max: 0.90 },
 };
 
-/** Height multiplier per heightHint — drives the box height in iso space. */
-const HEIGHT_MULT: Record<string, number> = {
-  low: 0.3, standard: 0.6, tall: 0.9, tower: 1.4,
-};
+// Height/block constants moved out — settlement forge shows flat footprints only.
+// Building height design belongs in a dedicated building editor tool.
 
 // ── PRNG ─────────────────────────────────────────────────────────────────────
 
@@ -487,14 +485,25 @@ export class SettlementForgeScene extends Phaser.Scene {
     tx: number, ty: number,
     widthTiles: number, depthTiles: number, heightPx: number,
     color: number, alpha: number,
-  ): void {
-    const { x, y } = this.isoPos(tx, ty);
+    /** Total height in blocks (wall + roof). */
+    totalBlocks = 4,
+    /** Wall blocks below the roof line. */
+    wallBlocks = 3,
+  ) {
+    // isoPos gives the north apex of the tile diamond at (tx,ty).
+    // The building footprint on the grid is centred at (tx,ty) and extends
+    // half tiles in each direction. To render centred, offset the iso
+    // position by (-half, -half) in tile space.
+    const half = Math.ceil(widthTiles / 2);
+    const { x, y } = this.isoPos(tx - half, ty - half);
     const hw = this.ISO_W / 2;
     const hh = this.ISO_H / 2;
 
-    // Scale by building footprint
-    const sw = hw * widthTiles;
-    const sh = hh * depthTiles;
+    // Scale by full building footprint (2*half+1 tiles, matching the stamp)
+    const fullW = 2 * half + 1;
+    const fullD = 2 * half + 1;
+    const sw = hw * fullW;
+    const sh = hh * fullD;
 
     // Corners of the top face (elevated by heightPx)
     const topN = { x: x,      y: y - heightPx };
@@ -528,6 +537,61 @@ export class SettlementForgeScene extends Phaser.Scene {
     // Top face
     fillQuad(color, alpha, topN, topE, topS, topW);
 
+    // ── Block grid lines on both visible faces ──────────────────────────────
+    // Each block is one uniform iso cube. Wall section = wallBlocks rows,
+    // roof = totalBlocks - wallBlocks rows. Grid lines show every block boundary.
+
+    // Helper: lerp between two points
+    const lerp = (a: {x:number;y:number}, b: {x:number;y:number}, t: number) =>
+      ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
+    gfx.lineStyle(1, 0x000000, 0.2);
+
+    // ── Right face (topE→botE left edge, topS→botS right edge) ──────────
+    // Horizontal: one line per block boundary
+    for (let i = 1; i < totalBlocks; i++) {
+      const t = i / totalBlocks;
+      const left  = lerp(topE, botE, t);
+      const right = lerp(topS, botS, t);
+      // Roof/wall boundary gets a thicker line
+      if (i === totalBlocks - wallBlocks) {
+        gfx.lineStyle(2, 0x000000, 0.5);
+        gfx.lineBetween(left.x, left.y, right.x, right.y);
+        gfx.lineStyle(1, 0x000000, 0.2);
+      } else {
+        gfx.lineBetween(left.x, left.y, right.x, right.y);
+      }
+    }
+    // Vertical columns — one per tile of width (each column = 1 block wide)
+    for (let i = 1; i < widthTiles; i++) {
+      const t = i / widthTiles;
+      const top = lerp(topE, topS, t);
+      const bot = lerp(botE, botS, t);
+      gfx.lineBetween(top.x, top.y, bot.x, bot.y);
+    }
+
+    // ── Left face (topS→botS left edge, topW→botW right edge) ───────────
+    // Horizontal
+    for (let i = 1; i < totalBlocks; i++) {
+      const t = i / totalBlocks;
+      const left  = lerp(topS, botS, t);
+      const right = lerp(topW, botW, t);
+      if (i === totalBlocks - wallBlocks) {
+        gfx.lineStyle(2, 0x000000, 0.5);
+        gfx.lineBetween(left.x, left.y, right.x, right.y);
+        gfx.lineStyle(1, 0x000000, 0.2);
+      } else {
+        gfx.lineBetween(left.x, left.y, right.x, right.y);
+      }
+    }
+    // Vertical columns — one per tile of depth
+    for (let i = 1; i < depthTiles; i++) {
+      const t = i / depthTiles;
+      const top = lerp(topS, topW, t);
+      const bot = lerp(botS, botW, t);
+      gfx.lineBetween(top.x, top.y, bot.x, bot.y);
+    }
+
     // Outline
     gfx.lineStyle(1, 0x000000, 0.4);
     gfx.beginPath();
@@ -540,6 +604,8 @@ export class SettlementForgeScene extends Phaser.Scene {
     gfx.lineBetween(topE.x, topE.y, botE.x, botE.y);
     gfx.lineBetween(topS.x, topS.y, botS.x, botS.y);
     gfx.lineBetween(topW.x, topW.y, botW.x, botW.y);
+
+    return { topN, topE, topS, topW, botE, botS, botW };
   }
 
   /** Darken a colour by a factor. */
@@ -615,7 +681,8 @@ export class SettlementForgeScene extends Phaser.Scene {
     this.buildings = buildings;
 
     // Grid size: settlement radius in tiles, padded
-    this.gridSize = Math.ceil(spec.radius / this.TILE) * 2 + 4;
+    // Grid needs extra room for bigger block-based buildings
+    this.gridSize = Math.ceil(spec.radius / this.TILE) * 3 + 8;
 
     this.rebuild();
   }
@@ -835,13 +902,26 @@ export class SettlementForgeScene extends Phaser.Scene {
       const color = p.fallback
         ? this.darken(CAT_COLORS[p.building.category] ?? 0x888888, 0.6)
         : CAT_COLORS[p.building.category] ?? 0x888888;
-      const hMult = HEIGHT_MULT[p.building.heightHint] ?? 0.6;
-      const heightPx = Math.round(p.building.w * hMult * this.zoomFactor * 0.5);
+      // Flat footprint view — just the ground layer, no height.
+      // Building design (height, roof, etc.) belongs in a separate tool.
+      const heightPx = 0;
 
       const gfx = this.add.graphics().setDepth(2 + (p.tx + p.ty) * 0.01);
       this.buildingObjects.push(gfx);
 
-      this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, heightPx, color, 0.85);
+      const corners = this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, heightPx, color, 0.85);
+
+      // Mark the entrance edge on the flat footprint diamond
+      if (p.entranceSide) {
+        const { topN, topE, topS, topW } = corners;
+        gfx.lineStyle(3, 0xff0000, 0.9);
+        switch (p.entranceSide) {
+          case 'n': gfx.lineBetween(topN.x, topN.y, topE.x, topE.y); break;
+          case 'e': gfx.lineBetween(topE.x, topE.y, topS.x, topS.y); break;
+          case 's': gfx.lineBetween(topS.x, topS.y, topW.x, topW.y); break;
+          case 'w': gfx.lineBetween(topW.x, topW.y, topN.x, topN.y); break;
+        }
+      }
 
       // Number = placement order (not render order)
       const { x, y } = this.isoPos(p.tx, p.ty);

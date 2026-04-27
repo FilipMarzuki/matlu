@@ -78,7 +78,7 @@ export interface ResolvedBuilding {
   category: string;
   /** Preferred zone ring. */
   zone: 'inner' | 'middle' | 'outer';
-  /** Display width in world pixels (already scaled by culture + rng). */
+  /** Footprint width in iso blocks (1 block = 1 grid tile). */
   w: number;
   /** Height hint for depth sorting. */
   heightHint: string;
@@ -466,18 +466,15 @@ export function selectBuildings(
     if (count === 0) continue;
 
     for (let i = 0; i < count; i++) {
-      // Size: pick from base range, apply culture hierarchy scale for the
-      // first civic/military building (the "main" building)
+      // Size in iso blocks — pick randomly within the registry range.
+      // baseSizeRange is [min, max] in whole block counts.
       const [minW, maxW] = entry.baseSizeRange;
-      let w = minW + rng() * (maxW - minW);
+      let w = Math.round(minW + rng() * (maxW - minW));
 
       // Culture hierarchy scale: the most important building gets bigger
       if (culture && i === 0 && result.length === 0 && entry.category === 'civic') {
-        w *= culture.hierarchyScale;
+        w = Math.round(w * culture.hierarchyScale);
       }
-
-      // ±8% variation for organic feel
-      w = Math.round(w * (0.92 + rng() * 0.16));
 
       result.push({
         id: entry.id,

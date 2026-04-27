@@ -71,7 +71,7 @@ const DEBUG_SPAWN = {
   decorScatter:     false,  // flowers, mushrooms, rocks, grass, stumps, sticks
   waterEdgeScatter: false,  // lily pads, rocks-in-water
   butterfliesAndBees: false,
-  buildings:        false,
+  buildings:        true,
 };
 
 // World dimensions — diagonal SW→NE corridor. 4500×3000 at zoom 3.
@@ -6406,6 +6406,7 @@ export class GameScene extends Phaser.Scene {
    * when the source pack doesn't ship a JSON atlas.
    */
   private stampSettlementBuildings(): void {
+    console.log('[buildings] stampSettlementBuildings called');
     // Mystic Woods building sprites — each frameKey on PlacedBuilding is a texture key
     // loaded individually in preload(). No atlas registration needed.
 
@@ -6468,6 +6469,23 @@ export class GameScene extends Phaser.Scene {
         body.setSize(b.w, img.height * sprScale);
         body.reset(b.x, b.y);
         this.solidObjects.add(physRect);
+
+        // Entrance: paint the entire face of the building red
+        const dispH = img.height * sprScale;
+        const eg = this.add.graphics();
+        eg.setDepth(6);
+        eg.fillStyle(0xff0000, 0.9);
+
+        if (b.entranceSide === 's') {
+          // Full south face — spans full width, half the building height
+          eg.fillRect(b.x - b.w / 2, b.y, b.w, dispH / 2);
+        } else if (b.entranceSide === 'n') {
+          eg.fillRect(b.x - b.w / 2, b.y - dispH / 2, b.w, dispH / 2);
+        } else if (b.entranceSide === 'e') {
+          eg.fillRect(b.x, b.y - dispH / 2, b.w / 2, dispH);
+        } else {
+          eg.fillRect(b.x - b.w / 2, b.y - dispH / 2, b.w / 2, dispH);
+        }
       }
     }
   }
@@ -6649,9 +6667,9 @@ export class GameScene extends Phaser.Scene {
   ): void {
     this.collectedItems.add(id);
 
-    // Wire collectible zone to alignment — coastal=earth, forest=spino, highland=vatten
-    const ITEM_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'vatten'> = {
-      'item-start': 'earth', 'item-forest': 'spino', 'item-plateau': 'vatten',
+    // Wire collectible zone to alignment — coastal=earth, forest=spino, highland=mistheim
+    const ITEM_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'mistheim'> = {
+      'item-start': 'earth', 'item-forest': 'spino', 'item-plateau': 'mistheim',
     };
     const itemWorld = ITEM_ALIGNMENT_MAP[id];
     if (itemWorld) this.worldState.adjustAlignment(itemWorld, 5);
@@ -7143,9 +7161,9 @@ export class GameScene extends Phaser.Scene {
     this.events.once('dialog-choice', (choiceId: string) => {
       this.chosenPath = choiceId as PathChoice;
       console.log(`[Level1] Path chosen: ${this.chosenPath}`);
-      // Wire dialog choice to alignment — jordens=earth, spinolandets=spino, vattenpandalandets=vatten
-      const CHOICE_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'vatten'> = {
-        jordens: 'earth', spinolandets: 'spino', vattenpandalandets: 'vatten',
+      // Wire dialog choice to alignment — jordens=earth, spinolandets=spino, mistheims=mistheim
+      const CHOICE_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'mistheim'> = {
+        jordens: 'earth', spinolandets: 'spino', mistheims: 'mistheim',
       };
       const world = CHOICE_ALIGNMENT_MAP[choiceId];
       if (world) this.worldState.adjustAlignment(world, 15);

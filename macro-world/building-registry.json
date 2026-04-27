@@ -7,7 +7,7 @@
     "category": "civic | residential | industry | commerce | military | religious | infrastructure | anomaly",
     "minTier": "Smallest settlement tier (1-5) that can have this building",
     "zone": "inner | middle | outer — preferred radial position in layout",
-    "baseSizeRange": "[min, max] width in world pixels before culture scaling",
+    "baseSizeRange": "[min, max] footprint width in iso blocks (1 block = 1 grid tile)",
     "heightHint": "relative height: 'low' | 'standard' | 'tall' | 'tower' — affects depth sort and verticality cultures",
     "unlockConditions": "Building appears if ANY condition is met. null fields are ignored.",
     "count": "How many instances per tier. Missing tiers = 0. Use '+' suffix for 'at least' (layout may add more if space allows).",
@@ -26,8 +26,8 @@
       "minTier": 1,
       "zone": "inner",
       "baseSizeRange": [
-        12,
-        18
+        1,
+        1
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -50,8 +50,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        75,
-        110
+        4,
+        5
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -77,8 +77,8 @@
       "minTier": 3,
       "zone": "inner",
       "baseSizeRange": [
-        80,
-        120
+        5,
+        6
       ],
       "heightHint": "tall",
       "unlockConditions": {
@@ -109,8 +109,8 @@
       "minTier": 4,
       "zone": "inner",
       "baseSizeRange": [
-        85,
-        115
+        4,
+        5
       ],
       "heightHint": "tall",
       "unlockConditions": {
@@ -135,8 +135,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        9,
-        15
+        1,
+        1
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -165,8 +165,8 @@
       "minTier": 1,
       "zone": "outer",
       "baseSizeRange": [
-        18,
-        29
+        1,
+        2
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -188,8 +188,8 @@
       "minTier": 2,
       "zone": "middle",
       "baseSizeRange": [
-        32,
-        48
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -214,8 +214,8 @@
       "minTier": 3,
       "zone": "middle",
       "baseSizeRange": [
-        44,
-        64
+        3,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -240,8 +240,8 @@
       "minTier": 4,
       "zone": "inner",
       "baseSizeRange": [
-        66,
-        92
+        4,
+        5
       ],
       "heightHint": "tall",
       "unlockConditions": {
@@ -265,8 +265,8 @@
       "minTier": 3,
       "zone": "middle",
       "baseSizeRange": [
-        40,
-        60
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -301,8 +301,8 @@
       "minTier": 3,
       "zone": "inner",
       "baseSizeRange": [
-        48,
-        68
+        3,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -337,8 +337,8 @@
       "minTier": 3,
       "zone": "middle",
       "baseSizeRange": [
-        36,
-        52
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -362,8 +362,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        12,
-        21
+        1,
+        1
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -399,8 +399,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        48,
-        72
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -432,8 +432,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        40,
-        60
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -468,8 +468,8 @@
       "minTier": 4,
       "zone": "outer",
       "baseSizeRange": [
-        68,
-        96
+        4,
+        5
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -501,8 +501,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        48,
-        72
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -533,8 +533,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        36,
-        56
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -568,8 +568,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        44,
-        64
+        3,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -599,8 +599,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        29,
-        43
+        2,
+        2
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -628,8 +628,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        28,
-        44
+        2,
+        2
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -660,8 +660,8 @@
       "minTier": 1,
       "zone": "outer",
       "baseSizeRange": [
-        36,
-        58
+        2,
+        3
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -696,8 +696,8 @@
       "minTier": 1,
       "zone": "outer",
       "baseSizeRange": [
-        18,
-        29
+        1,
+        2
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -728,8 +728,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        36,
-        52
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -763,8 +763,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        24,
-        40
+        2,
+        2
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -791,8 +791,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        29,
-        40
+        2,
+        2
       ],
       "heightHint": "tower",
       "unlockConditions": {
@@ -825,8 +825,8 @@
       "minTier": 3,
       "zone": "middle",
       "baseSizeRange": [
-        36,
-        52
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -855,8 +855,8 @@
       "minTier": 2,
       "zone": "middle",
       "baseSizeRange": [
-        32,
-        48
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -881,8 +881,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        47,
-        68
+        3,
+        4
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -914,8 +914,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        29,
-        43
+        2,
+        2
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -946,8 +946,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        32,
-        48
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -977,8 +977,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        44,
-        68
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1010,8 +1010,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        52,
-        76
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1049,8 +1049,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        18,
-        29
+        1,
+        1
       ],
       "heightHint": "tower",
       "unlockConditions": {
@@ -1088,8 +1088,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        31,
-        44
+        2,
+        2
       ],
       "heightHint": "tall",
       "unlockConditions": {
@@ -1122,8 +1122,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        53,
-        75
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1154,8 +1154,8 @@
       "minTier": 4,
       "zone": "inner",
       "baseSizeRange": [
-        35,
-        53
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1184,8 +1184,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        12,
-        21
+        1,
+        1
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1221,8 +1221,8 @@
       "minTier": 4,
       "zone": "outer",
       "baseSizeRange": [
-        42,
-        60
+        3,
+        4
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1253,8 +1253,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        12,
-        21
+        1,
+        1
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1285,8 +1285,8 @@
       "minTier": 4,
       "zone": "inner",
       "baseSizeRange": [
-        70,
-        100
+        4,
+        5
       ],
       "heightHint": "tall",
       "unlockConditions": {
@@ -1315,8 +1315,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        32,
-        48
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1346,8 +1346,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        30,
-        45
+        2,
+        3
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1378,8 +1378,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        30,
-        48
+        2,
+        3
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1407,8 +1407,8 @@
       "minTier": 1,
       "zone": "outer",
       "baseSizeRange": [
-        15,
-        27
+        1,
+        2
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1432,8 +1432,8 @@
       "minTier": 2,
       "zone": "middle",
       "baseSizeRange": [
-        12,
-        21
+        1,
+        1
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1458,8 +1458,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        24,
-        42
+        2,
+        3
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1486,8 +1486,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        28,
-        44
+        2,
+        2
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1519,8 +1519,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        42,
-        63
+        3,
+        4
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1549,8 +1549,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        36,
-        56
+        2,
+        3
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1584,8 +1584,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        56,
-        76
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1611,8 +1611,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        25,
-        36
+        2,
+        2
       ],
       "heightHint": "tower",
       "unlockConditions": {
@@ -1639,8 +1639,8 @@
       "minTier": 1,
       "zone": "middle",
       "baseSizeRange": [
-        40,
-        72
+        3,
+        4
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -1664,8 +1664,8 @@
       "minTier": 2,
       "zone": "middle",
       "baseSizeRange": [
-        29,
-        43
+        2,
+        3
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1690,8 +1690,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        79,
-        110
+        5,
+        6
       ],
       "heightHint": "tall",
       "unlockConditions": {
@@ -1717,8 +1717,8 @@
       "minTier": 3,
       "zone": "outer",
       "baseSizeRange": [
-        54,
-        79
+        3,
+        4
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1743,8 +1743,8 @@
       "minTier": 2,
       "zone": "outer",
       "baseSizeRange": [
-        14,
-        25
+        1,
+        1
       ],
       "heightHint": "low",
       "unlockConditions": {
@@ -1770,8 +1770,8 @@
       "minTier": 1,
       "zone": "inner",
       "baseSizeRange": [
-        16,
-        32
+        1,
+        2
       ],
       "heightHint": "standard",
       "unlockConditions": {

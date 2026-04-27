@@ -45,6 +45,9 @@ function snap(v: number): number {
 
 /** A building successfully placed in world space. Interface kept stable so
  *  GameScene's sprite / physics stamping code requires no changes. */
+/** Cardinal direction the building entrance faces. */
+export type EntranceSide = 'n' | 's' | 'e' | 'w';
+
 export interface PlacedBuilding {
   /** World x of the building centre. */
   x: number;
@@ -58,6 +61,12 @@ export interface PlacedBuilding {
   frameKey: string;
   /** Human-readable role — for tooltips, lore, and future NPC attachment. */
   role: string;
+  /** Which side of the building the entrance/exit is on. */
+  entranceSide: EntranceSide;
+  /** World x of the entrance point (on the building edge). */
+  entranceX: number;
+  /** World y of the entrance point (on the building edge). */
+  entranceY: number;
 }
 
 /** The open civic square at the heart of the settlement. */
@@ -103,6 +112,8 @@ interface SlotDef {
   frameKey: string;
   /** Base display width in pixels — varied ±8% by rng per instance. */
   w:        number;
+  /** Which side the entrance faces. Defaults to 's' (south / toward the player). */
+  entrance?: EntranceSide;
 }
 
 interface Template {
@@ -136,13 +147,13 @@ const TEMPLATES: Record<string, Template> = {
   strandviken: {
     plazaCols: 4, plazaRows: 4, plazaRowOffset: -1,
     slots: [
-      { col:  0, row: -5, role: 'longhouse',  frameKey: 'mw-longhouse',   w: 38 },
-      { col: -5, row: -2, role: 'smokehouse', frameKey: 'mw-smokehouse',  w: 22 },
-      { col:  5, row: -2, role: 'fishing-hut',frameKey: 'mw-cottage',     w: 18 },
-      { col: -5, row: -5, role: 'home',       frameKey: 'mw-cottage',     w: 20 },
-      { col:  5, row: -5, role: 'home',       frameKey: 'mw-cottage',     w: 20 },
-      { col: -4, row:  4, role: 'net-shed',   frameKey: 'mw-cottage',     w: 16 },
-      { col:  4, row:  4, role: 'fishing-hut',frameKey: 'mw-cottage',     w: 18 },
+      { col:  0, row: -5, role: 'longhouse',  frameKey: 'mw-longhouse',   w: 38, entrance: 's' },
+      { col: -5, row: -2, role: 'smokehouse', frameKey: 'mw-smokehouse',  w: 22, entrance: 'e' },
+      { col:  5, row: -2, role: 'fishing-hut',frameKey: 'mw-cottage',     w: 18, entrance: 'w' },
+      { col: -5, row: -5, role: 'home',       frameKey: 'mw-cottage',     w: 20, entrance: 's' },
+      { col:  5, row: -5, role: 'home',       frameKey: 'mw-cottage',     w: 20, entrance: 's' },
+      { col: -4, row:  4, role: 'net-shed',   frameKey: 'mw-cottage',     w: 16, entrance: 'n' },
+      { col:  4, row:  4, role: 'fishing-hut',frameKey: 'mw-cottage',     w: 18, entrance: 'n' },
     ],
   },
 
@@ -152,15 +163,15 @@ const TEMPLATES: Record<string, Template> = {
   skogsglanten: {
     plazaCols: 5, plazaRows: 4, plazaRowOffset: -1,
     slots: [
-      { col:  0, row: -6, role: 'market-hall',frameKey: 'mw-market-hall', w: 40 },
-      { col: -6, row: -3, role: 'sawmill',    frameKey: 'mw-workshop',    w: 30 },
-      { col:  6, row: -3, role: 'workshop',   frameKey: 'mw-workshop',    w: 20 },
-      { col: -5, row: -6, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 26 },
-      { col:  5, row: -6, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 26 },
-      { col: -5, row:  4, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 24 },
-      { col:  5, row:  4, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 24 },
-      { col: -3, row:  6, role: 'storage',    frameKey: 'mw-cottage',     w: 16 },
-      { col:  3, row:  6, role: 'storage',    frameKey: 'mw-cottage',     w: 16 },
+      { col:  0, row: -6, role: 'market-hall',frameKey: 'mw-market-hall', w: 40, entrance: 's' },
+      { col: -6, row: -3, role: 'sawmill',    frameKey: 'mw-workshop',    w: 30, entrance: 'e' },
+      { col:  6, row: -3, role: 'workshop',   frameKey: 'mw-workshop',    w: 20, entrance: 'w' },
+      { col: -5, row: -6, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 26, entrance: 's' },
+      { col:  5, row: -6, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 26, entrance: 's' },
+      { col: -5, row:  4, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 24, entrance: 'n' },
+      { col:  5, row:  4, role: 'dwelling',   frameKey: 'mw-dwelling',    w: 24, entrance: 'n' },
+      { col: -3, row:  6, role: 'storage',    frameKey: 'mw-cottage',     w: 16, entrance: 'n' },
+      { col:  3, row:  6, role: 'storage',    frameKey: 'mw-cottage',     w: 16, entrance: 'n' },
     ],
   },
 
@@ -170,11 +181,11 @@ const TEMPLATES: Record<string, Template> = {
   klippbyn: {
     plazaCols: 4, plazaRows: 3, plazaRowOffset: -1,
     slots: [
-      { col:  0, row: -5, role: 'lodge',       frameKey: 'mw-longhouse',   w: 34 },
-      { col: -4, row: -2, role: 'smithy',      frameKey: 'mw-workshop',    w: 22 },
-      { col:  4, row: -2, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 16 },
-      { col: -3, row:  4, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 14 },
-      { col:  3, row:  4, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 14 },
+      { col:  0, row: -5, role: 'lodge',       frameKey: 'mw-longhouse',   w: 34, entrance: 's' },
+      { col: -4, row: -2, role: 'smithy',      frameKey: 'mw-workshop',    w: 22, entrance: 'e' },
+      { col:  4, row: -2, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 16, entrance: 'w' },
+      { col: -3, row:  4, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 14, entrance: 'n' },
+      { col:  3, row:  4, role: 'shelter-hut', frameKey: 'mw-cottage',     w: 14, entrance: 'n' },
     ],
   },
 };
@@ -211,7 +222,23 @@ export function layoutSettlement(s: Settlement, rng: () => number): SettlementLa
     // ±8 % size variation for a hand-crafted feel — not enough to misalign.
     const w  = Math.round(slot.w * (0.92 + rng() * 0.16));
     const h  = Math.round(w * 0.6);
-    return { x: bx, y: by, w, h, frameKey: slot.frameKey, role: slot.role };
+
+    // Entrance point — placed at the midpoint of the relevant building edge.
+    const side: EntranceSide = slot.entrance ?? 's';
+    let ex = bx;
+    let ey = by;
+    switch (side) {
+      case 'n': ey = by - h / 2; break;
+      case 's': ey = by + h / 2; break;
+      case 'w': ex = bx - w / 2; break;
+      case 'e': ex = bx + w / 2; break;
+    }
+
+    return {
+      x: bx, y: by, w, h,
+      frameKey: slot.frameKey, role: slot.role,
+      entranceSide: side, entranceX: ex, entranceY: ey,
+    };
   });
 
   // ── Streets ──────────────────────────────────────────────────────────────
