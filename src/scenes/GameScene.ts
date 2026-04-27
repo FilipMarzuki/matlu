@@ -93,8 +93,8 @@ const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
 
 // ─── Fog of war constants (FIL-217) ──────────────────────────────────────────
 // Three tile visibility states stored in the fogGrid Uint8Array.
-const FOG_UNSEEN  = 0; // never visited — fully black overlay
-const FOG_SEEN    = 1; // visited but not currently in sight — 50% black shroud
+const FOG_UNSEEN  = 0; // never visited — dark shroud
+const FOG_SEEN    = 1; // visited but not currently in sight — lighter shroud
 const FOG_VISIBLE = 2; // within the current sight radius — fully transparent
 const FOG_SIGHT_R = 10; // circular sight radius in tiles (320 px at 32 px/tile)
 const FOG_LS_KEY  = 'matlu-fog-state'; // localStorage key for persistent explored state
@@ -312,6 +312,47 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 
 /** Fill colour per biome index — sourced from the canonical biomes.ts list. */
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
+
+/**
+ * Per-biome terrain tint used during the isometric terrain bake.
+ *
+ * The imported tile packs provide material texture; these tints push each region
+ * toward a stronger CrossCode-like colour identity without needing more art.
+ */
+const BIOME_TILE_TINTS: readonly number[] = [
+  0xffffff, // 0 Sea - water uses its own frame colours
+  0x9aa0a8, // 1 Rocky Shore - cool slate
+  0xe8c981, // 2 Sandy Shore - warm sand
+  0x5f7f5a, // 3 Marsh / Bog - wet green
+  0xb78a50, // 4 Dry Heath - ochre scrub
+  0x7fa15a, // 5 Coastal Heath - salt grass
+  0x76bf58, // 6 Meadow - bright grass
+  0x3f8a46, // 7 Forest - leafy green
+  0x2f664f, // 8 Spruce - dark conifer
+  0x8f99a5, // 9 Cold Granite - blue grey
+  0xa4967c, // 10 Bare Summit - tan stone
+  0xd8ecff, // 11 Snow Field - cold snow
+];
+
+/** Small surface flecks/dashes per biome, stamped on tile tops for player-scale texture. */
+const BIOME_DETAIL_COLORS: ReadonlyArray<readonly [number, number]> = [
+  [0x8ec7e8, 0xb8e4ff],
+  [0xd2d7dc, 0x6f7782],
+  [0xf6dea0, 0xc99f57],
+  [0x86a86f, 0x39583f],
+  [0xd2aa62, 0x7a5732],
+  [0xa2c575, 0x55753e],
+  [0xa7e879, 0xe7d86b],
+  [0x64b85f, 0x254d2d],
+  [0x4f8a6d, 0x1d3f35],
+  [0xbac3cd, 0x59636f],
+  [0xc0b18d, 0x6f654e],
+  [0xf0fbff, 0xaec8de],
+];
+
+function tileDetailHash(tx: number, ty: number, salt: number): number {
+  return ((tx * 1597) ^ (ty * 2833) ^ (tx * ty * 743) ^ salt) >>> 0;
+}
 
 /**
  * Resolve which biome index a tile belongs to from its noise values.
@@ -5702,6 +5743,7 @@ export class GameScene extends Phaser.Scene {
       .setScale(1)
       .setOrigin(0.5, 0)
       .setVisible(false);
+    const detailGfx = this.add.graphics().setVisible(false);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5789,9 +5831,10 @@ export class GameScene extends Phaser.Scene {
         // each row's front face is covered by the diamond of the next row forward.
         const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
+        let shouldStampSurfaceDetail = false;
         if (isRiverHere || isLakeHere) {
           // FIL-466: water tiles always use the shared iso-tiles river frame.
-          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
+          tileImg.clearTint().setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
         } else if (biomeIdx in CUSTOM_TILE_PACKS) {
           // FIL-466: dual-grid hash selects one of 4 same-material variants to
           // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
@@ -5804,13 +5847,29 @@ export class GameScene extends Phaser.Scene {
           const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
           const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
           const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
-          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+          tileImg.setTint(BIOME_TILE_TINTS[biomeIdx] ?? 0xffffff).setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+          shouldStampSurfaceDetail = true;
         } else {
           // FIL-466: biome 0 (Sea) — no pack; fall back to iso-tiles spritesheet.
           const frame = isoTileFrame(biomeIdx, detail);
-          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+          tileImg.setTint(BIOME_TILE_TINTS[biomeIdx] ?? 0xffffff).setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+          shouldStampSurfaceDetail = biomeIdx !== 0;
         }
         terrainRt.draw(tileImg);
+        if (shouldStampSurfaceDetail) {
+          const [hi, lo] = BIOME_DETAIL_COLORS[biomeIdx] ?? [0xffffff, 0x000000];
+          const h0 = tileDetailHash(tx, ty, this.runSeed);
+          const h1 = tileDetailHash(tx, ty, this.runSeed ^ 0x51f15e);
+          detailGfx.clear();
+          detailGfx.setPosition(isoX - ISO_TILE_W / 2, isoY);
+          detailGfx.fillStyle(h0 % 3 === 0 ? hi : lo, 0.72);
+          detailGfx.fillRect(8 + (h0 % 16), 5 + ((h0 >>> 4) % 9), 2 + (h0 % 2), 1);
+          if ((h1 % 5) < 3) {
+            detailGfx.fillStyle(h1 % 2 === 0 ? hi : lo, 0.54);
+            detailGfx.fillRect(6 + (h1 % 20), 7 + ((h1 >>> 5) % 8), 1, 1 + (h1 % 2));
+          }
+          terrainRt.draw(detailGfx);
+        }
 
       }
     }
@@ -5825,7 +5884,7 @@ export class GameScene extends Phaser.Scene {
         if (dx * dx + dy * dy <= 7) {
           const clearFrame = 40 + ((Math.abs(dx) * 2 + Math.abs(dy)) % 4); // frames 40–43 (grass)
           const { x: clearX, y: clearY } = worldToIso((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE);
-          tileImg.setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
+          tileImg.clearTint().setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
         }
       }
@@ -5837,6 +5896,7 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    detailGfx.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
