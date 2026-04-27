@@ -6,7 +6,7 @@
  * Access: navigate to /bf or /buildingforge in the URL.
  *
  * ## Controls
- *   Left click         Place block on top of hovered column
+ *   Left click         Place selected block type on hovered column
  *   Right click        Remove top block from hovered column
  *   A / D              Cycle building from registry
  *   R                  Reset to default fill
@@ -36,7 +36,13 @@ const WALL_BLOCKS: Record<string, number> = {
   low: 1, standard: 3, tall: 5, tower: 7,
 };
 
-// ── Architecture style type ──────────────────────────────────────────────────
+// ── Block definition and Architecture style types ────────────────────────────
+
+interface BlockDef {
+  type: string;    // canonical block type id: "wall", "roof", "foundation", etc.
+  name: string;    // display name shown in the palette and bill of materials
+  sprite?: string; // Phaser texture key — falls back to coloured cube if absent
+}
 
 interface ArchitectureStyle {
   id: string;
@@ -52,42 +58,43 @@ interface ArchitectureStyle {
   description?: string;
   promptKeywords?: string;
   realWorldInspiration?: string;
+  blocks?: BlockDef[];
 }
 
 /** Wall block colour per primary material. */
 const WALL_COLORS: Record<string, number> = {
-  stone:   0x777777,  // grey stone
-  wood:    0x9a7a5a,  // warm timber
-  bone:    0xbbaa99,  // pale ivory
-  crystal: 0x7799bb,  // ice blue
-  living:  0x557744,  // living wood
-  metal:   0x667788,  // dark steel
-  hide:    0x6a4a33,  // leather brown
-  earth:   0x8a7a5a,  // packed earth
-  coral:   0xbb8877,  // coral pink
-  salvage: 0x888866,  // scrap mix
+  stone:   0x777777,
+  wood:    0x9a7a5a,
+  bone:    0xbbaa99,
+  crystal: 0x7799bb,
+  living:  0x557744,
+  metal:   0x667788,
+  hide:    0x6a4a33,
+  earth:   0x8a7a5a,
+  coral:   0xbb8877,
+  salvage: 0x888866,
 };
 
 /** Roof block colour per primary material. */
+const ROOF_COLORS: Record<string, number> = {
+  stone:   0x556666,
+  wood:    0x8b7332,
+  bone:    0xccbbaa,
+  crystal: 0x88aacc,
+  living:  0x447744,
+  metal:   0x556677,
+  hide:    0x7a5533,
+  earth:   0x7a6a4a,
+  coral:   0xcc7766,
+  salvage: 0x777755,
+};
+
 /** Map building IDs to arrays of sprite variants for cycling. */
 const BLOCK_SPRITE_VARIANTS: Record<string, string[]> = {
   campfire: [
     'campfire-obj-32', 'campfire-obj-48a', 'campfire-obj-48b',
     'campfire-markfolk-v1', 'campfire-markfolk-v2', 'campfire-markfolk-v3',
   ],
-};
-
-const ROOF_COLORS: Record<string, number> = {
-  stone:   0x556666,  // slate grey
-  wood:    0x8b7332,  // golden thatch
-  bone:    0xccbbaa,  // pale bone
-  crystal: 0x88aacc,  // crystal shimmer
-  living:  0x447744,  // mossy green
-  metal:   0x556677,  // dark metal
-  hide:    0x7a5533,  // hide brown
-  earth:   0x7a6a4a,  // clay
-  coral:   0xcc7766,  // coral orange
-  salvage: 0x777755,  // rusty mix
 };
 
 // ── Scene ───────────────────────────────────────────────────────────────────
@@ -109,11 +116,14 @@ export class BuildingForgeScene extends Phaser.Scene {
   private archStyles: ArchitectureStyle[] = [];
   private currentArchIdx = 0;
 
-  // Block model: blocks[x][y][z] = true if filled
-  private blocks: boolean[][][] = [];
-  private gridW = 4; // footprint width in blocks
-  private gridD = 4; // footprint depth in blocks
-  private maxH = 8;  // max height
+  // Block model: blocks[x][y][z] = block type string or null for empty
+  private blocks: (string | null)[][][] = [];
+  private gridW = 4;
+  private gridD = 4;
+  private maxH = 8;
+
+  // Currently selected block type for painting
+  private selectedBlockType = 'wall';
 
   // Render objects
   private blockGfx: Phaser.GameObjects.Graphics | null = null;
@@ -178,6 +188,7 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Load current building
     this.loadBuilding();
     this.buildControlPanel();
+    this.buildBlockPanel();
 
     // ── Input ──────────────────────────────────────────────────────────────
 
@@ -256,7 +267,7 @@ export class BuildingForgeScene extends Phaser.Scene {
     for (let x = 0; x < this.gridW; x++) {
       this.blocks[x] = [];
       for (let y = 0; y < this.gridD; y++) {
-        this.blocks[x][y] = new Array(this.maxH).fill(false);
+        this.blocks[x][y] = new Array(this.maxH).fill(null);
       }
     }
 
@@ -269,10 +280,19 @@ export class BuildingForgeScene extends Phaser.Scene {
     const wallH = WALL_BLOCKS[entry.heightHint] ?? 3;
     const totalH = HEIGHT_BLOCKS[entry.heightHint] ?? 4;
 
+    // Assign typed block per layer
     for (let x = 0; x < this.gridW; x++) {
       for (let y = 0; y < this.gridD; y++) {
         for (let z = 0; z < this.maxH; z++) {
-          this.blocks[x][y][z] = z < totalH;
+          if (z >= totalH) {
+            this.blocks[x][y][z] = null;
+          } else if (z >= wallH) {
+            this.blocks[x][y][z] = 'roof';
+          } else if (z === 0) {
+            this.blocks[x][y][z] = 'foundation';
+          } else {
+            this.blocks[x][y][z] = 'wall';
+          }
         }
       }
     }
@@ -282,7 +302,7 @@ export class BuildingForgeScene extends Phaser.Scene {
       for (let x = 1; x < this.gridW - 1; x++) {
         for (let y = 1; y < this.gridD - 1; y++) {
           for (let z = 0; z < wallH; z++) {
-            this.blocks[x][y][z] = false;
+            this.blocks[x][y][z] = null;
           }
         }
       }
@@ -297,7 +317,7 @@ export class BuildingForgeScene extends Phaser.Scene {
   }
 
 
-  // ── Control panel (DOM) ───────────────────────────────────────────────────
+  // ── Control panel (left, DOM) ──────────────────────────────────────────────
 
   private buildControlPanel(): void {
     document.getElementById('bf-control-panel')?.remove();
@@ -442,9 +462,12 @@ export class BuildingForgeScene extends Phaser.Scene {
     document.getElementById('bf-l')!.addEventListener('change', dimChange);
     document.getElementById('bf-h')!.addEventListener('change', dimChange);
 
-    // Architecture selection
+    // Architecture selection — reset selectedBlockType to first type of new arch
     sel('bf-arch').addEventListener('change', (e) => {
       this.currentArchIdx = parseInt((e.target as HTMLSelectElement).value, 10);
+      const arch = this.archStyles[this.currentArchIdx];
+      const firstBlock = arch?.blocks?.[0];
+      if (firstBlock) this.selectedBlockType = firstBlock.type;
       this.rebuild();
     });
 
@@ -461,6 +484,166 @@ export class BuildingForgeScene extends Phaser.Scene {
     });
 
     this.syncPanel();
+  }
+
+  // ── Block palette panel (right, DOM) ──────────────────────────────────────
+
+  private buildBlockPanel(): void {
+    document.getElementById('bf-block-panel')?.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'bf-block-panel';
+    panel.innerHTML = `
+      <style>
+        #bf-block-panel {
+          position: fixed; top: 0; right: 0; bottom: 0; width: 200px;
+          background: #12121eee; border-left: 1px solid #334;
+          font-family: monospace; font-size: 12px; color: #ccd;
+          padding: 12px; overflow-y: auto; z-index: 500;
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        #bf-block-panel h4 { margin: 0; color: #ffcc88; font-size: 13px; }
+        #bf-block-panel .bf-divider { border-top: 1px solid #334; margin: 4px 0; }
+        #bf-block-panel .bf-bom-row {
+          display: flex; justify-content: space-between;
+          padding: 2px 0; color: #aab; font-size: 11px;
+        }
+        #bf-block-panel .bf-bom-count { color: #ffcc88; }
+        #bf-block-panel .bf-bom-empty { color: #446; font-size: 11px; }
+        .bf-block-swatch {
+          display: flex; align-items: center; gap: 8px;
+          padding: 5px 6px; border-radius: 4px; cursor: pointer;
+          border: 2px solid transparent;
+        }
+        .bf-block-swatch:hover { background: #2a2a4e; }
+        .bf-block-swatch.selected { border-color: #ffcc88; background: #1e1e3a; }
+        .bf-swatch-color {
+          width: 18px; height: 18px; border-radius: 3px; flex-shrink: 0;
+          border: 1px solid rgba(255,255,255,0.15);
+        }
+        .bf-swatch-name { font-size: 11px; color: #ccd; line-height: 1.2; }
+      </style>
+      <h4>Block Palette</h4>
+      <div id="bf-block-palette"></div>
+      <div class="bf-divider"></div>
+      <h4>Bill of Materials</h4>
+      <div id="bf-bom"></div>
+    `;
+    document.body.appendChild(panel);
+
+    this.syncBlockPanel();
+  }
+
+  /** Refresh block palette + bill of materials to match current arch and block state. */
+  private syncBlockPanel(): void {
+    const arch = this.archStyles[this.currentArchIdx];
+    const blocks = arch?.blocks ?? this.defaultBlocks();
+    const material = arch?.primaryMaterial ?? 'wood';
+
+    // Ensure selectedBlockType is valid for this arch
+    if (!blocks.find(b => b.type === this.selectedBlockType)) {
+      this.selectedBlockType = blocks[0]?.type ?? 'wall';
+    }
+
+    // Palette
+    const palette = document.getElementById('bf-block-palette');
+    if (palette) {
+      palette.innerHTML = blocks.map(block => {
+        const color = this.blockColorForType(block.type, material);
+        const cssColor = `#${color.toString(16).padStart(6, '0')}`;
+        const isSelected = block.type === this.selectedBlockType;
+        return `
+          <div class="bf-block-swatch${isSelected ? ' selected' : ''}" data-type="${block.type}">
+            <div class="bf-swatch-color" style="background:${cssColor};"></div>
+            <span class="bf-swatch-name">${block.name}</span>
+          </div>
+        `;
+      }).join('');
+
+      palette.querySelectorAll<HTMLElement>('.bf-block-swatch').forEach(el => {
+        el.addEventListener('click', () => {
+          this.selectedBlockType = el.dataset['type'] ?? 'wall';
+          this.syncBlockPanel();
+        });
+      });
+    }
+
+    // Bill of materials
+    const bom = document.getElementById('bf-bom');
+    if (bom) {
+      const counts = this.computeBom();
+      const nameMap = Object.fromEntries(blocks.map(b => [b.type, b.name]));
+      const entries = Object.entries(counts).sort(([, a], [, b]) => b - a);
+      if (entries.length === 0) {
+        bom.innerHTML = '<div class="bf-bom-empty">No blocks placed</div>';
+      } else {
+        const total = entries.reduce((s, [, n]) => s + n, 0);
+        bom.innerHTML = entries.map(([type, count]) => `
+          <div class="bf-bom-row">
+            <span>${nameMap[type] ?? type}</span>
+            <span class="bf-bom-count">${count}</span>
+          </div>
+        `).join('') + `
+          <div class="bf-bom-row" style="border-top:1px solid #334;margin-top:4px;padding-top:4px;">
+            <span style="color:#889;">Total</span>
+            <span class="bf-bom-count">${total}</span>
+          </div>
+        `;
+      }
+    }
+  }
+
+  // ── Block type helpers ────────────────────────────────────────────────────
+
+  /** Fallback block palette when architecture has no explicit blocks defined. */
+  private defaultBlocks(): BlockDef[] {
+    return [
+      { type: 'wall',        name: 'Wall' },
+      { type: 'wall-corner', name: 'Corner' },
+      { type: 'foundation',  name: 'Foundation' },
+      { type: 'roof',        name: 'Roof' },
+      { type: 'door',        name: 'Door' },
+      { type: 'window',      name: 'Window' },
+      { type: 'floor',       name: 'Floor' },
+    ];
+  }
+
+  /** Derive a render colour for a block type from the architecture's primary material. */
+  private blockColorForType(blockType: string, material: string): number {
+    const wallColor = WALL_COLORS[material] ?? 0x9a7a5a;
+    const roofColor = ROOF_COLORS[material] ?? 0x8b7332;
+
+    switch (blockType) {
+      case 'roof':        return roofColor;
+      case 'foundation':  return this.darken(wallColor, 0.70);
+      case 'floor':       return this.darken(wallColor, 0.60);
+      case 'wall-corner': return this.darken(wallColor, 0.85);
+      case 'door':        return this.darken(wallColor, 0.45);
+      case 'window': {
+        // Tint wall colour toward sky blue to suggest glass / opening
+        const r = Math.floor(((wallColor >> 16) & 0xff) * 0.5 + 0x44 * 0.5);
+        const g = Math.floor(((wallColor >>  8) & 0xff) * 0.5 + 0x88 * 0.5);
+        const b = Math.floor(( wallColor        & 0xff) * 0.5 + 0xff * 0.5);
+        return (r << 16) | (g << 8) | b;
+      }
+      default:            return wallColor;
+    }
+  }
+
+  /** Count how many of each block type are placed in the current grid. */
+  private computeBom(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (let x = 0; x < this.gridW; x++) {
+      for (let y = 0; y < this.gridD; y++) {
+        for (let z = 0; z < this.maxH; z++) {
+          const bt = this.blocks[x][y][z];
+          if (bt !== null) {
+            counts[bt] = (counts[bt] ?? 0) + 1;
+          }
+        }
+      }
+    }
+    return counts;
   }
 
   private updateBuildingDropdown(category: string): void {
@@ -505,7 +688,7 @@ export class BuildingForgeScene extends Phaser.Scene {
     for (let x = 0; x < this.gridW; x++)
       for (let y = 0; y < this.gridD; y++)
         for (let z = 0; z < this.maxH; z++)
-          if (this.blocks[x][y][z]) blockCount++;
+          if (this.blocks[x][y][z] !== null) blockCount++;
 
     const arch = this.archStyles[this.currentArchIdx];
 
@@ -530,6 +713,9 @@ export class BuildingForgeScene extends Phaser.Scene {
         ${arch?.promptKeywords ? `<div class="bf-keywords">${arch.promptKeywords}</div>` : ''}
       `;
     }
+
+    // Also refresh the block panel whenever the left panel syncs
+    this.syncBlockPanel();
   }
 
   /** Resize the grid to new dimensions, preserving existing blocks where possible. */
@@ -548,10 +734,10 @@ export class BuildingForgeScene extends Phaser.Scene {
     for (let x = 0; x < w; x++) {
       this.blocks[x] = [];
       for (let y = 0; y < l; y++) {
-        this.blocks[x][y] = new Array(h).fill(false);
+        this.blocks[x][y] = new Array(h).fill(null);
         for (let z = 0; z < h; z++) {
           if (x < oldW && y < oldD && z < oldH) {
-            this.blocks[x][y][z] = oldBlocks[x]?.[y]?.[z] ?? false;
+            this.blocks[x][y][z] = oldBlocks[x]?.[y]?.[z] ?? null;
           }
         }
       }
@@ -593,8 +779,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     if (tx < 0 || ty < 0 || tx >= this.gridW || ty >= this.gridD) return;
     // Find first empty z
     for (let z = 0; z < this.maxH; z++) {
-      if (!this.blocks[tx][ty][z]) {
-        this.blocks[tx][ty][z] = true;
+      if (this.blocks[tx][ty][z] === null) {
+        this.blocks[tx][ty][z] = this.selectedBlockType;
         this.rebuild();
         return;
       }
@@ -605,8 +791,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     if (tx < 0 || ty < 0 || tx >= this.gridW || ty >= this.gridD) return;
     // Find highest filled z
     for (let z = this.maxH - 1; z >= 0; z--) {
-      if (this.blocks[tx][ty][z]) {
-        this.blocks[tx][ty][z] = false;
+      if (this.blocks[tx][ty][z] !== null) {
+        this.blocks[tx][ty][z] = null;
         this.rebuild();
         return;
       }
@@ -754,11 +940,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     const entry = this.entries[this.currentIdx];
     if (!entry) return;
 
-    const wallH = WALL_BLOCKS[entry.heightHint] ?? 3;
     const arch = this.archStyles[this.currentArchIdx];
     const mat = arch?.primaryMaterial ?? 'wood';
-    const wallColor = WALL_COLORS[mat] ?? 0x9a7a5a;
-    const roofColor = ROOF_COLORS[mat] ?? 0x8b7332;
 
     // ── Ground grid — same iso diamond style as settlement/world forges ──
     // Draw a ground area larger than the building footprint so the building
@@ -795,13 +978,14 @@ export class BuildingForgeScene extends Phaser.Scene {
     // ── Blocks (painter sort: back to front, bottom to top) ─────────────
     this.blockGfx = this.add.graphics().setDepth(1);
 
-    // Collect all filled blocks with sort key
-    const draws: Array<{ tx: number; ty: number; tz: number; sortKey: number }> = [];
+    // Collect all filled blocks with sort key and block type
+    const draws: Array<{ tx: number; ty: number; tz: number; blockType: string; sortKey: number }> = [];
     for (let tx = 0; tx < this.gridW; tx++) {
       for (let ty = 0; ty < this.gridD; ty++) {
         for (let tz = 0; tz < this.maxH; tz++) {
-          if (this.blocks[tx][ty][tz]) {
-            draws.push({ tx, ty, tz, sortKey: (tx + ty) * 100 + tz });
+          const bt = this.blocks[tx][ty][tz];
+          if (bt !== null) {
+            draws.push({ tx, ty, tz, blockType: bt, sortKey: (tx + ty) * 100 + tz });
           }
         }
       }
@@ -814,7 +998,6 @@ export class BuildingForgeScene extends Phaser.Scene {
     const hasSprite = this.showSprites && spriteKey && this.textures.exists(spriteKey);
 
     // Low buildings with sprites = ground objects (campfire, well, etc.)
-    // Render as a single free sprite on the ground, not per-block cubes.
     const isGroundObject = hasSprite && entry.heightHint === 'low';
 
     if (isGroundObject) {
@@ -843,10 +1026,6 @@ export class BuildingForgeScene extends Phaser.Scene {
     } else {
       for (const d of draws) {
         if (hasSprite) {
-          // Render as sprite image per block, lifted by z.
-          // isoPos gives the north apex; diamond centre is at (x, y+hh).
-          // Each block lifts by (tz+1)*hh (top) — place sprite centre
-          // at the top face centre of this block.
           const { x, y } = this.isoPos(d.tx, d.ty);
           const hh = this.ISO_H / 2;
           const lift = d.tz * hh;
@@ -857,9 +1036,8 @@ export class BuildingForgeScene extends Phaser.Scene {
           img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
           this.blockSprites.push(img);
         } else {
-          // Fallback: coloured iso cube
-          const isRoof = d.tz >= wallH;
-          const color = isRoof ? roofColor : wallColor;
+          // Color by block type
+          const color = this.blockColorForType(d.blockType, mat);
           this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9);
         }
       }
