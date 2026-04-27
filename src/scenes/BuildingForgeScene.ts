@@ -23,6 +23,7 @@ interface RegistryEntry {
   name: string;
   category: string;
   baseSizeRange: [number, number];
+  baseDepthRange?: [number, number];
   heightHint: string;
 }
 
@@ -256,10 +257,9 @@ export class BuildingForgeScene extends Phaser.Scene {
     const entry = this.entries[this.currentIdx];
     if (!entry) return;
 
-    // Use max of size range for footprint
-    const size = entry.baseSizeRange[1];
-    this.gridW = size;
-    this.gridD = size;
+    // Use max of size/depth range for footprint
+    this.gridW = entry.baseSizeRange[1];
+    this.gridD = (entry.baseDepthRange ?? entry.baseSizeRange)[1];
     this.maxH = HEIGHT_BLOCKS[entry.heightHint] ?? 4;
 
     // Init empty grid

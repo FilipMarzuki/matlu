@@ -8,6 +8,7 @@
     "minTier": "Smallest settlement tier (1-5) that can have this building",
     "zone": "inner | middle | outer — preferred radial position in layout",
     "baseSizeRange": "[min, max] footprint width in iso blocks (1 block = 1 grid tile)",
+    "baseDepthRange": "[min, max] footprint depth in iso blocks. Optional — defaults to baseSizeRange (square). Use for rectangular buildings like longhouses.",
     "heightHint": "relative height: 'low' | 'standard' | 'tall' | 'tower' — affects depth sort and verticality cultures",
     "unlockConditions": "Building appears if ANY condition is met. null fields are ignored.",
     "count": "How many instances per tier. Missing tiers = 0. Use '+' suffix for 'at least' (layout may add more if space allows).",
@@ -50,8 +51,8 @@
       "minTier": 2,
       "zone": "inner",
       "baseSizeRange": [
-        4,
-        5
+        6,
+        8
       ],
       "heightHint": "standard",
       "unlockConditions": {
@@ -67,7 +68,11 @@
         "faces-plaza",
         "north-of-centre"
       ],
-      "loreHook": "The chief's seat faces the door so they see everyone who enters"
+      "loreHook": "The chief's seat faces the door so they see everyone who enters",
+      "baseDepthRange": [
+        3,
+        3
+      ]
     },
     {
       "id": "market-hall",
@@ -99,7 +104,11 @@
         "faces-plaza",
         "near-road"
       ],
-      "loreHook": "The bell rings at dawn and dusk to mark trading hours"
+      "loreHook": "The bell rings at dawn and dusk to mark trading hours",
+      "baseDepthRange": [
+        4,
+        5
+      ]
     },
     {
       "id": "town-hall",
@@ -288,7 +297,11 @@
       "placementHints": [
         "near-workplace"
       ],
-      "loreHook": "Thirty bunks, no privacy, and someone always snores"
+      "loreHook": "Thirty bunks, no privacy, and someone always snores",
+      "baseDepthRange": [
+        2,
+        3
+      ]
     },
     {
       "_section": "═══ COMMERCE — trade, hospitality, transport ═══"
@@ -422,7 +435,11 @@
         "near-water",
         "edge-of-settlement"
       ],
-      "loreHook": "Rats are the unofficial inventory auditors"
+      "loreHook": "Rats are the unofficial inventory auditors",
+      "baseDepthRange": [
+        3,
+        3
+      ]
     },
     {
       "id": "stables",
@@ -458,7 +475,11 @@
         "near-road",
         "downwind"
       ],
-      "loreHook": "The stablehand knows which travellers are trouble before anyone else"
+      "loreHook": "The stablehand knows which travellers are trouble before anyone else",
+      "baseDepthRange": [
+        2,
+        3
+      ]
     },
     {
       "id": "caravansary",
@@ -488,7 +509,11 @@
         "near-road",
         "edge-of-settlement"
       ],
-      "loreHook": "The walls keep the goods safe and the deals private"
+      "loreHook": "The walls keep the goods safe and the deals private",
+      "baseDepthRange": [
+        3,
+        4
+      ]
     },
     {
       "_section": "═══ INDUSTRY — production and extraction ═══"
@@ -686,7 +711,11 @@
       "placementHints": [
         "waterfront"
       ],
-      "loreHook": "The nets are mended at dawn, the stories at dusk"
+      "loreHook": "The nets are mended at dawn, the stories at dusk",
+      "baseDepthRange": [
+        1,
+        2
+      ]
     },
     {
       "id": "net-shed",
@@ -904,7 +933,11 @@
         "near-road",
         "edge-of-settlement"
       ],
-      "loreHook": "Log stacks higher than the houses — a good sign or a dangerous one"
+      "loreHook": "Log stacks higher than the houses — a good sign or a dangerous one",
+      "baseDepthRange": [
+        2,
+        3
+      ]
     },
     {
       "id": "salt-works",
@@ -1000,7 +1033,11 @@
         "edge-of-settlement",
         "downwind"
       ],
-      "loreHook": "Warm in winter. The animals share that warmth whether you like it or not"
+      "loreHook": "Warm in winter. The animals share that warmth whether you like it or not",
+      "baseDepthRange": [
+        2,
+        3
+      ]
     },
     {
       "id": "farmstead",
@@ -1036,7 +1073,11 @@
         "edge-of-settlement",
         "outside-core"
       ],
-      "loreHook": "The fence keeps the goats in and the wolves out. Usually"
+      "loreHook": "The fence keeps the goats in and the wolves out. Usually",
+      "baseDepthRange": [
+        2,
+        3
+      ]
     },
     {
       "_section": "═══ MILITARY — defence and security ═══"
@@ -1144,7 +1185,11 @@
         "near-gate",
         "edge-of-settlement"
       ],
-      "loreHook": "Order, discipline, and complaints about the food"
+      "loreHook": "Order, discipline, and complaints about the food",
+      "baseDepthRange": [
+        2,
+        3
+      ]
     },
     {
       "id": "armory",
@@ -1240,7 +1285,11 @@
       "placementHints": [
         "near-barracks"
       ],
-      "loreHook": "The sound of wooden swords at dawn is the settlement's alarm clock"
+      "loreHook": "The sound of wooden swords at dawn is the settlement's alarm clock",
+      "baseDepthRange": [
+        2,
+        3
+      ]
     },
     {
       "_section": "═══ RELIGIOUS — worship, ritual, pilgrimage ═══"
@@ -1476,7 +1525,11 @@
       "placementHints": [
         "on-water-crossing"
       ],
-      "loreHook": "Someone has to maintain it. That someone is never decided"
+      "loreHook": "Someone has to maintain it. That someone is never decided",
+      "baseDepthRange": [
+        1,
+        2
+      ]
     },
     {
       "id": "customs-post",
@@ -1539,7 +1592,11 @@
       "placementHints": [
         "waterfront"
       ],
-      "loreHook": "The harbour master's word is law from the tideline to the breakwater"
+      "loreHook": "The harbour master's word is law from the tideline to the breakwater",
+      "baseDepthRange": [
+        2,
+        2
+      ]
     },
     {
       "id": "boat-shed",
@@ -1571,7 +1628,11 @@
       "placementHints": [
         "waterfront"
       ],
-      "loreHook": "A boat upside-down on sawhorses is a promise of spring"
+      "loreHook": "A boat upside-down on sawhorses is a promise of spring",
+      "baseDepthRange": [
+        2,
+        2
+      ]
     },
     {
       "_section": "═══ ANOMALY — rare unique buildings from random events ═══"

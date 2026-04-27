@@ -229,7 +229,7 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     const frac = zoneFracs[building.zone] ?? zoneFracs['middle'] ?? { min: 0.38, max: 0.65 };
     // building.w is already in iso block units (from the registry)
     const widthT = Math.max(1, building.w);
-    const depthT = widthT;
+    const depthT = Math.max(1, building.d ?? widthT);
     const half = Math.ceil(widthT / 2);
 
     // ── Place ─────────────────────────────────────────────────────────────

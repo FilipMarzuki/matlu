@@ -23,6 +23,7 @@ function makeBuilding(overrides: Partial<ResolvedBuilding> = {}): ResolvedBuildi
     category: 'residential',
     zone: 'middle',
     w: 32,
+    d: 32,
     heightHint: 'standard',
     placementHints: [],
     loreHook: '',

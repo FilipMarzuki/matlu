@@ -61,6 +61,7 @@ interface BuildingRegistryEntry {
   minTier: number;
   zone: 'inner' | 'middle' | 'outer';
   baseSizeRange: [number, number];
+  baseDepthRange?: [number, number];
   heightHint: string;
   unlockConditions: Record<string, unknown>;
   count: Record<string, number>;
@@ -80,6 +81,8 @@ export interface ResolvedBuilding {
   zone: 'inner' | 'middle' | 'outer';
   /** Footprint width in iso blocks (1 block = 1 grid tile). */
   w: number;
+  /** Footprint depth in iso blocks. Defaults to w if not set (square). */
+  d: number;
   /** Height hint for depth sorting. */
   heightHint: string;
   /** Soft placement suggestions. */
@@ -467,13 +470,18 @@ export function selectBuildings(
 
     for (let i = 0; i < count; i++) {
       // Size in iso blocks — pick randomly within the registry range.
-      // baseSizeRange is [min, max] in whole block counts.
       const [minW, maxW] = entry.baseSizeRange;
       let w = Math.round(minW + rng() * (maxW - minW));
 
+      // Depth defaults to width (square) unless registry specifies otherwise
+      const [minD, maxD] = entry.baseDepthRange ?? entry.baseSizeRange;
+      let d = Math.round(minD + rng() * (maxD - minD));
+
       // Culture hierarchy scale: the most important building gets bigger
       if (culture && i === 0 && result.length === 0 && entry.category === 'civic') {
-        w = Math.round(w * culture.hierarchyScale);
+        const s = culture.hierarchyScale;
+        w = Math.round(w * s);
+        d = Math.round(d * s);
       }
 
       result.push({
@@ -481,7 +489,7 @@ export function selectBuildings(
         role: entry.role,
         category: entry.category,
         zone: entry.zone,
-        w,
+        w, d,
         heightHint: entry.heightHint,
         placementHints: entry.placementHints,
         loreHook: entry.loreHook,
