@@ -10,7 +10,6 @@
  *   Right click        Remove top block from hovered column
  *   A / D              Cycle building from registry
  *   R                  Reset to default fill
- *   1-5                Height preset (low/std/tall/tower)
  *   Scroll / +/-       Zoom
  *   Middle-drag        Pan camera
  */
@@ -73,8 +72,8 @@ const WALL_COLORS: Record<string, number> = {
 /** Map building IDs to arrays of sprite variants for cycling. */
 const BLOCK_SPRITE_VARIANTS: Record<string, string[]> = {
   campfire: [
+    'campfire-obj-32', 'campfire-obj-48a', 'campfire-obj-48b',
     'campfire-markfolk-v1', 'campfire-markfolk-v2', 'campfire-markfolk-v3',
-    'campfire-v1', 'campfire-v2', 'campfire-v3',
   ],
 };
 
@@ -143,9 +142,11 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.load.json('architecture', '/macro-world/architecture.json');
 
     // Block sprite tiles — multiple variants per building for comparison
-    this.load.image('campfire-v1', '/assets/packs/building-forge/campfire_v1.png');
-    this.load.image('campfire-v2', '/assets/packs/building-forge/campfire_v2.png');
-    this.load.image('campfire-v3', '/assets/packs/building-forge/campfire_v3_48px.png');
+    // Map objects (transparent bg, no iso base — best for ground objects)
+    this.load.image('campfire-obj-32', '/assets/packs/building-forge/campfire_obj_32.png');
+    this.load.image('campfire-obj-48a', '/assets/packs/building-forge/campfire_obj_48a.png');
+    this.load.image('campfire-obj-48b', '/assets/packs/building-forge/campfire_obj_48b.png');
+    // Iso block tiles (for comparison)
     this.load.image('campfire-markfolk-v1', '/assets/packs/building-forge/campfire_markfolk_v1.png');
     this.load.image('campfire-markfolk-v2', '/assets/packs/building-forge/campfire_markfolk_v2.png');
     this.load.image('campfire-markfolk-v3', '/assets/packs/building-forge/campfire_markfolk_v3_48px.png');
@@ -185,10 +186,6 @@ export class BuildingForgeScene extends Phaser.Scene {
     kb.on('keydown-A', () => this.cycleBuilding(-1));
     kb.on('keydown-D', () => this.cycleBuilding(1));
     kb.on('keydown-R', () => { this.fillDefault(); this.rebuild(); });
-    kb.on('keydown-ONE',   () => this.setHeight('low'));
-    kb.on('keydown-TWO',   () => this.setHeight('standard'));
-    kb.on('keydown-THREE', () => this.setHeight('tall'));
-    kb.on('keydown-FOUR',  () => this.setHeight('tower'));
     kb.on('keydown-T', () => { this.showSprites = !this.showSprites; this.syncSpriteToggle(); this.rebuild(); });
     kb.on('keydown-V', () => this.cycleSpriteVariant());
 
@@ -299,24 +296,6 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.rebuild();
   }
 
-  private setHeight(hint: string): void {
-    const entry = this.entries[this.currentIdx];
-    if (!entry) return;
-    // Temporarily override the height
-    this.maxH = HEIGHT_BLOCKS[hint] ?? 4;
-    // Resize z-axis
-    for (let x = 0; x < this.gridW; x++) {
-      for (let y = 0; y < this.gridD; y++) {
-        const old = this.blocks[x][y];
-        this.blocks[x][y] = new Array(this.maxH).fill(false);
-        for (let z = 0; z < Math.min(old.length, this.maxH); z++) {
-          this.blocks[x][y][z] = old[z];
-        }
-      }
-    }
-    this.syncPanel();
-    this.rebuild();
-  }
 
   // ── Control panel (DOM) ───────────────────────────────────────────────────
 
@@ -409,15 +388,6 @@ export class BuildingForgeScene extends Phaser.Scene {
         </div>
       </div>
 
-      <div>
-        <label>Height preset</label>
-        <select id="bf-height">
-          <option value="low">Low (2 blocks)</option>
-          <option value="standard" selected>Standard (4 blocks)</option>
-          <option value="tall">Tall (6 blocks)</option>
-          <option value="tower">Tower (8 blocks)</option>
-        </select>
-      </div>
 
       <div class="bf-divider"></div>
 
@@ -472,11 +442,6 @@ export class BuildingForgeScene extends Phaser.Scene {
     document.getElementById('bf-l')!.addEventListener('change', dimChange);
     document.getElementById('bf-h')!.addEventListener('change', dimChange);
 
-    // Height preset
-    sel('bf-height').addEventListener('change', (e) => {
-      this.setHeight((e.target as HTMLSelectElement).value);
-    });
-
     // Architecture selection
     sel('bf-arch').addEventListener('change', (e) => {
       this.currentArchIdx = parseInt((e.target as HTMLSelectElement).value, 10);
@@ -523,9 +488,6 @@ export class BuildingForgeScene extends Phaser.Scene {
   private syncPanel(): void {
     const entry = this.entries[this.currentIdx];
     if (!entry) return;
-
-    const heightSel = document.getElementById('bf-height') as HTMLSelectElement;
-    if (heightSel) heightSel.value = entry.heightHint;
 
     // Sync dimension inputs
     const wIn = document.getElementById('bf-w') as HTMLInputElement;
@@ -851,24 +813,55 @@ export class BuildingForgeScene extends Phaser.Scene {
     const spriteKey = variants?.[this.spriteVariantIdx % (variants?.length ?? 1)];
     const hasSprite = this.showSprites && spriteKey && this.textures.exists(spriteKey);
 
-    for (const d of draws) {
-      if (hasSprite) {
-        // Render as sprite image — position at the iso tile, lifted by z
-        const { x, y } = this.isoPos(d.tx, d.ty);
-        const hh = this.ISO_H / 2;
-        const baseLift = d.tz * hh;
-        const img = this.add.image(x, y - baseLift, spriteKey);
-        // Scale the sprite so its width matches one iso tile width
-        const scale = this.ISO_W / img.width;
-        img.setScale(scale);
-        img.setOrigin(0.5, 0.5);
-        img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
-        this.blockSprites.push(img);
-      } else {
-        // Fallback: coloured iso cube
-        const isRoof = d.tz >= wallH;
-        const color = isRoof ? roofColor : wallColor;
-        this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9);
+    // Low buildings with sprites = ground objects (campfire, well, etc.)
+    // Render as a single free sprite on the ground, not per-block cubes.
+    const isGroundObject = hasSprite && entry.heightHint === 'low';
+
+    if (isGroundObject) {
+      const { x, y } = this.isoPos(0, 0);
+      const hw = this.ISO_W / 2;
+      const hh = this.ISO_H / 2;
+
+      // Red diamond outline showing the tile footprint
+      this.blockGfx.lineStyle(2, 0xff0000, 0.6);
+      this.blockGfx.beginPath();
+      this.blockGfx.moveTo(x, y);
+      this.blockGfx.lineTo(x + hw, y + hh);
+      this.blockGfx.lineTo(x, y + 2 * hh);
+      this.blockGfx.lineTo(x - hw, y + hh);
+      this.blockGfx.closePath();
+      this.blockGfx.strokePath();
+
+      // Sprite bottom at the diamond's south point, sits on the tile
+      const sy = y + 2 * hh;
+      const img = this.add.image(x, sy, spriteKey!);
+      const scale = this.ISO_W / img.width;
+      img.setScale(scale);
+      img.setOrigin(0.5, 1);
+      img.setDepth(2);
+      this.blockSprites.push(img);
+    } else {
+      for (const d of draws) {
+        if (hasSprite) {
+          // Render as sprite image per block, lifted by z.
+          // isoPos gives the north apex; diamond centre is at (x, y+hh).
+          // Each block lifts by (tz+1)*hh (top) — place sprite centre
+          // at the top face centre of this block.
+          const { x, y } = this.isoPos(d.tx, d.ty);
+          const hh = this.ISO_H / 2;
+          const lift = d.tz * hh;
+          const img = this.add.image(x, y - lift, spriteKey!);
+          const scale = this.ISO_W / img.width;
+          img.setScale(scale);
+          img.setOrigin(0.5, 0);
+          img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
+          this.blockSprites.push(img);
+        } else {
+          // Fallback: coloured iso cube
+          const isRoof = d.tz >= wallH;
+          const color = isRoof ? roofColor : wallColor;
+          this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9);
+        }
       }
     }
 
