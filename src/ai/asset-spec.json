@@ -635,6 +635,50 @@
         }
       ],
       "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-militia"
+    },
+    {
+      "id": "human-agrarian-elder",
+      "name": "Elder (Human Agrarian)",
+      "world": "mistheim",
+      "faction": "agrarian",
+      "status": "pending",
+      "_comment": "Settlement elder. Bearded, stooped, accent burgundy stole. Signature animation = sitting on stool with occasional head nod (custom).",
+      "pixellab": {
+        "description": "elderly human peasant, long grey beard, slightly stooped posture, woven wool tunic with burgundy shoulder stole, simple cloth cap, walking staff in hand, leather satchel at hip, anime-fantasy aesthetic, clean linework, soft expressive face, natural-fibre clothing, low-saturation earthy palette with burgundy accent, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 180
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "sit-idle",
+          "template": "custom-elder seated on a low wooden stool, hands resting on knees, occasional slow nod of the head, eyes half-closed in thought",
+          "frameDurationMs": 200
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-elder"
     }
   ],
   "tilesets": [
