@@ -38,6 +38,8 @@ Read each diff. Write `WEEKLY_LEARNING.md`:
 
 ## Worth understanding more deeply
 
+## External resources
+
 ## Suggested Phaser docs reading
 
 ## AI usage this week
@@ -46,6 +48,22 @@ Read each diff. Write `WEEKLY_LEARNING.md`:
 ```
 
 Omit the AI usage section if no token-log data is available.
+
+### External resources guidelines
+
+For every concept in **Key concepts introduced** and **Worth understanding more deeply**, search the web for a high-quality external link. **Prefer YouTube videos** over articles — short explainers (5–20 min) from channels like Sebastian Lague, Coding Train, Fireship, or the official tool's channel are ideal. Fall back to articles/docs only when no good video exists.
+
+Format each entry as a bullet with the concept name, a one-line note on why it's relevant, and the link:
+
+```markdown
+## External resources
+- **Poisson disk sampling** — used for tree/object placement in biome decoration
+  [Sebastian Lague: Procedural Object Placement](https://www.youtube.com/watch?v=7WcmyxyFO7o)
+- **Row Level Security** — how our Supabase leaderboard stays safe with anon access
+  [Supabase RLS 101](https://www.youtube.com/watch?v=tKMN7AelIZs)
+```
+
+Aim for 3–6 links per week. Only include links that are directly relevant to what was built or struggled with — don't pad with generic tutorials.
 
 Commit and push:
 

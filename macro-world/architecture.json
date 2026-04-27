@@ -259,27 +259,43 @@
       "blocks": [
         {
           "type": "wall",
-          "name": "Stave Wall"
+          "name": "Stave Wall",
+          "sprite": "lh-stave-wall"
         },
         {
           "type": "wall-corner",
-          "name": "Buttress Post"
+          "name": "Buttress Post",
+          "sprite": "lh-buttress-post"
         },
         {
           "type": "foundation",
-          "name": "Stone Footing"
+          "name": "Stone Footing",
+          "sprite": "lh-stone-footing"
         },
         {
           "type": "roof",
-          "name": "Turf Roof"
+          "name": "Turf Roof",
+          "sprite": "lh-turf-roof"
+        },
+        {
+          "type": "roof-edge",
+          "name": "Roof Edge",
+          "sprite": "lh-roof-edge"
+        },
+        {
+          "type": "roof-edge-back",
+          "name": "Roof Edge (back)",
+          "sprite": "lh-roof-edge-back"
         },
         {
           "type": "door",
-          "name": "Double Door"
+          "name": "Double Door",
+          "sprite": "lh-double-door"
         },
         {
           "type": "window",
-          "name": "Arched Shutter"
+          "name": "Arched Shutter",
+          "sprite": "lh-arched-shutter"
         },
         {
           "type": "floor",
@@ -287,11 +303,13 @@
         },
         {
           "type": "beam",
-          "name": "Ridge Beam"
+          "name": "Ridge Beam",
+          "sprite": "lh-ridge-beam"
         },
         {
           "type": "ornament",
-          "name": "Carved Gable"
+          "name": "Carved Gable",
+          "sprite": "lh-carved-gable"
         }
       ]
     },

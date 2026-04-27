@@ -130,6 +130,7 @@ export class BuildingForgeScene extends Phaser.Scene {
   private blockGfx: Phaser.GameObjects.Graphics | null = null;
   private groundGfx: Phaser.GameObjects.Graphics | null = null;
   private blockSprites: Phaser.GameObjects.Image[] = [];
+  private blockLabels: Phaser.GameObjects.Text[] = [];
   private showSprites = true;
   private spriteVariantIdx = 0;
 
@@ -161,6 +162,18 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.load.image('campfire-markfolk-v1', '/assets/packs/building-forge/campfire_markfolk_v1.png');
     this.load.image('campfire-markfolk-v2', '/assets/packs/building-forge/campfire_markfolk_v2.png');
     this.load.image('campfire-markfolk-v3', '/assets/packs/building-forge/campfire_markfolk_v3_48px.png');
+
+    // Longhouse Tradition block sprites
+    this.load.image('lh-stave-wall',      '/assets/packs/building-forge/longhouse/stave_wall.png');
+    this.load.image('lh-buttress-post',   '/assets/packs/building-forge/longhouse/buttress_post.png');
+    this.load.image('lh-stone-footing',   '/assets/packs/building-forge/longhouse/stone_footing.png');
+    this.load.image('lh-turf-roof',       '/assets/packs/building-forge/longhouse/turf_roof.png');
+    this.load.image('lh-double-door',     '/assets/packs/building-forge/longhouse/double_door.png');
+    this.load.image('lh-arched-shutter',  '/assets/packs/building-forge/longhouse/arched_shutter.png');
+    this.load.image('lh-ridge-beam',      '/assets/packs/building-forge/longhouse/ridge_beam.png');
+    this.load.image('lh-carved-gable',    '/assets/packs/building-forge/longhouse/carved_gable.png');
+    this.load.image('lh-roof-edge',      '/assets/packs/building-forge/longhouse/roof_edge.png');
+    this.load.image('lh-roof-edge-back', '/assets/packs/building-forge/longhouse/roof_edge_back.png');
   }
 
   create(): void {
@@ -261,6 +274,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.gridW = entry.baseSizeRange[1];
     this.gridD = (entry.baseDepthRange ?? entry.baseSizeRange)[1];
     this.maxH = HEIGHT_BLOCKS[entry.heightHint] ?? 4;
+    // Longhouse needs extra height for peaked roof
+    if (entry.id === 'longhouse') this.maxH = Math.max(this.maxH, 5);
 
     // Init empty grid
     this.blocks = [];
@@ -306,6 +321,76 @@ export class BuildingForgeScene extends Phaser.Scene {
           }
         }
       }
+    }
+
+    // Longhouse-specific block placement
+    if (entry.id === 'longhouse' && this.gridD >= 3) {
+      const doorY = Math.floor(this.gridD / 2);
+      const doorH = Math.min(3, wallH);
+      const lastX = this.gridW - 1;
+      const lastY = this.gridD - 1;
+
+      // Corners → wall-corner (buttress posts), full wall height
+      for (const cx of [0, lastX]) {
+        for (const cy of [0, lastY]) {
+          for (let z = 0; z < wallH; z++) {
+            this.blocks[cx][cy][z] = 'wall-corner';
+          }
+        }
+      }
+
+      // Doors — 1 wide × 3 high at centre of each short end
+      for (const dx of [0, lastX]) {
+        for (let z = 0; z < doorH; z++) {
+          this.blocks[dx][doorY][z] = 'door';
+        }
+      }
+
+      // Windows — on long walls (y=0 and y=lastY), midway along the length
+      const windowPositions = [Math.floor(this.gridW / 3), Math.floor(2 * this.gridW / 3)];
+      for (const wx of windowPositions) {
+        if (wx > 0 && wx < lastX) {
+          for (const wy of [0, lastY]) {
+            // Place window at z=2 (eye level), wall below and above
+            if (wallH >= 3) {
+              this.blocks[wx][wy][2] = 'window';
+            }
+          }
+        }
+      }
+
+      // Peaked roof — eaves at z=wallH, ridge at z=wallH+1
+      // Clear the flat roof first
+      for (let x = 0; x < this.gridW; x++) {
+        for (let y = 0; y < this.gridD; y++) {
+          for (let z = wallH; z < this.maxH; z++) {
+            this.blocks[x][y][z] = null;
+          }
+        }
+      }
+
+      // Eave rows (y=0, y=lastY): roof-edge at z=wallH
+      for (let x = 0; x < this.gridW; x++) {
+        this.blocks[x][0][wallH] = 'roof-edge';
+        this.blocks[x][lastY][wallH] = 'roof-edge-back';
+      }
+
+      // Centre ridge (y=1): roof at z=wallH, then ridge beam + roof at z=wallH+1
+      const ridgeY = Math.floor(this.gridD / 2);
+      for (let x = 0; x < this.gridW; x++) {
+        this.blocks[x][ridgeY][wallH] = 'roof';
+        this.blocks[x][ridgeY][wallH + 1] = 'roof';
+      }
+
+      // Ridge beam runs under the peak
+      for (let x = 1; x < lastX; x++) {
+        this.blocks[x][ridgeY][wallH] = 'beam';
+        this.blocks[x][ridgeY][wallH + 1] = 'roof';
+      }
+
+      // Carved gable ornaments — peak of each short end
+      this.blocks[0][doorY][wallH + 1] = 'ornament';
+      this.blocks[lastX][doorY][wallH + 1] = 'ornament';
     }
   }
 
@@ -548,14 +633,14 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Palette
     const palette = document.getElementById('bf-block-palette');
     if (palette) {
-      palette.innerHTML = blocks.map(block => {
+      palette.innerHTML = blocks.map((block, i) => {
         const color = this.blockColorForType(block.type, material);
         const cssColor = `#${color.toString(16).padStart(6, '0')}`;
         const isSelected = block.type === this.selectedBlockType;
         return `
           <div class="bf-block-swatch${isSelected ? ' selected' : ''}" data-type="${block.type}">
             <div class="bf-swatch-color" style="background:${cssColor};"></div>
-            <span class="bf-swatch-name">${block.name}</span>
+            <span class="bf-swatch-name"><span style="color:#ffcc88">${i + 1}</span> ${block.name}</span>
           </div>
         `;
       }).join('');
@@ -615,6 +700,8 @@ export class BuildingForgeScene extends Phaser.Scene {
 
     switch (blockType) {
       case 'roof':        return roofColor;
+      case 'roof-edge':      return this.darken(roofColor, 0.80);
+      case 'roof-edge-back': return this.darken(roofColor, 0.80);
       case 'foundation':  return this.darken(wallColor, 0.70);
       case 'floor':       return this.darken(wallColor, 0.60);
       case 'wall-corner': return this.darken(wallColor, 0.85);
@@ -886,22 +973,39 @@ export class BuildingForgeScene extends Phaser.Scene {
     gfx: Phaser.GameObjects.Graphics,
     tx: number, ty: number, tz: number,
     color: number, alpha: number,
+    slope?: 'front' | 'back',
   ): void {
     const { x, y } = this.isoPos(tx, ty);
     const hw = this.ISO_W / 2;
     const hh = this.ISO_H / 2;
-    // Each block is hh pixels tall on screen. z=0 sits on the ground,
-    // so lift pushes the top face up by (tz+1)*hh from ground level.
     const topLift = (tz + 1) * hh;
     const baseLift = tz * hh;
 
-    // Top face corners (elevated above ground)
-    const topN = { x: x,      y: y - topLift };
-    const topE = { x: x + hw, y: y + hh - topLift };
-    const topS = { x: x,      y: y + hh * 2 - topLift };
-    const topW = { x: x - hw, y: y + hh - topLift };
+    // Top face corners — default full-height cube
+    let topN = { x: x,      y: y - topLift };
+    let topE = { x: x + hw, y: y + hh - topLift };
+    let topS = { x: x,      y: y + hh * 2 - topLift };
+    let topW = { x: x - hw, y: y + hh - topLift };
 
-    // Bottom corners of this block (base sits on the block below or ground)
+    // Slope along the grid y-axis (depth) for roof eaves.
+    // In iso, the y-axis maps to the NE↔SW diagonal:
+    //   N corner = low x, low y (top of diamond)
+    //   E corner = high x, low y (right of diamond)
+    //   S corner = high x, high y (bottom of diamond)
+    //   W corner = low x, high y (left of diamond)
+    // Moving along +y goes from N/E toward S/W.
+    //
+    // 'front' (y < ridge): drop N and E (outer edge, away from ridge)
+    // 'back'  (y > ridge): drop S and W (outer edge, away from ridge)
+    if (slope === 'front') {
+      topN = { x: topN.x, y: y - baseLift };
+      topE = { x: topE.x, y: y + hh - baseLift };
+    } else if (slope === 'back') {
+      topS = { x: topS.x, y: y + hh * 2 - baseLift };
+      topW = { x: topW.x, y: y + hh - baseLift };
+    }
+
+    // Bottom corners of this block
     const baseE = { x: x + hw, y: y + hh - baseLift };
     const baseS = { x: x,      y: y + hh * 2 - baseLift };
     const baseW = { x: x - hw, y: y + hh - baseLift };
@@ -919,11 +1023,16 @@ export class BuildingForgeScene extends Phaser.Scene {
       gfx.fillPath();
     };
 
-    // Right face (east-facing)
-    fillQuad(this.darken(color, 0.7), alpha, topE, topS, baseS, baseE);
-    // Left face (south-facing)
-    fillQuad(this.darken(color, 0.5), alpha, topS, topW, baseW, baseS);
-    // Top face
+    // Right face (east-facing): topE → topS → baseS → baseE
+    // Only draw if it has visible height (topE or topS above base)
+    if (topE.y < baseE.y || topS.y < baseS.y) {
+      fillQuad(this.darken(color, 0.7), alpha, topE, topS, baseS, baseE);
+    }
+    // Left face (south-facing): topS → topW → baseW → baseS
+    if (topS.y < baseS.y || topW.y < baseW.y) {
+      fillQuad(this.darken(color, 0.5), alpha, topS, topW, baseW, baseS);
+    }
+    // Top face (sloped surface when wedge)
     fillQuad(color, alpha, topN, topE, topS, topW);
 
     // Outline
@@ -935,9 +1044,9 @@ export class BuildingForgeScene extends Phaser.Scene {
     gfx.lineTo(topW.x, topW.y);
     gfx.closePath();
     gfx.strokePath();
-    gfx.lineBetween(topE.x, topE.y, baseE.x, baseE.y);
-    gfx.lineBetween(topS.x, topS.y, baseS.x, baseS.y);
-    gfx.lineBetween(topW.x, topW.y, baseW.x, baseW.y);
+    if (topE.y < baseE.y) gfx.lineBetween(topE.x, topE.y, baseE.x, baseE.y);
+    if (topS.y < baseS.y) gfx.lineBetween(topS.x, topS.y, baseS.x, baseS.y);
+    if (topW.y < baseW.y) gfx.lineBetween(topW.x, topW.y, baseW.x, baseW.y);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -948,6 +1057,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.blockGfx?.destroy();
     for (const s of this.blockSprites) s.destroy();
     this.blockSprites = [];
+    for (const l of this.blockLabels) l.destroy();
+    this.blockLabels = [];
 
     const entry = this.entries[this.currentIdx];
     if (!entry) return;
@@ -987,6 +1098,33 @@ export class BuildingForgeScene extends Phaser.Scene {
       }
     }
 
+    // ── Compass labels — cardinal directions at ground grid edges ────────
+    const midX = (this.gridW - 1) / 2;
+    const midY = (this.gridD - 1) / 2;
+    const labelOffset = pad + 0.5;
+    const compassStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: `${Math.max(10, Math.round(12 * this.zoomFactor / 2))}px`,
+      fontFamily: 'monospace',
+      color: '#aabbcc',
+      stroke: '#000000',
+      strokeThickness: 2,
+    };
+    // N = top-left (low x, low y), E = top-right (high x, low y)
+    // S = bottom-right (high x, high y), W = bottom-left (low x, high y)
+    const compassPoints: Array<{ label: string; tx: number; ty: number }> = [
+      { label: 'N', tx: -labelOffset,              ty: midY },
+      { label: 'E', tx: midX,                      ty: -labelOffset },
+      { label: 'S', tx: this.gridW - 1 + labelOffset, ty: midY },
+      { label: 'W', tx: midX,                      ty: this.gridD - 1 + labelOffset },
+    ];
+    for (const cp of compassPoints) {
+      const pos = this.isoPos(cp.tx, cp.ty);
+      const lbl = this.add.text(pos.x, pos.y, cp.label, compassStyle);
+      lbl.setOrigin(0.5, 0.5);
+      lbl.setDepth(4);
+      this.blockLabels.push(lbl);
+    }
+
     // ── Blocks (painter sort: back to front, bottom to top) ─────────────
     this.blockGfx = this.add.graphics().setDepth(1);
 
@@ -1004,10 +1142,26 @@ export class BuildingForgeScene extends Phaser.Scene {
     }
     draws.sort((a, b) => a.sortKey - b.sortKey);
 
-    // Check if this building has sprite variants
+    // Check if this building has sprite variants (whole-building sprite)
     const variants = BLOCK_SPRITE_VARIANTS[entry.id];
     const spriteKey = variants?.[this.spriteVariantIdx % (variants?.length ?? 1)];
     const hasSprite = this.showSprites && spriteKey && this.textures.exists(spriteKey);
+
+    // Build a map from block type → sprite key from the architecture's blocks
+    const blockSpriteMap = new Map<string, string>();
+    if (this.showSprites && arch?.blocks) {
+      for (const b of arch.blocks) {
+        if (b.sprite && this.textures.exists(b.sprite)) {
+          blockSpriteMap.set(b.type, b.sprite);
+        }
+      }
+    }
+    const hasBlockSprites = blockSpriteMap.size > 0;
+
+    // Build block type → palette index (1-based) for labels
+    const blockIdxMap = new Map<string, number>();
+    const archBlocks = arch?.blocks ?? this.defaultBlocks();
+    archBlocks.forEach((b, i) => blockIdxMap.set(b.type, i + 1));
 
     // Low buildings with sprites = ground objects (campfire, well, etc.)
     const isGroundObject = hasSprite && entry.heightHint === 'low';
@@ -1037,7 +1191,20 @@ export class BuildingForgeScene extends Phaser.Scene {
       this.blockSprites.push(img);
     } else {
       for (const d of draws) {
-        if (hasSprite) {
+        // Per-block-type sprite from architecture (preferred)
+        const blockSprite = blockSpriteMap.get(d.blockType);
+        if (hasBlockSprites && blockSprite) {
+          const { x, y } = this.isoPos(d.tx, d.ty);
+          const hh = this.ISO_H / 2;
+          const lift = d.tz * hh;
+          const img = this.add.image(x, y - lift, blockSprite);
+          const scale = this.ISO_W / img.width;
+          img.setScale(scale);
+          img.setOrigin(0.5, 0);
+          img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
+          this.blockSprites.push(img);
+        } else if (hasSprite) {
+          // Whole-building sprite fallback
           const { x, y } = this.isoPos(d.tx, d.ty);
           const hh = this.ISO_H / 2;
           const lift = d.tz * hh;
@@ -1048,9 +1215,30 @@ export class BuildingForgeScene extends Phaser.Scene {
           img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
           this.blockSprites.push(img);
         } else {
-          // Color by block type
+          // Color by block type — slope roof-edge blocks based on y position
           const color = this.blockColorForType(d.blockType, mat);
-          this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9);
+          let slope: 'front' | 'back' | undefined;
+          if (d.blockType === 'roof-edge') slope = 'front';
+          if (d.blockType === 'roof-edge-back') slope = 'back';
+          this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9, slope);
+        }
+
+        // Draw palette index label on the block's top face
+        const idx = blockIdxMap.get(d.blockType);
+        if (idx !== undefined) {
+          const { x: cx, y: cy } = this.isoPos(d.tx, d.ty);
+          const hh = this.ISO_H / 2;
+          const lift = d.tz * hh;
+          const label = this.add.text(cx, cy - lift, String(idx), {
+            fontSize: `${Math.max(8, Math.round(10 * this.zoomFactor / 2))}px`,
+            fontFamily: 'monospace',
+            color: '#ffcc88',
+            stroke: '#000000',
+            strokeThickness: 2,
+          });
+          label.setOrigin(0.5, 0.5);
+          label.setDepth(3 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
+          this.blockLabels.push(label);
         }
       }
     }
