@@ -679,6 +679,50 @@
         }
       ],
       "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-smith"
+    },
+    {
+      "id": "human-agrarian-villager",
+      "name": "Villager (Human Agrarian)",
+      "world": "mistheim",
+      "faction": "agrarian",
+      "status": "pending",
+      "_comment": "Generic Mistheim agrarian peasant. The workhorse NPC — most-spawned in any human-agrarian settlement. Neutral palette, no accent — defines the baseline silhouette other roles riff on.",
+      "pixellab": {
+        "description": "human peasant villager, simple wool tunic, leather belt, calf-high cloth-wrapped legs, sturdy worn boots, no headwear, calm steady posture, anime-fantasy aesthetic, clean linework, soft expressive face, natural-fibre clothing, low-saturation earthy palette, neutral browns and dust-greys, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "work",
+          "template": "picking-up",
+          "frameDurationMs": 130
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-villager"
     }
   ],
   "tilesets": [
