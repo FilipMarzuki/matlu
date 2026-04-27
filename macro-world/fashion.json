@@ -1,0 +1,926 @@
+{
+  "_doc": "Fashion and dress styles per culture. Each entry is keyed by cultureId (from cultures.json). 'base' holds shared visual identity across the culture — materials, palette, motifs. 'variants' hold role-specific overrides. Agents and sprite generators use this to dress NPCs appropriately. Palette values are descriptive, not hex codes — translate to sprite palette at render time. Real-world fashion inspirations are intentionally different from architecture inspirations (in architecture.json) — same climate logic, different cultural tradition — to avoid monoculture clichés. Fantasy tropes and genre conventions layer on top of the real-world references.",
+  "_schema": {
+    "cultureId":  "Matches cultures.json id",
+    "realWorldFashionInspiration": "Real-world dress traditions that inform silhouette, material logic, and climate adaptation — blended with fantasy genre conventions. Deliberately different from the architectural inspirations to create cultural depth.",
+    "base": {
+      "materials": "Primary fabrics/materials used across the culture",
+      "palette":   "Dominant colour descriptors (not hex — mapped to sprite palette later)",
+      "motifs":    "Recurring decorative patterns or symbols"
+    },
+    "variants[]": {
+      "role":       "Social role or occasion: common | elder | warrior | ceremonial | artisan | noble | child",
+      "silhouette": "Overall garment shape: fitted | layered-loose | flowing | wrapped | minimal | armoured | draped",
+      "headwear":   "Head covering or ornament, or 'none'",
+      "footwear":   "Shoe/boot style, or 'barefoot'",
+      "accessories": "Notable extras — belts, jewellery, tools worn visibly",
+      "notes":      "Freeform sprite/art direction for this variant"
+    }
+  },
+
+  "fashions": [
+    {
+      "cultureId": "coastborn",
+      "realWorldFashionInspiration": "Faroese / Icelandic — knitted wool layers, oilskin slickers, practical wind-resistant silhouettes shaped by North Atlantic weather. Blended with fantasy coastal village tropes.",
+      "base": {
+        "materials": ["hand-knitted wool", "oilskin", "seal-leather", "bone toggles"],
+        "palette": ["slate-grey", "sea-blue", "off-white", "storm-green"],
+        "motifs": ["wave-patterns", "knotwork", "fish-bone stitching"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "layered-loose",
+          "headwear": "none",
+          "footwear": "wrapped hide boots with wool lining",
+          "accessories": ["rope belt", "bone toggle clasps"],
+          "notes": "Thick knitted sweater under an oilskin slicker — Faroese layering logic. Trousers tucked into boots. Layers shed easily for work on boats. Sweater patterns are family-specific, like Icelandic lopapeysa."
+        },
+        {
+          "role": "elder",
+          "silhouette": "layered-loose",
+          "headwear": "wide-brimmed storm hat",
+          "footwear": "tall leather boots",
+          "accessories": ["carved driftwood staff", "embroidered collar"],
+          "notes": "Same layered silhouette but finer wool with more intricate knit patterns. Wave-pattern embroidery on collar and cuffs marks seniority. The storm hat is earned — only those who've weathered the worst wear one."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "leather cap with cheek guards",
+          "footwear": "reinforced sea-boots",
+          "accessories": ["shoulder harness", "bone-studded bracers"],
+          "notes": "Shorter oilskin coat for mobility. Reinforced shoulders with layered hide. Muted colours — no embroidery, nothing to catch on rigging or give you away in fog."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "driftwood-and-shell crown",
+          "footwear": "barefoot",
+          "accessories": ["shell necklace", "blue-dyed sash"],
+          "notes": "Blue-dyed linen reserved for tide ceremonies. Shell ornaments and kelp garlands. Always barefoot to touch the shore. The blue dye is woad-based — the dyeing itself is part of the rite."
+        }
+      ]
+    },
+    {
+      "cultureId": "ridgefolk",
+      "realWorldFashionInspiration": "Georgian / Caucasian highland — chokha coats, fitted waist with cartridge pockets, sheepskin cloaks (nabadi). Mixed with classic fantasy ranger and highland crofter aesthetics.",
+      "base": {
+        "materials": ["heavy wool", "sheepskin", "goat-leather", "slate toggles"],
+        "palette": ["charcoal", "moss-green", "russet", "cream"],
+        "motifs": ["chevron stripes", "mountain silhouettes", "cross-stitch borders"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "fitted",
+          "headwear": "tall sheepskin cap",
+          "footwear": "hobnailed leather boots",
+          "accessories": ["broad leather belt with cartridge-style pouches", "waist pouch"],
+          "notes": "Fitted coat cinched at the waist with a broad belt — chokha silhouette adapted to fantasy. Cartridge-pocket rows on the chest hold herb vials or fire-strikers. Sheepskin cap stays warm in ridgeline winds."
+        },
+        {
+          "role": "elder",
+          "silhouette": "layered-loose",
+          "headwear": "tall papakha-style sheepskin hat",
+          "footwear": "tall laced boots",
+          "accessories": ["walking staff", "silver brooch at throat"],
+          "notes": "Darker-dyed coat with a sheepskin cloak (nabadi-style) over the shoulders. Silver throat brooch indicates community standing. The cloak doubles as a sleeping roll on the trail."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "iron half-helm",
+          "footwear": "studded mountain boots",
+          "accessories": ["leather vambraces", "belt axe loop"],
+          "notes": "Felted gambeson under a leather jerkin — the fitted coat stripped to its martial core. Minimal decoration, terrain-matched colours. Built to fight on slopes and scramble over ridges."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "draped",
+          "headwear": "antler circlet",
+          "footwear": "soft hide shoes",
+          "accessories": ["embroidered shoulder drape", "carved bone pendant"],
+          "notes": "A wide embroidered shoulder drape in bright cream with mountain motifs — worn over the fitted coat. Reserved for solstice and ridge-moot gatherings. The antler circlet is carved from shed antlers, never hunted."
+        }
+      ]
+    },
+    {
+      "cultureId": "fieldborn",
+      "realWorldFashionInspiration": "Korean hanbok-adjacent — clean wrapped lines, high waist ties, seasonal colour coding. Blended with classic fantasy peasant and harvest-village tropes.",
+      "base": {
+        "materials": ["linen", "ramie cloth", "straw", "hemp cord"],
+        "palette": ["wheat-gold", "grass-green", "sun-bleached white", "clay-brown"],
+        "motifs": ["grain sheaves", "sun-disc", "plough-line borders"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "wrapped",
+          "headwear": "wide straw hat",
+          "footwear": "simple leather sandals",
+          "accessories": ["high-waist sash tie", "tool loop"],
+          "notes": "Clean-lined wrapped tunic tied at the high waist with a broad sash — hanbok-influenced silhouette in homespun linen. Straw hat is near-universal. Clothes are sun-bleached and patched freely — mending is no shame. Colour of the sash shifts by season."
+        },
+        {
+          "role": "elder",
+          "silhouette": "wrapped",
+          "headwear": "clean straw hat with ribbon",
+          "footwear": "soft leather shoes",
+          "accessories": ["embroidered apron", "seed pouch"],
+          "notes": "Same wrapped silhouette but in finer ramie cloth, unpatched. A coloured ribbon on the hat and grain-sheaf embroidery on the apron signal respect. Elders wear muted earth tones — young fieldborn wear brighter seasonal colours."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "leather skullcap",
+          "footwear": "wrapped leg bindings over boots",
+          "accessories": ["wooden shield slung on back", "leather bracers"],
+          "notes": "Fieldborn militia, not professional soldiers. Hardened leather vest over work clothes, sash tucked tight. Still look like farmers at heart — because they are."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "wheat-wreath crown",
+          "footwear": "barefoot",
+          "accessories": ["flower garlands", "golden sash"],
+          "notes": "Harvest festival dress — flowing white linen gown with golden high-waist sash. Wheat wreaths and wildflower garlands. Barefoot on the earth. The most colour any fieldborn wears all year."
+        }
+      ]
+    },
+    {
+      "cultureId": "wallborn",
+      "realWorldFashionInspiration": "Byzantine civic dress — layered tunics, brocade, gold-thread embroidery, rigid hierarchy expressed through clothing. Mixed with classic fantasy walled-city and heraldic tropes.",
+      "base": {
+        "materials": ["brocade", "broadcloth", "brass fittings", "linen undergarments"],
+        "palette": ["deep red", "charcoal", "gold trim", "stone-grey"],
+        "motifs": ["heraldic shields", "tower silhouettes", "geometric borders"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "fitted",
+          "headwear": "cloth coif or cap",
+          "footwear": "hard-soled leather shoes",
+          "accessories": ["leather belt with brass buckle"],
+          "notes": "Neat, structured tunic with clean lines — Byzantine-influenced layering without the excess. Everyone looks presentable. Civic pride runs deep — sloppy dress is a social offence inside the walls."
+        },
+        {
+          "role": "noble",
+          "silhouette": "fitted",
+          "headwear": "velvet cap with brooch",
+          "footwear": "polished high boots",
+          "accessories": ["gold chain of office", "embroidered surcoat"],
+          "notes": "Rich brocade surcoat over fine linen — gold-thread embroidery at collar and cuffs, Byzantine style. Heraldic device on the chest. Rank is readable at a glance; that's the point."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "armoured",
+          "headwear": "full helm with visor",
+          "footwear": "armoured boots",
+          "accessories": ["tabard over mail", "shield with heraldry"],
+          "notes": "City guard and garrison. Red-and-grey tabard over chain mail. The most uniformed look of any culture — matching is the point. Byzantine tagma discipline meets fantasy city watch."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "circlet",
+          "footwear": "embroidered slippers",
+          "accessories": ["ceremonial sash", "tower-motif pendant"],
+          "notes": "Long formal robes with gold geometric borders — deliberately archaic, echoing an older imperial style. Worn at council sessions and city holidays. The more old-fashioned it looks, the more authority it carries."
+        }
+      ]
+    },
+    {
+      "cultureId": "mountainhold",
+      "realWorldFashionInspiration": "Tibetan / Bhutanese — heavy wrapped chuba robes, yak-wool layers, felt boots, bold accent colours against earth tones. Blended with classic fantasy dwarf aesthetics — braided beards, rune-work, forge aprons.",
+      "base": {
+        "materials": ["yak-weight wool", "treated leather", "chainmail links", "stone clasps"],
+        "palette": ["iron-grey", "amber", "deep bronze", "soot-black"],
+        "motifs": ["interlocking runes", "hammer-and-anvil", "geometric knotwork"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "wrapped",
+          "headwear": "none",
+          "footwear": "felted wool boots with iron soles",
+          "accessories": ["heavy belt with tool loops", "stone bead bracelet"],
+          "notes": "Heavy wrapped coat over wool shirt — chuba-like silhouette cinched with a wide belt that doubles as tool storage. One shoulder often slipped free for forge work. Hair braided tight, beards clasped with stone rings. The wool is dense enough to stop sparks."
+        },
+        {
+          "role": "artisan",
+          "silhouette": "wrapped",
+          "headwear": "none",
+          "footwear": "felted wool boots with iron soles",
+          "accessories": ["heavy leather apron", "rune-stamped arm bands", "tongs at hip"],
+          "notes": "The leather apron worn over the wrapped coat is the mark of craft rank — plain for apprentice, rune-stamped for master. Both shoulders slipped free at the forge; the coat bunches at the waist like a Tibetan work chuba."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "armoured",
+          "headwear": "rune-etched helm",
+          "footwear": "plate-reinforced boots",
+          "accessories": ["shield with clan rune", "chainmail skirt"],
+          "notes": "Full chainmail over padded coat. Rune-etched helm unique to each clan. Heavy, immovable silhouette — Bergfolk fight like walls. The layering logic is the same as everyday dress, just armoured."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "draped",
+          "headwear": "bronze circlet with amber inset",
+          "footwear": "polished stone-clasped boots",
+          "accessories": ["clan chain across chest", "ancestral rune tablet at hip"],
+          "notes": "Formal wrapped coat in deep amber and bronze, both shoulders covered. A dark cloth drape over one shoulder pinned with the clan chain. Reserved for oath-taking and ancestor rites in the deep halls. Closest the Bergfolk come to colour — amber against iron-grey."
+        }
+      ]
+    },
+    {
+      "cultureId": "sylvan-enclave",
+      "realWorldFashionInspiration": "Ainu (Hokkaido) — attush bark-cloth robes with bold geometric embroidery, nature-integrated garments, reverence for natural materials. Blended with classic fantasy high-elf aesthetics — flowing, ethereal, organic.",
+      "base": {
+        "materials": ["bark-cloth (attush-style)", "living-leaf weave", "spider-silk blend", "vine cord"],
+        "palette": ["silver-green", "twilight-blue", "pale gold", "birch-white"],
+        "motifs": ["leaf veins", "bold geometric embroidery (Ainu-style)", "spiral growth patterns"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "flowing",
+          "headwear": "none",
+          "footwear": "soft bark-sole slippers",
+          "accessories": ["vine belt", "leaf-clasp at shoulder"],
+          "notes": "Long bark-cloth robe with bold geometric embroidery at hem and cuffs — Ainu attush influence. The fabric has an organic drape, nothing stiff. Colours shift subtly with the seasons as living-leaf dye fades. The embroidery patterns are believed to ward off corruption."
+        },
+        {
+          "role": "elder",
+          "silhouette": "flowing",
+          "headwear": "woven silver circlet",
+          "footwear": "barefoot",
+          "accessories": ["staff wound with living vine", "embroidered prayer band at wrist"],
+          "notes": "Elders dress simpler, not grander. Unadorned fabric but finer weave. The circlet is the only marker of age. A single embroidered prayer band on the wrist — the patterns are unique to each elder, never repeated."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "bark half-mask",
+          "footwear": "wrapped vine-sole boots",
+          "accessories": ["bark-plate chest guard", "leaf-pattern camouflage cloak"],
+          "notes": "Tight-fitting silhouette for canopy movement. Bark armour grown to fit the wearer's body. Camouflage cloak makes them near-invisible in forest. Geometric ward-embroidery concentrated around the heart."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "flower crown (seasonal blooms)",
+          "footwear": "barefoot",
+          "accessories": ["bioluminescent garlands", "seed-pearl strands"],
+          "notes": "White bark-cloth gowns with the most elaborate embroidery — every edge bordered. Glow faintly at dusk. Worn for equinox gatherings. The flowers mark the specific rite — spring blossoms, autumn berries."
+        }
+      ]
+    },
+    {
+      "cultureId": "bazaar-folk",
+      "realWorldFashionInspiration": "Romani + punk DIY — layered scavenged fabrics, coin jewelry, bright personal expression from found materials, visible repairs as identity. Mixed with fantasy goblin tinker tropes.",
+      "base": {
+        "materials": ["scavenged cloth", "patched leather", "salvaged metal bits", "twine"],
+        "palette": ["rust-orange", "mud-brown", "faded purple", "soot-black"],
+        "motifs": ["mismatched patches", "scrap-metal pins", "painted clan marks"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "layered-loose",
+          "headwear": "none or scrap-goggles pushed up",
+          "footwear": "wrapped foot-rags or scavenged boots",
+          "accessories": ["oversized belt with dangling tools", "pouch bandolier"],
+          "notes": "No two goblins dress alike. Clothes are a collage of found materials, traded scraps, and personal trophies. The messier, the more resourceful you look."
+        },
+        {
+          "role": "elder",
+          "silhouette": "layered-loose",
+          "headwear": "tall scrap-metal hat",
+          "footwear": "mismatched boots",
+          "accessories": ["chain of keys and trinkets", "painted face"],
+          "notes": "Elders pile on more layers and trophies. The tall hat is traditional — taller means you survived longer. Keys symbolise warrens they've overseen."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "minimal",
+          "headwear": "scrap-metal helm (improvised)",
+          "footwear": "light wraps for speed",
+          "accessories": ["spiked shoulder pad (one side)", "war-paint"],
+          "notes": "Strip down for speed. One spiked shoulder pad, war-paint in clan colours. Light and fast — goblin warriors don't stand and fight, they ambush and scatter."
+        },
+        {
+          "role": "artisan",
+          "silhouette": "layered-loose",
+          "headwear": "magnifying goggles",
+          "footwear": "thick-soled scrap boots",
+          "accessories": ["leather apron covered in burn marks", "wrist-mounted tool rack"],
+          "notes": "Goblin tinkers wear their workshop. Apron pockets bulge with gears and screws. Goggles are both tool and status — finer lenses mean better craft."
+        }
+      ]
+    },
+    {
+      "cultureId": "waterstead",
+      "realWorldFashionInspiration": "Bengali / Filipino — light cotton wraps, woven water-resistant textiles, bare feet or wooden clogs for wading, bright accents against neutral base. Mixed with fantasy scholar-monk aesthetics.",
+      "base": {
+        "materials": ["fine cotton", "woven reed fibre", "lacquered silk", "cork"],
+        "palette": ["river-jade", "warm brown", "lotus-pink", "cloud-white"],
+        "motifs": ["lily-pad circles", "ripple lines", "woven cross-hatch patterns"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "wrapped",
+          "headwear": "conical reed hat",
+          "footwear": "woven reed sandals",
+          "accessories": ["bamboo scroll case at hip", "jade bead necklace"],
+          "notes": "Light cotton wrap tied with a broad sash — Bengali dhoti-influenced draping for ease in humid wetlands. Waterproofed at the hem for wading. Practical but always tidy — Pandor take pride in neatness even knee-deep in the marsh."
+        },
+        {
+          "role": "elder",
+          "silhouette": "wrapped",
+          "headwear": "formal lacquered hat",
+          "footwear": "lacquered wooden sandals",
+          "accessories": ["ink-brush case", "jade seal pendant"],
+          "notes": "Finer silk, darker colours. The jade seal pendant marks a keeper of records. Elders move slowly and dress deliberately — rushing is undignified."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "lacquered bamboo helm",
+          "footwear": "strapped waterproof boots",
+          "accessories": ["bamboo-plate cuirass", "weighted net at hip"],
+          "notes": "Bamboo-lamellar armour — light and water-resistant. Designed to fight in and around water. Warriors carry nets as readily as blades."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "lotus-flower headdress",
+          "footwear": "barefoot",
+          "accessories": ["ink-brush calligraphy sash", "paper lantern"],
+          "notes": "Cloud-white silk robes with hand-painted calligraphy along the hems. Each robe is unique — the text is a personal meditation. Worn for archive openings and water blessings."
+        }
+      ]
+    },
+    {
+      "cultureId": "steading",
+      "realWorldFashionInspiration": "Maasai — ochre body paint, draped shuka cloth, beaded ornament, minimal garments where the body itself is the canvas. Mixed with fantasy giant/titan archetypes.",
+      "base": {
+        "materials": ["boulder-hide", "woven grass rope", "bone", "raw stone"],
+        "palette": ["granite-grey", "earth-brown", "lichen-green", "bone-white"],
+        "motifs": ["carved stone rings", "handprint stamps", "simple line-art animals"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "minimal",
+          "headwear": "none",
+          "footwear": "barefoot or hide wraps",
+          "accessories": ["stone bead necklace", "waist cord"],
+          "notes": "Giants wear little — a draped hide wrap like a shuka, a shoulder drape in cold weather. Clothing is secondary to ochre body paint and scarification for identity. Beaded stone necklaces mark lineage, Maasai-style."
+        },
+        {
+          "role": "elder",
+          "silhouette": "draped",
+          "headwear": "antler-and-bone crown",
+          "footwear": "barefoot",
+          "accessories": ["carved boulder pendant on chain", "ritual body paint"],
+          "notes": "A great drape of layered hides over both shoulders. The antler crown is ancient — passed down, not made new. Elders move like the landscape."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "minimal",
+          "headwear": "none",
+          "footwear": "barefoot",
+          "accessories": ["war-paint across chest and face", "bone arm bands"],
+          "notes": "Warriors strip down and paint up. Each pattern tells a battle. No armour — giant hide is armour enough. Bone bands on the upper arms mark kills."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "draped",
+          "headwear": "stone mask",
+          "footwear": "barefoot",
+          "accessories": ["full body paint in white clay", "stone chime belt"],
+          "notes": "Stone masks carved to resemble ancestor faces. Full white clay body paint. Stone chimes at the waist ring with each step. Reserved for the Seven's gathering rites."
+        }
+      ]
+    },
+    {
+      "cultureId": "dragonkin-remnant",
+      "realWorldFashionInspiration": "Persian Safavid / Byzantine court — layered silk brocade, rigid dress hierarchy, gold thread, ceremonial excess. Mixed with fantasy dragon-cult and dark imperial aesthetics.",
+      "base": {
+        "materials": ["scale-patterned brocade", "heat-treated leather", "obsidian clasps", "metallic thread"],
+        "palette": ["deep crimson", "obsidian-black", "gold", "smoke-purple"],
+        "motifs": ["interlocking scales", "coiled serpent", "flame tongues", "eye motifs"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "fitted",
+          "headwear": "none",
+          "footwear": "clawed boots",
+          "accessories": ["scale-patterned arm wraps", "obsidian collar pin"],
+          "notes": "Fitted garments that echo draconic proportions — high Safavid-style collar, tapered sleeves, sharp silhouette. Scale patterns are woven into the brocade, Persian-style. Even common dress carries an imperial weight."
+        },
+        {
+          "role": "noble",
+          "silhouette": "flowing",
+          "headwear": "horned diadem",
+          "footwear": "gilded boots",
+          "accessories": ["floor-length cape", "gold eye-motif brooch"],
+          "notes": "The cape is everything — it mimics folded wings. Crimson and gold brocade, floor-length, lined with black — Safavid court excess filtered through draconic grandeur. The horned diadem recalls ancient dragon crowns."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "armoured",
+          "headwear": "dragon-skull helm (stylised)",
+          "footwear": "taloned greaves",
+          "accessories": ["scale-plate cuirass", "tail-like back banner"],
+          "notes": "Armour designed to evoke the dragon form — ridged pauldrons, a back banner that suggests a tail. Intimidation is half the battle."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "full dragon mask",
+          "footwear": "barefoot on heated stone",
+          "accessories": ["flame-tongue embroidered stole", "incense censer on chain"],
+          "notes": "Full dragon mask of lacquered obsidian. Smoke-purple robes with flame-tongue hems. Ceremonies take place on heated stone floors — barefoot to prove endurance."
+        }
+      ]
+    },
+    {
+      "cultureId": "caravan-folk",
+      "realWorldFashionInspiration": "Bedouin / Saharan Tuareg — wrapped head coverings, layered cotton for sun protection, indigo dye, coin and silver ornament, designed for life on the move. Standard fantasy caravan/merchant tropes.",
+      "base": {
+        "materials": ["layered cotton", "embroidered silk", "camel-leather", "brass rings"],
+        "palette": ["sand-gold", "terracotta", "indigo", "saffron"],
+        "motifs": ["compass roses", "road-line borders", "star maps", "wind spirals"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "wrapped",
+          "headwear": "wrapped headscarf",
+          "footwear": "soft leather riding boots",
+          "accessories": ["coin-fringed sash", "waterskin strap"],
+          "notes": "Practical layers that protect from sun and sand. Headscarf doubles as dust mask. Bright colours — caravans want to be seen on the road, not hidden."
+        },
+        {
+          "role": "elder",
+          "silhouette": "wrapped",
+          "headwear": "tall embroidered turban",
+          "footwear": "embroidered slippers",
+          "accessories": ["star-map pendant", "story-beads on wrist"],
+          "notes": "The turban's height and embroidery tell how many routes you've mastered. Story-beads — each bead is a journey completed. Elders sit and trade in beads."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "chainmail coif under headscarf",
+          "footwear": "hard-soled riding boots",
+          "accessories": ["curved scimitar sash", "leather vambraces"],
+          "notes": "Outriders and caravan guards. Fitted for the saddle, loose enough to swing. Chainmail hidden under the headscarf — don't advertise your readiness."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "jewelled headband",
+          "footwear": "barefoot on woven rug",
+          "accessories": ["full coin-fringe vest", "incense pouch"],
+          "notes": "Market festival dress — every coin you've earned displayed as fringe. Saffron and indigo silk. Ceremonies happen on spread rugs — the caravan carries its own sacred ground."
+        }
+      ]
+    },
+    {
+      "cultureId": "reefborn",
+      "realWorldFashionInspiration": "Polynesian / Samoan — tapa cloth, tattoo-as-dress, shell and bone ornament, minimal garments adapted for water. Mixed with fantasy aquatic/merfolk tropes — bioluminescence, coral-craft.",
+      "base": {
+        "materials": ["woven kelp", "shell-plate", "coral beads", "sea-silk"],
+        "palette": ["deep ocean-blue", "coral-pink", "pearl-white", "abalone-iridescent"],
+        "motifs": ["coral branch patterns", "wave-crest lines", "spiral shells"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "minimal",
+          "headwear": "none",
+          "footwear": "barefoot",
+          "accessories": ["coral bead strands across chest", "shell arm bands"],
+          "notes": "Merfolk dress for water — minimal coverage, nothing that drags. Kelp wraps at the hips like a Samoan lavalava, coral beads for identity. Tattoo patterns (pe'a-influenced) are as important as clothing — iridescent ink marks lineage and rank."
+        },
+        {
+          "role": "elder",
+          "silhouette": "draped",
+          "headwear": "pearl-strand headdress",
+          "footwear": "barefoot",
+          "accessories": ["abalone pectoral", "bioluminescent ink tattoos"],
+          "notes": "Elders wear more — a kelp-and-shell drape over the shoulders. Pearl strands mark age. Bioluminescent tattoos glow in deep water for recognition."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "shell-plate helm",
+          "footwear": "barefoot",
+          "accessories": ["shell-plate chest guard", "spine-tipped gauntlets"],
+          "notes": "Shell-plate armour strapped tight — can't snag on coral. Spine tips on gauntlets double as weapons. Streamlined for combat in currents."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "living coral crown",
+          "footwear": "barefoot",
+          "accessories": ["sea-silk train", "bioluminescent body paint"],
+          "notes": "Sea-silk robes that billow like jellyfish in the current. Living coral crown cultivated over years. Worn for reef-song rituals in the deep trenches."
+        }
+      ]
+    },
+    {
+      "cultureId": "steppe-camp",
+      "realWorldFashionInspiration": "Turkmen / Kyrgyz — chapan coats, telpek hats, bright embroidered sashes, horse-culture gear. Mixed with fantasy steppe-rider and nomad-warrior tropes.",
+      "base": {
+        "materials": ["felt", "horsehide", "bone buttons", "sinew thread"],
+        "palette": ["sky-blue", "cream-white", "blood-red", "earth-ochre"],
+        "motifs": ["running horses", "eagle wings", "wind-spiral stamps"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "wrapped",
+          "headwear": "fur-edged felt cap",
+          "footwear": "tall riding boots",
+          "accessories": ["wide sash belt", "riding crop loop"],
+          "notes": "Wrapped chapan-style coat tied with a broad embroidered sash. Everything designed for the saddle. Telpek-style felt cap stays on in wind. Colours mark family group — everyone in camp can tell kin at a distance."
+        },
+        {
+          "role": "elder",
+          "silhouette": "wrapped",
+          "headwear": "tall ceremonial hat with eagle feather",
+          "footwear": "embroidered boots",
+          "accessories": ["silver horse-head belt buckle", "bone prayer beads"],
+          "notes": "Richly embroidered deel in deeper colours. The eagle feather on the hat is earned, not decorative — one feather per route mastered."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "leather and iron helm",
+          "footwear": "armoured riding boots",
+          "accessories": ["quiver harness", "horsehide lamellar vest"],
+          "notes": "Horsehide lamellar over padded deel. Quiver always on the back. Light enough to ride, tough enough to take an arrow. Wind-spiral painted on the helm."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "sky-blue felt crown",
+          "footwear": "white leather boots",
+          "accessories": ["eagle bone whistle on cord", "embroidered story-belt"],
+          "notes": "White and sky-blue robes for sky-song ceremonies. The story-belt has a panel for each generation. Eagle bone whistle calls the wind for blessing."
+        }
+      ]
+    },
+    {
+      "cultureId": "windfarer-eyrie",
+      "realWorldFashionInspiration": "Andean / Quechua — layered ponchos, chullo ear-flap caps, altitude-adapted wool layers, bold geometric woven textiles. Mixed with fantasy cliff-dweller and raptor-rider tropes.",
+      "base": {
+        "materials": ["windproof waxed cloth", "raptor feathers", "mountain-goat leather", "iron rivets"],
+        "palette": ["cloud-white", "storm-grey", "sky-blue", "raptor-brown"],
+        "motifs": ["feather patterns", "wind-current lines", "peak silhouettes"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "fitted",
+          "headwear": "chullo-style ear-flap cap with wind-goggles",
+          "footwear": "grip-soled climbing boots",
+          "accessories": ["harness with carabiner loops", "feather token at collar"],
+          "notes": "Fitted waxed poncho-layer over tight base — Andean altitude logic. Nothing loose to catch the wind at height. Harness is everyday wear, not just for climbing — the eyries demand it. Chullo-style ear-flap caps with feather tokens."
+        },
+        {
+          "role": "elder",
+          "silhouette": "fitted",
+          "headwear": "feathered cap with wind-vane",
+          "footwear": "fur-lined climbing boots",
+          "accessories": ["wind-reader pendants (tiny chimes)", "fur-lined collar"],
+          "notes": "Same tight fit but with fur lining for warmth. Wind-reader chimes at the breast — they read gusts by sound. The feathered cap marks a master of heights."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "raptor-skull helm",
+          "footwear": "taloned climbing boots",
+          "accessories": ["glider-cloak folded at back", "throwing harness"],
+          "notes": "Glider-cloaks that spread for controlled descents — part clothing, part equipment. Raptor-skull helm for intimidation. Attack from above, always."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "draped",
+          "headwear": "full feather headdress",
+          "footwear": "barefoot on stone",
+          "accessories": ["feather cape spread wide", "wind-chime belt"],
+          "notes": "The feather cape spread out like wings — each feather is gifted by a different eyrie member. Wind-chime belt sings in the updraft. Ceremonies held at the highest point, open to the sky."
+        }
+      ]
+    },
+    {
+      "cultureId": "grovekin",
+      "realWorldFashionInspiration": "Amazonian / Yanomami — minimal garments, body paint as primary identity, plant-fibre accessories, deep integration with the forest environment. Mixed with fantasy druid and mycelium-mystic tropes.",
+      "base": {
+        "materials": ["moss-cloth", "root-fibre", "mushroom-leather", "pollen dust"],
+        "palette": ["deep forest-green", "mushroom-brown", "foxglove-purple", "dew-silver"],
+        "motifs": ["mycelium networks", "root tangles", "spore-dot clusters"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "layered-loose",
+          "headwear": "none",
+          "footwear": "barefoot",
+          "accessories": ["root-fibre wrist wraps", "seed pouch"],
+          "notes": "Clothes that look half-grown. Moss-cloth tunics that blur the line between garment and undergrowth — Yanomami-level integration with the forest. Body paint in spore-dot patterns is as important as clothing. Always barefoot to feel the forest floor."
+        },
+        {
+          "role": "elder",
+          "silhouette": "layered-loose",
+          "headwear": "living moss crown",
+          "footwear": "barefoot",
+          "accessories": ["mycelium-thread shawl", "glowing spore lantern"],
+          "notes": "The moss crown actually grows on the elder — watered and tended. Mycelium-thread shawl connects them symbolically to the grove network. Spore lantern for underground gatherings."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "bark helm with thorn crest",
+          "footwear": "root-sole wraps",
+          "accessories": ["thorn-spine armour", "pollen-bomb pouch"],
+          "notes": "Thorn-spine armour grown on hardwood frames. Pollen bombs for disorientation. Grove warriors defend by making the forest itself hostile — their gear blends in completely."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "bioluminescent mushroom crown",
+          "footwear": "barefoot",
+          "accessories": ["spore-dust body paint", "root-fibre prayer cords"],
+          "notes": "Bioluminescent mushroom crowns that glow blue-green in the dark. Ceremonies happen underground at night. Spore-dust body paint makes everyone glow faintly."
+        }
+      ]
+    },
+    {
+      "cultureId": "workshop-collective",
+      "realWorldFashionInspiration": "Edo-period Japanese artisan / Ottoman guild — structured work-dress with guild markers, rank expressed through apron and tool quality, clean distinction between master and apprentice. Mixed with fantasy steampunk and artificer tropes.",
+      "base": {
+        "materials": ["canvas", "riveted leather", "brass fittings", "rubber seals"],
+        "palette": ["oil-stained brown", "brass-gold", "soot-grey", "copper-green"],
+        "motifs": ["gear wheels", "blueprint lines", "measurement marks"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "fitted",
+          "headwear": "brass-rimmed goggles (on forehead or around neck)",
+          "footwear": "steel-toed boots",
+          "accessories": ["heavy tool belt", "measurement tape looped at hip"],
+          "notes": "Practical workwear that doubles as everyday clothes — no real distinction, like Edo-period artisans who lived in their workshops. Canvas coveralls or fitted jacket and trousers. Always oil-stained. Goggles are identity — guild rank is read from the lens quality."
+        },
+        {
+          "role": "artisan",
+          "silhouette": "fitted",
+          "headwear": "precision goggles with multiple lenses",
+          "footwear": "steel-toed boots",
+          "accessories": ["master's leather apron with brass guild badge", "wrist-mounted calipers"],
+          "notes": "The guild badge on the apron tells everything — craft, rank, speciality. Multi-lens goggles for detail work. Master artisans are the aristocracy here."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "armoured",
+          "headwear": "riveted helm with face-plate",
+          "footwear": "pneumatic-soled boots",
+          "accessories": ["brass-plated cuirass", "mechanical gauntlet"],
+          "notes": "Construct-inspired armour — brass plating over canvas padding. Mechanical gauntlets with enhanced grip. Workshop warriors look like walking machines."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "fitted",
+          "headwear": "polished brass crown with clock face",
+          "footwear": "polished leather boots",
+          "accessories": ["ceremonial master-key on chain", "clean white canvas coat"],
+          "notes": "The only time workshop folk wear clean clothes. White canvas coat, polished brass — the clock-face crown marks the turning of a new project cycle. The master-key opens the Great Workshop."
+        }
+      ]
+    },
+    {
+      "cultureId": "crystal-resonance",
+      "realWorldFashionInspiration": "Tuareg / Berber — indigo-dyed wraps, geometric silver jewelry, veiled faces, desert elegance in alien materials. Mixed with fantasy fey-court and Art Nouveau aesthetics.",
+      "base": {
+        "materials": ["resonant crystal shards", "gossamer thread", "moonstone clasps", "woven light-fibre"],
+        "palette": ["prismatic-shifting", "moonstone-white", "deep violet", "pale rose"],
+        "motifs": ["crystal lattice patterns", "harmonic wave lines", "six-pointed resonance stars"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "flowing",
+          "headwear": "none",
+          "footwear": "barefoot or crystal-soled sandals",
+          "accessories": ["resonance crystal pendant", "gossamer arm drapes"],
+          "notes": "Gossamer wraps draped Tuareg-style — the crystal thread refracts light like indigo dye shifts in sun. Geometric silver crystal-clasps at shoulder and hip. No two garments look the same in different light. Unsettling to outsiders, like Tuareg blue-stained skin but with prismatic light."
+        },
+        {
+          "role": "elder",
+          "silhouette": "flowing",
+          "headwear": "crystal tiara that hums faintly",
+          "footwear": "barefoot",
+          "accessories": ["harmonic tuning fork at hip", "layered crystal shard necklace"],
+          "notes": "The tiara resonates with the elder's voice — it hums when they speak truth. Layered crystal shards click and chime with movement. Fae elders sound like wind chimes."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "crystal-shard helm",
+          "footwear": "crystal-soled greaves",
+          "accessories": ["resonance blade harness", "shard-embedded bracers"],
+          "notes": "Crystal shards embedded in armour — they ring on impact, disorienting opponents with harmonic feedback. The sound of a Fae warrior approaching is the warning itself."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "full prismatic crown",
+          "footwear": "barefoot",
+          "accessories": ["light-woven cape that glows", "resonance staff"],
+          "notes": "Full prismatic regalia — the crown splits light into rainbows. Light-woven cape actually emits soft light. Ceremonies are visual symphonies, impossible to describe to non-Fae."
+        }
+      ]
+    },
+    {
+      "cultureId": "refuge-keepers",
+      "realWorldFashionInspiration": "Ethiopian ecclesiastical / Coptic — wrapped white shamma cloth, hidden symbolism, archival and monastic dress traditions. Mixed with fantasy post-apocalyptic and ancient-guardian tropes.",
+      "base": {
+        "materials": ["salvaged pre-collapse fabrics", "patched synthetics", "corroded metal clasps", "dust-treated canvas"],
+        "palette": ["faded grey", "rust-red", "ash-white", "tarnished silver"],
+        "motifs": ["fragment patterns (broken circles)", "repair stitching left visible", "archive glyphs"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "layered-loose",
+          "headwear": "deep hood",
+          "footwear": "wrapped boots sealed against dust",
+          "accessories": ["memory shard pouch", "breathing mask (lowered when safe)"],
+          "notes": "Layers of salvaged fabric wrapped shamma-style, patched but never discarded. Hoods always available — Remnants prefer shadow, like Coptic monks withdrawing from the world. Breathing masks for venturing into unstable ruins. The visible repairs are intentional — each patch is a small history, a record kept in cloth."
+        },
+        {
+          "role": "elder",
+          "silhouette": "layered-loose",
+          "headwear": "inscribed metal half-mask",
+          "footwear": "sealed boots",
+          "accessories": ["archive glyph tattoos on hands", "memory shard chain"],
+          "notes": "The metal half-mask is inscribed with archive glyphs — it's both identity and rank. Memory shard chain holds fragments of pre-collapse knowledge. Elders are living libraries."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "armoured",
+          "headwear": "full salvaged helm",
+          "footwear": "reinforced sealed boots",
+          "accessories": ["scrap-plate armour", "ruin-charge grenades on belt"],
+          "notes": "Heavy salvaged armour — mismatched plates bolted together. Function over aesthetics. Refuge warriors guard the perimeter against corruption and scavengers."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "draped",
+          "headwear": "full mask — featureless, ash-white",
+          "footwear": "barefoot",
+          "accessories": ["ash-white shroud", "memory shard held in both hands"],
+          "notes": "Full featureless white mask and shroud — Ethiopian timkat-procession stillness. Identity dissolved into the collective memory. Memory shards held aloft during remembrance rites. Silence is the ceremony."
+        }
+      ]
+    },
+    {
+      "cultureId": "harborfolk",
+      "realWorldFashionInspiration": "Mediterranean maritime — Greek island / Dalmatian coast — sun-bleached linen, rope belts, open collars, relaxed practical layers for warm coastal life. Mixed with fantasy port-town and sailor tropes.",
+      "base": {
+        "materials": ["sailcloth", "waxed cotton", "shell buttons", "hemp rope"],
+        "palette": ["faded blue", "sun-bleached white", "driftwood-tan", "coral-red"],
+        "motifs": ["anchor motifs", "tide-line stripes", "net-weave patterns"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "layered-loose",
+          "headwear": "rolled bandana",
+          "footwear": "rope-soled deck shoes",
+          "accessories": ["rope belt", "shell-button vest"],
+          "notes": "Loose linen shirt with open collar, vest with shell buttons, rolled trousers — Greek island fisherman meets fantasy dockworker. Everything salt-faded and soft from washing. Bandana keeps hair out of rigging. Relaxed and sun-worn — harbor folk don't dress to impress."
+        },
+        {
+          "role": "elder",
+          "silhouette": "layered-loose",
+          "headwear": "captain's wide-brim hat",
+          "footwear": "tall sea boots",
+          "accessories": ["spyglass on cord", "tide-chart scarf"],
+          "notes": "The captain's hat doesn't mean ship captain — it's a harbor elder's mark. Tide-chart scarf printed with local currents. Spyglass is ceremonial now but always carried."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "fitted",
+          "headwear": "leather skullcap",
+          "footwear": "grip-soled boarding boots",
+          "accessories": ["cutlass baldric", "boarding hook on belt"],
+          "notes": "Harbor guard and anti-piracy patrol. Fitted for climbing and boarding. Cutlass and hook — weapons that work in tight ship corridors. No armour — it drowns you."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "coral-and-shell crown",
+          "footwear": "barefoot on dock planks",
+          "accessories": ["net-weave shawl", "lantern on pole"],
+          "notes": "Tide festival dress — white flowing robes, barefoot on the docks. Net-weave shawl symbolises the catch. Lanterns lit at dusk and floated out to sea for the lost."
+        }
+      ]
+    },
+    {
+      "cultureId": "ironborne-encampment",
+      "realWorldFashionInspiration": "Edo-period Japanese foundry workers / Ottoman guild metalworkers — structured workwear with branded guild marks, rank through tool quality and apron insignia. Mixed with fantasy living-construct and iron-golem aesthetics.",
+      "base": {
+        "materials": ["pig-iron plate", "oil-treated canvas", "rivet-studded leather", "chain links"],
+        "palette": ["gunmetal", "forge-orange", "coal-black", "tarnished brass"],
+        "motifs": ["hammer strikes", "chain links", "crucible outlines"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "fitted",
+          "headwear": "none or cloth wrap under work helm",
+          "footwear": "iron-plated boots",
+          "accessories": ["chain-link belt", "slag-glass eye shield"],
+          "notes": "Steinfolk dress like they never left the forge. Oil-treated canvas over thick undergarments. Iron plating on boots and shoulders is everyday wear — the weight is nothing to stone-folk."
+        },
+        {
+          "role": "artisan",
+          "silhouette": "fitted",
+          "headwear": "full-face forge visor",
+          "footwear": "iron-plated boots",
+          "accessories": ["master-smith's apron (asbestos-weave)", "tong holster", "crucible-mark brand on forearm"],
+          "notes": "The crucible brand is earned — literally branded when you pour your first independent melt. Forge visor never comes off during work. The apron has survived more heat than most buildings."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "armoured",
+          "headwear": "full iron helm with chain drape",
+          "footwear": "iron greaves",
+          "accessories": ["full chain hauberk", "iron-banded tower shield"],
+          "notes": "Walking fortresses. Full iron — helm, chain, plate, greaves. Steinfolk warriors don't dodge; they absorb. The chain drape from the helm protects the neck and looks like a metal beard."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "fitted",
+          "headwear": "polished iron crown with forge-light inset",
+          "footwear": "polished iron boots",
+          "accessories": ["chain-of-office with crucible pendant", "ceremonial hammer"],
+          "notes": "Same silhouette as everyday — Steinfolk don't do flowing robes. Instead, everything is polished mirror-bright. The forge-light inset in the crown glows orange. The ceremonial hammer has never struck metal."
+        }
+      ]
+    },
+    {
+      "cultureId": "thicket-dwellers",
+      "realWorldFashionInspiration": "Dayak (Borneo) — woven rattan, intricate beadwork, hornbill feather motifs, jungle-fitted garments that integrate with dense vegetation. Mixed with fantasy wild-elf and thorn-fey tropes.",
+      "base": {
+        "materials": ["thorn-woven fibre", "spider-silk", "lichen dye", "living vine bindings"],
+        "palette": ["shadow-green", "bark-black", "thorn-red", "pale lichen-grey"],
+        "motifs": ["thorn spirals", "web patterns", "insect-wing iridescence"]
+      },
+      "variants": [
+        {
+          "role": "common",
+          "silhouette": "fitted",
+          "headwear": "none — hair woven with thorns and leaves",
+          "footwear": "barefoot",
+          "accessories": ["thorn bracelet", "spider-silk pouch"],
+          "notes": "Tight-fitting clothes for moving through dense undergrowth — Dayak jungle logic. Thorn-woven fibre is naturally barbed on the outside, like rattan armour that discourages grabbing. Intricate beadwork at wrists and throat. Hair is part of the outfit — woven with the thicket itself."
+        },
+        {
+          "role": "elder",
+          "silhouette": "layered-loose",
+          "headwear": "thorn-and-web veil",
+          "footwear": "barefoot",
+          "accessories": ["web-pattern face paint", "lichen-dyed shawl"],
+          "notes": "Elders slow down and dress in layers — they sit in the thicket's heart and the thicket grows around them. The thorn-and-web veil is half-natural, half-made. Web face paint marks the weaver-speakers."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "minimal",
+          "headwear": "thorn-spike crest (grown into hair)",
+          "footwear": "barefoot",
+          "accessories": ["thorn-gauntlets", "insect-swarm gourd"],
+          "notes": "Almost invisible in the thicket. Thorn spikes grown directly into braided hair. Thorn-gauntlets for close combat. The insect-swarm gourd releases stinging clouds — thicket warfare is nasty."
+        },
+        {
+          "role": "ceremonial",
+          "silhouette": "flowing",
+          "headwear": "living flower crown with bioluminescent moths",
+          "footwear": "barefoot",
+          "accessories": ["spider-silk robe that catches moonlight", "thorn-spiral body paint"],
+          "notes": "Spider-silk robes shimmer in moonlight like dew-covered webs. Living moths perch on the flower crown, wings glowing. Ceremonies happen at midnight in the deepest thicket — outsiders are never invited."
+        }
+      ]
+    }
+  ]
+}
