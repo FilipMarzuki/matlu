@@ -356,13 +356,25 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
       return true;
     });
 
-    // Find entrance closest to any MAIN road tile
+    // Find entrance closest to any MAIN road tile, preferring S/E faces for
+    // enterable buildings — those sides face the iso camera (NW viewpoint).
+    // S-facing (ody=1) gets a 0.8× multiplier, E-facing (odx=1) gets 0.9×,
+    // so road distance still wins when the gap is large, but equal-distance
+    // candidates favour the visible side. Only applied to buildings tall enough
+    // to have a meaningful façade (standard / tall / tower); low structures
+    // like campfires and wells are open-air and skip the bias.
+    const applyVisibilityBias = ['standard', 'tall', 'tower'].includes(
+      placedEntry.building.heightHint,
+    );
     let bestEntrance: { tx: number; ty: number } | null = null;
     let bestDist = Infinity;
     for (const e of validEntrances) {
+      const visMult = applyVisibilityBias
+        ? (e.ody === 1 ? 0.8 : e.odx === 1 ? 0.9 : 1.0)
+        : 1.0;
       for (const rk of mainRoadSet) {
         const [rx, ry] = rk.split(',').map(Number);
-        const d = Math.abs(e.tx - rx) + Math.abs(e.ty - ry);
+        const d = (Math.abs(e.tx - rx) + Math.abs(e.ty - ry)) * visMult;
         if (d < bestDist) { bestDist = d; bestEntrance = e; }
       }
     }
