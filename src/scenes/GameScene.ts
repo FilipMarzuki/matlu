@@ -98,6 +98,12 @@ const FOG_SEEN    = 1; // visited but not currently in sight — 50% black shrou
 const FOG_VISIBLE = 2; // within the current sight radius — fully transparent
 const FOG_SIGHT_R = 10; // circular sight radius in tiles (320 px at 32 px/tile)
 const FOG_LS_KEY  = 'matlu-fog-state'; // localStorage key for persistent explored state
+// Keep fog moody without flattening the tile art. A purple-black wash fits the
+// corrupted-world tone while still letting biome colours read in wide views.
+const FOG_UNSEEN_COLOR = 0x070512;
+const FOG_UNSEEN_ALPHA = 0.42;
+const FOG_SEEN_COLOR = 0x0b0618;
+const FOG_SEEN_ALPHA = 0.18;
 
 // Player spawn at the SW end of the diagonal corridor (rocky shore)
 const SPAWN_X = 300;
@@ -3819,10 +3825,12 @@ export class GameScene extends Phaser.Scene {
     // They are invisible in the normal render but usable as RT sources —
     // same pattern as the terrain bake's off-screen tileImg.
     this.fogUnseenGfx = this.add.graphics().setVisible(false);
+    // Full-alpha stamp is used for erase() calls so visible tiles clear cleanly,
+    // even though the actual unseen fill below is translucent.
     this.fogUnseenGfx.fillStyle(0x000000, 1).fillRect(0, 0, ISO_TILE_W, ISO_TILE_H);
 
     this.fogSeenGfx = this.add.graphics().setVisible(false);
-    this.fogSeenGfx.fillStyle(0x000000, 0.5).fillRect(0, 0, ISO_TILE_W, ISO_TILE_H);
+    this.fogSeenGfx.fillStyle(FOG_SEEN_COLOR, FOG_SEEN_ALPHA).fillRect(0, 0, ISO_TILE_W, ISO_TILE_H);
 
     // ── RenderTexture overlay ──────────────────────────────────────────────────
     // FIL-444: covers the isometric canvas. setOrigin(0,0) so (0,0) = north apex.
@@ -3831,11 +3839,11 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(49);
 
-    // Start with the entire world blacked out (every tile UNSEEN).
+    // Start with the entire world shrouded (every tile UNSEEN).
     // A single fill() call is far cheaper than 13 254 individual draws.
-    this.fogRt.fill(0x000000, 1);
+    this.fogRt.fill(FOG_UNSEEN_COLOR, FOG_UNSEEN_ALPHA);
 
-    // Restore SEEN tiles: erase the solid black, then paint the 50%-alpha shroud.
+    // Restore SEEN tiles: erase the unseen shroud, then paint the lighter shroud.
     // Two RT operations per SEEN tile — only paid at startup, and only for
     // tiles the player has already explored (empty on a fresh save).
     for (let ty = 0; ty < tilesY; ty++) {
