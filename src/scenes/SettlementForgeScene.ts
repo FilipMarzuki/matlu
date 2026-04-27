@@ -674,8 +674,8 @@ export class SettlementForgeScene extends Phaser.Scene {
       { ...site, tradeRouteCount: this.currentTier * 2, nearbySettlements: this.currentTier },
       'Forge Preview',
       rng,
+      this.currentTier,
     );
-    (spec as { tier: SettlementTier }).tier = this.currentTier;
 
     this.spec = spec;
     this.buildings = buildings;

@@ -31,6 +31,7 @@ import { SettlementForgeScene } from './scenes/SettlementForgeScene';
 import { DiscoveryScene } from './scenes/DiscoveryScene';
 import { SettlementScene } from './scenes/SettlementScene';
 import { RecolorTestScene } from './scenes/RecolorTestScene';
+import { BuildingForgeScene } from './scenes/BuildingForgeScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
 // navigating through the main menu. Vercel rewrites all paths to index.html
@@ -42,16 +43,19 @@ import { RecolorTestScene } from './scenes/RecolorTestScene';
 //   /wf          → WorldForgeScene       (short alias)
 //   /sf              → SettlementForgeScene  (settlement generation preview tool)
 //   /settlementforge → SettlementForgeScene  (alias)
+//   /bf              → BuildingForgeScene    (block-stacking building design tool)
+//   /buildingforge   → BuildingForgeScene    (alias)
 //   /settlement  → SettlementScene       (settlement build mode — placeholder)
 //   /build       → SettlementScene       (alias)
 //   /recolor     → RecolorTestScene      (spike #703 — programmatic sprite recoloring)
 //   /            → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, SettlementScene, RecolorTestScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, BuildingForgeScene, SettlementScene, RecolorTestScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
   if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
   if (path === '/sf' || path === '/settlementforge') return [SettlementForgeScene, ...all.filter(s => s !== SettlementForgeScene)];
+  if (path === '/bf' || path === '/buildingforge') return [BuildingForgeScene, ...all.filter(s => s !== BuildingForgeScene)];
   if (path === '/settlement' || path === '/build') return [SettlementScene, ...all.filter(s => s !== SettlementScene)];
   if (path === '/recolor') return [RecolorTestScene, ...all.filter(s => s !== RecolorTestScene)];
   if (path === '/menu')  return all;

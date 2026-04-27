@@ -534,12 +534,14 @@ export function generateSettlement(
   site: SettlementSite,
   name: string,
   rng: () => number,
+  /** Optional tier override — if provided, skips deriveTier(). */
+  overrideTier?: SettlementTier,
 ): { spec: SettlementSpec; buildings: ResolvedBuilding[] } {
   // 1. Derive purpose from site features and resources
   const purpose = derivePurpose(site);
 
-  // 2. Derive tier from strategic value
-  const tier = deriveTier(site, rng);
+  // 2. Derive tier from strategic value (or use override)
+  const tier = overrideTier ?? deriveTier(site, rng);
 
   // 3. Roll secondary economic traits
   const secondary = rollSecondaryTraits(site, purpose, tier, rng);
