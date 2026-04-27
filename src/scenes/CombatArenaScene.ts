@@ -719,11 +719,21 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Enemies ───────────────────────────────────────────────────────────────
-    for (const e of this.aliveEnemies) e.update(delta);
+    for (const e of this.aliveEnemies) {
+      e.update(delta);
+      e._isoSync();
+    }
     this.communityEncounter.update();
 
     // ── Projectiles ───────────────────────────────────────────────────────────
-    for (const p of this.projectiles) p.tick(delta);
+    for (const p of this.projectiles) {
+      p.tick(delta);
+      if (!p.isExpired) {
+        // Projectiles already move in iso screen space; derive the same painter
+        // depth as CombatEntity._isoSync() from their current iso y position.
+        p.setDepth(p.y / (ISO_TILE_H / 2));
+      }
+    }
     this.projectiles = this.projectiles.filter(p => !p.isExpired);
 
     // ── Prune enemies that just died ──────────────────────────────────────────
