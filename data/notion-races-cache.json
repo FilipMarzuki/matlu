@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-04-27T05:44:10.716Z",
+  "syncedAt": "2026-04-27T06:00:11.640115+00:00",
   "databaseId": "34e843c0-718f-81a3-b4c8-c0ff6839bd21",
   "entryCount": 28,
   "entries": [
@@ -579,27 +579,40 @@
       "pageId": "34e843c0-718f-81c2-bffa-f3a9c7bc119c",
       "url": "https://www.notion.so/Goblins-34e843c0718f81c2bffaf3a9c7bc119c",
       "Race ID": null,
-      "Allied with": null,
+      "Allied with": [
+        "34e843c0-718f-8158-a595-c82d2e85c046",
+        "34e843c0-718f-81cc-8fdf-db6824a6ddd0"
+      ],
       "Lore Status": "draft",
-      "senses": "",
-      "Default Culture": null,
+      "senses": "Hearing is the primary elevated sense — large external pinnae with independent orientation, trained on structural acoustics (beam creak, pipe resonance, settlement-shift warning) rather than conversational range. Vision favours low-light and motion over colour discrimination or long range. Smell useful for environmental mapping (damp, metal, burn-residue, old organic) but secondary to hearing. No echolocation, no heat-pit organs.",
+      "Default Culture": [
+        "34e843c0-718f-81d9-b171-e0ccce77d7c4"
+      ],
       "Featured characters": null,
-      "In tension with": null,
-      "anatomy": "",
-      "spriteNote": "",
-      "bodyPlan": "humanoid",
-      "head": "",
-      "Exonyms": null,
-      "variation": "",
+      "In tension with": [
+        "34e843c0-718f-818d-8d9b-eb68b2cb8325",
+        "34e843c0-718f-81f0-8427-cf8b7f1d2a1e"
+      ],
+      "anatomy": "Lightweight skeleton built for agility — bone density lower than Bergfolk, designed for speed rather than sustained heavy impact. Hands particularly developed: four long fingers and a strong thumb for fine manipulation, grip strength disproportionate to body mass. Ankles mobile and strong for uneven surfaces; broad forefoot spreads weight on rubble. Posture defaults to a ready-to-move semi-alert stance — what reads as nervous in a large crowd is pure efficiency in a ruin corridor. No redundant mass anywhere on the frame.",
+      "spriteNote": "At 32px: ears are the primary species read — 2px tall, extending above a 2px head, slightly angled outward. Torso is 2px wide. Eyes are 2px wide-set horizontal pixels on a narrow face. Clothing must read as patchwork: 2–3 different mid-tone rectangles across the torso, no uniform colour. Do not default to green skin — use grey-brown or warm ochre. Posture reads as alert and forward-leaning, not hunched or servile. If only one read fits at 32px, the ears take priority over everything else.",
+      "bodyPlan": "Quasi-humanoid: two arms, two legs, upright biped on a small-framed baseline. No wings, tail, or extra limbs. Proportions favour agility in tight spaces: light bones, long relative limb-to-torso ratio, hands sized for precision work in confined areas. Not a scaled-down human — proportion ratios, ear placement, and default posture read as a distinct people.",
+      "head": "Ears large and mobile — the dominant feature, oriented for structural acoustics (beams settling, pipe flow, distant footfalls in ruin complexes). Eyes set wide on a narrow face, somewhat large, favouring motion and contrast over colour range. Nose broad at the tip, useful for environmental smell (damp concrete, old burn, mineral water). Jaw narrower than Markfolk or Bergfolk baseline. No tusks, no muzzle. At 32px: two bright horizontal eye pixels, wide-set; ears as silhouette priority above the head mass.",
+      "Exonyms": [
+        "Goblins",
+        "Ruin-rats",
+        "Hantverkare",
+        "Kompaktfolk"
+      ],
+      "variation": "Sex: adults share one silhouette envelope; variation in shoulder-to-hip proportion present with full overlap. Regional: skin tone shifts from cool grey-green in underground-adjacent communities to warm ochre in open-country bands. Band affiliation readable in clothing patchwork — specific scraps, salvage origins, repair layers — not in biology. Age: juveniles are round-faced with proportionally oversized ears; adolescents show the leg-length jump first; elders accumulate knuckle calluses, a broader stance, and notably more clothing layers — the patchwork of a very long life is recognisable as status and memory within the Compact.",
       "spriteResolution": 32,
-      "build": "",
-      "Endonym": "",
-      "lifespan": "",
-      "surface": "",
-      "silhouette": "",
-      "World": null,
+      "build": "Adults run 4–5 heads tall and lean to wiry rather than stocky. Built for speed and scramble, not sustained heavy labour. Hands notably dexterous, sized for salvage and fine tool modification. Feet broad for rubble navigation. Grip strength is disproportionate to body mass — a goblin [Delver] can hang from a ruin beam single-handed while working with the other.",
+      "Endonym": "No unified written endonym in diplomatic record. The Goblinsamfund (Goblin Compact) uses 'Goblin' in the collective sense — the people have reclaimed the exonym within their own network. Individual bands use 'Bandfolk' in oral contexts; 'Goblin' is standard in cross-band Compact discourse.",
+      "lifespan": "60–80 years in good conditions. The Compact's collective memory extends well past any individual because [Keepers] and [Bards] carry the oral record across generations. 'Good conditions' is not the goblin norm — material precarity, exposure, and violence in the margins shortens many lives well below this. A goblin who reaches 70 has made decisions other goblins will want to hear about.",
+      "surface": "Skin in grey-brown, ochre, or greenish-earth tones — cool grey-green for communities in underground-adjacent ruins, warmer ochre and clay-brown for open-country ruin bands. Smooth skin with roughened patches at knees, elbows, and palms from habitual scramble and crawl. No fur, scales, or iridescence. At sprite scale: clothing patchwork is the primary visual texture; skin tone is secondary.",
+      "silhouette": "Small upright figure with proportionally large, mobile ears rising above the head. Narrow torso, long relative limbs, active-posture default — weight slightly forward, hands often in use. The ears are the primary silhouette indicator at distance; they read 'goblin' before body type or face does. At 32px: 2px wide torso, 2px ears extending above a 2px head mass.",
+      "World": [],
       "Name": "Goblins",
-      "pageBody": ""
+      "pageBody": "## Origin\n\nGoblins are one of the original peoples of Mistheim — present in the continent's ruin network long before the current nations wrote their founding histories, and present in the margins of those nations long after. They did not emerge from somewhere else. They were here, in the places between, before the word 'between' was necessary.\n\nThe oral tradition of the older [Keepers] suggests a time when goblins were not marginal — when the settlements they now call ruins were built by peoples who worked alongside them. What ended that arrangement is not in the written record, because the written record was not produced by goblins. What the [Keepers] say is that the forgetting was deliberate and that the current situation is a consequence, not a natural state.\n\n## In Mistheim\n\nGoblins are present everywhere that larger peoples have not actively cleared them from — and some places they have. They live in the ruins at the edge of cities, in the abandoned levels of Bergfolk holds, in the flood-plain too unstable for Markfolk farming, in the sea-cave below a Deepwalker stilt-town. This is not chosen poverty. It is the outcome of centuries of displacement, followed by centuries of making the displacement work.\n\nThe twenty largest settlements form the Goblinsamfund — the Goblin Compact — an informal network with no capital, no formal governance, and more functional intelligence than most nations' official services. The Compact does not rule goblin communities. It maintains a shadow network through which information, favours, and letters of introduction move. A Compact-seal token — a small stamped disc identifying the issuing band — functions as currency in this system. Having none at all is worse than having the wrong one.\n\nWhat goblins make is salvage, information, and repairs. [Delvers] and [Salvagers] have been mapping the ruin networks for centuries; they know the locations of pre-age infrastructure that no surface nation has found, because they found it in the decades between one civilisation leaving and the next arriving. This knowledge is the Compact's actual trade, exchanged carefully and selectively: to the Viddfolk, who carry it; to the Pandor, who archive it; to independent merchants who pay without asking provenance.\n\nThe repair economy is the visible surface. [Tinkerers] and [Menders] work cheap and ask no questions. A Markfolk farm-machine that no licensed [Engineer] will come out to fix gets fixed by the goblin settlement three fields over. This is the relationship in miniature: tolerated, necessary, unacknowledged.\n\nThe Compact has a complicated relationship with Runescript — abbreviated oral forms, three-rune spoken sequences improvised and passed down, because nobody ever taught goblins the full system. Some [Keepers] have self-taught from salvaged inscriptions and produce idiosyncratic but functional Runescript that would horrify a Pandor [Archivist] stylistically while working correctly. With Rasa they are more at home: bands maintain oral traditions of hundreds of functional phrases, field-tested across generations, that work because the emotional context behind them is genuinely true. A phrase about finding value in discarded things works because the band has always found value in discarded things and believes it.\n\n## Relations\n\nThe Viddfolk share an arrangement with the Compact's shadow network: goblins provide ruin information (accessible to no one else); the Viddfolk carry it across distances no single band alone can cover. The Pandor receive the same information through different channels and archive it — the relationship is quieter, more deniable, and older than either party admits in public record.\n\nThe Bergfolk maintain officially that goblins do not exist in their territory. This is false. The salvage communities in the abandoned upper levels of three old holds are neither officially acknowledged nor removed — the arrangement is too useful to end and too embarrassing to admit. The Merkförbund (Markfolk confederation) outlaws goblin settlement within its borders officially; in practice, the marginal farming communities on the eastern edge quietly employ goblin [Salvagers] who clear ruins, map land, and fix machinery. Neither side starts this conversation.\n\nWhen a goblin band shelters in a true inn, the inn's protection extends to them. The innkeeper's Skills do not ask for documentation of personhood. Goblins do not forget an inn that served them without comment. They do not forget the village that burned their settlement either. Their [Bards] and [Keepers] carry oral histories of things the written record deliberately omitted.\n\n## Cultural-axes note\n\nAXES.md scores: Tradition 0, Survival −2, Tight −1, High–low context +1, Face mode; top values Survival, Memory, Mutual-aid, Adaptation. The low Survival score reflects material precariousness — the band cannot guarantee its own continuity from season to season. But in-band the culture is high-trust and tight: the Face mode operates within the band and within the Compact's network, not toward the outside world. Reputation with your own community matters enormously. Reputation with the larger world is managed by not having one. The high-context reading (+1) is consistent with an oral culture that relies on shared implicit knowledge: a goblin band can communicate a great deal with very little said, because the shared history does most of the work.\n\n## Lore note\n\nThe Compact's shadow network is documented in the Factions DB. 'bazaar-folk' is the Default Culture link in macro-world — the visible trade-and-repair face of goblin settlements, not the full Compact intelligence structure. Race ID auto-assigned; do not change. The visual identity described here — patchwork clothing as biography, salvaged tools modified for smaller hands, Compact-seal tokens — grounds the sprite brief: the species read at 32px is the ears and the patchwork, in that order."
     },
     {
       "pageId": "34e843c0-718f-81cc-8fdf-db6824a6ddd0",
