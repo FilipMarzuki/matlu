@@ -3,299 +3,992 @@
   "_schema": {
     "buildingId": "Matches building-registry.json id",
     "archetypes[]": {
-      "role":           "Unique kebab-case role ID (must be unique across the whole file)",
-      "name":           "Display name",
+      "role": "Unique kebab-case role ID (must be unique across the whole file)",
+      "name": "Display name",
       "fashionVariant": "Which fashion.json variant to use: common | elder | warrior | ceremonial | artisan | noble",
-      "count":          "How many per building instance. Number or [min, max] range.",
-      "spriteNotes":    "Visual direction for PixelLab — body type, pose, held items, distinguishing features. Clothing comes from fashion.json, so focus on what's NOT clothing."
-    }
+      "count": "How many per building instance. Number or [min, max] range.",
+      "spriteNotes": "Visual direction for PixelLab — body type, pose, held items, distinguishing features. Clothing comes from fashion.json, so focus on what's NOT clothing.",
+      "animations": "PixelLab template animation IDs to generate. Every archetype gets the _baseAnimations. This field lists ADDITIONAL role-specific animations on top of the base set."
+    },
+    "_baseAnimations": [
+      "breathing-idle",
+      "walking",
+      "running-6-frames",
+      "taking-punch",
+      "falling-back-death",
+      "getting-up"
+    ],
+    "_animationNotes": "Every archetype receives _baseAnimations (idle, walk, run, hit, die, get-up). The 'animations' field on each archetype lists EXTRA animations specific to that role. Total animations per archetype = _baseAnimations + animations. Available PixelLab template IDs: backflip, breathing-idle, cross-punch, crouched-walking, crouching, drinking, falling-back-death, fight-stance-idle-8-frames, fireball, flying-kick, front-flip, getting-up, high-kick, hurricane-kick, jumping-1, jumping-2, lead-jab, leg-sweep, picking-up, pull-heavy-object, pushing, roundhouse-kick, running-4-frames, running-6-frames, running-8-frames, running-jump, running-slide, sad-walk, scary-walk, surprise-uppercut, taking-punch, throw-object, two-footed-jump, walk, walking-4-frames, walking-6-frames, walking-8-frames"
   },
-
   "buildingArchetypes": [
     {
       "buildingId": "campfire",
       "archetypes": [
-        { "role": "fire-keeper", "name": "Fire Keeper", "fashionVariant": "elder", "count": 1, "spriteNotes": "Older figure, seated or crouching pose. Poking fire with a stick. Weathered face, calm expression." }
+        {
+          "role": "fire-keeper",
+          "name": "Fire Keeper",
+          "fashionVariant": "elder",
+          "count": 1,
+          "spriteNotes": "Older figure, seated or crouching pose. Poking fire with a stick. Weathered face, calm expression.",
+          "animations": [
+            "crouching",
+            "drinking"
+          ]
+        }
       ]
     },
     {
       "buildingId": "longhouse",
       "archetypes": [
-        { "role": "chief", "name": "Settlement Chief", "fashionVariant": "elder", "count": 1, "spriteNotes": "Strong, upright posture. Arms crossed or hand on hip. Confident expression. Middle-aged to older." },
-        { "role": "hearthkeeper", "name": "Hearthkeeper", "fashionVariant": "common", "count": 1, "spriteNotes": "Carrying a pot or ladle. Sturdy build. Busy, purposeful stance." }
+        {
+          "role": "chief",
+          "name": "Settlement Chief",
+          "fashionVariant": "elder",
+          "count": 1,
+          "spriteNotes": "Strong, upright posture. Arms crossed or hand on hip. Confident expression. Middle-aged to older.",
+          "animations": [
+            "drinking",
+            "fight-stance-idle-8-frames",
+            "lead-jab"
+          ]
+        },
+        {
+          "role": "hearthkeeper",
+          "name": "Hearthkeeper",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Carrying a pot or ladle. Sturdy build. Busy, purposeful stance.",
+          "animations": [
+            "picking-up",
+            "pushing"
+          ]
+        }
       ]
     },
     {
       "buildingId": "market-hall",
       "archetypes": [
-        { "role": "market-master", "name": "Market Master", "fashionVariant": "elder", "count": 1, "spriteNotes": "Holds a ledger or counting board. Sharp-eyed, evaluating expression. Ink-stained fingers." },
-        { "role": "market-vendor", "name": "Market Vendor", "fashionVariant": "common", "count": [2, 4], "spriteNotes": "Standing behind a counter gesture. Varied body types. Some holding produce, cloth, or tools." }
+        {
+          "role": "market-master",
+          "name": "Market Master",
+          "fashionVariant": "elder",
+          "count": 1,
+          "spriteNotes": "Holds a ledger or counting board. Sharp-eyed, evaluating expression. Ink-stained fingers.",
+          "animations": [
+            "picking-up"
+          ]
+        },
+        {
+          "role": "market-vendor",
+          "name": "Market Vendor",
+          "fashionVariant": "common",
+          "count": [
+            2,
+            4
+          ],
+          "spriteNotes": "Standing behind a counter gesture. Varied body types. Some holding produce, cloth, or tools.",
+          "animations": [
+            "picking-up",
+            "throw-object"
+          ]
+        }
       ]
     },
     {
       "buildingId": "town-hall",
       "archetypes": [
-        { "role": "magistrate", "name": "Magistrate", "fashionVariant": "noble", "count": 1, "spriteNotes": "Formal upright posture. Holds a scroll or seal. Clean-shaven or neatly groomed. Air of authority." },
-        { "role": "clerk", "name": "Town Clerk", "fashionVariant": "common", "count": [1, 2], "spriteNotes": "Slim build. Carries quill and ink. Slightly hunched from desk work. Squinting expression." }
+        {
+          "role": "magistrate",
+          "name": "Magistrate",
+          "fashionVariant": "noble",
+          "count": 1,
+          "spriteNotes": "Formal upright posture. Holds a scroll or seal. Clean-shaven or neatly groomed. Air of authority.",
+          "animations": []
+        },
+        {
+          "role": "clerk",
+          "name": "Town Clerk",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Slim build. Carries quill and ink. Slightly hunched from desk work. Squinting expression.",
+          "animations": [
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "well",
       "archetypes": [
-        { "role": "water-carrier", "name": "Water Carrier", "fashionVariant": "common", "count": 1, "spriteNotes": "Carrying two buckets on a yoke across shoulders. Lean, strong build." }
+        {
+          "role": "water-carrier",
+          "name": "Water Carrier",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Carrying two buckets on a yoke across shoulders. Lean, strong build.",
+          "animations": [
+            "picking-up",
+            "pull-heavy-object"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "shelter-hut",
       "archetypes": [
-        { "role": "settler", "name": "Settler", "fashionVariant": "common", "count": [1, 2], "spriteNotes": "Rugged, tired look. Carrying a bundle or tools. Recently arrived — clothes a bit worn." }
+        {
+          "role": "settler",
+          "name": "Settler",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Rugged, tired look. Carrying a bundle or tools. Recently arrived — clothes a bit worn.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "sad-walk"
+          ]
+        }
       ]
     },
     {
       "buildingId": "cottage",
       "archetypes": [
-        { "role": "villager", "name": "Villager", "fashionVariant": "common", "count": [1, 3], "spriteNotes": "Varied — some carrying baskets, some idle, some with children. Mix of ages and body types." }
+        {
+          "role": "villager",
+          "name": "Villager",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            3
+          ],
+          "spriteNotes": "Varied — some carrying baskets, some idle, some with children. Mix of ages and body types.",
+          "animations": [
+            "picking-up",
+            "drinking",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "dwelling",
       "archetypes": [
-        { "role": "townsperson", "name": "Townsperson", "fashionVariant": "common", "count": [2, 4], "spriteNotes": "Better-kept than villagers. Upright posture. Some carrying goods, some walking purposefully." }
+        {
+          "role": "townsperson",
+          "name": "Townsperson",
+          "fashionVariant": "common",
+          "count": [
+            2,
+            4
+          ],
+          "spriteNotes": "Better-kept than villagers. Upright posture. Some carrying goods, some walking purposefully.",
+          "animations": [
+            "drinking"
+          ]
+        }
       ]
     },
     {
       "buildingId": "manor",
       "archetypes": [
-        { "role": "landowner", "name": "Landowner", "fashionVariant": "noble", "count": 1, "spriteNotes": "Well-fed, confident stance. Hands clasped behind back or resting on belt. Proud bearing." },
-        { "role": "house-servant", "name": "House Servant", "fashionVariant": "common", "count": [1, 2], "spriteNotes": "Neat but plain. Carrying a tray, broom, or folded cloth. Attentive posture, eyes down." }
+        {
+          "role": "landowner",
+          "name": "Landowner",
+          "fashionVariant": "noble",
+          "count": 1,
+          "spriteNotes": "Well-fed, confident stance. Hands clasped behind back or resting on belt. Proud bearing.",
+          "animations": [
+            "drinking"
+          ]
+        },
+        {
+          "role": "house-servant",
+          "name": "House Servant",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Neat but plain. Carrying a tray, broom, or folded cloth. Attentive posture, eyes down.",
+          "animations": [
+            "picking-up",
+            "pushing",
+            "crouched-walking"
+          ]
+        }
       ]
     },
     {
       "buildingId": "dormitory",
       "archetypes": [
-        { "role": "labourer", "name": "Labourer", "fashionVariant": "common", "count": [2, 4], "spriteNotes": "Strong, rough-handed. Some stretching, some carrying heavy loads. Work-worn clothes." }
+        {
+          "role": "labourer",
+          "name": "Labourer",
+          "fashionVariant": "common",
+          "count": [
+            2,
+            4
+          ],
+          "spriteNotes": "Strong, rough-handed. Some stretching, some carrying heavy loads. Work-worn clothes.",
+          "animations": [
+            "picking-up",
+            "pull-heavy-object",
+            "pushing"
+          ]
+        }
       ]
     },
     {
       "buildingId": "farmstead",
       "archetypes": [
-        { "role": "farmer", "name": "Farmer", "fashionVariant": "common", "count": [1, 2], "spriteNotes": "Holding a hoe, sickle, or sheaf of grain. Sun-weathered skin. Sturdy, grounded stance." }
+        {
+          "role": "farmer",
+          "name": "Farmer",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Holding a hoe, sickle, or sheaf of grain. Sun-weathered skin. Sturdy, grounded stance.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "pushing"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "inn",
       "archetypes": [
-        { "role": "innkeeper", "name": "Innkeeper", "fashionVariant": "common", "count": 1, "spriteNotes": "Broad, welcoming build. Wiping hands on apron. Warm expression. Slightly flushed cheeks." },
-        { "role": "traveller", "name": "Traveller", "fashionVariant": "common", "count": [1, 3], "spriteNotes": "Dusty road-worn clothes. Carrying a pack or bedroll. Mix of races — travellers come from everywhere." }
+        {
+          "role": "innkeeper",
+          "name": "Innkeeper",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Broad, welcoming build. Wiping hands on apron. Warm expression. Slightly flushed cheeks.",
+          "animations": [
+            "picking-up",
+            "drinking",
+            "pushing"
+          ]
+        },
+        {
+          "role": "traveller",
+          "name": "Traveller",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            3
+          ],
+          "spriteNotes": "Dusty road-worn clothes. Carrying a pack or bedroll. Mix of races — travellers come from everywhere.",
+          "animations": [
+            "drinking",
+            "sad-walk",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "tavern",
       "archetypes": [
-        { "role": "barkeep", "name": "Barkeep", "fashionVariant": "common", "count": 1, "spriteNotes": "Stocky, thick arms from pouring and lifting. Holding a mug or cloth. Knowing smirk." },
-        { "role": "bard", "name": "Bard", "fashionVariant": "ceremonial", "count": [0, 1], "spriteNotes": "Slim, expressive hands. Holding a stringed instrument or drum. More colourful than the locals — stands out." }
+        {
+          "role": "barkeep",
+          "name": "Barkeep",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Stocky, thick arms from pouring and lifting. Holding a mug or cloth. Knowing smirk.",
+          "animations": [
+            "picking-up",
+            "drinking"
+          ]
+        },
+        {
+          "role": "bard",
+          "name": "Bard",
+          "fashionVariant": "ceremonial",
+          "count": [
+            0,
+            1
+          ],
+          "spriteNotes": "Slim, expressive hands. Holding a stringed instrument or drum. More colourful than the locals — stands out.",
+          "animations": [
+            "drinking",
+            "jumping-1"
+          ]
+        }
       ]
     },
     {
       "buildingId": "merchant-stall",
       "archetypes": [
-        { "role": "peddler", "name": "Peddler", "fashionVariant": "common", "count": 1, "spriteNotes": "Animated, gesturing pose. Surrounded by small wares. Quick eyes, ready smile." }
+        {
+          "role": "peddler",
+          "name": "Peddler",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Animated, gesturing pose. Surrounded by small wares. Quick eyes, ready smile.",
+          "animations": [
+            "picking-up",
+            "throw-object"
+          ]
+        }
       ]
     },
     {
       "buildingId": "warehouse",
       "archetypes": [
-        { "role": "stockmaster", "name": "Stockmaster", "fashionVariant": "common", "count": 1, "spriteNotes": "Holding a tally stick or manifest. Practical, no-nonsense expression. Keys at belt." },
-        { "role": "dockhand", "name": "Dockhand", "fashionVariant": "common", "count": [1, 3], "spriteNotes": "Heavy shoulders, strong arms. Carrying crates or barrels. Sleeves rolled up." }
+        {
+          "role": "stockmaster",
+          "name": "Stockmaster",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Holding a tally stick or manifest. Practical, no-nonsense expression. Keys at belt.",
+          "animations": [
+            "picking-up",
+            "pushing"
+          ]
+        },
+        {
+          "role": "dockhand",
+          "name": "Dockhand",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            3
+          ],
+          "spriteNotes": "Heavy shoulders, strong arms. Carrying crates or barrels. Sleeves rolled up.",
+          "animations": [
+            "picking-up",
+            "pull-heavy-object",
+            "pushing",
+            "throw-object"
+          ]
+        }
       ]
     },
     {
       "buildingId": "stables",
       "archetypes": [
-        { "role": "stablehand", "name": "Stablehand", "fashionVariant": "common", "count": [1, 2], "spriteNotes": "Hay in hair, mucked boots. Holding a brush or feed bucket. Smells like horses but doesn't mind." }
+        {
+          "role": "stablehand",
+          "name": "Stablehand",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Hay in hair, mucked boots. Holding a brush or feed bucket. Smells like horses but doesn't mind.",
+          "animations": [
+            "picking-up",
+            "pushing",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "caravansary",
       "archetypes": [
-        { "role": "caravan-master", "name": "Caravan Master", "fashionVariant": "elder", "count": 1, "spriteNotes": "Weathered from travel. Stands with authority. Maps or route-sticks tucked in belt. Watchful eyes." },
-        { "role": "caravan-guard", "name": "Caravan Guard", "fashionVariant": "warrior", "count": [1, 2], "spriteNotes": "Armed but relaxed — off-duty posture. Leaning on weapon or sitting. Scarred and sun-dark." }
+        {
+          "role": "caravan-master",
+          "name": "Caravan Master",
+          "fashionVariant": "elder",
+          "count": 1,
+          "spriteNotes": "Weathered from travel. Stands with authority. Maps or route-sticks tucked in belt. Watchful eyes.",
+          "animations": [
+            "drinking",
+            "crouching"
+          ]
+        },
+        {
+          "role": "caravan-guard",
+          "name": "Caravan Guard",
+          "fashionVariant": "warrior",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Armed but relaxed — off-duty posture. Leaning on weapon or sitting. Scarred and sun-dark.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "drinking",
+            "crouching"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "sawmill",
       "archetypes": [
-        { "role": "sawyer", "name": "Sawyer", "fashionVariant": "artisan", "count": [1, 2], "spriteNotes": "Muscular arms and shoulders. Sawdust in hair and clothes. Holding a two-man saw or axe." }
+        {
+          "role": "sawyer",
+          "name": "Sawyer",
+          "fashionVariant": "artisan",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Muscular arms and shoulders. Sawdust in hair and clothes. Holding a two-man saw or axe.",
+          "animations": [
+            "picking-up",
+            "pull-heavy-object",
+            "pushing"
+          ]
+        }
       ]
     },
     {
       "buildingId": "smithy",
       "archetypes": [
-        { "role": "blacksmith", "name": "Blacksmith", "fashionVariant": "artisan", "count": 1, "spriteNotes": "Barrel-chested, massive forearms. Holding tongs or hammer. Soot-marked face. Burn scars on arms." },
-        { "role": "smith-apprentice", "name": "Apprentice Smith", "fashionVariant": "common", "count": [0, 2], "spriteNotes": "Younger, thinner. Working bellows or sorting metal. Eager expression, smudged face." }
+        {
+          "role": "blacksmith",
+          "name": "Blacksmith",
+          "fashionVariant": "artisan",
+          "count": 1,
+          "spriteNotes": "Barrel-chested, massive forearms. Holding tongs or hammer. Soot-marked face. Burn scars on arms.",
+          "animations": [
+            "picking-up",
+            "pushing",
+            "cross-punch"
+          ]
+        },
+        {
+          "role": "smith-apprentice",
+          "name": "Apprentice Smith",
+          "fashionVariant": "common",
+          "count": [
+            0,
+            2
+          ],
+          "spriteNotes": "Younger, thinner. Working bellows or sorting metal. Eager expression, smudged face.",
+          "animations": [
+            "picking-up",
+            "pushing",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "smelter",
       "archetypes": [
-        { "role": "smelter-worker", "name": "Smelter Worker", "fashionVariant": "artisan", "count": [2, 3], "spriteNotes": "Heat-reddened skin. Heavy gloves. Pouring stance or carrying crucible. Squinting against glare." }
+        {
+          "role": "smelter-worker",
+          "name": "Smelter Worker",
+          "fashionVariant": "artisan",
+          "count": [
+            2,
+            3
+          ],
+          "spriteNotes": "Heat-reddened skin. Heavy gloves. Pouring stance or carrying crucible. Squinting against glare.",
+          "animations": [
+            "picking-up",
+            "pushing",
+            "pull-heavy-object"
+          ]
+        }
       ]
     },
     {
       "buildingId": "mine-entrance",
       "archetypes": [
-        { "role": "miner", "name": "Miner", "fashionVariant": "common", "count": [2, 4], "spriteNotes": "Dust-covered, hunched from tunnel work. Carrying pickaxe or ore basket. Headlamp or candle-hat." },
-        { "role": "mine-foreman", "name": "Mine Foreman", "fashionVariant": "artisan", "count": 1, "spriteNotes": "Stands at the entrance, not inside. Holds a lantern and tally board. Commanding posture." }
+        {
+          "role": "miner",
+          "name": "Miner",
+          "fashionVariant": "common",
+          "count": [
+            2,
+            4
+          ],
+          "spriteNotes": "Dust-covered, hunched from tunnel work. Carrying pickaxe or ore basket. Headlamp or candle-hat.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "crouched-walking",
+            "pull-heavy-object"
+          ]
+        },
+        {
+          "role": "mine-foreman",
+          "name": "Mine Foreman",
+          "fashionVariant": "artisan",
+          "count": 1,
+          "spriteNotes": "Stands at the entrance, not inside. Holds a lantern and tally board. Commanding posture.",
+          "animations": [
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "smokehouse",
       "archetypes": [
-        { "role": "smoker", "name": "Smoker", "fashionVariant": "common", "count": 1, "spriteNotes": "Smells like woodsmoke. Hanging fish or meat on racks. Methodical, patient demeanour." }
+        {
+          "role": "smoker",
+          "name": "Smoker",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Smells like woodsmoke. Hanging fish or meat on racks. Methodical, patient demeanour.",
+          "animations": [
+            "picking-up",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "fishing-dock",
       "archetypes": [
-        { "role": "fisher", "name": "Fisher", "fashionVariant": "common", "count": [1, 3], "spriteNotes": "Lean, wiry build. Holding a net, line, or catch. Salt-weathered skin. Bare feet or wading boots." }
+        {
+          "role": "fisher",
+          "name": "Fisher",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            3
+          ],
+          "spriteNotes": "Lean, wiry build. Holding a net, line, or catch. Salt-weathered skin. Bare feet or wading boots.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "throw-object"
+          ]
+        }
       ]
     },
     {
       "buildingId": "net-shed",
       "archetypes": [
-        { "role": "net-mender", "name": "Net Mender", "fashionVariant": "common", "count": 1, "spriteNotes": "Seated, working on a net spread across lap. Nimble fingers. Often elderly." }
+        {
+          "role": "net-mender",
+          "name": "Net Mender",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Seated, working on a net spread across lap. Nimble fingers. Often elderly.",
+          "animations": [
+            "crouching",
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "tannery",
       "archetypes": [
-        { "role": "tanner", "name": "Tanner", "fashionVariant": "artisan", "count": [1, 2], "spriteNotes": "Stained hands and apron. Working stretched hides. Strong chemical smell implied — others keep distance." }
+        {
+          "role": "tanner",
+          "name": "Tanner",
+          "fashionVariant": "artisan",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Stained hands and apron. Working stretched hides. Strong chemical smell implied — others keep distance.",
+          "animations": [
+            "picking-up",
+            "pushing",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "kiln",
       "archetypes": [
-        { "role": "potter", "name": "Potter", "fashionVariant": "artisan", "count": 1, "spriteNotes": "Clay-dusted hands and forearms. Carrying a finished pot or working clay. Focused, careful expression." }
+        {
+          "role": "potter",
+          "name": "Potter",
+          "fashionVariant": "artisan",
+          "count": 1,
+          "spriteNotes": "Clay-dusted hands and forearms. Carrying a finished pot or working clay. Focused, careful expression.",
+          "animations": [
+            "crouching",
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "windmill",
       "archetypes": [
-        { "role": "miller", "name": "Miller", "fashionVariant": "common", "count": 1, "spriteNotes": "Flour-dusted from head to toe. Carrying grain sacks. Perpetually white-haired from flour regardless of age." }
+        {
+          "role": "miller",
+          "name": "Miller",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Flour-dusted from head to toe. Carrying grain sacks. Perpetually white-haired from flour regardless of age.",
+          "animations": [
+            "picking-up",
+            "pull-heavy-object",
+            "pushing"
+          ]
+        }
       ]
     },
     {
       "buildingId": "brewery",
       "archetypes": [
-        { "role": "brewer", "name": "Brewer", "fashionVariant": "artisan", "count": 1, "spriteNotes": "Ruddy-cheeked, stout build. Holding a barrel tap or tasting cup. Satisfied expression. Hop-stained hands." }
+        {
+          "role": "brewer",
+          "name": "Brewer",
+          "fashionVariant": "artisan",
+          "count": 1,
+          "spriteNotes": "Ruddy-cheeked, stout build. Holding a barrel tap or tasting cup. Satisfied expression. Hop-stained hands.",
+          "animations": [
+            "picking-up",
+            "drinking",
+            "pushing"
+          ]
+        }
       ]
     },
     {
       "buildingId": "workshop",
       "archetypes": [
-        { "role": "craftsperson", "name": "Craftsperson", "fashionVariant": "artisan", "count": [1, 2], "spriteNotes": "Generic skilled worker — type depends on culture. Holding tools of trade. Concentrated expression." }
+        {
+          "role": "craftsperson",
+          "name": "Craftsperson",
+          "fashionVariant": "artisan",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Generic skilled worker — type depends on culture. Holding tools of trade. Concentrated expression.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "pushing"
+          ]
+        }
       ]
     },
     {
       "buildingId": "lumberyard",
       "archetypes": [
-        { "role": "lumber-worker", "name": "Lumber Worker", "fashionVariant": "common", "count": [2, 3], "spriteNotes": "Tall, broad. Carrying logs or stacking planks. Bark chips in clothing. Axe always nearby." }
+        {
+          "role": "lumber-worker",
+          "name": "Lumber Worker",
+          "fashionVariant": "common",
+          "count": [
+            2,
+            3
+          ],
+          "spriteNotes": "Tall, broad. Carrying logs or stacking planks. Bark chips in clothing. Axe always nearby.",
+          "animations": [
+            "picking-up",
+            "pull-heavy-object",
+            "pushing",
+            "throw-object"
+          ]
+        }
       ]
     },
     {
       "buildingId": "salt-works",
       "archetypes": [
-        { "role": "salt-worker", "name": "Salt Worker", "fashionVariant": "common", "count": [1, 2], "spriteNotes": "Cracked dry hands, squinting eyes. White salt crust on boots and hem. Carrying salt baskets or raking pans." }
+        {
+          "role": "salt-worker",
+          "name": "Salt Worker",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Cracked dry hands, squinting eyes. White salt crust on boots and hem. Carrying salt baskets or raking pans.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "pushing"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "granary",
       "archetypes": [
-        { "role": "granary-keeper", "name": "Granary Keeper", "fashionVariant": "common", "count": 1, "spriteNotes": "Watchful, protective stance near the door. Carrying a measuring scoop. Takes the job seriously — grain is life." }
+        {
+          "role": "granary-keeper",
+          "name": "Granary Keeper",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Watchful, protective stance near the door. Carrying a measuring scoop. Takes the job seriously — grain is life.",
+          "animations": [
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "barn",
       "archetypes": [
-        { "role": "herder", "name": "Herder", "fashionVariant": "common", "count": 1, "spriteNotes": "Holding a crook or lead rope. Mud-splashed boots. Patient, slow-moving demeanour." }
+        {
+          "role": "herder",
+          "name": "Herder",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Holding a crook or lead rope. Mud-splashed boots. Patient, slow-moving demeanour.",
+          "animations": [
+            "crouching",
+            "sad-walk"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "watchtower",
       "archetypes": [
-        { "role": "lookout", "name": "Lookout", "fashionVariant": "warrior", "count": 1, "spriteNotes": "Standing tall, shielding eyes to scan horizon. Light armour. Alert, tense posture." }
+        {
+          "role": "lookout",
+          "name": "Lookout",
+          "fashionVariant": "warrior",
+          "count": 1,
+          "spriteNotes": "Standing tall, shielding eyes to scan horizon. Light armour. Alert, tense posture.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "palisade-gate",
       "archetypes": [
-        { "role": "gate-guard", "name": "Gate Guard", "fashionVariant": "warrior", "count": [1, 2], "spriteNotes": "Standing at attention with spear or halberd. Stern expression. Blocks the way until satisfied." }
+        {
+          "role": "gate-guard",
+          "name": "Gate Guard",
+          "fashionVariant": "warrior",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Standing at attention with spear or halberd. Stern expression. Blocks the way until satisfied.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "leg-sweep"
+          ]
+        }
       ]
     },
     {
       "buildingId": "barracks",
       "archetypes": [
-        { "role": "soldier", "name": "Soldier", "fashionVariant": "warrior", "count": [2, 4], "spriteNotes": "Mix of on-duty (armed, armoured) and off-duty (eating, resting, sparring). Varied builds." },
-        { "role": "sergeant", "name": "Sergeant", "fashionVariant": "warrior", "count": 1, "spriteNotes": "Slightly better armour. Commanding posture. Arms folded or gesturing orders. Louder than necessary." }
+        {
+          "role": "soldier",
+          "name": "Soldier",
+          "fashionVariant": "warrior",
+          "count": [
+            2,
+            4
+          ],
+          "spriteNotes": "Mix of on-duty (armed, armoured) and off-duty (eating, resting, sparring). Varied builds.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "leg-sweep",
+            "drinking",
+            "crouching"
+          ]
+        },
+        {
+          "role": "sergeant",
+          "name": "Sergeant",
+          "fashionVariant": "warrior",
+          "count": 1,
+          "spriteNotes": "Slightly better armour. Commanding posture. Arms folded or gesturing orders. Louder than necessary.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "roundhouse-kick",
+            "leg-sweep"
+          ]
+        }
       ]
     },
     {
       "buildingId": "armory",
       "archetypes": [
-        { "role": "armourer", "name": "Armourer", "fashionVariant": "artisan", "count": 1, "spriteNotes": "Inspecting a blade or fitting armour pieces. Precise, methodical hands. More craftsman than fighter." }
+        {
+          "role": "armourer",
+          "name": "Armourer",
+          "fashionVariant": "artisan",
+          "count": 1,
+          "spriteNotes": "Inspecting a blade or fitting armour pieces. Precise, methodical hands. More craftsman than fighter.",
+          "animations": [
+            "picking-up",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "guard-post",
       "archetypes": [
-        { "role": "guard", "name": "Guard", "fashionVariant": "warrior", "count": [1, 2], "spriteNotes": "Relaxed patrol stance. Weapon at side, not raised. Knows the locals — nods to passersby." }
+        {
+          "role": "guard",
+          "name": "Guard",
+          "fashionVariant": "warrior",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Relaxed patrol stance. Weapon at side, not raised. Knows the locals — nods to passersby.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "drinking"
+          ]
+        }
       ]
     },
     {
       "buildingId": "training-yard",
       "archetypes": [
-        { "role": "drill-master", "name": "Drill Master", "fashionVariant": "warrior", "count": 1, "spriteNotes": "Older, scarred veteran. Shouting pose or demonstrating a stance. Muscular but greying." },
-        { "role": "recruit", "name": "Recruit", "fashionVariant": "common", "count": [2, 4], "spriteNotes": "Young, uncertain stance. Holding weapon awkwardly. Bruised. Mix of eager and terrified." }
+        {
+          "role": "drill-master",
+          "name": "Drill Master",
+          "fashionVariant": "warrior",
+          "count": 1,
+          "spriteNotes": "Older, scarred veteran. Shouting pose or demonstrating a stance. Muscular but greying.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "roundhouse-kick",
+            "high-kick",
+            "leg-sweep"
+          ]
+        },
+        {
+          "role": "recruit",
+          "name": "Recruit",
+          "fashionVariant": "common",
+          "count": [
+            2,
+            4
+          ],
+          "spriteNotes": "Young, uncertain stance. Holding weapon awkwardly. Bruised. Mix of eager and terrified.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "crouching"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "shrine",
       "archetypes": [
-        { "role": "shrine-keeper", "name": "Shrine Keeper", "fashionVariant": "ceremonial", "count": 1, "spriteNotes": "Quiet, contemplative pose. Tending offerings or sweeping. Gentle expression. Often elderly." }
+        {
+          "role": "shrine-keeper",
+          "name": "Shrine Keeper",
+          "fashionVariant": "ceremonial",
+          "count": 1,
+          "spriteNotes": "Quiet, contemplative pose. Tending offerings or sweeping. Gentle expression. Often elderly.",
+          "animations": [
+            "crouching",
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "temple",
       "archetypes": [
-        { "role": "priest", "name": "Priest", "fashionVariant": "ceremonial", "count": 1, "spriteNotes": "Upright, formal posture. Hands together or holding a sacred object. Serene or stern depending on culture." },
-        { "role": "acolyte", "name": "Acolyte", "fashionVariant": "common", "count": [1, 2], "spriteNotes": "Young, reverent expression. Carrying candles, incense, or ritual implements. Following the priest." }
+        {
+          "role": "priest",
+          "name": "Priest",
+          "fashionVariant": "ceremonial",
+          "count": 1,
+          "spriteNotes": "Upright, formal posture. Hands together or holding a sacred object. Serene or stern depending on culture.",
+          "animations": [
+            "crouching"
+          ]
+        },
+        {
+          "role": "acolyte",
+          "name": "Acolyte",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            2
+          ],
+          "spriteNotes": "Young, reverent expression. Carrying candles, incense, or ritual implements. Following the priest.",
+          "animations": [
+            "crouching",
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "pilgrim-shelter",
       "archetypes": [
-        { "role": "pilgrim", "name": "Pilgrim", "fashionVariant": "common", "count": [1, 3], "spriteNotes": "Travel-worn but purposeful. Carrying a staff and small pack. Mix of races — pilgrims come from afar. Hopeful or exhausted expression." }
+        {
+          "role": "pilgrim",
+          "name": "Pilgrim",
+          "fashionVariant": "common",
+          "count": [
+            1,
+            3
+          ],
+          "spriteNotes": "Travel-worn but purposeful. Carrying a staff and small pack. Mix of races — pilgrims come from afar. Hopeful or exhausted expression.",
+          "animations": [
+            "sad-walk",
+            "drinking",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "sacred-grove",
       "archetypes": [
-        { "role": "grove-tender", "name": "Grove Tender", "fashionVariant": "ceremonial", "count": 1, "spriteNotes": "Kneeling or touching a tree. Plant matter woven into hair. Barefoot. Speaks softly, moves slowly." }
+        {
+          "role": "grove-tender",
+          "name": "Grove Tender",
+          "fashionVariant": "ceremonial",
+          "count": 1,
+          "spriteNotes": "Kneeling or touching a tree. Plant matter woven into hair. Barefoot. Speaks softly, moves slowly.",
+          "animations": [
+            "crouching",
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "graveyard",
       "archetypes": [
-        { "role": "gravedigger", "name": "Gravedigger", "fashionVariant": "common", "count": 1, "spriteNotes": "Leaning on a shovel. Dirt under nails. Quiet, unbothered demeanour. Surprisingly good-humoured." }
+        {
+          "role": "gravedigger",
+          "name": "Gravedigger",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Leaning on a shovel. Dirt under nails. Quiet, unbothered demeanour. Surprisingly good-humoured.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "pushing"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "storage-shed",
       "archetypes": []
@@ -307,45 +1000,142 @@
     {
       "buildingId": "bridge",
       "archetypes": [
-        { "role": "bridge-warden", "name": "Bridge Warden", "fashionVariant": "warrior", "count": [0, 1], "spriteNotes": "Only in tier 3+. Collecting toll or checking papers. Bored but firm." }
+        {
+          "role": "bridge-warden",
+          "name": "Bridge Warden",
+          "fashionVariant": "warrior",
+          "count": [
+            0,
+            1
+          ],
+          "spriteNotes": "Only in tier 3+. Collecting toll or checking papers. Bored but firm.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab"
+          ]
+        }
       ]
     },
     {
       "buildingId": "customs-post",
       "archetypes": [
-        { "role": "customs-officer", "name": "Customs Officer", "fashionVariant": "common", "count": 1, "spriteNotes": "Holding a ledger, inspecting cargo. Suspicious expression. Ink-stained hands." }
+        {
+          "role": "customs-officer",
+          "name": "Customs Officer",
+          "fashionVariant": "common",
+          "count": 1,
+          "spriteNotes": "Holding a ledger, inspecting cargo. Suspicious expression. Ink-stained hands.",
+          "animations": [
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "harbour-dock",
       "archetypes": [
-        { "role": "harbour-master", "name": "Harbour Master", "fashionVariant": "elder", "count": 1, "spriteNotes": "Watching ships. Holds a manifest or telescope. Weathered, commanding presence." },
-        { "role": "docker", "name": "Docker", "fashionVariant": "common", "count": [2, 4], "spriteNotes": "Hauling ropes, carrying crates. Strong arms, bare forearms. Moving fast — ships don't wait." }
+        {
+          "role": "harbour-master",
+          "name": "Harbour Master",
+          "fashionVariant": "elder",
+          "count": 1,
+          "spriteNotes": "Watching ships. Holds a manifest or telescope. Weathered, commanding presence.",
+          "animations": [
+            "drinking"
+          ]
+        },
+        {
+          "role": "docker",
+          "name": "Docker",
+          "fashionVariant": "common",
+          "count": [
+            2,
+            4
+          ],
+          "spriteNotes": "Hauling ropes, carrying crates. Strong arms, bare forearms. Moving fast — ships don't wait.",
+          "animations": [
+            "picking-up",
+            "pull-heavy-object",
+            "pushing",
+            "throw-object"
+          ]
+        }
       ]
     },
     {
       "buildingId": "boat-shed",
       "archetypes": [
-        { "role": "boat-builder", "name": "Boat Builder", "fashionVariant": "artisan", "count": 1, "spriteNotes": "Working on an upturned hull. Holding a plane or caulking iron. Wood shavings everywhere." }
+        {
+          "role": "boat-builder",
+          "name": "Boat Builder",
+          "fashionVariant": "artisan",
+          "count": 1,
+          "spriteNotes": "Working on an upturned hull. Holding a plane or caulking iron. Wood shavings everywhere.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "pushing"
+          ]
+        }
       ]
     },
-
     {
       "buildingId": "hero-house",
       "archetypes": [
-        { "role": "retired-hero", "name": "Retired Hero", "fashionVariant": "warrior", "count": 1, "spriteNotes": "Old but formidable. One visible old wound or missing limb. Weapon mounted on the wall behind them. Eyes that have seen too much." }
+        {
+          "role": "retired-hero",
+          "name": "Retired Hero",
+          "fashionVariant": "warrior",
+          "count": 1,
+          "spriteNotes": "Old but formidable. One visible old wound or missing limb. Weapon mounted on the wall behind them. Eyes that have seen too much.",
+          "animations": [
+            "fight-stance-idle-8-frames",
+            "lead-jab",
+            "cross-punch",
+            "roundhouse-kick",
+            "high-kick",
+            "leg-sweep",
+            "drinking",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "mage-tower",
       "archetypes": [
-        { "role": "mage", "name": "Mage", "fashionVariant": "ceremonial", "count": 1, "spriteNotes": "Tall, thin. Crackling energy or faint glow around hands. Distracted expression — thinking about something else. Ink or chalk on fingers." }
+        {
+          "role": "mage",
+          "name": "Mage",
+          "fashionVariant": "ceremonial",
+          "count": 1,
+          "spriteNotes": "Tall, thin. Crackling energy or faint glow around hands. Distracted expression — thinking about something else. Ink or chalk on fingers.",
+          "animations": [
+            "fireball",
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "earth-ruin-building",
       "archetypes": [
-        { "role": "ruin-scavenger", "name": "Ruin Scavenger", "fashionVariant": "common", "count": [0, 1], "spriteNotes": "Cautious posture. Carrying salvaged artefacts wrapped in cloth. Nervous eyes. Dust-covered." }
+        {
+          "role": "ruin-scavenger",
+          "name": "Ruin Scavenger",
+          "fashionVariant": "common",
+          "count": [
+            0,
+            1
+          ],
+          "spriteNotes": "Cautious posture. Carrying salvaged artefacts wrapped in cloth. Nervous eyes. Dust-covered.",
+          "animations": [
+            "crouched-walking",
+            "crouching",
+            "picking-up",
+            "scary-walk"
+          ]
+        }
       ]
     },
     {
@@ -355,46 +1145,195 @@
     {
       "buildingId": "oversized-relic",
       "archetypes": [
-        { "role": "relic-watcher", "name": "Relic Watcher", "fashionVariant": "elder", "count": [0, 1], "spriteNotes": "Sitting near the relic, keeping vigil. Obsessed expression. Muttering. Locals think they're odd." }
+        {
+          "role": "relic-watcher",
+          "name": "Relic Watcher",
+          "fashionVariant": "elder",
+          "count": [
+            0,
+            1
+          ],
+          "spriteNotes": "Sitting near the relic, keeping vigil. Obsessed expression. Muttering. Locals think they're odd.",
+          "animations": [
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "refugee-cluster",
       "archetypes": [
-        { "role": "refugee", "name": "Refugee", "fashionVariant": "common", "count": [3, 6], "spriteNotes": "Mixed races and clothing styles — not from here. Carrying bundles of possessions. Exhausted, wary. Children clinging to adults." }
+        {
+          "role": "refugee",
+          "name": "Refugee",
+          "fashionVariant": "common",
+          "count": [
+            3,
+            6
+          ],
+          "spriteNotes": "Mixed races and clothing styles — not from here. Carrying bundles of possessions. Exhausted, wary. Children clinging to adults.",
+          "animations": [
+            "sad-walk",
+            "crouching",
+            "picking-up"
+          ]
+        }
       ]
     },
     {
       "buildingId": "strange-shrine",
       "archetypes": [
-        { "role": "shrine-devotee", "name": "Shrine Devotee", "fashionVariant": "ceremonial", "count": [0, 1], "spriteNotes": "Kneeling in prayer or trance. Unusual markings on skin. Other locals avoid eye contact with them." }
+        {
+          "role": "shrine-devotee",
+          "name": "Shrine Devotee",
+          "fashionVariant": "ceremonial",
+          "count": [
+            0,
+            1
+          ],
+          "spriteNotes": "Kneeling in prayer or trance. Unusual markings on skin. Other locals avoid eye contact with them.",
+          "animations": [
+            "crouching"
+          ]
+        }
       ]
     },
     {
       "buildingId": "mechanical-oddity",
       "archetypes": [
-        { "role": "tinkerer", "name": "Tinkerer", "fashionVariant": "artisan", "count": 1, "spriteNotes": "Goggles, oil-stained hands. Poking at a mechanism with tools. Excited, manic energy. Talking to the machine." }
+        {
+          "role": "tinkerer",
+          "name": "Tinkerer",
+          "fashionVariant": "artisan",
+          "count": 1,
+          "spriteNotes": "Goggles, oil-stained hands. Poking at a mechanism with tools. Excited, manic energy. Talking to the machine.",
+          "animations": [
+            "picking-up",
+            "crouching",
+            "pushing"
+          ]
+        }
       ]
     }
   ],
-
   "ambientArchetypes": [
     {
       "_doc": "Not tied to a building — these populate the settlement based on tier. Scale with settlement size to make it feel alive.",
-      "role": "child", "name": "Child", "fashionVariant": "common", "countPerTier": { "1": 0, "2": [1, 2], "3": [2, 4], "4": [4, 8], "5": [6, 12] },
-      "spriteNotes": "Small, running or playing. Chasing each other, throwing stones at a post, or sitting and drawing in dirt. Carefree."
+      "role": "child",
+      "name": "Child",
+      "fashionVariant": "common",
+      "countPerTier": {
+        "1": 0,
+        "2": [
+          1,
+          2
+        ],
+        "3": [
+          2,
+          4
+        ],
+        "4": [
+          4,
+          8
+        ],
+        "5": [
+          6,
+          12
+        ]
+      },
+      "spriteNotes": "Small, running or playing. Chasing each other, throwing stones at a post, or sitting and drawing in dirt. Carefree.",
+      "animations": [
+        "jumping-1",
+        "two-footed-jump",
+        "running-4-frames"
+      ]
     },
     {
-      "role": "elder-villager", "name": "Elder", "fashionVariant": "elder", "countPerTier": { "1": [0, 1], "2": 1, "3": [1, 2], "4": [2, 3], "5": [3, 5] },
-      "spriteNotes": "Slow-walking, sitting on a bench, or watching from a doorway. Weathered face. Observing everything, saying little."
+      "role": "elder-villager",
+      "name": "Elder",
+      "fashionVariant": "elder",
+      "countPerTier": {
+        "1": [
+          0,
+          1
+        ],
+        "2": 1,
+        "3": [
+          1,
+          2
+        ],
+        "4": [
+          2,
+          3
+        ],
+        "5": [
+          3,
+          5
+        ]
+      },
+      "spriteNotes": "Slow-walking, sitting on a bench, or watching from a doorway. Weathered face. Observing everything, saying little.",
+      "animations": [
+        "sad-walk",
+        "crouching",
+        "drinking"
+      ]
     },
     {
-      "role": "wanderer", "name": "Wanderer", "fashionVariant": "common", "countPerTier": { "1": 0, "2": 0, "3": [0, 1], "4": [0, 2], "5": [1, 3] },
-      "spriteNotes": "Passing through — different culture's clothing than the locals. Carrying a pack. Looking around, slightly lost."
+      "role": "wanderer",
+      "name": "Wanderer",
+      "fashionVariant": "common",
+      "countPerTier": {
+        "1": 0,
+        "2": 0,
+        "3": [
+          0,
+          1
+        ],
+        "4": [
+          0,
+          2
+        ],
+        "5": [
+          1,
+          3
+        ]
+      },
+      "spriteNotes": "Passing through — different culture's clothing than the locals. Carrying a pack. Looking around, slightly lost.",
+      "animations": [
+        "sad-walk",
+        "drinking",
+        "crouching",
+        "picking-up"
+      ]
     },
     {
-      "role": "stray-dog", "name": "Stray Dog", "fashionVariant": null, "countPerTier": { "1": [0, 1], "2": [0, 2], "3": [1, 2], "4": [1, 3], "5": [2, 4] },
-      "spriteNotes": "Not a humanoid — small four-legged sprite. Scrappy, friendly. Following villagers or sleeping in the sun."
+      "role": "stray-dog",
+      "name": "Stray Dog",
+      "fashionVariant": null,
+      "countPerTier": {
+        "1": [
+          0,
+          1
+        ],
+        "2": [
+          0,
+          2
+        ],
+        "3": [
+          1,
+          2
+        ],
+        "4": [
+          1,
+          3
+        ],
+        "5": [
+          2,
+          4
+        ]
+      },
+      "spriteNotes": "Not a humanoid — small four-legged sprite. Scrappy, friendly. Following villagers or sleeping in the sun.",
+      "animations": []
     }
   ]
 }
