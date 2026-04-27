@@ -6667,9 +6667,9 @@ export class GameScene extends Phaser.Scene {
   ): void {
     this.collectedItems.add(id);
 
-    // Wire collectible zone to alignment — coastal=earth, forest=spino, highland=mistheim
-    const ITEM_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'mistheim'> = {
-      'item-start': 'earth', 'item-forest': 'spino', 'item-plateau': 'mistheim',
+    // Wire collectible zone to alignment — coastal=earth, forest=spino, highland=vatten
+    const ITEM_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'vatten'> = {
+      'item-start': 'earth', 'item-forest': 'spino', 'item-plateau': 'vatten',
     };
     const itemWorld = ITEM_ALIGNMENT_MAP[id];
     if (itemWorld) this.worldState.adjustAlignment(itemWorld, 5);
@@ -7161,9 +7161,9 @@ export class GameScene extends Phaser.Scene {
     this.events.once('dialog-choice', (choiceId: string) => {
       this.chosenPath = choiceId as PathChoice;
       console.log(`[Level1] Path chosen: ${this.chosenPath}`);
-      // Wire dialog choice to alignment — jordens=earth, spinolandets=spino, mistheims=mistheim
-      const CHOICE_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'mistheim'> = {
-        jordens: 'earth', spinolandets: 'spino', mistheims: 'mistheim',
+      // Wire dialog choice to alignment — jordens=earth, spinolandets=spino, mistheims=vatten
+      const CHOICE_ALIGNMENT_MAP: Record<string, 'earth' | 'spino' | 'vatten'> = {
+        jordens: 'earth', spinolandets: 'spino', mistheims: 'vatten',
       };
       const world = CHOICE_ALIGNMENT_MAP[choiceId];
       if (world) this.worldState.adjustAlignment(world, 15);
