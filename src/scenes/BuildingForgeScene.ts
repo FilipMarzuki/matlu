@@ -619,8 +619,20 @@ export class BuildingForgeScene extends Phaser.Scene {
       case 'floor':       return this.darken(wallColor, 0.60);
       case 'wall-corner': return this.darken(wallColor, 0.85);
       case 'door':        return this.darken(wallColor, 0.45);
+      case 'pillar':      return this.darken(wallColor, 0.90);
+      case 'beam':        return this.darken(wallColor, 1.1);
+      case 'ornament':    return 0xccaa44; // gold accent
+      case 'spire':       return this.darken(roofColor, 0.8);
+      case 'pipe':        return 0x667788; // steel
+      case 'shaft':       return 0x556666; // dark void
+      case 'light':       return 0x88ffaa; // glow green
+      case 'railing':     return this.darken(wallColor, 0.75);
+      case 'bridge':      return this.darken(wallColor, 0.65);
+      case 'walkway':     return this.darken(wallColor, 0.65);
+      case 'pole':        return this.darken(wallColor, 0.80);
+      case 'shelf':       return this.darken(wallColor, 0.75);
+      case 'battlement':  return this.darken(wallColor, 0.90);
       case 'window': {
-        // Tint wall colour toward sky blue to suggest glass / opening
         const r = Math.floor(((wallColor >> 16) & 0xff) * 0.5 + 0x44 * 0.5);
         const g = Math.floor(((wallColor >>  8) & 0xff) * 0.5 + 0x88 * 0.5);
         const b = Math.floor(( wallColor        & 0xff) * 0.5 + 0xff * 0.5);
