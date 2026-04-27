@@ -30,7 +30,7 @@ interface RegistryEntry {
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const HEIGHT_BLOCKS: Record<string, number> = {
-  low: 2, standard: 4, tall: 6, tower: 8,
+  low: 1, standard: 4, tall: 6, tower: 8,
 };
 
 const WALL_BLOCKS: Record<string, number> = {
@@ -50,6 +50,9 @@ interface ArchitectureStyle {
   ornamentLevel: string;
   structuralPrinciple: string;
   climateResponse: string;
+  description?: string;
+  promptKeywords?: string;
+  realWorldInspiration?: string;
 }
 
 /** Wall block colour per primary material. */
@@ -67,6 +70,14 @@ const WALL_COLORS: Record<string, number> = {
 };
 
 /** Roof block colour per primary material. */
+/** Map building IDs to arrays of sprite variants for cycling. */
+const BLOCK_SPRITE_VARIANTS: Record<string, string[]> = {
+  campfire: [
+    'campfire-markfolk-v1', 'campfire-markfolk-v2', 'campfire-markfolk-v3',
+    'campfire-v1', 'campfire-v2', 'campfire-v3',
+  ],
+};
+
 const ROOF_COLORS: Record<string, number> = {
   stone:   0x556666,  // slate grey
   wood:    0x8b7332,  // golden thatch
@@ -108,6 +119,9 @@ export class BuildingForgeScene extends Phaser.Scene {
   // Render objects
   private blockGfx: Phaser.GameObjects.Graphics | null = null;
   private groundGfx: Phaser.GameObjects.Graphics | null = null;
+  private blockSprites: Phaser.GameObjects.Image[] = [];
+  private showSprites = true;
+  private spriteVariantIdx = 0;
 
   // Pan state
   private isPanning = false;
@@ -127,6 +141,14 @@ export class BuildingForgeScene extends Phaser.Scene {
   preload(): void {
     this.load.json('building-registry', '/macro-world/building-registry.json');
     this.load.json('architecture', '/macro-world/architecture.json');
+
+    // Block sprite tiles — multiple variants per building for comparison
+    this.load.image('campfire-v1', '/assets/packs/building-forge/campfire_v1.png');
+    this.load.image('campfire-v2', '/assets/packs/building-forge/campfire_v2.png');
+    this.load.image('campfire-v3', '/assets/packs/building-forge/campfire_v3_48px.png');
+    this.load.image('campfire-markfolk-v1', '/assets/packs/building-forge/campfire_markfolk_v1.png');
+    this.load.image('campfire-markfolk-v2', '/assets/packs/building-forge/campfire_markfolk_v2.png');
+    this.load.image('campfire-markfolk-v3', '/assets/packs/building-forge/campfire_markfolk_v3_48px.png');
   }
 
   create(): void {
@@ -167,6 +189,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     kb.on('keydown-TWO',   () => this.setHeight('standard'));
     kb.on('keydown-THREE', () => this.setHeight('tall'));
     kb.on('keydown-FOUR',  () => this.setHeight('tower'));
+    kb.on('keydown-T', () => { this.showSprites = !this.showSprites; this.syncSpriteToggle(); this.rebuild(); });
+    kb.on('keydown-V', () => this.cycleSpriteVariant());
 
     // Zoom
     this.input.on('wheel', (_: unknown, __: unknown, ___: unknown, dy: number) => {
@@ -270,6 +294,7 @@ export class BuildingForgeScene extends Phaser.Scene {
 
   private cycleBuilding(dir: number): void {
     this.currentIdx = (this.currentIdx + dir + this.entries.length) % this.entries.length;
+    this.spriteVariantIdx = 0;
     this.loadBuilding();
     this.rebuild();
   }
@@ -337,6 +362,15 @@ export class BuildingForgeScene extends Phaser.Scene {
         #bf-control-panel .bf-info { color: #778; font-size: 10px; line-height: 1.4; }
         #bf-control-panel .bf-stat { color: #aab; }
         #bf-control-panel .bf-stat span { color: #ffcc88; }
+        #bf-control-panel .bf-desc {
+          color: #99aabb; font-size: 10px; line-height: 1.5;
+          background: #1a1a2e; border: 1px solid #334; border-radius: 4px;
+          padding: 6px 8px; max-height: 120px; overflow-y: auto;
+        }
+        #bf-control-panel .bf-keywords {
+          color: #887766; font-size: 9px; font-style: italic;
+          margin-top: 4px; line-height: 1.3;
+        }
       </style>
       <h3>Building Forge</h3>
 
@@ -388,6 +422,12 @@ export class BuildingForgeScene extends Phaser.Scene {
       <div class="bf-divider"></div>
 
       <button class="bf-btn" id="bf-reset">Reset (R)</button>
+
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="bf-sprites" ${this.showSprites ? 'checked' : ''} style="accent-color:#ffcc88;">
+        <label for="bf-sprites" style="margin:0; cursor:pointer;">Show sprites (T)</label>
+      </div>
+      <div id="bf-variant-label" style="color:#99aabb; font-size:10px; display:none;"></div>
 
       <div class="bf-divider"></div>
 
@@ -446,6 +486,12 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Reset button
     document.getElementById('bf-reset')!.addEventListener('click', () => {
       this.fillDefault();
+      this.rebuild();
+    });
+
+    // Sprite toggle
+    document.getElementById('bf-sprites')!.addEventListener('change', (e) => {
+      this.showSprites = (e.target as HTMLInputElement).checked;
       this.rebuild();
     });
 
@@ -517,6 +563,9 @@ export class BuildingForgeScene extends Phaser.Scene {
         <div class="bf-stat">Ground: <span>${arch?.groundRelation ?? '—'}</span></div>
         <div class="bf-stat">Windows: <span>${arch?.windowStyle ?? '—'}</span></div>
         <div class="bf-stat">Ornament: <span>${arch?.ornamentLevel ?? '—'}</span></div>
+        ${arch?.description ? `<div class="bf-divider"></div><div class="bf-desc">${arch.description}</div>` : ''}
+        ${arch?.realWorldInspiration ? `<div class="bf-stat" style="margin-top:4px;">Inspiration: <span style="color:#99bbaa;">${arch.realWorldInspiration}</span></div>` : ''}
+        ${arch?.promptKeywords ? `<div class="bf-keywords">${arch.promptKeywords}</div>` : ''}
       `;
     }
   }
@@ -547,6 +596,32 @@ export class BuildingForgeScene extends Phaser.Scene {
     }
 
     this.syncPanel();
+    this.rebuild();
+  }
+
+  private syncSpriteToggle(): void {
+    const cb = document.getElementById('bf-sprites') as HTMLInputElement;
+    if (cb) cb.checked = this.showSprites;
+    // Update variant label
+    const entry = this.entries[this.currentIdx];
+    const variants = entry ? BLOCK_SPRITE_VARIANTS[entry.id] : undefined;
+    const label = document.getElementById('bf-variant-label');
+    if (label) {
+      if (variants && variants.length > 1 && this.showSprites) {
+        label.textContent = `Variant ${this.spriteVariantIdx + 1}/${variants.length} (V)`;
+        label.style.display = 'block';
+      } else {
+        label.style.display = 'none';
+      }
+    }
+  }
+
+  private cycleSpriteVariant(): void {
+    const entry = this.entries[this.currentIdx];
+    const variants = entry ? BLOCK_SPRITE_VARIANTS[entry.id] : undefined;
+    if (!variants || variants.length <= 1) return;
+    this.spriteVariantIdx = (this.spriteVariantIdx + 1) % variants.length;
+    this.syncSpriteToggle();
     this.rebuild();
   }
 
@@ -711,6 +786,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Clean up
     this.groundGfx?.destroy();
     this.blockGfx?.destroy();
+    for (const s of this.blockSprites) s.destroy();
+    this.blockSprites = [];
 
     const entry = this.entries[this.currentIdx];
     if (!entry) return;
@@ -769,10 +846,30 @@ export class BuildingForgeScene extends Phaser.Scene {
     }
     draws.sort((a, b) => a.sortKey - b.sortKey);
 
+    // Check if this building has sprite variants
+    const variants = BLOCK_SPRITE_VARIANTS[entry.id];
+    const spriteKey = variants?.[this.spriteVariantIdx % (variants?.length ?? 1)];
+    const hasSprite = this.showSprites && spriteKey && this.textures.exists(spriteKey);
+
     for (const d of draws) {
-      const isRoof = d.tz >= wallH;
-      const color = isRoof ? roofColor : wallColor;
-      this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9);
+      if (hasSprite) {
+        // Render as sprite image — position at the iso tile, lifted by z
+        const { x, y } = this.isoPos(d.tx, d.ty);
+        const hh = this.ISO_H / 2;
+        const baseLift = d.tz * hh;
+        const img = this.add.image(x, y - baseLift, spriteKey);
+        // Scale the sprite so its width matches one iso tile width
+        const scale = this.ISO_W / img.width;
+        img.setScale(scale);
+        img.setOrigin(0.5, 0.5);
+        img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
+        this.blockSprites.push(img);
+      } else {
+        // Fallback: coloured iso cube
+        const isRoof = d.tz >= wallH;
+        const color = isRoof ? roofColor : wallColor;
+        this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9);
+      }
     }
 
     // Update stats in the DOM control panel
