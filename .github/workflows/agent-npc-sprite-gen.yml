@@ -1,0 +1,62 @@
+name: NPC Sprite Generation
+
+# Generates PixelLab humanoid sprites for settlement NPC archetypes.
+# Combines race body data + culture fashion + archetype pose into sprite descriptions.
+#
+# Current run: Markfolk × 5 cultures (fieldborn, coastborn, harborfolk, ridgefolk, wallborn)
+# ~73 archetypes × 5 cultures = up to ~365 sprites (1 PixelLab credit each)
+#
+# Safe to re-run: skips archetypes that already have a sprite file.
+# Commits after each culture batch so partial runs preserve progress.
+#
+# Trigger manually from the Actions tab.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: agent-npc-sprite-gen
+  cancel-in-progress: false   # never interrupt mid-generation
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360       # 6 hours — 73 archetypes × 5 cultures × ~3min each
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TRACKER_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name  "npc-sprite-gen[bot]"
+          git config user.email "npc-sprite-gen@matlu.dev"
+
+      - name: Run NPC sprite generation session
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
+          GITHUB_TOKEN:            ${{ secrets.GH_TRACKER_TOKEN }}
+          PIXELLAB_API_KEY:        ${{ secrets.PIXELLAB_API_KEY }}
+        run: |
+          npx --yes @anthropic-ai/claude-code --print \
+            --permission-mode bypassPermissions \
+            "$(cat .agents/npc-sprite-gen.md)"
+
+      - name: Log token usage
+        if: always()
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node .github/scripts/log-session-tokens.js --workflow "NPC Sprite Generation"
+      # [token-logging-added]
