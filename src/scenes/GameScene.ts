@@ -5862,11 +5862,21 @@ export class GameScene extends Phaser.Scene {
           const h1 = tileDetailHash(tx, ty, this.runSeed ^ 0x51f15e);
           detailGfx.clear();
           detailGfx.setPosition(isoX - ISO_TILE_W / 2, isoY);
+          // A translucent diamond wash gives each biome a readable colour family
+          // while the original tile art still supplies material texture below it.
+          detailGfx.fillStyle(BIOME_TILE_TINTS[biomeIdx] ?? 0xffffff, 0.20);
+          detailGfx.beginPath();
+          detailGfx.moveTo(16, 0);
+          detailGfx.lineTo(32, 8);
+          detailGfx.lineTo(16, 16);
+          detailGfx.lineTo(0, 8);
+          detailGfx.closePath();
+          detailGfx.fillPath();
           detailGfx.fillStyle(h0 % 3 === 0 ? hi : lo, 0.72);
-          detailGfx.fillRect(8 + (h0 % 16), 5 + ((h0 >>> 4) % 9), 2 + (h0 % 2), 1);
+          detailGfx.fillRect(6 + (h0 % 18), 4 + ((h0 >>> 4) % 9), 3 + (h0 % 3), 1);
           if ((h1 % 5) < 3) {
             detailGfx.fillStyle(h1 % 2 === 0 ? hi : lo, 0.54);
-            detailGfx.fillRect(6 + (h1 % 20), 7 + ((h1 >>> 5) % 8), 1, 1 + (h1 % 2));
+            detailGfx.fillRect(5 + (h1 % 21), 7 + ((h1 >>> 5) % 7), 2, 1 + (h1 % 2));
           }
           terrainRt.draw(detailGfx);
         }
