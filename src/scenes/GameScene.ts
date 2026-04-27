@@ -5743,7 +5743,8 @@ export class GameScene extends Phaser.Scene {
       .setScale(1)
       .setOrigin(0.5, 0)
       .setVisible(false);
-    const detailGfx = this.add.graphics().setVisible(false);
+    const detailGfx = this.add.graphics();
+    detailGfx.setDepth(0.5);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5878,7 +5879,6 @@ export class GameScene extends Phaser.Scene {
             detailGfx.fillStyle(h1 % 2 === 0 ? hi : lo, 0.54);
             detailGfx.fillRect(5 + (h1 % 21), 7 + ((h1 >>> 5) % 7), 2, 1 + (h1 % 2));
           }
-          terrainRt.draw(detailGfx);
         }
 
       }
