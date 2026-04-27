@@ -312,6 +312,7 @@
         "4": 1,
         "5": 2
       },
+      "pathTo": ["market-hall"],
       "placementHints": [
         "near-road",
         "near-plaza"
@@ -374,6 +375,7 @@
         "4": 4,
         "5": 6
       },
+      "pathTo": ["warehouse"],
       "placementHints": [
         "lines-road",
         "near-plaza"
@@ -446,6 +448,7 @@
         "4": 1,
         "5": 2
       },
+      "pathTo": ["warehouse"],
       "placementHints": [
         "edge-of-settlement",
         "near-road",
@@ -517,6 +520,7 @@
         "4": 1,
         "5": 2
       },
+      "pathTo": ["warehouse", "lumberyard"],
       "placementHints": [
         "near-water",
         "edge-of-settlement"
@@ -552,6 +556,7 @@
         "4": 1,
         "5": 2
       },
+      "pathTo": ["smelter"],
       "placementHints": [
         "near-road",
         "downwind"
@@ -681,6 +686,7 @@
         "4": 2,
         "5": 3
       },
+      "pathTo": ["smokehouse"],
       "placementHints": [
         "waterfront"
       ],
@@ -1148,6 +1154,7 @@
         "4": 1,
         "5": 2
       },
+      "pathTo": ["armory", "training-yard"],
       "placementHints": [
         "near-gate",
         "edge-of-settlement"

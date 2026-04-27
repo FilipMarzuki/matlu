@@ -71,6 +71,7 @@ interface BuildingRegistryEntry {
   count: Record<string, number>;
   placementHints: string[];
   loreHook: string;
+  pathTo?: string[];
 }
 
 /** A building selected by the generator, ready for the layout engine. */
@@ -93,6 +94,8 @@ export interface ResolvedBuilding {
   placementHints: string[];
   /** Lore hook for tooltips. */
   loreHook: string;
+  /** IDs of buildings this one should have a direct path to (phase 3 connector). */
+  pathTo?: string[];
 }
 
 // ── Data (populated by initSettlementData, JSON fallback until then) ────────
@@ -560,6 +563,7 @@ export function selectBuildings(
         heightHint: entry.heightHint,
         placementHints: entry.placementHints,
         loreHook: entry.loreHook,
+        pathTo: entry.pathTo,
       });
     }
   }
