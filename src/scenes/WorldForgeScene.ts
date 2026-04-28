@@ -141,6 +141,11 @@ export class WorldForgeScene extends Phaser.Scene {
   private decorRowObjs: Phaser.GameObjects.GameObject[] = [];
   private decorSelBorder?: Phaser.GameObjects.Graphics;
 
+  // Walkability grid — 0 = walkable, 1 = blocked (water or cliff edge).
+  // Allocated in buildDisplay(); row-major index: ty * GRID + tx.
+  // Matches the layout AStarGrid expects so entity AI can pass it directly.
+  walkabilityGrid: Uint8Array = new Uint8Array(0);
+
   // AI wander toggle — when on, placed NPC/Animal entities wander around the scene.
   private aiEnabled = false;
   private aiToggleGfx?:  Phaser.GameObjects.Graphics;
@@ -412,6 +417,8 @@ export class WorldForgeScene extends Phaser.Scene {
     // correct front-to-back layering for cube-style iso tiles with visible
     // front faces — no per-tile depth values needed.
     const G = this.GRID;
+    // Allocate walkability grid fresh every time the display is rebuilt (biome change, zoom).
+    this.walkabilityGrid = new Uint8Array(G * G);
     for (let sum = 0; sum < G * 2 - 1; sum++) {
       const txMin = Math.max(0, sum - (G - 1));
       const txMax = Math.min(sum, G - 1);
@@ -515,6 +522,11 @@ export class WorldForgeScene extends Phaser.Scene {
         const westDrop  = tileElev > 0 && tx > 0     ? tileElev - getElev(tx - 1, ty) : 0;
         const isWF      = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
         const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
+
+        // Walkability: sea/river water and cliff-edge tiles are impassable.
+        // oceanDist > 0 covers deep ocean and the river-mouth shoreline row.
+        const isWater = oceanDist > 0 || onRiver || atWfBase;
+        this.walkabilityGrid[ty * G + tx] = isWater || hasCliff ? 1 : 0;
 
         if (hasCliff) {
           // Biome resolution mirrors the floor-tile logic: elevation zones take priority
