@@ -18,6 +18,9 @@ export default defineConfig({
         // Everything under /assets/packs/ is runtime-cached on first load
         // with a stale-while-revalidate strategy (see runtimeCaching below).
         globPatterns: ['**/*.{js,css,html,ico}'],
+        // Phaser's compiled game bundle is slightly above Workbox's 2 MiB
+        // default; keep it precached so installed/tablet users still boot fast.
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
 
         // Audio and large image packs: network-first with a 7-day cache.
         // This gives offline playback after the first visit without
