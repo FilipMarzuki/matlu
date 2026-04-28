@@ -1,0 +1,204 @@
+---
+import Base from '../../layouts/Base.astro';
+import { fetchApprovedCreatures, imageUrl } from '../../lib/supabase-creatures';
+import { t } from '../../i18n/index';
+import type { Lang } from '../../i18n/index';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const creatures = await fetchApprovedCreatures();
+
+const slugBase = lang === 'sv' ? '/sv/creatures' : '/creatures';
+const submitHref = '/creatures/submit';
+
+function excerpt(text: string | null, max = 100): string {
+  if (!text) return '';
+  return text.length <= max ? text : text.slice(0, max).trimEnd() + '…';
+}
+
+function sizeLabel(s: string | null, l: Lang): string {
+  const mapEn: Record<string, string> = {
+    tiny: 'Tiny', small: 'Small', medium: 'Medium', large: 'Large', huge: 'Huge',
+  };
+  const mapSv: Record<string, string> = {
+    tiny: 'Pytteliten', small: 'Liten', medium: 'Mellanstor', large: 'Stor', huge: 'Jättelik',
+  };
+  const map = l === 'sv' ? mapSv : mapEn;
+  return s ? (map[s] ?? s) : '';
+}
+---
+
+<Base
+  title={t(lang, 'Creatures', 'Väsen')}
+  description={t(lang, 'Meet the fantasy creatures of the Matlu multiworld — submitted by players and fans.', 'Möt fantasiväsendena i Matlu-multiversum — inskickade av spelare och fans.')}
+  lang={lang}
+>
+  <h1>{t(lang, 'Creatures', 'Väsen')}</h1>
+  <p class="lead">
+    {t(lang, 'Meet the fantasy creatures of the Matlu multiworld — imagined and submitted by our community.', 'Möt fantasiväsendena i Matlu-multiversum — föreställda och inskickade av vår gemenskap.')}
+    {' '}
+    <a href={submitHref} class="submit-link">
+      {t(lang, 'Submit your own →', 'Skicka in ditt eget →')}
+    </a>
+  </p>
+
+  {creatures.length === 0 ? (
+    <div class="empty-state">
+      <p class="empty-title">{t(lang, 'No creatures yet!', 'Inga väsen än!')}</p>
+      <p class="empty-desc">{t(lang, 'Be the first to add a creature to the encyclopedia.', 'Bli den första att lägga till ett väsen i encyklopedin.')}</p>
+      <a href={submitHref} class="btn-primary">
+        {t(lang, 'Submit a creature →', 'Skicka in ett väsen →')}
+      </a>
+    </div>
+  ) : (
+    <div class="grid">
+      {creatures.map(c => {
+        const img = imageUrl(supabaseUrl, c.art_path);
+        return (
+          <a href={`${slugBase}/${c.slug}`} class="card">
+            <div class="card-img">
+              {img
+                ? <img src={img} alt={c.creature_name} loading="lazy" decoding="async" />
+                : <div class="card-img-placeholder">?</div>
+              }
+            </div>
+            <div class="card-body">
+              <h2 class="card-name">{c.creature_name}</h2>
+              {c.creator_name && (
+                <p class="card-creator">
+                  {t(lang, 'by', 'av')} {c.creator_name}
+                </p>
+              )}
+              <div class="card-tags">
+                {c.kind_size && <span class="tag">{sizeLabel(c.kind_size, lang)}</span>}
+                {c.world_name && <span class="tag tag--world">{c.world_name}</span>}
+              </div>
+              {c.lore_description && (
+                <p class="card-excerpt">{excerpt(c.lore_description)}</p>
+              )}
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  )}
+</Base>
+
+<style>
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  .lead {
+    color: var(--text-dim);
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    max-width: 560px;
+  }
+  .submit-link {
+    color: var(--accent-hi);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    color: var(--text);
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(168,85,247,0.15);
+    text-decoration: none;
+  }
+
+  .card-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: var(--surface-hi, rgba(255,255,255,0.04));
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .card-img-placeholder {
+    font-size: 3rem;
+    color: var(--border);
+  }
+
+  .card-body { padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+
+  .card-name {
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 1.05rem;
+    color: var(--accent-hi);
+    margin: 0;
+  }
+  .card-creator { font-size: 0.8rem; color: var(--text-dim); margin: 0; }
+
+  .card-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .tag {
+    font-family: var(--mono, monospace);
+    font-size: 0.72rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(168,85,247,0.1);
+    color: var(--accent-hi);
+    border: 1px solid rgba(168,85,247,0.25);
+  }
+  .tag--world {
+    background: rgba(74,222,128,0.08);
+    color: var(--green, #4ade80);
+    border-color: rgba(74,222,128,0.2);
+  }
+
+  .card-excerpt {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .empty-title { font-family: 'Pixelify Sans', monospace; font-size: 1.3rem; color: var(--accent-hi); margin: 0; }
+  .empty-desc { color: var(--text-dim); font-size: 0.95rem; margin: 0; }
+  .btn-primary {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Pixelify Sans', monospace;
+    font-weight: 700;
+    padding: 0.6rem 1.5rem;
+    border-radius: 7px;
+    text-decoration: none;
+    margin-top: 0.5rem;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: var(--accent-hi); color: #fff; text-decoration: none; }
+</style>

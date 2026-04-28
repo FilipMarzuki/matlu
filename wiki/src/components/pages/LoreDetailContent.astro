@@ -1,0 +1,145 @@
+---
+import Base from '../../layouts/Base.astro';
+import { TYPE_LABELS } from '../../lib/notion-lore';
+import type { LoreEntry } from '../../lib/notion-lore';
+import { t } from '../../i18n/index';
+import type { Lang } from '../../i18n/index';
+
+interface Props {
+  lang: Lang;
+  entry: LoreEntry;
+  bodyHtml: string;
+}
+
+const { lang, entry, bodyHtml } = Astro.props;
+
+const backHref = lang === 'sv' ? '/sv/lore' : '/lore';
+---
+
+<Base
+  title={entry.title}
+  description={entry.summary || `${TYPE_LABELS[entry.type]} in the Matlu multiworld.`}
+  lang={lang}
+>
+  <a href={backHref} class="back">← Lore</a>
+
+  <article>
+    <header>
+      <div class="meta">
+        <span class="badge">{TYPE_LABELS[entry.type]}</span>
+        {entry.world && <span class="world">{entry.world}</span>}
+        {entry.status !== 'final' && (
+          <span class="draft">{t(lang, 'draft', 'utkast')}</span>
+        )}
+      </div>
+      <h1>{entry.title}</h1>
+      {entry.summary && <p class="summary">{entry.summary}</p>}
+    </header>
+
+    {bodyHtml ? (
+      <div class="body prose" set:html={bodyHtml} />
+    ) : (
+      <p class="no-body">
+        {t(lang, 'Full entry content coming soon.', 'Fullständigt innehåll kommer snart.')}
+      </p>
+    )}
+  </article>
+</Base>
+
+<style>
+  .back {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    color: var(--text-dim);
+  }
+  .back:hover { color: var(--accent-hi); text-decoration: none; }
+
+  article { max-width: 680px; }
+
+  header { margin-bottom: 2rem; }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(95, 168, 95, 0.12);
+    color: var(--accent-hi);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+  }
+
+  .world {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .draft {
+    font-size: 0.72rem;
+    font-family: 'Outfit', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--amber);
+    background: rgba(251, 191, 36, 0.1);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
+  }
+
+  h1 { margin-bottom: 0.75rem; }
+
+  .summary {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    border-left: 3px solid var(--accent);
+    padding-left: 1rem;
+    margin: 0;
+  }
+
+  .no-body {
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 2rem;
+  }
+
+  .prose :global(h1),
+  .prose :global(h2),
+  .prose :global(h3) { margin: 1.75rem 0 0.75rem; }
+
+  .prose :global(p) { margin-bottom: 1rem; line-height: 1.75; }
+
+  .prose :global(ul),
+  .prose :global(ol) {
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .prose :global(li) { margin-bottom: 0.3rem; }
+
+  .prose :global(blockquote) {
+    border-left: 3px solid var(--border);
+    padding-left: 1rem;
+    color: var(--text-dim);
+    font-style: italic;
+    margin: 1.5rem 0;
+  }
+
+  .prose :global(hr) {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .prose :global(strong) { color: var(--text); }
+  .prose :global(em) { color: var(--text-dim); }
+</style>

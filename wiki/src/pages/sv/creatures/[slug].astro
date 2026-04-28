@@ -1,12 +1,12 @@
 ---
-import CreatureDetailContent from '../../components/pages/CreatureDetailContent.astro';
+import CreatureDetailContent from '../../../components/pages/CreatureDetailContent.astro';
 import {
   fetchApprovedCreatures,
   fetchAllStatusHistory,
   fetchQueuedPositions,
   computeMedianEtaDays,
-} from '../../lib/supabase-creatures';
-import type { Creature, StatusHistoryEntry } from '../../lib/supabase-creatures';
+} from '../../../lib/supabase-creatures';
+import type { Creature, StatusHistoryEntry } from '../../../lib/supabase-creatures';
 
 export async function getStaticPaths() {
   const [creatures, allHistory, queuedPositions] = await Promise.all([
@@ -46,4 +46,4 @@ interface Props {
 }
 const { creature, history, queuePosition, etaMap } = Astro.props;
 ---
-<CreatureDetailContent lang="en" creature={creature} history={history} queuePosition={queuePosition} etaMap={etaMap} />
+<CreatureDetailContent lang="sv" creature={creature} history={history} queuePosition={queuePosition} etaMap={etaMap} />
