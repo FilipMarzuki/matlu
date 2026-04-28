@@ -20,8 +20,8 @@ const pathname = Astro.url.pathname;
     {navItems.map(item => (
       <li>
         <a href={item.href} class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}>
-          <span class="t-en">{item.en}</span>
-          <span class="t-sv">{item.sv}</span>
+          <span lang="en">{item.en}</span>
+          <span lang="sv">{item.sv}</span>
         </a>
       </li>
     ))}
@@ -29,8 +29,8 @@ const pathname = Astro.url.pathname;
   <div class="right-group">
     <!-- Language toggle: shows the OTHER language as the button label -->
     <button id="lang-toggle" class="lang-btn" title="Switch language / Byt språk">
-      <span class="t-en">SV</span>
-      <span class="t-sv">EN</span>
+      <span lang="en">SV</span>
+      <span lang="sv">EN</span>
     </button>
     <!-- Cross-links to other Matlu projects -->
     <a href={`${gameUrl}/biome`} class="dev-link" target="_blank" rel="noopener">
@@ -51,11 +51,8 @@ const pathname = Astro.url.pathname;
 <script>
   document.getElementById('lang-toggle')!.addEventListener('click', () => {
     const html = document.documentElement;
-    const next = (html.getAttribute('data-lang') || 'en') === 'en' ? 'sv' : 'en';
-    html.setAttribute('data-lang', next);
+    const next = html.lang === 'sv' ? 'en' : 'sv';
     html.lang = next;
-    localStorage.setItem('matlu-lang', next);
-    // Let other scripts react to the change
     document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: next } }));
   });
 </script>

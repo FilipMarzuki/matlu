@@ -29,44 +29,44 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   <div id="page-content" hidden>
     <div class="page-header">
       <h1>
-        <span class="t-en">Account Settings</span>
-        <span class="t-sv">Kontoinställningar</span>
+        <span lang="en">Account Settings</span>
+        <span lang="sv">Kontoinställningar</span>
       </h1>
       <button id="signout-btn" class="btn-ghost btn-ghost--sm">
-        <span class="t-en">Sign out</span>
-        <span class="t-sv">Logga ut</span>
+        <span lang="en">Sign out</span>
+        <span lang="sv">Logga ut</span>
       </button>
     </div>
 
     <!-- Profile section -->
     <section class="card" id="profile-section">
       <h2>
-        <span class="t-en">Profile</span>
-        <span class="t-sv">Profil</span>
+        <span lang="en">Profile</span>
+        <span lang="sv">Profil</span>
       </h2>
       <p class="meta">
-        <span class="t-en">Email:</span>
-        <span class="t-sv">E-post:</span>
+        <span lang="en">Email:</span>
+        <span lang="sv">E-post:</span>
         <strong id="user-email"></strong>
       </p>
       <p class="meta">
-        <span class="t-en">Handle:</span>
-        <span class="t-sv">Användarnamn:</span>
+        <span lang="en">Handle:</span>
+        <span lang="sv">Användarnamn:</span>
         <strong id="user-handle"></strong>
       </p>
       <p class="meta" id="profile-paused-note" hidden style="color:var(--amber)">
-        <span class="t-en">⚠ Account is paused. Submissions are hidden.</span>
-        <span class="t-sv">⚠ Kontot är pausat. Inlämningar är dolda.</span>
+        <span lang="en">⚠ Account is paused. Submissions are hidden.</span>
+        <span lang="sv">⚠ Kontot är pausat. Inlämningar är dolda.</span>
       </p>
 
       <div class="btn-row" style="margin-top:1rem">
         <a href="#kids" class="btn-outline">
-          <span class="t-en">Manage kids</span>
-          <span class="t-sv">Hantera barn</span>
+          <span lang="en">Manage kids</span>
+          <span lang="sv">Hantera barn</span>
         </a>
         <a href={`/creators/${''}`} id="profile-link" class="btn-outline">
-          <span class="t-en">View creator profile</span>
-          <span class="t-sv">Se skaparprofil</span>
+          <span lang="en">View creator profile</span>
+          <span lang="sv">Se skaparprofil</span>
         </a>
       </div>
     </section>
@@ -74,37 +74,37 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- Kids section -->
     <section class="card" id="kids-section">
       <h2 id="kids">
-        <span class="t-en">Kids on this account</span>
-        <span class="t-sv">Barn på det här kontot</span>
+        <span lang="en">Kids on this account</span>
+        <span lang="sv">Barn på det här kontot</span>
       </h2>
       <div id="kids-list" class="kids-list"></div>
 
       <form id="add-kid-form" class="add-kid-form">
         <h3>
-          <span class="t-en">Add a kid</span>
-          <span class="t-sv">Lägg till ett barn</span>
+          <span lang="en">Add a kid</span>
+          <span lang="sv">Lägg till ett barn</span>
         </h3>
         <div class="field-row">
           <div class="field">
             <label for="kid-name">
-              <span class="t-en">Name or nickname</span>
-              <span class="t-sv">Namn eller smeknamn</span>
+              <span lang="en">Name or nickname</span>
+              <span lang="sv">Namn eller smeknamn</span>
               <span class="req"> *</span>
             </label>
             <input id="kid-name" type="text" maxlength="60" placeholder="e.g. Alex" />
           </div>
           <div class="field">
             <label for="kid-age">
-              <span class="t-en">Age</span>
-              <span class="t-sv">Ålder</span>
-              <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+              <span lang="en">Age</span>
+              <span lang="sv">Ålder</span>
+              <span class="hint"> (<span lang="en">optional</span><span lang="sv">valfritt</span>)</span>
             </label>
             <input id="kid-age" type="number" min="1" max="120" style="max-width:90px" />
           </div>
         </div>
         <button type="submit" class="btn-primary">
-          <span class="t-en">Add kid</span>
-          <span class="t-sv">Lägg till barn</span>
+          <span lang="en">Add kid</span>
+          <span lang="sv">Lägg till barn</span>
         </button>
         <p id="kid-status" class="status" role="status" aria-live="polite"></p>
       </form>
@@ -113,15 +113,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- Data rights section -->
     <section class="card">
       <h2>
-        <span class="t-en">Your data rights</span>
-        <span class="t-sv">Dina datarättigheter</span>
+        <span lang="en">Your data rights</span>
+        <span lang="sv">Dina datarättigheter</span>
       </h2>
       <p class="section-desc">
-        <span class="t-en">
+        <span lang="en">
           Under GDPR you can export, pause, or delete your account at any time.
           See our <a href="/privacy">Privacy Policy</a> for details.
         </span>
-        <span class="t-sv">
+        <span lang="sv">
           Enligt GDPR kan du exportera, pausa eller radera ditt konto när som helst.
           Se vår <a href="/privacy">integritetspolicy</a> för detaljer.
         </span>
@@ -130,57 +130,57 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       <div class="rights-grid">
         <div class="right-item">
           <h3>
-            <span class="t-en">Download your data</span>
-            <span class="t-sv">Ladda ner din data</span>
+            <span lang="en">Download your data</span>
+            <span lang="sv">Ladda ner din data</span>
           </h3>
           <p>
-            <span class="t-en">Export a JSON file with all your personal data (Art. 15, 20).</span>
-            <span class="t-sv">Exportera en JSON-fil med all din persondata (Art. 15, 20).</span>
+            <span lang="en">Export a JSON file with all your personal data (Art. 15, 20).</span>
+            <span lang="sv">Exportera en JSON-fil med all din persondata (Art. 15, 20).</span>
           </p>
           <a href="/account/export" class="btn-outline">
-            <span class="t-en">Export data</span>
-            <span class="t-sv">Exportera data</span>
+            <span lang="en">Export data</span>
+            <span lang="sv">Exportera data</span>
           </a>
         </div>
 
         <div class="right-item">
           <h3 id="pause-resume-heading">
-            <span class="t-en">Pause account</span>
-            <span class="t-sv">Pausa konto</span>
+            <span lang="en">Pause account</span>
+            <span lang="sv">Pausa konto</span>
           </h3>
           <p id="pause-resume-desc">
-            <span class="t-en">
+            <span lang="en">
               Hide your submissions and pause data processing while keeping
               your account (Art. 18). Resumable at any time.
             </span>
-            <span class="t-sv">
+            <span lang="sv">
               Dölj dina inlämningar och pausa databehandling medan du behåller kontot (Art. 18). Kan återupptas när som helst.
             </span>
           </p>
           <button id="pause-resume-btn" class="btn-outline">
-            <span class="t-en">Pause account</span>
-            <span class="t-sv">Pausa konto</span>
+            <span lang="en">Pause account</span>
+            <span lang="sv">Pausa konto</span>
           </button>
           <p id="pause-status" class="status" role="status" aria-live="polite"></p>
         </div>
 
         <div class="right-item right-item--danger">
           <h3>
-            <span class="t-en">Delete account</span>
-            <span class="t-sv">Radera konto</span>
+            <span lang="en">Delete account</span>
+            <span lang="sv">Radera konto</span>
           </h3>
           <p>
-            <span class="t-en">
+            <span lang="en">
               Permanently delete your account, kids, and drafts. Approved
               creatures can be fully deleted or anonymised (Art. 17).
             </span>
-            <span class="t-sv">
+            <span lang="sv">
               Radera kontot, barn och utkast permanent. Godkända väsen kan raderas helt eller anonymiseras (Art. 17).
             </span>
           </p>
           <a href="/account/delete" class="btn-danger">
-            <span class="t-en">Delete account…</span>
-            <span class="t-sv">Radera konto…</span>
+            <span lang="en">Delete account…</span>
+            <span lang="sv">Radera konto…</span>
           </a>
         </div>
       </div>
@@ -189,8 +189,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
   <div id="auth-loading">
     <p style="color:var(--text-dim);margin-top:3rem;text-align:center">
-      <span class="t-en">Loading…</span>
-      <span class="t-sv">Laddar…</span>
+      <span lang="en">Loading…</span>
+      <span lang="sv">Laddar…</span>
     </p>
   </div>
 </Base>
@@ -304,16 +304,16 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     const heading = document.getElementById('pause-resume-heading') as HTMLElement;
     const desc    = document.getElementById('pause-resume-desc') as HTMLElement;
     if (paused) {
-      btn.innerHTML     = `<span class="t-en">Resume account</span><span class="t-sv">Återaktivera konto</span>`;
-      heading.innerHTML = `<span class="t-en">Account paused</span><span class="t-sv">Konto pausat</span>`;
-      desc.innerHTML    = `<span class="t-en">Your submissions are currently hidden. Resume to make them visible again.</span><span class="t-sv">Dina inlämningar är dolda. Återaktivera för att göra dem synliga igen.</span>`;
+      btn.innerHTML     = `<span lang="en">Resume account</span><span lang="sv">Återaktivera konto</span>`;
+      heading.innerHTML = `<span lang="en">Account paused</span><span lang="sv">Konto pausat</span>`;
+      desc.innerHTML    = `<span lang="en">Your submissions are currently hidden. Resume to make them visible again.</span><span lang="sv">Dina inlämningar är dolda. Återaktivera för att göra dem synliga igen.</span>`;
     }
   }
 
   function renderKids(kids: Array<{ id: string; kid_name: string; kid_age: number | null }>): void {
     const list = document.getElementById('kids-list') as HTMLElement;
     if (!kids.length) {
-      list.innerHTML = `<p class="empty"><span class="t-en">No kids yet. Add one below to attribute creature submissions.</span><span class="t-sv">Inga barn ännu. Lägg till ett nedan för att koppla inlämningar.</span></p>`;
+      list.innerHTML = `<p class="empty"><span lang="en">No kids yet. Add one below to attribute creature submissions.</span><span lang="sv">Inga barn ännu. Lägg till ett nedan för att koppla inlämningar.</span></p>`;
       return;
     }
     list.innerHTML = kids.map(k => `

@@ -178,8 +178,8 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
 >
   <div class="breadcrumb">
     <a href="/creatures">
-      <span class="t-en">&larr; All creatures</span>
-      <span class="t-sv">&larr; Alla väsen</span>
+      <span lang="en">&larr; All creatures</span>
+      <span lang="sv">&larr; Alla väsen</span>
     </a>
   </div>
 
@@ -188,17 +188,17 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
     <div class="ribbon-icon" aria-hidden="true">{statusInfo.emoji}</div>
     <div class="ribbon-body">
       <div class="ribbon-label">
-        <span class="t-en">{statusInfo.label}</span>
-        <span class="t-sv">{statusInfo.labelSv}</span>
+        <span lang="en">{statusInfo.label}</span>
+        <span lang="sv">{statusInfo.labelSv}</span>
       </div>
       <div class="ribbon-copy">
-        <span class="t-en">{ribbonCopy}</span>
-        <span class="t-sv">{ribbonCopySv}</span>
+        <span lang="en">{ribbonCopy}</span>
+        <span lang="sv">{ribbonCopySv}</span>
       </div>
       {etaRounded !== null && (
         <div class="ribbon-eta">
-          <span class="t-en">Usually takes about {etaRounded} {etaRounded === 1 ? 'day' : 'days'} at this stage.</span>
-          <span class="t-sv">Tar vanligtvis ungefär {etaRounded} {etaRounded === 1 ? 'dag' : 'dagar'} i det här stadiet.</span>
+          <span lang="en">Usually takes about {etaRounded} {etaRounded === 1 ? 'day' : 'days'} at this stage.</span>
+          <span lang="sv">Tar vanligtvis ungefär {etaRounded} {etaRounded === 1 ? 'dag' : 'dagar'} i det här stadiet.</span>
         </div>
       )}
     </div>
@@ -212,8 +212,8 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
         {c.world_name && <p class="world-tag">{c.world_name}</p>}
         {c.creator_name && (
           <p class="creator">
-            <span class="t-en">Created by</span>
-            <span class="t-sv">Skapad av</span>
+            <span lang="en">Created by</span>
+            <span lang="sv">Skapad av</span>
             {' '}<strong>{c.art_credit ?? c.creator_name}</strong>
           </p>
         )}
@@ -221,13 +221,13 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
       {c.tracker_issue_number && (
         <aside class="tracker-card">
           <p class="tracker-title">
-            <span class="t-en">Follow this creature's progress</span>
-            <span class="t-sv">Följ det här väsenets resa</span>
+            <span lang="en">Follow this creature's progress</span>
+            <span lang="sv">Följ det här väsenets resa</span>
           </p>
           <hr class="tracker-rule" />
           <p class="tracker-body">
-            <span class="t-en">This creature has a tracker on GitHub where every update is posted.</span>
-            <span class="t-sv">Det här väsenet har en spårare på GitHub där alla uppdateringar publiceras.</span>
+            <span lang="en">This creature has a tracker on GitHub where every update is posted.</span>
+            <span lang="sv">Det här väsenet har en spårare på GitHub där alla uppdateringar publiceras.</span>
           </p>
           <a
             href={`https://github.com/FilipMarzuki/matlu/issues/${c.tracker_issue_number}`}
@@ -235,12 +235,12 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span class="t-en">Open tracker on GitHub →</span>
-            <span class="t-sv">Öppna spåraren på GitHub →</span>
+            <span lang="en">Open tracker on GitHub →</span>
+            <span lang="sv">Öppna spåraren på GitHub →</span>
           </a>
           <p class="tracker-hint">
-            <span class="t-en">Bookmark or subscribe to get notified when it moves forward.</span>
-            <span class="t-sv">Bokmärk eller prenumerera för att få ett meddelande när det går vidare.</span>
+            <span lang="en">Bookmark or subscribe to get notified when it moves forward.</span>
+            <span lang="sv">Bokmärk eller prenumerera för att få ett meddelande när det går vidare.</span>
           </p>
         </aside>
       )}
@@ -253,8 +253,8 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
           <img src={img} alt={`Drawing of ${c.creature_name}`} class="art" />
           {c.art_credit && c.art_credit !== c.creator_name && (
             <p class="art-credit">
-              <span class="t-en">Art by</span>
-              <span class="t-sv">Konst av</span>
+              <span lang="en">Art by</span>
+              <span lang="sv">Konst av</span>
               {' '}{c.art_credit}
             </p>
           )}
@@ -263,8 +263,8 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
       {spritePng && spriteJson && (
         <div class="sprite-wrap">
           <p class="sprite-label">
-            <span class="t-en">In-game sprite</span>
-            <span class="t-sv">Spelsprit</span>
+            <span lang="en">In-game sprite</span>
+            <span lang="sv">Spelsprit</span>
           </p>
           <canvas id="sprite-canvas" data-png={spritePng} data-json={spriteJson} class="sprite-canvas"></canvas>
         </div>
@@ -274,32 +274,32 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
     <!-- What kind -->
     {(val(c.kind_size) || movements_en.length || c.kind_solitary !== null) && (
       <section class="detail-section">
-        <h2><span class="t-en">What kind of creature</span><span class="t-sv">Vad för sorts väsen</span></h2>
+        <h2><span lang="en">What kind of creature</span><span lang="sv">Vad för sorts väsen</span></h2>
         <dl>
           {val(c.kind_size) && (
             <>
-              <dt><span class="t-en">Size</span><span class="t-sv">Storlek</span></dt>
+              <dt><span lang="en">Size</span><span lang="sv">Storlek</span></dt>
               <dd>
-                <span class="t-en">{sizeEn[c.kind_size!] ?? c.kind_size}</span>
-                <span class="t-sv">{sizeSv[c.kind_size!] ?? c.kind_size}</span>
+                <span lang="en">{sizeEn[c.kind_size!] ?? c.kind_size}</span>
+                <span lang="sv">{sizeSv[c.kind_size!] ?? c.kind_size}</span>
               </dd>
             </>
           )}
           {movements_en.length > 0 && (
             <>
-              <dt><span class="t-en">Movement</span><span class="t-sv">Rörelse</span></dt>
+              <dt><span lang="en">Movement</span><span lang="sv">Rörelse</span></dt>
               <dd>
-                <span class="t-en">{movements_en.join(', ')}</span>
-                <span class="t-sv">{movements_sv.join(', ')}</span>
+                <span lang="en">{movements_en.join(', ')}</span>
+                <span lang="sv">{movements_sv.join(', ')}</span>
               </dd>
             </>
           )}
           {c.kind_solitary !== null && (
             <>
-              <dt><span class="t-en">Social</span><span class="t-sv">Socialt</span></dt>
+              <dt><span lang="en">Social</span><span lang="sv">Socialt</span></dt>
               <dd>
-                <span class="t-en">{c.kind_solitary ? 'Lives alone' : 'Lives in groups'}</span>
-                <span class="t-sv">{c.kind_solitary ? 'Lever ensamt' : 'Lever i grupp'}</span>
+                <span lang="en">{c.kind_solitary ? 'Lives alone' : 'Lives in groups'}</span>
+                <span lang="sv">{c.kind_solitary ? 'Lever ensamt' : 'Lever i grupp'}</span>
               </dd>
             </>
           )}
@@ -310,29 +310,29 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
     <!-- Habitat -->
     {(biomes_en.length || val(c.habitat_climate) || val(c.habitat_notes)) && (
       <section class="detail-section">
-        <h2><span class="t-en">Where it lives</span><span class="t-sv">Var det lever</span></h2>
+        <h2><span lang="en">Where it lives</span><span lang="sv">Var det lever</span></h2>
         <dl>
           {biomes_en.length > 0 && (
             <>
-              <dt><span class="t-en">Biome</span><span class="t-sv">Biom</span></dt>
+              <dt><span lang="en">Biome</span><span lang="sv">Biom</span></dt>
               <dd>
-                <span class="t-en">{biomes_en.join(', ')}</span>
-                <span class="t-sv">{biomes_sv.join(', ')}</span>
+                <span lang="en">{biomes_en.join(', ')}</span>
+                <span lang="sv">{biomes_sv.join(', ')}</span>
               </dd>
             </>
           )}
           {val(c.habitat_climate) && (
             <>
-              <dt><span class="t-en">Climate</span><span class="t-sv">Klimat</span></dt>
+              <dt><span lang="en">Climate</span><span lang="sv">Klimat</span></dt>
               <dd>
-                <span class="t-en">{climateEn[c.habitat_climate!] ?? c.habitat_climate}</span>
-                <span class="t-sv">{climateSv[c.habitat_climate!] ?? c.habitat_climate}</span>
+                <span lang="en">{climateEn[c.habitat_climate!] ?? c.habitat_climate}</span>
+                <span lang="sv">{climateSv[c.habitat_climate!] ?? c.habitat_climate}</span>
               </dd>
             </>
           )}
           {val(c.habitat_notes) && (
             <>
-              <dt><span class="t-en">Notes</span><span class="t-sv">Anteckningar</span></dt>
+              <dt><span lang="en">Notes</span><span lang="sv">Anteckningar</span></dt>
               <dd>{c.habitat_notes}</dd>
             </>
           )}
@@ -343,20 +343,20 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
     <!-- Behaviour -->
     {(val(c.behaviour_threat) || val(c.behaviour_notes)) && (
       <section class="detail-section">
-        <h2><span class="t-en">Behaviour</span><span class="t-sv">Beteende</span></h2>
+        <h2><span lang="en">Behaviour</span><span lang="sv">Beteende</span></h2>
         <dl>
           {val(c.behaviour_threat) && (
             <>
-              <dt><span class="t-en">Danger level</span><span class="t-sv">Farlighetsnivå</span></dt>
+              <dt><span lang="en">Danger level</span><span lang="sv">Farlighetsnivå</span></dt>
               <dd>
-                <span class="t-en">{threatEn[c.behaviour_threat!] ?? c.behaviour_threat}</span>
-                <span class="t-sv">{threatSv[c.behaviour_threat!] ?? c.behaviour_threat}</span>
+                <span lang="en">{threatEn[c.behaviour_threat!] ?? c.behaviour_threat}</span>
+                <span lang="sv">{threatSv[c.behaviour_threat!] ?? c.behaviour_threat}</span>
               </dd>
             </>
           )}
           {val(c.behaviour_notes) && (
             <>
-              <dt><span class="t-en">Notes</span><span class="t-sv">Anteckningar</span></dt>
+              <dt><span lang="en">Notes</span><span lang="sv">Anteckningar</span></dt>
               <dd>{c.behaviour_notes}</dd>
             </>
           )}
@@ -367,20 +367,20 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
     <!-- Food -->
     {(val(c.kind_diet) || val(c.food_notes)) && (
       <section class="detail-section">
-        <h2><span class="t-en">Food</span><span class="t-sv">Mat</span></h2>
+        <h2><span lang="en">Food</span><span lang="sv">Mat</span></h2>
         <dl>
           {val(c.kind_diet) && (
             <>
-              <dt><span class="t-en">Diet</span><span class="t-sv">Kost</span></dt>
+              <dt><span lang="en">Diet</span><span lang="sv">Kost</span></dt>
               <dd>
-                <span class="t-en">{dietEn[c.kind_diet!] ?? c.kind_diet}</span>
-                <span class="t-sv">{dietSv[c.kind_diet!] ?? c.kind_diet}</span>
+                <span lang="en">{dietEn[c.kind_diet!] ?? c.kind_diet}</span>
+                <span lang="sv">{dietSv[c.kind_diet!] ?? c.kind_diet}</span>
               </dd>
             </>
           )}
           {val(c.food_notes) && (
             <>
-              <dt><span class="t-en">Notes</span><span class="t-sv">Anteckningar</span></dt>
+              <dt><span lang="en">Notes</span><span lang="sv">Anteckningar</span></dt>
               <dd>{c.food_notes}</dd>
             </>
           )}
@@ -391,7 +391,7 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
     <!-- Special -->
     {val(c.special_ability) && (
       <section class="detail-section">
-        <h2><span class="t-en">Special ability</span><span class="t-sv">Speciell förmåga</span></h2>
+        <h2><span lang="en">Special ability</span><span lang="sv">Speciell förmåga</span></h2>
         <p class="prose">{c.special_ability}</p>
       </section>
     )}
@@ -399,11 +399,11 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
     <!-- Story -->
     {val(c.lore_description) && (
       <section class="detail-section">
-        <h2><span class="t-en">Story</span><span class="t-sv">Historien</span></h2>
+        <h2><span lang="en">Story</span><span lang="sv">Historien</span></h2>
         <p class="prose">{c.lore_description}</p>
         {val(c.lore_origin) && (
           <>
-            <h3><span class="t-en">Origin</span><span class="t-sv">Ursprung</span></h3>
+            <h3><span lang="en">Origin</span><span lang="sv">Ursprung</span></h3>
             <p class="prose">{c.lore_origin}</p>
           </>
         )}
@@ -416,8 +416,8 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
   {timelineEntries.length > 0 && (
     <section class="timeline-section">
       <h2 class="timeline-heading">
-        <span class="t-en">Journey so far</span>
-        <span class="t-sv">Resan hittills</span>
+        <span lang="en">Journey so far</span>
+        <span lang="sv">Resan hittills</span>
       </h2>
       <ol class="timeline">
         {timelineEntries.map(entry => (
@@ -426,12 +426,12 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
             <span class="timeline-text">
               {entry.isCurrent
                 ? <>
-                    <strong class="t-en">{entry.emoji} {entry.label}</strong>
-                    <strong class="t-sv">{entry.emoji} {entry.labelSv}</strong>
+                    <strong lang="en">{entry.emoji} {entry.label}</strong>
+                    <strong lang="sv">{entry.emoji} {entry.labelSv}</strong>
                   </>
                 : <>
-                    <span class="t-en">{entry.emoji} {entry.label}</span>
-                    <span class="t-sv">{entry.emoji} {entry.labelSv}</span>
+                    <span lang="en">{entry.emoji} {entry.label}</span>
+                    <span lang="sv">{entry.emoji} {entry.labelSv}</span>
                   </>
               }
               <span class="timeline-date">{entry.date}</span>
@@ -444,8 +444,8 @@ const biomes_sv = arr(c.habitat_biome).map(b => biomeSv[b] ?? b);
 
   <div class="back-link">
     <a href="/creatures">
-      <span class="t-en">&larr; Back to all creatures</span>
-      <span class="t-sv">&larr; Tillbaka till alla väsen</span>
+      <span lang="en">&larr; Back to all creatures</span>
+      <span lang="sv">&larr; Tillbaka till alla väsen</span>
     </a>
   </div>
 </Base>

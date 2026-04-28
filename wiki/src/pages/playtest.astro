@@ -16,8 +16,8 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 ---
 
 <Base title="Playtest" description="Play Matlu and share your feedback">
-  <h1 data-i18n="playtest.title">Playtest Matlu</h1>
-  <p class="lead" data-i18n="playtest.lead">
+  <h1>Playtest Matlu</h1>
+  <p class="lead">
     Try the game in your browser, then share what worked and what didn't.
     Feedback goes directly to the development team.
   </p>
@@ -27,14 +27,14 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     target="_blank"
     rel="noopener noreferrer"
     class="play-btn"
-    data-i18n="playtest.play_btn"
+   
   >
     Play Matlu &rarr;
   </a>
 
   <section class="feedback-section">
-    <h2 data-i18n="playtest.feedback_heading">Share your feedback</h2>
-    <p class="section-desc" data-i18n="playtest.feedback_desc">Takes about 60 seconds. No account needed.</p>
+    <h2>Share your feedback</h2>
+    <p class="section-desc">Takes about 60 seconds. No account needed.</p>
 
     <!--
       Hidden element to bridge server-side env vars into the client script.
@@ -46,7 +46,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     <form id="feedback-form" novalidate>
       <div class="field">
-        <label for="combat_feel_rating"><span data-i18n="playtest.combat_label">How did combat feel?</span> <span class="hint" data-i18n="playtest.combat_hint">(1 = terrible, 5 = great)</span></label>
+        <label for="combat_feel_rating"><span>How did combat feel?</span> <span class="hint">(1 = terrible, 5 = great)</span></label>
         <div class="rating-row">
           {[1, 2, 3, 4, 5].map(n => (
             <label class="radio-label">
@@ -58,21 +58,21 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
       </div>
 
       <div class="field">
-        <label for="frustration_text"><span data-i18n="playtest.frustration_label">What frustrated you most?</span> <span class="hint">(optional)</span></label>
+        <label for="frustration_text"><span>What frustrated you most?</span> <span class="hint">(optional)</span></label>
         <textarea id="frustration_text" name="frustration_text" rows={3} placeholder="e.g. controls feel slippery, enemies too fast…"></textarea>
       </div>
 
       <div class="field">
-        <label for="bug_text"><span data-i18n="playtest.bug_label">Any bugs?</span> <span class="hint">(optional)</span></label>
+        <label for="bug_text"><span>Any bugs?</span> <span class="hint">(optional)</span></label>
         <textarea id="bug_text" name="bug_text" rows={3} placeholder="e.g. crashed when pressing X, stuck on Y screen…"></textarea>
       </div>
 
       <div class="field">
-        <label for="overall_text"><span data-i18n="playtest.overall_label">Overall thoughts</span> <span class="hint">(optional)</span></label>
+        <label for="overall_text"><span>Overall thoughts</span> <span class="hint">(optional)</span></label>
         <textarea id="overall_text" name="overall_text" rows={3} placeholder="Anything else you'd like us to know…"></textarea>
       </div>
 
-      <button type="submit" id="submit-btn" data-i18n="playtest.submit_btn">Submit feedback</button>
+      <button type="submit" id="submit-btn">Submit feedback</button>
     </form>
 
     <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
@@ -81,7 +81,6 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
 <script>
   import { createClient } from '@supabase/supabase-js';
-  import { t } from '../lib/i18n-codex';
 
   const cfg = document.getElementById('supa-cfg') as HTMLElement;
   const url = cfg.dataset.url ?? '';
@@ -103,7 +102,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     const data = new FormData(form);
     const ratingRaw = data.get('combat_feel_rating');
     if (!ratingRaw) {
-      statusEl.textContent = t('playtest.rating_required');
+      statusEl.textContent = 'Please select a combat feel rating.';
       statusEl.className = 'form-status error';
       return;
     }
@@ -122,7 +121,7 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
     ].filter(Boolean).join(' | ');
 
     submitBtn.disabled = true;
-    statusEl.textContent = t('playtest.submitting');
+    statusEl.textContent = 'Submitting…';
     statusEl.className = 'form-status';
 
     const { error } = await supabase.from('matlu_feedback').insert({
@@ -143,11 +142,11 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '
 
     if (error) {
       console.error('Feedback submit error:', error);
-      statusEl.textContent = t('playtest.error');
+      statusEl.textContent = 'Something went wrong — please try again.';
       statusEl.className = 'form-status error';
       submitBtn.disabled = false;
     } else {
-      statusEl.textContent = t('playtest.success');
+      statusEl.textContent = 'Thanks! Your feedback has been recorded.';
       statusEl.className = 'form-status success';
       form.reset();
     }

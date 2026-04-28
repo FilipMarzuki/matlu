@@ -114,8 +114,8 @@ const { handle, submissions, kidMap, supabaseUrl, firstBadgeEarned, inGameBadgeE
   <div class="profile-header">
     <h1>@{handle}</h1>
     <p class="subtitle">
-      <span class="t-en">Creator profile — {submissions.length} creature{submissions.length !== 1 ? 's' : ''} submitted</span>
-      <span class="t-sv">Skaparprofil — {submissions.length} väsen inlämnade</span>
+      <span lang="en">Creator profile — {submissions.length} creature{submissions.length !== 1 ? 's' : ''} submitted</span>
+      <span lang="sv">Skaparprofil — {submissions.length} väsen inlämnade</span>
     </p>
   </div>
 
@@ -123,8 +123,8 @@ const { handle, submissions, kidMap, supabaseUrl, firstBadgeEarned, inGameBadgeE
 
   {submissions.length === 0 ? (
     <p class="empty">
-      <span class="t-en">No approved creatures yet.</span>
-      <span class="t-sv">Inga godkända väsen ännu.</span>
+      <span lang="en">No approved creatures yet.</span>
+      <span lang="sv">Inga godkända väsen ännu.</span>
     </p>
   ) : (
     <div class="creature-grid">
@@ -152,8 +152,8 @@ const { handle, submissions, kidMap, supabaseUrl, firstBadgeEarned, inGameBadgeE
               <h3>{s.creature_name}</h3>
               {kidName && (
                 <p class="by-line">
-                  <span class="t-en">by</span>
-                  <span class="t-sv">av</span>
+                  <span lang="en">by</span>
+                  <span lang="sv">av</span>
                   {' '}{kidName}
                 </p>
               )}
@@ -169,8 +169,8 @@ const { handle, submissions, kidMap, supabaseUrl, firstBadgeEarned, inGameBadgeE
 
   <p class="back-link">
     <a href="/creatures">
-      <span class="t-en">← All creatures</span>
-      <span class="t-sv">← Alla väsen</span>
+      <span lang="en">← All creatures</span>
+      <span lang="sv">← Alla väsen</span>
     </a>
   </p>
 </Base>

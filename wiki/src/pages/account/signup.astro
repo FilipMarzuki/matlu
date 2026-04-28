@@ -34,15 +34,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
   <div class="auth-card">
     <h1>
-      <span class="t-en">Create account</span>
-      <span class="t-sv">Skapa konto</span>
+      <span lang="en">Create account</span>
+      <span lang="sv">Skapa konto</span>
     </h1>
     <p class="lead">
-      <span class="t-en">
+      <span lang="en">
         Accounts are for <strong>parents and guardians only</strong>. Children
         submit creatures through a grown-up's account.
       </span>
-      <span class="t-sv">
+      <span lang="sv">
         Konton är bara för <strong>föräldrar och vårdnadshavare</strong>. Barn skickar in väsen via en vuxens konto.
       </span>
     </p>
@@ -50,8 +50,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <form id="signup-form" novalidate>
       <div class="field">
         <label for="handle">
-          <span class="t-en">Choose a handle (public username)</span>
-          <span class="t-sv">Välj ett användarnamn (synligt publikt)</span>
+          <span lang="en">Choose a handle (public username)</span>
+          <span lang="sv">Välj ett användarnamn (synligt publikt)</span>
           <span class="req"> *</span>
         </label>
         <input
@@ -65,15 +65,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           autocomplete="username"
         />
         <span class="hint">
-          <span class="t-en">Lowercase letters, numbers, hyphens, and underscores only.</span>
-          <span class="t-sv">Bara gemener, siffror, bindestreck och understreck.</span>
+          <span lang="en">Lowercase letters, numbers, hyphens, and underscores only.</span>
+          <span lang="sv">Bara gemener, siffror, bindestreck och understreck.</span>
         </span>
       </div>
 
       <div class="field">
         <label for="email">
-          <span class="t-en">Your email address</span>
-          <span class="t-sv">Din e-postadress</span>
+          <span lang="en">Your email address</span>
+          <span lang="sv">Din e-postadress</span>
           <span class="req"> *</span>
         </label>
         <input
@@ -89,19 +89,19 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       <!-- GDPR consent checkboxes — three separate boxes, each required -->
       <div class="consent-section">
         <h2>
-          <span class="t-en">Consent</span>
-          <span class="t-sv">Samtycke</span>
+          <span lang="en">Consent</span>
+          <span lang="sv">Samtycke</span>
         </h2>
 
         <div class="field field--check">
           <label class="checkbox-label">
             <input type="checkbox" id="cb_parental" name="cb_parental" required />
             <span>
-              <span class="t-en">
+              <span lang="en">
                 I am the parent or guardian of the child(ren) using this account,
                 and I am 18 or older.
               </span>
-              <span class="t-sv">
+              <span lang="sv">
                 Jag är förälder eller vårdnadshavare för barnet/barnen som använder detta konto och är 18 år eller äldre.
               </span>
               <span class="req"> *</span>
@@ -113,11 +113,11 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <label class="checkbox-label">
             <input type="checkbox" id="cb_privacy" name="cb_privacy" required />
             <span>
-              <span class="t-en">
+              <span lang="en">
                 I have read and agree to the
                 <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
               </span>
-              <span class="t-sv">
+              <span lang="sv">
                 Jag har läst och godkänner
                 <a href="/privacy" target="_blank" rel="noopener">integritetspolicyn</a>.
               </span>
@@ -130,11 +130,11 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           <label class="checkbox-label">
             <input type="checkbox" id="cb_license" name="cb_license" required />
             <span>
-              <span class="t-en">
+              <span lang="en">
                 I have read and agree to the
                 <a href="/creatures/license" target="_blank" rel="noopener">Creature License</a>.
               </span>
-              <span class="t-sv">
+              <span lang="sv">
                 Jag har läst och godkänner
                 <a href="/creatures/license" target="_blank" rel="noopener">Väsenslicensen</a>.
               </span>
@@ -145,16 +145,16 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
 
       <button type="submit" id="submit-btn" disabled>
-        <span class="t-en">Create account &amp; send link</span>
-        <span class="t-sv">Skapa konto och skicka länk</span>
+        <span lang="en">Create account &amp; send link</span>
+        <span lang="sv">Skapa konto och skicka länk</span>
       </button>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
     </form>
 
     <p class="switch-link">
-      <span class="t-en">Already have an account? <a href="/account/signin">Sign in</a>.</span>
-      <span class="t-sv">Har du redan ett konto? <a href="/account/signin">Logga in</a>.</span>
+      <span lang="en">Already have an account? <a href="/account/signin">Sign in</a>.</span>
+      <span lang="sv">Har du redan ett konto? <a href="/account/signin">Logga in</a>.</span>
     </p>
   </div>
 </Base>
