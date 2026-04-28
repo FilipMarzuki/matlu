@@ -19,6 +19,9 @@ export default defineConfig({
         // with a stale-while-revalidate strategy (see runtimeCaching below).
         globPatterns: ['**/*.{js,css,html,ico}'],
 
+        // Phaser + game code bundles above the default 2 MB limit.
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+
         // Audio and large image packs: network-first with a 7-day cache.
         // This gives offline playback after the first visit without
         // blowing the ~50 MB SW cache limit.
