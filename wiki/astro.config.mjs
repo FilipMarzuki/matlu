@@ -10,4 +10,11 @@ import vercel from '@astrojs/vercel';
 // serverless functions for those routes.
 export default defineConfig({
   adapter: vercel(),
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'sv'],
+    routing: {
+      prefixDefaultLocale: false,  // EN at /, SV at /sv/
+    },
+  },
 });
