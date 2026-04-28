@@ -51,6 +51,11 @@ Pay special attention to:
 
 Also read `LORE.md` for Notion database IDs and agent conventions.
 
+Also read `AXES.md` for the cultural axes layering model (Tradition ↔ Reason,
+Survival ↔ Expression, Tight ↔ Loose, High ↔ Low Context, Honor/Dignity/Face
+mode). You will use this framework in STEP 2 and STEP 5 to ground new entries
+in the correct People's baseline and surface structural tension.
+
 **Notion Database IDs** (also in LORE.md):
 - Creatures: `4c71181b-2842-4301-b7cf-94572b3845a9`
 - Characters: `751f1b85-0c99-4e1b-a0a5-c39a5422498a`
@@ -60,9 +65,15 @@ Also read `LORE.md` for Notion database IDs and agent conventions.
 
 ## STEP 2 — READ EXISTING LORE
 
-Query each Notion database (`POST /v1/databases/{id}/query`) to understand what already
-exists. Read at least Characters, Factions, and Locations before generating. Do not
-contradict established entries.
+**Read Peoples first.** The Peoples DB ID is in `LORE.md` (look it up there — do not
+hard-code it). Query it with `POST /v1/databases/{peoples_db_id}/query` before any
+other database. Peoples entries carry the axis scores (Tradition, Survival, Tight,
+Context, Mode) that ground every Character, Faction, and Location you generate in STEP 5.
+Build a lookup map: `{ people_name → { page_id, axis_scores, mode } }`.
+
+Then query each other Notion database (`POST /v1/databases/{id}/query`) to understand
+what already exists. Read at least Characters, Factions, and Locations before generating.
+Do not contradict established entries.
 
 ## STEP 3 — FIND GAPS
 
@@ -115,16 +126,30 @@ want to be the first to say so. A Viddfolk [Herald] re-running a route that is t
 half a day longer than it did last year. A Goblin [Keeper] whose band's oral history
 includes the location of a sealed ruin that just became accessible.
 
+When creating a Character page, **set the `People` relation** to the appropriate People
+entry (use the `page_id` from your STEP 2 lookup map). Inherit the People's axis scores
+as the character's cultural baseline; note any personal deviations (Big Five divergence,
+faction membership, lived experience) in the prose — see `AXES.md` §Layering.
+
 **Locations:** A specific place that reflects its region's resources and character.
 A Pandor kloster with a particular archive and a particular problem. A Deepwalker
 stilt-town built over a contested coastal ruin. A Steinfolk stronghold at a river
 junction, described through the perspective of the work it does.
+
+When creating a Location page, **link it to the relevant Peoples** via the region/owner
+relation fields on the page (use `page_id`s from your STEP 2 lookup map). A location
+inhabited by Bergfolk should carry a Bergfolk relation; a contested site between two
+peoples should carry both.
 
 **Factions:** A political arrangement, a craft guild, a compact between unlikely parties.
 The Bergfolk hold that employs goblin salvagers and has not investigated why the upper
 levels are so tidy. The Lövfolk city-state whose governing council hasn't changed in
 four hundred years and doesn't know it. An informal alliance between a Merfolk
 [Depth-Keeper] and a Deepwalker [Keeper] over a shared ruin site.
+
+When creating a Faction page, **set the `Member peoples` relation** to all Peoples
+who belong to or are closely associated with the faction (use `page_id`s from your
+STEP 2 lookup map).
 
 **Writing the entry:**
 - Set Lore Status to `draft`
@@ -141,6 +166,13 @@ four hundred years and doesn't know it. An informal alliance between a Merfolk
   carries message cylinders. If you are writing a Markfolk market, it smells of clay
   dust and river grass and the hats on every head are wide-brimmed and woven. These
   are not decorative details. They are how a reader knows where they are.
+- **Show structural tension where it exists.** Per `AXES.md` §Layering, a character's
+  effective values are `people_baseline + faction_modifier + personal_deviation`. If any
+  of these layers diverge, surface it in the prose — not as an explicit score, but as a
+  felt contradiction: the Bergfolk [Runesmith] who quotes evidence over lineage (+1
+  personal deviation toward Reason) feels uncomfortable at the guild feast; the Fae
+  who joined an open archive is conspicuous by how many questions she doesn't answer
+  (Face mode clashing with the guild's Dignity norm). Tension is characterisation.
 - Add a final line: _Written by the lore historian agent_
 
 ## STEP 6 — AUTO-DRAFT LORE FOR BALANCED CREATURE SUBMISSIONS
