@@ -9,9 +9,10 @@
  *   5. Selects buildings from the building registry
  *   6. Returns a fully resolved SettlementSpec + building list
  *
- * The generator reads cultures.json and building-registry.json as static
- * imports (bundled by Vite). It never switches on culture id — all culture
- * effects come from numeric modifiers.
+ * Culture data is loaded from Supabase at runtime via `initSettlementData()`.
+ * Falls back to the bundled JSON snapshot when Supabase is unavailable.
+ * Building registry is still JSON-only (not yet migrated). The generator
+ * never switches on culture id — all culture effects come from numeric modifiers.
  *
  * ## Output compatibility
  * The output includes a `resolvedBuildings` array that maps to the same
@@ -31,12 +32,15 @@ import type {
   AdjacentResource,
 } from './SettlementSpec';
 
-// ── Static data imports (bundled by Vite) ────────────────────────────────────
+import { loadMacroWorld, getTraitSlugsForCulture } from '../lib/macroWorld';
+import type { Culture, Building } from '../lib/macroWorld';
 
-import culturesData from '../../macro-world/cultures.json';
+// ── JSON fallback (bundled by Vite, used when Supabase unavailable) ─────────
+
+import culturesDataFallback from '../../macro-world/cultures.json';
 import buildingRegistryData from '../../macro-world/building-registry.json';
 
-// ── Types for JSON data ──────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────────
 
 interface CultureDef {
   id: string;
@@ -91,12 +95,75 @@ export interface ResolvedBuilding {
   loreHook: string;
 }
 
-// ── Parse static data ────────────────────────────────────────────────────────
+// ── Data (populated by initSettlementData, JSON fallback until then) ────────
 
-const CULTURES: CultureDef[] = culturesData.cultures as CultureDef[];
+/** Map a Supabase Culture row to the internal CultureDef shape. */
+function cultureToDef(c: Culture): CultureDef {
+  return {
+    id:                  c.slug,
+    name:                c.name,
+    spacing:             c.spacing ?? 1.0,
+    organicness:         c.organicness ?? 0.5,
+    hierarchyScale:      c.hierarchy_scale ?? 1.0,
+    perimeterAwareness:  c.perimeter_awareness ?? 0.0,
+    facingBias:          c.facing_bias ?? 'random',
+    verticality:         c.verticality ?? 0.0,
+    preferredShapes:     c.preferred_shapes ?? [],
+    roofStyle:           c.roof_style ?? 'thatch',
+    streetPattern:       c.street_pattern ?? 'organic',
+    traits:              getTraitSlugsForCulture(c.id),
+  };
+}
 
-const BUILDINGS: BuildingRegistryEntry[] = (buildingRegistryData.buildings as unknown[])
-  .filter((b: unknown) => typeof b === 'object' && b !== null && 'id' in (b as Record<string, unknown>)) as BuildingRegistryEntry[];
+/** Map a Supabase Building row to the internal BuildingRegistryEntry shape. */
+function buildingToDef(b: Building): BuildingRegistryEntry {
+  return {
+    id:               b.slug,
+    name:             b.name,
+    role:             b.role ?? '',
+    category:         b.category ?? 'residential',
+    minTier:          b.min_tier ?? 1,
+    zone:             (b.zone ?? 'middle') as 'inner' | 'middle' | 'outer',
+    baseSizeRange:    [b.base_size_min ?? 2, b.base_size_max ?? 3],
+    baseDepthRange:   b.base_depth_min != null ? [b.base_depth_min, b.base_depth_max ?? b.base_depth_min] : undefined,
+    heightHint:       b.height_hint ?? 'standard',
+    unlockConditions: (b.unlock_conditions ?? {}) as Record<string, unknown>,
+    count:            (b.count ?? {}) as Record<string, number>,
+    placementHints:   b.placement_hints ?? [],
+    loreHook:         b.lore_hook ?? '',
+  };
+}
+
+/** Parse the bundled JSON fallback into CultureDef[]. */
+function fallbackCultures(): CultureDef[] {
+  return culturesDataFallback.cultures as CultureDef[];
+}
+
+/** Parse the bundled JSON fallback into BuildingRegistryEntry[]. */
+function fallbackBuildings(): BuildingRegistryEntry[] {
+  return (buildingRegistryData.buildings as unknown[])
+    .filter((b: unknown) => typeof b === 'object' && b !== null && 'id' in (b as Record<string, unknown>)) as BuildingRegistryEntry[];
+}
+
+let CULTURES: CultureDef[] = fallbackCultures();
+let BUILDINGS: BuildingRegistryEntry[] = fallbackBuildings();
+
+/**
+ * Load culture + building data from Supabase (falls back to bundled JSON).
+ * Call this once during scene init before generating settlements.
+ */
+export async function initSettlementData(): Promise<void> {
+  const mw = await loadMacroWorld();
+  if (mw) {
+    CULTURES = mw.cultures.map(cultureToDef);
+    BUILDINGS = mw.buildings.map(buildingToDef);
+    console.log(`[SettlementGenerator] loaded ${CULTURES.length} cultures, ${BUILDINGS.length} buildings from Supabase`);
+  } else {
+    CULTURES = fallbackCultures();
+    BUILDINGS = fallbackBuildings();
+    console.log(`[SettlementGenerator] using JSON fallback (${CULTURES.length} cultures, ${BUILDINGS.length} buildings)`);
+  }
+}
 
 // ── Purpose derivation ───────────────────────────────────────────────────────
 

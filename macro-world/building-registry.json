@@ -1,24 +1,6 @@
 {
-  "_doc": "Building registry — every structure that can appear in a settlement. The layout generator selects buildings based on purpose, tier, secondary traits, and adjacent resources. Culture determines visual style (roof, shape, material) but NOT which buildings appear. Agents can add new entries freely.",
-  "_schema": {
-    "id": "Unique kebab-case identifier",
-    "name": "Display name",
-    "role": "What this building does — shown in tooltips, used by lore agents",
-    "category": "civic | residential | industry | commerce | military | religious | infrastructure | anomaly",
-    "minTier": "Smallest settlement tier (1-5) that can have this building",
-    "zone": "inner | middle | outer — preferred radial position in layout",
-    "baseSizeRange": "[min, max] footprint width in iso blocks (1 block = 1 grid tile)",
-    "baseDepthRange": "[min, max] footprint depth in iso blocks. Optional — defaults to baseSizeRange (square). Use for rectangular buildings like longhouses.",
-    "heightHint": "relative height: 'low' | 'standard' | 'tall' | 'tower' — affects depth sort and verticality cultures",
-    "unlockConditions": "Building appears if ANY condition is met. null fields are ignored.",
-    "count": "How many instances per tier. Missing tiers = 0. Use '+' suffix for 'at least' (layout may add more if space allows).",
-    "placementHints": "Soft suggestions for the layout engine — not hard constraints",
-    "loreHook": "One-line flavour for tooltip or lore agents to expand on"
-  },
+  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
   "buildings": [
-    {
-      "_section": "═══ CIVIC — the heart of the settlement ═══"
-    },
     {
       "id": "campfire",
       "name": "Campfire",
@@ -164,9 +146,6 @@
       "loreHook": "Children are warned not to look too deep"
     },
     {
-      "_section": "═══ RESIDENTIAL — where people live ═══"
-    },
-    {
       "id": "shelter-hut",
       "name": "Shelter Hut",
       "role": "Minimal one-room shelter — seasonal workers, shepherds, scouts",
@@ -304,9 +283,6 @@
       ]
     },
     {
-      "_section": "═══ COMMERCE — trade, hospitality, transport ═══"
-    },
-    {
       "id": "inn",
       "name": "Inn",
       "role": "Lodging and drink for travellers — the settlement's social hub after dark",
@@ -319,16 +295,16 @@
       ],
       "heightHint": "standard",
       "unlockConditions": {
+        "features": [
+          "crossroads",
+          "trade-route"
+        ],
         "purposes": [
           "trading-hub",
           "port"
         ],
         "secondary": [
           "trading"
-        ],
-        "features": [
-          "crossroads",
-          "trade-route"
         ]
       },
       "count": {
@@ -380,16 +356,16 @@
       ],
       "heightHint": "low",
       "unlockConditions": {
+        "features": [
+          "crossroads",
+          "trade-route"
+        ],
         "purposes": [
           "trading-hub",
           "port"
         ],
         "secondary": [
           "trading"
-        ],
-        "features": [
-          "crossroads",
-          "trade-route"
         ]
       },
       "count": {
@@ -454,15 +430,15 @@
       ],
       "heightHint": "standard",
       "unlockConditions": {
+        "features": [
+          "crossroads",
+          "trade-route"
+        ],
         "purposes": [
           "trading-hub"
         ],
         "secondary": [
           "trading"
-        ],
-        "features": [
-          "crossroads",
-          "trade-route"
         ]
       },
       "count": {
@@ -494,11 +470,11 @@
       ],
       "heightHint": "standard",
       "unlockConditions": {
-        "purposes": [
-          "trading-hub"
-        ],
         "features": [
           "crossroads"
+        ],
+        "purposes": [
+          "trading-hub"
         ]
       },
       "count": {
@@ -514,9 +490,6 @@
         3,
         4
       ]
-    },
-    {
-      "_section": "═══ INDUSTRY — production and extraction ═══"
     },
     {
       "id": "sawmill",
@@ -566,11 +539,11 @@
         "purposes": [
           "mining"
         ],
-        "adjacentResources": [
-          "ore"
-        ],
         "secondary": [
           "smithing"
+        ],
+        "adjacentResources": [
+          "ore"
         ]
       },
       "count": {
@@ -690,15 +663,15 @@
       ],
       "heightHint": "low",
       "unlockConditions": {
+        "features": [
+          "harbour"
+        ],
         "purposes": [
           "fishing",
           "port"
         ],
         "adjacentResources": [
           "fish"
-        ],
-        "features": [
-          "harbour"
         ]
       },
       "count": {
@@ -765,11 +738,11 @@
         "purposes": [
           "herding"
         ],
-        "adjacentResources": [
-          "game"
-        ],
         "secondary": [
           "smithing"
+        ],
+        "adjacentResources": [
+          "game"
         ]
       },
       "count": {
@@ -828,11 +801,11 @@
         "purposes": [
           "farming"
         ],
-        "adjacentResources": [
-          "fertile-soil"
-        ],
         "secondary": [
           "agricultural"
+        ],
+        "adjacentResources": [
+          "fertile-soil"
         ]
       },
       "count": {
@@ -969,9 +942,6 @@
       "loreHook": "Salt is money that everyone needs"
     },
     {
-      "_section": "═══ AGRICULTURE — food production ═══"
-    },
-    {
       "id": "granary",
       "name": "Granary",
       "role": "Grain storage — the settlement's food insurance",
@@ -1080,9 +1050,6 @@
       ]
     },
     {
-      "_section": "═══ MILITARY — defence and security ═══"
-    },
-    {
       "id": "watchtower",
       "name": "Watchtower",
       "role": "Elevated lookout point — early warning",
@@ -1095,17 +1062,17 @@
       ],
       "heightHint": "tower",
       "unlockConditions": {
+        "features": [
+          "corruption-boundary",
+          "mountain-pass",
+          "wilderness-edge"
+        ],
         "purposes": [
           "frontier",
           "garrison"
         ],
         "secondary": [
           "military"
-        ],
-        "features": [
-          "corruption-boundary",
-          "mountain-pass",
-          "wilderness-edge"
         ]
       },
       "count": {
@@ -1134,15 +1101,15 @@
       ],
       "heightHint": "tall",
       "unlockConditions": {
+        "features": [
+          "corruption-boundary"
+        ],
         "purposes": [
           "frontier",
           "garrison"
         ],
         "secondary": [
           "military"
-        ],
-        "features": [
-          "corruption-boundary"
         ]
       },
       "count": {
@@ -1234,16 +1201,16 @@
       ],
       "heightHint": "low",
       "unlockConditions": {
+        "features": [
+          "trade-route",
+          "mountain-pass"
+        ],
         "purposes": [
           "frontier",
           "garrison"
         ],
         "secondary": [
           "military"
-        ],
-        "features": [
-          "trade-route",
-          "mountain-pass"
         ]
       },
       "count": {
@@ -1290,9 +1257,6 @@
         2,
         3
       ]
-    },
-    {
-      "_section": "═══ RELIGIOUS — worship, ritual, pilgrimage ═══"
     },
     {
       "id": "shrine",
@@ -1400,11 +1364,11 @@
       ],
       "heightHint": "low",
       "unlockConditions": {
-        "purposes": [
-          "shrine"
-        ],
         "features": [
           "sacred-site"
+        ],
+        "purposes": [
+          "shrine"
         ]
       },
       "count": {
@@ -1444,9 +1408,6 @@
         "on-high-ground"
       ],
       "loreHook": "The oldest stones have names no one remembers"
-    },
-    {
-      "_section": "═══ INFRASTRUCTURE — storage, logistics, utilities ═══"
     },
     {
       "id": "storage-shed",
@@ -1544,14 +1505,14 @@
       ],
       "heightHint": "standard",
       "unlockConditions": {
-        "purposes": [
-          "trading-hub",
-          "port"
-        ],
         "features": [
           "trade-route",
           "river-crossing",
           "mountain-pass"
+        ],
+        "purposes": [
+          "trading-hub",
+          "port"
         ]
       },
       "count": {
@@ -1577,11 +1538,11 @@
       ],
       "heightHint": "low",
       "unlockConditions": {
-        "purposes": [
-          "port"
-        ],
         "features": [
           "harbour"
+        ],
+        "purposes": [
+          "port"
         ]
       },
       "count": {
@@ -1611,12 +1572,12 @@
       ],
       "heightHint": "standard",
       "unlockConditions": {
+        "features": [
+          "harbour"
+        ],
         "purposes": [
           "fishing",
           "port"
-        ],
-        "features": [
-          "harbour"
         ]
       },
       "count": {
@@ -1633,9 +1594,6 @@
         2,
         2
       ]
-    },
-    {
-      "_section": "═══ ANOMALY — rare unique buildings from random events ═══"
     },
     {
       "id": "hero-house",

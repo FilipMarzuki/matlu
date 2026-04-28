@@ -15,13 +15,13 @@ Credits are finite. Commit after every culture batch so a crash never loses prog
 
 ## STEP 1 — LOAD DATA
 
-Read these files and internalize them before generating anything:
+Load data from Supabase (master) and local files before generating anything:
 
-1. **`data/notion-races-cache.json`** — Find the `Markfolk` entry (Lore Status: `draft`). Extract: `build`, `surface`, `silhouette`, `head`, `spriteNote`, `variation`. This is the body baseline for ALL sprites in this run.
+1. **Supabase `ancestries`** — Query: `SELECT * FROM ancestries WHERE slug = 'human'` (Markfolk maps to the `human` ancestry). Extract: `build`, `surface`, `silhouette`, `head`, `sprite_note`, `variation`. This is the body baseline for ALL sprites in this run.
 
-2. **`macro-world/fashion.json`** — You will process 5 cultures. For each culture, note the `realWorldFashionInspiration`, `base` (materials, palette, motifs), and all `variants`.
+2. **Supabase `fashion_styles` + `fashion_variants`** — Query for the 5 target cultures. For each, note `real_world_inspiration`, `base_materials`, `base_palette`, `base_motifs`, and all variants (join `fashion_variants` on `fashion_style_id`). SQL: `SELECT fs.*, c.slug as culture_slug FROM fashion_styles fs JOIN cultures c ON c.id = fs.culture_id WHERE c.slug IN ('fieldborn','coastborn','harborfolk','ridgefolk','wallborn')` then `SELECT * FROM fashion_variants WHERE fashion_style_id IN (...)`.
 
-3. **`macro-world/population-archetypes.json`** — The full list of archetypes. Each has `role`, `fashionVariant`, `spriteNotes`.
+3. **Supabase `population_archetypes` + `buildings`** — Query: `SELECT pa.*, b.slug as building_slug FROM population_archetypes pa LEFT JOIN buildings b ON b.id = pa.building_id`. Each has `role`, `fashion_variant`, `sprite_notes`. Ambient archetypes have `is_ambient = true`.
 
 4. **`src/ai/asset-spec.json`** — Read `styleGuide` for standard PixelLab settings (view, outline, shading, detail).
 
@@ -50,7 +50,7 @@ Within each culture, process archetypes in this order:
 For each archetype, compose the PixelLab description by combining three layers:
 
 ### Layer 1: Race body (same for all sprites in this run)
-From the Markfolk race cache entry, extract:
+From the `ancestries` row (slug: `human`), extract:
 - Build/proportions (e.g. height, body type)
 - Surface/skin (palette range — pick a specific tone for variety)
 - Head features (ear shape, nose, jaw)
@@ -128,7 +128,7 @@ git commit -m "feat(sprites): Markfolk <culture> NPC sprites — <N> archetypes
 
 Generated via settlement NPC pipeline:
 Race: Markfolk (notion-races-cache.json)
-Culture: <culture> (fashion.json)
+Culture: <culture> (Supabase fashion_styles + fashion_variants)
 Archetypes: <list of roles>
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
@@ -165,9 +165,9 @@ Total credits: ~<N>
 
 ## IMPORTANT RULES
 
-- **Never skip the race data.** Every description must include Markfolk body features from the race cache. "Human male" is not enough — use the actual build/surface/silhouette fields.
-- **Clothing comes from fashion.json only.** Never invent clothing. If the data says "wide straw hat", use "wide straw hat".
-- **Pose comes from spriteNotes only.** Never invent poses. If the data says "holding tongs", use "holding tongs".
+- **Never skip the ancestry body data.** Every description must include Markfolk body features from the `ancestries` table (slug: `human`). "Human male" is not enough — use the actual build/surface/silhouette fields.
+- **Clothing comes from Supabase `fashion_styles` + `fashion_variants` only.** Never invent clothing. If the data says "wide straw hat", use "wide straw hat".
+- **Pose comes from spriteNotes only** (in `population-archetypes.json`). Never invent poses. If the data says "holding tongs", use "holding tongs".
 - **Commit after every culture.** Never batch multiple cultures in one commit.
 - **Stop on error.** If PixelLab returns any error, commit what you have and stop.
 - **Vary skin tones and gender.** Markfolk are diverse — don't make everyone the same.

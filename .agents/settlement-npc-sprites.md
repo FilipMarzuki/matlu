@@ -7,13 +7,16 @@ Combines four data layers — race (body), culture (clothing), archetype (pose/r
 
 ## Data Sources
 
-| File | Provides | Layer |
-| ---- | -------- | ----- |
-| `data/notion-races-cache.json` | Physical body description per People — `bodyPlan`, `build`, `surface`, `silhouette`, `head`, `spriteNote`, `variation`. Synced from Notion Races DB via `npm run races:sync`. | **Race (body)** |
-| `macro-world/fashion.json` | Clothing details per culture + variant. Provides silhouette, headwear, footwear, accessories, materials, palette, motifs, and real-world fashion inspiration. | **Culture (clothing)** |
-| `macro-world/population-archetypes.json` | Which NPC roles belong to each building. Includes `fashionVariant` and `spriteNotes` (pose, body type, held items). | **Archetype (role/pose)** |
-| `macro-world/cultures.json` | Culture ID, race preferences (which Peoples appear), and settlement layout traits. | **Settlement context** |
-| `docs/peoples-and-races.md` | The 15 canonical Mistheim Peoples — canonical naming reference. | **Reference** |
+Macro-world data lives in **Supabase** (master) with JSON snapshots in `macro-world/` as fallback.
+Query Supabase tables via the Supabase MCP tool (`execute_sql`) rather than reading JSON files.
+
+| Supabase table | Provides | Layer |
+| -------------- | -------- | ----- |
+| `ancestries` (body columns) | Physical body description per ancestry — `body_plan`, `build`, `surface`, `silhouette`, `head`, `sprite_note`, `variation`, `senses`, `anatomy`, `lifespan`. Query: `SELECT * FROM ancestries WHERE slug = '<ancestry-slug>'`. | **Race (body)** |
+| `fashion_styles` + `fashion_variants` | Clothing details per culture + variant. Provides silhouette, headwear, footwear, accessories, materials, palette, motifs, and real-world fashion inspiration. Join on `fashion_styles.culture_id = cultures.id`. | **Culture (clothing)** |
+| `population_archetypes` + `buildings` | Which NPC roles belong to each building. Includes `fashion_variant` and `sprite_notes` (pose, body type, held items). Join on `population_archetypes.building_id = buildings.id`. Ambient archetypes have `is_ambient = true` and no building FK. | **Archetype (role/pose)** |
+| `cultures` + `culture_ancestry_preferences` | Culture slug, ancestry preferences (which ancestries appear), and settlement layout traits. Join with `ancestries` for ancestry names. | **Settlement context** |
+| `ancestries` | The 25 Mistheim ancestries — canonical naming reference. | **Reference** |
 
 ---
 
@@ -22,39 +25,37 @@ Combines four data layers — race (body), culture (clothing), archetype (pose/r
 ### Step 1 — Pick the settlement context
 
 Decide:
-- **Culture** (from `cultures.json`) — e.g. `fieldborn`, `wallborn`, `mountainhold`
-- **Race** (from `racePreferences` on the culture, or manual pick) — e.g. Markfolk, Bergfolk
+- **Culture** (from Supabase `cultures` table) — e.g. `fieldborn`, `wallborn`, `mountainhold`
+- **Ancestry** (from `culture_ancestry_preferences` joined with `ancestries`, or manual pick) — e.g. human, dvergr
 - **Building** (from `building-registry.json`) — e.g. `smithy`, `tavern`, `palisade-gate`
 
-### Step 2 — Look up the race body description
+### Step 2 — Look up the ancestry body description
 
-Find the race in `data/notion-races-cache.json`. Use entries with `Lore Status: "draft"` (canonical). Ignore `deprecated` entries. Key fields for the sprite description:
+Query Supabase: `SELECT * FROM ancestries WHERE slug = '<ancestry-slug>'`. Key fields for the sprite description:
 
 - `build` — height, proportions, body mass distribution (e.g. "6.5–7.5 heads tall with moderate build")
 - `surface` — skin/fur/scale palette and patterning (e.g. "pale through warm olive to deep river-delta brown")
 - `silhouette` — overall body shape at sprite scale (e.g. "medium vertical column with balanced shoulder-to-hip read")
 - `head` — eyes, ears, nose, jaw details (e.g. "ears small-to-medium, rounded lobes — no points")
-- `spriteNote` — pixel-specific art direction (e.g. "3px torso block, 2px head with round-nub ears")
+- `sprite_note` — pixel-specific art direction (e.g. "3px torso block, 2px head with round-nub ears")
 - `variation` — sex/age/regional differences to pick from
 
-**Race name mapping** (culture `racePreferences` → cache `Name`):
-- Markfolk, Deepwalkers → cache entry "Human" (deprecated) OR "Markfolk" / "Deepwalkers" (draft, preferred)
-- Bergfolk, Lövfolk, Viddfolk, etc. → match by Name directly
+**Ancestry lookup:** query `culture_ancestry_preferences` joined with `ancestries` to find which ancestries belong to a culture, then use the ancestry's body columns.
 
-The race layer provides the **body** — everything that's NOT clothing. Clothing comes from fashion.json.
+The ancestry layer provides the **body** — everything that's NOT clothing. Clothing comes from `fashion_styles` + `fashion_variants`.
 
 ### Step 3 — Look up the archetype
 
-Find the building in `population-archetypes.json`. Each building lists archetypes with:
+Query Supabase: `SELECT pa.*, b.slug as building_slug FROM population_archetypes pa LEFT JOIN buildings b ON b.id = pa.building_id WHERE b.slug = '<building-slug>'`. Each archetype has:
 - `role` — e.g. `blacksmith`, `gate-guard`
-- `fashionVariant` — e.g. `common`, `warrior`, `artisan`, `ceremonial`
-- `spriteNotes` — visual direction for body/pose/items (NOT clothing)
+- `fashion_variant` — e.g. `common`, `warrior`, `artisan`, `ceremonial`
+- `sprite_notes` — visual direction for body/pose/items (NOT clothing)
 
-Also check `ambientArchetypes` for non-building NPCs (children, elders, wanderers).
+Also check ambient archetypes: `SELECT * FROM population_archetypes WHERE is_ambient = true` for non-building NPCs (children, elders, wanderers).
 
 ### Step 4 — Look up the fashion
 
-Find the culture in `fashion.json`. Look up the matching `fashionVariant`:
+Query Supabase: `fashion_styles` (filter by `culture_id`) and `fashion_variants` (filter by `fashion_style_id`). Look up the matching variant by `role`:
 - `silhouette` — overall garment shape (fitted, wrapped, flowing, armoured, etc.)
 - `headwear`, `footwear`, `accessories` — specific items
 - `notes` — art direction blending real-world inspiration with fantasy

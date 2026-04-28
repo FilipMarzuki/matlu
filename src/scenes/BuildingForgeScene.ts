@@ -15,6 +15,8 @@
  */
 
 import * as Phaser from 'phaser';
+import { loadMacroWorld, getBlocksForStyle } from '../lib/macroWorld';
+import type { ArchitectureStyle as DbArchStyle, ArchitectureBlock as DbBlock, Building as DbBuilding } from '../lib/macroWorld';
 
 // ── Registry types (minimal — just what we need) ────────────────────────────
 
@@ -181,11 +183,14 @@ export class BuildingForgeScene extends Phaser.Scene {
     const data = this.cache.json.get('building-registry') as { buildings: Array<RegistryEntry & { _section?: string }> };
     this.entries = data.buildings.filter(b => b.id && b.baseSizeRange) as RegistryEntry[];
 
-    // Parse architecture styles — default to Markfolk Timber-frame
+    // Parse architecture styles from JSON fallback; Supabase upgrade below
     const archData = this.cache.json.get('architecture') as { styles: ArchitectureStyle[] };
     this.archStyles = archData.styles;
     const markfolkIdx = this.archStyles.findIndex(a => a.id === 'ARCH-5');
     if (markfolkIdx >= 0) this.currentArchIdx = markfolkIdx;
+
+    // Async: upgrade to Supabase data when available
+    this.loadFromSupabase();
 
     // URL param: ?building=smithy
     const params = new URLSearchParams(window.location.search);
@@ -265,6 +270,46 @@ export class BuildingForgeScene extends Phaser.Scene {
   }
 
   // ── Building management ───────────────────────────────────────────────────
+
+  /** Try to upgrade architecture styles and buildings from Supabase (non-blocking). */
+  private async loadFromSupabase(): Promise<void> {
+    const mw = await loadMacroWorld();
+    if (!mw) return;
+    // Map DB rows → ArchitectureStyle interface the scene expects
+    this.archStyles = mw.architectureStyles.map((s: DbArchStyle) => {
+      const blocks: BlockDef[] = getBlocksForStyle(s.id).map((b: DbBlock) => ({
+        type: b.block_type,
+        name: b.name,
+        sprite: b.sprite_key ?? undefined,
+      }));
+      return {
+        id: s.slug.toUpperCase(),
+        name: s.name,
+        primaryMaterial: s.primary_material ?? 'stone',
+        constructionMethod: s.construction_method ?? 'built',
+        formLanguage: s.form_language ?? 'rectilinear',
+        groundRelation: s.ground_relation ?? 'on-ground',
+        windowStyle: s.window_style ?? 'arch',
+        ornamentLevel: s.ornament_level ?? 'minimal',
+        structuralPrinciple: s.structural_principle ?? 'load-bearing',
+        climateResponse: s.climate_response ?? 'heated',
+        description: s.description ?? undefined,
+        promptKeywords: s.prompt_keywords ?? undefined,
+        realWorldInspiration: s.real_world_inspiration ?? undefined,
+        blocks,
+      } satisfies ArchitectureStyle;
+    });
+    // Map DB rows → RegistryEntry interface the scene expects
+    this.entries = mw.buildings.map((b: DbBuilding) => ({
+      id: b.slug,
+      name: b.name,
+      category: b.category ?? 'residential',
+      baseSizeRange: [b.base_size_min ?? 2, b.base_size_max ?? 3] as [number, number],
+      baseDepthRange: b.base_depth_min != null ? [b.base_depth_min, b.base_depth_max ?? b.base_depth_min] as [number, number] : undefined,
+      heightHint: b.height_hint ?? 'standard',
+    }));
+    console.log(`[BuildingForge] loaded ${this.archStyles.length} arch styles, ${this.entries.length} buildings from Supabase`);
+  }
 
   private loadBuilding(): void {
     const entry = this.entries[this.currentIdx];

@@ -7,6 +7,8 @@
  *   - `create_stats_weekly`                  — weekly engineering metrics
  *   - `create_creature_submissions`          — creature wiki submission form (FIL-431)
  *   - `creature_pipeline_state_machine`      — pipeline status columns + history table + trigger (FIL-435)
+ *   - `macro_world_tables`                   — ancestries, cultures, architecture, fashion (#793)
+ *   - `buildings_archetypes_ancestry_body`    — buildings, population_archetypes, ancestry body columns (#793)
  *
  * Regenerate via MCP `generate_typescript_types` after any DDL change,
  * then replace this file.
@@ -78,6 +80,335 @@ export type Database = {
         }
         Relationships: []
       }
+      ancestries: {
+        Row: {
+          anatomy: string | null
+          body_plan: string | null
+          build: string | null
+          clustering: string | null
+          created_at: string | null
+          description: string | null
+          elevation_ideal_max: number | null
+          elevation_ideal_min: number | null
+          elevation_tol_max: number | null
+          elevation_tol_min: number | null
+          head: string | null
+          id: string
+          lifespan: string | null
+          mixing_behavior: string | null
+          moisture_ideal_max: number | null
+          moisture_ideal_min: number | null
+          moisture_tol_max: number | null
+          moisture_tol_min: number | null
+          name: string
+          naming_base: string | null
+          population_weight: number | null
+          senses: string | null
+          silhouette: string | null
+          slug: string
+          sprite_note: string | null
+          sprite_resolution: number | null
+          surface: string | null
+          variation: string | null
+        }
+        Insert: {
+          anatomy?: string | null
+          body_plan?: string | null
+          build?: string | null
+          clustering?: string | null
+          created_at?: string | null
+          description?: string | null
+          elevation_ideal_max?: number | null
+          elevation_ideal_min?: number | null
+          elevation_tol_max?: number | null
+          elevation_tol_min?: number | null
+          head?: string | null
+          id?: string
+          lifespan?: string | null
+          mixing_behavior?: string | null
+          moisture_ideal_max?: number | null
+          moisture_ideal_min?: number | null
+          moisture_tol_max?: number | null
+          moisture_tol_min?: number | null
+          name: string
+          naming_base?: string | null
+          population_weight?: number | null
+          senses?: string | null
+          silhouette?: string | null
+          slug: string
+          sprite_note?: string | null
+          sprite_resolution?: number | null
+          surface?: string | null
+          variation?: string | null
+        }
+        Update: {
+          anatomy?: string | null
+          body_plan?: string | null
+          build?: string | null
+          clustering?: string | null
+          created_at?: string | null
+          description?: string | null
+          elevation_ideal_max?: number | null
+          elevation_ideal_min?: number | null
+          elevation_tol_max?: number | null
+          elevation_tol_min?: number | null
+          head?: string | null
+          id?: string
+          lifespan?: string | null
+          mixing_behavior?: string | null
+          moisture_ideal_max?: number | null
+          moisture_ideal_min?: number | null
+          moisture_tol_max?: number | null
+          moisture_tol_min?: number | null
+          name?: string
+          naming_base?: string | null
+          population_weight?: number | null
+          senses?: string | null
+          silhouette?: string | null
+          slug?: string
+          sprite_note?: string | null
+          sprite_resolution?: number | null
+          surface?: string | null
+          variation?: string | null
+        }
+        Relationships: []
+      }
+      ancestry_biome_affinities: {
+        Row: {
+          ancestry_id: string
+          biome_id: string
+          score: number
+        }
+        Insert: {
+          ancestry_id: string
+          biome_id: string
+          score: number
+        }
+        Update: {
+          ancestry_id?: string
+          biome_id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ancestry_biome_affinities_ancestry_id_fkey"
+            columns: ["ancestry_id"]
+            isOneToOne: false
+            referencedRelation: "ancestries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ancestry_biome_affinities_biome_id_fkey"
+            columns: ["biome_id"]
+            isOneToOne: false
+            referencedRelation: "biomes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ancestry_feature_bonuses: {
+        Row: {
+          ancestry_id: string
+          bonus: number
+          feature_id: string
+        }
+        Insert: {
+          ancestry_id: string
+          bonus: number
+          feature_id: string
+        }
+        Update: {
+          ancestry_id?: string
+          bonus?: number
+          feature_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ancestry_feature_bonuses_ancestry_id_fkey"
+            columns: ["ancestry_id"]
+            isOneToOne: false
+            referencedRelation: "ancestries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ancestry_feature_bonuses_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "geographic_features"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      architecture_blocks: {
+        Row: {
+          block_type: string
+          id: string
+          name: string
+          sort_order: number | null
+          sprite_key: string | null
+          style_id: string
+        }
+        Insert: {
+          block_type: string
+          id?: string
+          name: string
+          sort_order?: number | null
+          sprite_key?: string | null
+          style_id: string
+        }
+        Update: {
+          block_type?: string
+          id?: string
+          name?: string
+          sort_order?: number | null
+          sprite_key?: string | null
+          style_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "architecture_blocks_style_id_fkey"
+            columns: ["style_id"]
+            isOneToOne: false
+            referencedRelation: "architecture_styles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      architecture_styles: {
+        Row: {
+          climate_response: string | null
+          construction_method: string | null
+          created_at: string | null
+          description: string | null
+          form_language: string | null
+          ground_relation: string | null
+          id: string
+          name: string
+          ornament_level: string | null
+          primary_material: string | null
+          prompt_keywords: string | null
+          real_world_inspiration: string | null
+          slug: string
+          structural_principle: string | null
+          window_style: string | null
+        }
+        Insert: {
+          climate_response?: string | null
+          construction_method?: string | null
+          created_at?: string | null
+          description?: string | null
+          form_language?: string | null
+          ground_relation?: string | null
+          id?: string
+          name: string
+          ornament_level?: string | null
+          primary_material?: string | null
+          prompt_keywords?: string | null
+          real_world_inspiration?: string | null
+          slug: string
+          structural_principle?: string | null
+          window_style?: string | null
+        }
+        Update: {
+          climate_response?: string | null
+          construction_method?: string | null
+          created_at?: string | null
+          description?: string | null
+          form_language?: string | null
+          ground_relation?: string | null
+          id?: string
+          name?: string
+          ornament_level?: string | null
+          primary_material?: string | null
+          prompt_keywords?: string | null
+          real_world_inspiration?: string | null
+          slug?: string
+          structural_principle?: string | null
+          window_style?: string | null
+        }
+        Relationships: []
+      }
+      biomes: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      buildings: {
+        Row: {
+          base_depth_max: number | null
+          base_depth_min: number | null
+          base_size_max: number | null
+          base_size_min: number | null
+          category: string | null
+          count: Json | null
+          created_at: string | null
+          height_hint: string | null
+          id: string
+          lore_hook: string | null
+          min_tier: number | null
+          name: string
+          placement_hints: string[] | null
+          role: string | null
+          slug: string
+          unlock_conditions: Json | null
+          zone: string | null
+        }
+        Insert: {
+          base_depth_max?: number | null
+          base_depth_min?: number | null
+          base_size_max?: number | null
+          base_size_min?: number | null
+          category?: string | null
+          count?: Json | null
+          created_at?: string | null
+          height_hint?: string | null
+          id?: string
+          lore_hook?: string | null
+          min_tier?: number | null
+          name: string
+          placement_hints?: string[] | null
+          role?: string | null
+          slug: string
+          unlock_conditions?: Json | null
+          zone?: string | null
+        }
+        Update: {
+          base_depth_max?: number | null
+          base_depth_min?: number | null
+          base_size_max?: number | null
+          base_size_min?: number | null
+          category?: string | null
+          count?: Json | null
+          created_at?: string | null
+          height_hint?: string | null
+          id?: string
+          lore_hook?: string | null
+          min_tier?: number | null
+          name?: string
+          placement_hints?: string[] | null
+          role?: string | null
+          slug?: string
+          unlock_conditions?: Json | null
+          zone?: string | null
+        }
+        Relationships: []
+      }
       cognitive_load: {
         Row: {
           avg_pr_age_days: number
@@ -122,6 +453,7 @@ export type Database = {
           id: string
           note: string | null
           to_status: string
+          tracker_comment_posted_at: string | null
         }
         Insert: {
           changed_at?: string
@@ -130,6 +462,7 @@ export type Database = {
           id?: string
           note?: string | null
           to_status: string
+          tracker_comment_posted_at?: string | null
         }
         Update: {
           changed_at?: string
@@ -138,6 +471,7 @@ export type Database = {
           id?: string
           note?: string | null
           to_status?: string
+          tracker_comment_posted_at?: string | null
         }
         Relationships: [
           {
@@ -163,10 +497,12 @@ export type Database = {
           biome_affinity: string[] | null
           completion_score: number | null
           contact_email: string | null
+          converted_at: string | null
           created_at: string
           creator_name: string
           creature_name: string
           credits_opt_in: boolean
+          entity_class: string | null
           entity_id: string | null
           food_notes: string | null
           graphics_difficulty: number | null
@@ -181,6 +517,7 @@ export type Database = {
           kind_solitary: boolean | null
           license_accepted: boolean
           license_version: string
+          linear_issue_id: string | null
           lore_description: string | null
           lore_entry_id: string | null
           lore_entry_url: string | null
@@ -213,10 +550,12 @@ export type Database = {
           biome_affinity?: string[] | null
           completion_score?: number | null
           contact_email?: string | null
+          converted_at?: string | null
           created_at?: string
           creator_name: string
           creature_name: string
           credits_opt_in?: boolean
+          entity_class?: string | null
           entity_id?: string | null
           food_notes?: string | null
           graphics_difficulty?: number | null
@@ -231,6 +570,7 @@ export type Database = {
           kind_solitary?: boolean | null
           license_accepted: boolean
           license_version: string
+          linear_issue_id?: string | null
           lore_description?: string | null
           lore_entry_id?: string | null
           lore_entry_url?: string | null
@@ -263,10 +603,12 @@ export type Database = {
           biome_affinity?: string[] | null
           completion_score?: number | null
           contact_email?: string | null
+          converted_at?: string | null
           created_at?: string
           creator_name?: string
           creature_name?: string
           credits_opt_in?: boolean
+          entity_class?: string | null
           entity_id?: string | null
           food_notes?: string | null
           graphics_difficulty?: number | null
@@ -281,6 +623,7 @@ export type Database = {
           kind_solitary?: boolean | null
           license_accepted?: boolean
           license_version?: string
+          linear_issue_id?: string | null
           lore_description?: string | null
           lore_entry_id?: string | null
           lore_entry_url?: string | null
@@ -299,6 +642,168 @@ export type Database = {
           tracker_issue_number?: number | null
           visual_description?: string | null
           world_name?: string | null
+        }
+        Relationships: []
+      }
+      culture_ancestry_preferences: {
+        Row: {
+          ancestry_id: string
+          culture_id: string
+          weight: number
+        }
+        Insert: {
+          ancestry_id: string
+          culture_id: string
+          weight: number
+        }
+        Update: {
+          ancestry_id?: string
+          culture_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "culture_ancestry_preferences_ancestry_id_fkey"
+            columns: ["ancestry_id"]
+            isOneToOne: false
+            referencedRelation: "ancestries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "culture_ancestry_preferences_culture_id_fkey"
+            columns: ["culture_id"]
+            isOneToOne: false
+            referencedRelation: "cultures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      culture_architecture_assignments: {
+        Row: {
+          architecture_style_id: string
+          culture_id: string
+        }
+        Insert: {
+          architecture_style_id: string
+          culture_id: string
+        }
+        Update: {
+          architecture_style_id?: string
+          culture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "culture_architecture_assignments_architecture_style_id_fkey"
+            columns: ["architecture_style_id"]
+            isOneToOne: false
+            referencedRelation: "architecture_styles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "culture_architecture_assignments_culture_id_fkey"
+            columns: ["culture_id"]
+            isOneToOne: false
+            referencedRelation: "cultures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      culture_trait_assignments: {
+        Row: {
+          culture_id: string
+          trait_id: string
+        }
+        Insert: {
+          culture_id: string
+          trait_id: string
+        }
+        Update: {
+          culture_id?: string
+          trait_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "culture_trait_assignments_culture_id_fkey"
+            columns: ["culture_id"]
+            isOneToOne: false
+            referencedRelation: "cultures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "culture_trait_assignments_trait_id_fkey"
+            columns: ["trait_id"]
+            isOneToOne: false
+            referencedRelation: "culture_traits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      culture_traits: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      cultures: {
+        Row: {
+          created_at: string | null
+          facing_bias: string | null
+          hierarchy_scale: number | null
+          id: string
+          name: string
+          organicness: number | null
+          perimeter_awareness: number | null
+          preferred_shapes: string[] | null
+          roof_style: string | null
+          slug: string
+          spacing: number | null
+          street_pattern: string | null
+          verticality: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          facing_bias?: string | null
+          hierarchy_scale?: number | null
+          id?: string
+          name: string
+          organicness?: number | null
+          perimeter_awareness?: number | null
+          preferred_shapes?: string[] | null
+          roof_style?: string | null
+          slug: string
+          spacing?: number | null
+          street_pattern?: string | null
+          verticality?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          facing_bias?: string | null
+          hierarchy_scale?: number | null
+          id?: string
+          name?: string
+          organicness?: number | null
+          perimeter_awareness?: number | null
+          preferred_shapes?: string[] | null
+          roof_style?: string | null
+          slug?: string
+          spacing?: number | null
+          street_pattern?: string | null
+          verticality?: number | null
         }
         Relationships: []
       }
@@ -383,6 +888,106 @@ export type Database = {
         }
         Relationships: []
       }
+      fashion_styles: {
+        Row: {
+          base_materials: string[] | null
+          base_motifs: string[] | null
+          base_palette: string[] | null
+          created_at: string | null
+          culture_id: string
+          id: string
+          real_world_inspiration: string | null
+        }
+        Insert: {
+          base_materials?: string[] | null
+          base_motifs?: string[] | null
+          base_palette?: string[] | null
+          created_at?: string | null
+          culture_id: string
+          id?: string
+          real_world_inspiration?: string | null
+        }
+        Update: {
+          base_materials?: string[] | null
+          base_motifs?: string[] | null
+          base_palette?: string[] | null
+          created_at?: string | null
+          culture_id?: string
+          id?: string
+          real_world_inspiration?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fashion_styles_culture_id_fkey"
+            columns: ["culture_id"]
+            isOneToOne: true
+            referencedRelation: "cultures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fashion_variants: {
+        Row: {
+          accessories: string[] | null
+          fashion_style_id: string
+          footwear: string | null
+          headwear: string | null
+          id: string
+          notes: string | null
+          role: string
+          silhouette: string | null
+        }
+        Insert: {
+          accessories?: string[] | null
+          fashion_style_id: string
+          footwear?: string | null
+          headwear?: string | null
+          id?: string
+          notes?: string | null
+          role: string
+          silhouette?: string | null
+        }
+        Update: {
+          accessories?: string[] | null
+          fashion_style_id?: string
+          footwear?: string | null
+          headwear?: string | null
+          id?: string
+          notes?: string | null
+          role?: string
+          silhouette?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fashion_variants_fashion_style_id_fkey"
+            columns: ["fashion_style_id"]
+            isOneToOne: false
+            referencedRelation: "fashion_styles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geographic_features: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       matlu_feedback: {
         Row: {
           created_at: string | null
@@ -433,6 +1038,59 @@ export type Database = {
           score?: number
         }
         Relationships: []
+      }
+      population_archetypes: {
+        Row: {
+          animations: string[] | null
+          building_id: string | null
+          count_max: number | null
+          count_min: number | null
+          count_per_tier: Json | null
+          created_at: string | null
+          fashion_variant: string | null
+          id: string
+          is_ambient: boolean | null
+          name: string
+          role: string
+          sprite_notes: string | null
+        }
+        Insert: {
+          animations?: string[] | null
+          building_id?: string | null
+          count_max?: number | null
+          count_min?: number | null
+          count_per_tier?: Json | null
+          created_at?: string | null
+          fashion_variant?: string | null
+          id?: string
+          is_ambient?: boolean | null
+          name: string
+          role: string
+          sprite_notes?: string | null
+        }
+        Update: {
+          animations?: string[] | null
+          building_id?: string | null
+          count_max?: number | null
+          count_min?: number | null
+          count_per_tier?: Json | null
+          created_at?: string | null
+          fashion_variant?: string | null
+          id?: string
+          is_ambient?: boolean | null
+          name?: string
+          role?: string
+          sprite_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "population_archetypes_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stats_weekly: {
         Row: {
@@ -793,10 +1451,7 @@ export const Constants = {
   },
 } as const
 
-// ── Convenience aliases ───────────────────────────────────────────────────────
-
-export type MatluRun          = Tables<'matlu_runs'>;
-export type MatluRunInsert    = TablesInsert<'matlu_runs'>;
-export type MatluFeedbackInsert = TablesInsert<'matlu_feedback'>;
-export type CreatureSubmission = Tables<'creature_submissions'>;
-export type CreatureStatusHistory = Tables<'creature_status_history'>;
+// Convenience aliases used across the codebase
+export type MatluRun = Tables<'matlu_runs'>
+export type MatluRunInsert = TablesInsert<'matlu_runs'>
+export type MatluFeedbackInsert = TablesInsert<'matlu_feedback'>

@@ -1,25 +1,5 @@
 {
-  "_doc": "Population archetypes per building — which NPC types belong in a settlement based on its buildings. Used to generate humanoid sprites via PixelLab. Each archetype references a fashionVariant from fashion.json to determine clothing. Culture + fashionVariant + archetype visual notes = enough to generate a unique sprite. Archetypes are culture-agnostic — the same 'blacksmith' archetype looks different in a mountainhold vs a harborfolk settlement because fashion.json dresses them differently.",
-  "_schema": {
-    "buildingId": "Matches building-registry.json id",
-    "archetypes[]": {
-      "role": "Unique kebab-case role ID (must be unique across the whole file)",
-      "name": "Display name",
-      "fashionVariant": "Which fashion.json variant to use: common | elder | warrior | ceremonial | artisan | noble",
-      "count": "How many per building instance. Number or [min, max] range.",
-      "spriteNotes": "Visual direction for PixelLab — body type, pose, held items, distinguishing features. Clothing comes from fashion.json, so focus on what's NOT clothing.",
-      "animations": "PixelLab template animation IDs to generate. Every archetype gets the _baseAnimations. This field lists ADDITIONAL role-specific animations on top of the base set."
-    },
-    "_baseAnimations": [
-      "breathing-idle",
-      "walking",
-      "running-6-frames",
-      "taking-punch",
-      "falling-back-death",
-      "getting-up"
-    ],
-    "_animationNotes": "Every archetype receives _baseAnimations (idle, walk, run, hit, die, get-up). The 'animations' field on each archetype lists EXTRA animations specific to that role. Total animations per archetype = _baseAnimations + animations. Available PixelLab template IDs: backflip, breathing-idle, cross-punch, crouched-walking, crouching, drinking, falling-back-death, fight-stance-idle-8-frames, fireball, flying-kick, front-flip, getting-up, high-kick, hurricane-kick, jumping-1, jumping-2, lead-jab, leg-sweep, picking-up, pull-heavy-object, pushing, roundhouse-kick, running-4-frames, running-6-frames, running-8-frames, running-jump, running-slide, sad-walk, scary-walk, surprise-uppercut, taking-punch, throw-object, two-footed-jump, walk, walking-4-frames, walking-6-frames, walking-8-frames"
-  },
+  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
   "buildingArchetypes": [
     {
       "buildingId": "campfire",
@@ -102,8 +82,7 @@
           "name": "Magistrate",
           "fashionVariant": "noble",
           "count": 1,
-          "spriteNotes": "Formal upright posture. Holds a scroll or seal. Clean-shaven or neatly groomed. Air of authority.",
-          "animations": []
+          "spriteNotes": "Formal upright posture. Holds a scroll or seal. Clean-shaven or neatly groomed. Air of authority."
         },
         {
           "role": "clerk",
@@ -990,14 +969,6 @@
       ]
     },
     {
-      "buildingId": "storage-shed",
-      "archetypes": []
-    },
-    {
-      "buildingId": "root-cellar",
-      "archetypes": []
-    },
-    {
       "buildingId": "bridge",
       "archetypes": [
         {
@@ -1139,10 +1110,6 @@
       ]
     },
     {
-      "buildingId": "cursed-lot",
-      "archetypes": []
-    },
-    {
       "buildingId": "oversized-relic",
       "archetypes": [
         {
@@ -1218,7 +1185,6 @@
   ],
   "ambientArchetypes": [
     {
-      "_doc": "Not tied to a building — these populate the settlement based on tier. Scale with settlement size to make it feel alive.",
       "role": "child",
       "name": "Child",
       "fashionVariant": "common",
