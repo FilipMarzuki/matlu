@@ -1,0 +1,51 @@
+---
+import Base from '../../layouts/Base.astro';
+export { PRIVACY_POLICY_VERSION } from '../../lib/supabase-auth';
+---
+
+<Base
+  title="Integritetspolicy"
+  description="Hur Matlu Codex samlar in, använder och skyddar dina personuppgifter."
+  lang="sv"
+>
+  <p class="lang-note">
+    📄 Integritetspolicyn är tillgänglig på engelska. <a href="/privacy">Läs på engelska →</a>
+  </p>
+
+  <h1>Privacy Policy</h1>
+  <p class="meta">Version v1-2026-04 &mdash; April 2026</p>
+
+  <p class="lead">
+    This policy explains what personal data Matlu Codex collects, why, and how
+    you can control it. We keep it plain so kids and parents can both understand.
+  </p>
+
+  <section>
+    <h2>1. Who we are</h2>
+    <p>
+      Matlu Codex is a community hub for the Core Warden game, run by Filip
+      Marzuki. Contact: <a href="mailto:privacy@corewarden.app">privacy@corewarden.app</a>.
+      This is the named contact for all data-protection enquiries and the
+      data controller for the purposes of EU GDPR.
+    </p>
+  </section>
+</Base>
+
+<style>
+  .lang-note {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+  }
+  .lang-note a { color: var(--accent-hi); }
+  h1 { margin-bottom: 0.3rem; }
+  .meta { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 1.5rem; }
+  .lead { color: var(--text-dim); max-width: 640px; margin-bottom: 2rem; }
+  section { margin-bottom: 1.5rem; }
+  h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+</style>

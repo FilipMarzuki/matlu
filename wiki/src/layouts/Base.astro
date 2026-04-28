@@ -31,6 +31,18 @@ const siteBase = 'https://codex.corewarden.com';
 const canonicalPath = Astro.url.pathname;
 const canonicalUrl = `${siteBase}${canonicalPath}`;
 
+// Compute alternate URLs for EN ↔ SV hreflang cross-links.
+// SV pages live under /sv/; strip or prepend that prefix to get the other lang.
+const isSwedish = lang === 'sv';
+const enPath = isSwedish
+  ? canonicalPath.replace(/^\/sv(\/|$)/, (_m, s: string) => s ?? '/')
+  : canonicalPath;
+const svPath = isSwedish
+  ? canonicalPath
+  : (canonicalPath === '/' ? '/sv/' : `/sv${canonicalPath}`);
+const enUrl = `${siteBase}${enPath || '/'}`;
+const svUrl = `${siteBase}${svPath}`;
+
 const footerStrings: Record<Lang, { tagline: string; privacy: string; license: string; account: string }> = {
   en: {
     tagline: 'Matlu Codex — a Core Warden community hub.',
@@ -61,10 +73,10 @@ function t(l: Lang, key: keyof typeof footerStrings.en): string {
     <meta property="og:description" content={description} />
     <title>{pageTitle}</title>
 
-    <!-- hreflang: tell search engines this page serves EN and SV content -->
-    <link rel="alternate" hreflang="en" href={canonicalUrl} />
-    <link rel="alternate" hreflang="sv" href={canonicalUrl} />
-    <link rel="alternate" hreflang="x-default" href={canonicalUrl} />
+    <!-- hreflang: point search engines to the canonical EN and SV URLs -->
+    <link rel="alternate" hreflang="en" href={enUrl} />
+    <link rel="alternate" hreflang="sv" href={svUrl} />
+    <link rel="alternate" hreflang="x-default" href={enUrl} />
 
     <!-- Google Fonts: Pixelify Sans (pixel headings) + Outfit (body text) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -1,0 +1,602 @@
+---
+import Base from '../../layouts/Base.astro';
+import type { Creature, StatusHistoryEntry } from '../../lib/supabase-creatures';
+import { imageUrl } from '../../lib/supabase-creatures';
+import { getStatusInfo, getCopy } from '../../lib/creature-status';
+import { t } from '../../i18n/index';
+import type { Lang } from '../../i18n/index';
+
+interface Props {
+  lang: Lang;
+  creature: Creature;
+  history: StatusHistoryEntry[];
+  queuePosition: number | null;
+  etaMap: Record<string, number>;
+}
+
+const { lang, creature: c, history, queuePosition, etaMap } = Astro.props;
+
+const statusInfo = getStatusInfo(c.status);
+const ribbonCopy = getCopy(c.status, statusInfo, queuePosition, c.moderation_note, lang);
+const etaDays = c.status ? (etaMap[c.status] ?? null) : null;
+const etaRounded = etaDays !== null ? Math.round(etaDays) : null;
+
+function relativeDate(isoString: string): string {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days === 0) return lang === 'sv' ? 'idag' : 'today';
+  if (days === 1) return lang === 'sv' ? 'igår' : 'yesterday';
+  if (days < 30) return lang === 'sv' ? `${days} dagar sedan` : `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return lang === 'sv' ? '1 månad sedan' : '1 month ago';
+  if (months < 12) return lang === 'sv' ? `${months} månader sedan` : `${months} months ago`;
+  const years = Math.floor(months / 12);
+  if (years === 1) return lang === 'sv' ? '1 år sedan' : '1 year ago';
+  return lang === 'sv' ? `${years} år sedan` : `${years} years ago`;
+}
+
+interface TimelineEntry {
+  label: string;
+  emoji: string;
+  date: string;
+  isCurrent: boolean;
+}
+
+const timelineEntries: TimelineEntry[] = history.map((entry, i) => {
+  const info = getStatusInfo(entry.to_status);
+  return {
+    label: lang === 'sv' ? info.labelSv : info.label,
+    emoji: info.emoji,
+    date: relativeDate(entry.changed_at),
+    isCurrent: i === history.length - 1,
+  };
+});
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+const img = imageUrl(supabaseUrl, c.art_path);
+
+const spriteSlug = c.entity_id ? c.entity_id.split('/').pop() : null;
+const spritePng  = spriteSlug ? `/assets/sprites/characters/${c.entity_id}/${spriteSlug}.png` : null;
+const spriteJson = spriteSlug ? `/assets/sprites/characters/${c.entity_id}/${spriteSlug}.json` : null;
+
+function val(v: string | null | undefined): string {
+  return v?.trim() ?? '';
+}
+function arr(v: string[] | null | undefined): string[] {
+  return (v ?? []).filter(Boolean);
+}
+
+const sizeMap: Record<string, { en: string; sv: string }> = {
+  tiny:   { en: 'Tiny (fits in your hand)',     sv: 'Pytteliten (får plats i handen)' },
+  small:  { en: 'Small (like a cat or dog)',    sv: 'Liten (som en katt eller hund)' },
+  medium: { en: 'Medium (like a person)',       sv: 'Mellanstor (som en person)' },
+  large:  { en: 'Large (like a horse or bear)', sv: 'Stor (som en häst eller björn)' },
+  huge:   { en: 'Huge (bigger than a house)',   sv: 'Jättelik (större än ett hus)' },
+};
+const dietMap: Record<string, { en: string; sv: string }> = {
+  herbivore:   { en: 'Herbivore (plants only)',     sv: 'Växtätare (bara växter)' },
+  carnivore:   { en: 'Carnivore (meat only)',       sv: 'Köttätare (bara kött)' },
+  omnivore:    { en: 'Omnivore (plants and meat)',  sv: 'Allätare (växter och kött)' },
+  insectivore: { en: 'Insectivore (insects)',       sv: 'Insektsätare (insekter)' },
+  other:       { en: 'Other / Unknown',             sv: 'Annat / Okänt' },
+};
+const threatMap: Record<string, { en: string; sv: string }> = {
+  friendly:    { en: 'Friendly',    sv: 'Vänligt' },
+  shy:         { en: 'Shy',         sv: 'Blygt' },
+  neutral:     { en: 'Neutral',     sv: 'Neutralt' },
+  territorial: { en: 'Territorial', sv: 'Revirkänsligt' },
+  aggressive:  { en: 'Aggressive',  sv: 'Aggressivt' },
+};
+const climateMap: Record<string, { en: string; sv: string }> = {
+  tropical:  { en: 'Tropical',            sv: 'Tropiskt' },
+  temperate: { en: 'Temperate',           sv: 'Tempererat' },
+  arid:      { en: 'Arid / Desert',       sv: 'Torrt / Öken' },
+  cold:      { en: 'Cold / Polar',        sv: 'Kallt / Polärt' },
+  any:       { en: 'Adapts to any climate', sv: 'Anpassar sig till alla klimat' },
+};
+const movementMap: Record<string, { en: string; sv: string }> = {
+  walk:   { en: 'Walk',   sv: 'Går' },
+  swim:   { en: 'Swim',   sv: 'Simmar' },
+  fly:    { en: 'Fly',    sv: 'Flyger' },
+  burrow: { en: 'Burrow', sv: 'Gräver' },
+  crawl:  { en: 'Crawl',  sv: 'Kryper' },
+  slither:{ en: 'Slither',sv: 'Slingrar' },
+};
+const biomeMap: Record<string, { en: string; sv: string }> = {
+  forest:      { en: 'Forest',          sv: 'Skog' },
+  meadow:      { en: 'Meadow',          sv: 'Äng' },
+  mountain:    { en: 'Mountain',        sv: 'Berg' },
+  desert:      { en: 'Desert',          sv: 'Öken' },
+  ocean:       { en: 'Ocean',           sv: 'Hav' },
+  river:       { en: 'River / Lake',    sv: 'Å / Sjö' },
+  swamp:       { en: 'Swamp / Bog',     sv: 'Träsk / Mosse' },
+  tundra:      { en: 'Tundra / Arctic', sv: 'Tundra / Arktis' },
+  underground: { en: 'Underground / Cave', sv: 'Under jord / Grotta' },
+  sky:         { en: 'Sky / Clouds',    sv: 'Himmel / Moln' },
+};
+
+function pick(map: Record<string, { en: string; sv: string }>, key: string | null | undefined): string {
+  if (!key) return '';
+  return (lang === 'sv' ? map[key]?.sv : map[key]?.en) ?? key;
+}
+
+const movements = arr(c.kind_movement).map(m => pick(movementMap, m) || (m.charAt(0).toUpperCase() + m.slice(1)));
+const biomes = arr(c.habitat_biome).map(b => pick(biomeMap, b) || (b.charAt(0).toUpperCase() + b.slice(1)));
+
+const backHref = lang === 'sv' ? '/sv/creatures' : '/creatures';
+---
+
+<Base
+  title={c.creature_name}
+  description={c.lore_description ? c.lore_description.slice(0, 160) : `A creature from the Matlu multiworld.`}
+  lang={lang}
+>
+  <div class="breadcrumb">
+    <a href={backHref}>
+      {t(lang, '← All creatures', '← Alla väsen')}
+    </a>
+  </div>
+
+  <div class="status-ribbon" style={`--ribbon-color: ${statusInfo.borderColor}`}>
+    <div class="ribbon-icon" aria-hidden="true">{statusInfo.emoji}</div>
+    <div class="ribbon-body">
+      <div class="ribbon-label">
+        {lang === 'sv' ? statusInfo.labelSv : statusInfo.label}
+      </div>
+      <div class="ribbon-copy">{ribbonCopy}</div>
+      {etaRounded !== null && (
+        <div class="ribbon-eta">
+          {lang === 'sv'
+            ? `Tar vanligtvis ungefär ${etaRounded} ${etaRounded === 1 ? 'dag' : 'dagar'} i det här stadiet.`
+            : `Usually takes about ${etaRounded} ${etaRounded === 1 ? 'day' : 'days'} at this stage.`
+          }
+        </div>
+      )}
+    </div>
+  </div>
+
+  <article class="creature">
+
+    <header class="creature-header">
+      <div class="creature-title">
+        <h1>{c.creature_name}</h1>
+        {c.world_name && <p class="world-tag">{c.world_name}</p>}
+        {c.creator_name && (
+          <p class="creator">
+            {t(lang, 'Created by', 'Skapad av')} <strong>{c.art_credit ?? c.creator_name}</strong>
+          </p>
+        )}
+      </div>
+      {c.tracker_issue_number && (
+        <aside class="tracker-card">
+          <p class="tracker-title">
+            {t(lang, 'Follow this creature\'s progress', 'Följ det här väsenets resa')}
+          </p>
+          <hr class="tracker-rule" />
+          <p class="tracker-body">
+            {t(lang, 'This creature has a tracker on GitHub where every update is posted.', 'Det här väsenet har en spårare på GitHub där alla uppdateringar publiceras.')}
+          </p>
+          <a
+            href={`https://github.com/FilipMarzuki/matlu/issues/${c.tracker_issue_number}`}
+            class="tracker-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t(lang, 'Open tracker on GitHub →', 'Öppna spåraren på GitHub →')}
+          </a>
+          <p class="tracker-hint">
+            {t(lang, 'Bookmark or subscribe to get notified when it moves forward.', 'Bokmärk eller prenumerera för att få ett meddelande när det går vidare.')}
+          </p>
+        </aside>
+      )}
+    </header>
+
+    <div class="media-row">
+      {img && (
+        <div class="art-wrap">
+          <img src={img} alt={`Drawing of ${c.creature_name}`} class="art" />
+          {c.art_credit && c.art_credit !== c.creator_name && (
+            <p class="art-credit">
+              {t(lang, 'Art by', 'Konst av')} {c.art_credit}
+            </p>
+          )}
+        </div>
+      )}
+      {spritePng && spriteJson && (
+        <div class="sprite-wrap">
+          <p class="sprite-label">
+            {t(lang, 'In-game sprite', 'Spelsprit')}
+          </p>
+          <canvas id="sprite-canvas" data-png={spritePng} data-json={spriteJson} class="sprite-canvas"></canvas>
+        </div>
+      )}
+    </div>
+
+    {(val(c.kind_size) || movements.length > 0 || c.kind_solitary !== null) && (
+      <section class="detail-section">
+        <h2>{t(lang, 'What kind of creature', 'Vad för sorts väsen')}</h2>
+        <dl>
+          {val(c.kind_size) && (
+            <>
+              <dt>{t(lang, 'Size', 'Storlek')}</dt>
+              <dd>{pick(sizeMap, c.kind_size)}</dd>
+            </>
+          )}
+          {movements.length > 0 && (
+            <>
+              <dt>{t(lang, 'Movement', 'Rörelse')}</dt>
+              <dd>{movements.join(', ')}</dd>
+            </>
+          )}
+          {c.kind_solitary !== null && (
+            <>
+              <dt>{t(lang, 'Social', 'Socialt')}</dt>
+              <dd>
+                {c.kind_solitary
+                  ? t(lang, 'Lives alone', 'Lever ensamt')
+                  : t(lang, 'Lives in groups', 'Lever i grupp')
+                }
+              </dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    {(biomes.length > 0 || val(c.habitat_climate) || val(c.habitat_notes)) && (
+      <section class="detail-section">
+        <h2>{t(lang, 'Where it lives', 'Var det lever')}</h2>
+        <dl>
+          {biomes.length > 0 && (
+            <>
+              <dt>{t(lang, 'Biome', 'Biom')}</dt>
+              <dd>{biomes.join(', ')}</dd>
+            </>
+          )}
+          {val(c.habitat_climate) && (
+            <>
+              <dt>{t(lang, 'Climate', 'Klimat')}</dt>
+              <dd>{pick(climateMap, c.habitat_climate)}</dd>
+            </>
+          )}
+          {val(c.habitat_notes) && (
+            <>
+              <dt>{t(lang, 'Notes', 'Anteckningar')}</dt>
+              <dd>{c.habitat_notes}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    {(val(c.behaviour_threat) || val(c.behaviour_notes)) && (
+      <section class="detail-section">
+        <h2>{t(lang, 'Behaviour', 'Beteende')}</h2>
+        <dl>
+          {val(c.behaviour_threat) && (
+            <>
+              <dt>{t(lang, 'Danger level', 'Farlighetsnivå')}</dt>
+              <dd>{pick(threatMap, c.behaviour_threat)}</dd>
+            </>
+          )}
+          {val(c.behaviour_notes) && (
+            <>
+              <dt>{t(lang, 'Notes', 'Anteckningar')}</dt>
+              <dd>{c.behaviour_notes}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    {(val(c.kind_diet) || val(c.food_notes)) && (
+      <section class="detail-section">
+        <h2>{t(lang, 'Food', 'Mat')}</h2>
+        <dl>
+          {val(c.kind_diet) && (
+            <>
+              <dt>{t(lang, 'Diet', 'Kost')}</dt>
+              <dd>{pick(dietMap, c.kind_diet)}</dd>
+            </>
+          )}
+          {val(c.food_notes) && (
+            <>
+              <dt>{t(lang, 'Notes', 'Anteckningar')}</dt>
+              <dd>{c.food_notes}</dd>
+            </>
+          )}
+        </dl>
+      </section>
+    )}
+
+    {val(c.special_ability) && (
+      <section class="detail-section">
+        <h2>{t(lang, 'Special ability', 'Speciell förmåga')}</h2>
+        <p class="prose">{c.special_ability}</p>
+      </section>
+    )}
+
+    {val(c.lore_description) && (
+      <section class="detail-section">
+        <h2>{t(lang, 'Story', 'Historien')}</h2>
+        <p class="prose">{c.lore_description}</p>
+        {val(c.lore_origin) && (
+          <>
+            <h3>{t(lang, 'Origin', 'Ursprung')}</h3>
+            <p class="prose">{c.lore_origin}</p>
+          </>
+        )}
+      </section>
+    )}
+
+  </article>
+
+  {timelineEntries.length > 0 && (
+    <section class="timeline-section">
+      <h2 class="timeline-heading">
+        {t(lang, 'Journey so far', 'Resan hittills')}
+      </h2>
+      <ol class="timeline">
+        {timelineEntries.map(entry => (
+          <li class={`timeline-entry${entry.isCurrent ? ' timeline-entry--current' : ''}`}>
+            <span class="timeline-dot" aria-hidden="true"></span>
+            <span class="timeline-text">
+              {entry.isCurrent
+                ? <strong>{entry.emoji} {entry.label}</strong>
+                : <span>{entry.emoji} {entry.label}</span>
+              }
+              <span class="timeline-date">{entry.date}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
+
+  <div class="back-link">
+    <a href={backHref}>
+      {t(lang, '← Back to all creatures', '← Tillbaka till alla väsen')}
+    </a>
+  </div>
+</Base>
+
+<style>
+  .breadcrumb {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--text-dim); }
+  .breadcrumb a:hover { color: var(--accent-hi); }
+
+  .status-ribbon {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--ribbon-color, #9ca3af);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+  .ribbon-icon {
+    font-size: 1.6rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+  .ribbon-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent-hi);
+    margin-bottom: 0.2rem;
+  }
+  .ribbon-copy {
+    font-size: 0.9rem;
+    color: var(--text);
+    font-style: italic;
+  }
+  .ribbon-eta {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .timeline-section {
+    margin-top: 2rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .timeline-heading {
+    font-size: 1.05rem;
+    color: var(--accent-hi);
+    font-family: 'Syne', sans-serif;
+    margin-bottom: 1rem;
+  }
+  .timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.4rem;
+    top: 0.55rem;
+    bottom: 0.55rem;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 0.4rem 0;
+    position: relative;
+  }
+  .timeline-dot {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid var(--bg);
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    position: relative;
+    z-index: 1;
+  }
+  .timeline-entry--current .timeline-dot {
+    background: var(--accent-hi);
+  }
+  .timeline-text {
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .timeline-text strong {
+    color: var(--accent-hi);
+  }
+  .timeline-date {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .creature-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .creature-title h1 {
+    font-size: 2.2rem;
+    color: var(--accent-hi);
+    margin: 0 0 0.3rem 0;
+  }
+  .world-tag {
+    display: inline-block;
+    font-family: var(--mono, monospace);
+    font-size: 0.78rem;
+    color: var(--green, #4ade80);
+    border: 1px solid rgba(74,222,128,0.3);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.4rem;
+  }
+  .creator { font-size: 0.88rem; color: var(--text-dim); margin: 0; }
+  .creator strong { color: var(--text); }
+
+  .art-wrap {
+    margin-bottom: 2rem;
+    max-width: 560px;
+  }
+  .art {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+  .art-credit { font-size: 0.8rem; color: var(--text-dim); margin: 0.4rem 0 0; }
+
+  .detail-section {
+    margin-bottom: 1.75rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-section:last-of-type { border-bottom: none; }
+
+  .detail-section h2 {
+    font-size: 1.05rem;
+    color: var(--accent-hi);
+    font-family: 'Pixelify Sans', monospace;
+    margin: 0 0 0.85rem 0;
+  }
+  .detail-section h3 {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin: 1.1rem 0 0.5rem;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 1.25rem;
+    font-size: 0.9rem;
+  }
+  dt { color: var(--text-dim); font-weight: 500; white-space: nowrap; padding-top: 0.05em; }
+  dd { color: var(--text); margin: 0; line-height: 1.5; }
+
+  .prose {
+    font-size: 0.95rem;
+    color: var(--text);
+    line-height: 1.7;
+    max-width: 640px;
+    margin: 0;
+    white-space: pre-wrap;
+  }
+
+  .back-link { margin-top: 2.5rem; font-size: 0.88rem; }
+  .back-link a { color: var(--text-dim); }
+  .back-link a:hover { color: var(--accent-hi); }
+
+  .media-row { display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap; margin-bottom: 2rem; }
+  .art-wrap { flex: 1; min-width: 200px; max-width: 480px; margin-bottom: 0; }
+  .sprite-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+  .sprite-label { font-size: 0.78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+  .sprite-canvas { image-rendering: pixelated; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.3); }
+
+  @media (max-width: 520px) {
+    dl { grid-template-columns: 1fr; }
+    dt { font-size: 0.78rem; color: var(--text-dim); margin-bottom: -0.2rem; }
+    .media-row { flex-direction: column; }
+  }
+
+  .tracker-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    background: var(--surface, rgba(255,255,255,0.03));
+    min-width: 200px;
+    max-width: 260px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+  .tracker-title {
+    font-weight: 600;
+    color: var(--accent-hi);
+    margin: 0 0 0.5rem;
+    font-size: 0.88rem;
+  }
+  .tracker-rule {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 0.75rem;
+  }
+  .tracker-body {
+    color: var(--text);
+    margin: 0 0 0.75rem;
+    line-height: 1.5;
+  }
+  .tracker-link {
+    display: inline-block;
+    font-weight: 600;
+    color: var(--accent-hi);
+    text-decoration: none;
+    margin-bottom: 0.75rem;
+  }
+  .tracker-link:hover { text-decoration: underline; }
+  .tracker-hint {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin: 0;
+    line-height: 1.4;
+  }
+  @media (max-width: 620px) {
+    .tracker-card { max-width: 100%; }
+  }
+</style>

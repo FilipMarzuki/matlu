@@ -1,6 +1,6 @@
 ---
-import LoreDetailContent from '../../components/pages/LoreDetailContent.astro';
-import { fetchAllLore, fetchLoreBody } from '../../lib/notion-lore';
+import LoreDetailContent from '../../../components/pages/LoreDetailContent.astro';
+import { fetchAllLore, fetchLoreBody } from '../../../lib/notion-lore';
 import { marked } from 'marked';
 
 export async function getStaticPaths() {
@@ -15,4 +15,4 @@ const { entry } = Astro.props;
 const rawMd = await fetchLoreBody(entry.id);
 const bodyHtml = rawMd ? String(await marked(rawMd)) : '';
 ---
-<LoreDetailContent lang="en" entry={entry} bodyHtml={bodyHtml} />
+<LoreDetailContent lang="sv" entry={entry} bodyHtml={bodyHtml} />

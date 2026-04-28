@@ -1,0 +1,224 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
+---
+
+<Base title="Testa spelet" description="Spela Matlu och dela din feedback" lang="sv">
+  <h1>Testa Core Warden</h1>
+  <p class="lead">
+    Prova spelet i din webbläsare och berätta sedan vad som fungerade och vad som inte fungerade.
+    Din feedback går direkt till utvecklingsteamet.
+  </p>
+
+  <a
+    href="https://corewarden.app"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="play-btn"
+  >
+    Spela Matlu &rarr;
+  </a>
+
+  <section class="feedback-section">
+    <h2>Dela din feedback</h2>
+    <p class="section-desc">Tar ungefär 60 sekunder. Inget konto behövs.</p>
+
+    <div id="supa-cfg" data-url={supabaseUrl} data-key={supabaseKey} hidden></div>
+
+    <form id="feedback-form" novalidate>
+      <div class="field">
+        <label for="combat_feel_rating"><span>Hur kändes striderna?</span> <span class="hint">(1 = uselt, 5 = toppen)</span></label>
+        <div class="rating-row">
+          {[1, 2, 3, 4, 5].map(n => (
+            <label class="radio-label">
+              <input type="radio" name="combat_feel_rating" value={String(n)} required />
+              {n}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="frustration_text"><span>Vad frustrerade dig mest?</span> <span class="hint">(valfritt)</span></label>
+        <textarea id="frustration_text" name="frustration_text" rows={3} placeholder="t.ex. kontrollerna känns hala, fiender för snabba…"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="bug_text"><span>Några buggar?</span> <span class="hint">(valfritt)</span></label>
+        <textarea id="bug_text" name="bug_text" rows={3} placeholder="t.ex. kraschade när jag tryckte X, fastnade på Y-skärmen…"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="overall_text"><span>Allmänna tankar</span> <span class="hint">(valfritt)</span></label>
+        <textarea id="overall_text" name="overall_text" rows={3} placeholder="Något annat du vill berätta…"></textarea>
+      </div>
+
+      <button type="submit" id="submit-btn">Skicka feedback</button>
+    </form>
+
+    <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+  </section>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const cfg = document.getElementById('supa-cfg') as HTMLElement;
+  const url = cfg.dataset.url ?? '';
+  const key = cfg.dataset.key ?? '';
+
+  const supabase = createClient(url, key);
+
+  const form = document.getElementById('feedback-form') as HTMLFormElement;
+  const statusEl = document.getElementById('form-status') as HTMLElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+
+  const sessionId = new URLSearchParams(window.location.search).get('session') ?? null;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = new FormData(form);
+    const ratingRaw = data.get('combat_feel_rating');
+    if (!ratingRaw) {
+      statusEl.textContent = 'Välj ett betyg för striderna.';
+      statusEl.className = 'form-status error';
+      return;
+    }
+
+    const combatFeelRating = parseInt(ratingRaw as string, 10);
+    const frustrationText = (data.get('frustration_text') as string | null) ?? '';
+    const bugText = (data.get('bug_text') as string | null) ?? '';
+    const overallText = (data.get('overall_text') as string | null) ?? '';
+
+    const feedbackText = [
+      `Rating: ${combatFeelRating}/5`,
+      frustrationText ? `Frustration: ${frustrationText}` : null,
+      bugText ? `Bug: ${bugText}` : null,
+      overallText ? `Overall: ${overallText}` : null,
+    ].filter(Boolean).join(' | ');
+
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Skickar…';
+    statusEl.className = 'form-status';
+
+    const { error } = await supabase.from('matlu_feedback').insert({
+      feedback_text: feedbackText,
+      source: 'wiki_form',
+      metadata: {
+        combat_feel_rating: combatFeelRating,
+        frustration_text: frustrationText,
+        bug_text: bugText,
+        overall_text: overallText,
+      },
+      user_agent: navigator.userAgent,
+      session_id: sessionId,
+      game_version: 'wiki',
+    });
+
+    if (error) {
+      console.error('Feedback submit error:', error);
+      statusEl.textContent = 'Något gick fel — försök igen.';
+      statusEl.className = 'form-status error';
+      submitBtn.disabled = false;
+    } else {
+      statusEl.textContent = 'Tack! Din feedback har registrerats.';
+      statusEl.className = 'form-status success';
+      form.reset();
+    }
+  });
+</script>
+
+<style>
+  h1 { font-size: 2rem; margin-top: 1.5rem; }
+  .lead { color: var(--text-dim); max-width: 540px; margin-bottom: 2rem; }
+
+  .play-btn {
+    display: inline-block;
+    background: var(--gold);
+    color: #1a1200;
+    font-family: 'Pixelify Sans', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.75rem 2rem;
+    border-radius: 0;
+    text-decoration: none;
+    box-shadow: 4px 4px 0 var(--gold-dim);
+    transition: box-shadow 0.08s, transform 0.08s;
+    margin-bottom: 3rem;
+  }
+  .play-btn:hover {
+    text-decoration: none;
+    box-shadow: 5px 5px 0 var(--gold-dim);
+  }
+  .play-btn:active {
+    box-shadow: 1px 1px 0 var(--gold-dim);
+    transform: translate(3px, 3px);
+  }
+
+  .feedback-section { margin-top: 1rem; }
+  .section-desc { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.25rem; }
+
+  label { font-size: 0.95rem; color: var(--text); }
+  .hint { color: var(--text-dim); font-size: 0.85rem; font-weight: 400; }
+
+  textarea, input[type="number"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    padding: 0.6rem 0.8rem;
+    resize: vertical;
+    transition: border-color 0.15s;
+  }
+  textarea:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .rating-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--text-dim);
+  }
+  .radio-label:has(input:checked) { color: var(--accent-hi); }
+  input[type="radio"] { accent-color: var(--accent-hi); width: 1rem; height: 1rem; cursor: pointer; }
+
+  button[type="submit"] {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.65rem 1.75rem;
+    transition: background 0.15s;
+    margin-top: 0.5rem;
+  }
+  button[type="submit"]:hover { background: var(--accent-hi); }
+  button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .form-status { margin-top: 1rem; font-size: 0.9rem; min-height: 1.4em; }
+  .form-status.success { color: var(--green); }
+  .form-status.error { color: var(--red); }
+
+  @media (max-width: 480px) {
+    .play-btn { width: 100%; text-align: center; }
+  }
+</style>

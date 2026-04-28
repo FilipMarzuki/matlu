@@ -1,0 +1,183 @@
+---
+import Base from '../../layouts/Base.astro';
+import { readFileSync, existsSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __here = dirname(fileURLToPath(import.meta.url));
+const manifestPath = join(__here, '../../../public/screenshots/manifest.json');
+
+interface ScreenshotEntry {
+  file: string;
+  description: string;
+  capturedAt: string;
+}
+
+let shots: ScreenshotEntry[] = [];
+if (existsSync(manifestPath)) {
+  shots = JSON.parse(readFileSync(manifestPath, 'utf-8')) as ScreenshotEntry[];
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('sv-SE', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+---
+
+<Base title="Bilder" lang="sv">
+  <h1>Bilder</h1>
+  {shots.length === 0 ? (
+    <p class="empty">Inga bilder tillgängliga ännu.</p>
+  ) : (
+    <div class="viewer" id="viewer">
+      <div class="img-wrap">
+        <img id="shot-img" src={`/screenshots/${shots[0].file}`} alt={shots[0].description} />
+      </div>
+
+      <div class="meta">
+        <span id="shot-counter" class="counter">1 / {shots.length}</span>
+        <span id="shot-caption" class="caption">{shots[0].description}</span>
+        <span id="shot-date" class="date">{formatDate(shots[0].capturedAt)}</span>
+      </div>
+
+      <div class="controls">
+        <button id="btn-prev" class="nav-btn" title="Föregående (←)">&#8592;</button>
+        <button id="btn-play" class="play-btn" title="Spela / Pausa (Mellanslag)">Spela</button>
+        <button id="btn-next" class="nav-btn" title="Nästa (→)">&#8594;</button>
+      </div>
+
+      <div class="options">
+        <label class="opt-label">
+          Hastighet
+          <input id="fps-slider" type="range" min="1" max="24" value="2" step="1" />
+          <span id="fps-display">2 fps</span>
+        </label>
+        <label class="opt-label">
+          <input id="loop-toggle" type="checkbox" checked />
+          Loopa
+        </label>
+      </div>
+    </div>
+  )}
+
+  <script type="application/json" id="shots-data" set:html={JSON.stringify(shots)} />
+
+  <script>
+    const raw = document.getElementById('shots-data')!.textContent!;
+    const shots: { file: string; description: string; capturedAt: string }[] = JSON.parse(raw);
+    if (shots.length > 0) {
+      const img      = document.getElementById('shot-img')      as HTMLImageElement;
+      const counter  = document.getElementById('shot-counter')  as HTMLElement;
+      const caption  = document.getElementById('shot-caption')  as HTMLElement;
+      const dateEl   = document.getElementById('shot-date')     as HTMLElement;
+      const btnPrev  = document.getElementById('btn-prev')      as HTMLButtonElement;
+      const btnNext  = document.getElementById('btn-next')      as HTMLButtonElement;
+      const btnPlay  = document.getElementById('btn-play')      as HTMLButtonElement;
+      const fpsSlider= document.getElementById('fps-slider')    as HTMLInputElement;
+      const fpsDisp  = document.getElementById('fps-display')   as HTMLElement;
+      const loopBox  = document.getElementById('loop-toggle')   as HTMLInputElement;
+
+      let current = 0;
+      let playing = false;
+      let timerId: ReturnType<typeof setInterval> | null = null;
+
+      function formatDate(iso: string): string {
+        return new Date(iso).toLocaleDateString('sv-SE', {
+          day: 'numeric', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        });
+      }
+
+      function show(idx: number) {
+        current = ((idx % shots.length) + shots.length) % shots.length;
+        const s = shots[current];
+        img.src = `/screenshots/${s.file}`;
+        img.alt = s.description;
+        counter.textContent = `${current + 1} / ${shots.length}`;
+        caption.textContent = s.description;
+        dateEl.textContent  = formatDate(s.capturedAt);
+        btnPrev.disabled = !loopBox.checked && current === 0;
+        btnNext.disabled = !loopBox.checked && current === shots.length - 1;
+      }
+
+      function advance() {
+        if (!loopBox.checked && current === shots.length - 1) { pause(); return; }
+        show(current + 1);
+      }
+
+      function play() {
+        playing = true;
+        btnPlay.textContent = 'Pausa';
+        const fps = parseInt(fpsSlider.value, 10);
+        timerId = setInterval(advance, 1000 / fps);
+      }
+
+      function pause() {
+        playing = false;
+        btnPlay.textContent = 'Spela';
+        if (timerId !== null) { clearInterval(timerId); timerId = null; }
+      }
+
+      function togglePlay() { playing ? pause() : play(); }
+
+      btnPrev.addEventListener('click', () => { pause(); show(current - 1); });
+      btnNext.addEventListener('click', () => { pause(); show(current + 1); });
+      btnPlay.addEventListener('click', togglePlay);
+
+      fpsSlider.addEventListener('input', () => {
+        fpsDisp.textContent = `${fpsSlider.value} fps`;
+        if (playing) { pause(); play(); }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.target instanceof HTMLInputElement) return;
+        if (e.key === 'ArrowLeft')  { pause(); show(current - 1); }
+        if (e.key === 'ArrowRight') { pause(); show(current + 1); }
+        if (e.key === ' ')          { e.preventDefault(); togglePlay(); }
+      });
+
+      show(0);
+    }
+  </script>
+</Base>
+
+<style>
+  h1 { margin-bottom: 1.5rem; }
+  .empty { color: var(--text-dim); font-style: italic; }
+  .viewer { display: flex; flex-direction: column; gap: 1rem; }
+  .img-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-height: 520px;
+  }
+  .img-wrap img { max-width: 100%; max-height: 520px; object-fit: contain; display: block; }
+  .meta { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+  .counter { font-family: var(--mono); font-size: 0.82rem; color: var(--accent-hi); white-space: nowrap; }
+  .caption { font-size: 0.9rem; color: var(--text); flex: 1; }
+  .date { font-family: var(--mono); font-size: 0.78rem; color: var(--text-dim); white-space: nowrap; }
+  .controls { display: flex; align-items: center; gap: 0.75rem; }
+  .nav-btn, .play-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.4rem 0.9rem;
+    transition: border-color 0.15s;
+  }
+  .nav-btn:hover:not(:disabled), .play-btn:hover { border-color: var(--accent); color: var(--accent-hi); }
+  .nav-btn:disabled { opacity: 0.35; cursor: default; }
+  .play-btn { font-family: var(--mono); font-size: 0.85rem; padding: 0.4rem 1.2rem; border-color: var(--accent); color: var(--accent-hi); }
+  .options { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+  .opt-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; }
+  #fps-slider { accent-color: var(--accent); width: 100px; }
+  #fps-display { font-family: var(--mono); font-size: 0.8rem; color: var(--text); min-width: 4ch; }
+</style>
