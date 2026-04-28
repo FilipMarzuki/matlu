@@ -186,8 +186,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Parse architecture styles from JSON fallback; Supabase upgrade below
     const archData = this.cache.json.get('architecture') as { styles: ArchitectureStyle[] };
     this.archStyles = archData.styles;
-    const markfolkIdx = this.archStyles.findIndex(a => a.id === 'ARCH-5');
-    if (markfolkIdx >= 0) this.currentArchIdx = markfolkIdx;
+    const defaultArchIdx = this.archStyles.findIndex(a => a.id === 'ARCH-6');
+    if (defaultArchIdx >= 0) this.currentArchIdx = defaultArchIdx;
 
     // Async: upgrade to Supabase data when available
     this.loadFromSupabase();
@@ -319,8 +319,12 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.gridW = entry.baseSizeRange[1];
     this.gridD = (entry.baseDepthRange ?? entry.baseSizeRange)[1];
     this.maxH = HEIGHT_BLOCKS[entry.heightHint] ?? 4;
-    // Longhouse needs extra height for peaked roof
-    if (entry.id === 'longhouse') this.maxH = Math.max(this.maxH, 5);
+    // Peaked roof buildings need extra height for the stepped slope to ridge
+    if (['longhouse', 'market-hall'].includes(entry.id)) {
+      const depth = (entry.baseDepthRange ?? entry.baseSizeRange)[1];
+      const halfDepth = Math.floor(depth / 2);
+      this.maxH = Math.max(this.maxH, this.maxH + halfDepth + 2);
+    }
 
     // Init empty grid
     this.blocks = [];
@@ -368,8 +372,9 @@ export class BuildingForgeScene extends Phaser.Scene {
       }
     }
 
-    // Longhouse-specific block placement
-    if (entry.id === 'longhouse' && this.gridD >= 3) {
+    // Peaked roof buildings — longhouse tradition style with slanted eaves
+    const peakedRoofBuildings = ['longhouse', 'market-hall'];
+    if (peakedRoofBuildings.includes(entry.id) && this.gridD >= 3) {
       const doorY = Math.floor(this.gridD / 2);
       const doorH = Math.min(3, wallH);
       const lastX = this.gridW - 1;
@@ -404,8 +409,9 @@ export class BuildingForgeScene extends Phaser.Scene {
         }
       }
 
-      // Peaked roof — eaves at z=wallH, ridge at z=wallH+1
-      // Clear the flat roof first
+      // Peaked roof — stepped slope from eaves to ridge using slanted tiles.
+      // Each row inward from the edge steps up one z level.
+      // Clear above the walls first.
       for (let x = 0; x < this.gridW; x++) {
         for (let y = 0; y < this.gridD; y++) {
           for (let z = wallH; z < this.maxH; z++) {
@@ -414,28 +420,52 @@ export class BuildingForgeScene extends Phaser.Scene {
         }
       }
 
-      // Eave rows (y=0, y=lastY): roof-edge at z=wallH
-      for (let x = 0; x < this.gridW; x++) {
-        this.blocks[x][0][wallH] = 'roof-edge';
-        this.blocks[x][lastY][wallH] = 'roof-edge-back';
-      }
-
-      // Centre ridge (y=1): roof at z=wallH, then ridge beam + roof at z=wallH+1
       const ridgeY = Math.floor(this.gridD / 2);
+      const halfDepth = ridgeY; // number of rows from edge to centre
+
+      // Build the slope from both sides towards the ridge
       for (let x = 0; x < this.gridW; x++) {
-        this.blocks[x][ridgeY][wallH] = 'roof';
-        this.blocks[x][ridgeY][wallH + 1] = 'roof';
+        // Front slope (y=0 upward)
+        for (let step = 0; step < halfDepth; step++) {
+          const z = wallH + step;
+          if (z >= this.maxH) break;
+          this.blocks[x][step][z] = 'roof-edge';
+        }
+
+        // Back slope (y=lastY downward)
+        for (let step = 0; step < halfDepth; step++) {
+          const z = wallH + step;
+          if (z >= this.maxH) break;
+          this.blocks[x][lastY - step][z] = 'roof-edge-back';
+        }
+
+        // Ridge row — flat roof at the peak (one step lower)
+        const rowPeakZ = wallH + halfDepth - 1;
+        if (rowPeakZ < this.maxH) {
+          this.blocks[x][ridgeY][rowPeakZ] = 'roof';
+        }
       }
 
-      // Ridge beam runs under the peak
+      // Ridge beam runs under the peak (interior columns only)
+      const peakZ = wallH + halfDepth - 1;
       for (let x = 1; x < lastX; x++) {
-        this.blocks[x][ridgeY][wallH] = 'beam';
-        this.blocks[x][ridgeY][wallH + 1] = 'roof';
+        if (peakZ < this.maxH) {
+          this.blocks[x][ridgeY][peakZ] = 'beam';
+          if (peakZ + 1 < this.maxH) {
+            this.blocks[x][ridgeY][peakZ + 1] = 'roof';
+          }
+        }
       }
 
-      // Carved gable ornaments — peak of each short end
-      this.blocks[0][doorY][wallH + 1] = 'ornament';
-      this.blocks[lastX][doorY][wallH + 1] = 'ornament';
+      // Ridge caps at peak of each short end — match the roof row
+      if (peakZ < this.maxH) {
+        this.blocks[0][ridgeY][peakZ] = 'beam';
+        this.blocks[lastX][ridgeY][peakZ] = 'beam';
+        if (peakZ + 1 < this.maxH) {
+          this.blocks[0][ridgeY][peakZ + 1] = 'roof';
+          this.blocks[lastX][ridgeY][peakZ + 1] = 'roof';
+        }
+      }
     }
   }
 
