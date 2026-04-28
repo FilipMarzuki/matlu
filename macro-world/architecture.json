@@ -1,5 +1,5 @@
 {
-  "_doc": "Architecture styles from Notion — defines wall/roof materials and visual identity for building design. Synced from the Architecture database in Notion. description + promptKeywords used in Building Forge and PixelLab generation.",
+  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
   "styles": [
     {
       "id": "ARCH-1",

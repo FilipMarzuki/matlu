@@ -30,6 +30,7 @@ import type {
 import {
   generateSettlement,
   getAllCultures,
+  initSettlementData,
   type ResolvedBuilding,
 } from '../world/SettlementGenerator';
 import { placeBuildings } from '../world/SettlementPlacement';
@@ -136,6 +137,8 @@ export class SettlementForgeScene extends Phaser.Scene {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   create(): void {
+    // Load culture data from Supabase (JSON fallback works immediately)
+    initSettlementData();
     this.cameras.main.setBackgroundColor('#1a1a2e');
 
     // Parse URL params

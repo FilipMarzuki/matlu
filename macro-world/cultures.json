@@ -1,171 +1,240 @@
 {
-  "_doc": "Settlement culture definitions. Each culture drives layout geometry, building placement, and spatial feel. The generator reads numeric modifiers and trait flags — it never switches on culture id. Agents can add new cultures freely; unknown traits are ignored until handler code exists. See culture-traits.json for the trait registry. Cultures are race-agnostic: many Peoples can share one culture; use racePreferences for soft weighted hints to the settlement generator. Race IDs are the 15 canonical Mistheim Peoples (TitleCase, see docs/peoples-and-races.md and AXES.md).",
-  "_schema": {
-    "id":                   "Unique kebab-case identifier — race-agnostic (no race prefix)",
-    "name":                 "Display name for the culture",
-    "racePreferences":      "Optional weighted map of People IDs to preference weights summing to ≤ 1.0 (e.g. { \"Markfolk\": 0.7, \"Bergfolk\": 0.3 }). Absent or empty means sample from regional demographics only. People IDs MUST come from docs/peoples-and-races.md.",
-    "spacing":              "0.5 (dense) → 1.5 (spread out) — multiplier on base building gap",
-    "organicness":          "0 (rigid grid) → 1 (winding paths, irregular placement)",
-    "hierarchyScale":       "How much the primary building dominates: 1.0 = same size, 2.0 = twice as large",
-    "perimeterAwareness":   "0 (open, no boundary) → 1 (walled, defensive, inward-facing)",
-    "facingBias":           "What buildings orient toward: 'inward' | 'road' | 'water' | 'south' | 'wind' | 'random'",
-    "verticality":          "0 (single-story, spread) → 1 (towers, stacked, compact footprint)",
-    "preferredShapes":      "Dominant building footprint shapes",
-    "roofStyle":            "Sprite palette key for roof visuals",
-    "streetPattern":        "'grid' | 'radial' | 'organic' | 'linear' | 'none' | 'branching'",
-    "traits":               "Freeform tags from culture-traits.json — generator reacts to known ones, ignores unknown"
-  },
-
+  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
   "cultures": [
     {
       "id": "coastborn",
       "name": "Coastborn",
-      "racePreferences": { "Markfolk": 0.7, "Deepwalkers": 0.3 },
+      "racePreferences": {
+        "Humans": 0.7,
+        "Deepwalkers": 0.3
+      },
       "spacing": 0.85,
       "organicness": 0.3,
       "hierarchyScale": 1.4,
       "perimeterAwareness": 0.2,
       "facingBias": "water",
       "verticality": 0.2,
-      "preferredShapes": ["longhouse", "rectangular"],
+      "preferredShapes": [
+        "longhouse",
+        "rectangular"
+      ],
       "roofStyle": "thatch",
       "streetPattern": "linear",
-      "traits": ["fire-centred"]
+      "traits": [
+        "fire-centred"
+      ]
     },
     {
       "id": "ridgefolk",
       "name": "Ridgefolk",
-      "racePreferences": { "Markfolk": 0.5, "Bergfolk": 0.5 },
+      "racePreferences": {
+        "Humans": 0.5,
+        "Dvergr": 0.5
+      },
       "spacing": 1.1,
       "organicness": 0.4,
       "hierarchyScale": 1.2,
       "perimeterAwareness": 0.3,
       "facingBias": "south",
       "verticality": 0.3,
-      "preferredShapes": ["rectangular", "longhouse"],
+      "preferredShapes": [
+        "rectangular",
+        "longhouse"
+      ],
       "roofStyle": "slate",
       "streetPattern": "organic",
-      "traits": ["fire-centred", "wind-oriented"]
+      "traits": [
+        "fire-centred",
+        "wind-oriented"
+      ]
     },
     {
       "id": "fieldborn",
       "name": "Fieldborn",
-      "racePreferences": { "Markfolk": 1.0 },
+      "racePreferences": {
+        "Humans": 1
+      },
       "spacing": 1.3,
       "organicness": 0.4,
       "hierarchyScale": 1.1,
       "perimeterAwareness": 0.2,
       "facingBias": "road",
       "verticality": 0.1,
-      "preferredShapes": ["rectangular"],
+      "preferredShapes": [
+        "rectangular"
+      ],
       "roofStyle": "thatch",
       "streetPattern": "linear",
-      "traits": ["seasonal-shift"]
+      "traits": [
+        "seasonal-shift"
+      ]
     },
     {
       "id": "wallborn",
       "name": "Wallborn",
-      "racePreferences": { "Markfolk": 0.5, "Bergfolk": 0.3, "Pandor": 0.2 },
+      "racePreferences": {
+        "Humans": 0.5,
+        "Dvergr": 0.3,
+        "Pandor": 0.2
+      },
       "spacing": 0.7,
       "organicness": 0.15,
       "hierarchyScale": 1.5,
       "perimeterAwareness": 0.9,
       "facingBias": "inward",
       "verticality": 0.5,
-      "preferredShapes": ["rectangular"],
+      "preferredShapes": [
+        "rectangular"
+      ],
       "roofStyle": "tile",
       "streetPattern": "grid",
-      "traits": ["fortified-perimeter", "symmetry-obsessed"]
+      "traits": [
+        "fortified-perimeter",
+        "symmetry-obsessed"
+      ]
     },
     {
       "id": "mountainhold",
       "name": "Bergfolk Holds",
-      "racePreferences": { "Bergfolk": 1.0 },
+      "racePreferences": {
+        "Dvergr": 1
+      },
       "spacing": 0.6,
       "organicness": 0.1,
       "hierarchyScale": 1.6,
       "perimeterAwareness": 0.8,
       "facingBias": "inward",
       "verticality": 0.8,
-      "preferredShapes": ["rectangular", "hexagonal"],
+      "preferredShapes": [
+        "rectangular",
+        "hexagonal"
+      ],
       "roofStyle": "stone",
       "streetPattern": "grid",
-      "traits": ["subterranean-preference", "carved-not-built", "fortified-perimeter", "mechanical-integration"]
+      "traits": [
+        "subterranean-preference",
+        "carved-not-built",
+        "fortified-perimeter",
+        "mechanical-integration"
+      ]
     },
     {
       "id": "sylvan-enclave",
       "name": "Lövfolk Enclaves",
-      "racePreferences": { "Lövfolk": 1.0 },
+      "racePreferences": {
+        "Sylphari": 1
+      },
       "spacing": 1.3,
       "organicness": 0.8,
       "hierarchyScale": 1.1,
       "perimeterAwareness": 0.1,
       "facingBias": "random",
       "verticality": 0.6,
-      "preferredShapes": ["organic", "round"],
+      "preferredShapes": [
+        "organic",
+        "round"
+      ],
       "roofStyle": "living",
       "streetPattern": "organic",
-      "traits": ["living-architecture", "elevated-construction", "bridges-between", "no-central-plaza"]
+      "traits": [
+        "living-architecture",
+        "elevated-construction",
+        "bridges-between",
+        "no-central-plaza"
+      ]
     },
     {
       "id": "bazaar-folk",
       "name": "Goblin Warrens",
-      "racePreferences": { "Goblins": 1.0 },
+      "racePreferences": {
+        "Goblins": 1
+      },
       "spacing": 0.6,
       "organicness": 0.7,
-      "hierarchyScale": 1.0,
+      "hierarchyScale": 1,
       "perimeterAwareness": 0.3,
       "facingBias": "road",
       "verticality": 0.5,
-      "preferredShapes": ["rectangular"],
+      "preferredShapes": [
+        "rectangular"
+      ],
       "roofStyle": "thatch",
       "streetPattern": "branching",
-      "traits": ["chaos-builders", "ruin-incorporators", "vertical-stacking"]
+      "traits": [
+        "chaos-builders",
+        "ruin-incorporators",
+        "vertical-stacking"
+      ]
     },
     {
       "id": "waterstead",
       "name": "Pandor Watersteads",
-      "racePreferences": { "Pandor": 1.0 },
-      "spacing": 1.0,
+      "racePreferences": {
+        "Pandor": 1
+      },
+      "spacing": 1,
       "organicness": 0.5,
       "hierarchyScale": 1.3,
       "perimeterAwareness": 0.1,
       "facingBias": "water",
       "verticality": 0.2,
-      "preferredShapes": ["round", "organic"],
+      "preferredShapes": [
+        "round",
+        "organic"
+      ],
       "roofStyle": "reed",
       "streetPattern": "radial",
-      "traits": ["water-integrated", "elevated-construction", "flooded-intentionally"]
+      "traits": [
+        "water-integrated",
+        "elevated-construction",
+        "flooded-intentionally"
+      ]
     },
     {
       "id": "steading",
       "name": "Giant Steadings",
-      "racePreferences": { "Giants": 1.0 },
+      "racePreferences": {
+        "Half-Giants": 1
+      },
       "spacing": 1.5,
       "organicness": 0.9,
       "hierarchyScale": 1.8,
-      "perimeterAwareness": 0.0,
+      "perimeterAwareness": 0,
       "facingBias": "random",
       "verticality": 0.1,
-      "preferredShapes": ["organic"],
+      "preferredShapes": [
+        "organic"
+      ],
       "roofStyle": "stone",
       "streetPattern": "none",
-      "traits": ["carved-not-built", "no-central-plaza"]
+      "traits": [
+        "carved-not-built",
+        "no-central-plaza"
+      ]
     },
     {
       "id": "dragonkin-remnant",
       "name": "Dragon Remnants",
-      "racePreferences": { "Dragons": 1.0 },
+      "racePreferences": {
+        "Draak": 1
+      },
       "spacing": 0.7,
       "organicness": 0.2,
-      "hierarchyScale": 2.0,
+      "hierarchyScale": 2,
       "perimeterAwareness": 0.6,
       "facingBias": "inward",
       "verticality": 0.7,
-      "preferredShapes": ["rectangular", "hexagonal"],
+      "preferredShapes": [
+        "rectangular",
+        "hexagonal"
+      ],
       "roofStyle": "tile",
       "streetPattern": "grid",
-      "traits": ["symmetry-obsessed", "fortified-perimeter", "light-sensitive"]
+      "traits": [
+        "symmetry-obsessed",
+        "fortified-perimeter",
+        "light-sensitive"
+      ]
     },
     {
       "id": "caravan-folk",
@@ -177,160 +246,261 @@
       "perimeterAwareness": 0.4,
       "facingBias": "wind",
       "verticality": 0.1,
-      "preferredShapes": ["round"],
+      "preferredShapes": [
+        "round"
+      ],
       "roofStyle": "cloth",
       "streetPattern": "radial",
-      "traits": ["nomadic-core", "wind-oriented", "seasonal-shift"]
+      "traits": [
+        "nomadic-core",
+        "wind-oriented",
+        "seasonal-shift"
+      ]
     },
     {
       "id": "reefborn",
       "name": "Merfolk Reefs",
-      "racePreferences": { "Merfolk": 1.0 },
+      "racePreferences": {
+        "Merfolk": 1
+      },
       "spacing": 0.5,
       "organicness": 0.9,
       "hierarchyScale": 1.5,
       "perimeterAwareness": 0.1,
       "facingBias": "water",
       "verticality": 0.4,
-      "preferredShapes": ["organic", "round"],
+      "preferredShapes": [
+        "organic",
+        "round"
+      ],
       "roofStyle": "living",
       "streetPattern": "organic",
-      "traits": ["living-architecture", "water-integrated", "flooded-intentionally"]
+      "traits": [
+        "living-architecture",
+        "water-integrated",
+        "flooded-intentionally"
+      ]
     },
     {
       "id": "steppe-camp",
       "name": "Viddfolk Camps",
-      "racePreferences": { "Viddfolk": 1.0 },
+      "racePreferences": {
+        "Steppevarg": 1
+      },
       "spacing": 1.3,
       "organicness": 0.5,
       "hierarchyScale": 1.2,
       "perimeterAwareness": 0.5,
       "facingBias": "wind",
-      "verticality": 0.0,
-      "preferredShapes": ["round"],
+      "verticality": 0,
+      "preferredShapes": [
+        "round"
+      ],
       "roofStyle": "hide",
       "streetPattern": "radial",
-      "traits": ["nomadic-core", "fire-centred", "seasonal-shift", "wind-oriented"]
+      "traits": [
+        "nomadic-core",
+        "fire-centred",
+        "seasonal-shift",
+        "wind-oriented"
+      ]
     },
     {
       "id": "windfarer-eyrie",
       "name": "Wind-farer Eyries",
-      "racePreferences": { "Viddfolk": 0.7, "Bergfolk": 0.3 },
-      "spacing": 1.0,
+      "racePreferences": {
+        "Steppevarg": 0.7,
+        "Dvergr": 0.3
+      },
+      "spacing": 1,
       "organicness": 0.6,
       "hierarchyScale": 1.3,
       "perimeterAwareness": 0.2,
       "facingBias": "wind",
-      "verticality": 1.0,
-      "preferredShapes": ["round", "organic"],
+      "verticality": 1,
+      "preferredShapes": [
+        "round",
+        "organic"
+      ],
       "roofStyle": "stone",
       "streetPattern": "none",
-      "traits": ["vertical-stacking", "bridges-between", "elevated-construction", "carved-not-built"]
+      "traits": [
+        "vertical-stacking",
+        "bridges-between",
+        "elevated-construction",
+        "carved-not-built"
+      ]
     },
     {
       "id": "grovekin",
       "name": "Lövfolk Groves",
-      "racePreferences": { "Lövfolk": 1.0 },
+      "racePreferences": {
+        "Sylphari": 1
+      },
       "spacing": 1.4,
-      "organicness": 1.0,
-      "hierarchyScale": 1.0,
-      "perimeterAwareness": 0.0,
+      "organicness": 1,
+      "hierarchyScale": 1,
+      "perimeterAwareness": 0,
       "facingBias": "random",
       "verticality": 0.3,
-      "preferredShapes": ["organic"],
+      "preferredShapes": [
+        "organic"
+      ],
       "roofStyle": "living",
       "streetPattern": "none",
-      "traits": ["living-architecture", "no-central-plaza", "builds-underground"]
+      "traits": [
+        "living-architecture",
+        "no-central-plaza",
+        "builds-underground"
+      ]
     },
     {
       "id": "workshop-collective",
       "name": "Workshop-Towns",
-      "racePreferences": { "Bergfolk": 0.6, "Constructs": 0.4 },
+      "racePreferences": {
+        "Dvergr": 0.6,
+        "Constructs": 0.4
+      },
       "spacing": 0.6,
       "organicness": 0.3,
       "hierarchyScale": 1.1,
       "perimeterAwareness": 0.4,
       "facingBias": "road",
       "verticality": 0.6,
-      "preferredShapes": ["rectangular"],
+      "preferredShapes": [
+        "rectangular"
+      ],
       "roofStyle": "metal",
       "streetPattern": "grid",
-      "traits": ["mechanical-integration", "vertical-stacking", "communal-walls"]
+      "traits": [
+        "mechanical-integration",
+        "vertical-stacking",
+        "communal-walls"
+      ]
     },
     {
       "id": "crystal-resonance",
       "name": "Fae Resonance Sites",
-      "racePreferences": { "Fae": 1.0 },
+      "racePreferences": {
+        "Fae": 1
+      },
       "spacing": 0.8,
       "organicness": 0.4,
       "hierarchyScale": 1.5,
       "perimeterAwareness": 0.2,
       "facingBias": "inward",
       "verticality": 0.5,
-      "preferredShapes": ["hexagonal", "round"],
+      "preferredShapes": [
+        "hexagonal",
+        "round"
+      ],
       "roofStyle": "crystal",
       "streetPattern": "radial",
-      "traits": ["crystal-resonant", "symmetry-obsessed", "song-mapped"]
+      "traits": [
+        "crystal-resonant",
+        "symmetry-obsessed",
+        "song-mapped"
+      ]
     },
     {
       "id": "refuge-keepers",
       "name": "Remnant Refuges",
-      "racePreferences": { "Remnants": 0.7, "Constructs": 0.3 },
+      "racePreferences": {
+        "Remnants": 0.7,
+        "Constructs": 0.3
+      },
       "spacing": 0.7,
       "organicness": 0.6,
-      "hierarchyScale": 1.0,
+      "hierarchyScale": 1,
       "perimeterAwareness": 0.7,
       "facingBias": "inward",
       "verticality": 0.3,
-      "preferredShapes": ["rectangular"],
+      "preferredShapes": [
+        "rectangular"
+      ],
       "roofStyle": "salvage",
       "streetPattern": "organic",
-      "traits": ["ruin-incorporators", "fortified-perimeter", "light-sensitive"]
+      "traits": [
+        "ruin-incorporators",
+        "fortified-perimeter",
+        "light-sensitive"
+      ]
     },
     {
       "id": "harborfolk",
       "name": "Harbor Towns",
-      "racePreferences": { "Markfolk": 0.6, "Deepwalkers": 0.4 },
+      "racePreferences": {
+        "Humans": 0.6,
+        "Deepwalkers": 0.4
+      },
       "spacing": 1.1,
       "organicness": 0.7,
       "hierarchyScale": 1.2,
       "perimeterAwareness": 0.1,
       "facingBias": "water",
       "verticality": 0.2,
-      "preferredShapes": ["round", "longhouse"],
+      "preferredShapes": [
+        "round",
+        "longhouse"
+      ],
       "roofStyle": "thatch",
       "streetPattern": "linear",
-      "traits": ["water-integrated", "elevated-construction", "song-mapped", "seasonal-shift"]
+      "traits": [
+        "water-integrated",
+        "elevated-construction",
+        "song-mapped",
+        "seasonal-shift"
+      ]
     },
     {
       "id": "ironborne-encampment",
       "name": "Steinfolk Encampments",
-      "racePreferences": { "Steinfolk": 0.7, "Bergfolk": 0.3 },
+      "racePreferences": {
+        "Grynfolk": 0.7,
+        "Dvergr": 0.3
+      },
       "spacing": 0.9,
       "organicness": 0.2,
-      "hierarchyScale": 1.0,
+      "hierarchyScale": 1,
       "perimeterAwareness": 0.5,
       "facingBias": "inward",
       "verticality": 0.4,
-      "preferredShapes": ["rectangular", "hexagonal"],
+      "preferredShapes": [
+        "rectangular",
+        "hexagonal"
+      ],
       "roofStyle": "metal",
       "streetPattern": "grid",
-      "traits": ["ruin-incorporators", "mechanical-integration", "symmetry-obsessed"]
+      "traits": [
+        "ruin-incorporators",
+        "mechanical-integration",
+        "symmetry-obsessed"
+      ]
     },
     {
       "id": "thicket-dwellers",
       "name": "Lövfolk Thickets",
-      "racePreferences": { "Lövfolk": 1.0 },
+      "racePreferences": {
+        "Sylphari": 1
+      },
       "spacing": 0.3,
-      "organicness": 1.0,
-      "hierarchyScale": 1.0,
-      "perimeterAwareness": 0.0,
+      "organicness": 1,
+      "hierarchyScale": 1,
+      "perimeterAwareness": 0,
       "facingBias": "random",
       "verticality": 0.7,
-      "preferredShapes": ["organic"],
+      "preferredShapes": [
+        "organic"
+      ],
       "roofStyle": "living",
       "streetPattern": "none",
-      "traits": ["living-architecture", "no-central-plaza", "communal-walls", "elevated-construction", "scent-marked"]
+      "traits": [
+        "living-architecture",
+        "no-central-plaza",
+        "communal-walls",
+        "elevated-construction",
+        "scent-marked"
+      ]
     }
   ]
 }

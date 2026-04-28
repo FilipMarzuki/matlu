@@ -1,0 +1,1161 @@
+{
+  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
+  "_biomes": [
+    "marine",
+    "hot_desert",
+    "cold_desert",
+    "savanna",
+    "grassland",
+    "tropical_seasonal",
+    "temperate_deciduous",
+    "tropical_rainforest",
+    "temperate_rainforest",
+    "taiga",
+    "tundra",
+    "glacier",
+    "wetland"
+  ],
+  "races": [
+    {
+      "id": "troll",
+      "name": "Troll",
+      "description": "Ancient stone-skinned forest and mountain dwellers. Each one old enough to remember things no one else does. Not hostile by default — hostile when trespassed upon. A troll sitting on a mountain for 400 years is a geological feature with opinions.",
+      "biomeAffinity": {
+        "marine": -0.8,
+        "hot_desert": -0.9,
+        "cold_desert": 0.1,
+        "savanna": -0.7,
+        "grassland": -0.3,
+        "tropical_seasonal": -0.2,
+        "temperate_deciduous": 0.5,
+        "tropical_rainforest": 0.2,
+        "temperate_rainforest": 0.7,
+        "taiga": 0.9,
+        "tundra": 0.6,
+        "glacier": 0.3,
+        "wetland": -0.1
+      },
+      "elevationAffinity": {
+        "ideal": [
+          45,
+          80
+        ],
+        "tolerance": [
+          30,
+          95
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          30,
+          70
+        ],
+        "tolerance": [
+          15,
+          85
+        ]
+      },
+      "featureBonus": {
+        "mountain": 0.4,
+        "cave": 0.4,
+        "old_growth": 0.3
+      },
+      "clustering": "sparse",
+      "populationWeight": 0.15,
+      "mixingBehavior": "territorial",
+      "namingBase": "norse-stone"
+    },
+    {
+      "id": "vandoda",
+      "name": "Vandöda",
+      "description": "Born from corruption exposure across generations. Not undead — changed living. Other races are unsure if they are people or symptoms. They are both. Functional, sympathetic, and terrifying.",
+      "biomeAffinity": {
+        "marine": -0.3,
+        "hot_desert": -0.2,
+        "cold_desert": -0.1,
+        "savanna": 0,
+        "grassland": 0.1,
+        "tropical_seasonal": 0.1,
+        "temperate_deciduous": 0.3,
+        "tropical_rainforest": 0.2,
+        "temperate_rainforest": 0.3,
+        "taiga": 0.4,
+        "tundra": 0.2,
+        "glacier": -0.2,
+        "wetland": 0.4
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          60
+        ],
+        "tolerance": [
+          20,
+          80
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          30,
+          70
+        ],
+        "tolerance": [
+          10,
+          90
+        ]
+      },
+      "featureBonus": {
+        "corruption_zone": 0.8,
+        "ruin": 0.3
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.2,
+      "mixingBehavior": "outsider",
+      "namingBase": "corrupted-norse"
+    },
+    {
+      "id": "sandhari",
+      "name": "Sandhari",
+      "description": "Nomadic desert caravans. Navigate by stars and magnetic fields. Sand magic — they shape dunes, read wind patterns, and vanish into heat shimmer. Their trade routes are the arteries of desert civilization.",
+      "biomeAffinity": {
+        "marine": -0.4,
+        "hot_desert": 1,
+        "cold_desert": 0.5,
+        "savanna": 0.7,
+        "grassland": 0.2,
+        "tropical_seasonal": 0.1,
+        "temperate_deciduous": -0.2,
+        "tropical_rainforest": -0.8,
+        "temperate_rainforest": -0.5,
+        "taiga": -0.6,
+        "tundra": -0.7,
+        "glacier": -1,
+        "wetland": -0.9
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          45
+        ],
+        "tolerance": [
+          20,
+          60
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          0,
+          25
+        ],
+        "tolerance": [
+          0,
+          40
+        ]
+      },
+      "featureBonus": {
+        "trade_route": 0.4,
+        "oasis": 0.5
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.4,
+      "mixingBehavior": "nomadic",
+      "namingBase": "arabic-stellar"
+    },
+    {
+      "id": "korallfolk",
+      "name": "Korallfolk",
+      "description": "Reef-builders with underwater settlements. Theatrical — every negotiation is a scene, every battle is a performance. Build living architecture from coral they cultivate over decades.",
+      "biomeAffinity": {
+        "marine": 0.8,
+        "hot_desert": -1,
+        "cold_desert": -1,
+        "savanna": -0.7,
+        "grassland": -0.5,
+        "tropical_seasonal": 0.1,
+        "temperate_deciduous": -0.2,
+        "tropical_rainforest": 0.2,
+        "temperate_rainforest": 0.1,
+        "taiga": -0.6,
+        "tundra": -0.9,
+        "glacier": -1,
+        "wetland": 0.7
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          25
+        ],
+        "tolerance": [
+          20,
+          35
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          80,
+          100
+        ],
+        "tolerance": [
+          65,
+          100
+        ]
+      },
+      "featureBonus": {
+        "coast": 0.6,
+        "archipelago": 0.6,
+        "reef": 0.8
+      },
+      "clustering": "tight",
+      "populationWeight": 0.3,
+      "mixingBehavior": "welcoming",
+      "namingBase": "oceanic-coral"
+    },
+    {
+      "id": "skogsvattar",
+      "name": "Skogsvättar",
+      "description": "Tiny forest spirits. Numerous, hive-minded, guard old-growth. Not cute — ancient and alien. A single skogsvättar is harmless. A thousand acting in concert reshape the forest overnight.",
+      "biomeAffinity": {
+        "marine": -1,
+        "hot_desert": -1,
+        "cold_desert": -1,
+        "savanna": -0.5,
+        "grassland": -0.7,
+        "tropical_seasonal": 0.6,
+        "temperate_deciduous": 0.4,
+        "tropical_rainforest": 1,
+        "temperate_rainforest": 0.8,
+        "taiga": 0.1,
+        "tundra": -0.8,
+        "glacier": -1,
+        "wetland": 0.2
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          45
+        ],
+        "tolerance": [
+          20,
+          55
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          70,
+          100
+        ],
+        "tolerance": [
+          55,
+          100
+        ]
+      },
+      "featureBonus": {
+        "old_growth": 0.7,
+        "canopy": 0.4
+      },
+      "clustering": "tight",
+      "populationWeight": 0.2,
+      "mixingBehavior": "territorial",
+      "namingBase": "spirit-botanical"
+    },
+    {
+      "id": "rotfolk",
+      "name": "Rotfolk",
+      "description": "Part fungal, part mineral. Memory of geology — they remember the land before anyone else arrived. Extremely slow. The oldest living things in Mistheim. A Rotfolk elder might take a week to finish a sentence, and it will be worth the wait.",
+      "biomeAffinity": {
+        "marine": -0.5,
+        "hot_desert": -1,
+        "cold_desert": -0.8,
+        "savanna": -0.4,
+        "grassland": -0.2,
+        "tropical_seasonal": 0.4,
+        "temperate_deciduous": 0.3,
+        "tropical_rainforest": 0.7,
+        "temperate_rainforest": 0.5,
+        "taiga": 0.1,
+        "tundra": -0.5,
+        "glacier": -1,
+        "wetland": 1
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          35
+        ],
+        "tolerance": [
+          20,
+          45
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          75,
+          100
+        ],
+        "tolerance": [
+          60,
+          100
+        ]
+      },
+      "featureBonus": {
+        "swamp": 0.5,
+        "cave": 0.3,
+        "old_growth": 0.3
+      },
+      "clustering": "tight",
+      "populationWeight": 0.15,
+      "mixingBehavior": "passive",
+      "namingBase": "fungal-ancient"
+    },
+    {
+      "id": "vindfarare",
+      "name": "Vindfarare",
+      "description": "Winged cliff-dwellers. Nest on vertical faces no one else can reach. Control mountain passes through presence alone. Their maps are three-dimensional — surface races' flat maps amuse them.",
+      "biomeAffinity": {
+        "marine": 0.1,
+        "hot_desert": -0.2,
+        "cold_desert": 0.3,
+        "savanna": -0.3,
+        "grassland": -0.1,
+        "tropical_seasonal": -0.1,
+        "temperate_deciduous": 0.2,
+        "tropical_rainforest": -0.4,
+        "temperate_rainforest": 0.1,
+        "taiga": 0.6,
+        "tundra": 0.8,
+        "glacier": 0.4,
+        "wetland": -0.6
+      },
+      "elevationAffinity": {
+        "ideal": [
+          65,
+          95
+        ],
+        "tolerance": [
+          50,
+          100
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          15,
+          50
+        ],
+        "tolerance": [
+          5,
+          65
+        ]
+      },
+      "featureBonus": {
+        "cliff": 0.7,
+        "mountain_pass": 0.5,
+        "peak": 0.4
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.25,
+      "mixingBehavior": "selective",
+      "namingBase": "norse-aerial"
+    },
+    {
+      "id": "jarnborn",
+      "name": "Järnborn",
+      "description": "Constructed in a previous age. Nobody knows by whom or why. Few remain. They don't reproduce — each death is permanent and felt by all survivors. Found as individuals embedded in other cultures, rarely in groups.",
+      "biomeAffinity": {
+        "marine": -0.3,
+        "hot_desert": 0,
+        "cold_desert": 0,
+        "savanna": 0,
+        "grassland": 0.1,
+        "tropical_seasonal": 0,
+        "temperate_deciduous": 0.2,
+        "tropical_rainforest": 0,
+        "temperate_rainforest": 0.1,
+        "taiga": 0.2,
+        "tundra": 0.1,
+        "glacier": -0.1,
+        "wetland": 0
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          70
+        ],
+        "tolerance": [
+          20,
+          90
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          20,
+          60
+        ],
+        "tolerance": [
+          0,
+          80
+        ]
+      },
+      "featureBonus": {
+        "ruin": 0.8,
+        "settlement": 0.4
+      },
+      "clustering": "sparse",
+      "populationWeight": 0.05,
+      "mixingBehavior": "integrated",
+      "namingBase": "constructed-rune"
+    },
+    {
+      "id": "kristallbundna",
+      "name": "Kristallbundna",
+      "description": "Partially fused with the world's crystal structure. They hear the magic field as sound. Pre-corruption they were harmonious. Now some are going mad as the crystals scream. Corruption isn't killing them — it's tuning them wrong.",
+      "biomeAffinity": {
+        "marine": -0.7,
+        "hot_desert": -0.2,
+        "cold_desert": 0.4,
+        "savanna": -0.4,
+        "grassland": -0.2,
+        "tropical_seasonal": -0.1,
+        "temperate_deciduous": 0.1,
+        "tropical_rainforest": -0.3,
+        "temperate_rainforest": 0,
+        "taiga": 0.5,
+        "tundra": 0.7,
+        "glacier": 0.6,
+        "wetland": -0.5
+      },
+      "elevationAffinity": {
+        "ideal": [
+          55,
+          85
+        ],
+        "tolerance": [
+          40,
+          95
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          10,
+          40
+        ],
+        "tolerance": [
+          0,
+          55
+        ]
+      },
+      "featureBonus": {
+        "crystal_formation": 0.9,
+        "mountain": 0.3,
+        "cave": 0.4
+      },
+      "clustering": "tight",
+      "populationWeight": 0.2,
+      "mixingBehavior": "insular",
+      "namingBase": "crystal-harmonic"
+    },
+    {
+      "id": "chitinvavare",
+      "name": "Chitinvävare",
+      "description": "Sentient six-limbed insectoids. Build with secreted resin — their cities are grown, not constructed. Not a hive-mind — individuals with alien but coherent culture. Other races find them unsettling. They find other races confusing. Related to Velcrids? They refuse to discuss it.",
+      "biomeAffinity": {
+        "marine": -0.7,
+        "hot_desert": -0.6,
+        "cold_desert": -0.8,
+        "savanna": 0.1,
+        "grassland": -0.2,
+        "tropical_seasonal": 0.7,
+        "temperate_deciduous": 0.2,
+        "tropical_rainforest": 1,
+        "temperate_rainforest": 0.5,
+        "taiga": -0.4,
+        "tundra": -0.9,
+        "glacier": -1,
+        "wetland": 0.3
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          45
+        ],
+        "tolerance": [
+          20,
+          55
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          60,
+          90
+        ],
+        "tolerance": [
+          45,
+          100
+        ]
+      },
+      "featureBonus": {
+        "cave": 0.5,
+        "canopy": 0.4
+      },
+      "clustering": "tight",
+      "populationWeight": 0.3,
+      "mixingBehavior": "insular",
+      "namingBase": "insectoid-resin"
+    },
+    {
+      "id": "sjovandrare",
+      "name": "Sjövandrare",
+      "description": "Deep-water nomads. Their maps are songs — navigational chants encoding currents, star positions, and hazards. They have seen things on the deep water that they don't talk about. Unlike Korallfolk (reef-bound), these are open-ocean people who regard land as a temporary inconvenience.",
+      "biomeAffinity": {
+        "marine": 1,
+        "hot_desert": -0.9,
+        "cold_desert": -0.8,
+        "savanna": -0.5,
+        "grassland": -0.4,
+        "tropical_seasonal": 0.1,
+        "temperate_deciduous": -0.2,
+        "tropical_rainforest": 0,
+        "temperate_rainforest": 0.1,
+        "taiga": -0.4,
+        "tundra": -0.6,
+        "glacier": -0.8,
+        "wetland": 0.5
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          22
+        ],
+        "tolerance": [
+          20,
+          30
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          85,
+          100
+        ],
+        "tolerance": [
+          70,
+          100
+        ]
+      },
+      "featureBonus": {
+        "coast": 0.6,
+        "island": 0.8,
+        "deep_ocean": 0.7
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.25,
+      "mixingBehavior": "nomadic",
+      "namingBase": "polynesian-oceanic"
+    },
+    {
+      "id": "deepwalkers",
+      "name": "Deepwalkers",
+      "description": "Deep-sea or subterranean wanderers. Details pending.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "featureBonus": {},
+      "clustering": null,
+      "populationWeight": 0,
+      "mixingBehavior": null,
+      "namingBase": null
+    },
+    {
+      "id": "fae",
+      "name": "Fae",
+      "description": "Otherworldly beings tied to crystal resonance and wild magic. Details pending.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "featureBonus": {},
+      "clustering": null,
+      "populationWeight": 0,
+      "mixingBehavior": null,
+      "namingBase": null
+    },
+    {
+      "id": "merfolk",
+      "name": "Merfolk",
+      "description": "Aquatic people of reef and open water. Details pending.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "featureBonus": {},
+      "clustering": null,
+      "populationWeight": 0,
+      "mixingBehavior": null,
+      "namingBase": null
+    },
+    {
+      "id": "everstill",
+      "name": "Everstill",
+      "description": "Everstill. Details pending.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "featureBonus": {},
+      "clustering": null,
+      "populationWeight": 0,
+      "mixingBehavior": null,
+      "namingBase": null
+    },
+    {
+      "id": "half-giants",
+      "name": "Half-Giants",
+      "description": "Descendants or diminished kin of true giants. Enormous but not world-shaping. Details pending.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "featureBonus": {},
+      "clustering": null,
+      "populationWeight": 0,
+      "mixingBehavior": null,
+      "namingBase": null
+    },
+    {
+      "id": "pandor",
+      "name": "Pandor",
+      "description": "Amphibious scholars with an oral archive tradition older than any written record. Maintain distributed knowledge sites across waterways. Share what they know carefully — not from secrecy but from precision.",
+      "biomeAffinity": {
+        "marine": 0.3,
+        "hot_desert": -1,
+        "cold_desert": -0.9,
+        "savanna": -0.4,
+        "grassland": 0.1,
+        "tropical_seasonal": 0.3,
+        "temperate_deciduous": 0.5,
+        "tropical_rainforest": 0.4,
+        "temperate_rainforest": 0.6,
+        "taiga": -0.2,
+        "tundra": -0.7,
+        "glacier": -1,
+        "wetland": 1
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          35
+        ],
+        "tolerance": [
+          20,
+          50
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          65,
+          95
+        ],
+        "tolerance": [
+          50,
+          100
+        ]
+      },
+      "featureBonus": {
+        "river": 0.5,
+        "lake": 0.5,
+        "coast": 0.4
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.4,
+      "mixingBehavior": "welcoming",
+      "namingBase": "pandor-aquatic"
+    },
+    {
+      "id": "constructs",
+      "name": "Constructs",
+      "description": "Artificial beings built in a previous age. Details pending.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "featureBonus": {},
+      "clustering": null,
+      "populationWeight": 0,
+      "mixingBehavior": null,
+      "namingBase": null
+    },
+    {
+      "id": "steppevarg",
+      "name": "Steppevarg",
+      "description": "Wolf-kin pack culture. Mounted herders of the open plains. The steppe belongs to them and everyone who crosses it knows it. Outsiders are tolerated, sometimes adopted — a Steppevarg tribe with a Goblin trader or a Dvergr smith in its ranks is normal.",
+      "biomeAffinity": {
+        "marine": -0.8,
+        "hot_desert": 0.1,
+        "cold_desert": 0.5,
+        "savanna": 0.6,
+        "grassland": 1,
+        "tropical_seasonal": 0,
+        "temperate_deciduous": 0.1,
+        "tropical_rainforest": -0.8,
+        "temperate_rainforest": -0.4,
+        "taiga": 0.2,
+        "tundra": 0.3,
+        "glacier": -0.5,
+        "wetland": -0.6
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          45
+        ],
+        "tolerance": [
+          20,
+          60
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          15,
+          45
+        ],
+        "tolerance": [
+          5,
+          60
+        ]
+      },
+      "featureBonus": {
+        "open_plain": 0.4,
+        "trade_route": 0.2
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.5,
+      "mixingBehavior": "adoptive",
+      "namingBase": "turkic-wolf"
+    },
+    {
+      "id": "grynfolk",
+      "name": "Grynfolk",
+      "description": "Small obsessive tinkerers. The race most aligned with Logic Core philosophy. Build complex things from simple parts. Every Grynfolk has a project that defines their identity — ask about it at your own risk. Cluster near Dvergr for materials but the two races have very different aesthetics.",
+      "biomeAffinity": {
+        "marine": -0.5,
+        "hot_desert": -0.4,
+        "cold_desert": -0.1,
+        "savanna": 0.1,
+        "grassland": 0.7,
+        "tropical_seasonal": 0.2,
+        "temperate_deciduous": 0.8,
+        "tropical_rainforest": -0.3,
+        "temperate_rainforest": 0.2,
+        "taiga": 0.4,
+        "tundra": 0.1,
+        "glacier": -0.7,
+        "wetland": -0.1
+      },
+      "elevationAffinity": {
+        "ideal": [
+          30,
+          55
+        ],
+        "tolerance": [
+          20,
+          65
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          30,
+          60
+        ],
+        "tolerance": [
+          20,
+          70
+        ]
+      },
+      "featureBonus": {
+        "hills": 0.4,
+        "settlement": 0.3,
+        "ruin": 0.3
+      },
+      "clustering": "tight",
+      "populationWeight": 0.4,
+      "mixingBehavior": "cosmopolitan",
+      "namingBase": "gnomish-mechanical"
+    },
+    {
+      "id": "dvergr",
+      "name": "Dvergr",
+      "description": "Mountain dwellers, master smiths. Underground cities carved into living rock. Rune-carvers and metallurgists. Their forges predate most surface civilizations.",
+      "biomeAffinity": {
+        "marine": -1,
+        "hot_desert": -0.8,
+        "cold_desert": 0.3,
+        "savanna": -0.7,
+        "grassland": -0.2,
+        "tropical_seasonal": -0.6,
+        "temperate_deciduous": 0.1,
+        "tropical_rainforest": -0.9,
+        "temperate_rainforest": -0.1,
+        "taiga": 0.8,
+        "tundra": 0.9,
+        "glacier": 0.5,
+        "wetland": -0.7
+      },
+      "elevationAffinity": {
+        "ideal": [
+          65,
+          90
+        ],
+        "tolerance": [
+          40,
+          100
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          10,
+          40
+        ],
+        "tolerance": [
+          0,
+          60
+        ]
+      },
+      "featureBonus": {
+        "mountain": 0.5,
+        "volcano": 0.3,
+        "ruin": 0.2
+      },
+      "clustering": "tight",
+      "populationWeight": 0.7,
+      "mixingBehavior": "selective",
+      "namingBase": "old-norse-mineral"
+    },
+    {
+      "id": "sylphari",
+      "name": "Sylphari",
+      "description": "Nature-bound forest enclaves. Long-lived, slow to trust, protective of old-growth. The forest acts through them — not gently.",
+      "biomeAffinity": {
+        "marine": -0.8,
+        "hot_desert": -1,
+        "cold_desert": -0.9,
+        "savanna": -0.3,
+        "grassland": 0,
+        "tropical_seasonal": 0.3,
+        "temperate_deciduous": 1,
+        "tropical_rainforest": 0.4,
+        "temperate_rainforest": 0.9,
+        "taiga": 0.2,
+        "tundra": -0.5,
+        "glacier": -1,
+        "wetland": 0.2
+      },
+      "elevationAffinity": {
+        "ideal": [
+          25,
+          55
+        ],
+        "tolerance": [
+          20,
+          70
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          55,
+          85
+        ],
+        "tolerance": [
+          40,
+          100
+        ]
+      },
+      "featureBonus": {
+        "old_growth": 0.5,
+        "river": 0.2
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.3,
+      "mixingBehavior": "insular",
+      "namingBase": "elvish-botanical"
+    },
+    {
+      "id": "draak",
+      "name": "Draak",
+      "description": "Remnants of a once-great empire. Cold-blooded, alien thought patterns. Their ruins predate everyone else's memory. They can't fully explain their own history because their lifecycle involves forgetting. Territorial but not aggressive — they simply assume everything was theirs once.",
+      "biomeAffinity": {
+        "marine": -0.3,
+        "hot_desert": 0.9,
+        "cold_desert": -0.2,
+        "savanna": 0.7,
+        "grassland": 0.2,
+        "tropical_seasonal": 0.5,
+        "temperate_deciduous": 0,
+        "tropical_rainforest": 0.3,
+        "temperate_rainforest": -0.1,
+        "taiga": -0.5,
+        "tundra": -0.8,
+        "glacier": -1,
+        "wetland": -0.2
+      },
+      "elevationAffinity": {
+        "ideal": [
+          35,
+          70
+        ],
+        "tolerance": [
+          20,
+          85
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          5,
+          30
+        ],
+        "tolerance": [
+          0,
+          50
+        ]
+      },
+      "featureBonus": {
+        "volcano": 0.6,
+        "ruin": 0.4,
+        "hot_spring": 0.3
+      },
+      "clustering": "tight",
+      "populationWeight": 0.3,
+      "mixingBehavior": "insular",
+      "namingBase": "draconic-ancient"
+    },
+    {
+      "id": "goblin",
+      "name": "Goblins",
+      "description": "Traders, fixers, connectors. Found wherever civilizations meet. Run markets, keep routes, maintain the spaces between other peoples' territories. Underestimated by everyone exactly once.",
+      "biomeAffinity": {
+        "marine": -0.3,
+        "hot_desert": 0.1,
+        "cold_desert": -0.1,
+        "savanna": 0.4,
+        "grassland": 0.8,
+        "tropical_seasonal": 0.3,
+        "temperate_deciduous": 0.7,
+        "tropical_rainforest": 0,
+        "temperate_rainforest": 0.2,
+        "taiga": 0.1,
+        "tundra": -0.3,
+        "glacier": -0.8,
+        "wetland": 0.2
+      },
+      "elevationAffinity": {
+        "ideal": [
+          25,
+          45
+        ],
+        "tolerance": [
+          20,
+          60
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          30,
+          65
+        ],
+        "tolerance": [
+          15,
+          80
+        ]
+      },
+      "featureBonus": {
+        "trade_route": 0.5,
+        "ruin": 0.3,
+        "crossroads": 0.5
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.6,
+      "mixingBehavior": "cosmopolitan",
+      "namingBase": "goblin-trade"
+    },
+    {
+      "id": "human",
+      "name": "Humans",
+      "description": "Earth arrivals. Appeared through an unknown mechanism — no one knows why. Adaptable, short-lived, numerous. Settle anywhere. Other races find their speed of reproduction and cultural change alarming.",
+      "biomeAffinity": {
+        "marine": -0.2,
+        "hot_desert": 0.2,
+        "cold_desert": 0.1,
+        "savanna": 0.4,
+        "grassland": 0.6,
+        "tropical_seasonal": 0.3,
+        "temperate_deciduous": 0.7,
+        "tropical_rainforest": 0.1,
+        "temperate_rainforest": 0.3,
+        "taiga": 0.3,
+        "tundra": 0,
+        "glacier": -0.5,
+        "wetland": 0.2
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          60
+        ],
+        "tolerance": [
+          20,
+          80
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          25,
+          70
+        ],
+        "tolerance": [
+          10,
+          85
+        ]
+      },
+      "featureBonus": {
+        "earth_fragment": 0.6,
+        "trade_route": 0.3,
+        "coast": 0.2
+      },
+      "clustering": "scattered",
+      "populationWeight": 0.5,
+      "mixingBehavior": "cosmopolitan",
+      "namingBase": "earth-mixed"
+    },
+    {
+      "id": "remnants",
+      "name": "Remnants",
+      "description": "Survivors shaped by corruption and collapse. Details pending.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          null,
+          null
+        ],
+        "tolerance": [
+          null,
+          null
+        ]
+      },
+      "featureBonus": {},
+      "clustering": null,
+      "populationWeight": 0,
+      "mixingBehavior": null,
+      "namingBase": null
+    }
+  ]
+}

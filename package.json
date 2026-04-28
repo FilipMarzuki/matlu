@@ -18,6 +18,8 @@
     "arena-bot": "tsx scripts/arena-bot/run.ts",
     "audio:sync": "node scripts/sync-audio.js",
     "races:sync": "node scripts/races-sync.mjs",
+    "macro:import": "node scripts/seed-macro-world.mjs",
+    "macro:export": "node scripts/export-macro-world.mjs",
     "entity:audit": "tsx scripts/entity-audit.ts",
     "cap:sync": "npm run build && npx cap sync",
     "unit": "vitest run",

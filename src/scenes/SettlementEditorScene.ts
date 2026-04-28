@@ -40,7 +40,7 @@ import {
   type IsoConfig, type IsoBoxCorners,
 } from '../lib/IsoRenderer';
 import {
-  getAllCultures, getAllBuildings, generateSettlement,
+  getAllCultures, getAllBuildings, generateSettlement, initSettlementData,
 } from '../world/SettlementGenerator';
 import { placeBuildings } from '../world/SettlementPlacement';
 import type { SettlementSite, SettlementTier } from '../world/SettlementSpec';
@@ -188,6 +188,8 @@ export class SettlementEditorScene extends Phaser.Scene {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   create(): void {
+    // Load culture data from Supabase (JSON fallback works immediately)
+    initSettlementData();
     this.cameras.main.setBackgroundColor('#1a1a2e');
 
     this.computeOrigin();
