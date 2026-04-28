@@ -7469,7 +7469,7 @@ export class GameScene extends Phaser.Scene {
     const tilesX = this.tileDevW;
     const N_BUCKETS = 16;
 
-    // Group tile positions by colour bucket so each fillStyle() covers many fillRect() calls.
+    // Group tile positions by colour bucket so each fillStyle() covers many fillPath() calls.
     const groups = new Map<number, number[]>();
     for (let i = 0, len = this.tileDevElev.length; i < len; i++) {
       const t      = Math.min(1, this.tileDevElev[i]);       // clamp [0,1]
@@ -7482,10 +7482,19 @@ export class GameScene extends Phaser.Scene {
 
     // Render at depth 5000 — above the player (world-Y depth) and all decorations.
     const gfx = this.add.graphics().setDepth(5000).setVisible(false);
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
     for (const [color, coords] of groups) {
       gfx.fillStyle(color, 0.82);
       for (let j = 0; j < coords.length; j += 2) {
-        gfx.fillRect(coords[j], coords[j + 1], TILE_SIZE, TILE_SIZE);
+        const { x: isoX, y: isoY } = worldToIso(coords[j], coords[j + 1]);
+        gfx.beginPath();
+        gfx.moveTo(isoX,      isoY);
+        gfx.lineTo(isoX + hw, isoY + hh);
+        gfx.lineTo(isoX,      isoY + ISO_TILE_H);
+        gfx.lineTo(isoX - hw, isoY + hh);
+        gfx.closePath();
+        gfx.fillPath();
       }
     }
     this.devElevGfx = gfx;
