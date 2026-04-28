@@ -61,3 +61,6 @@ wiki/.vercel/
 
 # IDE workspace settings
 .vscode/
+
+# Macro-world generated outputs (large files, re-generated on demand)
+macro-world/earth-reference/
