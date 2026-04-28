@@ -120,10 +120,13 @@ function generateRoads(
   };
 
   const r = Math.floor(radiusTiles);
+  // Extend main road axes 3 tiles beyond the settlement radius so roads reach
+  // the settlement boundary and provide a visible "road out of town" stub.
+  const rExt = r + 3;
 
   switch (pattern) {
     case 'grid':
-      for (let i = -r; i <= r; i++) {
+      for (let i = -rExt; i <= rExt; i++) {
         add(mid + i, mid, true);
         add(mid, mid + i, true);
       }
@@ -133,7 +136,7 @@ function generateRoads(
       const spokes = 3 + Math.floor(rng() * 2);
       for (let s = 0; s < spokes; s++) {
         const angle = (s / spokes) * Math.PI * 2 + rng() * 0.3;
-        for (let d = 0; d <= r; d++) {
+        for (let d = 0; d <= rExt; d++) {
           add(Math.round(mid + Math.cos(angle) * d), Math.round(mid + Math.sin(angle) * d), true);
         }
       }
@@ -141,12 +144,12 @@ function generateRoads(
     }
 
     case 'linear':
-      for (let i = -r; i <= r; i++) add(mid + i, mid, true);
+      for (let i = -rExt; i <= rExt; i++) add(mid + i, mid, true);
       for (let i = -Math.floor(r * 0.4); i <= Math.floor(r * 0.4); i++) add(mid, mid + i, false);
       break;
 
     case 'branching': {
-      for (let i = -r; i <= r; i++) add(mid + i, mid, true);
+      for (let i = -rExt; i <= rExt; i++) add(mid + i, mid, true);
       const branches = 2 + Math.floor(rng() * 2);
       for (let b = 0; b < branches; b++) {
         const startX = mid + Math.floor((rng() - 0.5) * r * 1.4);
@@ -163,8 +166,8 @@ function generateRoads(
       const paths = 2 + Math.floor(rng() * 2);
       for (let p = 0; p < paths; p++) {
         const startAngle = (p / paths) * Math.PI * 2 + rng() * 0.5;
-        let cx = Math.round(mid + Math.cos(startAngle) * r);
-        let cy = Math.round(mid + Math.sin(startAngle) * r);
+        let cx = Math.round(mid + Math.cos(startAngle) * rExt);
+        let cy = Math.round(mid + Math.sin(startAngle) * rExt);
         for (let step = 0; step < r * 3; step++) {
           add(cx, cy, p === 0);
           const dx = mid - cx;
