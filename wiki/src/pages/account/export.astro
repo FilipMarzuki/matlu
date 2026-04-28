@@ -20,41 +20,41 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
   <div id="page-content" hidden>
     <h1>
-      <span class="t-en">Export your data</span>
-      <span class="t-sv">Exportera din data</span>
+      <span lang="en">Export your data</span>
+      <span lang="sv">Exportera din data</span>
     </h1>
     <p class="lead">
-      <span class="t-en">
+      <span lang="en">
         Your export will include: account profile, kids, creature drafts,
         and all your creature submissions with image URLs.
         The file is a structured JSON you can open in any text editor.
         (Art. 15 and 20 GDPR)
       </span>
-      <span class="t-sv">
+      <span lang="sv">
         Din export innehåller: kontoprofil, barn, väsenutkast och alla dina väseninlämningar med bild-URLer.
         Filen är JSON som kan öppnas i valfri textredigerare. (Art. 15 och 20 GDPR)
       </span>
     </p>
 
     <button id="export-btn" class="btn-primary">
-      <span class="t-en">Download data export</span>
-      <span class="t-sv">Ladda ner dataexport</span>
+      <span lang="en">Download data export</span>
+      <span lang="sv">Ladda ner dataexport</span>
     </button>
 
     <p id="status" class="status" role="status" aria-live="polite"></p>
 
     <p class="back-link">
       <a href="/account/settings">
-        <span class="t-en">← Back to settings</span>
-        <span class="t-sv">← Tillbaka till inställningar</span>
+        <span lang="en">← Back to settings</span>
+        <span lang="sv">← Tillbaka till inställningar</span>
       </a>
     </p>
   </div>
 
   <div id="auth-loading">
     <p style="color:var(--text-dim);margin-top:3rem;text-align:center">
-      <span class="t-en">Loading…</span>
-      <span class="t-sv">Laddar…</span>
+      <span lang="en">Loading…</span>
+      <span lang="sv">Laddar…</span>
     </p>
   </div>
 </Base>

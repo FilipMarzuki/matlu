@@ -5,47 +5,66 @@
  * Props:
  *   title       — injected into <title> and og:title
  *   description — optional meta description
+ *   lang        — page language; sets <html lang> and hreflang; defaults to 'en'
  */
 import Nav from '../components/Nav.astro';
+
+type Lang = 'en' | 'sv';
 
 interface Props {
   title: string;
   description?: string;
+  lang?: Lang;
 }
 
-const { title, description = 'Matlu Codex — lore, biomes, and creatures for Core Warden.' } = Astro.props;
+const {
+  title,
+  description = 'Matlu Codex — lore, biomes, and creatures for Core Warden.',
+  lang = 'en',
+} = Astro.props;
+
 const siteTitle = 'Matlu Codex';
 const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
+
+// Hardcoded site base — keep in sync with Vercel project domain.
+const siteBase = 'https://codex.corewarden.com';
+const canonicalPath = Astro.url.pathname;
+const canonicalUrl = `${siteBase}${canonicalPath}`;
+
+const footerStrings: Record<Lang, { tagline: string; privacy: string; license: string; account: string }> = {
+  en: {
+    tagline: 'Matlu Codex — a Core Warden community hub.',
+    privacy: 'Privacy Policy',
+    license: 'Creature License',
+    account: 'Creator Account',
+  },
+  sv: {
+    tagline: 'Matlu Codex — en Core Warden-gemenskap.',
+    privacy: 'Integritetspolicy',
+    license: 'Väsenslicens',
+    account: 'Skaparkonto',
+  },
+};
+
+function t(l: Lang, key: keyof typeof footerStrings.en): string {
+  return footerStrings[l][key];
+}
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
-    <!-- Must run before body renders to avoid flash of wrong language -->
-    <script is:inline>
-      (function(){
-        var fromUrl = null;
-        try {
-          if (window.location && window.location.search) {
-            var q = new URLSearchParams(window.location.search);
-            var p = q.get('lang');
-            if (p === 'sv' || p === 'en') fromUrl = p;
-          }
-        } catch (e) {}
-        var l = fromUrl;
-        if (!l) l = (typeof localStorage !== 'undefined' && localStorage.getItem('matlu-lang')) || 'en';
-        if (!l) l = 'en';
-        if (fromUrl && typeof localStorage !== 'undefined') localStorage.setItem('matlu-lang', l);
-        document.documentElement.setAttribute('data-lang', l);
-        document.documentElement.lang = l;
-      })();
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <title>{pageTitle}</title>
+
+    <!-- hreflang: tell search engines this page serves EN and SV content -->
+    <link rel="alternate" hreflang="en" href={canonicalUrl} />
+    <link rel="alternate" hreflang="sv" href={canonicalUrl} />
+    <link rel="alternate" hreflang="x-default" href={canonicalUrl} />
 
     <!-- Google Fonts: Pixelify Sans (pixel headings) + Outfit (body text) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -54,14 +73,6 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
       href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;700&family=Outfit:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-
-    <!-- Apply stored language before first paint to minimise text flash -->
-    <script is:inline>
-      (function () {
-        const lang = localStorage.getItem('codex_lang');
-        if (lang) document.documentElement.setAttribute('lang', lang);
-      })();
-    </script>
 
     <style is:global>
       /* ── Design tokens — Core Warden game palette ────────────────────────── */
@@ -146,10 +157,15 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
       a:hover { text-decoration: underline; }
 
       /* ── Language toggle ────────────────────────────────────────────────── */
-      /* .t-en shown by default; .t-sv hidden. Flip when html[data-lang="sv"]. */
-      .t-sv { display: none; }
-      [data-lang="sv"] .t-en { display: none; }
-      [data-lang="sv"] .t-sv { display: inline; }
+      /*
+       * Bilingual inline elements carry lang="en" or lang="sv".
+       * html[lang] is set server-side from the `lang` prop and can be flipped
+       * client-side by the Nav toggle (updates html.lang = 'sv'/'en').
+       * Default state shows EN; flipping html[lang] to "sv" swaps the content.
+       */
+      [lang="sv"] { display: none; }
+      html[lang="sv"] [lang="en"] { display: none; }
+      html[lang="sv"] [lang="sv"] { display: inline; }
 
       /* ── Main content wrapper ────────────────────────────────────────────── */
       main {
@@ -158,7 +174,6 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
         padding: 2rem 1.5rem 4rem;
       }
 
-      /* ── Code ────────────────────────────────────────────────────────────── */
       /* ── Footer ──────────────────────────────────────────────────────────── */
       footer {
         border-top: 1px solid var(--border);
@@ -243,33 +258,13 @@ const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
       <slot />
     </main>
     <footer>
-      <span class="t-en">Matlu Codex &mdash; a Core Warden community hub.</span>
-      <span class="t-sv">Matlu Codex &mdash; en Core Warden-gemenskap.</span>
+      {t(lang, 'tagline')}
       <span class="sep">&middot;</span>
-      <a href="/privacy">
-        <span class="t-en">Privacy Policy</span>
-        <span class="t-sv">Integritetspolicy</span>
-      </a>
+      <a href="/privacy">{t(lang, 'privacy')}</a>
       <span class="sep">&middot;</span>
-      <a href="/creatures/license">
-        <span class="t-en">Creature License</span>
-        <span class="t-sv">Väsenslicens</span>
-      </a>
+      <a href="/creatures/license">{t(lang, 'license')}</a>
       <span class="sep">&middot;</span>
-      <a href="/account/signin">
-        <span class="t-en">Creator Account</span>
-        <span class="t-sv">Skaparkonto</span>
-      </a>
+      <a href="/account/signin">{t(lang, 'account')}</a>
     </footer>
   </body>
 </html>
-
-<script>
-  // Re-apply translations every page load (handles SPA-style navigation and
-  // direct URL visits after the user has already chosen a language).
-  import { getLanguage, applyTranslations } from '../lib/i18n-codex';
-  document.addEventListener('DOMContentLoaded', () => {
-    const lang = getLanguage();
-    if (lang !== 'en') applyTranslations(lang);
-  });
-</script>

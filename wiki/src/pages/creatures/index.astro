@@ -26,31 +26,31 @@ function sizeLabel(s: string | null): string {
 
 <Base title="Creatures" description="Meet the fantasy creatures of the Matlu multiworld — submitted by players and fans.">
   <h1>
-    <span class="t-en">Creatures</span>
-    <span class="t-sv">Väsen</span>
+    <span lang="en">Creatures</span>
+    <span lang="sv">Väsen</span>
   </h1>
   <p class="lead">
-    <span class="t-en">Meet the fantasy creatures of the Matlu multiworld — imagined and submitted by our community.</span>
-    <span class="t-sv">Möt fantasiväsendena i Matlu-multiversum — föreställda och inskickade av vår gemenskap.</span>
+    <span lang="en">Meet the fantasy creatures of the Matlu multiworld — imagined and submitted by our community.</span>
+    <span lang="sv">Möt fantasiväsendena i Matlu-multiversum — föreställda och inskickade av vår gemenskap.</span>
     <a href="/creatures/submit" class="submit-link">
-      <span class="t-en">Submit your own →</span>
-      <span class="t-sv">Skicka in ditt eget →</span>
+      <span lang="en">Submit your own →</span>
+      <span lang="sv">Skicka in ditt eget →</span>
     </a>
   </p>
 
   {creatures.length === 0 ? (
     <div class="empty-state">
       <p class="empty-title">
-        <span class="t-en">No creatures yet!</span>
-        <span class="t-sv">Inga väsen än!</span>
+        <span lang="en">No creatures yet!</span>
+        <span lang="sv">Inga väsen än!</span>
       </p>
       <p class="empty-desc">
-        <span class="t-en">Be the first to add a creature to the encyclopedia.</span>
-        <span class="t-sv">Bli den första att lägga till ett väsen i encyklopedin.</span>
+        <span lang="en">Be the first to add a creature to the encyclopedia.</span>
+        <span lang="sv">Bli den första att lägga till ett väsen i encyklopedin.</span>
       </p>
       <a href="/creatures/submit" class="btn-primary">
-        <span class="t-en">Submit a creature →</span>
-        <span class="t-sv">Skicka in ett väsen →</span>
+        <span lang="en">Submit a creature →</span>
+        <span lang="sv">Skicka in ett väsen →</span>
       </a>
     </div>
   ) : (
@@ -69,8 +69,8 @@ function sizeLabel(s: string | null): string {
               <h2 class="card-name">{c.creature_name}</h2>
               {c.creator_name && (
                 <p class="card-creator">
-                  <span class="t-en">by</span>
-                  <span class="t-sv">av</span>
+                  <span lang="en">by</span>
+                  <span lang="sv">av</span>
                   {' '}{c.creator_name}
                 </p>
               )}

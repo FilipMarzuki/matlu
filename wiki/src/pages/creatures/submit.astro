@@ -30,33 +30,33 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   <div id="license-ver" data-version={LICENSE_VERSION} hidden></div>
 
   <h1>
-    <span class="t-en">Submit a Creature</span>
-    <span class="t-sv">Skicka in ett väsen</span>
+    <span lang="en">Submit a Creature</span>
+    <span lang="sv">Skicka in ett väsen</span>
   </h1>
   <p class="lead">
-    <span class="t-en">Share your fantasy creature with the Matlu world!
+    <span lang="en">Share your fantasy creature with the Matlu world!
       Fill in as many fields as you can — the more detail you add, the better the chances
       it inspires a real in-game creature.</span>
-    <span class="t-sv">Dela ditt fantasiväsen med Matlu-världen!
+    <span lang="sv">Dela ditt fantasiväsen med Matlu-världen!
       Fyll i så många fält du kan — ju mer detaljer, desto större chans att det inspirerar ett riktigt spelväsen.</span>
   </p>
 
   <!-- Auth state banner (populated by JS) -->
   <div id="auth-banner" class="auth-banner" hidden>
-    <span class="t-en">Signed in as <strong id="auth-handle"></strong></span>
-    <span class="t-sv">Inloggad som <strong id="auth-handle-sv"></strong></span>
+    <span lang="en">Signed in as <strong id="auth-handle"></strong></span>
+    <span lang="sv">Inloggad som <strong id="auth-handle-sv"></strong></span>
     <span class="auth-sep">&middot;</span>
-    <a href="/account/settings"><span class="t-en">Settings</span><span class="t-sv">Inställningar</span></a>
+    <a href="/account/settings"><span lang="en">Settings</span><span lang="sv">Inställningar</span></a>
     <span class="auth-sep">&middot;</span>
     <button type="button" id="signout-btn" class="btn-link">
-      <span class="t-en">Sign out</span><span class="t-sv">Logga ut</span>
+      <span lang="en">Sign out</span><span lang="sv">Logga ut</span>
     </button>
   </div>
   <div id="signin-nudge" class="info-note">
-    <span class="t-en">
+    <span lang="en">
       <a href="/account/signin">Sign in</a> to save your draft across devices and track your submissions.
     </span>
-    <span class="t-sv">
+    <span lang="sv">
       <a href="/account/signin">Logga in</a> för att spara ditt utkast på alla enheter och följa dina inlämningar.
     </span>
   </div>
@@ -66,12 +66,12 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <span id="draft-msg"></span>
     <div class="draft-actions">
       <button type="button" id="btn-resume" class="btn-ghost">
-        <span class="t-en">Resume</span>
-        <span class="t-sv">Fortsätt</span>
+        <span lang="en">Resume</span>
+        <span lang="sv">Fortsätt</span>
       </button>
       <button type="button" id="btn-fresh" class="btn-ghost btn-ghost--warn">
-        <span class="t-en">Start fresh</span>
-        <span class="t-sv">Börja om</span>
+        <span lang="en">Start fresh</span>
+        <span lang="sv">Börja om</span>
       </button>
     </div>
   </div>
@@ -90,14 +90,14 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 1: Your creature ───────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">Your creature</span>
-        <span class="t-sv">Ditt väsen</span>
+        <span lang="en">Your creature</span>
+        <span lang="sv">Ditt väsen</span>
       </h2>
 
       <div class="field">
         <label for="creature_name">
-          <span class="t-en">Creature name</span>
-          <span class="t-sv">Väsenets namn</span>
+          <span lang="en">Creature name</span>
+          <span lang="sv">Väsenets namn</span>
           <span class="req"> *</span>
         </label>
         <input id="creature_name" name="creature_name" type="text" maxlength="120"
@@ -108,9 +108,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="world_name">
-          <span class="t-en">Which world does it live in?</span>
-          <span class="t-sv">Vilken värld lever det i?</span>
-          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+          <span lang="en">Which world does it live in?</span>
+          <span lang="sv">Vilken värld lever det i?</span>
+          <span class="hint"> (<span lang="en">optional</span><span lang="sv">valfritt</span>)</span>
         </label>
         <input id="world_name" name="world_name" type="text" maxlength="120"
                placeholder="e.g. Spinolandet, The Living Sea…"
@@ -122,15 +122,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 2: About you ───────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">About you</span>
-        <span class="t-sv">Om dig</span>
+        <span lang="en">About you</span>
+        <span lang="sv">Om dig</span>
       </h2>
 
       <div class="field">
         <label for="creator_name">
-          <span class="t-en">Your name</span>
-          <span class="t-sv">Ditt namn</span>
-          <span class="hint"> (<span class="t-en">optional — used for credits</span><span class="t-sv">valfritt — används i krediter</span>)</span>
+          <span lang="en">Your name</span>
+          <span lang="sv">Ditt namn</span>
+          <span class="hint"> (<span lang="en">optional — used for credits</span><span lang="sv">valfritt — används i krediter</span>)</span>
         </label>
         <input id="creator_name" name="creator_name" type="text" maxlength="120"
                placeholder="First name or nickname"
@@ -140,9 +140,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="maker_age">
-          <span class="t-en">Your age</span>
-          <span class="t-sv">Din ålder</span>
-          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+          <span lang="en">Your age</span>
+          <span lang="sv">Din ålder</span>
+          <span class="hint"> (<span lang="en">optional</span><span lang="sv">valfritt</span>)</span>
         </label>
         <input id="maker_age" name="maker_age" type="number" min="1" max="120"
                placeholder="e.g. 10"
@@ -152,9 +152,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="contact_email">
-          <span class="t-en">Parent / guardian email</span>
-          <span class="t-sv">Förälder / vårdnadshavares e-post</span>
-          <span class="hint"> (<span class="t-en">optional — we may reach out about your creature</span><span class="t-sv">valfritt — vi kan höra av oss om ditt väsen</span>)</span>
+          <span lang="en">Parent / guardian email</span>
+          <span lang="sv">Förälder / vårdnadshavares e-post</span>
+          <span class="hint"> (<span lang="en">optional — we may reach out about your creature</span><span lang="sv">valfritt — vi kan höra av oss om ditt väsen</span>)</span>
         </label>
         <input id="contact_email" name="contact_email" type="email" maxlength="254"
                placeholder="parent@example.com" autocomplete="email" />
@@ -163,8 +163,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       <!-- Kid attribution (shown when signed in — links the submission to a kid on the account) -->
       <div class="field" id="kid-field" hidden>
         <label for="kid_select">
-          <span class="t-en">Who made this creature? (optional)</span>
-          <span class="t-sv">Vem skapade det här väsenet? (valfritt)</span>
+          <span lang="en">Who made this creature? (optional)</span>
+          <span lang="sv">Vem skapade det här väsenet? (valfritt)</span>
         </label>
         <select id="kid_select" name="kid_select">
           <option value="" data-en="— choose a kid or leave blank —" data-sv="— välj ett barn eller lämna tomt —">— choose a kid or leave blank —</option>
@@ -175,26 +175,26 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 3: Picture ─────────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">Picture</span>
-        <span class="t-sv">Bild</span>
+        <span lang="en">Picture</span>
+        <span lang="sv">Bild</span>
         <span class="req"> *</span>
       </h2>
       <p class="section-desc">
-        <span class="t-en">Upload a drawing, painting, or photo. Any style — pencil sketch, crayon, digital — is great.
+        <span lang="en">Upload a drawing, painting, or photo. Any style — pencil sketch, crayon, digital — is great.
           Max 5 MB. Accepted: JPG, PNG, GIF, WebP.
           <strong>Please only upload the drawing — not a photo of a person.</strong></span>
-        <span class="t-sv">Ladda upp en teckning, målning eller foto. Alla stilar fungerar — blyerts, krita, digitalt.
+        <span lang="sv">Ladda upp en teckning, målning eller foto. Alla stilar fungerar — blyerts, krita, digitalt.
           Max 5 MB. Godkänt: JPG, PNG, GIF, WebP.
           <strong>Ladda bara upp teckningen — inte ett foto på en person.</strong></span>
       </p>
       <div id="image-resume-hint" class="info-note" hidden>
-        <span class="t-en">Images can't be saved in drafts — please pick your file again.</span>
-        <span class="t-sv">Bilder sparas inte i utkast — välj din fil igen.</span>
+        <span lang="en">Images can't be saved in drafts — please pick your file again.</span>
+        <span lang="sv">Bilder sparas inte i utkast — välj din fil igen.</span>
       </div>
       <div class="field">
         <label for="art_file">
-          <span class="t-en">Choose image</span>
-          <span class="t-sv">Välj bild</span>
+          <span lang="en">Choose image</span>
+          <span lang="sv">Välj bild</span>
           <span class="req"> *</span>
         </label>
         <input id="art_file" name="art_file" type="file"
@@ -203,9 +203,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       </div>
       <div class="field">
         <label for="art_credit">
-          <span class="t-en">Art credit</span>
-          <span class="t-sv">Bildkrediter</span>
-          <span class="hint"> (<span class="t-en">leave blank to use your name above</span><span class="t-sv">lämna tomt för att använda ditt namn ovan</span>)</span>
+          <span lang="en">Art credit</span>
+          <span lang="sv">Bildkrediter</span>
+          <span class="hint"> (<span lang="en">leave blank to use your name above</span><span lang="sv">lämna tomt för att använda ditt namn ovan</span>)</span>
         </label>
         <input id="art_credit" name="art_credit" type="text" maxlength="120"
                placeholder="Who made the drawing?"
@@ -217,14 +217,14 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 4: What kind? ──────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">What kind of creature is it?</span>
-        <span class="t-sv">Vad för sorts väsen är det?</span>
+        <span lang="en">What kind of creature is it?</span>
+        <span lang="sv">Vad för sorts väsen är det?</span>
       </h2>
 
       <div class="field">
         <label for="kind_size">
-          <span class="t-en">Size</span>
-          <span class="t-sv">Storlek</span>
+          <span lang="en">Size</span>
+          <span lang="sv">Storlek</span>
         </label>
         <select id="kind_size" name="kind_size">
           <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
@@ -238,9 +238,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label>
-          <span class="t-en">How does it move?</span>
-          <span class="t-sv">Hur rör det sig?</span>
-          <span class="hint"> (<span class="t-en">pick all that apply</span><span class="t-sv">välj alla som stämmer</span>)</span>
+          <span lang="en">How does it move?</span>
+          <span lang="sv">Hur rör det sig?</span>
+          <span class="hint"> (<span lang="en">pick all that apply</span><span lang="sv">välj alla som stämmer</span>)</span>
         </label>
         <div class="checkbox-group">
           {([
@@ -253,8 +253,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           ] as [string, string, string][]).map(([v, en, sv]) => (
             <label class="checkbox-label">
               <input type="checkbox" name="kind_movement" value={v} />
-              <span class="t-en">{en}</span>
-              <span class="t-sv">{sv}</span>
+              <span lang="en">{en}</span>
+              <span lang="sv">{sv}</span>
             </label>
           ))}
         </div>
@@ -262,21 +262,21 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label>
-          <span class="t-en">Does it live alone or in groups?</span>
-          <span class="t-sv">Lever det ensamt eller i grupp?</span>
+          <span lang="en">Does it live alone or in groups?</span>
+          <span lang="sv">Lever det ensamt eller i grupp?</span>
         </label>
         <div class="radio-row">
           <label class="radio-label">
             <input type="radio" name="kind_solitary" value="true" />
-            <span class="t-en">Alone</span><span class="t-sv">Ensamt</span>
+            <span lang="en">Alone</span><span lang="sv">Ensamt</span>
           </label>
           <label class="radio-label">
             <input type="radio" name="kind_solitary" value="false" />
-            <span class="t-en">Groups</span><span class="t-sv">Grupp</span>
+            <span lang="en">Groups</span><span lang="sv">Grupp</span>
           </label>
           <label class="radio-label">
             <input type="radio" name="kind_solitary" value="" checked />
-            <span class="t-en">Not sure</span><span class="t-sv">Vet ej</span>
+            <span lang="en">Not sure</span><span lang="sv">Vet ej</span>
           </label>
         </div>
       </div>
@@ -285,15 +285,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 5: Habitat ─────────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">Where does it live?</span>
-        <span class="t-sv">Var lever det?</span>
+        <span lang="en">Where does it live?</span>
+        <span lang="sv">Var lever det?</span>
       </h2>
 
       <div class="field">
         <label>
-          <span class="t-en">Biome / habitat</span>
-          <span class="t-sv">Biom / livsmiljö</span>
-          <span class="hint"> (<span class="t-en">pick all that apply</span><span class="t-sv">välj alla som stämmer</span>)</span>
+          <span lang="en">Biome / habitat</span>
+          <span lang="sv">Biom / livsmiljö</span>
+          <span class="hint"> (<span lang="en">pick all that apply</span><span lang="sv">välj alla som stämmer</span>)</span>
         </label>
         <div class="checkbox-group">
           {([
@@ -310,8 +310,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
           ] as [string, string, string][]).map(([v, en, sv]) => (
             <label class="checkbox-label">
               <input type="checkbox" name="habitat_biome" value={v} />
-              <span class="t-en">{en}</span>
-              <span class="t-sv">{sv}</span>
+              <span lang="en">{en}</span>
+              <span lang="sv">{sv}</span>
             </label>
           ))}
         </div>
@@ -319,8 +319,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="habitat_climate">
-          <span class="t-en">Climate</span>
-          <span class="t-sv">Klimat</span>
+          <span lang="en">Climate</span>
+          <span lang="sv">Klimat</span>
         </label>
         <select id="habitat_climate" name="habitat_climate">
           <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
@@ -334,9 +334,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="habitat_notes">
-          <span class="t-en">Anything else about where it lives?</span>
-          <span class="t-sv">Något annat om var det lever?</span>
-          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+          <span lang="en">Anything else about where it lives?</span>
+          <span lang="sv">Något annat om var det lever?</span>
+          <span class="hint"> (<span lang="en">optional</span><span lang="sv">valfritt</span>)</span>
         </label>
         <textarea id="habitat_notes" name="habitat_notes" rows={2}
                   placeholder="e.g. 'hides under rocks near waterfalls'"
@@ -348,14 +348,14 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 6: Behaviour ───────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">How does it behave?</span>
-        <span class="t-sv">Hur beter det sig?</span>
+        <span lang="en">How does it behave?</span>
+        <span lang="sv">Hur beter det sig?</span>
       </h2>
 
       <div class="field">
         <label for="behaviour_threat">
-          <span class="t-en">How dangerous is it?</span>
-          <span class="t-sv">Hur farligt är det?</span>
+          <span lang="en">How dangerous is it?</span>
+          <span lang="sv">Hur farligt är det?</span>
         </label>
         <select id="behaviour_threat" name="behaviour_threat">
           <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
@@ -369,9 +369,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="behaviour_notes">
-          <span class="t-en">Any other behaviour notes?</span>
-          <span class="t-sv">Andra beteendeanteckningar?</span>
-          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+          <span lang="en">Any other behaviour notes?</span>
+          <span lang="sv">Andra beteendeanteckningar?</span>
+          <span class="hint"> (<span lang="en">optional</span><span lang="sv">valfritt</span>)</span>
         </label>
         <textarea id="behaviour_notes" name="behaviour_notes" rows={2}
                   placeholder="e.g. 'glows at night', 'leaves trails of flowers'"
@@ -383,14 +383,14 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 7: Food ────────────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">What does it eat?</span>
-        <span class="t-sv">Vad äter det?</span>
+        <span lang="en">What does it eat?</span>
+        <span lang="sv">Vad äter det?</span>
       </h2>
 
       <div class="field">
         <label for="kind_diet">
-          <span class="t-en">Diet</span>
-          <span class="t-sv">Kost</span>
+          <span lang="en">Diet</span>
+          <span lang="sv">Kost</span>
         </label>
         <select id="kind_diet" name="kind_diet">
           <option value="" data-en="— choose —" data-sv="— välj —">— choose —</option>
@@ -404,9 +404,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="food_notes">
-          <span class="t-en">Favourite food or hunting style</span>
-          <span class="t-sv">Favoritmat eller jaktstil</span>
-          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+          <span lang="en">Favourite food or hunting style</span>
+          <span lang="sv">Favoritmat eller jaktstil</span>
+          <span class="hint"> (<span lang="en">optional</span><span lang="sv">valfritt</span>)</span>
         </label>
         <textarea id="food_notes" name="food_notes" rows={2}
                   placeholder="e.g. 'loves berries', 'hunts by mimicking sounds'"
@@ -418,15 +418,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 8: Special ─────────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">Special things</span>
-        <span class="t-sv">Speciella egenskaper</span>
+        <span lang="en">Special things</span>
+        <span lang="sv">Speciella egenskaper</span>
       </h2>
 
       <div class="field">
         <label for="special_ability">
-          <span class="t-en">Special ability or power</span>
-          <span class="t-sv">Speciell förmåga eller kraft</span>
-          <span class="hint"> (<span class="t-en">optional</span><span class="t-sv">valfritt</span>)</span>
+          <span lang="en">Special ability or power</span>
+          <span lang="sv">Speciell förmåga eller kraft</span>
+          <span class="hint"> (<span lang="en">optional</span><span lang="sv">valfritt</span>)</span>
         </label>
         <input id="special_ability" name="special_ability" type="text" maxlength="240"
                placeholder="e.g. 'turns invisible in moonlight', 'heals nearby plants'"
@@ -436,9 +436,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="visual_description">
-          <span class="t-en">What does it look like?</span>
-          <span class="t-sv">Hur ser det ut?</span>
-          <span class="hint"> (<span class="t-en">optional — helps our artists draw it</span><span class="t-sv">valfritt — hjälper våra konstnärer att rita det</span>)</span>
+          <span lang="en">What does it look like?</span>
+          <span lang="sv">Hur ser det ut?</span>
+          <span class="hint"> (<span lang="en">optional — helps our artists draw it</span><span lang="sv">valfritt — hjälper våra konstnärer att rita det</span>)</span>
         </label>
         <textarea id="visual_description" name="visual_description" rows="3" maxlength="1000"
                   placeholder="e.g. 'dark blue scales, glowing yellow eyes, two small horns, a long tail with fins'"
@@ -448,9 +448,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="audio_description">
-          <span class="t-en">What does it sound like?</span>
-          <span class="t-sv">Hur låter det?</span>
-          <span class="hint"> (<span class="t-en">optional — helps us create its sound effects</span><span class="t-sv">valfritt — hjälper oss skapa dess ljudeffekter</span>)</span>
+          <span lang="en">What does it sound like?</span>
+          <span lang="sv">Hur låter det?</span>
+          <span class="hint"> (<span lang="en">optional — helps us create its sound effects</span><span lang="sv">valfritt — hjälper oss skapa dess ljudeffekter</span>)</span>
         </label>
         <textarea id="audio_description" name="audio_description" rows="2" maxlength="500"
                   placeholder="e.g. 'low rumbling purr, hisses when angry, chirps to call its young'"
@@ -462,21 +462,21 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 9: Story ───────────────────────────────────────── -->
     <section class="form-section">
       <h2>
-        <span class="t-en">The story</span>
-        <span class="t-sv">Historien</span>
+        <span lang="en">The story</span>
+        <span lang="sv">Historien</span>
         <span class="req"> *</span>
       </h2>
       <p class="section-desc">
-        <span class="t-en">Tell us about your creature in your own words. Where did it come from? What makes it
+        <span lang="en">Tell us about your creature in your own words. Where did it come from? What makes it
           special? What's it like to encounter one? At least 20 characters.</span>
-        <span class="t-sv">Berätta om ditt väsen med egna ord. Var kom det ifrån? Vad gör det speciellt?
+        <span lang="sv">Berätta om ditt väsen med egna ord. Var kom det ifrån? Vad gör det speciellt?
           Hur är det att möta ett? Minst 20 tecken.</span>
       </p>
 
       <div class="field">
         <label for="lore_description">
-          <span class="t-en">Description</span>
-          <span class="t-sv">Beskrivning</span>
+          <span lang="en">Description</span>
+          <span lang="sv">Beskrivning</span>
           <span class="req"> *</span>
         </label>
         <textarea id="lore_description" name="lore_description" rows={6} maxlength="2000"
@@ -488,9 +488,9 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
       <div class="field">
         <label for="lore_origin">
-          <span class="t-en">Origin story</span>
-          <span class="t-sv">Ursprungsberättelse</span>
-          <span class="hint"> (<span class="t-en">optional — how did it come to exist?</span><span class="t-sv">valfritt — hur uppstod det?</span>)</span>
+          <span lang="en">Origin story</span>
+          <span lang="sv">Ursprungsberättelse</span>
+          <span class="hint"> (<span lang="en">optional — how did it come to exist?</span><span lang="sv">valfritt — hur uppstod det?</span>)</span>
         </label>
         <textarea id="lore_origin" name="lore_origin" rows={3} maxlength="1000"
                   placeholder="e.g. 'Created when lightning struck an ancient oak…'"
@@ -502,16 +502,16 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- ── Section 10: Consent ────────────────────────────────────── -->
     <section class="form-section form-section--consent">
       <h2>
-        <span class="t-en">Consent</span>
-        <span class="t-sv">Samtycke</span>
+        <span lang="en">Consent</span>
+        <span lang="sv">Samtycke</span>
       </h2>
 
       <div class="field field--check">
         <label class="checkbox-label checkbox-label--block">
           <input type="checkbox" id="credits_opt_in" name="credits_opt_in" checked />
-          <span class="t-en">Credit me in the game if my creature is added
+          <span lang="en">Credit me in the game if my creature is added
             <span class="hint">(your creator name will appear in the in-game credits)</span></span>
-          <span class="t-sv">Ge mig krediter om mitt väsen läggs till
+          <span lang="sv">Ge mig krediter om mitt väsen läggs till
             <span class="hint">(ditt skaparnamn visas i spelets krediter)</span></span>
         </label>
       </div>
@@ -520,8 +520,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
         <label class="checkbox-label checkbox-label--block">
           <input type="checkbox" id="license_accepted" name="license_accepted" />
           <span>
-            <span class="t-en">I agree to the <a href="/creatures/license" target="_blank" rel="noopener">Creature Submission License</a></span>
-            <span class="t-sv">Jag godkänner <a href="/creatures/license" target="_blank" rel="noopener">Väsensinlämningslicensen</a></span>
+            <span lang="en">I agree to the <a href="/creatures/license" target="_blank" rel="noopener">Creature Submission License</a></span>
+            <span lang="sv">Jag godkänner <a href="/creatures/license" target="_blank" rel="noopener">Väsensinlämningslicensen</a></span>
             <span class="req"> *</span>
           </span>
         </label>
@@ -531,8 +531,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
         <label class="checkbox-label checkbox-label--block">
           <input type="checkbox" id="parental_consent" name="parental_consent" />
           <span>
-            <span class="t-en">A parent or guardian has read the license and gives permission for this submission</span>
-            <span class="t-sv">En förälder eller vårdnadshavare har läst licensen och ger tillstånd för denna inlämning</span>
+            <span lang="en">A parent or guardian has read the license and gives permission for this submission</span>
+            <span lang="sv">En förälder eller vårdnadshavare har läst licensen och ger tillstånd för denna inlämning</span>
             <span class="req"> *</span>
           </span>
         </label>
@@ -542,8 +542,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     <!-- Submit -->
     <div class="submit-row">
       <button type="submit" id="submit-btn" disabled title="">
-        <span class="t-en">Submit creature</span>
-        <span class="t-sv">Skicka in väsen</span>
+        <span lang="en">Submit creature</span>
+        <span lang="sv">Skicka in väsen</span>
       </button>
       <span id="submit-hint" class="submit-hint"></span>
     </div>

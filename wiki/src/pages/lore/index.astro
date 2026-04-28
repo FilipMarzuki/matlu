@@ -18,19 +18,19 @@ const hasData = entries.length > 0;
 
 <Base title="Lore" description="Lore of the Matlu multiworld — characters, locations, factions, and worlds.">
   <h1>
-    <span class="t-en">Lore</span>
-    <span class="t-sv">Lore</span>
+    <span lang="en">Lore</span>
+    <span lang="sv">Lore</span>
   </h1>
   <p class="subtitle">
-    <span class="t-en">Stories, history, and the forces shaping the Matlu multiworld.</span>
-    <span class="t-sv">Berättelser, historia och krafterna som formar Matlu-multiversum.</span>
+    <span lang="en">Stories, history, and the forces shaping the Matlu multiworld.</span>
+    <span lang="sv">Berättelser, historia och krafterna som formar Matlu-multiversum.</span>
   </p>
 
   {!hasData && (
     <div class="empty">
       <p>
-        <span class="t-en">Lore entries coming soon.</span>
-        <span class="t-sv">Lore-inlägg kommer snart.</span>
+        <span lang="en">Lore entries coming soon.</span>
+        <span lang="sv">Lore-inlägg kommer snart.</span>
       </p>
       <p class="hint">Data loads from Notion at build time — set <code>NOTION_API_KEY</code> to see entries.</p>
     </div>

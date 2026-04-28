@@ -28,16 +28,16 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
   <div id="page-content" hidden>
     <h1 style="color:var(--red)">
-      <span class="t-en">Delete account</span>
-      <span class="t-sv">Radera konto</span>
+      <span lang="en">Delete account</span>
+      <span lang="sv">Radera konto</span>
     </h1>
     <p class="lead">
-      <span class="t-en">
+      <span lang="en">
         This action is permanent and cannot be undone. Choose how you want
         your submitted creatures handled, then type <strong>delete my account</strong>
         to confirm.
       </span>
-      <span class="t-sv">
+      <span lang="sv">
         Den här åtgärden är permanent och kan inte ångras. Välj hur du vill att dina inlämnade väsen hanteras och skriv
         <strong>delete my account</strong> för att bekräfta.
       </span>
@@ -48,15 +48,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
         <input type="radio" name="delete-mode" value="full" checked />
         <div class="mode-card-body">
           <h3>
-            <span class="t-en">Full delete</span>
-            <span class="t-sv">Fullständig radering</span>
+            <span lang="en">Full delete</span>
+            <span lang="sv">Fullständig radering</span>
           </h3>
           <p>
-            <span class="t-en">
+            <span lang="en">
               Removes everything — your account, kids, drafts, and all creature
               submissions (rows and images). Nothing remains.
             </span>
-            <span class="t-sv">
+            <span lang="sv">
               Tar bort allt — konto, barn, utkast och alla väseninlämningar (rader och bilder). Ingenting finns kvar.
             </span>
           </p>
@@ -67,16 +67,16 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
         <input type="radio" name="delete-mode" value="anonymize" />
         <div class="mode-card-body">
           <h3>
-            <span class="t-en">Anonymise my creatures</span>
-            <span class="t-sv">Anonymisera mina väsen</span>
+            <span lang="en">Anonymise my creatures</span>
+            <span lang="sv">Anonymisera mina väsen</span>
           </h3>
           <p>
-            <span class="t-en">
+            <span lang="en">
               Removes your account, kids, and drafts. Approved creatures stay
               on the wiki but have their creator name cleared and credits opt-out
               set — they remain unattributed.
             </span>
-            <span class="t-sv">
+            <span lang="sv">
               Tar bort konto, barn och utkast. Godkända väsen stannar på wikin men skaparnamntet rensas och kreditering stängs av — de är anonyma.
             </span>
           </p>
@@ -86,10 +86,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <div class="confirm-section">
       <label for="confirm-input">
-        <span class="t-en">
+        <span lang="en">
           Type <strong>delete my account</strong> to confirm:
         </span>
-        <span class="t-sv">
+        <span lang="sv">
           Skriv <strong>delete my account</strong> för att bekräfta:
         </span>
       </label>
@@ -103,12 +103,12 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
     <div class="btn-row">
       <button id="delete-btn" class="btn-danger" disabled>
-        <span class="t-en">Delete my account</span>
-        <span class="t-sv">Radera mitt konto</span>
+        <span lang="en">Delete my account</span>
+        <span lang="sv">Radera mitt konto</span>
       </button>
       <a href="/account/settings" class="btn-outline">
-        <span class="t-en">Cancel</span>
-        <span class="t-sv">Avbryt</span>
+        <span lang="en">Cancel</span>
+        <span lang="sv">Avbryt</span>
       </a>
     </div>
 
@@ -117,8 +117,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
 
   <div id="auth-loading">
     <p style="color:var(--text-dim);margin-top:3rem;text-align:center">
-      <span class="t-en">Loading…</span>
-      <span class="t-sv">Laddar…</span>
+      <span lang="en">Loading…</span>
+      <span lang="sv">Laddar…</span>
     </p>
   </div>
 </Base>
