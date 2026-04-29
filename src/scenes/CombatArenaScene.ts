@@ -31,6 +31,7 @@ import { DeployableHUD } from '../ui/DeployableHUD';
 import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
 import { CreditCard } from '../ui/CreditCard';
 import { preloadTilePacks } from '../world/TilePacks';
+import { createWallBody } from '../combat/CombatPhysics';
 
 /** Axis-aligned bounding box for a procedurally-placed dungeon room. */
 interface Room {
@@ -366,9 +367,10 @@ export class CombatArenaScene extends Phaser.Scene {
     // Exit portal — placed at the center of the exit room.
     this.load.image('portal', 'assets/sprites/tilesets/arena/portal.png');
 
-    // Isometric cliff/wall block — 32×32 cube with front face, used for
-    // dungeon wall tiles in place of the flat gray diamond Graphics.
-    this.load.image('cliff-block', '/assets/packs/cliff-iso-gen/stone_iso_0.png');
+    // Dungeon wall tiles — top diamond face and front (side) face, each 16×16.
+    // Rendered scaled 2× so they fill a full 32-px iso tile width.
+    this.load.image('dungeon_wall_top',  'assets/sprites/tilesets/arena/dungeon_wall_top.png');
+    this.load.image('dungeon_wall_side', 'assets/sprites/tilesets/arena/dungeon_wall_side.png');
   }
 
   create(): void {
@@ -1076,9 +1078,12 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Iso wall blocks ─────────────────────────────────────────────────────────
-    // Place cliff block images on every border wall tile. Origin (0.5, 0) aligns
-    // the north apex of the block with worldToArenaIso(). Each block gets its
-    // own painter-sort depth for correct occlusion with entities.
+    // Render each border wall cell as a 3-layer iso block using dungeon-specific
+    // tiles. Origin (0.5, 0) aligns the north apex with worldToArenaIso().
+    // Tiles are 16×16 and scaled 2× to fill the 32-px iso tile width.
+    // Top layer uses dungeon_wall_top (diamond face); lower layers use
+    // dungeon_wall_side (front/height face) — "wall_top / wall_side as appropriate".
+    const WALL_LAYERS = 3;
     const occludingWalls: Phaser.GameObjects.Image[] = [];
     for (let row = 0; row < dRows; row++) {
       for (let col = 0; col < dCols; col++) {
@@ -1102,10 +1107,12 @@ export class CombatArenaScene extends Phaser.Scene {
           tv(col - 1, row) === 0 ||       // floor directly W (wall is E edge)
           tv(col - 1, row - 1) === 0;     // floor NW (wall is SE corner)
         const alpha = occludesFloor ? 0.35 : 1;
-        // Stack 3 cliff blocks vertically — each shifted up by 16 px
-        for (let layer = 0; layer < 3; layer++) {
-          const block = this.add.image(isoX, isoY - layer * 16, 'cliff-block')
+        for (let layer = 0; layer < WALL_LAYERS; layer++) {
+          // Top layer shows the diamond face; lower layers show the height face.
+          const texKey = layer === WALL_LAYERS - 1 ? 'dungeon_wall_top' : 'dungeon_wall_side';
+          const block = this.add.image(isoX, isoY - layer * 16, texKey)
             .setOrigin(0.5, 0)
+            .setScale(2)   // 16×16 → 32×32 to match the 32-px iso tile width
             .setDepth(wallDepth + layer * 0.1)
             .setAlpha(alpha);
           if (occludesFloor) occludingWalls.push(block);
@@ -1151,9 +1158,9 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Wall physics bodies ────────────────────────────────────────────────────
-    // One StaticBody Zone per wall tile that borders floor (8-connected).
-    // Matches the visual wall rendering above — diagonal walls get bodies too
-    // so entities can't clip through corner gaps.
+    // One AABB StaticBody per wall tile that borders floor (8-connected).
+    // createWallBody keeps physics in world space — collision shapes are
+    // axis-aligned rectangles, not iso diamonds. Render is a separate concern.
     for (let row = 0; row < dRows; row++) {
       for (let col = 0; col < dCols; col++) {
         if (tv(col, row) !== 1) continue;
@@ -1165,18 +1172,18 @@ export class CombatArenaScene extends Phaser.Scene {
           tv(col - 1, row + 1) === 0 || tv(col + 1, row + 1) === 0;
         if (!bordersFloor) continue;
 
-        const wx = col * CELL + CELL / 2;
-        const wy = row * CELL + CELL / 2;
-
         // Track wall rect for line-of-sight checks (world space).
         this.wallRects.push(new Phaser.Geom.Rectangle(
           col * CELL, row * CELL, CELL, CELL,
         ));
 
-        // Zone with a full-tile StaticBody — invisible physics blocker.
-        const zone = this.add.zone(wx, wy, CELL, CELL);
-        this.physics.add.existing(zone, true);
-        this.obstacles.add(zone);
+        // Full-tile AABB collision body — world-space top-left corner + size.
+        createWallBody(this, this.obstacles, {
+          wx: col * CELL,
+          wy: row * CELL,
+          w:  CELL,
+          h:  CELL,
+        });
       }
     }
 
