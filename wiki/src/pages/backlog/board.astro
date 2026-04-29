@@ -1,0 +1,307 @@
+---
+/**
+ * /backlog/board — player-facing clustered backlog view.
+ *
+ * Issues are grouped into 7 thematic clusters so players can see what's coming
+ * for their area of interest without wading through dev labels.
+ * Engine & Tooling starts collapsed — most players don't care about plumbing.
+ */
+import Base from '../../layouts/Base.astro';
+import { fetchIssues } from '../../lib/github-issues';
+import type { Issue } from '../../lib/github-issues';
+
+const token = import.meta.env.GITHUB_TOKEN ?? '';
+const allIssues = await fetchIssues({ token, state: 'open' });
+
+interface ClusterDef {
+  id: string;
+  label: string;
+  collapsed: boolean;
+}
+
+// Ordered exactly as the spec requires — Engine & Tooling last and collapsed.
+const CLUSTERS: ClusterDef[] = [
+  { id: 'worlds',        label: '🌍 Worlds & Biomes',        collapsed: false },
+  { id: 'heroes-combat', label: '⚔️ Heroes & Combat',        collapsed: false },
+  { id: 'creatures',     label: '🐉 Creatures',              collapsed: false },
+  { id: 'lore',          label: '📖 Lore & Story',           collapsed: false },
+  { id: 'gameplay',      label: '🎮 Gameplay & Progression', collapsed: false },
+  { id: 'art',           label: '🎨 Art, Sound & Feel',      collapsed: false },
+  { id: 'engine',        label: '⚙️ Engine & Tooling',       collapsed: true  },
+];
+
+// Pre-populate every cluster so empty ones still render.
+const grouped = new Map<string, Issue[]>(CLUSTERS.map(c => [c.id, []]));
+for (const issue of allIssues) {
+  const bucket = grouped.get(issue.cluster);
+  if (bucket) bucket.push(issue);
+  // issues whose cluster isn't in the 7 above are silently omitted
+}
+---
+
+<Base
+  title="Backlog Board"
+  description="Upcoming Core Warden features — grouped by theme so you can find what matters to you."
+>
+  <div class="page-head">
+    <div class="page-head-text">
+      <h1>What's Coming</h1>
+      <p class="subtitle">{allIssues.length} ideas in the works — grouped by theme.</p>
+    </div>
+    <a
+      href="https://github.com/FilipMarzuki/matlu/issues"
+      class="gh-link"
+      target="_blank"
+      rel="noopener"
+    >
+      View on GitHub →
+    </a>
+  </div>
+
+  {CLUSTERS.map(cluster => {
+    const issues = grouped.get(cluster.id) ?? [];
+
+    const cardGrid = (
+      <div class="card-grid">
+        {issues.length > 0 ? issues.map(issue => (
+          <a href={issue.url} class="card" target="_blank" rel="noopener">
+            <span class="issue-num">#{issue.number}</span>
+            <h3 class="card-title">{issue.title}</h3>
+            {issue.bodyExcerpt && (
+              <div class="card-excerpt">
+                <span>{issue.bodyExcerpt}</span>
+              </div>
+            )}
+            <div class="card-meta">
+              {issue.size !== null && (
+                <span class={`size-badge size-${issue.size}`}>
+                  {issue.size.toUpperCase()}
+                </span>
+              )}
+            </div>
+          </a>
+        )) : (
+          <p class="empty">No open issues in this cluster.</p>
+        )}
+      </div>
+    );
+
+    if (cluster.collapsed) {
+      return (
+        <details class="cluster">
+          <summary class="cluster-head">
+            <span class="cluster-label">{cluster.label}</span>
+            <span class="count-badge">{issues.length}</span>
+            <span class="toggle-hint">click to expand</span>
+          </summary>
+          {cardGrid}
+        </details>
+      );
+    }
+
+    return (
+      <section class="cluster">
+        <div class="cluster-head">
+          <span class="cluster-label">{cluster.label}</span>
+          <span class="count-badge">{issues.length}</span>
+        </div>
+        {cardGrid}
+      </section>
+    );
+  })}
+</Base>
+
+<style>
+  /* Widen main for the 3-column grid — the default 860px is for text-heavy pages. */
+  :global(main) { max-width: 1100px; }
+
+  /* ── Page header ─────────────────────────────────────────────────────────── */
+  .page-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-head h1 {
+    font-size: 1.6rem;
+    color: var(--gold);
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    margin: 0.2rem 0 0;
+  }
+
+  .gh-link {
+    font-size: 0.82rem;
+    color: var(--accent-hi);
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  /* ── Cluster ─────────────────────────────────────────────────────────────── */
+  .cluster { margin-bottom: 2.5rem; }
+
+  .cluster-head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.85rem;
+  }
+
+  /* details/summary — remove default triangle; we handle open state in CSS */
+  details > summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+
+  details > .card-grid { margin-top: 0.85rem; }
+
+  .cluster-label {
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .count-badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: var(--badge-bg);
+    color: var(--badge-text);
+    padding: 0.1rem 0.5rem;
+    border-radius: 10px;
+  }
+
+  .toggle-hint {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-family: 'Outfit', sans-serif;
+    margin-left: 0.25rem;
+  }
+
+  details[open] .toggle-hint { display: none; }
+
+  /* ── Card grid ───────────────────────────────────────────────────────────── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 580px) {
+    .card-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (min-width: 860px) {
+    .card-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* ── Card ────────────────────────────────────────────────────────────────── */
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 1rem 1rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text);
+    min-height: 110px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(95, 168, 95, 0.1);
+    text-decoration: none;
+  }
+
+  .issue-num {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.7rem;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    font-family: 'Outfit', sans-serif;
+    opacity: 0.7;
+  }
+
+  .card-title {
+    font-family: 'Pixelify Sans', monospace;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.35;
+    /* leave room for the issue number badge */
+    padding-right: 2.5rem;
+  }
+
+  /* Fade out the excerpt text at the bottom */
+  .card-excerpt {
+    position: relative;
+    font-size: 0.76rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    max-height: 3em;
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .card-excerpt::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1.6em;
+    background: linear-gradient(to bottom, transparent, var(--surface));
+    pointer-events: none;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.25rem;
+  }
+
+  /* ── Size badges — colour-coded by effort ───────────────────────────────── */
+  .size-badge {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+  }
+
+  .size-xs { background: rgba(74, 222, 128, 0.14); color: #4ade80; }
+  .size-s  { background: rgba(134, 239, 172, 0.14); color: #86efac; }
+  .size-m  { background: rgba(251, 191, 36, 0.14);  color: #fbbf24; }
+  .size-l  { background: rgba(251, 146, 60, 0.14);  color: #fb923c; }
+  .size-xl { background: rgba(248, 113, 113, 0.14); color: #f87171; }
+
+  /* ── Empty cluster placeholder ───────────────────────────────────────────── */
+  .empty {
+    grid-column: 1 / -1;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    padding: 0.85rem 1rem;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    text-align: center;
+    margin: 0;
+  }
+</style>
