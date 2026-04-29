@@ -3,9 +3,15 @@
  * /metrics — full dashboard pulling all stats_weekly rows.
  * Charts rendered client-side via Chart.js (CDN). Data passed from
  * build-time Supabase fetch via Astro's define:vars directive.
+ *
+ * Top section includes a TypeBreakdownDonut — open issues by type:* label,
+ * fetched from GitHub GraphQL at build time. Baked into the static output
+ * so there's no runtime fetch.
  */
 import Base from '../layouts/Base.astro';
 import { createClient } from '@supabase/supabase-js';
+import { fetchIssues } from '../lib/github-issues';
+import TypeBreakdownDonut from '../components/TypeBreakdownDonut.astro';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
@@ -122,11 +128,21 @@ const prTypeFeatureData  = rows.map(r => {
 
 // Latest row's cognitive load top-10 for the hotspots table
 const hotspots = latest?.cognitive_load_top10 ?? [];
+
+// Fetch open issues for the type-breakdown donut — baked in at build time.
+// Returns [] gracefully when GITHUB_TOKEN is absent (CI placeholders, local dev).
+const githubToken = import.meta.env.GITHUB_TOKEN ?? '';
+const allIssues = await fetchIssues({ token: githubToken, state: 'open' });
 ---
 
 <Base title="Metrics">
   <h1>Metrics</h1>
   <p class="intro">Weekly snapshots from <code>stats_weekly</code>. Rebuilt automatically after each weekly stats run.</p>
+
+  {/* Issue type breakdown — rendered from build-time GitHub data regardless of Supabase availability */}
+  <div class="donut-section">
+    <TypeBreakdownDonut issues={allIssues} />
+  </div>
 
   {rows.length === 0 ? (
     <p class="empty">No data yet — stats are collected weekly.</p>
@@ -450,7 +466,12 @@ const hotspots = latest?.cognitive_load_top10 ?? [];
 
 <style>
   h1 { margin-bottom: 0.5rem; }
-  .intro { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+  .intro { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  .donut-section {
+    margin-bottom: 2rem;
+    max-width: 480px;
+  }
   .empty {
     font-family: var(--mono);
     font-size: 0.9rem;
