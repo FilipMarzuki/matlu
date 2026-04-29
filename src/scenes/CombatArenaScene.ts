@@ -24,6 +24,7 @@ import { SimpleJoystick } from '../lib/SimpleJoystick';
 import {
   worldToArenaIso, arenaIsoDepth,
   ISO_TILE_W, ISO_TILE_H,
+  ARENA_CELL, ARENA_COLS, ARENA_ROWS,
   ARENA_ISO_W, ARENA_ISO_H,
 } from '../lib/IsoTransform';
 import { DeployableManager } from '../systems/DeployableManager';
@@ -699,6 +700,8 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // ── Camera — follow hero ──────────────────────────────────────────────────
     if (!ARENA_DEBUG && !this.bgMode && this.heroAlive) {
+      // CombatEntity._isoSync() updates hero.x/y to the rendered iso sprite
+      // position, while hero._wx/_wy and physicsProxy stay in physics space.
       this.cameras.main.centerOn(this.hero.x, this.hero.y);
     }
 
@@ -845,11 +848,11 @@ export class CombatArenaScene extends Phaser.Scene {
     const layout = bspGenerate(SEED, ARENA_BSP_CONFIG);
     this.dungeonLayout = layout;
 
-    const CELL   = ARENA_BSP_CONFIG.cellSize;   // 16 px per tile
-    const dCols  = ARENA_BSP_CONFIG.cols;
-    const dRows  = ARENA_BSP_CONFIG.rows;
-    const worldW = dCols * CELL;                // 960 px
-    const worldH = dRows * CELL;                // 960 px
+    const CELL   = ARENA_CELL;                  // 16 px per tile
+    const dCols  = ARENA_COLS;
+    const dRows  = ARENA_ROWS;
+    const worldW = ARENA_COLS * ARENA_CELL;     // 960 px physics space
+    const worldH = ARENA_ROWS * ARENA_CELL;     // 960 px physics space
 
     // Set arena bounds — used by spawn fallback helpers.
     this.arenaX = 0;
@@ -860,8 +863,8 @@ export class CombatArenaScene extends Phaser.Scene {
     // ── Camera ──────────────────────────────────────────────────────────────
     this.cameras.main.setBackgroundColor(ARENA_DEBUG ? 0x444444 : 0x120d08);
     // DUNGEON_ZOOM 3.5 → viewport shows ≈229×171 px ≈ 14×11 tiles at once.
-    // The camera bounds here are the full dungeon world; the hero-follow in
-    // update() centres the viewport on the hero, clamped to these bounds.
+    // The camera uses iso-space bounds; hero-follow below centers on the
+    // projected hero container, not the invisible world-space physics proxy.
     this.cameras.main.setZoom(ARENA_DEBUG ? 0.8 : DUNGEON_ZOOM);
     // Camera bounds use the iso bounding box — the projected diamond is wider
     // and shorter than the world-space square (1920×976 vs 960×960).
@@ -903,7 +906,7 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Physics world bounds ─────────────────────────────────────────────────
-    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.physics.world.setBounds(0, 0, ARENA_COLS * ARENA_CELL, ARENA_ROWS * ARENA_CELL);
 
     // ── Static obstacle group ─────────────────────────────────────────────────
     // Wall tile bodies AND future pillar bodies share this group so all existing
