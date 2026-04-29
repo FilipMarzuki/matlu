@@ -329,6 +329,65 @@ describe('connector paths', () => {
   });
 });
 
+// ── Phase 3: building-to-building connector paths ────────────────────────────
+
+describe('building-to-building paths (phase 3)', () => {
+  it('generates buildingLink tiles between two linked buildings', () => {
+    // Use small w values so buildings fit in the default 24-tile grid
+    const sawmill = makeBuilding({ id: 'sawmill', w: 3, zone: 'outer', pathTo: ['lumberyard'] });
+    const lumberyard = makeBuilding({ id: 'lumberyard', w: 3, zone: 'outer' });
+    const { buildings, roads } = placeBuildings(
+      makeInput([sawmill, lumberyard], { streetPattern: 'grid' }),
+    );
+
+    expect(buildings).toHaveLength(2);
+    const linkTiles = roads.filter(r => r.buildingLink);
+    expect(linkTiles.length).toBeGreaterThan(0);
+    // All link tiles must carry main:false
+    expect(linkTiles.every(r => !r.main)).toBe(true);
+  });
+
+  it('produces no buildingLink tiles when pathTo is absent', () => {
+    const a = makeBuilding({ id: 'a', w: 3, zone: 'outer' });
+    const b = makeBuilding({ id: 'b', w: 3, zone: 'outer' });
+    const { roads } = placeBuildings(makeInput([a, b], { streetPattern: 'grid' }));
+    expect(roads.filter(r => r.buildingLink)).toHaveLength(0);
+  });
+
+  it('skips pathTo target when that building is not placed', () => {
+    const smithy = makeBuilding({ id: 'smithy', w: 3, zone: 'inner', pathTo: ['absent-building'] });
+    const { buildings, roads } = placeBuildings(
+      makeInput([smithy], { streetPattern: 'grid' }),
+    );
+    expect(buildings).toHaveLength(1);
+    expect(roads.filter(r => r.buildingLink)).toHaveLength(0);
+  });
+
+  it('connects each source to its closest target instance', () => {
+    const s = makeBuilding({ id: 'smithy', w: 3, zone: 'inner', pathTo: ['smelter'] });
+    const t1 = makeBuilding({ id: 'smelter', w: 3, zone: 'outer' });
+    const t2 = makeBuilding({ id: 'smelter', w: 3, zone: 'outer' });
+    const { buildings, roads } = placeBuildings(
+      makeInput([s, t1, t2], { streetPattern: 'none' }),
+    );
+    expect(buildings).toHaveLength(3);
+    // One smithy linking to its closest smelter produces at least one link tile
+    const linkTiles = roads.filter(r => r.buildingLink);
+    expect(linkTiles.length).toBeGreaterThan(0);
+  });
+
+  it('does not duplicate paths when only one side declares pathTo', () => {
+    const src = makeBuilding({ id: 'barracks', w: 3, zone: 'outer', pathTo: ['armory'] });
+    const dst = makeBuilding({ id: 'armory', w: 3, zone: 'outer' });
+    const { roads } = placeBuildings(makeInput([src, dst], { streetPattern: 'grid' }));
+    const linkTiles = roads.filter(r => r.buildingLink);
+    // Single directional declaration → exactly one path, not two
+    const uniquePositions = new Set(linkTiles.map(r => `${r.tx},${r.ty}`));
+    // Should have some tiles but not be doubled (a symmetric link would add ~2× tiles)
+    expect(uniquePositions.size).toEqual(linkTiles.length); // no duplicate road tiles
+  });
+});
+
 // ── Seed 42 full connectivity audit across all street patterns ───────────────
 
 describe('seed 42 connectivity audit', () => {

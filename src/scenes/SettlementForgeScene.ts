@@ -876,15 +876,16 @@ export class SettlementForgeScene extends Phaser.Scene {
       for (let ri = 0; ri < roads.length; ri++) {
         const road = roads[ri];
         const underBuilding = baseTiles.has(`${road.tx},${road.ty}`);
-        const roadColor = road.main ? 0xd4b87a : 0xc9a050;
-        const alpha = underBuilding ? 0.15 : (road.main ? 0.7 : 0.55);
+        // main road = sandy yellow; building-link = terracotta; road connector = amber
+        const roadColor = road.main ? 0xd4b87a : road.buildingLink ? 0xd4826a : 0xc9a050;
+        const alpha = underBuilding ? 0.15 : (road.main ? 0.7 : road.buildingLink ? 0.6 : 0.55);
         this.drawIsoDiamond(roadGfx, road.tx, road.ty, roadColor, alpha);
 
         // Coordinate label on every road tile (high depth so always visible)
         const { x, y } = this.isoPos(road.tx, road.ty);
         const roadLabel = this.add.text(x, y + this.ISO_H / 2, `${road.tx},${road.ty}`, {
           fontSize: '7px',
-          color: road.main ? '#ffee88' : '#ffaa44',
+          color: road.main ? '#ffee88' : road.buildingLink ? '#ffbb88' : '#ffaa44',
           fontFamily: 'monospace',
           stroke: '#000000',
           strokeThickness: 3,

@@ -26,7 +26,10 @@ export interface PlacementInput {
 export interface RoadTile {
   tx: number;
   ty: number;
+  /** True for generated main roads. False for building-to-road connectors and building-to-building links. */
   main: boolean;
+  /** True for building-to-building direct paths (phase 3). Renders distinctly from road connectors. */
+  buildingLink?: boolean;
 }
 
 /** Cardinal side the entrance is on, relative to the building centre. */
@@ -463,12 +466,91 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     }
   }
 
+  // PHASE 3: Building-to-building direct paths (pathTo links).
+  // Runs after Phase 2 so all entrances are known and road tiles are stamped.
+  const buildingLinkPaths: RoadTile[] = [];
+
+  // Index placed buildings by registry id for O(1) lookup.
+  const placedById = new Map<string, PlacedBuilding[]>();
+  for (const pb of result) {
+    const list = placedById.get(pb.building.id) ?? [];
+    list.push(pb);
+    placedById.set(pb.building.id, list);
+  }
+
+  // Track position-keyed pairs already connected to avoid double-stamping.
+  const linkedPairs = new Set<string>();
+
+  for (const source of result) {
+    const links = source.building.pathTo;
+    if (!links || links.length === 0) continue;
+    if (source.entranceTx === undefined || source.entranceTy === undefined) continue;
+
+    for (const targetId of links) {
+      const targets = placedById.get(targetId);
+      if (!targets || targets.length === 0) continue;
+
+      // Connect to the closest placed instance of the target.
+      let closest: PlacedBuilding | null = null;
+      let closestDist = Infinity;
+      for (const t of targets) {
+        if (t.entranceTx === undefined || t.entranceTy === undefined) continue;
+        const d = Math.abs(source.entranceTx - t.entranceTx) + Math.abs(source.entranceTy - t.entranceTy);
+        if (d < closestDist) { closestDist = d; closest = t; }
+      }
+      if (!closest || closest.entranceTx === undefined || closest.entranceTy === undefined) continue;
+
+      // Deduplicate: skip if this position pair was already linked (either direction).
+      const posA = `${source.tx},${source.ty}`;
+      const posB = `${closest.tx},${closest.ty}`;
+      const pairKey = posA < posB ? `${posA}|${posB}` : `${posB}|${posA}`;
+      if (linkedPairs.has(pairKey)) continue;
+      linkedPairs.add(pairKey);
+
+      const srcX = source.entranceTx;
+      const srcY = source.entranceTy;
+      const dstX = closest.entranceTx;
+      const dstY = closest.entranceTy;
+
+      // A* from source entrance to target entrance, respecting buildingWalls.
+      const path = aStarPath(grid, gridSize, gridSize, srcX, srcY, dstX, dstY);
+
+      if (path) {
+        buildingLinkPaths.push({ tx: srcX, ty: srcY, main: false, buildingLink: true });
+        allPathSet.add(`${srcX},${srcY}`);
+        for (const wp of path) {
+          buildingLinkPaths.push({ tx: wp.x, ty: wp.y, main: false, buildingLink: true });
+          allPathSet.add(`${wp.x},${wp.y}`);
+          stampRoad(grid, gridSize, wp.x, wp.y, buildingWalls);
+        }
+      } else {
+        // A* failed — straight-line greedy walk as fallback.
+        let cx = srcX;
+        let cy = srcY;
+        for (let step = 0; step < 80; step++) {
+          if (cx === dstX && cy === dstY) break;
+          if (!buildingWalls.has(`${cx},${cy}`)) {
+            buildingLinkPaths.push({ tx: cx, ty: cy, main: false, buildingLink: true });
+            allPathSet.add(`${cx},${cy}`);
+            stampRoad(grid, gridSize, cx, cy, buildingWalls);
+          }
+          const dx = dstX - cx;
+          const dy = dstY - cy;
+          if (dx === 0 && dy === 0) break;
+          if (Math.abs(dx) >= Math.abs(dy)) cx += dx > 0 ? 1 : -1;
+          else cy += dy > 0 ? 1 : -1;
+        }
+      }
+    }
+  }
+
   return {
     buildings: result,
     roads: [
       ...mainRoads,
       ...(mainRoads.length === 0 ? [{ tx: mid, ty: mid, main: false as const }] : []),
       ...connectorPaths,
+      ...buildingLinkPaths,
     ],
   };
 }
