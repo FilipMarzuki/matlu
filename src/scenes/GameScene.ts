@@ -346,9 +346,9 @@ function biomeTileTint(biomeIdx: number, detail: number): number {
 function biomeTopTintAlpha(biomeIdx: number): number {
   // Water and snow need less wash; earth/vegetation biomes need more push so
   // their dominant colours read clearly after zoom, fog, and day/night overlays.
-  if (biomeIdx === 0 || biomeIdx === 11) return 0.22;
-  if (biomeIdx === 9 || biomeIdx === 10) return 0.28;
-  return 0.36;
+  if (biomeIdx === 0 || biomeIdx === 11) return 0.28;
+  if (biomeIdx === 9 || biomeIdx === 10) return 0.34;
+  return 0.44;
 }
 
 /**
@@ -5860,9 +5860,9 @@ export class GameScene extends Phaser.Scene {
         tileTintGfx.fillStyle(isRiverHere || isLakeHere ? 0x79b6d4 : tileTint, topAlpha);
         tileTintGfx.fillPoints([
           new Phaser.Math.Vector2(ISO_TILE_W / 2, 0),
-          new Phaser.Math.Vector2(ISO_TILE_W, ISO_TILE_H / 4),
-          new Phaser.Math.Vector2(ISO_TILE_W / 2, ISO_TILE_H / 2),
-          new Phaser.Math.Vector2(0, ISO_TILE_H / 4),
+          new Phaser.Math.Vector2(ISO_TILE_W, ISO_TILE_H / 2),
+          new Phaser.Math.Vector2(ISO_TILE_W / 2, ISO_TILE_H),
+          new Phaser.Math.Vector2(0, ISO_TILE_H / 2),
         ], true);
         tileTintGfx.setPosition(isoX - ISO_TILE_W / 2, isoY);
         terrainRt.draw(tileTintGfx);
@@ -5883,12 +5883,12 @@ export class GameScene extends Phaser.Scene {
           tileImg.setTexture('iso-tiles', clearFrame).setTint(0x7dbf54).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
           tileTintGfx.clear();
-          tileTintGfx.fillStyle(0x78bd55, 0.34);
+          tileTintGfx.fillStyle(0x78bd55, 0.42);
           tileTintGfx.fillPoints([
             new Phaser.Math.Vector2(ISO_TILE_W / 2, 0),
-            new Phaser.Math.Vector2(ISO_TILE_W, ISO_TILE_H / 4),
-            new Phaser.Math.Vector2(ISO_TILE_W / 2, ISO_TILE_H / 2),
-            new Phaser.Math.Vector2(0, ISO_TILE_H / 4),
+            new Phaser.Math.Vector2(ISO_TILE_W, ISO_TILE_H / 2),
+            new Phaser.Math.Vector2(ISO_TILE_W / 2, ISO_TILE_H),
+            new Phaser.Math.Vector2(0, ISO_TILE_H / 2),
           ], true);
           tileTintGfx.setPosition(clearX - ISO_TILE_W / 2, clearY);
           terrainRt.draw(tileTintGfx);
@@ -6662,10 +6662,10 @@ export class GameScene extends Phaser.Scene {
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
         const local = this.corruptionField.sample(wx + 16, wy + 16, global);
-        if (local < 0.18) continue;
+        if (local < 0.12) continue;
 
         const { x, y } = worldToIso(wx, wy);
-        const darkness = Phaser.Math.Clamp((local - 0.12) * 0.42, 0.05, 0.30);
+        const darkness = Phaser.Math.Clamp((local - 0.08) * 0.70, 0.08, 0.48);
         gfx.fillStyle(0x12051b, darkness);
         gfx.beginPath();
         gfx.moveTo(x, y + 2);
@@ -6676,8 +6676,8 @@ export class GameScene extends Phaser.Scene {
         gfx.fillPath();
 
         const accentHash = ((tx * 92821) ^ (ty * 68917)) >>> 0;
-        if (local > 0.42 && accentHash % 5 === 0) {
-          gfx.fillStyle(0x6e1f83, 0.16);
+        if (local > 0.30 && accentHash % 4 === 0) {
+          gfx.fillStyle(0x7f28a0, 0.28);
           gfx.fillEllipse(x, y + ISO_TILE_H / 2, ISO_TILE_W * 0.55, ISO_TILE_H * 0.28);
         }
       }
