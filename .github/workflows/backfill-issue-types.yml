@@ -1,0 +1,41 @@
+name: Backfill type:* Labels
+
+# One-shot workflow to classify every open issue with exactly one type:* label.
+# Run once from the Actions tab after the Create Labels workflow has created
+# the type:* labels. Re-running is safe — issues that already have a type:*
+# label are skipped.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (print proposed labels, apply nothing)'
+        type: boolean
+        default: true
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backfill script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            node .github/scripts/backfill-issue-types.js --dry-run
+          else
+            node .github/scripts/backfill-issue-types.js
+          fi
