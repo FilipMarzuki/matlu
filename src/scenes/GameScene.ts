@@ -38,7 +38,7 @@ import {
   meetingOpeningLine, PASSIVE_CLEANSE_RATE, PASSIVE_CLEANSE_CAP,
   SETTLEMENTS, SECRET_POSITIONS, ZONE_BOUNDARY_MARKERS,
 } from '../world/Level1';
-import type { PathChoice } from '../world/Level1';
+import type { PathChoice, Zone } from '../world/Level1';
 import type { NpcDialogData } from './NpcDialogScene';
 import { CorruptedGuardian } from '../entities/CorruptedGuardian';
 import { Dustling } from '../entities/Dustling';
@@ -641,6 +641,8 @@ export class GameScene extends Phaser.Scene {
   // ─── Level 1 ──────────────────────────────────────────────────────────────────
   // Semi-transparent zone tint overlays — one per zone, faded on collectible pickup
   private zoneOverlays: Map<string, Phaser.GameObjects.Rectangle> = new Map();
+  // Organic purple-black stains drawn into corrupt zones; faded with the zone.
+  private zoneStains: Map<string, Phaser.GameObjects.Graphics> = new Map();
   // Set of collected item IDs
   private collectedItems: Set<string> = new Set();
   // Collectible circle sprites (live objects, removed on pickup)
@@ -6634,7 +6636,54 @@ export class GameScene extends Phaser.Scene {
         .setDepth(3)
         .setScrollFactor(1); // scrolls with the world
       this.zoneOverlays.set(zone.id, overlay);
+
+      const stain = this.createCorruptionStainLayer(zone);
+      this.zoneStains.set(zone.id, stain);
     }
+  }
+
+  /**
+   * Draw dark, irregular corruption directly over terrain tiles.
+   *
+   * The older zone rectangles intentionally became very faint because they looked
+   * like debug overlays. This layer restores the threat read with noisy patches
+   * and HLD-like purple accents, while still following the same Level 1 zones.
+   */
+  private createCorruptionStainLayer(zone: Zone): Phaser.GameObjects.Graphics {
+    const gfx = this.add.graphics().setDepth(2.8).setScrollFactor(1);
+    const tilesX0 = Math.floor(zone.x / TILE_SIZE);
+    const tilesY0 = Math.floor(zone.y / TILE_SIZE);
+    const tilesX1 = Math.ceil((zone.x + zone.w) / TILE_SIZE);
+    const tilesY1 = Math.ceil((zone.y + zone.h) / TILE_SIZE);
+    const global = Phaser.Math.Clamp(zone.corruption / 100, 0, 1);
+
+    for (let ty = tilesY0; ty <= tilesY1; ty++) {
+      for (let tx = tilesX0; tx <= tilesX1; tx++) {
+        const wx = tx * TILE_SIZE;
+        const wy = ty * TILE_SIZE;
+        const local = this.corruptionField.sample(wx + 16, wy + 16, global);
+        if (local < 0.18) continue;
+
+        const { x, y } = worldToIso(wx, wy);
+        const darkness = Phaser.Math.Clamp((local - 0.12) * 0.42, 0.05, 0.30);
+        gfx.fillStyle(0x12051b, darkness);
+        gfx.beginPath();
+        gfx.moveTo(x, y + 2);
+        gfx.lineTo(x + ISO_TILE_W / 2, y + ISO_TILE_H / 2);
+        gfx.lineTo(x, y + ISO_TILE_H - 2);
+        gfx.lineTo(x - ISO_TILE_W / 2, y + ISO_TILE_H / 2);
+        gfx.closePath();
+        gfx.fillPath();
+
+        const accentHash = ((tx * 92821) ^ (ty * 68917)) >>> 0;
+        if (local > 0.42 && accentHash % 5 === 0) {
+          gfx.fillStyle(0x6e1f83, 0.16);
+          gfx.fillEllipse(x, y + ISO_TILE_H / 2, ISO_TILE_W * 0.55, ISO_TILE_H * 0.28);
+        }
+      }
+    }
+
+    return gfx;
   }
 
   /**
@@ -6794,6 +6843,15 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({
         targets: overlay,
         alpha: overlay.fillAlpha * 0.4,
+        duration: 1200,
+        ease: 'Sine.easeOut',
+      });
+    }
+    const stain = this.zoneStains.get(zoneId);
+    if (stain) {
+      this.tweens.add({
+        targets: stain,
+        alpha: 0.35,
         duration: 1200,
         ease: 'Sine.easeOut',
       });
