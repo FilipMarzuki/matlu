@@ -1,0 +1,245 @@
+---
+/**
+ * TypeBreakdownDonut — pure SVG donut chart showing open-issue type breakdown.
+ *
+ * No chart library needed: a donut is just stacked stroked circles where each
+ * slice uses stroke-dasharray to show only its arc and stroke-dashoffset to
+ * position it at the right angle.
+ *
+ * Placement: dev/src/pages/metrics.astro top section.
+ */
+import type { Issue } from '../lib/github-issues';
+
+interface Props {
+  issues: Issue[];
+}
+
+const { issues } = Astro.props;
+
+// GitHub label colours defined in .github/scripts/create-labels.js
+const TYPE_COLORS: Record<string, string> = {
+  feature:  '#a2eeef',
+  bug:      '#d73a4a',
+  refactor: '#c5def5',
+  perf:     '#fbca04',
+  infra:    '#5319e7',
+  docs:     '#0075ca',
+  spike:    '#e99695',
+};
+
+const FALLBACK_COLOR = '#555568';
+
+const openIssues = issues.filter(i => i.state === 'open');
+const total = openIssues.length;
+
+// Count per type key; null type becomes 'unknown'
+const countMap = new Map<string, number>();
+for (const issue of openIssues) {
+  const key = issue.type ?? 'unknown';
+  countMap.set(key, (countMap.get(key) ?? 0) + 1);
+}
+
+interface Segment {
+  type: string;
+  count: number;
+  pct: number;
+  color: string;
+}
+
+// Order by count descending so the largest slice starts at 12 o'clock
+const segments: Segment[] = [...countMap.entries()]
+  .map(([type, count]) => ({
+    type,
+    count,
+    pct: total > 0 ? count / total : 0,
+    color: TYPE_COLORS[type] ?? FALLBACK_COLOR,
+  }))
+  .sort((a, b) => b.count - a.count);
+
+// SVG donut geometry
+const CX = 90;
+const CY = 90;
+const R  = 55;
+const STROKE_WIDTH = 28;
+const CIRCUMFERENCE = 2 * Math.PI * R;
+
+// Pre-compute each slice's dash params; cumulative tracks how far around we are
+let cumulative = 0;
+const slices = segments.map(seg => {
+  const len    = seg.pct * CIRCUMFERENCE;
+  const offset = cumulative;
+  cumulative  += len;
+  return { ...seg, len, dashOffset: CIRCUMFERENCE - offset };
+});
+
+// ISO date baked in at build time for the subtitle
+const buildDate = new Date().toISOString().split('T')[0];
+---
+
+<div class="donut-wrap">
+  <p class="chart-title">Work mix — open issues</p>
+  <p class="chart-sub">Last updated: {buildDate}</p>
+
+  <div class="chart-body">
+    <svg
+      viewBox="0 0 180 180"
+      width="180"
+      height="180"
+      aria-label={`Donut chart: ${total} open issues by type`}
+      class="donut-svg"
+    >
+      <!-- Background ring so empty segments are visible -->
+      <circle
+        cx={CX}
+        cy={CY}
+        r={R}
+        fill="none"
+        stroke="rgba(255,255,255,0.05)"
+        stroke-width={STROKE_WIDTH}
+      />
+
+      {total > 0 && slices.map(slice => (
+        <circle
+          cx={CX}
+          cy={CY}
+          r={R}
+          fill="none"
+          stroke={slice.color}
+          stroke-width={STROKE_WIDTH}
+          stroke-dasharray={`${slice.len} ${CIRCUMFERENCE - slice.len}`}
+          stroke-dashoffset={slice.dashOffset}
+          transform={`rotate(-90 ${CX} ${CY})`}
+        />
+      ))}
+
+      <!-- Centre: total count + label -->
+      <text x={CX} y={CY - 7} text-anchor="middle" class="centre-count">{total}</text>
+      <text x={CX} y={CY + 10} text-anchor="middle" class="centre-label">open</text>
+    </svg>
+
+    <ul class="legend" role="list">
+      {segments.map(seg => (
+        <li class="legend-item">
+          <span class="legend-dot" style={`background:${seg.color}`} aria-hidden="true"></span>
+          <span class="legend-type">type:{seg.type}</span>
+          <span class="legend-stats"> — {seg.count} ({total > 0 ? Math.round(seg.pct * 100) : 0}%)</span>
+        </li>
+      ))}
+      {total === 0 && (
+        <li class="legend-empty">No open issues.</li>
+      )}
+    </ul>
+  </div>
+</div>
+
+<style>
+  .donut-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.25rem;
+  }
+
+  .chart-title {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 0.2rem;
+  }
+
+  .chart-sub {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    opacity: 0.6;
+    margin-bottom: 1rem;
+  }
+
+  .chart-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .donut-svg {
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  /* SVG text styles — must be inline SVG presentation attrs or a <style> inside the component */
+  .donut-svg :global(.centre-count) {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    fill: #d4d4e0;
+  }
+
+  .donut-svg :global(.centre-label) {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    fill: #6b6b80;
+  }
+
+  /* Legend */
+  .legend {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    justify-content: center;
+    min-width: 0;
+    padding-top: 0.25rem;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-type {
+    color: var(--text);
+  }
+
+  .legend-stats {
+    color: var(--text-dim);
+  }
+
+  .legend-empty {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+
+  /* On narrow screens, stack SVG above legend */
+  @media (max-width: 480px) {
+    .chart-body {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .legend {
+      flex-direction: column;
+    }
+
+    .legend-item {
+      white-space: normal;
+    }
+  }
+</style>
