@@ -5741,6 +5741,10 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setVisible(false);
     const tileTintGfx = this.add.graphics().setVisible(false);
+    // A visible overlay layer above the baked RenderTexture. Drawing the same
+    // diamond wash as regular world graphics makes the biome colour identity
+    // survive WebGL RenderTexture batching and screenshot capture.
+    const biomeWashGfx = this.add.graphics().setDepth(0.6).setScrollFactor(1);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5866,6 +5870,13 @@ export class GameScene extends Phaser.Scene {
         ], true);
         tileTintGfx.setPosition(isoX - ISO_TILE_W / 2, isoY);
         terrainRt.draw(tileTintGfx);
+        this.fillIsoDiamond(
+          biomeWashGfx,
+          isoX,
+          isoY,
+          isRiverHere || isLakeHere ? 0x79b6d4 : tileTint,
+          isRiverHere || isLakeHere ? 0.14 : biomeTopTintAlpha(biomeIdx) * 0.65,
+        );
 
       }
     }
@@ -5892,6 +5903,7 @@ export class GameScene extends Phaser.Scene {
           ], true);
           tileTintGfx.setPosition(clearX - ISO_TILE_W / 2, clearY);
           terrainRt.draw(tileTintGfx);
+          this.fillIsoDiamond(biomeWashGfx, clearX, clearY, 0x78bd55, 0.24);
         }
       }
     }
@@ -5908,6 +5920,23 @@ export class GameScene extends Phaser.Scene {
     this.tileDevW     = tilesX;
     this.tileDevElev  = biomeGrid;
     this.tileDevBiome = biomeIdxGrid;
+  }
+
+  /** Fill one isometric tile-top diamond on a normal Graphics layer. */
+  private fillIsoDiamond(
+    gfx: Phaser.GameObjects.Graphics,
+    isoX: number,
+    isoY: number,
+    color: number,
+    alpha: number,
+  ): void {
+    gfx.fillStyle(color, alpha);
+    gfx.fillPoints([
+      new Phaser.Math.Vector2(isoX, isoY),
+      new Phaser.Math.Vector2(isoX + ISO_TILE_W / 2, isoY + ISO_TILE_H / 2),
+      new Phaser.Math.Vector2(isoX, isoY + ISO_TILE_H),
+      new Phaser.Math.Vector2(isoX - ISO_TILE_W / 2, isoY + ISO_TILE_H / 2),
+    ], true);
   }
 
   /**
