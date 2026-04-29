@@ -47,6 +47,17 @@ interface BlockDef {
   sprite?: string; // Phaser texture key — falls back to coloured cube if absent
 }
 
+/** A free-sized sprite placed on the object layer above the block grid. */
+interface ForgeObject {
+  id: string;
+  spriteKey: string;
+  tx: number;          // grid anchor tile X
+  ty: number;          // grid anchor tile Y
+  tz: number;          // height in block z-units (0=ground, 1=on 1 block)
+  flipped?: boolean;   // mirror horizontally
+  label?: string;
+}
+
 interface ArchitectureStyle {
   id: string;
   name: string;
@@ -145,6 +156,20 @@ export class BuildingForgeScene extends Phaser.Scene {
   private hoverTx = -1;
   private hoverTy = -1;
 
+  // Object layer — free-sized sprites on top of the block grid
+  private objects: ForgeObject[] = [];
+  private objectSprites: Phaser.GameObjects.Image[] = [];
+  private placingObject: string | null = null;
+  private currentObjectIdx = 0;
+  private readonly objectKeys = [
+    // Buildings
+    'bld-campfire', 'bld-well', 'bld-guard-post', 'bld-shrine',
+    'bld-watchtower', 'bld-cottage', 'bld-smithy', 'bld-farmstead', 'bld-longhouse',
+    // NPCs
+    'npc-chief', 'npc-blacksmith', 'npc-farmer', 'npc-guard',
+    'npc-hearthkeeper', 'npc-shrine-keeper', 'npc-child', 'npc-elder',
+  ];
+
   constructor() {
     super({ key: 'BuildingForgeScene' });
   }
@@ -176,6 +201,29 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.load.image('lh-carved-gable',    '/assets/packs/building-forge/longhouse/carved_gable.png');
     this.load.image('lh-roof-edge',      '/assets/packs/building-forge/longhouse/roof_edge.png');
     this.load.image('lh-roof-edge-back', '/assets/packs/building-forge/longhouse/roof_edge_back.png');
+
+    // Building object sprites (Markfolk Timber-frame)
+    const bldBase = '/assets/packs/building-objects/markfolk-timber';
+    this.load.image('bld-campfire',    `${bldBase}/campfire.png`);
+    this.load.image('bld-well',        `${bldBase}/well.png`);
+    this.load.image('bld-guard-post',  `${bldBase}/guard-post.png`);
+    this.load.image('bld-shrine',      `${bldBase}/shrine.png`);
+    this.load.image('bld-watchtower',  `${bldBase}/watchtower.png`);
+    this.load.image('bld-cottage',     `${bldBase}/cottage.png`);
+    this.load.image('bld-smithy',      `${bldBase}/smithy.png`);
+    this.load.image('bld-farmstead',   `${bldBase}/farmstead.png`);
+    this.load.image('bld-longhouse',   `${bldBase}/longhouse.png`);
+
+    // NPC object sprites (fieldborn village)
+    const npcBase = '/assets/sprites/npcs/markfolk/fieldborn';
+    this.load.image('npc-chief',          `${npcBase}/chief.png`);
+    this.load.image('npc-blacksmith',     `${npcBase}/blacksmith.png`);
+    this.load.image('npc-farmer',         `${npcBase}/farmer.png`);
+    this.load.image('npc-guard',          `${npcBase}/guard.png`);
+    this.load.image('npc-hearthkeeper',   `${npcBase}/hearthkeeper.png`);
+    this.load.image('npc-shrine-keeper',  `${npcBase}/shrine-keeper.png`);
+    this.load.image('npc-child',          `${npcBase}/child.png`);
+    this.load.image('npc-elder',          `${npcBase}/elder.png`);
   }
 
   create(): void {
@@ -218,6 +266,9 @@ export class BuildingForgeScene extends Phaser.Scene {
     kb.on('keydown-R', () => { this.fillDefault(); this.rebuild(); });
     kb.on('keydown-T', () => { this.showSprites = !this.showSprites; this.syncSpriteToggle(); this.rebuild(); });
     kb.on('keydown-V', () => this.cycleSpriteVariant());
+    kb.on('keydown-O', () => this.toggleObjectMode());
+    kb.on('keydown-N', () => this.cycleObjectType());
+    kb.on('keydown-F', () => this.flipObject());
 
     // Zoom
     this.input.on('wheel', (_: unknown, __: unknown, ___: unknown, dy: number) => {
@@ -250,16 +301,18 @@ export class BuildingForgeScene extends Phaser.Scene {
     });
     this.input.on('pointerup', () => { this.isPanning = false; });
 
-    // Click to place/remove blocks
+    // Click to place/remove blocks or objects
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (this.isPanning) return;
       this.updateHover(p);
       if (this.hoverTx < 0) return;
 
-      if (p.leftButtonDown()) {
-        this.placeBlock(this.hoverTx, this.hoverTy);
-      } else if (p.rightButtonDown()) {
-        this.removeBlock(this.hoverTx, this.hoverTy);
+      if (this.placingObject) {
+        if (p.leftButtonDown()) this.placeObject(this.hoverTx, this.hoverTy);
+        else if (p.rightButtonDown()) this.removeObject(this.hoverTx, this.hoverTy);
+      } else {
+        if (p.leftButtonDown()) this.placeBlock(this.hoverTx, this.hoverTy);
+        else if (p.rightButtonDown()) this.removeBlock(this.hoverTx, this.hoverTy);
       }
     });
 
@@ -885,6 +938,12 @@ export class BuildingForgeScene extends Phaser.Scene {
         ${arch?.description ? `<div class="bf-divider"></div><div class="bf-desc">${arch.description}</div>` : ''}
         ${arch?.realWorldInspiration ? `<div class="bf-stat" style="margin-top:4px;">Inspiration: <span style="color:#99bbaa;">${arch.realWorldInspiration}</span></div>` : ''}
         ${arch?.promptKeywords ? `<div class="bf-keywords">${arch.promptKeywords}</div>` : ''}
+        <div class="bf-divider"></div>
+        <div class="bf-stat" style="color:${this.placingObject ? '#44ff88' : '#aaaaaa'};">
+          Mode: <span>${this.placingObject ? `OBJECT (${this.placingObject.replace('npc-', '')})` : 'BLOCK'}</span>
+        </div>
+        <div class="bf-stat" style="font-size:0.8em;color:#888;">O = toggle mode, N = cycle NPC</div>
+        <div class="bf-stat">Objects placed: <span>${this.objects.length}</span></div>
       `;
     }
 
@@ -973,6 +1032,68 @@ export class BuildingForgeScene extends Phaser.Scene {
     }
   }
 
+  // ── Object placement ──────────────────────────────────────────────────────
+
+  /** Toggle between block mode and object-place mode. Press O. */
+  private toggleObjectMode(): void {
+    if (this.placingObject) {
+      this.placingObject = null;
+    } else {
+      this.placingObject = this.objectKeys[this.currentObjectIdx];
+    }
+    this.syncPanel();
+  }
+
+  /** Cycle through available object types. Press N. */
+  private cycleObjectType(): void {
+    this.currentObjectIdx = (this.currentObjectIdx + 1) % this.objectKeys.length;
+    if (this.placingObject) {
+      this.placingObject = this.objectKeys[this.currentObjectIdx];
+    }
+    this.syncPanel();
+  }
+
+  /** Place an object at the hovered tile, auto-z on top of the block column. */
+  private placeObject(tx: number, ty: number): void {
+    if (!this.placingObject) return;
+    // Find top of block column for automatic z
+    let topZ = 0;
+    if (tx >= 0 && tx < this.gridW && ty >= 0 && ty < this.gridD) {
+      for (let z = this.maxH - 1; z >= 0; z--) {
+        if (this.blocks[tx][ty][z] !== null) { topZ = z + 1; break; }
+      }
+    }
+    this.objects.push({
+      id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      spriteKey: this.placingObject,
+      tx, ty, tz: topZ,
+      label: this.placingObject.replace('npc-', ''),
+    });
+    this.rebuild();
+  }
+
+  /** Flip the object at the hovered tile. Press F. */
+  private flipObject(): void {
+    const obj = this.objects.find(o =>
+      Math.round(o.tx) === this.hoverTx && Math.round(o.ty) === this.hoverTy
+    );
+    if (obj) {
+      obj.flipped = !obj.flipped;
+      this.rebuild();
+    }
+  }
+
+  /** Remove the object at the hovered tile (if any). */
+  private removeObject(tx: number, ty: number): void {
+    const idx = this.objects.findIndex(o =>
+      Math.round(o.tx) === tx && Math.round(o.ty) === ty
+    );
+    if (idx >= 0) {
+      this.objects.splice(idx, 1);
+      this.rebuild();
+    }
+  }
+
   // ── Hover / screen-to-tile ────────────────────────────────────────────────
 
   private updateHover(p: Phaser.Input.Pointer): void {
@@ -1042,6 +1163,41 @@ export class BuildingForgeScene extends Phaser.Scene {
     const g = Math.floor(((color >> 8) & 0xff) * factor);
     const b = Math.floor((color & 0xff) * factor);
     return (r << 16) | (g << 8) | b;
+  }
+
+  /** Render a free-sized object sprite at its grid anchor with correct depth. */
+  private renderObject(obj: ForgeObject): void {
+    if (!this.textures.exists(obj.spriteKey)) return;
+    const { x, y } = this.isoPos(obj.tx, obj.ty);
+    const hh = this.ISO_H / 2;
+
+    // Ground level = south point of the anchor tile's diamond
+    const groundY = y + hh * 2;
+    // Lift by tz block heights
+    const lift = obj.tz * hh;
+
+    const img = this.add.image(x, groundY - lift, obj.spriteKey);
+    // Bottom-center origin — feet/base on ground
+    img.setOrigin(0.5, 1.0);
+
+    // Scale: buildings keep their natural proportions relative to the grid,
+    // NPCs scale to roughly one tile width.
+    const isBuilding = obj.spriteKey.startsWith('bld-');
+    let scale: number;
+    if (isBuilding) {
+      // Buildings: scale so 32px in the sprite ≈ one iso tile width
+      scale = this.ISO_W / 32;
+    } else {
+      // NPCs: scale width to one tile
+      scale = this.ISO_W / img.width;
+    }
+    const flipX = obj.flipped ? -1 : 1;
+    img.setScale(scale * flipX, scale);
+
+    // Depth: same formula as blocks + epsilon to render in front of same-cell blocks
+    img.setDepth(1 + (obj.tx + obj.ty) * 0.01 + obj.tz * 0.001 + 0.0005);
+
+    this.objectSprites.push(img);
   }
 
   private drawBlock(
@@ -1132,6 +1288,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.blockGfx?.destroy();
     for (const s of this.blockSprites) s.destroy();
     this.blockSprites = [];
+    for (const s of this.objectSprites) s.destroy();
+    this.objectSprites = [];
     for (const l of this.blockLabels) l.destroy();
     this.blockLabels = [];
 
@@ -1204,7 +1362,7 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.blockGfx = this.add.graphics().setDepth(1);
 
     // Collect all filled blocks with sort key and block type
-    const draws: Array<{ tx: number; ty: number; tz: number; blockType: string; sortKey: number }> = [];
+    const draws: Array<{ tx: number; ty: number; tz: number; blockType: string; sortKey: number; object?: ForgeObject }> = [];
     for (let tx = 0; tx < this.gridW; tx++) {
       for (let ty = 0; ty < this.gridD; ty++) {
         for (let tz = 0; tz < this.maxH; tz++) {
@@ -1214,6 +1372,15 @@ export class BuildingForgeScene extends Phaser.Scene {
           }
         }
       }
+    }
+    // Inject objects into the draw list so they painter-sort with blocks
+    for (const obj of this.objects) {
+      draws.push({
+        tx: obj.tx, ty: obj.ty, tz: obj.tz,
+        blockType: '__object__',
+        sortKey: (obj.tx + obj.ty) * 100 + obj.tz + 0.5,
+        object: obj,
+      });
     }
     draws.sort((a, b) => a.sortKey - b.sortKey);
 
@@ -1266,6 +1433,12 @@ export class BuildingForgeScene extends Phaser.Scene {
       this.blockSprites.push(img);
     } else {
       for (const d of draws) {
+        // Object layer sprites — free-sized, depth-interleaved with blocks
+        if (d.object) {
+          this.renderObject(d.object);
+          continue;
+        }
+
         // Per-block-type sprite from architecture (preferred)
         const blockSprite = blockSpriteMap.get(d.blockType);
         if (hasBlockSprites && blockSprite) {

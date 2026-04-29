@@ -1016,85 +1016,6 @@
       ]
     },
     {
-      "id": "farmstead",
-      "name": "Farmstead",
-      "role": "Combined home and working farm — house, outbuilding, and fenced plot",
-      "category": "residential",
-      "minTier": 2,
-      "zone": "outer",
-      "baseSizeRange": [
-        3,
-        4
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "farming",
-          "herding"
-        ],
-        "secondary": [
-          "agricultural"
-        ],
-        "adjacentResources": [
-          "fertile-soil"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 2,
-        "4": 3,
-        "5": 4
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "outside-core"
-      ],
-      "loreHook": "The fence keeps the goats in and the wolves out. Usually",
-      "baseDepthRange": [
-        2,
-        3
-      ]
-    },
-    {
-      "id": "watchtower",
-      "name": "Watchtower",
-      "role": "Elevated lookout point — early warning",
-      "category": "military",
-      "minTier": 2,
-      "zone": "outer",
-      "baseSizeRange": [
-        1,
-        1
-      ],
-      "heightHint": "tower",
-      "unlockConditions": {
-        "features": [
-          "corruption-boundary",
-          "mountain-pass",
-          "wilderness-edge"
-        ],
-        "purposes": [
-          "frontier",
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 4
-      },
-      "placementHints": [
-        "on-high-ground",
-        "edge-of-settlement",
-        "corners"
-      ],
-      "loreHook": "The watch is boring until it isn't"
-    },
-    {
       "id": "palisade-gate",
       "name": "Palisade Gate",
       "role": "Main entry through the settlement wall",
@@ -1196,43 +1117,6 @@
       "loreHook": "The key is held by two people who don't trust each other"
     },
     {
-      "id": "guard-post",
-      "name": "Guard Post",
-      "role": "Small checkpoint — toll collection or patrol staging",
-      "category": "military",
-      "minTier": 2,
-      "zone": "outer",
-      "baseSizeRange": [
-        1,
-        1
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "features": [
-          "trade-route",
-          "mountain-pass"
-        ],
-        "purposes": [
-          "frontier",
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "on-road-entry",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Papers, please"
-    },
-    {
       "id": "training-yard",
       "name": "Training Yard",
       "role": "Open ground for drills and sparring",
@@ -1264,38 +1148,6 @@
         2,
         3
       ]
-    },
-    {
-      "id": "shrine",
-      "name": "Shrine",
-      "role": "Small devotional site — a carved stone, an altar, a sacred tree",
-      "category": "religious",
-      "minTier": 2,
-      "zone": "inner",
-      "baseSizeRange": [
-        1,
-        1
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": [
-          "shrine"
-        ],
-        "secondary": [
-          "religious"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "near-plaza",
-        "on-high-ground"
-      ],
-      "loreHook": "Offerings appear overnight — nobody admits to leaving them"
     },
     {
       "id": "temple",
@@ -1814,6 +1666,166 @@
         "near-plaza"
       ],
       "loreHook": "It hums. It has always hummed. Nobody touches it"
+    },
+    {
+      "id": "guard-post",
+      "name": "Guard Post",
+      "role": "Small checkpoint — toll collection or patrol staging",
+      "category": "military",
+      "minTier": 2,
+      "zone": "outer",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "heightHint": "low",
+      "unlockConditions": {
+        "features": [
+          "trade-route",
+          "mountain-pass"
+        ],
+        "purposes": [
+          "frontier",
+          "garrison"
+        ],
+        "secondary": [
+          "military"
+        ]
+      },
+      "count": {
+        "2": 1,
+        "3": 1,
+        "4": 2,
+        "5": 2
+      },
+      "placementHints": [
+        "on-road-entry",
+        "edge-of-settlement"
+      ],
+      "loreHook": "Papers, please",
+      "baseDepthRange": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "shrine",
+      "name": "Shrine",
+      "role": "Small devotional site — a carved stone, an altar, a sacred tree",
+      "category": "religious",
+      "minTier": 2,
+      "zone": "inner",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "heightHint": "low",
+      "unlockConditions": {
+        "purposes": [
+          "shrine"
+        ],
+        "secondary": [
+          "religious"
+        ]
+      },
+      "count": {
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 2
+      },
+      "placementHints": [
+        "near-plaza",
+        "on-high-ground"
+      ],
+      "loreHook": "Offerings appear overnight — nobody admits to leaving them",
+      "baseDepthRange": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "watchtower",
+      "name": "Watchtower",
+      "role": "Elevated lookout point — early warning",
+      "category": "military",
+      "minTier": 2,
+      "zone": "outer",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "heightHint": "tower",
+      "unlockConditions": {
+        "features": [
+          "corruption-boundary",
+          "mountain-pass",
+          "wilderness-edge"
+        ],
+        "purposes": [
+          "frontier",
+          "garrison"
+        ],
+        "secondary": [
+          "military"
+        ]
+      },
+      "count": {
+        "2": 1,
+        "3": 1,
+        "4": 2,
+        "5": 4
+      },
+      "placementHints": [
+        "on-high-ground",
+        "edge-of-settlement",
+        "corners"
+      ],
+      "loreHook": "The watch is boring until it isn't",
+      "baseDepthRange": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "farmstead",
+      "name": "Farmstead",
+      "role": "Combined home and working farm — house, outbuilding, and fenced plot",
+      "category": "residential",
+      "minTier": 2,
+      "zone": "outer",
+      "baseSizeRange": [
+        3,
+        4
+      ],
+      "heightHint": "standard",
+      "unlockConditions": {
+        "purposes": [
+          "farming",
+          "herding"
+        ],
+        "secondary": [
+          "agricultural"
+        ],
+        "adjacentResources": [
+          "fertile-soil"
+        ]
+      },
+      "count": {
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "5": 4
+      },
+      "placementHints": [
+        "edge-of-settlement",
+        "outside-core"
+      ],
+      "loreHook": "The fence keeps the goats in and the wolves out. Usually",
+      "baseDepthRange": [
+        4,
+        4
+      ]
     }
   ]
 }
