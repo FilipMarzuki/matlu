@@ -343,6 +343,14 @@ function biomeTileTint(biomeIdx: number, detail: number): number {
   );
 }
 
+function biomeTopTintAlpha(biomeIdx: number): number {
+  // Water and snow need less wash; earth/vegetation biomes need more push so
+  // their dominant colours read clearly after zoom, fog, and day/night overlays.
+  if (biomeIdx === 0 || biomeIdx === 11) return 0.22;
+  if (biomeIdx === 9 || biomeIdx === 10) return 0.28;
+  return 0.36;
+}
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -5730,6 +5738,7 @@ export class GameScene extends Phaser.Scene {
       .setScale(1)
       .setOrigin(0.5, 0)
       .setVisible(false);
+    const tileTintGfx = this.add.graphics().setVisible(false);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5841,6 +5850,21 @@ export class GameScene extends Phaser.Scene {
         }
         terrainRt.draw(tileImg);
 
+        // Stamp a translucent colour diamond on the tile top. Sprite tinting is
+        // multiplicative, so dark green source pixels stay green; this overlay
+        // adds CrossCode-style biome identity without replacing the texture.
+        const topAlpha = isRiverHere || isLakeHere ? 0.24 : biomeTopTintAlpha(biomeIdx);
+        tileTintGfx.clear();
+        tileTintGfx.fillStyle(isRiverHere || isLakeHere ? 0x79b6d4 : tileTint, topAlpha);
+        tileTintGfx.fillPoints([
+          new Phaser.Math.Vector2(ISO_TILE_W / 2, 0),
+          new Phaser.Math.Vector2(ISO_TILE_W, ISO_TILE_H / 4),
+          new Phaser.Math.Vector2(ISO_TILE_W / 2, ISO_TILE_H / 2),
+          new Phaser.Math.Vector2(0, ISO_TILE_H / 4),
+        ], true);
+        tileTintGfx.setPosition(isoX - ISO_TILE_W / 2, isoY);
+        terrainRt.draw(tileTintGfx);
+
       }
     }
 
@@ -5856,6 +5880,16 @@ export class GameScene extends Phaser.Scene {
           const { x: clearX, y: clearY } = worldToIso((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE);
           tileImg.setTexture('iso-tiles', clearFrame).setTint(0x7dbf54).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
+          tileTintGfx.clear();
+          tileTintGfx.fillStyle(0x78bd55, 0.34);
+          tileTintGfx.fillPoints([
+            new Phaser.Math.Vector2(ISO_TILE_W / 2, 0),
+            new Phaser.Math.Vector2(ISO_TILE_W, ISO_TILE_H / 4),
+            new Phaser.Math.Vector2(ISO_TILE_W / 2, ISO_TILE_H / 2),
+            new Phaser.Math.Vector2(0, ISO_TILE_H / 4),
+          ], true);
+          tileTintGfx.setPosition(clearX - ISO_TILE_W / 2, clearY);
+          terrainRt.draw(tileTintGfx);
         }
       }
     }
@@ -5866,6 +5900,7 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    tileTintGfx.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
