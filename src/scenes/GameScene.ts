@@ -60,6 +60,8 @@ import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { DeployableManager } from '../systems/DeployableManager';
 import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
 import { CreditCard } from '../ui/CreditCard';
+import { EssenceSystem } from '../systems/EssenceSystem';
+import { EssenceHUD } from '../ui/EssenceHUD';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
 // Set a flag to true to enable that category; false to skip it entirely.
@@ -416,6 +418,7 @@ export class GameScene extends Phaser.Scene {
   // ─── Economy ──────────────────────────────────────────────────────────────────
   private playerGold = 0;
   private goldText!: Phaser.GameObjects.Text;
+  essenceSystem!: EssenceSystem;
 
   // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
   private skillSystem!: SkillSystem;
@@ -1029,6 +1032,7 @@ export class GameScene extends Phaser.Scene {
     this.deployables = new DeployableManager(this);
     this.communityEncounter = new CommunityEncounterCoordinator(this);
     new CreditCard(this);
+    this.essenceSystem = new EssenceSystem(this);
 
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
@@ -1307,6 +1311,7 @@ export class GameScene extends Phaser.Scene {
     if (DEBUG_SPAWN.birds)         this.spawnBirds();
 
     this.createHudAndOverlay();
+    new EssenceHUD(this, this.essenceSystem);
     this.createPortal();
     this.createBoss();
     this.createGolems();
