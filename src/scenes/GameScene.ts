@@ -308,6 +308,42 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * Visual tint per biome for the isometric terrain bake.
+ *
+ * The custom tile packs share useful pixel texture, but at game-camera scale
+ * several materials converge toward the same green-grey. These tints push each
+ * biome toward a clear identity while staying dark/desaturated enough for the
+ * Core Warden mood.
+ */
+const BIOME_TILE_TINTS: ReadonlyArray<number> = [
+  0x2f658f, // 0  Sea — cold blue
+  0x9a7352, // 1  Rocky shore — tide-stained ochre stone
+  0xd0aa67, // 2  Sandy shore — warm sand
+  0x587942, // 3  Marsh / bog — olive peat
+  0xb07a42, // 4  Dry heath — rusty heather scrub
+  0x7fa24d, // 5  Coastal heath — salted moss green
+  0x68ad4d, // 6  Meadow — clear grass
+  0x2f7a44, // 7  Forest — broadleaf green
+  0x1f5a4e, // 8  Spruce — dark blue-green
+  0x808994, // 9  Cold granite — blue-grey rock
+  0x9a8d86, // 10 Bare summit — wind-worn grey-brown
+  0xc9d8e6, // 11 Snow field — cold snow blue
+];
+
+function biomeTileTint(biomeIdx: number, detail: number): number {
+  const base = BIOME_TILE_TINTS[biomeIdx] ?? 0xffffff;
+  // Tiny deterministic brightness variation preserves texture at player scale
+  // without creating flicker or speckle noise.
+  const c = Phaser.Display.Color.IntegerToColor(base);
+  const shift = Math.round((detail - 0.5) * 18);
+  return Phaser.Display.Color.GetColor(
+    Phaser.Math.Clamp(c.red + shift, 0, 255),
+    Phaser.Math.Clamp(c.green + shift, 0, 255),
+    Phaser.Math.Clamp(c.blue + shift, 0, 255),
+  );
+}
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -5780,10 +5816,11 @@ export class GameScene extends Phaser.Scene {
         // Painter order: ty=0 (back) drawn first, ty=tilesY-1 (front) drawn last —
         // each row's front face is covered by the diamond of the next row forward.
         const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
+        const tileTint = biomeTileTint(biomeIdx, detail);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
         if (isRiverHere || isLakeHere) {
           // FIL-466: water tiles always use the shared iso-tiles river frame.
-          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
+          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setTint(0x6da8c8).setPosition(isoX, isoY);
         } else if (biomeIdx in CUSTOM_TILE_PACKS) {
           // FIL-466: dual-grid hash selects one of 4 same-material variants to
           // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
@@ -5796,11 +5833,11 @@ export class GameScene extends Phaser.Scene {
           const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
           const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
           const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
-          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+          tileImg.setTexture(`${packName}-${tileHash}`).setTint(tileTint).setPosition(isoX, isoY);
         } else {
           // FIL-466: biome 0 (Sea) — no pack; fall back to iso-tiles spritesheet.
           const frame = isoTileFrame(biomeIdx, detail);
-          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+          tileImg.setTexture('iso-tiles', frame).setTint(tileTint).setPosition(isoX, isoY);
         }
         terrainRt.draw(tileImg);
 
@@ -5817,7 +5854,7 @@ export class GameScene extends Phaser.Scene {
         if (dx * dx + dy * dy <= 7) {
           const clearFrame = 40 + ((Math.abs(dx) * 2 + Math.abs(dy)) % 4); // frames 40–43 (grass)
           const { x: clearX, y: clearY } = worldToIso((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE);
-          tileImg.setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
+          tileImg.setTexture('iso-tiles', clearFrame).setTint(0x7dbf54).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
         }
       }
