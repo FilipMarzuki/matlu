@@ -396,6 +396,18 @@ export class CombatArenaScene extends Phaser.Scene {
     this.communityEncounter = new CommunityEncounterCoordinator(this);
     new CreditCard(this);
 
+    // Torch flicker — 3-frame loop at 6 fps (~167 ms/frame) for a slow, warm
+    // candle feel. Defined once here; each torch sprite calls play('torch_flicker')
+    // with a random progress offset so they don't all flash in sync.
+    if (!this.anims.exists('torch_flicker')) {
+      this.anims.create({
+        key:       'torch_flicker',
+        frames:    this.anims.generateFrameNumbers('dungeon_torch', { start: 0, end: 2 }),
+        frameRate: 6,
+        repeat:    -1,
+      });
+    }
+
     if (ARENA_DEBUG) this.sound.mute = true;
 
     this.buildDungeon();
@@ -411,18 +423,6 @@ export class CombatArenaScene extends Phaser.Scene {
     this.createAnimsFromAseprite('mini-velcrid');
     this.createAnimsFromAseprite('npc-wanderer');
     this.createAnimsFromAseprite('loke');
-
-    // Torch flicker — 3-frame loop at 6 fps (~167 ms/frame) for a slow, warm
-    // candle feel. Defined once here; each torch sprite calls play('torch_flicker')
-    // with a random progress offset so they don't all flash in sync.
-    if (!this.anims.exists('torch_flicker')) {
-      this.anims.create({
-        key:       'torch_flicker',
-        frames:    this.anims.generateFrameNumbers('dungeon_torch', { start: 0, end: 2 }),
-        frameRate: 6,
-        repeat:    -1,
-      });
-    }
 
     // Walk and idle animations must loop so the sprite never freezes mid-stride.
     // Attack / dash / death stay one-shot — their keys don't contain _walk_ or _idle_.
