@@ -1,0 +1,334 @@
+---
+import Base from '../../layouts/Base.astro';
+import { fetchIssues } from '../../lib/github-issues.ts';
+import type { Issue } from '../../lib/github-issues.ts';
+
+const issues = await fetchIssues({ token: import.meta.env.GITHUB_TOKEN ?? '', state: 'open' });
+
+// Sort newest first (highest issue number first)
+const sorted = [...issues].sort((a, b) => b.number - a.number);
+
+// Compute counts
+const total = sorted.length;
+const clusterCounts: Record<string, number> = {};
+for (const issue of sorted) {
+  clusterCounts[issue.cluster] = (clusterCounts[issue.cluster] ?? 0) + 1;
+}
+const clusters = Object.keys(clusterCounts).sort();
+const sizes = ['xs', 's', 'm', 'l', 'xl'] as const;
+
+function truncate(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - 1) + '…';
+}
+
+// Serialise to JSON for the client-side filter script
+const issuesJson = JSON.stringify(sorted.map((i: Issue) => ({
+  number:  i.number,
+  title:   i.title,
+  url:     i.url,
+  size:    i.size,
+  cluster: i.cluster,
+})));
+---
+
+<Base title="Backlog" description="Open backlog — Core Warden issues at a glance.">
+  <div class="page-header">
+    <h1>Backlog</h1>
+    <p class="subtitle">
+      <span id="total-count">{total}</span> open issues
+      {clusters.map(c => (
+        <span class="cluster-badge" data-cluster={c}>
+          {c} <span class="cluster-n">{clusterCounts[c]}</span>
+        </span>
+      ))}
+    </p>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filters">
+    <label class="filter-label">
+      Cluster
+      <select id="filter-cluster">
+        <option value="">all</option>
+        {clusters.map(c => <option value={c}>{c}</option>)}
+      </select>
+    </label>
+    <label class="filter-label">
+      Size
+      <select id="filter-size">
+        <option value="">all</option>
+        {sizes.map(s => <option value={s}>{s}</option>)}
+      </select>
+    </label>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table id="backlog-table">
+      <thead>
+        <tr>
+          <th class="col-num">#</th>
+          <th class="col-title">Title</th>
+          <th class="col-size">Size</th>
+          <th class="col-cluster hide-mobile">Cluster</th>
+        </tr>
+      </thead>
+      <tbody id="backlog-body">
+        {sorted.map((issue: Issue) => (
+          <tr data-cluster={issue.cluster} data-size={issue.size ?? ''}>
+            <td class="col-num">
+              <a href={issue.url} target="_blank" rel="noopener" class="num-link">#{issue.number}</a>
+            </td>
+            <td class="col-title">
+              <a href={issue.url} target="_blank" rel="noopener" class="title-link">
+                {truncate(issue.title, 60)}
+              </a>
+            </td>
+            <td class="col-size">
+              {issue.size ? <span class="size-badge">{issue.size}</span> : <span class="size-none">—</span>}
+            </td>
+            <td class="col-cluster hide-mobile">
+              <span class="cluster-tag">{issue.cluster}</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p id="empty-msg" class="empty-msg" style="display:none">No issues match the current filters.</p>
+  </div>
+
+  <!-- Embed issue data for client-side filter -->
+  <script type="application/json" id="issues-data" set:html={issuesJson} />
+
+  <script>
+    interface IssueRow {
+      number:  number;
+      title:   string;
+      url:     string;
+      size:    string | null;
+      cluster: string;
+    }
+
+    const raw = document.getElementById('issues-data')!.textContent!;
+    const allIssues: IssueRow[] = JSON.parse(raw);
+
+    const filterCluster = document.getElementById('filter-cluster') as HTMLSelectElement;
+    const filterSize    = document.getElementById('filter-size')    as HTMLSelectElement;
+    const tbody         = document.getElementById('backlog-body')!;
+    const emptyMsg      = document.getElementById('empty-msg')!;
+    const totalCount    = document.getElementById('total-count')!;
+
+    function applyFilters(): void {
+      const cluster = filterCluster.value;
+      const size    = filterSize.value;
+
+      const rows = tbody.querySelectorAll('tr');
+      let visible = 0;
+
+      rows.forEach(row => {
+        const rowCluster = row.getAttribute('data-cluster') ?? '';
+        const rowSize    = row.getAttribute('data-size')    ?? '';
+        const show =
+          (cluster === '' || rowCluster === cluster) &&
+          (size    === '' || rowSize    === size);
+        (row as HTMLElement).style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      emptyMsg.style.display = visible === 0 ? '' : 'none';
+      totalCount.textContent  = String(visible);
+
+      // Update per-cluster badges to show filtered counts
+      const clusterBadges = document.querySelectorAll<HTMLElement>('.cluster-badge');
+      clusterBadges.forEach(badge => {
+        const c = badge.getAttribute('data-cluster') ?? '';
+        const count = allIssues.filter(
+          i => (cluster === '' || i.cluster === cluster) &&
+               (size    === '' || (i.size ?? '') === size) &&
+               i.cluster === c
+        ).length;
+        const nEl = badge.querySelector('.cluster-n');
+        if (nEl) nEl.textContent = String(count);
+        badge.style.display = count > 0 ? '' : 'none';
+      });
+    }
+
+    filterCluster.addEventListener('change', applyFilters);
+    filterSize.addEventListener('change', applyFilters);
+  </script>
+</Base>
+
+<style>
+  .page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    margin-bottom: 0.4rem;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0;
+  }
+
+  .cluster-badge {
+    background: var(--badge-bg);
+    color: var(--badge-text);
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .cluster-n {
+    opacity: 0.7;
+  }
+
+  /* Filter bar */
+  .filters {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+  }
+
+  .filter-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  .filter-label select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+  }
+
+  .filter-label select:focus {
+    outline: 1px solid var(--accent);
+  }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.84rem;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 0.4rem 0.75rem;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  tbody tr:hover {
+    background: var(--surface-hi);
+  }
+
+  tbody td {
+    padding: 0.45rem 0.75rem;
+    vertical-align: middle;
+  }
+
+  .col-num {
+    width: 4.5rem;
+    white-space: nowrap;
+  }
+
+  .col-title {
+    /* takes remaining space */
+  }
+
+  .col-size {
+    width: 4rem;
+    text-align: center;
+  }
+
+  .col-cluster {
+    width: 9rem;
+  }
+
+  .num-link {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+
+  .num-link:hover {
+    color: var(--accent-hi);
+    text-decoration: none;
+  }
+
+  .title-link {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 480px;
+  }
+
+  .title-link:hover {
+    color: var(--accent-hi);
+    text-decoration: none;
+  }
+
+  .size-badge {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.76rem;
+    padding: 0.1rem 0.4rem;
+    text-transform: uppercase;
+  }
+
+  .size-none {
+    color: var(--border);
+  }
+
+  .cluster-tag {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+
+  .empty-msg {
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 1.5rem 0;
+    text-align: center;
+  }
+
+  /* Mobile: hide cluster column */
+  @media (max-width: 480px) {
+    .hide-mobile {
+      display: none;
+    }
+  }
+</style>
