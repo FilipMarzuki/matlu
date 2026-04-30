@@ -9,6 +9,7 @@
  *
  * ## Controls
  *   LEFT / RIGHT or A / D   Cycle through all 12 biomes
+ *   R                        Cycle road type (dirt / paved / forest / animal)
  *   Scroll wheel / +/-       Zoom in / out
  *   Click palette box        Jump directly to that biome
  *   E                        Remove the placed entity
@@ -91,6 +92,17 @@ export class WorldForgeScene extends Phaser.Scene {
   // Zoom multiplier — mouse wheel / +/- keys adjust this, then refreshDisplay().
   // ISO_W/H/SCALE are getters so all coordinate math automatically scales.
   // Set to 1.0 here; overwritten early in create() to auto-fit the canvas.
+  private static readonly ROAD_TYPES = [
+    'dirt', 'forest', 'animal',
+    'stones-03', 'stones-05', 'stones-06', 'stones-10',
+    'stones-19', 'stones-20', 'stones-24', 'stones-32',
+    'rocky-29', 'rocky-33',
+    'ice-15', 'ice-17', 'ice-28',
+    'elements-34',
+    'dry-02', 'dry-24', 'dry-32',
+  ] as const;
+  private roadTypeIdx = 0;
+
   private zoomFactor = 1.0;
   private get ISO_SCALE() { return 0.75 * this.zoomFactor; }
   private get ISO_W()     { return 24   * this.zoomFactor; }
@@ -173,6 +185,14 @@ export class WorldForgeScene extends Phaser.Scene {
     // Custom floor tiles — 4 variants per biome replacing the cluttered stock spritesheet.
     preloadTilePacks(this);
 
+    // SBS Isometric Pathways Pack — one spritesheet per road type (32×16 frames).
+    // Pre-converted from 128×64 magenta-keyed by convert-road-tiles.mjs.
+    const roadTilesDir = '/assets/sprites/tilesets/roads';
+    for (const rtype of WorldForgeScene.ROAD_TYPES) {
+      this.load.spritesheet(`road-${rtype}`, `${roadTilesDir}/road-${rtype}.png`,
+        { frameWidth: 32, frameHeight: 16 });
+    }
+
     // Hero atlases — loaded so entity spawner can show actual sprites.
     this.load.atlas('tinkerer',
       '/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',
@@ -225,6 +245,7 @@ export class WorldForgeScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-W',     () => this.cycleSecBiome(-1));
     this.input.keyboard!.on('keydown-S',     () => this.cycleSecBiome(+1));
     this.input.keyboard!.on('keydown-E',     () => this.clearEntity());
+    this.input.keyboard!.on('keydown-R',     () => this.cycleRoadType());
     this.input.keyboard!.on('keydown-C',     () => { this.clearObjects(); this.clearDecors(); });
 
     // Zoom — scroll wheel or +/- keys. Clamp to [0.25, 6]. On zoom, entity/object
@@ -309,6 +330,11 @@ export class WorldForgeScene extends Phaser.Scene {
   private selectBiome(idx: number): void {
     if (idx === this.selectedBiome) return;
     this.selectedBiome = idx;
+    this.refreshDisplay();
+  }
+
+  private cycleRoadType(): void {
+    this.roadTypeIdx = (this.roadTypeIdx + 1) % WorldForgeScene.ROAD_TYPES.length;
     this.refreshDisplay();
   }
 
@@ -655,6 +681,67 @@ export class WorldForgeScene extends Phaser.Scene {
       }
     }
 
+    // #812: Test road — a dirt road zigzagging left-to-right across the screen.
+    // Uses SBS Isometric Pathways tiles with 4-directional auto-tiling.
+    {
+      const roadSet = new Set<string>();
+      // Gentle sine-wave road snaking left-to-right across the full grid.
+      // Low amplitude + low frequency = smooth, gradual curves.
+      const amplitude = G * 0.12;    // gentle vertical swing (~3-4 tiles)
+      const midY = Math.floor(G / 2);
+      const freq = 1.5;              // 1.5 half-waves = one S-curve across grid
+      let prevClamped = -1;
+      for (let tx = 0; tx < G; tx++) {
+        const t = (tx - 1) / (G - 3);
+        const ty = midY + Math.round(amplitude * Math.sin(t * Math.PI * freq));
+        const clamped = Math.max(1, Math.min(G - 2, ty));
+        if (getElev(tx, clamped) === 0) roadSet.add(`${tx},${clamped}`);
+        // Bridge to previous column: first add a tile at the same row as prev
+        // so the two columns are 4-connected horizontally, then fill vertically.
+        if (prevClamped >= 0 && clamped !== prevClamped) {
+          // Horizontal bridge: same row as previous column at current tx
+          if (getElev(tx, prevClamped) === 0) roadSet.add(`${tx},${prevClamped}`);
+          // Vertical fill between bridge and destination
+          const step = clamped > prevClamped ? 1 : -1;
+          for (let fy = prevClamped + step; fy !== clamped; fy += step) {
+            if (getElev(tx, fy) === 0) roadSet.add(`${tx},${fy}`);
+          }
+        }
+        prevClamped = clamped;
+      }
+
+      // Bitmask → frame lookup (same as GameScene.BITMASK_TO_FRAME)
+      //   0=cross  1=straight NE-SW  2=straight NW-SE  4-7=T-junctions
+      //   8=corner E  9=corner W  10=corner S  11=corner N
+      const B2F = [0,9,8,11, 8,2,8,6, 9,9,1,7, 10,5,4,0];
+
+      // Scale pre-converted 32×16 tiles to match WF's dynamic iso diamond size
+      const scaleX = this.ISO_W / 32;
+      const scaleY = this.ISO_H / 16;
+
+      for (const key of roadSet) {
+        const [tx, ty] = key.split(',').map(Number);
+
+        // 4-directional neighbor bitmask.
+        // Edge tiles pretend they have a neighbor off-screen so they render
+        // as straights connecting to the frame edge.
+        let mask = 0;
+        if (tx === 0   || roadSet.has(`${tx - 1},${ty}`)) mask |= 1;  // NW
+        if (roadSet.has(`${tx},${ty - 1}`))                mask |= 2;  // NE
+        if (tx === G-1 || roadSet.has(`${tx + 1},${ty}`))  mask |= 4;  // SE
+        if (roadSet.has(`${tx},${ty + 1}`))                mask |= 8;  // SW
+        const frame = B2F[mask];
+
+        const { x, y } = this.isoPos(tx, ty);
+        // isoPos returns north apex; diamond centre is at (x, y + ISO_H/2)
+        const rtype = WorldForgeScene.ROAD_TYPES[this.roadTypeIdx];
+        const roadImg = this.add.image(x, y + this.ISO_H / 2, `road-${rtype}`, frame)
+          .setScale(scaleX, scaleY)
+          .setOrigin(0.5, 0.5)
+          .setDepth(0.05);
+        this.tileImages.push(roadImg);
+      }
+    }
 
     // Grid — top surface only where it makes sense: full diamond when level with
     // neighbours; otherwise open edges so strokes don’t project onto vertical cliffs
@@ -824,7 +911,7 @@ export class WorldForgeScene extends Phaser.Scene {
     }).setOrigin(1, 0).setDepth(11);
 
     this.add.text(PAD, secStartY - 30,
-      'A/D: main biome   W/S: secondary   scroll/+−: zoom   E: clear entity   C: clear objects',
+      'A/D: main biome   W/S: secondary   R: road type   scroll/+−: zoom   E: clear entity   C: clear objects',
       { fontSize: '11px', color: '#aaaaaa', stroke: '#000000', strokeThickness: 2 },
     ).setDepth(11);
 
@@ -852,9 +939,11 @@ export class WorldForgeScene extends Phaser.Scene {
     const sbx = PAD + this.selectedSecBiome * (BOX_W + PAD);
     this.secSelectionBorder!.strokeRect(sbx - 2, secY - 2, BOX_W + 4, SEC_BOX_H + 4);
 
+    const roadName = WorldForgeScene.ROAD_TYPES[this.roadTypeIdx];
     this.biomeLabel!.setText(
       `World Forge \u2014 [${this.selectedBiome}] ${BIOME_NAMES[this.selectedBiome]}` +
-      `  \u2194  [${this.selectedSecBiome}] ${BIOME_NAMES[this.selectedSecBiome]}`
+      `  \u2194  [${this.selectedSecBiome}] ${BIOME_NAMES[this.selectedSecBiome]}` +
+      `  |  road: ${roadName} (R)`
     );
   }
 
@@ -1342,4 +1431,5 @@ export class WorldForgeScene extends Phaser.Scene {
     this.placedEntity.setPosition(lw.x, lw.y);
     this.placedEntityLabel?.setPosition(lw.x, lw.y + lw.labelOffsetY);
   }
+
 }
