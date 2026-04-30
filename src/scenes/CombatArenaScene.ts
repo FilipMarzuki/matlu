@@ -52,6 +52,7 @@ const GADGET_UNLOCK_KILLS = Infinity;
 // Dungeon zoom — tighter than the overworld (3×) so corridors feel cramped and
 // enemies feel close. Easy to tune: bump this value and rebuild to feel the difference.
 const DUNGEON_ZOOM = 3.5;
+const WALL_FRONT_COLOR = 0x2e2720;
 
 /**
  * Design mode — toggle via `?debug` query param or browser console:
@@ -1084,7 +1085,7 @@ export class CombatArenaScene extends Phaser.Scene {
     // Top layer uses dungeon_wall_top (diamond face); lower layers use
     // dungeon_wall_side (front/height face) — "wall_top / wall_side as appropriate".
     const WALL_LAYERS = 3;
-    const occludingWalls: Phaser.GameObjects.Image[] = [];
+    const occludingWalls: Array<Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle> = [];
     for (let row = 0; row < dRows; row++) {
       for (let col = 0; col < dCols; col++) {
         if (tv(col, row) !== 1) continue;
@@ -1110,12 +1111,28 @@ export class CombatArenaScene extends Phaser.Scene {
         for (let layer = 0; layer < WALL_LAYERS; layer++) {
           // Top layer shows the diamond face; lower layers show the height face.
           const texKey = layer === WALL_LAYERS - 1 ? 'dungeon_wall_top' : 'dungeon_wall_side';
-          const block = this.add.image(isoX, isoY - layer * 16, texKey)
+          const layerY = isoY - layer * 16;
+          const block = this.add.image(isoX, layerY, texKey)
             .setOrigin(0.5, 0)
             .setScale(2)   // 16×16 → 32×32 to match the 32-px iso tile width
             .setDepth(wallDepth + layer * 0.1)
             .setAlpha(alpha);
           if (occludesFloor) occludingWalls.push(block);
+          if (layer === WALL_LAYERS - 1) {
+            // A darker south face gives the top diamond a visible block edge
+            // while keeping the physics body in simple world-space rectangles.
+            const southApexY = layerY + ISO_TILE_H;
+            const frontFace = this.add.rectangle(
+              isoX,
+              southApexY + ISO_TILE_H / 4,
+              ISO_TILE_W,
+              ISO_TILE_H / 2,
+              WALL_FRONT_COLOR,
+            )
+              .setDepth(wallDepth + layer * 0.1 + 0.01)
+              .setAlpha(alpha);
+            if (occludesFloor) occludingWalls.push(frontFace);
+          }
         }
       }
     }
