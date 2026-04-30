@@ -18,7 +18,7 @@ import type { Season } from '../world/SeasonSystem';
 import { WeatherSystem } from '../world/WeatherSystem';
 import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
-import { PathSystem } from '../world/PathSystem';
+import { PathSystem, type PathType } from '../world/PathSystem';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
@@ -53,6 +53,9 @@ import { EndingScene, determineEnding } from './EndingScene';
 import { SkillSystem } from '../lib/SkillSystem';
 import type { EndingSceneData } from './EndingScene';
 import { layoutSettlement } from '../world/SettlementLayout';
+import { generateSettlement, initSettlementData } from '../world/SettlementGenerator';
+import { placeBuildings } from '../world/SettlementPlacement';
+import type { SettlementSite, Geography } from '../world/SettlementSpec';
 import { worldToIso, isoToWorld, isoDepth, ISO_WORLD_W, ISO_WORLD_H, ISO_TILE_W, ISO_TILE_H } from '../lib/IsoTransform';
 import { loadDiscovery, saveDiscovery, type WorldId } from '../lib/discoveryState';
 import { isoTileFrame, ISO_RIVER_FRAME } from '../world/IsoTileMap';
@@ -370,7 +373,7 @@ export class GameScene extends Phaser.Scene {
   private mountainWalls!: Phaser.Physics.Arcade.StaticGroup;
   private navigationBarriers!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
-  private interactiveObjects!: InteractiveObject[];
+  private interactiveObjects: InteractiveObject[] = [];
   worldClock!: WorldClock;
   worldState!: WorldState;
   mapData!: LdtkLevel;
@@ -610,6 +613,15 @@ export class GameScene extends Phaser.Scene {
   chosenPath: PathChoice | null = null;
   // How much passive cleanse has accrued from standing in Zone 3
   private passiveCleanseTotal = 0;
+
+  // ─── Settlement footprint overlay (dev tool) ─────────────────────────────────
+  private settlementOverlaySeed = 1;
+  private settlementOverlayTier: 1|2|3|4|5 = 3;
+  private settlementOverlayVisible = false;
+  private settlementOverlayGfx?: Phaser.GameObjects.Graphics;
+  private settlementOverlayLabels: Phaser.GameObjects.Text[] = [];
+  private settlementOverlayHud?: Phaser.GameObjects.Text;
+  private settlementDataReady = false;
 
   // ─── Settlements Ph5 ──────────────────────────────────────────────────────────
   // Warm glow circles under each building — fade in at dusk/night via tween.
@@ -864,57 +876,9 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('mw-snow',     `${mwTiles}/snow.png`,     { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('mw-heather',  `${mwTiles}/heather.png`,  { frameWidth: 16, frameHeight: 16 });
 
-    // ── Nature sprites (PostApocalypse AssetPack) ──────────────────────────────
-    // Used by procedural scatter and chunk stamping (FIL-51/52/67).
-    // Two sub-folders: Green (trees, grass, bushes) and Flowers_Mashrooms_Other.
-    const pa    = 'assets/packs/PostApocalypse_AssetPack_v1.1.2/Objects/Nature';
-    const paGrn = `${pa}/Green`;
-    const paFMO = `${pa}/Flowers_Mashrooms_Other-nature-stuff`;
-
-    this.load.image('tree-spruce',     `${paGrn}/Tree_1_Spruce_Green.png`);
-    this.load.image('tree-spruce-2',   `${paGrn}/Tree_2_Spruce-Sparse_Green.png`);
-    this.load.image('tree-normal',     `${paGrn}/Tree_3_Normal_Green.png`);
-    this.load.image('tree-big',        `${paGrn}/Tree_5_Big_Green.png`);
-    this.load.image('tree-pine',       `${paGrn}/Tree_6_Pine_Big_Green.png`);
-    this.load.image('tree-birch',      `${paGrn}/Tree_7_Birch_Green.png`);
-    this.load.image('tree-birch-2',    `${paGrn}/Tree_8_Birch_Green.png`);
-    this.load.image('tree-oak-small',  `${paGrn}/Tree_9_Small-oak_Green.png`);
-    this.load.image('tree-oak',        `${paGrn}/Tree_10_Small-oak_Green.png`);
-
-    for (let i = 1; i <= 5; i++) {
-      this.load.image(`grass-tuft-${i}`, `${paGrn}/Grass_${i}_Green.png`);
-    }
-    this.load.image('bush-1',   `${paGrn}/Bush_1_Green.png`);
-    this.load.image('bush-2',   `${paGrn}/Bush_2_Green.png`);
-    this.load.image('rock-grass', `${paGrn}/Rocks/Rock-grass.png`);
-
-    this.load.image('flower-1-yellow', `${paFMO}/Flower_1_yellow.png`);
-    this.load.image('flower-1-red',    `${paFMO}/Flower_1_red.png`);
-    this.load.image('flower-1-blue',   `${paFMO}/Flower_1_blue.png`);
-    this.load.image('flower-1-purple', `${paFMO}/Flower_1_purple.png`);
-    // Flowers_2 — taller, more upright meadow flowers (4 colour variants)
-    this.load.image('flowers-2-yellow', `${paFMO}/Flowers_2_yellow.png`);
-    this.load.image('flowers-2-red',    `${paFMO}/Flowers_2_red.png`);
-    this.load.image('flowers-2-blue',   `${paFMO}/Flowers_2_blue.png`);
-    this.load.image('flowers-2-purple', `${paFMO}/Flowers_2_purple.png`);
-    // Flowers_3 — small daisy-like flowers (4 colour variants)
-    this.load.image('flowers-3-yellow', `${paFMO}/Flowers_3_yellow.png`);
-    this.load.image('flowers-3-red',    `${paFMO}/Flowers_3_red.png`);
-    this.load.image('flowers-3-blue',   `${paFMO}/Flowers_3_blue.png`);
-    this.load.image('flowers-3-purple', `${paFMO}/Flowers_3_purple.png`);
-    this.load.image('mushroom',        `${paFMO}/Mushroom.png`);
-    this.load.image('mushrooms-yellow',`${paFMO}/Mushrooms_1_Yellow.png`);
-    this.load.image('mushrooms-red',   `${paFMO}/Mushrooms_2_Red.png`);
-    // Stumps — fallen tree remnants for forest scatter and chunks
-    this.load.image('stump-1', `${paFMO}/Stump_1.png`);
-    this.load.image('stump-2', `${paFMO}/Stump_2_Mushrooms.png`);
-    // Stick — loose debris for shore/heath scatter
-    this.load.image('stick', `${paFMO}/Stick.png`);
-
-    const paW = `${paFMO}/Puddles-And-Water-Anim`;
-    this.load.image('puddle-grass-1', `${paW}/Puddle_On-Grass_1_Grass_Green.png`);
-    this.load.image('puddle-grass-2', `${paW}/Puddle_On-Grass_2_Grass_Green.png`);
-    this.load.image('puddle-grass-3', `${paW}/Puddle_On-Grass_3_Grass_Green.png`);
+    // ── Nature sprites — DISABLED ──────────────────────────────────────────────
+    // Preloads removed so we can re-place decorations deliberately.
+    // Algorithm code kept in DecorationScatter.ts + ChunkDef.ts for reuse.
 
     // ── Water terrain tiles (FIL-173) ────────────────────────────────────────────
     // water_animated.png is a custom 4-frame spritesheet (64×16, 16×16 per frame).
@@ -940,25 +904,28 @@ export class GameScene extends Phaser.Scene {
       'assets/packs/isometric tileset/spritesheet.png',
       { frameWidth: 32, frameHeight: 32 });
 
+    // SBS Isometric Pathways Pack — one spritesheet per road type.
+    // Pre-converted from 128×64 magenta-keyed to 32×16 RGBA by convert-road-tiles.mjs.
+    const roadTilesDir = 'assets/sprites/tilesets/roads';
+    for (const rtype of [
+      'dirt', 'forest', 'animal',
+      'stones-03', 'stones-05', 'stones-06', 'stones-10',
+      'stones-19', 'stones-20', 'stones-24', 'stones-32',
+      'rocky-29', 'rocky-33',
+      'ice-15', 'ice-17', 'ice-28',
+      'elements-34',
+      'dry-02', 'dry-24', 'dry-32',
+    ]) {
+      this.load.spritesheet(`road-${rtype}`, `${roadTilesDir}/road-${rtype}.png`,
+        { frameWidth: 32, frameHeight: 16 });
+    }
+
     // FIL-466: biome tile packs — 4 individual images per biome (0.png … 3.png),
     // keyed `${packName}-${i}` so drawProceduralTerrain() can call
     // setTexture(`${packName}-${tileHash}`) directly. Shared with the other scenes.
     preloadTilePacks(this);
 
-    // ── Water edge decorations (Mystic Woods 2.2) ─────────────────────────────────
-    // Scattered near the shoreline by stampWaterEdgeScatter() to break up the hard
-    // water/land boundary and add natural-looking detail.
-    const mwObj = 'assets/packs/mystic_woods_2.2/sprites/objects';
-    const mwTl  = 'assets/packs/mystic_woods_2.2/sprites/tilesets';
-    // 6 lily pad variants in a single row — pick by frame index 0–5
-    this.load.spritesheet('water-lillies',  `${mwTl}/water_lillies.png`,          { frameWidth: 16, frameHeight: 16 });
-    // 6 rock-in-water variants in a single strip — same frame-pick pattern
-    this.load.spritesheet('rocks-in-water', `${mwObj}/rock_in_water_01-sheet.png`, { frameWidth: 16, frameHeight: 16 });
-
-    // ── Mystic Woods chests (for ABANDONED_CAMP chunk) ────────────────────────────
-    // 4-frame sheet; frame 0 = closed chest. Referenced in ChunkDef with frame: 0.
-    this.load.spritesheet('mw-chest-01', `${mwObj}/chest_01.png`, { frameWidth: 16, frameHeight: 16 });
-    this.load.spritesheet('mw-chest-02', `${mwObj}/chest_02.png`, { frameWidth: 16, frameHeight: 16 });
+    // Water edge + chest sprites — DISABLED (part of nature sprite removal)
 
     // ── Craftpix top-down animal sprites (FIL-73) ─────────────────────────────────
     // Each sheet uses 16×16 px tiles. The TMX animation data shows even-column frames
@@ -1056,7 +1023,7 @@ export class GameScene extends Phaser.Scene {
     // Tear down WorldState and deployables when scene shuts down.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.musicTrack?.stop();
-      // Stop ambient loops so they don't bleed into other scenes (e.g. CombatArenaScene).
+      // Stop ambient loops so they don't bleed into other scenes (e.g. DungeonForgeScene).
       this.ambienceSound?.stop();
       this.oceanAmbienceSound?.stop();
       this.worldState.destroy();
@@ -1103,22 +1070,36 @@ export class GameScene extends Phaser.Scene {
     this.drawSettlementMarkers();
     this.createMountainWalls();
     this.createNavigationBarriers();
-    this.createNavigationBarrierVisuals();
-    this.createRiverCrossingVisuals();
+    // Nature decoration placement — DISABLED (re-placing deliberately).
+    // Set ENABLE_NATURE_DECOR = true to restore all scatter/chunk/barrier visuals.
+    const ENABLE_NATURE_DECOR = false;
+    if (ENABLE_NATURE_DECOR) {
+      this.createNavigationBarrierVisuals();
+      this.createRiverCrossingVisuals();
+      this.stampProceduralChunks();
+      this.stampCorruptedLandmarks();
+      this.stampSecretAreas();
+      this.stampZoneBoundaries();
+      if (DEBUG_SPAWN.decorScatter)       this.stampDecorationScatter();
+      if (DEBUG_SPAWN.waterEdgeScatter)   this.stampWaterEdgeScatter();
+      if (DEBUG_SPAWN.butterfliesAndBees) this.spawnButterfliesAndBees();
+    }
     this.createSolidObjects();
-    this.stampProceduralChunks();
-    this.stampCorruptedLandmarks();
-    this.stampSecretAreas();
-    this.stampZoneBoundaries();
-    if (DEBUG_SPAWN.decorScatter)       this.stampDecorationScatter();
-    if (DEBUG_SPAWN.waterEdgeScatter)   this.stampWaterEdgeScatter();
-    if (DEBUG_SPAWN.butterfliesAndBees) this.spawnButterfliesAndBees();
-    if (DEBUG_SPAWN.buildings)          this.stampSettlementBuildings();
-    this.spawnParticleEffects();
+
+    // ── World population — DISABLED (clean slate to evaluate terrain) ────────
+    // Set ENABLE_WORLD_POPULATION = true to restore NPCs, buildings, particles,
+    // overlays, vendors, loot chests, and interactive objects.
+    const ENABLE_WORLD_POPULATION = false;
+    if (ENABLE_WORLD_POPULATION) {
+      if (DEBUG_SPAWN.buildings) this.stampSettlementBuildings();
+      this.spawnParticleEffects();
+      this.spawnSettlementNpcs();
+      this.createVendors();
+      this.createLootChests();
+      this.createInteractiveObjects();
+    }
 
     // FIL-240: create WindSystem after all decorations are placed.
-    // tileDevElev and tileDevW are populated by drawProceduralTerrain() above,
-    // so the biome grid is available for per-decoration amplitude lookup.
     this.windSystem = new WindSystem(
       this,
       this.decorImages,
@@ -1126,8 +1107,7 @@ export class GameScene extends Phaser.Scene {
       this.tileDevW,
     );
 
-    // Hide all non-ground visuals on startup so the terrain bake can be
-    // evaluated in isolation. Press H to toggle everything back on.
+    // Hide overlays so only raw terrain is visible.
     for (const img of this.decorImages) img.setVisible(false);
     this.pathGraphics.setVisible(false);
     for (const ov of this.zoneOverlays.values()) ov.setVisible(false);
@@ -1136,10 +1116,6 @@ export class GameScene extends Phaser.Scene {
     if (this.pollenEmitter)  this.pollenEmitter.emitting   = false;
     if (this.fireflyEmitter) this.fireflyEmitter.emitting  = false;
 
-    this.spawnSettlementNpcs();
-    this.createVendors();
-    this.createLootChests();
-    this.createInteractiveObjects();
     this.createPlayer();
 
     // FIL-444: camera bounded to isometric canvas.
@@ -1179,10 +1155,16 @@ export class GameScene extends Phaser.Scene {
     // E key for NPC interaction (FIL-80)
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
-    // P = spawn/despawn player at camera centre, G = toggle iso grid (world dev route only)
+    // P = spawn/despawn player at camera centre, G = toggle iso grid,
+    // T = settlement footprint overlay (world dev route only)
     if (window.location.pathname.replace(/\/$/, '') === '/world') {
       this.input.keyboard!.on('keydown-P', () => this.toggleDevPlayer());
       this.input.keyboard!.on('keydown-G', () => this.toggleIsoGrid());
+      this.input.keyboard!.on('keydown-T', () => this.toggleSettlementOverlay());
+      this.input.keyboard!.on('keydown-LEFT',  (e: KeyboardEvent) => { if (e.shiftKey) { this.settlementOverlaySeed = Math.max(1, this.settlementOverlaySeed - 1); this.rebuildSettlementOverlay(); } });
+      this.input.keyboard!.on('keydown-RIGHT', (e: KeyboardEvent) => { if (e.shiftKey) { this.settlementOverlaySeed++; this.rebuildSettlementOverlay(); } });
+      this.input.keyboard!.on('keydown-UP',    (e: KeyboardEvent) => { if (e.shiftKey) { this.settlementOverlayTier = Math.min(5, this.settlementOverlayTier + 1) as 1|2|3|4|5; this.rebuildSettlementOverlay(); } });
+      this.input.keyboard!.on('keydown-DOWN',  (e: KeyboardEvent) => { if (e.shiftKey) { this.settlementOverlayTier = Math.max(1, this.settlementOverlayTier - 1) as 1|2|3|4|5; this.rebuildSettlementOverlay(); } });
     }
 
     // ── Panda hero ability keys (FIL-314) — only registered in arena mode ─────────
@@ -1312,6 +1294,20 @@ export class GameScene extends Phaser.Scene {
 
     this.createHudAndOverlay();
     new EssenceHUD(this, this.essenceSystem);
+    // In /world dev mode, hide all HUD bars so only terrain is visible.
+    if (window.location.pathname.replace(/\/$/, '') === '/world') {
+      for (const obj of this.hudObjects) {
+        const v = obj as unknown as { setVisible?: (b: boolean) => void };
+        v.setVisible?.(false);
+      }
+      // Hide all fixed-to-screen HUD elements (depth ≥ 300, scrollFactor 0).
+      for (const c of this.children.list) {
+        const go = c as unknown as { depth?: number; scrollFactorX?: number; setVisible?: (v: boolean) => void };
+        if (go.depth != null && go.depth >= 300 && go.scrollFactorX === 0 && go.setVisible) {
+          go.setVisible(false);
+        }
+      }
+    }
     this.createPortal();
     this.createBoss();
     this.createGolems();
@@ -5828,6 +5824,11 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // #812: Draw path segments as iso-projected filled diamonds onto the terrain RT.
+    // Each tile covered by a path segment gets a semi-transparent diamond in the
+    // path type's color, with per-pixel noise dithering for a natural dirt/stone look.
+    this.stampRoadDiamonds(terrainRt, tilesX, tilesY);
+
     // FIL-444: dithering pass, Wang water passes, cliff edges, blend strips, and
     // animated water overlays all removed — iso cube tiles provide natural depth cues
     // and biome variety through per-tile frame selection. These will be revisited
@@ -5841,10 +5842,113 @@ export class GameScene extends Phaser.Scene {
     this.tileDevBiome = biomeIdxGrid;
   }
 
+  // ─── Road tile auto-tiling (SBS Isometric Pathways Pack) ─────────────────────
+
+  /**
+   * 4-directional neighbor bitmask → spritesheet frame index.
+   *
+   * Each SBS sheet is a 4×3 grid (12 frames, frame 3 is empty):
+   *   0 = crossroads     1 = straight NE-SW   2 = straight NW-SE   3 = (empty)
+   *   4 = T (no NW)      5 = T (no NE)        6 = T (no SW)        7 = T (no SE)
+   *   8 = corner east     9 = corner west     10 = corner south    11 = corner north
+   *
+   * Bitmask bits: 0=NW(tx-1)  1=NE(ty-1)  2=SE(tx+1)  3=SW(ty+1)
+   */
+  private static BITMASK_TO_FRAME = [
+    /*  0 none     */ 0,   // isolated → crossroads (best standalone look)
+    /*  1 NW       */ 9,   // corner west
+    /*  2 NE       */ 8,   // corner east
+    /*  3 NW+NE    */ 11,  // corner north
+    /*  4 SE       */ 8,   // corner east
+    /*  5 NW+SE    */ 2,   // straight NW-SE
+    /*  6 NE+SE    */ 8,   // corner east
+    /*  7 NW+NE+SE */ 6,   // T-junction (no SW)
+    /*  8 SW       */ 9,   // corner west
+    /*  9 NW+SW    */ 9,   // corner west
+    /* 10 NE+SW    */ 1,   // straight NE-SW
+    /* 11 NW+NE+SW */ 7,   // T-junction (no SE)
+    /* 12 SE+SW    */ 10,  // corner south
+    /* 13 NW+SE+SW */ 5,   // T-junction (no NE)
+    /* 14 NE+SE+SW */ 4,   // T-junction (no NW)
+    /* 15 all      */ 0,   // crossroads
+  ];
+
+  /**
+   * Stamp SBS Isometric Pathways tiles onto the terrain RenderTexture using
+   * 4-directional auto-tiling. Each road cell checks its grid neighbors and
+   * picks the matching connection frame (straight, corner, T-junction, cross).
+   *
+   * SBS tiles are 128×64px, scaled down 0.25× to match the game's 32×16 iso
+   * diamond face. Wading paths are excluded (rendered as overlays elsewhere).
+   */
+  private stampRoadDiamonds(
+    terrainRt: Phaser.GameObjects.RenderTexture,
+    tilesX: number,
+    tilesY: number,
+  ): void {
+    const segments = this.pathSystem.getSegments();
+
+    // Build road grid — same as before, maps path segments to tile cells
+    const roadGrid = new Array<PathType | null>(tilesX * tilesY).fill(null);
+    for (const seg of segments) {
+      if (seg.type === 'wading') continue;
+      const txMin = Math.max(0, Math.floor(seg.x / TILE_SIZE));
+      const tyMin = Math.max(0, Math.floor(seg.y / TILE_SIZE));
+      const txMax = Math.min(tilesX - 1, Math.floor((seg.x + seg.w) / TILE_SIZE));
+      const tyMax = Math.min(tilesY - 1, Math.floor((seg.y + seg.h) / TILE_SIZE));
+      for (let ty = tyMin; ty <= tyMax; ty++) {
+        for (let tx = txMin; tx <= txMax; tx++) {
+          roadGrid[ty * tilesX + tx] = seg.type;
+        }
+      }
+    }
+
+    // Helper: check if a neighbor cell is also a road (any type connects)
+    const hasRoad = (tx: number, ty: number): boolean =>
+      tx >= 0 && tx < tilesX && ty >= 0 && ty < tilesY &&
+      roadGrid[ty * tilesX + tx] !== null;
+
+    // Stamp road tiles with auto-tiled frame selection.
+    // Tiles are pre-scaled to 32×16 by convert-road-tiles.mjs — no runtime scaling.
+    const roadImg = this.add.image(-9999, -9999, 'road-dirt', 0)
+      .setOrigin(0.5, 0.5)
+      .setVisible(false);
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const roadType = roadGrid[ty * tilesX + tx];
+        if (!roadType || roadType === 'wading') continue;
+
+        // 4-directional neighbor bitmask
+        let mask = 0;
+        if (hasRoad(tx - 1, ty)) mask |= 1;  // NW (iso-left)
+        if (hasRoad(tx, ty - 1)) mask |= 2;  // NE (iso-up)
+        if (hasRoad(tx + 1, ty)) mask |= 4;  // SE (iso-right)
+        if (hasRoad(tx, ty + 1)) mask |= 8;  // SW (iso-down)
+
+        const frame = GameScene.BITMASK_TO_FRAME[mask];
+
+        const wx = tx * TILE_SIZE;
+        const wy = ty * TILE_SIZE;
+        const { x: isoX, y: isoY } = worldToIso(wx, wy);
+
+        // Position: center the scaled 32×16 tile on the diamond face.
+        // isoX is the diamond center; isoY + ISO_TILE_H/2 is the face center.
+        roadImg.setTexture(`road-${roadType}`, frame)
+          .setPosition(isoX, isoY + ISO_TILE_H / 2);
+        terrainRt.draw(roadImg);
+      }
+    }
+    roadImg.destroy();
+  }
+
   /**
    * Draw path segments as semi-transparent overlays on top of the terrain.
    * Depth 1 puts them just above the terrain (depth 0) but below decorations.
    * Each path type has its own color defined in PathSystem.PATH_DEFS.
+   *
+   * #812: Now only draws wading ford segments — dirt/paved/forest/animal roads
+   * are rendered as isometric tiles by stampRoadTiles() baked into the terrain RT.
    */
   private drawPaths(): void {
     this.pathGraphics = this.add.graphics();
@@ -7200,7 +7304,7 @@ export class GameScene extends Phaser.Scene {
     this.game.events.on('nav-goto-arena', () => {
       this.scene.stop(NavScene.KEY);
       // Show tier selector — player picks a tier, then ArenaSelectScene
-      // launches CombatArenaScene with the matching ArenaTierConfig.
+      // launches DungeonForgeScene with the matching ArenaTierConfig.
       this.scene.pause(this.scene.key);
       this.scene.start('ArenaSelectScene', { returnTo: this.scene.key });
     }, this);
@@ -7595,5 +7699,155 @@ export class GameScene extends Phaser.Scene {
         this.devTextContainer.add(txt);
       }
     }
+  }
+
+  // ── Settlement footprint overlay ────────────────────────────────────────────
+
+  private async toggleSettlementOverlay(): Promise<void> {
+    this.settlementOverlayVisible = !this.settlementOverlayVisible;
+    if (this.settlementOverlayVisible) {
+      if (!this.settlementDataReady) {
+        await initSettlementData();
+        this.settlementDataReady = true;
+      }
+      this.rebuildSettlementOverlay();
+    } else {
+      this.clearSettlementOverlay();
+    }
+  }
+
+  private rebuildSettlementOverlay(): void {
+    if (!this.settlementOverlayVisible) return;
+    this.clearSettlementOverlay();
+
+    const gfx = this.add.graphics().setDepth(200);
+    this.settlementOverlayGfx = gfx;
+
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
+
+    const CATEGORY_COLORS: Record<string, number> = {
+      civic: 0x4488ff, military: 0xff4444, religious: 0xffcc00,
+      commerce: 0x44cc44, industry: 0xff8800, residential: 0x999999,
+      infrastructure: 0x886644, anomaly: 0xaa44ff,
+    };
+
+    let totalBuildings = 0;
+
+    for (const s of SETTLEMENTS) {
+      // Simple seeded RNG per settlement.
+      let seed = (this.settlementOverlaySeed * 2654435761 + s.x * 7 + s.y * 13) | 0;
+      const rng = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+
+      const geo: Geography = s.type === 'hamlet' ? 'coastal' : 'forest';
+      const site: SettlementSite = {
+        x: s.x, y: s.y, geography: geo,
+        features: ['crossroads'], adjacentResources: ['timber', 'fertile-soil'],
+        nearCorruption: false, tradeRouteCount: 1, nearbySettlements: 1,
+        cultureId: 'coastborn',
+      };
+
+      const { spec, buildings } = generateSettlement(site, s.name, rng, this.settlementOverlayTier);
+
+      // Placement grid size — enough tiles to cover the settlement radius.
+      const gridSize = Math.max(20, Math.ceil(spec.radius / TILE_SIZE) * 2 + 4);
+      const radiusTiles = Math.floor(gridSize / 2) - 1;
+
+      const result = placeBuildings({
+        buildings, radiusTiles, gridSize, tileSize: TILE_SIZE,
+        seed: this.settlementOverlaySeed,
+        zoneFracs: { inner: { min: 0, max: 0.35 }, middle: { min: 0.3, max: 0.7 }, outer: { min: 0.65, max: 1.0 } },
+        streetPattern: 'radial',
+      });
+
+      totalBuildings += result.buildings.length;
+
+      // Grid centre maps to settlement world position.
+      const gridCx = Math.floor(gridSize / 2);
+      const gridCy = Math.floor(gridSize / 2);
+
+      // Convert a placement tile to world-space, then iso.
+      const tileToIso = (tx: number, ty: number) => {
+        const wx = s.x + (tx - gridCx) * TILE_SIZE;
+        const wy = s.y + (ty - gridCy) * TILE_SIZE;
+        return worldToIso(wx, wy);
+      };
+
+      // Draw roads.
+      for (const r of result.roads) {
+        const { x, y } = tileToIso(r.tx, r.ty);
+        const color = r.main ? 0xc8a870 : 0xb09060;
+        gfx.fillStyle(color, r.main ? 0.45 : 0.3);
+        gfx.beginPath();
+        gfx.moveTo(x, y);
+        gfx.lineTo(x + hw, y + hh);
+        gfx.lineTo(x, y + hh * 2);
+        gfx.lineTo(x - hw, y + hh);
+        gfx.closePath();
+        gfx.fillPath();
+      }
+
+      // Draw building footprints.
+      for (const pb of result.buildings) {
+        const color = CATEGORY_COLORS[pb.building.category] ?? 0xcccccc;
+        const halfW = Math.floor(pb.widthT / 2);
+        const halfD = Math.floor(pb.depthT / 2);
+
+        for (let dy = -halfD; dy < pb.depthT - halfD; dy++) {
+          for (let dx = -halfW; dx < pb.widthT - halfW; dx++) {
+            const { x, y } = tileToIso(pb.tx + dx, pb.ty + dy);
+            gfx.fillStyle(color, 0.5);
+            gfx.beginPath();
+            gfx.moveTo(x, y);
+            gfx.lineTo(x + hw, y + hh);
+            gfx.lineTo(x, y + hh * 2);
+            gfx.lineTo(x - hw, y + hh);
+            gfx.closePath();
+            gfx.fillPath();
+            gfx.lineStyle(1, color, 0.8);
+            gfx.strokePath();
+          }
+        }
+
+        // Entrance dot.
+        if (pb.entranceTx != null && pb.entranceTy != null) {
+          const ep = tileToIso(pb.entranceTx, pb.entranceTy);
+          gfx.fillStyle(0x00ff00, 0.9);
+          gfx.fillCircle(ep.x, ep.y + hh, 3);
+        }
+
+        // Label.
+        const cp = tileToIso(pb.tx, pb.ty);
+        const label = this.add.text(cp.x, cp.y + hh - 4, pb.building.id, {
+          fontSize: '7px', color: '#ffffff', fontFamily: 'monospace',
+          backgroundColor: '#00000088', padding: { x: 1, y: 0 },
+        }).setOrigin(0.5, 1).setDepth(201);
+        this.settlementOverlayLabels.push(label);
+      }
+
+      // Settlement name label.
+      const sIso = worldToIso(s.x, s.y);
+      const nameLabel = this.add.text(sIso.x, sIso.y - 12, s.name, {
+        fontSize: '10px', color: '#ffcc00', fontFamily: 'monospace',
+        backgroundColor: '#000000aa', padding: { x: 3, y: 1 },
+      }).setOrigin(0.5, 1).setDepth(202);
+      this.settlementOverlayLabels.push(nameLabel);
+    }
+
+    // HUD label (fixed to screen).
+    this.settlementOverlayHud = this.add.text(8, 8,
+      `Settlement overlay  seed:${this.settlementOverlaySeed}  tier:${this.settlementOverlayTier}  (${totalBuildings} buildings)\nShift+←→ seed  Shift+↑↓ tier  T toggle`, {
+        fontSize: '11px', color: '#ffcc00', fontFamily: 'monospace',
+        backgroundColor: '#000000cc', padding: { x: 4, y: 2 },
+      }).setScrollFactor(0).setDepth(9000);
+  }
+
+  private clearSettlementOverlay(): void {
+    this.settlementOverlayGfx?.destroy();
+    this.settlementOverlayGfx = undefined;
+    for (const t of this.settlementOverlayLabels) t.destroy();
+    this.settlementOverlayLabels = [];
+    this.settlementOverlayHud?.destroy();
+    this.settlementOverlayHud = undefined;
   }
 }

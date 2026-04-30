@@ -381,7 +381,7 @@ export class Tinkerer extends EarthHero {
     this.advanceMag();
   }
 
-  // ── Exploration API (called by CombatArenaScene after spawn) ────────────────
+  // ── Exploration API (called by DungeonForgeScene after spawn) ────────────────
 
   /**
    * Give the hero the dungeon grid and exit location so it can explore
@@ -700,8 +700,10 @@ export class Tinkerer extends EarthHero {
         new BtAction(() => {
           const tx = Math.floor(this._wx / this.cellSize);
           const ty = Math.floor(this._wy / this.cellSize);
-          // Check if hero has arrived at the exit tile.
-          if (this.exitTile && tx === this.exitTile.x && ty === this.exitTile.y) {
+          // Check if hero is on or adjacent to the exit tile (within 1 tile).
+          if (this.exitTile
+            && Math.abs(tx - this.exitTile.x) <= 1
+            && Math.abs(ty - this.exitTile.y) <= 1) {
             this.scene.events.emit('hero-reached-exit');
             return 'success';
           }
