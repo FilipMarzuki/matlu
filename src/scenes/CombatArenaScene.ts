@@ -22,7 +22,7 @@ import { GlitchDrone } from '../entities/EarthEnemies';
 import { ArenaTierConfig, EnemyCtor, TIER_CONFIGS } from '../data/arenaTiers';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import {
-  worldToArenaIso, arenaIsoDepth,
+  worldToArenaIso, arenaIsoDepth, isoInputAngleToWorld,
   ISO_TILE_W, ISO_TILE_H,
   ARENA_ISO_W, ARENA_ISO_H,
 } from '../lib/IsoTransform';
@@ -2067,6 +2067,13 @@ export class CombatArenaScene extends Phaser.Scene {
     if (this.joystick && this.joystick.force > 10) {
       dx = Math.cos(this.joystick.rotation);
       dy = Math.sin(this.joystick.rotation);
+    }
+
+    if (dx !== 0 || dy !== 0) {
+      const inputMagnitude = Math.hypot(dx, dy);
+      const worldAngle = isoInputAngleToWorld(Math.atan2(dy, dx));
+      dx = Math.cos(worldAngle) * inputMagnitude;
+      dy = Math.sin(worldAngle) * inputMagnitude;
     }
 
     const spd = 80; // px/s — tuned for iso scale
