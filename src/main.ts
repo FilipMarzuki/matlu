@@ -18,7 +18,7 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { PauseMenuScene } from './scenes/PauseMenuScene';
 import { GameOverScene } from './scenes/GameOverScene';
 import { LevelCompleteScene } from './scenes/LevelCompleteScene';
-import { CombatArenaScene } from './scenes/CombatArenaScene';
+import { DungeonForgeScene } from './scenes/DungeonForgeScene';
 import { UpgradeScene } from './scenes/UpgradeScene';
 import { NavScene } from './scenes/NavScene';
 import { EndingScene } from './scenes/EndingScene';
@@ -33,11 +33,14 @@ import { SettlementScene } from './scenes/SettlementScene';
 import { RecolorTestScene } from './scenes/RecolorTestScene';
 import { BuildingForgeScene } from './scenes/BuildingForgeScene';
 import { SettlementEditorScene } from './scenes/SettlementEditorScene';
+import { MapForgeScene } from './scenes/MapForgeScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
 // navigating through the main menu. Vercel rewrites all paths to index.html
 // so these URLs work as direct links or bookmarks.
-//   /arena       → CombatArenaScene      (combat testing)
+//   /df              → DungeonForgeScene    (dungeon combat testing)
+//   /dungeonforge    → DungeonForgeScene    (alias)
+//   /arena           → DungeonForgeScene    (legacy alias)
 //   /world       → GameScene             (world/wilderview testing)
 //   /biome       → WorldForgeScene       (biome tile + cliff + decoration design tool)
 //   /worldforge  → WorldForgeScene       (alias)
@@ -50,21 +53,25 @@ import { SettlementEditorScene } from './scenes/SettlementEditorScene';
 //   /build       → SettlementScene       (alias)
 //   /se              → SettlementEditorScene (hand-authoring tool for settlements)
 //   /settlement-editor → SettlementEditorScene (alias)
+//   /mf              → MapForgeScene        (map generation testbed)
+//   /mapforge       → MapForgeScene        (alias)
 //   /recolor     → RecolorTestScene      (spike #703 — programmatic sprite recoloring)
 //   /            → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, CombatArenaScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, BuildingForgeScene, SettlementScene, SettlementEditorScene, RecolorTestScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, DungeonForgeScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, BuildingForgeScene, SettlementScene, SettlementEditorScene, RecolorTestScene, MapForgeScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
   if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
   if (path === '/sf' || path === '/settlementforge') return [SettlementForgeScene, ...all.filter(s => s !== SettlementForgeScene)];
   if (path === '/bf' || path === '/buildingforge') return [BuildingForgeScene, ...all.filter(s => s !== BuildingForgeScene)];
   if (path === '/settlement' || path === '/build') return [SettlementScene, ...all.filter(s => s !== SettlementScene)];
   if (path === '/se' || path === '/settlement-editor') return [SettlementEditorScene, ...all.filter(s => s !== SettlementEditorScene)];
+  if (path === '/mf' || path === '/mapforge') return [MapForgeScene, ...all.filter(s => s !== MapForgeScene)];
   if (path === '/recolor') return [RecolorTestScene, ...all.filter(s => s !== RecolorTestScene)];
+  if (path === '/df' || path === '/dungeonforge' || path === '/arena') return [DungeonForgeScene, ...all.filter(s => s !== DungeonForgeScene)];
   if (path === '/menu')  return all;
-  // Default (/ and /arena): boot straight into arena/combat
-  return [CombatArenaScene, ...all.filter(s => s !== CombatArenaScene)];
+  // Default (/): boot straight into dungeon forge
+  return [DungeonForgeScene, ...all.filter(s => s !== DungeonForgeScene)];
 })();
 
 const game = new Phaser.Game({
@@ -80,7 +87,7 @@ const game = new Phaser.Game({
       debug: false,
     },
   },
-  // Enable Phaser's gamepad plugin so CombatArenaScene can read connected pads.
+  // Enable Phaser's gamepad plugin so DungeonForgeScene can read connected pads.
   // getPad(0) = P1 gamepad, getPad(1) = P2 gamepad.
   input: {
     gamepad: true,

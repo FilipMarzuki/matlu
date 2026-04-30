@@ -467,7 +467,7 @@ export class InfectedAPC extends CombatEntity {
  * 150 px. If any are found it heals 10 HP and grows by 0.1 scale (max 1.5×).
  * Scale resets on death. Without nearby debris the golem cannot regenerate.
  *
- * Call `setObstacles(group)` after spawning (done by CombatArenaScene.addPhysics)
+ * Call `setObstacles(group)` after spawning (done by DungeonForgeScene.addPhysics)
  * to wire up the debris source. Until then the golem simply can't regen.
  */
 export class ScrapGolem extends CombatEntity {
@@ -495,7 +495,7 @@ export class ScrapGolem extends CombatEntity {
 
   /**
    * Wire up the arena's StaticGroup so the golem can detect nearby obstacles
-   * as proxy debris. Called by CombatArenaScene.addPhysics after spawning.
+   * as proxy debris. Called by DungeonForgeScene.addPhysics after spawning.
    */
   setObstacles(group: Phaser.Physics.Arcade.StaticGroup): void {
     this._obstacles = group;
@@ -592,7 +592,7 @@ const TITAN_MAX_HP     = 500;
  *     No ranged attacks. Melee cooldown: 400 ms.
  *
  *   Phase 3 (< 25% HP): Split. Sets dead=true, emits 'titan-split' on the
- *     scene so CombatArenaScene can spawn two TitanHalf entities in its place,
+ *     scene so DungeonForgeScene can spawn two TitanHalf entities in its place,
  *     then plays the standard death effects.
  *
  * The `phase` field guards each transition so it can only fire once:

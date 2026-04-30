@@ -2,10 +2,10 @@ import * as Phaser from 'phaser';
 import { insertFeedback, GAME_VERSION } from '../lib/feedback';
 
 /**
- * Minimal shape expected from CombatArenaScene.getArenaState().
+ * Minimal shape expected from DungeonForgeScene.getArenaState().
  * Defined here as an interface to avoid a circular import:
- * CombatArenaScene already imports NavScene, so NavScene must NOT import
- * CombatArenaScene directly.
+ * DungeonForgeScene already imports NavScene, so NavScene must NOT import
+ * DungeonForgeScene directly.
  */
 interface ArenaStateSnapshot {
   waveNumber:   number;
@@ -13,8 +13,8 @@ interface ArenaStateSnapshot {
   playerHp:     number;
 }
 
-/** Scene key used to look up CombatArenaScene at runtime without importing it. */
-const ARENA_SCENE_KEY = 'CombatArenaScene';
+/** Scene key used to look up DungeonForgeScene at runtime without importing it. */
+const ARENA_SCENE_KEY = 'DungeonForgeScene';
 
 /**
  * NavScene — persistent right-side navigation panel with collapsible layer tree.

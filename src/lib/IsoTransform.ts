@@ -142,7 +142,7 @@ export function isoInputAngleToWorld(screenAngle: number): number {
   return screenAngle - Math.PI / 4;
 }
 
-// ── CombatArenaScene coordinate system ───────────────────────────────────────
+// ── DungeonForgeScene coordinate system ───────────────────────────────────────
 //
 // The arena uses a smaller grid (60×60 cells, 16 px per cell) than the main
 // world. The iso tile sprites are the same size — one arena cell maps to one

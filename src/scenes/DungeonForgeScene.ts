@@ -74,7 +74,7 @@ const ARENA_DEBUG =
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
 /**
- * CombatArenaScene — continuous bio-wave combat sandbox (M1).
+ * DungeonForgeScene — continuous bio-wave combat sandbox (M1).
  *
  * Two enemy types: BabyVelcrid (fast small rushers) + VelcridJuvenile (orbiting hoppers).
  *   - Main timer fires a WaveGroup every 10→5 s (speeds up each wave).
@@ -83,8 +83,8 @@ const ARENA_DEBUG =
  *
  * Dev menu at the bottom bar switches to GameScene (WilderView).
  */
-export class CombatArenaScene extends Phaser.Scene {
-  static readonly KEY = 'CombatArenaScene';
+export class DungeonForgeScene extends Phaser.Scene {
+  static readonly KEY = 'DungeonForgeScene';
 
   private hero!:         CombatEntity;
   private obstacles!:   Phaser.Physics.Arcade.StaticGroup;
@@ -234,12 +234,12 @@ export class CombatArenaScene extends Phaser.Scene {
   /**
    * When true the scene is running as a menu background — HUD and nav panel are
    * hidden so they don't overlap the menu panel rendered on top.
-   * Set via `this.scene.launch(CombatArenaScene.KEY, { background: true })`.
+   * Set via `this.scene.launch(DungeonForgeScene.KEY, { background: true })`.
    */
   private bgMode = false;
 
   constructor() {
-    super({ key: CombatArenaScene.KEY });
+    super({ key: DungeonForgeScene.KEY });
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────
@@ -248,9 +248,9 @@ export class CombatArenaScene extends Phaser.Scene {
     this.bgMode = data?.background ?? false;
 
     // Merge incoming data with the T1 defaults.  This means:
-    //   scene.start('CombatArenaScene', TIER_CONFIGS[2])  → full T3 config
-    //   scene.start('CombatArenaScene', { background: true }) → T1 defaults + bgMode
-    //   scene.start('CombatArenaScene')                   → T1 defaults
+    //   scene.start('DungeonForgeScene', TIER_CONFIGS[2])  → full T3 config
+    //   scene.start('DungeonForgeScene', { background: true }) → T1 defaults + bgMode
+    //   scene.start('DungeonForgeScene')                   → T1 defaults
     const base = TIER_CONFIGS[0];
     this.tierConfig = {
       tier:       data?.tier       ?? base.tier,
@@ -324,7 +324,7 @@ export class CombatArenaScene extends Phaser.Scene {
     );
 
     // Dungeon floor — same Wang 4×4 format (16 frames, 16×16 each). Used in
-    // CombatArenaScene to replace the colosseum look with dark stone.
+    // DungeonForgeScene to replace the colosseum look with dark stone.
     this.load.spritesheet(
       'dungeon_floor',
       'assets/sprites/tilesets/arena/arena_floor_earth.png',
@@ -367,10 +367,9 @@ export class CombatArenaScene extends Phaser.Scene {
     // Exit portal — placed at the center of the exit room.
     this.load.image('portal', 'assets/sprites/tilesets/arena/portal.png');
 
-    // Dungeon wall tiles — top diamond face and front (side) face, each 16×16.
-    // Rendered scaled 2× so they fill a full 32-px iso tile width.
-    this.load.image('dungeon_wall_top',  'assets/sprites/tilesets/arena/dungeon_wall_top.png');
-    this.load.image('dungeon_wall_side', 'assets/sprites/tilesets/arena/dungeon_wall_side.png');
+    // Isometric cliff/wall block — 32×32 cube with front face, used for
+    // dungeon wall tiles in place of the flat gray diamond Graphics.
+    this.load.image('cliff-block', '/assets/packs/cliff-iso-gen/stone_iso_0.png');
   }
 
   create(): void {
@@ -1078,11 +1077,9 @@ export class CombatArenaScene extends Phaser.Scene {
     }
 
     // ── Iso wall blocks ─────────────────────────────────────────────────────────
-    // Render each border wall cell as a 3-layer iso block using dungeon-specific
-    // tiles. Origin (0.5, 0) aligns the north apex with worldToArenaIso().
-    // Tiles are 16×16 and scaled 2× to fill the 32-px iso tile width.
-    // Top layer uses dungeon_wall_top (diamond face); lower layers use
-    // dungeon_wall_side (front/height face) — "wall_top / wall_side as appropriate".
+    // Place cliff block images on every border wall tile. Origin (0.5, 0) aligns
+    // the north apex of the block with worldToArenaIso(). Each block gets its
+    // own painter-sort depth for correct occlusion with entities.
     const WALL_LAYERS = 3;
     const occludingWalls: Phaser.GameObjects.Image[] = [];
     for (let row = 0; row < dRows; row++) {
@@ -1107,12 +1104,10 @@ export class CombatArenaScene extends Phaser.Scene {
           tv(col - 1, row) === 0 ||       // floor directly W (wall is E edge)
           tv(col - 1, row - 1) === 0;     // floor NW (wall is SE corner)
         const alpha = occludesFloor ? 0.35 : 1;
+        // Stack 3 cliff blocks vertically — each shifted up by 16 px
         for (let layer = 0; layer < WALL_LAYERS; layer++) {
-          // Top layer shows the diamond face; lower layers show the height face.
-          const texKey = layer === WALL_LAYERS - 1 ? 'dungeon_wall_top' : 'dungeon_wall_side';
-          const block = this.add.image(isoX, isoY - layer * 16, texKey)
+          const block = this.add.image(isoX, isoY - layer * 16, 'cliff-block')
             .setOrigin(0.5, 0)
-            .setScale(2)   // 16×16 → 32×32 to match the 32-px iso tile width
             .setDepth(wallDepth + layer * 0.1)
             .setAlpha(alpha);
           if (occludesFloor) occludingWalls.push(block);
@@ -1805,7 +1800,7 @@ export class CombatArenaScene extends Phaser.Scene {
 
     // P2 — orange, top-right (aligned to left edge of the nav panel).
     // P2 shows 0 HP until a second player is wired in.
-    const P2_X = this.scale.width - CombatArenaScene.PANEL_W - BAR_W - 12;
+    const P2_X = this.scale.width - DungeonForgeScene.PANEL_W - BAR_W - 12;
     this.add.text(P2_X, LBL_Y, 'P2 HP', { fontSize: '10px', color: '#ffaa88' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
     this.add.rectangle(P2_X, BAR_Y, BAR_W, BAR_H, 0x33180a)

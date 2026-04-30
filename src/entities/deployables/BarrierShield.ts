@@ -8,7 +8,7 @@
  *
  * Physics: creates an immovable arcade static body so enemies cannot walk
  * through it. The arena must register a physics collider between enemies and
- * this barrier via the 'barrier-placed' scene event (done by CombatArenaScene).
+ * this barrier via the 'barrier-placed' scene event (done by DungeonForgeScene).
  *
  * Placeholder visual: translucent blue rectangle.
  * Real sprite: "Translucent blue hex-grid energy wall with frame at top and

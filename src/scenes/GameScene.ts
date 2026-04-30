@@ -87,7 +87,7 @@ const WORLD_H = 3000;
 const TILE_SIZE = 32;
 // Noise scales: BASE drives large biome regions, DETAIL adds local colour variation
 const BASE_SCALE   = 0.07;
-const DETAIL_SCALE = 0.22;
+const DETAIL_SCALE = 0.18;
 // FIL-154: secondary noise layers — slower than BASE so they create large bands,
 // but independent so they vary orthogonally to elevation.
 const TEMP_SCALE  = 0.04; // temperature varies in broad N/S-ish bands
@@ -304,8 +304,8 @@ interface BirdObject {
 
 /**
  * Short label per biome index — sourced from the canonical biomes.ts list.
- * Index 6 (Meadow) is never returned by tileBiomeIdx but exists in the data
- * for the World Forge UI. Dev overlay uses indices 0–5 and 7–11.
+ * All 12 biome indices are used by tileBiomeIdx. Meadow (6) covers moderate-
+ * moisture mid-altitude tiles, sitting between Coastal Heath and Forest.
  */
 const BIOME_LABELS = BIOMES.map(b => b.name);
 
@@ -316,19 +316,20 @@ const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
- *   4  Dry Heath 5  Coastal Heath 6  Meadow(unused) 7 Forest
+ *   4  Dry Heath 5  Coastal Heath 6  Meadow        7 Forest
  *   8  Spruce    9  Cold Granite  10 Bare Summit    11 Snow Field
  */
 function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   if (elev < 0.25) return 0; // Sea
   if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky Shore / Sandy Shore
   if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
-  if (elev < 0.62) {
-    if (moist > 0.60) return 7; // Forest (wet mid-altitude)
-    if (moist > 0.30) return 5; // Coastal Heath
-    return 4;                   // Dry Heath
+  if (elev < 0.68) {
+    // Mid-altitude band — ~55% meadow, ~30% forest, ~15% heath.
+    if (moist > 0.55) return 7; // Forest (~30%)
+    if (moist > 0.15) return 6; // Meadow (~55% — broad mid-range)
+    return 5;                   // Coastal Heath (very dry, ~15%)
   }
-  if (elev < 0.78) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
+  if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
   return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
 }
 
@@ -5579,9 +5580,14 @@ export class GameScene extends Phaser.Scene {
         const detail = detNoise.fbm(tx * DETAIL_SCALE, ty * DETAIL_SCALE, 2, 0.6);
         // Diagonal bias: NW corner is mountains (high), SE corner is ocean (low).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
-        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
-        const baseVal = base * 0.70 + mountainBias - oceanBias;
+        // Wide flat mid-band (level 1: 0.25–0.45) with mountains rising sharply
+        // at the NW edge and ocean dropping at the SE edge. The corridor between
+        // them stays within a single elevation level for gentle rolling terrain.
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.22), 2.2) * 8.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.18), 1.5) * 4.0;
+        // Centre the base noise around 0.38 (mid-level-1) so the flat corridor
+        // naturally sits in the 0.30–0.45 band without cliffs.
+        const baseVal = (base - 0.5) * 0.15 + 0.48 + mountainBias - oceanBias;
         const _d0 = Math.abs(baseVal - 0.25);
         const _d1 = Math.abs(baseVal - 0.45);
         const _d2 = Math.abs(baseVal - 0.62);
@@ -5722,9 +5728,9 @@ export class GameScene extends Phaser.Scene {
         // Diagonal SW→NE corridor gradient. perpDiag<0 = NW mountains, perpDiag>0 = SE ocean.
         // Power-curve biases push flanks to extreme biomes (mountain >0.90, ocean <0.25).
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
-        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.10), 1.5) * 4.0;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.05), 1.5) * 4.5;
-        const baseVal      = base * 0.70 + mountainBias - oceanBias;
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.18), 1.8) * 5.0;
+        const oceanBias    = Math.pow(Math.max(0, perpDiag  - 0.14), 1.3) * 3.0;
+        const baseVal      = base * 0.80 + mountainBias - oceanBias;
         // Fade detail near every cliff-quantization threshold (0.25 / 0.45 / 0.62 / 0.78)
         // so elevation doesn't oscillate across a level boundary tile-to-tile, which
         // would produce hundreds of small cliff faces and jagged coastlines.

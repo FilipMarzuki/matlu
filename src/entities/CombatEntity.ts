@@ -186,7 +186,7 @@ const DIR_MAP: Record<number, [CanonDir, boolean]> = {
  *
  * Visual: colored rectangle — sprites are swapped in a later pass.
  *
- * Physics body: added externally by CombatArenaScene after construction:
+ * Physics body: added externally by DungeonForgeScene after construction:
  *   scene.physics.add.existing(entity);
  *   (entity.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
  */
@@ -231,6 +231,11 @@ export abstract class CombatEntity extends Enemy {
    * AoE / direct-hit damage intentionally does NOT check this flag.
    */
   isTargetable = true;
+
+  // ── Velocity smoothing ──────────────────────────────────────────────────────
+  /** Previous frame's physics velocity — used to lerp toward BT-requested speed. */
+  private prevVx = 0;
+  private prevVy = 0;
 
   // ── Dash state ──────────────────────────────────────────────────────────────
   private isDashing  = false;
@@ -318,7 +323,7 @@ export abstract class CombatEntity extends Enemy {
   physicsProxy: Phaser.GameObjects.Zone | null = null;
   /**
    * When true, _isoSync() projects (_wx, _wy) to iso screen coords each tick.
-   * Set by CombatArenaScene after spawning. False keeps non-arena usage unchanged.
+   * Set by DungeonForgeScene after spawning. False keeps non-arena usage unchanged.
    */
   isoMode = true;
 
@@ -326,7 +331,7 @@ export abstract class CombatEntity extends Enemy {
    * Obstacle AABBs used for line-of-sight checks. Populated by the arena
    * scene via setWallRects() when physics are added to this entity.
    */
-  private wallRects: readonly Phaser.Geom.Rectangle[] = [];
+  protected wallRects: readonly Phaser.Geom.Rectangle[] = [];
 
   // ── Sight line state ──────────────────────────────────────────────────────
 
@@ -546,10 +551,25 @@ export abstract class CombatEntity extends Enemy {
 
   /**
    * Register the obstacle rectangles for line-of-sight testing.
-   * Called by CombatArenaScene after adding physics to this entity.
+   * Called by DungeonForgeScene after adding physics to this entity.
    */
   setWallRects(rects: readonly Phaser.Geom.Rectangle[]): void {
     this.wallRects = rects;
+  }
+
+  /**
+   * Toggle wall collision on the physics proxy. When disabled the entity can
+   * move freely through wall bodies (e.g. wall-climbing Velcrid). Re-enable
+   * before the entity returns to normal ground movement.
+   */
+  setWallCollision(enabled: boolean): void {
+    const body = this.physicsProxy?.body as Phaser.Physics.Arcade.Body | undefined;
+    if (!body) return;
+    body.checkCollision.none = !enabled;
+    body.checkCollision.up    = enabled;
+    body.checkCollision.down  = enabled;
+    body.checkCollision.left  = enabled;
+    body.checkCollision.right = enabled;
   }
 
   // ── Iso mode API (CombatArena) ────────────────────────────────────────────
@@ -886,7 +906,7 @@ export abstract class CombatEntity extends Enemy {
           // Merge opponents and extra targets so projectiles can hit BurrowHoles too.
           (this.opponents as unknown as Damageable[]).concat(this.extraDamageables),
         );
-        // Emit on the SCENE event bus (not this.emit) so CombatArenaScene can
+        // Emit on the SCENE event bus (not this.emit) so DungeonForgeScene can
         // listen with a single handler rather than per-entity listeners.
         this.scene.events.emit('projectile-spawned', p);
         // Hold the ranged-attack animation for the same duration as a melee hit.
@@ -955,6 +975,23 @@ export abstract class CombatEntity extends Enemy {
     }
 
     this.applySwarmForce();
+
+    // ── Velocity smoothing ─────────────────────────────────────────────────
+    // Lerp from previous frame's velocity toward the BT-requested velocity so
+    // enemies accelerate/decelerate naturally instead of snapping to full speed.
+    // Uses framerate-independent exponential smoothing (time constant ~120 ms).
+    // Dashes and knockback bypass this — they set velocity directly above.
+    if (physBody && !this.isDashing) {
+      const accel = 1 - Math.exp(-8 * delta / 1000); // ~120 ms ramp to ~63%
+      const targetVx = physBody.velocity.x;
+      const targetVy = physBody.velocity.y;
+      const smoothVx = this.prevVx + (targetVx - this.prevVx) * accel;
+      const smoothVy = this.prevVy + (targetVy - this.prevVy) * accel;
+      physBody.setVelocity(smoothVx, smoothVy);
+      this.prevVx = smoothVx;
+      this.prevVy = smoothVy;
+    }
+
     } // end !playerControlled
 
     this.refreshHpBar();
@@ -1246,6 +1283,9 @@ export abstract class CombatEntity extends Enemy {
       if (this.active) this.bodyRect.setFillStyle(this.bodyColor);
     });
 
+    // Microstun: briefly freeze AI so hits feel impactful.
+    if (!this.playerControlled) this.stun(120);
+
     // Knockback: brief velocity burst away from attacker.
     const physBody = this.getPhysicsBody();
     if (physBody) {
@@ -1273,6 +1313,9 @@ export abstract class CombatEntity extends Enemy {
     this.scene.time.delayedCall(80, () => {
       if (this.active) this.bodyRect.setFillStyle(this.bodyColor);
     });
+
+    // Microstun: slightly longer than standard hit to match the heavier knockback.
+    if (!this.playerControlled) this.stun(150);
 
     const physBody = this.getPhysicsBody();
     if (physBody) {

@@ -147,6 +147,30 @@ export class BuildingForgeScene extends Phaser.Scene {
   private showSprites = true;
   private spriteVariantIdx = 0;
 
+  // ── Sprite placement preview ────────────────────────────────────────────────
+  private comparisonSprite?: Phaser.GameObjects.Image;
+  private comparisonLabel?: Phaser.GameObjects.Text;
+  private comparisonBorder?: Phaser.GameObjects.Graphics;
+  private comparisonIdx = 0;
+  private showComparison = true;
+  /** Editable footprint in tiles — initialised from building registry on load. */
+  private footprintW = 3;
+  private footprintD = 3;
+  /**
+   * Freeform footprint mask — `fpTiles[row * fpMaxCols + col]` = true if tile is active.
+   * Grid coords are relative to the placement grid (col 0..fpMaxCols-1, row 0..fpMaxRows-1).
+   * Initialised as a full W×D rectangle; click tiles to toggle individual cells.
+   */
+  private fpTiles: boolean[] = [];
+  private fpMaxCols = 8;
+  private fpMaxRows = 8;
+  /** Screen-space origin of the placement grid — set during rebuild, read by click handler. */
+  private fpGridOx = 0;
+  private fpGridOy = 0;
+  /** Sprite offset relative to grid centre, in screen pixels (before zoom). */
+  private spriteOffX = 0;
+  private spriteOffY = 0;
+
   // Pan state
   private isPanning = false;
   private panStartX = 0;
@@ -214,6 +238,15 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.load.image('bld-farmstead',   `${bldBase}/farmstead.png`);
     this.load.image('bld-longhouse',   `${bldBase}/longhouse.png`);
 
+    // MW-buildings pack — macro-world scale PixelLab building sprites
+    const mwBase = '/assets/packs/mw-buildings';
+    this.load.image('mw-cottage',      `${mwBase}/mw-cottage.png`);
+    this.load.image('mw-dwelling',     `${mwBase}/mw-dwelling.png`);
+    this.load.image('mw-smokehouse',   `${mwBase}/mw-smokehouse.png`);
+    this.load.image('mw-workshop',     `${mwBase}/mw-workshop.png`);
+    this.load.image('mw-longhouse',    `${mwBase}/mw-longhouse.png`);
+    this.load.image('mw-market-hall',  `${mwBase}/mw-market-hall.png`);
+
     // NPC object sprites (fieldborn village)
     const npcBase = '/assets/sprites/npcs/markfolk/fieldborn';
     this.load.image('npc-chief',          `${npcBase}/chief.png`);
@@ -252,6 +285,9 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.originX = this.scale.width / 2;
     this.originY = this.scale.height * 0.35;
 
+    // Jump to first building with a sprite if comparison mode is on.
+    if (this.showComparison) this.jumpToNextSpriteBuilding();
+
     // Load current building
     this.loadBuilding();
     this.buildControlPanel();
@@ -269,6 +305,25 @@ export class BuildingForgeScene extends Phaser.Scene {
     kb.on('keydown-O', () => this.toggleObjectMode());
     kb.on('keydown-N', () => this.cycleObjectType());
     kb.on('keydown-F', () => this.flipObject());
+    kb.on('keydown-B', () => {
+      this.showComparison = !this.showComparison;
+      if (this.showComparison) this.jumpToNextSpriteBuilding();
+      this.loadBuilding();
+      this.rebuild();
+    });
+    kb.on('keydown-M', () => { this.comparisonIdx++; this.rebuild(); });
+    // Footprint adjust: Q/E = width -/+, Z/X = depth -/+
+    kb.on('keydown-Q', () => { this.footprintW = Math.max(1, this.footprintW - 1); this.resetFootprintMask(); this.rebuild(); });
+    kb.on('keydown-E', () => { this.footprintW++; this.resetFootprintMask(); this.rebuild(); });
+    kb.on('keydown-Z', () => { this.footprintD = Math.max(1, this.footprintD - 1); this.resetFootprintMask(); this.rebuild(); });
+    kb.on('keydown-X', () => { this.footprintD++; this.resetFootprintMask(); this.rebuild(); });
+    // Shift+Arrow keys nudge the sprite position relative to the base grid.
+    kb.on('keydown-LEFT',  (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffX -= 1; this.rebuild(); } });
+    kb.on('keydown-RIGHT', (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffX += 1; this.rebuild(); } });
+    kb.on('keydown-UP',    (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffY -= 1; this.rebuild(); } });
+    kb.on('keydown-DOWN',  (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffY += 1; this.rebuild(); } });
+    // Reset sprite offset
+    kb.on('keydown-C', () => { this.spriteOffX = 0; this.spriteOffY = 0; this.rebuild(); });
 
     // Zoom
     this.input.on('wheel', (_: unknown, __: unknown, ___: unknown, dy: number) => {
@@ -314,6 +369,16 @@ export class BuildingForgeScene extends Phaser.Scene {
         if (p.leftButtonDown()) this.placeBlock(this.hoverTx, this.hoverTy);
         else if (p.rightButtonDown()) this.removeBlock(this.hoverTx, this.hoverTy);
       }
+    });
+
+    // Click on placement grid tiles to toggle footprint cells.
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (!this.showComparison || !p.leftButtonDown()) return;
+      const tile = this.screenToFootprintTile(p.x, p.y);
+      if (!tile) return;
+      const idx = tile.r * this.fpMaxCols + tile.c;
+      this.fpTiles[idx] = !this.fpTiles[idx];
+      this.rebuild();
     });
 
     // Disable context menu
@@ -522,9 +587,46 @@ export class BuildingForgeScene extends Phaser.Scene {
     }
   }
 
+  /** Jump currentIdx to the nearest building (forward) that has comparison sprites. */
+  private jumpToNextSpriteBuilding(): void {
+    const n = this.entries.length;
+    for (let i = 0; i < n; i++) {
+      const idx = (this.currentIdx + i) % n;
+      if (BuildingForgeScene.comparisonKeysFor(this.entries[idx].id).length > 0) {
+        this.currentIdx = idx;
+        const e = this.entries[idx];
+        this.footprintW = e.baseSizeRange?.[1] ?? 3;
+        this.footprintD = e.baseDepthRange?.[1] ?? this.footprintW;
+        this.resetFootprintMask();
+        this.spriteOffX = 0;
+        this.spriteOffY = 0;
+        this.comparisonIdx = 0;
+        this.spriteVariantIdx = 0;
+        return;
+      }
+    }
+  }
+
   private cycleBuilding(dir: number): void {
-    this.currentIdx = (this.currentIdx + dir + this.entries.length) % this.entries.length;
+    const n = this.entries.length;
+    let next = (this.currentIdx + dir + n) % n;
+    // When comparison mode is on, skip buildings without PixelLab sprites.
+    if (this.showComparison) {
+      for (let i = 0; i < n; i++) {
+        if (BuildingForgeScene.comparisonKeysFor(this.entries[next].id).length > 0) break;
+        next = (next + dir + n) % n;
+      }
+    }
+    this.currentIdx = next;
+    this.comparisonIdx = 0;
     this.spriteVariantIdx = 0;
+    // Reset footprint to building's base size.
+    const e = this.entries[next];
+    this.footprintW = e.baseSizeRange?.[1] ?? 3;
+    this.footprintD = e.baseDepthRange?.[1] ?? this.footprintW;
+    this.resetFootprintMask();
+    this.spriteOffX = 0;
+    this.spriteOffY = 0;
     this.loadBuilding();
     this.rebuild();
   }
@@ -622,6 +724,24 @@ export class BuildingForgeScene extends Phaser.Scene {
       </div>
 
 
+      <div>
+        <label>Sprite Offset (X, Y)</label>
+        <div class="bf-dim-row">
+          <input type="number" id="bf-off-x" value="${this.spriteOffX}" style="width:56px">
+          <span style="color:#556">,</span>
+          <input type="number" id="bf-off-y" value="${this.spriteOffY}" style="width:56px">
+        </div>
+      </div>
+
+      <div>
+        <label>Footprint (W × D)</label>
+        <div class="bf-dim-row">
+          <input type="number" id="bf-fp-w" min="1" max="20" value="${this.footprintW}" style="width:56px">
+          <span style="color:#556">×</span>
+          <input type="number" id="bf-fp-d" min="1" max="20" value="${this.footprintD}" style="width:56px">
+        </div>
+      </div>
+
       <div class="bf-divider"></div>
 
       <button class="bf-btn" id="bf-reset">Reset (R)</button>
@@ -695,6 +815,25 @@ export class BuildingForgeScene extends Phaser.Scene {
       this.showSprites = (e.target as HTMLInputElement).checked;
       this.rebuild();
     });
+
+    // Sprite offset inputs
+    const offChange = () => {
+      this.spriteOffX = parseInt((document.getElementById('bf-off-x') as HTMLInputElement).value, 10) || 0;
+      this.spriteOffY = parseInt((document.getElementById('bf-off-y') as HTMLInputElement).value, 10) || 0;
+      this.rebuild();
+    };
+    document.getElementById('bf-off-x')!.addEventListener('change', offChange);
+    document.getElementById('bf-off-y')!.addEventListener('change', offChange);
+
+    // Footprint inputs
+    const fpChange = () => {
+      this.footprintW = Phaser.Math.Clamp(parseInt((document.getElementById('bf-fp-w') as HTMLInputElement).value, 10) || 1, 1, 20);
+      this.footprintD = Phaser.Math.Clamp(parseInt((document.getElementById('bf-fp-d') as HTMLInputElement).value, 10) || 1, 1, 20);
+      this.resetFootprintMask();
+      this.rebuild();
+    };
+    document.getElementById('bf-fp-w')!.addEventListener('change', fpChange);
+    document.getElementById('bf-fp-d')!.addEventListener('change', fpChange);
 
     this.syncPanel();
   }
@@ -906,6 +1045,16 @@ export class BuildingForgeScene extends Phaser.Scene {
     if (wIn) wIn.value = String(this.gridW);
     if (lIn) lIn.value = String(this.gridD);
     if (hIn) hIn.value = String(this.maxH);
+
+    // Sync offset + footprint inputs
+    const offX = document.getElementById('bf-off-x') as HTMLInputElement;
+    const offY = document.getElementById('bf-off-y') as HTMLInputElement;
+    const fpWIn = document.getElementById('bf-fp-w') as HTMLInputElement;
+    const fpDIn = document.getElementById('bf-fp-d') as HTMLInputElement;
+    if (offX) offX.value = String(this.spriteOffX);
+    if (offY) offY.value = String(this.spriteOffY);
+    if (fpWIn) fpWIn.value = String(this.footprintW);
+    if (fpDIn) fpDIn.value = String(this.footprintD);
 
     const buildingSel = document.getElementById('bf-building') as HTMLSelectElement;
     if (buildingSel) buildingSel.value = String(this.currentIdx);
@@ -1491,7 +1640,162 @@ export class BuildingForgeScene extends Phaser.Scene {
       }
     }
 
+    // ── Sprite placement preview ────────────────────────────────────────────
+    this.comparisonSprite?.destroy();
+    this.comparisonSprite = undefined;
+    this.comparisonLabel?.destroy();
+    this.comparisonLabel = undefined;
+    this.comparisonBorder?.destroy();
+    this.comparisonBorder = undefined;
+
+    if (this.showComparison) {
+      const spriteKeys = BuildingForgeScene.comparisonKeysFor(entry.id);
+      if (spriteKeys.length > 0) {
+        const key = spriteKeys[this.comparisonIdx % spriteKeys.length];
+        if (this.textures.exists(key)) {
+          const hw = this.ISO_W / 2;
+          const hh = this.ISO_H / 2;
+          const fpW = this.footprintW;
+          const fpD = this.footprintD;
+
+          // Ensure mask is initialised.
+          if (this.fpTiles.length === 0) this.resetFootprintMask();
+
+          const gridCols = this.fpMaxCols;
+          const gridRows = this.fpMaxRows;
+
+          // Grid origin: iso north apex, positioned to the right of the block grid.
+          const rightEdge = this.isoPos(this.gridW, 0);
+          const gridOx = rightEdge.x + this.ISO_W * 3;
+          const gridOy = this.originY - hh;
+          this.fpGridOx = gridOx;
+          this.fpGridOy = gridOy;
+
+          // Iso position within the placement grid.
+          const gIso = (tx: number, ty: number) => ({
+            x: gridOx + (tx - ty) * hw,
+            y: gridOy + (tx + ty) * hh,
+          });
+
+          const gfx = this.add.graphics().setDepth(11);
+
+          // 1. Draw grid — active footprint tiles filled, others just outlined.
+          let activeCount = 0;
+          for (let r = 0; r < gridRows; r++) {
+            for (let c = 0; c < gridCols; c++) {
+              const { x, y } = gIso(c, r);
+              const active = this.fpTiles[r * gridCols + c];
+              if (active) activeCount++;
+
+              if (active) {
+                gfx.fillStyle(0x4488ff, 0.25);
+                gfx.beginPath();
+                gfx.moveTo(x, y); gfx.lineTo(x + hw, y + hh);
+                gfx.lineTo(x, y + hh * 2); gfx.lineTo(x - hw, y + hh);
+                gfx.closePath(); gfx.fillPath();
+              }
+
+              gfx.lineStyle(1, active ? 0x88aaff : 0x444466, active ? 0.8 : 0.3);
+              gfx.beginPath();
+              gfx.moveTo(x, y); gfx.lineTo(x + hw, y + hh);
+              gfx.lineTo(x, y + hh * 2); gfx.lineTo(x - hw, y + hh);
+              gfx.closePath(); gfx.strokePath();
+            }
+          }
+
+          // 2. Place sprite at the grid centre, at a fixed scale (1 iso tile = 32px).
+          // The sprite size is independent of the footprint — the footprint is the
+          // building's collision/placement base, the sprite is the visual.
+          const centreApex = gIso(
+            Math.floor(gridCols / 2),
+            Math.floor(gridRows / 2),
+          );
+          const anchorX = centreApex.x;
+          const anchorY = centreApex.y + hh; // centre of the diamond, not north apex
+
+          const img = this.add.image(
+            anchorX + this.spriteOffX,
+            anchorY + this.spriteOffY,
+            key,
+          );
+          // Scale: one game pixel = ISO_W/32 screen pixels (32px = 1 tile in the sprite).
+          const scale = this.ISO_W / 32;
+          img.setScale(scale).setOrigin(0.5, 0.5).setDepth(10);
+          this.comparisonSprite = img;
+
+          // 3. Anchor point marker.
+          gfx.fillStyle(0xff3333, 1);
+          gfx.fillCircle(anchorX, anchorY, 4);
+          gfx.lineStyle(2, 0xff3333, 0.6);
+          gfx.strokeCircle(anchorX, anchorY, 7);
+
+          this.comparisonBorder = gfx;
+
+          // 4. Info label.
+          const labelY = gridOy + (gridCols + gridRows) * hh + 8;
+          this.comparisonLabel = this.add.text(
+            gridOx, labelY,
+            `${key}  (${img.width}×${img.height}px)  offset: ${this.spriteOffX},${this.spriteOffY}\n` +
+            `Footprint: ${fpW}×${fpD} grid  ${activeCount} active tiles\n` +
+            `Click tiles  Q/E width  Z/X depth  Shift+Arrows nudge  C reset  M variant`,
+            { fontSize: '10px', color: '#ffcc00', fontFamily: 'monospace',
+              backgroundColor: '#000000aa', padding: { x: 4, y: 2 } },
+          ).setOrigin(0.5, 0).setDepth(12);
+        }
+      }
+    }
+
     // Update stats in the DOM control panel
     this.syncPanel();
+  }
+
+  /** Reset footprint mask to a full W×D rectangle. */
+  private resetFootprintMask(): void {
+    this.fpMaxCols = this.footprintW + 2;
+    this.fpMaxRows = this.footprintD + 2;
+    this.fpTiles = new Array(this.fpMaxCols * this.fpMaxRows).fill(false);
+    // Fill the inner rectangle (skip 1-tile margin).
+    for (let r = 1; r <= this.footprintD; r++) {
+      for (let c = 1; c <= this.footprintW; c++) {
+        this.fpTiles[r * this.fpMaxCols + c] = true;
+      }
+    }
+  }
+
+  /** Convert screen coords to placement grid tile (col, row), or null if outside. */
+  private screenToFootprintTile(px: number, py: number): { c: number; r: number } | null {
+    const hw = this.ISO_W / 2;
+    const hh = this.ISO_H / 2;
+    // Inverse iso: a = (px - ox) / hw, b = (py - oy) / hh
+    const a = (px - this.fpGridOx) / hw;
+    const b = (py - this.fpGridOy) / hh;
+    const c = Math.round((a + b) / 2);
+    const r = Math.round((b - a) / 2);
+    if (c < 0 || c >= this.fpMaxCols || r < 0 || r >= this.fpMaxRows) return null;
+    return { c, r };
+  }
+
+  /**
+   * Map a building registry id to all matching PixelLab sprite keys (both packs).
+   * Returns an array so M key can cycle through variants.
+   */
+  private static comparisonKeysFor(buildingId: string): string[] {
+    const map: Record<string, string[]> = {
+      'campfire':      ['bld-campfire', 'campfire-obj-32', 'campfire-obj-48a', 'campfire-obj-48b',
+                        'campfire-markfolk-v1', 'campfire-markfolk-v2', 'campfire-markfolk-v3'],
+      'well':          ['bld-well'],
+      'guard-post':    ['bld-guard-post'],
+      'shrine':        ['bld-shrine'],
+      'watchtower':    ['bld-watchtower'],
+      'cottage':       ['bld-cottage', 'mw-cottage'],
+      'smithy':        ['bld-smithy'],
+      'farmstead':     ['bld-farmstead'],
+      'longhouse':     ['bld-longhouse', 'mw-longhouse'],
+      'market-hall':   ['mw-market-hall'],
+      'dwelling':      ['mw-dwelling'],
+      'smokehouse':    ['mw-smokehouse'],
+      'workshop':      ['mw-workshop'],
+    };
+    return map[buildingId] ?? [];
   }
 }

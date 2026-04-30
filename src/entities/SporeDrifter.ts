@@ -43,7 +43,7 @@ export class SporeCloud {
   /**
    * Advance the cloud lifetime and apply DoT to every living hero within range.
    *
-   * Called once per frame by CombatArenaScene.update(). Damage is proportional
+   * Called once per frame by DungeonForgeScene.update(). Damage is proportional
    * to delta so the rate is exactly 3 HP/s regardless of frame rate — no tick
    * buckets, no timer events, just continuous fractional application.
    */
@@ -75,7 +75,7 @@ export class SporeCloud {
  *   - Each frame, steer directly away from the nearest hero (flee vector).
  *   - Every 8 s, drop a SporeCloud at the current position.
  *
- * The cloud is handed off to CombatArenaScene via the 'spore-cloud-spawned'
+ * The cloud is handed off to DungeonForgeScene via the 'spore-cloud-spawned'
  * scene event so the scene owns its lifetime, DoT checks, and SHUTDOWN cleanup.
  *
  * aggroRadius is 0 (required by EnemyConfig) and is never consulted in the BT —
@@ -111,7 +111,7 @@ export class SporeDrifter extends CombatEntity {
       if (this.cloudTimer <= 0) {
         this.cloudTimer = CLOUD_INTERVAL;
         const cloud = new SporeCloud(this.scene, this.x, this.y);
-        // CombatArenaScene listens for this and takes ownership of the cloud.
+        // DungeonForgeScene listens for this and takes ownership of the cloud.
         this.scene.events.emit('spore-cloud-spawned', cloud);
       }
 

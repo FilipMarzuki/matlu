@@ -9,6 +9,8 @@ export interface Damageable {
   y: number;
   isAlive: boolean;
   takeDamage(amount: number): number;
+  /** Optional stun support — CombatEntity implements this via LivingEntity. */
+  stun?(durationMs: number): void;
 }
 
 /**
@@ -26,7 +28,7 @@ export interface Damageable {
  * Lifecycle:
  *   1. CombatEntity spawns a Projectile and emits 'projectile-spawned' on the
  *      scene event bus.
- *   2. CombatArenaScene adds it to `this.projectiles[]` and calls `tick(delta)`
+ *   2. DungeonForgeScene adds it to `this.projectiles[]` and calls `tick(delta)`
  *      each frame.
  *   3. The projectile destroys itself when it hits a target, exceeds maxRange,
  *      or leaves the physics world bounds. `isExpired` goes true so the scene
@@ -98,7 +100,7 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
   }
 
   /**
-   * Advance the projectile by one frame. Called manually by CombatArenaScene
+   * Advance the projectile by one frame. Called manually by DungeonForgeScene
    * because Rectangle is not in Phaser's built-in update list.
    */
   tick(delta: number): void {
@@ -124,6 +126,8 @@ export class Projectile extends Phaser.GameObjects.Rectangle {
       const dist = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
       if (dist < this.hitRadius) {
         target.takeDamage(this.damage);
+        // Microstun on projectile hit.
+        target.stun?.(120);
         this.onHitCb?.(target);
         this.selfDestroy();
         return;

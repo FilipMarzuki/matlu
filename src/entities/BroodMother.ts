@@ -9,7 +9,7 @@
  * individual sacs — each destroyed sac cuts the spawn rate by 25%.
  *
  * Sacs emit `'broodmother-spawn-spineling'` scene events carrying the freshly
- * constructed Spineling. `CombatArenaScene.registerBroodMother()` subscribes
+ * constructed Spineling. `DungeonForgeScene.registerBroodMother()` subscribes
  * to these events and wires each Spineling into the arena system (physics,
  * aliveEnemies, setOpponent) — satisfying the "no direct physics calls" rule.
  *
@@ -59,14 +59,14 @@ const SAC_OFFSETS: [number, number][] = [
  * Extends CombatEntity so it gets:
  *   - HP tracking via `takeDamage()` / `isAlive`
  *   - A visible HP bar (drawn as part of CombatEntity's container)
- *   - Physics body wired in by CombatArenaScene.registerBroodMother()
+ *   - Physics body wired in by DungeonForgeScene.registerBroodMother()
  *   - Hero targeting (the hero can select sacs as attack targets)
  *
  * `buildTree()` returns a single always-running no-op action because the sac
  * never moves or attacks — it just sits there and absorbs damage.
  *
  * The spawn timer fires `'broodmother-spawn-spineling'` on the scene event bus
- * each cycle. CombatArenaScene's handler is responsible for wiring the Spineling
+ * each cycle. DungeonForgeScene's handler is responsible for wiring the Spineling
  * into the arena system; EggSac itself makes no direct `physics.add` calls.
  */
 export class EggSac extends CombatEntity {
@@ -106,7 +106,7 @@ export class EggSac extends CombatEntity {
   private doSpawn(): void {
     if (!this.isAlive) return;
     const spineling = new Spineling(this.scene, this.x, this.y);
-    // CombatArenaScene listens for this event and wires the enemy in.
+    // DungeonForgeScene listens for this event and wires the enemy in.
     this.scene.events.emit('broodmother-spawn-spineling', spineling);
   }
 

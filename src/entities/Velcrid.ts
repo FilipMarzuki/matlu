@@ -102,13 +102,47 @@ export class VelcridJuvenile extends CombatEntity {
     });
   }
 
+  /** Find the nearest wall rect centre to a world position. */
+  private nearestWall(wx: number, wy: number): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null;
+    let bestDist = Infinity;
+    for (const r of this.wallRects) {
+      const cx = r.x + r.width / 2;
+      const cy = r.y + r.height / 2;
+      const d  = (cx - wx) ** 2 + (cy - wy) ** 2;
+      if (d < bestDist) { bestDist = d; best = { x: cx, y: cy }; }
+    }
+    return best;
+  }
+
+  /**
+   * Find a wall cell that is close to the opponent — the drop-attack origin.
+   * Picks the wall cell nearest to the opponent so the juvenile pounces from
+   * the closest wall rather than crawling the whole perimeter.
+   */
+  private wallNear(tx: number, ty: number): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null;
+    let bestDist = Infinity;
+    for (const r of this.wallRects) {
+      const cx = r.x + r.width / 2;
+      const cy = r.y + r.height / 2;
+      const d  = (cx - tx) ** 2 + (cy - ty) ** 2;
+      if (d < bestDist) { bestDist = d; best = { x: cx, y: cy }; }
+    }
+    return best;
+  }
+
   protected buildTree(): BtNode {
     const MELEE_R  = this.meleeRange;
     // Per-instance radius: 95–145 px so groups don't orbit on a perfect ring.
     const ORBIT_R  = Phaser.Math.Between(95, 145);
     const ORBIT_MS = 900;   // ms orbiting before hopping in
 
-    type Phase = 'orbit' | 'hop' | 'recover';
+    // ── Wall-climb state ────────────────────────────────────────────────────
+    const CLIMB_CHANCE   = 0.30;   // 30% chance to wall-climb instead of hop
+    const CRAWL_MS       = 1200;   // ms crawling along wall before dropping
+
+    type Phase = 'orbit' | 'hop' | 'recover' | 'toWall' | 'crawl' | 'drop';
     let phase: Phase = 'orbit';
     // Wider stagger — three spawned juveniles are unlikely to hop simultaneously.
     let orbitTimer  = Phaser.Math.Between(0, 800);
@@ -116,6 +150,11 @@ export class VelcridJuvenile extends CombatEntity {
     let orbitCw     = Math.random() < 0.5;
     let hopTargetX  = 0;
     let hopTargetY  = 0;
+    /** Cycles since last wall climb — ensures at least 2 normal hops between climbs. */
+    let cyclesSinceClimb = 0;
+    /** World-space target while crawling along wall. */
+    let crawlTargetX = 0;
+    let crawlTargetY = 0;
 
     return new BtSelector([
       // 1. Melee if adjacent AND in sight — can interrupt any orbit phase.
@@ -129,13 +168,79 @@ export class VelcridJuvenile extends CombatEntity {
         new BtAction(ctx => { ctx.attack(); ctx.stop(); return 'success'; }),
       ]),
 
-      // 2. Full orbit → short hop → recover — only when target is in sight.
-      //    Special movement patterns are reserved for active visual contact.
+      // 2. Full orbit → hop/wall-climb → recover — only when target is in sight.
       new BtSequence([
         new BtCondition(ctx => this.canSeeTarget && ctx.opponent !== null),
         new BtAction((ctx, delta) => {
           const opp = ctx.opponent!;
           phaseTimer = Math.max(0, phaseTimer - delta);
+
+          // ── Drop: dash from wall toward opponent ──────────────────────────
+          if (phase === 'drop') {
+            ctx.dash(hopTargetX, hopTargetY);
+            if (phaseTimer <= 0) {
+              this.setWallCollision(true);
+              this.setAlpha(1);
+              phase      = 'recover';
+              phaseTimer = 200;
+              orbitCw    = !orbitCw;
+              cyclesSinceClimb = 0;
+            }
+            return 'running';
+          }
+
+          // ── Crawl: move along wall toward opponent-adjacent wall cell ──────
+          if (phase === 'crawl') {
+            const physBody = this.getPhysicsBody();
+            if (physBody) {
+              // Update crawl target to wall cell nearest opponent (tracks movement).
+              const dropWall = this.wallNear(opp.x, opp.y);
+              if (dropWall) { crawlTargetX = dropWall.x; crawlTargetY = dropWall.y; }
+              const dx  = crawlTargetX - this._wx;
+              const dy  = crawlTargetY - this._wy;
+              const len = Math.sqrt(dx * dx + dy * dy) || 1;
+              physBody.setVelocity((dx / len) * this.speed * 0.6, (dy / len) * this.speed * 0.6);
+            }
+            if (phaseTimer <= 0) {
+              // Lock drop target and leap off the wall.
+              hopTargetX = opp.x;
+              hopTargetY = opp.y;
+              phase      = 'drop';
+              phaseTimer = 100;
+              // Brief scale pop on detach.
+              this.scene.tweens.add({
+                targets: this, scaleX: { from: 0.85, to: 1 }, scaleY: { from: 0.85, to: 1 },
+                duration: 120, ease: 'Back.easeOut',
+              });
+            }
+            return 'running';
+          }
+
+          // ── toWall: run toward nearest wall, ignoring collision ────────────
+          if (phase === 'toWall') {
+            const physBody = this.getPhysicsBody();
+            const wall = this.nearestWall(this._wx, this._wy);
+            if (physBody && wall) {
+              const dx  = wall.x - this._wx;
+              const dy  = wall.y - this._wy;
+              const len = Math.sqrt(dx * dx + dy * dy) || 1;
+              physBody.setVelocity((dx / len) * this.speed, (dy / len) * this.speed);
+              // Arrived at wall — start crawling.
+              if (len < 12) {
+                phase      = 'crawl';
+                phaseTimer = CRAWL_MS;
+                const dropWall = this.wallNear(opp.x, opp.y);
+                if (dropWall) { crawlTargetX = dropWall.x; crawlTargetY = dropWall.y; }
+              }
+            }
+            if (phaseTimer <= 0) {
+              // Timeout — abort climb and return to orbit.
+              this.setWallCollision(true);
+              this.setAlpha(1);
+              phase = 'orbit';
+            }
+            return 'running';
+          }
 
           if (phase === 'orbit') {
             // Keep the "juveniles circling" signal hot — adults underground
@@ -146,12 +251,30 @@ export class VelcridJuvenile extends CombatEntity {
             ctx.orbitAround(opp.x, opp.y, ORBIT_R, orbitCw);
 
             if (orbitTimer >= ORBIT_MS) {
-              // Commit hop position at last orbit moment
-              hopTargetX = opp.x;
-              hopTargetY = opp.y;
-              phase      = 'hop';
-              phaseTimer = 80; // matches dashDurationMs
               orbitTimer = 0;
+              cyclesSinceClimb++;
+
+              // Decide: wall-climb or normal hop?
+              const doClimb = cyclesSinceClimb >= 2 &&
+                              this.wallRects.length > 0 &&
+                              Math.random() < CLIMB_CHANCE;
+
+              if (doClimb) {
+                phase = 'toWall';
+                phaseTimer = 1500; // timeout to reach wall
+                this.setWallCollision(false);
+                // Visual: semi-transparent + slight shrink to show wall-climb state.
+                this.setAlpha(0.6);
+                this.scene.tweens.add({
+                  targets: this, scaleX: 0.85, scaleY: 0.85,
+                  duration: 200, ease: 'Cubic.easeIn',
+                });
+              } else {
+                hopTargetX = opp.x;
+                hopTargetY = opp.y;
+                phase      = 'hop';
+                phaseTimer = 80;
+              }
             }
 
           } else if (phase === 'hop') {
@@ -161,6 +284,7 @@ export class VelcridJuvenile extends CombatEntity {
               phase      = 'recover';
               phaseTimer = 200; // shortened from 400 ms
               orbitCw    = !orbitCw; // approach from opposite arc next cycle
+              cyclesSinceClimb++;
             }
 
           } else {

@@ -44,7 +44,7 @@ test('pressing W key moves the player upward', async ({ page }) => {
   //      and undoing the attract-mode exit before the W key test can run.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, { scene?: { stop?: (k: string) => void; start?: (k: string) => void } }>)['__game'];
-    game?.scene?.stop?.('CombatArenaScene');
+    game?.scene?.stop?.('DungeonForgeScene');
     game?.scene?.stop?.('WilderviewScene');
     game?.scene?.stop?.('MainMenuScene');
     game?.scene?.start?.('GameScene');
@@ -153,16 +153,16 @@ test('hero walk animation loops after completing one cycle', async ({ page }) =>
   // Start the combat arena scene in isolation.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    game?.scene?.stop('CombatArenaScene');
+    game?.scene?.stop('DungeonForgeScene');
     game?.scene?.stop('WilderviewScene');
     game?.scene?.stop('MainMenuScene');
-    game?.scene?.start('CombatArenaScene', {});
+    game?.scene?.start('DungeonForgeScene', {});
   });
 
   await page.waitForFunction(
     () => {
       const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
-      return !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
+      return !!g?.scene?.getScene('DungeonForgeScene')?.sys?.settings?.active;
     },
     { timeout: ARENA_BOOT_MS },
   );
@@ -180,7 +180,7 @@ test('hero walk animation loops after completing one cycle', async ({ page }) =>
     };
 
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    const scene = game.scene.getScene('CombatArenaScene') as ArenaParts;
+    const scene = game.scene.getScene('DungeonForgeScene') as ArenaParts;
 
     // Enable player control so we drive movement deterministically.
     scene.toggleHeroPlayerMode();

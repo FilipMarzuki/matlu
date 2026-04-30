@@ -1,15 +1,15 @@
 /**
- * ArenaSelectScene — minimal tier picker shown before CombatArenaScene.
+ * ArenaSelectScene — minimal tier picker shown before DungeonForgeScene.
  *
  * Renders a numbered list of TIER_CONFIGS.  The player presses 1–5 (keyboard)
- * or taps a row to launch CombatArenaScene with the chosen config.  ESC or the
+ * or taps a row to launch DungeonForgeScene with the chosen config.  ESC or the
  * back button returns to the previous scene.
  *
  * ## How it integrates
  *
  * The `nav-goto-arena` game event (emitted by NavScene's Arena button) now
- * starts this scene instead of CombatArenaScene directly.  This scene then
- * calls `this.scene.start('CombatArenaScene', selectedConfig)`.
+ * starts this scene instead of DungeonForgeScene directly.  This scene then
+ * calls `this.scene.start('DungeonForgeScene', selectedConfig)`.
  */
 
 import * as Phaser from 'phaser';
@@ -107,9 +107,9 @@ export class ArenaSelectScene extends Phaser.Scene {
 
   private launch(cfg: ArenaTierConfig): void {
     // Stop this selector then start the arena with the chosen config.
-    // CombatArenaScene.init() receives cfg and stores it as this.tierConfig.
+    // DungeonForgeScene.init() receives cfg and stores it as this.tierConfig.
     this.scene.stop(ArenaSelectScene.KEY);
-    this.scene.start('CombatArenaScene', cfg);
+    this.scene.start('DungeonForgeScene', cfg);
   }
 
   private goBack(): void {

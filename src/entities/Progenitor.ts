@@ -4,7 +4,7 @@
  *
  * ## Absorption mechanics
  * The Progenitor listens to the scene-level `'enemy-died'` event emitted by
- * `CombatArenaScene`'s prune-dead loop. Each event carries the dead enemy's
+ * `DungeonForgeScene`'s prune-dead loop. Each event carries the dead enemy's
  * constructor name (e.g. `'Spineling'`, `'Blightfrog'`). When a new type is
  * seen and the absorb cap (5) hasn't been hit, it is absorbed:
  *   1. `absorbedAbilities` array is updated (guards against duplicates + cap).

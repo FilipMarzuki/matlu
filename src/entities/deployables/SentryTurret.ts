@@ -113,7 +113,7 @@ export class SentryTurret extends Deployable {
       this.getTargets() as Damageable[],
     );
     // The arena scene listens for 'projectile-spawned' and adds projectiles to
-    // its tick loop. See CombatArenaScene line ~391.
+    // its tick loop. See DungeonForgeScene line ~391.
     this.scene.events.emit('projectile-spawned', p);
   }
 

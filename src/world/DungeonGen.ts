@@ -762,7 +762,7 @@ export interface BspDungeonLayout extends DungeonLayout {
 }
 
 /**
- * BSP arena config used by CombatArenaScene.
+ * BSP arena config used by DungeonForgeScene.
  * 60×60 tiles × 16 px = 960×960 px world.  DUNGEON_ZOOM 3.5 makes the
  * viewport ≈229×171 px ≈ 14×11 tiles — claustrophobic dungeon feel.
  *

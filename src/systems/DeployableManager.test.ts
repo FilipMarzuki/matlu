@@ -6,7 +6,7 @@
  * a stand-alone registry that mirrors the manager's logic without requiring a
  * Phaser browser context (which would fail in Node/vitest).
  *
- * Pattern note: the existing test files in this repo (CombatArenaScene.test.ts,
+ * Pattern note: the existing test files in this repo (DungeonForgeScene.test.ts,
  * Accuracy.test.ts) all test pure functions to avoid loading Phaser in Node.
  * This file follows that convention — the registry logic is reproduced below and
  * kept in sync with DeployableManager.ts by the dev author.

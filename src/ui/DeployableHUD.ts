@@ -21,7 +21,7 @@
  * per-slot timer.
  *
  * ## Update cadence
- * CombatArenaScene calls update(engineer, delta) every frame from inside its
+ * DungeonForgeScene calls update(engineer, delta) every frame from inside its
  * main update loop (guarded by heroAlive + instanceof CombatEngineer).
  * No state is cached here — the scene owns the hero reference.
  */
@@ -145,7 +145,7 @@ export class DeployableHUD {
 
   /**
    * Redraw all four slots to reflect the current engineer state.
-   * Called every frame by CombatArenaScene when the active hero is a CombatEngineer.
+   * Called every frame by DungeonForgeScene when the active hero is a CombatEngineer.
    */
   update(engineer: CombatEngineer, delta: number): void {
     this.gfx.clear();

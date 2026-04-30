@@ -45,7 +45,7 @@ export class BurrowHole extends LivingEntity {
    * same interval.  Calling again replaces any existing timer.
    *
    * The hole emits `'hole-spawned'` carrying the new `CombatEntity` instance
-   * each time a spawn occurs.  The listener (typically `CombatArenaScene`) is
+   * each time a spawn occurs.  The listener (typically `DungeonForgeScene`) is
    * responsible for adding the enemy to physics and the `aliveEnemies` array.
    */
   startSpawning(enemyCtor: EnemyCtor, intervalMs: number): void {

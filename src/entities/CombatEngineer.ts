@@ -178,7 +178,7 @@ export class CombatEngineer extends EarthHero {
     this.damageReduction = DMG_REDUCE;
   }
 
-  // ── Deploy actions (called by CombatArenaScene key handlers) ─────────────────
+  // ── Deploy actions (called by DungeonForgeScene key handlers) ─────────────────
 
   /** Returns true if a turret can be placed right now. */
   get turretReady(): boolean {

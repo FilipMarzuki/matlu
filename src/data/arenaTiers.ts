@@ -1,11 +1,11 @@
 /**
- * Arena tier configuration — one entry per tier, passed to CombatArenaScene
+ * Arena tier configuration — one entry per tier, passed to DungeonForgeScene
  * via Phaser's init(data) mechanism so the same scene class handles all tiers.
  *
  * ## How it works
  *
- * `scene.start('CombatArenaScene', TIER_CONFIGS[i])` passes the chosen config
- * as the `data` argument.  CombatArenaScene.init() stores it and falls back to
+ * `scene.start('DungeonForgeScene', TIER_CONFIGS[i])` passes the chosen config
+ * as the `data` argument.  DungeonForgeScene.init() stores it and falls back to
  * TIER_CONFIGS[0] when no data is passed (e.g. CI screenshots).
  *
  * ## Adding a new tier
@@ -51,7 +51,7 @@ import {
 export type EnemyCtor = new (scene: Phaser.Scene, x: number, y: number) => CombatEntity;
 
 /**
- * Hero keys recognised by CombatArenaScene.spawnHero().
+ * Hero keys recognised by DungeonForgeScene.spawnHero().
  * Spinolandet heroes (lund, symbiont-karin, chimera, apex, overmind) extend
  * LivingEntity rather than CombatEntity — supporting them in the arena requires
  * a separate refactor and is tracked separately.
@@ -74,7 +74,7 @@ export interface WaveGroup {
 
 /**
  * Full configuration for one arena tier session.
- * Passed to CombatArenaScene via `scene.start(key, config)`.
+ * Passed to DungeonForgeScene via `scene.start(key, config)`.
  */
 export interface ArenaTierConfig {
   /** Tier number, 1–5 (0 = prologue). Shown in the ArenaSelectScene list. */
@@ -242,7 +242,7 @@ export const TIER_CONFIGS: ArenaTierConfig[] = [
   // End-game: the hero IS a disaster. Boss encounters are the real test.
   //
   // Note: TitanPrototype emits a 'titan-split' event when it reaches low HP —
-  // CombatArenaScene must listen for this and spawn two TitanHalf instances.
+  // DungeonForgeScene must listen for this and spawn two TitanHalf instances.
   // That wiring is tracked under FIL-397.
   {
     tier:    6,

@@ -1,5 +1,5 @@
 /**
- * CombatArenaScene — floor tile grid regression tests.
+ * DungeonForgeScene — floor tile grid regression tests.
  *
  * These tests guard the tileRect grid-alignment fix (FIL-???):
  *

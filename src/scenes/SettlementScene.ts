@@ -2,7 +2,7 @@
  * SettlementScene — placeholder shell for settlement build mode.
  *
  * Same architectural pattern as `WorldForgeScene` (biome design tool) and
- * `CombatArenaScene` (dungeon): own scene, own input, own UI. Keeps build-mode
+ * `DungeonForgeScene` (dungeon): own scene, own input, own UI. Keeps build-mode
  * concerns out of `GameScene` and gives `SettlementLayout` / `BuildingCatalogue`
  * a clean place to wire into.
  *

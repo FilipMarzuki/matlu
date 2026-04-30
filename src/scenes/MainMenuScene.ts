@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import { t } from '../lib/i18n';
-import { CombatArenaScene } from './CombatArenaScene';
+import { DungeonForgeScene } from './DungeonForgeScene';
 import { WilderviewScene } from './WilderviewScene';
 
 // ── Background swap constants ─────────────────────────────────────────────────
@@ -18,13 +18,13 @@ const BG_FADE_MS          =    800;
  *   - Arena      → fade out → stop this scene, arena continues full-screen
  *   - Credits    → overlay CreditsScene
  *
- * The background alternates between CombatArenaScene and WilderviewScene every
+ * The background alternates between DungeonForgeScene and WilderviewScene every
  * BG_SWAP_INTERVAL_MS with a short camera fade. Both background scenes are
  * launched with `{ background: true }` to suppress their in-scene HUDs.
  */
 export class MainMenuScene extends Phaser.Scene {
   /** Key of whichever background scene is currently running. */
-  private activeBgKey: string = CombatArenaScene.KEY;
+  private activeBgKey: string = DungeonForgeScene.KEY;
   /** Repeating timer that drives background swaps. */
   private bgSwapTimer!: Phaser.Time.TimerEvent;
   /** User volume prefs; read from localStorage in create(). */
@@ -62,8 +62,8 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Start with the arena background. `{ background: true }` suppresses the
     // in-scene HUD and dev bar so they don't overlap the menu panel.
-    this.activeBgKey = CombatArenaScene.KEY;
-    this.scene.launch(CombatArenaScene.KEY, { background: true });
+    this.activeBgKey = DungeonForgeScene.KEY;
+    this.scene.launch(DungeonForgeScene.KEY, { background: true });
     this.scene.bringToTop();
 
     // Schedule the repeating background swap (arena ↔ wilderview).
@@ -245,15 +245,15 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   /**
-   * Swap between CombatArenaScene and WilderviewScene backgrounds.
+   * Swap between DungeonForgeScene and WilderviewScene backgrounds.
    * Called on a repeating timer — fades the camera out, stops the current
    * background, launches the next one, then fades back in.
    */
   private swapBackground(): void {
-    const nextKey  = this.activeBgKey === CombatArenaScene.KEY
+    const nextKey  = this.activeBgKey === DungeonForgeScene.KEY
       ? WilderviewScene.KEY
-      : CombatArenaScene.KEY;
-    const nextData = nextKey === CombatArenaScene.KEY ? { background: true } : undefined;
+      : DungeonForgeScene.KEY;
+    const nextData = nextKey === DungeonForgeScene.KEY ? { background: true } : undefined;
 
     this.cameras.main.fadeOut(BG_FADE_MS, 0, 0, 0);
     this.time.delayedCall(BG_FADE_MS, () => {
@@ -287,7 +287,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.stop(bgKey);
-      this.scene.start(CombatArenaScene.KEY, {});
+      this.scene.start(DungeonForgeScene.KEY, {});
     });
   }
 

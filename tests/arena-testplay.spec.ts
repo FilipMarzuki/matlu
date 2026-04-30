@@ -1,7 +1,7 @@
 /**
  * Arena testplay — automated balance simulation for agents.
  *
- * Boots CombatArenaScene and fast-forwards the game loop using sys.step() —
+ * Boots DungeonForgeScene and fast-forwards the game loop using sys.step() —
  * the same technique used in game.spec.ts for deterministic headless testing.
  * No rendering pipeline is touched, so this works in headless Chrome (CI).
  *
@@ -44,7 +44,7 @@ const TOTAL_BATCHES    = SIM_SECONDS / BATCH_SECONDS;
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
 
-// Minimal type that overlays the private fields we read from CombatArenaScene.
+// Minimal type that overlays the private fields we read from DungeonForgeScene.
 // TypeScript's `private` is compile-time only; in JS all fields are accessible.
 type ArenaAccess = Phaser.Scene & {
   /** sys.step() advances the scene one frame without touching the renderer. */
@@ -74,18 +74,18 @@ async function startArena(page: import('@playwright/test').Page) {
   // Stop all other scenes so the arena gets full GPU budget.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    game?.scene?.stop('CombatArenaScene');
+    game?.scene?.stop('DungeonForgeScene');
     game?.scene?.stop('WilderviewScene');
     game?.scene?.stop('MainMenuScene');
     // Pass {} explicitly so Phaser doesn't reuse stale { background: true } init data.
-    game?.scene?.start('CombatArenaScene', {});
+    game?.scene?.start('DungeonForgeScene', {});
   });
 
   // Wait until the arena scene is active (hero spawned, wave timer running).
   await page.waitForFunction(
     () => {
       const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
-      return !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
+      return !!g?.scene?.getScene('DungeonForgeScene')?.sys?.settings?.active;
     },
     { timeout: ARENA_READY_MS },
   );
@@ -99,7 +99,7 @@ async function injectSimState(page: import('@playwright/test').Page) {
   // Patch respawnHero so we can count hero deaths without modifying game code.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    const scene = game.scene.getScene('CombatArenaScene') as unknown as ArenaAccess;
+    const scene = game.scene.getScene('DungeonForgeScene') as unknown as ArenaAccess;
 
     scene.__simT = performance.now();
     scene.__heroDeaths = 0;
@@ -140,7 +140,7 @@ test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
     const snap = await page.evaluate(
       ({ ticks, delta }: { ticks: number; delta: number }) => {
         const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-        const scene = game.scene.getScene('CombatArenaScene') as unknown as ArenaAccess;
+        const scene = game.scene.getScene('DungeonForgeScene') as unknown as ArenaAccess;
 
         let t = scene.__simT;
         for (let i = 0; i < ticks; i++) {

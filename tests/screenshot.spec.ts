@@ -48,9 +48,9 @@ async function startGameScene(page: import('@playwright/test').Page) {
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
     // Stop MainMenuScene and its background scenes before starting GameScene.
-    // CombatArenaScene runs as a background behind MainMenuScene; stopping it
+    // DungeonForgeScene runs as a background behind MainMenuScene; stopping it
     // first frees GPU/CPU so GameScene.create() completes within the timeout.
-    game?.scene?.stop('CombatArenaScene');
+    game?.scene?.stop('DungeonForgeScene');
     game?.scene?.stop('WilderviewScene');
     game?.scene?.stop('MainMenuScene');
     game?.scene?.start('GameScene');
@@ -182,7 +182,7 @@ test('screenshot: combat arena', async ({ page }) => {
   await bootGame(page);
 
   // Wait for MainMenuScene to settle, then click the Arena button.
-  // This mirrors the real user flow and ensures CombatArenaScene starts in
+  // This mirrors the real user flow and ensures DungeonForgeScene starts in
   // foreground mode (not as a background, which suppresses the HUD).
   await page.waitForFunction(
     () => {
@@ -193,23 +193,23 @@ test('screenshot: combat arena', async ({ page }) => {
   );
   await page.waitForTimeout(1_000);
 
-  // Stop all background scenes and restart CombatArenaScene in foreground mode.
+  // Stop all background scenes and restart DungeonForgeScene in foreground mode.
   // Pass {} explicitly so Phaser doesn't reuse the stale { background: true }
   // init data from the bgMode launch — that would suppress the HUD and nav panel.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    game?.scene?.stop('CombatArenaScene');
+    game?.scene?.stop('DungeonForgeScene');
     game?.scene?.stop('WilderviewScene');
     game?.scene?.stop('MainMenuScene');
-    game?.scene?.start('CombatArenaScene', {});
+    game?.scene?.start('DungeonForgeScene', {});
   });
 
-  // Wait until MainMenuScene is gone and CombatArenaScene is the only active scene.
+  // Wait until MainMenuScene is gone and DungeonForgeScene is the only active scene.
   await page.waitForFunction(
     () => {
       const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
       const menuGone  = !g?.scene?.getScene('MainMenuScene')?.sys?.settings?.active;
-      const arenaUp   = !!g?.scene?.getScene('CombatArenaScene')?.sys?.settings?.active;
+      const arenaUp   = !!g?.scene?.getScene('DungeonForgeScene')?.sys?.settings?.active;
       return menuGone && arenaUp;
     },
     { timeout: 8_000 },

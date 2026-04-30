@@ -1,6 +1,6 @@
 /**
  * Biome → tile-pack mapping, plus the shared preloader that all scenes
- * which render iso terrain (GameScene, CombatArenaScene, WorldForgeScene,
+ * which render iso terrain (GameScene, DungeonForgeScene, WorldForgeScene,
  * SettlementScene) call from `preload()`.
  *
  * Each pack ships 4 individual PNGs (0–3) under

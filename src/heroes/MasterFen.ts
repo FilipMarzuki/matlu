@@ -108,7 +108,7 @@ export class MasterFen extends LivingEntity {
       angle, ICE_BOLT_SPEED, ICE_BOLT_DAMAGE, ICE_BOLT_COLOR,
       targets, 18, ICE_BOLT_RANGE,
     );
-    // CombatArenaScene listens for this event and manages the projectile list.
+    // DungeonForgeScene listens for this event and manages the projectile list.
     this.scene.events.emit('projectile-spawned', bolt);
   }
 

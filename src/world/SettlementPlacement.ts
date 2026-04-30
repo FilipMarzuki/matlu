@@ -2,7 +2,7 @@
  * SettlementPlacement — place buildings one at a time on a tile grid,
  * connecting each to the road network immediately via AStarGrid.
  *
- * Uses the same pathfinding as CombatArenaScene (AStarGrid): build a flat
+ * Uses the same pathfinding as DungeonForgeScene (AStarGrid): build a flat
  * grid of 0=floor/1=wall, then A* from building entrance to nearest road.
  */
 
