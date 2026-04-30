@@ -3025,9 +3025,10 @@ export class GameScene extends Phaser.Scene {
       .on('pointerdown',  () => this.openPauseMenu());
     this.hudObjects.push(pauseBtn);
 
-    // Full-screen tint overlay — covers whatever viewport size we have.
+    // Full-screen corruption tint. Deep purple/black keeps the world threatening
+    // without flattening biome colours into the old neutral grey wash.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, 0x17051f, 0.42)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -6064,10 +6065,11 @@ export class GameScene extends Phaser.Scene {
   private stampCorruptedLandmarks(): void {
     for (const lm of CORRUPTED_LANDMARKS) {
       this.stampChunk(CORRUPTED_CLEARING, lm.x, lm.y);
-      // Dark purple aura — very low alpha so it doesn't dominate the palette,
-      // but creates a clear "something happened here" visual signal.
+      // Nested purple-black auras make corruption look like a local wound in the
+      // landscape, not a debug overlay rectangle.
       const { x: _lmIsoX, y: _lmIsoY } = worldToIso(lm.x, lm.y);
-      this.add.circle(_lmIsoX, _lmIsoY, 90, 0x220022, 0.18).setDepth(0.05);
+      this.add.circle(_lmIsoX, _lmIsoY, 130, 0x120018, 0.20).setDepth(0.05);
+      this.add.circle(_lmIsoX, _lmIsoY, 78, 0x050008, 0.28).setDepth(0.06);
     }
   }
 
