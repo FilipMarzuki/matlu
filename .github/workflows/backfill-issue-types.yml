@@ -30,6 +30,11 @@ jobs:
         with:
           node-version: '20.19.0'
 
+      - name: Ensure required labels exist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node .github/scripts/create-labels.js
+
       - name: Backfill type labels
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
