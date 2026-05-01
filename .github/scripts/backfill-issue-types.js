@@ -188,7 +188,8 @@ async function main() {
   console.log(`Target repo: ${REPO}`);
   console.log(`Mode: ${APPLY ? 'apply' : 'dry-run'}\n`);
 
-  const [issues, labelIds] = await Promise.all([fetchOpenIssues(), fetchTypeLabelIds()]);
+  const issues = await fetchOpenIssues();
+  const labelIds = APPLY ? await fetchTypeLabelIds() : new Map();
   const plans = [];
   const skipped = [];
   const conflicts = [];
