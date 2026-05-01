@@ -313,6 +313,30 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * Multiplicative tint baked onto floor tiles. The custom iso packs are deliberately
+ * texture-first, but a light palette pass gives each biome a clearer identity at
+ * gameplay zoom: ochre shore, saturated meadow, dark spruce, blue-cold granite.
+ */
+const BIOME_TILE_TINTS: readonly number[] = [
+  0xffffff, // Sea uses water frames, not custom floor tiles
+  0xb08a62, // Rocky Shore
+  0xffd98a, // Sandy Shore
+  0x5f8a54, // Marsh / Bog
+  0xc69052, // Dry Heath
+  0x91a957, // Coastal Heath
+  0x83d65a, // Meadow
+  0x4fa85a, // Forest
+  0x356d52, // Spruce
+  0xa9b6c4, // Cold Granite
+  0xb9a88e, // Bare Summit
+  0xe8f6ff, // Snow Field
+];
+
+/** Visible terrain palette for the baked corruption stains in Level 1 zones. */
+const CORRUPTION_STAIN_DARK = 0x120719;
+const CORRUPTION_STAIN_EDGE = 0x3b124f;
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -5790,7 +5814,11 @@ export class GameScene extends Phaser.Scene {
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
         if (isRiverHere || isLakeHere) {
           // FIL-466: water tiles always use the shared iso-tiles river frame.
-          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
+          tileImg
+            .setTexture('iso-tiles', ISO_RIVER_FRAME)
+            .setTint(0xffffff)
+            .setAlpha(1)
+            .setPosition(isoX, isoY);
         } else if (biomeIdx in CUSTOM_TILE_PACKS) {
           // FIL-466: dual-grid hash selects one of 4 same-material variants to
           // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
@@ -5803,11 +5831,20 @@ export class GameScene extends Phaser.Scene {
           const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
           const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
           const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
-          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+          const biomeTint = BIOME_TILE_TINTS[biomeIdx] ?? 0xffffff;
+          tileImg
+            .setTexture(`${packName}-${tileHash}`)
+            .setTint(biomeTint)
+            .setAlpha(1)
+            .setPosition(isoX, isoY);
         } else {
           // FIL-466: biome 0 (Sea) — no pack; fall back to iso-tiles spritesheet.
           const frame = isoTileFrame(biomeIdx, detail);
-          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+          tileImg
+            .setTexture('iso-tiles', frame)
+            .setTint(BIOME_TILE_TINTS[biomeIdx] ?? 0xffffff)
+            .setAlpha(1)
+            .setPosition(isoX, isoY);
         }
         terrainRt.draw(tileImg);
 
@@ -5834,6 +5871,7 @@ export class GameScene extends Phaser.Scene {
     // Each tile covered by a path segment gets a semi-transparent diamond in the
     // path type's color, with per-pixel noise dithering for a natural dirt/stone look.
     this.stampRoadDiamonds(terrainRt, tilesX, tilesY);
+    this.stampCorruptionStains(terrainRt, tilesX, tilesY);
 
     // FIL-444: dithering pass, Wang water passes, cliff edges, blend strips, and
     // animated water overlays all removed — iso cube tiles provide natural depth cues
@@ -5846,6 +5884,73 @@ export class GameScene extends Phaser.Scene {
     this.tileDevW     = tilesX;
     this.tileDevElev  = biomeGrid;
     this.tileDevBiome = biomeIdxGrid;
+  }
+
+  /**
+   * Bake organic purple-black stains into corrupted Level 1 zones.
+   *
+   * The runtime zone rectangles are hidden during the current terrain-focused pass,
+   * so the threat needs to live in the terrain itself. Sampling CorruptionField per
+   * tile gives the stain tendrils/noisy gaps instead of a flat debug rectangle.
+   */
+  private stampCorruptionStains(
+    terrainRt: Phaser.GameObjects.RenderTexture,
+    tilesX: number,
+    tilesY: number,
+  ): void {
+    const stain = this.add.graphics().setVisible(false);
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
+
+    for (const zone of ZONES) {
+      if (zone.corruption <= 0) continue;
+
+      const minTx = Phaser.Math.Clamp(Math.floor(zone.x / TILE_SIZE), 0, tilesX - 1);
+      const maxTx = Phaser.Math.Clamp(Math.ceil((zone.x + zone.w) / TILE_SIZE), 0, tilesX - 1);
+      const minTy = Phaser.Math.Clamp(Math.floor(zone.y / TILE_SIZE), 0, tilesY - 1);
+      const maxTy = Phaser.Math.Clamp(Math.ceil((zone.y + zone.h) / TILE_SIZE), 0, tilesY - 1);
+      const zoneStrength = Phaser.Math.Clamp(zone.corruption / 100, 0, 1);
+
+      for (let ty = minTy; ty <= maxTy; ty++) {
+        for (let tx = minTx; tx <= maxTx; tx++) {
+          const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+          const wy = ty * TILE_SIZE + TILE_SIZE / 2;
+          if (wx < zone.x || wx > zone.x + zone.w || wy < zone.y || wy > zone.y + zone.h) continue;
+
+          const field = this.corruptionField.sample(wx, wy, zoneStrength);
+          if (field < 0.18) continue;
+
+          const alpha = Phaser.Math.Clamp((field - 0.12) * 0.62, 0.08, 0.34);
+          const color = field > 0.46 ? CORRUPTION_STAIN_DARK : CORRUPTION_STAIN_EDGE;
+          const { x: isoX, y: isoY } = worldToIso(tx * TILE_SIZE, ty * TILE_SIZE);
+
+          stain.clear();
+          stain.fillStyle(color, alpha);
+          stain.beginPath();
+          stain.moveTo(0, 0);
+          stain.lineTo(hw, hh);
+          stain.lineTo(0, ISO_TILE_H);
+          stain.lineTo(-hw, hh);
+          stain.closePath();
+          stain.fillPath();
+
+          // Occasional hot violet fissures give the stain HLD-style accent contrast.
+          if (field > 0.38 && ((tx * 31 + ty * 17) % 5 === 0)) {
+            stain.lineStyle(1, 0x8a2cff, alpha * 1.15);
+            stain.beginPath();
+            stain.moveTo(-hw * 0.45, hh * 0.9);
+            stain.lineTo(0, hh * 0.45);
+            stain.lineTo(hw * 0.42, hh * 0.72);
+            stain.strokePath();
+          }
+
+          stain.setPosition(isoX, isoY);
+          terrainRt.draw(stain);
+        }
+      }
+    }
+
+    stain.destroy();
   }
 
   // ─── Road tile auto-tiling (SBS Isometric Pathways Pack) ─────────────────────
