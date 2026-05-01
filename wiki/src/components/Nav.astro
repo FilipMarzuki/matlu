@@ -1,41 +1,62 @@
 ---
+import type { Lang } from '../lib/i18n-codex';
+import { t } from '../lib/i18n-codex';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = 'en' } = Astro.props;
 const gameUrl = import.meta.env.PUBLIC_GAME_URL ?? 'https://corewarden.app';
 
 const navItems = [
-  { href: '/',            en: 'Home',         sv: 'Hem'          },
-  { href: '/lore',        en: 'Lore',         sv: 'Lore'         },
-  { href: '/biomes',      en: 'Biomes',       sv: 'Biomer'       },
-  { href: '/creatures',   en: 'Creatures',    sv: 'Väsen'        },
-  { href: '/backlog/board', en: 'Backlog',    sv: 'Backlog'      },
-  { href: '/playtest',    en: 'Playtest',     sv: 'Testa spelet' },
-  { href: '/screenshots', en: 'Screenshots',  sv: 'Bilder'       },
-  { href: '/credits',     en: 'Credits',      sv: 'Skapare'      },
+  { path: '/',               key: 'nav.home'        },
+  { path: '/lore',           key: 'nav.lore'        },
+  { path: '/biomes',         key: 'nav.biomes'      },
+  { path: '/creatures',      key: 'nav.creatures'   },
+  { path: '/backlog/board',  key: 'nav.backlog'     },
+  { path: '/playtest',       key: 'nav.playtest'    },
+  { path: '/screenshots',    key: 'nav.screenshots' },
+  { path: '/credits',        key: 'nav.credits'     },
 ];
 
 const pathname = Astro.url.pathname;
+// Locale-neutral base path (strip /sv prefix for active link detection)
+const basePath = lang === 'sv' ? (pathname.replace(/^\/sv/, '') || '/') : pathname;
+
+// Build a locale-prefixed href
+function localHref(path: string): string {
+  if (lang === 'sv') return path === '/' ? '/sv' : `/sv${path}`;
+  return path;
+}
+
+// Language switcher: link to the same page in the other locale
+const switchHref = lang === 'en'
+  ? (pathname === '/' ? '/sv' : `/sv${pathname}`)
+  : basePath;
+const switchLabel = lang === 'en' ? 'SV' : 'EN';
 ---
 
 <nav>
-  <a href="/" class="site-title">Matlu Codex</a>
+  <a href={localHref('/')} class="site-title">Matlu Codex</a>
   <ul>
     {navItems.map(item => (
       <li>
-        <a href={item.href} class={pathname.startsWith(item.href) && item.href !== '/' ? 'active' : pathname === item.href ? 'active' : ''}>
-          <span lang="en">{item.en}</span>
-          <span lang="sv">{item.sv}</span>
+        <a
+          href={localHref(item.path)}
+          class={basePath.startsWith(item.path) && item.path !== '/' ? 'active' : basePath === item.path ? 'active' : ''}
+        >
+          {t(item.key, lang)}
         </a>
       </li>
     ))}
   </ul>
   <div class="right-group">
-    <!-- Language toggle: shows the OTHER language as the button label -->
-    <button id="lang-toggle" class="lang-btn" title="Switch language / Byt språk">
-      <span lang="en">SV</span>
-      <span lang="sv">EN</span>
-    </button>
+    <!-- Language switcher: links to the equivalent page in the other locale -->
+    <a href={switchHref} class="lang-link">{switchLabel}</a>
     <!-- Cross-links to other Matlu projects -->
     <a href={`${gameUrl}/biome`} class="dev-link" target="_blank" rel="noopener">
-      World Forge →
+      {t('nav.world_forge', lang)}
     </a>
     <a href={`${gameUrl}/sf`} class="dev-link" target="_blank" rel="noopener">
       Settlement Forge →
@@ -44,19 +65,10 @@ const pathname = Astro.url.pathname;
       Building Forge →
     </a>
     <a href={import.meta.env.PUBLIC_DEV_URL ?? 'https://agentic-experiments.vercel.app'} class="dev-link" target="_blank" rel="noopener">
-      Dev Log →
+      {t('nav.dev_log', lang)}
     </a>
   </div>
 </nav>
-
-<script>
-  document.getElementById('lang-toggle')!.addEventListener('click', () => {
-    const html = document.documentElement;
-    const next = html.lang === 'sv' ? 'en' : 'sv';
-    html.lang = next;
-    document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: next } }));
-  });
-</script>
 
 <style>
   nav {
@@ -89,12 +101,10 @@ const pathname = Astro.url.pathname;
     gap: 0.5rem;
   }
 
-  .lang-btn {
-    background: none;
+  .lang-link {
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--text-dim);
-    cursor: pointer;
     font-family: 'Outfit', sans-serif;
     font-size: 0.78rem;
     font-weight: 700;
@@ -102,7 +112,7 @@ const pathname = Astro.url.pathname;
     padding: 0.2rem 0.5rem;
     transition: border-color 0.15s, color 0.15s;
   }
-  .lang-btn:hover { border-color: var(--accent); color: var(--accent-hi); }
+  .lang-link:hover { border-color: var(--accent); color: var(--accent-hi); text-decoration: none; }
 
   .dev-link {
     color: var(--text-dim);

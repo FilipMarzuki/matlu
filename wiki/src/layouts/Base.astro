@@ -5,11 +5,10 @@
  * Props:
  *   title       — injected into <title> and og:title
  *   description — optional meta description
- *   lang        — page language; sets <html lang> and hreflang; defaults to 'en'
+ *   lang        — page language; auto-detected from /sv prefix if omitted
  */
 import Nav from '../components/Nav.astro';
-
-type Lang = 'en' | 'sv';
+import type { Lang } from '../lib/i18n-codex';
 
 interface Props {
   title: string;
@@ -17,12 +16,9 @@ interface Props {
   lang?: Lang;
 }
 
-const {
-  title,
-  description = 'Matlu Codex — lore, biomes, and creatures for Core Warden.',
-  lang = 'en',
-} = Astro.props;
-
+const { title, description = 'Matlu Codex — lore, biomes, and creatures for Core Warden.', lang: langProp } = Astro.props;
+// Auto-detect language from URL: /sv/... → 'sv', everything else → 'en'
+const lang: Lang = langProp ?? (Astro.url.pathname.startsWith('/sv') ? 'sv' : 'en');
 const siteTitle = 'Matlu Codex';
 const pageTitle = title === siteTitle ? siteTitle : `${title} — ${siteTitle}`;
 
@@ -263,7 +259,7 @@ function t(l: Lang, key: keyof typeof footerStrings.en): string {
   </head>
 
   <body>
-    <Nav />
+    <Nav lang={lang} />
     <!-- Named slot for full-bleed sections (hero etc.) that must escape main's max-width -->
     <slot name="hero" />
     <main>
