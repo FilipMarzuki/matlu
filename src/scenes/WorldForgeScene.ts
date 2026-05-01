@@ -941,7 +941,7 @@ export class WorldForgeScene extends Phaser.Scene {
 
     const roadName = WorldForgeScene.ROAD_TYPES[this.roadTypeIdx];
     this.biomeLabel!.setText(
-      `World Forge \u2014 [${this.selectedBiome}] ${BIOME_NAMES[this.selectedBiome]}` +
+      `WorldForge v0.8 \u2014 [${this.selectedBiome}] ${BIOME_NAMES[this.selectedBiome]}` +
       `  \u2194  [${this.selectedSecBiome}] ${BIOME_NAMES[this.selectedSecBiome]}` +
       `  |  road: ${roadName} (R)`
     );

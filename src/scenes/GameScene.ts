@@ -324,10 +324,9 @@ function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky Shore / Sandy Shore
   if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
   if (elev < 0.68) {
-    // Mid-altitude band — ~55% meadow, ~30% forest, ~15% heath.
-    if (moist > 0.55) return 7; // Forest (~30%)
-    if (moist > 0.15) return 6; // Meadow (~55% — broad mid-range)
-    return 5;                   // Coastal Heath (very dry, ~15%)
+    // Mid-altitude band — ~45% meadow, ~55% forest.
+    if (moist > 0.55) return 7; // Forest
+    return 6;                   // Meadow
   }
   if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
   return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit

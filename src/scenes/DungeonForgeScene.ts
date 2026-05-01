@@ -1811,6 +1811,8 @@ export class DungeonForgeScene extends Phaser.Scene {
 
     // ── Status text — shifted down 20 px to sit below the HP bars ───────────
     // HUD anchored left — keeps it away from the right-side nav panel.
+    this.add.text(12, 16, 'DungeonForge v0.6', { ...base, color: '#666666' })
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2);
     this.hudWave = this.add
       .text(12, 32, 'Wave 0', { ...base, color: '#99ddff' })
       .setOrigin(0, 0).setScrollFactor(0).setDepth(2);

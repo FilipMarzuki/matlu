@@ -20,6 +20,14 @@ import type { ArchitectureStyle as DbArchStyle, ArchitectureBlock as DbBlock, Bu
 
 // ── Registry types (minimal — just what we need) ────────────────────────────
 
+interface SpriteConfig {
+  key: string;
+  footprintW: number;
+  footprintD: number;
+  offsetX: number;
+  offsetY: number;
+}
+
 interface RegistryEntry {
   id: string;
   name: string;
@@ -27,6 +35,7 @@ interface RegistryEntry {
   baseSizeRange: [number, number];
   baseDepthRange?: [number, number];
   heightHint: string;
+  sprite?: SpriteConfig;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -267,8 +276,14 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Parse architecture styles from JSON fallback; Supabase upgrade below
     const archData = this.cache.json.get('architecture') as { styles: ArchitectureStyle[] };
     this.archStyles = archData.styles;
-    const defaultArchIdx = this.archStyles.findIndex(a => a.id === 'ARCH-6');
+    // Default to Ikibeki Dencraft if available, else ARCH-6
+    const defaultArchIdx = this.archStyles.findIndex(a =>
+      a.id === 'IKIBEKI-DENCRAFT' || a.name === 'Ikibeki Dencraft');
     if (defaultArchIdx >= 0) this.currentArchIdx = defaultArchIdx;
+    else {
+      const fallback = this.archStyles.findIndex(a => a.id === 'ARCH-6');
+      if (fallback >= 0) this.currentArchIdx = fallback;
+    }
 
     // Async: upgrade to Supabase data when available
     this.loadFromSupabase();
@@ -426,7 +441,13 @@ export class BuildingForgeScene extends Phaser.Scene {
       baseDepthRange: b.base_depth_min != null ? [b.base_depth_min, b.base_depth_max ?? b.base_depth_min] as [number, number] : undefined,
       heightHint: b.height_hint ?? 'standard',
     }));
+    // Sort Ikibeki Dencraft to the top of the architecture list
+    const ikiCheck = (a: ArchitectureStyle) =>
+      a.id === 'IKIBEKI-DENCRAFT' || a.name === 'Ikibeki Dencraft';
+    this.archStyles.sort((a, b) => (ikiCheck(b) ? 1 : 0) - (ikiCheck(a) ? 1 : 0));
+    this.currentArchIdx = 0;
     console.log(`[BuildingForge] loaded ${this.archStyles.length} arch styles, ${this.entries.length} buildings from Supabase`);
+    this.rebuild();
   }
 
   private loadBuilding(): void {
@@ -587,6 +608,24 @@ export class BuildingForgeScene extends Phaser.Scene {
     }
   }
 
+  /** Load sprite config from registry entry, or fall back to defaults. */
+  private loadSpriteConfig(e: RegistryEntry): void {
+    if (e.sprite) {
+      this.footprintW = e.sprite.footprintW;
+      this.footprintD = e.sprite.footprintD;
+      this.spriteOffX = e.sprite.offsetX;
+      this.spriteOffY = e.sprite.offsetY;
+    } else {
+      this.footprintW = e.baseSizeRange?.[1] ?? 3;
+      this.footprintD = e.baseDepthRange?.[1] ?? this.footprintW;
+      this.spriteOffX = 0;
+      this.spriteOffY = 0;
+    }
+    this.resetFootprintMask();
+    this.comparisonIdx = 0;
+    this.spriteVariantIdx = 0;
+  }
+
   /** Jump currentIdx to the nearest building (forward) that has comparison sprites. */
   private jumpToNextSpriteBuilding(): void {
     const n = this.entries.length;
@@ -594,14 +633,7 @@ export class BuildingForgeScene extends Phaser.Scene {
       const idx = (this.currentIdx + i) % n;
       if (BuildingForgeScene.comparisonKeysFor(this.entries[idx].id).length > 0) {
         this.currentIdx = idx;
-        const e = this.entries[idx];
-        this.footprintW = e.baseSizeRange?.[1] ?? 3;
-        this.footprintD = e.baseDepthRange?.[1] ?? this.footprintW;
-        this.resetFootprintMask();
-        this.spriteOffX = 0;
-        this.spriteOffY = 0;
-        this.comparisonIdx = 0;
-        this.spriteVariantIdx = 0;
+        this.loadSpriteConfig(this.entries[idx]);
         return;
       }
     }
@@ -618,15 +650,7 @@ export class BuildingForgeScene extends Phaser.Scene {
       }
     }
     this.currentIdx = next;
-    this.comparisonIdx = 0;
-    this.spriteVariantIdx = 0;
-    // Reset footprint to building's base size.
-    const e = this.entries[next];
-    this.footprintW = e.baseSizeRange?.[1] ?? 3;
-    this.footprintD = e.baseDepthRange?.[1] ?? this.footprintW;
-    this.resetFootprintMask();
-    this.spriteOffX = 0;
-    this.spriteOffY = 0;
+    this.loadSpriteConfig(this.entries[next]);
     this.loadBuilding();
     this.rebuild();
   }
@@ -638,7 +662,6 @@ export class BuildingForgeScene extends Phaser.Scene {
     document.getElementById('bf-control-panel')?.remove();
 
     // Group entries by category for the dropdown
-    const categories = [...new Set(this.entries.map(e => e.category))];
 
     const panel = document.createElement('div');
     panel.id = 'bf-control-panel';
@@ -686,7 +709,7 @@ export class BuildingForgeScene extends Phaser.Scene {
           margin-top: 4px; line-height: 1.3;
         }
       </style>
-      <h3>Building Forge</h3>
+      <h3>BuildingForge v0.5</h3>
 
       <div>
         <label>Architecture</label>
@@ -696,14 +719,6 @@ export class BuildingForgeScene extends Phaser.Scene {
       </div>
 
       <div class="bf-divider"></div>
-
-      <div>
-        <label>Category</label>
-        <select id="bf-category">
-          <option value="all">All</option>
-          ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
-        </select>
-      </div>
 
       <div>
         <label>Building</label>
@@ -744,6 +759,11 @@ export class BuildingForgeScene extends Phaser.Scene {
 
       <div class="bf-divider"></div>
 
+      <button class="bf-btn" id="bf-save-sprite" style="background:#2a4a2a; color:#88ff88;">Save Sprite Config</button>
+      <div id="bf-save-status" style="color:#66aa66; font-size:10px; display:none;"></div>
+
+      <div class="bf-divider"></div>
+
       <button class="bf-btn" id="bf-reset">Reset (R)</button>
 
       <div style="display:flex; align-items:center; gap:6px;">
@@ -769,12 +789,6 @@ export class BuildingForgeScene extends Phaser.Scene {
     document.body.appendChild(panel);
 
     const sel = (id: string) => document.getElementById(id) as HTMLSelectElement;
-
-    // Category filter
-    sel('bf-category').addEventListener('change', (e) => {
-      const cat = (e.target as HTMLSelectElement).value;
-      this.updateBuildingDropdown(cat);
-    });
 
     // Building selection
     sel('bf-building').addEventListener('change', (e) => {
@@ -814,6 +828,34 @@ export class BuildingForgeScene extends Phaser.Scene {
     document.getElementById('bf-sprites')!.addEventListener('change', (e) => {
       this.showSprites = (e.target as HTMLInputElement).checked;
       this.rebuild();
+    });
+
+    // Save sprite config to registry entry + download updated JSON
+    document.getElementById('bf-save-sprite')!.addEventListener('click', () => {
+      const entry = this.entries[this.currentIdx];
+      const spriteKeys = BuildingForgeScene.comparisonKeysFor(entry.id);
+      const key = spriteKeys.length > 0 ? spriteKeys[this.comparisonIdx % spriteKeys.length] : '';
+      entry.sprite = {
+        key,
+        footprintW: this.footprintW,
+        footprintD: this.footprintD,
+        offsetX: this.spriteOffX,
+        offsetY: this.spriteOffY,
+      };
+      // Download the full registry as JSON so the user can paste it back.
+      const fullData = { buildings: this.entries };
+      const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'building-registry.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      const status = document.getElementById('bf-save-status');
+      if (status) {
+        status.textContent = `Saved ${entry.id}: ${key} ${this.footprintW}×${this.footprintD} offset(${this.spriteOffX},${this.spriteOffY})`;
+        status.style.display = 'block';
+      }
     });
 
     // Sprite offset inputs
@@ -1012,27 +1054,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     return counts;
   }
 
-  private updateBuildingDropdown(category: string): void {
-    const select = document.getElementById('bf-building') as HTMLSelectElement;
-    if (!select) return;
-
-    const filtered = category === 'all'
-      ? this.entries
-      : this.entries.filter(e => e.category === category);
-
-    select.innerHTML = filtered.map(e => {
-      const idx = this.entries.indexOf(e);
-      return `<option value="${idx}"${idx === this.currentIdx ? ' selected' : ''}>${e.name} (${e.id})</option>`;
-    }).join('');
-
-    // If current building not in filtered list, switch to first
-    if (filtered.length > 0 && !filtered.includes(this.entries[this.currentIdx])) {
-      this.currentIdx = this.entries.indexOf(filtered[0]);
-      select.value = String(this.currentIdx);
-      this.loadBuilding();
-      this.rebuild();
-    }
-  }
+  // Category filter removed — focusing on Ikibeki culture only.
+  // Restore updateBuildingDropdown(category) from git if category filter is needed again.
 
   private syncPanel(): void {
     const entry = this.entries[this.currentIdx];

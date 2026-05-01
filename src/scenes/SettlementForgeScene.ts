@@ -964,6 +964,7 @@ export class SettlementForgeScene extends Phaser.Scene {
 
     // ── Top-left: generated stats (compact — controls are in the DOM panel) ─
     const lines = [
+      'SettlementForge v0.4',
       `Radius:    ${this.spec.radius}px  (${Math.ceil(this.spec.radius / this.TILE)} tiles)`,
       `Secondary: ${this.spec.secondary.length ? this.spec.secondary.join(', ') : 'none'}`,
       `Anomalies: ${this.spec.anomalies.length ? this.spec.anomalies.map(a => a.type).join(', ') : 'none'}`,

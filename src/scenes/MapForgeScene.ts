@@ -38,10 +38,9 @@ function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky/Sandy Shore
   if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
   if (elev < 0.68) {
-    // Mid-altitude band — ~55% meadow, ~30% forest, ~15% heath.
-    if (moist > 0.55) return 7; // Forest (~30%)
-    if (moist > 0.15) return 6; // Meadow (~55% — broad mid-range)
-    return 5;                   // Coastal Heath (very dry, ~15%)
+    // Mid-altitude band — ~45% meadow, ~55% forest.
+    if (moist > 0.55) return 7; // Forest
+    return 6;                   // Meadow
   }
   if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
   return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
@@ -98,7 +97,7 @@ export class MapForgeScene extends Phaser.Scene {
 
     // Info label.
     this.add.text(8, 8,
-      'MapForge — WASD pan, scroll zoom, T settlement overlay, Shift+arrows seed/tier', {
+      'MapForge v0.3 — WASD pan, scroll zoom, T settlement overlay, Shift+arrows seed/tier', {
         fontSize: '11px', color: '#aaaaaa', fontFamily: 'monospace',
         backgroundColor: '#000000cc', padding: { x: 4, y: 2 },
       }).setScrollFactor(0).setDepth(9000);
@@ -145,10 +144,12 @@ export class MapForgeScene extends Phaser.Scene {
     // Height of one cliff level in screen pixels.
     const CLIFF_H = ISO_TILE_H;
 
-    // Pre-compute elevation grid so we can look up neighbours for cliff edges.
-    const elevGrid = new Uint8Array(tilesX * tilesY);
-    const valGrid  = new Float32Array(tilesX * tilesY);
-    const biomeGrid = new Uint8Array(tilesX * tilesY);
+    // ── Two-pass elevation: natural for biome assignment, visual for rendering ──
+    // Pass 1: full elevation gradient with varied terrain — mountains, slopes,
+    // valleys. This drives biome assignment so placement feels natural (forest
+    // on slopes, marsh in dips, meadow on plateaus).
+    const naturalElev = new Float32Array(tilesX * tilesY);
+    const biomeGrid   = new Uint8Array(tilesX * tilesY);
 
     for (let ty = 0; ty < tilesY; ty++) {
       for (let tx = 0; tx < tilesX; tx++) {
@@ -158,28 +159,38 @@ export class MapForgeScene extends Phaser.Scene {
         const moist  = moistNoise.fbm(tx * MOIST_SCALE, ty * MOIST_SCALE, 3, 0.5);
 
         const perpDiag     = (tx / tilesX - (1 - ty / tilesY)) / 2;
-        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.22), 2.2) * 8.0;
-        // Ocean: diagonal SE + right edge pull. The right-edge term makes
-        // ocean wrap along the eastern map boundary for a more natural coastline.
+        const mountainBias = Math.pow(Math.max(0, -perpDiag - 0.15), 1.8) * 5.0;
         const rightEdge    = Math.pow(Math.max(0, tx / tilesX - 0.75), 1.5) * 2.0;
         const bottomEdge   = Math.pow(Math.max(0, ty / tilesY - 0.80), 1.5) * 2.5;
-        const oceanBias    = Math.pow(Math.max(0, perpDiag - 0.18), 1.2) * 3.5
+        const oceanBias    = Math.pow(Math.max(0, perpDiag - 0.12), 1.2) * 3.5
                            + rightEdge + bottomEdge;
-        const baseVal      = (base - 0.5) * 0.15 + 0.48 + mountainBias - oceanBias;
-
-        const _d0 = Math.abs(baseVal - 0.25);
-        const _d1 = Math.abs(baseVal - 0.45);
-        const _d2 = Math.abs(baseVal - 0.62);
-        const _d3 = Math.abs(baseVal - 0.78);
-        const _nd = Math.min(_d0, Math.min(_d1, Math.min(_d2, _d3)));
-        const cliffFade = Math.min(1, _nd / 0.12);
-        const val = Math.max(0, Math.min(1.2, baseVal + detail * 0.20 * cliffFade));
+        // Full-range elevation for biome diversity
+        const baseVal = base * 0.65 + mountainBias - oceanBias;
+        const val = Math.max(0, Math.min(1.2, baseVal + detail * 0.25));
 
         const idx = ty * tilesX + tx;
-        valGrid[idx]   = val;
-        elevGrid[idx]  = MapForgeScene.getElev(val);
-        biomeGrid[idx] = tileBiomeIdx(val, temp, moist);
+        naturalElev[idx] = val;
+        biomeGrid[idx]   = tileBiomeIdx(val, temp, moist);
       }
+    }
+
+    // Pass 2: visual elevation — flatten the corridor, only mountains get height.
+    // Sea stays at 0, corridor is flat at level 0, mountains rise steeply.
+    const elevGrid = new Uint8Array(tilesX * tilesY);
+    const valGrid  = new Float32Array(tilesX * tilesY);
+    for (let i = 0; i < naturalElev.length; i++) {
+      const nat = naturalElev[i];
+      let visual: number;
+      if (nat < 0.25) {
+        visual = nat;               // sea stays sea
+      } else if (nat < 0.68) {
+        visual = 0.35;              // entire corridor → flat level 0
+      } else {
+        // Mountains: remap 0.68–1.2 → 0.50–1.2 for gentle cliff steps
+        visual = 0.50 + (nat - 0.68) * (0.70 / 0.52);
+      }
+      valGrid[i]  = visual;
+      elevGrid[i] = MapForgeScene.getElev(visual);
     }
 
     // ── Rivers: gradient descent from mountain to ocean ──────────────────────
