@@ -409,7 +409,7 @@ export class MapForgeScene extends Phaser.Scene {
         x: s.x, y: s.y, geography: geo,
         features: ['crossroads'], adjacentResources: ['timber', 'fertile-soil'],
         nearCorruption: false, tradeRouteCount: 1, nearbySettlements: 1,
-        cultureId: 'coastborn',
+        cultureId: 'ikibeki',
       };
 
       const { spec, buildings } = generateSettlement(site, s.name, rng, this.settlementTier);

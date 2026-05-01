@@ -151,6 +151,7 @@ export class SettlementForgeScene extends Phaser.Scene {
 
     const c = params.get('culture');
     if (c) { const i = getAllCultures().findIndex(x => x.id === c); if (i >= 0) this.currentCultureIdx = i; }
+    else { const iki = getAllCultures().findIndex(x => x.id === 'ikibeki'); if (iki >= 0) this.currentCultureIdx = iki; }
 
     const s = parseInt(params.get('seed') ?? '', 10);
     if (!isNaN(s)) this.currentSeed = s;
