@@ -7,7 +7,8 @@
 import { appendFileSync } from 'fs';
 
 const TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-const REPO = process.env.GITHUB_REPOSITORY || process.argv.find((arg) => arg.includes('/')) || 'FilipMarzuki/matlu';
+const repoArg = process.argv.slice(2).find((arg) => !arg.startsWith('--') && /^[^/\s]+\/[^/\s]+$/.test(arg));
+const REPO = process.env.GITHUB_REPOSITORY || repoArg || 'FilipMarzuki/matlu';
 const APPLY = process.argv.includes('--apply');
 const TYPE_LABELS = [
   'type:feature',
