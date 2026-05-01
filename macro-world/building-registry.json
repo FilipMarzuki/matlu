@@ -54,7 +54,14 @@
       "baseDepthRange": [
         3,
         3
-      ]
+      ],
+      "sprite": {
+        "key": "bld-longhouse",
+        "footprintW": 3,
+        "footprintD": 6,
+        "offsetX": 33,
+        "offsetY": -99
+      }
     },
     {
       "id": "market-hall",
