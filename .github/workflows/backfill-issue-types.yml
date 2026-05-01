@@ -1,0 +1,41 @@
+name: Backfill issue type labels
+
+# One-shot maintenance workflow for FIL-546. It classifies currently-open
+# GitHub issues with exactly one type:* label using deterministic heuristics.
+# Dry-run is the default so the summary can be reviewed before applying labels.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Use dry-run to preview, apply to write missing type:* labels.'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+
+      - name: Backfill type labels
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ inputs.mode }}" = "apply" ]; then
+            node .github/scripts/backfill-issue-types.js --apply
+          else
+            node .github/scripts/backfill-issue-types.js --dry-run
+          fi
