@@ -37,6 +37,31 @@ import { placeBuildings } from '../world/SettlementPlacement';
 import type { SettlementSpec } from '../world/SettlementSpec';
 import { insertFeedback, GAME_VERSION } from '../lib/feedback';
 
+// ── Sprite config types (mirrors BuildingForgeScene registry) ────────────────
+
+interface SpriteConfig {
+  key: string;
+  footprintW: number;
+  footprintD: number;
+  offsetX: number;
+  offsetY: number;
+  flipped?: boolean;
+  exits?: { tx: number; ty: number }[];
+  done?: boolean;
+  needsEdit?: boolean;
+}
+
+interface RegistryEntry {
+  id: string;
+  name: string;
+  category: string;
+  baseSizeRange: [number, number];
+  baseDepthRange?: [number, number];
+  heightHint: string;
+  sprite?: SpriteConfig;
+  sprites?: SpriteConfig[];
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const GEOGRAPHIES: Geography[] = [
@@ -132,13 +157,80 @@ export class SettlementForgeScene extends Phaser.Scene {
   // ── Control panel (DOM) ───────────────────────────────────────────────────
   private controlPanel: HTMLDivElement | null = null;
 
+  // ── Building registry (sprite configs) ────────────────────────────────────
+  /** Map from building id → first done SpriteConfig with a non-empty key. */
+  private spriteConfigs = new Map<string, SpriteConfig>();
+
   constructor() { super({ key: 'SettlementForgeScene' }); }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
+  preload(): void {
+    // Load building registry JSON so we can look up sprite configs per building
+    this.load.json('building-registry', '/macro-world/building-registry.json');
+
+    // ── Building sprite images ──────────────────────────────────────────────
+    // Same keys as BuildingForgeScene so the texture cache is shared if both
+    // scenes run in the same Phaser instance.
+
+    // Ikibeki Dencraft building sprites (only pack used for now)
+    const ikiBase = '/assets/packs/building-objects/ikibeki';
+    this.load.image('iki-campfire',       `${ikiBase}/campfire.png`);
+    this.load.image('iki-well',           `${ikiBase}/well.png`);
+    this.load.image('iki-guard-post',     `${ikiBase}/guard-post.png`);
+    this.load.image('iki-shrine',         `${ikiBase}/shrine.png`);
+    this.load.image('iki-spirit-shrine',  `${ikiBase}/spirit-shrine.png`);
+    this.load.image('iki-watchtower',     `${ikiBase}/watchtower.png`);
+    this.load.image('iki-cottage',        `${ikiBase}/cottage.png`);
+    this.load.image('iki-ger-cottage',    `${ikiBase}/ger-cottage.png`);
+    this.load.image('iki-ger-dwelling',   `${ikiBase}/ger-dwelling.png`);
+    this.load.image('iki-ger-smithy',     `${ikiBase}/ger-smithy.png`);
+    this.load.image('iki-smithy',         `${ikiBase}/smithy.png`);
+    this.load.image('iki-farmstead',      `${ikiBase}/farmstead.png`);
+    this.load.image('iki-longhouse',      `${ikiBase}/longhouse.png`);
+    this.load.image('iki-clan-lodge',     `${ikiBase}/clan-lodge.png`);
+    this.load.image('iki-shelter-hut',    `${ikiBase}/shelter-hut.png`);
+    this.load.image('iki-merchant-stall', `${ikiBase}/merchant-stall.png`);
+    this.load.image('iki-tavern',         `${ikiBase}/tavern.png`);
+    this.load.image('iki-warehouse',      `${ikiBase}/warehouse.png`);
+    this.load.image('iki-stables',        `${ikiBase}/stables.png`);
+    this.load.image('iki-sawmill',        `${ikiBase}/sawmill.png`);
+    this.load.image('iki-smokehouse',     `${ikiBase}/smokehouse.png`);
+    this.load.image('iki-yurt-small',     `${ikiBase}/yurt-small.png`);
+    this.load.image('iki-yurt-large',     `${ikiBase}/yurt-large.png`);
+    this.load.image('iki-ancestor-stone', `${ikiBase}/ancestor-stone.png`);
+    this.load.image('iki-market-hall',    `${ikiBase}/market-hall.png`);
+    this.load.image('iki-granary',        `${ikiBase}/granary.png`);
+    this.load.image('iki-temple',         `${ikiBase}/temple.png`);
+    this.load.image('iki-root-cellar',    `${ikiBase}/root-cellar.png`);
+    this.load.image('iki-barracks',       `${ikiBase}/barracks.png`);
+    this.load.image('iki-town-hall',      `${ikiBase}/town-hall.png`);
+    this.load.image('iki-inn',            `${ikiBase}/inn.png`);
+    this.load.image('iki-brewery',        `${ikiBase}/brewery.png`);
+    this.load.image('iki-barn',           `${ikiBase}/barn.png`);
+    this.load.image('iki-armory',         `${ikiBase}/armory.png`);
+    this.load.image('iki-palisade-gate',  `${ikiBase}/palisade-gate.png`);
+  }
+
   create(): void {
     // Load culture data from Supabase (JSON fallback works immediately)
     initSettlementData();
+
+    // Parse building registry to build a map of building id → sprite config.
+    // We pick the first variant with done=true and a non-empty key.
+    const regData = this.cache.json.get('building-registry') as { buildings: RegistryEntry[] } | undefined;
+    if (regData?.buildings) {
+      for (const entry of regData.buildings) {
+        // Migrate legacy single sprite → sprites array
+        const variants = entry.sprites ?? (entry.sprite ? [entry.sprite] : []);
+        const usable = variants.find(v => v.done && v.key);
+        if (usable) {
+          this.spriteConfigs.set(entry.id, usable);
+        }
+      }
+      console.log(`[SF] Loaded ${this.spriteConfigs.size} building sprite configs from registry`);
+    }
+
     this.cameras.main.setBackgroundColor('#1a1a2e');
 
     // Parse URL params
@@ -902,35 +994,71 @@ export class SettlementForgeScene extends Phaser.Scene {
     // Sort by iso depth (tx + ty) so back buildings render first
     tagged.sort((a, b) => (a.tx + a.ty) - (b.tx + b.ty));
 
+    // Sprite scale: one game pixel = ISO_W/32 screen pixels (32px = 1 tile
+    // in the source sprite). Same formula as BuildingForgeScene.
+    const spriteScale = this.ISO_W / 32;
+
     // Draw
     for (const p of tagged) {
-      const color = p.fallback
-        ? this.darken(CAT_COLORS[p.building.category] ?? 0x888888, 0.6)
-        : CAT_COLORS[p.building.category] ?? 0x888888;
-      // Flat footprint view — just the ground layer, no height.
-      // Building design (height, roof, etc.) belongs in a separate tool.
-      const heightPx = 0;
+      const depth = 2 + (p.tx + p.ty) * 0.01;
+      const spriteConf = this.spriteConfigs.get(p.building.id);
 
-      const gfx = this.add.graphics().setDepth(2 + (p.tx + p.ty) * 0.01);
-      this.buildingObjects.push(gfx);
+      // Check if the sprite texture is actually loaded (key must be non-empty
+      // and present in the texture manager)
+      const hasSprite = spriteConf
+        && spriteConf.key
+        && this.textures.exists(spriteConf.key);
 
-      const corners = this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, heightPx, color, 0.85);
+      if (hasSprite) {
+        // ── Sprite rendering ──────────────────────────────────────────────
+        // Anchor point: centre of the building's tile diamond.
+        const anchor = this.isoPos(p.tx, p.ty);
+        const anchorX = anchor.x;
+        const anchorY = anchor.y + this.ISO_H / 2; // centre of diamond, not north apex
 
-      // Mark the entrance edge on the flat footprint diamond
-      if (p.entranceSide) {
-        const { topN, topE, topS, topW } = corners;
-        gfx.lineStyle(3, 0xff0000, 0.9);
-        switch (p.entranceSide) {
-          case 'n': gfx.lineBetween(topN.x, topN.y, topE.x, topE.y); break;
-          case 'e': gfx.lineBetween(topE.x, topE.y, topS.x, topS.y); break;
-          case 's': gfx.lineBetween(topS.x, topS.y, topW.x, topW.y); break;
-          case 'w': gfx.lineBetween(topW.x, topW.y, topN.x, topN.y); break;
+        const img = this.add.image(
+          anchorX + spriteConf.offsetX * spriteScale,
+          anchorY + spriteConf.offsetY * spriteScale,
+          spriteConf.key,
+        );
+        img.setScale(spriteScale).setOrigin(0.5, 0.5).setDepth(depth);
+        if (spriteConf.flipped) img.setFlipX(true);
+        this.buildingObjects.push(img);
+
+        // Draw a subtle footprint diamond underneath the sprite so the
+        // grid position is still visible when debugging.
+        const color = CAT_COLORS[p.building.category] ?? 0x888888;
+        const gfx = this.add.graphics().setDepth(depth - 0.005);
+        this.buildingObjects.push(gfx);
+        this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, 0, color, 0.2);
+      } else {
+        // ── Fallback: coloured iso box (placeholder) ──────────────────────
+        const color = p.fallback
+          ? this.darken(CAT_COLORS[p.building.category] ?? 0x888888, 0.6)
+          : CAT_COLORS[p.building.category] ?? 0x888888;
+        const heightPx = 0;
+
+        const gfx = this.add.graphics().setDepth(depth);
+        this.buildingObjects.push(gfx);
+
+        const corners = this.drawIsoBox(gfx, p.tx, p.ty, p.widthT, p.depthT, heightPx, color, 0.85);
+
+        // Mark the entrance edge on the flat footprint diamond
+        if (p.entranceSide) {
+          const { topN, topE, topS, topW } = corners;
+          gfx.lineStyle(3, 0xff0000, 0.9);
+          switch (p.entranceSide) {
+            case 'n': gfx.lineBetween(topN.x, topN.y, topE.x, topE.y); break;
+            case 'e': gfx.lineBetween(topE.x, topE.y, topS.x, topS.y); break;
+            case 's': gfx.lineBetween(topS.x, topS.y, topW.x, topW.y); break;
+            case 'w': gfx.lineBetween(topW.x, topW.y, topN.x, topN.y); break;
+          }
         }
       }
 
       // Number = placement order (not render order)
       const { x, y } = this.isoPos(p.tx, p.ty);
-      const numY = y + this.ISO_H / 2 - heightPx * 0.5;
+      const numY = y + this.ISO_H / 2;
       const numLabel = this.add.text(x, numY, `${p.placementOrder}`, {
         fontSize: '11px', color: '#ffffff', fontFamily: 'monospace',
         stroke: '#000000', strokeThickness: 3, fontStyle: 'bold',
@@ -938,10 +1066,10 @@ export class SettlementForgeScene extends Phaser.Scene {
       this.labelObjects.push(numLabel);
 
       // Name + coordinates label above
-      const labelY = y + this.ISO_H / 2 - heightPx - 6;
+      const labelY = y + this.ISO_H / 2 - 6;
       const label = this.add.text(x, labelY,
-        `${p.building.id} (${p.tx},${p.ty}) ${p.widthT}x${p.depthT}`, {
-        fontSize: '7px', color: '#cccccc', fontFamily: 'monospace',
+        `${p.building.id} (${p.tx},${p.ty}) ${p.widthT}x${p.depthT}${hasSprite ? ' [S]' : ''}`, {
+        fontSize: '7px', color: hasSprite ? '#88ffaa' : '#cccccc', fontFamily: 'monospace',
         stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5, 1).setDepth(10 + (p.tx + p.ty) * 0.01);
       this.labelObjects.push(label);

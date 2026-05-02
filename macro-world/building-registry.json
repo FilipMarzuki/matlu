@@ -1,1838 +1,1193 @@
 {
-  "_doc": "Exported from Supabase. Do not edit — run npm run macro:export to regenerate.",
   "buildings": [
-    {
-      "id": "campfire",
-      "name": "Campfire",
-      "role": "Communal gathering point for outposts too small for a plaza",
-      "category": "civic",
-      "minTier": 1,
-      "zone": "inner",
-      "baseSizeRange": [
-        1,
-        1
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "maxTier": 2
-      },
-      "count": {
-        "1": 1,
-        "2": 1
-      },
-      "placementHints": [
-        "centre"
-      ],
-      "loreHook": "The fire is never allowed to go out"
-    },
-    {
-      "id": "longhouse",
-      "name": "Longhouse",
-      "role": "Communal hall — eating, meeting, sleeping for the settlement's core families",
-      "category": "civic",
-      "minTier": 2,
-      "zone": "inner",
-      "baseSizeRange": [
-        6,
-        8
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "faces-plaza",
-        "north-of-centre"
-      ],
-      "loreHook": "The chief's seat faces the door so they see everyone who enters",
-      "baseDepthRange": [
-        3,
-        3
-      ],
-      "sprite": {
-        "key": "bld-longhouse",
-        "footprintW": 3,
-        "footprintD": 6,
-        "offsetX": 33,
-        "offsetY": -99
-      }
-    },
-    {
-      "id": "market-hall",
-      "name": "Market Hall",
-      "role": "Covered trading floor — the economic anchor of larger settlements",
-      "category": "civic",
-      "minTier": 3,
-      "zone": "inner",
-      "baseSizeRange": [
-        5,
-        6
-      ],
-      "heightHint": "tall",
-      "unlockConditions": {
-        "purposes": [
-          "trading-hub",
-          "port"
-        ],
-        "secondary": [
-          "trading"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "faces-plaza",
-        "near-road"
-      ],
-      "loreHook": "The bell rings at dawn and dusk to mark trading hours",
-      "baseDepthRange": [
-        4,
-        5
-      ]
-    },
-    {
-      "id": "town-hall",
-      "name": "Town Hall",
-      "role": "Administrative seat — the settlement leader governs from here",
-      "category": "civic",
-      "minTier": 4,
-      "zone": "inner",
-      "baseSizeRange": [
-        4,
-        5
-      ],
-      "heightHint": "tall",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "faces-plaza",
-        "north-of-centre",
-        "on-high-ground"
-      ],
-      "loreHook": "Disputes are settled here, badly"
-    },
-    {
-      "id": "well",
-      "name": "Well",
-      "role": "Water source — social gathering point",
-      "category": "civic",
-      "minTier": 2,
-      "zone": "inner",
-      "baseSizeRange": [
-        1,
-        1
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "near-plaza",
-        "near-road"
-      ],
-      "loreHook": "Children are warned not to look too deep"
-    },
-    {
-      "id": "shelter-hut",
-      "name": "Shelter Hut",
-      "role": "Minimal one-room shelter — seasonal workers, shepherds, scouts",
-      "category": "residential",
-      "minTier": 1,
-      "zone": "outer",
-      "baseSizeRange": [
-        1,
-        2
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "1": 2,
-        "2": 2,
-        "3": 1
-      },
-      "placementHints": [],
-      "loreHook": "Four walls and a roof — what more do you need"
-    },
-    {
-      "id": "cottage",
-      "name": "Cottage",
-      "role": "Single-family home — the basic residential unit",
-      "category": "residential",
-      "minTier": 2,
-      "zone": "middle",
-      "baseSizeRange": [
-        2,
-        3
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "2": 2,
-        "3": 4,
-        "4": 6,
-        "5": 8
-      },
-      "placementHints": [
-        "faces-road"
-      ],
-      "loreHook": "Smoke from the hearth means someone is home"
-    },
-    {
-      "id": "dwelling",
-      "name": "Dwelling",
-      "role": "Larger family home — wealthier residents or extended families",
-      "category": "residential",
-      "minTier": 3,
-      "zone": "middle",
-      "baseSizeRange": [
-        3,
-        3
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "3": 2,
-        "4": 3,
-        "5": 5
-      },
-      "placementHints": [
-        "faces-road",
-        "near-plaza"
-      ],
-      "loreHook": "A second story means old money or new ambition"
-    },
-    {
-      "id": "manor",
-      "name": "Manor",
-      "role": "Estate of the settlement's most prominent family",
-      "category": "residential",
-      "minTier": 4,
-      "zone": "inner",
-      "baseSizeRange": [
-        4,
-        5
-      ],
-      "heightHint": "tall",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "on-high-ground",
-        "near-plaza"
-      ],
-      "loreHook": "The family claims they built it themselves. No one believes them"
-    },
-    {
-      "id": "dormitory",
-      "name": "Dormitory",
-      "role": "Shared sleeping quarters — workers, soldiers, or pilgrims",
-      "category": "residential",
-      "minTier": 3,
-      "zone": "middle",
-      "baseSizeRange": [
-        3,
-        4
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "mining",
-          "garrison",
-          "shrine"
-        ],
-        "secondary": [
-          "military",
-          "religious"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 2,
-        "5": 3
-      },
-      "placementHints": [
-        "near-workplace"
-      ],
-      "loreHook": "Thirty bunks, no privacy, and someone always snores",
-      "baseDepthRange": [
-        2,
-        3
-      ]
-    },
-    {
-      "id": "inn",
-      "name": "Inn",
-      "role": "Lodging and drink for travellers — the settlement's social hub after dark",
-      "category": "commerce",
-      "minTier": 3,
-      "zone": "inner",
-      "baseSizeRange": [
-        3,
-        3
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "features": [
-          "crossroads",
-          "trade-route"
-        ],
-        "purposes": [
-          "trading-hub",
-          "port"
-        ],
-        "secondary": [
-          "trading"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "pathTo": ["market-hall"],
-      "placementHints": [
-        "near-road",
-        "near-plaza"
-      ],
-      "loreHook": "The innkeeper knows everything and says nothing — for the right price"
-    },
-    {
-      "id": "tavern",
-      "name": "Tavern",
-      "role": "Drinking hall — cheaper and rougher than the inn",
-      "category": "commerce",
-      "minTier": 3,
-      "zone": "middle",
-      "baseSizeRange": [
-        2,
-        3
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "near-road"
-      ],
-      "loreHook": "The floor is sticky for reasons nobody investigates"
-    },
-    {
-      "id": "merchant-stall",
-      "name": "Merchant Stall",
-      "role": "Open-air trading booth — semi-permanent market presence",
-      "category": "commerce",
-      "minTier": 2,
-      "zone": "inner",
-      "baseSizeRange": [
-        1,
-        1
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "features": [
-          "crossroads",
-          "trade-route"
-        ],
-        "purposes": [
-          "trading-hub",
-          "port"
-        ],
-        "secondary": [
-          "trading"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 2,
-        "4": 4,
-        "5": 6
-      },
-      "pathTo": ["warehouse"],
-      "placementHints": [
-        "lines-road",
-        "near-plaza"
-      ],
-      "loreHook": "Everything is negotiable, especially the truth about the merchandise"
-    },
-    {
-      "id": "warehouse",
-      "name": "Warehouse",
-      "role": "Bulk goods storage — trade inventory, seasonal surplus, import staging",
-      "category": "commerce",
-      "minTier": 3,
-      "zone": "outer",
-      "baseSizeRange": [
-        3,
-        4
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "trading-hub",
-          "port"
-        ],
-        "secondary": [
-          "trading"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 2,
-        "5": 3
-      },
-      "placementHints": [
-        "near-road",
-        "near-water",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Rats are the unofficial inventory auditors",
-      "baseDepthRange": [
-        3,
-        3
-      ]
-    },
-    {
-      "id": "stables",
-      "name": "Stables",
-      "role": "Mounts and draft animals — essential for overland trade",
-      "category": "commerce",
-      "minTier": 3,
-      "zone": "outer",
-      "baseSizeRange": [
-        3,
-        4
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "features": [
-          "crossroads",
-          "trade-route"
-        ],
-        "purposes": [
-          "trading-hub"
-        ],
-        "secondary": [
-          "trading"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "pathTo": ["warehouse"],
-      "placementHints": [
-        "edge-of-settlement",
-        "near-road",
-        "downwind"
-      ],
-      "loreHook": "The stablehand knows which travellers are trouble before anyone else",
-      "baseDepthRange": [
-        2,
-        3
-      ]
-    },
-    {
-      "id": "caravansary",
-      "name": "Caravansary",
-      "role": "Fortified caravan rest stop — secure yard, animal pens, merchant lodging",
-      "category": "commerce",
-      "minTier": 4,
-      "zone": "outer",
-      "baseSizeRange": [
-        4,
-        5
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "features": [
-          "crossroads"
-        ],
-        "purposes": [
-          "trading-hub"
-        ]
-      },
-      "count": {
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "near-road",
-        "edge-of-settlement"
-      ],
-      "loreHook": "The walls keep the goods safe and the deals private",
-      "baseDepthRange": [
-        3,
-        4
-      ]
-    },
-    {
-      "id": "sawmill",
-      "name": "Sawmill",
-      "role": "Timber processing — logs to planks",
-      "category": "industry",
-      "minTier": 2,
-      "zone": "outer",
-      "baseSizeRange": [
-        3,
-        4
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "logging"
-        ],
-        "adjacentResources": [
-          "timber"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "pathTo": ["warehouse", "lumberyard"],
-      "placementHints": [
-        "near-water",
-        "edge-of-settlement"
-      ],
-      "loreHook": "The whine of the blade carries for miles"
-    },
-    {
-      "id": "smithy",
-      "name": "Smithy",
-      "role": "Metalworking — tools, weapons, repair",
-      "category": "industry",
-      "minTier": 2,
-      "zone": "inner",
-      "baseSizeRange": [
-        2,
-        3
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "mining"
-        ],
-        "secondary": [
-          "smithing"
-        ],
-        "adjacentResources": [
-          "ore"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "pathTo": ["smelter"],
-      "placementHints": [
-        "near-road",
-        "downwind"
-      ],
-      "loreHook": "The smith is always the last to sleep and the first to be needed"
-    },
-    {
-      "id": "smelter",
-      "name": "Smelter",
-      "role": "Ore processing — raw rock to usable metal",
-      "category": "industry",
-      "minTier": 3,
-      "zone": "outer",
-      "baseSizeRange": [
-        3,
-        3
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "mining"
-        ],
-        "adjacentResources": [
-          "ore"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "downwind",
-        "edge-of-settlement"
-      ],
-      "loreHook": "The smoke is black and the workers are blackened"
-    },
-    {
-      "id": "mine-entrance",
-      "name": "Mine Entrance",
-      "role": "Shaft head and staging area for underground extraction",
-      "category": "industry",
-      "minTier": 2,
-      "zone": "outer",
-      "baseSizeRange": [
-        2,
-        2
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": [
-          "mining"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "near-slope"
-      ],
-      "loreHook": "The older miners listen to the rock. The younger ones learn to"
-    },
-    {
-      "id": "smokehouse",
-      "name": "Smokehouse",
-      "role": "Fish or meat curing and preservation",
-      "category": "industry",
-      "minTier": 2,
-      "zone": "outer",
-      "baseSizeRange": [
-        2,
-        2
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "fishing"
-        ],
-        "adjacentResources": [
-          "fish"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "downwind",
-        "near-water"
-      ],
-      "loreHook": "The smell is terrible and the product is delicious"
-    },
-    {
-      "id": "fishing-dock",
-      "name": "Fishing Dock",
-      "role": "Boat mooring and catch landing",
-      "category": "industry",
-      "minTier": 1,
-      "zone": "outer",
-      "baseSizeRange": [
-        2,
-        3
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "features": [
-          "harbour"
-        ],
-        "purposes": [
-          "fishing",
-          "port"
-        ],
-        "adjacentResources": [
-          "fish"
-        ]
-      },
-      "count": {
-        "1": 1,
-        "2": 1,
-        "3": 2,
-        "4": 2,
-        "5": 3
-      },
-      "pathTo": ["smokehouse"],
-      "placementHints": [
-        "waterfront"
-      ],
-      "loreHook": "The nets are mended at dawn, the stories at dusk",
-      "baseDepthRange": [
-        1,
-        2
-      ]
-    },
-    {
-      "id": "net-shed",
-      "name": "Net Shed",
-      "role": "Storage and repair for fishing gear",
-      "category": "industry",
-      "minTier": 1,
-      "zone": "outer",
-      "baseSizeRange": [
-        1,
-        2
-      ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": [
-          "fishing"
-        ],
-        "adjacentResources": [
-          "fish"
-        ]
-      },
-      "count": {
-        "1": 1,
-        "2": 1,
-        "3": 2,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "near-water"
-      ],
-      "loreHook": "Smells of salt and tar and old rope"
-    },
-    {
-      "id": "tannery",
-      "name": "Tannery",
-      "role": "Leather processing — hides to workable leather",
-      "category": "industry",
-      "minTier": 3,
-      "zone": "outer",
-      "baseSizeRange": [
-        2,
-        3
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "herding"
-        ],
-        "secondary": [
-          "smithing"
-        ],
-        "adjacentResources": [
-          "game"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "downwind",
-        "edge-of-settlement",
-        "near-water"
-      ],
-      "loreHook": "Downwind for a reason"
-    },
-    {
-      "id": "kiln",
-      "name": "Kiln",
-      "role": "Pottery and brick firing",
-      "category": "industry",
-      "minTier": 3,
-      "zone": "outer",
-      "baseSizeRange": [
-        2,
-        2
-      ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "adjacentResources": [
-          "clay"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "downwind"
-      ],
-      "loreHook": "The kiln-master can judge temperature by the colour of the flame"
-    },
     {
       "id": "windmill",
       "name": "Windmill",
-      "role": "Grain milling — flour production",
       "category": "industry",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         2
       ],
-      "heightHint": "tower",
-      "unlockConditions": {
-        "purposes": [
-          "farming"
-        ],
-        "secondary": [
-          "agricultural"
-        ],
-        "adjacentResources": [
-          "fertile-soil"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "on-high-ground",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Visible from a day's walk in every direction"
+      "heightHint": "tower"
     },
     {
       "id": "brewery",
       "name": "Brewery",
-      "role": "Ale and mead production",
       "category": "industry",
-      "minTier": 3,
-      "zone": "middle",
       "baseSizeRange": [
         2,
         3
       ],
       "heightHint": "standard",
-      "unlockConditions": {
-        "secondary": [
-          "brewing"
-        ],
-        "adjacentResources": [
-          "fertile-soil"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "near-water"
-      ],
-      "loreHook": "The brewmaster is the most popular person in town and knows it"
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": 0,
+          "offsetY": -25,
+          "exits": [
+            {
+              "tx": 0,
+              "ty": 2
+            }
+          ],
+          "done": true
+        }
+      ]
     },
     {
       "id": "workshop",
       "name": "Workshop",
-      "role": "General crafting — carpentry, weaving, toolmaking",
       "category": "industry",
-      "minTier": 2,
-      "zone": "middle",
       "baseSizeRange": [
         2,
         3
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 3
-      },
-      "placementHints": [
-        "near-road"
-      ],
-      "loreHook": "If it can be fixed, it gets fixed here. If not, it becomes something else"
+      "heightHint": "standard"
     },
     {
       "id": "lumberyard",
       "name": "Lumberyard",
-      "role": "Timber staging and storage",
       "category": "industry",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": [
-          "logging"
-        ],
-        "adjacentResources": [
-          "timber"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "near-water",
-        "near-road",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Log stacks higher than the houses — a good sign or a dangerous one",
       "baseDepthRange": [
         2,
         3
-      ]
+      ],
+      "heightHint": "low"
     },
     {
       "id": "salt-works",
       "name": "Salt Works",
-      "role": "Salt extraction or evaporation — critical for preservation",
       "category": "industry",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         2
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "adjacentResources": [
-          "salt"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "near-water",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Salt is money that everyone needs"
+      "heightHint": "low"
     },
     {
       "id": "granary",
       "name": "Granary",
-      "role": "Grain storage — the settlement's food insurance",
       "category": "infrastructure",
-      "minTier": 2,
-      "zone": "inner",
       "baseSizeRange": [
         2,
         3
       ],
       "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "farming"
-        ],
-        "secondary": [
-          "agricultural"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "near-plaza"
-      ],
-      "loreHook": "Guarded more carefully than the treasury — you can't eat coins"
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": 0,
+          "offsetY": -14,
+          "exits": [
+            {
+              "tx": 2,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
     },
     {
       "id": "barn",
       "name": "Barn",
-      "role": "Livestock shelter and feed storage",
       "category": "infrastructure",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "farming",
-          "herding"
-        ],
-        "secondary": [
-          "agricultural"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 3
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "downwind"
-      ],
-      "loreHook": "Warm in winter. The animals share that warmth whether you like it or not",
       "baseDepthRange": [
         2,
         3
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 4,
+          "footprintD": 4,
+          "offsetX": 0,
+          "offsetY": -14,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 3
+            },
+            {
+              "tx": 2,
+              "ty": 3
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
       ]
     },
     {
       "id": "palisade-gate",
       "name": "Palisade Gate",
-      "role": "Main entry through the settlement wall",
       "category": "military",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         2
       ],
-      "heightHint": "tall",
-      "unlockConditions": {
-        "features": [
-          "corruption-boundary"
-        ],
-        "purposes": [
-          "frontier",
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "on-road-entry"
-      ],
-      "loreHook": "Closed at dusk. No exceptions. Well — some exceptions"
+      "heightHint": "tall"
     },
     {
       "id": "barracks",
       "name": "Barracks",
-      "role": "Garrison housing — soldiers, militia, or hired guards",
       "category": "military",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "frontier",
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "pathTo": ["armory", "training-yard"],
-      "placementHints": [
-        "near-gate",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Order, discipline, and complaints about the food",
       "baseDepthRange": [
         2,
         3
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 4,
+          "footprintD": 4,
+          "offsetX": 0,
+          "offsetY": -20,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 3
+            },
+            {
+              "tx": 3,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
       ]
     },
     {
       "id": "armory",
       "name": "Armory",
-      "role": "Weapons and armour storage — locked and guarded",
       "category": "military",
-      "minTier": 4,
-      "zone": "inner",
       "baseSizeRange": [
         2,
         3
       ],
       "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "near-barracks",
-        "near-plaza"
-      ],
-      "loreHook": "The key is held by two people who don't trust each other"
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 4,
+          "footprintD": 4,
+          "offsetX": 0,
+          "offsetY": -29,
+          "exits": [
+            {
+              "tx": 3,
+              "ty": 2
+            },
+            {
+              "tx": 3,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
     },
     {
       "id": "training-yard",
       "name": "Training Yard",
-      "role": "Open ground for drills and sparring",
       "category": "military",
-      "minTier": 4,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": [
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "near-barracks"
-      ],
-      "loreHook": "The sound of wooden swords at dawn is the settlement's alarm clock",
       "baseDepthRange": [
         2,
         3
+      ],
+      "heightHint": "low"
+    },
+    {
+      "id": "smokehouse",
+      "name": "Smokehouse",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        2
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "iki-smokehouse",
+          "footprintW": 2,
+          "footprintD": 2,
+          "offsetX": 0,
+          "offsetY": -23,
+          "exits": [
+            {
+              "tx": 0,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
       ]
+    },
+    {
+      "id": "tannery",
+      "name": "Tannery",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        3
+      ],
+      "heightHint": "standard"
+    },
+    {
+      "id": "fishing-dock",
+      "name": "Fishing Dock",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        3,
+        4
+      ],
+      "heightHint": "low"
     },
     {
       "id": "temple",
       "name": "Temple",
-      "role": "Major religious structure — ceremonies, healing, arbitration",
       "category": "religious",
-      "minTier": 4,
-      "zone": "inner",
       "baseSizeRange": [
         4,
         5
       ],
-      "heightHint": "tall",
-      "unlockConditions": {
-        "purposes": [
-          "shrine"
-        ],
-        "secondary": [
-          "religious"
-        ]
-      },
-      "count": {
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "faces-plaza",
-        "on-high-ground"
-      ],
-      "loreHook": "The priests argue about doctrine while the roof leaks"
+      "heightHint": "tall"
     },
     {
       "id": "pilgrim-shelter",
       "name": "Pilgrim Shelter",
-      "role": "Free lodging for religious travellers",
       "category": "religious",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         3
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "shrine"
-        ],
-        "secondary": [
-          "religious"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "near-road",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Free bed, free meal, mandatory sermon"
+      "heightHint": "standard"
     },
     {
       "id": "sacred-grove",
       "name": "Sacred Grove",
-      "role": "Natural ritual space — trees, stones, and silence",
       "category": "religious",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         3
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "features": [
-          "sacred-site"
-        ],
-        "purposes": [
-          "shrine"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "on-high-ground"
-      ],
-      "loreHook": "The trees here are older than the settlement. They were here first"
+      "heightHint": "low"
     },
     {
       "id": "graveyard",
       "name": "Graveyard",
-      "role": "Burial ground — the settlement's memory",
       "category": "religious",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         3
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "on-high-ground"
-      ],
-      "loreHook": "The oldest stones have names no one remembers"
+      "heightHint": "low"
     },
     {
       "id": "storage-shed",
       "name": "Storage Shed",
-      "role": "General-purpose storage — tools, supplies, seasonal goods",
       "category": "infrastructure",
-      "minTier": 1,
-      "zone": "outer",
       "baseSizeRange": [
         1,
         2
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "1": 1,
-        "2": 1,
-        "3": 2,
-        "4": 3,
-        "5": 4
-      },
-      "placementHints": [],
-      "loreHook": "Contains exactly what you need, if you can find it"
+      "heightHint": "low"
     },
     {
       "id": "root-cellar",
       "name": "Root Cellar",
-      "role": "Underground cold storage for food preservation",
       "category": "infrastructure",
-      "minTier": 2,
-      "zone": "middle",
       "baseSizeRange": [
         1,
         1
       ],
       "heightHint": "low",
-      "unlockConditions": {
-        "purposes": null
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "near-dwelling"
-      ],
-      "loreHook": "Cool, dark, and full of things in jars"
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": 0,
+          "offsetY": -4,
+          "exits": [
+            {
+              "tx": 2,
+              "ty": 2
+            },
+            {
+              "tx": 1,
+              "ty": 2
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
     },
     {
       "id": "bridge",
       "name": "Bridge",
-      "role": "River or stream crossing within or adjacent to the settlement",
       "category": "infrastructure",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         3
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "features": [
-          "river-crossing"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "on-water-crossing"
-      ],
-      "loreHook": "Someone has to maintain it. That someone is never decided",
       "baseDepthRange": [
         1,
         2
-      ]
+      ],
+      "heightHint": "low"
     },
     {
       "id": "customs-post",
       "name": "Customs Post",
-      "role": "Trade inspection and tax collection point",
       "category": "infrastructure",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         2
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "features": [
-          "trade-route",
-          "river-crossing",
-          "mountain-pass"
-        ],
-        "purposes": [
-          "trading-hub",
-          "port"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "on-road-entry"
-      ],
-      "loreHook": "The tariff schedule is posted. Nobody reads it. Everyone complains"
+      "heightHint": "standard"
     },
     {
       "id": "harbour-dock",
       "name": "Harbour Dock",
-      "role": "Deep-water mooring for trade and passenger vessels",
       "category": "infrastructure",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "features": [
-          "harbour"
-        ],
-        "purposes": [
-          "port"
-        ]
-      },
-      "count": {
-        "3": 1,
-        "4": 2,
-        "5": 3
-      },
-      "placementHints": [
-        "waterfront"
-      ],
-      "loreHook": "The harbour master's word is law from the tideline to the breakwater",
       "baseDepthRange": [
         2,
         2
-      ]
+      ],
+      "heightHint": "low"
     },
     {
       "id": "boat-shed",
       "name": "Boat Shed",
-      "role": "Boat construction and winter storage",
       "category": "infrastructure",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         3
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "features": [
-          "harbour"
-        ],
-        "purposes": [
-          "fishing",
-          "port"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "waterfront"
-      ],
-      "loreHook": "A boat upside-down on sawhorses is a promise of spring",
       "baseDepthRange": [
         2,
         2
-      ]
+      ],
+      "heightHint": "standard"
     },
     {
       "id": "hero-house",
       "name": "Hero's House",
-      "role": "Home of a retired adventurer — large, eccentric, trophies visible",
       "category": "anomaly",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "_anomaly": "retired-hero"
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "on-high-ground",
-        "edge-of-settlement"
-      ],
-      "loreHook": "The old warrior keeps a sword above the fireplace. It is not decorative"
+      "heightHint": "standard"
     },
     {
       "id": "mage-tower",
       "name": "Mage Tower",
-      "role": "Wizard's residence and laboratory — tall, isolated, slightly unsettling",
       "category": "anomaly",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         2
       ],
-      "heightHint": "tower",
-      "unlockConditions": {
-        "_anomaly": "mage-tower"
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "on-high-ground",
-        "edge-of-settlement",
-        "outside-core"
-      ],
-      "loreHook": "Lights at odd hours. Sounds that might be thunder. Best not to ask"
+      "heightHint": "tower"
     },
     {
       "id": "earth-ruin-building",
       "name": "Incorporated Ruin",
-      "role": "An Earth-era structure repurposed as a settlement building",
       "category": "anomaly",
-      "minTier": 1,
-      "zone": "middle",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "_anomaly": "earth-ruin-incorporated"
-      },
-      "count": {
-        "1": 1,
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [],
-      "loreHook": "The walls are made of something no one can name. They don't crack"
+      "heightHint": "standard"
     },
     {
       "id": "cursed-lot",
       "name": "Cursed Lot",
-      "role": "Empty plot with scorch marks — no one builds here",
       "category": "anomaly",
-      "minTier": 2,
-      "zone": "middle",
       "baseSizeRange": [
         2,
         3
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "_anomaly": "cursed-plot"
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "gap-in-grid"
-      ],
-      "loreHook": "Three houses were built here. None lasted a season"
+      "heightHint": "low"
     },
     {
       "id": "oversized-relic",
       "name": "Grand Relic",
-      "role": "A building far too grand for the settlement's current size — former glory",
       "category": "anomaly",
-      "minTier": 2,
-      "zone": "inner",
       "baseSizeRange": [
         5,
         6
       ],
-      "heightHint": "tall",
-      "unlockConditions": {
-        "_anomaly": "oversized-relic"
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "faces-plaza",
-        "north-of-centre"
-      ],
-      "loreHook": "This was a great hall once. The town shrank but the building didn't"
+      "heightHint": "tall"
     },
     {
       "id": "refugee-cluster",
       "name": "Refugee Quarter",
-      "role": "Cluster of mismatched shelters outside the settlement core",
       "category": "anomaly",
-      "minTier": 3,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "_anomaly": "refugee-quarter"
-      },
-      "count": {
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "outside-core",
-        "edge-of-settlement"
-      ],
-      "loreHook": "They came from somewhere else. They don't talk about it"
+      "heightHint": "low"
     },
     {
       "id": "strange-shrine",
       "name": "Strange Shrine",
-      "role": "A small devotional site to something not quite right",
       "category": "anomaly",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         1,
         1
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "_anomaly": "strange-shrine"
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "on-high-ground"
-      ],
-      "loreHook": "The offerings left here are not food or coin. They are teeth"
+      "heightHint": "low"
     },
     {
       "id": "mechanical-oddity",
       "name": "Mechanical Oddity",
-      "role": "Earth-tech still functioning — generator, pump, or light source",
       "category": "anomaly",
-      "minTier": 1,
-      "zone": "inner",
       "baseSizeRange": [
         1,
         2
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "_anomaly": "mechanical-oddity"
-      },
-      "count": {
-        "1": 1,
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1
-      },
-      "placementHints": [
-        "near-plaza"
+      "heightHint": "standard"
+    },
+    {
+      "id": "campfire",
+      "name": "Campfire",
+      "category": "civic",
+      "baseSizeRange": [
+        1,
+        1
       ],
-      "loreHook": "It hums. It has always hummed. Nobody touches it"
+      "baseDepthRange": [
+        1,
+        1
+      ],
+      "heightHint": "low",
+      "sprites": [
+        {
+          "key": "iki-campfire",
+          "footprintW": 1,
+          "footprintD": 1,
+          "offsetX": 0,
+          "offsetY": -4,
+          "exits": [
+            {
+              "tx": 0,
+              "ty": 0
+            }
+          ],
+          "done": true
+        }
+      ]
+    },
+    {
+      "id": "well",
+      "name": "Well",
+      "category": "civic",
+      "baseSizeRange": [
+        1,
+        1
+      ],
+      "baseDepthRange": [
+        1,
+        1
+      ],
+      "heightHint": "low",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 1,
+          "footprintD": 1,
+          "offsetX": 0,
+          "offsetY": -9,
+          "exits": [
+            {
+              "tx": 0,
+              "ty": 0
+            }
+          ],
+          "done": true
+        }
+      ]
+    },
+    {
+      "id": "shelter-hut",
+      "name": "Shelter Hut",
+      "category": "residential",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        2
+      ],
+      "heightHint": "low",
+      "sprites": [
+        {
+          "key": "iki-ancestor-stone",
+          "footprintW": 1,
+          "footprintD": 1,
+          "offsetX": 1,
+          "offsetY": -14,
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "cottage",
+      "name": "Cottage",
+      "category": "residential",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        3
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "iki-ger-cottage",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": -5,
+          "offsetY": -4,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 2
+            }
+          ],
+          "done": true
+        }
+      ]
+    },
+    {
+      "id": "dwelling",
+      "name": "Dwelling",
+      "category": "residential",
+      "baseSizeRange": [
+        2,
+        3
+      ],
+      "baseDepthRange": [
+        2,
+        3
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "iki-ger-dwelling",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": 0,
+          "offsetY": -13,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 2
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "longhouse",
+      "name": "Longhouse",
+      "category": "civic",
+      "baseSizeRange": [
+        3,
+        3
+      ],
+      "baseDepthRange": [
+        5,
+        6
+      ],
+      "heightHint": "standard"
+    },
+    {
+      "id": "market-hall",
+      "name": "Market Hall",
+      "category": "civic",
+      "baseSizeRange": [
+        3,
+        4
+      ],
+      "baseDepthRange": [
+        5,
+        6
+      ],
+      "heightHint": "tall",
+      "sprites": [
+        {
+          "key": "iki-market-hall",
+          "footprintW": 4,
+          "footprintD": 4,
+          "offsetX": 0,
+          "offsetY": -32,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 3
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "dormitory",
+      "name": "Dormitory",
+      "category": "residential",
+      "baseSizeRange": [
+        3,
+        3
+      ],
+      "baseDepthRange": [
+        4,
+        5
+      ],
+      "heightHint": "standard"
+    },
+    {
+      "id": "inn",
+      "name": "Inn",
+      "category": "commerce",
+      "baseSizeRange": [
+        3,
+        3
+      ],
+      "baseDepthRange": [
+        3,
+        4
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 4,
+          "footprintD": 4,
+          "offsetX": 0,
+          "offsetY": -27,
+          "exits": [
+            {
+              "tx": 2,
+              "ty": 3
+            },
+            {
+              "tx": 1,
+              "ty": 3
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "tavern",
+      "name": "Tavern",
+      "category": "commerce",
+      "baseSizeRange": [
+        2,
+        3
+      ],
+      "baseDepthRange": [
+        2,
+        3
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": 0,
+          "offsetY": -14,
+          "exits": [
+            {
+              "tx": 2,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "merchant-stall",
+      "name": "Merchant Stall",
+      "category": "commerce",
+      "baseSizeRange": [
+        1,
+        2
+      ],
+      "baseDepthRange": [
+        1,
+        1
+      ],
+      "heightHint": "low",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 2,
+          "footprintD": 2,
+          "offsetX": 0,
+          "offsetY": -17,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 1
+            },
+            {
+              "tx": 0,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "warehouse",
+      "name": "Warehouse",
+      "category": "commerce",
+      "baseSizeRange": [
+        3,
+        3
+      ],
+      "baseDepthRange": [
+        4,
+        5
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": 0,
+          "offsetY": -9,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 2
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "stables",
+      "name": "Stables",
+      "category": "commerce",
+      "baseSizeRange": [
+        3,
+        3
+      ],
+      "baseDepthRange": [
+        3,
+        4
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 3,
+          "footprintD": 4,
+          "offsetX": 7,
+          "offsetY": -14,
+          "exits": [
+            {
+              "tx": 2,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "smithy",
+      "name": "Smithy",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        3
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "iki-smithy",
+          "footprintW": 2,
+          "footprintD": 2,
+          "offsetX": 0,
+          "offsetY": -17,
+          "exits": [
+            {
+              "tx": 0,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "sawmill",
+      "name": "Sawmill",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        3
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": 0,
+          "offsetY": -10,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 2
+            },
+            {
+              "tx": 2,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
     },
     {
       "id": "guard-post",
       "name": "Guard Post",
-      "role": "Small checkpoint — toll collection or patrol staging",
       "category": "military",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         2
       ],
-      "heightHint": "low",
-      "unlockConditions": {
-        "features": [
-          "trade-route",
-          "mountain-pass"
-        ],
-        "purposes": [
-          "frontier",
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      },
-      "placementHints": [
-        "on-road-entry",
-        "edge-of-settlement"
-      ],
-      "loreHook": "Papers, please",
       "baseDepthRange": [
-        1,
-        1
-      ]
-    },
-    {
-      "id": "shrine",
-      "name": "Shrine",
-      "role": "Small devotional site — a carved stone, an altar, a sacred tree",
-      "category": "religious",
-      "minTier": 2,
-      "zone": "inner",
-      "baseSizeRange": [
         2,
         2
       ],
       "heightHint": "low",
-      "unlockConditions": {
-        "purposes": [
-          "shrine"
-        ],
-        "secondary": [
-          "religious"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 2
-      },
-      "placementHints": [
-        "near-plaza",
-        "on-high-ground"
-      ],
-      "loreHook": "Offerings appear overnight — nobody admits to leaving them",
-      "baseDepthRange": [
-        1,
-        1
+      "sprites": [
+        {
+          "key": "iki-guard-post",
+          "footprintW": 2,
+          "footprintD": 2,
+          "offsetX": 0,
+          "offsetY": -20,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 1
+            },
+            {
+              "tx": 1,
+              "ty": 0
+            }
+          ],
+          "done": true
+        }
       ]
     },
     {
       "id": "watchtower",
       "name": "Watchtower",
-      "role": "Elevated lookout point — early warning",
       "category": "military",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         2,
         2
       ],
-      "heightHint": "tower",
-      "unlockConditions": {
-        "features": [
-          "corruption-boundary",
-          "mountain-pass",
-          "wilderness-edge"
-        ],
-        "purposes": [
-          "frontier",
-          "garrison"
-        ],
-        "secondary": [
-          "military"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 4
-      },
-      "placementHints": [
-        "on-high-ground",
-        "edge-of-settlement",
-        "corners"
-      ],
-      "loreHook": "The watch is boring until it isn't",
       "baseDepthRange": [
-        1,
-        1
+        2,
+        2
+      ],
+      "heightHint": "tower",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 2,
+          "footprintD": 2,
+          "offsetX": 0,
+          "offsetY": -30,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 1
+            }
+          ],
+          "done": true
+        }
       ]
     },
     {
-      "id": "farmstead",
-      "name": "Farmstead",
-      "role": "Combined home and working farm — house, outbuilding, and fenced plot",
+      "id": "shrine",
+      "name": "Shrine",
+      "category": "religious",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        2
+      ],
+      "heightHint": "low",
+      "sprites": [
+        {
+          "key": "iki-spirit-shrine",
+          "footprintW": 2,
+          "footprintD": 2,
+          "offsetX": 0,
+          "offsetY": -26,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 1
+            },
+            {
+              "tx": 1,
+              "ty": 0
+            },
+            {
+              "tx": 0,
+              "ty": 1
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "manor",
+      "name": "Manor",
       "category": "residential",
-      "minTier": 2,
-      "zone": "outer",
       "baseSizeRange": [
         3,
         4
       ],
-      "heightHint": "standard",
-      "unlockConditions": {
-        "purposes": [
-          "farming",
-          "herding"
-        ],
-        "secondary": [
-          "agricultural"
-        ],
-        "adjacentResources": [
-          "fertile-soil"
-        ]
-      },
-      "count": {
-        "2": 1,
-        "3": 2,
-        "4": 3,
-        "5": 4
-      },
-      "placementHints": [
-        "edge-of-settlement",
-        "outside-core"
-      ],
-      "loreHook": "The fence keeps the goats in and the wolves out. Usually",
       "baseDepthRange": [
+        3,
+        4
+      ],
+      "heightHint": "tall"
+    },
+    {
+      "id": "town-hall",
+      "name": "Town Hall",
+      "category": "civic",
+      "baseSizeRange": [
         4,
         4
+      ],
+      "baseDepthRange": [
+        4,
+        5
+      ],
+      "heightHint": "tall",
+      "sprites": [
+        {
+          "key": "",
+          "footprintW": 6,
+          "footprintD": 6,
+          "offsetX": 0,
+          "offsetY": -42,
+          "exits": [
+            {
+              "tx": 4,
+              "ty": 5
+            },
+            {
+              "tx": 4,
+              "ty": 4
+            },
+            {
+              "tx": 5,
+              "ty": 4
+            },
+            {
+              "tx": 5,
+              "ty": 5
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
       ]
+    },
+    {
+      "id": "net-shed",
+      "name": "Net Shed",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        2
+      ],
+      "heightHint": "low"
+    },
+    {
+      "id": "farmstead",
+      "name": "Farmstead",
+      "category": "residential",
+      "baseSizeRange": [
+        3,
+        3
+      ],
+      "baseDepthRange": [
+        3,
+        4
+      ],
+      "heightHint": "standard",
+      "sprites": [
+        {
+          "key": "iki-farmstead",
+          "footprintW": 3,
+          "footprintD": 3,
+          "offsetX": -4,
+          "offsetY": -11,
+          "exits": [
+            {
+              "tx": 1,
+              "ty": 2
+            }
+          ],
+          "done": true,
+          "needsEdit": true
+        }
+      ]
+    },
+    {
+      "id": "smelter",
+      "name": "Smelter",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        2,
+        3
+      ],
+      "heightHint": "standard"
+    },
+    {
+      "id": "mine-entrance",
+      "name": "Mine Entrance",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        1,
+        2
+      ],
+      "heightHint": "low"
+    },
+    {
+      "id": "kiln",
+      "name": "Kiln",
+      "category": "industry",
+      "baseSizeRange": [
+        2,
+        2
+      ],
+      "baseDepthRange": [
+        1,
+        1
+      ],
+      "heightHint": "standard"
+    },
+    {
+      "id": "caravansary",
+      "name": "Caravansary",
+      "category": "commerce",
+      "baseSizeRange": [
+        3,
+        3
+      ],
+      "baseDepthRange": [
+        4,
+        5
+      ],
+      "heightHint": "standard"
     }
   ]
 }

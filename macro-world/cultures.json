@@ -501,6 +501,34 @@
         "elevated-construction",
         "scent-marked"
       ]
+    },
+    {
+      "id": "ikibeki",
+      "name": "Ikibeki",
+      "racePreferences": {
+        "Wildkin (Wolf)": 0.35,
+        "Wildkin (Bear)": 0.15,
+        "Wildkin (Fox)": 0.2,
+        "Wildkin (Hawk)": 0.1,
+        "Wildkin (Boar)": 0.2,
+        "Wildkin (Cat)": 0.15,
+        "Wildkin (Rabbit)": 0.2,
+        "Wildkin (Snake)": 0.05,
+        "Wildkin (Mixed Clan)": 0.1
+      },
+      "spacing": 0.75,
+      "organicness": 0.8,
+      "hierarchyScale": 1,
+      "perimeterAwareness": 0.5,
+      "facingBias": "trail",
+      "verticality": 0.15,
+      "preferredShapes": [
+        "round",
+        "longhouse"
+      ],
+      "roofStyle": "hide",
+      "streetPattern": "organic",
+      "traits": []
     }
   ]
 }

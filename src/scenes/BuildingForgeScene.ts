@@ -1,22 +1,27 @@
 /**
- * BuildingForgeScene — isometric block-stacking tool for designing
- * individual buildings. Each block is one iso cube, stacked vertically
- * like the combat scene's cliff walls.
+ * BuildingForgeScene — sprite assignment tool for buildings in the
+ * building registry. Assign a sprite from the gallery, configure its
+ * footprint grid, offset, flip, and exit markers.
  *
  * Access: navigate to /bf or /buildingforge in the URL.
  *
  * ## Controls
- *   Left click         Place selected block type on hovered column
- *   Right click        Remove top block from hovered column
  *   A / D              Cycle building from registry
- *   R                  Reset to default fill
+ *   M                  Cycle comparison sprite variant
+ *   F                  Flip sprite east↔west
+ *   G                  Toggle exit-edit mode
+ *   Q / E              Footprint width -/+
+ *   Z / X              Footprint depth -/+
+ *   Shift+Arrows       Nudge sprite offset
+ *   C                  Reset offset
  *   Scroll / +/-       Zoom
  *   Middle-drag        Pan camera
+ *   Left click         Toggle footprint tile (or exit marker in G mode)
  */
 
 import * as Phaser from 'phaser';
-import { loadMacroWorld, getBlocksForStyle } from '../lib/macroWorld';
-import type { ArchitectureStyle as DbArchStyle, ArchitectureBlock as DbBlock, Building as DbBuilding } from '../lib/macroWorld';
+import { loadMacroWorld } from '../lib/macroWorld';
+import type { ArchitectureStyle as DbArchStyle, Building as DbBuilding } from '../lib/macroWorld';
 
 // ── Registry types (minimal — just what we need) ────────────────────────────
 
@@ -26,6 +31,13 @@ interface SpriteConfig {
   footprintD: number;
   offsetX: number;
   offsetY: number;
+  flipped?: boolean;
+  /** Exit/entrance tiles on the footprint grid where roads should connect. */
+  exits?: { tx: number; ty: number }[];
+  /** Marked as done — sprite assignment, footprint, exits all finalized. */
+  done?: boolean;
+  /** Needs manual touch-up in a graphics editor or re-render via PixelLab. */
+  needsEdit?: boolean;
 }
 
 interface RegistryEntry {
@@ -35,37 +47,13 @@ interface RegistryEntry {
   baseSizeRange: [number, number];
   baseDepthRange?: [number, number];
   heightHint: string;
+  /** Legacy single sprite config — migrated to sprites[] on load. */
   sprite?: SpriteConfig;
+  /** Multiple sprite variants, each with independent footprint/offset/exits. */
+  sprites?: SpriteConfig[];
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
-
-const HEIGHT_BLOCKS: Record<string, number> = {
-  low: 1, standard: 4, tall: 6, tower: 8,
-};
-
-const WALL_BLOCKS: Record<string, number> = {
-  low: 1, standard: 3, tall: 5, tower: 7,
-};
-
-// ── Block definition and Architecture style types ────────────────────────────
-
-interface BlockDef {
-  type: string;    // canonical block type id: "wall", "roof", "foundation", etc.
-  name: string;    // display name shown in the palette and bill of materials
-  sprite?: string; // Phaser texture key — falls back to coloured cube if absent
-}
-
-/** A free-sized sprite placed on the object layer above the block grid. */
-interface ForgeObject {
-  id: string;
-  spriteKey: string;
-  tx: number;          // grid anchor tile X
-  ty: number;          // grid anchor tile Y
-  tz: number;          // height in block z-units (0=ground, 1=on 1 block)
-  flipped?: boolean;   // mirror horizontally
-  label?: string;
-}
 
 interface ArchitectureStyle {
   id: string;
@@ -81,44 +69,40 @@ interface ArchitectureStyle {
   description?: string;
   promptKeywords?: string;
   realWorldInspiration?: string;
-  blocks?: BlockDef[];
 }
 
-/** Wall block colour per primary material. */
-const WALL_COLORS: Record<string, number> = {
-  stone:   0x777777,
-  wood:    0x9a7a5a,
-  bone:    0xbbaa99,
-  crystal: 0x7799bb,
-  living:  0x557744,
-  metal:   0x667788,
-  hide:    0x6a4a33,
-  earth:   0x8a7a5a,
-  coral:   0xbb8877,
-  salvage: 0x888866,
-};
-
-/** Roof block colour per primary material. */
-const ROOF_COLORS: Record<string, number> = {
-  stone:   0x556666,
-  wood:    0x8b7332,
-  bone:    0xccbbaa,
-  crystal: 0x88aacc,
-  living:  0x447744,
-  metal:   0x556677,
-  hide:    0x7a5533,
-  earth:   0x7a6a4a,
-  coral:   0xcc7766,
-  salvage: 0x777755,
-};
-
-/** Map building IDs to arrays of sprite variants for cycling. */
-const BLOCK_SPRITE_VARIANTS: Record<string, string[]> = {
-  campfire: [
-    'campfire-obj-32', 'campfire-obj-48a', 'campfire-obj-48b',
-    'campfire-markfolk-v1', 'campfire-markfolk-v2', 'campfire-markfolk-v3',
-  ],
-};
+/** All building sprite keys loaded in preload(), grouped by pack for gallery filtering. */
+const GALLERY_SPRITES: { key: string; pack: 'iki' | 'markfolk' | 'mw' | 'misc' }[] = [
+  // Ikibeki
+  { key: 'iki-campfire', pack: 'iki' }, { key: 'iki-well', pack: 'iki' },
+  { key: 'iki-guard-post', pack: 'iki' }, { key: 'iki-shrine', pack: 'iki' },
+  { key: 'iki-spirit-shrine', pack: 'iki' }, { key: 'iki-watchtower', pack: 'iki' },
+  { key: 'iki-cottage', pack: 'iki' }, { key: 'iki-ger-cottage', pack: 'iki' },
+  { key: 'iki-ger-dwelling', pack: 'iki' }, { key: 'iki-ger-smithy', pack: 'iki' },
+  { key: 'iki-smithy', pack: 'iki' }, { key: 'iki-farmstead', pack: 'iki' },
+  { key: 'iki-longhouse', pack: 'iki' }, { key: 'iki-clan-lodge', pack: 'iki' },
+  { key: 'iki-shelter-hut', pack: 'iki' }, { key: 'iki-merchant-stall', pack: 'iki' },
+  { key: 'iki-tavern', pack: 'iki' }, { key: 'iki-warehouse', pack: 'iki' },
+  { key: 'iki-stables', pack: 'iki' }, { key: 'iki-sawmill', pack: 'iki' },
+  { key: 'iki-smokehouse', pack: 'iki' }, { key: 'iki-yurt-small', pack: 'iki' },
+  { key: 'iki-yurt-large', pack: 'iki' }, { key: 'iki-ancestor-stone', pack: 'iki' },
+  { key: 'iki-market-hall', pack: 'iki' }, { key: 'iki-granary', pack: 'iki' },
+  { key: 'iki-temple', pack: 'iki' }, { key: 'iki-root-cellar', pack: 'iki' },
+  { key: 'iki-barracks', pack: 'iki' }, { key: 'iki-town-hall', pack: 'iki' },
+  { key: 'iki-inn', pack: 'iki' }, { key: 'iki-brewery', pack: 'iki' },
+  { key: 'iki-barn', pack: 'iki' }, { key: 'iki-armory', pack: 'iki' },
+  { key: 'iki-palisade-gate', pack: 'iki' },
+  // Markfolk Timber-frame
+  { key: 'bld-campfire', pack: 'markfolk' }, { key: 'bld-well', pack: 'markfolk' },
+  { key: 'bld-guard-post', pack: 'markfolk' }, { key: 'bld-shrine', pack: 'markfolk' },
+  { key: 'bld-watchtower', pack: 'markfolk' }, { key: 'bld-cottage', pack: 'markfolk' },
+  { key: 'bld-smithy', pack: 'markfolk' }, { key: 'bld-farmstead', pack: 'markfolk' },
+  { key: 'bld-longhouse', pack: 'markfolk' },
+  // MW-buildings
+  { key: 'mw-cottage', pack: 'mw' }, { key: 'mw-dwelling', pack: 'mw' },
+  { key: 'mw-smokehouse', pack: 'mw' }, { key: 'mw-workshop', pack: 'mw' },
+  { key: 'mw-longhouse', pack: 'mw' }, { key: 'mw-market-hall', pack: 'mw' },
+];
 
 // ── Scene ───────────────────────────────────────────────────────────────────
 
@@ -139,22 +123,13 @@ export class BuildingForgeScene extends Phaser.Scene {
   private archStyles: ArchitectureStyle[] = [];
   private currentArchIdx = 0;
 
-  // Block model: blocks[x][y][z] = block type string or null for empty
-  private blocks: (string | null)[][][] = [];
+  // Grid dimensions (kept for footprint defaults from registry)
   private gridW = 4;
   private gridD = 4;
-  private maxH = 8;
-
-  // Currently selected block type for painting
-  private selectedBlockType = 'wall';
 
   // Render objects
-  private blockGfx: Phaser.GameObjects.Graphics | null = null;
-  private groundGfx: Phaser.GameObjects.Graphics | null = null;
-  private blockSprites: Phaser.GameObjects.Image[] = [];
-  private blockLabels: Phaser.GameObjects.Text[] = [];
-  private showSprites = true;
-  private spriteVariantIdx = 0;
+  private gridGfx: Phaser.GameObjects.Graphics | null = null;
+  private labels: Phaser.GameObjects.Text[] = [];
 
   // ── Sprite placement preview ────────────────────────────────────────────────
   private comparisonSprite?: Phaser.GameObjects.Image;
@@ -179,29 +154,42 @@ export class BuildingForgeScene extends Phaser.Scene {
   /** Sprite offset relative to grid centre, in screen pixels (before zoom). */
   private spriteOffX = 0;
   private spriteOffY = 0;
+  /** Mirror sprite east↔west. */
+  private spriteFlipped = false;
+  /** Exit/entrance tiles on the footprint grid (col,row indices into fpTiles).
+   *  Always stored in canonical (unflipped) orientation. */
+  private fpExits: Set<number> = new Set();
+  /** When true, clicking footprint tiles toggles exits instead of active/inactive. */
+  private exitEditMode = true;
+
+  /** Mirror a grid index across the width axis (for flip E↔W). */
+  private mirrorGridIdx(idx: number): number {
+    const r = Math.floor(idx / this.fpMaxCols);
+    const c = idx % this.fpMaxCols;
+    // Mirror column within the grid: margin(1) + footprint + margin(1)
+    const mirroredC = this.fpMaxCols - 1 - c;
+    return r * this.fpMaxCols + mirroredC;
+  }
+
+  /** Check if a grid index has an exit, accounting for flip. */
+  private isExitAt(idx: number): boolean {
+    // Exits are stored canonical. When flipped, check the mirrored position.
+    const canonIdx = this.spriteFlipped ? this.mirrorGridIdx(idx) : idx;
+    return this.fpExits.has(canonIdx);
+  }
+
+  // Sprite gallery — user-assignable sprite per building
+  private selectedSpriteKey: string | null = null;
+  private galleryFilter: 'all' | 'iki' | 'markfolk' | 'mw' = 'all';
+  /** Current sprite variant index within the building's sprites array. */
+  private variantIdx = 0;
+  /** Filter buildings list: all, todo (not done), done, or needs-edit. */
+  private buildingFilter: 'all' | 'todo' | 'done' | 'needs-edit' = 'todo';
 
   // Pan state
   private isPanning = false;
   private panStartX = 0;
   private panStartY = 0;
-
-  // Hover
-  private hoverTx = -1;
-  private hoverTy = -1;
-
-  // Object layer — free-sized sprites on top of the block grid
-  private objects: ForgeObject[] = [];
-  private objectSprites: Phaser.GameObjects.Image[] = [];
-  private placingObject: string | null = null;
-  private currentObjectIdx = 0;
-  private readonly objectKeys = [
-    // Buildings
-    'bld-campfire', 'bld-well', 'bld-guard-post', 'bld-shrine',
-    'bld-watchtower', 'bld-cottage', 'bld-smithy', 'bld-farmstead', 'bld-longhouse',
-    // NPCs
-    'npc-chief', 'npc-blacksmith', 'npc-farmer', 'npc-guard',
-    'npc-hearthkeeper', 'npc-shrine-keeper', 'npc-child', 'npc-elder',
-  ];
 
   constructor() {
     super({ key: 'BuildingForgeScene' });
@@ -212,28 +200,6 @@ export class BuildingForgeScene extends Phaser.Scene {
   preload(): void {
     this.load.json('building-registry', '/macro-world/building-registry.json');
     this.load.json('architecture', '/macro-world/architecture.json');
-
-    // Block sprite tiles — multiple variants per building for comparison
-    // Map objects (transparent bg, no iso base — best for ground objects)
-    this.load.image('campfire-obj-32', '/assets/packs/building-forge/campfire_obj_32.png');
-    this.load.image('campfire-obj-48a', '/assets/packs/building-forge/campfire_obj_48a.png');
-    this.load.image('campfire-obj-48b', '/assets/packs/building-forge/campfire_obj_48b.png');
-    // Iso block tiles (for comparison)
-    this.load.image('campfire-markfolk-v1', '/assets/packs/building-forge/campfire_markfolk_v1.png');
-    this.load.image('campfire-markfolk-v2', '/assets/packs/building-forge/campfire_markfolk_v2.png');
-    this.load.image('campfire-markfolk-v3', '/assets/packs/building-forge/campfire_markfolk_v3_48px.png');
-
-    // Longhouse Tradition block sprites
-    this.load.image('lh-stave-wall',      '/assets/packs/building-forge/longhouse/stave_wall.png');
-    this.load.image('lh-buttress-post',   '/assets/packs/building-forge/longhouse/buttress_post.png');
-    this.load.image('lh-stone-footing',   '/assets/packs/building-forge/longhouse/stone_footing.png');
-    this.load.image('lh-turf-roof',       '/assets/packs/building-forge/longhouse/turf_roof.png');
-    this.load.image('lh-double-door',     '/assets/packs/building-forge/longhouse/double_door.png');
-    this.load.image('lh-arched-shutter',  '/assets/packs/building-forge/longhouse/arched_shutter.png');
-    this.load.image('lh-ridge-beam',      '/assets/packs/building-forge/longhouse/ridge_beam.png');
-    this.load.image('lh-carved-gable',    '/assets/packs/building-forge/longhouse/carved_gable.png');
-    this.load.image('lh-roof-edge',      '/assets/packs/building-forge/longhouse/roof_edge.png');
-    this.load.image('lh-roof-edge-back', '/assets/packs/building-forge/longhouse/roof_edge_back.png');
 
     // Building object sprites (Markfolk Timber-frame)
     const bldBase = '/assets/packs/building-objects/markfolk-timber';
@@ -256,22 +222,58 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.load.image('mw-longhouse',    `${mwBase}/mw-longhouse.png`);
     this.load.image('mw-market-hall',  `${mwBase}/mw-market-hall.png`);
 
-    // NPC object sprites (fieldborn village)
-    const npcBase = '/assets/sprites/npcs/markfolk/fieldborn';
-    this.load.image('npc-chief',          `${npcBase}/chief.png`);
-    this.load.image('npc-blacksmith',     `${npcBase}/blacksmith.png`);
-    this.load.image('npc-farmer',         `${npcBase}/farmer.png`);
-    this.load.image('npc-guard',          `${npcBase}/guard.png`);
-    this.load.image('npc-hearthkeeper',   `${npcBase}/hearthkeeper.png`);
-    this.load.image('npc-shrine-keeper',  `${npcBase}/shrine-keeper.png`);
-    this.load.image('npc-child',          `${npcBase}/child.png`);
-    this.load.image('npc-elder',          `${npcBase}/elder.png`);
+    // Ikibeki Dencraft building sprites — dome/burrow architecture
+    const ikiBase = '/assets/packs/building-objects/ikibeki';
+    this.load.image('iki-campfire',       `${ikiBase}/campfire.png`);
+    this.load.image('iki-well',           `${ikiBase}/well.png`);
+    this.load.image('iki-guard-post',     `${ikiBase}/guard-post.png`);
+    this.load.image('iki-shrine',         `${ikiBase}/shrine.png`);
+    this.load.image('iki-spirit-shrine',  `${ikiBase}/spirit-shrine.png`);
+    this.load.image('iki-watchtower',     `${ikiBase}/watchtower.png`);
+    this.load.image('iki-cottage',        `${ikiBase}/cottage.png`);
+    this.load.image('iki-ger-cottage',    `${ikiBase}/ger-cottage.png`);
+    this.load.image('iki-ger-dwelling',   `${ikiBase}/ger-dwelling.png`);
+    this.load.image('iki-ger-smithy',     `${ikiBase}/ger-smithy.png`);
+    this.load.image('iki-smithy',         `${ikiBase}/smithy.png`);
+    this.load.image('iki-farmstead',      `${ikiBase}/farmstead.png`);
+    this.load.image('iki-longhouse',      `${ikiBase}/longhouse.png`);
+    this.load.image('iki-clan-lodge',     `${ikiBase}/clan-lodge.png`);
+    this.load.image('iki-shelter-hut',    `${ikiBase}/shelter-hut.png`);
+    this.load.image('iki-merchant-stall', `${ikiBase}/merchant-stall.png`);
+    this.load.image('iki-tavern',         `${ikiBase}/tavern.png`);
+    this.load.image('iki-warehouse',      `${ikiBase}/warehouse.png`);
+    this.load.image('iki-stables',        `${ikiBase}/stables.png`);
+    this.load.image('iki-sawmill',        `${ikiBase}/sawmill.png`);
+    this.load.image('iki-smokehouse',     `${ikiBase}/smokehouse.png`);
+    this.load.image('iki-yurt-small',     `${ikiBase}/yurt-small.png`);
+    this.load.image('iki-yurt-large',     `${ikiBase}/yurt-large.png`);
+    this.load.image('iki-ancestor-stone', `${ikiBase}/ancestor-stone.png`);
+    // New Ikibeki dome/burrow buildings
+    this.load.image('iki-market-hall',    `${ikiBase}/market-hall.png`);
+    this.load.image('iki-granary',        `${ikiBase}/granary.png`);
+    this.load.image('iki-temple',         `${ikiBase}/temple.png`);
+    this.load.image('iki-root-cellar',    `${ikiBase}/root-cellar.png`);
+    this.load.image('iki-barracks',       `${ikiBase}/barracks.png`);
+    this.load.image('iki-town-hall',      `${ikiBase}/town-hall.png`);
+    this.load.image('iki-inn',            `${ikiBase}/inn.png`);
+    this.load.image('iki-brewery',        `${ikiBase}/brewery.png`);
+    this.load.image('iki-barn',           `${ikiBase}/barn.png`);
+    this.load.image('iki-armory',         `${ikiBase}/armory.png`);
+    this.load.image('iki-palisade-gate',  `${ikiBase}/palisade-gate.png`);
   }
 
   create(): void {
     // Parse registry
     const data = this.cache.json.get('building-registry') as { buildings: Array<RegistryEntry & { _section?: string }> };
     this.entries = data.buildings.filter(b => b.id && b.baseSizeRange) as RegistryEntry[];
+    // Migrate legacy single sprite → sprites array
+    for (const e of this.entries) {
+      if (e.sprite && !e.sprites) {
+        e.sprites = [e.sprite];
+      }
+      // Always clear legacy field after migration
+      if (e.sprites) delete e.sprite;
+    }
 
     // Parse architecture styles from JSON fallback; Supabase upgrade below
     const archData = this.cache.json.get('architecture') as { styles: ArchitectureStyle[] };
@@ -306,38 +308,26 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Load current building
     this.loadBuilding();
     this.buildControlPanel();
-    this.buildBlockPanel();
+    this.buildGalleryPanel();
 
     // ── Input ──────────────────────────────────────────────────────────────
 
-    // Keyboard
     const kb = this.input.keyboard!;
     kb.on('keydown-A', () => this.cycleBuilding(-1));
     kb.on('keydown-D', () => this.cycleBuilding(1));
-    kb.on('keydown-R', () => { this.fillDefault(); this.rebuild(); });
-    kb.on('keydown-T', () => { this.showSprites = !this.showSprites; this.syncSpriteToggle(); this.rebuild(); });
-    kb.on('keydown-V', () => this.cycleSpriteVariant());
-    kb.on('keydown-O', () => this.toggleObjectMode());
-    kb.on('keydown-N', () => this.cycleObjectType());
-    kb.on('keydown-F', () => this.flipObject());
-    kb.on('keydown-B', () => {
-      this.showComparison = !this.showComparison;
-      if (this.showComparison) this.jumpToNextSpriteBuilding();
-      this.loadBuilding();
-      this.rebuild();
-    });
     kb.on('keydown-M', () => { this.comparisonIdx++; this.rebuild(); });
+    kb.on('keydown-F', () => { this.spriteFlipped = !this.spriteFlipped; this.syncFlipCheckbox(); this.rebuild(); });
+    kb.on('keydown-G', () => { this.exitEditMode = !this.exitEditMode; this.syncExitModeUI(); this.rebuild(); });
     // Footprint adjust: Q/E = width -/+, Z/X = depth -/+
     kb.on('keydown-Q', () => { this.footprintW = Math.max(1, this.footprintW - 1); this.resetFootprintMask(); this.rebuild(); });
     kb.on('keydown-E', () => { this.footprintW++; this.resetFootprintMask(); this.rebuild(); });
     kb.on('keydown-Z', () => { this.footprintD = Math.max(1, this.footprintD - 1); this.resetFootprintMask(); this.rebuild(); });
     kb.on('keydown-X', () => { this.footprintD++; this.resetFootprintMask(); this.rebuild(); });
-    // Shift+Arrow keys nudge the sprite position relative to the base grid.
+    // Shift+Arrow keys nudge the sprite offset
     kb.on('keydown-LEFT',  (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffX -= 1; this.rebuild(); } });
     kb.on('keydown-RIGHT', (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffX += 1; this.rebuild(); } });
     kb.on('keydown-UP',    (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffY -= 1; this.rebuild(); } });
     kb.on('keydown-DOWN',  (e: KeyboardEvent) => { if (e.shiftKey) { this.spriteOffY += 1; this.rebuild(); } });
-    // Reset sprite offset
     kb.on('keydown-C', () => { this.spriteOffX = 0; this.spriteOffY = 0; this.rebuild(); });
 
     // Zoom
@@ -349,9 +339,9 @@ export class BuildingForgeScene extends Phaser.Scene {
     kb.on('keydown-PLUS',  () => { this.zoomFactor = Math.min(6, this.zoomFactor * 1.15); this.rebuild(); });
     kb.on('keydown-MINUS', () => { this.zoomFactor = Math.max(0.5, this.zoomFactor / 1.15); this.rebuild(); });
 
-    // Pan (middle or right drag)
+    // Pan (middle drag)
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (p.middleButtonDown() || (p.rightButtonDown() && p.event.shiftKey)) {
+      if (p.middleButtonDown()) {
         this.isPanning = true;
         this.panStartX = p.x;
         this.panStartY = p.y;
@@ -364,41 +354,34 @@ export class BuildingForgeScene extends Phaser.Scene {
         cam.scrollY -= (p.y - this.panStartY);
         this.panStartX = p.x;
         this.panStartY = p.y;
-      } else {
-        // Update hover tile
-        this.updateHover(p);
       }
     });
     this.input.on('pointerup', () => { this.isPanning = false; });
 
-    // Click to place/remove blocks or objects
+    // Click on footprint grid tiles to toggle footprint cells or exit markers
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (this.isPanning) return;
-      this.updateHover(p);
-      if (this.hoverTx < 0) return;
-
-      if (this.placingObject) {
-        if (p.leftButtonDown()) this.placeObject(this.hoverTx, this.hoverTy);
-        else if (p.rightButtonDown()) this.removeObject(this.hoverTx, this.hoverTy);
-      } else {
-        if (p.leftButtonDown()) this.placeBlock(this.hoverTx, this.hoverTy);
-        else if (p.rightButtonDown()) this.removeBlock(this.hoverTx, this.hoverTy);
-      }
-    });
-
-    // Click on placement grid tiles to toggle footprint cells.
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (!this.showComparison || !p.leftButtonDown()) return;
-      const tile = this.screenToFootprintTile(p.x, p.y);
+      if (!p.leftButtonDown()) return;
+      const cam = this.cameras.main;
+      const tile = this.screenToFootprintTile(p.x + cam.scrollX, p.y + cam.scrollY);
       if (!tile) return;
       const idx = tile.r * this.fpMaxCols + tile.c;
-      this.fpTiles[idx] = !this.fpTiles[idx];
+      if (this.exitEditMode) {
+        // Convert to canonical (unflipped) index for storage
+        const canonIdx = this.spriteFlipped ? this.mirrorGridIdx(idx) : idx;
+        if (this.fpTiles[idx]) {
+          if (this.fpExits.has(canonIdx)) this.fpExits.delete(canonIdx);
+          else this.fpExits.add(canonIdx);
+        }
+      } else {
+        this.fpTiles[idx] = !this.fpTiles[idx];
+        // Remove canonical exit if tile is deactivated
+        const canonIdx = this.spriteFlipped ? this.mirrorGridIdx(idx) : idx;
+        if (!this.fpTiles[idx]) this.fpExits.delete(canonIdx);
+      }
       this.rebuild();
     });
 
-    // Disable context menu
     this.game.canvas.addEventListener('contextmenu', e => e.preventDefault());
-
     this.rebuild();
   }
 
@@ -408,31 +391,26 @@ export class BuildingForgeScene extends Phaser.Scene {
   private async loadFromSupabase(): Promise<void> {
     const mw = await loadMacroWorld();
     if (!mw) return;
-    // Map DB rows → ArchitectureStyle interface the scene expects
-    this.archStyles = mw.architectureStyles.map((s: DbArchStyle) => {
-      const blocks: BlockDef[] = getBlocksForStyle(s.id).map((b: DbBlock) => ({
-        type: b.block_type,
-        name: b.name,
-        sprite: b.sprite_key ?? undefined,
-      }));
-      return {
-        id: s.slug.toUpperCase(),
-        name: s.name,
-        primaryMaterial: s.primary_material ?? 'stone',
-        constructionMethod: s.construction_method ?? 'built',
-        formLanguage: s.form_language ?? 'rectilinear',
-        groundRelation: s.ground_relation ?? 'on-ground',
-        windowStyle: s.window_style ?? 'arch',
-        ornamentLevel: s.ornament_level ?? 'minimal',
-        structuralPrinciple: s.structural_principle ?? 'load-bearing',
-        climateResponse: s.climate_response ?? 'heated',
-        description: s.description ?? undefined,
-        promptKeywords: s.prompt_keywords ?? undefined,
-        realWorldInspiration: s.real_world_inspiration ?? undefined,
-        blocks,
-      } satisfies ArchitectureStyle;
-    });
-    // Map DB rows → RegistryEntry interface the scene expects
+    this.archStyles = mw.architectureStyles.map((s: DbArchStyle) => ({
+      id: s.slug.toUpperCase(),
+      name: s.name,
+      primaryMaterial: s.primary_material ?? 'stone',
+      constructionMethod: s.construction_method ?? 'built',
+      formLanguage: s.form_language ?? 'rectilinear',
+      groundRelation: s.ground_relation ?? 'on-ground',
+      windowStyle: s.window_style ?? 'arch',
+      ornamentLevel: s.ornament_level ?? 'minimal',
+      structuralPrinciple: s.structural_principle ?? 'load-bearing',
+      climateResponse: s.climate_response ?? 'heated',
+      description: s.description ?? undefined,
+      promptKeywords: s.prompt_keywords ?? undefined,
+      realWorldInspiration: s.real_world_inspiration ?? undefined,
+    } satisfies ArchitectureStyle));
+    // Build a map of existing sprite configs so Supabase upgrade preserves them
+    const spritesMap = new Map<string, SpriteConfig[]>();
+    for (const e of this.entries) {
+      if (e.sprites?.length) spritesMap.set(e.id, e.sprites);
+    }
     this.entries = mw.buildings.map((b: DbBuilding) => ({
       id: b.slug,
       name: b.name,
@@ -440,13 +418,12 @@ export class BuildingForgeScene extends Phaser.Scene {
       baseSizeRange: [b.base_size_min ?? 2, b.base_size_max ?? 3] as [number, number],
       baseDepthRange: b.base_depth_min != null ? [b.base_depth_min, b.base_depth_max ?? b.base_depth_min] as [number, number] : undefined,
       heightHint: b.height_hint ?? 'standard',
+      sprites: spritesMap.get(b.slug),
     }));
-    // Sort Ikibeki Dencraft to the top of the architecture list
     const ikiCheck = (a: ArchitectureStyle) =>
       a.id === 'IKIBEKI-DENCRAFT' || a.name === 'Ikibeki Dencraft';
     this.archStyles.sort((a, b) => (ikiCheck(b) ? 1 : 0) - (ikiCheck(a) ? 1 : 0));
     this.currentArchIdx = 0;
-    console.log(`[BuildingForge] loaded ${this.archStyles.length} arch styles, ${this.entries.length} buildings from Supabase`);
     this.rebuild();
   }
 
@@ -454,176 +431,43 @@ export class BuildingForgeScene extends Phaser.Scene {
     const entry = this.entries[this.currentIdx];
     if (!entry) return;
 
-    // Use max of size/depth range for footprint
     this.gridW = entry.baseSizeRange[1];
     this.gridD = (entry.baseDepthRange ?? entry.baseSizeRange)[1];
-    this.maxH = HEIGHT_BLOCKS[entry.heightHint] ?? 4;
-    // Peaked roof buildings need extra height for the stepped slope to ridge
-    if (['longhouse', 'market-hall'].includes(entry.id)) {
-      const depth = (entry.baseDepthRange ?? entry.baseSizeRange)[1];
-      const halfDepth = Math.floor(depth / 2);
-      this.maxH = Math.max(this.maxH, this.maxH + halfDepth + 2);
-    }
-
-    // Init empty grid
-    this.blocks = [];
-    for (let x = 0; x < this.gridW; x++) {
-      this.blocks[x] = [];
-      for (let y = 0; y < this.gridD; y++) {
-        this.blocks[x][y] = new Array(this.maxH).fill(null);
-      }
-    }
-
-    this.fillDefault();
+    // Don't reset variantIdx here — it may have been set by gallery click
+    this.loadSpriteConfig(entry);
   }
 
-  private fillDefault(): void {
-    const entry = this.entries[this.currentIdx];
-    if (!entry) return;
-    const wallH = WALL_BLOCKS[entry.heightHint] ?? 3;
-    const totalH = HEIGHT_BLOCKS[entry.heightHint] ?? 4;
-
-    // Assign typed block per layer
-    for (let x = 0; x < this.gridW; x++) {
-      for (let y = 0; y < this.gridD; y++) {
-        for (let z = 0; z < this.maxH; z++) {
-          if (z >= totalH) {
-            this.blocks[x][y][z] = null;
-          } else if (z >= wallH) {
-            this.blocks[x][y][z] = 'roof';
-          } else if (z === 0) {
-            this.blocks[x][y][z] = 'foundation';
-          } else {
-            this.blocks[x][y][z] = 'wall';
-          }
-        }
-      }
-    }
-
-    // Leave the interior hollow for standard+ buildings (walls only)
-    if (wallH >= 3 && this.gridW >= 3 && this.gridD >= 3) {
-      for (let x = 1; x < this.gridW - 1; x++) {
-        for (let y = 1; y < this.gridD - 1; y++) {
-          for (let z = 0; z < wallH; z++) {
-            this.blocks[x][y][z] = null;
-          }
-        }
-      }
-    }
-
-    // Peaked roof buildings — longhouse tradition style with slanted eaves
-    const peakedRoofBuildings = ['longhouse', 'market-hall'];
-    if (peakedRoofBuildings.includes(entry.id) && this.gridD >= 3) {
-      const doorY = Math.floor(this.gridD / 2);
-      const doorH = Math.min(3, wallH);
-      const lastX = this.gridW - 1;
-      const lastY = this.gridD - 1;
-
-      // Corners → wall-corner (buttress posts), full wall height
-      for (const cx of [0, lastX]) {
-        for (const cy of [0, lastY]) {
-          for (let z = 0; z < wallH; z++) {
-            this.blocks[cx][cy][z] = 'wall-corner';
-          }
-        }
-      }
-
-      // Doors — 1 wide × 3 high at centre of each short end
-      for (const dx of [0, lastX]) {
-        for (let z = 0; z < doorH; z++) {
-          this.blocks[dx][doorY][z] = 'door';
-        }
-      }
-
-      // Windows — on long walls (y=0 and y=lastY), midway along the length
-      const windowPositions = [Math.floor(this.gridW / 3), Math.floor(2 * this.gridW / 3)];
-      for (const wx of windowPositions) {
-        if (wx > 0 && wx < lastX) {
-          for (const wy of [0, lastY]) {
-            // Place window at z=2 (eye level), wall below and above
-            if (wallH >= 3) {
-              this.blocks[wx][wy][2] = 'window';
-            }
-          }
-        }
-      }
-
-      // Peaked roof — stepped slope from eaves to ridge using slanted tiles.
-      // Each row inward from the edge steps up one z level.
-      // Clear above the walls first.
-      for (let x = 0; x < this.gridW; x++) {
-        for (let y = 0; y < this.gridD; y++) {
-          for (let z = wallH; z < this.maxH; z++) {
-            this.blocks[x][y][z] = null;
-          }
-        }
-      }
-
-      const ridgeY = Math.floor(this.gridD / 2);
-      const halfDepth = ridgeY; // number of rows from edge to centre
-
-      // Build the slope from both sides towards the ridge
-      for (let x = 0; x < this.gridW; x++) {
-        // Front slope (y=0 upward)
-        for (let step = 0; step < halfDepth; step++) {
-          const z = wallH + step;
-          if (z >= this.maxH) break;
-          this.blocks[x][step][z] = 'roof-edge';
-        }
-
-        // Back slope (y=lastY downward)
-        for (let step = 0; step < halfDepth; step++) {
-          const z = wallH + step;
-          if (z >= this.maxH) break;
-          this.blocks[x][lastY - step][z] = 'roof-edge-back';
-        }
-
-        // Ridge row — flat roof at the peak (one step lower)
-        const rowPeakZ = wallH + halfDepth - 1;
-        if (rowPeakZ < this.maxH) {
-          this.blocks[x][ridgeY][rowPeakZ] = 'roof';
-        }
-      }
-
-      // Ridge beam runs under the peak (interior columns only)
-      const peakZ = wallH + halfDepth - 1;
-      for (let x = 1; x < lastX; x++) {
-        if (peakZ < this.maxH) {
-          this.blocks[x][ridgeY][peakZ] = 'beam';
-          if (peakZ + 1 < this.maxH) {
-            this.blocks[x][ridgeY][peakZ + 1] = 'roof';
-          }
-        }
-      }
-
-      // Ridge caps at peak of each short end — match the roof row
-      if (peakZ < this.maxH) {
-        this.blocks[0][ridgeY][peakZ] = 'beam';
-        this.blocks[lastX][ridgeY][peakZ] = 'beam';
-        if (peakZ + 1 < this.maxH) {
-          this.blocks[0][ridgeY][peakZ + 1] = 'roof';
-          this.blocks[lastX][ridgeY][peakZ + 1] = 'roof';
-        }
-      }
-    }
-  }
-
-  /** Load sprite config from registry entry, or fall back to defaults. */
+  /** Load sprite config from current variant, or fall back to defaults. */
   private loadSpriteConfig(e: RegistryEntry): void {
-    if (e.sprite) {
-      this.footprintW = e.sprite.footprintW;
-      this.footprintD = e.sprite.footprintD;
-      this.spriteOffX = e.sprite.offsetX;
-      this.spriteOffY = e.sprite.offsetY;
+    // Clamp variant index
+    const numVariants = e.sprites?.length ?? 0;
+    if (this.variantIdx >= numVariants) this.variantIdx = Math.max(0, numVariants - 1);
+    const v = e.sprites?.[this.variantIdx];
+    if (v) {
+      this.footprintW = v.footprintW;
+      this.footprintD = v.footprintD;
+      this.spriteOffX = v.offsetX;
+      this.spriteOffY = v.offsetY;
+      this.spriteFlipped = v.flipped ?? false;
+      this.selectedSpriteKey = v.key || null;
     } else {
       this.footprintW = e.baseSizeRange?.[1] ?? 3;
       this.footprintD = e.baseDepthRange?.[1] ?? this.footprintW;
       this.spriteOffX = 0;
       this.spriteOffY = 0;
+      this.spriteFlipped = false;
+      this.selectedSpriteKey = null;
     }
+    // Reset footprint mask first (this clears fpExits), then restore exits
     this.resetFootprintMask();
+    if (v?.exits) {
+      for (const ex of v.exits) {
+        const idx = (ex.ty + 1) * (this.footprintW + 2) + (ex.tx + 1);
+        this.fpExits.add(idx);
+      }
+    }
     this.comparisonIdx = 0;
-    this.spriteVariantIdx = 0;
+    this.syncGalleryHighlight();
   }
 
   /** Jump currentIdx to the nearest building (forward) that has comparison sprites. */
@@ -640,28 +484,24 @@ export class BuildingForgeScene extends Phaser.Scene {
   }
 
   private cycleBuilding(dir: number): void {
-    const n = this.entries.length;
-    let next = (this.currentIdx + dir + n) % n;
-    // When comparison mode is on, skip buildings without PixelLab sprites.
-    if (this.showComparison) {
-      for (let i = 0; i < n; i++) {
-        if (BuildingForgeScene.comparisonKeysFor(this.entries[next].id).length > 0) break;
-        next = (next + dir + n) % n;
-      }
-    }
-    this.currentIdx = next;
-    this.loadSpriteConfig(this.entries[next]);
+    const filtered = this.getFilteredEntries();
+    if (filtered.length === 0) return;
+    // Find current position in filtered list
+    const curFilteredIdx = filtered.findIndex(f => f.origIdx === this.currentIdx);
+    const nextFilteredIdx = curFilteredIdx < 0
+      ? 0
+      : (curFilteredIdx + dir + filtered.length) % filtered.length;
+    this.currentIdx = filtered[nextFilteredIdx].origIdx;
+    this.variantIdx = 0;
+    this.loadSpriteConfig(this.entries[this.currentIdx]);
     this.loadBuilding();
     this.rebuild();
   }
-
 
   // ── Control panel (left, DOM) ──────────────────────────────────────────────
 
   private buildControlPanel(): void {
     document.getElementById('bf-control-panel')?.remove();
-
-    // Group entries by category for the dropdown
 
     const panel = document.createElement('div');
     panel.id = 'bf-control-panel';
@@ -709,7 +549,7 @@ export class BuildingForgeScene extends Phaser.Scene {
           margin-top: 4px; line-height: 1.3;
         }
       </style>
-      <h3>BuildingForge v0.5</h3>
+      <h3>BuildingForge v0.6</h3>
 
       <div>
         <label>Architecture</label>
@@ -722,22 +562,35 @@ export class BuildingForgeScene extends Phaser.Scene {
 
       <div>
         <label>Building</label>
+        <div style="display:flex; gap:4px; margin-bottom:4px;">
+          <select id="bf-done-filter" style="width:70px; font-size:10px;">
+            <option value="all"${this.buildingFilter === 'all' ? ' selected' : ''}>All</option>
+            <option value="todo"${this.buildingFilter === 'todo' ? ' selected' : ''}>Todo</option>
+            <option value="done"${this.buildingFilter === 'done' ? ' selected' : ''}>Done</option>
+            <option value="needs-edit"${this.buildingFilter === 'needs-edit' ? ' selected' : ''}>Needs Edit</option>
+          </select>
+          <span id="bf-filter-count" style="color:#667; font-size:10px; line-height:24px;"></span>
+        </div>
         <select id="bf-building">
-          ${this.entries.map((e, i) => `<option value="${i}"${i === this.currentIdx ? ' selected' : ''}>${e.name} (${e.id})</option>`).join('')}
+          ${this.getFilteredEntries().map(({ entry, origIdx }) => `<option value="${origIdx}"${origIdx === this.currentIdx ? ' selected' : ''}>${BuildingForgeScene.isBuildingDone(entry) ? '✓ ' : BuildingForgeScene.hasNeedsEdit(entry) ? '✎ ' : ''}${entry.name} (${entry.id})</option>`).join('')}
         </select>
       </div>
 
-      <div>
-        <label>Dimensions (W × L × H)</label>
-        <div class="bf-dim-row">
-          <input type="number" id="bf-w" min="1" max="12" value="${this.gridW}">
-          <span style="color:#556">×</span>
-          <input type="number" id="bf-l" min="1" max="12" value="${this.gridD}">
-          <span style="color:#556">×</span>
-          <input type="number" id="bf-h" min="1" max="12" value="${this.maxH}">
-        </div>
+      <div id="bf-variant-bar" style="display:flex; align-items:center; gap:4px;">
+        <button class="bf-btn" id="bf-var-prev" style="width:24px; padding:2px;">◀</button>
+        <span id="bf-var-label" style="color:#aab; font-size:11px; flex:1; text-align:center;"></span>
+        <button class="bf-btn" id="bf-var-next" style="width:24px; padding:2px;">▶</button>
+        <button class="bf-btn" id="bf-var-add" style="width:24px; padding:2px; color:#88ff88;">+</button>
       </div>
 
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="bf-done" ${this.getCurrentVariant()?.done ? 'checked' : ''} style="accent-color:#44cc44;">
+        <label for="bf-done" style="margin:0; cursor:pointer; color:${this.getCurrentVariant()?.done ? '#44cc44' : '#889'};">Done</label>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="bf-needs-edit" ${this.getCurrentVariant()?.needsEdit ? 'checked' : ''} style="accent-color:#ffaa00;">
+        <label for="bf-needs-edit" style="margin:0; cursor:pointer; color:${this.getCurrentVariant()?.needsEdit ? '#ffaa00' : '#889'};">Needs Edit</label>
+      </div>
 
       <div>
         <label>Sprite Offset (X, Y)</label>
@@ -759,18 +612,22 @@ export class BuildingForgeScene extends Phaser.Scene {
 
       <div class="bf-divider"></div>
 
-      <button class="bf-btn" id="bf-save-sprite" style="background:#2a4a2a; color:#88ff88;">Save Sprite Config</button>
+      <div style="display:flex; gap:4px;">
+        <button class="bf-btn" id="bf-save-sprite" style="background:#2a4a2a; color:#88ff88; flex:1;">Save</button>
+        <button class="bf-btn" id="bf-unassign" style="background:#4a2a2a; color:#ff8888; flex:0 0 auto; width: 70px;">Unassign</button>
+      </div>
       <div id="bf-save-status" style="color:#66aa66; font-size:10px; display:none;"></div>
 
       <div class="bf-divider"></div>
 
-      <button class="bf-btn" id="bf-reset">Reset (R)</button>
-
       <div style="display:flex; align-items:center; gap:6px;">
-        <input type="checkbox" id="bf-sprites" ${this.showSprites ? 'checked' : ''} style="accent-color:#ffcc88;">
-        <label for="bf-sprites" style="margin:0; cursor:pointer;">Show sprites (T)</label>
+        <input type="checkbox" id="bf-flip" ${this.spriteFlipped ? 'checked' : ''} style="accent-color:#ffcc88;">
+        <label for="bf-flip" style="margin:0; cursor:pointer;">Flip E↔W (F)</label>
       </div>
-      <div id="bf-variant-label" style="color:#99aabb; font-size:10px; display:none;"></div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="bf-exit-mode" ${this.exitEditMode ? 'checked' : ''} style="accent-color:#ff8844;">
+        <label for="bf-exit-mode" style="margin:0; cursor:pointer; color:${this.exitEditMode ? '#ff8844' : '#889'};">Mark Exits (G)</label>
+      </div>
 
       <div class="bf-divider"></div>
 
@@ -779,9 +636,14 @@ export class BuildingForgeScene extends Phaser.Scene {
       <div class="bf-divider"></div>
 
       <div class="bf-info">
-        LMB: place block<br>
-        RMB: remove block<br>
         A/D: prev/next building<br>
+        M: cycle variant<br>
+        F: flip sprite<br>
+        G: toggle exit mode<br>
+        Q/E: width -/+<br>
+        Z/X: depth -/+<br>
+        Shift+Arrows: nudge offset<br>
+        C: reset offset<br>
         Scroll: zoom<br>
         Middle-drag: pan
       </div>
@@ -793,67 +655,231 @@ export class BuildingForgeScene extends Phaser.Scene {
     // Building selection
     sel('bf-building').addEventListener('change', (e) => {
       this.currentIdx = parseInt((e.target as HTMLSelectElement).value, 10);
+      this.variantIdx = 0;
       this.loadBuilding();
       this.syncPanel();
       this.rebuild();
     });
 
-    // Dimension inputs (W × L × H)
-    const dimChange = () => {
-      const w = Phaser.Math.Clamp(parseInt((document.getElementById('bf-w') as HTMLInputElement).value, 10) || 1, 1, 12);
-      const l = Phaser.Math.Clamp(parseInt((document.getElementById('bf-l') as HTMLInputElement).value, 10) || 1, 1, 12);
-      const h = Phaser.Math.Clamp(parseInt((document.getElementById('bf-h') as HTMLInputElement).value, 10) || 1, 1, 12);
-      this.resizeGrid(w, l, h);
-    };
-    document.getElementById('bf-w')!.addEventListener('change', dimChange);
-    document.getElementById('bf-l')!.addEventListener('change', dimChange);
-    document.getElementById('bf-h')!.addEventListener('change', dimChange);
-
-    // Architecture selection — reset selectedBlockType to first type of new arch
+    // Architecture selection
     sel('bf-arch').addEventListener('change', (e) => {
       this.currentArchIdx = parseInt((e.target as HTMLSelectElement).value, 10);
-      const arch = this.archStyles[this.currentArchIdx];
-      const firstBlock = arch?.blocks?.[0];
-      if (firstBlock) this.selectedBlockType = firstBlock.type;
       this.rebuild();
     });
 
-    // Reset button
-    document.getElementById('bf-reset')!.addEventListener('click', () => {
-      this.fillDefault();
-      this.rebuild();
+    // Done filter
+    sel('bf-done-filter').addEventListener('change', (e) => {
+      this.buildingFilter = (e.target as HTMLSelectElement).value as typeof this.buildingFilter;
+      this.rebuildBuildingDropdown();
     });
 
-    // Sprite toggle
-    document.getElementById('bf-sprites')!.addEventListener('change', (e) => {
-      this.showSprites = (e.target as HTMLInputElement).checked;
-      this.rebuild();
-    });
-
-    // Save sprite config to registry entry + download updated JSON
-    document.getElementById('bf-save-sprite')!.addEventListener('click', () => {
+    // Done checkbox — mark current building as done and auto-save
+    document.getElementById('bf-done')!.addEventListener('change', async (e) => {
       const entry = this.entries[this.currentIdx];
-      const spriteKeys = BuildingForgeScene.comparisonKeysFor(entry.id);
-      const key = spriteKeys.length > 0 ? spriteKeys[this.comparisonIdx % spriteKeys.length] : '';
-      entry.sprite = {
+      if (!entry) return;
+      const isDone = (e.target as HTMLInputElement).checked;
+      // Build exits from current state
+      const exits: { tx: number; ty: number }[] = [];
+      const gridCols = this.footprintW + 2;
+      for (const idx of this.fpExits) {
+        const r = Math.floor(idx / gridCols);
+        const c = idx % gridCols;
+        exits.push({ tx: c - 1, ty: r - 1 });
+      }
+      // Save current variant
+      const variantConfig: SpriteConfig = {
+        key: this.selectedSpriteKey ?? '',
+        footprintW: this.footprintW,
+        footprintD: this.footprintD,
+        offsetX: this.spriteOffX,
+        offsetY: this.spriteOffY,
+        flipped: this.spriteFlipped || undefined,
+        exits: exits.length > 0 ? exits : undefined,
+        done: isDone || undefined,
+        needsEdit: this.getCurrentVariant()?.needsEdit || undefined,
+      };
+      if (!entry.sprites) entry.sprites = [];
+      entry.sprites[this.variantIdx] = variantConfig;
+      // Auto-save to disk
+      try {
+        await fetch('/__save-registry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buildings: this.entries }, null, 2),
+        });
+      } catch { /* ignore — will save on next explicit save */ }
+      // If the current building no longer matches the filter, advance to next
+      const filtered = this.getFilteredEntries();
+      if (filtered.length > 0 && !filtered.some(f => f.origIdx === this.currentIdx)) {
+        this.currentIdx = filtered[0].origIdx;
+        this.loadBuilding();
+        this.rebuild();
+      }
+      this.rebuildBuildingDropdown();
+      this.syncPanel();
+    });
+
+    // Needs Edit checkbox
+    document.getElementById('bf-needs-edit')!.addEventListener('change', (e) => {
+      const entry = this.entries[this.currentIdx];
+      if (!entry) return;
+      const checked = (e.target as HTMLInputElement).checked;
+      if (!entry.sprites) entry.sprites = [];
+      if (!entry.sprites[this.variantIdx]) {
+        entry.sprites[this.variantIdx] = {
+          key: this.selectedSpriteKey ?? '', footprintW: this.footprintW,
+          footprintD: this.footprintD, offsetX: this.spriteOffX, offsetY: this.spriteOffY,
+        };
+      }
+      entry.sprites[this.variantIdx].needsEdit = checked || undefined;
+      // Auto-save
+      fetch('/__save-registry', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildings: this.entries }, null, 2),
+      }).catch(() => {});
+      const lbl = (e.target as HTMLInputElement).nextElementSibling as HTMLLabelElement | null;
+      if (lbl) lbl.style.color = checked ? '#ffaa00' : '#889';
+      this.rebuildBuildingDropdown();
+    });
+
+    // Variant navigation
+    document.getElementById('bf-var-prev')!.addEventListener('click', () => {
+      const entry = this.entries[this.currentIdx];
+      const n = entry.sprites?.length ?? 0;
+      if (n > 1) {
+        this.variantIdx = (this.variantIdx - 1 + n) % n;
+        this.loadSpriteConfig(entry);
+        this.syncPanel();
+        this.rebuild();
+      }
+    });
+    document.getElementById('bf-var-next')!.addEventListener('click', () => {
+      const entry = this.entries[this.currentIdx];
+      const n = entry.sprites?.length ?? 0;
+      if (n > 1) {
+        this.variantIdx = (this.variantIdx + 1) % n;
+        this.loadSpriteConfig(entry);
+        this.syncPanel();
+        this.rebuild();
+      }
+    });
+    document.getElementById('bf-var-add')!.addEventListener('click', () => {
+      const entry = this.entries[this.currentIdx];
+      if (!entry.sprites) entry.sprites = [];
+      // Add a new empty variant
+      entry.sprites.push({
+        key: '',
+        footprintW: entry.baseSizeRange?.[1] ?? 3,
+        footprintD: (entry.baseDepthRange ?? entry.baseSizeRange)?.[1] ?? 3,
+        offsetX: 0,
+        offsetY: 0,
+      });
+      this.variantIdx = entry.sprites.length - 1;
+      this.loadSpriteConfig(entry);
+      this.syncPanel();
+      this.rebuild();
+    });
+
+    // Flip toggle
+    document.getElementById('bf-flip')!.addEventListener('change', (e) => {
+      this.spriteFlipped = (e.target as HTMLInputElement).checked;
+      this.rebuild();
+    });
+
+    // Exit edit mode toggle
+    document.getElementById('bf-exit-mode')!.addEventListener('change', (e) => {
+      this.exitEditMode = (e.target as HTMLInputElement).checked;
+      this.syncExitModeUI();
+      this.rebuild();
+    });
+
+    // Save sprite config to registry entry + write to disk via dev server
+    document.getElementById('bf-save-sprite')!.addEventListener('click', async () => {
+      const entry = this.entries[this.currentIdx];
+      const key = this.getActiveSpriteKey() ?? '';
+      // Convert exit grid indices to footprint-relative coords for storage
+      const exits: { tx: number; ty: number }[] = [];
+      const gridCols = this.footprintW + 2;
+      for (const idx of this.fpExits) {
+        const r = Math.floor(idx / gridCols);
+        const c = idx % gridCols;
+        exits.push({ tx: c - 1, ty: r - 1 }); // remove margin offset
+      }
+      const existing = this.getCurrentVariant();
+      const variantConfig: SpriteConfig = {
         key,
         footprintW: this.footprintW,
         footprintD: this.footprintD,
         offsetX: this.spriteOffX,
         offsetY: this.spriteOffY,
+        flipped: this.spriteFlipped || undefined,
+        exits: exits.length > 0 ? exits : undefined,
+        done: existing?.done || undefined,
+        needsEdit: existing?.needsEdit || undefined,
       };
-      // Download the full registry as JSON so the user can paste it back.
+      if (!entry.sprites) entry.sprites = [];
+      entry.sprites[this.variantIdx] = variantConfig;
       const fullData = { buildings: this.entries };
-      const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'building-registry.json';
-      a.click();
-      URL.revokeObjectURL(url);
+      const status = document.getElementById('bf-save-status');
+      try {
+        const res = await fetch('/__save-registry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fullData, null, 2),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (status) {
+          status.textContent = `✓ Saved ${entry.id}: ${key} ${this.footprintW}×${this.footprintD} offset(${this.spriteOffX},${this.spriteOffY})`;
+          status.style.color = '#66aa66';
+          status.style.display = 'block';
+        }
+      } catch {
+        // Fallback: download as file if dev server endpoint unavailable (production)
+        const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'building-registry.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        if (status) {
+          status.textContent = `Downloaded ${entry.id} (dev server unavailable)`;
+          status.style.color = '#aaaa66';
+          status.style.display = 'block';
+        }
+      }
+    });
+
+    // Unassign sprite from current building
+    document.getElementById('bf-unassign')!.addEventListener('click', async () => {
+      const entry = this.entries[this.currentIdx];
+      if (!entry) return;
+      // Remove current variant
+      if (entry.sprites) {
+        entry.sprites.splice(this.variantIdx, 1);
+        if (entry.sprites.length === 0) delete entry.sprites;
+      }
+      this.variantIdx = 0;
+      this.selectedSpriteKey = null;
+      this.spriteOffX = 0;
+      this.spriteOffY = 0;
+      this.spriteFlipped = false;
+      this.resetFootprintMask();
+      // Save to disk
+      try {
+        await fetch('/__save-registry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buildings: this.entries }, null, 2),
+        });
+      } catch { /* ignore */ }
+      this.syncGalleryHighlight();
+      this.syncPanel();
+      this.rebuild();
       const status = document.getElementById('bf-save-status');
       if (status) {
-        status.textContent = `Saved ${entry.id}: ${key} ${this.footprintW}×${this.footprintD} offset(${this.spriteOffX},${this.spriteOffY})`;
+        status.textContent = `Unassigned sprite from ${entry.id}`;
+        status.style.color = '#ff8888';
         status.style.display = 'block';
       }
     });
@@ -880,194 +906,36 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.syncPanel();
   }
 
-  // ── Block palette panel (right, DOM) ──────────────────────────────────────
-
-  private buildBlockPanel(): void {
-    document.getElementById('bf-block-panel')?.remove();
-
-    const panel = document.createElement('div');
-    panel.id = 'bf-block-panel';
-    panel.innerHTML = `
-      <style>
-        #bf-block-panel {
-          position: fixed; top: 0; right: 0; bottom: 0; width: 200px;
-          background: #12121eee; border-left: 1px solid #334;
-          font-family: monospace; font-size: 12px; color: #ccd;
-          padding: 12px; overflow-y: auto; z-index: 500;
-          display: flex; flex-direction: column; gap: 8px;
-        }
-        #bf-block-panel h4 { margin: 0; color: #ffcc88; font-size: 13px; }
-        #bf-block-panel .bf-divider { border-top: 1px solid #334; margin: 4px 0; }
-        #bf-block-panel .bf-bom-row {
-          display: flex; justify-content: space-between;
-          padding: 2px 0; color: #aab; font-size: 11px;
-        }
-        #bf-block-panel .bf-bom-count { color: #ffcc88; }
-        #bf-block-panel .bf-bom-empty { color: #446; font-size: 11px; }
-        .bf-block-swatch {
-          display: flex; align-items: center; gap: 8px;
-          padding: 5px 6px; border-radius: 4px; cursor: pointer;
-          border: 2px solid transparent;
-        }
-        .bf-block-swatch:hover { background: #2a2a4e; }
-        .bf-block-swatch.selected { border-color: #ffcc88; background: #1e1e3a; }
-        .bf-swatch-color {
-          width: 18px; height: 18px; border-radius: 3px; flex-shrink: 0;
-          border: 1px solid rgba(255,255,255,0.15);
-        }
-        .bf-swatch-name { font-size: 11px; color: #ccd; line-height: 1.2; }
-      </style>
-      <h4>Block Palette</h4>
-      <div id="bf-block-palette"></div>
-      <div class="bf-divider"></div>
-      <h4>Bill of Materials</h4>
-      <div id="bf-bom"></div>
-    `;
-    document.body.appendChild(panel);
-
-    this.syncBlockPanel();
-  }
-
-  /** Refresh block palette + bill of materials to match current arch and block state. */
-  private syncBlockPanel(): void {
-    const arch = this.archStyles[this.currentArchIdx];
-    const blocks = arch?.blocks ?? this.defaultBlocks();
-    const material = arch?.primaryMaterial ?? 'wood';
-
-    // Ensure selectedBlockType is valid for this arch
-    if (!blocks.find(b => b.type === this.selectedBlockType)) {
-      this.selectedBlockType = blocks[0]?.type ?? 'wall';
-    }
-
-    // Palette
-    const palette = document.getElementById('bf-block-palette');
-    if (palette) {
-      palette.innerHTML = blocks.map((block, i) => {
-        const color = this.blockColorForType(block.type, material);
-        const cssColor = `#${color.toString(16).padStart(6, '0')}`;
-        const isSelected = block.type === this.selectedBlockType;
-        return `
-          <div class="bf-block-swatch${isSelected ? ' selected' : ''}" data-type="${block.type}">
-            <div class="bf-swatch-color" style="background:${cssColor};"></div>
-            <span class="bf-swatch-name"><span style="color:#ffcc88">${i + 1}</span> ${block.name}</span>
-          </div>
-        `;
-      }).join('');
-
-      palette.querySelectorAll<HTMLElement>('.bf-block-swatch').forEach(el => {
-        el.addEventListener('click', () => {
-          this.selectedBlockType = el.dataset['type'] ?? 'wall';
-          this.syncBlockPanel();
-        });
+  /** Get entries filtered by done status, with original indices preserved. */
+  private getFilteredEntries(): { entry: RegistryEntry; origIdx: number }[] {
+    return this.entries
+      .map((entry, origIdx) => ({ entry, origIdx }))
+      .filter(({ entry }) => {
+        if (this.buildingFilter === 'todo') return !BuildingForgeScene.isBuildingDone(entry);
+        if (this.buildingFilter === 'done') return BuildingForgeScene.isBuildingDone(entry);
+        if (this.buildingFilter === 'needs-edit') return BuildingForgeScene.hasNeedsEdit(entry);
+        return true;
       });
-    }
-
-    // Bill of materials
-    const bom = document.getElementById('bf-bom');
-    if (bom) {
-      const counts = this.computeBom();
-      const nameMap = Object.fromEntries(blocks.map(b => [b.type, b.name]));
-      const entries = Object.entries(counts).sort(([, a], [, b]) => b - a);
-      if (entries.length === 0) {
-        bom.innerHTML = '<div class="bf-bom-empty">No blocks placed</div>';
-      } else {
-        const total = entries.reduce((s, [, n]) => s + n, 0);
-        bom.innerHTML = entries.map(([type, count]) => `
-          <div class="bf-bom-row">
-            <span>${nameMap[type] ?? type}</span>
-            <span class="bf-bom-count">${count}</span>
-          </div>
-        `).join('') + `
-          <div class="bf-bom-row" style="border-top:1px solid #334;margin-top:4px;padding-top:4px;">
-            <span style="color:#889;">Total</span>
-            <span class="bf-bom-count">${total}</span>
-          </div>
-        `;
-      }
-    }
   }
 
-  // ── Block type helpers ────────────────────────────────────────────────────
-
-  /** Fallback block palette when architecture has no explicit blocks defined. */
-  private defaultBlocks(): BlockDef[] {
-    return [
-      { type: 'wall',        name: 'Wall' },
-      { type: 'wall-corner', name: 'Corner' },
-      { type: 'foundation',  name: 'Foundation' },
-      { type: 'roof',        name: 'Roof' },
-      { type: 'door',        name: 'Door' },
-      { type: 'window',      name: 'Window' },
-      { type: 'floor',       name: 'Floor' },
-    ];
-  }
-
-  /** Derive a render colour for a block type from the architecture's primary material. */
-  private blockColorForType(blockType: string, material: string): number {
-    const wallColor = WALL_COLORS[material] ?? 0x9a7a5a;
-    const roofColor = ROOF_COLORS[material] ?? 0x8b7332;
-
-    switch (blockType) {
-      case 'roof':        return roofColor;
-      case 'roof-edge':      return this.darken(roofColor, 0.80);
-      case 'roof-edge-back': return this.darken(roofColor, 0.80);
-      case 'foundation':  return this.darken(wallColor, 0.70);
-      case 'floor':       return this.darken(wallColor, 0.60);
-      case 'wall-corner': return this.darken(wallColor, 0.85);
-      case 'door':        return this.darken(wallColor, 0.45);
-      case 'pillar':      return this.darken(wallColor, 0.90);
-      case 'beam':        return this.darken(wallColor, 1.1);
-      case 'ornament':    return 0xccaa44; // gold accent
-      case 'spire':       return this.darken(roofColor, 0.8);
-      case 'pipe':        return 0x667788; // steel
-      case 'shaft':       return 0x556666; // dark void
-      case 'light':       return 0x88ffaa; // glow green
-      case 'railing':     return this.darken(wallColor, 0.75);
-      case 'bridge':      return this.darken(wallColor, 0.65);
-      case 'walkway':     return this.darken(wallColor, 0.65);
-      case 'pole':        return this.darken(wallColor, 0.80);
-      case 'shelf':       return this.darken(wallColor, 0.75);
-      case 'battlement':  return this.darken(wallColor, 0.90);
-      case 'window': {
-        const r = Math.floor(((wallColor >> 16) & 0xff) * 0.5 + 0x44 * 0.5);
-        const g = Math.floor(((wallColor >>  8) & 0xff) * 0.5 + 0x88 * 0.5);
-        const b = Math.floor(( wallColor        & 0xff) * 0.5 + 0xff * 0.5);
-        return (r << 16) | (g << 8) | b;
-      }
-      default:            return wallColor;
+  /** Rebuild the building dropdown to reflect current filter. */
+  private rebuildBuildingDropdown(): void {
+    const sel = document.getElementById('bf-building') as HTMLSelectElement;
+    if (!sel) return;
+    const filtered = this.getFilteredEntries();
+    sel.innerHTML = filtered.map(({ entry, origIdx }) =>
+      `<option value="${origIdx}"${origIdx === this.currentIdx ? ' selected' : ''}>${BuildingForgeScene.isBuildingDone(entry) ? '✓ ' : BuildingForgeScene.hasNeedsEdit(entry) ? '✎ ' : ''}${entry.name} (${entry.id})</option>`
+    ).join('');
+    const countEl = document.getElementById('bf-filter-count');
+    if (countEl) {
+      const doneCount = this.entries.filter(e => BuildingForgeScene.isBuildingDone(e)).length;
+      countEl.textContent = `${doneCount}/${this.entries.length} done`;
     }
   }
-
-  /** Count how many of each block type are placed in the current grid. */
-  private computeBom(): Record<string, number> {
-    const counts: Record<string, number> = {};
-    for (let x = 0; x < this.gridW; x++) {
-      for (let y = 0; y < this.gridD; y++) {
-        for (let z = 0; z < this.maxH; z++) {
-          const bt = this.blocks[x][y][z];
-          if (bt !== null) {
-            counts[bt] = (counts[bt] ?? 0) + 1;
-          }
-        }
-      }
-    }
-    return counts;
-  }
-
-  // Category filter removed — focusing on Ikibeki culture only.
-  // Restore updateBuildingDropdown(category) from git if category filter is needed again.
 
   private syncPanel(): void {
     const entry = this.entries[this.currentIdx];
     if (!entry) return;
-
-    // Sync dimension inputs
-    const wIn = document.getElementById('bf-w') as HTMLInputElement;
-    const lIn = document.getElementById('bf-l') as HTMLInputElement;
-    const hIn = document.getElementById('bf-h') as HTMLInputElement;
-    if (wIn) wIn.value = String(this.gridW);
-    if (lIn) lIn.value = String(this.gridD);
-    if (hIn) hIn.value = String(this.maxH);
 
     // Sync offset + footprint inputs
     const offX = document.getElementById('bf-off-x') as HTMLInputElement;
@@ -1082,689 +950,405 @@ export class BuildingForgeScene extends Phaser.Scene {
     const buildingSel = document.getElementById('bf-building') as HTMLSelectElement;
     if (buildingSel) buildingSel.value = String(this.currentIdx);
 
-    // Count filled blocks
-    let blockCount = 0;
-    for (let x = 0; x < this.gridW; x++)
-      for (let y = 0; y < this.gridD; y++)
-        for (let z = 0; z < this.maxH; z++)
-          if (this.blocks[x][y][z] !== null) blockCount++;
-
     const arch = this.archStyles[this.currentArchIdx];
+    const spriteKey = this.getActiveSpriteKey();
 
     const stats = document.getElementById('bf-stats');
     if (stats) {
       stats.innerHTML = `
         <div class="bf-stat">Name: <span>${entry.name}</span></div>
         <div class="bf-stat">Category: <span>${entry.category}</span></div>
-        <div class="bf-stat">Footprint: <span>${this.gridW} x ${this.gridD}</span></div>
-        <div class="bf-stat">Height: <span>${this.maxH} blocks</span></div>
-        <div class="bf-stat">Blocks used: <span>${blockCount}</span></div>
+        <div class="bf-stat">Base size: <span>${this.gridW} × ${this.gridD}</span></div>
+        <div class="bf-stat">Sprite: <span>${spriteKey ?? '(none)'}</span></div>
         <div class="bf-divider"></div>
         <div class="bf-stat">Architecture: <span>${arch?.name ?? '—'}</span></div>
         <div class="bf-stat">Material: <span>${arch?.primaryMaterial ?? '—'}</span></div>
-        <div class="bf-stat">Method: <span>${arch?.constructionMethod ?? '—'}</span></div>
         <div class="bf-stat">Form: <span>${arch?.formLanguage ?? '—'}</span></div>
         <div class="bf-stat">Ground: <span>${arch?.groundRelation ?? '—'}</span></div>
-        <div class="bf-stat">Windows: <span>${arch?.windowStyle ?? '—'}</span></div>
-        <div class="bf-stat">Ornament: <span>${arch?.ornamentLevel ?? '—'}</span></div>
         ${arch?.description ? `<div class="bf-divider"></div><div class="bf-desc">${arch.description}</div>` : ''}
-        ${arch?.realWorldInspiration ? `<div class="bf-stat" style="margin-top:4px;">Inspiration: <span style="color:#99bbaa;">${arch.realWorldInspiration}</span></div>` : ''}
         ${arch?.promptKeywords ? `<div class="bf-keywords">${arch.promptKeywords}</div>` : ''}
-        <div class="bf-divider"></div>
-        <div class="bf-stat" style="color:${this.placingObject ? '#44ff88' : '#aaaaaa'};">
-          Mode: <span>${this.placingObject ? `OBJECT (${this.placingObject.replace('npc-', '')})` : 'BLOCK'}</span>
-        </div>
-        <div class="bf-stat" style="font-size:0.8em;color:#888;">O = toggle mode, N = cycle NPC</div>
-        <div class="bf-stat">Objects placed: <span>${this.objects.length}</span></div>
       `;
     }
 
-    // Also refresh the block panel whenever the left panel syncs
-    this.syncBlockPanel();
-  }
-
-  /** Resize the grid to new dimensions, preserving existing blocks where possible. */
-  private resizeGrid(w: number, l: number, h: number): void {
-    const oldBlocks = this.blocks;
-    const oldW = this.gridW;
-    const oldD = this.gridD;
-    const oldH = this.maxH;
-
-    this.gridW = w;
-    this.gridD = l;
-    this.maxH = h;
-
-    // Create new grid, copy what fits
-    this.blocks = [];
-    for (let x = 0; x < w; x++) {
-      this.blocks[x] = [];
-      for (let y = 0; y < l; y++) {
-        this.blocks[x][y] = new Array(h).fill(null);
-        for (let z = 0; z < h; z++) {
-          if (x < oldW && y < oldD && z < oldH) {
-            this.blocks[x][y][z] = oldBlocks[x]?.[y]?.[z] ?? null;
-          }
-        }
-      }
+    // Sync done checkbox
+    const doneCb = document.getElementById('bf-done') as HTMLInputElement;
+    if (doneCb) {
+      doneCb.checked = !!BuildingForgeScene.isBuildingDone(entry);
+      const lbl = doneCb.nextElementSibling as HTMLLabelElement | null;
+      if (lbl) lbl.style.color = this.getCurrentVariant()?.done ? '#44cc44' : '#889';
     }
 
-    this.syncPanel();
-    this.rebuild();
+    // Sync needs-edit checkbox
+    const editCb = document.getElementById('bf-needs-edit') as HTMLInputElement;
+    if (editCb) {
+      editCb.checked = !!this.getCurrentVariant()?.needsEdit;
+      const lbl = editCb.nextElementSibling as HTMLLabelElement | null;
+      if (lbl) lbl.style.color = this.getCurrentVariant()?.needsEdit ? '#ffaa00' : '#889';
+    }
+
+    this.rebuildBuildingDropdown();
+    this.syncVariantBar();
+    this.syncFlipCheckbox();
+    this.syncExitModeUI();
   }
 
-  private syncSpriteToggle(): void {
-    const cb = document.getElementById('bf-sprites') as HTMLInputElement;
-    if (cb) cb.checked = this.showSprites;
-    // Update variant label
+  private syncVariantBar(): void {
     const entry = this.entries[this.currentIdx];
-    const variants = entry ? BLOCK_SPRITE_VARIANTS[entry.id] : undefined;
-    const label = document.getElementById('bf-variant-label');
+    const n = entry?.sprites?.length ?? 0;
+    const label = document.getElementById('bf-var-label');
     if (label) {
-      if (variants && variants.length > 1 && this.showSprites) {
-        label.textContent = `Variant ${this.spriteVariantIdx + 1}/${variants.length} (V)`;
-        label.style.display = 'block';
+      if (n > 0) {
+        const v = this.getCurrentVariant();
+        const keyName = v?.key ? v.key.replace(/^(iki|bld|mw)-/, '') : '(empty)';
+        label.textContent = `Variant ${this.variantIdx + 1}/${n}: ${keyName}`;
       } else {
-        label.style.display = 'none';
+        label.textContent = 'No variants';
       }
     }
   }
 
-  private cycleSpriteVariant(): void {
-    const entry = this.entries[this.currentIdx];
-    const variants = entry ? BLOCK_SPRITE_VARIANTS[entry.id] : undefined;
-    if (!variants || variants.length <= 1) return;
-    this.spriteVariantIdx = (this.spriteVariantIdx + 1) % variants.length;
-    this.syncSpriteToggle();
-    this.rebuild();
-  }
+  // ── Sprite gallery panel (bottom, DOM) ─────────────────────────────────────
 
-  // ── Block editing ─────────────────────────────────────────────────────────
+  private buildGalleryPanel(): void {
+    document.getElementById('bf-gallery-panel')?.remove();
 
-  private placeBlock(tx: number, ty: number): void {
-    if (tx < 0 || ty < 0 || tx >= this.gridW || ty >= this.gridD) return;
-    // Find first empty z
-    for (let z = 0; z < this.maxH; z++) {
-      if (this.blocks[tx][ty][z] === null) {
-        this.blocks[tx][ty][z] = this.selectedBlockType;
-        this.rebuild();
-        return;
-      }
-    }
-  }
+    const panel = document.createElement('div');
+    panel.id = 'bf-gallery-panel';
+    panel.innerHTML = `
+      <style>
+        #bf-gallery-panel {
+          position: fixed; bottom: 0; left: 220px; right: 0; height: 130px;
+          background: #12121eee; border-top: 1px solid #334;
+          font-family: monospace; font-size: 11px; color: #ccd;
+          padding: 6px 10px; z-index: 500;
+          display: flex; flex-direction: column; gap: 4px;
+        }
+        #bf-gallery-panel .bf-gallery-header {
+          display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+        }
+        #bf-gallery-panel .bf-gallery-header h4 { margin: 0; color: #ffcc88; font-size: 12px; }
+        #bf-gallery-panel .bf-gal-filter {
+          background: #2a2a4e; color: #aab; border: 1px solid #446;
+          border-radius: 3px; padding: 2px 8px; cursor: pointer;
+          font-family: monospace; font-size: 10px;
+        }
+        #bf-gallery-panel .bf-gal-filter:hover { background: #3a3a5e; color: #fff; }
+        #bf-gallery-panel .bf-gal-filter.active { background: #4a3a2e; color: #ffcc88; border-color: #ffcc88; }
+        #bf-gallery-strip {
+          display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden;
+          flex: 1; align-items: flex-start; padding: 4px 0;
+        }
+        #bf-gallery-strip::-webkit-scrollbar { height: 6px; }
+        #bf-gallery-strip::-webkit-scrollbar-track { background: #1a1a2e; }
+        #bf-gallery-strip::-webkit-scrollbar-thumb { background: #446; border-radius: 3px; }
+        .bf-gal-item {
+          flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+          gap: 2px; cursor: pointer; padding: 3px; border: 2px solid transparent;
+          border-radius: 4px; min-width: 64px;
+        }
+        .bf-gal-item:hover { background: #2a2a4e; }
+        .bf-gal-item.selected { border-color: #ffcc88; background: #1e1e3a; }
+        .bf-gal-item canvas { image-rendering: pixelated; }
+        .bf-gal-item .bf-gal-label {
+          font-size: 9px; color: #889; text-align: center; max-width: 72px;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .bf-gal-item.selected .bf-gal-label { color: #ffcc88; }
+        .bf-gal-clear {
+          flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+          width: 64px; height: 64px; cursor: pointer; padding: 3px;
+          border: 2px dashed #446; border-radius: 4px; color: #667;
+          font-size: 10px; text-align: center;
+        }
+        .bf-gal-clear:hover { background: #2a2a4e; border-color: #889; color: #aab; }
+        .bf-gal-clear.selected { border-color: #ffcc88; color: #ffcc88; }
+      </style>
+      <div class="bf-gallery-header">
+        <h4>Sprite Gallery</h4>
+        <button class="bf-gal-filter active" data-filter="all">All</button>
+        <button class="bf-gal-filter" data-filter="iki">Ikibeki</button>
+        <button class="bf-gal-filter" data-filter="markfolk">Markfolk</button>
+        <button class="bf-gal-filter" data-filter="mw">MW</button>
+        <span style="color:#556; margin-left:auto; font-size:10px;">Click to assign → building</span>
+        <button class="bf-gal-filter bf-gal-scroll" id="bf-gal-scroll-left" style="margin-left:8px;">◀</button>
+        <button class="bf-gal-filter bf-gal-scroll" id="bf-gal-scroll-right">▶</button>
+      </div>
+      <div id="bf-gallery-strip"></div>
+    `;
+    document.body.appendChild(panel);
 
-  private removeBlock(tx: number, ty: number): void {
-    if (tx < 0 || ty < 0 || tx >= this.gridW || ty >= this.gridD) return;
-    // Find highest filled z
-    for (let z = this.maxH - 1; z >= 0; z--) {
-      if (this.blocks[tx][ty][z] !== null) {
-        this.blocks[tx][ty][z] = null;
-        this.rebuild();
-        return;
-      }
-    }
-  }
-
-  // ── Object placement ──────────────────────────────────────────────────────
-
-  /** Toggle between block mode and object-place mode. Press O. */
-  private toggleObjectMode(): void {
-    if (this.placingObject) {
-      this.placingObject = null;
-    } else {
-      this.placingObject = this.objectKeys[this.currentObjectIdx];
-    }
-    this.syncPanel();
-  }
-
-  /** Cycle through available object types. Press N. */
-  private cycleObjectType(): void {
-    this.currentObjectIdx = (this.currentObjectIdx + 1) % this.objectKeys.length;
-    if (this.placingObject) {
-      this.placingObject = this.objectKeys[this.currentObjectIdx];
-    }
-    this.syncPanel();
-  }
-
-  /** Place an object at the hovered tile, auto-z on top of the block column. */
-  private placeObject(tx: number, ty: number): void {
-    if (!this.placingObject) return;
-    // Find top of block column for automatic z
-    let topZ = 0;
-    if (tx >= 0 && tx < this.gridW && ty >= 0 && ty < this.gridD) {
-      for (let z = this.maxH - 1; z >= 0; z--) {
-        if (this.blocks[tx][ty][z] !== null) { topZ = z + 1; break; }
-      }
-    }
-    this.objects.push({
-      id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      spriteKey: this.placingObject,
-      tx, ty, tz: topZ,
-      label: this.placingObject.replace('npc-', ''),
+    // Filter buttons (exclude scroll buttons)
+    panel.querySelectorAll('.bf-gal-filter:not(.bf-gal-scroll)').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.galleryFilter = (btn as HTMLElement).dataset.filter as typeof this.galleryFilter;
+        panel.querySelectorAll('.bf-gal-filter:not(.bf-gal-scroll)').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.populateGalleryStrip();
+      });
     });
-    this.rebuild();
+
+    // Gallery scroll buttons
+    const strip = document.getElementById('bf-gallery-strip')!;
+    document.getElementById('bf-gal-scroll-left')!.addEventListener('click', () => {
+      strip.scrollBy({ left: -300, behavior: 'smooth' });
+    });
+    document.getElementById('bf-gal-scroll-right')!.addEventListener('click', () => {
+      strip.scrollBy({ left: 300, behavior: 'smooth' });
+    });
+
+    this.populateGalleryStrip();
   }
 
-  /** Flip the object at the hovered tile. Press F. */
-  private flipObject(): void {
-    const obj = this.objects.find(o =>
-      Math.round(o.tx) === this.hoverTx && Math.round(o.ty) === this.hoverTy
-    );
-    if (obj) {
-      obj.flipped = !obj.flipped;
+  /** Fill the gallery strip with sprite thumbnails based on current filter. */
+  private populateGalleryStrip(): void {
+    const strip = document.getElementById('bf-gallery-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+
+    // "None" option to clear assignment
+    const clearEl = document.createElement('div');
+    clearEl.className = 'bf-gal-clear' + (this.selectedSpriteKey === null ? ' selected' : '');
+    clearEl.textContent = '(none)';
+    clearEl.addEventListener('click', () => {
+      this.selectedSpriteKey = null;
+      this.syncGalleryHighlight();
       this.rebuild();
-    }
-  }
+    });
+    strip.appendChild(clearEl);
 
-  /** Remove the object at the hovered tile (if any). */
-  private removeObject(tx: number, ty: number): void {
-    const idx = this.objects.findIndex(o =>
-      Math.round(o.tx) === tx && Math.round(o.ty) === ty
+    const filtered = GALLERY_SPRITES.filter(s =>
+      this.galleryFilter === 'all' || s.pack === this.galleryFilter
     );
-    if (idx >= 0) {
-      this.objects.splice(idx, 1);
-      this.rebuild();
+
+    for (const sprite of filtered) {
+      if (!this.textures.exists(sprite.key)) continue;
+      const tex = this.textures.get(sprite.key);
+      const src = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+
+      const item = document.createElement('div');
+      item.className = 'bf-gal-item' + (this.selectedSpriteKey === sprite.key ? ' selected' : '');
+      item.dataset.spriteKey = sprite.key;
+
+      // Render a small thumbnail canvas
+      const thumbSize = 56;
+      const canvas = document.createElement('canvas');
+      canvas.width = thumbSize;
+      canvas.height = thumbSize;
+      const ctx = canvas.getContext('2d')!;
+      // Scale to fit, maintaining aspect ratio
+      const scale = Math.min(thumbSize / src.width, thumbSize / src.height);
+      const w = src.width * scale;
+      const h = src.height * scale;
+      ctx.drawImage(src, (thumbSize - w) / 2, (thumbSize - h) / 2, w, h);
+
+      const label = document.createElement('div');
+      label.className = 'bf-gal-label';
+      label.textContent = sprite.key;
+      label.title = sprite.key;
+
+      item.appendChild(canvas);
+      item.appendChild(label);
+
+      item.addEventListener('click', () => {
+        this.selectedSpriteKey = sprite.key;
+        // Auto-select the building that has this sprite assigned (saved or legacy map)
+        let matchIdx = this.entries.findIndex(e => e.sprites?.some(s => s.key === sprite.key));
+        if (matchIdx < 0) {
+          // Check legacy comparison map
+          matchIdx = this.entries.findIndex(e =>
+            BuildingForgeScene.comparisonKeysFor(e.id).includes(sprite.key)
+          );
+        }
+        if (matchIdx >= 0 && matchIdx !== this.currentIdx) {
+          this.currentIdx = matchIdx;
+          // Jump to the correct variant
+          const vIdx = BuildingForgeScene.findVariantByKey(this.entries[matchIdx], sprite.key);
+          if (vIdx >= 0) this.variantIdx = vIdx;
+          // Temporarily switch filter to 'all' if the matched building is filtered out
+          const filtered = this.getFilteredEntries();
+          if (!filtered.some(f => f.origIdx === matchIdx)) {
+            this.buildingFilter = 'all';
+            const filterSel = document.getElementById('bf-done-filter') as HTMLSelectElement;
+            if (filterSel) filterSel.value = 'all';
+          }
+          this.loadBuilding();
+          this.syncPanel();
+        }
+        this.syncGalleryHighlight();
+        this.rebuild();
+      });
+
+      strip.appendChild(item);
     }
   }
 
-  // ── Hover / screen-to-tile ────────────────────────────────────────────────
-
-  private updateHover(p: Phaser.Input.Pointer): void {
-    const cam = this.cameras.main;
-    const wx = p.x + cam.scrollX;
-    const wy = p.y + cam.scrollY;
-
-    // Inverse iso: solve for tx, ty from screen coords
-    const dx = wx - this.originX;
-    const dy = wy - this.originY;
-    const hw = this.ISO_W / 2;
-    const hh = this.ISO_H / 2;
-
-    const tx = Math.round((dx / hw + dy / hh) / 2);
-    const ty = Math.round((dy / hh - dx / hw) / 2);
-
-    if (tx >= 0 && ty >= 0 && tx < this.gridW && ty < this.gridD) {
-      this.hoverTx = tx;
-      this.hoverTy = ty;
-    } else {
-      this.hoverTx = -1;
-      this.hoverTy = -1;
-    }
+  /** Update gallery highlight to match current selectedSpriteKey. */
+  private syncGalleryHighlight(): void {
+    const strip = document.getElementById('bf-gallery-strip');
+    if (!strip) return;
+    strip.querySelectorAll('.bf-gal-item').forEach(el => {
+      const key = (el as HTMLElement).dataset.spriteKey;
+      el.classList.toggle('selected', key === this.selectedSpriteKey);
+    });
+    const clearEl = strip.querySelector('.bf-gal-clear');
+    if (clearEl) clearEl.classList.toggle('selected', this.selectedSpriteKey === null);
   }
 
-  // ── Iso helpers ───────────────────────────────────────────────────────────
+  // ── UI sync helpers ──────────────────────────────────────────────────────
 
-  private isoPos(tx: number, ty: number): { x: number; y: number } {
-    return {
-      x: this.originX + (tx - ty) * (this.ISO_W / 2),
-      y: this.originY + (tx + ty) * (this.ISO_H / 2),
-    };
+  private syncFlipCheckbox(): void {
+    const cb = document.getElementById('bf-flip') as HTMLInputElement;
+    if (cb) cb.checked = this.spriteFlipped;
   }
 
-  /** Draw an iso diamond (ground tile) at tile coords — same as settlement forge. */
-  private drawIsoDiamond(
-    gfx: Phaser.GameObjects.Graphics,
-    tx: number, ty: number,
-    fillColor: number, fillAlpha: number,
-    strokeColor?: number, strokeAlpha?: number,
-  ): void {
-    const { x, y } = this.isoPos(tx, ty);
-    const hw = this.ISO_W / 2;
-    const hh = this.ISO_H / 2;
-    gfx.fillStyle(fillColor, fillAlpha);
-    gfx.beginPath();
-    gfx.moveTo(x, y);
-    gfx.lineTo(x + hw, y + hh);
-    gfx.lineTo(x, y + hh * 2);
-    gfx.lineTo(x - hw, y + hh);
-    gfx.closePath();
-    gfx.fillPath();
-    if (strokeColor !== undefined) {
-      gfx.lineStyle(1, strokeColor, strokeAlpha ?? 0.3);
-      gfx.beginPath();
-      gfx.moveTo(x, y);
-      gfx.lineTo(x + hw, y + hh);
-      gfx.lineTo(x, y + hh * 2);
-      gfx.lineTo(x - hw, y + hh);
-      gfx.closePath();
-      gfx.strokePath();
-    }
-  }
-
-  private darken(color: number, factor: number): number {
-    const r = Math.floor(((color >> 16) & 0xff) * factor);
-    const g = Math.floor(((color >> 8) & 0xff) * factor);
-    const b = Math.floor((color & 0xff) * factor);
-    return (r << 16) | (g << 8) | b;
-  }
-
-  /** Render a free-sized object sprite at its grid anchor with correct depth. */
-  private renderObject(obj: ForgeObject): void {
-    if (!this.textures.exists(obj.spriteKey)) return;
-    const { x, y } = this.isoPos(obj.tx, obj.ty);
-    const hh = this.ISO_H / 2;
-
-    // Ground level = south point of the anchor tile's diamond
-    const groundY = y + hh * 2;
-    // Lift by tz block heights
-    const lift = obj.tz * hh;
-
-    const img = this.add.image(x, groundY - lift, obj.spriteKey);
-    // Bottom-center origin — feet/base on ground
-    img.setOrigin(0.5, 1.0);
-
-    // Scale: buildings keep their natural proportions relative to the grid,
-    // NPCs scale to roughly one tile width.
-    const isBuilding = obj.spriteKey.startsWith('bld-');
-    let scale: number;
-    if (isBuilding) {
-      // Buildings: scale so 32px in the sprite ≈ one iso tile width
-      scale = this.ISO_W / 32;
-    } else {
-      // NPCs: scale width to one tile
-      scale = this.ISO_W / img.width;
-    }
-    const flipX = obj.flipped ? -1 : 1;
-    img.setScale(scale * flipX, scale);
-
-    // Depth: same formula as blocks + epsilon to render in front of same-cell blocks
-    img.setDepth(1 + (obj.tx + obj.ty) * 0.01 + obj.tz * 0.001 + 0.0005);
-
-    this.objectSprites.push(img);
-  }
-
-  private drawBlock(
-    gfx: Phaser.GameObjects.Graphics,
-    tx: number, ty: number, tz: number,
-    color: number, alpha: number,
-    slope?: 'front' | 'back',
-  ): void {
-    const { x, y } = this.isoPos(tx, ty);
-    const hw = this.ISO_W / 2;
-    const hh = this.ISO_H / 2;
-    const topLift = (tz + 1) * hh;
-    const baseLift = tz * hh;
-
-    // Top face corners — default full-height cube
-    let topN = { x: x,      y: y - topLift };
-    let topE = { x: x + hw, y: y + hh - topLift };
-    let topS = { x: x,      y: y + hh * 2 - topLift };
-    let topW = { x: x - hw, y: y + hh - topLift };
-
-    // Slope along the grid y-axis (depth) for roof eaves.
-    // In iso, the y-axis maps to the NE↔SW diagonal:
-    //   N corner = low x, low y (top of diamond)
-    //   E corner = high x, low y (right of diamond)
-    //   S corner = high x, high y (bottom of diamond)
-    //   W corner = low x, high y (left of diamond)
-    // Moving along +y goes from N/E toward S/W.
-    //
-    // 'front' (y < ridge): drop N and E (outer edge, away from ridge)
-    // 'back'  (y > ridge): drop S and W (outer edge, away from ridge)
-    if (slope === 'front') {
-      topN = { x: topN.x, y: y - baseLift };
-      topE = { x: topE.x, y: y + hh - baseLift };
-    } else if (slope === 'back') {
-      topS = { x: topS.x, y: y + hh * 2 - baseLift };
-      topW = { x: topW.x, y: y + hh - baseLift };
-    }
-
-    // Bottom corners of this block
-    const baseE = { x: x + hw, y: y + hh - baseLift };
-    const baseS = { x: x,      y: y + hh * 2 - baseLift };
-    const baseW = { x: x - hw, y: y + hh - baseLift };
-
-    const fillQuad = (c: number, a: number,
-      p1: {x:number;y:number}, p2: {x:number;y:number},
-      p3: {x:number;y:number}, p4: {x:number;y:number}) => {
-      gfx.fillStyle(c, a);
-      gfx.beginPath();
-      gfx.moveTo(p1.x, p1.y);
-      gfx.lineTo(p2.x, p2.y);
-      gfx.lineTo(p3.x, p3.y);
-      gfx.lineTo(p4.x, p4.y);
-      gfx.closePath();
-      gfx.fillPath();
-    };
-
-    // Right face (east-facing): topE → topS → baseS → baseE
-    // Only draw if it has visible height (topE or topS above base)
-    if (topE.y < baseE.y || topS.y < baseS.y) {
-      fillQuad(this.darken(color, 0.7), alpha, topE, topS, baseS, baseE);
-    }
-    // Left face (south-facing): topS → topW → baseW → baseS
-    if (topS.y < baseS.y || topW.y < baseW.y) {
-      fillQuad(this.darken(color, 0.5), alpha, topS, topW, baseW, baseS);
-    }
-    // Top face (sloped surface when wedge)
-    fillQuad(color, alpha, topN, topE, topS, topW);
-
-    // Outline
-    gfx.lineStyle(1, 0x000000, 0.3);
-    gfx.beginPath();
-    gfx.moveTo(topN.x, topN.y);
-    gfx.lineTo(topE.x, topE.y);
-    gfx.lineTo(topS.x, topS.y);
-    gfx.lineTo(topW.x, topW.y);
-    gfx.closePath();
-    gfx.strokePath();
-    if (topE.y < baseE.y) gfx.lineBetween(topE.x, topE.y, baseE.x, baseE.y);
-    if (topS.y < baseS.y) gfx.lineBetween(topS.x, topS.y, baseS.x, baseS.y);
-    if (topW.y < baseW.y) gfx.lineBetween(topW.x, topW.y, baseW.x, baseW.y);
+  private syncExitModeUI(): void {
+    const cb = document.getElementById('bf-exit-mode') as HTMLInputElement;
+    if (cb) cb.checked = this.exitEditMode;
+    const label = cb?.nextElementSibling as HTMLLabelElement | null;
+    if (label) label.style.color = this.exitEditMode ? '#ff8844' : '#889';
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   private rebuild(): void {
-    // Clean up
-    this.groundGfx?.destroy();
-    this.blockGfx?.destroy();
-    for (const s of this.blockSprites) s.destroy();
-    this.blockSprites = [];
-    for (const s of this.objectSprites) s.destroy();
-    this.objectSprites = [];
-    for (const l of this.blockLabels) l.destroy();
-    this.blockLabels = [];
-
-    const entry = this.entries[this.currentIdx];
-    if (!entry) return;
-
-    const arch = this.archStyles[this.currentArchIdx];
-    const mat = arch?.primaryMaterial ?? 'wood';
-
-    // ── Ground grid — same iso diamond style as settlement/world forges ──
-    // Draw a ground area larger than the building footprint so the building
-    // sits in context, like it would in a settlement.
-    const pad = 3; // tiles of ground around the building
-    const groundMin = -pad;
-    const groundMaxW = this.gridW + pad;
-    const groundMaxD = this.gridD + pad;
-
-    this.groundGfx = this.add.graphics().setDepth(0);
-
-    // Painter sort: back to front (sum of tx+ty ascending)
-    const totalSpan = groundMaxW + groundMaxD;
-    for (let sum = groundMin * 2; sum < totalSpan; sum++) {
-      for (let tx = groundMin; tx < groundMaxW; tx++) {
-        const ty = sum - tx;
-        if (ty < groundMin || ty >= groundMaxD) continue;
-
-        const inFootprint = tx >= 0 && ty >= 0 && tx < this.gridW && ty < this.gridD;
-        const isHover = inFootprint && tx === this.hoverTx && ty === this.hoverTy;
-
-        // Geography-tinted ground (forest green default, brighter inside footprint)
-        let tileColor = 0x2a4a2a;
-        let tileAlpha = 0.25;
-        if (inFootprint) {
-          tileColor = isHover ? 0x44ff44 : 0x3a5a3a;
-          tileAlpha = isHover ? 0.5 : 0.4;
-        }
-
-        this.drawIsoDiamond(this.groundGfx, tx, ty, tileColor, tileAlpha, 0x000000, 0.15);
-      }
-    }
-
-    // ── Compass labels — cardinal directions at ground grid edges ────────
-    const midX = (this.gridW - 1) / 2;
-    const midY = (this.gridD - 1) / 2;
-    const labelOffset = pad + 0.5;
-    const compassStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: `${Math.max(10, Math.round(12 * this.zoomFactor / 2))}px`,
-      fontFamily: 'monospace',
-      color: '#aabbcc',
-      stroke: '#000000',
-      strokeThickness: 2,
-    };
-    // N = top-left (low x, low y), E = top-right (high x, low y)
-    // S = bottom-right (high x, high y), W = bottom-left (low x, high y)
-    const compassPoints: Array<{ label: string; tx: number; ty: number }> = [
-      { label: 'N', tx: -labelOffset,              ty: midY },
-      { label: 'E', tx: midX,                      ty: -labelOffset },
-      { label: 'S', tx: this.gridW - 1 + labelOffset, ty: midY },
-      { label: 'W', tx: midX,                      ty: this.gridD - 1 + labelOffset },
-    ];
-    for (const cp of compassPoints) {
-      const pos = this.isoPos(cp.tx, cp.ty);
-      const lbl = this.add.text(pos.x, pos.y, cp.label, compassStyle);
-      lbl.setOrigin(0.5, 0.5);
-      lbl.setDepth(4);
-      this.blockLabels.push(lbl);
-    }
-
-    // ── Blocks (painter sort: back to front, bottom to top) ─────────────
-    this.blockGfx = this.add.graphics().setDepth(1);
-
-    // Collect all filled blocks with sort key and block type
-    const draws: Array<{ tx: number; ty: number; tz: number; blockType: string; sortKey: number; object?: ForgeObject }> = [];
-    for (let tx = 0; tx < this.gridW; tx++) {
-      for (let ty = 0; ty < this.gridD; ty++) {
-        for (let tz = 0; tz < this.maxH; tz++) {
-          const bt = this.blocks[tx][ty][tz];
-          if (bt !== null) {
-            draws.push({ tx, ty, tz, blockType: bt, sortKey: (tx + ty) * 100 + tz });
-          }
-        }
-      }
-    }
-    // Inject objects into the draw list so they painter-sort with blocks
-    for (const obj of this.objects) {
-      draws.push({
-        tx: obj.tx, ty: obj.ty, tz: obj.tz,
-        blockType: '__object__',
-        sortKey: (obj.tx + obj.ty) * 100 + obj.tz + 0.5,
-        object: obj,
-      });
-    }
-    draws.sort((a, b) => a.sortKey - b.sortKey);
-
-    // Check if this building has sprite variants (whole-building sprite)
-    const variants = BLOCK_SPRITE_VARIANTS[entry.id];
-    const spriteKey = variants?.[this.spriteVariantIdx % (variants?.length ?? 1)];
-    const hasSprite = this.showSprites && spriteKey && this.textures.exists(spriteKey);
-
-    // Build a map from block type → sprite key from the architecture's blocks
-    const blockSpriteMap = new Map<string, string>();
-    if (this.showSprites && arch?.blocks) {
-      for (const b of arch.blocks) {
-        if (b.sprite && this.textures.exists(b.sprite)) {
-          blockSpriteMap.set(b.type, b.sprite);
-        }
-      }
-    }
-    const hasBlockSprites = blockSpriteMap.size > 0;
-
-    // Build block type → palette index (1-based) for labels
-    const blockIdxMap = new Map<string, number>();
-    const archBlocks = arch?.blocks ?? this.defaultBlocks();
-    archBlocks.forEach((b, i) => blockIdxMap.set(b.type, i + 1));
-
-    // Low buildings with sprites = ground objects (campfire, well, etc.)
-    const isGroundObject = hasSprite && entry.heightHint === 'low';
-
-    if (isGroundObject) {
-      const { x, y } = this.isoPos(0, 0);
-      const hw = this.ISO_W / 2;
-      const hh = this.ISO_H / 2;
-
-      // Red diamond outline showing the tile footprint
-      this.blockGfx.lineStyle(2, 0xff0000, 0.6);
-      this.blockGfx.beginPath();
-      this.blockGfx.moveTo(x, y);
-      this.blockGfx.lineTo(x + hw, y + hh);
-      this.blockGfx.lineTo(x, y + 2 * hh);
-      this.blockGfx.lineTo(x - hw, y + hh);
-      this.blockGfx.closePath();
-      this.blockGfx.strokePath();
-
-      // Sprite bottom at the diamond's south point, sits on the tile
-      const sy = y + 2 * hh;
-      const img = this.add.image(x, sy, spriteKey!);
-      const scale = this.ISO_W / img.width;
-      img.setScale(scale);
-      img.setOrigin(0.5, 1);
-      img.setDepth(2);
-      this.blockSprites.push(img);
-    } else {
-      for (const d of draws) {
-        // Object layer sprites — free-sized, depth-interleaved with blocks
-        if (d.object) {
-          this.renderObject(d.object);
-          continue;
-        }
-
-        // Per-block-type sprite from architecture (preferred)
-        const blockSprite = blockSpriteMap.get(d.blockType);
-        if (hasBlockSprites && blockSprite) {
-          const { x, y } = this.isoPos(d.tx, d.ty);
-          const hh = this.ISO_H / 2;
-          const lift = d.tz * hh;
-          const img = this.add.image(x, y - lift, blockSprite);
-          const scale = this.ISO_W / img.width;
-          img.setScale(scale);
-          img.setOrigin(0.5, 0);
-          img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
-          this.blockSprites.push(img);
-        } else if (hasSprite) {
-          // Whole-building sprite fallback
-          const { x, y } = this.isoPos(d.tx, d.ty);
-          const hh = this.ISO_H / 2;
-          const lift = d.tz * hh;
-          const img = this.add.image(x, y - lift, spriteKey!);
-          const scale = this.ISO_W / img.width;
-          img.setScale(scale);
-          img.setOrigin(0.5, 0);
-          img.setDepth(1 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
-          this.blockSprites.push(img);
-        } else {
-          // Color by block type — slope roof-edge blocks based on y position
-          const color = this.blockColorForType(d.blockType, mat);
-          let slope: 'front' | 'back' | undefined;
-          if (d.blockType === 'roof-edge') slope = 'front';
-          if (d.blockType === 'roof-edge-back') slope = 'back';
-          this.drawBlock(this.blockGfx, d.tx, d.ty, d.tz, color, 0.9, slope);
-        }
-
-        // Draw palette index label on the block's top face
-        const idx = blockIdxMap.get(d.blockType);
-        if (idx !== undefined) {
-          const { x: cx, y: cy } = this.isoPos(d.tx, d.ty);
-          const hh = this.ISO_H / 2;
-          const lift = d.tz * hh;
-          const label = this.add.text(cx, cy - lift, String(idx), {
-            fontSize: `${Math.max(8, Math.round(10 * this.zoomFactor / 2))}px`,
-            fontFamily: 'monospace',
-            color: '#ffcc88',
-            stroke: '#000000',
-            strokeThickness: 2,
-          });
-          label.setOrigin(0.5, 0.5);
-          label.setDepth(3 + (d.tx + d.ty) * 0.01 + d.tz * 0.001);
-          this.blockLabels.push(label);
-        }
-      }
-    }
-
-    // ── Sprite placement preview ────────────────────────────────────────────
+    // Clean up old graphics and labels
+    this.gridGfx?.destroy();
+    this.gridGfx = null;
     this.comparisonSprite?.destroy();
     this.comparisonSprite = undefined;
     this.comparisonLabel?.destroy();
     this.comparisonLabel = undefined;
     this.comparisonBorder?.destroy();
     this.comparisonBorder = undefined;
+    for (const l of this.labels) l.destroy();
+    this.labels = [];
 
-    if (this.showComparison) {
-      const spriteKeys = BuildingForgeScene.comparisonKeysFor(entry.id);
-      if (spriteKeys.length > 0) {
-        const key = spriteKeys[this.comparisonIdx % spriteKeys.length];
-        if (this.textures.exists(key)) {
-          const hw = this.ISO_W / 2;
-          const hh = this.ISO_H / 2;
-          const fpW = this.footprintW;
-          const fpD = this.footprintD;
+    const entry = this.entries[this.currentIdx];
+    if (!entry) return;
 
-          // Ensure mask is initialised.
-          if (this.fpTiles.length === 0) this.resetFootprintMask();
+    // Centre the origin
+    this.originX = this.scale.width / 2;
+    this.originY = this.scale.height * 0.35;
 
-          const gridCols = this.fpMaxCols;
-          const gridRows = this.fpMaxRows;
+    // ── Sprite placement preview — footprint grid with sprite overlay ────
 
-          // Grid origin: iso north apex, positioned to the right of the block grid.
-          const rightEdge = this.isoPos(this.gridW, 0);
-          const gridOx = rightEdge.x + this.ISO_W * 3;
-          const gridOy = this.originY - hh;
-          this.fpGridOx = gridOx;
-          this.fpGridOy = gridOy;
+    // Use gallery-selected sprite, or fall back to legacy cycling
+    const activeKey = this.getActiveSpriteKey();
+    const spriteKeys = activeKey ? [activeKey] : BuildingForgeScene.comparisonKeysFor(entry.id);
 
-          // Iso position within the placement grid.
-          const gIso = (tx: number, ty: number) => ({
-            x: gridOx + (tx - ty) * hw,
-            y: gridOy + (tx + ty) * hh,
-          });
+    if (spriteKeys.length > 0) {
+      const key = activeKey ?? spriteKeys[this.comparisonIdx % spriteKeys.length];
+      if (this.textures.exists(key)) {
+        const hw = this.ISO_W / 2;
+        const hh = this.ISO_H / 2;
+        const fpW = this.footprintW;
+        const fpD = this.footprintD;
 
-          const gfx = this.add.graphics().setDepth(11);
+        // Ensure mask is initialised
+        if (this.fpTiles.length === 0) this.resetFootprintMask();
 
-          // 1. Draw grid — active footprint tiles filled, others just outlined.
-          let activeCount = 0;
-          for (let r = 0; r < gridRows; r++) {
-            for (let c = 0; c < gridCols; c++) {
-              const { x, y } = gIso(c, r);
-              const active = this.fpTiles[r * gridCols + c];
-              if (active) activeCount++;
+        const gridCols = this.fpMaxCols;
+        const gridRows = this.fpMaxRows;
 
-              if (active) {
-                gfx.fillStyle(0x4488ff, 0.25);
-                gfx.beginPath();
-                gfx.moveTo(x, y); gfx.lineTo(x + hw, y + hh);
-                gfx.lineTo(x, y + hh * 2); gfx.lineTo(x - hw, y + hh);
-                gfx.closePath(); gfx.fillPath();
-              }
+        // Grid origin: centred in the scene
+        const gridOx = this.originX;
+        const gridOy = this.originY - hh;
+        this.fpGridOx = gridOx;
+        this.fpGridOy = gridOy;
 
-              gfx.lineStyle(1, active ? 0x88aaff : 0x444466, active ? 0.8 : 0.3);
+        // Iso position within the placement grid
+        const gIso = (tx: number, ty: number) => ({
+          x: gridOx + (tx - ty) * hw,
+          y: gridOy + (tx + ty) * hh,
+        });
+
+        const gfx = this.add.graphics().setDepth(11);
+        this.gridGfx = gfx;
+
+        // 1. Draw grid — active footprint tiles filled, exit tiles in orange, others outlined.
+        let activeCount = 0;
+        let exitCount = 0;
+        for (let r = 0; r < gridRows; r++) {
+          for (let c = 0; c < gridCols; c++) {
+            const { x, y } = gIso(c, r);
+            const idx = r * gridCols + c;
+            const active = this.fpTiles[idx];
+            const isExit = this.isExitAt(idx);
+            if (active) activeCount++;
+            if (isExit) exitCount++;
+
+            if (active) {
+              const fillColor = isExit ? 0xff6600 : 0x4488ff;
+              const fillAlpha = isExit ? 0.6 : 0.25;
+              gfx.fillStyle(fillColor, fillAlpha);
               gfx.beginPath();
               gfx.moveTo(x, y); gfx.lineTo(x + hw, y + hh);
               gfx.lineTo(x, y + hh * 2); gfx.lineTo(x - hw, y + hh);
-              gfx.closePath(); gfx.strokePath();
+              gfx.closePath(); gfx.fillPath();
+            }
+
+            const strokeColor = isExit ? 0xff8800 : (active ? 0x88aaff : 0x444466);
+            const strokeAlpha = (active || isExit) ? 0.8 : 0.3;
+            gfx.lineStyle(isExit ? 2 : 1, strokeColor, strokeAlpha);
+            gfx.beginPath();
+            gfx.moveTo(x, y); gfx.lineTo(x + hw, y + hh);
+            gfx.lineTo(x, y + hh * 2); gfx.lineTo(x - hw, y + hh);
+            gfx.closePath(); gfx.strokePath();
+
+            // Draw a bright exit marker icon on exit tiles
+            if (isExit) {
+              const cx = x;
+              const cy = y + hh; // centre of the diamond
+              // Solid orange circle
+              gfx.fillStyle(0xff6600, 1);
+              gfx.fillCircle(cx, cy, Math.max(3, hw * 0.25));
+              // White outline ring
+              gfx.lineStyle(2, 0xffffff, 0.9);
+              gfx.strokeCircle(cx, cy, Math.max(4, hw * 0.3));
             }
           }
-
-          // 2. Place sprite at the grid centre, at a fixed scale (1 iso tile = 32px).
-          // The sprite size is independent of the footprint — the footprint is the
-          // building's collision/placement base, the sprite is the visual.
-          const centreApex = gIso(
-            Math.floor(gridCols / 2),
-            Math.floor(gridRows / 2),
-          );
-          const anchorX = centreApex.x;
-          const anchorY = centreApex.y + hh; // centre of the diamond, not north apex
-
-          const img = this.add.image(
-            anchorX + this.spriteOffX,
-            anchorY + this.spriteOffY,
-            key,
-          );
-          // Scale: one game pixel = ISO_W/32 screen pixels (32px = 1 tile in the sprite).
-          const scale = this.ISO_W / 32;
-          img.setScale(scale).setOrigin(0.5, 0.5).setDepth(10);
-          this.comparisonSprite = img;
-
-          // 3. Anchor point marker.
-          gfx.fillStyle(0xff3333, 1);
-          gfx.fillCircle(anchorX, anchorY, 4);
-          gfx.lineStyle(2, 0xff3333, 0.6);
-          gfx.strokeCircle(anchorX, anchorY, 7);
-
-          this.comparisonBorder = gfx;
-
-          // 4. Info label.
-          const labelY = gridOy + (gridCols + gridRows) * hh + 8;
-          this.comparisonLabel = this.add.text(
-            gridOx, labelY,
-            `${key}  (${img.width}×${img.height}px)  offset: ${this.spriteOffX},${this.spriteOffY}\n` +
-            `Footprint: ${fpW}×${fpD} grid  ${activeCount} active tiles\n` +
-            `Click tiles  Q/E width  Z/X depth  Shift+Arrows nudge  C reset  M variant`,
-            { fontSize: '10px', color: '#ffcc00', fontFamily: 'monospace',
-              backgroundColor: '#000000aa', padding: { x: 4, y: 2 } },
-          ).setOrigin(0.5, 0).setDepth(12);
         }
+
+        // 2. Place sprite at the grid centre, at a fixed scale (1 iso tile = 32px).
+        // The sprite size is independent of the footprint — the footprint is the
+        // building's collision/placement base, the sprite is the visual.
+        const centreApex = gIso(
+          Math.floor(gridCols / 2),
+          Math.floor(gridRows / 2),
+        );
+        const anchorX = centreApex.x;
+        const anchorY = centreApex.y + hh; // centre of the diamond, not north apex
+
+        // Scale: one game pixel = ISO_W/32 screen pixels (32px = 1 tile in the sprite).
+        const scale = this.ISO_W / 32;
+        const img = this.add.image(
+          anchorX + this.spriteOffX * scale,
+          anchorY + this.spriteOffY * scale,
+          key,
+        );
+        img.setScale(scale).setOrigin(0.5, 0.5).setDepth(10);
+        if (this.spriteFlipped) img.setFlipX(true);
+        this.comparisonSprite = img;
+
+        // 3. Anchor point marker
+        gfx.fillStyle(0xff3333, 1);
+        gfx.fillCircle(anchorX, anchorY, 4);
+        gfx.lineStyle(2, 0xff3333, 0.6);
+        gfx.strokeCircle(anchorX, anchorY, 7);
+
+        this.comparisonBorder = gfx;
+
+        // 4. Info label
+        const labelY = gridOy + (gridCols + gridRows) * hh + 8;
+        this.comparisonLabel = this.add.text(
+          gridOx, labelY,
+          `${key}  (${img.width}×${img.height}px)  offset: ${this.spriteOffX},${this.spriteOffY}${this.spriteFlipped ? '  [FLIPPED]' : ''}\n` +
+          `Footprint: ${fpW}×${fpD} grid  ${activeCount} active  ${exitCount} exit${exitCount !== 1 ? 's' : ''}` +
+          `${this.exitEditMode ? '  [EXIT MODE]' : ''}\n` +
+          `Click tiles  Q/E width  Z/X depth  Shift+Arrows nudge  C reset  M variant  F flip  G exits`,
+          { fontSize: '10px', color: '#ffcc00', fontFamily: 'monospace',
+            backgroundColor: '#000000aa', padding: { x: 4, y: 2 } },
+        ).setOrigin(0.5, 0).setDepth(12);
       }
     }
 
@@ -1777,7 +1361,8 @@ export class BuildingForgeScene extends Phaser.Scene {
     this.fpMaxCols = this.footprintW + 2;
     this.fpMaxRows = this.footprintD + 2;
     this.fpTiles = new Array(this.fpMaxCols * this.fpMaxRows).fill(false);
-    // Fill the inner rectangle (skip 1-tile margin).
+    this.fpExits = new Set();
+    // Fill the inner rectangle (skip 1-tile margin)
     for (let r = 1; r <= this.footprintD; r++) {
       for (let c = 1; c <= this.footprintW; c++) {
         this.fpTiles[r * this.fpMaxCols + c] = true;
@@ -1798,26 +1383,73 @@ export class BuildingForgeScene extends Phaser.Scene {
     return { c, r };
   }
 
-  /**
-   * Map a building registry id to all matching PixelLab sprite keys (both packs).
-   * Returns an array so M key can cycle through variants.
-   */
+  /** Get the current variant's sprite config (or undefined). */
+  private getCurrentVariant(): SpriteConfig | undefined {
+    const entry = this.entries[this.currentIdx];
+    return entry?.sprites?.[this.variantIdx];
+  }
+
+  /** Check if a building is fully done (all variants marked done, and has at least one). */
+  private static isBuildingDone(e: RegistryEntry): boolean {
+    // Check sprites array (new format)
+    if (e.sprites?.length) return e.sprites.every(s => s.done);
+    // Fallback: check legacy sprite field (old format, pre-migration)
+    if (e.sprite?.done) return true;
+    return false;
+  }
+
+  /** Check if any variant of a building is flagged as needing manual editing. */
+  private static hasNeedsEdit(e: RegistryEntry): boolean {
+    return !!e.sprites?.some(s => s.needsEdit) || !!e.sprite?.needsEdit;
+  }
+
+  /** Find which variant of a building has a given sprite key. Returns -1 if not found. */
+  private static findVariantByKey(e: RegistryEntry, key: string): number {
+    return e.sprites?.findIndex(s => s.key === key) ?? -1;
+  }
+
+  /** Get the active comparison sprite key for the current building. */
+  private getActiveSpriteKey(): string | null {
+    // 1. User-selected from gallery takes priority
+    if (this.selectedSpriteKey) return this.selectedSpriteKey;
+    // 2. Current variant in registry
+    const variant = this.getCurrentVariant();
+    if (variant?.key) return variant.key;
+    return null;
+  }
+
+  /** Legacy fallback — all known sprite variants for a building (used for M-key cycling). */
   private static comparisonKeysFor(buildingId: string): string[] {
     const map: Record<string, string[]> = {
-      'campfire':      ['bld-campfire', 'campfire-obj-32', 'campfire-obj-48a', 'campfire-obj-48b',
-                        'campfire-markfolk-v1', 'campfire-markfolk-v2', 'campfire-markfolk-v3'],
-      'well':          ['bld-well'],
-      'guard-post':    ['bld-guard-post'],
-      'shrine':        ['bld-shrine'],
-      'watchtower':    ['bld-watchtower'],
-      'cottage':       ['bld-cottage', 'mw-cottage'],
-      'smithy':        ['bld-smithy'],
-      'farmstead':     ['bld-farmstead'],
-      'longhouse':     ['bld-longhouse', 'mw-longhouse'],
-      'market-hall':   ['mw-market-hall'],
-      'dwelling':      ['mw-dwelling'],
-      'smokehouse':    ['mw-smokehouse'],
-      'workshop':      ['mw-workshop'],
+      'campfire':       ['bld-campfire', 'iki-campfire'],
+      'well':           ['bld-well', 'iki-well'],
+      'guard-post':     ['bld-guard-post', 'iki-guard-post'],
+      'shrine':         ['bld-shrine', 'iki-shrine', 'iki-spirit-shrine'],
+      'watchtower':     ['bld-watchtower', 'iki-watchtower'],
+      'cottage':        ['bld-cottage', 'mw-cottage', 'iki-cottage', 'iki-ger-cottage'],
+      'smithy':         ['bld-smithy', 'iki-smithy', 'iki-ger-smithy'],
+      'farmstead':      ['bld-farmstead', 'iki-farmstead'],
+      'longhouse':      ['bld-longhouse', 'mw-longhouse', 'iki-longhouse', 'iki-clan-lodge'],
+      'market-hall':    ['mw-market-hall', 'iki-market-hall'],
+      'dwelling':       ['mw-dwelling', 'iki-ger-dwelling'],
+      'smokehouse':     ['mw-smokehouse', 'iki-smokehouse'],
+      'workshop':       ['mw-workshop'],
+      'shelter-hut':    ['iki-shelter-hut', 'iki-yurt-small'],
+      'merchant-stall': ['iki-merchant-stall'],
+      'tavern':         ['iki-tavern'],
+      'warehouse':      ['iki-warehouse'],
+      'stables':        ['iki-stables'],
+      'sawmill':        ['iki-sawmill'],
+      'granary':        ['iki-granary'],
+      'temple':         ['iki-temple'],
+      'root-cellar':    ['iki-root-cellar'],
+      'barracks':       ['iki-barracks'],
+      'town-hall':      ['iki-town-hall'],
+      'inn':            ['iki-inn'],
+      'brewery':        ['iki-brewery'],
+      'barn':           ['iki-barn'],
+      'armory':         ['iki-armory'],
+      'palisade-gate':  ['iki-palisade-gate'],
     };
     return map[buildingId] ?? [];
   }

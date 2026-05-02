@@ -1,9 +1,42 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { execSync } from 'child_process';
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
+
+/**
+ * Dev-only plugin: POST /__save-registry writes building-registry.json to disk.
+ * Used by BuildingForgeScene to persist sprite assignments without a manual download step.
+ */
+function devSaveRegistryPlugin(): Plugin {
+  return {
+    name: 'dev-save-registry',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-registry', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            const dest = resolve(__dirname, 'macro-world/building-registry.json');
+            writeFileSync(dest, JSON.stringify(data, null, 2) + '\n');
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
+      });
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
+    devSaveRegistryPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
 
@@ -82,6 +115,10 @@ export default defineConfig({
 
   server: {
     port: 3000,
+    watch: {
+      // Don't reload when the building registry is saved from BuildingForge
+      ignored: ['**/macro-world/building-registry.json'],
+    },
   },
   build: {
     target: 'esnext',

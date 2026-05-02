@@ -978,6 +978,79 @@
           "name": "Battlement"
         }
       ]
+    },
+    {
+      "id": "IKIBEKI-DENCRAFT",
+      "name": "Ikibeki Dencraft",
+      "primaryMaterial": "timber-and-hide",
+      "constructionMethod": "Timber frame with wattle-and-daub infill. Hide-layered roofing over bent pole rafters. Bark panel cladding. Stone foundations gathered not quarried. Living trees used as structural posts where available.",
+      "formLanguage": "Low and wide. Rounded or oval clan lodges, wide rectangular longhouses. Roofline curves down to near ground level at edges, opens up at center around the firepit. Rarely more than one story. Rabbit-clan warrens are half-underground with mounded earth roofs.",
+      "groundRelation": "Ground-hugging — foundations are shallow stone rings, floors are packed earth with hide rugs. Some buildings partially sunken. Earth-mounded roofs on warren-type structures blend into the landscape.",
+      "windowStyle": "No glass. Hide or bark shutters, often left open for airflow. Smoke holes in roof center with rain flaps. Scent-flow is prioritized over light.",
+      "ornamentLevel": "functional",
+      "structuralPrinciple": "Bent-pole frame (like an inverted boat hull) with ridge beam. Load carried by the frame, walls are infill. Living-tree posts where a large tree stands at the right spot — the building wraps around it.",
+      "climateResponse": "Downwind-facing entrances (nose-first design). Multiple exits per building (prey instinct). Layered hide roofing sheds rain and insulates. Open smoke holes with adjustable flaps. Wide eaves for shade in summer, snow-shedding in winter.",
+      "description": "Architecture of animal-people who trust their nose and ears more than their eyes. Buildings are dens first, structures second. Low profile reads as landscape from a distance — a Wildkin settlement can be hard to spot until you smell the smoke. Interior space is generous at center (firepit gathering) and tight at edges (sleeping alcoves, storage niches). Every building has claw-mark clan sigils on the doorposts, drying racks outside, and paths between buildings that are worn dirt — animal trails made permanent, never paved.\n\nHUMAN DRIFT: The Wildkin were not always settled people. The older clans remember — or claim to remember — when the packs roamed freely across the land, following game and season. Dens were temporary. Gathering sites were returned to, not lived in.\n\nThat changed over generations. Penned between mountains and sea, with human kingdoms pressing the eastern border, the territory shrank. Roaming became harder. Clans that once ranged across hundreds of miles now hold a valley, a hillside, a stretch of river. The Great Clans formalized because someone had to manage who lived where when \"everywhere\" stopped being an option.\n\nHuman influence crept in with the confinement — not by conquest, but by proximity and necessity:\n• Permanent foundations. The old way was packed earth and bent poles you could abandon in a day. Now they lay stone footings. A wolf elder would say: \"We build like them because we stopped moving like us.\"\n• Rectangular buildings alongside round ones. The clan lodge stayed oval — tradition. But the storage shed, the workshop, the trading post — those went rectangular. Easier to tile, easier to expand, easier to explain to a human merchant.\n• Doors that latch. The old hide-flap had no lock — who would steal from a den? But settled life brought possessions, and possessions brought the concept of a closed door. Some older Wildkin still find latched doors rude.\n• Fences and boundary markers. Roaming people don't fence. Settled people do. The first fences were human-taught, and some clans still refuse them on principle.\n• Dedicated market spaces. The old way was: trade happens wherever two people meet. The human way was: trade happens in a designated place. The Wildkin adopted market clearings, then market shelters, then something uncomfortably close to a town square.\n\nThe result is a hybrid architecture — den-instinct underneath, human practicality layered on top. The older the building, the more it looks like a den. The newer it is, the more rectangular corners and iron hinges you see. The most traditional clans (bear, snake) resist the drift. The most adaptable (fox, cat) barely notice it anymore. The argument about whether this is evolution or erosion has been running for three generations and shows no sign of stopping.",
+      "promptKeywords": "beastkin den, timber frame, hide roof, wattle and daub, bark panels, low wide building, curved roofline, smoke hole, packed earth floor, claw mark carvings, multiple exits, oval lodge, mounded earth roof, bent pole rafters, animal trail paths, firepit center, Viking longhouse meets Mongolian ger meets animal den",
+      "realWorldInspiration": "Viking longhouse (communal hall structure), Mongolian ger/yurt (bent-pole frame, hide covering, smoke hole), Ainu chise (bark-panel walls, thatched low profile), Native American earth lodge (mounded roof, partially sunken), medieval wattle-and-daub (infill technique)",
+      "blocks": [
+        {
+          "type": "foundation",
+          "name": "Stone footing"
+        },
+        {
+          "type": "wall",
+          "name": "Wattle-and-daub wall"
+        },
+        {
+          "type": "wall-corner",
+          "name": "Timber corner post"
+        },
+        {
+          "type": "pillar",
+          "name": "Living-tree post"
+        },
+        {
+          "type": "door",
+          "name": "Hide door-flap"
+        },
+        {
+          "type": "window",
+          "name": "Bark shutter"
+        },
+        {
+          "type": "beam",
+          "name": "Ridge beam"
+        },
+        {
+          "type": "roof",
+          "name": "Layered hide roof"
+        },
+        {
+          "type": "roof-edge",
+          "name": "Curved roof edge"
+        },
+        {
+          "type": "roof-edge-back",
+          "name": "Roof back slope"
+        },
+        {
+          "type": "floor",
+          "name": "Packed earth floor"
+        },
+        {
+          "type": "ornament",
+          "name": "Claw-mark sigil"
+        },
+        {
+          "type": "pipe",
+          "name": "Smoke hole frame"
+        },
+        {
+          "type": "railing",
+          "name": "Drying rack"
+        }
+      ]
     }
   ]
 }

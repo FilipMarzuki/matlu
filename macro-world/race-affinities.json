@@ -1156,6 +1156,330 @@
       "populationWeight": 0,
       "mixingBehavior": null,
       "namingBase": null
+    },
+    {
+      "id": "wildkin-wolf",
+      "name": "Wildkin (Wolf)",
+      "description": "Pack hunters. Loyal, coordinated, tireless runners. The most social clan — their settlements are loud and warm.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          25,
+          60
+        ],
+        "tolerance": [
+          10,
+          80
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          30,
+          70
+        ],
+        "tolerance": [
+          15,
+          85
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "tight",
+      "populationWeight": 0.08,
+      "mixingBehavior": "pack-bonded",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin",
+      "name": "Wildkin",
+      "description": "Beastkin — people who carry the essence of animals in their blood. Eight clan lines, each manifesting a different beast aspect. Not shapeshifters — always partly animal, partly person. The ratio shifts with emotion and season.\n\nGOVERNANCE: The Highfang — a monarch chosen by the Great Clans council, serving for life or until challenged. Any clan line may hold the seat. In practice, every Highfang in living memory has been wolf or boar.\n\nCLAN STRUCTURE: Each beast line has many independent clans — families, packs, holds, warrens. A \"wolf clan\" is any kinship group of the wolf line; there are dozens. Most are small (20–80 members). The Great Clans are simply the oldest and most politically connected clan within each founding line. Holding a Great Clan seat does not give authority over other clans of the same line — Greymane cannot command a distant wolf pack. But their council voice speaks for the wolf line's interests, and smaller clans often defer by tradition, not obligation.\n\nGREAT CLANS (founding bloodlines, permanent council seats):\n• Greymane (Wolf) — largest single clan, politically dominant. Other wolf clans: Nightrunner, Ashpelt, Ridgehowl, many smaller packs.\n• Ironhide (Bear) — sacred grove guardians. Other bear clans are mostly solitary families — a bear \"clan\" might be three adults and their children.\n• Redtail (Fox) — diplomats and traders. Other fox clans: Silvertongue, Duskear. Small but networked.\n• Stoneback (Boar) — oldest territories, land-law arbiters. Other boar clans: Deeproot, Mudwall, Thornfield. Local and stubborn.\n\nLESSER LINES (no permanent council seat, can petition):\n• Cat clans — too independent to organize. Dozens of tiny clans, no spokesperson.\n• Rabbit warrens — numerous but historically newer. Key warrens: Longburrow, Heatherfoot.\n• Hawk eyries — too few and too scattered. A hawk \"clan\" might be 6 adults on a clifftop.\n• Snake dens — reclusive by choice. Attend council rarely. Bring old knowledge when they do.\n\nMIXED CLANS: Intermarriage is normal. Children express one parent's line dominantly but carry recessive traits. Multi-generation mixed families become recognized clans. Growing fastest, with zero council representation.\n\n─── THE CLAN QUESTION ───\n\nWildkin society is stable but not equal. The four-seat council was founded when the Great Clans were genuinely the only clans that mattered — centuries ago, before rabbit warrens grew, before cat wanderers settled, before mixed families became common. The structure hasn't changed, but the population has.\n\nThis is not a caste system — there is no purity doctrine, no untouchable underclass, no prohibition on movement between roles. A boar-born can become a trader, a fox can farm, a mixed-clan child can marry into Greymane. But there is a quiet, structural inequality that everyone can feel and nobody has fixed:\n\nTHE SEAT PROBLEM: Longburrow warren (rabbit) now has more members than Ironhide (bear) and Redtail (fox) combined. They have no permanent council seat. When they petition, they wait. When Ironhide speaks — three adults and their children — the council listens immediately. The justification is always \"founding blood, founding right.\" Longburrow's elders are patient. Their youth are not.\n\nTHE REPRESENTATION GAP: Cat-line Wildkin are the third most numerous but the least politically visible. Their independence — each family a sovereign unit — means no cat clan is large enough to petition effectively. Some cats see this as freedom from politics. Others, especially urban cats who've seen how other races organize, call it \"freedom to be ignored.\"\n\nTHE MIXED QUESTION: Mixed-clan families are the fastest-growing group. A wolf-fox child belongs to... which line? Whichever they express. But their fox-side family has no voice through their wolf-side seat. Mixed clans increasingly argue they are a ninth line and deserve council recognition. The Great Clans resist — not from hatred, but from fear that adding seats dilutes founding authority.\n\nTHE ROLE SHADOW: Nobody enforces clan-role expectations, but they persist. A fox who farms gets gentle jokes. A bear who trades gets suspicious looks — \"what's wrong with guarding?\" A hawk who settles in a valley instead of a cliff is \"grounded\" (an insult). Snake-line Wildkin who act social are \"shedding their scales.\" These are social frictions, not laws — but they shape who feels welcome where.\n\nTHE IRONHIDE PARADOX: The bear line is the smallest, most solitary, and holds one of four permanent seats. Their moral authority — grove guardians, truth-speakers — is real. But a growing faction asks: should 15 bears have the same council weight as 400 rabbits? Ironhide's response is always the same: \"We were here before you counted.\"\n\nWHAT THE PLAYER SEES: In Wildkin settlements, these tensions surface as:\n• NPCs from lesser lines complaining about \"old blood, old rules\"\n• Great Clan members defending tradition with genuine conviction, not malice\n• Mixed-clan families navigating which parent's clan gatherings to attend\n• Young rabbits with political pamphlets; old bears who won't read them\n• Fox traders who work the system perfectly and see no reason to change it\n• Cat loners who don't care about any of this and wish you'd stop asking",
+      "biomeAffinity": {
+        "temperate_deciduous": 0.8,
+        "temperate_rainforest": 0.6,
+        "taiga": 0.7,
+        "grassland": 0.4,
+        "tundra": 0.2,
+        "wetland": 0.1,
+        "savanna": 0,
+        "tropical_seasonal": -0.3,
+        "tropical_rainforest": -0.2,
+        "marine": -0.9,
+        "hot_desert": -0.8,
+        "cold_desert": -0.2,
+        "glacier": -0.4
+      },
+      "elevationAffinity": {
+        "ideal": [
+          20,
+          65
+        ],
+        "tolerance": [
+          5,
+          85
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          25,
+          75
+        ],
+        "tolerance": [
+          10,
+          90
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "tight",
+      "populationWeight": 0.25,
+      "mixingBehavior": "territorial",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-bear",
+      "name": "Wildkin (Bear)",
+      "description": "Solitary guardians. Immensely strong, slow to anger, terrifying when provoked. Often found near mountain passes and old-growth forests.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          40,
+          80
+        ],
+        "tolerance": [
+          20,
+          95
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          20,
+          60
+        ],
+        "tolerance": [
+          10,
+          80
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "sparse",
+      "populationWeight": 0.04,
+      "mixingBehavior": "territorial",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-fox",
+      "name": "Wildkin (Fox)",
+      "description": "Tricksters and traders. Quick-witted, fast-fingered, comfortable in cities and forests alike. The most likely clan to live among other races.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          10,
+          50
+        ],
+        "tolerance": [
+          0,
+          70
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          30,
+          80
+        ],
+        "tolerance": [
+          15,
+          90
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "scattered",
+      "populationWeight": 0.06,
+      "mixingBehavior": "adaptable",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-hawk",
+      "name": "Wildkin (Hawk)",
+      "description": "Scouts and seers. Keen-eyed, wind-touched, drawn to high places. Their settlements cling to cliffs and ridgelines.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          55,
+          90
+        ],
+        "tolerance": [
+          35,
+          100
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          10,
+          50
+        ],
+        "tolerance": [
+          5,
+          65
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "scattered",
+      "populationWeight": 0.03,
+      "mixingBehavior": "aloof",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-boar",
+      "name": "Wildkin (Boar)",
+      "description": "Stubborn settlers. Farmers, miners, wall-builders. They dig in and refuse to leave. The most sedentary clan — their hamlets become permanent fixtures.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          15,
+          55
+        ],
+        "tolerance": [
+          5,
+          70
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          35,
+          80
+        ],
+        "tolerance": [
+          20,
+          90
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "tight",
+      "populationWeight": 0.05,
+      "mixingBehavior": "stubborn",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-cat",
+      "name": "Wildkin (Cat)",
+      "description": "Independent, nocturnal, graceful. Move through cities and forests with equal ease — the clan most likely to be found anywhere. Curious to a fault. Will investigate things they were told not to touch.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          10,
+          55
+        ],
+        "tolerance": [
+          0,
+          75
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          20,
+          70
+        ],
+        "tolerance": [
+          10,
+          85
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "scattered",
+      "populationWeight": 0.07,
+      "mixingBehavior": "adaptable",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-rabbit",
+      "name": "Wildkin (Rabbit)",
+      "description": "Fast, alert, community-builders. Build extensive warrens — half above ground, half below. Breed large families and defend them fiercely. Underestimated by everyone exactly once.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          5,
+          45
+        ],
+        "tolerance": [
+          0,
+          60
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          35,
+          80
+        ],
+        "tolerance": [
+          20,
+          90
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "tight",
+      "populationWeight": 0.09,
+      "mixingBehavior": "communal",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-snake",
+      "name": "Wildkin (Snake)",
+      "description": "Patient, calculating, cold-comfortable. The most alien-looking clan — scaled skin, slit pupils, forked tongue. Other clans find them unsettling. They find other clans loud. Guard old places and old knowledge.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          5,
+          50
+        ],
+        "tolerance": [
+          0,
+          65
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          40,
+          85
+        ],
+        "tolerance": [
+          25,
+          95
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "sparse",
+      "populationWeight": 0.03,
+      "mixingBehavior": "reclusive",
+      "namingBase": "norse-beast"
+    },
+    {
+      "id": "wildkin-mixed",
+      "name": "Wildkin (Mixed Clan)",
+      "description": "Children of two clan lines who always express one parent's traits fully — never a blend. A wolf-fox child is either wolf or fox, never both. No one knows why. The recessive parent's line leaves no visible mark. Scholars, shamans, and nosy elders have argued about this for centuries. Some say the beast-spirit chooses. Some say it's the stronger bloodline. Some say it's random. The only certainty: you can't tell which parent a mixed child will take after until they're born. Mixed-clan families are the fastest-growing segment of Wildkin society — a sign of peace between clans, the elders say.",
+      "biomeAffinity": {},
+      "elevationAffinity": {
+        "ideal": [
+          10,
+          70
+        ],
+        "tolerance": [
+          0,
+          90
+        ]
+      },
+      "moistureAffinity": {
+        "ideal": [
+          20,
+          80
+        ],
+        "tolerance": [
+          10,
+          90
+        ]
+      },
+      "featureBonus": {},
+      "clustering": "scattered",
+      "populationWeight": 0.1,
+      "mixingBehavior": "adaptable",
+      "namingBase": "norse-beast"
     }
   ]
 }

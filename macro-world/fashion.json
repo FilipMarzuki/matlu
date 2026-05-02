@@ -1452,6 +1452,189 @@
           "notes": "Spider-silk robes shimmer in moonlight like dew-covered webs. Living moths perch on the flower crown, wings glowing. Ceremonies happen at midnight in the deepest thicket — outsiders are never invited."
         }
       ]
+    },
+    {
+      "cultureId": "ikibeki",
+      "realWorldFashionInspiration": "Ainu (layered bark-cloth robes), Mongol (wrapped leather + fur trim), Viking (functional belts and arm-wraps), Native American Plains (hide and fringe)",
+      "base": {
+        "materials": [
+          "cured hide",
+          "bark-cloth",
+          "woven grass",
+          "raw wool",
+          "bone",
+          "antler",
+          "river-stone beads"
+        ],
+        "palette": [
+          "earth brown",
+          "bark tan",
+          "charcoal",
+          "bone white",
+          "moss green",
+          "clay red"
+        ],
+        "motifs": [
+          "claw-mark patterns",
+          "clan-beast silhouettes",
+          "tooth-and-bone toggles",
+          "fur-trim borders",
+          "burnt-edge embroidery"
+        ]
+      },
+      "variants": [
+        {
+          "role": "commoner",
+          "silhouette": "Loose wrap tunic to mid-thigh, belted at waist. Legs wrapped in hide strips. Leaves arms free for work. Tail passes through a slit in the back.",
+          "headwear": "None — ears must be free for hearing. Some wear a woven grass band to keep mane/hair back.",
+          "footwear": "Soft-soled hide boots for digitigrade feet — open-toed for clawed clans (wolf, bear, cat). Rabbit-clan often barefoot.",
+          "accessories": [
+            "bone toggle belt",
+            "hide arm-wraps",
+            "clan-mark neck cord"
+          ],
+          "notes": "Practical and ungendered. Fur-bearing clans wear less fabric — their coat IS the base layer. Snake-clan wear more (cold-blooded, need insulation). Colors are undyed — natural hide/bark/wool tones."
+        },
+        {
+          "role": "hunter",
+          "silhouette": "Fitted hide vest over bare fur (summer) or layered bark-cloth (winter). Leg wraps tighter than commoner. Shoulder guard on bow arm.",
+          "headwear": "Ear-slotted hood for rain/cold — pulled back in good weather. Wolf and cat clans add scent-masking herb pouches to the hood.",
+          "footwear": "Hard-soled tracking boots with toe grip. Extra ankle support for digitigrade stride.",
+          "accessories": [
+            "quiver harness",
+            "skinning knife at hip",
+            "tooth necklace (first kill)",
+            "scent pouch"
+          ],
+          "notes": "Muted colors — charcoal, bark, moss. No bright clan marks while hunting (stealth). Trophy teeth/claws worn on return."
+        },
+        {
+          "role": "elder",
+          "silhouette": "Full-length bark-cloth robe, layered and heavy. More fabric = more years. Decorated hem shows clan history in burnt patterns.",
+          "headwear": "Carved antler circlet (Great Clan elders) or bone-bead headband (lesser clans). Bear elders wear a single claw pendant at the brow.",
+          "footwear": "Wrapped sandals or indoor-only felt slippers. Elders sit more than walk.",
+          "accessories": [
+            "staff of office (carved clan-beast head)",
+            "memory cord (knotted record)",
+            "council-stone pendant"
+          ],
+          "notes": "The most dressed figure in any gathering. Layers signify wisdom accumulated. Pattern density on the robe hem tells their story — an elder with a plain hem is suspiciously young."
+        },
+        {
+          "role": "warrior",
+          "silhouette": "Hardened hide chest piece over short tunic. Arm and shin guards. Minimal torso coverage — mobility over protection. Tail armored with hide wrap.",
+          "headwear": "Skull-cap helm with ear cutouts. Some bear-clan warriors wear no helm (too thick-skulled to bother).",
+          "footwear": "Hard combat boots, reinforced toe for clawed kick. Boar-clan add metal toe caps.",
+          "accessories": [
+            "clan-mark war paint",
+            "fang necklace",
+            "shield (hide over wood frame)",
+            "bone-handle weapon"
+          ],
+          "notes": "Functional and intimidating. War paint uses clan beast patterns — wolf stripes, bear claw marks, fox eye masks. Snake-clan warriors paint scale patterns that make them hard to track in grass."
+        },
+        {
+          "role": "chief",
+          "silhouette": "Highfang or Great Clan head. Long hide cloak over layered tunic. Cloak clasped with a carved bone brooch showing their clan beast. More decorated than elder but less layered — a chief must be able to stand and fight.",
+          "headwear": "Crown of teeth — each tooth from a different beast, representing authority over all clans. Great Clan chiefs wear a single large fang from their own beast line.",
+          "footwear": "Fine-worked leather boots with clan-mark tooling.",
+          "accessories": [
+            "tooth-crown",
+            "clan-beast cloak brooch",
+            "council speaking-staff",
+            "hide-bound arm rings (alliances)"
+          ],
+          "notes": "Authority worn visibly but not extravagantly. A Wildkin chief who over-decorates is mocked — \"more teeth than kills.\" The cloak is the status marker. Its condition tells you how active the chief still is."
+        },
+        {
+          "role": "trader",
+          "silhouette": "Practical traveler clothes — layered for weather changes, many pockets and pouches. Fox-clan traders add a distinctive red sash that marks them as neutral in clan disputes.",
+          "headwear": "Wide-brimmed hide hat for sun/rain. Fox-clan version has ear-holes and a rakish tilt.",
+          "footwear": "Road boots — hardest sole of any role. Repaired many times. A trader's boots are their most valuable possession.",
+          "accessories": [
+            "belt of sample pouches",
+            "counting beads",
+            "red neutrality sash (fox tradition, adopted by all)",
+            "carved trade-seal"
+          ],
+          "notes": "The most human-influenced fashion role. Traders who work the eastern border often add human elements — a metal buckle, a woven cloth panel, glass beads. Traditionalists call them \"half-dressed.\""
+        },
+        {
+          "role": "shaman",
+          "silhouette": "Asymmetric layered robes — one shoulder bare, the other heavily draped. Bone and feather ornaments hang from every edge. The silhouette is deliberately unsettling — more shape than person.",
+          "headwear": "Antler headdress (any clan — the antlers are symbolic, not clan-specific). Decorated with hanging charms that rattle when walking.",
+          "footwear": "Barefoot always. Connection to earth is literal.",
+          "accessories": [
+            "antler headdress",
+            "bone-rattle staff",
+            "herb pouches at belt",
+            "spirit charms (feather + stone + fur bundles)"
+          ],
+          "notes": "The one role where fashion is deliberately un-practical. A shaman should look like something between a person and a landscape. Snake-clan shamans are the most extreme — fully robed in layered scales and feathers until only their eyes are visible."
+        },
+        {
+          "role": "poor",
+          "silhouette": "Single-layer clothing — one hide wrap, no under-layer. Patched and re-stitched visibly. Stiff, cracking hide that has not been properly oiled. The wrap is shorter than a commoner's, ending above the knee to save material.",
+          "headwear": "None. Not even a grass band — nothing to spare.",
+          "footwear": "Barefoot or worn-through boots with holes stuffed with grass. In winter, hide strips wrapped around feet as improvised shoes.",
+          "accessories": [
+            "cord belt instead of bone toggles",
+            "no clan-mark neck cord or a threadbare one with no beads"
+          ],
+          "notes": "The critical social marker is the absence of a clan cord or an empty one with no beads. Being without clan affiliation — whether through poverty, exile, or misfortune — is the true bottom of Wildkin society. Clothing is undyed raw hide, never bark-cloth (which requires processing skill or trade). Fur-bearing clans in poverty are recognizable by unkempt, matted coats beneath threadbare wraps."
+        },
+        {
+          "role": "prosperous",
+          "silhouette": "Double-layered — a proper under-tunic visible at collar and cuffs beneath the outer wrap. The inner layer being visible is the quiet signal of means. Hide is supple, well-oiled, even-colored. A craftsman's hands show in the leather quality.",
+          "headwear": "Optional woven grass band with a single dyed thread — moss green or clay red. Subtle, not showy.",
+          "footwear": "Well-fitted hide boots, properly re-soled. May own a second pair for indoors — a notable luxury.",
+          "accessories": [
+            "matched set of polished bone toggles",
+            "clan cord with extra deed-beads",
+            "hide arm-wraps with burnt-edge embroidery",
+            "a belt pouch of worked leather"
+          ],
+          "notes": "Prosperity shows in quality, not decoration. A prosperous Wildkin's single tunic looks better than a rich one's three outfits because the hide is expertly worked. Multiple bone toggles in a matched set implies enough successful hunts or trade connections. Clan cord carries extra beads — each marks a notable deed or alliance. More beads = more connections. This is the tier where high-level individuals stand out: their skills keep everything in better repair."
+        },
+        {
+          "role": "wealthy",
+          "silhouette": "Multiple outfits — a \"good\" set and a \"work\" set, which is itself a luxury. The good set features imported materials mixed in: a woven cloth panel from human trade, glass beads alongside bone ones, possibly a metal buckle. Hide is dyed — deliberate clay red or moss green staining on a panel. Not bright, but intentional color is expensive.",
+          "headwear": "Grass band with glass or river-stone beads woven in. Clan-beast silhouette might be stitched rather than merely burnt — stitching implies patience and skill.",
+          "footwear": "Fine-worked leather boots with clan-mark tooling. Possibly human-style hard soles for durability.",
+          "accessories": [
+            "glass beads from human trade",
+            "metal buckle or clasp (human import)",
+            "fur-lined collar even when own coat does not need it",
+            "dyed hide panels",
+            "multiple clan cords showing alliances"
+          ],
+          "notes": "This is where the Human Drift tension gets personal: wealth literally looks more human. Glass beads, metal fasteners, woven cloth — all imported from the eastern border. Traditional clans (bear, snake) deliberately reject human materials even when they can afford them. A wealthy bear-clan elder in pure bark-cloth and bone is making a political statement: \"I could buy metal but I won't.\" Fox and cat clans see human goods as pragmatic upgrades. Wearing another animal's fur is a complex status marker among beastkin — some clans find it offensive, others see it as \"I can afford warmth I don't need.\""
+        },
+        {
+          "role": "clanless",
+          "silhouette": "Functional but anonymous. No clan-mark patterns, no beast sigils, no claw-mark embroidery. Dressed in whatever is available — often mismatched pieces from different sources. Some deliberately adopt human clothing styles as a rejection: \"fine, I'll be what you already think I am.\"",
+          "headwear": "Whatever is practical. No clan signifiers.",
+          "footwear": "Mixed — might wear human-style shoes if they traded for them. No clan-mark tooling.",
+          "accessories": [
+            "no clan cord",
+            "no bone toggles with clan markings",
+            "possibly human trade goods worn openly"
+          ],
+          "notes": "The true bottom of Wildkin society is not poverty but lack of affiliation. Clanless Wildkin are outcasts, orphans, or those whose clan dissolved. Some are voluntary — rejecting the clan system entirely. Their fashion absence IS their statement. In a culture where every toggle, bead, and burn-pattern tells clan and status, wearing none of it is either invisible or provocative depending on intent."
+        },
+        {
+          "role": "mage",
+          "silhouette": "Deliberately plain — plainer than their actual means would suggest. A strong mage in simple unadorned hide is a power signal: \"I don't need armor, I don't need display. You can smell what I am.\" Different from shaman fashion, which is deliberately unsettling. Mage plainness is calm confidence.",
+          "headwear": "None, or a single understated bone circlet. Ears always free — mages are even more attuned to sensing.",
+          "footwear": "Simple soft-soled boots or barefoot. Some mages adopt the shaman barefoot tradition even if they are not shamans.",
+          "accessories": [
+            "minimal — one clan cord, unadorned",
+            "sometimes a single focus stone on a cord",
+            "conspicuous absence of wealth markers despite clear means"
+          ],
+          "notes": "In Matlu, magic aptitude varies by beastkin kind — some get it rarely but powerfully. A non-shaman with strong magic adopting plain dress is a different kind of status signal than a shaman's deliberate eeriness. The plainness says: my power is innate, not performed. Higher-level mages age slower, so an apparently young Wildkin in very plain clothes who moves with old authority is unsettling in its own way. Clan differences matter: wolf-clan mages trend toward lone-wolf minimalism, fox-clan mages might still wear one flashy piece as misdirection."
+        }
+      ]
     }
   ]
 }
