@@ -322,13 +322,21 @@ const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   if (elev < 0.25) return 0; // Sea
   if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky Shore / Sandy Shore
-  if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
-  if (elev < 0.68) {
-    // Mid-altitude band — ~45% meadow, ~55% forest.
-    if (moist > 0.55) return 7; // Forest
+  if (elev < 0.45) {
+    if (moist > 0.72) return 3; // Marsh / Bog
+    if (moist < 0.28) return 4; // Dry Heath
+    if (moist < 0.50) return 5; // Coastal Heath
     return 6;                   // Meadow
   }
-  if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
+  if (elev < 0.68) {
+    // Mid-altitude band: moisture drives readable colour identity instead of
+    // collapsing the whole corridor into only meadow/forest greens.
+    if (moist < 0.22) return 4; // Dry Heath
+    if (moist < 0.45) return 5; // Coastal Heath
+    if (moist < 0.68) return 6; // Meadow
+    return 7;                   // Forest
+  }
+  if (elev < 0.80) return (temp < 0.50 && moist > 0.45) ? 8 : 9; // Spruce / Cold Granite
   return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
 }
 
