@@ -767,6 +767,1953 @@
         }
       ],
       "outputDir": "public/assets/sprites/characters/mistheim/agrarian/human-agrarian-elder"
+    },
+    {
+      "id": "ikibeki-hawk-scout",
+      "name": "Hawk-Scout (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "9f1cec15-2ac9-45c3-8c42-5624948cf01a",
+      "_comment": "Low-rank military sentry. Tawny-feathered Hawk-clan Wildkin who staffs the watchtower and guard-post. Lean, alert, always scanning. Represents the under-represented Hawk clan (0.10 weight).",
+      "pixellab": {
+        "description": "tawny-feathered hawk beastkin scout, sharp amber eyes, hooked nose-beak, vestigial wing-feathers along forearms, lean wiry build, slightly crouched alert stance, light hide poncho with bone toggles, leg wraps, leather messenger satchel across chest, feathered crest on head, muted brown and tawny earth tones with amber accents, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 140
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 110
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "alert",
+          "template": "fight-stance-idle-8-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/hawk-scout"
+    },
+    {
+      "id": "ikibeki-fox-herbalist",
+      "name": "Fox-Herbalist (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "95130b77-71bd-4484-8487-196015fc143f",
+      "_comment": "Skilled specialist healer. Pale cream-furred Fox-clan Wildkin who tends the spirit-shrine. Calm, knowledgeable, carries dried herbs. Second Fox-clan role alongside fox-trader.",
+      "pixellab": {
+        "description": "pale cream-furred fox beastkin herbalist, dark ear tips, slender bushy tail, calm upright posture, bark-cloth wrap dress with many small herb pouches sewn along hem, bone needle tucked in headfur, herb-stained fingertips, woven grass belt, simple hide sandals, soft muted cream and sage green earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 160
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 125
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/fox-herbalist"
+    },
+    {
+      "id": "ikibeki-wolf-highfang",
+      "name": "Wolf-Highfang (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "d1e05856-0965-4e8e-8388-f21984dc3c68",
+      "_comment": "Ruler — the Highfang, chosen by the Great Clans council. Silver-grey Greymane wolf, political leader not a soldier. Imposing but unarmored. Found at clan-lodge or town-hall. Highest status NPC in the settlement.",
+      "pixellab": {
+        "description": "silver-grey wolf beastkin ruler, scarred muzzle, one notched ear, imposing tall posture, layered hide mantle draped over shoulders, carved antler gorget as authority symbol, claw-and-tooth necklace, war paint streaks on cheeks, no armor, simple hide trousers, sturdy boots, dignified commanding stance, muted silver-grey and dark brown earth tones with bone-white accents, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 170
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "alert",
+          "template": "fight-stance-idle-8-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/wolf-highfang"
+    },
+    {
+      "id": "ikibeki-boar-smith",
+      "name": "Boar-Smith (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "3f8740cd-d161-4e9e-b865-e296f5b04361",
+      "_comment": "Skilled tradesperson. Massive Stoneback boar-clan blacksmith who works the ger-smithy and armory. Second Boar-clan role alongside boar-farmer — craftsman vs laborer distinction.",
+      "pixellab": {
+        "description": "massive dark-bristled boar beastkin blacksmith, chipped tusks, soot-stained coarse fur, bare broad chest, heavy hide apron with burn marks, thick leather arm wraps to elbows, carries iron tongs in one hand, powerful stocky stance, wide shoulders, sturdy hide boots, muted dark brown and charcoal earth tones with soot-black accents, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 160
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "hammer",
+          "template": "cross-punch",
+          "frameDurationMs": 100,
+          "_pro_candidate": "Template cross-punch may not read as hammering on boar body. Try template first; if bad, redo as custom/pro. Do last."
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/boar-smith"
+    },
+    {
+      "id": "ikibeki-cat-brewer",
+      "name": "Cat-Brewer (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "95857118-c1e7-434e-9d4f-3adb78bcc101",
+      "_comment": "Common tradesperson. Tabby-striped Cat-clan Wildkin who runs the brewery and tavern. Relaxed, slightly smirking. Gives the under-represented Cat clan (0.15 weight) a visible settlement role.",
+      "pixellab": {
+        "description": "tabby-striped cat beastkin brewer, large rounded ears, slit pupils, long curling tail, relaxed slightly smirking expression, stained linen tunic with rolled-up sleeves, leather belt with wooden ladle tucked in, simple cloth apron with brew stains, hide sandals, casual confident posture leaning slightly, muted warm brown and tan earth tones with amber-gold accents, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 150
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/cat-brewer"
+    },
+    {
+      "id": "ikibeki-snake-lorekeeper",
+      "name": "Snake-Lorekeeper (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "324b433e-34da-4f4d-bc36-983ced7eed0b",
+      "_comment": "Religious authority. Scaled Snake-clan Wildkin who tends the ancestor-stone and temple. Rarest clan (0.05 weight) but memorable presence — quiet, still, slightly unsettling. Carries a coiled scroll case.",
+      "pixellab": {
+        "description": "scaled snake beastkin lorekeeper, muted green-brown scales, lidless slit-pupiled eyes, smooth hairless head, long sinuous neck, layered dark bark-cloth robes with burnt glyph patterns, coiled scroll case strapped to back, thin clawed hands, very still upright posture, slightly unsettling calm expression, muted dark green and brown earth tones with ochre glyph accents, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 180
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "ritual",
+          "template": "fireball",
+          "frameDurationMs": 100,
+          "_pro_candidate": "Template fireball may look wrong on snake body with robes. Try template first; if bad, redo as custom/pro. Do last."
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/snake-lorekeeper"
+    },
+    {
+      "id": "ikibeki-wolf-pup",
+      "name": "Wolf-Pup (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "6499978a-93ec-4af4-99dd-80f9c4fa9618",
+      "_comment": "Arctic wolf child. White fluffy fur, bright blue eyes, oversized vest. Energetic troublemaker running through the settlement. Species variety: arctic wolf (vs grey wolf adults).",
+      "pixellab": {
+        "description": "young arctic wolf beastkin child, white fluffy fur, bright blue eyes, small pointed ears, oversized hide vest hanging past knees, bare pawed feet, energetic forward-leaning stance like chasing something, small bushy tail, muted white and pale grey with ice-blue accents, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "play-jump",
+          "template": "running-jump",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/wolf-pup"
+    },
+    {
+      "id": "ikibeki-bear-cub",
+      "name": "Bear-Cub (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "708c03a3-6093-4bdb-9bb4-52aeaf66e4c3",
+      "_comment": "Panda bear child. Black-and-white fur, chubby, shy, clutching honey-cake. Species variety: panda (vs brown bear elder adult).",
+      "pixellab": {
+        "description": "young panda beastkin child, black and white fur with distinctive eye patches, round chubby face, small rounded ears, simple wrap tunic, clutching a small honey-cake in one hand, shy slightly hunched posture, stubby legs, muted black and white with warm brown tunic, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 140
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 110
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "play-jump",
+          "template": "running-jump",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/bear-cub"
+    },
+    {
+      "id": "ikibeki-fox-kit",
+      "name": "Fox-Kit (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "e03d7939-1463-4496-a271-271159e3a2df",
+      "_comment": "Fennec fox child. Comically huge ears, sandy fur, tiny body, curious eavesdropper. Species variety: fennec (vs red fox trader and cream fox herbalist adults).",
+      "pixellab": {
+        "description": "young fennec fox beastkin child, sandy pale fur, comically huge oversized pointed ears almost as tall as head, enormous dark eyes, tiny body, ragged little hide poncho, barefoot with small pawed feet, curious crouched forward posture, fluffy tail, muted sandy tan and cream earth tones, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 90
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "play-jump",
+          "template": "running-jump",
+          "frameDurationMs": 90
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/fox-kit"
+    },
+    {
+      "id": "ikibeki-rabbit-leveret",
+      "name": "Rabbit-Leveret (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "c56e902a-9b79-4384-8fd5-3b815101dbe2",
+      "_comment": "Jackrabbit child. Long gangly ears, oversized hind feet, fastest kid in the village. Species variety: jackrabbit (vs cottontail commoner adult).",
+      "pixellab": {
+        "description": "young jackrabbit beastkin child, brown fur, very long gangly upright ears, oversized powerful hind feet, lanky limbs, simple linen shift dress, mid-hop posture with one foot raised, bright alert eyes, small cotton tail, muted warm brown and tan earth tones, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 90
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "play-jump",
+          "template": "running-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "run",
+          "template": "running-4-frames",
+          "frameDurationMs": 70
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/rabbit-leveret"
+    },
+    {
+      "id": "ikibeki-cat-kitten",
+      "name": "Cat-Kitten (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "fce53cdc-f51a-4459-8290-cb0d12bd767a",
+      "_comment": "Calico cat child. Patchy fur, tiny apron imitating the brewer parent, carries wooden cup. Wannabe grown-up. Species variety: calico (vs tabby brewer adult).",
+      "pixellab": {
+        "description": "young calico cat beastkin child, patchy orange white and black fur, big round curious eyes, rounded ears, tiny cloth apron over simple tunic imitating a grown-up brewer, carries a small wooden cup in both hands, eager upright posture, curling tail, muted orange white and warm brown earth tones, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "play-jump",
+          "template": "running-jump",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/cat-kitten"
+    },
+    {
+      "id": "ikibeki-boar-piglet",
+      "name": "Boar-Piglet (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "87cf8d4f-1934-4893-bf86-c11f920273b5",
+      "_comment": "Warthog child. Tiny tusks, muddy knees, no shirt, scrappy mud-roller. Species variety: warthog (vs wild boar farmer/smith adults).",
+      "pixellab": {
+        "description": "young warthog beastkin child, coarse dark bristly fur, tiny tusks just poking from lower jaw, wide flat nose, muddy knees, rough-spun shorts only no shirt, scrappy energetic stance, small beady eyes, wiry mane on head, muted dark brown and mud-tan earth tones, top-down pixel art RPG style",
+        "size": 32,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": [
+          "south",
+          "south-east",
+          "east",
+          "north-east",
+          "north"
+        ],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"chibi\"}"
+      },
+      "animations": [
+        {
+          "id": "idle",
+          "template": "breathing-idle",
+          "frameDurationMs": 130
+        },
+        {
+          "id": "walk",
+          "template": "walking-4-frames",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "crouch",
+          "template": "crouching",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "pickup",
+          "template": "picking-up",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "drink",
+          "template": "drinking",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "get_up",
+          "template": "getting-up",
+          "frameDurationMs": 120
+        },
+        {
+          "id": "jump",
+          "template": "two-footed-jump",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "play-jump",
+          "template": "running-jump",
+          "frameDurationMs": 100
+        },
+        {
+          "id": "hurt",
+          "template": "taking-punch",
+          "frameDurationMs": 80
+        },
+        {
+          "id": "death",
+          "template": "falling-back-death",
+          "frameDurationMs": 120
+        }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/boar-piglet"
+    },
+    {
+      "id": "ikibeki-rabbit-barmaid",
+      "name": "Rabbit-Barmaid (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "22f9b022-dcf2-4b16-b166-6f0b18653f6e",
+      "_comment": "Service staff. Arctic hare barmaid who serves at the tavern and inn. Quick, bustling, carries a tray. Species variety: arctic hare (vs cottontail commoner and jackrabbit leveret).",
+      "pixellab": {
+        "description": "arctic hare beastkin barmaid, white fur, long upright ears, pink inner ears, simple linen dress with hide apron, carrying a wooden tray with mugs, quick bustling posture leaning forward, muted white and warm brown earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 140 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 100 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/rabbit-barmaid"
+    },
+    {
+      "id": "ikibeki-bear-stablehand",
+      "name": "Bear-Stablehand (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "e124b495-8ea2-4d6d-bd3b-97488530b232",
+      "_comment": "Service staff. Sun bear stablehand who tends the stables. Hay-stained, carries a bucket. Species variety: sun bear (vs brown bear elder and panda cub).",
+      "pixellab": {
+        "description": "sun bear beastkin stablehand, small dark brown fur with pale chest patch, rounded ears, stocky build, simple hide vest over bare arms, hay stuck in fur, carries a wooden bucket in one hand, sturdy working posture, muted dark brown and straw-yellow earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/bear-stablehand"
+    },
+    {
+      "id": "ikibeki-boar-woodcutter",
+      "name": "Boar-Woodcutter (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "d7e5682c-a288-4c73-ac2f-e3fa5861136b",
+      "_comment": "Service staff. Peccary boar woodcutter who works the sawmill. Axe on shoulder, sawdust-covered. Species variety: peccary (vs wild boar farmer, warthog piglet).",
+      "pixellab": {
+        "description": "peccary boar beastkin woodcutter, grey-brown coarse bristled fur, small tusks, compact stocky build, sleeveless hide tunic, leather arm wraps, woodcutting axe resting on shoulder, sawdust on arms, strong stance, muted grey-brown and bark-brown earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 125 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/boar-woodcutter"
+    },
+    {
+      "id": "ikibeki-mixed-porter",
+      "name": "Mixed-Porter (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "e4359419-9b7f-45e2-80e8-c189eb0bfc24",
+      "_comment": "Service staff. Mixed-clan market porter who hauls goods between market-hall and warehouse. Chimera features from wolf + fox heritage. First mixed-clan (0.10 weight) representative.",
+      "pixellab": {
+        "description": "mixed clan beastkin market porter, patchy mismatched fur with wolf grey and fox red patches, one rounded ear one pointed ear, broad shoulders, simple rough tunic, carries a large burlap sack over shoulder, strong working posture, muted grey and rust-brown earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "pull", "template": "pull-object", "frameDurationMs": 100 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/mixed-porter"
+    },
+    {
+      "id": "ikibeki-cat-sweeper",
+      "name": "Cat-Sweeper (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "d20b01a8-fc9f-4d35-8a67-3e2dbdb19874",
+      "_comment": "Service staff. Grey-striped cat groundskeeper who sweeps paths and keeps the village tidy. Fussy, detail-oriented. Species variety: grey tabby (vs tabby brewer, calico kitten).",
+      "pixellab": {
+        "description": "cat beastkin sweeper groundskeeper, grey and white striped fur, tall pointed ears, slim build, simple linen tunic, holds a straw broom in both hands, fussy upright posture, long tail curled neatly, muted grey and cream earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 115 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/cat-sweeper"
+    },
+    {
+      "id": "ikibeki-wolf-cook",
+      "name": "Wolf-Cook (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "8ed0aa47-8da0-4dbb-a0f4-36bf52ef94de",
+      "_comment": "Service staff. Brown wolf cookfire tender who works the campfire and longhouse kitchen. Warm, friendly. Species variety: brown/timber wolf (vs grey wolf warrior, silver highfang, arctic pup).",
+      "pixellab": {
+        "description": "wolf beastkin cookfire tender, brown wolf fur, apron over simple tunic, holds a large wooden ladle, standing near implied cooking, warm friendly expression, sturdy build, muted brown and warm orange earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/wolf-cook"
+    },
+    {
+      "id": "ikibeki-rabbit-runner",
+      "name": "Rabbit-Runner (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "1d4726ad-b9e5-4542-8d56-f02794473bea",
+      "_comment": "Service staff. Young rabbit messenger runner between watchtower and town-hall. Fast, lean, ears swept back. Species variety: standard brown rabbit (distinct from white arctic hare barmaid, cottontail commoner, jackrabbit leveret).",
+      "pixellab": {
+        "description": "young rabbit beastkin messenger runner, tan brown fur, very long ears swept back from speed, lean athletic build, light hide vest, leg wraps for running, small message pouch on hip, mid-stride forward-leaning posture, muted tan and brown earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 130 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 100 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "run", "template": "running-4-frames", "frameDurationMs": 70 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/rabbit-runner"
+    },
+    {
+      "id": "ikibeki-boar-granary",
+      "name": "Boar-Granary (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "27e147cf-1b8d-4573-a4d3-5acf363eab70",
+      "_comment": "Service staff. Boar granary worker who hauls grain sacks at the granary, root-cellar, and barn. Stocky, strong. Species variety: standard dark boar (distinct from peccary woodcutter, warthog piglet).",
+      "pixellab": {
+        "description": "boar beastkin granary worker, dark brown bristled fur, broad stocky build, heavy hide apron, thick arms, carries a grain sack under one arm, sturdy wide stance, muted dark brown and wheat-tan earth tones, top-down pixel art RPG style",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 160 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 130 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "pull", "template": "pull-object", "frameDurationMs": 100 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/boar-granary"
+    },
+    {
+      "id": "ikibeki-fox-barmaid",
+      "name": "Fox-Barmaid (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "e040a266-7a46-42e9-830e-65bc74902cbc",
+      "_comment": "Variant barmaid. Red fox species (vs arctic hare barmaid). Tavern/inn service staff.",
+      "pixellab": {
+        "description": "red fox beastkin barmaid, orange-red fur, white chest, bushy tail, pointed ears, linen dress with hide apron, carrying wooden tray with mugs, quick bustling posture, muted orange and warm brown earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 140 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 100 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/fox-barmaid"
+    },
+    {
+      "id": "ikibeki-cat-barmaid",
+      "name": "Cat-Barmaid (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant barmaid. Brown tabby cat species (vs arctic hare barmaid). Tavern/inn service staff.",
+      "pixellab": {
+        "description": "tabby cat beastkin barmaid, brown striped fur, rounded ears, slim build, linen dress with hide apron, carrying wooden tray, alert friendly expression, long tail, muted brown and cream earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 140 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 100 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/cat-barmaid"
+    },
+    {
+      "id": "ikibeki-bear-stablehand-b",
+      "name": "Bear-Stablehand-B (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "a6df8d9e-aeb9-4e5a-a224-903f7e774a9b",
+      "_comment": "Variant stablehand. Grizzly bear species (vs sun bear stablehand).",
+      "pixellab": {
+        "description": "grizzly bear beastkin stablehand, shaggy brown fur, large rounded ears, powerful build, hide vest, hay in fur, wooden bucket in hand, sturdy working posture, muted brown and straw earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/bear-stablehand-b"
+    },
+    {
+      "id": "ikibeki-wolf-stablehand",
+      "name": "Wolf-Stablehand (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant stablehand. Grey wolf species (vs sun bear stablehand).",
+      "pixellab": {
+        "description": "grey wolf beastkin stablehand, dark grey fur, pointed ears, lean muscular build, simple hide vest, hay stuck in fur, carries rope halter, working posture, muted grey and straw earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/wolf-stablehand"
+    },
+    {
+      "id": "ikibeki-bear-woodcutter",
+      "name": "Bear-Woodcutter (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant woodcutter. Black bear species (vs peccary boar woodcutter).",
+      "pixellab": {
+        "description": "black bear beastkin woodcutter, dark black fur, rounded ears, stocky powerful build, sleeveless tunic, leather arm wraps, axe on shoulder, sawdust covered, muted black and bark-brown earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 125 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/bear-woodcutter"
+    },
+    {
+      "id": "ikibeki-boar-cook",
+      "name": "Boar-Cook (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant cook. Boar species (vs brown wolf cook).",
+      "pixellab": {
+        "description": "boar beastkin cook, dark bristled fur, small tusks, apron over tunic, holds wooden ladle, sturdy wide build, warm expression, muted brown and orange earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/boar-cook"
+    },
+    {
+      "id": "ikibeki-rabbit-cook",
+      "name": "Rabbit-Cook (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant cook. Rabbit species (vs brown wolf cook).",
+      "pixellab": {
+        "description": "rabbit beastkin cook, brown fur, long upright ears, apron over simple tunic, holds wooden spoon, friendly expression, slim build, muted brown and warm orange earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 140 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 110 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/rabbit-cook"
+    },
+    {
+      "id": "ikibeki-cat-sweeper-b",
+      "name": "Cat-Sweeper-B (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant sweeper. Siamese cat species (vs grey tabby sweeper).",
+      "pixellab": {
+        "description": "siamese cat beastkin sweeper, cream fur with dark brown face mask and dark paws, blue eyes, slim elegant build, linen tunic, holds straw broom, fussy posture, muted cream and dark brown earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 115 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/cat-sweeper-b"
+    },
+    {
+      "id": "ikibeki-boar-porter",
+      "name": "Boar-Porter (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": "3189f782-b0ba-4c2c-a378-6999330d286e",
+      "_comment": "Variant porter. Boar species (vs mixed-clan porter).",
+      "pixellab": {
+        "description": "boar beastkin porter, dark bristled fur, tusks, broad shoulders, rough tunic, large crate carried on shoulder, strong working posture, muted dark brown earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "pull", "template": "pull-object", "frameDurationMs": 100 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/boar-porter"
+    },
+    {
+      "id": "ikibeki-hawk-runner",
+      "name": "Hawk-Runner (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant runner. Hawk species (vs tan rabbit runner). Messenger between watchtower and town-hall.",
+      "pixellab": {
+        "description": "hawk beastkin runner messenger, tawny feathers, sharp eyes, lean athletic build, light hide vest, leg wraps, message pouch, forward-leaning stride, muted tawny and brown earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 130 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 100 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "run", "template": "running-4-frames", "frameDurationMs": 70 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/hawk-runner"
+    },
+    {
+      "id": "ikibeki-bear-granary",
+      "name": "Bear-Granary (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant granary worker. Polar bear species (vs dark boar granary).",
+      "pixellab": {
+        "description": "polar bear beastkin granary worker, white fur, broad stocky build, heavy hide apron, thick arms, grain sack under arm, wide stance, muted white and wheat-tan earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 160 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 130 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "pull", "template": "pull-object", "frameDurationMs": 100 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/bear-granary"
+    },
+    {
+      "id": "ikibeki-fox-commoner",
+      "name": "Fox-Commoner (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_pixellabCharacterId": null,
+      "_pixellabNote": "Failed generation — burn job must recreate base character",
+      "_comment": "Variant commoner. Grey fox species (vs cottontail rabbit commoner). Generic villager.",
+      "pixellab": {
+        "description": "grey fox beastkin commoner, silver-grey fur with rusty flanks, bushy tail, simple wool tunic, leather belt, calm steady posture, worn boots, muted grey and rust earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/fox-commoner"
+    },
+    {
+      "id": "ikibeki-wolf-adventurer",
+      "name": "Wolf-Adventurer (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Adventurer archetype. Timber wolf with sword and pack, scarred, road-worn. Visiting traveler, not settled.",
+      "pixellab": {
+        "description": "timber wolf beastkin adventurer, grey-brown fur, scarred muzzle, road-worn hide cloak over leather armor, sword sheathed at hip, travel pack on back, sturdy boots, weathered confident stance, muted grey-brown and dark leather earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 150 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "attack", "template": "lead-jab", "frameDurationMs": 80 },
+        { "id": "alert", "template": "fight-stance-idle-8-frames", "frameDurationMs": 120 },
+        { "id": "dash", "template": "running-slide", "frameDurationMs": 60 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/wolf-adventurer"
+    },
+    {
+      "id": "ikibeki-fox-adventurer",
+      "name": "Fox-Adventurer (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Adventurer archetype. Red fox scout/ranger with bow and quiver, light leather armor.",
+      "pixellab": {
+        "description": "red fox beastkin adventurer ranger, orange-red fur, sharp eyes, light leather armor with leaf-green accents, short bow slung over shoulder, quiver of arrows on back, hooded travel cloak pushed back, nimble alert stance, muted orange and forest-green earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 140 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 110 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "attack", "template": "throw-object", "frameDurationMs": 80 },
+        { "id": "alert", "template": "fight-stance-idle-8-frames", "frameDurationMs": 120 },
+        { "id": "dash", "template": "running-jump", "frameDurationMs": 70 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/fox-adventurer"
+    },
+    {
+      "id": "ikibeki-bear-adventurer",
+      "name": "Bear-Adventurer (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Adventurer archetype. Grizzly bear with heavy axe, fur cloak, mountain wanderer tank type.",
+      "pixellab": {
+        "description": "grizzly bear beastkin adventurer, shaggy dark brown fur, massive build, heavy fur cloak over thick leather armor, large battle axe strapped to back, scarred arms, heavy boots, imposing confident stance, muted dark brown and fur-grey earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 170 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 130 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "attack", "template": "cross-punch", "frameDurationMs": 90 },
+        { "id": "alert", "template": "fight-stance-idle-8-frames", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/bear-adventurer"
+    },
+    {
+      "id": "ikibeki-rabbit-adventurer",
+      "name": "Rabbit-Adventurer (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Adventurer archetype. Hare rogue with dual daggers, light leather, nimble and fast.",
+      "pixellab": {
+        "description": "hare beastkin adventurer rogue, sandy brown fur, long ears, lean wiry build, tight-fitting dark leather armor, twin daggers at belt, hooded short cloak, nimble crouched ready stance, muted sandy brown and dark leather earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 130 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 100 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "attack", "template": "lead-jab", "frameDurationMs": 70 },
+        { "id": "alert", "template": "fight-stance-idle-8-frames", "frameDurationMs": 120 },
+        { "id": "dash", "template": "running-slide", "frameDurationMs": 60 },
+        { "id": "run", "template": "running-4-frames", "frameDurationMs": 70 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/rabbit-adventurer"
+    },
+    {
+      "id": "ikibeki-wolf-mage",
+      "name": "Wolf-Mage (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Mage archetype. Black wolf in dark robes with gnarled staff and glowing rune accents. Practices at temple.",
+      "pixellab": {
+        "description": "black wolf beastkin mage, jet black fur, amber eyes, dark bark-cloth robes with glowing blue-green rune patterns along hems, gnarled wooden staff with glowing crystal tip, leather belt with pouch of reagents, mysterious stern stance, muted black and dark blue-green accent tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 170 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 130 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "cast", "template": "fireball", "frameDurationMs": 90 },
+        { "id": "alert", "template": "fight-stance-idle-8-frames", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/wolf-mage"
+    },
+    {
+      "id": "ikibeki-cat-mage",
+      "name": "Cat-Mage (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Mage archetype. Black cat in hooded robe with crystal staff, mystical witch/warlock vibe.",
+      "pixellab": {
+        "description": "black cat beastkin mage, sleek black fur, glowing green eyes, hooded dark robe with silver thread embroidery, crystal-topped staff held in one hand, small potion vials at belt, mysterious calm stance, muted black and silver-green accent tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 160 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 120 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "cast", "template": "fireball", "frameDurationMs": 90 },
+        { "id": "alert", "template": "fight-stance-idle-8-frames", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/cat-mage"
+    },
+    {
+      "id": "ikibeki-fox-mage",
+      "name": "Fox-Mage (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Mage archetype. Silver fox elder mage, long ornate robes, ancient scroll. Wise sage type.",
+      "pixellab": {
+        "description": "silver fox beastkin elder mage, pale silver fur, wise old face, long ornate bark-cloth robes with gold embroidered rune borders, tall carved wooden staff, ancient scroll tucked under arm, dignified upright stance, muted silver and gold-brown accent tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 180 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 135 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "cast", "template": "fireball", "frameDurationMs": 100 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/fox-mage"
+    },
+    {
+      "id": "ikibeki-hawk-mage",
+      "name": "Hawk-Mage (Ikibeki)",
+      "world": "mistheim",
+      "faction": "ikibeki",
+      "status": "pending",
+      "_comment": "Mage archetype. Owl (hawk-clan) feathered sage, wide-eyed, bone staff with feathers. Shamanic druid type.",
+      "pixellab": {
+        "description": "owl beastkin shaman mage, mottled brown and white feathers, large round wise eyes, feathered robe with bone clasps, bone staff decorated with hanging feathers and small skulls, taloned feet, very still watchful stance, muted brown and bone-white earth tones, top-down pixel art RPG",
+        "size": 48,
+        "body_type": "humanoid",
+        "n_directions": 5,
+        "directions": ["south", "south-east", "east", "north-east", "north"],
+        "_n_directions_note": "5 right-side directions; SW/W/NW mirrored in code via sprite.setFlipX(true)",
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "proportions": "{\"type\": \"preset\", \"name\": \"default\"}"
+      },
+      "animations": [
+        { "id": "idle", "template": "breathing-idle", "frameDurationMs": 180 },
+        { "id": "walk", "template": "walking-4-frames", "frameDurationMs": 130 },
+        { "id": "crouch", "template": "crouching", "frameDurationMs": 100 },
+        { "id": "pickup", "template": "picking-up", "frameDurationMs": 100 },
+        { "id": "drink", "template": "drinking", "frameDurationMs": 120 },
+        { "id": "get_up", "template": "getting-up", "frameDurationMs": 120 },
+        { "id": "jump", "template": "two-footed-jump", "frameDurationMs": 80 },
+        { "id": "hurt", "template": "taking-punch", "frameDurationMs": 80 },
+        { "id": "death", "template": "falling-back-death", "frameDurationMs": 120 },
+        { "id": "cast", "template": "fireball", "frameDurationMs": 90 },
+        { "id": "alert", "template": "fight-stance-idle-8-frames", "frameDurationMs": 120 }
+      ],
+      "outputDir": "public/assets/sprites/characters/mistheim/ikibeki/hawk-mage"
     }
   ],
   "tilesets": [
@@ -922,6 +2869,74 @@
         "outline_mode": "outline"
       },
       "outputDir": "public/assets/sprites/tilesets/arena"
+    },
+    {
+      "id": "road_dirt",
+      "name": "Dirt Road Tiles (Autotile 16)",
+      "world": "earth",
+      "status": "done",
+      "_pixellabTilesetId": "2f2ae490-08e0-4c9e-9fe8-80749a4241c0",
+      "_comment": "16-tile autotile set for dirt roads. 4-bit bitmask (N=1,E=2,S=4,W=8). Frame order: 0=isolated, 1=N-S straight, 2=E-W straight, 3=SE corner, 4=SW corner, 5=NE corner, 6=NW corner, 7=T no-N, 8=T no-S, 9=T no-E, 10=T no-W, 11=crossroad, 12=dead-N, 13=dead-E, 14=dead-S, 15=dead-W.",
+      "tool": "create_tiles_pro",
+      "pixellab": {
+        "description": "worn dirt road autotile set, packed brown earth with wheel ruts, 16 isometric variants for bitmask autotiling",
+        "tile_type": "isometric",
+        "tile_size": 32,
+        "tile_view": "low top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/roads"
+    },
+    {
+      "id": "road_paved",
+      "name": "Paved Road Tiles (Autotile 16)",
+      "world": "earth",
+      "status": "done",
+      "_pixellabTilesetId": "6a323545-969d-4bb8-91e8-425c3b43f482",
+      "_comment": "16-tile autotile set for old stone paved roads. Same bitmask layout as road_dirt.",
+      "tool": "create_tiles_pro",
+      "pixellab": {
+        "description": "old stone paved road autotile set, weathered grey cobblestone, 16 isometric variants for bitmask autotiling",
+        "tile_type": "isometric",
+        "tile_size": 32,
+        "tile_view": "low top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/roads"
+    },
+    {
+      "id": "road_forest",
+      "name": "Forest Path Tiles (Autotile 16)",
+      "world": "earth",
+      "status": "done",
+      "_pixellabTilesetId": "d432b746-fcdf-432d-98b2-913a1f373f06",
+      "_comment": "16-tile autotile set for narrow mossy forest paths. Same bitmask layout as road_dirt.",
+      "tool": "create_tiles_pro",
+      "pixellab": {
+        "description": "narrow forest path autotile set, dark green mossy dirt trail, 16 isometric variants for bitmask autotiling",
+        "tile_type": "isometric",
+        "tile_size": 32,
+        "tile_view": "low top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/roads"
+    },
+    {
+      "id": "road_animal",
+      "name": "Animal Trail Tiles (Autotile 16)",
+      "world": "earth",
+      "status": "done",
+      "_pixellabTilesetId": "d8ed0f1a-7fa8-42e4-bcda-9bbcc486fba1",
+      "_comment": "16-tile autotile set for thin beaten animal trails. Same bitmask layout as road_dirt.",
+      "tool": "create_tiles_pro",
+      "pixellab": {
+        "description": "animal trail autotile set, narrow beaten tan earth through wild grass, 16 isometric variants for bitmask autotiling",
+        "tile_type": "isometric",
+        "tile_size": 32,
+        "tile_view": "low top-down",
+        "outline_mode": "outline"
+      },
+      "outputDir": "public/assets/sprites/tilesets/roads"
     }
   ],
   "mapObjects": [
@@ -1790,6 +3805,1125 @@
         "detail": "medium detail"
       },
       "outputDir": "public/assets/sprites/decorations/grasslands"
+    },
+    {
+      "_note": "Ikibeki building material tier variants. Generated via create_map_object. Each produces one PNG. Style-match against existing buildings in public/assets/packs/building-objects/ikibeki/. Use background_image with path to an existing building for style consistency.",
+      "_culture": "ikibeki",
+      "_pixellabTool": "create_map_object",
+      "_sharedPixellabParams": {
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "medium shading",
+        "detail": "medium detail",
+        "width": 128,
+        "height": 128
+      },
+      "_tiers": "hide-tent (nomadic, raw hide over bone frames, yurt-like), burrow-den (hobbit-like mounded earth, round doors, grass roofs, suited to bear/boar clans), stone-masonry (fitted stone walls, hide-and-timber roofs, carved lintels, mature settlement)"
+    },
+    {
+      "id": "ik-tent-cottage",
+      "name": "Ikibeki Tent Cottage",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "small nomadic tent dwelling, raw animal hide stretched over curved bone and wood frame poles, low rounded profile, hide flap door, smoke hole at top, hide lashing ties, bone pegs, warm brown and tan hide tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-tent-smithy",
+      "name": "Ikibeki Tent Smithy",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "nomadic forge tent, heavy hide stretched over thick bone poles, open front side revealing stone anvil and fire pit, smoke stained hide, bone tool racks, charcoal pile beside, warm brown and soot-black tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-tent-tavern",
+      "name": "Ikibeki Tent Tavern",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "large nomadic gathering tent, multiple hide panels stitched together over tall bone frame, wide entrance with hide curtain pulled aside, bone banner poles with hide pennants, warm firelight glow from inside, warm brown and amber tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-tent-market",
+      "name": "Ikibeki Tent Market Stall",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "nomadic market canopy, hide awning stretched between bone poles over wooden trade table, hanging pelts and dried goods, baskets on ground, simple and practical, warm brown and tan tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-tent-stables",
+      "name": "Ikibeki Tent Stables",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "nomadic animal shelter, long low hide lean-to stretched over wooden rails, open front, hay and straw floor, bone hitching posts, water trough, warm brown and straw tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-tent-warehouse",
+      "name": "Ikibeki Tent Storage",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "nomadic storage tent, tightly wrapped hide over bone frame, sealed flap door with bone toggles, crates and sacks stacked around base, hide covers over goods, warm brown and dark tan tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-tent-guard",
+      "name": "Ikibeki Tent Guard Post",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "nomadic guard post, small hide windscreen on tall bone poles, elevated wooden lookout platform, bone spear rack, hide wind flaps, campfire ring at base, warm brown and grey tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-tent-shrine",
+      "name": "Ikibeki Tent Shrine",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "hide-tent",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "nomadic spirit shrine, small ornate hide tent over a carved bone totem pole, hanging bone chimes and feather offerings, small stone fire ring, sacred markings burnt into hide, warm brown and ochre tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-burrow-cottage",
+      "name": "Ikibeki Burrow Cottage",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "burrow-den",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "hobbit-like underground dwelling, grass-covered mounded earth hill with round wooden door, round windows with shutters, chimney pipe poking from grassy top, flower boxes, stone-lined entrance, cozy warm brown and green tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-burrow-tavern",
+      "name": "Ikibeki Burrow Tavern",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "burrow-den",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "large underground tavern, wide grass-covered earth mound with large round double doors, warm lantern light from round windows, wooden sign hanging above entrance, stone steps down, chimney with smoke, multiple small skylights in grassy roof, warm brown and green tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-burrow-warehouse",
+      "name": "Ikibeki Burrow Storage",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "burrow-den",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "underground root cellar storage, low grass-covered earth mound with heavy round wooden hatch door, stone-reinforced entrance, ventilation pipes in grassy top, crates stacked near entrance, cool dark interior, muted green and dark brown tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-burrow-shrine",
+      "name": "Ikibeki Burrow Shrine",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "burrow-den",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "underground spirit den, small grass-covered earth mound with narrow round doorway framed by carved bone and antler, glowing crystals visible inside, sacred smoke wisps from hole in top, stone pathway to entrance, muted green and mystical purple tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-stone-cottage",
+      "name": "Ikibeki Stone Cottage",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "rounded stone masonry cottage, fitted grey stone walls with low rounded profile, thick hide-and-timber roof, carved stone lintel above arched doorway, small round windows, chimney stack, Ikibeki carved clan symbols on door frame, warm grey stone and dark brown timber tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-stone-smithy",
+      "name": "Ikibeki Stone Smithy",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stone masonry forge, thick fitted stone walls with open front archway, heavy stone chimney with heavy smoke, stone anvil platform visible inside, iron tool racks, stone and timber roof, dark soot-stained stone, warm grey stone and soot-black tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-stone-tavern",
+      "name": "Ikibeki Stone Tavern",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "large stone masonry tavern hall, rounded fitted stone walls, heavy timber and hide roof, wide arched doorway with carved stone pillars, warm lantern light from windows, wooden tavern sign, stone chimney with smoke, carved clan decorations, warm grey stone and amber light tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-stone-market",
+      "name": "Ikibeki Stone Market Hall",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stone masonry market hall, open-sided structure with stone pillars supporting heavy timber roof, stone floor, merchant stalls inside, carved stone archways, goods displayed on stone counters, warm grey stone and warm brown timber tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-stone-stables",
+      "name": "Ikibeki Stone Stables",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stone masonry stables, long low stone building with rounded walls, timber roof, stone hitching posts, open stall fronts with wooden gates, hay visible inside, water trough, warm grey stone and straw tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-stone-warehouse",
+      "name": "Ikibeki Stone Warehouse",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stone masonry warehouse, solid thick stone walls, heavy timber double doors with iron hinges, small ventilation windows, flat timber and stone roof, stone loading platform, crates nearby, warm grey stone and iron-dark tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "id": "ik-stone-guard",
+      "name": "Ikibeki Stone Guard Tower",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stone masonry guard tower, short round stone tower with crenellated top, narrow arrow slit windows, heavy wooden door at base, stone stairway visible, torch bracket, banner pole at top, warm grey stone and dark timber tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "_note2": "Ikibeki settlement decoration objects. Small clutter items that populate the village. Generated via create_map_object.",
+      "_culture2": "ikibeki",
+      "_sharedPixellabParams2": {
+        "view": "low top-down",
+        "outline": "single color outline",
+        "shading": "medium shading",
+        "detail": "medium detail"
+      }
+    },
+    {
+      "id": "ik-deco-anvil",
+      "name": "Ikibeki Anvil",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "craft",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "iron anvil on flat stone base, worn and dented from use, small hammer resting beside, dark iron and grey stone tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-weapon-rack",
+      "name": "Ikibeki Weapon Rack",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "craft",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "bone frame weapon rack holding several spears and axes, vertical standing rack made from thick animal bone, hide lashing, warm brown and bone-white tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-log-pile",
+      "name": "Ikibeki Log Pile",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "craft",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stack of chopped logs piled neatly, round log ends visible, bark brown tones, small pile about waist height, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-sawbuck",
+      "name": "Ikibeki Sawbuck",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "craft",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "X-frame wooden sawbuck for cutting logs, a log resting in the V cradle, simple rough timber construction, warm brown wood tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-lumber-stack",
+      "name": "Ikibeki Lumber Stack",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "craft",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stack of sawn planks leaning against a wooden post, fresh cut pale wood, sawdust on ground, warm light wood and brown tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-trade-goods",
+      "name": "Ikibeki Trade Goods",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "craft",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "cluster of trade goods, woven baskets with lids, wooden crate, bundled animal pelts tied with cord, arranged on ground, warm brown and tan earthy tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-tanning-rack",
+      "name": "Ikibeki Tanning Rack",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "craft",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "animal hide stretched on wooden A-frame rack for tanning, hide pinned at edges with bone pegs, raw leather brown and pale hide tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-cooking-pot",
+      "name": "Ikibeki Cooking Pot",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "food",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "large iron cooking pot hanging over stone fire ring from wooden tripod, small fire burning beneath, steam rising, dark iron and warm orange fire tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-drying-rack",
+      "name": "Ikibeki Drying Rack",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "food",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "wooden drying rack with strips of meat and fish hanging from horizontal poles, simple A-frame construction, dark red meat and brown wood tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-barrel-cluster",
+      "name": "Ikibeki Barrel Cluster",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "food",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "cluster of 3 wooden barrels, two standing upright and one on its side, iron bands, wooden lids, warm brown and dark wood tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-bread-basket",
+      "name": "Ikibeki Bread Basket",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "food",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "woven basket on ground filled with round bread loaves, simple woven grass basket, warm golden bread and tan basket tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-herb-bundle",
+      "name": "Ikibeki Herb Bundle",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "food",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "dried herb bundles hanging upside down from horizontal wooden pole on two posts, several bundles of different herbs, muted green and brown dried plant tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-clan-banner-a",
+      "name": "Ikibeki Clan Banner A",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "hide clan banner on tall bone pole, rectangular animal hide banner with painted wolf totem symbol, bone finial on top, banner slightly wind-blown, warm brown hide and bone-white tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 64,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-clan-banner-b",
+      "name": "Ikibeki Clan Banner B",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "hide clan banner on tall bone pole, rectangular animal hide banner with painted bear claw totem symbol, bone finial on top, banner slightly wind-blown, warm brown hide and bone-white tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 64,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-bone-totem",
+      "name": "Ikibeki Bone Totem",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "tall carved bone and antler totem pole, stacked animal skulls and carved bone segments, feather and hide strips hanging from notches, ancient and weathered, bone-white and dark brown tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 64,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-lantern-post",
+      "name": "Ikibeki Lantern Post",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "bone pole lantern post, tall bone pole with hanging hide-wrapped lantern at top, warm amber glow from lantern, bone hook, simple and functional, bone-white and amber tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 64,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-hay-bale",
+      "name": "Ikibeki Hay Bale",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "round hay bale, tightly bundled golden straw tied with rope, sitting on ground, warm golden straw tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-cart",
+      "name": "Ikibeki Cart",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "small wooden pull cart with two wheels, open top, rough plank construction, pull handle resting on ground, some goods in back, warm brown wood tones, isometric pixel art RPG decoration, transparent background",
+        "width": 64, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-woodpile",
+      "name": "Ikibeki Woodpile",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "neatly stacked chopped firewood pile, split logs arranged in rows, small stack about knee height, warm brown bark and pale wood tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-water-bucket",
+      "name": "Ikibeki Water Bucket",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "wooden water bucket sitting on ground, iron-banded wooden bucket with rope handle, water visible inside, dark brown wood and iron tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-bench",
+      "name": "Ikibeki Bench",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "rough log bench, thick split log seat on two short log supports, simple and sturdy, seats two, warm brown bark tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-stool",
+      "name": "Ikibeki Stool",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "simple wooden stool, round seat on three legs, rough carved wood, small and low, warm brown wood tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-table",
+      "name": "Ikibeki Table",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "village",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "rough plank table, thick wooden planks on sturdy log legs, simple functional construction, some items on top like a bowl and mug, warm brown wood tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-offering-bowl",
+      "name": "Ikibeki Offering Bowl",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "sacred",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stone offering bowl with glowing embers inside, wide shallow carved stone bowl on stone pedestal, faint orange glow, small smoke wisps, dark grey stone and amber glow tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-spirit-chimes",
+      "name": "Ikibeki Spirit Chimes",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "sacred",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "hanging bone and feather wind chimes on wooden cross beam between two posts, carved bone tubes and feather strips dangling, spiritual and decorative, bone-white and muted feather tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-ritual-stones",
+      "name": "Ikibeki Ritual Stones",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "sacred",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "small circle of standing stones, 5 rough carved stones arranged in a ring, each knee height, carved with simple rune marks, dark grey stone with faint glow between stones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-incense-burner",
+      "name": "Ikibeki Incense Burner",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "sacred",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "clay incense burner pot, small round clay pot on ground with thin smoke wisps rising, carved patterns on pot surface, warm terracotta and grey smoke tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-feed-trough",
+      "name": "Ikibeki Feed Trough",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "farm",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "wooden feed trough filled with hay, long rectangular wooden box on low legs, hay overflowing, warm brown wood and golden straw tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 32,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-hitching-post",
+      "name": "Ikibeki Hitching Post",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "farm",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "bone hitching post with rope, single tall bone post driven into ground with rope coiled around top, simple and functional, bone-white and brown rope tones, isometric pixel art RPG decoration, transparent background",
+        "width": 32, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-deco-grain-sacks",
+      "name": "Ikibeki Grain Sack Pile",
+      "culture": "ikibeki",
+      "category": "decoration",
+      "group": "farm",
+      "priority": "must-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "pile of 4 burlap grain sacks stacked, bulging tied sacks in pyramid arrangement, some grain spilling from one, warm tan burlap and golden grain tones, isometric pixel art RPG decoration, transparent background",
+        "width": 48, "height": 48,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/decorations"
+    },
+    {
+      "id": "ik-stone-shrine",
+      "name": "Ikibeki Stone Shrine",
+      "culture": "ikibeki",
+      "category": "building",
+      "tier": "stone-masonry",
+      "priority": "nice-to-have",
+      "status": "pending",
+      "pixellab": {
+        "description": "stone masonry spirit shrine, small round stone temple with carved pillar entrance, domed stone and timber roof, glowing ritual fire visible through doorway, carved clan totems flanking entrance, offering bowls on stone steps, warm grey stone and amber glow tones, isometric pixel art RPG building, transparent background",
+        "width": 128, "height": 128,
+        "view": "low top-down", "outline": "single color outline", "shading": "medium shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/packs/building-objects/ikibeki/variants"
+    },
+    {
+      "_note": "Taiga biome vegetation — pine, spruce, birch. Fits Wildkin preferred biome (taiga: 0.7).",
+      "_biome": "taiga",
+      "_pixellabTool": "create_map_object"
+    },
+    {
+      "id": "ta-pine-small-a",
+      "name": "Taiga Small Pine A",
+      "biome": "taiga", "category": "tree", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "small young pine tree, single narrow trunk, sparse conical canopy with dark green needles, snow dusting on branches, top-down pixel art RPG, muted dark green and white, transparent background",
+        "width": 32, "height": 48, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-pine-small-b",
+      "name": "Taiga Small Pine B",
+      "biome": "taiga", "category": "tree", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "small young pine tree, slightly leaning trunk, compact triangular canopy, dark green needles, light snow on tips, top-down pixel art RPG, muted dark green, transparent background",
+        "width": 32, "height": 48, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-pine-mid-a",
+      "name": "Taiga Medium Pine",
+      "biome": "taiga", "category": "tree", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "mature pine tree, thick trunk, full conical canopy with layered dark green needle branches, snow patches on upper branches, top-down pixel art RPG, dark green and brown trunk, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-spruce-mid",
+      "name": "Taiga Medium Spruce",
+      "biome": "taiga", "category": "tree", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "mature spruce tree, straight tall trunk, dense narrow conical canopy with very dark green needles, drooping lower branches, top-down pixel art RPG, very dark green, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-pine-large",
+      "name": "Taiga Large Pine",
+      "biome": "taiga", "category": "tree", "sizeClass": "large", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "ancient tall pine tree, massive thick trunk, wide spreading conical canopy with dense dark green needles, heavy snow on upper branches, gnarled lower trunk, top-down pixel art RPG, dark green and grey-brown, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-spruce-large",
+      "name": "Taiga Large Spruce",
+      "biome": "taiga", "category": "tree", "sizeClass": "large", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "ancient towering spruce tree, very tall straight trunk, massive dense dark conical crown, snow laden branches, dark trunk visible at base, top-down pixel art RPG, very dark green and snow white, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-birch-small",
+      "name": "Taiga Small Birch",
+      "biome": "taiga", "category": "tree", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "young birch tree, thin white bark trunk, small oval canopy of pale yellow-green leaves, delicate branches, top-down pixel art RPG, white trunk and light green, transparent background",
+        "width": 32, "height": 48, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-birch-mid",
+      "name": "Taiga Medium Birch",
+      "biome": "taiga", "category": "tree", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "mature birch tree, distinctive white bark trunk with dark knots, full oval canopy of golden-yellow autumn leaves, graceful branches, top-down pixel art RPG, white trunk and golden yellow, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-birch-large",
+      "name": "Taiga Large Birch",
+      "biome": "taiga", "category": "tree", "sizeClass": "large", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "tall old birch tree, thick white trunk with peeling bark, wide spreading canopy of mixed green and gold leaves, top-down pixel art RPG, white and green-gold, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-dead-pine",
+      "name": "Taiga Dead Pine",
+      "biome": "taiga", "category": "tree", "sizeClass": "medium", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "dead pine tree, bare skeleton branches pointing upward, no needles, grey weathered trunk, sparse and spooky, top-down pixel art RPG, grey-brown dead wood, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-pine-cluster",
+      "name": "Taiga Pine Cluster",
+      "biome": "taiga", "category": "tree", "sizeClass": "large", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "cluster of 3 pine trees growing close together, overlapping dark green conical canopies, different heights, dense forest feel, top-down pixel art RPG, dark green, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-snow-bush-a",
+      "name": "Taiga Snow Bush A",
+      "biome": "taiga", "category": "shrub", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "low evergreen bush with snow on top, dense dark green foliage with white snow cap, round shape, top-down pixel art RPG, dark green and white, transparent background",
+        "width": 32, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-snow-bush-b",
+      "name": "Taiga Snow Bush B",
+      "biome": "taiga", "category": "shrub", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "sparse winter shrub, dark bare twigs with few remaining dark green leaves, light snow on branches, scraggly low bush, top-down pixel art RPG, dark brown and green, transparent background",
+        "width": 32, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "id": "ta-berry-bush",
+      "name": "Taiga Berry Bush",
+      "biome": "taiga", "category": "shrub", "sizeClass": "small", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "low berry bush with bright red berries among dark green leaves, round compact shape, some snow on top, top-down pixel art RPG, green with red berries, transparent background",
+        "width": 32, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/taiga"
+    },
+    {
+      "_note": "Temperate deciduous biome vegetation — maple, beech, ash. Fits Wildkin preferred biome (temperate_deciduous: 0.8).",
+      "_biome": "temperate_deciduous",
+      "_pixellabTool": "create_map_object"
+    },
+    {
+      "id": "td-maple-small",
+      "name": "Deciduous Small Maple",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "young maple tree, thin trunk, compact rounded canopy with bright red-orange autumn leaves, top-down pixel art RPG, vibrant red-orange, transparent background",
+        "width": 32, "height": 48, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-maple-mid",
+      "name": "Deciduous Medium Maple",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "mature maple tree, sturdy trunk, full wide rounded canopy with mixed red orange and yellow autumn leaves, top-down pixel art RPG, warm autumn palette, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-maple-large",
+      "name": "Deciduous Large Maple",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "large", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "ancient wide maple tree, massive thick trunk, enormous spreading canopy with deep red and orange leaves, some leaves falling, top-down pixel art RPG, deep red-orange, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-beech-small",
+      "name": "Deciduous Small Beech",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "young beech tree, smooth grey trunk, compact oval canopy with fresh bright green leaves, top-down pixel art RPG, bright green and grey trunk, transparent background",
+        "width": 32, "height": 48, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-beech-mid",
+      "name": "Deciduous Medium Beech",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "mature beech tree, smooth pale grey trunk, dense wide oval canopy with rich green leaves, some golden-brown autumn patches, top-down pixel art RPG, rich green, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-beech-large",
+      "name": "Deciduous Large Beech",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "large", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "ancient beech tree, massive smooth grey trunk with spreading roots, enormous dense canopy with dark green leaves, cathedral-like spread, top-down pixel art RPG, dark green, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-ash-mid",
+      "name": "Deciduous Medium Ash",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "medium", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "mature ash tree, straight pale trunk, open airy canopy with compound feathery light green leaves, elegant shape, top-down pixel art RPG, light green and pale trunk, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-autumn-cluster",
+      "name": "Deciduous Autumn Cluster",
+      "biome": "temperate_deciduous", "category": "tree", "sizeClass": "large", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "cluster of 3 deciduous trees with different autumn colors, one red maple one golden birch one brown oak, overlapping canopies, beautiful fall palette, top-down pixel art RPG, warm autumn colors, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-leafy-bush-a",
+      "name": "Deciduous Leafy Bush A",
+      "biome": "temperate_deciduous", "category": "shrub", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "dense round leafy bush, full bright green foliage, compact ball shape, top-down pixel art RPG, bright green, transparent background",
+        "width": 32, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-leafy-bush-b",
+      "name": "Deciduous Leafy Bush B — autumn",
+      "biome": "temperate_deciduous", "category": "shrub", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "dense round leafy bush, mixed orange and red autumn foliage, compact ball shape, some fallen leaves at base, top-down pixel art RPG, warm orange-red, transparent background",
+        "width": 32, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "id": "td-hedge-row",
+      "name": "Deciduous Hedge Row",
+      "biome": "temperate_deciduous", "category": "shrub", "sizeClass": "medium", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "trimmed hedge row, long rectangular block of dense green foliage, neatly shaped, settlement boundary hedge, top-down pixel art RPG, dark green, transparent background",
+        "width": 64, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_deciduous"
+    },
+    {
+      "_note": "Temperate rainforest biome vegetation — tall mossy conifers, ferns. Fits Wildkin preferred biome (temperate_rainforest: 0.6).",
+      "_biome": "temperate_rainforest",
+      "_pixellabTool": "create_map_object"
+    },
+    {
+      "id": "tr-mossy-pine-mid",
+      "name": "Rainforest Mossy Pine",
+      "biome": "temperate_rainforest", "category": "tree", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "mature pine tree covered in hanging moss, thick trunk with green moss growth, dark green needle canopy with trailing moss strands, damp and ancient look, top-down pixel art RPG, dark green and moss green, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
+    },
+    {
+      "id": "tr-mossy-pine-large",
+      "name": "Rainforest Large Mossy Pine",
+      "biome": "temperate_rainforest", "category": "tree", "sizeClass": "large", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "ancient towering pine tree draped in thick hanging moss, massive trunk covered in green moss and lichen, enormous dark canopy with trailing moss curtains, primeval forest feel, top-down pixel art RPG, deep green and moss, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
+    },
+    {
+      "id": "tr-mossy-oak-mid",
+      "name": "Rainforest Mossy Oak",
+      "biome": "temperate_rainforest", "category": "tree", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "gnarled oak tree covered in moss, twisted thick trunk with bright green moss patches, wide spreading canopy with dark green leaves and hanging moss, damp forest feel, top-down pixel art RPG, dark green and bright moss, transparent background",
+        "width": 48, "height": 64, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
+    },
+    {
+      "id": "tr-mossy-oak-large",
+      "name": "Rainforest Large Mossy Oak",
+      "biome": "temperate_rainforest", "category": "tree", "sizeClass": "large", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "ancient massive oak tree completely draped in moss, enormous gnarled trunk with thick moss carpet, huge spreading canopy dripping with hanging moss, cathedral-like, top-down pixel art RPG, deep green and moss, transparent background",
+        "width": 64, "height": 80, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
+    },
+    {
+      "id": "tr-large-fern",
+      "name": "Rainforest Large Fern",
+      "biome": "temperate_rainforest", "category": "shrub", "sizeClass": "medium", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "large sword fern, wide spreading feathery fronds radiating from central crown, lush bright green, damp forest floor plant, top-down pixel art RPG, bright green, transparent background",
+        "width": 48, "height": 48, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
+    },
+    {
+      "id": "tr-moss-carpet",
+      "name": "Rainforest Moss Carpet",
+      "biome": "temperate_rainforest", "category": "ground", "sizeClass": "small", "priority": "must-have", "status": "pending",
+      "pixellab": {
+        "description": "thick carpet of bright green moss on ground, irregular oval patch, lush and damp looking, vivid green with slight texture, top-down pixel art RPG, bright moss green, transparent background",
+        "width": 32, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
+    },
+    {
+      "id": "tr-fallen-log",
+      "name": "Rainforest Fallen Log",
+      "biome": "temperate_rainforest", "category": "ground", "sizeClass": "medium", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "fallen rotting log covered in moss and mushrooms, horizontal decaying trunk with green moss growth and small brown mushrooms, ferns growing beside, top-down pixel art RPG, brown and green, transparent background",
+        "width": 64, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
+    },
+    {
+      "id": "tr-mushroom-cluster",
+      "name": "Rainforest Mushroom Cluster",
+      "biome": "temperate_rainforest", "category": "ground", "sizeClass": "small", "priority": "nice-to-have", "status": "pending",
+      "pixellab": {
+        "description": "cluster of forest mushrooms, 4-5 mushrooms of different sizes with brown caps and pale stems, growing from mossy ground, top-down pixel art RPG, brown and cream, transparent background",
+        "width": 32, "height": 32, "view": "low top-down", "outline": "single color outline", "shading": "basic shading", "detail": "medium detail"
+      },
+      "outputDir": "public/assets/sprites/decorations/temperate_rainforest"
     }
   ]
 }
