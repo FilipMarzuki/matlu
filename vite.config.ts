@@ -60,19 +60,17 @@ export default defineConfig({
         // Lock to landscape — the game is designed for 800×600 landscape.
         orientation: 'landscape',
         start_url: '/',
-        // TODO: replace with proper pixel art PNG icons (see Linear FIL-PWA-icons).
-        // SVG works on Android Chrome and modern iOS Safari for now.
         icons: [
           {
-            src: '/icons/icon-192.svg',
+            src: '/icons/icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any maskable',
           },
           {
-            src: '/icons/icon-512.svg',
+            src: '/icons/icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any maskable',
           },
         ],
