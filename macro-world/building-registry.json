@@ -8,7 +8,8 @@
         2,
         2
       ],
-      "heightHint": "tower"
+      "heightHint": "tower",
+      "compound": ["quarters", "shed"]
     },
     {
       "id": "brewery",
@@ -19,6 +20,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "cellar-hatch", "courtyard"],
       "sprites": [
         {
           "key": "",
@@ -44,7 +46,8 @@
         2,
         3
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard"]
     },
     {
       "id": "lumberyard",
@@ -58,7 +61,8 @@
         2,
         3
       ],
-      "heightHint": "low"
+      "heightHint": "low",
+      "compound": ["quarters", "workshop-yard", "shed"]
     },
     {
       "id": "salt-works",
@@ -68,7 +72,8 @@
         2,
         2
       ],
-      "heightHint": "low"
+      "heightHint": "low",
+      "compound": ["quarters", "workshop-yard"]
     },
     {
       "id": "granary",
@@ -79,6 +84,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "courtyard"],
       "sprites": [
         {
           "key": "",
@@ -110,6 +116,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["stable-yard"],
       "sprites": [
         {
           "key": "",
@@ -235,6 +242,7 @@
         2
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard"],
       "sprites": [
         {
           "key": "iki-smokehouse",
@@ -265,7 +273,8 @@
         2,
         3
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard"]
     },
     {
       "id": "fishing-dock",
@@ -279,7 +288,8 @@
         3,
         4
       ],
-      "heightHint": "low"
+      "heightHint": "low",
+      "compound": ["quarters", "shed"]
     },
     {
       "id": "temple",
@@ -289,7 +299,8 @@
         4,
         5
       ],
-      "heightHint": "tall"
+      "heightHint": "tall",
+      "compound": ["quarters", "garden", "courtyard"]
     },
     {
       "id": "pilgrim-shelter",
@@ -299,7 +310,8 @@
         2,
         3
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["courtyard", "garden", "well"]
     },
     {
       "id": "sacred-grove",
@@ -309,7 +321,8 @@
         2,
         3
       ],
-      "heightHint": "low"
+      "heightHint": "low",
+      "compound": ["garden"]
     },
     {
       "id": "graveyard",
@@ -384,7 +397,8 @@
         2,
         2
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["quarters"]
     },
     {
       "id": "harbour-dock",
@@ -412,7 +426,8 @@
         2,
         2
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard"]
     },
     {
       "id": "hero-house",
@@ -592,6 +607,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["garden"],
       "sprites": [
         {
           "key": "iki-ger-cottage",
@@ -622,6 +638,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["garden"],
       "sprites": [
         {
           "key": "iki-ger-dwelling",
@@ -652,7 +669,8 @@
         5,
         6
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["courtyard", "garden", "shed"]
     },
     {
       "id": "market-hall",
@@ -667,6 +685,7 @@
         6
       ],
       "heightHint": "tall",
+      "compound": ["courtyard", "well"],
       "sprites": [
         {
           "key": "iki-market-hall",
@@ -697,7 +716,8 @@
         4,
         5
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["courtyard", "well"]
     },
     {
       "id": "inn",
@@ -712,6 +732,7 @@
         4
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "courtyard", "stable-yard", "well"],
       "sprites": [
         {
           "key": "",
@@ -747,6 +768,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "courtyard", "cellar-hatch"],
       "sprites": [
         {
           "key": "",
@@ -813,6 +835,7 @@
         5
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "courtyard"],
       "sprites": [
         {
           "key": "",
@@ -844,6 +867,7 @@
         4
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "stable-yard", "shed"],
       "sprites": [
         {
           "key": "",
@@ -875,6 +899,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard"],
       "sprites": [
         {
           "key": "iki-smithy",
@@ -906,6 +931,7 @@
         3
       ],
       "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard", "shed"],
       "sprites": [
         {
           "key": "",
@@ -1043,7 +1069,8 @@
         3,
         4
       ],
-      "heightHint": "tall"
+      "heightHint": "tall",
+      "compound": ["courtyard", "garden", "stable-yard", "well", "shed"]
     },
     {
       "id": "town-hall",
@@ -1058,6 +1085,7 @@
         5
       ],
       "heightHint": "tall",
+      "compound": ["courtyard", "garden", "well"],
       "sprites": [
         {
           "key": "",
@@ -1100,7 +1128,8 @@
         2,
         2
       ],
-      "heightHint": "low"
+      "heightHint": "low",
+      "compound": ["workshop-yard"]
     },
     {
       "id": "farmstead",
@@ -1115,6 +1144,7 @@
         4
       ],
       "heightHint": "standard",
+      "compound": ["garden", "stable-yard", "shed", "well"],
       "sprites": [
         {
           "key": "iki-farmstead",
@@ -1145,7 +1175,8 @@
         2,
         3
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard", "shed"]
     },
     {
       "id": "mine-entrance",
@@ -1159,7 +1190,8 @@
         1,
         2
       ],
-      "heightHint": "low"
+      "heightHint": "low",
+      "compound": ["quarters", "shed"]
     },
     {
       "id": "kiln",
@@ -1173,7 +1205,8 @@
         1,
         1
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["quarters", "workshop-yard"]
     },
     {
       "id": "caravansary",
@@ -1187,7 +1220,8 @@
         4,
         5
       ],
-      "heightHint": "standard"
+      "heightHint": "standard",
+      "compound": ["quarters", "courtyard", "stable-yard", "well", "shed"]
     }
   ]
 }

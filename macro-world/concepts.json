@@ -1,0 +1,344 @@
+{
+  "_doc": "Crafting concepts — fundamental principles that underpin recipes. Displayed as scout-patch badges in the skill tree. Mastering concepts unlocks higher recipe tiers and reveals connections between recipes.",
+  "concepts": [
+    {
+      "id": "heat-treatment",
+      "name": "Heat Treatment",
+      "icon": "patch-flame",
+      "category": "metallurgy",
+      "description": "Controlling temperature to change material properties — hardening, tempering, annealing.",
+      "ranks": 3,
+      "learnedFrom": ["iron-ingot", "charcoal", "iron-blade"],
+      "unlocks": ["steel-blade", "hardened-armor", "tempered-tools"]
+    },
+    {
+      "id": "friction",
+      "name": "Friction",
+      "icon": "patch-spark",
+      "category": "mechanics",
+      "description": "How surfaces interact — grip, wear, heat generation, polishing.",
+      "ranks": 3,
+      "learnedFrom": ["leather", "bowstring", "rope"],
+      "unlocks": ["polished-blade", "brake-mechanism", "fire-starter"]
+    },
+    {
+      "id": "tension",
+      "name": "Tension",
+      "icon": "patch-bow",
+      "category": "mechanics",
+      "description": "Stored energy in stretched or compressed materials — springs, bows, snares.",
+      "ranks": 3,
+      "learnedFrom": ["hunting-bow", "trap-snare", "bowstring"],
+      "unlocks": ["compound-bow", "crossbow", "spring-trap"]
+    },
+    {
+      "id": "rotation",
+      "name": "Rotating Parts",
+      "icon": "patch-gear",
+      "category": "mechanics",
+      "description": "Axles, wheels, gears — converting motion between directions and speeds.",
+      "ranks": 3,
+      "learnedFrom": ["iron-axe", "windmill-repair"],
+      "unlocks": ["lathe", "grinding-wheel", "pulley-system"]
+    },
+    {
+      "id": "bearings",
+      "name": "Bearings",
+      "icon": "patch-circle",
+      "category": "mechanics",
+      "description": "Reducing friction in rotating joints — smooth surfaces, lubricants, rolling elements.",
+      "ranks": 2,
+      "learnedFrom": ["oil", "rotation:2"],
+      "requires": ["friction:1", "rotation:1"],
+      "unlocks": ["smooth-axle", "cart-wheel", "spinning-wheel"]
+    },
+    {
+      "id": "leverage",
+      "name": "Leverage",
+      "icon": "patch-lever",
+      "category": "mechanics",
+      "description": "Multiplying force through fulcrums, levers, and mechanical advantage.",
+      "ranks": 2,
+      "learnedFrom": ["iron-axe", "wooden-shield"],
+      "unlocks": ["siege-tools", "pry-bar", "trebuchet-parts"]
+    },
+    {
+      "id": "joinery",
+      "name": "Joinery",
+      "icon": "patch-dovetail",
+      "category": "woodcraft",
+      "description": "Connecting wood pieces — mortise-and-tenon, dovetails, pegs, lashing.",
+      "ranks": 3,
+      "learnedFrom": ["wood-plank", "wooden-shield", "hunting-bow"],
+      "unlocks": ["reinforced-shield", "furniture", "boat-hull"]
+    },
+    {
+      "id": "tanning",
+      "name": "Tanning & Curing",
+      "icon": "patch-hide",
+      "category": "materials",
+      "description": "Preserving and strengthening organic materials — salt curing, bark tanning, smoking.",
+      "ranks": 3,
+      "learnedFrom": ["leather", "hide-cloak", "ration"],
+      "unlocks": ["hardened-leather", "waterproof-hide", "preserved-rations"]
+    },
+    {
+      "id": "distillation",
+      "name": "Distillation",
+      "icon": "patch-droplet",
+      "category": "alchemy",
+      "description": "Separating and concentrating substances through heating and condensation.",
+      "ranks": 3,
+      "learnedFrom": ["oil", "antidote"],
+      "requires": ["heat-treatment:1"],
+      "unlocks": ["potent-salve", "acid-flask", "pure-spirit"]
+    },
+    {
+      "id": "combustion",
+      "name": "Combustion",
+      "icon": "patch-explosion",
+      "category": "alchemy",
+      "description": "Controlled burning — fuel ratios, flash points, contained explosions.",
+      "ranks": 3,
+      "learnedFrom": ["fire-bomb", "charcoal", "torch"],
+      "unlocks": ["blast-powder", "rocket-arrow", "furnace-bellows"]
+    },
+    {
+      "id": "weaving",
+      "name": "Weaving & Binding",
+      "icon": "patch-knot",
+      "category": "textiles",
+      "description": "Interlocking fibers into sheets, ropes, and nets — warp, weft, tension control.",
+      "ranks": 3,
+      "learnedFrom": ["cloth", "rope", "bandage"],
+      "unlocks": ["chainmail-lining", "sail-cloth", "net-trap"]
+    },
+    {
+      "id": "sharpening",
+      "name": "Edge & Point",
+      "icon": "patch-blade",
+      "category": "metallurgy",
+      "description": "Creating and maintaining cutting edges — grinding angles, stropping, honing.",
+      "ranks": 3,
+      "learnedFrom": ["iron-blade", "iron-dagger", "iron-axe"],
+      "unlocks": ["razor-edge", "surgical-tools", "diamond-point"]
+    },
+    {
+      "id": "sealing",
+      "name": "Sealing & Waterproofing",
+      "icon": "patch-shield",
+      "category": "materials",
+      "description": "Keeping water, air, or contaminants out — resin coating, wax, tar, caulking.",
+      "ranks": 2,
+      "learnedFrom": ["resin", "oil", "boat-shed-repair"],
+      "unlocks": ["waterproof-pack", "sealed-flask", "boat-hull"]
+    },
+    {
+      "id": "fermentation",
+      "name": "Fermentation",
+      "icon": "patch-bubbles",
+      "category": "alchemy",
+      "description": "Controlled decay — yeasts, bacteria, time. Turns grain to ale, fruit to vinegar.",
+      "ranks": 2,
+      "learnedFrom": ["brewery-use", "ration"],
+      "unlocks": ["strong-ale", "vinegar-acid", "risen-bread"]
+    },
+    {
+      "id": "counterweight",
+      "name": "Counterweight",
+      "icon": "patch-scales",
+      "category": "mechanics",
+      "description": "Balancing forces with opposing mass — cranes, drawbridges, balanced weapons.",
+      "ranks": 2,
+      "learnedFrom": ["iron-sword", "wooden-shield"],
+      "requires": ["leverage:1"],
+      "unlocks": ["balanced-blade", "crane-mechanism", "portcullis"]
+    },
+    {
+      "id": "alloys",
+      "name": "Alloys",
+      "icon": "patch-merge",
+      "category": "metallurgy",
+      "description": "Mixing metals to create new properties — bronze, steel, brass.",
+      "ranks": 3,
+      "learnedFrom": ["copper-ingot", "iron-ingot"],
+      "requires": ["heat-treatment:2"],
+      "unlocks": ["bronze-ingot", "steel-ingot", "bell-metal"]
+    },
+    {
+      "id": "inscription",
+      "name": "Inscription",
+      "icon": "patch-rune",
+      "category": "arcane",
+      "description": "Carving symbols that hold meaning or power — runes, glyphs, maker's marks. You can prepare the physical medium; an enchanter fills it with power.",
+      "ranks": 3,
+      "learnedFrom": ["iron-dagger-runed", "rune-dust"],
+      "unlocks": ["rune-sword", "warding-stone", "message-tablet"],
+      "note": "Player carves the channels; NPC enchanter activates them."
+    },
+    {
+      "id": "resonance",
+      "name": "Resonance",
+      "icon": "patch-wave",
+      "category": "arcane",
+      "description": "How materials vibrate and amplify energy — tuning, harmonics, spirit-channeling. Understanding which shapes and materials hold enchantment best.",
+      "ranks": 2,
+      "learnedFrom": ["spirit-sap", "iron-dagger-runed"],
+      "requires": ["inscription:1"],
+      "unlocks": ["tuning-blade", "resonance-crystal", "spirit-bell"],
+      "note": "Knowing what resonates lets you build better vessels for enchantment — the mage still does the filling."
+    },
+    {
+      "id": "conduit-craft",
+      "name": "Conduit Craft",
+      "icon": "patch-channel",
+      "category": "arcane",
+      "description": "Building physical paths for magical energy to flow — grooves, inlays, crystal alignments. The plumbing of enchantment.",
+      "ranks": 3,
+      "learnedFrom": ["rune-dust", "spirit-sap", "npc:enchanter-lesson"],
+      "requires": ["inscription:1", "resonance:1"],
+      "unlocks": ["channeled-staff", "ward-frame", "spirit-lantern"],
+      "note": "Player builds the conduit (engineering). Enchanter charges it (magic). Higher ranks = more complex enchantments can be housed."
+    },
+    {
+      "id": "material-affinity",
+      "name": "Material Affinity",
+      "icon": "patch-gem",
+      "category": "arcane",
+      "description": "Which materials attract, hold, or repel magical energy. Iron grounds it, silver conducts it, bone stores it, crystal amplifies it.",
+      "ranks": 2,
+      "learnedFrom": ["npc:enchanter-lesson", "observation:enchanted-items"],
+      "unlocks": ["silver-inlay", "bone-focus", "crystal-setting"],
+      "note": "Knowledge concept — lets you pick the right base material before bringing it to an enchanter."
+    },
+
+    {
+      "id": "dissolution",
+      "name": "Dissolution",
+      "icon": "patch-dissolve",
+      "category": "chemistry",
+      "description": "Breaking substances down into base components using solvents — water, acid, alcohol.",
+      "ranks": 3,
+      "learnedFrom": ["antidote", "salt-extraction"],
+      "unlocks": ["acid-flask", "dye-extract", "ore-leaching"]
+    },
+    {
+      "id": "precipitation",
+      "name": "Precipitation",
+      "icon": "patch-crystal-grow",
+      "category": "chemistry",
+      "description": "Forcing dissolved substances back into solid form — crystals, pigments, sediments.",
+      "ranks": 2,
+      "learnedFrom": ["glass", "rune-dust"],
+      "requires": ["dissolution:1"],
+      "unlocks": ["crystal-growing", "pigment-powder", "purified-salt"]
+    },
+    {
+      "id": "oxidation",
+      "name": "Oxidation & Corrosion",
+      "icon": "patch-rust",
+      "category": "chemistry",
+      "description": "How materials react with air and moisture — rust, patina, tarnish. Prevention and exploitation.",
+      "ranks": 2,
+      "learnedFrom": ["iron-ingot", "copper-ingot"],
+      "unlocks": ["rust-poison", "patina-coating", "acid-etching"]
+    },
+    {
+      "id": "catalysis",
+      "name": "Catalysis",
+      "icon": "patch-catalyst",
+      "category": "chemistry",
+      "description": "Substances that speed reactions without being consumed — accelerants, enzymes, mineral dust.",
+      "ranks": 3,
+      "learnedFrom": ["fire-bomb", "healing-salve"],
+      "requires": ["combustion:1", "distillation:1"],
+      "unlocks": ["quick-cure", "flash-forge", "instant-adhesive"]
+    },
+    {
+      "id": "extraction",
+      "name": "Extraction",
+      "icon": "patch-press",
+      "category": "chemistry",
+      "description": "Pulling useful substances from raw materials — pressing, boiling, steeping, cold-extraction.",
+      "ranks": 3,
+      "learnedFrom": ["oil", "herb-green", "resin"],
+      "unlocks": ["essential-oil", "concentrated-extract", "tree-tar"]
+    },
+    {
+      "id": "neutralization",
+      "name": "Neutralization",
+      "icon": "patch-balance-drop",
+      "category": "chemistry",
+      "description": "Countering one substance with another — acid with base, poison with antidote, fire with salt.",
+      "ranks": 2,
+      "learnedFrom": ["antidote", "salt"],
+      "requires": ["dissolution:1"],
+      "unlocks": ["universal-antidote", "flame-retardant", "acid-neutralizer"]
+    },
+    {
+      "id": "sublimation",
+      "name": "Sublimation",
+      "icon": "patch-vapor",
+      "category": "chemistry",
+      "description": "Solid to gas without liquid — capturing volatile essences, purifying metals, smoke-crafting.",
+      "ranks": 2,
+      "learnedFrom": ["smoke-bomb", "charcoal"],
+      "requires": ["combustion:2", "distillation:1"],
+      "unlocks": ["pure-essence", "smoke-signal", "vapor-trap"]
+    },
+    {
+      "id": "emulsification",
+      "name": "Emulsification",
+      "icon": "patch-swirl",
+      "category": "chemistry",
+      "description": "Mixing things that don't want to mix — oil and water, fat and tincture. Stabilizers and agitation.",
+      "ranks": 2,
+      "learnedFrom": ["healing-salve", "oil"],
+      "requires": ["extraction:1"],
+      "unlocks": ["potion-base", "waterproof-grease", "blended-ink"]
+    },
+    {
+      "id": "toxicology",
+      "name": "Toxicology",
+      "icon": "patch-skull-leaf",
+      "category": "chemistry",
+      "description": "Understanding poisons and venoms — dosage, delivery, interaction. Harm and cure are the same knowledge.",
+      "ranks": 3,
+      "learnedFrom": ["antidote", "herb-bitter"],
+      "requires": ["extraction:1", "neutralization:1"],
+      "unlocks": ["blade-venom", "paralyzing-dart", "purge-draught"]
+    },
+    {
+      "id": "preservation",
+      "name": "Preservation",
+      "icon": "patch-jar",
+      "category": "chemistry",
+      "description": "Stopping decay — salting, smoking, pickling, desiccation. Keeping things as they are.",
+      "ranks": 2,
+      "learnedFrom": ["ration", "leather", "smokehouse-use"],
+      "unlocks": ["long-ration", "specimen-jar", "mummification"]
+    },
+    {
+      "id": "pigmentation",
+      "name": "Pigmentation & Dye",
+      "icon": "patch-palette",
+      "category": "chemistry",
+      "description": "Creating and fixing color — mineral pigments, plant dyes, mordants, color-fastness.",
+      "ranks": 2,
+      "learnedFrom": ["cloth", "leather"],
+      "requires": ["extraction:1"],
+      "unlocks": ["dyed-cloth", "war-paint", "colored-glass"]
+    }
+  ],
+
+  "categories": [
+    { "id": "mechanics", "name": "Mechanics", "color": "#c4820e", "description": "Forces, motion, and machines" },
+    { "id": "metallurgy", "name": "Metallurgy", "color": "#a83232", "description": "Working with metals and heat" },
+    { "id": "woodcraft", "name": "Woodcraft", "color": "#6b8c42", "description": "Shaping and joining wood" },
+    { "id": "materials", "name": "Materials", "color": "#8b6914", "description": "Processing raw materials" },
+    { "id": "textiles", "name": "Textiles", "color": "#7b5ea7", "description": "Fibers, cloth, and binding" },
+    { "id": "alchemy", "name": "Alchemy", "color": "#2e7d6e", "description": "Transformations through heat, time, and reaction" },
+    { "id": "chemistry", "name": "Chemistry", "color": "#3a9e8f", "description": "Understanding and manipulating substances" },
+    { "id": "arcane", "name": "Arcane", "color": "#4a6fa5", "description": "Understanding magic enough to build for it — the engineering side of enchantment" }
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "_doc": "UI specification for the crafting menu system. Mobile-first, tablet landscape, touch interactions.",
+
+  "navigation": {
+    "type": "tab-bar",
+    "position": "top",
+    "swipeable": true,
+    "tabs": [
+      { "id": "mind", "icon": "brain", "label": "Mind", "screen": "tinker-tray" },
+      { "id": "concepts", "icon": "compass-drafting", "label": "Concepts", "screen": "concept-board" },
+      { "id": "recipes", "icon": "book-open", "label": "Recipes", "screen": "recipe-browser" },
+      { "id": "pack", "icon": "backpack", "label": "Pack", "screen": "inventory" }
+    ],
+    "backToGame": "X button or swipe-down from top"
+  },
+
+  "screens": {
+    "tinker-tray": {
+      "purpose": "Mental workbench — select what you're mulling over",
+      "layout": "vertical ranked slots (1-5) with available items tray below",
+      "interactions": ["drag-to-slot", "long-press-reorder", "swipe-to-remove", "tap-for-detail"],
+      "bottomBar": "thought progress text + percentage bar"
+    },
+
+    "concept-board": {
+      "purpose": "Knowledge graph — earned/locked concept patches",
+      "layout": "pannable/zoomable node graph with category color coding",
+      "interactions": ["pinch-zoom", "drag-pan", "tap-to-select", "category-filter-tabs"],
+      "detailPanel": "slides up from bottom on select — description, ranks, learned-from, unlocks, [Add to Mind]",
+      "nodeStates": {
+        "mastered": "full color, gold border, 3 stars",
+        "partial": "full color, silver border, partial stars",
+        "unlocked": "full color, no border glow",
+        "locked": "grey silhouette, lock icon, shows prerequisites"
+      },
+      "connections": {
+        "prerequisite-met": "solid colored line",
+        "prerequisite-unmet": "dashed grey line"
+      }
+    },
+
+    "recipe-browser": {
+      "purpose": "Browse/discover recipes, enter crafting execution",
+      "layout": "left panel (scrollable recipe list) + right panel (selected recipe detail)",
+      "filters": ["station-type", "tier", "can-craft-now", "category"],
+      "recipeStates": {
+        "ready": "filled dot — have all materials",
+        "partial": "empty dot — known but missing materials",
+        "undiscovered": "shadow silhouette — teases existence",
+        "locked": "greyed — concept requirements not met"
+      },
+      "detailPanel": "inputs → output visual, material counts with have/need, concepts involved, station, time, [CRAFT] or [FORGE VIEW], [Add to Mind]",
+      "entryToForge": "tap [FORGE] on detail panel → opens pipeline view"
+    },
+
+    "forge-view": {
+      "purpose": "Crafting execution — dependency pipeline, batch crafting, partial progress",
+      "layout": "left-to-right flowchart (raw → refined → component → final), pannable",
+      "interactions": ["pan", "tap-node-for-detail", "craft-all", "step-by-step", "pin-as-project"],
+      "nodeStates": {
+        "have": "green solid border, checkmark",
+        "need-to-craft": "yellow dashed border, shows count needed",
+        "missing-raw": "red border, missing count",
+        "wrong-station": "dimmed, station icon overlay",
+        "craftable-here": "pulsing highlight — can do right now",
+        "recipe-unknown": "grey locked, shows ??? "
+      },
+      "modes": {
+        "craft-all": "Auto-queues entire chain, visits stations in order, progress animation",
+        "step-by-step": "Manual confirmation per step, good for quality challenges",
+        "craft-available": "Only craft what's possible at current location/station"
+      },
+      "summary": {
+        "position": "bottom panel",
+        "shows": ["total raw materials needed", "steps remaining", "stations required (route)", "estimated time"]
+      },
+      "smartCollapse": "Already-owned intermediates collapse their sub-trees, only expands branches still needed",
+      "multiQuantity": "Target x N multiplies quantities, same tree structure"
+    },
+
+    "pinned-project": {
+      "purpose": "Persistent tracking of a crafting goal across gameplay",
+      "maxPinned": 3,
+      "hudElement": {
+        "position": "corner of game screen (small)",
+        "shows": ["target item icon + name", "progress bar (steps done / total)", "next station needed"],
+        "interactions": ["tap to open forge-view", "station proximity pulse notification"]
+      },
+      "packIntegration": "relevant materials get project icon, pickup notifications show progress",
+      "gatheringHints": "When picking up a resource needed for project: '(3/6 iron ore for Iron Sword)'",
+      "worldHighlighting": {
+        "_doc": "Resources and stations needed for pinned projects are visually highlighted in the game world. The player's goals shape what stands out.",
+        "resources": {
+          "effect": "subtle glow/shimmer on world objects that contain needed materials",
+          "examples": [
+            "Iron ore nodes glow faintly when project needs iron",
+            "Herb patches shimmer when you need green herbs",
+            "Animals you need hides from get a faint outline"
+          ],
+          "intensity": "scales with urgency — last few needed glow brighter than early gathering",
+          "range": "only when reasonably close (not across the map — you still explore)"
+        },
+        "stations": {
+          "effect": "station buildings pulse/glow when you can advance your project there",
+          "smoke": "smithy chimney smokes a slightly different color when it's relevant to you",
+          "proximity": "notification when entering station range: 'You could work on your Iron Sword here'"
+        },
+        "npcs": {
+          "effect": "NPCs who teach needed recipes get a subtle indicator (speech bubble icon?)",
+          "dialogue": "extra line available: 'I notice you've been working on something — need help with that blade?'"
+        },
+        "dungeonLoot": {
+          "effect": "loot drops relevant to pinned projects get highlighted in loot screens",
+          "priority": "doesn't change drop tables — just makes relevant drops visually obvious"
+        },
+        "loreFragments": {
+          "effect": "inspectable objects related to pinned Mind tray items get a faint aura",
+          "stacks": "if both a crafting project AND tinker tray are relevant, stronger highlight"
+        },
+        "settings": {
+          "toggleable": "player can turn off highlighting if they want a purer exploration experience",
+          "subtlety": "never a giant arrow or quest marker — just a gentle 'your eyes are drawn to it' glow"
+        }
+      }
+    },
+
+    "inventory": {
+      "purpose": "Browse resources, equipment, lore fragments",
+      "layout": "grid of item icons with counts, sub-tabs for categories",
+      "subTabs": [
+        { "id": "resources", "shows": "raw, refined, components — grid with counts" },
+        { "id": "equipment", "shows": "weapons, armor, accessories — list or paper-doll (later)" },
+        { "id": "lore", "shows": "collected fragments, scrolls, observations — list with short text" }
+      ],
+      "interactions": ["tap-for-detail", "equip", "drop", "add-to-mind", "sort/filter"],
+      "projectHighlight": "items needed for pinned projects get a small anvil badge"
+    }
+  },
+
+  "crossScreenFeatures": {
+    "addToMind": "Available on every item/concept/recipe detail panel — one tap to send to Tinker Tray",
+    "jumpToRecipe": "From concept detail, tap an 'unlocks' item to jump to recipe browser filtered to it",
+    "jumpToConcept": "From recipe detail, tap a concept tag to jump to concept board focused on it",
+    "detailPanel": "Consistent bottom-slide-up panel across all screens for selected item info"
+  },
+
+  "visualStyle": {
+    "theme": "craftsman's workshop — leather, wood, stitched patches, iron fittings",
+    "patches": "scout-badge style — embroidered circles with symbolic icons, color-coded by category",
+    "connections": "thread/string between patches — taut = strong connection, frayed = weak",
+    "backgrounds": "parchment/leather textures, subtle grain",
+    "highlights": "warm glow for actionable items, cool pulse for station-proximity",
+    "typography": "pixel-friendly, clear at small sizes, no serif"
+  },
+
+  "implementation": {
+    "framework": "rexUI (Phaser 3 plugin) — same ecosystem as virtual joystick",
+    "keyComponents": ["ScrollablePanel", "GridSizer", "Sizer", "Label", "Buttons", "Graph (custom)"],
+    "graphRendering": "Custom Phaser GameObjects for concept board nodes + lines (not rexUI — needs pan/zoom)",
+    "transitions": "Phaser tweens for panel slides, tab switches, node highlights"
+  }
+}

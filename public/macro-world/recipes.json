@@ -1,0 +1,506 @@
+{
+  "_doc": "Crafting recipes. Tiers: 0=field (anywhere), 1=workbench (camp), 2=station (specific building), 3=master (upgraded station + challenge). Discovery methods: innate, memory, observation, taught, reverse-engineer, experiment. 'concepts' lists the fundamental principles behind a recipe — crafting it may teach you those concepts.",
+  "recipes": [
+    {
+      "id": "rope",
+      "name": "Rope",
+      "output": { "item": "rope", "qty": 1 },
+      "inputs": [
+        { "item": "plant-fiber", "qty": 4 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 2,
+      "concepts": ["weaving", "tension"]
+    },
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "output": { "item": "bandage", "qty": 2 },
+      "inputs": [
+        { "item": "cloth", "qty": 1 },
+        { "item": "herb-green", "qty": 1 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 2
+    },
+    {
+      "id": "torch",
+      "name": "Torch",
+      "output": { "item": "torch", "qty": 2 },
+      "inputs": [
+        { "item": "wood-log", "qty": 1 },
+        { "item": "cloth", "qty": 1 },
+        { "item": "animal-fat", "qty": 1 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 2
+    },
+    {
+      "id": "cloth",
+      "name": "Cloth",
+      "output": { "item": "cloth", "qty": 1 },
+      "inputs": [
+        { "item": "plant-fiber", "qty": 3 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 3,
+      "concepts": ["weaving"]
+    },
+    {
+      "id": "healing-salve",
+      "name": "Healing Salve",
+      "output": { "item": "healing-salve", "qty": 2 },
+      "inputs": [
+        { "item": "herb-green", "qty": 2 },
+        { "item": "animal-fat", "qty": 1 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "memory", "trigger": "gather:herb-green:5" },
+      "batchable": true,
+      "timeBase": 3,
+      "concepts": ["distillation"]
+    },
+    {
+      "id": "antidote",
+      "name": "Antidote",
+      "output": { "item": "antidote", "qty": 1 },
+      "inputs": [
+        { "item": "herb-bitter", "qty": 2 },
+        { "item": "salt", "qty": 1 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "memory", "trigger": "status:poisoned:3" },
+      "batchable": true,
+      "timeBase": 4
+    },
+    {
+      "id": "trap-snare",
+      "name": "Snare Trap",
+      "output": { "item": "trap-snare", "qty": 1 },
+      "inputs": [
+        { "item": "rope", "qty": 1 },
+        { "item": "wood-log", "qty": 1 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "observation", "trigger": "inspect:animal-trail" },
+      "batchable": true,
+      "timeBase": 3,
+      "concepts": ["tension", "leverage"]
+    },
+    {
+      "id": "ration",
+      "name": "Trail Ration",
+      "output": { "item": "ration", "qty": 2 },
+      "inputs": [
+        { "item": "hide-raw", "qty": 1 },
+        { "item": "salt", "qty": 1 }
+      ],
+      "tier": 0,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 2
+    },
+
+    {
+      "id": "wood-handle",
+      "name": "Wood Handle",
+      "output": { "item": "wood-handle", "qty": 2 },
+      "inputs": [
+        { "item": "wood-log", "qty": 1 }
+      ],
+      "tier": 1,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 2
+    },
+    {
+      "id": "wood-plank",
+      "name": "Wood Plank",
+      "output": { "item": "wood-plank", "qty": 2 },
+      "inputs": [
+        { "item": "wood-log", "qty": 1 }
+      ],
+      "tier": 1,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 3
+    },
+    {
+      "id": "leather-strip",
+      "name": "Leather Strip",
+      "output": { "item": "leather-strip", "qty": 2 },
+      "inputs": [
+        { "item": "leather", "qty": 1 }
+      ],
+      "tier": 1,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 2
+    },
+    {
+      "id": "arrow-shaft",
+      "name": "Arrow Shaft",
+      "output": { "item": "arrow-shaft", "qty": 4 },
+      "inputs": [
+        { "item": "wood-log", "qty": 1 }
+      ],
+      "tier": 1,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 2
+    },
+    {
+      "id": "glue",
+      "name": "Glue",
+      "output": { "item": "glue", "qty": 2 },
+      "inputs": [
+        { "item": "bone", "qty": 2 },
+        { "item": "resin", "qty": 1 }
+      ],
+      "tier": 1,
+      "station": null,
+      "discovery": { "method": "memory", "trigger": "craft:any:10" },
+      "batchable": true,
+      "timeBase": 4
+    },
+    {
+      "id": "oil",
+      "name": "Oil",
+      "output": { "item": "oil", "qty": 2 },
+      "inputs": [
+        { "item": "animal-fat", "qty": 3 }
+      ],
+      "tier": 1,
+      "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 3
+    },
+    {
+      "id": "bowstring",
+      "name": "Bowstring",
+      "output": { "item": "bowstring", "qty": 1 },
+      "inputs": [
+        { "item": "sinew", "qty": 2 },
+        { "item": "plant-fiber", "qty": 2 }
+      ],
+      "tier": 1,
+      "station": null,
+      "discovery": { "method": "memory", "trigger": "hunt:any:5" },
+      "batchable": true,
+      "timeBase": 4,
+      "concepts": ["tension", "friction"]
+    },
+
+    {
+      "id": "charcoal",
+      "name": "Charcoal",
+      "output": { "item": "charcoal", "qty": 3 },
+      "inputs": [
+        { "item": "wood-log", "qty": 2 }
+      ],
+      "tier": 2,
+      "station": "kiln",
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 5,
+      "concepts": ["combustion", "heat-treatment"]
+    },
+    {
+      "id": "brick",
+      "name": "Brick",
+      "output": { "item": "brick", "qty": 2 },
+      "inputs": [
+        { "item": "clay", "qty": 3 }
+      ],
+      "tier": 2,
+      "station": "kiln",
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 6
+    },
+    {
+      "id": "glass",
+      "name": "Glass",
+      "output": { "item": "glass", "qty": 1 },
+      "inputs": [
+        { "item": "stone", "qty": 2 },
+        { "item": "salt", "qty": 1 },
+        { "item": "charcoal", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "kiln",
+      "discovery": { "method": "experiment" },
+      "batchable": true,
+      "timeBase": 8
+    },
+    {
+      "id": "iron-ingot",
+      "name": "Iron Ingot",
+      "output": { "item": "iron-ingot", "qty": 1 },
+      "inputs": [
+        { "item": "iron-ore", "qty": 3 },
+        { "item": "coal", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "smelter",
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 5,
+      "concepts": ["heat-treatment", "alloys"]
+    },
+    {
+      "id": "copper-ingot",
+      "name": "Copper Ingot",
+      "output": { "item": "copper-ingot", "qty": 1 },
+      "inputs": [
+        { "item": "copper-ore", "qty": 3 },
+        { "item": "charcoal", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "smelter",
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 4
+    },
+    {
+      "id": "leather",
+      "name": "Leather",
+      "output": { "item": "leather", "qty": 1 },
+      "inputs": [
+        { "item": "hide-raw", "qty": 2 },
+        { "item": "salt", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "tannery",
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 6,
+      "concepts": ["tanning"]
+    },
+    {
+      "id": "hardwood-plank",
+      "name": "Hardwood Plank",
+      "output": { "item": "hardwood-plank", "qty": 2 },
+      "inputs": [
+        { "item": "hardwood-log", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "sawmill",
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 4
+    },
+    {
+      "id": "iron-nails",
+      "name": "Iron Nails",
+      "output": { "item": "iron-nails", "qty": 8 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": true,
+      "timeBase": 3
+    },
+    {
+      "id": "iron-blade",
+      "name": "Iron Blade",
+      "output": { "item": "iron-blade", "qty": 1 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 2 },
+        { "item": "coal", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": false,
+      "timeBase": 6,
+      "concepts": ["heat-treatment", "sharpening"]
+    },
+
+    {
+      "id": "iron-dagger",
+      "name": "Iron Dagger",
+      "output": { "item": "iron-dagger", "qty": 1 },
+      "inputs": [
+        { "item": "iron-blade", "qty": 1 },
+        { "item": "leather-strip", "qty": 1 },
+        { "item": "wood-handle", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:village-smith" },
+      "batchable": false,
+      "timeBase": 8,
+      "concepts": ["sharpening", "joinery", "friction"]
+    },
+    {
+      "id": "iron-sword",
+      "name": "Iron Sword",
+      "output": { "item": "iron-sword", "qty": 1 },
+      "inputs": [
+        { "item": "iron-blade", "qty": 2 },
+        { "item": "leather-strip", "qty": 2 },
+        { "item": "wood-handle", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:village-smith" },
+      "batchable": false,
+      "timeBase": 12,
+      "concepts": ["sharpening", "counterweight", "heat-treatment"]
+    },
+    {
+      "id": "iron-axe",
+      "name": "Iron Axe",
+      "output": { "item": "iron-axe", "qty": 1 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 2 },
+        { "item": "wood-handle", "qty": 1 },
+        { "item": "leather-strip", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": false,
+      "timeBase": 8,
+      "concepts": ["leverage", "sharpening", "rotation"]
+    },
+    {
+      "id": "hunting-bow",
+      "name": "Hunting Bow",
+      "output": { "item": "hunting-bow", "qty": 1 },
+      "inputs": [
+        { "item": "hardwood-plank", "qty": 2 },
+        { "item": "bowstring", "qty": 1 },
+        { "item": "leather-strip", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "workshop",
+      "discovery": { "method": "taught", "source": "npc:hunter" },
+      "batchable": false,
+      "timeBase": 10,
+      "concepts": ["tension", "joinery", "friction"]
+    },
+    {
+      "id": "wooden-shield",
+      "name": "Wooden Shield",
+      "output": { "item": "wooden-shield", "qty": 1 },
+      "inputs": [
+        { "item": "wood-plank", "qty": 3 },
+        { "item": "iron-nails", "qty": 4 },
+        { "item": "leather-strip", "qty": 2 }
+      ],
+      "tier": 2,
+      "station": "workshop",
+      "discovery": { "method": "innate" },
+      "batchable": false,
+      "timeBase": 8,
+      "concepts": ["joinery", "counterweight", "leverage"]
+    },
+    {
+      "id": "leather-armor",
+      "name": "Leather Armor",
+      "output": { "item": "leather-armor", "qty": 1 },
+      "inputs": [
+        { "item": "leather", "qty": 4 },
+        { "item": "sinew", "qty": 2 },
+        { "item": "iron-nails", "qty": 2 }
+      ],
+      "tier": 2,
+      "station": "tannery",
+      "discovery": { "method": "taught", "source": "npc:tanner" },
+      "batchable": false,
+      "timeBase": 14,
+      "concepts": ["tanning", "weaving", "friction"]
+    },
+    {
+      "id": "hide-cloak",
+      "name": "Hide Cloak",
+      "output": { "item": "hide-cloak", "qty": 1 },
+      "inputs": [
+        { "item": "leather", "qty": 2 },
+        { "item": "cloth", "qty": 2 },
+        { "item": "sinew", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "tannery",
+      "discovery": { "method": "memory", "trigger": "weather:cold:3" },
+      "batchable": false,
+      "timeBase": 10,
+      "concepts": ["tanning", "sealing", "weaving"]
+    },
+    {
+      "id": "fire-bomb",
+      "name": "Fire Bomb",
+      "output": { "item": "fire-bomb", "qty": 2 },
+      "inputs": [
+        { "item": "oil", "qty": 1 },
+        { "item": "herb-fire", "qty": 1 },
+        { "item": "clay", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "workshop",
+      "discovery": { "method": "experiment" },
+      "batchable": true,
+      "timeBase": 6,
+      "concepts": ["combustion", "sealing"]
+    },
+    {
+      "id": "smoke-bomb",
+      "name": "Smoke Bomb",
+      "output": { "item": "smoke-bomb", "qty": 2 },
+      "inputs": [
+        { "item": "charcoal", "qty": 2 },
+        { "item": "cloth", "qty": 1 },
+        { "item": "clay", "qty": 1 }
+      ],
+      "tier": 2,
+      "station": "workshop",
+      "discovery": { "method": "reverse-engineer", "trigger": "disassemble:goblin-smoke-pot" },
+      "batchable": true,
+      "timeBase": 5
+    },
+
+    {
+      "id": "iron-dagger-runed",
+      "name": "Rune-etched Dagger",
+      "output": { "item": "iron-dagger-runed", "qty": 1 },
+      "inputs": [
+        { "item": "iron-dagger", "qty": 1 },
+        { "item": "rune-dust", "qty": 2 },
+        { "item": "spirit-sap", "qty": 1 }
+      ],
+      "tier": 3,
+      "station": "smithy",
+      "discovery": { "method": "observation", "trigger": "inspect:shrine-runed-blade" },
+      "batchable": false,
+      "timeBase": 16,
+      "challenge": "rune-alignment",
+      "concepts": ["inscription", "resonance", "heat-treatment"],
+      "conceptRequires": { "inscription": 1, "heat-treatment": 2 }
+    }
+  ]
+}

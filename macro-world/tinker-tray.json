@@ -1,0 +1,177 @@
+{
+  "_doc": "Tinker Tray — the player's mental workbench. Select concepts, materials, recipes, or lore fragments to mull over. During rest/stability, progress ticks toward discoveries. Works for both crafting AND story/world secrets.",
+  "system": {
+    "maxSlots": 5,
+    "slotTypes": ["concept", "material", "recipe", "lore-fragment"],
+    "progressRate": "per rest cycle, modified by settlement quality + relevant concept ranks",
+    "outputTypes": ["recipe", "concept-rank", "item-variant", "lore-revelation", "story-secret", "npc-insight", "false-conclusion"],
+    "rules": [
+      "Same tray = same result (deterministic, not random)",
+      "Not every combination yields something — dead ends teach you what doesn't connect",
+      "Partial progress hints: 'Something's forming but not quite there...'",
+      "Putting in a known recipe can yield a better version or reveal its underlying concepts",
+      "More concepts/materials known = more valid combinations available",
+      "Results require rest + stability (needs met, no danger) — not real-time gating"
+    ],
+    "focus": {
+      "_doc": "5 slots available, player ranks them by priority. Top 2 get real focus. Items in slots 3-5 add noise and risk false connections. The player CAN fill all 5 but it's a trap — scattered thinking leads to wrong conclusions.",
+      "totalSlots": 5,
+      "ranked": true,
+      "slot1": { "label": "Primary focus", "speedMultiplier": 1.5, "perceptionBonus": "strong", "falseConclusion": "none" },
+      "slot2": { "label": "Secondary focus", "speedMultiplier": 1.2, "perceptionBonus": "good", "falseConclusion": "none" },
+      "slot3": { "label": "Background noise", "speedMultiplier": 0.5, "perceptionBonus": "weak", "falseConclusion": "possible" },
+      "slot4": { "label": "Distraction", "speedMultiplier": 0.3, "perceptionBonus": "noisy", "falseConclusion": "likely" },
+      "slot5": { "label": "Overload", "speedMultiplier": 0.1, "perceptionBonus": "unreliable", "falseConclusion": "frequent" },
+      "falseConclusions": {
+        "_doc": "Wrong insights presented identically to real ones. Player cannot tell the difference until contradicted by evidence, NPC correction, or further discovery.",
+        "effects": [
+          "Presented the same way as true insights — no UI indicator that it's wrong",
+          "Can temporarily block the correct discovery on that topic",
+          "Cleared by: contradicting evidence, NPC correction, or removing items and re-approaching with fewer",
+          "Some false conclusions are *partially* true — making them harder to discard",
+          "An NPC might say 'That's an interesting theory...' (neither confirming nor denying)"
+        ],
+        "examples": [
+          { "tray": ["lore:corruption-origin", "lore:bergfolk-deep-mines", "concept:alloys", "lore:earth-ruins", "material:rune-dust"],
+            "falseResult": "The dwarves dug too deep and released the corruption. It's their fault.",
+            "truth": "The corruption predates the mines. The dwarves stopped digging because they sensed it — they were cautious, not reckless." },
+          { "tray": ["lore:wildkin-clans", "lore:corrupted-beast", "concept:fermentation", "material:herb-bitter", "concept:toxicology"],
+            "falseResult": "The Wildkin are partially immune to corruption because of something in their diet.",
+            "truth": "They're not immune at all — they just recognize the early signs faster (animal instinct) and exile the affected before it spreads." }
+        ]
+      }
+    }
+  },
+
+  "craftingExamples": [
+    {
+      "tray": ["tension", "iron-ingot", "trap-snare"],
+      "possibleResults": [
+        { "type": "recipe", "id": "spring-trap", "hint": "The coiled metal wants to snap back..." },
+        { "type": "concept-rank", "id": "bearings", "hint": "The pivot point — if it were smoother..." }
+      ]
+    },
+    {
+      "tray": ["combustion", "clay", "herb-fire"],
+      "possibleResults": [
+        { "type": "recipe", "id": "fire-bomb", "hint": "Contained heat... what if it burst?" },
+        { "type": "concept-rank", "id": "catalysis", "hint": "The mushroom doesn't burn — it makes other things burn faster" }
+      ]
+    },
+    {
+      "tray": ["inscription", "iron-blade", "spirit-sap"],
+      "possibleResults": [
+        { "type": "concept-rank", "id": "conduit-craft", "hint": "The grooves want to carry something... like channels for a river" }
+      ]
+    },
+    {
+      "tray": ["sharpening", "heat-treatment", "iron-sword"],
+      "possibleResults": [
+        { "type": "item-variant", "id": "iron-sword-tempered", "hint": "Heat it, quench it, heat it again — the metal remembers" }
+      ]
+    },
+    {
+      "tray": ["extraction", "herb-bitter", "dissolution"],
+      "possibleResults": [
+        { "type": "concept-rank", "id": "toxicology", "hint": "Every poison is a medicine at the wrong dose..." }
+      ]
+    }
+  ],
+
+  "loreExamples": [
+    {
+      "tray": ["lore:wildkin-clans", "lore:corruption-origin", "concept:resonance"],
+      "possibleResults": [
+        { "type": "lore-revelation", "id": "corruption-frequency", "hint": "The corruption pulses... like a heartbeat. The Wildkin hear it before anyone." }
+      ]
+    },
+    {
+      "tray": ["lore:earth-ruins", "material:rune-dust", "lore:construct-origin"],
+      "possibleResults": [
+        { "type": "story-secret", "id": "constructs-were-human", "hint": "The rune patterns on the ruins match the marks on construct shells exactly. Too exactly." }
+      ]
+    },
+    {
+      "tray": ["lore:bergfolk-deep-mines", "concept:alloys", "material:spirit-sap"],
+      "possibleResults": [
+        { "type": "lore-revelation", "id": "spirit-metal", "hint": "The dwarves stopped mining that vein for a reason. The metal down there... remembers." }
+      ]
+    },
+    {
+      "tray": ["lore:corrupted-beast", "lore:wildkin-clans", "concept:material-affinity"],
+      "possibleResults": [
+        { "type": "npc-insight", "id": "beast-clan-shame", "hint": "The corrupted ones were clan-kin once. The Bear elders won't say it, but you can see it in how they fight them — with grief, not hatred." }
+      ]
+    },
+    {
+      "tray": ["lore:ocean-unknown", "material:salt", "concept:preservation"],
+      "possibleResults": [
+        { "type": "story-secret", "id": "salt-barrier", "hint": "The salt flats aren't natural. Someone — or something — salted the earth on purpose. To keep what's in the ocean from coming inland." }
+      ]
+    },
+    {
+      "tray": ["lore:spinolandet", "lore:corruption-origin", "concept:combustion"],
+      "possibleResults": [
+        { "type": "lore-revelation", "id": "corruption-is-alive", "hint": "It doesn't spread like disease. It spreads like roots. The thing underground is growing." }
+      ]
+    }
+  ],
+
+  "progressModifiers": {
+    "settlement-quality": "Better compounds (garden, quarters, courtyard) = faster ticks",
+    "relevant-concepts": "Having higher ranks in related concepts speeds resolution",
+    "npc-proximity": "Resting near a relevant NPC (smith, enchanter, elder) can add a bonus",
+    "location": "Thinking about something while physically near a related place (ruins, mine, grove) helps",
+    "repeated-dead-end": "Trying the same dead-end combo multiple times eventually gives a clearer 'this leads nowhere' signal"
+  },
+
+  "loreFragmentSources": [
+    "Talking to NPCs (especially elders, travelers, scholars)",
+    "Inspecting world objects (ruins, shrines, ancient machines)",
+    "Witnessing events (corruption spreading, beast transforming, ritual)",
+    "Reading found texts (scrolls, carvings, books)",
+    "Defeating/observing corrupted creatures",
+    "Reaching new areas for the first time"
+  ],
+
+  "activePerception": {
+    "_doc": "The Tinker Tray acts as a perception lens — what you're thinking about affects what you notice in the world. Active tray contents are checked against scene/NPC/dungeon tags to surface hidden content.",
+    "rules": [
+      "Tray contents act as tag filters against world interactions",
+      "If overlap exists between tray and scene/NPC/dungeon tags, extra content surfaces",
+      "Extra dialogue options appear with relevant NPCs",
+      "Environmental details become noticeable (highlighted, inspectable)",
+      "Dungeon rooms reveal hidden layers/clues",
+      "Content is NOT permanently missable — return with the right tray later",
+      "But discovering in-the-moment gives bonus progress toward that discovery",
+      "Feels like player insight, not scripted — 'I noticed this because I was thinking about it'"
+    ],
+    "examples": [
+      {
+        "tray": ["lore:corruption-origin", "lore:wildkin-clans"],
+        "location": "corrupted-forest",
+        "perception": "The corruption pattern follows old clan boundary markers — it spread along the paths they walked"
+      },
+      {
+        "tray": ["concept:heat-treatment", "material:iron-ore"],
+        "location": "npc:village-smith",
+        "perception": "Extra dialogue: 'You notice the smith quenches in oil, not water. Ask why?' → teaches heat-treatment:2 faster"
+      },
+      {
+        "tray": ["lore:earth-ruins", "concept:inscription"],
+        "location": "dungeon:old-bunker",
+        "perception": "The marks on the wall aren't damage — they're machine-carved glyphs. You can read the pattern now."
+      },
+      {
+        "tray": ["concept:tension", "concept:rotation"],
+        "location": "npc:windmill-operator",
+        "perception": "Extra dialogue: 'The way the sails catch wind... the axle must absorb enormous force.' → accelerates bearings concept"
+      },
+      {
+        "tray": ["lore:corrupted-beast", "concept:material-affinity"],
+        "location": "combat:corrupted-wolf",
+        "perception": "Post-combat insight: 'The corruption concentrated in the bones, not the flesh. Bone stores things...'"
+      }
+    ]
+  }
+}

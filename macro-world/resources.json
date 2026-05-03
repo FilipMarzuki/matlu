@@ -1,0 +1,389 @@
+{
+  "_doc": "Resource definitions for the crafting system. Categories: raw (gathered/looted), refined (processed from raw), component (sub-assembly), consumable (used up), equipment (worn/wielded).",
+  "resources": [
+    {
+      "id": "iron-ore",
+      "name": "Iron Ore",
+      "category": "raw",
+      "stackMax": 20,
+      "source": ["mining", "loot"],
+      "biomes": ["mountain", "cave", "cliff"]
+    },
+    {
+      "id": "copper-ore",
+      "name": "Copper Ore",
+      "category": "raw",
+      "stackMax": 20,
+      "source": ["mining"],
+      "biomes": ["mountain", "cave", "riverbank"]
+    },
+    {
+      "id": "coal",
+      "name": "Coal",
+      "category": "raw",
+      "stackMax": 20,
+      "source": ["mining", "gathering"],
+      "biomes": ["mountain", "cave", "swamp"]
+    },
+    {
+      "id": "wood-log",
+      "name": "Wood Log",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering", "chopping"],
+      "biomes": ["forest", "plains", "taiga"]
+    },
+    {
+      "id": "hardwood-log",
+      "name": "Hardwood Log",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["chopping"],
+      "biomes": ["old-growth", "forest"]
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "category": "raw",
+      "stackMax": 20,
+      "source": ["mining", "gathering"],
+      "biomes": ["mountain", "cliff", "plains", "riverbank"]
+    },
+    {
+      "id": "flint",
+      "name": "Flint",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["gathering"],
+      "biomes": ["riverbank", "cliff", "plains"]
+    },
+    {
+      "id": "clay",
+      "name": "Clay",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["riverbank", "swamp", "lake"]
+    },
+    {
+      "id": "hide-raw",
+      "name": "Raw Hide",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["hunting", "loot"],
+      "biomes": ["forest", "plains", "tundra"]
+    },
+    {
+      "id": "bone",
+      "name": "Bone",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["hunting", "loot"],
+      "biomes": ["any"]
+    },
+    {
+      "id": "sinew",
+      "name": "Sinew",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["hunting"],
+      "biomes": ["any"]
+    },
+    {
+      "id": "animal-fat",
+      "name": "Animal Fat",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["hunting"],
+      "biomes": ["any"]
+    },
+    {
+      "id": "herb-green",
+      "name": "Green Herb",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["forest", "plains", "meadow"]
+    },
+    {
+      "id": "herb-bitter",
+      "name": "Bitter Root",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["gathering"],
+      "biomes": ["swamp", "cave", "old-growth"]
+    },
+    {
+      "id": "herb-fire",
+      "name": "Flamecap Mushroom",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["gathering"],
+      "biomes": ["cave", "volcanic", "old-growth"]
+    },
+    {
+      "id": "plant-fiber",
+      "name": "Plant Fiber",
+      "category": "raw",
+      "stackMax": 20,
+      "source": ["gathering"],
+      "biomes": ["forest", "plains", "swamp", "meadow"]
+    },
+    {
+      "id": "resin",
+      "name": "Resin",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["gathering"],
+      "biomes": ["forest", "taiga"]
+    },
+    {
+      "id": "feather",
+      "name": "Feather",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["hunting", "gathering"],
+      "biomes": ["forest", "cliff", "plains"]
+    },
+    {
+      "id": "salt",
+      "name": "Salt",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["mining", "gathering"],
+      "biomes": ["coast", "salt-flat", "cave"]
+    },
+    {
+      "id": "rune-dust",
+      "name": "Rune Dust",
+      "category": "raw",
+      "stackMax": 5,
+      "source": ["loot", "disassemble"],
+      "biomes": ["ruin", "shrine"]
+    },
+    {
+      "id": "spirit-sap",
+      "name": "Spirit Sap",
+      "category": "raw",
+      "stackMax": 5,
+      "source": ["gathering"],
+      "biomes": ["sacred-grove", "old-growth"]
+    },
+
+    {
+      "id": "iron-ingot",
+      "name": "Iron Ingot",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "copper-ingot",
+      "name": "Copper Ingot",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "leather",
+      "name": "Leather",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "wood-plank",
+      "name": "Wood Plank",
+      "category": "refined",
+      "stackMax": 15
+    },
+    {
+      "id": "hardwood-plank",
+      "name": "Hardwood Plank",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "charcoal",
+      "name": "Charcoal",
+      "category": "refined",
+      "stackMax": 15
+    },
+    {
+      "id": "rope",
+      "name": "Rope",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "cloth",
+      "name": "Cloth",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "brick",
+      "name": "Brick",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "glass",
+      "name": "Glass",
+      "category": "refined",
+      "stackMax": 8
+    },
+    {
+      "id": "oil",
+      "name": "Oil",
+      "category": "refined",
+      "stackMax": 8
+    },
+    {
+      "id": "glue",
+      "name": "Glue",
+      "category": "refined",
+      "stackMax": 8
+    },
+
+    {
+      "id": "wood-handle",
+      "name": "Wood Handle",
+      "category": "component",
+      "stackMax": 10
+    },
+    {
+      "id": "iron-nails",
+      "name": "Iron Nails",
+      "category": "component",
+      "stackMax": 20
+    },
+    {
+      "id": "leather-strip",
+      "name": "Leather Strip",
+      "category": "component",
+      "stackMax": 10
+    },
+    {
+      "id": "arrow-shaft",
+      "name": "Arrow Shaft",
+      "category": "component",
+      "stackMax": 20
+    },
+    {
+      "id": "iron-blade",
+      "name": "Iron Blade",
+      "category": "component",
+      "stackMax": 5
+    },
+    {
+      "id": "bowstring",
+      "name": "Bowstring",
+      "category": "component",
+      "stackMax": 5
+    },
+
+    {
+      "id": "healing-salve",
+      "name": "Healing Salve",
+      "category": "consumable",
+      "stackMax": 10
+    },
+    {
+      "id": "antidote",
+      "name": "Antidote",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "torch",
+      "name": "Torch",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "fire-bomb",
+      "name": "Fire Bomb",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "smoke-bomb",
+      "name": "Smoke Bomb",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "category": "consumable",
+      "stackMax": 10
+    },
+    {
+      "id": "ration",
+      "name": "Trail Ration",
+      "category": "consumable",
+      "stackMax": 10
+    },
+    {
+      "id": "trap-snare",
+      "name": "Snare Trap",
+      "category": "consumable",
+      "stackMax": 5
+    },
+
+    {
+      "id": "iron-dagger",
+      "name": "Iron Dagger",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "weapon"
+    },
+    {
+      "id": "iron-sword",
+      "name": "Iron Sword",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "weapon"
+    },
+    {
+      "id": "iron-axe",
+      "name": "Iron Axe",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "weapon"
+    },
+    {
+      "id": "hunting-bow",
+      "name": "Hunting Bow",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "weapon"
+    },
+    {
+      "id": "wooden-shield",
+      "name": "Wooden Shield",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "offhand"
+    },
+    {
+      "id": "leather-armor",
+      "name": "Leather Armor",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "body"
+    },
+    {
+      "id": "hide-cloak",
+      "name": "Hide Cloak",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "back"
+    },
+    {
+      "id": "iron-dagger-runed",
+      "name": "Rune-etched Dagger",
+      "category": "equipment",
+      "stackMax": 1,
+      "slot": "weapon"
+    }
+  ]
+}
