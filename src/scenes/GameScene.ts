@@ -334,6 +334,10 @@ const BIOME_IDENTITY_WASH: Partial<Record<number, { color: number; alpha: number
   11: { color: 0xd8e8f8, alpha: 0.18 }, // Snow Field — pale blue-white
 };
 
+const CORRUPTION_STAIN_COLOR = 0x13051d;
+const CORRUPTION_ACCENT_COLOR = 0x7b1fa2;
+const CORRUPTION_ZONE_FEATHER = 96;
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -374,6 +378,49 @@ function elevHeatColor(t: number): number {
   return (Math.round(ar + (br - ar) * u) << 16)
        | (Math.round(ag + (bg - ag) * u) <<  8)
        |  Math.round(ab + (bb - ab) * u);
+}
+
+function zoneCorruptionAt(wx: number, wy: number): number {
+  let strongest = 0;
+  for (const zone of ZONES) {
+    const dx = wx < zone.x
+      ? zone.x - wx
+      : wx > zone.x + zone.w
+        ? wx - (zone.x + zone.w)
+        : 0;
+    const dy = wy < zone.y
+      ? zone.y - wy
+      : wy > zone.y + zone.h
+        ? wy - (zone.y + zone.h)
+        : 0;
+    const dist = Math.hypot(dx, dy);
+    if (dist > CORRUPTION_ZONE_FEATHER) continue;
+    const feather = 1 - dist / CORRUPTION_ZONE_FEATHER;
+    strongest = Math.max(strongest, (zone.corruption / 100) * feather);
+  }
+  return strongest;
+}
+
+function drawIsoDiamond(
+  gfx: Phaser.GameObjects.Graphics,
+  color: number,
+  alpha: number,
+  inset = 0,
+): Phaser.GameObjects.Graphics {
+  const halfW = 16 - inset;
+  const topY = inset * 0.5;
+  const midY = 8;
+  const bottomY = 16 - inset * 0.5;
+  return gfx
+    .clear()
+    .fillStyle(color, alpha)
+    .beginPath()
+    .moveTo(0, topY)
+    .lineTo(halfW, midY)
+    .lineTo(0, bottomY)
+    .lineTo(-halfW, midY)
+    .closePath()
+    .fillPath();
 }
 
 export class GameScene extends Phaser.Scene {
@@ -5833,19 +5880,36 @@ export class GameScene extends Phaser.Scene {
         }
         terrainRt.draw(tileImg);
 
-        const wash = BIOME_IDENTITY_WASH[biomeIdx];
-        if (!isRiverHere && !isLakeHere && wash) {
-          biomeWashGfx
-            .clear()
-            .fillStyle(wash.color, wash.alpha)
-            .beginPath()
-            .moveTo(0, 0)
-            .lineTo(16, 8)
-            .lineTo(0, 16)
-            .lineTo(-16, 8)
-            .closePath()
-            .fillPath();
-          terrainRt.draw(biomeWashGfx, isoX, isoY);
+        if (!isRiverHere && !isLakeHere) {
+          const wash = BIOME_IDENTITY_WASH[biomeIdx];
+          if (wash) {
+            drawIsoDiamond(biomeWashGfx, wash.color, wash.alpha);
+            terrainRt.draw(biomeWashGfx, isoX, isoY);
+          }
+
+          const corruption = zoneCorruptionAt(wx + TILE_SIZE / 2, wy + TILE_SIZE / 2);
+          if (corruption > 0.02) {
+            const tendril = this.corruptionField.sample(wx, wy, corruption);
+            if (tendril > 0.18) {
+              drawIsoDiamond(
+                biomeWashGfx,
+                CORRUPTION_STAIN_COLOR,
+                Phaser.Math.Clamp(0.16 + tendril * 0.32, 0, 0.48),
+              );
+              terrainRt.draw(biomeWashGfx, isoX, isoY);
+            }
+
+            const accentHash = ((tx * 9283 ^ ty * 6151 ^ this.runSeed) >>> 0) % 23;
+            if (accentHash === 0 && tendril > 0.28) {
+              drawIsoDiamond(
+                biomeWashGfx,
+                CORRUPTION_ACCENT_COLOR,
+                Phaser.Math.Clamp(tendril * 0.30, 0, 0.22),
+                5,
+              );
+              terrainRt.draw(biomeWashGfx, isoX, isoY);
+            }
+          }
         }
 
       }
