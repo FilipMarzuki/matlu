@@ -67,6 +67,7 @@ import { CreditCard } from '../ui/CreditCard';
 import { EssenceSystem } from '../systems/EssenceSystem';
 import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem } from '../systems/TinkerTraySystem';
+import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { EssenceHUD } from '../ui/EssenceHUD';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
@@ -429,6 +430,7 @@ export class GameScene extends Phaser.Scene {
   essenceSystem!: EssenceSystem;
   inventorySystem!: InventorySystem;
   tinkerTraySystem!: TinkerTraySystem;
+  discoverySystem!: DiscoverySystem;
 
   // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
   private skillSystem!: SkillSystem;
@@ -1024,6 +1026,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.tinkerTraySystem = new TinkerTraySystem(this);
+    this.discoverySystem = new DiscoverySystem(this);
 
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });

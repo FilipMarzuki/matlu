@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
+import { DiscoverySystem } from '../systems/DiscoverySystem';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -45,6 +46,7 @@ interface Recipe {
   tier: number;
   station: string | null;
   concepts?: string[];
+  discovery?: import('../systems/DiscoverySystem').RecipeDiscoveryDef;
 }
 
 type TabId = 'mind' | 'concepts' | 'recipes' | 'pack';
@@ -117,6 +119,16 @@ export class CraftingMenuScene extends Phaser.Scene {
 
   private get trayProgress(): number {
     return this.tinkerTray.progress;
+  }
+
+  private get discoverySys(): DiscoverySystem {
+    let sys = this.game.registry.get('discoverySystem') as DiscoverySystem | undefined;
+    if (!sys) {
+      sys = new DiscoverySystem(this);
+      // Load recipe defs if available
+      if (this.recipes.length > 0) sys.loadRecipeDefs(this.recipes);
+    }
+    return sys;
   }
 
   private get inventory(): ReadonlyMap<string, number> {
@@ -235,6 +247,8 @@ export class CraftingMenuScene extends Phaser.Scene {
       if (recipesRes.ok) {
         const data = await recipesRes.json();
         this.recipes = data.recipes ?? [];
+        // Feed discovery defs so innate recipes auto-unlock
+        this.discoverySys.loadRecipeDefs(this.recipes);
       }
       if (resourcesRes.ok) {
         const data = await resourcesRes.json();
@@ -918,32 +932,59 @@ export class CraftingMenuScene extends Phaser.Scene {
     const listW = 180;
     const detailX = listW + 20;
     const startY = 52;
-    // Recipe list
-    this.recipes.forEach((recipe, i) => {
-      const ry = startY + i * 28;
+    const disc = this.discoverySys;
+
+    // Recipe list — discovered show normally, hint-visible as silhouettes,
+    // fully undiscovered are hidden entirely.
+    let firstDiscovered: Recipe | null = null;
+    let listIdx = 0;
+
+    this.recipes.forEach((recipe) => {
+      const state = disc.getState(recipe.id);
+      if (state === 'undiscovered') return; // completely hidden
+
+      const ry = startY + listIdx * 28;
       if (ry > panelH - 20) return; // overflow guard
+      listIdx++;
 
-      const canCraft = this.canCraftRecipe(recipe);
-      const dot = canCraft ? '●' : '○';
-      const color = canCraft ? '#88ff88' : '#aa8866';
+      if (state === 'discovered') {
+        if (!firstDiscovered) firstDiscovered = recipe;
+        const canCraft = this.canCraftRecipe(recipe);
+        const dot = canCraft ? '●' : '○';
+        const color = canCraft ? '#88ff88' : '#aa8866';
 
-      const recipeText = this.add.text(8, ry, `${dot} ${recipe.name}`, {
-        fontSize: '12px', color,
-      }).setInteractive({ useHandCursor: true });
+        const recipeText = this.add.text(8, ry, `${dot} ${recipe.name}`, {
+          fontSize: '12px', color,
+        }).setInteractive({ useHandCursor: true });
 
-      recipeText.on('pointerdown', () => {
-        this.renderRecipeDetail(detailX, startY, panelW - detailX, panelH - startY, recipe);
-      });
+        recipeText.on('pointerdown', () => {
+          this.renderRecipeDetail(detailX, startY, panelW - detailX, panelH - startY, recipe);
+        });
+        recipeText.on('pointerover', () => recipeText.setColor('#ffffff'));
+        recipeText.on('pointerout', () => recipeText.setColor(color));
+        this.contentContainer.add(recipeText);
+      } else {
+        // hint-visible — show as silhouette with method hint
+        const method = recipe.discovery?.method ?? '?';
+        const methodHints: Record<string, string> = {
+          memory: '(practice more...)',
+          observation: '(inspect the world...)',
+          taught: '(find a teacher...)',
+          experiment: '(experiment at a station...)',
+          'reverse-engineer': '(disassemble to learn...)',
+        };
+        const hint = methodHints[method] ?? '';
 
-      recipeText.on('pointerover', () => recipeText.setColor('#ffffff'));
-      recipeText.on('pointerout', () => recipeText.setColor(color));
-
-      this.contentContainer.add(recipeText);
+        const silText = this.add.text(8, ry, `? ??? ${hint}`, {
+          fontSize: '12px', color: '#444455',
+        });
+        this.contentContainer.add(silText);
+      }
     });
 
-    // Show first recipe detail by default
-    if (this.recipes.length > 0) {
-      this.renderRecipeDetail(detailX, startY, panelW - detailX, panelH - startY, this.recipes[0]);
+    // Show first discovered recipe detail by default
+    if (firstDiscovered) {
+      this.renderRecipeDetail(detailX, startY, panelW - detailX, panelH - startY, firstDiscovered);
     }
   }
 
@@ -1026,6 +1067,8 @@ export class CraftingMenuScene extends Phaser.Scene {
         // Deduct inputs, add output — system handles persistence and events
         for (const input of recipe.inputs) sys.remove(input.item, input.qty);
         sys.add(recipe.output.item, recipe.output.qty);
+        // Record craft action for memory-based discovery triggers
+        this.discoverySys.recordAction(`craft:${recipe.id}`);
         // Re-render to reflect updated quantities
         this.renderTab();
       });
