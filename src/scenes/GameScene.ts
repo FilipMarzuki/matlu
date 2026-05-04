@@ -312,6 +312,53 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 /** Fill colour per biome index — sourced from the canonical biomes.ts list. */
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
+/** Subtle in-world colour wash that gives each ground biome a readable identity. */
+const BIOME_COLOR_WASH_ALPHA: readonly number[] = [
+  0.00, // Sea uses water art, not the ground wash.
+  0.18, // Rocky Shore
+  0.16, // Sandy Shore
+  0.20, // Marsh / Bog
+  0.18, // Dry Heath
+  0.18, // Coastal Heath
+  0.18, // Meadow
+  0.22, // Forest
+  0.22, // Spruce
+  0.18, // Cold Granite
+  0.16, // Bare Summit
+  0.18, // Snow Field
+];
+
+/** Small ground marks per biome: pebbles, leaf flecks, moss, cracks, or snow sparkle. */
+const BIOME_ACCENT_COLORS: readonly number[] = [
+  0x000000, // Sea — unused.
+  0xb58b50, // Rocky Shore
+  0xf3dc93, // Sandy Shore
+  0x6aa25a, // Marsh / Bog
+  0xd4a45c, // Dry Heath
+  0xa5c85a, // Coastal Heath
+  0x8fdc5c, // Meadow
+  0x3f9a43, // Forest
+  0x2f7440, // Spruce
+  0xa8a5a0, // Cold Granite
+  0xc2beb7, // Bare Summit
+  0xf1f8ff, // Snow Field
+];
+
+const BIOME_ACCENT_ALPHA: readonly number[] = [
+  0.00, // Sea
+  0.34, // Rocky Shore
+  0.30, // Sandy Shore
+  0.32, // Marsh / Bog
+  0.30, // Dry Heath
+  0.30, // Coastal Heath
+  0.28, // Meadow
+  0.34, // Forest
+  0.34, // Spruce
+  0.38, // Cold Granite
+  0.32, // Bare Summit
+  0.30, // Snow Field
+];
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -5701,6 +5748,11 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setVisible(false);
 
+    // Reusable diamond stamp for biome colour identity. The tile art supplies
+    // pixel texture; this light wash makes broad zones readable at overview zoom.
+    const biomeWashGfx = this.add.graphics().setVisible(false);
+    const terrainAccentGfx = this.add.graphics().setVisible(false);
+
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
@@ -5810,6 +5862,41 @@ export class GameScene extends Phaser.Scene {
         }
         terrainRt.draw(tileImg);
 
+        const washAlpha = (isRiverHere || isLakeHere) ? 0 : (BIOME_COLOR_WASH_ALPHA[biomeIdx] ?? 0);
+        if (washAlpha > 0) {
+          biomeWashGfx
+            .clear()
+            .fillStyle(BIOME_OVERLAY_COLORS[biomeIdx], washAlpha)
+            .beginPath()
+            .moveTo(isoX, isoY)
+            .lineTo(isoX + ISO_TILE_W / 2, isoY + ISO_TILE_H / 2)
+            .lineTo(isoX, isoY + ISO_TILE_H)
+            .lineTo(isoX - ISO_TILE_W / 2, isoY + ISO_TILE_H / 2)
+            .closePath()
+            .fillPath();
+          terrainRt.draw(biomeWashGfx);
+        }
+
+        const accentRoll = ((tx * 1103 ^ ty * 1597 ^ tx * ty * 41) >>> 0) % 10;
+        if (!isRiverHere && !isLakeHere && biomeIdx !== 0 && accentRoll < 3) {
+          const accentAlpha = BIOME_ACCENT_ALPHA[biomeIdx] ?? 0;
+          const accentX = isoX + ((accentRoll % 3) - 1) * 4;
+          const accentY = isoY + ISO_TILE_H / 2 + (accentRoll === 0 ? -2 : 2);
+
+          terrainAccentGfx
+            .clear()
+            .fillStyle(BIOME_ACCENT_COLORS[biomeIdx], accentAlpha)
+            .fillRect(accentX - 2, accentY - 1, 4, 2);
+
+          if (biomeIdx === 7 || biomeIdx === 8 || biomeIdx === 3) {
+            // Damp biomes get a second fleck so forest/marsh floors feel leafy,
+            // while rocky biomes stay more like isolated chips and cracks.
+            terrainAccentGfx.fillRect(accentX + 3, accentY + 2, 3, 1);
+          }
+
+          terrainRt.draw(terrainAccentGfx);
+        }
+
       }
     }
 
@@ -5840,6 +5927,8 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    biomeWashGfx.destroy();
+    terrainAccentGfx.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
