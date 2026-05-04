@@ -25,6 +25,7 @@ import * as Phaser from 'phaser';
 import { isoTileFrame, ISO_RIVER_FRAME, ISO_TILE_NATIVE_SIZE } from '../world/IsoTileMap';
 import { BIOMES } from '../world/biomes';
 import { CUSTOM_TILE_PACKS, preloadTilePacks } from '../world/TilePacks';
+import type { TreeRegistry, TreeDef } from '../world/TreeScatter';
 
 const BIOME_NAMES          = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
@@ -157,6 +158,11 @@ export class WorldForgeScene extends Phaser.Scene {
   // Allocated in buildDisplay(); row-major index: ty * GRID + tx.
   // Matches the layout AStarGrid expects so entity AI can pass it directly.
   walkabilityGrid: Uint8Array = new Uint8Array(0);
+  // Per-tile biome index grid — populated during buildDisplay() so tree scatter
+  // can look up which biome each tile belongs to.
+  private tileBiomeGrid: Uint8Array = new Uint8Array(0);
+  // Tree sprites placed by scatterTrees() — destroyed on refresh.
+  private treeSprites: Phaser.GameObjects.GameObject[] = [];
 
   // AI wander toggle — when on, placed NPC/Animal entities wander around the scene.
   private aiEnabled = false;
@@ -191,6 +197,16 @@ export class WorldForgeScene extends Phaser.Scene {
     for (const rtype of WorldForgeScene.ROAD_TYPES) {
       this.load.spritesheet(`road-${rtype}`, `${roadTilesDir}/road-${rtype}.png`,
         { frameWidth: 32, frameHeight: 16 });
+    }
+
+    // Tree registry — drives biome-aware tree scatter.
+    this.load.json('trees-registry', '/macro-world/trees.json');
+
+    // Oak tree sprites — 5 variants per growth stage (PixelLab generated).
+    for (let i = 0; i < 5; i++) {
+      this.load.image(`tree-oak-sapling-${i}`, `/assets/sprites/trees/oak/sapling/${i}.png`);
+      this.load.image(`tree-oak-young-${i}`,   `/assets/sprites/trees/oak/young/${i}.png`);
+      this.load.image(`tree-oak-${i}`,         `/assets/sprites/trees/oak/mature/${i}.png`);
     }
 
     // Hero atlases — loaded so entity spawner can show actual sprites.
@@ -363,6 +379,8 @@ export class WorldForgeScene extends Phaser.Scene {
     this.gridGfx = undefined;
     for (const s of this.decorSprites) s.destroy();
     this.decorSprites = [];
+    for (const t of this.treeSprites) t.destroy();
+    this.treeSprites = [];
     for (const t of this.bandLabels) t.destroy();
     this.bandLabels = [];
     this.buildDisplay();
@@ -443,7 +461,8 @@ export class WorldForgeScene extends Phaser.Scene {
     // correct front-to-back layering for cube-style iso tiles with visible
     // front faces — no per-tile depth values needed.
     const G = this.GRID;
-    // Allocate walkability grid fresh every time the display is rebuilt (biome change, zoom).
+    // Allocate biome + walkability grids fresh every time the display is rebuilt.
+    this.tileBiomeGrid = new Uint8Array(G * G);
     this.walkabilityGrid = new Uint8Array(G * G);
     for (let sum = 0; sum < G * 2 - 1; sum++) {
       const txMin = Math.max(0, sum - (G - 1));
@@ -489,6 +508,8 @@ export class WorldForgeScene extends Phaser.Scene {
         // Pack name from CUSTOM_TILE_PACKS when this tile should use a custom floor texture.
         // Set in every branch that maps to a biome with a generated tile set.
         let customPack: string | undefined;
+        // Resolved biome index for this tile — stored in tileBiomeGrid for tree scatter.
+        let tileBiome = landBiome;
 
         // Shoreline biome depends on the adjacent land — warm/soft biomes get sandy,
         // cold/rocky biomes get rocky shore, marsh stays marshy.
@@ -501,32 +522,33 @@ export class WorldForgeScene extends Phaser.Scene {
         const shoreBiome = SHORE_FOR_BIOME[landBiome] ?? 2;
 
         if (oceanDist > 1) {
-          frame = isoTileFrame(0, elev);           // deep ocean — no custom tiles
+          frame = isoTileFrame(0, elev); tileBiome = 0;
         } else if (oceanDist > 0) {
-          frame = ISO_RIVER_FRAME;                 // shallow ocean / river mouth
+          frame = ISO_RIVER_FRAME; tileBiome = 0;
         } else if (oceanDist === 0) {
           // Shoreline — 1 tile wide, biome-dependent
-          if (onRiver) { frame = ISO_RIVER_FRAME; }
-          else { frame = isoTileFrame(shoreBiome, elev); customPack = CUSTOM_TILE_PACKS[shoreBiome]; }
+          if (onRiver) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
+          else { frame = isoTileFrame(shoreBiome, elev); customPack = CUSTOM_TILE_PACKS[shoreBiome]; tileBiome = shoreBiome; }
         } else if (elevDist > 1) {
           // Snow field highlands — river shows as water
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
-          else { frame = isoTileFrame(11, elev); customPack = CUSTOM_TILE_PACKS[11]; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
+          else { frame = isoTileFrame(11, elev); customPack = CUSTOM_TILE_PACKS[11]; tileBiome = 11; }
         } else if (elevDist === 1) {
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
-          else { frame = isoTileFrame(10, elev); customPack = CUSTOM_TILE_PACKS[10]; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
+          else { frame = isoTileFrame(10, elev); customPack = CUSTOM_TILE_PACKS[10]; tileBiome = 10; }
         } else if (elevDist === 0) {
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
           else { frame = isoTileFrame(landBiome, elev); customPack = CUSTOM_TILE_PACKS[landBiome]; }
         } else if (elevDist === -1) {
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
           else { frame = isoTileFrame(landBiome, elev); customPack = CUSTOM_TILE_PACKS[landBiome]; }
         } else if (onRiver || atWfBase) {
-          frame = ISO_RIVER_FRAME;                 // N→S river body
+          frame = ISO_RIVER_FRAME; tileBiome = 0;
         } else {
           frame = isoTileFrame(landBiome, elev);
           customPack = CUSTOM_TILE_PACKS[landBiome];
         }
+        this.tileBiomeGrid[ty * G + tx] = tileBiome;
 
         // Raise highland tiles according to their elevation level (0 = flat, 1 = mid-step, 2 = peak).
         const tileElev = getElev(tx, ty);   // 0 | 1 | 2
@@ -849,6 +871,142 @@ export class WorldForgeScene extends Phaser.Scene {
       this.add.text(sx, sy + this.ISO_H + 6, 'S', compassStyle).setOrigin(0.5, 0).setDepth(11),
       this.add.text(wx - 16, wy, 'W', compassStyle).setOrigin(1, 0.5).setDepth(11),
     );
+
+    // Scatter trees across the iso grid using biome assignments from this build.
+    this.scatterTrees();
+  }
+
+  // ── Tree scatter ─────────────────────────────────────────────────────────────
+
+  /**
+   * Place tree placeholders across the iso grid based on each tile's biome.
+   * Uses the tileBiomeGrid populated during buildDisplay(). Trees are rendered
+   * as coloured rectangles (placeholder) sized by species, positioned at the
+   * centre of each tile with a random chance based on density.
+   */
+  private scatterTrees(): void {
+    const registry = this.cache.json.get('trees-registry') as TreeRegistry | undefined;
+    if (!registry) { console.warn('[TreeScatter] No trees-registry in cache'); return; }
+
+    const G = this.GRID;
+    // Debug: count biome distribution
+    const biomeCounts = new Map<number, number>();
+    for (let i = 0; i < G * G; i++) {
+      const b = this.tileBiomeGrid[i];
+      biomeCounts.set(b, (biomeCounts.get(b) ?? 0) + 1);
+    }
+    console.log('[TreeScatter] Biome grid distribution:', Object.fromEntries(biomeCounts));
+
+    // Build per-biome species lists with cumulative density weights.
+    const DENSITY_WEIGHT: Record<string, number> = { high: 1.0, medium: 0.6, low: 0.25, rare: 0.08 };
+    const biomeSpecies = new Map<number, { defs: TreeDef[]; cumWeights: number[] }>();
+    for (const def of registry.trees) {
+      for (const biome of def.biomes) {
+        let entry = biomeSpecies.get(biome);
+        if (!entry) { entry = { defs: [], cumWeights: [] }; biomeSpecies.set(biome, entry); }
+        entry.defs.push(def);
+        const prev = entry.cumWeights.length > 0 ? entry.cumWeights[entry.cumWeights.length - 1] : 0;
+        entry.cumWeights.push(prev + (DENSITY_WEIGHT[def.density] ?? 0.5));
+      }
+    }
+
+    // Placeholder textures — generated once per scene lifetime via Graphics.
+    // Stage-aware: each growth stage gets its own texture (different size).
+    const stageHeight: Record<string, number> = { sapling: 10, young: 16, mature: 22 };
+    const stageWidth:  Record<string, number> = { sapling: 6,  young: 10, mature: 14 };
+    const stageColor:  Record<string, number> = { sapling: 0x88cc66, young: 0x55aa33, mature: 0x337722 };
+    for (const def of registry.trees) {
+      for (const stage of def.stages) {
+        if (!this.textures.exists(stage.sprite)) {
+          const isStump = stage.sprite.includes('stump');
+          const w = isStump ? 10 : (stageWidth[stage.stage] ?? 14);
+          const h = isStump ? 8  : (stageHeight[stage.stage] ?? 22);
+          const colour = isStump ? 0x6a5a3a : (stageColor[stage.stage] ?? 0x3a7a28);
+          const g = this.add.graphics();
+          g.fillStyle(colour, 1);
+          g.fillRect(0, 0, w, h);
+          g.generateTexture(stage.sprite, w, h);
+          g.destroy();
+        }
+      }
+    }
+
+    // Deterministic scatter using a simple seeded RNG.
+    let seed = 0x12345678;
+    const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+
+    // Cluster noise — low-frequency so it creates broad forested patches
+    // with open meadow clearings in between. Two overlapping sine waves at
+    // different frequencies give organic blob shapes.
+    const clusterNoise = (tx: number, ty: number): number => {
+      const n1 = Math.sin(tx * 0.35 + ty * 0.25) * Math.cos(ty * 0.4 - tx * 0.15);
+      const n2 = Math.sin(tx * 0.18 - ty * 0.32) * Math.cos(tx * 0.28 + ty * 0.12);
+      return (n1 + n2 + 2) / 4; // normalise to 0–1
+    };
+    // Threshold: tiles below this get no trees → open clearings.
+    // Above threshold, spawn chance ramps up toward dense clusters.
+    const CLUSTER_THRESHOLD = 0.45;
+
+    for (let ty = 0; ty < G; ty++) {
+      for (let tx = 0; tx < G; tx++) {
+        if (this.walkabilityGrid[ty * G + tx] !== 0) continue; // skip water/cliff
+
+        const biome = this.tileBiomeGrid[ty * G + tx];
+        const species = biomeSpecies.get(biome);
+        if (!species) continue;
+
+        // Cluster check — below threshold = open ground, no trees.
+        const cluster = clusterNoise(tx, ty);
+        if (cluster < CLUSTER_THRESHOLD) continue;
+        // Ramp spawn chance: just above threshold = sparse edge, high = dense core.
+        const spawnChance = (cluster - CLUSTER_THRESHOLD) / (1 - CLUSTER_THRESHOLD);
+        if (rng() > spawnChance) continue;
+
+        // Weighted species selection
+        const totalWeight = species.cumWeights[species.cumWeights.length - 1];
+        const roll = rng() * totalWeight;
+        let picked = species.defs[0];
+        for (let i = 0; i < species.cumWeights.length; i++) {
+          if (roll <= species.cumWeights[i]) { picked = species.defs[i]; break; }
+        }
+
+        // Pick a random growth stage
+        const stage = picked.stages[Math.floor(rng() * picked.stages.length)];
+
+        // Position at tile centre with slight jitter.
+        const jx = (rng() - 0.5) * this.ISO_W * 0.4;
+        const jy = (rng() - 0.5) * this.ISO_H * 0.3;
+        const { x, y } = this.isoPos(tx, ty);
+
+        // Resolve sprite key — if real variants exist (e.g. tree-oak-0..4), pick
+        // a random one. Otherwise fall back to the placeholder texture.
+        const variantCount = 5;
+        const variantKey = `${stage.sprite}-${Math.floor(rng() * variantCount)}`;
+        const spriteKey = this.textures.exists(variantKey) ? variantKey : stage.sprite;
+
+        // Scale: real sprites use the registry scale directly × zoom;
+        // placeholders need a bigger multiplier since they're tiny rectangles.
+        const baseScale = stage.scale[0] + rng() * (stage.scale[1] - stage.scale[0]);
+        const hasRealSprite = spriteKey === variantKey;
+        const scale = hasRealSprite
+          ? baseScale * this.zoomFactor * 1.5
+          : baseScale * this.zoomFactor * 2.5;
+
+        const img = this.add.image(x + jx, y + jy, spriteKey)
+          .setScale(scale)
+          .setOrigin(0.5, 1)   // anchor at base so tree grows upward
+          .setDepth(1);        // above terrain tiles (depth 0)
+
+        // Label: species + stage so you can see what's what in the forge.
+        const label = this.add.text(x + jx, y + jy + 2, `${picked.id}\n${stage.stage}`, {
+          fontSize: '7px', color: '#ffffff',
+          stroke: '#000000', strokeThickness: 2,
+        }).setOrigin(0.5, 0).setDepth(2);
+
+        this.treeSprites.push(img, label);
+      }
+    }
+    console.log(`[TreeScatter] Placed ${this.treeSprites.length / 2} trees`);
   }
 
   // ── Palette UI ────────────────────────────────────────────────────────────────

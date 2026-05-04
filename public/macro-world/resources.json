@@ -1,5 +1,26 @@
 {
   "_doc": "Resource definitions for the crafting system. Categories: raw (gathered/looted), refined (processed from raw), component (sub-assembly), consumable (used up), equipment (worn/wielded).",
+  "_biomeAliases": {
+    "forest": [7],
+    "plains": [5, 6],
+    "meadow": [6],
+    "swamp": [3],
+    "taiga": [8],
+    "mountain": [9, 10],
+    "cliff": [9],
+    "coast": [1, 2],
+    "tundra": [11],
+    "old-growth": [7],
+    "riverbank": [3, 5],
+    "lake": [0],
+    "cave": [],
+    "volcanic": [],
+    "sacred-grove": [7],
+    "ruin": [],
+    "shrine": [],
+    "salt-flat": [2],
+    "_note": "Aliases map legacy resource biome strings to canonical biome indices (src/world/biomes.ts). Empty arrays = sub-biome not yet mapped to overworld terrain."
+  },
   "resources": [
     {
       "id": "iron-ore",

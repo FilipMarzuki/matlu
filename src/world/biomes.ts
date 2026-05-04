@@ -25,7 +25,7 @@ export interface BiomeDef {
   overlayColor: number;
   /** 2–3 sentence world lore description. Plain text, no markdown. */
   description: string;
-  /** Surface scatter types valid for this biome — shown in the World Forge decor toolbar. */
+  /** @deprecated Use flora.json for unified plant placement. Kept for World Forge toolbar compat. */
   decorTypes: readonly string[];
 }
 

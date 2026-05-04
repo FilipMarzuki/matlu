@@ -1,0 +1,254 @@
+{
+  "_doc": "Tree registry — large collidable plants placed per-biome. Each tree blocks movement (narrow trunk collider), can be chopped for resources, and uses depth sorting so the player walks behind the canopy. Biomes use canonical indices from src/world/biomes.ts. Each species has growth stages (sapling → young → mature) with distinct sprites, colliders, and yields — the scatter system picks a stage randomly for now; a real growth system will drive stage progression later.",
+  "_biomeKey": {
+    "0": "Sea",
+    "1": "Rocky Shore",
+    "2": "Sandy Shore",
+    "3": "Marsh / Bog",
+    "4": "Dry Heath",
+    "5": "Coastal Heath",
+    "6": "Meadow",
+    "7": "Forest",
+    "8": "Spruce",
+    "9": "Cold Granite",
+    "10": "Bare Summit",
+    "11": "Snow Field"
+  },
+  "trees": [
+    {
+      "id": "oak",
+      "name": "Oak",
+      "biomes": [5, 6, 7],
+      "density": "medium",
+      "stages": [
+        {
+          "stage": "sapling",
+          "sprite": "tree-oak-sapling",
+          "scale": [0.3, 0.4],
+          "collider": { "width": 6, "height": 4, "offsetY": -1 },
+          "harvest": { "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 300 }
+        },
+        {
+          "stage": "young",
+          "sprite": "tree-oak-young",
+          "scale": [0.4, 0.5],
+          "collider": { "width": 8, "height": 6, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [1, 2], "tool": "axe", "hits": 2, "respawnSeconds": 600 }
+        },
+        {
+          "stage": "mature",
+          "sprite": "tree-oak",
+          "scale": [0.5, 0.6],
+          "collider": { "width": 10, "height": 8, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [2, 4], "tool": "axe", "hits": 3, "respawnSeconds": 900 }
+        }
+      ]
+    },
+    {
+      "id": "birch",
+      "name": "Birch",
+      "biomes": [6, 7],
+      "density": "medium",
+      "stages": [
+        {
+          "stage": "sapling",
+          "sprite": "tree-birch-sapling",
+          "scale": [0.3, 0.4],
+          "collider": { "width": 6, "height": 4, "offsetY": -1 },
+          "harvest": { "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 300 }
+        },
+        {
+          "stage": "young",
+          "sprite": "tree-birch-young",
+          "scale": [0.35, 0.45],
+          "collider": { "width": 7, "height": 6, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [1, 2], "tool": "axe", "hits": 2, "respawnSeconds": 480 }
+        },
+        {
+          "stage": "mature",
+          "sprite": "tree-birch",
+          "scale": [0.45, 0.55],
+          "collider": { "width": 8, "height": 8, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [2, 3], "tool": "axe", "hits": 2, "respawnSeconds": 720 }
+        }
+      ]
+    },
+    {
+      "id": "birch-2",
+      "name": "Silver Birch",
+      "biomes": [7],
+      "density": "low",
+      "stages": [
+        {
+          "stage": "sapling",
+          "sprite": "tree-birch-2-sapling",
+          "scale": [0.3, 0.4],
+          "collider": { "width": 6, "height": 4, "offsetY": -1 },
+          "harvest": { "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 300 }
+        },
+        {
+          "stage": "mature",
+          "sprite": "tree-birch-2",
+          "scale": [0.45, 0.55],
+          "collider": { "width": 8, "height": 8, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [2, 3], "tool": "axe", "hits": 2, "respawnSeconds": 720 }
+        }
+      ]
+    },
+    {
+      "id": "spruce",
+      "name": "Spruce",
+      "biomes": [7, 8],
+      "density": "high",
+      "stages": [
+        {
+          "stage": "sapling",
+          "sprite": "tree-spruce-sapling",
+          "scale": [0.3, 0.4],
+          "collider": { "width": 6, "height": 4, "offsetY": -1 },
+          "harvest": { "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 300 }
+        },
+        {
+          "stage": "young",
+          "sprite": "tree-spruce-young",
+          "scale": [0.4, 0.5],
+          "collider": { "width": 8, "height": 6, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [1, 3], "tool": "axe", "hits": 2, "respawnSeconds": 600 }
+        },
+        {
+          "stage": "mature",
+          "sprite": "tree-spruce",
+          "scale": [0.45, 0.55],
+          "collider": { "width": 10, "height": 8, "offsetY": -2 },
+          "harvest": {
+            "resource": "wood-log", "yield": [2, 4], "tool": "axe", "hits": 3, "respawnSeconds": 900,
+            "bonus": { "resource": "resin", "chance": 0.3, "yield": [1, 1] }
+          }
+        }
+      ]
+    },
+    {
+      "id": "spruce-2",
+      "name": "Tall Spruce",
+      "biomes": [8],
+      "density": "medium",
+      "stages": [
+        {
+          "stage": "young",
+          "sprite": "tree-spruce-2-young",
+          "scale": [0.4, 0.5],
+          "collider": { "width": 8, "height": 6, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [2, 3], "tool": "axe", "hits": 3, "respawnSeconds": 900 }
+        },
+        {
+          "stage": "mature",
+          "sprite": "tree-spruce-2",
+          "scale": [0.5, 0.6],
+          "collider": { "width": 10, "height": 8, "offsetY": -2 },
+          "harvest": {
+            "resource": "wood-log", "yield": [3, 5], "tool": "axe", "hits": 4, "respawnSeconds": 1200,
+            "bonus": { "resource": "resin", "chance": 0.4, "yield": [1, 2] }
+          }
+        }
+      ]
+    },
+    {
+      "id": "pine",
+      "name": "Pine",
+      "biomes": [8, 9],
+      "density": "low",
+      "stages": [
+        {
+          "stage": "sapling",
+          "sprite": "tree-pine-sapling",
+          "scale": [0.3, 0.4],
+          "collider": { "width": 6, "height": 4, "offsetY": -1 },
+          "harvest": { "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 300 }
+        },
+        {
+          "stage": "mature",
+          "sprite": "tree-pine",
+          "scale": [0.45, 0.55],
+          "collider": { "width": 10, "height": 8, "offsetY": -2 },
+          "harvest": {
+            "resource": "wood-log", "yield": [2, 3], "tool": "axe", "hits": 3, "respawnSeconds": 900,
+            "bonus": { "resource": "resin", "chance": 0.5, "yield": [1, 2] }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ancient",
+      "name": "Ancient Tree",
+      "biomes": [7],
+      "density": "rare",
+      "stages": [
+        {
+          "stage": "mature",
+          "sprite": "tree-big",
+          "scale": [0.5, 0.65],
+          "collider": { "width": 14, "height": 10, "offsetY": -2 },
+          "harvest": {
+            "resource": "hardwood-log", "yield": [2, 4], "tool": "axe", "hits": 5, "respawnSeconds": 1800,
+            "bonus": { "resource": "spirit-sap", "chance": 0.15, "yield": [1, 1] }
+          }
+        }
+      ]
+    },
+    {
+      "id": "elm",
+      "name": "Elm",
+      "biomes": [5, 6, 7],
+      "density": "medium",
+      "stages": [
+        {
+          "stage": "sapling",
+          "sprite": "tree-elm-sapling",
+          "scale": [0.3, 0.4],
+          "collider": { "width": 6, "height": 4, "offsetY": -1 },
+          "harvest": { "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 300 }
+        },
+        {
+          "stage": "mature",
+          "sprite": "tree-normal",
+          "scale": [0.45, 0.55],
+          "collider": { "width": 10, "height": 8, "offsetY": -2 },
+          "harvest": { "resource": "wood-log", "yield": [2, 3], "tool": "axe", "hits": 3, "respawnSeconds": 900 }
+        }
+      ]
+    },
+    {
+      "id": "dead-stump",
+      "name": "Dead Stump",
+      "biomes": [4, 5, 7, 8],
+      "density": "low",
+      "stages": [
+        {
+          "stage": "mature",
+          "sprite": "stump-1",
+          "scale": [0.5, 0.6],
+          "collider": { "width": 12, "height": 8, "offsetY": 0 },
+          "harvest": { "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 0 }
+        }
+      ]
+    },
+    {
+      "id": "moss-stump",
+      "name": "Mossy Stump",
+      "biomes": [3, 7],
+      "density": "low",
+      "stages": [
+        {
+          "stage": "mature",
+          "sprite": "stump-2",
+          "scale": [0.5, 0.6],
+          "collider": { "width": 12, "height": 8, "offsetY": 0 },
+          "harvest": {
+            "resource": "wood-log", "yield": [1, 1], "tool": null, "hits": 1, "respawnSeconds": 0,
+            "bonus": { "resource": "herb-bitter", "chance": 0.25, "yield": [1, 1] }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "_doc": "Groundcover registry — small walkable plants (flowers, mushrooms, grass, bushes) that scatter across the map and can optionally be harvested. Trees are excluded — they have collision, chopping mechanics, and separate placement logic. Biomes use canonical indices from src/world/biomes.ts.",
+  "_biomeKey": {
+    "0": "Sea",
+    "1": "Rocky Shore",
+    "2": "Sandy Shore",
+    "3": "Marsh / Bog",
+    "4": "Dry Heath",
+    "5": "Coastal Heath",
+    "6": "Meadow",
+    "7": "Forest",
+    "8": "Spruce",
+    "9": "Cold Granite",
+    "10": "Bare Summit",
+    "11": "Snow Field"
+  },
+  "flora": [
+    {
+      "id": "grass-tuft",
+      "name": "Wild Grass",
+      "sprite": "grass-tuft",
+      "variants": 5,
+      "scale": [1.0, 1.4],
+      "biomes": [3, 4, 5, 6, 7],
+      "density": "high",
+      "harvest": {
+        "resource": "plant-fiber",
+        "yield": [1, 2],
+        "tool": null,
+        "respawnSeconds": 120
+      },
+      "sway": true
+    },
+    {
+      "id": "heather",
+      "name": "Heather",
+      "sprite": "bush-1",
+      "variants": 2,
+      "scale": [1.2, 1.6],
+      "biomes": [4, 5],
+      "density": "medium",
+      "harvest": {
+        "resource": "plant-fiber",
+        "yield": [1, 2],
+        "tool": null,
+        "respawnSeconds": 180
+      },
+      "sway": false
+    },
+    {
+      "id": "wildflower",
+      "name": "Wildflower",
+      "sprite": "flower-1",
+      "variants": 4,
+      "variantSuffix": ["yellow", "red", "blue", "purple"],
+      "scale": [1.2, 1.8],
+      "biomes": [5, 6],
+      "density": "medium",
+      "harvest": {
+        "resource": "herb-green",
+        "yield": [1, 1],
+        "tool": null,
+        "respawnSeconds": 300
+      },
+      "sway": true
+    },
+    {
+      "id": "meadow-flower",
+      "name": "Tall Meadow Flower",
+      "sprite": "flowers-2",
+      "variants": 4,
+      "variantSuffix": ["yellow", "red", "blue", "purple"],
+      "scale": [1.2, 1.8],
+      "biomes": [6],
+      "density": "low",
+      "harvest": {
+        "resource": "herb-green",
+        "yield": [1, 2],
+        "tool": null,
+        "respawnSeconds": 300
+      },
+      "sway": true
+    },
+    {
+      "id": "daisy",
+      "name": "Daisy",
+      "sprite": "flowers-3",
+      "variants": 4,
+      "variantSuffix": ["yellow", "red", "blue", "purple"],
+      "scale": [1.0, 1.4],
+      "biomes": [5, 6],
+      "density": "medium",
+      "harvest": null,
+      "sway": true
+    },
+    {
+      "id": "forest-mushroom",
+      "name": "Forest Mushroom",
+      "sprite": "mushroom",
+      "variants": 1,
+      "scale": [1.2, 1.6],
+      "biomes": [7, 8],
+      "density": "medium",
+      "harvest": {
+        "resource": "herb-green",
+        "yield": [1, 1],
+        "tool": null,
+        "respawnSeconds": 240
+      },
+      "sway": false
+    },
+    {
+      "id": "golden-mushroom",
+      "name": "Golden Cap",
+      "sprite": "mushrooms-yellow",
+      "variants": 1,
+      "scale": [1.2, 1.6],
+      "biomes": [3, 7],
+      "density": "low",
+      "harvest": {
+        "resource": "herb-bitter",
+        "yield": [1, 1],
+        "tool": null,
+        "respawnSeconds": 360
+      },
+      "sway": false
+    },
+    {
+      "id": "flamecap",
+      "name": "Flamecap Mushroom",
+      "sprite": "mushrooms-red",
+      "variants": 1,
+      "scale": [1.4, 1.8],
+      "biomes": [8],
+      "density": "rare",
+      "harvest": {
+        "resource": "herb-fire",
+        "yield": [1, 1],
+        "tool": null,
+        "respawnSeconds": 600
+      },
+      "sway": false
+    },
+    {
+      "id": "marsh-reed",
+      "name": "Marsh Reed",
+      "sprite": "grass-tuft-5",
+      "variants": 1,
+      "scale": [1.4, 2.0],
+      "biomes": [3],
+      "density": "high",
+      "harvest": {
+        "resource": "plant-fiber",
+        "yield": [2, 3],
+        "tool": null,
+        "respawnSeconds": 90
+      },
+      "sway": true
+    },
+    {
+      "id": "thornbush",
+      "name": "Thornbush",
+      "sprite": "bush-2",
+      "variants": 1,
+      "scale": [1.4, 1.8],
+      "biomes": [4],
+      "density": "low",
+      "harvest": {
+        "resource": "wood-log",
+        "yield": [1, 1],
+        "tool": "axe",
+        "respawnSeconds": 600
+      },
+      "sway": false
+    },
+    {
+      "id": "forest-fern",
+      "name": "Fern",
+      "sprite": "bush-1",
+      "variants": 2,
+      "scale": [1.0, 1.4],
+      "biomes": [7],
+      "density": "high",
+      "harvest": {
+        "resource": "plant-fiber",
+        "yield": [1, 2],
+        "tool": null,
+        "respawnSeconds": 120
+      },
+      "sway": true
+    },
+    {
+      "id": "lichen-patch",
+      "name": "Lichen",
+      "sprite": "rock-grass",
+      "variants": 1,
+      "scale": [1.0, 1.2],
+      "biomes": [9, 10],
+      "density": "low",
+      "harvest": {
+        "resource": "herb-bitter",
+        "yield": [1, 1],
+        "tool": null,
+        "respawnSeconds": 900
+      },
+      "sway": false
+    },
+    {
+      "id": "seaweed",
+      "name": "Seaweed",
+      "sprite": "water-lillies",
+      "variants": 1,
+      "scale": [1.2, 1.6],
+      "biomes": [0, 1],
+      "density": "medium",
+      "harvest": {
+        "resource": "plant-fiber",
+        "yield": [1, 2],
+        "tool": null,
+        "respawnSeconds": 180
+      },
+      "sway": true
+    },
+    {
+      "id": "dry-grass",
+      "name": "Dry Grass",
+      "sprite": "grass-tuft-1",
+      "variants": 3,
+      "scale": [1.0, 1.4],
+      "biomes": [2, 4],
+      "density": "medium",
+      "harvest": {
+        "resource": "plant-fiber",
+        "yield": [1, 1],
+        "tool": null,
+        "respawnSeconds": 150
+      },
+      "sway": true
+    },
+    {
+      "id": "spirit-moss",
+      "name": "Spirit Moss",
+      "sprite": "mushrooms-yellow",
+      "variants": 1,
+      "scale": [1.0, 1.4],
+      "biomes": [7],
+      "density": "rare",
+      "harvest": {
+        "resource": "spirit-sap",
+        "yield": [1, 1],
+        "tool": null,
+        "respawnSeconds": 1800
+      },
+      "sway": false,
+      "notes": "Only spawns in old-growth sections of forest — requires special placement logic"
+    }
+  ]
+}
