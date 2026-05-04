@@ -72,6 +72,8 @@ export class CraftingMenuScene extends Phaser.Scene {
   private activeTab: TabId = 'mind';
   private tabButtons: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private contentContainer!: Phaser.GameObjects.Container;
+  /** Objects placed outside the container (drag zones, remove buttons) — destroyed on tab switch. */
+  private floatingObjects: Phaser.GameObjects.GameObject[] = [];
 
   // Prototype data (loaded at create)
   private concepts: Concept[] = [];
@@ -313,6 +315,9 @@ export class CraftingMenuScene extends Phaser.Scene {
 
   private renderTab(): void {
     this.contentContainer.removeAll(true);
+    // Clean up drag zones, remove buttons, etc. that live outside the container
+    for (const obj of this.floatingObjects) obj.destroy();
+    this.floatingObjects = [];
 
     switch (this.activeTab) {
       case 'mind': this.renderMindTab(); break;
@@ -323,6 +328,13 @@ export class CraftingMenuScene extends Phaser.Scene {
   }
 
   // ─── MIND TAB (Tinker Tray) ─────────────────────────────────────────────────
+
+  // Drag state — tracked at scene level so event handlers can access it.
+  private dragGhost: Phaser.GameObjects.Text | null = null;
+  private dragSourceSlot: number | null = null;       // slot index if dragging FROM a slot
+  private dragSourceItemId: string | null = null;     // item ID being dragged
+  private slotDropZones: { x: number; y: number; w: number; h: number; idx: number }[] = [];
+  private availableTrayFilter: 'all' | 'concepts' | 'materials' = 'all';
 
   private renderMindTab(): void {
     const { width } = this.scale;
@@ -335,11 +347,20 @@ export class CraftingMenuScene extends Phaser.Scene {
       }).setOrigin(0.5, 0)
     );
 
-    // Tinker tray slots (vertical hierarchy)
+    // ── Tinker tray slots ─────────────────────────────────────────────────────
     const slotLabels = ['Primary Focus', 'Secondary Focus', 'Background', 'Distraction', 'Overload'];
     const slotColors = ['#ffdd44', '#cccccc', '#666666', '#553333', '#441111'];
-    const slotStartY = 36;
-    const slotSpacing = 56;
+    const slotStartY = 28;
+    const slotSpacing = 46;
+    const slotW = 240;
+    const slotH = 38;
+
+    // Reset drop zones for this render
+    this.slotDropZones = [];
+
+    // Container offset — needed to translate world coords ↔ container coords
+    const cx = this.contentContainer.x;
+    const cy = this.contentContainer.y;
 
     for (let i = 0; i < 5; i++) {
       const sy = slotStartY + i * slotSpacing;
@@ -347,68 +368,133 @@ export class CraftingMenuScene extends Phaser.Scene {
       const concept = slotValue ? this.concepts.find(c => c.id === slotValue) : null;
       const resource = slotValue && !concept ? this.resources.find(r => r.id === slotValue) : null;
 
-      // Slot background
+      // Register drop zone (in world coords for hit testing)
+      this.slotDropZones.push({
+        x: cx + panelW / 2 - slotW / 2,
+        y: cy + sy - slotH / 2,
+        w: slotW,
+        h: slotH,
+        idx: i,
+      });
+
+      // Slot background — degradation for slots 3-5
       const slotBg = this.add.graphics();
       const alpha = i < 2 ? 0.3 : i < 3 ? 0.15 : 0.08;
       slotBg.fillStyle(TAB_COLORS.mind, alpha);
-      slotBg.fillRoundedRect(panelW / 2 - 120, sy - 16, 240, 44, 6);
+      slotBg.fillRoundedRect(panelW / 2 - slotW / 2, sy - slotH / 2, slotW, slotH, 6);
       if (i < 2) {
         slotBg.lineStyle(1.5, TAB_COLORS.mind, 0.6);
-        slotBg.strokeRoundedRect(panelW / 2 - 120, sy - 16, 240, 44, 6);
+        slotBg.strokeRoundedRect(panelW / 2 - slotW / 2, sy - slotH / 2, slotW, slotH, 6);
       } else {
-        slotBg.lineStyle(1, 0x444444, 0.3);
-        slotBg.strokeRoundedRect(panelW / 2 - 120, sy - 16, 240, 44, 6);
+        // Visual degradation: dashed feel via lower opacity + muted color
+        const borderAlpha = i < 3 ? 0.3 : i < 4 ? 0.2 : 0.12;
+        slotBg.lineStyle(1, 0x444444, borderAlpha);
+        slotBg.strokeRoundedRect(panelW / 2 - slotW / 2, sy - slotH / 2, slotW, slotH, 6);
+        // Static/noise lines for slots 4-5
+        if (i >= 3) {
+          slotBg.lineStyle(0.5, 0x333333, 0.15);
+          for (let n = 0; n < 3; n++) {
+            const ny = sy - slotH / 2 + 6 + n * 12;
+            slotBg.lineBetween(panelW / 2 - slotW / 2 + 8, ny, panelW / 2 + slotW / 2 - 8, ny);
+          }
+        }
       }
       this.contentContainer.add(slotBg);
 
       // Slot rank label
       this.contentContainer.add(
-        this.add.text(panelW / 2 - 108, sy - 8, `${i + 1}`, {
+        this.add.text(panelW / 2 - slotW / 2 + 12, sy - 6, `${i + 1}`, {
           fontSize: '10px', color: slotColors[i],
         })
       );
 
-      // Slot content
-      if (concept) {
-        this.contentContainer.add(
-          this.add.text(panelW / 2 - 86, sy - 10, concept.name, {
-            fontSize: '13px', color: i < 2 ? '#ffffff' : '#888888', fontStyle: i < 2 ? 'bold' : 'normal',
-          })
-        );
-        this.contentContainer.add(
-          this.add.text(panelW / 2 - 86, sy + 6, concept.category, {
-            fontSize: '10px', color: '#666666',
-          })
-        );
-      } else if (resource) {
-        this.contentContainer.add(
-          this.add.text(panelW / 2 - 86, sy - 4, resource.name, {
-            fontSize: '13px', color: i < 2 ? '#ffffff' : '#888888',
-          })
-        );
+      // Slot content — make it a hit zone for dragging
+      const displayName = concept ? concept.name : resource ? resource.name : null;
+
+      if (displayName && slotValue) {
+        // Occupied slot — interactive, can drag to reorder or remove
+        const slotText = this.add.text(panelW / 2 - slotW / 2 + 34, sy - 8, displayName, {
+          fontSize: '12px',
+          color: i < 2 ? '#ffffff' : '#888888',
+          fontStyle: i < 2 ? 'bold' : 'normal',
+        });
+        this.contentContainer.add(slotText);
+
+        if (concept) {
+          this.contentContainer.add(
+            this.add.text(panelW / 2 - slotW / 2 + 34, sy + 6, concept.category, {
+              fontSize: '9px', color: '#555555',
+            })
+          );
+        }
+
+        // Drag handle — invisible rectangle over the slot for touch-friendly dragging.
+        // Uses a Phaser Zone added outside the container so world coords match pointer.
+        const hitZone = this.add.zone(cx + panelW / 2 - 16, cy + sy, slotW - 60, slotH)
+          .setInteractive({ draggable: true, useHandCursor: true })
+          .setDepth(DEPTH_BASE + 7);
+
+        // ✕ remove button — placed outside container at higher depth so it's
+        // not covered by the drag zone.
+        const removeBtn = this.add.text(cx + panelW / 2 + slotW / 2 - 24, cy + sy, '✕', {
+          fontSize: '14px', color: '#664444',
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(DEPTH_BASE + 8);
+        removeBtn.on('pointerover', () => removeBtn.setColor('#ff6644'));
+        removeBtn.on('pointerout', () => removeBtn.setColor('#664444'));
+        removeBtn.on('pointerdown', () => {
+          this.traySlots[i] = null;
+          this.renderTab();
+        });
+        this.floatingObjects.push(hitZone, removeBtn);
+        hitZone.setData('slotIdx', i);
+        hitZone.setData('itemId', slotValue);
+
+        // Drag start — create ghost text
+        hitZone.on('dragstart', (_p: Phaser.Input.Pointer) => {
+          this.dragSourceSlot = i;
+          this.dragSourceItemId = slotValue;
+          this.dragGhost = this.add.text(0, 0, displayName, {
+            fontSize: '12px', color: '#ffffff', fontStyle: 'bold',
+            backgroundColor: '#3a5a8c88',
+            padding: { x: 6, y: 3 },
+          }).setDepth(DEPTH_BASE + 20).setOrigin(0.5);
+        });
+
+        hitZone.on('drag', (p: Phaser.Input.Pointer) => {
+          if (this.dragGhost) {
+            this.dragGhost.setPosition(p.x, p.y);
+            this.highlightDropTarget(p.x, p.y);
+          }
+        });
+
+        hitZone.on('dragend', (p: Phaser.Input.Pointer) => {
+          this.handleDrop(p.x, p.y);
+        });
+
+        // Don't add hitZone to container — it's in world coords already
       } else {
+        // Empty slot placeholder
         this.contentContainer.add(
-          this.add.text(panelW / 2, sy - 4, i < 2 ? 'Drag here...' : '( empty )', {
-            fontSize: '11px', color: '#444444',
+          this.add.text(panelW / 2, sy - 2, i < 2 ? 'Drag here...' : '( empty )', {
+            fontSize: '10px', color: '#333344',
           }).setOrigin(0.5, 0)
         );
       }
 
-      // Slot type label (right side)
+      // Slot label (right side)
       this.contentContainer.add(
-        this.add.text(panelW / 2 + 104, sy - 4, slotLabels[i], {
-          fontSize: '9px', color: slotColors[i],
+        this.add.text(panelW / 2 + slotW / 2 - 36, sy - 2, slotLabels[i], {
+          fontSize: '8px', color: slotColors[i],
         }).setOrigin(1, 0)
       );
     }
 
     // ── Thought progress bar ──────────────────────────────────────────────────
-    const barY = slotStartY + 5 * slotSpacing + 10;
+    const barY = slotStartY + 5 * slotSpacing + 4;
     const barW = panelW - 60;
-    const barH = 24;
+    const barH = 20;
     const barX = 30;
 
-    // Bar background
     const barBg = this.add.graphics();
     barBg.fillStyle(0x222233, 0.8);
     barBg.fillRoundedRect(barX, barY, barW, barH, 4);
@@ -416,25 +502,199 @@ export class CraftingMenuScene extends Phaser.Scene {
     barBg.strokeRoundedRect(barX, barY, barW, barH, 4);
     this.contentContainer.add(barBg);
 
-    // Bar fill
     const fillG = this.add.graphics();
     fillG.fillStyle(0x3a5a8c, 0.7);
     fillG.fillRoundedRect(barX + 2, barY + 2, (barW - 4) * this.trayProgress, barH - 4, 3);
     this.contentContainer.add(fillG);
 
-    // Progress text
     this.contentContainer.add(
-      this.add.text(barX + barW / 2, barY + barH / 2, `💭 "The iron wants to move... but something holds it back..."`, {
-        fontSize: '10px', color: '#aabbcc',
+      this.add.text(barX + barW / 2, barY + barH / 2, `💭 "The iron wants to move..."`, {
+        fontSize: '9px', color: '#aabbcc',
       }).setOrigin(0.5)
     );
-
-    // Percentage
     this.contentContainer.add(
-      this.add.text(barX + barW - 4, barY + barH + 6, `${Math.round(this.trayProgress * 100)}%`, {
-        fontSize: '10px', color: '#6688aa',
+      this.add.text(barX + barW - 4, barY + barH + 4, `${Math.round(this.trayProgress * 100)}%`, {
+        fontSize: '9px', color: '#6688aa',
       }).setOrigin(1, 0)
     );
+
+    // ── Available items tray ──────────────────────────────────────────────────
+    this.renderAvailableTray(panelW, barY + barH + 24);
+  }
+
+  /** Horizontal strip of items the player can drag into slots. */
+  private renderAvailableTray(panelW: number, startY: number): void {
+    // Filter tabs
+    const filters: { label: string; key: 'all' | 'concepts' | 'materials' }[] = [
+      { label: 'All', key: 'all' },
+      { label: 'Concepts', key: 'concepts' },
+      { label: 'Materials', key: 'materials' },
+    ];
+    let filterX = 4;
+    for (const f of filters) {
+      const active = this.availableTrayFilter === f.key;
+      const ft = this.add.text(filterX, startY, f.label, {
+        fontSize: '9px',
+        color: active ? '#ffffff' : '#666666',
+        backgroundColor: active ? '#333344' : undefined,
+        padding: { x: 5, y: 2 },
+      }).setInteractive({ useHandCursor: true });
+      ft.on('pointerdown', () => {
+        this.availableTrayFilter = f.key;
+        this.renderTab();
+      });
+      this.contentContainer.add(ft);
+      filterX += ft.width + 6;
+    }
+
+    // Gather available items (not already in a slot)
+    const inSlots = new Set(this.traySlots.filter(Boolean));
+    type TrayItem = { id: string; label: string; type: 'concept' | 'material' };
+    const items: TrayItem[] = [];
+
+    if (this.availableTrayFilter !== 'materials') {
+      for (const c of this.concepts) {
+        if (!inSlots.has(c.id)) items.push({ id: c.id, label: c.name, type: 'concept' });
+      }
+    }
+    if (this.availableTrayFilter !== 'concepts') {
+      for (const [itemId] of this.inventory) {
+        if (!inSlots.has(itemId)) {
+          const res = this.resources.find(r => r.id === itemId);
+          if (res) items.push({ id: itemId, label: res.name, type: 'material' });
+        }
+      }
+    }
+
+    // Scrollable horizontal strip
+    const trayY = startY + 22;
+    const chipH = 28;
+    const chipGap = 6;
+    let chipX = 4;
+
+    const cx = this.contentContainer.x;
+    const cy = this.contentContainer.y;
+
+    for (const item of items) {
+      const chipW = Math.max(item.label.length * 6.5 + 16, 60);
+      const chipColor = item.type === 'concept' ? 0x3a5a3a : 0x5a4a3a;
+
+      // Chip background
+      const chipBg = this.add.graphics();
+      chipBg.fillStyle(chipColor, 0.5);
+      chipBg.fillRoundedRect(chipX, trayY, chipW, chipH, 4);
+      chipBg.lineStyle(1, item.type === 'concept' ? 0x66aa66 : 0xaa8844, 0.4);
+      chipBg.strokeRoundedRect(chipX, trayY, chipW, chipH, 4);
+      this.contentContainer.add(chipBg);
+
+      // Chip label
+      const chipLabel = this.add.text(chipX + chipW / 2, trayY + chipH / 2, item.label, {
+        fontSize: '10px', color: '#cccccc',
+      }).setOrigin(0.5);
+      this.contentContainer.add(chipLabel);
+
+      // Drag zone (world coords) for this chip
+      const dragChip = this.add.zone(cx + chipX + chipW / 2, cy + trayY + chipH / 2, chipW, chipH)
+        .setInteractive({ draggable: true, useHandCursor: true })
+        .setDepth(DEPTH_BASE + 7);
+      dragChip.setData('itemId', item.id);
+      dragChip.setData('slotIdx', -1); // -1 means "from tray, not from a slot"
+
+      dragChip.on('dragstart', () => {
+        this.dragSourceSlot = null;
+        this.dragSourceItemId = item.id;
+        this.dragGhost = this.add.text(0, 0, item.label, {
+          fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
+          backgroundColor: '#3a5a8c88',
+          padding: { x: 6, y: 3 },
+        }).setDepth(DEPTH_BASE + 20).setOrigin(0.5);
+      });
+
+      dragChip.on('drag', (p: Phaser.Input.Pointer) => {
+        if (this.dragGhost) {
+          this.dragGhost.setPosition(p.x, p.y);
+          this.highlightDropTarget(p.x, p.y);
+        }
+      });
+
+      dragChip.on('dragend', (p: Phaser.Input.Pointer) => {
+        this.handleDrop(p.x, p.y);
+      });
+      this.floatingObjects.push(dragChip);
+
+      chipX += chipW + chipGap;
+    }
+
+    if (items.length === 0) {
+      this.contentContainer.add(
+        this.add.text(panelW / 2, trayY + chipH / 2, '( no items available )', {
+          fontSize: '10px', color: '#444444',
+        }).setOrigin(0.5)
+      );
+    }
+  }
+
+  // ── Drag-and-drop helpers ─────────────────────────────────────────────────
+
+  /** Highlight which slot the pointer is hovering over during a drag. */
+  private highlightDropTarget(px: number, py: number): void {
+    // Remove old highlight
+    this.children.getByName('slot-highlight')?.destroy();
+
+    const target = this.getDropSlotAt(px, py);
+    if (target === null) return;
+
+    const zone = this.slotDropZones[target];
+    const g = this.add.graphics().setDepth(DEPTH_BASE + 15);
+    g.setName('slot-highlight');
+    g.lineStyle(2, 0x88ccff, 0.7);
+    g.strokeRoundedRect(zone.x, zone.y, zone.w, zone.h, 6);
+  }
+
+  /** Find which slot (0-4) the pointer is over, or null. */
+  private getDropSlotAt(px: number, py: number): number | null {
+    for (const z of this.slotDropZones) {
+      if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h) {
+        return z.idx;
+      }
+    }
+    return null;
+  }
+
+  /** Handle the end of a drag — drop into slot, swap, or remove. */
+  private handleDrop(px: number, py: number): void {
+    // Clean up ghost and highlight
+    this.dragGhost?.destroy();
+    this.dragGhost = null;
+    this.children.getByName('slot-highlight')?.destroy();
+
+    const targetSlot = this.getDropSlotAt(px, py);
+    const itemId = this.dragSourceItemId;
+    const sourceSlot = this.dragSourceSlot;
+
+    if (!itemId) return;
+
+    if (targetSlot !== null) {
+      if (sourceSlot !== null) {
+        // Dragged from slot → slot: swap
+        const targetItem = this.traySlots[targetSlot];
+        this.traySlots[targetSlot] = itemId;
+        this.traySlots[sourceSlot] = targetItem;
+      } else {
+        // Dragged from available tray → slot: place (swap out existing if occupied)
+        this.traySlots[targetSlot] = itemId;
+      }
+    } else if (sourceSlot !== null) {
+      // Dragged from slot → nowhere: remove
+      this.traySlots[sourceSlot] = null;
+    }
+
+    // Reset drag state
+    this.dragSourceSlot = null;
+    this.dragSourceItemId = null;
+
+    // Re-render to reflect new slot contents
+    this.renderTab();
   }
 
   // ─── CONCEPTS TAB ───────────────────────────────────────────────────────────
