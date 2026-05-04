@@ -36,6 +36,9 @@ interface Concept {
   category: string;
   description: string;
   ranks: number;
+  requires?: string[];
+  unlocks?: string[];
+  learnedFrom?: string[];
 }
 
 interface Recipe {
@@ -805,9 +808,14 @@ export class CraftingMenuScene extends Phaser.Scene {
 
   // ─── CONCEPTS TAB ───────────────────────────────────────────────────────────
 
+  private conceptPanX = 0;
+  private conceptPanY = 0;
+  private conceptFilter: string = 'All';
+
   private renderConceptsTab(): void {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
     const panelW = Math.min(width - PANEL_MARGIN * 2, 720) - 32;
+    const panelH = Math.min(height - PANEL_MARGIN * 2, 520) - TAB_HEIGHT - 40;
 
     // Title
     this.contentContainer.add(
@@ -816,89 +824,270 @@ export class CraftingMenuScene extends Phaser.Scene {
       }).setOrigin(0.5, 0)
     );
 
-    // Category filter (horizontal)
-    const categories = ['All', 'Mechanics', 'Metallurgy', 'Chemistry', 'Woodcraft', 'Alchemy', 'Arcane'];
+    // Category filter
+    const categories = ['All', 'Mechanics', 'Metallurgy', 'Woodcraft', 'Materials', 'Alchemy', 'Arcane'];
     let catX = 0;
     categories.forEach((cat) => {
-      const catText = this.add.text(catX, 24, cat, {
-        fontSize: '10px', color: cat === 'All' ? '#ffffff' : '#888888',
-        backgroundColor: cat === 'All' ? '#333' : undefined,
-        padding: { x: 6, y: 3 },
+      const active = this.conceptFilter === cat;
+      const catText = this.add.text(catX, 22, cat, {
+        fontSize: '9px', color: active ? '#ffffff' : '#666666',
+        backgroundColor: active ? '#333344' : undefined,
+        padding: { x: 5, y: 2 },
       }).setInteractive({ useHandCursor: true });
+      catText.on('pointerdown', () => {
+        this.conceptFilter = cat;
+        this.renderTab();
+      });
       this.contentContainer.add(catText);
-      catX += catText.width + 8;
+      catX += catText.width + 6;
     });
 
-    // Node graph (simplified for prototype — grid layout)
-    const startY = 56;
-    const nodeSize = 52;
-    const gapX = 72;
-    const gapY = 68;
-    const cols = Math.floor(panelW / gapX);
-
-    // Fake mastery levels
-    const mastery: Record<string, number> = {
-      'heat-treatment': 2, 'friction': 1, 'tension': 1, 'rotation': 1,
-      'joinery': 2, 'sharpening': 2, 'combustion': 1, 'weaving': 1,
-      'tanning': 1, 'distillation': 0, 'inscription': 0,
-    };
-
+    // ── Build node positions by category cluster ─────────────────────────────
     const categoryColors: Record<string, number> = {
       mechanics: 0xc4820e, metallurgy: 0xa83232, woodcraft: 0x6b8c42,
       materials: 0x8b6914, textiles: 0x7b5ea7, alchemy: 0x2e7d6e,
       chemistry: 0x3a9e8f, arcane: 0x4a6fa5,
     };
 
-    this.concepts.forEach((concept, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const nx = col * gapX + gapX / 2;
-      const ny = startY + row * gapY;
-      const rank = mastery[concept.id] ?? 0;
-      const color = categoryColors[concept.category] ?? 0x666666;
+    // Cluster centers — arranged so related categories are nearby
+    const clusterCenters: Record<string, { x: number; y: number }> = {
+      mechanics:  { x: 120, y: 80 },
+      metallurgy: { x: 340, y: 60 },
+      woodcraft:  { x: 120, y: 220 },
+      materials:  { x: 340, y: 200 },
+      textiles:   { x: 540, y: 200 },
+      alchemy:    { x: 540, y: 60 },
+      chemistry:  { x: 340, y: 340 },
+      arcane:     { x: 540, y: 340 },
+    };
 
-      // Node circle
-      const g = this.add.graphics();
-      if (rank > 0) {
-        g.fillStyle(color, 0.3);
-        g.fillCircle(nx, ny, nodeSize / 2 - 4);
-        g.lineStyle(2, color, rank >= concept.ranks ? 1 : 0.6);
-        g.strokeCircle(nx, ny, nodeSize / 2 - 4);
-      } else {
-        g.fillStyle(0x333333, 0.3);
-        g.fillCircle(nx, ny, nodeSize / 2 - 4);
-        g.lineStyle(1, 0x555555, 0.4);
-        g.strokeCircle(nx, ny, nodeSize / 2 - 4);
+    // Fake mastery levels (will be replaced by real system later)
+    const mastery: Record<string, number> = {
+      'heat-treatment': 2, 'friction': 1, 'tension': 1, 'rotation': 1,
+      'joinery': 2, 'sharpening': 2, 'combustion': 1, 'weaving': 1,
+      'tanning': 1, 'distillation': 0, 'inscription': 0, 'bearings': 0,
+      'leverage': 1, 'alloys': 0, 'dissolution': 0, 'resonance': 0,
+    };
+
+    // Compute per-node positions: spread concepts within their cluster
+    type NodePos = { concept: Concept; x: number; y: number; rank: number };
+    const nodes: NodePos[] = [];
+    const catCounts: Record<string, number> = {};
+
+    for (const concept of this.concepts) {
+      const cat = concept.category;
+      const idx = catCounts[cat] ?? 0;
+      catCounts[cat] = idx + 1;
+      const center = clusterCenters[cat] ?? { x: 300, y: 200 };
+      // Spread in a small grid within the cluster
+      const col = idx % 3;
+      const row = Math.floor(idx / 3);
+      nodes.push({
+        concept,
+        x: center.x + (col - 1) * 70,
+        y: center.y + row * 65,
+        rank: mastery[concept.id] ?? 0,
+      });
+    }
+
+    // Node position lookup for drawing connections
+    const nodeMap = new Map<string, NodePos>();
+    for (const n of nodes) nodeMap.set(n.concept.id, n);
+
+    // ── Graph container (pannable) ───────────────────────────────────────────
+    const graphStartY = 42;
+    const graphContainer = this.add.container(this.conceptPanX, graphStartY + this.conceptPanY);
+    this.contentContainer.add(graphContainer);
+
+    // ── Connection lines (draw first so they're behind nodes) ────────────────
+    const linesG = this.add.graphics();
+    graphContainer.add(linesG);
+
+    for (const node of nodes) {
+      const c = node.concept as Concept & { requires?: string[] };
+      if (!c.requires) continue;
+
+      for (const req of c.requires) {
+        // Parse "friction:1" → concept id "friction"
+        const reqId = req.split(':')[0];
+        const source = nodeMap.get(reqId);
+        if (!source) continue;
+
+        const sourceRank = source.rank;
+        const reqRank = parseInt(req.split(':')[1] ?? '1', 10);
+        const met = sourceRank >= reqRank;
+
+        if (met) {
+          linesG.lineStyle(1.5, categoryColors[node.concept.category] ?? 0x666666, 0.4);
+        } else {
+          linesG.lineStyle(1, 0x444444, 0.2);
+        }
+        linesG.lineBetween(source.x, source.y, node.x, node.y);
+
+        // Small arrow head at target
+        const angle = Math.atan2(node.y - source.y, node.x - source.x);
+        const arrowLen = 8;
+        const ax = node.x - Math.cos(angle) * 24;
+        const ay = node.y - Math.sin(angle) * 24;
+        linesG.lineBetween(ax, ay,
+          ax - Math.cos(angle - 0.4) * arrowLen,
+          ay - Math.sin(angle - 0.4) * arrowLen);
+        linesG.lineBetween(ax, ay,
+          ax - Math.cos(angle + 0.4) * arrowLen,
+          ay - Math.sin(angle + 0.4) * arrowLen);
       }
-      this.contentContainer.add(g);
+    }
 
-      // Name
-      this.contentContainer.add(
-        this.add.text(nx, ny - 6, concept.name.split(' ')[0], {
-          fontSize: '9px',
-          color: rank > 0 ? '#ffffff' : '#555555',
-        }).setOrigin(0.5)
-      );
+    // ── Render nodes ─────────────────────────────────────────────────────────
+    const nodeSize = 46;
+    const filterCat = this.conceptFilter.toLowerCase();
+
+    for (const node of nodes) {
+      const { concept, x: nx, y: ny, rank } = node;
+      const color = categoryColors[concept.category] ?? 0x666666;
+      const dimmed = filterCat !== 'all' && concept.category !== filterCat;
+      const alpha = dimmed ? 0.25 : 1;
+
+      const g = this.add.graphics();
+      const mastered = rank >= concept.ranks;
+
+      if (rank > 0) {
+        g.fillStyle(color, 0.3 * alpha);
+        g.fillCircle(nx, ny, nodeSize / 2);
+        if (mastered) {
+          // Gold border for mastered
+          g.lineStyle(2.5, 0xffdd44, 0.8 * alpha);
+        } else {
+          g.lineStyle(2, color, 0.6 * alpha);
+        }
+        g.strokeCircle(nx, ny, nodeSize / 2);
+      } else {
+        g.fillStyle(0x333333, 0.25 * alpha);
+        g.fillCircle(nx, ny, nodeSize / 2);
+        g.lineStyle(1, 0x555555, 0.3 * alpha);
+        g.strokeCircle(nx, ny, nodeSize / 2);
+      }
+      graphContainer.add(g);
+
+      // Name (first word to save space)
+      const nameText = this.add.text(nx, ny - 6,
+        concept.name.length > 10 ? concept.name.split(' ')[0] : concept.name, {
+        fontSize: '8px',
+        color: rank > 0 ? '#ffffff' : '#555555',
+      }).setOrigin(0.5).setAlpha(alpha);
+      graphContainer.add(nameText);
 
       // Rank stars
       const stars = '★'.repeat(rank) + '☆'.repeat(concept.ranks - rank);
-      this.contentContainer.add(
+      graphContainer.add(
         this.add.text(nx, ny + 8, stars, {
-          fontSize: '8px',
-          color: rank > 0 ? '#ffdd44' : '#333333',
-        }).setOrigin(0.5)
+          fontSize: '7px', color: rank > 0 ? '#ffdd44' : '#333333',
+        }).setOrigin(0.5).setAlpha(alpha)
       );
 
-      // Lock icon for unlearned
       if (rank === 0) {
-        this.contentContainer.add(
-          this.add.text(nx, ny + 20, '🔒', { fontSize: '8px' }).setOrigin(0.5)
+        graphContainer.add(
+          this.add.text(nx, ny + 18, '🔒', { fontSize: '7px' }).setOrigin(0.5).setAlpha(alpha)
         );
       }
-    });
 
-    // Connection lines (simplified — just connect neighbors in same category)
-    // Full implementation would use the requires/unlocks graph
+      // Tap zone for detail panel
+      if (!dimmed) {
+        const cx = this.contentContainer.x;
+        const cy = this.contentContainer.y;
+        const tapZone = this.add.zone(
+          cx + this.conceptPanX + nx,
+          cy + graphStartY + this.conceptPanY + ny,
+          nodeSize, nodeSize
+        ).setInteractive({ useHandCursor: true }).setDepth(DEPTH_BASE + 8);
+
+        tapZone.on('pointerdown', () => {
+          this.showConceptDetail(concept, rank, panelW, panelH);
+        });
+        this.floatingObjects.push(tapZone);
+      }
+    }
+
+    // ── Pan gesture (drag on empty space) ────────────────────────────────────
+    const cx = this.contentContainer.x;
+    const cy = this.contentContainer.y;
+    const panZone = this.add.zone(
+      cx + panelW / 2, cy + graphStartY + panelH / 2, panelW, panelH - graphStartY
+    ).setInteractive({ draggable: true }).setDepth(DEPTH_BASE + 6);
+
+    let panStartX = 0;
+    let panStartY = 0;
+    panZone.on('dragstart', () => {
+      panStartX = this.conceptPanX;
+      panStartY = this.conceptPanY;
+    });
+    panZone.on('drag', (_p: Phaser.Input.Pointer, dragX: number, dragY: number) => {
+      this.conceptPanX = panStartX + dragX;
+      this.conceptPanY = panStartY + dragY;
+      graphContainer.setPosition(this.conceptPanX, graphStartY + this.conceptPanY);
+    });
+    this.floatingObjects.push(panZone);
+  }
+
+  /** Show a detail panel for a tapped concept node. */
+  private showConceptDetail(concept: Concept, rank: number, panelW: number, panelH: number): void {
+    // Remove old detail
+    this.children.getByName('concept-detail-bg')?.destroy();
+    const existing = this.contentContainer.getAll().filter(
+      (obj) => (obj as Phaser.GameObjects.GameObject & { _isConceptDetail?: boolean })._isConceptDetail
+    );
+    existing.forEach(obj => { obj.destroy(); this.contentContainer.remove(obj); });
+
+    const makeDetail = (go: Phaser.GameObjects.Text | Phaser.GameObjects.Graphics) => {
+      (go as unknown as { _isConceptDetail: boolean })._isConceptDetail = true;
+      this.contentContainer.add(go);
+      return go;
+    };
+
+    const dy = panelH - 90;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a1a2a, 0.95);
+    bg.fillRoundedRect(0, dy, panelW, 90, 6);
+    bg.lineStyle(1, 0x446644, 0.5);
+    bg.strokeRoundedRect(0, dy, panelW, 90, 6);
+    makeDetail(bg as unknown as Phaser.GameObjects.Text);
+
+    const c = concept as Concept & { requires?: string[]; unlocks?: string[] };
+
+    makeDetail(this.add.text(8, dy + 6, concept.name, {
+      fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
+    }));
+
+    const stars = '★'.repeat(rank) + '☆'.repeat(concept.ranks - rank);
+    makeDetail(this.add.text(8, dy + 22, `${stars}  Rank ${rank}/${concept.ranks}`, {
+      fontSize: '10px', color: rank > 0 ? '#ffdd44' : '#666666',
+    }));
+
+    makeDetail(this.add.text(8, dy + 38, concept.description, {
+      fontSize: '9px', color: '#aaaaaa', wordWrap: { width: panelW - 120 },
+    }));
+
+    if (c.requires && c.requires.length > 0) {
+      makeDetail(this.add.text(8, dy + 58, `Requires: ${c.requires.join(', ')}`, {
+        fontSize: '8px', color: '#886666',
+      }));
+    }
+
+    if (c.unlocks && c.unlocks.length > 0) {
+      makeDetail(this.add.text(8, dy + 70, `Unlocks: ${c.unlocks.join(', ')}`, {
+        fontSize: '8px', color: '#668866',
+      }));
+    }
+
+    // [Add to Mind] button
+    const mindBtn = this.add.text(panelW - 100, dy + 8, '[Add to Mind]', {
+      fontSize: '10px', color: '#6688aa',
+    }).setInteractive({ useHandCursor: true });
+    mindBtn.on('pointerdown', () => {
+      const emptyIdx = this.traySlots.indexOf(null);
+      if (emptyIdx !== -1) this.tinkerTray.setSlot(emptyIdx, concept.id);
+    });
+    makeDetail(mindBtn);
   }
 
   // ─── RECIPES TAB ────────────────────────────────────────────────────────────
