@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
+import { ProjectSystem } from '../systems/ProjectSystem';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -86,6 +87,9 @@ export class CraftingMenuScene extends Phaser.Scene {
   private recipes: Recipe[] = [];
   private resources: Resource[] = [];
 
+  /** Recipe currently shown in Forge View (null = normal tab view). */
+  private forgeRecipe: Recipe | null = null;
+
   /** Last discovery result — shown as a notification on the Mind tab. */
   private lastDiscovery: Discovery | null = null;
 
@@ -130,6 +134,15 @@ export class CraftingMenuScene extends Phaser.Scene {
       sys = new DiscoverySystem(this);
       // Load recipe defs if available
       if (this.recipes.length > 0) sys.loadRecipeDefs(this.recipes);
+    }
+    return sys;
+  }
+
+  private get projectSys(): ProjectSystem {
+    let sys = this.game.registry.get('projectSystem') as ProjectSystem | undefined;
+    if (!sys) {
+      sys = new ProjectSystem(this);
+      if (this.recipes.length > 0) sys.loadRecipes(this.recipes);
     }
     return sys;
   }
@@ -252,6 +265,7 @@ export class CraftingMenuScene extends Phaser.Scene {
         this.recipes = data.recipes ?? [];
         // Feed discovery defs so innate recipes auto-unlock
         this.discoverySys.loadRecipeDefs(this.recipes);
+        this.projectSys.loadRecipes(this.recipes);
       }
       if (resourcesRes.ok) {
         const data = await resourcesRes.json();
@@ -362,6 +376,12 @@ export class CraftingMenuScene extends Phaser.Scene {
     // Clean up drag zones, remove buttons, etc. that live outside the container
     for (const obj of this.floatingObjects) obj.destroy();
     this.floatingObjects = [];
+
+    // Forge View overrides the normal tab content
+    if (this.forgeRecipe) {
+      this.renderForgeView(this.forgeRecipe);
+      return;
+    }
 
     switch (this.activeTab) {
       case 'mind': this.renderMindTab(); break;
@@ -1264,12 +1284,28 @@ export class CraftingMenuScene extends Phaser.Scene {
     }
     makeDetail(craftBtn);
 
-    // Add to Mind button
-    const mindBtn = this.add.text(x + 130, btnY + 14, '[Add to Mind]', {
+    // [FORGE] button — opens dependency pipeline view
+    const forgeBtnG = this.add.graphics();
+    forgeBtnG.fillStyle(0x333355, 0.8);
+    forgeBtnG.fillRoundedRect(x + 120, btnY, 80, 28, 4);
+    forgeBtnG.lineStyle(1, 0x5566aa, 0.8);
+    forgeBtnG.strokeRoundedRect(x + 120, btnY, 80, 28, 4);
+    makeDetail(forgeBtnG as unknown as Phaser.GameObjects.Text);
+
+    const forgeBtn = this.add.text(x + 160, btnY + 14, 'FORGE', {
+      fontSize: '12px', color: '#8899cc', fontStyle: 'bold',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    forgeBtn.on('pointerdown', () => {
+      this.forgeRecipe = recipe;
+      this.renderTab();
+    });
+    makeDetail(forgeBtn);
+
+    // [Add to Mind] button
+    const mindBtn = this.add.text(x + 12, btnY + 36, '[Add to Mind]', {
       fontSize: '10px', color: '#6688aa',
-    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+    }).setInteractive({ useHandCursor: true });
     mindBtn.on('pointerdown', () => {
-      // Add first concept to an empty slot
       const concept = recipe.concepts?.[0];
       if (concept) {
         const emptyIdx = this.traySlots.indexOf(null);
@@ -1277,6 +1313,291 @@ export class CraftingMenuScene extends Phaser.Scene {
       }
     });
     makeDetail(mindBtn);
+  }
+
+  // ─── FORGE VIEW ─────────────────────────────────────────────────────────────
+
+  /**
+   * Render the dependency pipeline for a target recipe.
+   * Left-to-right flowchart: raw → refined → component → final.
+   */
+  private renderForgeView(recipe: Recipe): void {
+    const { width, height } = this.scale;
+    const panelW = Math.min(width - PANEL_MARGIN * 2, 720) - 32;
+    const panelH = Math.min(height - PANEL_MARGIN * 2, 520) - TAB_HEIGHT - 40;
+    const inv = this.inventorySystem;
+
+    // ── Header ────────────────────────────────────────────────────────────────
+    const backBtn = this.add.text(4, 2, '← Back', {
+      fontSize: '11px', color: '#8899cc',
+    }).setInteractive({ useHandCursor: true });
+    backBtn.on('pointerdown', () => {
+      this.forgeRecipe = null;
+      this.renderTab();
+    });
+    this.contentContainer.add(backBtn);
+
+    this.contentContainer.add(
+      this.add.text(panelW / 2, 2, `FORGE: ${recipe.name}`, {
+        fontSize: '13px', color: '#ffccaa', fontStyle: 'bold',
+      }).setOrigin(0.5, 0)
+    );
+
+    // ── Build dependency tree ─────────────────────────────────────────────────
+    type DepNode = {
+      itemId: string;
+      name: string;
+      qty: number;
+      have: number;
+      recipe: Recipe | null;     // null = raw material
+      station: string | null;
+      children: DepNode[];
+      depth: number;
+    };
+
+    const buildTree = (itemId: string, qty: number, depth: number): DepNode => {
+      const r = this.recipes.find(rr => rr.output.item === itemId);
+      const res = this.resources.find(rr => rr.id === itemId);
+      const name = r?.name ?? res?.name ?? itemId;
+      const have = inv.getQty(itemId);
+
+      if (!r || have >= qty) {
+        // Raw material or already have enough
+        return { itemId, name, qty, have, recipe: null, station: null, children: [], depth };
+      }
+
+      const outputQty = r.output.qty;
+      const batches = Math.ceil(Math.max(0, qty - have) / outputQty);
+      const children = r.inputs.map(input => buildTree(input.item, input.qty * batches, depth + 1));
+
+      return { itemId, name, qty, have, recipe: r, station: r.station, children, depth };
+    };
+
+    const root = buildTree(recipe.output.item, recipe.output.qty, 0);
+
+    // ── Flatten tree into columns by depth ────────────────────────────────────
+    const columns: DepNode[][] = [];
+    const flatten = (node: DepNode) => {
+      if (!columns[node.depth]) columns[node.depth] = [];
+      columns[node.depth].push(node);
+      for (const child of node.children) flatten(child);
+    };
+    flatten(root);
+
+    // Reverse so raw materials are on the left, final product on the right
+    columns.reverse();
+
+    // ── Render nodes ──────────────────────────────────────────────────────────
+    const nodeW = 90;
+    const nodeH = 50;
+    const colGap = 110;
+    const rowGap = 58;
+    const startX = 20;
+    const startY = 30;
+
+    // Store positions for drawing arrows
+    type NodePos = { x: number; y: number; node: DepNode };
+    const nodePositions = new Map<string, NodePos>();
+
+    for (let col = 0; col < columns.length; col++) {
+      const nodes = columns[col];
+      for (let row = 0; row < nodes.length; row++) {
+        const node = nodes[row];
+        const nx = startX + col * colGap;
+        const ny = startY + row * rowGap;
+        const enough = node.have >= node.qty;
+        const canCraftNow = node.recipe && this.canCraftRecipe(node.recipe);
+        const isRaw = !node.recipe;
+
+        // Unique key for position lookup
+        const key = `${node.itemId}:${col}:${row}`;
+        nodePositions.set(key, { x: nx + nodeW / 2, y: ny + nodeH / 2, node });
+
+        // Node background
+        const bg = this.add.graphics();
+        if (enough) {
+          bg.fillStyle(0x224422, 0.7);
+          bg.lineStyle(1.5, 0x44aa44, 0.8);
+        } else if (canCraftNow) {
+          bg.fillStyle(0x443322, 0.7);
+          bg.lineStyle(1.5, 0xddaa44, 0.8);
+        } else if (isRaw) {
+          bg.fillStyle(0x332222, 0.7);
+          bg.lineStyle(1.5, 0xaa4444, 0.6);
+        } else {
+          bg.fillStyle(0x222233, 0.7);
+          bg.lineStyle(1, 0x555566, 0.5);
+        }
+        bg.fillRoundedRect(nx, ny, nodeW, nodeH, 4);
+        bg.strokeRoundedRect(nx, ny, nodeW, nodeH, 4);
+        this.contentContainer.add(bg);
+
+        // Status icon
+        const icon = enough ? '✓' : canCraftNow ? '⚒' : isRaw ? '✗' : '○';
+        const iconColor = enough ? '#44aa44' : canCraftNow ? '#ddaa44' : isRaw ? '#aa4444' : '#666666';
+        this.contentContainer.add(
+          this.add.text(nx + 6, ny + 4, icon, {
+            fontSize: '10px', color: iconColor,
+          })
+        );
+
+        // Item name
+        const displayName = node.name.length > 12 ? node.name.substring(0, 11) + '…' : node.name;
+        this.contentContainer.add(
+          this.add.text(nx + nodeW / 2, ny + 14, displayName, {
+            fontSize: '9px', color: '#cccccc', fontStyle: enough ? 'normal' : 'bold',
+          }).setOrigin(0.5, 0)
+        );
+
+        // Quantity
+        this.contentContainer.add(
+          this.add.text(nx + nodeW / 2, ny + 30, `${node.have}/${node.qty}`, {
+            fontSize: '10px',
+            color: enough ? '#44aa44' : '#aa8866',
+            fontStyle: 'bold',
+          }).setOrigin(0.5, 0)
+        );
+
+        // Station tag
+        if (node.station) {
+          this.contentContainer.add(
+            this.add.text(nx + nodeW - 4, ny + 4, node.station, {
+              fontSize: '7px', color: '#666688',
+            }).setOrigin(1, 0)
+          );
+        }
+      }
+    }
+
+    // ── Draw arrows between parent → children ─────────────────────────────────
+    const arrowG = this.add.graphics();
+    this.contentContainer.addAt(arrowG, 0); // behind nodes
+
+    const drawArrows = (node: DepNode, parentKey: string | null) => {
+      // Find this node's position
+      let thisKey: string | null = null;
+      for (const [key, pos] of nodePositions) {
+        if (pos.node === node) { thisKey = key; break; }
+      }
+      if (!thisKey) return;
+
+      if (parentKey) {
+        const from = nodePositions.get(thisKey);
+        const to = nodePositions.get(parentKey);
+        if (from && to) {
+          const enough = node.have >= node.qty;
+          arrowG.lineStyle(1.5, enough ? 0x44aa44 : 0x555566, enough ? 0.5 : 0.3);
+          arrowG.lineBetween(from.x + nodeW / 2 - 5, from.y, to.x - nodeW / 2 + 5, to.y);
+        }
+      }
+
+      for (const child of node.children) {
+        drawArrows(child, thisKey);
+      }
+    };
+    drawArrows(root, null);
+
+    // ── Summary panel (bottom) ────────────────────────────────────────────────
+    const sumY = panelH - 70;
+    const sumBg = this.add.graphics();
+    sumBg.fillStyle(0x1a1a2a, 0.9);
+    sumBg.fillRoundedRect(0, sumY, panelW, 70, 4);
+    sumBg.lineStyle(1, 0x444466, 0.5);
+    sumBg.strokeRoundedRect(0, sumY, panelW, 70, 4);
+    this.contentContainer.add(sumBg);
+
+    // Aggregate raw materials needed
+    const rawNeeds = new Map<string, { need: number; have: number }>();
+    const collectRaw = (node: DepNode) => {
+      if (!node.recipe && node.qty > 0) {
+        const existing = rawNeeds.get(node.itemId) ?? { need: 0, have: node.have };
+        existing.need += node.qty;
+        rawNeeds.set(node.itemId, existing);
+      }
+      for (const child of node.children) collectRaw(child);
+    };
+    collectRaw(root);
+
+    let rawText = '';
+    for (const [id, { need, have }] of rawNeeds) {
+      const res = this.resources.find(r => r.id === id);
+      const name = res ? res.name.split(' ')[0] : id;
+      const color = have >= need ? '✓' : '✗';
+      rawText += `${color} ${name} ${have}/${need}  `;
+    }
+    this.contentContainer.add(
+      this.add.text(8, sumY + 6, `Materials: ${rawText}`, {
+        fontSize: '9px', color: '#aaaaaa', wordWrap: { width: panelW - 16 },
+      })
+    );
+
+    // Steps + stations
+    let totalSteps = 0;
+    const stations = new Set<string>();
+    const countSteps = (node: DepNode) => {
+      if (node.recipe && node.have < node.qty) {
+        totalSteps++;
+        if (node.station) stations.add(node.station);
+      }
+      for (const child of node.children) countSteps(child);
+    };
+    countSteps(root);
+
+    this.contentContainer.add(
+      this.add.text(8, sumY + 24, `Steps: ${totalSteps}  |  Stations: ${stations.size > 0 ? [...stations].join(', ') : 'field only'}`, {
+        fontSize: '9px', color: '#888888',
+      })
+    );
+
+    // ── Action buttons ────────────────────────────────────────────────────────
+    // [PIN] button
+    const pinned = this.projectSys.isPinned(recipe.id);
+    const pinBtn = this.add.text(8, sumY + 44, pinned ? '★ Pinned' : '☆ Pin as Project', {
+      fontSize: '10px', color: pinned ? '#ffdd44' : '#6688aa',
+    }).setInteractive({ useHandCursor: !pinned });
+    if (!pinned) {
+      pinBtn.on('pointerdown', () => {
+        this.projectSys.pin(recipe.id);
+        this.renderTab();
+      });
+    }
+    this.contentContainer.add(pinBtn);
+
+    // [CRAFT AVAILABLE] button — craft what's possible right now
+    const craftableSteps = this.getCraftableSteps(root);
+    if (craftableSteps.length > 0) {
+      const craftAvailBtn = this.add.text(panelW - 130, sumY + 44, `Craft Available (${craftableSteps.length})`, {
+        fontSize: '10px', color: '#88ff88', fontStyle: 'bold',
+      }).setInteractive({ useHandCursor: true });
+      craftAvailBtn.on('pointerdown', () => {
+        for (const step of craftableSteps) {
+          for (const input of step.inputs) inv.remove(input.item, input.qty);
+          inv.add(step.output.item, step.output.qty);
+          this.discoverySys.recordAction(`craft:${step.id}`);
+        }
+        this.renderTab();
+      });
+      this.contentContainer.add(craftAvailBtn);
+    }
+  }
+
+  /** Find all recipes in the tree that can be crafted right now (leaf-first). */
+  private getCraftableSteps(root: { itemId: string; qty: number; have: number; recipe: Recipe | null; children: { itemId: string; qty: number; have: number; recipe: Recipe | null; children: unknown[] }[] }): Recipe[] {
+    const result: Recipe[] = [];
+    const visited = new Set<string>();
+
+    const walk = (node: typeof root) => {
+      for (const child of node.children) walk(child as typeof root);
+
+      if (node.recipe && node.have < node.qty && !visited.has(node.recipe.id)) {
+        if (this.canCraftRecipe(node.recipe)) {
+          result.push(node.recipe);
+          visited.add(node.recipe.id);
+        }
+      }
+    };
+    walk(root);
+    return result;
   }
 
   // ─── PACK TAB (Inventory) ───────────────────────────────────────────────────

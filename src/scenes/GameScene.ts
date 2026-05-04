@@ -68,6 +68,7 @@ import { EssenceSystem } from '../systems/EssenceSystem';
 import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem } from '../systems/TinkerTraySystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
+import { ProjectSystem } from '../systems/ProjectSystem';
 import { EssenceHUD } from '../ui/EssenceHUD';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
@@ -431,6 +432,7 @@ export class GameScene extends Phaser.Scene {
   inventorySystem!: InventorySystem;
   tinkerTraySystem!: TinkerTraySystem;
   discoverySystem!: DiscoverySystem;
+  projectSystem!: ProjectSystem;
 
   // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
   private skillSystem!: SkillSystem;
@@ -1027,6 +1029,7 @@ export class GameScene extends Phaser.Scene {
 
     this.tinkerTraySystem = new TinkerTraySystem(this);
     this.discoverySystem = new DiscoverySystem(this);
+    this.projectSystem = new ProjectSystem(this);
 
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
@@ -6275,32 +6278,19 @@ export class GameScene extends Phaser.Scene {
     const registry = this.cache.json.get('trees-registry') as TreeRegistry | undefined;
     if (!registry) return;
 
-    // Generate placeholder textures for each unique sprite in the registry.
-    // Colour varies by sprite name so different species are visually distinct.
-    const spriteColors: Record<string, number> = {
-      'tree-oak':       0x4a8a28,
-      'tree-oak-small': 0x5a9a38,
-      'tree-birch':     0x6aaa48,
-      'tree-birch-2':   0x7aba58,
-      'tree-spruce':    0x2a6a1a,
-      'tree-spruce-2':  0x1a5a0a,
-      'tree-pine':      0x3a7a2a,
-      'tree-big':       0x2a5a18,
-      'tree-normal':    0x4a8a30,
-      'stump-1':        0x6a5a3a,
-      'stump-2':        0x5a6a4a,
-    };
+    // Generate placeholder textures for each unique sprite across all stages.
+    const defaultColor = 0x3a7a28;
     for (const def of registry.trees) {
-      if (!this.textures.exists(def.sprite)) {
-        const colour = spriteColors[def.sprite] ?? 0x3a7a28;
-        // Stumps are shorter than standing trees
-        const isStump = def.sprite.includes('stump');
-        const w = isStump ? 18 : 24;
-        const h = isStump ? 14 : 40;
-        const rt = this.add.renderTexture(0, 0, w, h);
-        rt.fill(colour, 1);
-        rt.saveTexture(def.sprite);
-        rt.destroy();
+      for (const stage of def.stages) {
+        if (!this.textures.exists(stage.sprite)) {
+          const isStump = stage.sprite.includes('stump');
+          const w = isStump ? 18 : 24;
+          const h = isStump ? 14 : 40;
+          const rt = this.add.renderTexture(0, 0, w, h);
+          rt.fill(defaultColor, 1);
+          rt.saveTexture(stage.sprite);
+          rt.destroy();
+        }
       }
     }
 
@@ -6328,11 +6318,11 @@ export class GameScene extends Phaser.Scene {
     const treeDefs = placements.map(p => ({
       x: p.x,
       y: p.y,
-      texture: p.def.sprite,
+      texture: p.stage.sprite,
       options: {
-        colliderWidth:  p.def.collider.width,
-        colliderHeight: p.def.collider.height,
-        colliderOffsetY: p.def.collider.offsetY,
+        colliderWidth:  p.stage.collider.width,
+        colliderHeight: p.stage.collider.height,
+        colliderOffsetY: p.stage.collider.offsetY,
         scale: p.scale,
       },
     }));
