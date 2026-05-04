@@ -93,7 +93,12 @@ async function capture(
 // ── 1. Main menu ──────────────────────────────────────────────────────────────
 
 test('screenshot: main menu', async ({ page }) => {
-  await bootGame(page);
+  // Navigate to /menu which boots MainMenuScene first (default / now boots DungeonForgeScene).
+  await page.goto('/menu');
+  await page.waitForFunction(
+    () => !!(window as unknown as Record<string, unknown>)['__game'],
+    { timeout: BOOT_MS },
+  );
 
   await page.waitForFunction(
     () => {
@@ -179,40 +184,16 @@ test('screenshot: pause menu', async ({ page }) => {
 // ── 5. Combat arena ───────────────────────────────────────────────────────────
 
 test('screenshot: combat arena', async ({ page }) => {
+  // Default / now boots DungeonForgeScene directly (no MainMenuScene detour).
   await bootGame(page);
 
-  // Wait for MainMenuScene to settle, then click the Arena button.
-  // This mirrors the real user flow and ensures DungeonForgeScene starts in
-  // foreground mode (not as a background, which suppresses the HUD).
-  await page.waitForFunction(
-    () => {
-      const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-      return !!game?.scene?.getScene('MainMenuScene')?.sys?.settings?.active;
-    },
-    { timeout: BOOT_MS },
-  );
-  await page.waitForTimeout(1_000);
-
-  // Stop all background scenes and restart DungeonForgeScene in foreground mode.
-  // Pass {} explicitly so Phaser doesn't reuse the stale { background: true }
-  // init data from the bgMode launch — that would suppress the HUD and nav panel.
-  await page.evaluate(() => {
-    const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
-    game?.scene?.stop('DungeonForgeScene');
-    game?.scene?.stop('WilderviewScene');
-    game?.scene?.stop('MainMenuScene');
-    game?.scene?.start('DungeonForgeScene', {});
-  });
-
-  // Wait until MainMenuScene is gone and DungeonForgeScene is the only active scene.
+  // Wait for DungeonForgeScene to become active.
   await page.waitForFunction(
     () => {
       const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
-      const menuGone  = !g?.scene?.getScene('MainMenuScene')?.sys?.settings?.active;
-      const arenaUp   = !!g?.scene?.getScene('DungeonForgeScene')?.sys?.settings?.active;
-      return menuGone && arenaUp;
+      return !!g?.scene?.getScene('DungeonForgeScene')?.sys?.settings?.active;
     },
-    { timeout: 8_000 },
+    { timeout: BOOT_MS },
   );
 
   // Let the first wave spawn and the hero start fighting.
