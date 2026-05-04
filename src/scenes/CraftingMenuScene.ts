@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { InventorySystem } from '../systems/InventorySystem';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -21,8 +22,9 @@ import * as Phaser from 'phaser';
 interface Resource {
   id: string;
   name: string;
-  category: string;
+  category: import('../systems/InventorySystem').ItemCategory;
   stackMax: number;
+  slot?: import('../systems/InventorySystem').EquipSlot;
 }
 
 interface Concept {
@@ -80,12 +82,30 @@ export class CraftingMenuScene extends Phaser.Scene {
   private traySlots: (string | null)[] = [null, null, null, null, null];
   private trayProgress = 0.58; // fake progress for demo
 
-  // Fake inventory for prototype
-  private inventory: Map<string, number> = new Map([
-    ['iron-ore', 12], ['coal', 8], ['wood-log', 8], ['hide-raw', 4],
-    ['plant-fiber', 14], ['herb-green', 7], ['salt', 5], ['iron-ingot', 3],
-    ['leather', 3], ['rope', 2], ['cloth', 3], ['charcoal', 4],
-  ]);
+  /**
+   * Shared inventory system. If GameScene already created one (normal play),
+   * we reuse it. If we're running standalone (/craft route), we create one
+   * on the fly and seed it with starter items so the prototype works.
+   */
+  private get inventorySystem(): InventorySystem {
+    let sys = this.game.registry.get('inventorySystem') as InventorySystem | undefined;
+    if (!sys) {
+      sys = new InventorySystem(this);
+      // Seed starter items for standalone prototype
+      const starterKit: [string, number][] = [
+        ['iron-ore', 12], ['coal', 8], ['wood-log', 8], ['hide-raw', 4],
+        ['plant-fiber', 14], ['herb-green', 7], ['salt', 5], ['iron-ingot', 3],
+        ['leather', 3], ['rope', 2], ['cloth', 3], ['charcoal', 4],
+      ];
+      for (const [id, qty] of starterKit) sys.add(id, qty);
+    }
+    return sys;
+  }
+
+  /** Shorthand — the inventory map for read-only display. */
+  private get inventory(): ReadonlyMap<string, number> {
+    return this.inventorySystem.getMap();
+  }
 
   constructor() {
     super({ key: 'CraftingMenuScene' });
@@ -203,6 +223,9 @@ export class CraftingMenuScene extends Phaser.Scene {
       if (resourcesRes.ok) {
         const data = await resourcesRes.json();
         this.resources = data.resources ?? [];
+        // Feed stack limits + categories into the shared inventory system
+        const sys = this.inventorySystem;
+        if (sys) sys.loadResourceDefs(this.resources);
       }
     } catch {
       // Prototype fallback — use inline minimal data
@@ -647,15 +670,11 @@ export class CraftingMenuScene extends Phaser.Scene {
 
     if (canCraft) {
       craftBtn.on('pointerdown', () => {
-        // Deduct materials
-        recipe.inputs.forEach(input => {
-          const have = this.inventory.get(input.item) ?? 0;
-          this.inventory.set(input.item, have - input.qty);
-        });
-        // Add output
-        const outHave = this.inventory.get(recipe.output.item) ?? 0;
-        this.inventory.set(recipe.output.item, outHave + recipe.output.qty);
-        // Re-render
+        const sys = this.inventorySystem;
+        // Deduct inputs, add output — system handles persistence and events
+        for (const input of recipe.inputs) sys.remove(input.item, input.qty);
+        sys.add(recipe.output.item, recipe.output.qty);
+        // Re-render to reflect updated quantities
         this.renderTab();
       });
     }

@@ -64,6 +64,7 @@ import { DeployableManager } from '../systems/DeployableManager';
 import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordinator';
 import { CreditCard } from '../ui/CreditCard';
 import { EssenceSystem } from '../systems/EssenceSystem';
+import { InventorySystem } from '../systems/InventorySystem';
 import { EssenceHUD } from '../ui/EssenceHUD';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
@@ -422,6 +423,7 @@ export class GameScene extends Phaser.Scene {
   private playerGold = 0;
   private goldText!: Phaser.GameObjects.Text;
   essenceSystem!: EssenceSystem;
+  inventorySystem!: InventorySystem;
 
   // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
   private skillSystem!: SkillSystem;
@@ -1000,6 +1002,18 @@ export class GameScene extends Phaser.Scene {
     this.communityEncounter = new CommunityEncounterCoordinator(this);
     new CreditCard(this);
     this.essenceSystem = new EssenceSystem(this);
+    this.inventorySystem = new InventorySystem(this);
+
+    // Seed starter items if inventory is empty (first load or fresh save).
+    // Once loot drops / gathering are wired, this can be removed.
+    if (this.inventorySystem.slotCount === 0) {
+      const starterKit: [string, number][] = [
+        ['iron-ore', 12], ['coal', 8], ['wood-log', 8], ['hide-raw', 4],
+        ['plant-fiber', 14], ['herb-green', 7], ['salt', 5], ['iron-ingot', 3],
+        ['leather', 3], ['rope', 2], ['cloth', 3], ['charcoal', 4],
+      ];
+      for (const [id, qty] of starterKit) this.inventorySystem.add(id, qty);
+    }
 
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
