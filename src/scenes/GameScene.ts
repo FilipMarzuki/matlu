@@ -5,6 +5,7 @@ import { t } from '../lib/i18n';
 import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES, CORRUPTED_CLEARING, CORRUPTED_LANDMARKS, HIDDEN_HOLLOW, WAYMARKER_STONE } from '../world/ChunkDef';
 import type { ChunkDef, ChunkItem } from '../world/ChunkDef';
 import { generateDecorations, decorTexture } from '../world/DecorationScatter';
+import { generateTreePlacements, type TreeRegistry } from '../world/TreeScatter';
 import { insertMatluRun } from '../lib/matluRuns';
 import { log } from '../lib/logger';
 import { NavScene } from './NavScene';
@@ -65,6 +66,7 @@ import { CommunityEncounterCoordinator } from '../lib/CommunityEncounterCoordina
 import { CreditCard } from '../ui/CreditCard';
 import { EssenceSystem } from '../systems/EssenceSystem';
 import { InventorySystem } from '../systems/InventorySystem';
+import { TinkerTraySystem } from '../systems/TinkerTraySystem';
 import { EssenceHUD } from '../ui/EssenceHUD';
 
 // ── Debug spawn toggles ───────────────────────────────────────────────────────
@@ -74,6 +76,7 @@ const DEBUG_SPAWN = {
   rabbits:          false,
   groundAnimals:    false,  // deer, hare, fox, grouse, stag, boar, badger
   birds:            false,
+  treeScatter:      true,   // biome-aware trees from trees.json
   decorScatter:     false,  // flowers, mushrooms, rocks, grass, stumps, sticks
   waterEdgeScatter: false,  // lily pads, rocks-in-water
   butterfliesAndBees: false,
@@ -374,6 +377,7 @@ export class GameScene extends Phaser.Scene {
   private mountainWalls!: Phaser.Physics.Arcade.StaticGroup;
   private navigationBarriers!: Phaser.Physics.Arcade.StaticGroup;
   private solidObjects!: Phaser.Physics.Arcade.StaticGroup;
+  private treeGroup: Phaser.Physics.Arcade.StaticGroup | null = null;
   private interactiveObjects: InteractiveObject[] = [];
   worldClock!: WorldClock;
   worldState!: WorldState;
@@ -424,6 +428,7 @@ export class GameScene extends Phaser.Scene {
   private goldText!: Phaser.GameObjects.Text;
   essenceSystem!: EssenceSystem;
   inventorySystem!: InventorySystem;
+  tinkerTraySystem!: TinkerTraySystem;
 
   // ─── Skill system (FIL-95) ────────────────────────────────────────────────────
   private skillSystem!: SkillSystem;
@@ -878,6 +883,9 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('mw-snow',     `${mwTiles}/snow.png`,     { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('mw-heather',  `${mwTiles}/heather.png`,  { frameWidth: 16, frameHeight: 16 });
 
+    // ── Tree registry (trees.json) ───────────────────────────────────────────────
+    this.load.json('trees-registry', 'macro-world/trees.json');
+
     // ── Nature sprites — DISABLED ──────────────────────────────────────────────
     // Preloads removed so we can re-place decorations deliberately.
     // Algorithm code kept in DecorationScatter.ts + ChunkDef.ts for reuse.
@@ -1015,6 +1023,8 @@ export class GameScene extends Phaser.Scene {
       for (const [id, qty] of starterKit) this.inventorySystem.add(id, qty);
     }
 
+    this.tinkerTraySystem = new TinkerTraySystem(this);
+
     // Level 1 starts at dawn (FIL-37)
     this.worldClock = new WorldClock({ startPhase: 'dawn' });
     this.worldState = new WorldState(this, this.worldClock);
@@ -1099,6 +1109,7 @@ export class GameScene extends Phaser.Scene {
       if (DEBUG_SPAWN.butterfliesAndBees) this.spawnButterfliesAndBees();
     }
     this.createSolidObjects();
+    if (DEBUG_SPAWN.treeScatter) this.stampTreeScatter();
 
     // ── World population — DISABLED (clean slate to evaluate terrain) ────────
     // Set ENABLE_WORLD_POPULATION = true to restore NPCs, buildings, particles,
@@ -4527,6 +4538,7 @@ export class GameScene extends Phaser.Scene {
     // Register solid-objects collider here (not in createSolidObjects) because
     // this.player is undefined until createPlayer() runs.
     this.physics.add.collider(this.player, this.solidObjects);
+    if (this.treeGroup) this.physics.add.collider(this.player, this.treeGroup);
 
     // Wire interactive object overlaps
     for (const obj of this.interactiveObjects) {
@@ -6242,6 +6254,97 @@ export class GameScene extends Phaser.Scene {
           repeat: -1,
           delay: Math.abs(d.x * 3 + d.y * 7) % 1500,  // 0–1.5 s stagger
         });
+      }
+    }
+  }
+
+  /**
+   * Place trees across the map using the biome-aware TreeScatter system.
+   * Reads trees.json for species definitions and uses the per-tile biome grid
+   * (tileDevBiome) to decide what grows where. Trees are SolidObjects with
+   * narrow trunk colliders — the player can walk behind the canopy.
+   *
+   * Uses placeholder textures until real tree sprites are generated.
+   */
+  private stampTreeScatter(): void {
+    if (!this.tileDevBiome) return;
+
+    const registry = this.cache.json.get('trees-registry') as TreeRegistry | undefined;
+    if (!registry) return;
+
+    // Generate placeholder textures for each unique sprite in the registry.
+    // Colour varies by sprite name so different species are visually distinct.
+    const spriteColors: Record<string, number> = {
+      'tree-oak':       0x4a8a28,
+      'tree-oak-small': 0x5a9a38,
+      'tree-birch':     0x6aaa48,
+      'tree-birch-2':   0x7aba58,
+      'tree-spruce':    0x2a6a1a,
+      'tree-spruce-2':  0x1a5a0a,
+      'tree-pine':      0x3a7a2a,
+      'tree-big':       0x2a5a18,
+      'tree-normal':    0x4a8a30,
+      'stump-1':        0x6a5a3a,
+      'stump-2':        0x5a6a4a,
+    };
+    for (const def of registry.trees) {
+      if (!this.textures.exists(def.sprite)) {
+        const colour = spriteColors[def.sprite] ?? 0x3a7a28;
+        // Stumps are shorter than standing trees
+        const isStump = def.sprite.includes('stump');
+        const w = isStump ? 18 : 24;
+        const h = isStump ? 14 : 40;
+        const rt = this.add.renderTexture(0, 0, w, h);
+        rt.fill(colour, 1);
+        rt.saveTexture(def.sprite);
+        rt.destroy();
+      }
+    }
+
+    // Build avoid rects from chunk zones + spawn clearing
+    const avoidRects = CHUNK_AVOID_ZONES.map(az => ({
+      x: az.x - az.r, y: az.y - az.r,
+      w: az.r * 2,    h: az.r * 2,
+    }));
+
+    const tilesX = Math.ceil((WORLD_W * 2) / TILE_SIZE);
+    const gridW = this.tileDevW || tilesX;
+
+    const placements = generateTreePlacements(
+      registry,
+      this.tileDevBiome,
+      gridW,
+      Math.ceil(this.tileDevBiome.length / gridW),
+      TILE_SIZE,
+      this.runSeed,
+      avoidRects,
+      800,
+    );
+
+    // Create a static group for all trees so they share one collider
+    const treeDefs = placements.map(p => ({
+      x: p.x,
+      y: p.y,
+      texture: p.def.sprite,
+      options: {
+        colliderWidth:  p.def.collider.width,
+        colliderHeight: p.def.collider.height,
+        colliderOffsetY: p.def.collider.offsetY,
+        scale: p.scale,
+      },
+    }));
+
+    if (treeDefs.length > 0) {
+      this.treeGroup = createSolidGroup(this, treeDefs);
+      // Collider with player registered in createPlayer() after this.player exists.
+
+      // Set depth for each tree so canopy renders above/below player correctly.
+      // Also store in decorImages so the H-key toggle hides them.
+      for (const child of this.treeGroup.getChildren()) {
+        const obj = child as Phaser.GameObjects.Image;
+        const { x: wx, y: wy } = isoToWorld(obj.x, obj.y);
+        obj.setDepth(isoDepth(wx, wy));
+        this.decorImages.push(obj);
       }
     }
   }

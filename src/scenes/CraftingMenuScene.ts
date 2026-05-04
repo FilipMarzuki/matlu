@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
+import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -80,20 +81,15 @@ export class CraftingMenuScene extends Phaser.Scene {
   private recipes: Recipe[] = [];
   private resources: Resource[] = [];
 
-  // Tinker tray state (prototype — in real game this would be in a system)
-  private traySlots: (string | null)[] = [null, null, null, null, null];
-  private trayProgress = 0.58; // fake progress for demo
+  /** Last discovery result — shown as a notification on the Mind tab. */
+  private lastDiscovery: Discovery | null = null;
 
-  /**
-   * Shared inventory system. If GameScene already created one (normal play),
-   * we reuse it. If we're running standalone (/craft route), we create one
-   * on the fly and seed it with starter items so the prototype works.
-   */
+  // ── Shared systems (lazy-init for standalone /craft route) ─────────────────
+
   private get inventorySystem(): InventorySystem {
     let sys = this.game.registry.get('inventorySystem') as InventorySystem | undefined;
     if (!sys) {
       sys = new InventorySystem(this);
-      // Seed starter items for standalone prototype
       const starterKit: [string, number][] = [
         ['iron-ore', 12], ['coal', 8], ['wood-log', 8], ['hide-raw', 4],
         ['plant-fiber', 14], ['herb-green', 7], ['salt', 5], ['iron-ingot', 3],
@@ -104,7 +100,25 @@ export class CraftingMenuScene extends Phaser.Scene {
     return sys;
   }
 
-  /** Shorthand — the inventory map for read-only display. */
+  private get tinkerTray(): TinkerTraySystem {
+    let sys = this.game.registry.get('tinkerTraySystem') as TinkerTraySystem | undefined;
+    if (!sys) {
+      sys = new TinkerTraySystem(this);
+      // Seed demo slots for standalone prototype
+      sys.slots = ['tension', 'iron-ingot', null, null, null];
+    }
+    return sys;
+  }
+
+  /** Shorthand — tray slots by reference (mutations go through system). */
+  private get traySlots(): (string | null)[] {
+    return this.tinkerTray.slots;
+  }
+
+  private get trayProgress(): number {
+    return this.tinkerTray.progress;
+  }
+
   private get inventory(): ReadonlyMap<string, number> {
     return this.inventorySystem.getMap();
   }
@@ -117,8 +131,8 @@ export class CraftingMenuScene extends Phaser.Scene {
     // Load data files
     await this.loadData();
 
-    // Pre-populate tinker tray for demo
-    this.traySlots = ['tension', 'iron-ingot', null, null, null];
+    // Load combo data into the tray system
+    this.loadTrayData();
 
     const { width, height } = this.scale;
 
@@ -271,6 +285,19 @@ export class CraftingMenuScene extends Phaser.Scene {
       { id: 'rope', name: 'Rope', category: 'refined', stackMax: 10 },
       { id: 'cloth', name: 'Cloth', category: 'refined', stackMax: 10 },
     ];
+  }
+
+  /** Load tinker-tray.json combo data into the system. */
+  private async loadTrayData(): Promise<void> {
+    try {
+      const res = await fetch('/macro-world/tinker-tray.json');
+      if (res.ok) {
+        const data = await res.json();
+        this.tinkerTray.loadCombos(data);
+      }
+    } catch {
+      // Combos stay empty — discoveries will hit "dead end" which is fine for prototype
+    }
   }
 
   // ─── Tab navigation ─────────────────────────────────────────────────────────
@@ -442,7 +469,7 @@ export class CraftingMenuScene extends Phaser.Scene {
         removeBtn.on('pointerover', () => removeBtn.setColor('#ff6644'));
         removeBtn.on('pointerout', () => removeBtn.setColor('#664444'));
         removeBtn.on('pointerdown', () => {
-          this.traySlots[i] = null;
+          this.tinkerTray.setSlot(i, null);
           this.renderTab();
         });
         this.floatingObjects.push(hitZone, removeBtn);
@@ -491,9 +518,11 @@ export class CraftingMenuScene extends Phaser.Scene {
 
     // ── Thought progress bar ──────────────────────────────────────────────────
     const barY = slotStartY + 5 * slotSpacing + 4;
-    const barW = panelW - 60;
+    const barW = panelW - 120; // leave room for Rest button
     const barH = 20;
     const barX = 30;
+    const progress = this.trayProgress;
+    const hasSlots = this.traySlots.some(Boolean);
 
     const barBg = this.add.graphics();
     barBg.fillStyle(0x222233, 0.8);
@@ -502,24 +531,88 @@ export class CraftingMenuScene extends Phaser.Scene {
     barBg.strokeRoundedRect(barX, barY, barW, barH, 4);
     this.contentContainer.add(barBg);
 
-    const fillG = this.add.graphics();
-    fillG.fillStyle(0x3a5a8c, 0.7);
-    fillG.fillRoundedRect(barX + 2, barY + 2, (barW - 4) * this.trayProgress, barH - 4, 3);
-    this.contentContainer.add(fillG);
+    if (progress > 0) {
+      const fillG = this.add.graphics();
+      fillG.fillStyle(0x3a5a8c, 0.7);
+      fillG.fillRoundedRect(barX + 2, barY + 2, (barW - 4) * progress, barH - 4, 3);
+      this.contentContainer.add(fillG);
+    }
 
+    // Progress hint text from the system
+    const hint = this.tinkerTray.getProgressHint();
     this.contentContainer.add(
-      this.add.text(barX + barW / 2, barY + barH / 2, `💭 "The iron wants to move..."`, {
-        fontSize: '9px', color: '#aabbcc',
-      }).setOrigin(0.5)
+      this.add.text(barX + barW / 2, barY + barH / 2,
+        hint ? `💭 ${hint}` : (hasSlots ? '💭 Rest to begin thinking...' : ''),
+        { fontSize: '9px', color: '#aabbcc' },
+      ).setOrigin(0.5)
     );
     this.contentContainer.add(
-      this.add.text(barX + barW - 4, barY + barH + 4, `${Math.round(this.trayProgress * 100)}%`, {
+      this.add.text(barX + barW - 4, barY + barH + 4, `${Math.round(progress * 100)}%`, {
         fontSize: '9px', color: '#6688aa',
       }).setOrigin(1, 0)
     );
 
+    // ── Rest button (prototype — triggers a tick manually) ────────────────────
+    const restBtnX = barX + barW + 10;
+    const restBtnW = 80;
+    const canRest = hasSlots && progress < 1;
+    const restBg = this.add.graphics();
+    restBg.fillStyle(canRest ? 0x335533 : 0x222222, 0.8);
+    restBg.fillRoundedRect(restBtnX, barY - 1, restBtnW, barH + 2, 4);
+    restBg.lineStyle(1, canRest ? 0x44aa44 : 0x333333, 0.5);
+    restBg.strokeRoundedRect(restBtnX, barY - 1, restBtnW, barH + 2, 4);
+    this.contentContainer.add(restBg);
+
+    const restBtn = this.add.text(restBtnX + restBtnW / 2, barY + barH / 2, '🌙 Rest', {
+      fontSize: '10px', color: canRest ? '#88ff88' : '#555555',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: canRest });
+
+    if (canRest) {
+      restBtn.on('pointerdown', () => {
+        const discovery = this.tinkerTray.tick();
+        if (discovery) {
+          this.lastDiscovery = discovery;
+        }
+        this.renderTab();
+      });
+    }
+    this.contentContainer.add(restBtn);
+
+    // ── Discovery notification ────────────────────────────────────────────────
+    if (this.lastDiscovery) {
+      const dy = barY + barH + 22;
+      const notifBg = this.add.graphics();
+      notifBg.fillStyle(this.lastDiscovery.isFalse ? 0x3a3a2a : 0x2a3a2a, 0.9);
+      notifBg.fillRoundedRect(barX, dy, panelW - 60, 40, 4);
+      notifBg.lineStyle(1, 0x88cc88, 0.5);
+      notifBg.strokeRoundedRect(barX, dy, panelW - 60, 40, 4);
+      this.contentContainer.add(notifBg);
+
+      this.contentContainer.add(
+        this.add.text(barX + 8, dy + 4, `✨ ${this.lastDiscovery.type}: ${this.lastDiscovery.id}`, {
+          fontSize: '10px', color: '#88ff88', fontStyle: 'bold',
+        })
+      );
+      this.contentContainer.add(
+        this.add.text(barX + 8, dy + 20, this.lastDiscovery.hint, {
+          fontSize: '9px', color: '#aaccaa', wordWrap: { width: panelW - 90 },
+        })
+      );
+
+      // Dismiss button
+      const dismissBtn = this.add.text(barX + panelW - 70, dy + 4, '✕', {
+        fontSize: '11px', color: '#666666',
+      }).setInteractive({ useHandCursor: true });
+      dismissBtn.on('pointerdown', () => {
+        this.lastDiscovery = null;
+        this.renderTab();
+      });
+      this.contentContainer.add(dismissBtn);
+    }
+
     // ── Available items tray ──────────────────────────────────────────────────
-    this.renderAvailableTray(panelW, barY + barH + 24);
+    const trayStartY = this.lastDiscovery ? barY + barH + 68 : barY + barH + 24;
+    this.renderAvailableTray(panelW, trayStartY);
   }
 
   /** Horizontal strip of items the player can drag into slots. */
@@ -674,19 +767,18 @@ export class CraftingMenuScene extends Phaser.Scene {
 
     if (!itemId) return;
 
+    const tray = this.tinkerTray;
     if (targetSlot !== null) {
       if (sourceSlot !== null) {
-        // Dragged from slot → slot: swap
-        const targetItem = this.traySlots[targetSlot];
-        this.traySlots[targetSlot] = itemId;
-        this.traySlots[sourceSlot] = targetItem;
+        // Dragged from slot → slot: swap (resets progress via system)
+        tray.swapSlots(sourceSlot, targetSlot);
       } else {
-        // Dragged from available tray → slot: place (swap out existing if occupied)
-        this.traySlots[targetSlot] = itemId;
+        // Dragged from available tray → slot: place (resets progress)
+        tray.setSlot(targetSlot, itemId);
       }
     } else if (sourceSlot !== null) {
-      // Dragged from slot → nowhere: remove
-      this.traySlots[sourceSlot] = null;
+      // Dragged from slot → nowhere: remove (resets progress)
+      tray.setSlot(sourceSlot, null);
     }
 
     // Reset drag state
