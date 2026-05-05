@@ -79,13 +79,13 @@ void main() {
   vec4 col = texture2D(uMainSampler, clamp(uv, 0.001, 0.999));
 
   float lum    = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-  vec3  violet = vec3(lum * 0.55, lum * 0.28, lum * 0.75 + 0.08);
-  col.rgb      = mix(col.rgb, violet, uCorruption * 0.45);
+  vec3  violet = vec3(lum * 0.22 + 0.04, lum * 0.08, lum * 0.38 + 0.16);
+  col.rgb      = mix(col.rgb, violet, uCorruption * 0.62);
 
   float pulse    = 0.5 + 0.5 * sin(uTime * 1.3);
   float dist     = length(outTexCoord - 0.5) * 1.7;
   float vignette = 1.0 - smoothstep(0.35, 0.90, dist);
-  col.rgb       *= mix(1.0, vignette, uCorruption * 0.35 * (0.7 + 0.3 * pulse));
+  col.rgb       *= mix(1.0, vignette * 0.72, uCorruption * 0.50 * (0.7 + 0.3 * pulse));
 
   float flicker = step(0.975,
     noise(outTexCoord * 22.0 + vec2(uTime * 9.0, uTime * 3.5)));
