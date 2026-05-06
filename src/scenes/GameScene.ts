@@ -3032,9 +3032,10 @@ export class GameScene extends Phaser.Scene {
       .on('pointerdown',  () => this.openPauseMenu());
     this.hudObjects.push(pauseBtn);
 
-    // Full-screen tint overlay — covers whatever viewport size we have.
+    // Full-screen corruption tint. A near-black violet reads as "wrongness"
+    // without washing every biome toward the same blue-grey.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, 0x130719, 0.46)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3123,7 +3124,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldTint(percent: number): void {
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
-    this.overlay.setAlpha(0.38 * (1 - ratio));
+    this.overlay.setAlpha(0.46 * (1 - ratio));
   }
 
   private createPortal(): void {

@@ -21,6 +21,14 @@ interface ProjectSave {
   pinned: string[]; // recipe IDs
 }
 
+interface ProjectRecipe {
+  id: string;
+  name: string;
+  output: { item: string; qty: number };
+  inputs: { item: string; qty: number }[];
+  station: string | null;
+}
+
 /**
  * ProjectSystem — tracks pinned recipe goals ("Working Toward").
  *
@@ -35,7 +43,7 @@ export class ProjectSystem {
   /** Pinned recipe IDs (max 3, index 0 = primary). */
   private pinnedIds: string[] = [];
   /** Full recipe list for dependency resolution. */
-  private recipes: { id: string; name: string; inputs: { item: string; qty: number }[]; station: string | null }[] = [];
+  private recipes: ProjectRecipe[] = [];
 
   constructor(scene: Phaser.Scene) {
     this.game = scene.game;
@@ -44,7 +52,7 @@ export class ProjectSystem {
     this.game.events.once(Phaser.Core.Events.DESTROY, () => this._persist());
   }
 
-  loadRecipes(recipes: { id: string; name: string; inputs: { item: string; qty: number }[]; station: string | null }[]): void {
+  loadRecipes(recipes: ProjectRecipe[]): void {
     this.recipes = recipes;
   }
 
@@ -94,8 +102,7 @@ export class ProjectSystem {
     let nextStation: string | null = null;
 
     const walk = (itemId: string, qty: number) => {
-      const r = this.recipes.find(rr => rr.id === itemId || rr.output?.item === itemId) as
-        { id: string; inputs: { item: string; qty: number }[]; station: string | null; output?: { item: string; qty: number } } | undefined;
+      const r = this.recipes.find(rr => rr.id === itemId || rr.output.item === itemId);
 
       if (!r) {
         // Raw material — no recipe to craft it
@@ -110,7 +117,7 @@ export class ProjectSystem {
       if (!nextStation && r.station) nextStation = r.station;
 
       const needToCraft = qty - have;
-      const outputQty = r.output?.qty ?? 1;
+      const outputQty = r.output.qty;
       const batches = Math.ceil(needToCraft / outputQty);
 
       for (const input of r.inputs) {

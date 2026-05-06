@@ -5,7 +5,7 @@
  * Passthrough at zero corruption. As the world becomes more corrupted:
  *
  *   1. Domain-warped UV distortion — the world visually "breathes" and warps.
- *   2. Purple desaturation — RGB lerps toward luminance-preserving violet.
+ *   2. Purple desaturation — RGB lerps toward bruised violet/black.
  *   3. Pulsing vignette — sinusoidal darkness closes in from screen edges.
  *   4. Corruption artefacts — rare bright violet pixel flickers.
  *
@@ -79,17 +79,17 @@ void main() {
   vec4 col = texture2D(uMainSampler, clamp(uv, 0.001, 0.999));
 
   float lum    = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-  vec3  violet = vec3(lum * 0.55, lum * 0.28, lum * 0.75 + 0.08);
-  col.rgb      = mix(col.rgb, violet, uCorruption * 0.45);
+  vec3  violet = vec3(lum * 0.22 + 0.04, lum * 0.07, lum * 0.36 + 0.16);
+  col.rgb      = mix(col.rgb, violet, uCorruption * 0.62);
 
   float pulse    = 0.5 + 0.5 * sin(uTime * 1.3);
   float dist     = length(outTexCoord - 0.5) * 1.7;
-  float vignette = 1.0 - smoothstep(0.35, 0.90, dist);
-  col.rgb       *= mix(1.0, vignette, uCorruption * 0.35 * (0.7 + 0.3 * pulse));
+  float vignette = 1.0 - smoothstep(0.28, 0.88, dist);
+  col.rgb       *= mix(1.0, vignette, uCorruption * 0.52 * (0.7 + 0.3 * pulse));
 
   float flicker = step(0.975,
     noise(outTexCoord * 22.0 + vec2(uTime * 9.0, uTime * 3.5)));
-  col.rgb += flicker * vec3(0.45, 0.0, 0.65) * uCorruption * 0.35;
+  col.rgb += flicker * vec3(0.70, 0.0, 1.00) * uCorruption * 0.45;
 
   gl_FragColor = vec4(col.rgb, col.a);
 }
