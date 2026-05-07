@@ -186,6 +186,8 @@ const SELECTED_HERO: 'tinkerer' | 'bao' | 'masterfen' | 'torrent' | 'stormsovere
 const HUD_BAR_W = 200;
 const HUD_BAR_H = 14;
 const HUD_PAD = 14;
+const CORRUPTION_WASH_COLOR = 0x160820;
+const CORRUPTION_WASH_MAX_ALPHA = 0.30;
 
 /** NPC dialog lines — one per settlement, shown when the player presses E nearby. */
 const NPC_DIALOG: Record<string, string> = {
@@ -3032,9 +3034,10 @@ export class GameScene extends Phaser.Scene {
       .on('pointerdown',  () => this.openPauseMenu());
     this.hudObjects.push(pauseBtn);
 
-    // Full-screen tint overlay — covers whatever viewport size we have.
+    // Full-screen corruption wash — dark violet keeps corrupted ground threatening
+    // while preserving enough biome hue for the world map to remain readable.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, CORRUPTION_WASH_COLOR, CORRUPTION_WASH_MAX_ALPHA)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3123,7 +3126,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldTint(percent: number): void {
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
-    this.overlay.setAlpha(0.38 * (1 - ratio));
+    this.overlay.setAlpha(CORRUPTION_WASH_MAX_ALPHA * (1 - ratio));
   }
 
   private createPortal(): void {

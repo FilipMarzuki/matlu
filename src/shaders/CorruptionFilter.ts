@@ -78,18 +78,20 @@ void main() {
   vec2 uv = outTexCoord + warp * 0.014 * uCorruption;
   vec4 col = texture2D(uMainSampler, clamp(uv, 0.001, 0.999));
 
-  float lum    = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-  vec3  violet = vec3(lum * 0.55, lum * 0.28, lum * 0.75 + 0.08);
-  col.rgb      = mix(col.rgb, violet, uCorruption * 0.45);
+  float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 bruisedViolet = vec3(lum * 0.34 + 0.045, lum * 0.13 + 0.015, lum * 0.62 + 0.16);
+  vec3 blackViolet   = vec3(0.045, 0.012, 0.075);
+  col.rgb = mix(col.rgb, bruisedViolet, uCorruption * 0.56);
+  col.rgb = mix(col.rgb, blackViolet, uCorruption * 0.10);
 
   float pulse    = 0.5 + 0.5 * sin(uTime * 1.3);
   float dist     = length(outTexCoord - 0.5) * 1.7;
-  float vignette = 1.0 - smoothstep(0.35, 0.90, dist);
-  col.rgb       *= mix(1.0, vignette, uCorruption * 0.35 * (0.7 + 0.3 * pulse));
+  float vignette = 1.0 - smoothstep(0.25, 0.88, dist);
+  col.rgb       *= mix(1.0, vignette, uCorruption * 0.48 * (0.65 + 0.35 * pulse));
 
   float flicker = step(0.975,
     noise(outTexCoord * 22.0 + vec2(uTime * 9.0, uTime * 3.5)));
-  col.rgb += flicker * vec3(0.45, 0.0, 0.65) * uCorruption * 0.35;
+  col.rgb += flicker * vec3(0.60, 0.05, 0.90) * uCorruption * 0.38;
 
   gl_FragColor = vec4(col.rgb, col.a);
 }
