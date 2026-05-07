@@ -171,6 +171,285 @@
     },
 
     {
+      "id": "corrupted-shard",
+      "name": "Corrupted Shard",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["loot", "mining"],
+      "biomes": ["corrupted", "ruin", "cave"]
+    },
+    {
+      "id": "tainted-resin",
+      "name": "Tainted Resin",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["gathering"],
+      "biomes": ["corrupted", "swamp"]
+    },
+    {
+      "id": "void-dust",
+      "name": "Void Dust",
+      "category": "raw",
+      "stackMax": 5,
+      "source": ["loot"],
+      "biomes": ["corrupted", "ruin"]
+    },
+    {
+      "id": "purified-crystal",
+      "name": "Purified Crystal",
+      "category": "raw",
+      "stackMax": 5,
+      "source": ["cleansing", "loot"],
+      "biomes": ["shrine", "sacred-grove"]
+    },
+
+    {
+      "id": "silver-ore",
+      "name": "Silver Ore",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["mining"],
+      "biomes": ["mountain", "cave"]
+    },
+    {
+      "id": "tin-ore",
+      "name": "Tin Ore",
+      "category": "raw",
+      "stackMax": 20,
+      "source": ["mining"],
+      "biomes": ["mountain", "riverbank", "cave"]
+    },
+    {
+      "id": "gold-nugget",
+      "name": "Gold Nugget",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["mining", "panning"],
+      "biomes": ["riverbank", "mountain", "cave"]
+    },
+
+    {
+      "id": "silk-thread",
+      "name": "Silk Thread",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["gathering", "loot"],
+      "biomes": ["cave", "old-growth", "forest"]
+    },
+    {
+      "id": "wool",
+      "name": "Wool",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["shearing", "trade"],
+      "biomes": ["plains", "meadow", "tundra"]
+    },
+    {
+      "id": "fur-pelt",
+      "name": "Fur Pelt",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["hunting"],
+      "biomes": ["taiga", "tundra", "mountain"]
+    },
+
+    {
+      "id": "quartz",
+      "name": "Quartz",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["mining"],
+      "biomes": ["mountain", "cave", "riverbank"]
+    },
+    {
+      "id": "amber",
+      "name": "Amber",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["mining", "gathering"],
+      "biomes": ["old-growth", "forest", "coast"]
+    },
+    {
+      "id": "moonstone",
+      "name": "Moonstone",
+      "category": "raw",
+      "stackMax": 5,
+      "source": ["mining", "loot"],
+      "biomes": ["mountain", "shrine", "cave"]
+    },
+
+    {
+      "id": "living-wood",
+      "name": "Living Wood",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["gathering"],
+      "biomes": ["sacred-grove", "old-growth"]
+    },
+    {
+      "id": "steamstone",
+      "name": "Steamstone",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["mining"],
+      "biomes": ["mountain", "volcanic", "cave"]
+    },
+    {
+      "id": "spirit-amber",
+      "name": "Spirit Amber",
+      "category": "raw",
+      "stackMax": 5,
+      "source": ["gathering", "ritual"],
+      "biomes": ["sacred-grove", "old-growth", "shrine"]
+    },
+
+    {
+      "id": "peat",
+      "name": "Peat",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["swamp", "bog"]
+    },
+    {
+      "id": "bog-iron",
+      "name": "Bog Iron",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["gathering", "mining"],
+      "biomes": ["swamp", "bog"]
+    },
+    {
+      "id": "pearl",
+      "name": "Pearl",
+      "category": "raw",
+      "stackMax": 5,
+      "source": ["diving", "trade"],
+      "biomes": ["coast", "sea"]
+    },
+    {
+      "id": "coral",
+      "name": "Coral",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["diving", "gathering"],
+      "biomes": ["coast", "sea"]
+    },
+    {
+      "id": "driftwood",
+      "name": "Driftwood",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["coast", "riverbank"]
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["mining"],
+      "biomes": ["volcanic", "mountain"]
+    },
+    {
+      "id": "sulfur",
+      "name": "Sulfur",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["mining", "gathering"],
+      "biomes": ["volcanic", "cave", "hot-spring"]
+    },
+
+    {
+      "id": "grain",
+      "name": "Grain",
+      "category": "raw",
+      "stackMax": 20,
+      "source": ["gathering", "farming", "trade"],
+      "biomes": ["plains", "meadow"]
+    },
+    {
+      "id": "mushroom",
+      "name": "Mushroom",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["forest", "cave", "swamp", "old-growth"]
+    },
+    {
+      "id": "honey",
+      "name": "Honey",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["gathering"],
+      "biomes": ["forest", "meadow", "old-growth"]
+    },
+    {
+      "id": "dried-fish",
+      "name": "Dried Fish",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["fishing", "trade"],
+      "biomes": ["coast", "riverbank", "lake"]
+    },
+    {
+      "id": "berries",
+      "name": "Berries",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["forest", "meadow", "plains"]
+    },
+    {
+      "id": "root-vegetable",
+      "name": "Root Vegetable",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering", "farming"],
+      "biomes": ["plains", "forest", "meadow"]
+    },
+    {
+      "id": "game-meat",
+      "name": "Game Meat",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["hunting"],
+      "biomes": ["any"]
+    },
+    {
+      "id": "eggs",
+      "name": "Eggs",
+      "category": "raw",
+      "stackMax": 10,
+      "source": ["gathering", "trade"],
+      "biomes": ["forest", "plains", "cliff"]
+    },
+    {
+      "id": "seaweed",
+      "name": "Seaweed",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["coast", "sea"]
+    },
+    {
+      "id": "nuts",
+      "name": "Nuts",
+      "category": "raw",
+      "stackMax": 15,
+      "source": ["gathering"],
+      "biomes": ["forest", "old-growth"]
+    },
+    {
+      "id": "wild-spice",
+      "name": "Wild Spice",
+      "category": "raw",
+      "stackMax": 8,
+      "source": ["gathering"],
+      "biomes": ["forest", "meadow", "swamp"]
+    },
+
+    {
       "id": "iron-ingot",
       "name": "Iron Ingot",
       "category": "refined",
@@ -239,6 +518,78 @@
     {
       "id": "glue",
       "name": "Glue",
+      "category": "refined",
+      "stackMax": 8
+    },
+    {
+      "id": "silver-ingot",
+      "name": "Silver Ingot",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "bronze-ingot",
+      "name": "Bronze Ingot",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "gold-bar",
+      "name": "Gold Bar",
+      "category": "refined",
+      "stackMax": 5
+    },
+    {
+      "id": "silk-cloth",
+      "name": "Silk Cloth",
+      "category": "refined",
+      "stackMax": 8
+    },
+    {
+      "id": "wool-felt",
+      "name": "Wool Felt",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "fur-lining",
+      "name": "Fur Lining",
+      "category": "refined",
+      "stackMax": 8
+    },
+    {
+      "id": "purified-essence",
+      "name": "Purified Essence",
+      "category": "refined",
+      "stackMax": 5
+    },
+    {
+      "id": "obsidian-shard",
+      "name": "Obsidian Shard",
+      "category": "refined",
+      "stackMax": 8
+    },
+    {
+      "id": "flour",
+      "name": "Flour",
+      "category": "refined",
+      "stackMax": 15
+    },
+    {
+      "id": "smoked-meat",
+      "name": "Smoked Meat",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "preserved-fish",
+      "name": "Preserved Fish",
+      "category": "refined",
+      "stackMax": 10
+    },
+    {
+      "id": "butter",
+      "name": "Butter",
       "category": "refined",
       "stackMax": 8
     },
@@ -327,6 +678,54 @@
       "name": "Snare Trap",
       "category": "consumable",
       "stackMax": 5
+    },
+    {
+      "id": "cooked-meal",
+      "name": "Cooked Meal",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "hearty-stew",
+      "name": "Hearty Stew",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "honey-bread",
+      "name": "Honey Bread",
+      "category": "consumable",
+      "stackMax": 8
+    },
+    {
+      "id": "smoked-fish-ration",
+      "name": "Smoked Fish Ration",
+      "category": "consumable",
+      "stackMax": 8
+    },
+    {
+      "id": "spiced-jerky",
+      "name": "Spiced Jerky",
+      "category": "consumable",
+      "stackMax": 10
+    },
+    {
+      "id": "berry-tonic",
+      "name": "Berry Tonic",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "mushroom-broth",
+      "name": "Mushroom Broth",
+      "category": "consumable",
+      "stackMax": 5
+    },
+    {
+      "id": "war-feast",
+      "name": "War Feast",
+      "category": "consumable",
+      "stackMax": 3
     },
 
     {
