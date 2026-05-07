@@ -329,6 +329,40 @@
       "requires": ["extraction:1"],
       "unlocks": ["dyed-cloth", "war-paint", "colored-glass"]
     }
+    ,
+    {
+      "id": "pressure",
+      "name": "Pressure",
+      "icon": "patch-pressure",
+      "category": "engineering",
+      "description": "Containing and directing force within sealed systems — boilers, hydraulics, pneumatics.",
+      "ranks": 3,
+      "learnedFrom": ["boiler", "piston"],
+      "requires": ["sealing:2", "heat-treatment:2"],
+      "unlocks": ["steam-engine", "hydraulic-cylinder", "valve"]
+    },
+    {
+      "id": "gear-train",
+      "name": "Gear Train",
+      "icon": "patch-gear-train",
+      "category": "engineering",
+      "description": "Combining multiple gears to transfer and transform rotational motion — speed, torque, direction changes.",
+      "ranks": 3,
+      "learnedFrom": ["gear-iron", "precision-gear"],
+      "requires": ["rotation:2", "bearings:1"],
+      "unlocks": ["drive-shaft", "steam-engine", "mech-joint"]
+    },
+    {
+      "id": "precision",
+      "name": "Precision",
+      "icon": "patch-caliper",
+      "category": "engineering",
+      "description": "Measuring, fitting, and tolerancing parts to work together exactly — calibration, gauges, fine adjustment.",
+      "ranks": 3,
+      "learnedFrom": ["spyglass", "compass", "crossbow"],
+      "requires": ["sharpening:2"],
+      "unlocks": ["precision-gear", "mech-joint", "control-harness"]
+    }
   ],
 
   "categories": [
@@ -339,6 +373,7 @@
     { "id": "textiles", "name": "Textiles", "color": "#7b5ea7", "description": "Fibers, cloth, and binding" },
     { "id": "alchemy", "name": "Alchemy", "color": "#2e7d6e", "description": "Transformations through heat, time, and reaction" },
     { "id": "chemistry", "name": "Chemistry", "color": "#3a9e8f", "description": "Understanding and manipulating substances" },
-    { "id": "arcane", "name": "Arcane", "color": "#4a6fa5", "description": "Understanding magic enough to build for it — the engineering side of enchantment" }
+    { "id": "arcane", "name": "Arcane", "color": "#4a6fa5", "description": "Understanding magic enough to build for it — the engineering side of enchantment" },
+    { "id": "engineering", "name": "Engineering", "color": "#5a7aa5", "description": "Precision assembly, pressure systems, and power transmission" }
   ]
 }

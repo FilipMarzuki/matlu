@@ -501,6 +501,1482 @@
       "challenge": "rune-alignment",
       "concepts": ["inscription", "resonance", "heat-treatment"],
       "conceptRequires": { "inscription": 1, "heat-treatment": 2 }
+    },
+
+    { "_tier": "=== TIER 0 — Survival additions ===" },
+
+    {
+      "id": "fire-starter",
+      "name": "Fire Starter",
+      "output": { "item": "fire-starter", "qty": 1 },
+      "inputs": [
+        { "item": "flint", "qty": 1 },
+        { "item": "dry-grass", "qty": 2 }
+      ],
+      "tier": 0, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 2,
+      "concepts": ["friction", "combustion"]
+    },
+    {
+      "id": "campfire",
+      "name": "Campfire",
+      "output": { "item": "campfire", "qty": 1 },
+      "inputs": [
+        { "item": "wood-log", "qty": 3 },
+        { "item": "stone", "qty": 3 },
+        { "item": "fire-starter", "qty": 1 }
+      ],
+      "tier": 0, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 4,
+      "concepts": ["combustion"]
+    },
+    {
+      "id": "waterskin",
+      "name": "Waterskin",
+      "output": { "item": "waterskin", "qty": 1 },
+      "inputs": [
+        { "item": "hide-raw", "qty": 1 },
+        { "item": "sinew", "qty": 1 },
+        { "item": "resin", "qty": 1 }
+      ],
+      "tier": 0, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 4,
+      "concepts": ["sealing"]
+    },
+    {
+      "id": "bedroll",
+      "name": "Bedroll",
+      "output": { "item": "bedroll", "qty": 1 },
+      "inputs": [
+        { "item": "hide-raw", "qty": 2 },
+        { "item": "dry-grass", "qty": 4 },
+        { "item": "rope", "qty": 1 }
+      ],
+      "tier": 0, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 5
+    },
+    {
+      "id": "stone-knife",
+      "name": "Stone Knife",
+      "output": { "item": "stone-knife", "qty": 1 },
+      "inputs": [
+        { "item": "flint", "qty": 2 },
+        { "item": "wood-handle", "qty": 1 }
+      ],
+      "tier": 0, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 3,
+      "concepts": ["sharpening"]
+    },
+
+    { "_tier": "=== TIER 1 — Camp crafting additions ===" },
+
+    {
+      "id": "cooked-meat",
+      "name": "Cooked Meat",
+      "output": { "item": "cooked-meat", "qty": 2 },
+      "inputs": [
+        { "item": "raw-meat", "qty": 2 },
+        { "item": "fire-starter", "qty": 1 }
+      ],
+      "tier": 1, "station": "campfire",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 3,
+      "concepts": ["heat-treatment"]
+    },
+    {
+      "id": "grilled-fish",
+      "name": "Grilled Fish",
+      "output": { "item": "grilled-fish", "qty": 2 },
+      "inputs": [
+        { "item": "raw-fish", "qty": 2 },
+        { "item": "fire-starter", "qty": 1 }
+      ],
+      "tier": 1, "station": "campfire",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 3
+    },
+    {
+      "id": "purified-water",
+      "name": "Purified Water",
+      "output": { "item": "purified-water", "qty": 2 },
+      "inputs": [
+        { "item": "freshwater", "qty": 2 },
+        { "item": "charcoal", "qty": 1 }
+      ],
+      "tier": 1, "station": "campfire",
+      "discovery": { "method": "memory", "trigger": "status:sick:2" },
+      "batchable": true, "timeBase": 3,
+      "concepts": ["distillation", "extraction"]
+    },
+    {
+      "id": "lean-to",
+      "name": "Lean-To Shelter",
+      "output": { "item": "lean-to", "qty": 1 },
+      "inputs": [
+        { "item": "wood-log", "qty": 4 },
+        { "item": "rope", "qty": 2 },
+        { "item": "plant-fiber", "qty": 4 }
+      ],
+      "tier": 1, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 6,
+      "concepts": ["joinery"]
+    },
+    {
+      "id": "fishing-rod",
+      "name": "Fishing Rod",
+      "output": { "item": "fishing-rod", "qty": 1 },
+      "inputs": [
+        { "item": "wood-log", "qty": 2 },
+        { "item": "sinew", "qty": 2 },
+        { "item": "bone", "qty": 1 }
+      ],
+      "tier": 1, "station": null,
+      "discovery": { "method": "observation", "trigger": "inspect:lake-shore" },
+      "batchable": false, "timeBase": 5,
+      "concepts": ["tension", "friction"]
+    },
+    {
+      "id": "skinning-knife",
+      "name": "Skinning Knife",
+      "output": { "item": "skinning-knife", "qty": 1 },
+      "inputs": [
+        { "item": "flint", "qty": 1 },
+        { "item": "bone", "qty": 1 },
+        { "item": "leather-strip", "qty": 1 }
+      ],
+      "tier": 1, "station": null,
+      "discovery": { "method": "memory", "trigger": "hunt:any:3" },
+      "batchable": false, "timeBase": 4,
+      "concepts": ["sharpening"]
+    },
+    {
+      "id": "crude-shovel",
+      "name": "Crude Shovel",
+      "output": { "item": "crude-shovel", "qty": 1 },
+      "inputs": [
+        { "item": "wood-plank", "qty": 1 },
+        { "item": "wood-handle", "qty": 1 },
+        { "item": "rope", "qty": 1 }
+      ],
+      "tier": 1, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 3,
+      "concepts": ["leverage"]
+    },
+    {
+      "id": "pouch",
+      "name": "Pouch",
+      "output": { "item": "pouch", "qty": 1 },
+      "inputs": [
+        { "item": "leather", "qty": 1 },
+        { "item": "sinew", "qty": 1 }
+      ],
+      "tier": 1, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 3
+    },
+    {
+      "id": "tallow",
+      "name": "Tallow",
+      "output": { "item": "tallow", "qty": 2 },
+      "inputs": [
+        { "item": "animal-fat", "qty": 3 }
+      ],
+      "tier": 1, "station": "campfire",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 4,
+      "concepts": ["extraction"]
+    },
+    {
+      "id": "bread",
+      "name": "Bread",
+      "output": { "item": "bread", "qty": 3 },
+      "inputs": [
+        { "item": "flour", "qty": 2 },
+        { "item": "freshwater", "qty": 1 },
+        { "item": "salt", "qty": 1 }
+      ],
+      "tier": 1, "station": "campfire",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 4,
+      "concepts": ["fermentation"]
+    },
+
+    { "_tier": "=== TIER 2 — Station crafting additions ===" },
+
+    {
+      "id": "flour",
+      "name": "Flour",
+      "output": { "item": "flour", "qty": 2 },
+      "inputs": [
+        { "item": "grain", "qty": 3 },
+        { "item": "stone", "qty": 1 }
+      ],
+      "tier": 2, "station": "workshop",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 3
+    },
+    {
+      "id": "stew",
+      "name": "Stew",
+      "output": { "item": "stew", "qty": 2 },
+      "inputs": [
+        { "item": "cooked-meat", "qty": 1 },
+        { "item": "herb-green", "qty": 1 },
+        { "item": "salt", "qty": 1 },
+        { "item": "freshwater", "qty": 1 }
+      ],
+      "tier": 2, "station": "cookpot",
+      "discovery": { "method": "memory", "trigger": "cook:any:5" },
+      "batchable": true, "timeBase": 5,
+      "concepts": ["extraction", "preservation"]
+    },
+    {
+      "id": "bronze-ingot",
+      "name": "Bronze Ingot",
+      "output": { "item": "bronze-ingot", "qty": 1 },
+      "inputs": [
+        { "item": "copper-ore", "qty": 2 },
+        { "item": "tin-ore", "qty": 1 },
+        { "item": "charcoal", "qty": 1 }
+      ],
+      "tier": 2, "station": "smelter",
+      "discovery": { "method": "experiment" },
+      "batchable": true, "timeBase": 5,
+      "concepts": ["alloys", "heat-treatment"]
+    },
+    {
+      "id": "silver-ingot",
+      "name": "Silver Ingot",
+      "output": { "item": "silver-ingot", "qty": 1 },
+      "inputs": [
+        { "item": "silver-ore", "qty": 3 },
+        { "item": "charcoal", "qty": 1 }
+      ],
+      "tier": 2, "station": "smelter",
+      "discovery": { "method": "taught", "source": "npc:bergfolk-miner" },
+      "batchable": true, "timeBase": 5,
+      "concepts": ["heat-treatment"]
+    },
+    {
+      "id": "wire-copper",
+      "name": "Copper Wire",
+      "output": { "item": "wire-copper", "qty": 3 },
+      "inputs": [
+        { "item": "copper-ingot", "qty": 1 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "memory", "trigger": "craft:copper-ingot:5" },
+      "batchable": true, "timeBase": 4,
+      "concepts": ["heat-treatment", "friction"]
+    },
+    {
+      "id": "iron-plate",
+      "name": "Iron Plate",
+      "output": { "item": "iron-plate", "qty": 2 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 2 },
+        { "item": "coal", "qty": 1 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 5,
+      "concepts": ["heat-treatment"]
+    },
+    {
+      "id": "copper-tube",
+      "name": "Copper Tube",
+      "output": { "item": "copper-tube", "qty": 2 },
+      "inputs": [
+        { "item": "copper-ingot", "qty": 1 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "memory", "trigger": "craft:copper-ingot:3" },
+      "batchable": true, "timeBase": 4,
+      "concepts": ["heat-treatment", "sealing"]
+    },
+    {
+      "id": "hinge",
+      "name": "Iron Hinge",
+      "output": { "item": "hinge", "qty": 2 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 1 },
+        { "item": "iron-nails", "qty": 2 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 3,
+      "concepts": ["rotation", "joinery"]
+    },
+    {
+      "id": "lens",
+      "name": "Glass Lens",
+      "output": { "item": "lens", "qty": 1 },
+      "inputs": [
+        { "item": "glass", "qty": 2 },
+        { "item": "iron-plate", "qty": 1 }
+      ],
+      "tier": 2, "station": "kiln",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["heat-treatment", "precipitation"]
+    },
+    {
+      "id": "pickaxe",
+      "name": "Pickaxe",
+      "output": { "item": "pickaxe", "qty": 1 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 2 },
+        { "item": "wood-handle", "qty": 1 },
+        { "item": "leather-strip", "qty": 1 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:bergfolk-miner" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["leverage", "sharpening"]
+    },
+    {
+      "id": "iron-shovel",
+      "name": "Iron Shovel",
+      "output": { "item": "iron-shovel", "qty": 1 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 1 },
+        { "item": "wood-handle", "qty": 1 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 5,
+      "concepts": ["leverage"]
+    },
+    {
+      "id": "backpack",
+      "name": "Backpack",
+      "output": { "item": "backpack", "qty": 1 },
+      "inputs": [
+        { "item": "leather", "qty": 3 },
+        { "item": "rope", "qty": 2 },
+        { "item": "iron-nails", "qty": 4 },
+        { "item": "wood-plank", "qty": 2 }
+      ],
+      "tier": 2, "station": "tannery",
+      "discovery": { "method": "memory", "trigger": "inventory:full:5" },
+      "batchable": false, "timeBase": 10,
+      "concepts": ["joinery", "tanning"]
+    },
+    {
+      "id": "lantern",
+      "name": "Lantern",
+      "output": { "item": "lantern", "qty": 1 },
+      "inputs": [
+        { "item": "iron-plate", "qty": 2 },
+        { "item": "glass", "qty": 1 },
+        { "item": "tallow", "qty": 1 },
+        { "item": "wire-copper", "qty": 1 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "memory", "trigger": "use:torch:10" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["combustion", "sealing"]
+    },
+    {
+      "id": "compass",
+      "name": "Compass",
+      "output": { "item": "compass", "qty": 1 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 1 },
+        { "item": "glass", "qty": 1 },
+        { "item": "copper-ingot", "qty": 1 },
+        { "item": "rune-dust", "qty": 1 }
+      ],
+      "tier": 2, "station": "workshop",
+      "discovery": { "method": "taught", "source": "npc:navigator" },
+      "batchable": false, "timeBase": 10,
+      "concepts": ["resonance", "rotation"]
+    },
+    {
+      "id": "spyglass",
+      "name": "Spyglass",
+      "output": { "item": "spyglass", "qty": 1 },
+      "inputs": [
+        { "item": "copper-tube", "qty": 2 },
+        { "item": "lens", "qty": 2 },
+        { "item": "leather-strip", "qty": 1 }
+      ],
+      "tier": 2, "station": "workshop",
+      "discovery": { "method": "taught", "source": "npc:navigator" },
+      "batchable": false, "timeBase": 10,
+      "concepts": ["precision"]
+    },
+    {
+      "id": "barrel",
+      "name": "Barrel",
+      "output": { "item": "barrel", "qty": 1 },
+      "inputs": [
+        { "item": "wood-plank", "qty": 4 },
+        { "item": "iron-nails", "qty": 4 },
+        { "item": "hinge", "qty": 1 }
+      ],
+      "tier": 2, "station": "workshop",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 6,
+      "concepts": ["joinery", "sealing"]
+    },
+    {
+      "id": "tent",
+      "name": "Tent",
+      "output": { "item": "tent", "qty": 1 },
+      "inputs": [
+        { "item": "cloth", "qty": 4 },
+        { "item": "rope", "qty": 3 },
+        { "item": "wood-log", "qty": 4 },
+        { "item": "iron-nails", "qty": 4 }
+      ],
+      "tier": 2, "station": "workshop",
+      "discovery": { "method": "memory", "trigger": "rest:lean-to:5" },
+      "batchable": false, "timeBase": 10,
+      "concepts": ["weaving", "joinery"]
+    },
+    {
+      "id": "iron-chainmail",
+      "name": "Iron Chainmail",
+      "output": { "item": "iron-chainmail", "qty": 1 },
+      "inputs": [
+        { "item": "wire-copper", "qty": 2 },
+        { "item": "iron-ingot", "qty": 4 },
+        { "item": "leather", "qty": 2 }
+      ],
+      "tier": 2, "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:village-smith" },
+      "batchable": false, "timeBase": 16,
+      "concepts": ["weaving", "heat-treatment", "friction"]
+    },
+
+    { "_tier": "=== TIER 3 — Master crafting ===" },
+
+    {
+      "id": "steel-ingot",
+      "name": "Steel Ingot",
+      "output": { "item": "steel-ingot", "qty": 1 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 2 },
+        { "item": "coal", "qty": 2 },
+        { "item": "charcoal", "qty": 1 }
+      ],
+      "tier": 3, "station": "smelter",
+      "discovery": { "method": "taught", "source": "npc:master-smith" },
+      "batchable": true, "timeBase": 8,
+      "concepts": ["alloys", "heat-treatment"],
+      "conceptRequires": { "alloys": 2, "heat-treatment": 2 }
+    },
+    {
+      "id": "hardened-leather",
+      "name": "Hardened Leather",
+      "output": { "item": "hardened-leather", "qty": 1 },
+      "inputs": [
+        { "item": "leather", "qty": 2 },
+        { "item": "beeswax", "qty": 1 },
+        { "item": "resin", "qty": 1 }
+      ],
+      "tier": 3, "station": "tannery",
+      "discovery": { "method": "experiment" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["tanning", "sealing"],
+      "conceptRequires": { "tanning": 2 }
+    },
+    {
+      "id": "blast-powder",
+      "name": "Blast Powder",
+      "output": { "item": "blast-powder", "qty": 2 },
+      "inputs": [
+        { "item": "sulfur", "qty": 2 },
+        { "item": "charcoal", "qty": 2 },
+        { "item": "salt", "qty": 1 }
+      ],
+      "tier": 3, "station": "workshop",
+      "discovery": { "method": "experiment" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["combustion", "catalysis"],
+      "conceptRequires": { "combustion": 2 }
+    },
+    {
+      "id": "acid-flask",
+      "name": "Acid Flask",
+      "output": { "item": "acid-flask", "qty": 1 },
+      "inputs": [
+        { "item": "sulfur", "qty": 1 },
+        { "item": "freshwater", "qty": 1 },
+        { "item": "glass", "qty": 1 }
+      ],
+      "tier": 3, "station": "workshop",
+      "discovery": { "method": "experiment" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["dissolution", "neutralization"]
+    },
+    {
+      "id": "steel-blade",
+      "name": "Steel Blade",
+      "output": { "item": "steel-blade", "qty": 1 },
+      "inputs": [
+        { "item": "steel-ingot", "qty": 2 },
+        { "item": "coal", "qty": 1 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:master-smith" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["heat-treatment", "sharpening"],
+      "conceptRequires": { "sharpening": 2 }
+    },
+    {
+      "id": "steel-plate",
+      "name": "Steel Plate",
+      "output": { "item": "steel-plate", "qty": 2 },
+      "inputs": [
+        { "item": "steel-ingot", "qty": 2 },
+        { "item": "coal", "qty": 1 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["heat-treatment"]
+    },
+    {
+      "id": "gear-iron",
+      "name": "Iron Gear",
+      "output": { "item": "gear-iron", "qty": 2 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 2 },
+        { "item": "charcoal", "qty": 1 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "observation", "trigger": "inspect:windmill-mechanism" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["rotation", "friction", "sharpening"],
+      "conceptRequires": { "rotation": 2 }
+    },
+    {
+      "id": "spring-iron",
+      "name": "Iron Spring",
+      "output": { "item": "spring-iron", "qty": 2 },
+      "inputs": [
+        { "item": "iron-ingot", "qty": 1 },
+        { "item": "wire-copper", "qty": 1 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "observation", "trigger": "inspect:crossbow-mechanism" },
+      "batchable": true, "timeBase": 5,
+      "concepts": ["tension", "heat-treatment"],
+      "conceptRequires": { "tension": 2 }
+    },
+    {
+      "id": "rivet",
+      "name": "Steel Rivet",
+      "output": { "item": "rivet", "qty": 8 },
+      "inputs": [
+        { "item": "steel-ingot", "qty": 1 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 3
+    },
+    {
+      "id": "bearing",
+      "name": "Bronze Bearing",
+      "output": { "item": "bearing", "qty": 2 },
+      "inputs": [
+        { "item": "bronze-ingot", "qty": 1 },
+        { "item": "oil", "qty": 1 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "observation", "trigger": "inspect:cart-axle" },
+      "batchable": true, "timeBase": 5,
+      "concepts": ["bearings", "friction", "rotation"],
+      "conceptRequires": { "bearings": 1 }
+    },
+    {
+      "id": "steel-sword",
+      "name": "Steel Sword",
+      "output": { "item": "steel-sword", "qty": 1 },
+      "inputs": [
+        { "item": "steel-blade", "qty": 2 },
+        { "item": "hardwood-plank", "qty": 1 },
+        { "item": "leather-strip", "qty": 2 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:master-smith" },
+      "batchable": false, "timeBase": 14,
+      "concepts": ["sharpening", "counterweight", "heat-treatment"],
+      "challenge": "balanced-quench"
+    },
+    {
+      "id": "steel-plate-armor",
+      "name": "Steel Plate Armor",
+      "output": { "item": "steel-plate-armor", "qty": 1 },
+      "inputs": [
+        { "item": "steel-plate", "qty": 4 },
+        { "item": "hardened-leather", "qty": 2 },
+        { "item": "rivet", "qty": 6 },
+        { "item": "hinge", "qty": 2 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:master-smith" },
+      "batchable": false, "timeBase": 20,
+      "concepts": ["heat-treatment", "joinery"],
+      "challenge": "plate-fitting",
+      "conceptRequires": { "heat-treatment": 3 }
+    },
+    {
+      "id": "crossbow",
+      "name": "Crossbow",
+      "output": { "item": "crossbow", "qty": 1 },
+      "inputs": [
+        { "item": "steel-blade", "qty": 1 },
+        { "item": "spring-iron", "qty": 1 },
+        { "item": "hardwood-plank", "qty": 2 },
+        { "item": "bowstring", "qty": 1 },
+        { "item": "gear-iron", "qty": 1 }
+      ],
+      "tier": 3, "station": "workshop",
+      "discovery": { "method": "reverse-engineer", "trigger": "disassemble:bandit-crossbow" },
+      "batchable": false, "timeBase": 14,
+      "concepts": ["tension", "rotation", "leverage"],
+      "challenge": "draw-calibration"
+    },
+    {
+      "id": "mining-charge",
+      "name": "Mining Charge",
+      "output": { "item": "mining-charge", "qty": 2 },
+      "inputs": [
+        { "item": "blast-powder", "qty": 2 },
+        { "item": "clay", "qty": 1 },
+        { "item": "rope", "qty": 1 }
+      ],
+      "tier": 3, "station": "workshop",
+      "discovery": { "method": "taught", "source": "npc:bergfolk-miner" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["combustion", "sealing"]
+    },
+
+    { "_tier": "=== TIER 4 — Industrial / Steam ===" },
+
+    {
+      "id": "steel-alloy",
+      "name": "Reinforced Steel",
+      "output": { "item": "steel-alloy", "qty": 1 },
+      "inputs": [
+        { "item": "steel-ingot", "qty": 2 },
+        { "item": "copper-ingot", "qty": 1 },
+        { "item": "charcoal", "qty": 2 }
+      ],
+      "tier": 4, "station": "foundry",
+      "discovery": { "method": "experiment" },
+      "batchable": true, "timeBase": 10,
+      "concepts": ["alloys", "heat-treatment"],
+      "conceptRequires": { "alloys": 3, "heat-treatment": 3 }
+    },
+    {
+      "id": "rubber",
+      "name": "Vulcanized Rubber",
+      "output": { "item": "rubber", "qty": 2 },
+      "inputs": [
+        { "item": "rubber-sap", "qty": 3 },
+        { "item": "sulfur", "qty": 1 }
+      ],
+      "tier": 4, "station": "foundry",
+      "discovery": { "method": "experiment" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["heat-treatment", "catalysis"]
+    },
+    {
+      "id": "lodite-ingot",
+      "name": "Lodite Ingot",
+      "output": { "item": "lodite-ingot", "qty": 1 },
+      "inputs": [
+        { "item": "lodite-ore", "qty": 3 },
+        { "item": "coal", "qty": 2 },
+        { "item": "acid-flask", "qty": 1 }
+      ],
+      "tier": 4, "station": "foundry",
+      "discovery": { "method": "taught", "source": "npc:deep-bergfolk-elder" },
+      "batchable": true, "timeBase": 10,
+      "concepts": ["alloys", "dissolution"],
+      "conceptRequires": { "alloys": 2 }
+    },
+    {
+      "id": "precision-gear",
+      "name": "Precision Gear",
+      "output": { "item": "precision-gear", "qty": 2 },
+      "inputs": [
+        { "item": "steel-ingot", "qty": 1 },
+        { "item": "oil", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": true, "timeBase": 8,
+      "concepts": ["gear-train", "precision", "friction"],
+      "conceptRequires": { "precision": 1 }
+    },
+    {
+      "id": "piston",
+      "name": "Piston",
+      "output": { "item": "piston", "qty": 1 },
+      "inputs": [
+        { "item": "steel-plate", "qty": 1 },
+        { "item": "bronze-ingot", "qty": 1 },
+        { "item": "rubber", "qty": 1 },
+        { "item": "oil", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "observation", "trigger": "inspect:abandoned-engine" },
+      "batchable": true, "timeBase": 8,
+      "concepts": ["pressure", "friction", "sealing"]
+    },
+    {
+      "id": "valve",
+      "name": "Pressure Valve",
+      "output": { "item": "valve", "qty": 2 },
+      "inputs": [
+        { "item": "bronze-ingot", "qty": 1 },
+        { "item": "spring-iron", "qty": 1 },
+        { "item": "rubber", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "observation", "trigger": "inspect:abandoned-engine" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["pressure", "tension"]
+    },
+    {
+      "id": "boiler",
+      "name": "Boiler Chamber",
+      "output": { "item": "boiler", "qty": 1 },
+      "inputs": [
+        { "item": "steel-plate", "qty": 4 },
+        { "item": "copper-tube", "qty": 4 },
+        { "item": "rivet", "qty": 8 },
+        { "item": "valve", "qty": 2 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 16,
+      "concepts": ["pressure", "sealing", "heat-treatment"],
+      "challenge": "pressure-test",
+      "conceptRequires": { "pressure": 1, "sealing": 2 }
+    },
+    {
+      "id": "drive-shaft",
+      "name": "Drive Shaft",
+      "output": { "item": "drive-shaft", "qty": 1 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 2 },
+        { "item": "bearing", "qty": 2 },
+        { "item": "precision-gear", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["gear-train", "rotation", "precision"],
+      "conceptRequires": { "rotation": 3 }
+    },
+    {
+      "id": "hydraulic-cylinder",
+      "name": "Hydraulic Cylinder",
+      "output": { "item": "hydraulic-cylinder", "qty": 1 },
+      "inputs": [
+        { "item": "steel-plate", "qty": 2 },
+        { "item": "piston", "qty": 1 },
+        { "item": "rubber", "qty": 1 },
+        { "item": "oil", "qty": 2 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 10,
+      "concepts": ["pressure", "leverage"],
+      "conceptRequires": { "pressure": 2 }
+    },
+    {
+      "id": "lodite-cell",
+      "name": "Lodite Power Cell",
+      "output": { "item": "lodite-cell", "qty": 1 },
+      "inputs": [
+        { "item": "lodite-ingot", "qty": 2 },
+        { "item": "wire-copper", "qty": 3 },
+        { "item": "glass", "qty": 1 },
+        { "item": "crystal-shard", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:deep-bergfolk-elder" },
+      "batchable": false, "timeBase": 12,
+      "concepts": ["conduit-craft", "resonance", "pressure"],
+      "conceptRequires": { "conduit-craft": 2 }
+    },
+    {
+      "id": "steam-engine",
+      "name": "Steam Engine",
+      "output": { "item": "steam-engine", "qty": 1 },
+      "inputs": [
+        { "item": "boiler", "qty": 1 },
+        { "item": "piston", "qty": 2 },
+        { "item": "drive-shaft", "qty": 1 },
+        { "item": "valve", "qty": 2 },
+        { "item": "gear-iron", "qty": 2 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 24,
+      "concepts": ["pressure", "gear-train", "combustion"],
+      "challenge": "timing-calibration",
+      "conceptRequires": { "pressure": 2, "gear-train": 2 }
+    },
+    {
+      "id": "steam-hammer",
+      "name": "Steam Hammer",
+      "output": { "item": "steam-hammer", "qty": 1 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 2 },
+        { "item": "piston", "qty": 1 },
+        { "item": "wood-handle", "qty": 1 },
+        { "item": "valve", "qty": 1 },
+        { "item": "rubber", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 14,
+      "concepts": ["pressure", "leverage"]
+    },
+    {
+      "id": "hydraulic-shield",
+      "name": "Hydraulic Shield",
+      "output": { "item": "hydraulic-shield", "qty": 1 },
+      "inputs": [
+        { "item": "steel-plate", "qty": 3 },
+        { "item": "hydraulic-cylinder", "qty": 1 },
+        { "item": "rubber", "qty": 1 },
+        { "item": "rivet", "qty": 4 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 14,
+      "concepts": ["pressure", "counterweight"]
+    },
+    {
+      "id": "mech-plating",
+      "name": "Mech Plating",
+      "output": { "item": "mech-plating", "qty": 2 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 3 },
+        { "item": "rivet", "qty": 6 }
+      ],
+      "tier": 4, "station": "foundry",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 10,
+      "concepts": ["heat-treatment"]
+    },
+
+    { "_tier": "=== TIER 5 — Mech Assembly ===" },
+
+    {
+      "id": "mech-joint",
+      "name": "Mech Joint",
+      "output": { "item": "mech-joint", "qty": 1 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 1 },
+        { "item": "bearing", "qty": 2 },
+        { "item": "hydraulic-cylinder", "qty": 1 },
+        { "item": "precision-gear", "qty": 1 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 12,
+      "concepts": ["precision", "gear-train", "pressure"],
+      "conceptRequires": { "precision": 2, "gear-train": 2 }
+    },
+    {
+      "id": "mech-actuator",
+      "name": "Mech Actuator",
+      "output": { "item": "mech-actuator", "qty": 1 },
+      "inputs": [
+        { "item": "hydraulic-cylinder", "qty": 1 },
+        { "item": "spring-iron", "qty": 2 },
+        { "item": "lodite-cell", "qty": 1 },
+        { "item": "wire-copper", "qty": 2 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 12,
+      "concepts": ["pressure", "precision", "conduit-craft"],
+      "conceptRequires": { "pressure": 3 }
+    },
+    {
+      "id": "control-harness",
+      "name": "Control Harness",
+      "output": { "item": "control-harness", "qty": 1 },
+      "inputs": [
+        { "item": "hardened-leather", "qty": 3 },
+        { "item": "wire-copper", "qty": 4 },
+        { "item": "lodite-cell", "qty": 1 },
+        { "item": "crystal-shard", "qty": 2 },
+        { "item": "spring-iron", "qty": 2 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 16,
+      "concepts": ["conduit-craft", "resonance", "precision"],
+      "challenge": "nerve-calibration",
+      "conceptRequires": { "conduit-craft": 3, "precision": 2 }
+    },
+    {
+      "id": "mech-frame",
+      "name": "Mech Frame",
+      "output": { "item": "mech-frame", "qty": 1 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 6 },
+        { "item": "mech-joint", "qty": 4 },
+        { "item": "mech-plating", "qty": 4 },
+        { "item": "rivet", "qty": 12 },
+        { "item": "drive-shaft", "qty": 2 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 30,
+      "concepts": ["gear-train", "precision", "pressure"],
+      "challenge": "frame-alignment",
+      "conceptRequires": { "gear-train": 3, "precision": 3 }
+    },
+    {
+      "id": "mech-scout",
+      "name": "Scout Walker",
+      "output": { "item": "mech-scout", "qty": 1 },
+      "inputs": [
+        { "item": "mech-frame", "qty": 1 },
+        { "item": "steam-engine", "qty": 1 },
+        { "item": "control-harness", "qty": 1 },
+        { "item": "mech-actuator", "qty": 2 },
+        { "item": "lodite-cell", "qty": 1 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 40,
+      "concepts": ["gear-train", "pressure", "precision"],
+      "challenge": "walk-test",
+      "conceptRequires": { "gear-train": 3, "pressure": 3, "precision": 3 }
+    },
+    {
+      "id": "mech-warden",
+      "name": "Warden Frame",
+      "output": { "item": "mech-warden", "qty": 1 },
+      "inputs": [
+        { "item": "mech-frame", "qty": 1 },
+        { "item": "steam-engine", "qty": 1 },
+        { "item": "control-harness", "qty": 1 },
+        { "item": "mech-actuator", "qty": 4 },
+        { "item": "mech-plating", "qty": 4 },
+        { "item": "lodite-cell", "qty": 2 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 50,
+      "concepts": ["gear-train", "pressure", "precision"],
+      "challenge": "full-systems-check",
+      "conceptRequires": { "gear-train": 3, "pressure": 3, "precision": 3 }
+    },
+    {
+      "id": "mech-arm-hammer",
+      "name": "Hammer Arm Module",
+      "output": { "item": "mech-arm-hammer", "qty": 1 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 3 },
+        { "item": "mech-actuator", "qty": 1 },
+        { "item": "hydraulic-cylinder", "qty": 2 },
+        { "item": "mech-joint", "qty": 1 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 18,
+      "concepts": ["pressure", "leverage"]
+    },
+    {
+      "id": "mech-arm-drill",
+      "name": "Drill Arm Module",
+      "output": { "item": "mech-arm-drill", "qty": 1 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 2 },
+        { "item": "precision-gear", "qty": 3 },
+        { "item": "mech-actuator", "qty": 1 },
+        { "item": "drive-shaft", "qty": 1 },
+        { "item": "bearing", "qty": 2 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 18,
+      "concepts": ["gear-train", "rotation", "precision"]
+    },
+    {
+      "id": "mech-shield-module",
+      "name": "Shield Module",
+      "output": { "item": "mech-shield-module", "qty": 1 },
+      "inputs": [
+        { "item": "mech-plating", "qty": 3 },
+        { "item": "hydraulic-cylinder", "qty": 2 },
+        { "item": "spring-iron", "qty": 2 },
+        { "item": "lodite-cell", "qty": 1 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 16,
+      "concepts": ["pressure", "counterweight"]
+    },
+
+    { "_tier": "=== STRUCTURES — Player-built field buildings ===" },
+
+    {
+      "id": "struct-workbench",
+      "name": "Workbench",
+      "output": { "item": "struct-workbench", "qty": 1 },
+      "inputs": [
+        { "item": "wood-plank", "qty": 4 },
+        { "item": "iron-nails", "qty": 6 },
+        { "item": "wood-log", "qty": 2 }
+      ],
+      "tier": 2, "station": "workshop",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["joinery"]
+    },
+    {
+      "id": "struct-storage-chest",
+      "name": "Storage Chest",
+      "output": { "item": "struct-storage-chest", "qty": 1 },
+      "inputs": [
+        { "item": "wood-plank", "qty": 3 },
+        { "item": "iron-nails", "qty": 4 },
+        { "item": "hinge", "qty": 1 }
+      ],
+      "tier": 2, "station": "workshop",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 6,
+      "concepts": ["joinery", "sealing"]
+    },
+    {
+      "id": "struct-drying-rack",
+      "name": "Drying Rack",
+      "output": { "item": "struct-drying-rack", "qty": 1 },
+      "inputs": [
+        { "item": "wood-log", "qty": 3 },
+        { "item": "rope", "qty": 2 },
+        { "item": "iron-nails", "qty": 2 }
+      ],
+      "tier": 2, "station": null,
+      "discovery": { "method": "memory", "trigger": "craft:ration:5" },
+      "batchable": false, "timeBase": 5,
+      "concepts": ["preservation"]
+    },
+    {
+      "id": "struct-rain-catcher",
+      "name": "Rain Catcher",
+      "output": { "item": "struct-rain-catcher", "qty": 1 },
+      "inputs": [
+        { "item": "cloth", "qty": 2 },
+        { "item": "wood-log", "qty": 2 },
+        { "item": "rope", "qty": 1 },
+        { "item": "barrel", "qty": 1 }
+      ],
+      "tier": 2, "station": null,
+      "discovery": { "method": "memory", "trigger": "gather:freshwater:10" },
+      "batchable": false, "timeBase": 6,
+      "concepts": ["sealing"]
+    },
+    {
+      "id": "struct-field-forge",
+      "name": "Field Forge",
+      "output": { "item": "struct-field-forge", "qty": 1 },
+      "inputs": [
+        { "item": "brick", "qty": 6 },
+        { "item": "iron-plate", "qty": 4 },
+        { "item": "iron-nails", "qty": 8 },
+        { "item": "copper-tube", "qty": 2 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "taught", "source": "npc:master-smith" },
+      "batchable": false, "timeBase": 14,
+      "concepts": ["heat-treatment", "combustion"],
+      "conceptRequires": { "heat-treatment": 2 }
+    },
+    {
+      "id": "struct-watchtower",
+      "name": "Watchtower",
+      "output": { "item": "struct-watchtower", "qty": 1 },
+      "inputs": [
+        { "item": "wood-plank", "qty": 8 },
+        { "item": "iron-nails", "qty": 8 },
+        { "item": "rope", "qty": 3 },
+        { "item": "wood-log", "qty": 4 }
+      ],
+      "tier": 3, "station": "workshop",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 12,
+      "concepts": ["joinery", "leverage"]
+    },
+    {
+      "id": "struct-palisade",
+      "name": "Palisade Wall",
+      "output": { "item": "struct-palisade", "qty": 2 },
+      "inputs": [
+        { "item": "wood-log", "qty": 4 },
+        { "item": "rope", "qty": 1 },
+        { "item": "iron-nails", "qty": 4 }
+      ],
+      "tier": 3, "station": null,
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 6,
+      "concepts": ["joinery"]
+    },
+    {
+      "id": "struct-gate",
+      "name": "Palisade Gate",
+      "output": { "item": "struct-gate", "qty": 1 },
+      "inputs": [
+        { "item": "wood-plank", "qty": 4 },
+        { "item": "hinge", "qty": 2 },
+        { "item": "iron-nails", "qty": 6 },
+        { "item": "rope", "qty": 1 }
+      ],
+      "tier": 3, "station": "workshop",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["joinery", "rotation"]
+    },
+    {
+      "id": "struct-generator",
+      "name": "Steam Generator",
+      "output": { "item": "struct-generator", "qty": 1 },
+      "inputs": [
+        { "item": "steam-engine", "qty": 1 },
+        { "item": "wire-copper", "qty": 4 },
+        { "item": "steel-plate", "qty": 4 },
+        { "item": "rivet", "qty": 8 },
+        { "item": "lodite-cell", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 20,
+      "concepts": ["pressure", "gear-train", "conduit-craft"],
+      "challenge": "power-regulation",
+      "conceptRequires": { "pressure": 2, "gear-train": 2 }
+    },
+    {
+      "id": "struct-auto-smelter",
+      "name": "Automated Smelter",
+      "output": { "item": "struct-auto-smelter", "qty": 1 },
+      "inputs": [
+        { "item": "brick", "qty": 8 },
+        { "item": "steel-plate", "qty": 4 },
+        { "item": "gear-iron", "qty": 2 },
+        { "item": "copper-tube", "qty": 4 },
+        { "item": "valve", "qty": 2 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 18,
+      "concepts": ["heat-treatment", "gear-train", "pressure"],
+      "conceptRequires": { "heat-treatment": 3 }
+    },
+    {
+      "id": "struct-pipe-section",
+      "name": "Pipe Section",
+      "output": { "item": "struct-pipe-section", "qty": 3 },
+      "inputs": [
+        { "item": "copper-tube", "qty": 2 },
+        { "item": "rubber", "qty": 1 },
+        { "item": "rivet", "qty": 2 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "innate" },
+      "batchable": true, "timeBase": 4,
+      "concepts": ["sealing", "pressure"]
+    },
+    {
+      "id": "struct-mech-dock",
+      "name": "Mech Dock",
+      "output": { "item": "struct-mech-dock", "qty": 1 },
+      "inputs": [
+        { "item": "steel-alloy", "qty": 6 },
+        { "item": "hydraulic-cylinder", "qty": 2 },
+        { "item": "wire-copper", "qty": 6 },
+        { "item": "lodite-cell", "qty": 2 },
+        { "item": "rivet", "qty": 12 },
+        { "item": "struct-pipe-section", "qty": 3 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 30,
+      "concepts": ["precision", "pressure", "conduit-craft"],
+      "challenge": "dock-calibration",
+      "conceptRequires": { "precision": 3, "pressure": 3 }
+    },
+    {
+      "id": "struct-perimeter-turret",
+      "name": "Perimeter Turret",
+      "output": { "item": "struct-perimeter-turret", "qty": 1 },
+      "inputs": [
+        { "item": "steel-plate", "qty": 3 },
+        { "item": "gear-iron", "qty": 2 },
+        { "item": "spring-iron", "qty": 2 },
+        { "item": "lodite-cell", "qty": 1 },
+        { "item": "drone-brain", "qty": 1 }
+      ],
+      "tier": 5, "station": "engine-works",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 16,
+      "concepts": ["precision", "gear-train", "tension"]
+    },
+    {
+      "id": "struct-beacon",
+      "name": "Beacon",
+      "output": { "item": "struct-beacon", "qty": 1 },
+      "inputs": [
+        { "item": "lodite-cell", "qty": 2 },
+        { "item": "crystal-shard", "qty": 3 },
+        { "item": "wire-copper", "qty": 4 },
+        { "item": "steel-plate", "qty": 2 },
+        { "item": "lens", "qty": 1 }
+      ],
+      "tier": 5, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:deep-bergfolk-elder" },
+      "batchable": false, "timeBase": 18,
+      "concepts": ["conduit-craft", "resonance"],
+      "conceptRequires": { "conduit-craft": 3, "resonance": 2 }
+    },
+
+    { "_tier": "=== DRONE COMPONENTS ===" },
+
+    {
+      "id": "drone-brain",
+      "name": "Clockwork Brain",
+      "output": { "item": "drone-brain", "qty": 1 },
+      "inputs": [
+        { "item": "precision-gear", "qty": 3 },
+        { "item": "spring-iron", "qty": 2 },
+        { "item": "wire-copper", "qty": 2 },
+        { "item": "bronze-ingot", "qty": 1 }
+      ],
+      "tier": 3, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 12,
+      "concepts": ["gear-train", "precision"],
+      "conceptRequires": { "gear-train": 2, "precision": 2 }
+    },
+    {
+      "id": "drone-brain-lodite",
+      "name": "Lodite Brain",
+      "output": { "item": "drone-brain-lodite", "qty": 1 },
+      "inputs": [
+        { "item": "drone-brain", "qty": 1 },
+        { "item": "lodite-cell", "qty": 1 },
+        { "item": "crystal-shard", "qty": 2 },
+        { "item": "wire-copper", "qty": 3 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:deep-bergfolk-elder" },
+      "batchable": false, "timeBase": 16,
+      "concepts": ["conduit-craft", "precision", "resonance"],
+      "conceptRequires": { "conduit-craft": 2, "precision": 3 }
+    },
+    {
+      "id": "propeller",
+      "name": "Propeller",
+      "output": { "item": "propeller", "qty": 2 },
+      "inputs": [
+        { "item": "steel-ingot", "qty": 1 },
+        { "item": "bearing", "qty": 1 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "observation", "trigger": "inspect:windmill-mechanism" },
+      "batchable": true, "timeBase": 5,
+      "concepts": ["rotation", "precision"]
+    },
+    {
+      "id": "drone-chassis-small",
+      "name": "Small Drone Chassis",
+      "output": { "item": "drone-chassis-small", "qty": 1 },
+      "inputs": [
+        { "item": "iron-plate", "qty": 2 },
+        { "item": "gear-iron", "qty": 2 },
+        { "item": "hinge", "qty": 2 },
+        { "item": "rivet", "qty": 4 }
+      ],
+      "tier": 3, "station": "smithy",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 8,
+      "concepts": ["joinery", "rotation"]
+    },
+    {
+      "id": "drone-chassis-medium",
+      "name": "Medium Drone Chassis",
+      "output": { "item": "drone-chassis-medium", "qty": 1 },
+      "inputs": [
+        { "item": "steel-plate", "qty": 3 },
+        { "item": "precision-gear", "qty": 2 },
+        { "item": "hinge", "qty": 2 },
+        { "item": "rivet", "qty": 6 },
+        { "item": "rubber", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "innate" },
+      "batchable": false, "timeBase": 10,
+      "concepts": ["precision", "joinery"]
+    },
+
+    { "_tier": "=== DRONES — Tier 3 (clockwork/spring-powered) ===" },
+
+    {
+      "id": "drone-scout",
+      "name": "Clockwork Scout Drone",
+      "output": { "item": "drone-scout", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-small", "qty": 1 },
+        { "item": "drone-brain", "qty": 1 },
+        { "item": "propeller", "qty": 2 },
+        { "item": "lens", "qty": 1 },
+        { "item": "spring-iron", "qty": 2 }
+      ],
+      "tier": 3, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 14,
+      "concepts": ["gear-train", "precision", "rotation"],
+      "challenge": "flight-balance",
+      "conceptRequires": { "gear-train": 2, "precision": 2 }
+    },
+    {
+      "id": "drone-sentry",
+      "name": "Mechanical Sentry",
+      "output": { "item": "drone-sentry", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-small", "qty": 1 },
+        { "item": "drone-brain", "qty": 1 },
+        { "item": "spring-iron", "qty": 3 },
+        { "item": "iron-blade", "qty": 1 },
+        { "item": "gear-iron", "qty": 2 }
+      ],
+      "tier": 3, "station": "engine-works",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 14,
+      "concepts": ["tension", "gear-train", "precision"]
+    },
+
+    { "_tier": "=== DRONES — Tier 4 (steam-powered) ===" },
+
+    {
+      "id": "drone-hauler",
+      "name": "Steam Hauler",
+      "output": { "item": "drone-hauler", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-medium", "qty": 1 },
+        { "item": "drone-brain", "qty": 1 },
+        { "item": "piston", "qty": 1 },
+        { "item": "boiler", "qty": 1 },
+        { "item": "bearing", "qty": 2 },
+        { "item": "steel-plate", "qty": 2 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 18,
+      "concepts": ["pressure", "gear-train"],
+      "conceptRequires": { "pressure": 2 }
+    },
+    {
+      "id": "drone-miner",
+      "name": "Mining Drone",
+      "output": { "item": "drone-miner", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-medium", "qty": 1 },
+        { "item": "drone-brain", "qty": 1 },
+        { "item": "piston", "qty": 1 },
+        { "item": "drive-shaft", "qty": 1 },
+        { "item": "precision-gear", "qty": 2 },
+        { "item": "steel-blade", "qty": 1 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 18,
+      "concepts": ["pressure", "gear-train", "rotation"],
+      "conceptRequires": { "gear-train": 2 }
+    },
+    {
+      "id": "drone-repair",
+      "name": "Repair Drone",
+      "output": { "item": "drone-repair", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-small", "qty": 1 },
+        { "item": "drone-brain", "qty": 1 },
+        { "item": "propeller", "qty": 2 },
+        { "item": "wire-copper", "qty": 3 },
+        { "item": "spring-iron", "qty": 2 },
+        { "item": "oil", "qty": 2 }
+      ],
+      "tier": 4, "station": "engine-works",
+      "discovery": { "method": "taught", "source": "npc:old-war-engineer" },
+      "batchable": false, "timeBase": 16,
+      "concepts": ["precision", "gear-train"]
+    },
+
+    { "_tier": "=== DRONES — Tier 5 (lodite-powered) ===" },
+
+    {
+      "id": "drone-combat",
+      "name": "Combat Drone",
+      "output": { "item": "drone-combat", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-medium", "qty": 1 },
+        { "item": "drone-brain-lodite", "qty": 1 },
+        { "item": "propeller", "qty": 2 },
+        { "item": "steel-blade", "qty": 2 },
+        { "item": "lodite-cell", "qty": 1 },
+        { "item": "spring-iron", "qty": 2 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 20,
+      "concepts": ["precision", "gear-train", "pressure"],
+      "conceptRequires": { "precision": 3, "gear-train": 3 }
+    },
+    {
+      "id": "drone-shield",
+      "name": "Shield Drone",
+      "output": { "item": "drone-shield", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-small", "qty": 1 },
+        { "item": "drone-brain-lodite", "qty": 1 },
+        { "item": "propeller", "qty": 2 },
+        { "item": "lodite-cell", "qty": 2 },
+        { "item": "crystal-shard", "qty": 2 },
+        { "item": "wire-copper", "qty": 3 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "taught", "source": "npc:deep-bergfolk-elder" },
+      "batchable": false, "timeBase": 18,
+      "concepts": ["conduit-craft", "resonance", "precision"],
+      "conceptRequires": { "conduit-craft": 3 }
+    },
+    {
+      "id": "drone-gatherer",
+      "name": "Gathering Swarm",
+      "output": { "item": "drone-gatherer", "qty": 1 },
+      "inputs": [
+        { "item": "drone-chassis-small", "qty": 3 },
+        { "item": "drone-brain-lodite", "qty": 1 },
+        { "item": "propeller", "qty": 6 },
+        { "item": "lodite-cell", "qty": 1 },
+        { "item": "wire-copper", "qty": 4 }
+      ],
+      "tier": 5, "station": "mech-bay",
+      "discovery": { "method": "experiment" },
+      "batchable": false, "timeBase": 22,
+      "concepts": ["precision", "conduit-craft", "gear-train"]
     }
   ]
 }

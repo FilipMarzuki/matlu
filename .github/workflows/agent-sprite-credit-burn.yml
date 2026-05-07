@@ -1,27 +1,29 @@
 name: Sprite Credit Burn
 
-# Uses remaining PixelLab credits to generate pixel art sprites for entities missing them.
+# Uses remaining PixelLab credits to generate pixel art assets:
+#   Pass 1: Map objects (trees, ground cover, shrubs, rocks, grass) — ~1 credit each
+#   Pass 2: Concept patch icons — ~1 credit each
+#   Pass 3: Crafting item icons — ~1 credit each
+#   Pass 4: Community creature submissions — ~20-40 credits each
+#
 # Trigger manually from the Actions tab when you're ready to spend credits.
+# Run before the 9th of each month (credits reset then).
 #
-# Safe to re-run: skips entities already done (status: "done" in asset-spec.json) and
-# stops cleanly when PixelLab returns an error (= credits exhausted). Commits after every
-# single entity so partial runs never lose progress.
-#
-# Priority: spinolandet enemies → earth enemies → spinolandet heroes → earth heroes → summons
-#
-# Tip: run entity-spec-fill manually first so designNotes.sprite is populated before this runs.
+# Safe to re-run: skips assets already done (status: "done" in asset-spec.json) and
+# stops cleanly when PixelLab returns an error (= credits exhausted). Commits after
+# every batch so partial runs never lose progress.
 
 on:
   workflow_dispatch:
 
 concurrency:
   group: agent-sprite-credit-burn
-  cancel-in-progress: false   # never interrupt a run mid-entity
+  cancel-in-progress: false   # never interrupt a run mid-batch
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 120       # 2 hours — enough for ~6 entities with animations
+    timeout-minutes: 360       # 6 hours — ~344 map objects/icons + community creatures
     env:
       VITE_SUPABASE_URL: https://example.supabase.co
       VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
@@ -44,10 +46,11 @@ jobs:
 
       - name: Run sprite credit-burn session
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_PERSONAL }}
-          
-          GITHUB_TOKEN:            ${{ secrets.GITHUB_TOKEN }}
-          PIXELLAB_API_KEY:        ${{ secrets.PIXELLAB_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN:   ${{ secrets.CLAUDE_CODE_PERSONAL }}
+          GITHUB_TOKEN:              ${{ secrets.GITHUB_TOKEN }}
+          PIXELLAB_API_KEY:          ${{ secrets.PIXELLAB_API_KEY }}
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           npx --yes @anthropic-ai/claude-code --print \
             --permission-mode bypassPermissions \
