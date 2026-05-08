@@ -15,6 +15,8 @@ export type ItemCategory =
   | 'component'
   | 'consumable'
   | 'equipment'
+  | 'structure'
+  | 'deployable'
   | 'lore-fragment';
 
 export type EquipSlot = 'weapon' | 'body' | 'offhand' | 'back';
