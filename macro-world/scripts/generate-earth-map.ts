@@ -27,6 +27,7 @@ const AZGAAR_URL =
 const DEFAULT_TIMEOUT_MS = 120_000;
 const LAND_RATIO_MIN = 0.2;
 const LAND_RATIO_MAX = 0.4;
+const EARTH_LAND_RATIO_TARGET = 0.29;
 
 interface CliOptions {
   headed: boolean;
@@ -55,7 +56,11 @@ type AzgaarWindow = Window & {
     };
     rivers?: ArrayLike<unknown>;
   };
-  customization?: number;
+  grid?: {
+    cells?: {
+      h?: ArrayLike<number>;
+    };
+  };
 };
 
 function parseArgs(): CliOptions {
@@ -141,6 +146,40 @@ async function importHeightmap(page: Page, timeoutMs: number): Promise<void> {
   await page.locator('#imageConverter').waitFor({ state: 'hidden', timeout: timeoutMs });
 }
 
+async function normalizeImportedLandRatio(page: Page): Promise<number> {
+  return page.evaluate((targetLandRatio: number) => {
+    const azgaar = window as unknown as AzgaarWindow;
+    const heights = azgaar.grid?.cells?.h;
+    if (!heights) throw new Error('Azgaar grid height data is unavailable');
+
+    const heightValues = Array.from(heights);
+    if (heightValues.length === 0) throw new Error('Azgaar grid has zero height cells');
+
+    const sortedHeights = [...heightValues].sort((a, b) => a - b);
+    const thresholdIndex = Math.max(
+      0,
+      Math.min(sortedHeights.length - 1, Math.floor((1 - targetLandRatio) * sortedHeights.length)),
+    );
+    const seaLevelSourceValue = sortedHeights[thresholdIndex];
+    const maxSourceValue = Math.max(...heightValues);
+    const sourceLandRange = Math.max(1, maxSourceValue - seaLevelSourceValue);
+
+    const normalized = heightValues.map(height => {
+      if (height <= seaLevelSourceValue) {
+        const waterRatio = seaLevelSourceValue <= 0 ? 0 : height / seaLevelSourceValue;
+        return Math.max(0, Math.min(19, Math.round(waterRatio * 19)));
+      }
+
+      const landRatio = (height - seaLevelSourceValue) / sourceLandRange;
+      return Math.max(20, Math.min(100, Math.round(20 + landRatio * 80)));
+    });
+
+    azgaar.grid.cells.h = new Uint8Array(normalized);
+    const landCells = normalized.filter(height => height >= 20).length;
+    return landCells / normalized.length;
+  }, EARTH_LAND_RATIO_TARGET);
+}
+
 async function finalizeHeightmap(page: Page, timeoutMs: number): Promise<void> {
   await page.locator('#finalizeHeightmap').click({ timeout: timeoutMs });
 
@@ -148,7 +187,9 @@ async function finalizeHeightmap(page: Page, timeoutMs: number): Promise<void> {
     () => {
       const azgaar = window as unknown as AzgaarWindow;
       const biomes = azgaar.pack?.cells?.biome;
-      return azgaar.customization === 0 && Boolean(biomes && Array.from(biomes).some(value => value > 0));
+      const finalizeButton = document.querySelector<HTMLElement>('#finalizeHeightmap');
+      const finalized = !finalizeButton || finalizeButton.offsetParent === null;
+      return finalized && Boolean(biomes && Array.from(biomes).some(value => value > 0));
     },
     null,
     { timeout: timeoutMs },
@@ -158,11 +199,11 @@ async function finalizeHeightmap(page: Page, timeoutMs: number): Promise<void> {
 async function collectStats(page: Page): Promise<AzgaarStats> {
   return page.evaluate(() => {
     const azgaar = window as unknown as AzgaarWindow;
-    const heights = azgaar.pack?.cells?.h;
+    const heights = azgaar.grid?.cells?.h;
     const biomes = azgaar.pack?.cells?.biome;
 
     if (!heights || !biomes) {
-      throw new Error('Azgaar pack cell data is unavailable');
+      throw new Error('Azgaar grid/pack cell data is unavailable');
     }
 
     const heightValues = Array.from(heights);
@@ -217,6 +258,9 @@ async function run(): Promise<void> {
     console.log(`Importing ${path.relative(REPO_ROOT, HEIGHTMAP_PATH)}...`);
     await importHeightmap(page, options.timeoutMs);
 
+    const importedLandRatio = await normalizeImportedLandRatio(page);
+    console.log(`Normalized imported grid land ratio to ${(importedLandRatio * 100).toFixed(1)}%.`);
+
     console.log('Finalizing heightmap and regenerating terrain...');
     await finalizeHeightmap(page, options.timeoutMs);
 
@@ -224,7 +268,7 @@ async function run(): Promise<void> {
     validateStats(stats);
 
     console.log('\nEarth heightmap import complete.');
-    console.log(`  Cells:      ${stats.cellCount}`);
+    console.log(`  Grid cells: ${stats.cellCount}`);
     console.log(`  Land cells: ${stats.landCells} (${(stats.landRatio * 100).toFixed(1)}%)`);
     console.log(`  Biome cells:${stats.nonZeroBiomes}`);
     console.log(`  Rivers:     ${stats.riverCount}`);
