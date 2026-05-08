@@ -612,8 +612,8 @@ export class GameScene extends Phaser.Scene {
   private moistNoise!: FbmNoise;
 
   // ─── Level 1 ──────────────────────────────────────────────────────────────────
-  // Semi-transparent zone tint overlays — one per zone, faded on collectible pickup
-  private zoneOverlays: Map<string, Phaser.GameObjects.Rectangle> = new Map();
+  // Semi-transparent corruption stain overlays — one per zone, faded on collectible pickup.
+  private zoneOverlays: Map<string, Phaser.GameObjects.Graphics> = new Map();
   // Set of collected item IDs
   private collectedItems: Set<string> = new Set();
   // Collectible circle sprites (live objects, removed on pickup)
@@ -6767,24 +6767,58 @@ export class GameScene extends Phaser.Scene {
   // ─── Level 1 ──────────────────────────────────────────────────────────────────
 
   /**
-   * Create semi-transparent zone tint overlays at depth 3 (above terrain + paths,
-   * below decorations). Each zone starts at its initial tintAlpha.
+   * Create semi-transparent corruption stains at depth 3 (above terrain + paths,
+   * below decorations).  Each zone is drawn as noisy isometric tile patches
+   * instead of a flat rectangle so corruption reads as something growing through
+   * the ground rather than a debug collision box.
    * On collectible pickup, the corresponding zone's overlay fades out.
    */
   private createLevel1Zones(): void {
     for (const zone of ZONES) {
-      const { x: _zIsoX, y: _zIsoY } = worldToIso(zone.x + zone.w / 2, zone.y + zone.h / 2);
-      const overlay = this.add
-        .rectangle(
-          _zIsoX,
-          _zIsoY,
-          zone.w,
-          zone.h,
-          zone.tintColor,
-          zone.tintAlpha,
-        )
-        .setDepth(3)
-        .setScrollFactor(1); // scrolls with the world
+      const overlay = this.add.graphics().setDepth(3).setScrollFactor(1);
+      const txMin = Math.max(0, Math.floor(zone.x / TILE_SIZE));
+      const tyMin = Math.max(0, Math.floor(zone.y / TILE_SIZE));
+      const txMax = Math.min(Math.ceil(WORLD_W / TILE_SIZE) - 1, Math.ceil((zone.x + zone.w) / TILE_SIZE));
+      const tyMax = Math.min(Math.ceil(WORLD_H / TILE_SIZE) - 1, Math.ceil((zone.y + zone.h) / TILE_SIZE));
+      const hw = ISO_TILE_W / 2;
+      const hh = ISO_TILE_H / 2;
+      const corruption01 = Phaser.Math.Clamp(zone.corruption / 100, 0, 1);
+
+      for (let ty = tyMin; ty <= tyMax; ty++) {
+        for (let tx = txMin; tx <= txMax; tx++) {
+          const wx = (tx + 0.5) * TILE_SIZE;
+          const wy = (ty + 0.5) * TILE_SIZE;
+          const nx = Phaser.Math.Clamp((wx - zone.x) / zone.w, 0, 1);
+          const ny = Phaser.Math.Clamp((wy - zone.y) / zone.h, 0, 1);
+          const edgeFade = Phaser.Math.Clamp(Math.min(nx, 1 - nx, ny, 1 - ny) / 0.14, 0, 1);
+          const local = this.corruptionField.sample(wx, wy, corruption01) * edgeFade;
+          if (local < 0.10) continue;
+
+          const { x: isoX, y: isoY } = worldToIso(tx * TILE_SIZE, ty * TILE_SIZE);
+          const alpha = Phaser.Math.Clamp((0.10 + local * 0.75) * zone.tintAlpha, 0.02, 0.34);
+          overlay.fillStyle(0x05000b, alpha * 0.7);
+          overlay.beginPath();
+          overlay.moveTo(isoX,      isoY);
+          overlay.lineTo(isoX + hw, isoY + hh);
+          overlay.lineTo(isoX,      isoY + ISO_TILE_H);
+          overlay.lineTo(isoX - hw, isoY + hh);
+          overlay.closePath();
+          overlay.fillPath();
+
+          if (local > 0.24) {
+            // Purple cores make the worst patches read as supernatural corruption,
+            // while the black pass keeps the overall world HLD-dark.
+            overlay.fillStyle(zone.tintColor, alpha * 0.75);
+            overlay.beginPath();
+            overlay.moveTo(isoX,          isoY + 2);
+            overlay.lineTo(isoX + hw - 3, isoY + hh);
+            overlay.lineTo(isoX,          isoY + ISO_TILE_H - 2);
+            overlay.lineTo(isoX - hw + 3, isoY + hh);
+            overlay.closePath();
+            overlay.fillPath();
+          }
+        }
+      }
       this.zoneOverlays.set(zone.id, overlay);
     }
   }
@@ -6945,7 +6979,7 @@ export class GameScene extends Phaser.Scene {
     if (overlay) {
       this.tweens.add({
         targets: overlay,
-        alpha: overlay.fillAlpha * 0.4,
+        alpha: overlay.alpha * 0.4,
         duration: 1200,
         ease: 'Sine.easeOut',
       });
@@ -7482,7 +7516,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Toggle world decorations (trees, rocks, flowers, paths, zone tints, particles)
+   * Toggle world decorations (trees, rocks, flowers, paths, corruption stains, particles)
    * on/off.  Mirrors the H-key shortcut but also fires a NavScene update event so
    * the World Dev panel button reflects the current state.
    */
@@ -7519,7 +7553,7 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit('nav-paths-changed', this.pathsVisible);
   }
 
-  /** Toggle zone tint overlays independently of the Decor master toggle. */
+  /** Toggle corruption stain overlays independently of the Decor master toggle. */
   toggleZones(): void {
     this.zonesVisible = !this.zonesVisible;
     for (const ov of this.zoneOverlays.values()) ov.setVisible(this.zonesVisible);
