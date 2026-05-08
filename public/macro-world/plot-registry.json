@@ -1,0 +1,107 @@
+{
+  "_doc": "Plot registry — compound templates that group a main building with yard objects, fencing, and a road connection. Plots are the atomic unit of settlement composition. Phase 1: data + forge scene. Phase 2: SettlementGenerator places plots instead of individual buildings.",
+  "plots": [
+    {
+      "id": "player-camp",
+      "name": "Player Camp",
+      "tier": 1,
+      "purposes": ["frontier", "refuge"],
+      "mainBuilding": "shelter-hut",
+      "mainBuildingPos": { "tx": 2, "ty": 1 },
+      "plotSize": { "w": 5, "d": 5 },
+      "yardObjects": [
+        { "id": "campfire",       "type": "craft-station", "pos": { "tx": 2, "ty": 3 }, "spriteKey": "iki-campfire",  "footprint": { "w": 1, "d": 1 } },
+        { "id": "workbench",      "type": "craft-station", "pos": { "tx": 0, "ty": 2 }, "spriteKey": null,            "footprint": { "w": 1, "d": 1 } },
+        { "id": "storage-chest",  "type": "craft-station", "pos": { "tx": 4, "ty": 1 }, "spriteKey": null,            "footprint": { "w": 1, "d": 1 } }
+      ],
+      "fencing": { "type": "none", "gatePos": { "tx": 2, "ty": 4 } },
+      "pathAnchor": { "tx": 2, "ty": 5 }
+    },
+    {
+      "id": "homestead-basic",
+      "name": "Basic Homestead",
+      "tier": 1,
+      "purposes": ["farming", "frontier", "herding"],
+      "mainBuilding": "cottage",
+      "mainBuildingPos": { "tx": 1, "ty": 1 },
+      "plotSize": { "w": 6, "d": 6 },
+      "yardObjects": [
+        { "id": "well",          "type": "building",    "pos": { "tx": 4, "ty": 1 }, "spriteKey": "iki-well",    "footprint": { "w": 1, "d": 1 } },
+        { "id": "garden-bed",    "type": "decorative",  "pos": { "tx": 0, "ty": 4 }, "spriteKey": null,          "footprint": { "w": 2, "d": 1 } },
+        { "id": "woodpile",      "type": "decorative",  "pos": { "tx": 5, "ty": 4 }, "spriteKey": null,          "footprint": { "w": 1, "d": 1 } },
+        { "id": "chicken-coop",  "type": "decorative",  "pos": { "tx": 4, "ty": 3 }, "spriteKey": null,          "footprint": { "w": 1, "d": 1 } }
+      ],
+      "fencing": { "type": "wooden-fence", "gatePos": { "tx": 3, "ty": 5 } },
+      "pathAnchor": { "tx": 3, "ty": 6 }
+    },
+    {
+      "id": "farm-compound",
+      "name": "Farm Compound",
+      "tier": 2,
+      "purposes": ["farming", "herding"],
+      "mainBuilding": "barn",
+      "mainBuildingPos": { "tx": 1, "ty": 1 },
+      "plotSize": { "w": 8, "d": 8 },
+      "yardObjects": [
+        { "id": "field",         "type": "decorative",  "pos": { "tx": 4, "ty": 1 }, "spriteKey": null,          "footprint": { "w": 3, "d": 2 } },
+        { "id": "animal-pen",    "type": "decorative",  "pos": { "tx": 0, "ty": 5 }, "spriteKey": null,          "footprint": { "w": 2, "d": 2 } },
+        { "id": "silo",          "type": "building",    "pos": { "tx": 6, "ty": 4 }, "spriteKey": null,          "footprint": { "w": 1, "d": 1 } },
+        { "id": "well",          "type": "building",    "pos": { "tx": 3, "ty": 5 }, "spriteKey": "iki-well",    "footprint": { "w": 1, "d": 1 } },
+        { "id": "hay-bale",      "type": "decorative",  "pos": { "tx": 5, "ty": 6 }, "spriteKey": null,          "footprint": { "w": 1, "d": 1 } }
+      ],
+      "fencing": { "type": "wooden-fence", "gatePos": { "tx": 4, "ty": 7 } },
+      "pathAnchor": { "tx": 4, "ty": 8 }
+    },
+    {
+      "id": "smithy-compound",
+      "name": "Smithy Compound",
+      "tier": 2,
+      "purposes": ["mining", "frontier", "garrison"],
+      "mainBuilding": "smithy",
+      "mainBuildingPos": { "tx": 1, "ty": 1 },
+      "plotSize": { "w": 6, "d": 6 },
+      "yardObjects": [
+        { "id": "anvil",          "type": "craft-station", "pos": { "tx": 4, "ty": 2 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } },
+        { "id": "coal-pile",      "type": "decorative",    "pos": { "tx": 0, "ty": 4 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } },
+        { "id": "quench-trough",  "type": "craft-station", "pos": { "tx": 4, "ty": 4 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } },
+        { "id": "weapon-rack",    "type": "decorative",    "pos": { "tx": 5, "ty": 1 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } }
+      ],
+      "fencing": { "type": "palisade", "gatePos": { "tx": 3, "ty": 5 } },
+      "pathAnchor": { "tx": 3, "ty": 6 }
+    },
+    {
+      "id": "market-plot",
+      "name": "Market Plot",
+      "tier": 3,
+      "purposes": ["trading-hub", "port"],
+      "mainBuilding": "market-hall",
+      "mainBuildingPos": { "tx": 2, "ty": 1 },
+      "plotSize": { "w": 7, "d": 7 },
+      "yardObjects": [
+        { "id": "merchant-stall-a", "type": "building",    "pos": { "tx": 0, "ty": 4 }, "spriteKey": null,       "footprint": { "w": 2, "d": 1 } },
+        { "id": "merchant-stall-b", "type": "building",    "pos": { "tx": 4, "ty": 4 }, "spriteKey": null,       "footprint": { "w": 2, "d": 1 } },
+        { "id": "crate-stack",      "type": "decorative",  "pos": { "tx": 6, "ty": 2 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } },
+        { "id": "well",             "type": "building",    "pos": { "tx": 0, "ty": 1 }, "spriteKey": "iki-well", "footprint": { "w": 1, "d": 1 } }
+      ],
+      "fencing": { "type": "none", "gatePos": { "tx": 3, "ty": 6 } },
+      "pathAnchor": { "tx": 3, "ty": 7 }
+    },
+    {
+      "id": "shrine-grove",
+      "name": "Shrine Grove",
+      "tier": 2,
+      "purposes": ["shrine", "refuge"],
+      "mainBuilding": "shrine",
+      "mainBuildingPos": { "tx": 2, "ty": 1 },
+      "plotSize": { "w": 6, "d": 6 },
+      "yardObjects": [
+        { "id": "ancestor-stone",  "type": "decorative",  "pos": { "tx": 0, "ty": 3 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } },
+        { "id": "offering-bowl",   "type": "decorative",  "pos": { "tx": 4, "ty": 3 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } },
+        { "id": "garden-bed",      "type": "decorative",  "pos": { "tx": 1, "ty": 4 }, "spriteKey": null,       "footprint": { "w": 2, "d": 1 } },
+        { "id": "spirit-lantern",  "type": "decorative",  "pos": { "tx": 5, "ty": 1 }, "spriteKey": null,       "footprint": { "w": 1, "d": 1 } }
+      ],
+      "fencing": { "type": "hedge", "gatePos": { "tx": 3, "ty": 5 } },
+      "pathAnchor": { "tx": 3, "ty": 6 }
+    }
+  ]
+}
