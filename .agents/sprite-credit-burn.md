@@ -1,342 +1,127 @@
 # Sprite Credit-Burn Agent
 
-You are the sprite credit-burn agent for Matlu. Your job: use remaining PixelLab credits before the monthly billing reset (9th of each month) to generate pixel art assets — map objects, icons, item icons, and community creature submissions.
+Generate pending pixel art assets from `src/ai/asset-spec.json` using the PixelLab MCP tools. Stop cleanly when credits run out. Commit progress frequently.
 
-Credits are finite. Work in priority order. Commit after every batch so a crash or credit exhaustion never loses progress. Stop cleanly if PixelLab returns an error — that's the signal credits are exhausted.
-
----
-
-## OVERVIEW — FOUR PASSES
-
-| Pass | Source | Tool | Cost/item | Items |
-|------|--------|------|-----------|-------|
-| 1 | `asset-spec.json → mapObjects` | `create_map_object` | ~1 credit | Trees, ground cover, shrubs, rocks, grass |
-| 2 | `asset-spec.json → icons` | `create_object` | ~1 credit | Concept patch badges (32×32) |
-| 3 | `asset-spec.json → itemIcons` | `create_object` | ~1 credit | Crafting item inventory icons (32×32) |
-| 4 | Supabase `creature_submissions` | `create_character` + `animate_character` | ~20-40 credits | Community-submitted creatures |
-
-Process passes in order. If credits run out mid-pass, stop cleanly.
+## RULES
+- **ALWAYS use `n_frames: 1`** for `create_object`. Never use `n_frames: 4` — it wastes 64 credits generating review candidates instead of 1.
+- **Commit after every 8-10 completed downloads** so progress survives crashes.
+- **Stop immediately** if any `create_object` or `create_map_object` call returns "Insufficient generations" — credits are exhausted.
+- **Skip entries with `status: "done"`** — they were completed in a previous run.
+- Only process entries that have an `id` field (skip `_section` and `_note` markers).
 
 ---
 
-## STEP 1 — READ THE STYLE GUIDE
+## PASS 1 — CONCEPT ICONS (`icons` array)
 
-Read `src/ai/asset-spec.json`. Internalize:
-- `styleGuide` — view, outline, shading, detail, characterSize, tileSize
-- `palettes` — per-world color descriptions
-- Existing entries marked `status: "done"` — reference these for parameter patterns
+For each entry in `asset-spec.json → icons` where `status === "pending"` and `id` exists:
+
+1. Call `create_object` with:
+   - `description`: entry.pixellab.description
+   - `size`: 32
+   - `directions`: 1
+   - `n_frames`: 1
+   - `object_view`: "top-down"
+
+2. If the call returns "Insufficient generations" → stop, jump to COMMIT & REPORT.
+
+3. Poll `get_object(object_id)` until status is completed (typically 30-90 seconds). Poll every 30 seconds, timeout after 3 minutes.
+
+4. Download the PNG from the storage URL to `{entry.outputDir}/{entry.id}.png`. Create directory with `mkdir -p` if needed. Use curl:
+   ```bash
+   curl -sL "{storage_url}" -o "{outputDir}/{id}.png"
+   ```
+
+5. Update `asset-spec.json`: set `entry.status = "done"`.
+
+6. After every 8 completed items, write the updated `asset-spec.json` and commit:
+   ```bash
+   git add src/ai/asset-spec.json public/assets/sprites/icons/
+   git commit -m "art(icons): generate concept patch icons — batch N"
+   ```
 
 ---
 
-## PASS 1 — MAP OBJECTS (trees, ground, shrubs, rocks, grass, decorations)
+## PASS 2 — ITEM ICONS (`itemIcons` array)
 
-### 1a. Build the work list
+Same flow as Pass 1 but reading from `asset-spec.json → itemIcons`.
 
-Read `asset-spec.json → mapObjects`. Collect every entry where `status === "pending"` and `category` is defined (skip `_section` and `_note` entries).
+Output directory: `public/assets/sprites/icons/items/`
 
-**Priority order:**
-1. `category: "tree"`, `priority: "must-have"` — trees are the biggest visual impact
-2. `category: "shrub"`, `priority: "must-have"`
-3. `category: "grass"`, `priority: "must-have"`
-4. `category: "rock"`, `priority: "must-have"`
-5. `category: "ground"`, `priority: "must-have"`
-6. `category: "decoration"`, `priority: "must-have"`
-7. Everything with `priority: "nice-to-have"` (same category order)
+Commit message: `"art(icons): generate item icons — batch N"`
 
-### 1b. Generate each map object
+---
 
-For each pending entry:
+## PASS 3 — MAP OBJECTS (`mapObjects` array)
+
+For each entry in `asset-spec.json → mapObjects` where `status === "pending"`, `category` exists, and `id` exists:
+
+**Priority order:** trees first, then shrubs, grass, rocks, ground, decorations.
 
 1. Call `create_map_object` with:
-   ```
-   description: entry.pixellab.description
-   width:       entry.pixellab.width
-   height:      entry.pixellab.height
-   view:        entry.pixellab.view
-   outline:     entry.pixellab.outline
-   shading:     entry.pixellab.shading
-   detail:      entry.pixellab.detail
-   ```
+   - `description`: entry.pixellab.description
+   - `width`: entry.pixellab.width
+   - `height`: entry.pixellab.height
+   - `view`: entry.pixellab.view
+   - `outline`: entry.pixellab.outline
+   - `shading`: entry.pixellab.shading
+   - `detail`: entry.pixellab.detail
 
-2. **If the call fails — stop immediately.** Credits are likely exhausted. Jump to FINAL REPORT.
+2. If the call fails → stop, jump to COMMIT & REPORT.
 
-3. Store the returned object/map_object ID. Poll `get_map_object` every 30 seconds until status is `"completed"` (typically ~10-30 seconds). Timeout after 2 minutes — log and skip.
+3. Poll `get_map_object(object_id)` until completed. Poll every 30 seconds, timeout 3 minutes.
 
-4. Download the PNG to `{entry.outputDir}/{entry.id}.png`. Create the directory if needed.
+4. Download PNG to `{entry.outputDir}/{entry.id}.png`.
 
-5. Update `asset-spec.json`: set `entry.status = "done"` and store the PixelLab ID as `entry._pixellabObjectId`.
+5. Update `asset-spec.json`: set `entry.status = "done"`.
 
-### 1c. Commit in batches
-
-Commit after every **biome group** (all items sharing the same `biome` value), or after every 10 items, whichever comes first:
-
-```bash
-git add src/ai/asset-spec.json {outputDir}/
-git commit -m "art({biome}): generate {N} map objects — {categories}
-
-Biome: {biome} | Categories: {comma-separated categories}
-Items: {comma-separated IDs}
-
-Generated by sprite-credit-burn agent (PixelLab MCP)."
-```
-
----
-
-## PASS 2 — CONCEPT PATCH ICONS
-
-### 2a. Build the work list
-
-Read `asset-spec.json → icons`. Collect entries where `status === "pending"` and `id` is defined.
-
-### 2b. Generate each icon
-
-For each pending entry:
-
-1. Call `create_object` with:
-   ```
-   description: entry.pixellab.description
-   size:        32
-   directions:  1
-   n_frames:    1
-   view:        "low top-down"
-   ```
-
-   Note: Icons use `create_object` (not `create_map_object`) because they are square UI elements, not map-placed sprites.
-
-2. **If the call fails — stop.** Jump to FINAL REPORT.
-
-3. Poll `get_object(object_id)` every 30 seconds until completed. Timeout after 2 minutes.
-
-4. Download the PNG to `{entry.outputDir}/{entry.id}.png`.
-
-5. Update `asset-spec.json`: set `entry.status = "done"` and store `entry._pixellabObjectId`.
-
-### 2c. Commit
-
-Commit all concept icons in one batch (or split by category if > 15):
-
-```bash
-git add src/ai/asset-spec.json public/assets/sprites/icons/concepts/
-git commit -m "art(icons): generate {N} concept patch icons
-
-Categories: {comma-separated categories}
-
-Generated by sprite-credit-burn agent (PixelLab MCP)."
-```
-
----
-
-## PASS 3 — ITEM ICONS
-
-### 3a. Build the work list
-
-Read `asset-spec.json → itemIcons`. Collect entries where `status === "pending"` and `id` is defined.
-
-### 3b. Generate each icon
-
-Same flow as Pass 2:
-
-1. Call `create_object` with:
-   ```
-   description: entry.pixellab.description
-   size:        32
-   directions:  1
-   n_frames:    1
-   view:        "low top-down"
-   ```
-
-2. **If the call fails — stop.** Jump to FINAL REPORT.
-
-3. Poll `get_object(object_id)` every 30 seconds until completed.
-
-4. Download the PNG to `{entry.outputDir}/{entry.id}.png`.
-
-5. Update `asset-spec.json`: set `entry.status = "done"` and store `entry._pixellabObjectId`.
-
-### 3c. Commit
-
-Commit all item icons in one batch (or split into groups of ~15):
-
-```bash
-git add src/ai/asset-spec.json public/assets/sprites/icons/items/
-git commit -m "art(icons): generate {N} crafting item icons
-
-Items: {comma-separated item names}
-
-Generated by sprite-credit-burn agent (PixelLab MCP)."
-```
-
----
-
-## PASS 4 — COMMUNITY CREATURE QUEUE
-
-Skip this pass and print `[Pass 4] Skipping — SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set.` if either env var is absent.
-
-### 4a. Fetch the queue
-
-```bash
-QUEUE=$(curl -s \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Accept: application/json" \
-  "${SUPABASE_URL}/rest/v1/creature_submissions?status=eq.queued&order=queue_priority.asc,queued_at.asc&select=*")
-echo "$QUEUE"
-```
-
-Parse the returned JSON array. If empty, print `[Pass 4] No queued creatures — nothing to do.` and skip to FINAL REPORT.
-
-### 4b. For each queued creature
-
-**4b-i. Set status to `'spriting'`**
-
-```bash
-curl -s -X PATCH \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=minimal" \
-  "${SUPABASE_URL}/rest/v1/creature_submissions?id=eq.<SUBMISSION_ID>" \
-  -d '{"status":"spriting"}'
-```
-
-**4b-ii. Derive entity fields**
-
-| Registry field | Source |
-|---|---|
-| `class` | `slug` converted to PascalCase (e.g. `kordororn` → `Kordororn`, `iron-wing-bat` → `IronWingBat`) |
-| `type` | `behaviour_threat = "hostile"` → `"enemy"` · anything else → `"neutral"` |
-| `world` | `world_name` lowercased/trimmed → `"earth"`, `"spinolandet"`, or `"vatten"`; default `"earth"` if unrecognised |
-| `personality` | `lore_description` (first 120 chars); else `creature_name` + brief summary from `behaviour_notes` |
-| `designNotes.sprite` | `graphics_notes` verbatim (primary); if null/empty, synthesize: `"{personality}, {world palette tones}, {kind_size} creature, {kind_movement joined}, top-down pixel art RPG"` |
-
-**4b-iii. Build the registry stub**
-
-```json
-{
-  "class": "<PascalCase from slug>",
-  "file": "src/entities/<PascalCase from slug>.ts",
-  "type": "<enemy|neutral>",
-  "world": "<earth|spinolandet|vatten>",
-  "source": "community",
-  "attribution": {
-    "maker_name": "<creator_name — only if credits_opt_in = true, otherwise omit key entirely>",
-    "creature_submission_id": "<submission id UUID>"
-  },
-  "personality": "<derived above>",
-  "spriteKey": null,
-  "spritesheetJson": null,
-  "animTags": null,
-  "sounds": { "ambient": null, "alert": null, "aggro": null, "attack": null, "hurt": null, "death": null },
-  "behavior": {
-    "buildTree": false,
-    "unaware": true, "alert": false, "tracking": false,
-    "combat": "<true if behaviour_threat = hostile, false otherwise>",
-    "flee": false,
-    "aggroRadius": "<400 if hostile, 200 otherwise>",
-    "hearingRadius": 200,
-    "sightMemoryMs": 1000
-  },
-  "designNotes": {
-    "sprite": "<graphics_notes or synthesized description>",
-    "animations": {},
-    "sounds": {}
-  }
-}
-```
-
-Append to `src/entities/entity-registry.json` before calling PixelLab.
-
-**4b-iv. Choose body type & animations**
-
-| Entity class hint | body_type | n_directions |
-|---|---|---|
-| Humanoid (upright bipeds) | `humanoid` | 5 (south, south-east, east, north-east, north) |
-| Insectoid / spider / crawler | `quadruped` | 5 |
-| Drone / floating / symmetric | `quadruped` | 4 (south, north, east, west) |
-
-**Enemies** — 4 animations: idle, walk, attack, death
-**Neutral** — 3 animations: idle, walk, death
-
-**4b-v. Generate the sprite**
-
-1. Call `create_character` with pixellab params. **If this fails — credits exhausted.** Revert submission status to `queued`, remove the registry stub, stop.
-
-2. Store `character_id` immediately in `asset-spec.json` as `_pixellabCharacterId`.
-
-3. Queue animations one at a time (8 concurrent slots, base uses 4, so queue one animation at a time). Poll `get_character` every 60s until completed before queuing the next.
-
-4. Download frames to `public/assets/sprites/_raw/{slug}/`
-
-5. Assemble: `npm run sprites:assemble -- --id {slug}`
-
-6. Update `entity-registry.json`: set `spriteKey`, `spritesheetJson`, `animTags` from assembled JSON.
-
-7. Mark submission shipped:
+6. Commit after every 10 items:
    ```bash
-   curl -s -X PATCH \
-     -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-     -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-     -H "Content-Type: application/json" \
-     -H "Prefer: return=minimal" \
-     "${SUPABASE_URL}/rest/v1/creature_submissions?id=eq.<SUBMISSION_ID>" \
-     -d "{\"status\":\"in-game\",\"entity_id\":\"<slug>\",\"shipped_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+   git add src/ai/asset-spec.json public/assets/sprites/decorations/
+   git commit -m "art({biome}): generate map objects — batch N"
    ```
-
-**4b-vi. Commit after each creature**
-
-```bash
-git add src/ai/asset-spec.json src/entities/entity-registry.json \
-        public/assets/sprites/characters/<world>/<type>s/<slug>/
-git commit -m "art(<slug>): community sprite — <creature_name>
-
-World: <world> | Type: <type> | Submission: <submission_id>
-Animations: <comma-separated animation names>
-
-Generated by sprite-credit-burn agent (PixelLab MCP)."
-```
 
 ---
 
-## FINAL REPORT
+## PASS 4 — COMMUNITY CREATURES (Supabase queue)
 
-After all passes complete (or credits exhaust):
+Skip if `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` env vars are not set.
+
+Query: `creature_submissions?status=eq.queued&order=queue_priority.asc,queued_at.asc`
+
+For each queued creature:
+1. Set status to `spriting`
+2. Derive entity fields from submission data
+3. Call `create_character` — if fails, reset to `queued` and stop
+4. Animate with template animations (idle, walk, attack, death)
+5. Download frames to `public/assets/sprites/_raw/{slug}/`
+6. Run `npm run sprites:assemble -- --id {slug}`
+7. Update entity-registry.json
+8. Set submission status to `in-game`
+9. Commit after each creature
+
+See `src/ai/AGENTS.md` for the full character generation protocol.
+
+---
+
+## COMMIT & REPORT
+
+After all passes (or credits exhausted):
 
 ```bash
 git push origin main
 ```
 
-Print a summary:
-- Pass 1: map objects generated / remaining
-- Pass 2: concept icons generated / remaining
-- Pass 3: item icons generated / remaining
-- Pass 4: community creatures shipped / remaining
-- Estimated total credits used
-- Which item caused the stop (if credits exhausted)
-- Suggestion: re-run after the 9th when credits reset
+Print summary:
+- How many items completed per pass
+- Which item caused the stop (if credits ran out)
+- How many items remain per category
+- Suggestion: re-run after credits reset on the 9th
 
 ---
 
-## CREDIT TRACKING
+## IMPORTANT NOTES
 
-Track an estimated credit counter throughout the run:
-- `create_map_object` call: ~1 credit
-- `create_object` call: ~1 credit
-- `create_character` call: ~4 credits
-- `animate_character` call: ~4 credits per call
-
-Log the running total after each batch:
-```
-[Pass {N}] {item.id} done — estimated credits used this run: {total}
-```
-
----
-
-## Key rules
-
-- **Commit after every biome group (Pass 1) or batch (Pass 2-3) or creature (Pass 4)** — never lose progress
-- **Stop cleanly on PixelLab errors** — don't retry; credits are gone
-- **Preserve all existing fields** in JSON files — only add/update the fields you're touching
-- **`_raw/` frames are gitignored** — never try to commit them
-- **Create output directories** before downloading — `mkdir -p {outputDir}`
-- **Reset to queued on failure** (Pass 4) — if spriting a community creature fails, undo the `spriting` status
-- **Skip `_section` and `_note` entries** — these are JSON comments, not real assets
+- The `_raw/` directory is gitignored — never commit it
+- Preserve all existing fields in JSON files — only update `status` and add `_pixellabObjectId`
+- Process items sequentially (one at a time) to avoid overwhelming PixelLab's concurrent slots
+- The PixelLab MCP is available via the project's `.mcp.json` — tools are `create_object`, `get_object`, `create_map_object`, `get_map_object`, `create_character`, `get_character`, `animate_character`
