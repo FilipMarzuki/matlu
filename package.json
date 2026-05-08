@@ -16,6 +16,7 @@
     "arena:testplay": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts",
     "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed",
     "arena-bot": "tsx scripts/arena-bot/run.ts",
+    "fetch-assets": "tsx scripts/fetch-assets/index.ts",
     "audio:sync": "node scripts/sync-audio.js",
     "races:sync": "node scripts/races-sync.mjs",
     "macro:import": "node scripts/seed-macro-world.mjs",
@@ -36,7 +37,8 @@
     "@logtail/browser": "^0.5.8",
     "@supabase/supabase-js": "^2.105.1",
     "phaser": "^4.0.0",
-    "simplex-noise": "^4.0.3"
+    "simplex-noise": "^4.0.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
