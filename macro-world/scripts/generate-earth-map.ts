@@ -131,6 +131,14 @@ async function openImageConverter(page: Page, timeoutMs: number): Promise<void> 
   await page.locator('#convertAutoLum').waitFor({ state: 'visible', timeout: timeoutMs });
 }
 
+async function clickAzgaarControl(page: Page, selector: string, timeoutMs: number): Promise<void> {
+  const control = page.locator(selector);
+  await control.waitFor({ state: 'visible', timeout: timeoutMs });
+  await control.evaluate(element => {
+    (element as HTMLElement).click();
+  });
+}
+
 async function importHeightmap(page: Page, timeoutMs: number): Promise<void> {
   await page.locator('#imageToLoad').setInputFiles(HEIGHTMAP_PATH);
 
@@ -139,10 +147,10 @@ async function importHeightmap(page: Page, timeoutMs: number): Promise<void> {
   // panel is active; the short wait gives FileReader/canvas work a chance to finish.
   await page.waitForTimeout(500);
 
-  await page.locator('#convertAutoLum').click({ timeout: timeoutMs });
+  await clickAzgaarControl(page, '#convertAutoLum', timeoutMs);
   await page.waitForTimeout(500);
 
-  await page.locator('#convertComplete').click({ timeout: timeoutMs });
+  await clickAzgaarControl(page, '#convertComplete', timeoutMs);
   await page.locator('#imageConverter').waitFor({ state: 'hidden', timeout: timeoutMs });
 }
 
@@ -181,7 +189,7 @@ async function normalizeImportedLandRatio(page: Page): Promise<number> {
 }
 
 async function finalizeHeightmap(page: Page, timeoutMs: number): Promise<void> {
-  await page.locator('#finalizeHeightmap').click({ timeout: timeoutMs });
+  await clickAzgaarControl(page, '#finalizeHeightmap', timeoutMs);
 
   await page.waitForFunction(
     () => {
