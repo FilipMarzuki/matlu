@@ -323,6 +323,34 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 /** Fill colour per biome index — sourced from the canonical biomes.ts list. */
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
+type BiomeVisualAccent = {
+  color: number;
+  alpha: number;
+  detailColor: number;
+  detailAlpha: number;
+  detailChance: number;
+};
+
+/**
+ * Low-alpha colour passes stamped onto the iso tile face after the source art.
+ * This keeps the asset texture while giving each biome a readable CrossCode-like
+ * colour identity in the zoomed-out map.
+ */
+const BIOME_VISUAL_ACCENTS: readonly BiomeVisualAccent[] = [
+  { color: 0x000000, alpha: 0.00, detailColor: 0x000000, detailAlpha: 0.00, detailChance: 0 },  // Sea
+  { color: 0x6e604e, alpha: 0.14, detailColor: 0xb5a27f, detailAlpha: 0.36, detailChance: 26 }, // Rocky Shore
+  { color: 0xd4b15f, alpha: 0.18, detailColor: 0xf0d58a, detailAlpha: 0.34, detailChance: 22 }, // Sandy Shore
+  { color: 0x315f34, alpha: 0.20, detailColor: 0x82a85d, detailAlpha: 0.36, detailChance: 34 }, // Marsh / Bog
+  { color: 0x9a6f32, alpha: 0.18, detailColor: 0xd0a052, detailAlpha: 0.34, detailChance: 28 }, // Dry Heath
+  { color: 0x6f9039, alpha: 0.18, detailColor: 0xb7bd5c, detailAlpha: 0.34, detailChance: 30 }, // Coastal Heath
+  { color: 0x58a83a, alpha: 0.20, detailColor: 0xb6d26b, detailAlpha: 0.36, detailChance: 36 }, // Meadow
+  { color: 0x1f6b31, alpha: 0.22, detailColor: 0x6ea85d, detailAlpha: 0.34, detailChance: 38 }, // Forest
+  { color: 0x143f2d, alpha: 0.24, detailColor: 0x4d8063, detailAlpha: 0.32, detailChance: 34 }, // Spruce
+  { color: 0x627586, alpha: 0.20, detailColor: 0xa6bbc6, detailAlpha: 0.30, detailChance: 24 }, // Cold Granite
+  { color: 0x9a866e, alpha: 0.18, detailColor: 0xc8b79e, detailAlpha: 0.30, detailChance: 22 }, // Bare Summit
+  { color: 0xdceaf5, alpha: 0.18, detailColor: 0xffffff, detailAlpha: 0.28, detailChance: 18 }, // Snow Field
+];
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -5738,6 +5766,48 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setVisible(false);
 
+    const makeDiamondStamp = (color: number, alpha: number): Phaser.GameObjects.Graphics => {
+      const stamp = this.add.graphics().setVisible(false);
+      if (alpha > 0) {
+        const hw = ISO_TILE_W / 2;
+        const hh = ISO_TILE_H / 2;
+        stamp.fillStyle(color, alpha);
+        stamp.beginPath();
+        stamp.moveTo(0, 0);
+        stamp.lineTo(hw, hh);
+        stamp.lineTo(0, ISO_TILE_H);
+        stamp.lineTo(-hw, hh);
+        stamp.closePath();
+        stamp.fillPath();
+      }
+      return stamp;
+    };
+
+    const makeDetailStamp = (accent: BiomeVisualAccent, variant: number): Phaser.GameObjects.Graphics => {
+      const stamp = this.add.graphics().setVisible(false);
+      if (accent.detailAlpha <= 0) return stamp;
+      stamp.fillStyle(accent.detailColor, accent.detailAlpha);
+      if (variant === 0) {
+        stamp.fillRect(-6, 6, 3, 1);
+        stamp.fillRect(4, 10, 2, 1);
+      } else if (variant === 1) {
+        stamp.fillRect(-10, 8, 2, 1);
+        stamp.fillRect(1, 5, 3, 1);
+        stamp.fillRect(7, 9, 1, 1);
+      } else {
+        stamp.fillRect(-3, 11, 2, 1);
+        stamp.fillRect(6, 6, 3, 1);
+      }
+      return stamp;
+    };
+
+    const biomeAccentStamps = BIOME_VISUAL_ACCENTS.map(accent =>
+      makeDiamondStamp(accent.color, accent.alpha),
+    );
+    const biomeDetailStamps = BIOME_VISUAL_ACCENTS.map(accent =>
+      [0, 1, 2].map(variant => makeDetailStamp(accent, variant)),
+    );
+
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
@@ -5847,6 +5917,22 @@ export class GameScene extends Phaser.Scene {
         }
         terrainRt.draw(tileImg);
 
+        if (!isRiverHere && !isLakeHere) {
+          const accent = BIOME_VISUAL_ACCENTS[biomeIdx];
+          if (accent.alpha > 0) {
+            const accentStamp = biomeAccentStamps[biomeIdx];
+            accentStamp.setPosition(isoX, isoY);
+            terrainRt.draw(accentStamp);
+          }
+
+          const detailHash = ((tx * 73856093) ^ (ty * 19349663) ^ (biomeIdx * 83492791)) >>> 0;
+          if (accent.detailChance > 0 && detailHash % 100 < accent.detailChance) {
+            const detailStamp = biomeDetailStamps[biomeIdx][Math.floor(detailHash / 100) % 3];
+            detailStamp.setPosition(isoX, isoY);
+            terrainRt.draw(detailStamp);
+          }
+        }
+
       }
     }
 
@@ -5877,6 +5963,10 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    for (const stamp of biomeAccentStamps) stamp.destroy();
+    for (const stamps of biomeDetailStamps) {
+      for (const stamp of stamps) stamp.destroy();
+    }
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
