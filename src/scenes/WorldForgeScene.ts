@@ -163,6 +163,8 @@ export class WorldForgeScene extends Phaser.Scene {
   private tileBiomeGrid: Uint8Array = new Uint8Array(0);
   // Tree sprites placed by scatterTrees() — destroyed on refresh.
   private treeSprites: Phaser.GameObjects.GameObject[] = [];
+  // Road tile coords — populated by buildDisplay(), read by scatterTrees().
+  private roadTiles = new Set<string>();
 
   // AI wander toggle — when on, placed NPC/Animal entities wander around the scene.
   private aiEnabled = false;
@@ -202,10 +204,12 @@ export class WorldForgeScene extends Phaser.Scene {
     // Tree registry — drives biome-aware tree scatter.
     this.load.json('trees-registry', '/macro-world/trees.json');
 
-    // Oak tree sprites — 5 variants per growth stage (PixelLab generated).
+    // Oak tree sprites — variants per growth stage (PixelLab generated).
     for (let i = 0; i < 5; i++) {
       this.load.image(`tree-oak-sapling-${i}`, `/assets/sprites/trees/oak/sapling/${i}.png`);
       this.load.image(`tree-oak-young-${i}`,   `/assets/sprites/trees/oak/young/${i}.png`);
+    }
+    for (let i = 0; i < 14; i++) {
       this.load.image(`tree-oak-${i}`,         `/assets/sprites/trees/oak/mature/${i}.png`);
     }
 
@@ -706,7 +710,8 @@ export class WorldForgeScene extends Phaser.Scene {
     // #812: Test road — a dirt road zigzagging left-to-right across the screen.
     // Uses SBS Isometric Pathways tiles with 4-directional auto-tiling.
     {
-      const roadSet = new Set<string>();
+      this.roadTiles = new Set<string>();
+      const roadSet = this.roadTiles;
       // Gentle sine-wave road snaking left-to-right across the full grid.
       // Low amplitude + low frequency = smooth, gradual curves.
       const amplitude = G * 0.12;    // gentle vertical swing (~3-4 tiles)
@@ -947,22 +952,34 @@ export class WorldForgeScene extends Phaser.Scene {
     // Above threshold, spawn chance ramps up toward dense clusters.
     const CLUSTER_THRESHOLD = 0.45;
 
+    // Occupied grid — prevents trees from overlapping.
+    // Mature/ancient trees claim a 2×2 block; others claim 1×1.
+    const occupied = new Uint8Array(G * G);
+
+    // Two passes: mature/ancient first (they claim 2×2), then younger trees fill gaps.
+    // Each pass collects candidates, then places them.
+    interface TreeCandidate {
+      tx: number; ty: number;
+      picked: TreeDef; stage: TreeDef['stages'][0];
+      jx: number; jy: number;
+    }
+    const candidates: TreeCandidate[] = [];
+
     for (let ty = 0; ty < G; ty++) {
       for (let tx = 0; tx < G; tx++) {
-        if (this.walkabilityGrid[ty * G + tx] !== 0) continue; // skip water/cliff
+        if (this.walkabilityGrid[ty * G + tx] !== 0) continue;
+        if (this.roadTiles.has(`${tx},${ty}`)) continue;
 
         const biome = this.tileBiomeGrid[ty * G + tx];
+        if (biome <= 2 || biome === 10 || biome === 11) continue;
         const species = biomeSpecies.get(biome);
         if (!species) continue;
 
-        // Cluster check — below threshold = open ground, no trees.
         const cluster = clusterNoise(tx, ty);
         if (cluster < CLUSTER_THRESHOLD) continue;
-        // Ramp spawn chance: just above threshold = sparse edge, high = dense core.
         const spawnChance = (cluster - CLUSTER_THRESHOLD) / (1 - CLUSTER_THRESHOLD);
         if (rng() > spawnChance) continue;
 
-        // Weighted species selection
         const totalWeight = species.cumWeights[species.cumWeights.length - 1];
         const roll = rng() * totalWeight;
         let picked = species.defs[0];
@@ -970,43 +987,110 @@ export class WorldForgeScene extends Phaser.Scene {
           if (roll <= species.cumWeights[i]) { picked = species.defs[i]; break; }
         }
 
-        // Pick a random growth stage
         const stage = picked.stages[Math.floor(rng() * picked.stages.length)];
-
-        // Position at tile centre with slight jitter.
         const jx = (rng() - 0.5) * this.ISO_W * 0.4;
         const jy = (rng() - 0.5) * this.ISO_H * 0.3;
+        candidates.push({ tx, ty, picked, stage, jx, jy });
+      }
+    }
+
+    // Sort: mature/ancient first so they claim space before smaller trees
+    const stageOrder: Record<string, number> = { mature: 0, young: 1, sapling: 2 };
+    candidates.sort((a, b) =>
+      (stageOrder[a.stage.stage] ?? 1) - (stageOrder[b.stage.stage] ?? 1));
+
+    let treeIdx = 0;
+    for (const { tx, ty, picked, stage, jx, jy } of candidates) {
+      if (occupied[ty * G + tx]) continue;
+
         const { x, y } = this.isoPos(tx, ty);
 
-        // Resolve sprite key — if real variants exist (e.g. tree-oak-0..4), pick
-        // a random one. Otherwise fall back to the placeholder texture.
-        const variantCount = 5;
-        const variantKey = `${stage.sprite}-${Math.floor(rng() * variantCount)}`;
-        const spriteKey = this.textures.exists(variantKey) ? variantKey : stage.sprite;
+        // Resolve sprite key — pick a random variant if any exist.
+        // Probe up to 20 indices; count how many are loaded.
+        const maxProbe = 20;
+        const loadedVariants: number[] = [];
+        for (let vi = 0; vi < maxProbe; vi++) {
+          if (this.textures.exists(`${stage.sprite}-${vi}`)) loadedVariants.push(vi);
+        }
+        const variantKey = loadedVariants.length > 0
+          ? `${stage.sprite}-${loadedVariants[Math.floor(rng() * loadedVariants.length)]}`
+          : stage.sprite;
+        const spriteKey = loadedVariants.length > 0 ? variantKey : stage.sprite;
 
         // Scale: real sprites use the registry scale directly × zoom;
         // placeholders need a bigger multiplier since they're tiny rectangles.
         const baseScale = stage.scale[0] + rng() * (stage.scale[1] - stage.scale[0]);
-        const hasRealSprite = spriteKey === variantKey;
+        const hasRealSprite = loadedVariants.length > 0;
         const scale = hasRealSprite
           ? baseScale * this.zoomFactor * 1.5
           : baseScale * this.zoomFactor * 2.5;
 
+        // Big trees (mature/ancient) block 2×2 tiles.
+        // Check the footprint is clear (walkable + unoccupied).
+        // Also check 1-tile margin for cliffs/water only (not other trees).
+        const blockSize = (stage.stage === 'mature' || picked.id === 'ancient') ? 2 : 1;
+        if (blockSize > 1) {
+          let blocked = false;
+          // Footprint tiles must be walkable and unoccupied
+          for (let dy = 0; dy < blockSize && !blocked; dy++) {
+            for (let dx = 0; dx < blockSize && !blocked; dx++) {
+              const cx = tx + dx;
+              const cy = ty + dy;
+              if (cx >= G || cy >= G) { blocked = true; break; }
+              if (this.walkabilityGrid[cy * G + cx] !== 0) blocked = true;
+              if (occupied[cy * G + cx]) blocked = true;
+            }
+          }
+          // Margin tiles: only block if cliff/water (not other trees)
+          if (!blocked) {
+            for (let dy = -1; dy <= blockSize && !blocked; dy++) {
+              for (let dx = -1; dx <= blockSize && !blocked; dx++) {
+                if (dx >= 0 && dx < blockSize && dy >= 0 && dy < blockSize) continue; // skip footprint
+                const cx = tx + dx;
+                const cy = ty + dy;
+                if (cx < 0 || cy < 0 || cx >= G || cy >= G) continue; // edges OK
+                if (this.walkabilityGrid[cy * G + cx] !== 0) blocked = true; // cliff/water
+              }
+            }
+          }
+          if (blocked) continue;
+        }
+
+        // Claim tiles so other trees don't overlap.
+        for (let dy = 0; dy < blockSize; dy++) {
+          for (let dx = 0; dx < blockSize; dx++) {
+            const ox = tx + dx;
+            const oy = ty + dy;
+            if (ox < G && oy < G) occupied[oy * G + ox] = 1;
+          }
+        }
+
         const img = this.add.image(x + jx, y + jy, spriteKey)
           .setScale(scale)
-          .setOrigin(0.5, 1)   // anchor at base so tree grows upward
-          .setDepth(1);        // above terrain tiles (depth 0)
+          .setOrigin(0.5, 1)
+          .setDepth(1);
 
-        // Label: species + stage so you can see what's what in the forge.
+        // Label: species + stage — font scales with zoom so it stays readable.
+        const labelSize = Math.max(5, Math.round(7 * this.zoomFactor));
         const label = this.add.text(x + jx, y + jy + 2, `${picked.id}\n${stage.stage}`, {
-          fontSize: '7px', color: '#ffffff',
-          stroke: '#000000', strokeThickness: 2,
+          fontSize: `${labelSize}px`, color: '#ffffff',
+          stroke: '#000000', strokeThickness: Math.max(1, this.zoomFactor),
         }).setOrigin(0.5, 0).setDepth(2);
 
-        this.treeSprites.push(img, label);
-      }
+        // Red index number above the tree for easy reference.
+        treeIdx++;
+        const numSize = Math.max(6, Math.round(9 * this.zoomFactor));
+        const idxLabel = this.add.text(
+          x + jx, y + jy - img.displayHeight - 2,
+          `${treeIdx}`, {
+            fontSize: `${numSize}px`, color: '#ff3333', fontStyle: 'bold',
+            stroke: '#000000', strokeThickness: Math.max(2, this.zoomFactor * 1.5),
+          },
+        ).setOrigin(0.5, 1).setDepth(3);
+
+        this.treeSprites.push(img, label, idxLabel);
     }
-    console.log(`[TreeScatter] Placed ${this.treeSprites.length / 2} trees`);
+    console.log(`[TreeScatter] Placed ${treeIdx} trees`);
   }
 
   // ── Palette UI ────────────────────────────────────────────────────────────────
