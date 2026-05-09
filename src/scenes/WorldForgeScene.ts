@@ -713,22 +713,45 @@ export class WorldForgeScene extends Phaser.Scene {
       this.roadTiles = new Set<string>();
       const roadSet = this.roadTiles;
       // Gentle sine-wave road snaking left-to-right across the full grid.
-      // Low amplitude + low frequency = smooth, gradual curves.
-      const amplitude = G * 0.12;    // gentle vertical swing (~3-4 tiles)
+      const amplitude = G * 0.12;
       const midY = Math.floor(G / 2);
-      const freq = 1.5;              // 1.5 half-waves = one S-curve across grid
-      let prevClamped = -1;
+      const freq = 1.5;
+
+      // Pass 1: compute raw road ty per column
+      const rawRoadY: number[] = [];
       for (let tx = 0; tx < G; tx++) {
         const t = (tx - 1) / (G - 3);
-        const ty = midY + Math.round(amplitude * Math.sin(t * Math.PI * freq));
-        const clamped = Math.max(1, Math.min(G - 2, ty));
+        rawRoadY.push(Math.max(1, Math.min(G - 2,
+          midY + Math.round(amplitude * Math.sin(t * Math.PI * freq)))));
+      }
+
+      // Pass 2: flatten road ty within 2 tiles of river so bridges are straight.
+      // Find where the road first hits river, lock ty to that value for the
+      // approach (2 tiles before) through the crossing and 2 tiles after.
+      const STRAIGHTEN = 2; // tiles of straight road on each side of water
+      const roadY = [...rawRoadY];
+      if (showRiver) {
+        // Find river crossing columns
+        for (let tx = 0; tx < G; tx++) {
+          const diag = tx + roadY[tx];
+          if (Math.abs(tx - riverCenter(diag)) <= 1) {
+            // This column crosses the river — straighten nearby columns
+            const lockY = roadY[tx];
+            for (let dx = -STRAIGHTEN; dx <= STRAIGHTEN; dx++) {
+              const ntx = tx + dx;
+              if (ntx >= 0 && ntx < G) roadY[ntx] = lockY;
+            }
+          }
+        }
+      }
+
+      // Pass 3: build road tile set from flattened path
+      let prevClamped = -1;
+      for (let tx = 0; tx < G; tx++) {
+        const clamped = roadY[tx];
         if (getElev(tx, clamped) === 0) roadSet.add(`${tx},${clamped}`);
-        // Bridge to previous column: first add a tile at the same row as prev
-        // so the two columns are 4-connected horizontally, then fill vertically.
         if (prevClamped >= 0 && clamped !== prevClamped) {
-          // Horizontal bridge: same row as previous column at current tx
           if (getElev(tx, prevClamped) === 0) roadSet.add(`${tx},${prevClamped}`);
-          // Vertical fill between bridge and destination
           const step = clamped > prevClamped ? 1 : -1;
           for (let fy = prevClamped + step; fy !== clamped; fy += step) {
             if (getElev(tx, fy) === 0) roadSet.add(`${tx},${fy}`);
@@ -737,20 +760,16 @@ export class WorldForgeScene extends Phaser.Scene {
         prevClamped = clamped;
       }
 
-      // ── Bridge: where the road path crosses the river ────────────────
-      // Walk the road sine wave again but this time include river tiles.
-      // Any tile that's on the river AND on the road path gets a bridge.
+      // Pass 4: detect bridge tiles (road on river)
       const bridgeTiles = new Set<string>();
-      for (let tx = 0; tx < G; tx++) {
-        const t = (tx - 1) / (G - 3);
-        const ty = midY + Math.round(amplitude * Math.sin(t * Math.PI * freq));
-        const clamped = Math.max(1, Math.min(G - 2, ty));
-        const diag = tx + clamped;
-        const isRiver = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
-        if (isRiver && getElev(tx, clamped) === 0) {
-          bridgeTiles.add(`${tx},${clamped}`);
-          // Also add road tiles on both sides so the road connects to the bridge
-          roadSet.add(`${tx},${clamped}`);
+      if (showRiver) {
+        for (let tx = 0; tx < G; tx++) {
+          const ty = roadY[tx];
+          const diag = tx + ty;
+          if (Math.abs(tx - riverCenter(diag)) <= 1 && getElev(tx, ty) === 0) {
+            bridgeTiles.add(`${tx},${ty}`);
+            roadSet.add(`${tx},${ty}`);
+          }
         }
       }
 
