@@ -110,14 +110,17 @@ export const BIOMES: BiomeDef[] = [
     description:  'Broad-leaf canopy where the light arrives filtered and the ground stays damp. Most Lövfolk settlements are built into these slopes — suspended platforms, rope bridges, storage nets hung between trunks. The forest is not wild to them; it is home infrastructure.',
     decorTypes: ['Fern', 'Leaf Litter', 'Mushroom'],  },
 
-  // 8 — Spruce
+  // 8 — Forest (cold / conifer)
+  // Same biome as index 7 but colder — temperature drives species selection
+  // (spruce, pine in cold zones vs oak, birch in warm zones). Kept as a
+  // separate index to avoid shifting 9–11 and breaking all references.
   {
-    name:         'Spruce',
+    name:         'Forest (Cold)',
     elev:         0.70,
     temp:         0.35,
     moist:        0.55,
     overlayColor: 0x1a5a1a,
-    description:  'Dense spruce at altitude where the canopy closes overhead and ground cover thins to needle-duff. The cold is bone-dry in winter; resin smell is the first thing you notice coming up from the lower forest.',
+    description:  'Cold highland forest where spruce and pine replace broadleaf. The canopy closes overhead and ground cover thins to needle-duff. Resin smell is the first thing you notice coming up from the lower forest.',
     decorTypes: ['Pine Needle', 'Mushroom', 'Lichen'],  },
 
   // 9 — Cold Granite
