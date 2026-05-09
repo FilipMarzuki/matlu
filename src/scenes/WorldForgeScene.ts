@@ -989,8 +989,11 @@ export class WorldForgeScene extends Phaser.Scene {
         }
 
         const stage = picked.stages[Math.floor(rng() * picked.stages.length)];
-        const jx = (rng() - 0.5) * this.ISO_W * 0.4;
-        const jy = (rng() - 0.5) * this.ISO_H * 0.3;
+        // Reduce jitter near edges so trees don't poke past the diamond boundary.
+        const edgeDist = Math.min(tx - 1, ty - 1, G - 2 - tx, G - 2 - ty);
+        const jitterScale = edgeDist <= 1 ? 0.1 : 0.4;
+        const jx = (rng() - 0.5) * this.ISO_W * jitterScale;
+        const jy = (rng() - 0.5) * this.ISO_H * jitterScale * 0.75;
         candidates.push({ tx, ty, picked, stage, jx, jy });
       }
     }
