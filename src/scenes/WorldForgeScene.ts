@@ -988,7 +988,17 @@ export class WorldForgeScene extends Phaser.Scene {
           if (roll <= species.cumWeights[i]) { picked = species.defs[i]; break; }
         }
 
-        const stage = picked.stages[Math.floor(rng() * picked.stages.length)];
+        // Biome-aware stage selection:
+        // Meadow/heath (open grazed land) → mostly mature trees, few saplings survive
+        // Forest/spruce (dense canopy) → more young growth competing for light
+        let stage: TreeDef['stages'][0];
+        if ((biome === 5 || biome === 6) && picked.stages.length >= 3) {
+          // 70% mature, 20% young, 10% sapling in open biomes
+          const r = rng();
+          stage = r < 0.7 ? picked.stages[2] : r < 0.9 ? picked.stages[1] : picked.stages[0];
+        } else {
+          stage = picked.stages[Math.floor(rng() * picked.stages.length)];
+        }
         // Reduce jitter near edges so trees don't poke past the diamond boundary.
         const edgeDist = Math.min(tx - 1, ty - 1, G - 2 - tx, G - 2 - ty);
         const jitterScale = edgeDist <= 1 ? 0.1 : 0.4;
