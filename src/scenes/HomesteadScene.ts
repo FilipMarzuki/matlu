@@ -48,6 +48,8 @@ export class HomesteadScene extends Phaser.Scene {
   private nodesInRange = new Set<ResourceNode>();
   /** True if the action button was tapped this frame. */
   private actionTapped = false;
+  /** Node the player is walking toward (tap-to-target). */
+  private targetNode: ResourceNode | null = null;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -151,6 +153,16 @@ export class HomesteadScene extends Phaser.Scene {
       });
     }
 
+    // ── Tap-to-target: player taps a node → walk to it → auto-gather ────
+    this.events.on('resource-node:targeted', (node: ResourceNode) => {
+      // Clear previous target
+      if (this.targetNode && this.targetNode !== node) {
+        this.targetNode.setTargeted(false);
+      }
+      this.targetNode = node;
+      node.setTargeted(true);
+    });
+
     // ── Input ─────────────────────────────────────────────────────────────
     const kb = this.input.keyboard!;
     this.wasd = {
@@ -229,7 +241,7 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   update(): void {
-    // ── Player movement (keyboard + joystick) ─────────────────────────────
+    // ── Player movement (keyboard + joystick + auto-walk) ─────────────────
     const body = this.player.body as Phaser.Physics.Arcade.Body;
 
     // Keyboard
@@ -240,6 +252,29 @@ export class HomesteadScene extends Phaser.Scene {
     if (this.joystick && this.joystick.force > 4) {
       vx = Math.cos(this.joystick.rotation);
       vy = Math.sin(this.joystick.rotation);
+    }
+
+    // Manual input cancels auto-walk target
+    if ((vx !== 0 || vy !== 0) && this.targetNode) {
+      this.targetNode.setTargeted(false);
+      this.targetNode = null;
+    }
+
+    // Auto-walk toward targeted node
+    if (this.targetNode && vx === 0 && vy === 0) {
+      const t = this.targetNode.targetPos;
+      const dx = t.x - this.player.x;
+      const dy = t.y - this.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 10) {
+        // Walk toward target
+        vx = dx / dist;
+        vy = dy / dist;
+      } else {
+        // Arrived — the overlap will trigger auto-gather via setPlayerInRange
+        this.targetNode = null;
+      }
     }
 
     body.setVelocity(vx * PLAYER_SPEED, vy * PLAYER_SPEED);

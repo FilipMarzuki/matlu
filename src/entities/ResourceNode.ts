@@ -58,6 +58,10 @@ export class ResourceNode extends InteractiveObject {
   private _promptText: Phaser.GameObjects.Text;
   private _playerInRange = false;
   private _eKey: Phaser.Input.Keyboard.Key | null;
+  /** When true, auto-gathers as soon as the player enters range. */
+  private _pendingGather = false;
+  /** Visual targeting indicator. */
+  private _targetRing: Phaser.GameObjects.Arc | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -101,9 +105,12 @@ export class ResourceNode extends InteractiveObject {
     // E key (idempotent — all nodes share the same Key instance)
     this._eKey = scene.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E) ?? null;
 
-    // Tap / click to gather (mobile + mouse)
+    // Tap / click to target this node — scene moves player toward it
     this.setInteractive({ useHandCursor: true });
-    this.on('pointerup', () => this.gather());
+    this.on('pointerup', () => {
+      if (this._nodeState !== 'ready') return;
+      scene.events.emit('resource-node:targeted', this);
+    });
   }
 
   get nodeState(): ResourceNodeState {
@@ -119,8 +126,53 @@ export class ResourceNode extends InteractiveObject {
 
     if (inRange && this._nodeState === 'ready') {
       this._promptText.setAlpha(1);
+      // Auto-gather if player tapped this node from a distance and just arrived
+      if (this._pendingGather) {
+        this._pendingGather = false;
+        this.clearTarget();
+        this.gather();
+      }
     } else {
       this._promptText.setAlpha(0);
+    }
+  }
+
+  /**
+   * Mark this node as targeted — player will walk toward it and auto-gather
+   * on arrival. Called by scene when the player taps a node from a distance.
+   */
+  setTargeted(targeted: boolean): void {
+    this._pendingGather = targeted;
+    if (targeted) {
+      // Show a pulsing ring around the targeted node
+      if (!this._targetRing) {
+        this._targetRing = this.scene.add.arc(this.x, this.y, 20, 0, 360, false)
+          .setStrokeStyle(2, 0xffe066, 0.8)
+          .setFillStyle(0xffe066, 0.05)
+          .setDepth(this.depth - 1);
+        this.scene.tweens.add({
+          targets: this._targetRing,
+          scaleX: 1.3, scaleY: 1.3, alpha: 0.3,
+          yoyo: true, repeat: -1, duration: 600, ease: 'Sine.InOut',
+        });
+      }
+    } else {
+      this.clearTarget();
+    }
+  }
+
+  /** Whether this node is the current move-to target. */
+  get isTargeted(): boolean { return this._pendingGather; }
+
+  /** World position for the scene to move the player toward. */
+  get targetPos(): { x: number; y: number } { return { x: this.x, y: this.y }; }
+
+  private clearTarget(): void {
+    this._pendingGather = false;
+    if (this._targetRing) {
+      this.scene.tweens.killTweensOf(this._targetRing);
+      this._targetRing.destroy();
+      this._targetRing = null;
     }
   }
 
@@ -200,6 +252,7 @@ export class ResourceNode extends InteractiveObject {
 
   override destroy(fromScene?: boolean): void {
     this._promptText?.destroy();
+    this.clearTarget();
     super.destroy(fromScene);
   }
 }
