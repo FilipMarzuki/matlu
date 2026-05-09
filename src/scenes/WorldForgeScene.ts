@@ -114,7 +114,7 @@ export class WorldForgeScene extends Phaser.Scene {
   private originY = 0;
 
   // Terrain layers (rebuilt on biome change).
-  private tileImages:   Phaser.GameObjects.Image[]    = [];
+  private tileImages:   Phaser.GameObjects.GameObject[]    = [];
   // Waterfall animation: 5-frame loop at 6 FPS, matching the chunky pixel art feel.
   private static readonly WF_FRAMES = 5;
   private static readonly WF_FRAME_MS = 1000 / 6;  // ~167ms per frame
@@ -737,6 +737,23 @@ export class WorldForgeScene extends Phaser.Scene {
         prevClamped = clamped;
       }
 
+      // ── Bridge: where the road path crosses the river ────────────────
+      // Walk the road sine wave again but this time include river tiles.
+      // Any tile that's on the river AND on the road path gets a bridge.
+      const bridgeTiles = new Set<string>();
+      for (let tx = 0; tx < G; tx++) {
+        const t = (tx - 1) / (G - 3);
+        const ty = midY + Math.round(amplitude * Math.sin(t * Math.PI * freq));
+        const clamped = Math.max(1, Math.min(G - 2, ty));
+        const diag = tx + clamped;
+        const isRiver = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
+        if (isRiver && getElev(tx, clamped) === 0) {
+          bridgeTiles.add(`${tx},${clamped}`);
+          // Also add road tiles on both sides so the road connects to the bridge
+          roadSet.add(`${tx},${clamped}`);
+        }
+      }
+
       // Bitmask → frame lookup (same as GameScene.BITMASK_TO_FRAME)
       //   0=cross  1=straight NE-SW  2=straight NW-SE  4-7=T-junctions
       //   8=corner E  9=corner W  10=corner S  11=corner N
@@ -767,6 +784,56 @@ export class WorldForgeScene extends Phaser.Scene {
           .setOrigin(0.5, 0.5)
           .setDepth(0.05);
         this.tileImages.push(roadImg);
+      }
+
+      // Render bridge tiles — wooden planks over water
+      for (const key of bridgeTiles) {
+        const [btx, bty] = key.split(',').map(Number);
+        const { x: bx, y: by } = this.isoPos(btx, bty);
+
+        // Brown plank bridge — draw as a colored diamond over the water tile
+        const bridgeGfx = this.add.graphics();
+        const hw = this.ISO_W / 2;
+        const hh = this.ISO_H / 2;
+        const cx = bx;
+        const cy = by + hh;
+
+        // Plank surface
+        bridgeGfx.fillStyle(0x8b6914, 0.85);
+        bridgeGfx.beginPath();
+        bridgeGfx.moveTo(cx, cy - hh);
+        bridgeGfx.lineTo(cx + hw, cy);
+        bridgeGfx.lineTo(cx, cy + hh);
+        bridgeGfx.lineTo(cx - hw, cy);
+        bridgeGfx.closePath();
+        bridgeGfx.fillPath();
+
+        // Plank lines (wood grain)
+        bridgeGfx.lineStyle(1, 0x6b5010, 0.5);
+        bridgeGfx.lineBetween(cx - hw * 0.6, cy - hh * 0.2, cx + hw * 0.6, cy + hh * 0.2);
+        bridgeGfx.lineBetween(cx - hw * 0.3, cy - hh * 0.6, cx + hw * 0.3, cy + hh * 0.6);
+
+        // Border
+        bridgeGfx.lineStyle(1, 0x5a3a0a, 0.7);
+        bridgeGfx.beginPath();
+        bridgeGfx.moveTo(cx, cy - hh);
+        bridgeGfx.lineTo(cx + hw, cy);
+        bridgeGfx.lineTo(cx, cy + hh);
+        bridgeGfx.lineTo(cx - hw, cy);
+        bridgeGfx.closePath();
+        bridgeGfx.strokePath();
+
+        bridgeGfx.setDepth(0.15); // above water (0.1) and road (0.05)
+        this.tileImages.push(bridgeGfx);
+
+        // Label
+        const bridgeLabel = this.add.text(cx, cy + hh + 2, 'bridge', {
+          fontSize: `${Math.max(5, Math.round(7 * this.zoomFactor))}px`,
+          color: '#dda844',
+          stroke: '#000000',
+          strokeThickness: Math.max(1, this.zoomFactor),
+        }).setOrigin(0.5, 0).setDepth(0.2);
+        this.tileImages.push(bridgeLabel);
       }
     }
 
