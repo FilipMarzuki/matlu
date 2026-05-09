@@ -1,0 +1,1524 @@
+{
+  "generatedAt": "2026-05-09T21:18:50.586Z",
+  "totalAssets": 208,
+  "wiredCount": 181,
+  "unwiredCount": 27,
+  "categories": [
+    {
+      "category": ".",
+      "count": 2,
+      "assets": [
+        {
+          "name": "water_animated",
+          "url": "/assets/sprites/water_animated.png",
+          "folder": ".",
+          "category": ".",
+          "wired": true
+        },
+        {
+          "name": "waterfall",
+          "url": "/assets/sprites/waterfall.png",
+          "folder": ".",
+          "category": ".",
+          "wired": true
+        }
+      ]
+    },
+    {
+      "category": "buildings",
+      "count": 44,
+      "assets": [
+        {
+          "name": "ancestor-stone",
+          "url": "/assets/packs/building-objects/ikibeki/ancestor-stone.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "armory",
+          "url": "/assets/packs/building-objects/ikibeki/armory.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "barn",
+          "url": "/assets/packs/building-objects/ikibeki/barn.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "barracks",
+          "url": "/assets/packs/building-objects/ikibeki/barracks.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "brewery",
+          "url": "/assets/packs/building-objects/ikibeki/brewery.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "campfire",
+          "url": "/assets/packs/building-objects/ikibeki/campfire.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "campfire",
+          "url": "/assets/packs/building-objects/markfolk-timber/campfire.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "clan-lodge",
+          "url": "/assets/packs/building-objects/ikibeki/clan-lodge.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "cottage",
+          "url": "/assets/packs/building-objects/ikibeki/cottage.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "cottage",
+          "url": "/assets/packs/building-objects/markfolk-timber/cottage.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "farmstead",
+          "url": "/assets/packs/building-objects/ikibeki/farmstead.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "farmstead",
+          "url": "/assets/packs/building-objects/markfolk-timber/farmstead.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "ger-cottage",
+          "url": "/assets/packs/building-objects/ikibeki/ger-cottage.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "ger-dwelling",
+          "url": "/assets/packs/building-objects/ikibeki/ger-dwelling.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "ger-smithy",
+          "url": "/assets/packs/building-objects/ikibeki/ger-smithy.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "granary",
+          "url": "/assets/packs/building-objects/ikibeki/granary.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "guard-post",
+          "url": "/assets/packs/building-objects/ikibeki/guard-post.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "guard-post",
+          "url": "/assets/packs/building-objects/markfolk-timber/guard-post.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "inn",
+          "url": "/assets/packs/building-objects/ikibeki/inn.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "longhouse",
+          "url": "/assets/packs/building-objects/ikibeki/longhouse.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "longhouse",
+          "url": "/assets/packs/building-objects/markfolk-timber/longhouse.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "market-hall",
+          "url": "/assets/packs/building-objects/ikibeki/market-hall.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "merchant-stall",
+          "url": "/assets/packs/building-objects/ikibeki/merchant-stall.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "palisade-gate",
+          "url": "/assets/packs/building-objects/ikibeki/palisade-gate.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "root-cellar",
+          "url": "/assets/packs/building-objects/ikibeki/root-cellar.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "sawmill",
+          "url": "/assets/packs/building-objects/ikibeki/sawmill.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "shelter-hut",
+          "url": "/assets/packs/building-objects/ikibeki/shelter-hut.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "shrine",
+          "url": "/assets/packs/building-objects/ikibeki/shrine.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "shrine",
+          "url": "/assets/packs/building-objects/markfolk-timber/shrine.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "smithy",
+          "url": "/assets/packs/building-objects/ikibeki/smithy.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "smithy",
+          "url": "/assets/packs/building-objects/markfolk-timber/smithy.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "smokehouse",
+          "url": "/assets/packs/building-objects/ikibeki/smokehouse.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "spirit-shrine",
+          "url": "/assets/packs/building-objects/ikibeki/spirit-shrine.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "stables",
+          "url": "/assets/packs/building-objects/ikibeki/stables.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "tavern",
+          "url": "/assets/packs/building-objects/ikibeki/tavern.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "temple",
+          "url": "/assets/packs/building-objects/ikibeki/temple.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "town-hall",
+          "url": "/assets/packs/building-objects/ikibeki/town-hall.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "warehouse",
+          "url": "/assets/packs/building-objects/ikibeki/warehouse.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "watchtower",
+          "url": "/assets/packs/building-objects/ikibeki/watchtower.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "watchtower",
+          "url": "/assets/packs/building-objects/markfolk-timber/watchtower.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "well",
+          "url": "/assets/packs/building-objects/ikibeki/well.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "well",
+          "url": "/assets/packs/building-objects/markfolk-timber/well.png",
+          "folder": "building-objects/markfolk-timber",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "yurt-large",
+          "url": "/assets/packs/building-objects/ikibeki/yurt-large.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        },
+        {
+          "name": "yurt-small",
+          "url": "/assets/packs/building-objects/ikibeki/yurt-small.png",
+          "folder": "building-objects/ikibeki",
+          "category": "buildings",
+          "wired": true
+        }
+      ]
+    },
+    {
+      "category": "characters",
+      "count": 9,
+      "assets": [
+        {
+          "name": "crow",
+          "url": "/assets/sprites/characters/earth/enemies/crow/crow.png",
+          "folder": "characters/earth/enemies/crow",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "fargglad-kordororn",
+          "url": "/assets/sprites/characters/earth/enemies/fargglad-kordororn/fargglad-kordororn.png",
+          "folder": "characters/earth/enemies/fargglad-kordororn",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "loke",
+          "url": "/assets/sprites/characters/mistheim/heroes/loke/loke.png",
+          "folder": "characters/mistheim/heroes/loke",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "mini-velcrid",
+          "url": "/assets/sprites/characters/spinolandet/enemies/mini-velcrid/mini-velcrid.png",
+          "folder": "characters/spinolandet/enemies/mini-velcrid",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "npc-wanderer",
+          "url": "/assets/sprites/characters/earth/npcs/npc-wanderer/npc-wanderer.png",
+          "folder": "characters/earth/npcs/npc-wanderer",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "skag",
+          "url": "/assets/sprites/characters/earth/enemies/skag/skag.png",
+          "folder": "characters/earth/enemies/skag",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "skald",
+          "url": "/assets/sprites/characters/earth/heroes/skald/skald.png",
+          "folder": "characters/earth/heroes/skald",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "spider",
+          "url": "/assets/sprites/characters/earth/enemies/spider/spider.png",
+          "folder": "characters/earth/enemies/spider",
+          "category": "characters",
+          "wired": true
+        },
+        {
+          "name": "tinkerer",
+          "url": "/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png",
+          "folder": "characters/earth/heroes/tinkerer",
+          "category": "characters",
+          "wired": true
+        }
+      ]
+    },
+    {
+      "category": "environment",
+      "count": 4,
+      "assets": [
+        {
+          "name": "bird-bluetit-drink",
+          "url": "/assets/sprites/environment/bird-bluetit-drink.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "bird-bluetit-fly",
+          "url": "/assets/sprites/environment/bird-bluetit-fly.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "bird-bluetit-hop",
+          "url": "/assets/sprites/environment/bird-bluetit-hop.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "bird-bluetit-idle",
+          "url": "/assets/sprites/environment/bird-bluetit-idle.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        }
+      ]
+    },
+    {
+      "category": "icons",
+      "count": 27,
+      "assets": [
+        {
+          "name": "item-amber",
+          "url": "/assets/sprites/icons/items/item-amber.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-beeswax",
+          "url": "/assets/sprites/icons/items/item-beeswax.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-bronze-ingot",
+          "url": "/assets/sprites/icons/items/item-bronze-ingot.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-crystal-shard",
+          "url": "/assets/sprites/icons/items/item-crystal-shard.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-feather",
+          "url": "/assets/sprites/icons/items/item-feather.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-lodite-ore",
+          "url": "/assets/sprites/icons/items/item-lodite-ore.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-peat",
+          "url": "/assets/sprites/icons/items/item-peat.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-quartz",
+          "url": "/assets/sprites/icons/items/item-quartz.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-rubber-sap",
+          "url": "/assets/sprites/icons/items/item-rubber-sap.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-sulfur",
+          "url": "/assets/sprites/icons/items/item-sulfur.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-blade",
+          "url": "/assets/sprites/icons/concepts/patch-blade.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-bow",
+          "url": "/assets/sprites/icons/concepts/patch-bow.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-bubbles",
+          "url": "/assets/sprites/icons/concepts/patch-bubbles.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-circle",
+          "url": "/assets/sprites/icons/concepts/patch-circle.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-dissolve",
+          "url": "/assets/sprites/icons/concepts/patch-dissolve.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-dovetail",
+          "url": "/assets/sprites/icons/concepts/patch-dovetail.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-droplet",
+          "url": "/assets/sprites/icons/concepts/patch-droplet.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-explosion",
+          "url": "/assets/sprites/icons/concepts/patch-explosion.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-flame",
+          "url": "/assets/sprites/icons/concepts/patch-flame.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-gear",
+          "url": "/assets/sprites/icons/concepts/patch-gear.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-hide",
+          "url": "/assets/sprites/icons/concepts/patch-hide.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-knot",
+          "url": "/assets/sprites/icons/concepts/patch-knot.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-lever",
+          "url": "/assets/sprites/icons/concepts/patch-lever.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-merge",
+          "url": "/assets/sprites/icons/concepts/patch-merge.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-scales",
+          "url": "/assets/sprites/icons/concepts/patch-scales.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-shield",
+          "url": "/assets/sprites/icons/concepts/patch-shield.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-spark",
+          "url": "/assets/sprites/icons/concepts/patch-spark.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        }
+      ]
+    },
+    {
+      "category": "npcs",
+      "count": 8,
+      "assets": [
+        {
+          "name": "blacksmith",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/blacksmith.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": true
+        },
+        {
+          "name": "chief",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/chief.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": false
+        },
+        {
+          "name": "child",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/child.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": true
+        },
+        {
+          "name": "elder",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/elder.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": true
+        },
+        {
+          "name": "farmer",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/farmer.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": true
+        },
+        {
+          "name": "guard",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/guard.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": true
+        },
+        {
+          "name": "hearthkeeper",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/hearthkeeper.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": false
+        },
+        {
+          "name": "shrine-keeper",
+          "url": "/assets/sprites/npcs/markfolk/fieldborn/shrine-keeper.png",
+          "folder": "npcs/markfolk/fieldborn",
+          "category": "npcs",
+          "wired": false
+        }
+      ]
+    },
+    {
+      "category": "player",
+      "count": 1,
+      "assets": [
+        {
+          "name": "character",
+          "url": "/assets/sprites/player/character.png",
+          "folder": "player",
+          "category": "player",
+          "wired": true
+        }
+      ]
+    },
+    {
+      "category": "tiles",
+      "count": 50,
+      "assets": [
+        {
+          "name": "0",
+          "url": "/assets/packs/bare-summit-tiles/0.png",
+          "folder": "bare-summit-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/coastal-heath-tiles/0.png",
+          "folder": "coastal-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/cold-granite-tiles/0.png",
+          "folder": "cold-granite-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/dry-heath-tiles/0.png",
+          "folder": "dry-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/forest-tiles/0.png",
+          "folder": "forest-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/marsh-tiles/0.png",
+          "folder": "marsh-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/meadow-tiles/0.png",
+          "folder": "meadow-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/rocky-shore-tiles/0.png",
+          "folder": "rocky-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/sandy-shore-tiles/0.png",
+          "folder": "sandy-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/snow-field-tiles/0.png",
+          "folder": "snow-field-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/spruce-tiles/0.png",
+          "folder": "spruce-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/packs/waterfall-tiles/0.png",
+          "folder": "waterfall-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/bare-summit-tiles/1.png",
+          "folder": "bare-summit-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/coastal-heath-tiles/1.png",
+          "folder": "coastal-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/cold-granite-tiles/1.png",
+          "folder": "cold-granite-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/dry-heath-tiles/1.png",
+          "folder": "dry-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/forest-tiles/1.png",
+          "folder": "forest-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/marsh-tiles/1.png",
+          "folder": "marsh-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/meadow-tiles/1.png",
+          "folder": "meadow-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/rocky-shore-tiles/1.png",
+          "folder": "rocky-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/sandy-shore-tiles/1.png",
+          "folder": "sandy-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/snow-field-tiles/1.png",
+          "folder": "snow-field-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/spruce-tiles/1.png",
+          "folder": "spruce-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/packs/waterfall-tiles/1.png",
+          "folder": "waterfall-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/bare-summit-tiles/2.png",
+          "folder": "bare-summit-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/coastal-heath-tiles/2.png",
+          "folder": "coastal-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/cold-granite-tiles/2.png",
+          "folder": "cold-granite-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/dry-heath-tiles/2.png",
+          "folder": "dry-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/forest-tiles/2.png",
+          "folder": "forest-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/marsh-tiles/2.png",
+          "folder": "marsh-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/meadow-tiles/2.png",
+          "folder": "meadow-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/rocky-shore-tiles/2.png",
+          "folder": "rocky-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/sandy-shore-tiles/2.png",
+          "folder": "sandy-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/snow-field-tiles/2.png",
+          "folder": "snow-field-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/spruce-tiles/2.png",
+          "folder": "spruce-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/packs/waterfall-tiles/2.png",
+          "folder": "waterfall-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/bare-summit-tiles/3.png",
+          "folder": "bare-summit-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/coastal-heath-tiles/3.png",
+          "folder": "coastal-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/cold-granite-tiles/3.png",
+          "folder": "cold-granite-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/dry-heath-tiles/3.png",
+          "folder": "dry-heath-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/forest-tiles/3.png",
+          "folder": "forest-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/marsh-tiles/3.png",
+          "folder": "marsh-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/meadow-tiles/3.png",
+          "folder": "meadow-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/rocky-shore-tiles/3.png",
+          "folder": "rocky-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/sandy-shore-tiles/3.png",
+          "folder": "sandy-shore-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/snow-field-tiles/3.png",
+          "folder": "snow-field-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/spruce-tiles/3.png",
+          "folder": "spruce-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/packs/waterfall-tiles/3.png",
+          "folder": "waterfall-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "4",
+          "url": "/assets/packs/waterfall-tiles/4.png",
+          "folder": "waterfall-tiles",
+          "category": "tiles",
+          "wired": true
+        },
+        {
+          "name": "5",
+          "url": "/assets/packs/waterfall-tiles/5.png",
+          "folder": "waterfall-tiles",
+          "category": "tiles",
+          "wired": true
+        }
+      ]
+    },
+    {
+      "category": "tilesets",
+      "count": 39,
+      "assets": [
+        {
+          "name": "arena_floor_colosseum",
+          "url": "/assets/sprites/tilesets/arena/arena_floor_colosseum.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "arena_floor_earth",
+          "url": "/assets/sprites/tilesets/arena/arena_floor_earth.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "arena_floor_spinolandet",
+          "url": "/assets/sprites/tilesets/arena/arena_floor_spinolandet.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "arena_floor_vatten",
+          "url": "/assets/sprites/tilesets/arena/arena_floor_vatten.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "burrow_active",
+          "url": "/assets/sprites/tilesets/arena/burrow_active.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "burrow_destroyed",
+          "url": "/assets/sprites/tilesets/arena/burrow_destroyed.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "burrow_idle",
+          "url": "/assets/sprites/tilesets/arena/burrow_idle.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "cliff_face",
+          "url": "/assets/sprites/tilesets/cliff_face.png",
+          "folder": "tilesets",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "dungeon_doorway",
+          "url": "/assets/sprites/tilesets/arena/dungeon_doorway.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "dungeon_torch",
+          "url": "/assets/sprites/tilesets/arena/dungeon_torch.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "dungeon_wall_side",
+          "url": "/assets/sprites/tilesets/arena/dungeon_wall_side.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "dungeon_wall_top",
+          "url": "/assets/sprites/tilesets/arena/dungeon_wall_top.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "portal",
+          "url": "/assets/sprites/tilesets/arena/portal.png",
+          "folder": "tilesets/arena",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "road_animal",
+          "url": "/assets/sprites/tilesets/roads/road_animal.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "road_dirt",
+          "url": "/assets/sprites/tilesets/roads/road_dirt.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "road_forest",
+          "url": "/assets/sprites/tilesets/roads/road_forest.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "road_paved",
+          "url": "/assets/sprites/tilesets/roads/road_paved.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "road-animal",
+          "url": "/assets/sprites/tilesets/roads/road-animal.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-dirt",
+          "url": "/assets/sprites/tilesets/roads/road-dirt.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "road-dry-02",
+          "url": "/assets/sprites/tilesets/roads/road-dry-02.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-dry-24",
+          "url": "/assets/sprites/tilesets/roads/road-dry-24.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-dry-32",
+          "url": "/assets/sprites/tilesets/roads/road-dry-32.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-elements-34",
+          "url": "/assets/sprites/tilesets/roads/road-elements-34.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-forest",
+          "url": "/assets/sprites/tilesets/roads/road-forest.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-ice-15",
+          "url": "/assets/sprites/tilesets/roads/road-ice-15.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-ice-17",
+          "url": "/assets/sprites/tilesets/roads/road-ice-17.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-ice-28",
+          "url": "/assets/sprites/tilesets/roads/road-ice-28.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-rocky-29",
+          "url": "/assets/sprites/tilesets/roads/road-rocky-29.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-rocky-33",
+          "url": "/assets/sprites/tilesets/roads/road-rocky-33.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-03",
+          "url": "/assets/sprites/tilesets/roads/road-stones-03.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-05",
+          "url": "/assets/sprites/tilesets/roads/road-stones-05.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-06",
+          "url": "/assets/sprites/tilesets/roads/road-stones-06.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-10",
+          "url": "/assets/sprites/tilesets/roads/road-stones-10.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-19",
+          "url": "/assets/sprites/tilesets/roads/road-stones-19.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-20",
+          "url": "/assets/sprites/tilesets/roads/road-stones-20.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-24",
+          "url": "/assets/sprites/tilesets/roads/road-stones-24.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "road-stones-32",
+          "url": "/assets/sprites/tilesets/roads/road-stones-32.png",
+          "folder": "tilesets/roads",
+          "category": "tilesets",
+          "wired": false
+        },
+        {
+          "name": "water_deep",
+          "url": "/assets/sprites/tilesets/world/water_deep.png",
+          "folder": "tilesets/world",
+          "category": "tilesets",
+          "wired": true
+        },
+        {
+          "name": "water_shore",
+          "url": "/assets/sprites/tilesets/world/water_shore.png",
+          "folder": "tilesets/world",
+          "category": "tilesets",
+          "wired": true
+        }
+      ]
+    },
+    {
+      "category": "trees",
+      "count": 24,
+      "assets": [
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/oak/mature/0.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/oak/sapling/0.png",
+          "folder": "trees/oak/sapling",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/oak/young/0.png",
+          "folder": "trees/oak/young",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/oak/mature/1.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/oak/sapling/1.png",
+          "folder": "trees/oak/sapling",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/oak/young/1.png",
+          "folder": "trees/oak/young",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "10",
+          "url": "/assets/sprites/trees/oak/mature/10.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "11",
+          "url": "/assets/sprites/trees/oak/mature/11.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "12",
+          "url": "/assets/sprites/trees/oak/mature/12.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "13",
+          "url": "/assets/sprites/trees/oak/mature/13.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/oak/mature/2.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/oak/sapling/2.png",
+          "folder": "trees/oak/sapling",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/oak/young/2.png",
+          "folder": "trees/oak/young",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/oak/mature/3.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/oak/sapling/3.png",
+          "folder": "trees/oak/sapling",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/oak/young/3.png",
+          "folder": "trees/oak/young",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "4",
+          "url": "/assets/sprites/trees/oak/mature/4.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "4",
+          "url": "/assets/sprites/trees/oak/sapling/4.png",
+          "folder": "trees/oak/sapling",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "4",
+          "url": "/assets/sprites/trees/oak/young/4.png",
+          "folder": "trees/oak/young",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "5",
+          "url": "/assets/sprites/trees/oak/mature/5.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "6",
+          "url": "/assets/sprites/trees/oak/mature/6.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "7",
+          "url": "/assets/sprites/trees/oak/mature/7.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "8",
+          "url": "/assets/sprites/trees/oak/mature/8.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "9",
+          "url": "/assets/sprites/trees/oak/mature/9.png",
+          "folder": "trees/oak/mature",
+          "category": "trees",
+          "wired": true
+        }
+      ]
+    }
+  ]
+}
