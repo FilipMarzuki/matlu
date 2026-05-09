@@ -761,13 +761,32 @@ export class WorldForgeScene extends Phaser.Scene {
       }
 
       // Pass 4: detect bridge tiles.
-      // Any road tile that sits on water (walkabilityGrid === 1) is a bridge.
+      // Find water tiles on the road, then extend by 1 tile on each side
+      // to cover the visually-wet shore tiles.
       const bridgeTiles = new Set<string>();
-      for (const key of roadSet) {
-        const [tx, ty] = key.split(',').map(Number);
-        if (tx >= 0 && ty >= 0 && tx < G && ty < G &&
-            this.walkabilityGrid[ty * G + tx] !== 0) {
-          bridgeTiles.add(key);
+      if (showRiver) {
+        // Collect road tiles that are on water
+        const waterRoadTiles: { tx: number; ty: number }[] = [];
+        for (const key of roadSet) {
+          const [tx, ty] = key.split(',').map(Number);
+          if (tx >= 0 && ty >= 0 && tx < G && ty < G &&
+              this.walkabilityGrid[ty * G + tx] !== 0) {
+            waterRoadTiles.push({ tx, ty });
+          }
+        }
+
+        // Add those + 1 tile on each end along the same row
+        if (waterRoadTiles.length > 0) {
+          const ty = waterRoadTiles[0].ty;
+          const minTx = Math.min(...waterRoadTiles.map(t => t.tx));
+          const maxTx = Math.max(...waterRoadTiles.map(t => t.tx));
+          for (let tx = minTx - 1; tx <= maxTx + 1; tx++) {
+            if (tx >= 0 && tx < G) {
+              const k = `${tx},${ty}`;
+              bridgeTiles.add(k);
+              roadSet.add(k);
+            }
+          }
         }
       }
 
