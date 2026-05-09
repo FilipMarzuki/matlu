@@ -760,29 +760,20 @@ export class WorldForgeScene extends Phaser.Scene {
         prevClamped = clamped;
       }
 
-      // Pass 4: detect bridge tiles — find where road crosses river,
-      // then walk along that row to cover the full river width.
+      // Pass 4: detect bridge tiles.
+      // The road is straight (constant ty) at the crossing. The river runs
+      // diagonally, so we check each road tile: if it's water, it's a bridge.
+      // Also check the walkability grid to catch tiles the river system marked
+      // as water that the riverCenter formula might miss at this ty.
       const bridgeTiles = new Set<string>();
       if (showRiver) {
-        // Find the ONE crossing row: first road tile that's on the river
-        let crossingTy = -1;
+        const crossingTy = roadY[Math.floor(G / 2)]; // road ty at mid-grid
         for (let tx = 0; tx < G; tx++) {
-          const ty = roadY[tx];
-          const diag = tx + ty;
-          if (Math.abs(tx - riverCenter(diag)) <= 1 && getElev(tx, ty) === 0) {
-            crossingTy = ty;
-            break;
-          }
-        }
-
-        if (crossingTy >= 0) {
-          // Walk the full row at crossingTy, find all water tiles
-          for (let cx = 0; cx < G; cx++) {
-            const cd = cx + crossingTy;
-            if (Math.abs(cx - riverCenter(cd)) <= 1 && getElev(cx, crossingTy) === 0) {
-              bridgeTiles.add(`${cx},${crossingTy}`);
-              roadSet.add(`${cx},${crossingTy}`);
-            }
+          if (roadY[tx] !== crossingTy) continue; // only the straight section
+          // Check if this tile is water (river, splash pool, etc.)
+          if (this.walkabilityGrid[crossingTy * G + tx] !== 0) {
+            bridgeTiles.add(`${tx},${crossingTy}`);
+            roadSet.add(`${tx},${crossingTy}`);
           }
         }
       }
