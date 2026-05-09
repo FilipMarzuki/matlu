@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "assets:manifest": "node scripts/generate-assets-manifest.mjs",
     "assets:sprites": "node scripts/generate-sprite-manifest.mjs",
+    "pixellab:sync": "node scripts/sync-pixellab.mjs",
     "test": "npx playwright test",
     "screenshot": "npx playwright test --config=playwright.screenshot.config.ts --headed",
     "sprites:assemble": "node scripts/assemble-sprites.mjs",
