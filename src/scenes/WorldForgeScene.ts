@@ -968,7 +968,16 @@ export class WorldForgeScene extends Phaser.Scene {
     // Inset by 2 tiles on all edges so trees + jitter don't escape the diamond.
     for (let ty = 2; ty < G - 2; ty++) {
       for (let tx = 2; tx < G - 2; tx++) {
-        if (this.walkabilityGrid[ty * G + tx] !== 0) continue;
+        // Skip if this tile or any neighbor is water/cliff (prevents overhang)
+        let nearWater = false;
+        for (let dy = -1; dy <= 1 && !nearWater; dy++) {
+          for (let dx = -1; dx <= 1 && !nearWater; dx++) {
+            const nx = tx + dx, ny = ty + dy;
+            if (nx < 0 || ny < 0 || nx >= G || ny >= G) continue;
+            if (this.walkabilityGrid[ny * G + nx] !== 0) nearWater = true;
+          }
+        }
+        if (nearWater) continue;
         // Skip if this tile or any neighbor is a road (trees shouldn't overhang paths)
         let onRoad = false;
         for (let dy = -1; dy <= 1 && !onRoad; dy++) {
