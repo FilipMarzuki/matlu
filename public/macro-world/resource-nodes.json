@@ -1,0 +1,80 @@
+{
+  "_doc": "Resource node type definitions — interactable world objects that yield items when gathered. Each entry maps to a ResourceNodeTypeDef in src/entities/ResourceNode.ts.",
+  "nodeTypes": [
+    {
+      "id": "tree",
+      "label": "Oak Tree",
+      "spriteKey": "rn-tree",
+      "yields": [
+        { "itemId": "wood-log",    "min": 1, "max": 2 },
+        { "itemId": "plant-fiber", "min": 1, "max": 1 }
+      ],
+      "respawnMs": 60000,
+      "interactRadius": 56,
+      "colliderWidth": 12,
+      "colliderHeight": 10
+    },
+    {
+      "id": "rock",
+      "label": "Rock",
+      "spriteKey": "rn-rock",
+      "yields": [
+        { "itemId": "stone", "min": 1, "max": 2 }
+      ],
+      "respawnMs": 90000,
+      "interactRadius": 50,
+      "colliderWidth": 18,
+      "colliderHeight": 12
+    },
+    {
+      "id": "ore",
+      "label": "Ore Vein",
+      "spriteKey": "rn-ore",
+      "yields": [
+        { "itemId": "iron-ore",   "min": 1, "max": 2 },
+        { "itemId": "copper-ore", "min": 0, "max": 1 }
+      ],
+      "respawnMs": 120000,
+      "interactRadius": 50,
+      "colliderWidth": 16,
+      "colliderHeight": 14
+    },
+    {
+      "id": "herb",
+      "label": "Herb Patch",
+      "spriteKey": "rn-herb",
+      "yields": [
+        { "itemId": "herb-green", "min": 1, "max": 1 }
+      ],
+      "respawnMs": 45000,
+      "interactRadius": 44,
+      "colliderWidth": 14,
+      "colliderHeight": 10
+    },
+    {
+      "id": "berry",
+      "label": "Berry Bush",
+      "spriteKey": "rn-berry",
+      "yields": [
+        { "itemId": "berries",     "min": 1, "max": 2 },
+        { "itemId": "plant-fiber", "min": 0, "max": 1 }
+      ],
+      "respawnMs": 45000,
+      "interactRadius": 44,
+      "colliderWidth": 14,
+      "colliderHeight": 10
+    },
+    {
+      "id": "water",
+      "label": "Water Source",
+      "spriteKey": "rn-water",
+      "yields": [
+        { "itemId": "freshwater", "min": 1, "max": 2 }
+      ],
+      "respawnMs": 30000,
+      "interactRadius": 52,
+      "colliderWidth": 20,
+      "colliderHeight": 12
+    }
+  ]
+}
