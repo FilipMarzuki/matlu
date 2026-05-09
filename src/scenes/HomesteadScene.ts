@@ -5,6 +5,9 @@
  * and base placement. No combat, no enemies. The chill mode / testbed
  * for the homestead epic (#834).
  *
+ * Resource node proximity is handled by Phaser physics overlap — no
+ * manual distance loops in update(). The scene just checks E-key input.
+ *
  * Route: /homestead
  * Controls:
  *   WASD / Arrow keys — move
@@ -23,6 +26,8 @@ import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode
 const WORLD_W = 800;
 const WORLD_H = 600;
 const PLAYER_SPEED = 120;
+/** Invisible circle around the player that triggers node overlap checks. */
+const INTERACT_RADIUS = 50;
 
 // ── Scene ───────────────────────────────────────────────────────────────────
 
@@ -32,8 +37,11 @@ export class HomesteadScene extends Phaser.Scene {
   constructor() { super({ key: HomesteadScene.KEY }); }
 
   private player!: Phaser.Physics.Arcade.Image;
+  private interactZone!: Phaser.GameObjects.Arc;
   private wasd!: { up: Phaser.Input.Keyboard.Key; down: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
   private resourceNodes: ResourceNode[] = [];
+  /** Nodes currently overlapping the interact zone this frame. */
+  private nodesInRange = new Set<ResourceNode>();
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -50,8 +58,6 @@ export class HomesteadScene extends Phaser.Scene {
     const inv = new InventorySystem(this);
     const resDefs = this.cache.json.get('resources') as { resources: { id: string; name: string; category: string; stackMax: number }[] } | undefined;
     if (resDefs?.resources) inv.loadResourceDefs(resDefs.resources as never[]);
-
-    // Seed starter items so crafting is immediately testable
     inv.add('flint', 4);
     inv.add('dry-grass', 6);
 
@@ -95,6 +101,14 @@ export class HomesteadScene extends Phaser.Scene {
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(100);
 
+    // Invisible interact zone — physics circle that follows the player.
+    // Overlap with nodes triggers prompt display without per-frame distance math.
+    this.interactZone = this.add.arc(0, 0, INTERACT_RADIUS).setVisible(false);
+    this.physics.add.existing(this.interactZone, false);
+    const zoneBody = this.interactZone.body as Phaser.Physics.Arcade.Body;
+    zoneBody.setCircle(INTERACT_RADIUS);
+    zoneBody.setOffset(-INTERACT_RADIUS, -INTERACT_RADIUS);
+
     // ── Resource nodes ────────────────────────────────────────────────────
     const nodeDefs = this.cache.json.get('resource-nodes') as { nodeTypes: ResourceNodeTypeDef[] } | undefined;
     if (nodeDefs?.nodeTypes) {
@@ -108,15 +122,27 @@ export class HomesteadScene extends Phaser.Scene {
         { defId: 'water', x: 400, y: 520 },
       ];
 
+      // Static group so one collider covers all nodes
+      const nodeGroup = this.physics.add.staticGroup();
+
       for (const p of placements) {
         const def = nodeDefs.nodeTypes.find(d => d.id === p.defId);
         if (!def) continue;
-        const node = new ResourceNode(this, p.x, p.y, def);
-        this.physics.add.existing(node, true);
-        node.initStaticBody();
-        this.physics.add.collider(this.player, node);
+        const node = new ResourceNode(this, p.x, p.y, def, inv);
+        nodeGroup.add(node);
         this.resourceNodes.push(node);
       }
+      nodeGroup.refresh();
+
+      // Collider: player bumps into nodes
+      this.physics.add.collider(this.player, nodeGroup);
+
+      // Overlap: interact zone detects nearby nodes — Phaser's broadphase
+      // handles spatial culling, so only nodes near the player are checked.
+      this.physics.add.overlap(this.interactZone, nodeGroup, (_zone, obj) => {
+        const node = obj as ResourceNode;
+        this.nodesInRange.add(node);
+      });
     }
 
     // ── Input ─────────────────────────────────────────────────────────────
@@ -149,17 +175,29 @@ export class HomesteadScene extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(200);
   }
 
-  update(_time: number, delta: number): void {
-    // Player movement
+  update(): void {
+    // ── Player movement ───────────────────────────────────────────────────
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     const vx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
     const vy = (this.wasd.down.isDown ? 1 : 0) - (this.wasd.up.isDown ? 1 : 0);
     body.setVelocity(vx * PLAYER_SPEED, vy * PLAYER_SPEED);
     this.player.setDepth(this.player.y);
 
-    // Resource node proximity checks
+    // Move interact zone to player position
+    this.interactZone.setPosition(this.player.x, this.player.y);
+    (this.interactZone.body as Phaser.Physics.Arcade.Body)
+      .reset(this.player.x, this.player.y);
+
+    // ── Node proximity ────────────────────────────────────────────────────
+    // Overlap callback fires this frame for nodes in range.
+    // Nodes NOT in this frame's set get their prompt hidden.
+    const currentInRange = new Set(this.nodesInRange);
+    this.nodesInRange.clear();
+
     for (const node of this.resourceNodes) {
-      node.tick(delta, this.player.x, this.player.y);
+      const inRange = currentInRange.has(node);
+      node.setPlayerInRange(inRange);
+      if (inRange) node.checkInput();
     }
   }
 }

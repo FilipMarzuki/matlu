@@ -25,7 +25,7 @@ import * as Phaser from 'phaser';
 import { BaseManager, BASE_EVENTS } from '../systems/BaseManager';
 import { InventorySystem } from '../systems/InventorySystem';
 import { InventoryHUD } from '../ui/InventoryHUD';
-import { ResourceNode, ResourceNodeTypeDef } from '../entities/ResourceNode';
+import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 
 // ── Placeable structure definitions ─────────────────────────────────────────
 
@@ -77,7 +77,9 @@ export class BaseForgeScene extends Phaser.Scene {
 
   // ── Resource node demo ──────────────────────────────────────────────────
   private testPlayer: Phaser.Physics.Arcade.Image | null = null;
+  private interactZone: Phaser.GameObjects.Arc | null = null;
   private resourceNodes: ResourceNode[] = [];
+  private nodesInRange = new Set<ResourceNode>();
   private wasd: {
     up: Phaser.Input.Keyboard.Key;
     down: Phaser.Input.Keyboard.Key;
@@ -176,21 +178,30 @@ export class BaseForgeScene extends Phaser.Scene {
     this.createResourceNodeDemo();
   }
 
-  update(_time: number, delta: number): void {
+  update(): void {
     if (!this.testPlayer || !this.wasd) return;
 
     const speed = 120;
     const body = this.testPlayer.body as Phaser.Physics.Arcade.Body;
-
-    const vx =
-      (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
-    const vy =
-      (this.wasd.down.isDown  ? 1 : 0) - (this.wasd.up.isDown   ? 1 : 0);
-
+    const vx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
+    const vy = (this.wasd.down.isDown  ? 1 : 0) - (this.wasd.up.isDown   ? 1 : 0);
     body.setVelocity(vx * speed, vy * speed);
 
+    // Move interact zone to player
+    if (this.interactZone) {
+      this.interactZone.setPosition(this.testPlayer.x, this.testPlayer.y);
+      (this.interactZone.body as Phaser.Physics.Arcade.Body)
+        .reset(this.testPlayer.x, this.testPlayer.y);
+    }
+
+    // Overlap callback populates nodesInRange this frame
+    const currentInRange = new Set(this.nodesInRange);
+    this.nodesInRange.clear();
+
     for (const node of this.resourceNodes) {
-      node.tick(delta, this.testPlayer.x, this.testPlayer.y);
+      const inRange = currentInRange.has(node);
+      node.setPlayerInRange(inRange);
+      if (inRange) node.checkInput();
     }
   }
 
@@ -514,6 +525,13 @@ export class BaseForgeScene extends Phaser.Scene {
     this.testPlayer.setCollideWorldBounds(true);
     this.testPlayer.setDepth(500);
 
+    // Invisible interact zone around player
+    this.interactZone = this.add.arc(0, 0, 50).setVisible(false);
+    this.physics.add.existing(this.interactZone, false);
+    const zoneBody = this.interactZone.body as Phaser.Physics.Arcade.Body;
+    zoneBody.setCircle(50);
+    zoneBody.setOffset(-50, -50);
+
     // WASD controls
     const kb = this.input.keyboard!;
     this.wasd = {
@@ -528,20 +546,29 @@ export class BaseForgeScene extends Phaser.Scene {
       { nodeTypes: ResourceNodeTypeDef[] } | undefined;
     if (!nodeDefs?.nodeTypes) return;
 
+    // Get inventory for node construction
+    const inv = this.game.registry.get('inventorySystem') as InventorySystem;
+
+    const nodeGroup = this.physics.add.staticGroup();
     const nodeY   = height * 0.68;
     const spacing = width / (nodeDefs.nodeTypes.length + 1);
 
     for (let i = 0; i < nodeDefs.nodeTypes.length; i++) {
       const def = nodeDefs.nodeTypes[i];
       const nx  = spacing * (i + 1);
-      const node = new ResourceNode(this, nx, nodeY, def);
-      this.physics.add.existing(node, true);
-      node.initStaticBody();
-      if (this.testPlayer) {
-        this.physics.add.collider(this.testPlayer, node);
-      }
+      const node = new ResourceNode(this, nx, nodeY, def, inv);
+      nodeGroup.add(node);
       this.resourceNodes.push(node);
     }
+    nodeGroup.refresh();
+
+    // Collider: player bumps into nodes
+    this.physics.add.collider(this.testPlayer, nodeGroup);
+
+    // Overlap: interact zone detects nearby nodes via Phaser broadphase
+    this.physics.add.overlap(this.interactZone, nodeGroup, (_zone, obj) => {
+      this.nodesInRange.add(obj as ResourceNode);
+    });
 
     // ── Hint label ────────────────────────────────────────────────────────
     this.add.text(8, height - 20, 'WASD — move  |  E — gather node', {

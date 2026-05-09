@@ -1,19 +1,20 @@
 /**
  * ResourceNode — interactable world object that yields items when gathered.
  *
- * Lifecycle: ready → (player presses E) → depleted → (respawn timer) → ready
+ * Lifecycle: ready → (player presses E or taps) → depleted → (respawn timer) → ready
+ *
+ * Built on InteractiveObject so proximity detection is handled by Phaser's
+ * physics overlap — no manual distance checks in update loops.
  *
  * ## Setup (in your scene)
  *
- *   // preload(): ensure node.def.spriteKey texture exists
  *   // create():
- *   const node = new ResourceNode(this, x, y, def);
- *   this.physics.add.existing(node, true); // static body
- *   node.initStaticBody();                 // size the collision box
+ *   const node = new ResourceNode(this, x, y, def, inventory);
+ *   // That's it — node self-registers physics body + overlap + input.
+ *   // Optionally add a collider so the player can't walk through:
  *   this.physics.add.collider(player, node);
  *
- *   // update():
- *   node.tick(delta, player.x, player.y);
+ *   // No update() loop needed for proximity — physics overlap handles it.
  *
  * ## Events
  *
@@ -22,7 +23,7 @@
  */
 
 import * as Phaser from 'phaser';
-import { SolidObject } from '../environment/SolidObject';
+import { InteractiveObject } from '../environment/InteractiveObject';
 import type { InventorySystem } from '../systems/InventorySystem';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -33,28 +34,15 @@ export interface ResourceNodeYield {
   max: number;
 }
 
-/**
- * One entry in `resource-nodes.json#nodeTypes`. All fields needed to instantiate
- * a node — the scene picks the def and places it at a world position.
- */
 export interface ResourceNodeTypeDef {
-  /** Unique identifier, e.g. `"tree"`, `"rock"`, `"ore"`. */
   id: string;
-  /** Human-readable name shown in future UI. */
   label: string;
-  /** Phaser texture key — must be loaded before creating this node. */
   spriteKey: string;
-  /** Items dropped on gather; qty rolled per yield entry. */
   yields: ResourceNodeYield[];
-  /** How long (ms) the node is depleted before it respawns. */
   respawnMs: number;
-  /** Player must be within this many px to see the interaction prompt. */
   interactRadius: number;
-  /** Collision box width in px — defaults to 16. */
   colliderWidth?: number;
-  /** Collision box height in px — defaults to 16. */
   colliderHeight?: number;
-  /** Vertical offset for the collision body — defaults to 0. */
   colliderOffsetY?: number;
 }
 
@@ -62,27 +50,46 @@ export type ResourceNodeState = 'ready' | 'depleted';
 
 // ── Class ──────────────────────────────────────────────────────────────────────
 
-export class ResourceNode extends SolidObject {
+export class ResourceNode extends InteractiveObject {
   readonly def: ResourceNodeTypeDef;
+  private readonly inventory: InventorySystem;
 
   private _nodeState: ResourceNodeState = 'ready';
-  private _respawnRemaining = 0;
   private _promptText: Phaser.GameObjects.Text;
+  private _playerInRange = false;
   private _eKey: Phaser.Input.Keyboard.Key | null;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, def: ResourceNodeTypeDef) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    def: ResourceNodeTypeDef,
+    inventory: InventorySystem,
+  ) {
     super(scene, x, y, def.spriteKey, {
+      trigger: 'player-nearby',
+      triggerRadius: def.interactRadius,
       colliderWidth:   def.colliderWidth   ?? 16,
       colliderHeight:  def.colliderHeight  ?? 16,
       colliderOffsetY: def.colliderOffsetY ?? 0,
     });
 
     this.def = def;
+    this.inventory = inventory;
 
-    // Depth-sort by y so it overlaps objects below it in the top-down view
     this.sortDepth();
 
-    // Interaction prompt — fades in when player enters interactRadius
+    // Static physics body for collision (player can't walk through)
+    scene.physics.add.existing(this, true);
+    const body = this.body as Phaser.Physics.Arcade.StaticBody;
+    body.setSize(this.colliderWidth, this.colliderHeight);
+    body.setOffset(
+      (this.displayWidth  - this.colliderWidth)  / 2,
+      this.displayHeight  - this.colliderHeight  + this.colliderOffsetY,
+    );
+    body.reset(this.x, this.y);
+
+    // Interaction prompt — hidden until player enters overlap zone
     this._promptText = scene.add.text(x, y - this.displayHeight - 4, '[E] Gather', {
       fontSize: '9px',
       color: '#ffe066',
@@ -91,12 +98,12 @@ export class ResourceNode extends SolidObject {
       strokeThickness: 3,
     }).setOrigin(0.5, 1).setAlpha(0).setDepth(9999);
 
-    // addKey() is idempotent — multiple nodes all get the same Key instance
+    // E key (idempotent — all nodes share the same Key instance)
     this._eKey = scene.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E) ?? null;
 
     // Tap / click to gather (mobile + mouse)
     this.setInteractive({ useHandCursor: true });
-    this.on('pointerup', () => this._gather());
+    this.on('pointerup', () => this.gather());
   }
 
   get nodeState(): ResourceNodeState {
@@ -104,91 +111,78 @@ export class ResourceNode extends SolidObject {
   }
 
   /**
-   * Size the static physics body to match colliderWidth/Height.
-   * Call immediately after `scene.physics.add.existing(this, true)`.
-   *
-   * Phaser's StaticBody offset is relative to the top-left of the sprite, but
-   * WorldObject uses bottom-centre origin — so we shift by displayWidth/2 to
-   * keep the collider centred on the sprite's trunk / base.
+   * Call from a physics overlap callback when the player enters this node's
+   * interact radius. The overlap zone is set up by the scene once — not per frame.
    */
-  initStaticBody(): void {
-    const body = this.body as Phaser.Physics.Arcade.StaticBody;
-    body.setSize(this.colliderWidth, this.colliderHeight);
-    body.setOffset(
-      (this.displayWidth  - this.colliderWidth)  / 2,
-      this.displayHeight  - this.colliderHeight  + this.colliderOffsetY,
-    );
-    body.reset(this.x, this.y);
+  setPlayerInRange(inRange: boolean): void {
+    this._playerInRange = inRange;
+
+    if (inRange && this._nodeState === 'ready') {
+      this._promptText.setAlpha(1);
+    } else {
+      this._promptText.setAlpha(0);
+    }
   }
 
   /**
-   * Main update — call from scene.update() every frame.
-   *
-   * @param delta   Frame delta in ms from Phaser's update(time, delta)
-   * @param playerX World-x of the player
-   * @param playerY World-y of the player
+   * Lightweight per-frame check — only processes the E key, no distance math.
+   * Call from scene.update() if you want keyboard gathering. Skip entirely
+   * if you only support tap/click.
    */
-  tick(delta: number, playerX: number, playerY: number): void {
-    // Respawn countdown while depleted
-    if (this._nodeState === 'depleted') {
-      this._respawnRemaining -= delta;
-      if (this._respawnRemaining <= 0) this._respawn();
-    }
-
-    const dx = playerX - this.x;
-    const dy = playerY - this.y;
-    const inRange =
-      this._nodeState === 'ready' &&
-      Math.sqrt(dx * dx + dy * dy) <= this.def.interactRadius;
-
-    // Smooth prompt fade (same lerp used by HumanoidNPC)
-    this._promptText.setAlpha(
-      Phaser.Math.Linear(this._promptText.alpha, inRange ? 1 : 0, 0.12),
-    );
-    this._promptText.setPosition(this.x, this.y - this.displayHeight - 4);
-
-    // Keyboard gather — JustDown consumes the press for this frame
-    if (inRange && this._eKey && Phaser.Input.Keyboard.JustDown(this._eKey)) {
-      this._gather();
+  checkInput(): void {
+    if (this._playerInRange && this._nodeState === 'ready' &&
+        this._eKey && Phaser.Input.Keyboard.JustDown(this._eKey)) {
+      this.gather();
     }
   }
 
-  // ── Private ────────────────────────────────────────────────────────────────
+  /** InteractiveObject hook — called when player-touch overlap fires. */
+  protected override onReact(): void {
+    this.gather();
+  }
 
-  private _gather(): void {
+  // ── Gather ────────────────────────────────────────────────────────────────
+
+  private gather(): void {
     if (this._nodeState !== 'ready') return;
 
-    // Add items to the global InventorySystem (may be absent in minimal test scenes)
-    const inv = this.scene.game.registry.get('inventorySystem') as InventorySystem | undefined;
+    // Add items to inventory
     for (const y of this.def.yields) {
       const qty = Phaser.Math.Between(y.min, y.max);
-      inv?.add(y.itemId, qty);
+      if (qty > 0) this.inventory.add(y.itemId, qty);
     }
 
+    // Deplete
     this._nodeState = 'depleted';
-    this._respawnRemaining = this.def.respawnMs;
-    this.setAlpha(0.35);
     this._promptText.setAlpha(0);
+    this._playerInRange = false;
 
-    // Quick shake tween as gather feedback
+    // Shake feedback
     this.scene.tweens.add({
       targets: this,
       angle: { from: -6, to: 6 },
       yoyo: true,
       duration: 60,
       repeat: 2,
-      onComplete: () => { this.angle = 0; },
+      onComplete: () => {
+        this.angle = 0;
+        this.setAlpha(0.35);
+      },
     });
 
     this.scene.events.emit('resource-gathered', {
       nodeId: this.def.id,
       yields: this.def.yields,
     });
+
+    // Respawn via Phaser timer — no manual delta tracking needed
+    if (this.def.respawnMs > 0) {
+      this.scene.time.delayedCall(this.def.respawnMs, () => this.respawn());
+    }
   }
 
-  private _respawn(): void {
+  private respawn(): void {
     this._nodeState = 'ready';
-    // Grow-back tween signals to the player the node is harvestable again
     this.scene.tweens.add({
       targets: this,
       alpha: { from: 0.35, to: 1 },
