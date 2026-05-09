@@ -761,41 +761,33 @@ export class WorldForgeScene extends Phaser.Scene {
       }
 
       // Pass 4: detect bridge tiles.
-      // The road is straight (constant ty) at the crossing. The river runs
-      // diagonally so its 3-tile width spans multiple ty rows. We check the
-      // road row first, then expand to adjacent rows for any water tiles
-      // that neighbor an existing bridge tile.
+      // Simple: the road has a gap where it crosses water. Find that gap
+      // and fill it with bridge tiles. Walk the road path left-to-right,
+      // find the last dry tile before water and the first dry tile after.
+      // Everything in between is bridge.
       const bridgeTiles = new Set<string>();
       if (showRiver) {
-        const crossingTy = roadY[Math.floor(G / 2)];
-
-        // First pass: bridge tiles on the road row
-        for (let tx = 0; tx < G; tx++) {
-          if (roadY[tx] !== crossingTy) continue;
-          if (this.walkabilityGrid[crossingTy * G + tx] !== 0) {
-            bridgeTiles.add(`${tx},${crossingTy}`);
-            roadSet.add(`${tx},${crossingTy}`);
-          }
+        // Collect road tiles as sorted tx values per ty
+        const roadByTx: { tx: number; ty: number }[] = [];
+        for (const key of roadSet) {
+          const [tx, ty] = key.split(',').map(Number);
+          roadByTx.push({ tx, ty });
         }
+        roadByTx.sort((a, b) => a.tx - b.tx);
 
-        // Second pass: expand to adjacent water tiles (±1 ty, ±1 tx)
-        // that touch an existing bridge tile — catches the diagonal river edge
-        const toAdd: string[] = [];
-        for (const key of bridgeTiles) {
-          const [btx, bty] = key.split(',').map(Number);
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const nx = btx + dx, ny = bty + dy;
-              if (nx < 0 || ny < 0 || nx >= G || ny >= G) continue;
-              if (this.walkabilityGrid[ny * G + nx] !== 0 && !bridgeTiles.has(`${nx},${ny}`)) {
-                toAdd.push(`${nx},${ny}`);
-              }
+        // Walk left-to-right: find gaps in tx (consecutive road tiles
+        // should have tx differ by 1; a bigger gap = water crossing)
+        for (let i = 1; i < roadByTx.length; i++) {
+          const prev = roadByTx[i - 1];
+          const curr = roadByTx[i];
+          // Same row and gap > 1 tile = river gap
+          if (prev.ty === curr.ty && curr.tx - prev.tx > 1) {
+            // Fill the gap with bridge tiles
+            for (let tx = prev.tx + 1; tx < curr.tx; tx++) {
+              bridgeTiles.add(`${tx},${prev.ty}`);
+              roadSet.add(`${tx},${prev.ty}`);
             }
           }
-        }
-        for (const k of toAdd) {
-          bridgeTiles.add(k);
-          roadSet.add(k);
         }
       }
 
