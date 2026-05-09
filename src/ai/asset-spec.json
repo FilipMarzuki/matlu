@@ -9955,7 +9955,7 @@
       "name": "Dissolution Patch",
       "concept": "dissolution",
       "category": "chemistry",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "embroidered scout patch badge icon, round shape with thick dark border, bold stylized dissolving solid symbol, cube breaking apart into particles in liquid, teal-blue tones, pixel art RPG UI icon, transparent background",
         "width": 32,
@@ -11284,7 +11284,7 @@
       "id": "item-quartz",
       "name": "Quartz Crystal",
       "item": "quartz",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "clear pointed quartz crystal, translucent white hexagonal prism shape, mineral, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11300,7 +11300,7 @@
       "id": "item-sulfur",
       "name": "Sulfur",
       "item": "sulfur",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of bright yellow sulfur crystal, jagged crystalline mineral, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11316,7 +11316,7 @@
       "id": "item-peat",
       "name": "Peat",
       "item": "peat",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "block of dark brown compressed peat, fibrous bog material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11332,7 +11332,7 @@
       "id": "item-beeswax",
       "name": "Beeswax",
       "item": "beeswax",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of golden-yellow beeswax, smooth waxy lump, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11348,7 +11348,7 @@
       "id": "item-crystal-shard",
       "name": "Crystal Shard",
       "item": "crystal-shard",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "glowing blue-white crystal shard, faceted translucent magical crystal fragment, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11364,7 +11364,7 @@
       "id": "item-amber",
       "name": "Amber",
       "item": "amber",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "polished amber gemstone, warm golden-orange translucent fossilized resin, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11380,7 +11380,7 @@
       "id": "item-lodite-ore",
       "name": "Lodite Ore",
       "item": "lodite-ore",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of dark rock with pulsing blue-green luminous veins, fictional conductive mineral, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11396,7 +11396,7 @@
       "id": "item-rubber-sap",
       "name": "Rubber Sap",
       "item": "rubber-sap",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "bowl of thick milky-white latex sap, natural rubber fluid, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11412,7 +11412,7 @@
       "id": "item-feather",
       "name": "Feather",
       "item": "feather",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "single large bird feather, brown and white striped quill feather, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11431,7 +11431,7 @@
       "id": "item-bronze-ingot",
       "name": "Bronze Ingot",
       "item": "bronze-ingot",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "rectangular bronze ingot, warm golden-brown metal bar with slightly rough cast surface, pixel art RPG inventory icon, transparent background",
         "width": 32,
