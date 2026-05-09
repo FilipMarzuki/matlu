@@ -969,7 +969,14 @@ export class WorldForgeScene extends Phaser.Scene {
     for (let ty = 2; ty < G - 2; ty++) {
       for (let tx = 2; tx < G - 2; tx++) {
         if (this.walkabilityGrid[ty * G + tx] !== 0) continue;
-        if (this.roadTiles.has(`${tx},${ty}`)) continue;
+        // Skip if this tile or any neighbor is a road (trees shouldn't overhang paths)
+        let onRoad = false;
+        for (let dy = -1; dy <= 1 && !onRoad; dy++) {
+          for (let dx = -1; dx <= 1 && !onRoad; dx++) {
+            if (this.roadTiles.has(`${tx + dx},${ty + dy}`)) onRoad = true;
+          }
+        }
+        if (onRoad) continue;
 
         const biome = this.tileBiomeGrid[ty * G + tx];
         if (biome <= 2 || biome === 10 || biome === 11) continue;
