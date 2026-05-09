@@ -110,6 +110,11 @@ const FOG_VISIBLE = 2; // within the current sight radius — fully transparent
 const FOG_SIGHT_R = 10; // circular sight radius in tiles (320 px at 32 px/tile)
 const FOG_LS_KEY  = 'matlu-fog-state'; // localStorage key for persistent explored state
 
+// Corruption should feel like HLD-style purple-black pressure, not a neutral
+// grey wash that collapses all biome colours toward the same midpoint.
+const CORRUPTION_VIEW_TINT = 0x16091f;
+const CORRUPTION_VIEW_MAX_ALPHA = 0.30;
+
 // Player spawn at the SW end of the diagonal corridor (rocky shore)
 const SPAWN_X = 300;
 const SPAWN_Y = 2650;
@@ -3032,9 +3037,9 @@ export class GameScene extends Phaser.Scene {
       .on('pointerdown',  () => this.openPauseMenu());
     this.hudObjects.push(pauseBtn);
 
-    // Full-screen tint overlay — covers whatever viewport size we have.
+    // Full-screen corruption tint — covers whatever viewport size we have.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, CORRUPTION_VIEW_TINT, CORRUPTION_VIEW_MAX_ALPHA)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3123,7 +3128,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldTint(percent: number): void {
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
-    this.overlay.setAlpha(0.38 * (1 - ratio));
+    this.overlay.setAlpha(CORRUPTION_VIEW_MAX_ALPHA * (1 - ratio));
   }
 
   private createPortal(): void {
