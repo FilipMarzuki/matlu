@@ -780,7 +780,9 @@ export class WorldForgeScene extends Phaser.Scene {
           const ty = waterRoadTiles[0].ty;
           const minTx = Math.min(...waterRoadTiles.map(t => t.tx));
           const maxTx = Math.max(...waterRoadTiles.map(t => t.tx));
-          for (let tx = minTx - 1; tx <= maxTx + 1; tx++) {
+          // Extend only SE (+1) — the river flows diagonally so the
+          // downstream shore tile looks wet but is classified as land.
+          for (let tx = minTx; tx <= maxTx + 1; tx++) {
             if (tx >= 0 && tx < G) {
               const k = `${tx},${ty}`;
               bridgeTiles.add(k);
