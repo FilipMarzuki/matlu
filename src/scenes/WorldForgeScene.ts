@@ -760,15 +760,28 @@ export class WorldForgeScene extends Phaser.Scene {
         prevClamped = clamped;
       }
 
-      // Pass 4: detect bridge tiles (road on river)
+      // Pass 4: detect bridge tiles — cover full river width at the crossing.
+      // Check the road ty AND its neighbors so no water tile is missed.
       const bridgeTiles = new Set<string>();
       if (showRiver) {
         for (let tx = 0; tx < G; tx++) {
           const ty = roadY[tx];
-          const diag = tx + ty;
-          if (Math.abs(tx - riverCenter(diag)) <= 1 && getElev(tx, ty) === 0) {
-            bridgeTiles.add(`${tx},${ty}`);
-            roadSet.add(`${tx},${ty}`);
+          // Check road tile and ±1 in each direction for water
+          for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              const cx = tx + dx;
+              const cy = ty + dy;
+              if (cx < 0 || cy < 0 || cx >= G || cy >= G) continue;
+              const cd = cx + cy;
+              const isWater = Math.abs(cx - riverCenter(cd)) <= 1;
+              if (isWater && getElev(cx, cy) === 0) {
+                // Only bridge tiles on the same row as the road (straight crossing)
+                if (cy === ty) {
+                  bridgeTiles.add(`${cx},${cy}`);
+                  roadSet.add(`${cx},${cy}`);
+                }
+              }
+            }
           }
         }
       }
