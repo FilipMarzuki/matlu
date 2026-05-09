@@ -4,6 +4,11 @@
  * Shows an iso grid centered on the base anchor. Click to place structures
  * from a toolbar. Structures persist via BaseManager (localStorage).
  *
+ * Also serves as a live demo for the ResourceNode gathering mechanic (issue #840):
+ * a small test player (green square) spawns at the bottom of the screen. Move it
+ * with WASD, walk up to coloured nodes, and press E to gather items. The inventory
+ * HUD at the top-right shows gathered resources updating in real time.
+ *
  * Routes: /base, /baseforge
  * Controls:
  *   Click          — place selected structure (or establish anchor)
@@ -12,12 +17,15 @@
  *   Scroll         — zoom
  *   Middle-drag    — pan
  *   R              — reset base (wipe all)
+ *   WASD           — move test player
+ *   E              — gather resource node (when in range)
  */
 
 import * as Phaser from 'phaser';
 import { BaseManager, BASE_EVENTS } from '../systems/BaseManager';
 import { InventorySystem } from '../systems/InventorySystem';
 import { InventoryHUD } from '../ui/InventoryHUD';
+import { ResourceNode, ResourceNodeTypeDef } from '../entities/ResourceNode';
 
 // ── Placeable structure definitions ─────────────────────────────────────────
 
@@ -67,6 +75,16 @@ export class BaseForgeScene extends Phaser.Scene {
   private structureObjects: Phaser.GameObjects.GameObject[] = [];
   private labelObjects: Phaser.GameObjects.Text[] = [];
 
+  // ── Resource node demo ──────────────────────────────────────────────────
+  private testPlayer: Phaser.Physics.Arcade.Image | null = null;
+  private resourceNodes: ResourceNode[] = [];
+  private wasd: {
+    up: Phaser.Input.Keyboard.Key;
+    down: Phaser.Input.Keyboard.Key;
+    left: Phaser.Input.Keyboard.Key;
+    right: Phaser.Input.Keyboard.Key;
+  } | null = null;
+
   // ── DOM ─────────────────────────────────────────────────────────────────
   private controlPanel: HTMLDivElement | null = null;
 
@@ -75,6 +93,8 @@ export class BaseForgeScene extends Phaser.Scene {
   preload(): void {
     // Resource definitions for InventoryHUD display names
     this.load.json('resources', '/macro-world/resources.json');
+    // Node type definitions for the resource node demo
+    this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
 
     // Building sprites (shared cache with other forge scenes)
     const ikiBase = '/assets/packs/building-objects/ikibeki';
@@ -151,6 +171,27 @@ export class BaseForgeScene extends Phaser.Scene {
 
     this.buildControlPanel();
     this.rebuild();
+
+    // ── Resource node demo ────────────────────────────────────────────────
+    this.createResourceNodeDemo();
+  }
+
+  update(_time: number, delta: number): void {
+    if (!this.testPlayer || !this.wasd) return;
+
+    const speed = 120;
+    const body = this.testPlayer.body as Phaser.Physics.Arcade.Body;
+
+    const vx =
+      (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
+    const vy =
+      (this.wasd.down.isDown  ? 1 : 0) - (this.wasd.up.isDown   ? 1 : 0);
+
+    body.setVelocity(vx * speed, vy * speed);
+
+    for (const node of this.resourceNodes) {
+      node.tick(delta, this.testPlayer.x, this.testPlayer.y);
+    }
   }
 
   shutdown(): void {
@@ -427,5 +468,84 @@ export class BaseForgeScene extends Phaser.Scene {
         this.updateControlPanel();
       });
     });
+  }
+
+  // ── Resource node demo ──────────────────────────────────────────────────────
+
+  /**
+   * Creates placeholder textures, a movable test player, and one instance of
+   * each node type so the gathering mechanic can be verified in this scene.
+   *
+   * Nodes are placed in a row below the iso grid. The test player starts
+   * centred among them. Move with WASD, press E to gather.
+   */
+  private createResourceNodeDemo(): void {
+    const { width, height } = this.cameras.main;
+
+    // ── Placeholder textures (one per node type) ─────────────────────────
+    // Colors chosen to be visually distinct on the dark background.
+    const NODE_TEXTURES: Array<[string, number, number, number]> = [
+      ['rn-tree',  24, 40, 0x3a7a28],  // dark green — tree
+      ['rn-rock',  20, 16, 0x7a7265],  // grey — rock
+      ['rn-ore',   18, 20, 0xd4793a],  // orange — ore vein
+      ['rn-herb',  16, 16, 0x7ab33a],  // lime — herb patch
+      ['rn-berry', 18, 20, 0x8b3ab3],  // purple — berry bush
+      ['rn-water', 22, 14, 0x3a7ab3],  // blue — water source
+    ];
+    for (const [key, w, h, colour] of NODE_TEXTURES) {
+      if (!this.textures.exists(key)) {
+        const rt = this.add.renderTexture(0, 0, w, h);
+        rt.fill(colour, 1);
+        rt.saveTexture(key);
+        rt.destroy();
+      }
+    }
+
+    // ── Test player texture ───────────────────────────────────────────────
+    if (!this.textures.exists('rn-player')) {
+      const rt = this.add.renderTexture(0, 0, 12, 12);
+      rt.fill(0x00ff99, 1);
+      rt.saveTexture('rn-player');
+      rt.destroy();
+    }
+
+    // ── Spawn test player at the bottom of the screen ─────────────────────
+    this.testPlayer = this.physics.add.image(width / 2, height * 0.82, 'rn-player');
+    this.testPlayer.setCollideWorldBounds(true);
+    this.testPlayer.setDepth(500);
+
+    // WASD controls
+    const kb = this.input.keyboard!;
+    this.wasd = {
+      up:    kb.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      down:  kb.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+      left:  kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+    };
+
+    // ── Spawn one of each node type in a row ──────────────────────────────
+    const nodeDefs = this.cache.json.get('resource-nodes') as
+      { nodeTypes: ResourceNodeTypeDef[] } | undefined;
+    if (!nodeDefs?.nodeTypes) return;
+
+    const nodeY   = height * 0.68;
+    const spacing = width / (nodeDefs.nodeTypes.length + 1);
+
+    for (let i = 0; i < nodeDefs.nodeTypes.length; i++) {
+      const def = nodeDefs.nodeTypes[i];
+      const nx  = spacing * (i + 1);
+      const node = new ResourceNode(this, nx, nodeY, def);
+      this.physics.add.existing(node, true);
+      node.initStaticBody();
+      if (this.testPlayer) {
+        this.physics.add.collider(this.testPlayer, node);
+      }
+      this.resourceNodes.push(node);
+    }
+
+    // ── Hint label ────────────────────────────────────────────────────────
+    this.add.text(8, height - 20, 'WASD — move  |  E — gather node', {
+      fontSize: '10px', color: '#888888', fontFamily: 'monospace',
+    }).setScrollFactor(0).setDepth(200);
   }
 }
