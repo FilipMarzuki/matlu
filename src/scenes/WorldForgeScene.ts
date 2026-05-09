@@ -968,10 +968,12 @@ export class WorldForgeScene extends Phaser.Scene {
     // Inset by 2 tiles on all edges so trees + jitter don't escape the diamond.
     for (let ty = 2; ty < G - 2; ty++) {
       for (let tx = 2; tx < G - 2; tx++) {
-        // Skip if this tile or any neighbor is water/cliff (prevents overhang)
+        // Skip if any tile within 2-tile radius is water/cliff.
+        // Large sprites (mature oaks at 64×64 scaled) visually cover more than
+        // their footprint, so a generous margin prevents water overlap.
         let nearWater = false;
-        for (let dy = -1; dy <= 1 && !nearWater; dy++) {
-          for (let dx = -1; dx <= 1 && !nearWater; dx++) {
+        for (let dy = -2; dy <= 2 && !nearWater; dy++) {
+          for (let dx = -2; dx <= 2 && !nearWater; dx++) {
             const nx = tx + dx, ny = ty + dy;
             if (nx < 0 || ny < 0 || nx >= G || ny >= G) continue;
             if (this.walkabilityGrid[ny * G + nx] !== 0) nearWater = true;
