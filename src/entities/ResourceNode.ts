@@ -138,6 +138,11 @@ export class ResourceNode extends InteractiveObject {
 
   /** InteractiveObject hook — called when player-touch overlap fires. */
   protected override onReact(): void {
+    this.gatherFromTouch();
+  }
+
+  /** Public entry point for touch/tap and action-button gathering. */
+  gatherFromTouch(): void {
     this.gather();
   }
 

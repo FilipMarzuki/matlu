@@ -20,6 +20,7 @@ import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
+import { SimpleJoystick } from '../lib/SimpleJoystick';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -39,9 +40,14 @@ export class HomesteadScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Image;
   private interactZone!: Phaser.GameObjects.Arc;
   private wasd!: { up: Phaser.Input.Keyboard.Key; down: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
+  private joystick: SimpleJoystick | null = null;
+  private actionBtn: Phaser.GameObjects.Arc | null = null;
+  private actionLabel: Phaser.GameObjects.Text | null = null;
   private resourceNodes: ResourceNode[] = [];
   /** Nodes currently overlapping the interact zone this frame. */
   private nodesInRange = new Set<ResourceNode>();
+  /** True if the action button was tapped this frame. */
+  private actionTapped = false;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -162,24 +168,62 @@ export class HomesteadScene extends Phaser.Scene {
       }
     });
 
+    // ── Virtual joystick (mobile) ───────────────────────────────────────
+    const cam = this.cameras.main;
+    const joyRadius = 40;
+    const joyX = 60;
+    const joyY = cam.height - 60;
+
+    // Base ring
+    this.add.arc(joyX, joyY, joyRadius, 0, 360, false, 0x000000, 0.25)
+      .setStrokeStyle(2, 0xffffff, 0.3)
+      .setScrollFactor(0).setDepth(250);
+
+    // Thumb (moves with touch)
+    const thumb = this.add.arc(joyX, joyY, 14, 0, 360, false, 0xffffff, 0.5)
+      .setScrollFactor(0).setDepth(251);
+
+    this.joystick = new SimpleJoystick(this, joyX, joyY, joyRadius, thumb);
+
+    // ── Action button (mobile — replaces E key) ──────────────────────────
+    const btnX = cam.width - 60;
+    const btnY = cam.height - 60;
+    const btnR = 28;
+
+    this.actionBtn = this.add.arc(btnX, btnY, btnR, 0, 360, false, 0x44aa44, 0.3)
+      .setStrokeStyle(2, 0x44aa44, 0.6)
+      .setScrollFactor(0).setDepth(250)
+      .setInteractive();
+
+    this.actionLabel = this.add.text(btnX, btnY, 'E', {
+      fontSize: '18px', color: '#88cc88', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+
+    this.actionBtn.on('pointerdown', () => { this.actionTapped = true; });
+
     // ── HUD ───────────────────────────────────────────────────────────────
     new InventoryHUD(this, inv);
 
-    this.add.text(8, 8, [
-      'Homestead Mode',
-      'WASD — move  |  E — gather',
-      'C — craft    |  I — inventory',
-    ].join('\n'), {
-      fontSize: '10px', color: '#aaccaa', backgroundColor: '#00000066',
-      padding: { x: 6, y: 4 }, lineSpacing: 3,
+    this.add.text(8, 8, 'Homestead Mode', {
+      fontSize: '11px', color: '#aaccaa', backgroundColor: '#00000066',
+      padding: { x: 6, y: 4 },
     }).setScrollFactor(0).setDepth(200);
   }
 
   update(): void {
-    // ── Player movement ───────────────────────────────────────────────────
+    // ── Player movement (keyboard + joystick) ─────────────────────────────
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const vx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
-    const vy = (this.wasd.down.isDown ? 1 : 0) - (this.wasd.up.isDown ? 1 : 0);
+
+    // Keyboard
+    let vx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
+    let vy = (this.wasd.down.isDown ? 1 : 0) - (this.wasd.up.isDown ? 1 : 0);
+
+    // Joystick overrides keyboard if active
+    if (this.joystick && this.joystick.force > 4) {
+      vx = Math.cos(this.joystick.rotation);
+      vy = Math.sin(this.joystick.rotation);
+    }
+
     body.setVelocity(vx * PLAYER_SPEED, vy * PLAYER_SPEED);
     this.player.setDepth(this.player.y);
 
@@ -189,15 +233,34 @@ export class HomesteadScene extends Phaser.Scene {
       .reset(this.player.x, this.player.y);
 
     // ── Node proximity ────────────────────────────────────────────────────
-    // Overlap callback fires this frame for nodes in range.
-    // Nodes NOT in this frame's set get their prompt hidden.
     const currentInRange = new Set(this.nodesInRange);
     this.nodesInRange.clear();
 
+    let anyInRange = false;
     for (const node of this.resourceNodes) {
       const inRange = currentInRange.has(node);
       node.setPlayerInRange(inRange);
-      if (inRange) node.checkInput();
+      if (inRange) {
+        anyInRange = true;
+        node.checkInput();
+        // Action button tap triggers gather on the nearest ready node
+        if (this.actionTapped && node.nodeState === 'ready') {
+          node.gatherFromTouch();
+          this.actionTapped = false;
+        }
+      }
+    }
+
+    // Consume tap if no node was in range
+    this.actionTapped = false;
+
+    // Highlight action button when near a harvestable node
+    if (this.actionBtn) {
+      this.actionBtn.setFillStyle(anyInRange ? 0x44aa44 : 0x444444, anyInRange ? 0.5 : 0.2);
+      this.actionBtn.setStrokeStyle(2, anyInRange ? 0x44aa44 : 0x444444, anyInRange ? 0.8 : 0.3);
+    }
+    if (this.actionLabel) {
+      this.actionLabel.setColor(anyInRange ? '#88ff88' : '#666666');
     }
   }
 }
