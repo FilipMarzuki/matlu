@@ -34,6 +34,7 @@ Each site has its own `package.json` and is built independently in CI.
 | `npm run typecheck`       | `tsc --noEmit` only                                                              |
 | `npm run preview`         | Preview production build                                                         |
 | `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
+| `npm run assets:sprites`  | Regenerate `public/assets/sprite-manifest.json` — catalogs all sprites + wired status |
 | `npm run screenshot`      | Capture game screenshots to `screenshots/` for visual review                     |
 
 ## Visual review
@@ -48,6 +49,22 @@ rendered game, not just code. `screenshots/manifest.json` lists each file and wh
 Put each source pack in its **own folder** under **`public/assets/packs/<pack-name>/`** (sprites, audio, tilemaps, etc. as shipped). Vite serves `public/` at the site root, so URLs look like `/assets/packs/<pack-name>/...`.
 
 After adding or renaming files, run **`npm run assets:manifest`**. That writes **`public/assets/manifest.json`** — a flat catalog grouped by pack (`id`, `path`, `assets[]` with `relative` and `url`) so agents can pick files without walking the tree.
+
+## Asset pipeline — MANDATORY steps when adding sprites
+
+**Every time a new sprite is created (PixelLab, manual, any source):**
+
+1. **Download the PNG** to the correct folder:
+   - Trees → `public/assets/sprites/trees/<species>/<stage>/<N>.png`
+   - Icons → `public/assets/sprites/icons/<type>/<name>.png`
+   - Characters → `public/assets/sprites/characters/<world>/<role>/<name>/`
+   - Buildings → `public/assets/packs/building-objects/<culture>/<name>.png`
+2. **Run `npm run assets:sprites`** — regenerates `sprite-manifest.json` so the asset viewer sees it
+3. **Wire it up** — add a `this.load.image()` call in the scene that uses it (or reference it in the relevant JSON registry: `trees.json`, `asset-spec.json`, `building-registry.json`)
+4. **Verify in the asset viewer** — navigate to `/assets`, find your sprite, confirm it shows a green dot (wired)
+5. **Commit the PNG + updated manifest** together
+
+Browse all sprites at `/assets` — red dot = unwired (not used in code), green dot = wired.
 
 ## AI asset generation (PixelLab)
 
