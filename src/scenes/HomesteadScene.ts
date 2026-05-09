@@ -201,6 +201,24 @@ export class HomesteadScene extends Phaser.Scene {
 
     this.actionBtn.on('pointerdown', () => { this.actionTapped = true; });
 
+    // ── Craft button (above action button) ───────────────────────────────
+    const craftBtnY = btnY - 70;
+    const craftBtn = this.add.arc(btnX, craftBtnY, 22, 0, 360, false, 0x4466aa, 0.3)
+      .setStrokeStyle(2, 0x4466aa, 0.6)
+      .setScrollFactor(0).setDepth(250)
+      .setInteractive();
+    this.add.text(btnX, craftBtnY, 'C', {
+      fontSize: '14px', color: '#88aacc', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+
+    craftBtn.on('pointerdown', () => {
+      if (this.scene.isActive('CraftingMenuScene')) {
+        this.scene.stop('CraftingMenuScene');
+      } else {
+        this.scene.launch('CraftingMenuScene');
+      }
+    });
+
     // ── HUD ───────────────────────────────────────────────────────────────
     new InventoryHUD(this, inv);
 

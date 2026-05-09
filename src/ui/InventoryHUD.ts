@@ -165,13 +165,35 @@ export class InventoryHUD {
       '', { fontSize: '9px', color: '#888888' },
     ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH_BADGE);
 
-    // Make badge interactive (tap to toggle panel, or use active item)
+    // Badge interaction: tap = cycle active item, long-press = use, swipe-up = panel
     const hitZone = this.scene.add.rectangle(
       x + BADGE_SIZE / 2, y + BADGE_SIZE / 2,
-      BADGE_SIZE + 8, BADGE_SIZE + 8,
+      BADGE_SIZE + 16, BADGE_SIZE + 16,
     ).setScrollFactor(0).setDepth(DEPTH_BADGE + 1).setInteractive().setVisible(false);
 
-    hitZone.on('pointerdown', () => this.toggle());
+    let pressStart = 0;
+    let pressY = 0;
+
+    hitZone.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
+      pressStart = Date.now();
+      pressY = ptr.y;
+    });
+
+    hitZone.on('pointerup', (ptr: Phaser.Input.Pointer) => {
+      const held = Date.now() - pressStart;
+      const dy = pressY - ptr.y; // positive = swiped up
+
+      if (dy > 20) {
+        // Swipe up → toggle panel
+        this.toggle();
+      } else if (held > 400) {
+        // Long press → use active item
+        this.useActiveItem();
+      } else {
+        // Quick tap → cycle active item
+        this.cycleActiveItem();
+      }
+    });
   }
 
   private _updateBadge(): void {
