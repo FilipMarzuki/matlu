@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-09T21:18:50.586Z",
-  "totalAssets": 208,
-  "wiredCount": 181,
+  "generatedAt": "2026-05-09T21:29:49.687Z",
+  "totalAssets": 271,
+  "wiredCount": 244,
   "unwiredCount": 27,
   "categories": [
     {
@@ -443,11 +443,39 @@
     },
     {
       "category": "icons",
-      "count": 27,
+      "count": 90,
       "assets": [
         {
           "name": "item-amber",
           "url": "/assets/sprites/icons/items/item-amber.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-animal-fat",
+          "url": "/assets/sprites/icons/items/item-animal-fat.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-antidote",
+          "url": "/assets/sprites/icons/items/item-antidote.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-arrow-shaft",
+          "url": "/assets/sprites/icons/items/item-arrow-shaft.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-bandage",
+          "url": "/assets/sprites/icons/items/item-bandage.png",
           "folder": "icons/items",
           "category": "icons",
           "wired": true
@@ -460,8 +488,78 @@
           "wired": true
         },
         {
+          "name": "item-berries",
+          "url": "/assets/sprites/icons/items/item-berries.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-bone",
+          "url": "/assets/sprites/icons/items/item-bone.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-bowstring",
+          "url": "/assets/sprites/icons/items/item-bowstring.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-brick",
+          "url": "/assets/sprites/icons/items/item-brick.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "item-bronze-ingot",
           "url": "/assets/sprites/icons/items/item-bronze-ingot.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-charcoal",
+          "url": "/assets/sprites/icons/items/item-charcoal.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-clay",
+          "url": "/assets/sprites/icons/items/item-clay.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-cloth",
+          "url": "/assets/sprites/icons/items/item-cloth.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-coal",
+          "url": "/assets/sprites/icons/items/item-coal.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-copper-ingot",
+          "url": "/assets/sprites/icons/items/item-copper-ingot.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-copper-ore",
+          "url": "/assets/sprites/icons/items/item-copper-ore.png",
           "folder": "icons/items",
           "category": "icons",
           "wired": true
@@ -474,8 +572,197 @@
           "wired": true
         },
         {
+          "name": "item-dry-grass",
+          "url": "/assets/sprites/icons/items/item-dry-grass.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "item-feather",
           "url": "/assets/sprites/icons/items/item-feather.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-fire-bomb",
+          "url": "/assets/sprites/icons/items/item-fire-bomb.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-flint",
+          "url": "/assets/sprites/icons/items/item-flint.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-freshwater",
+          "url": "/assets/sprites/icons/items/item-freshwater.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-glass",
+          "url": "/assets/sprites/icons/items/item-glass.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-glue",
+          "url": "/assets/sprites/icons/items/item-glue.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-grain",
+          "url": "/assets/sprites/icons/items/item-grain.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-hardwood-log",
+          "url": "/assets/sprites/icons/items/item-hardwood-log.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-hardwood-plank",
+          "url": "/assets/sprites/icons/items/item-hardwood-plank.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-healing-salve",
+          "url": "/assets/sprites/icons/items/item-healing-salve.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-herb-bitter",
+          "url": "/assets/sprites/icons/items/item-herb-bitter.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-herb-fire",
+          "url": "/assets/sprites/icons/items/item-herb-fire.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-herb-green",
+          "url": "/assets/sprites/icons/items/item-herb-green.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-hide-cloak",
+          "url": "/assets/sprites/icons/items/item-hide-cloak.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-hide-raw",
+          "url": "/assets/sprites/icons/items/item-hide-raw.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-hunting-bow",
+          "url": "/assets/sprites/icons/items/item-hunting-bow.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-axe",
+          "url": "/assets/sprites/icons/items/item-iron-axe.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-blade",
+          "url": "/assets/sprites/icons/items/item-iron-blade.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-dagger",
+          "url": "/assets/sprites/icons/items/item-iron-dagger.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-dagger-runed",
+          "url": "/assets/sprites/icons/items/item-iron-dagger-runed.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-ingot",
+          "url": "/assets/sprites/icons/items/item-iron-ingot.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-nails",
+          "url": "/assets/sprites/icons/items/item-iron-nails.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-ore",
+          "url": "/assets/sprites/icons/items/item-iron-ore.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-iron-sword",
+          "url": "/assets/sprites/icons/items/item-iron-sword.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-leather",
+          "url": "/assets/sprites/icons/items/item-leather.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-leather-armor",
+          "url": "/assets/sprites/icons/items/item-leather-armor.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-leather-strip",
+          "url": "/assets/sprites/icons/items/item-leather-strip.png",
           "folder": "icons/items",
           "category": "icons",
           "wired": true
@@ -488,8 +775,22 @@
           "wired": true
         },
         {
+          "name": "item-oil",
+          "url": "/assets/sprites/icons/items/item-oil.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "item-peat",
           "url": "/assets/sprites/icons/items/item-peat.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-plant-fiber",
+          "url": "/assets/sprites/icons/items/item-plant-fiber.png",
           "folder": "icons/items",
           "category": "icons",
           "wired": true
@@ -502,6 +803,41 @@
           "wired": true
         },
         {
+          "name": "item-ration",
+          "url": "/assets/sprites/icons/items/item-ration.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-raw-fish",
+          "url": "/assets/sprites/icons/items/item-raw-fish.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-raw-meat",
+          "url": "/assets/sprites/icons/items/item-raw-meat.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-resin",
+          "url": "/assets/sprites/icons/items/item-resin.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-rope",
+          "url": "/assets/sprites/icons/items/item-rope.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "item-rubber-sap",
           "url": "/assets/sprites/icons/items/item-rubber-sap.png",
           "folder": "icons/items",
@@ -509,8 +845,106 @@
           "wired": true
         },
         {
+          "name": "item-rune-dust",
+          "url": "/assets/sprites/icons/items/item-rune-dust.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-salt",
+          "url": "/assets/sprites/icons/items/item-salt.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-silver-ore",
+          "url": "/assets/sprites/icons/items/item-silver-ore.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-sinew",
+          "url": "/assets/sprites/icons/items/item-sinew.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-smoke-bomb",
+          "url": "/assets/sprites/icons/items/item-smoke-bomb.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-spirit-sap",
+          "url": "/assets/sprites/icons/items/item-spirit-sap.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-stone",
+          "url": "/assets/sprites/icons/items/item-stone.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "item-sulfur",
           "url": "/assets/sprites/icons/items/item-sulfur.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-tin-ore",
+          "url": "/assets/sprites/icons/items/item-tin-ore.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-torch",
+          "url": "/assets/sprites/icons/items/item-torch.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-trap-snare",
+          "url": "/assets/sprites/icons/items/item-trap-snare.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-wood-handle",
+          "url": "/assets/sprites/icons/items/item-wood-handle.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-wood-log",
+          "url": "/assets/sprites/icons/items/item-wood-log.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-wood-plank",
+          "url": "/assets/sprites/icons/items/item-wood-plank.png",
+          "folder": "icons/items",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "item-wooden-shield",
+          "url": "/assets/sprites/icons/items/item-wooden-shield.png",
           "folder": "icons/items",
           "category": "icons",
           "wired": true
@@ -532,6 +966,13 @@
         {
           "name": "patch-bubbles",
           "url": "/assets/sprites/icons/concepts/patch-bubbles.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-caliper",
+          "url": "/assets/sprites/icons/concepts/patch-caliper.png",
           "folder": "icons/concepts",
           "category": "icons",
           "wired": true

@@ -1,0 +1,3566 @@
+{
+  "generatedAt": "2026-05-09T21:29:37.745Z",
+  "total": 218,
+  "matched": 112,
+  "downloaded": 23,
+  "skipped": 89,
+  "unmatched": 17,
+  "objects": [
+    {
+      "pixellabId": "869d18be-b5ca-403f-972a-c24d5f9262ca",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T17:19:47.097216+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "c63f4abb-90dd-436d-83dc-ffc8a59fabc7",
+      "prompt": "rectangular bronze ingot, warm golden-brown metal bar with slightly rough cast s",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T13:02:07.243184+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-bronze-ingot",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-bronze-ingot.png"
+    },
+    {
+      "pixellabId": "f63d63d4-24d7-4c2e-bb31-526242f9285e",
+      "prompt": "single large bird feather, brown and white striped quill feather, pixel art RPG ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T13:00:01.499530+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-feather",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-feather.png"
+    },
+    {
+      "pixellabId": "41dede91-aa3c-4d1a-96e3-748042dab8dc",
+      "prompt": "bowl of thick milky-white latex sap, natural rubber fluid, pixel art RPG invento",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:58:57.578747+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-rubber-sap",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-rubber-sap.png"
+    },
+    {
+      "pixellabId": "a886fd91-0b32-4bcd-a835-bdf03b8f7c39",
+      "prompt": "chunk of dark rock with pulsing blue-green luminous veins, fictional conductive ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:53:49.737618+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-lodite-ore",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-lodite-ore.png"
+    },
+    {
+      "pixellabId": "918b78b1-b7b2-4426-b1e6-1abc07138177",
+      "prompt": "polished amber gemstone, warm golden-orange translucent fossilized resin, pixel ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:52:05.786912+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-amber",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-amber.png"
+    },
+    {
+      "pixellabId": "ff803d01-635f-425f-885c-e1bdc34143e0",
+      "prompt": "glowing blue-white crystal shard, faceted translucent magical crystal fragment, ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:50:24.242328+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-crystal-shard",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-crystal-shard.png"
+    },
+    {
+      "pixellabId": "736e4101-8a30-450b-ab8f-b0aed822f16f",
+      "prompt": "chunk of golden-yellow beeswax, smooth waxy lump, pixel art RPG inventory icon, ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:48:19.467278+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-beeswax",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-beeswax.png"
+    },
+    {
+      "pixellabId": "926b100d-7a39-499d-9768-5c90deda21ea",
+      "prompt": "block of dark brown compressed peat, fibrous bog material, pixel art RPG invento",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:48:14.660066+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-peat",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-peat.png"
+    },
+    {
+      "pixellabId": "75af549a-dd15-4c22-b9b7-b6753d9ecb91",
+      "prompt": "chunk of bright yellow sulfur crystal, jagged crystalline mineral, pixel art RPG",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:46:45.243937+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-sulfur",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-sulfur.png"
+    },
+    {
+      "pixellabId": "8b712027-2494-4239-b97f-93c506163152",
+      "prompt": "clear pointed quartz crystal, translucent white hexagonal prism shape, mineral, ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:41:29.758462+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-quartz",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-quartz.png"
+    },
+    {
+      "pixellabId": "7fcc820f-40f0-49cb-8b01-e993f514e608",
+      "prompt": "chunk of gray rock with bright silvery metal veins running through it, precious ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:39:38.839967+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-silver-ore",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-silver-ore.png"
+    },
+    {
+      "pixellabId": "eee986f2-5006-469d-82df-98d1fc7263be",
+      "prompt": "chunk of dark gray tin ore with silvery metallic streaks, cassiterite mineral, p",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:38:31.841249+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-tin-ore",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-tin-ore.png"
+    },
+    {
+      "pixellabId": "8d52d7b0-702b-416e-8a3c-5ff05d3bc7b1",
+      "prompt": "sharp dark gray flint stone with conchoidal fracture, shiny smooth edge, knappin",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:35:54.843821+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-flint",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-flint.png"
+    },
+    {
+      "pixellabId": "5f27fe9e-1cc4-4fe8-aebd-aca86539f76a",
+      "prompt": "bundle of dry yellow-brown grass strands, stiff dried hay, pixel art RPG invento",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:34:20.433061+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-dry-grass",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-dry-grass.png"
+    },
+    {
+      "pixellabId": "ab5f87ed-3d57-4217-a938-8d809fc7d015",
+      "prompt": "clear water in a simple wooden bowl, pale blue transparent liquid, pixel art RPG",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:33:00.189321+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-freshwater",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-freshwater.png"
+    },
+    {
+      "pixellabId": "954317ad-90e7-4caa-8bdc-c065c66f7c80",
+      "prompt": "small handful of wild berries, mix of red and dark purple round berries with a g",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:27:20.318466+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-berries",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-berries.png"
+    },
+    {
+      "pixellabId": "33eafb9d-ab0d-40ee-8a94-f29707746ad7",
+      "prompt": "bundle of golden wheat grain stalks with full seed heads, tied together, pixel a",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:27:20.171027+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-grain",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-grain.png"
+    },
+    {
+      "pixellabId": "d108b4fd-1c77-4be4-a13c-ae024c47a069",
+      "prompt": "whole raw fish, silver-blue scaled body with fins and tail, fresh catch, pixel a",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:25:05.960929+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-raw-fish",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-raw-fish.png"
+    },
+    {
+      "pixellabId": "e1d419c7-9896-4f64-9211-7f807eb58532",
+      "prompt": "slab of raw red meat, bright red with white fat marbling, uncooked, pixel art RP",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:24:02.252680+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-raw-meat",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-raw-meat.png"
+    },
+    {
+      "pixellabId": "49de953a-788a-4076-bb5f-80fa87bdeab4",
+      "prompt": "fur-lined hide cloak, brown animal hide draped cloak with fur collar and bone cl",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:18:53.557445+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-hide-cloak",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-hide-cloak.png"
+    },
+    {
+      "pixellabId": "5be4d2b4-ac06-4abe-84e6-e875b0a1509f",
+      "prompt": "leather chest armor, brown hardened leather breastplate with strap buckles on th",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:17:50.167928+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-leather-armor",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-leather-armor.png"
+    },
+    {
+      "pixellabId": "2f01fc6d-5871-4836-acb4-7e655f1908b2",
+      "prompt": "round wooden shield, planks bound with iron rim and central boss, brown wood wit",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:16:37.792649+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-wooden-shield",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-wooden-shield.png"
+    },
+    {
+      "pixellabId": "50911ca0-c252-4094-8db7-851dddbd6a00",
+      "prompt": "simple wooden hunting bow, curved brown wood with taut sinew string, ranged weap",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:15:31.934527+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-hunting-bow",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-hunting-bow.png"
+    },
+    {
+      "pixellabId": "1b60913d-7a16-4de8-8a0b-38f8eab9a6ff",
+      "prompt": "iron axe, dark gray wedge-shaped axe head on a smooth wooden handle, tool and we",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:13:22.265322+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-axe",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-axe.png"
+    },
+    {
+      "pixellabId": "07b2788b-a3c4-4018-aeea-b3c40b0da22c",
+      "prompt": "iron longsword, straight dark gray blade with simple crossguard and leather-wrap",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:11:34.875450+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-sword",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-sword.png"
+    },
+    {
+      "pixellabId": "096fb4ab-1aac-49f2-9b6d-bab7cbbb5dd5",
+      "prompt": "iron dagger with glowing blue runes carved along the blade, dark gray metal with",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:09:23.634554+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-dagger-runed",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-dagger-runed.png"
+    },
+    {
+      "pixellabId": "8d9146cb-e820-4a50-a272-22b3aaded336",
+      "prompt": "short iron dagger, dark gray metal blade with simple wooden grip wrapped in leat",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:08:19.693708+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-dagger",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-dagger.png"
+    },
+    {
+      "pixellabId": "18fda844-bba1-4117-8fa4-25d345c7281b",
+      "prompt": "coiled snare trap, loop of wire and rope with a trigger mechanism, hunting tool,",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:07:16.422751+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-trap-snare",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-trap-snare.png"
+    },
+    {
+      "pixellabId": "69889c2d-b5f6-4baa-8f0c-a4d60661efb6",
+      "prompt": "small dark gray smoke bomb, round dark clay pot with sealed top and short fuse, ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:05:51.051905+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-smoke-bomb",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-smoke-bomb.png"
+    },
+    {
+      "pixellabId": "1630c61c-42d0-429c-8bab-dce2aa3a5d1c",
+      "prompt": "small clay fire bomb grenade, round reddish clay pot with a cloth fuse sticking ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:02:35.485368+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-fire-bomb",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-fire-bomb.png"
+    },
+    {
+      "pixellabId": "0d04658f-0a2d-4cc4-aa4d-77b0422dc167",
+      "prompt": "unlit wooden torch, wooden stick with cloth wrapping soaked in oil at the top, r",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:01:31.385228+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-torch",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-torch.png"
+    },
+    {
+      "pixellabId": "1a7d659e-6b96-441f-a096-c798eeb18586",
+      "prompt": "wrapped food ration, cloth-wrapped bundle tied with string containing dried meat",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T12:01:30.555947+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-ration",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-ration.png"
+    },
+    {
+      "pixellabId": "812124f9-d7ca-4023-b626-a310234a70a9",
+      "prompt": "small glass vial of bright green antidote potion, narrow bottle with cork, clear",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:59:03.757724+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-antidote",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-antidote.png"
+    },
+    {
+      "pixellabId": "52741573-d6bc-406b-8ceb-042dbf91335d",
+      "prompt": "small clay jar of green healing salve, open round pot with thick green herbal pa",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:57:29.767786+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-healing-salve",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-healing-salve.png"
+    },
+    {
+      "pixellabId": "f2111aab-b508-489b-9f81-3ea5e059b7cb",
+      "prompt": "rolled white cloth bandage, clean white linen strip rolled into a tight cylinder",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:56:26.085622+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-bandage",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-bandage.png"
+    },
+    {
+      "pixellabId": "995b3c54-3ebf-4a05-bcf9-bf0f5f289d3d",
+      "prompt": "small pouch of glowing blue rune dust, open cloth bag with sparkling pale blue m",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:55:22.702037+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-rune-dust",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-rune-dust.png"
+    },
+    {
+      "pixellabId": "2439c53c-cf97-4b05-9bf1-680f3c3730a1",
+      "prompt": "small glass bottle of golden oil, round flask with cork stopper containing clear",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:52:46.872383+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-oil",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-oil.png"
+    },
+    {
+      "pixellabId": "4176a9a8-1753-4941-8cd1-d82c889ee55f",
+      "prompt": "small pot of brown hide glue, open ceramic pot with thick amber-brown adhesive d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:51:03.147831+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-glue",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-glue.png"
+    },
+    {
+      "pixellabId": "b067225e-e0a4-465e-847b-2e05e45dc228",
+      "prompt": "small piece of clear glass, flat translucent pale blue-green glass shard with sm",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:45:29.086030+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-glass",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-glass.png"
+    },
+    {
+      "pixellabId": "a8d677f0-7a20-4e63-a70b-7d820b673132",
+      "prompt": "fired clay brick, rectangular reddish-brown building brick with rough texture, c",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:40:13.408983+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-brick",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-brick.png"
+    },
+    {
+      "pixellabId": "59cefe6d-c42f-4a54-aad3-9a1ce52789c7",
+      "prompt": "bundle of 3 straight wooden arrow shafts, long thin smooth wooden sticks, light ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:35:06.268961+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-arrow-shaft",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-arrow-shaft.png"
+    },
+    {
+      "pixellabId": "41b02912-75d7-4f06-80e3-3fa800d3c924",
+      "prompt": "taut bowstring, thin white twisted sinew string with small loops at each end, pi",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:33:32.240846+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-bowstring",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-bowstring.png"
+    },
+    {
+      "pixellabId": "f7d5a1e7-2c00-48ad-83cf-280bc2bf01d2",
+      "prompt": "coil of braided rope, natural brown fiber rope wound in a neat coil, pixel art R",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:32:07.654005+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-rope",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-rope.png"
+    },
+    {
+      "pixellabId": "1a7607fa-8b34-409b-8ea5-6a0cb80c865f",
+      "prompt": "folded piece of woven cloth, light tan fabric with visible weave texture, textil",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:30:54.866769+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-cloth",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-cloth.png"
+    },
+    {
+      "pixellabId": "0306176d-4687-4df6-a8f7-52e3b4fee019",
+      "prompt": "coiled strip of thin brown leather, narrow leather strap wound in a small loop, ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:29:46.484174+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-leather-strip",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-leather-strip.png"
+    },
+    {
+      "pixellabId": "e25e311e-c8a6-4072-99df-10ee5d590932",
+      "prompt": "piece of tanned brown leather, smooth dark brown cured hide folded over once, pr",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:28:12.310467+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-leather",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-leather.png"
+    },
+    {
+      "pixellabId": "92eac9bd-0dad-4461-9814-db9febb2b030",
+      "prompt": "unfinished iron blade without a handle, raw forged gray metal blade with visible",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:26:38.384514+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-blade",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-blade.png"
+    },
+    {
+      "pixellabId": "cb39e494-8fec-4037-a219-2fcfe5df496f",
+      "prompt": "handful of hand-forged iron nails, 4-5 dark gray square-headed nails in a small ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:25:33.935677+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-nails",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-nails.png"
+    },
+    {
+      "pixellabId": "fe37e4df-40af-40a9-8e4f-193fb8be812e",
+      "prompt": "rectangular copper ingot, warm reddish-orange metal bar with smooth polished sur",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:24:30.108719+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-copper-ingot",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-copper-ingot.png"
+    },
+    {
+      "pixellabId": "780e1314-b9d4-4420-9e84-0395b5d04812",
+      "prompt": "rectangular iron ingot, dark silver-gray metal bar with slightly rough forged su",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:21:17.379802+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-ingot",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-ingot.png"
+    },
+    {
+      "pixellabId": "453625b0-d716-445d-ba7c-d727c216ca55",
+      "prompt": "pieces of black charcoal, matte black lumps of burned wood with slight gray ash ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:19:43.267350+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-charcoal",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-charcoal.png"
+    },
+    {
+      "pixellabId": "4f08ed92-6cba-4f02-ba40-434420cbc7a8",
+      "prompt": "carved wooden tool handle, smooth polished light brown wood shaft with tapered g",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:18:40.008189+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-wood-handle",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-wood-handle.png"
+    },
+    {
+      "pixellabId": "88b5c2cb-292f-4e96-a773-c227ae28c65c",
+      "prompt": "flat cut hardwood plank, rich dark brown sawn timber board with fine dense grain",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:15:32.003301+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-hardwood-plank",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-hardwood-plank.png"
+    },
+    {
+      "pixellabId": "f2c2b2cc-57a8-4cb6-87a0-9fb5a39426b4",
+      "prompt": "flat cut wooden plank, light brown sawn timber board with visible grain, process",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:14:16.430116+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-wood-plank",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-wood-plank.png"
+    },
+    {
+      "pixellabId": "d903de8c-3a35-4b9a-b0ae-0529c7b945ed",
+      "prompt": "sprig of fiery red-orange herb, vivid red leaves with orange tips that look like",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:13:10.844153+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-herb-fire",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-herb-fire.png"
+    },
+    {
+      "pixellabId": "3dc3641d-c838-4aed-9420-1fcffe360e1a",
+      "prompt": "sprig of dark bitter herb, deep green almost black leaves with purple veins, pun",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:11:00.648060+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-herb-bitter",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-herb-bitter.png"
+    },
+    {
+      "pixellabId": "5841feb9-ba45-41bd-942d-c925db7ccee2",
+      "prompt": "sprig of fresh green healing herb, bright green leaves on a short stem, medicina",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:08:55.976796+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-herb-green",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-herb-green.png"
+    },
+    {
+      "pixellabId": "1345208b-1c63-415a-86ed-dfc160cbdd6d",
+      "prompt": "small vial of glowing pale blue spirit sap, luminescent magical tree sap in a gl",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:07:52.636169+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-spirit-sap",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-spirit-sap.png"
+    },
+    {
+      "pixellabId": "aafc99be-b321-49ae-9a15-35a405d3ef1e",
+      "prompt": "glob of amber tree resin, translucent golden-orange sticky droplet, natural adhe",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:06:17.747685+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-resin",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-resin.png"
+    },
+    {
+      "pixellabId": "502e8a94-02b9-4259-b4a9-2a655c5d18f6",
+      "prompt": "small pile of coarse white salt crystals, sparkly white mineral grains in a moun",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:04:42.201077+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-salt",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-salt.png"
+    },
+    {
+      "pixellabId": "77cc8b26-7970-4c99-9219-ac42080de923",
+      "prompt": "chunk of pale yellow-white animal fat, waxy soft lump of rendered tallow, greasy",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:03:38.531940+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-animal-fat",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-animal-fat.png"
+    },
+    {
+      "pixellabId": "38e00fd2-612e-4e64-87c0-fb60e004a40a",
+      "prompt": "bundle of dried animal sinew, pale translucent twisted tendon fibers, strong nat",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T11:02:01.834115+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-sinew",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-sinew.png"
+    },
+    {
+      "pixellabId": "854b4020-102b-41af-86aa-86466fcab6d8",
+      "prompt": "clean white animal bone, long bone like a femur, pale ivory color, crafting mate",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:56:51.472162+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-bone",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-bone.png"
+    },
+    {
+      "pixellabId": "52cf726a-7a76-43f7-af08-ec0c9fe76a5c",
+      "prompt": "folded raw animal hide, brown fur on outside with pale inner skin showing, untan",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:55:45.158370+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-hide-raw",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-hide-raw.png"
+    },
+    {
+      "pixellabId": "273bb51a-23fe-4561-b959-63d7d11a3c57",
+      "prompt": "chunk of shiny black coal, glossy dark surface with angular fractures, fuel mate",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:54:35.367842+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-coal",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-coal.png"
+    },
+    {
+      "pixellabId": "20c0f0ec-354d-4541-9675-e6628646120b",
+      "prompt": "chunk of green-tinged copper ore rock, rough mineral with bright green malachite",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:50:18.856153+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-copper-ore",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-copper-ore.png"
+    },
+    {
+      "pixellabId": "4e56d14d-888a-4624-89cf-bb58e1a5aee6",
+      "prompt": "chunk of dark reddish-brown iron ore rock, rough mineral with metallic rust-colo",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:48:12.780064+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-iron-ore",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-iron-ore.png"
+    },
+    {
+      "pixellabId": "1965cfe8-3e66-414d-9f8d-0cecc87fe591",
+      "prompt": "lump of wet reddish-brown clay, soft and moist with finger impressions, raw pott",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:43:01.052481+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-clay",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-clay.png"
+    },
+    {
+      "pixellabId": "8f8db1de-b554-4fb8-99ff-c866bf838171",
+      "prompt": "rough gray stone chunk, irregular natural rock, raw material, pixel art RPG inve",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:41:23.556765+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-stone",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-stone.png"
+    },
+    {
+      "pixellabId": "bd635b54-78dc-4759-8f83-86673210c3e7",
+      "prompt": "short section of dark rich hardwood log, dense grain visible on cut end, darker ",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:39:48.738545+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-hardwood-log",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-hardwood-log.png"
+    },
+    {
+      "pixellabId": "dc54ad23-ac40-425d-aaba-4dcb8d88022b",
+      "prompt": "short section of brown wood log with visible bark and growth rings on cut end, r",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:38:05.193272+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-wood-log",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-wood-log.png"
+    },
+    {
+      "pixellabId": "ac079b14-105f-46b7-8c15-2655385a48a5",
+      "prompt": "bundle of green plant fibers tied loosely together, long thin strands of natural",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:36:29.042911+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "item-plant-fiber",
+      "section": "itemIcons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/items/item-plant-fiber.png"
+    },
+    {
+      "pixellabId": "a8e445c2-6ae0-4dd6-ba15-adae414c4ec3",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:33:57.786724+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "b622dec8-3e64-45b2-b761-3bd2cb0f73af",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:31:41.482858+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "dc6c554d-a81a-4540-9664-64aaa6ee7f93",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:27:31.352722+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "251ee669-49f4-4ee3-aac7-7cdbc3cd21c7",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:26:23.724777+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "ab2db020-fdf0-4849-8384-afc6b3b9e2b5",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:25:14.051404+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "c0d6885f-46bd-4850-8db3-efb5cf8e8a82",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:23:30.166963+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "e82f45aa-71d7-4488-a236-87965d5f9597",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:21:51.361574+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "6161ac81-bcd4-4996-897e-d2224ed5586d",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:19:41.204685+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "e189e8ad-f36c-4d0f-bc32-cc653968215a",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:16:29.738609+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "de7bedd3-46b4-49d9-821b-279ad91d53a9",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:14:47.465845+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "dfb77ecc-f3c9-4621-ae86-4bf66ce7c8dc",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:14:25.398295+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "1f33d8ff-9ff1-4af9-ac6d-e03e1ecddd89",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:12:22.724067+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "a63ba661-99b4-4181-b3b4-853975e7e23f",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:10:42.521610+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "a22c81df-673b-4374-b238-e64241fc146a",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:09:02.154145+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "aec0f56d-0300-4261-a60c-70d8edb8c521",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:07:17.050081+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "3ccee145-6527-4e8c-afc1-35832e7d8191",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:05:02.807023+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "ffbd08e9-d38e-488a-94b3-bafe44f4a15f",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:03:51.828762+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "17b8569d-2c9d-4fef-97ff-ffad774aaef1",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:02:41.285165+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "a2151ab3-53c1-4e56-b5bb-39cfa25c37d3",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-09T10:00:35.064739+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "b4c59d1a-1fa3-4390-83e8-3bd4471046e1",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:11:00.980186+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "f2691ef9-1811-40f0-85ee-de8b4f072ff1",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:53.638561+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "efe8a2af-2dae-46a0-a683-00252696620c",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:47.974445+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "95b22fdb-2a92-4005-9b1e-c43c8fe3d37b",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:37.756387+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "da718cf1-c351-4ee5-bffa-a9b104bc57d8",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:28.384201+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "fcd421ed-2b4b-4126-8440-d408400a1429",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:27.790442+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "77d46114-4b1e-4dc5-9466-d9fb432f1dd8",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:22.085407+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "16687b66-88c8-4d8b-a2a2-d9d86cd4f6a1",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:21.186048+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "bf1c4d26-8fb2-4a71-90a8-61e94963af4c",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:14.691921+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "64b91fb1-5d13-4317-a012-7caad86afa40",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:12.634280+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "d91ab549-10bd-457b-975b-136e3beefbfa",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:10:11.451166+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "17d67b75-9323-4916-a8b9-693c7c9a0f21",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:09:29.642526+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "4963b3fc-f508-46bc-98cd-d3df1577e521",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:06:47.862639+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "e7d5c6b4-b9d2-4337-a576-1a270d131881",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:06:41.943924+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "3ae01527-9670-414d-b916-883c35c7df9d",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:06:31.113184+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "2a9cc40b-b12c-4169-a54e-9dcdf4b20945",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:06:29.583514+00:00",
+      "status": "completed",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "8fe3a1e8-05ea-4bf4-8886-f6b6cf093ff6",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:05:00.225389+00:00",
+      "status": "review",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "706b3df6-2104-426b-82b8-9b610da84b8a",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:04:59.232546+00:00",
+      "status": "review",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "7de00685-7a1f-4772-91ab-27f2586c1542",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:04:58.358620+00:00",
+      "status": "review",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "73218ce5-b654-4475-8076-c54dd854782a",
+      "prompt": "embroidered scout patch badge icon, round shape with thick dark border, bold sty",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-08T07:04:57.486792+00:00",
+      "status": "review",
+      "matched": true,
+      "matchedTo": "patch-caliper",
+      "section": "icons",
+      "downloaded": true,
+      "localPath": "/public/assets/sprites/icons/concepts/patch-caliper.png"
+    },
+    {
+      "pixellabId": "64635d7a-44fb-4738-8468-8f5dbbf88829",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "64fae570-b9b3-4aa1-90c9-1d418924610c",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "8b04f477-bdde-431f-a163-1d581f94a2b4",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "8282d178-8cb8-421e-83e2-f26893de5c59",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "fac233e9-d8c3-404c-93a3-ec3e377a6157",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "fd5f97cf-225c-4afc-a3e0-44b3758a04a6",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "c0322d16-9ff7-4e10-9a20-43b598be8c35",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "92e0c598-9e51-4ede-aa73-dcce64b25010",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "6ddf1628-9f67-4636-9a4f-5bebf06e49e5",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "62557712-85fc-4af2-aa45-40fe065e9695",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "44107509-9ec7-4e1f-ba6e-247e2c92ad72",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [
+        "oak-sapling"
+      ],
+      "createdAt": "2026-05-04T20:07:00.384876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "70d57f22-2d5c-4c8f-8592-8fc07c8e9599",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "3e7fa347-1408-4003-bd6f-300b0bcacda8",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "844d069a-bb52-4dcd-9328-09d3faeff794",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "879c8918-1732-421c-825e-2de170036b69",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "a6c560fe-df81-4fb6-a4a5-0d37246c2da6",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "bc8d253d-53ba-4806-a3e7-2beac19bc6b5",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "9e8d8a04-7adc-4cae-96c8-2b6fad2e889b",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "22a08f58-12b1-4816-b59b-ce05946a61f9",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "97c2e775-2d92-46a5-b847-cc0bdb94263a",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "258b3527-9304-4a4b-b0ad-488d764d7785",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "c6ef9170-7046-44b3-b057-d52d99e487c4",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [
+        "oak-mature"
+      ],
+      "createdAt": "2026-05-04T20:05:57.775449+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "81b35313-0ae7-499a-a83f-578d8e2e5f80",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "bb9bbe0a-6bbe-4dd6-bc41-0ede00124811",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "da23ac89-aed0-4a9b-86fa-285707fa10ae",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "97e8ce88-ee5a-4a21-b9da-d3ab7253158e",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "1e6794cb-9233-4111-adc7-24db5931d5b1",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "420ab9cc-2dbf-4ef6-89e1-f3f92025972e",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0b7db128-26e2-4205-ae2f-73190172a6a0",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "d92582eb-113d-41f1-8800-978b9200f54d",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "326ac09d-f27c-4552-a6b7-f3bad6297b23",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "e2d4ac42-5672-4054-a019-a6fe6a840cde",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "b0240c36-24c9-4aef-9fa7-38a7ffbcf6df",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0c7cf29a-bf4b-488f-b377-8e225c454f8e",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [
+        "oak-young"
+      ],
+      "createdAt": "2026-05-04T20:05:46.277098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "30d1cf50-b1df-45cd-bee3-3fffebcbeec5",
+      "prompt": "Mature oak tree, large with thick trunk and full round canopy, isometric 2:1 pix",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-04T19:58:43.357729+00:00",
+      "status": "review",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "a8c8f694-1e6d-4710-b3bd-5a09ee984483",
+      "prompt": "Young oak tree, medium size with spreading canopy, isometric 2:1 pixel art, view",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-05-04T19:58:42.864967+00:00",
+      "status": "review",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "4ecbfa32-98ad-4561-a7ab-799f8e2acade",
+      "prompt": "Oak sapling, tiny young tree, isometric 2:1 pixel art, viewed from above at 45 d",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-04T19:58:41.238194+00:00",
+      "status": "review",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "e3777c1f-0348-4048-8362-efa8c8d63cbd",
+      "prompt": "Ikibeki palisade gate, stone archway gate built into a wooden palisade wall sect",
+      "size": {
+        "width": 128,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T19:49:14.676951+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "2679804d-51b6-4318-a073-bb0d27365407",
+      "prompt": "Ikibeki palisade gate, stone archway gate built into a wooden palisade wall sect",
+      "size": {
+        "width": 128,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T19:48:18.516203+00:00",
+      "status": "failed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "03abf54d-2009-4224-981e-97a1684c0855",
+      "prompt": "Ikibeki armory, sturdy reinforced stone dome with iron-banded wooden door, thick",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T19:48:15.197355+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "ebda9a1b-62f0-428e-86c4-c676a9ee28cf",
+      "prompt": "Ikibeki barn, wide low stone dome with earth-mounded roof, large double wooden d",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T19:48:11.824518+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "c079d214-8f4a-41bd-b503-4a8b9a822c8e",
+      "prompt": "Ikibeki brewery, squat industrial stone dome with a large stone chimney belching",
+      "size": {
+        "width": 112,
+        "height": 112
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T19:48:08.982407+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "f1b04c24-7bc7-4e70-b673-7f510aa601fd",
+      "prompt": "Ikibeki inn, medium stone dome building with warm inviting glow from round windo",
+      "size": {
+        "width": 128,
+        "height": 128
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T19:48:05.675465+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "d81e1052-48d9-4251-b740-e5341c54a28f",
+      "prompt": "Ikibeki town hall, the largest stone dome in the settlement, grand two-story cir",
+      "size": {
+        "width": 192,
+        "height": 192
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T19:48:02.053876+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "4e79321d-b1c1-4184-bdfb-3e8e3dcae846",
+      "prompt": "Ikibeki barracks, wide rounded stone dome building seen from above, oval footpri",
+      "size": {
+        "width": 128,
+        "height": 128
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T18:59:54.148530+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "8a20d51e-30fa-4bea-a760-b4df74add82f",
+      "prompt": "Ikibeki root cellar, small circular stone-ringed mound rising slightly from grou",
+      "size": {
+        "width": 80,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T18:59:50.718955+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "514dac0a-8d7b-4c50-a0cb-adbf77522029",
+      "prompt": "Ikibeki root cellar burrow entrance, inverted dome underground storage, visible ",
+      "size": {
+        "width": 80,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T18:58:32.511424+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "014de532-9cbb-4d0e-b72d-85927a6fa36e",
+      "prompt": "grand Ikibeki temple, large ceremonial stone dome, two-story tall rounded dome s",
+      "size": {
+        "width": 160,
+        "height": 160
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T18:58:28.632192+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "c5db33b5-8c71-41de-b81a-89ec9a5e6b81",
+      "prompt": "squat stone dome granary with underground burrow storage, Ikibeki architecture, ",
+      "size": {
+        "width": 96,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T18:58:24.781113+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "fdcdc8eb-0a97-46a4-8310-ab9b7fffa5f9",
+      "prompt": "large circular stone dome building, Ikibeki market hall, thick grey stone masonr",
+      "size": {
+        "width": 128,
+        "height": 128
+      },
+      "tags": [],
+      "createdAt": "2026-05-02T18:58:21.138861+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "270901a8-d050-4b4e-83d4-f24d95828819",
+      "prompt": "Isometric beastkin tavern — large round yurt structure, felt and hide walls on w",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T22:00:19.357092+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0520f385-0eb1-4cb7-8ac6-21e712a8996a",
+      "prompt": "Isometric beastkin dwelling ger — medium round yurt, felt and hide walls on latt",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:57:41.979630+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0ad39b3b-1c0f-4596-8f67-6a5376fb9449",
+      "prompt": "Isometric beastkin sawmill — open-sided timber frame with hide roof, large log p",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:57:39.369004+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "970b495c-d7ad-4066-94b1-6be340539a86",
+      "prompt": "Isometric beastkin warehouse — semi-sunken storage den, mounded earth roof with ",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:56:55.530872+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "631765b9-14a1-47ed-b002-7b99644a7339",
+      "prompt": "Isometric beastkin stables — long open-sided timber shelter with hide roof, wood",
+      "size": {
+        "width": 128,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:55:53.259880+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "4d01fad8-34d4-4c77-9d02-1a57a4430701",
+      "prompt": "Isometric beastkin smokehouse — small round ger-style structure with heavy smoke",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:55:50.550137+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "dc554007-914e-4324-bfcc-5a9ab874498d",
+      "prompt": "Isometric beastkin merchant stall — open-sided hide canopy on wooden poles, trad",
+      "size": {
+        "width": 64,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:54:57.120015+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "d90fd5bb-ba3b-4fc2-a592-9a13f72ec1c2",
+      "prompt": "Isometric beastkin shelter hut — tiny round hide tent, bent-pole frame, single e",
+      "size": {
+        "width": 48,
+        "height": 40
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:54:52.737061+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "47955849-b57e-4c60-9e39-c1ee05d1b637",
+      "prompt": "Isometric beastkin ancestor stone — single tall standing stone with norse-style ",
+      "size": {
+        "width": 32,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:52:41.532796+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "d0bc3863-4893-4abb-b661-504111292cb7",
+      "prompt": "Isometric beastkin spirit shrine — circle of standing stones with norse runes ca",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:52:39.520314+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "080f1343-dfa4-4af4-81d3-e523d9f1b459",
+      "prompt": "Isometric beastkin smithy ger — round felt and hide structure with open front se",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:51:48.575807+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "a6151380-69b5-4744-b7d2-0eab838c07c3",
+      "prompt": "Isometric small ger yurt cottage — round felt-covered dwelling, wooden lattice f",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:51:45.515754+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "aa2a3e14-8704-4b0d-8fb4-9b9421b6eea9",
+      "prompt": "Isometric large clan yurt — round felt and hide tent, wider than tall, wooden la",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:50:03.448448+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "7c919347-3aeb-4bde-bd21-426027b304f0",
+      "prompt": "Isometric Mongolian yurt ger — round felt-covered tent, wooden lattice frame vis",
+      "size": {
+        "width": 64,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:50:03.283778+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0dad5ed0-a123-4db8-934e-87486183abd8",
+      "prompt": "Isometric beastkin watchtower — tall narrow wooden tower on stilts, hawk-clan st",
+      "size": {
+        "width": 48,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:48:38.111023+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0194603d-d628-4c73-8622-5e0f04baae66",
+      "prompt": "Isometric beastkin farmstead — wide low rectangular building, timber frame, watt",
+      "size": {
+        "width": 128,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:47:02.769589+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "357405fd-6a89-4fb9-8a09-57e604fc0115",
+      "prompt": "Isometric beastkin well — circular stone ring with wooden frame above, hide buck",
+      "size": {
+        "width": 32,
+        "height": 40
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:47:00.357694+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "782a8c7e-470d-4658-bc3b-4adc6b92ac70",
+      "prompt": "Isometric beastkin guard post — raised wooden platform on timber stilts, hide ca",
+      "size": {
+        "width": 48,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:46:00.078491+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "c9238456-205c-4788-97dc-8da9d8b59cc7",
+      "prompt": "Isometric campfire — stone ring firepit with burning logs, warm orange flames, s",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:45:58.081193+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "11968d4d-d91a-4158-a655-45c82613c229",
+      "prompt": "Isometric beastkin shrine — carved wooden totem pole with beast claw marks, smal",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:45:11.787045+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "e3d10151-77a8-43c2-991f-732fe931b3c0",
+      "prompt": "Isometric beastkin cottage — small cozy family den, oval shape, timber frame wit",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:45:08.972232+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "abb5709e-e06f-46e9-bf9f-4b52a7f7ba12",
+      "prompt": "Isometric beastkin smithy building only — small sturdy structure, stone foundati",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:43:59.433408+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "25cd281f-9fc4-49b2-afc2-b0bdf1fbede1",
+      "prompt": "Isometric beastkin clan lodge building only — low wide oval structure, timber fr",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:43:47.624257+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "5916caf7-08db-499a-b654-44fadc628e04",
+      "prompt": "Beastkin communal longhouse — long rectangular timber frame building, wattle-and",
+      "size": {
+        "width": 176,
+        "height": 128
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:35:11.669507+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "c70dbc72-635b-459f-ae52-bccd0fe66045",
+      "prompt": "Beastkin clan lodge — low wide oval building, timber frame with wattle-and-daub ",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-05-01T21:34:58.941600+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "38b16818-1d06-47d8-99af-dbc11682642f",
+      "prompt": "Isometric pixel art blacksmith workshop building. Same style as a timber-frame c",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:45:09.402077+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "60784dfc-4642-4a87-82d9-643db86dd470",
+      "prompt": "Isometric pixel art stone well, no ground, no grass, no terrain. Circular stone ",
+      "size": {
+        "width": 32,
+        "height": 40
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:40:11.552814+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "f6bfcdf4-7c9a-4b0e-aebb-fd9a677ce346",
+      "prompt": "Isometric pixel art farmstead building only, no ground, no grass, no terrain, no",
+      "size": {
+        "width": 128,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:40:11.348926+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "392eafa8-0371-483d-874b-1612861fc754",
+      "prompt": "Isometric pixel art blacksmith smithy building only, no ground, no grass, no ter",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:40:06.554421+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "e2420a91-869b-4428-b67a-fe21c3ac2c51",
+      "prompt": "Isometric pixel art cottage building only, no ground, no grass, no terrain. Dark",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:40:03.723210+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "34e12466-df97-487d-a4a7-b1819a803806",
+      "prompt": "Isometric pixel art small wooden shrine. Simple timber-frame shelter over a carv",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:35:44.214907+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "195841af-01b4-478c-b6c7-a95157f8147d",
+      "prompt": "Isometric pixel art longhouse. Long rectangular hall with curved thatch roof rid",
+      "size": {
+        "width": 176,
+        "height": 128
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:35:42.151657+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "2914f2d2-3756-427a-b132-804083307eda",
+      "prompt": "Isometric pixel art wooden watchtower. Tall narrow timber structure with lookout",
+      "size": {
+        "width": 48,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:35:38.923742+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "3d14a9d2-ee72-4798-bba9-477def5c2f02",
+      "prompt": "Isometric pixel art small wooden shrine. Simple timber-frame shelter over a carv",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:34:25.473058+00:00",
+      "status": "failed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "182ad618-1573-436b-b08e-69fa22ac7e4a",
+      "prompt": "Isometric pixel art longhouse. Long rectangular hall with curved thatch roof rid",
+      "size": {
+        "width": 176,
+        "height": 128
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:34:23.301662+00:00",
+      "status": "failed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "51441be8-b4d9-4e5b-9605-33db97a8378f",
+      "prompt": "Isometric pixel art wooden watchtower. Tall narrow timber structure with lookout",
+      "size": {
+        "width": 48,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:34:21.271853+00:00",
+      "status": "failed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "669f8d7b-0240-4540-9397-23e3118c894b",
+      "prompt": "Isometric pixel art guard post. Small wooden shelter with bench, open front. Dar",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:34:19.922769+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0c5bb90f-8772-4eaa-a7e5-bb6563fc09fe",
+      "prompt": "Isometric pixel art blacksmith smithy. Dark timber-frame with pale daub infill w",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:34:13.312506+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "f3d9f178-29d0-42d2-8521-e65d9776203b",
+      "prompt": "Isometric pixel art stone well with wooden bucket and rope. Circular stone wall,",
+      "size": {
+        "width": 32,
+        "height": 40
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:34:10.616430+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "bef4c651-438c-4c90-8fa4-38681a2a8a9e",
+      "prompt": "Isometric pixel art campfire. Stone ring with burning fire, logs arranged in cir",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:34:08.168574+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "f00b4685-48c0-4118-9029-b90fed4dcf6f",
+      "prompt": "Isometric pixel art cottage. Markfolk timber-frame style — dark exposed wooden b",
+      "size": {
+        "width": 96,
+        "height": 80
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T20:30:46.174207+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "8e059260-c1e5-4ec8-896f-5c7ff0dc243e",
+      "prompt": "middle section of a wood pillar stretching vertically, with transparent backgrou",
+      "size": {
+        "width": 96,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-04-29T19:39:15.971655+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "b62841e1-ffca-478b-9901-8defd375ede0",
+      "prompt": "Closed double door for a Viking longhouse. Isometric pixel art. Two solid dark w",
+      "size": {
+        "width": 48,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-04-28T21:04:37.062263+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "527f58d2-7899-4f59-9b3f-e83d5abf0612",
+      "prompt": "Viking longhouse tall double door, closed shut. Isometric view. Dark stave wood ",
+      "size": {
+        "width": 48,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-04-28T21:00:49.557946+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "143bca77-a9be-405d-a634-950da22a49e1",
+      "prompt": "Viking longhouse tall double door, swung wide open. Isometric view. Dark stave w",
+      "size": {
+        "width": 48,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-04-28T20:56:52.873043+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "60a84838-0e95-4eca-8ecd-8a887a23c0d2",
+      "prompt": "Viking longhouse tall double door, closed shut. Isometric view. Dark stave wood ",
+      "size": {
+        "width": 48,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-04-28T20:56:52.184761+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "725f9f5e-f815-4be4-a1bb-5289e9638f3d",
+      "prompt": "campfire with stacked timber logs, bright flames and smoke wisps, glowing coals,",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-04-27T13:55:31.006262+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "a1142999-bd94-42d9-b80f-a7f3089b1ffa",
+      "prompt": "small viking campfire, rough wood logs burning, warm orange flames, embers, Nors",
+      "size": {
+        "width": 48,
+        "height": 48
+      },
+      "tags": [],
+      "createdAt": "2026-04-27T13:55:30.177526+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "cdb1ea77-4d1d-46b5-9b29-3f71af289115",
+      "prompt": "campfire with crossed timber logs burning, orange flames, glowing embers, rustic",
+      "size": {
+        "width": 32,
+        "height": 32
+      },
+      "tags": [],
+      "createdAt": "2026-04-27T13:55:27.916484+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "46534ff4-82e3-472b-a344-8f761da59e1b",
+      "prompt": "Grand medieval market hall, JRPG 3/4 top-down view showing wide steep thatched r",
+      "size": {
+        "width": 96,
+        "height": 72
+      },
+      "tags": [],
+      "createdAt": "2026-04-18T20:23:42.608098+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "b936a806-aa29-4ed5-98bb-97bab531834e",
+      "prompt": "Sturdy stone workshop and smithy building, JRPG 3/4 top-down view showing wooden",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-04-18T20:23:40.170357+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "512fb294-d8f0-49fa-ae33-b0094c516e81",
+      "prompt": "Low squat stone smokehouse building, JRPG 3/4 top-down view showing dark mossy f",
+      "size": {
+        "width": 48,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-04-18T20:23:37.350950+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "95820367-4bf7-4e7d-9757-0b1d009304cb",
+      "prompt": "Long Norse timber longhouse, JRPG 3/4 top-down view showing long steep thatched ",
+      "size": {
+        "width": 96,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-04-18T20:23:35.288392+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "f58e15e8-2cf2-4c78-92d8-90d65fdbfeb3",
+      "prompt": "Medium medieval stone dwelling house, JRPG 3/4 top-down view showing wooden plan",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-04-18T20:23:33.397855+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "0b979371-c069-4234-be6c-e81d35578de6",
+      "prompt": "pixel art waterfall, river water cascading down a dark rocky cliff face, white f",
+      "size": {
+        "width": 64,
+        "height": 96
+      },
+      "tags": [],
+      "createdAt": "2026-04-18T20:22:18.028606+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    },
+    {
+      "pixellabId": "6268c9ee-4020-457f-943f-fdb4e4c1089b",
+      "prompt": "Small medieval stone cottage, 3/4 top-down JRPG view showing both roof and south",
+      "size": {
+        "width": 48,
+        "height": 64
+      },
+      "tags": [],
+      "createdAt": "2026-04-18T20:00:02.118332+00:00",
+      "status": "completed",
+      "matched": false,
+      "matchedTo": null,
+      "section": null,
+      "downloaded": false,
+      "localPath": null
+    }
+  ]
+}

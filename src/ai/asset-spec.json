@@ -10250,7 +10250,7 @@
       "name": "Precision Patch",
       "concept": "precision",
       "category": "engineering",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "embroidered scout patch badge icon, round shape with thick dark border, bold stylized precision caliper tool symbol measuring a small part, steel-blue and silver tones, pixel art RPG UI icon, transparent background",
         "width": 32,
@@ -10260,7 +10260,8 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/concepts"
+      "outputDir": "public/assets/sprites/icons/concepts",
+      "_pixellabObjectId": "869d18be-b5ca-403f-972a-c24d5f9262ca"
     }
   ],
   "itemIcons": [
@@ -10277,7 +10278,7 @@
       "id": "item-plant-fiber",
       "name": "Plant Fiber",
       "item": "plant-fiber",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "bundle of green plant fibers tied loosely together, long thin strands of natural fiber, crafting material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10287,13 +10288,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "ac079b14-105f-46b7-8c15-2655385a48a5"
     },
     {
       "id": "item-wood-log",
       "name": "Wood Log",
       "item": "wood-log",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "short section of brown wood log with visible bark and growth rings on cut end, raw timber, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10303,13 +10305,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "dc54ad23-ac40-425d-aaba-4dcb8d88022b"
     },
     {
       "id": "item-hardwood-log",
       "name": "Hardwood Log",
       "item": "hardwood-log",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "short section of dark rich hardwood log, dense grain visible on cut end, darker brown than regular wood, premium timber, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10319,13 +10322,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "bd635b54-78dc-4759-8f83-86673210c3e7"
     },
     {
       "id": "item-stone",
       "name": "Stone",
       "item": "stone",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "rough gray stone chunk, irregular natural rock, raw material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10335,13 +10339,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "8f8db1de-b554-4fb8-99ff-c866bf838171"
     },
     {
       "id": "item-clay",
       "name": "Clay",
       "item": "clay",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "lump of wet reddish-brown clay, soft and moist with finger impressions, raw pottery material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10351,13 +10356,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "1965cfe8-3e66-414d-9f8d-0cecc87fe591"
     },
     {
       "id": "item-iron-ore",
       "name": "Iron Ore",
       "item": "iron-ore",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of dark reddish-brown iron ore rock, rough mineral with metallic rust-colored veins, raw ore, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10367,13 +10373,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "4e56d14d-888a-4624-89cf-bb58e1a5aee6"
     },
     {
       "id": "item-copper-ore",
       "name": "Copper Ore",
       "item": "copper-ore",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of green-tinged copper ore rock, rough mineral with bright green malachite patches, raw ore, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10383,13 +10390,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "20c0f0ec-354d-4541-9675-e6628646120b"
     },
     {
       "id": "item-coal",
       "name": "Coal",
       "item": "coal",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of shiny black coal, glossy dark surface with angular fractures, fuel material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10399,13 +10407,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "273bb51a-23fe-4561-b959-63d7d11a3c57"
     },
     {
       "id": "item-hide-raw",
       "name": "Raw Hide",
       "item": "hide-raw",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "folded raw animal hide, brown fur on outside with pale inner skin showing, untanned leather, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10415,13 +10424,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "52cf726a-7a76-43f7-af08-ec0c9fe76a5c"
     },
     {
       "id": "item-bone",
       "name": "Bone",
       "item": "bone",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "clean white animal bone, long bone like a femur, pale ivory color, crafting material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10431,13 +10441,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "854b4020-102b-41af-86aa-86466fcab6d8"
     },
     {
       "id": "item-sinew",
       "name": "Sinew",
       "item": "sinew",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "bundle of dried animal sinew, pale translucent twisted tendon fibers, strong natural string material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10447,13 +10458,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "38e00fd2-612e-4e64-87c0-fb60e004a40a"
     },
     {
       "id": "item-animal-fat",
       "name": "Animal Fat",
       "item": "animal-fat",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of pale yellow-white animal fat, waxy soft lump of rendered tallow, greasy crafting material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10463,13 +10475,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "77cc8b26-7970-4c99-9219-ac42080de923"
     },
     {
       "id": "item-salt",
       "name": "Salt",
       "item": "salt",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small pile of coarse white salt crystals, sparkly white mineral grains in a mound, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10479,13 +10492,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "502e8a94-02b9-4259-b4a9-2a655c5d18f6"
     },
     {
       "id": "item-resin",
       "name": "Resin",
       "item": "resin",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "glob of amber tree resin, translucent golden-orange sticky droplet, natural adhesive, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10495,13 +10509,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "aafc99be-b321-49ae-9a15-35a405d3ef1e"
     },
     {
       "id": "item-spirit-sap",
       "name": "Spirit Sap",
       "item": "spirit-sap",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small vial of glowing pale blue spirit sap, luminescent magical tree sap in a glass bottle, faint ethereal glow, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10511,7 +10526,8 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "1345208b-1c63-415a-86ed-dfc160cbdd6d"
     },
     {
       "_section": "--- Herbs ---"
@@ -10520,7 +10536,7 @@
       "id": "item-herb-green",
       "name": "Green Herb",
       "item": "herb-green",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "sprig of fresh green healing herb, bright green leaves on a short stem, medicinal plant, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10530,13 +10546,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "5841feb9-ba45-41bd-942d-c925db7ccee2"
     },
     {
       "id": "item-herb-bitter",
       "name": "Bitter Herb",
       "item": "herb-bitter",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "sprig of dark bitter herb, deep green almost black leaves with purple veins, pungent medicinal plant, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10546,13 +10563,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "3dc3641d-c838-4aed-9420-1fcffe360e1a"
     },
     {
       "id": "item-herb-fire",
       "name": "Fire Herb",
       "item": "herb-fire",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "sprig of fiery red-orange herb, vivid red leaves with orange tips that look like small flames, rare alchemical plant, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10562,7 +10580,8 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "d903de8c-3a35-4b9a-b0ae-0529c7b945ed"
     },
     {
       "_section": "--- Processed materials ---"
@@ -10571,7 +10590,7 @@
       "id": "item-wood-plank",
       "name": "Wood Plank",
       "item": "wood-plank",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "flat cut wooden plank, light brown sawn timber board with visible grain, processed lumber, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10581,13 +10600,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "f2c2b2cc-57a8-4cb6-87a0-9fb5a39426b4"
     },
     {
       "id": "item-hardwood-plank",
       "name": "Hardwood Plank",
       "item": "hardwood-plank",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "flat cut hardwood plank, rich dark brown sawn timber board with fine dense grain, premium lumber, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10597,13 +10617,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "88b5c2cb-292f-4e96-a773-c227ae28c65c"
     },
     {
       "id": "item-wood-handle",
       "name": "Wood Handle",
       "item": "wood-handle",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "carved wooden tool handle, smooth polished light brown wood shaft with tapered grip end, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10613,13 +10634,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "4f08ed92-6cba-4f02-ba40-434420cbc7a8"
     },
     {
       "id": "item-charcoal",
       "name": "Charcoal",
       "item": "charcoal",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "pieces of black charcoal, matte black lumps of burned wood with slight gray ash coating, fuel material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10629,13 +10651,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "453625b0-d716-445d-ba7c-d727c216ca55"
     },
     {
       "id": "item-iron-ingot",
       "name": "Iron Ingot",
       "item": "iron-ingot",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "rectangular iron ingot, dark silver-gray metal bar with slightly rough forged surface, smelted metal, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10645,13 +10668,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "780e1314-b9d4-4420-9e84-0395b5d04812"
     },
     {
       "id": "item-copper-ingot",
       "name": "Copper Ingot",
       "item": "copper-ingot",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "rectangular copper ingot, warm reddish-orange metal bar with smooth polished surface, smelted metal, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10661,13 +10685,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "fe37e4df-40af-40a9-8e4f-193fb8be812e"
     },
     {
       "id": "item-iron-nails",
       "name": "Iron Nails",
       "item": "iron-nails",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "handful of hand-forged iron nails, 4-5 dark gray square-headed nails in a small pile, blacksmith hardware, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10677,13 +10702,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "cb39e494-8fec-4037-a219-2fcfe5df496f"
     },
     {
       "id": "item-iron-blade",
       "name": "Iron Blade",
       "item": "iron-blade",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "unfinished iron blade without a handle, raw forged gray metal blade with visible hammer marks, weapon component, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10693,13 +10719,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "92eac9bd-0dad-4461-9814-db9febb2b030"
     },
     {
       "id": "item-leather",
       "name": "Leather",
       "item": "leather",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "piece of tanned brown leather, smooth dark brown cured hide folded over once, processed material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10709,13 +10736,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "e25e311e-c8a6-4072-99df-10ee5d590932"
     },
     {
       "id": "item-leather-strip",
       "name": "Leather Strip",
       "item": "leather-strip",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "coiled strip of thin brown leather, narrow leather strap wound in a small loop, binding material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10725,13 +10753,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "0306176d-4687-4df6-a8f7-52e3b4fee019"
     },
     {
       "id": "item-cloth",
       "name": "Cloth",
       "item": "cloth",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "folded piece of woven cloth, light tan fabric with visible weave texture, textile material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10741,13 +10770,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "1a7607fa-8b34-409b-8ea5-6a0cb80c865f"
     },
     {
       "id": "item-rope",
       "name": "Rope",
       "item": "rope",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "coil of braided rope, natural brown fiber rope wound in a neat coil, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10757,13 +10787,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "f7d5a1e7-2c00-48ad-83cf-280bc2bf01d2"
     },
     {
       "id": "item-bowstring",
       "name": "Bowstring",
       "item": "bowstring",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "taut bowstring, thin white twisted sinew string with small loops at each end, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10773,13 +10804,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "41b02912-75d7-4f06-80e3-3fa800d3c924"
     },
     {
       "id": "item-arrow-shaft",
       "name": "Arrow Shaft",
       "item": "arrow-shaft",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "bundle of 3 straight wooden arrow shafts, long thin smooth wooden sticks, light brown, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10789,13 +10821,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "59cefe6d-c42f-4a54-aad3-9a1ce52789c7"
     },
     {
       "id": "item-brick",
       "name": "Brick",
       "item": "brick",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "fired clay brick, rectangular reddish-brown building brick with rough texture, construction material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10805,13 +10838,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "a8d677f0-7a20-4e63-a70b-7d820b673132"
     },
     {
       "id": "item-glass",
       "name": "Glass",
       "item": "glass",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small piece of clear glass, flat translucent pale blue-green glass shard with smooth edges, refined material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10821,13 +10855,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "b067225e-e0a4-465e-847b-2e05e45dc228"
     },
     {
       "id": "item-glue",
       "name": "Glue",
       "item": "glue",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small pot of brown hide glue, open ceramic pot with thick amber-brown adhesive dripping over rim, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10837,13 +10872,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "4176a9a8-1753-4941-8cd1-d82c889ee55f"
     },
     {
       "id": "item-oil",
       "name": "Oil",
       "item": "oil",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small glass bottle of golden oil, round flask with cork stopper containing clear golden liquid, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10853,13 +10889,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "2439c53c-cf97-4b05-9bf1-680f3c3730a1"
     },
     {
       "id": "item-rune-dust",
       "name": "Rune Dust",
       "item": "rune-dust",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small pouch of glowing blue rune dust, open cloth bag with sparkling pale blue magical powder spilling out, arcane material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10869,7 +10906,8 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "995b3c54-3ebf-4a05-bcf9-bf0f5f289d3d"
     },
     {
       "_section": "--- Consumables & tools ---"
@@ -10878,7 +10916,7 @@
       "id": "item-bandage",
       "name": "Bandage",
       "item": "bandage",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "rolled white cloth bandage, clean white linen strip rolled into a tight cylinder, medical supply, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10888,13 +10926,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "f2111aab-b508-489b-9f81-3ea5e059b7cb"
     },
     {
       "id": "item-healing-salve",
       "name": "Healing Salve",
       "item": "healing-salve",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small clay jar of green healing salve, open round pot with thick green herbal paste inside, medicinal ointment, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10904,13 +10943,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "52741573-d6bc-406b-8ceb-042dbf91335d"
     },
     {
       "id": "item-antidote",
       "name": "Antidote",
       "item": "antidote",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small glass vial of bright green antidote potion, narrow bottle with cork, clear green liquid inside, medical supply, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10920,13 +10960,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "812124f9-d7ca-4023-b626-a310234a70a9"
     },
     {
       "id": "item-ration",
       "name": "Ration",
       "item": "ration",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "wrapped food ration, cloth-wrapped bundle tied with string containing dried meat and bread, travel food, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10936,13 +10977,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "1a7d659e-6b96-441f-a096-c798eeb18586"
     },
     {
       "id": "item-torch",
       "name": "Torch",
       "item": "torch",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "unlit wooden torch, wooden stick with cloth wrapping soaked in oil at the top, ready to light, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10952,13 +10994,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "0d04658f-0a2d-4cc4-aa4d-77b0422dc167"
     },
     {
       "id": "item-fire-bomb",
       "name": "Fire Bomb",
       "item": "fire-bomb",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small clay fire bomb grenade, round reddish clay pot with a cloth fuse sticking out the top, explosive weapon, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10968,13 +11011,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "1630c61c-42d0-429c-8bab-dce2aa3a5d1c"
     },
     {
       "id": "item-smoke-bomb",
       "name": "Smoke Bomb",
       "item": "smoke-bomb",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small dark gray smoke bomb, round dark clay pot with sealed top and short fuse, smoke tool, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -10984,13 +11028,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "69889c2d-b5f6-4baa-8f0c-a4d60661efb6"
     },
     {
       "id": "item-trap-snare",
       "name": "Trap Snare",
       "item": "trap-snare",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "coiled snare trap, loop of wire and rope with a trigger mechanism, hunting tool, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11000,7 +11045,8 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "18fda844-bba1-4117-8fa4-25d345c7281b"
     },
     {
       "_section": "--- Weapons & armor ---"
@@ -11009,7 +11055,7 @@
       "id": "item-iron-dagger",
       "name": "Iron Dagger",
       "item": "iron-dagger",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "short iron dagger, dark gray metal blade with simple wooden grip wrapped in leather, basic weapon, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11019,13 +11065,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "8d9146cb-e820-4a50-a272-22b3aaded336"
     },
     {
       "id": "item-iron-dagger-runed",
       "name": "Runed Iron Dagger",
       "item": "iron-dagger-runed",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "iron dagger with glowing blue runes carved along the blade, dark gray metal with faintly luminous magical inscriptions, enchanted weapon, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11035,13 +11082,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "096fb4ab-1aac-49f2-9b6d-bab7cbbb5dd5"
     },
     {
       "id": "item-iron-sword",
       "name": "Iron Sword",
       "item": "iron-sword",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "iron longsword, straight dark gray blade with simple crossguard and leather-wrapped grip, standard weapon, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11051,13 +11099,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "07b2788b-a3c4-4018-aeea-b3c40b0da22c"
     },
     {
       "id": "item-iron-axe",
       "name": "Iron Axe",
       "item": "iron-axe",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "iron axe, dark gray wedge-shaped axe head on a smooth wooden handle, tool and weapon, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11067,13 +11116,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "1b60913d-7a16-4de8-8a0b-38f8eab9a6ff"
     },
     {
       "id": "item-hunting-bow",
       "name": "Hunting Bow",
       "item": "hunting-bow",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "simple wooden hunting bow, curved brown wood with taut sinew string, ranged weapon, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11083,13 +11133,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "50911ca0-c252-4094-8db7-851dddbd6a00"
     },
     {
       "id": "item-wooden-shield",
       "name": "Wooden Shield",
       "item": "wooden-shield",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "round wooden shield, planks bound with iron rim and central boss, brown wood with metal reinforcement, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11099,13 +11150,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "2f01fc6d-5871-4836-acb4-7e655f1908b2"
     },
     {
       "id": "item-leather-armor",
       "name": "Leather Armor",
       "item": "leather-armor",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "leather chest armor, brown hardened leather breastplate with strap buckles on the sides, protective gear, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11115,13 +11167,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "5be4d2b4-ac06-4abe-84e6-e875b0a1509f"
     },
     {
       "id": "item-hide-cloak",
       "name": "Hide Cloak",
       "item": "hide-cloak",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "fur-lined hide cloak, brown animal hide draped cloak with fur collar and bone clasp, warm outerwear, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11131,7 +11184,8 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "49de953a-788a-4076-bb5f-80fa87bdeab4"
     },
     {
       "_section": "--- New raw materials ---"
@@ -11140,7 +11194,7 @@
       "id": "item-raw-meat",
       "name": "Raw Meat",
       "item": "raw-meat",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "slab of raw red meat, bright red with white fat marbling, uncooked, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11150,13 +11204,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "e1d419c7-9896-4f64-9211-7f807eb58532"
     },
     {
       "id": "item-raw-fish",
       "name": "Raw Fish",
       "item": "raw-fish",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "whole raw fish, silver-blue scaled body with fins and tail, fresh catch, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11166,13 +11221,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "d108b4fd-1c77-4be4-a13c-ae024c47a069"
     },
     {
       "id": "item-berries",
       "name": "Wild Berries",
       "item": "berries",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "small handful of wild berries, mix of red and dark purple round berries with a green leaf, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11182,13 +11238,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "954317ad-90e7-4caa-8bdc-c065c66f7c80"
     },
     {
       "id": "item-grain",
       "name": "Grain",
       "item": "grain",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "bundle of golden wheat grain stalks with full seed heads, tied together, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11198,13 +11255,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "33eafb9d-ab0d-40ee-8a94-f29707746ad7"
     },
     {
       "id": "item-freshwater",
       "name": "Freshwater",
       "item": "freshwater",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "clear water in a simple wooden bowl, pale blue transparent liquid, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11214,13 +11272,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "ab5f87ed-3d57-4217-a938-8d809fc7d015"
     },
     {
       "id": "item-dry-grass",
       "name": "Dry Grass",
       "item": "dry-grass",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "bundle of dry yellow-brown grass strands, stiff dried hay, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11230,13 +11289,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "5f27fe9e-1cc4-4fe8-aebd-aca86539f76a"
     },
     {
       "id": "item-flint",
       "name": "Flint",
       "item": "flint",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "sharp dark gray flint stone with conchoidal fracture, shiny smooth edge, knapping material, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11246,13 +11306,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "8d52d7b0-702b-416e-8a3c-5ff05d3bc7b1"
     },
     {
       "id": "item-tin-ore",
       "name": "Tin Ore",
       "item": "tin-ore",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of dark gray tin ore with silvery metallic streaks, cassiterite mineral, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11262,13 +11323,14 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "eee986f2-5006-469d-82df-98d1fc7263be"
     },
     {
       "id": "item-silver-ore",
       "name": "Silver Ore",
       "item": "silver-ore",
-      "status": "pending",
+      "status": "done",
       "pixellab": {
         "description": "chunk of gray rock with bright silvery metal veins running through it, precious ore, pixel art RPG inventory icon, transparent background",
         "width": 32,
@@ -11278,7 +11340,8 @@
         "shading": "basic shading",
         "detail": "medium detail"
       },
-      "outputDir": "public/assets/sprites/icons/items"
+      "outputDir": "public/assets/sprites/icons/items",
+      "_pixellabObjectId": "7fcc820f-40f0-49cb-8b01-e993f514e608"
     },
     {
       "id": "item-quartz",
