@@ -165,6 +165,7 @@ export class AssetViewerScene extends Phaser.Scene {
     const PAD = 12;
     const CELL = 72;
     const COLS = Math.floor((this.cameras.main.width - PAD * 2) / CELL);
+    let globalIdx = 0;
 
     for (const group of groups) {
       // Section header
@@ -195,6 +196,14 @@ export class AssetViewerScene extends Phaser.Scene {
         img.setScale(scale);
         this.container.add(img);
 
+        // ID number (top-left of cell, red)
+        globalIdx++;
+        const idLabel = this.add.text(cx - CELL / 2 + 4, cy - CELL / 2 + 2, `${globalIdx}`, {
+          fontSize: '8px', color: '#ff4444', fontStyle: 'bold',
+          stroke: '#000000', strokeThickness: 2,
+        });
+        this.container.add(idLabel);
+
         // Label
         const shortName = asset.key.length > 10
           ? asset.key.slice(asset.key.lastIndexOf('-') + 1)
@@ -206,7 +215,8 @@ export class AssetViewerScene extends Phaser.Scene {
 
         // Click to show details
         bg.setInteractive();
-        bg.on('pointerdown', () => this.showDetail(asset.key, asset.path, img.width, img.height));
+        const thisIdx = globalIdx;
+        bg.on('pointerdown', () => this.showDetail(thisIdx, asset.key, asset.path, img.width, img.height));
 
         col++;
         if (col >= COLS) { col = 0; y += CELL; }
@@ -252,8 +262,8 @@ export class AssetViewerScene extends Phaser.Scene {
     });
   }
 
-  private showDetail(key: string, path: string, w: number, h: number): void {
-    this.detailText.setText(`${key}  |  ${w}×${h}px  |  /assets/${path}`);
+  private showDetail(id: number, key: string, path: string, w: number, h: number): void {
+    this.detailText.setText(`#${id}  |  ${key}  |  ${w}×${h}px  |  /assets/${path}`);
     this.detailText.setColor('#ffffff');
   }
 }
