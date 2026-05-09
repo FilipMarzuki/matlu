@@ -965,8 +965,9 @@ export class WorldForgeScene extends Phaser.Scene {
     }
     const candidates: TreeCandidate[] = [];
 
-    for (let ty = 0; ty < G; ty++) {
-      for (let tx = 0; tx < G; tx++) {
+    // Inset by 1 tile on all edges so trees + jitter don't escape the diamond.
+    for (let ty = 1; ty < G - 1; ty++) {
+      for (let tx = 1; tx < G - 1; tx++) {
         if (this.walkabilityGrid[ty * G + tx] !== 0) continue;
         if (this.roadTiles.has(`${tx},${ty}`)) continue;
 
