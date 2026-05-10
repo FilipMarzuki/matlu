@@ -319,6 +319,28 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * Per-biome art direction tint for baked ground tiles.
+ *
+ * The imported iso tile packs share a lot of neutral stone/soil pixels. A light
+ * multiply tint keeps their pixel texture while giving each biome a stronger
+ * CrossCode-style colour identity at overview scale.
+ */
+const BIOME_GROUND_TINTS: readonly number[] = [
+  0xffffff, // 0  Sea — water art keeps its own blues
+  0xb88955, // 1  Rocky Shore — kelp-wet ochre stone
+  0xffd887, // 2  Sandy Shore — warm sand
+  0x4f7a55, // 3  Marsh / Bog — dark reed green
+  0xc28a45, // 4  Dry Heath — burnt amber scrub
+  0x89a65a, // 5  Coastal Heath — salted yellow-green grass
+  0x72c94e, // 6  Meadow — clear saturated grass
+  0x2f7a39, // 7  Forest — deep broadleaf green
+  0x2d655a, // 8  Forest (Cold) — blue-green spruce
+  0x7f8da0, // 9  Cold Granite — cool blue-grey rock
+  0xa8947a, // 10 Bare Summit — exposed tan stone
+  0xdcefff, // 11 Snow Field — cold snow highlight
+];
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -5821,7 +5843,7 @@ export class GameScene extends Phaser.Scene {
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
         if (isRiverHere || isLakeHere) {
           // FIL-466: water tiles always use the shared iso-tiles river frame.
-          tileImg.setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
+          tileImg.clearTint().setTexture('iso-tiles', ISO_RIVER_FRAME).setPosition(isoX, isoY);
         } else if (biomeIdx in CUSTOM_TILE_PACKS) {
           // FIL-466: dual-grid hash selects one of 4 same-material variants to
           // prevent hard block edges. Two overlapping 6×6 patch grids (coarse /
@@ -5834,11 +5856,17 @@ export class GameScene extends Phaser.Scene {
           const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
           const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
           const tileHash = fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
-          tileImg.setTexture(`${packName}-${tileHash}`).setPosition(isoX, isoY);
+          tileImg
+            .setTint(BIOME_GROUND_TINTS[biomeIdx] ?? 0xffffff)
+            .setTexture(`${packName}-${tileHash}`)
+            .setPosition(isoX, isoY);
         } else {
           // FIL-466: biome 0 (Sea) — no pack; fall back to iso-tiles spritesheet.
           const frame = isoTileFrame(biomeIdx, detail);
-          tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
+          tileImg
+            .setTint(BIOME_GROUND_TINTS[biomeIdx] ?? 0xffffff)
+            .setTexture('iso-tiles', frame)
+            .setPosition(isoX, isoY);
         }
         terrainRt.draw(tileImg);
 
@@ -5855,7 +5883,7 @@ export class GameScene extends Phaser.Scene {
         if (dx * dx + dy * dy <= 7) {
           const clearFrame = 40 + ((Math.abs(dx) * 2 + Math.abs(dy)) % 4); // frames 40–43 (grass)
           const { x: clearX, y: clearY } = worldToIso((sx + dx) * TILE_SIZE, (sy + dy) * TILE_SIZE);
-          tileImg.setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
+          tileImg.setTint(0x8edb61).setTexture('iso-tiles', clearFrame).setPosition(clearX, clearY);
           terrainRt.draw(tileImg);
         }
       }
