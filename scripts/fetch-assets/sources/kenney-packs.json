@@ -1,0 +1,112 @@
+[
+  {
+    "slug": "impact-sounds",
+    "name": "Impact Sounds",
+    "kind": "audio",
+    "description": "Foley-style hit, bump, and material impact sound effects for combat, crafting, and environmental feedback.",
+    "tags": ["impact", "foley", "hit", "combat", "material", "sound"],
+    "sourceUrl": "https://kenney.nl/assets/impact-sounds",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/impact-sounds/8aa7b545c9-1677589768/kenney_impact-sounds.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "ui-audio",
+    "name": "UI Audio",
+    "kind": "audio",
+    "description": "Button, switch, click, and menu confirmation sounds for game interfaces.",
+    "tags": ["ui", "button", "switch", "click", "menu", "sound"],
+    "sourceUrl": "https://kenney.nl/assets/ui-audio",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/ui-audio/e19c9b1814-1677590494/kenney_ui-audio.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "interface-sounds",
+    "name": "Interface Sounds",
+    "kind": "audio",
+    "description": "Interface clicks, snaps, confirmations, and navigation sounds for lightweight HUD feedback.",
+    "tags": ["interface", "ui", "click", "button", "snap", "confirm", "sound"],
+    "sourceUrl": "https://kenney.nl/assets/interface-sounds",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/interface-sounds/d23a84242e-1677589452/kenney_interface-sounds.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "sci-fi-sounds",
+    "name": "Sci-Fi Sounds",
+    "kind": "audio",
+    "description": "Space, engine, laser, and futuristic system sounds for Earth-tech or corrupted-machine moments.",
+    "tags": ["sci-fi", "space", "engine", "laser", "machine", "earth", "sound"],
+    "sourceUrl": "https://kenney.nl/assets/sci-fi-sounds",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/sci-fi-sounds/e3af5f7ed7-1677589334/kenney_sci-fi-sounds.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "rpg-audio",
+    "name": "RPG Audio",
+    "kind": "audio",
+    "description": "Fantasy RPG item, magic, and interaction sounds suitable for menus, inventory, and exploration beats.",
+    "tags": ["rpg", "fantasy", "item", "magic", "inventory", "sound"],
+    "sourceUrl": "https://kenney.nl/assets/rpg-audio",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/rpg-audio/706161bc16-1677590336/kenney_rpg-audio.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "1-bit-pack",
+    "name": "1-Bit Pack",
+    "kind": "graphics",
+    "description": "Small monochrome pixel-art fantasy, platformer, interior, and urban tiles useful for prototypes and icons.",
+    "tags": ["1-bit", "pixel", "rpg", "roguelike", "fantasy", "tiles", "icons"],
+    "sourceUrl": "https://kenney.nl/assets/1-bit-pack",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/1-bit-pack/f41b6925f0-1677578516/kenney_1-bit-pack.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "tiny-dungeon",
+    "name": "Tiny Dungeon",
+    "kind": "graphics",
+    "description": "Compact 16px dungeon, sewer, and roguelike tiles for quick room and corridor mockups.",
+    "tags": ["tiny", "dungeon", "sewer", "rpg", "roguelike", "pixel", "tiles"],
+    "sourceUrl": "https://kenney.nl/assets/tiny-dungeon",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/tiny-dungeon/b56d7a13e3-1674742415/kenney_tiny-dungeon.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "pixel-platformer",
+    "name": "Pixel Platformer",
+    "kind": "graphics",
+    "description": "Pixel platformer terrain and props that can be repurposed for prototype ground, obstacle, or UI studies.",
+    "tags": ["pixel", "platformer", "terrain", "props", "tiles"],
+    "sourceUrl": "https://kenney.nl/assets/pixel-platformer",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/pixel-platformer/bef991136c-1696667883/kenney_pixel-platformer.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "ui-pack",
+    "name": "UI Pack",
+    "kind": "graphics",
+    "description": "General-purpose game UI panels, buttons, cursors, and interface elements.",
+    "tags": ["ui", "interface", "buttons", "menus", "panels", "hud"],
+    "sourceUrl": "https://kenney.nl/assets/ui-pack",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/ui-pack/af874291da-1718203990/kenney_ui-pack.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "slug": "particle-pack",
+    "name": "Particle Pack",
+    "kind": "graphics",
+    "description": "Pixel particle sprites and effects for impacts, magic, smoke, sparks, and ambient visual polish.",
+    "tags": ["particles", "effects", "vfx", "impact", "magic", "smoke", "spark"],
+    "sourceUrl": "https://kenney.nl/assets/particle-pack",
+    "downloadUrl": "https://kenney.nl/media/pages/assets/particle-pack/1dd3d4cbe2-1677578741/kenney_particle-pack.zip",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  }
+]
