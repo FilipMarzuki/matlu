@@ -9,6 +9,7 @@
  *   - `creature_pipeline_state_machine`      — pipeline status columns + history table + trigger (FIL-435)
  *   - `macro_world_tables`                   — ancestries, cultures, architecture, fashion (#793)
  *   - `buildings_archetypes_ancestry_body`    — buildings, population_archetypes, ancestry body columns (#793)
+ *   - `create_homestead_saves`               — per-user JSON save blob for /homestead (#851)
  *
  * Regenerate via MCP `generate_typescript_types` after any DDL change,
  * then replace this file.
@@ -988,6 +989,24 @@ export type Database = {
         }
         Relationships: []
       }
+      homestead_saves: {
+        Row: {
+          state: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          state?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          state?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       matlu_feedback: {
         Row: {
           created_at: string | null
@@ -1455,3 +1474,5 @@ export const Constants = {
 export type MatluRun = Tables<'matlu_runs'>
 export type MatluRunInsert = TablesInsert<'matlu_runs'>
 export type MatluFeedbackInsert = TablesInsert<'matlu_feedback'>
+export type HomesteadSave = Tables<'homestead_saves'>
+export type HomesteadSaveInsert = TablesInsert<'homestead_saves'>

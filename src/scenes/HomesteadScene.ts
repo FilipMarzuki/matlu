@@ -8,6 +8,11 @@
  * Resource node proximity is handled by Phaser physics overlap — no
  * manual distance loops in update(). The scene just checks E-key input.
  *
+ * Cloud save (#851): on boot we sign the player in (anonymously by default)
+ * and pull their last save. Subsequent inventory/node/position changes are
+ * debounced and upserted to Supabase. Magic-link sign-in upgrades the anon
+ * account in place — same user_id, same save row.
+ *
  * Route: /homestead
  * Controls:
  *   WASD / Arrow keys — move
@@ -17,10 +22,19 @@
  */
 
 import * as Phaser from 'phaser';
-import { InventorySystem } from '../systems/InventorySystem';
+import { InventorySystem, INVENTORY_CHANGED } from '../systems/InventorySystem';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
+import { ensureSession, sendMagicLink, signOutAndAnon, getAuthInfo } from '../lib/auth';
+import {
+  loadSave,
+  queueSave,
+  flushSave,
+  SAVE_VERSION,
+  type HomesteadState,
+} from '../lib/homesteadSave';
+import { supabase } from '../lib/supabaseClient';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -51,6 +65,17 @@ export class HomesteadScene extends Phaser.Scene {
   /** Node the player is walking toward (tap-to-target). */
   private targetNode: ResourceNode | null = null;
 
+  /** Cached inventory reference so save snapshots don't re-read the registry. */
+  private inv!: InventorySystem;
+  /** Supabase user id; null until ensureSession() resolves (or if Supabase isn't configured). */
+  private userId: string | null = null;
+  /** Auth pill text — updated on sign in / sign out / email upgrade. */
+  private authPill: Phaser.GameObjects.Text | null = null;
+  /** Pending visibility/unload listener so we can clean up on shutdown. */
+  private onPageHide: (() => void) | null = null;
+  /** Toast text used for sign-in feedback ("Magic link sent…", errors). */
+  private toast: Phaser.GameObjects.Text | null = null;
+
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
@@ -64,10 +89,16 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
+    this.inv = inv;
     const resDefs = this.cache.json.get('resources') as { resources: { id: string; name: string; category: string; stackMax: number }[] } | undefined;
     if (resDefs?.resources) inv.loadResourceDefs(resDefs.resources as never[]);
-    inv.add('flint', 4);
-    inv.add('dry-grass', 6);
+    // Starter items only seed the inventory when localStorage is empty AND
+    // the cloud load won't replace them. Easiest: only seed if inventory
+    // is currently empty after restore.
+    if (inv.slotCount === 0) {
+      inv.add('flint', 4);
+      inv.add('dry-grass', 6);
+    }
 
     // ── Ground ────────────────────────────────────────────────────────────
     const gfx = this.add.graphics();
@@ -133,10 +164,17 @@ export class HomesteadScene extends Phaser.Scene {
       // Static group so one collider covers all nodes
       const nodeGroup = this.physics.add.staticGroup();
 
+      // defCount tracks how many of each type we've placed so far, so we can
+      // assign stable per-placement IDs like `tree-0`, `tree-1`. The save
+      // file references nodes by these IDs.
+      const defCount: Record<string, number> = {};
       for (const p of placements) {
         const def = nodeDefs.nodeTypes.find(d => d.id === p.defId);
         if (!def) continue;
         const node = new ResourceNode(this, p.x, p.y, def, inv);
+        const idx = defCount[p.defId] ?? 0;
+        defCount[p.defId] = idx + 1;
+        node.nodeId = `${p.defId}-${idx}`;
         nodeGroup.add(node);
         this.resourceNodes.push(node);
       }
@@ -238,6 +276,40 @@ export class HomesteadScene extends Phaser.Scene {
       fontSize: '11px', color: '#aaccaa', backgroundColor: '#00000066',
       padding: { x: 6, y: 4 },
     }).setScrollFactor(0).setDepth(200);
+
+    // Auth pill (top-right) — shows current sign-in status; tap to manage.
+    this.authPill = this.add.text(cam.width - 8, 8, 'Loading…', {
+      fontSize: '11px', color: '#cccccc', backgroundColor: '#00000066',
+      padding: { x: 8, y: 4 },
+    })
+      .setOrigin(1, 0)
+      .setScrollFactor(0).setDepth(200)
+      .setInteractive({ useHandCursor: true });
+    this.authPill.on('pointerup', () => this.openAuthMenu());
+
+    this.toast = this.add.text(cam.width / 2, 40, '', {
+      fontSize: '12px', color: '#ffe066', backgroundColor: '#000000aa',
+      padding: { x: 10, y: 6 },
+    })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0).setDepth(300)
+      .setVisible(false);
+
+    // ── Cloud save lifecycle ──────────────────────────────────────────────
+    void this.bootSave();
+
+    this.events.on('resource-gathered', () => this.scheduleSave());
+    this.events.on('resource-node:respawned', () => this.scheduleSave());
+    this.game.events.on(INVENTORY_CHANGED, this.scheduleSave, this);
+
+    // Page-hide flush: tablets background tabs aggressively, so push the
+    // pending save before the browser cuts the network. visibilitychange
+    // fires on tab switch / app background; pagehide on actual unload.
+    this.onPageHide = () => { if (this.userId) void flushSave(this.userId); };
+    window.addEventListener('pagehide', this.onPageHide);
+    document.addEventListener('visibilitychange', this.onPageHide);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.onShutdown());
   }
 
   update(): void {
@@ -315,5 +387,127 @@ export class HomesteadScene extends Phaser.Scene {
     if (this.actionLabel) {
       this.actionLabel.setColor(anyInRange ? '#88ff88' : '#666666');
     }
+  }
+
+  // ── Cloud save ───────────────────────────────────────────────────────────
+
+  private async bootSave(): Promise<void> {
+    const session = await ensureSession();
+    if (!session) {
+      // Supabase not configured (dev without .env) or anon sign-in failed —
+      // fall back to localStorage-only mode. Inventory still persists locally
+      // via InventorySystem._persist(); just no cross-device sync.
+      this.setAuthPill('Offline');
+      return;
+    }
+    this.userId = session.user.id;
+    this.refreshAuthPill();
+
+    // Pull saved state and apply it. If there's no row yet, the scene keeps
+    // the defaults the InventorySystem and node placements already set up.
+    const saved = await loadSave(this.userId);
+    if (saved) this.applySave(saved);
+  }
+
+  /** Replace inventory + node states + player pos with the saved snapshot. */
+  private applySave(state: HomesteadState): void {
+    if (state.inventory && Array.isArray(state.inventory)) {
+      const map: Record<string, number> = {};
+      for (const e of state.inventory) {
+        if (e?.id && typeof e.qty === 'number') map[e.id] = e.qty;
+      }
+      this.inv.replaceAll(map);
+    }
+    if (state.nodes && Array.isArray(state.nodes)) {
+      const byId = new Map(state.nodes.map(n => [n.id, n]));
+      for (const node of this.resourceNodes) {
+        const saved = byId.get(node.nodeId);
+        if (saved) node.applyLoadedState(saved.state, saved.respawnAt);
+      }
+    }
+    if (state.player && typeof state.player.x === 'number' && typeof state.player.y === 'number') {
+      this.player.setPosition(state.player.x, state.player.y);
+    }
+  }
+
+  /** Snapshot current state for saving. */
+  private snapshot(): HomesteadState {
+    return {
+      version: SAVE_VERSION,
+      inventory: this.inv.entries().map(([id, qty]) => ({ id, qty })),
+      nodes: this.resourceNodes.map(n => ({
+        id: n.nodeId,
+        state: n.nodeState,
+        respawnAt: n.getRespawnAt(),
+      })),
+      player: { x: this.player.x, y: this.player.y },
+    };
+  }
+
+  /** Hook for any change event — debounced upsert lives in homesteadSave.ts. */
+  private scheduleSave(): void {
+    if (!this.userId) return;
+    queueSave(this.userId, this.snapshot());
+  }
+
+  // ── Auth UI ───────────────────────────────────────────────────────────
+
+  private setAuthPill(text: string): void {
+    this.authPill?.setText(text);
+  }
+
+  private async refreshAuthPill(): Promise<void> {
+    if (!supabase) { this.setAuthPill('Offline'); return; }
+    const { data } = await supabase.auth.getUser();
+    const info = getAuthInfo(data.user ?? null);
+    if (info.isAnonymous) {
+      this.setAuthPill('Guest · Sign in');
+    } else {
+      this.setAuthPill(info.email ? `${info.email} ▾` : 'Signed in ▾');
+    }
+  }
+
+  /** Open a tiny pop-up for sign in / sign out. Uses native prompt() on
+   *  purpose — keeps the diff small, works fine on tablets. A nicer modal
+   *  is a follow-up. */
+  private async openAuthMenu(): Promise<void> {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getUser();
+    const info = getAuthInfo(data.user ?? null);
+
+    if (info.isAnonymous || !info.email) {
+      const email = window.prompt('Sign in with magic link\n\nEnter your email:')?.trim();
+      if (!email) return;
+      this.showToast('Sending magic link…');
+      const res = await sendMagicLink(email);
+      if (res.ok) this.showToast('Check your email for the sign-in link.', 5000);
+      else this.showToast(`Sign-in failed: ${res.error}`, 5000);
+      return;
+    }
+
+    // Already signed in — offer to sign out.
+    const ok = window.confirm(`Signed in as ${info.email}.\n\nSign out? Your save will keep working as a Guest on this device.`);
+    if (!ok) return;
+    await signOutAndAnon();
+    await this.refreshAuthPill();
+    this.showToast('Signed out.');
+  }
+
+  private showToast(text: string, ms = 2500): void {
+    if (!this.toast) return;
+    this.toast.setText(text).setVisible(true);
+    this.time.delayedCall(ms, () => this.toast?.setVisible(false));
+  }
+
+  // ── Cleanup ───────────────────────────────────────────────────────────
+
+  private onShutdown(): void {
+    this.game.events.off(INVENTORY_CHANGED, this.scheduleSave, this);
+    if (this.onPageHide) {
+      window.removeEventListener('pagehide', this.onPageHide);
+      document.removeEventListener('visibilitychange', this.onPageHide);
+      this.onPageHide = null;
+    }
+    if (this.userId) void flushSave(this.userId);
   }
 }

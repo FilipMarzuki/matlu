@@ -184,6 +184,20 @@ export class InventorySystem {
     return this.items;
   }
 
+  /**
+   * Replace the entire inventory in one shot. Used by cloud-save loads when
+   * the remote state should win over whatever localStorage restored.
+   * Emits one INVENTORY_CHANGED event with itemId='*' so HUDs can do a full repaint.
+   */
+  replaceAll(items: Record<string, number>): void {
+    this.items.clear();
+    for (const [id, qty] of Object.entries(items)) {
+      if (typeof qty === 'number' && qty > 0) this.items.set(id, qty);
+    }
+    this._persist();
+    this.game.events.emit(INVENTORY_CHANGED, '*', 0);
+  }
+
   // ── Internals ───────────────────────────────────────────────────────────────
 
   private _persist(): void {

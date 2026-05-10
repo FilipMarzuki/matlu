@@ -54,7 +54,14 @@ export class ResourceNode extends InteractiveObject {
   readonly def: ResourceNodeTypeDef;
   private readonly inventory: InventorySystem;
 
+  /** Stable per-placement id — set by the scene that owns this node.
+   *  Two trees of the same def share def.id but have different nodeIds, so
+   *  the cloud save can record exactly which placements are depleted. */
+  nodeId = '';
+
   private _nodeState: ResourceNodeState = 'ready';
+  /** Epoch ms when this node became depleted; null while ready. */
+  private _depletedAt: number | null = null;
   private _promptText: Phaser.GameObjects.Text;
   private _playerInRange = false;
   private _eKey: Phaser.Input.Keyboard.Key | null;
@@ -115,6 +122,40 @@ export class ResourceNode extends InteractiveObject {
 
   get nodeState(): ResourceNodeState {
     return this._nodeState;
+  }
+
+  /** Epoch ms when this node will respawn, or null if it's already ready. */
+  getRespawnAt(): number | null {
+    if (this._nodeState !== 'depleted' || this._depletedAt == null) return null;
+    return this._depletedAt + this.def.respawnMs;
+  }
+
+  /**
+   * Restore from a saved state. Skips animations and sets the visual state
+   * directly. If `respawnAt` is in the future, schedules a respawn at that
+   * time; if already past, respawns immediately.
+   */
+  applyLoadedState(state: ResourceNodeState, respawnAt: number | null): void {
+    if (state === 'ready') {
+      this._nodeState = 'ready';
+      this._depletedAt = null;
+      this.setAlpha(1);
+      return;
+    }
+
+    // Depleted: apply visuals immediately, schedule respawn from saved timestamp.
+    this._nodeState = 'depleted';
+    this.setAlpha(0.35);
+    this._promptText.setAlpha(0);
+
+    const now = Date.now();
+    if (respawnAt == null || respawnAt <= now) {
+      this._depletedAt = now - this.def.respawnMs; // already due — respawn next tick
+      this.scene.time.delayedCall(0, () => this.respawn());
+    } else {
+      this._depletedAt = respawnAt - this.def.respawnMs;
+      this.scene.time.delayedCall(respawnAt - now, () => this.respawn());
+    }
   }
 
   /**
@@ -211,6 +252,7 @@ export class ResourceNode extends InteractiveObject {
 
     // Deplete
     this._nodeState = 'depleted';
+    this._depletedAt = Date.now();
     this._promptText.setAlpha(0);
     this._playerInRange = false;
 
@@ -240,6 +282,8 @@ export class ResourceNode extends InteractiveObject {
 
   private respawn(): void {
     this._nodeState = 'ready';
+    this._depletedAt = null;
+    this.scene.events.emit('resource-node:respawned', this);
     this.scene.tweens.add({
       targets: this,
       alpha: { from: 0.35, to: 1 },
