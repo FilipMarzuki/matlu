@@ -3056,7 +3056,7 @@ export class GameScene extends Phaser.Scene {
 
     // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, 0x14051f, 0.46)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3145,7 +3145,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldTint(percent: number): void {
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
-    this.overlay.setAlpha(0.38 * (1 - ratio));
+    this.overlay.setAlpha(0.46 * (1 - ratio));
   }
 
   private createPortal(): void {
