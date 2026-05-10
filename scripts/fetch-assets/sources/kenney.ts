@@ -28,7 +28,6 @@ interface ZipEntry {
   path: string;
   type: 'File' | 'Directory';
   buffer(): Promise<Buffer>;
-  autodrain(): void;
 }
 
 const PACKS_PATH = fileURLToPath(new URL('./kenney-packs.json', import.meta.url));
@@ -146,13 +145,11 @@ async function extractZip(buffer: Buffer, extractDir: string): Promise<void> {
   for (const entry of directory.files as ZipEntry[]) {
     const safePath = safeZipPath(entry.path);
     if (safePath === null || entry.type !== 'File') {
-      entry.autodrain();
       continue;
     }
 
     const outPath = resolve(extractDir, safePath);
     if (!outPath.startsWith(rootDir)) {
-      entry.autodrain();
       continue;
     }
 
