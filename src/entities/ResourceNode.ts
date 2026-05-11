@@ -301,20 +301,20 @@ export class ResourceNode extends InteractiveObject {
   private showPerceptionGlow(): void {
     if (this._perceptionGlow) return; // already visible
 
-    // Soft pulsing ring — subtle enough to notice without being distracting
-    this._perceptionGlow = this.scene.add.arc(this.x, this.y, 18, 0, 360, false)
-      .setStrokeStyle(1.5, 0x88ccff, 0.6)
-      .setFillStyle(0x88ccff, 0.08)
+    // Very subtle gold aura — a gentle hint, not a beacon
+    this._perceptionGlow = this.scene.add.arc(this.x, this.y, 16, 0, 360, false)
+      .setStrokeStyle(1, 0xddaa44, 0.25)
+      .setFillStyle(0xddaa44, 0.04)
       .setDepth(this.depth - 1);
 
     this.scene.tweens.add({
       targets: this._perceptionGlow,
-      alpha: { from: 0.4, to: 0.8 },
-      scaleX: { from: 1, to: 1.15 },
-      scaleY: { from: 1, to: 1.15 },
+      alpha: { from: 0.2, to: 0.45 },
+      scaleX: { from: 1, to: 1.1 },
+      scaleY: { from: 1, to: 1.1 },
       yoyo: true,
       repeat: -1,
-      duration: 1200,
+      duration: 2000,
       ease: 'Sine.InOut',
     });
   }
