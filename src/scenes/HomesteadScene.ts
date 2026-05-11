@@ -71,6 +71,45 @@ function tileVariant(tx: number, ty: number): number {
   return ((tx * 7 + ty * 13) & 0x7fffffff) % 4;
 }
 
+// ── Available characters ────────────────────────────────────────────────────
+
+interface CharacterDef {
+  key: string;
+  label: string;
+  png: string;
+  json: string;
+}
+
+const CHARACTERS: CharacterDef[] = [
+  { key: 'loke',     label: 'Loke',     png: '/assets/sprites/characters/mistheim/heroes/loke/loke.png',         json: '/assets/sprites/characters/mistheim/heroes/loke/loke.json' },
+  { key: 'skald',    label: 'Skald',    png: '/assets/sprites/characters/earth/heroes/skald/skald.png',          json: '/assets/sprites/characters/earth/heroes/skald/skald.json' },
+  { key: 'tinkerer', label: 'Tinkerer', png: '/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',    json: '/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json' },
+];
+
+// ── Direction helpers ──────────────────────────────────────────────────────
+// Map world-space velocity to a canonical facing direction.
+// West-side dirs are mirrored via flipX (same pattern as HumanoidNPC).
+
+type FaceDir = 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west';
+
+function velocityToFacing(vx: number, vy: number): { dir: FaceDir; flip: boolean } | null {
+  if (vx === 0 && vy === 0) return null;
+  const angle = Math.atan2(vy, vx);
+  const sector = Math.round(angle / (Math.PI / 4));
+  const DIR_MAP: Record<number, { dir: FaceDir; flip: boolean }> = {
+     0: { dir: 'east',       flip: false },
+     1: { dir: 'south-east', flip: false },
+     2: { dir: 'south',      flip: false },
+     3: { dir: 'south-east', flip: true  },   // SW → flip SE
+     4: { dir: 'west',       flip: false },
+    '-4': { dir: 'west',     flip: false },
+    '-3': { dir: 'north-east', flip: true  }, // NW → flip NE
+    '-2': { dir: 'north',    flip: false },
+    '-1': { dir: 'north-east', flip: false },
+  };
+  return DIR_MAP[sector] ?? { dir: 'south', flip: false };
+}
+
 // ── Scene ───────────────────────────────────────────────────────────────────
 
 export class HomesteadScene extends Phaser.Scene {
@@ -79,7 +118,7 @@ export class HomesteadScene extends Phaser.Scene {
   constructor() { super({ key: HomesteadScene.KEY }); }
 
   private player!: Phaser.Physics.Arcade.Image;
-  private playerIso!: Phaser.GameObjects.Image;  // visual sprite in iso space
+  private playerIso!: Phaser.GameObjects.Sprite;  // animated sprite in iso space
   private interactZone!: Phaser.GameObjects.Arc;
   private wasd!: { up: Phaser.Input.Keyboard.Key; down: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
   private joystick: SimpleJoystick | null = null;
@@ -89,6 +128,8 @@ export class HomesteadScene extends Phaser.Scene {
   private nodesInRange = new Set<ResourceNode>();
   private actionTapped = false;
   private targetNode: ResourceNode | null = null;
+  private characterKey = 'loke';  // active character sprite key
+  private facingDir: 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west' = 'south';
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -98,6 +139,10 @@ export class HomesteadScene extends Phaser.Scene {
     // Meadow tile variants (4 PNGs)
     for (let i = 0; i < 4; i++) {
       this.load.image(`meadow-${i}`, `/assets/packs/meadow-tiles/${i}.png`);
+    }
+    // Character spritesheets (Aseprite atlas format)
+    for (const c of CHARACTERS) {
+      this.load.aseprite(c.key, c.png, c.json);
     }
   }
 
@@ -152,27 +197,33 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Player ────────────────────────────────────────────────────────────
     // Physics body lives in world space (invisible).
-    // Visual sprite is in iso space, updated each frame.
-    if (!this.textures.exists('hs-player')) {
-      const rt = this.add.renderTexture(0, 0, 14, 14);
-      rt.fill(0x4488cc, 1);
-      rt.saveTexture('hs-player');
-      rt.destroy();
+    // Animated sprite is in iso space, updated each frame.
+
+    // Create animations from all loaded character spritesheets
+    for (const c of CHARACTERS) {
+      this.createAnimsFromAseprite(c.key);
     }
 
     const spawnWx = WORLD_W / 2;
     const spawnWy = WORLD_H / 2;
 
-    // Invisible physics body
-    this.player = this.physics.add.image(spawnWx, spawnWy, 'hs-player');
+    // Invisible physics body — a tiny placeholder texture for the physics sprite
+    if (!this.textures.exists('hs-player-phys')) {
+      const rt = this.add.renderTexture(0, 0, 14, 14);
+      rt.fill(0x000000, 0);
+      rt.saveTexture('hs-player-phys');
+      rt.destroy();
+    }
+    this.player = this.physics.add.image(spawnWx, spawnWy, 'hs-player-phys');
     this.player.setCollideWorldBounds(true);
-    this.player.setVisible(false); // hidden — iso sprite is the visual
+    this.player.setVisible(false);
 
-    // Visible iso sprite
+    // Visible animated sprite in iso space
     const { x: spawnIsoX, y: spawnIsoY } = hsWorldToIso(spawnWx, spawnWy);
-    this.playerIso = this.add.image(spawnIsoX, spawnIsoY, 'hs-player');
+    this.playerIso = this.add.sprite(spawnIsoX, spawnIsoY, this.characterKey);
     this.playerIso.setOrigin(0.5, 1); // anchor at feet
     this.playerIso.setDepth(hsIsoDepth(spawnWx, spawnWy));
+    this.playerIso.play(`${this.characterKey}_idle_south`);
 
     // Invisible interact zone (world space)
     this.interactZone = this.add.arc(0, 0, INTERACT_RADIUS).setVisible(false);
@@ -310,6 +361,19 @@ export class HomesteadScene extends Phaser.Scene {
     const offsetX = (cam.width - ISO_W) / 2;
     const offsetY = (cam.height - ISO_H) / 2;
     cam.setScroll(-offsetX, -offsetY);
+
+    // ── Cardinal direction labels (just outside the diamond edges) ──────
+    const dirStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '10px', color: '#88aa88', fontFamily: 'monospace',
+    };
+    const cx = ISO_W / 2;   // centre of diamond in iso space
+    const cy = ISO_H / 2;
+    const pad = 14;          // px outside the diamond edge
+    // N = top apex, S = bottom apex, W = left apex, E = right apex
+    this.add.text(cx, -pad, 'N', dirStyle).setOrigin(0.5, 1);
+    this.add.text(cx, ISO_H + pad, 'S', dirStyle).setOrigin(0.5, 0);
+    this.add.text(-pad, cy, 'W', dirStyle).setOrigin(1, 0.5);
+    this.add.text(ISO_W + pad, cy, 'E', dirStyle).setOrigin(0, 0.5);
   }
 
   update(): void {
@@ -357,10 +421,27 @@ export class HomesteadScene extends Phaser.Scene {
       body.setVelocity(0, 0);
     }
 
-    // ── Sync iso sprite to physics body ──────────────────────────────────
+    // ── Sync iso sprite to physics body + animate ──────────────────────
     const { x: isoX, y: isoY } = hsWorldToIso(this.player.x, this.player.y);
     this.playerIso.setPosition(isoX, isoY);
     this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y));
+
+    // Update facing direction and animation
+    const facing = velocityToFacing(vx, vy);
+    if (facing) {
+      this.facingDir = facing.dir;
+      this.playerIso.setFlipX(facing.flip);
+      const walkKey = `${this.characterKey}_walk_${facing.dir}`;
+      if (this.playerIso.anims.getName() !== walkKey) {
+        this.playerIso.play(walkKey, true);
+      }
+    } else {
+      // Standing still — play idle in current facing direction
+      const idleKey = `${this.characterKey}_idle_${this.facingDir}`;
+      if (this.playerIso.anims.getName() !== idleKey) {
+        this.playerIso.play(idleKey, true);
+      }
+    }
 
     // Move interact zone to player (world space)
     this.interactZone.setPosition(this.player.x, this.player.y);
@@ -393,6 +474,34 @@ export class HomesteadScene extends Phaser.Scene {
     }
     if (this.actionLabel) {
       this.actionLabel.setColor(anyInRange ? '#88ff88' : '#666666');
+    }
+  }
+
+  // ── Aseprite animation helper ──────────────────────────────────────────
+  // Same approach as DungeonForgeScene: reads frame tags from the cached
+  // Aseprite JSON and creates Phaser animations with filename-based frame keys.
+
+  private createAnimsFromAseprite(key: string): void {
+    type AseFrame = { filename: string; duration?: number };
+    type AseTag   = { name: string; from: number; to: number; direction: string };
+    const data = this.cache.json.get(key) as {
+      frames: AseFrame[];
+      meta:   { frameTags: AseTag[] };
+    } | null;
+
+    if (!data?.frames || !data.meta?.frameTags) return;
+
+    for (const tag of data.meta.frameTags) {
+      if (this.anims.exists(tag.name)) continue;
+      const animFrames: { key: string; frame: string; duration: number }[] = [];
+      for (let i = tag.from; i <= tag.to; i++) {
+        const f = data.frames[i];
+        if (!f) continue;
+        animFrames.push({ key, frame: f.filename, duration: f.duration ?? 100 });
+      }
+      if (tag.direction === 'reverse') animFrames.reverse();
+      const isLoop = tag.name.includes('idle') || tag.name.includes('walk');
+      this.anims.create({ key: tag.name, frames: animFrames, repeat: isLoop ? -1 : 0 });
     }
   }
 }
