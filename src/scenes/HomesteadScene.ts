@@ -161,6 +161,11 @@ export class HomesteadScene extends Phaser.Scene {
   private toolbarBtns: Phaser.GameObjects.Container[] = [];
   /** Ghost preview sprite shown at cursor position while placing. */
   private ghostSprite: Phaser.GameObjects.Image | null = null;
+  /** Iso diamond outlines showing the building footprint at cursor. */
+  private footprintGfx: Phaser.GameObjects.Graphics | null = null;
+  /** Last hovered tile (to avoid redrawing every frame). */
+  private lastHoverTx = -1;
+  private lastHoverTy = -1;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -416,15 +421,33 @@ export class HomesteadScene extends Phaser.Scene {
     // ── Click-to-place on the iso grid ───────────────────────────────────
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.selectedBuilding) return;
-      // Ignore clicks on HUD elements (scrollFactor 0 zone)
       if (pointer.y > cam.height - 70) return;
 
-      // Convert screen pointer → iso world coords → tile coords
       const worldPt = cam.getWorldPoint(pointer.x, pointer.y);
       const tile = this.isoToTile(worldPt.x, worldPt.y);
       if (!tile) return;
 
       this.placeBuilding(this.selectedBuilding, tile.tx, tile.ty);
+    });
+
+    // ── Hover preview — show footprint + ghost while placing ─────────────
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.selectedBuilding) return;
+      if (pointer.y > cam.height - 70) {
+        this.clearGhost();
+        return;
+      }
+
+      const worldPt = cam.getWorldPoint(pointer.x, pointer.y);
+      const tile = this.isoToTile(worldPt.x, worldPt.y);
+      if (!tile) { this.clearGhost(); return; }
+
+      // Only redraw if tile changed
+      if (tile.tx === this.lastHoverTx && tile.ty === this.lastHoverTy) return;
+      this.lastHoverTx = tile.tx;
+      this.lastHoverTy = tile.ty;
+
+      this.drawPlacementPreview(this.selectedBuilding, tile.tx, tile.ty);
     });
   }
 
@@ -597,6 +620,82 @@ export class HomesteadScene extends Phaser.Scene {
   private clearGhost(): void {
     if (this.ghostSprite) {
       this.ghostSprite.destroy();
+      this.ghostSprite = null;
+    }
+    if (this.footprintGfx) {
+      this.footprintGfx.destroy();
+      this.footprintGfx = null;
+    }
+    this.lastHoverTx = -1;
+    this.lastHoverTy = -1;
+  }
+
+  /**
+   * Draw a footprint preview: iso diamond outlines for each tile in the
+   * building's footprint, tinted green (valid) or red (blocked).
+   * Also shows a semi-transparent ghost of the building sprite.
+   */
+  private drawPlacementPreview(def: BuildingDef, tx: number, ty: number): void {
+    // Clean up previous preview
+    if (this.footprintGfx) this.footprintGfx.destroy();
+    if (this.ghostSprite) this.ghostSprite.destroy();
+
+    const outOfBounds = tx + def.footW > GRID || ty + def.footD > GRID;
+
+    // Check if any tile in the footprint is occupied
+    let blocked = outOfBounds;
+    if (!outOfBounds) {
+      for (let dx = 0; dx < def.footW && !blocked; dx++) {
+        for (let dy = 0; dy < def.footD && !blocked; dy++) {
+          if (this.occupied[(ty + dy) * GRID + (tx + dx)]) blocked = true;
+        }
+      }
+    }
+
+    const color = blocked ? 0xff4444 : 0x44dd44;
+
+    // Draw iso diamond outlines for each tile in the footprint
+    const gfx = this.add.graphics();
+    gfx.setDepth(9000);
+
+    if (!outOfBounds) {
+      for (let dx = 0; dx < def.footW; dx++) {
+        for (let dy = 0; dy < def.footD; dy++) {
+          const wx = (tx + dx) * TILE_SIZE;
+          const wy = (ty + dy) * TILE_SIZE;
+          const { x: ix, y: iy } = hsWorldToIso(wx, wy);
+
+          // Diamond shape: 4 points — N, E, S, W apexes of the tile
+          const hw = ISO_TILE_W / 2;
+          const hh = ISO_TILE_H / 2;
+          gfx.lineStyle(1.5, color, 0.7);
+          gfx.fillStyle(color, 0.12);
+          gfx.beginPath();
+          gfx.moveTo(ix, iy);               // N apex
+          gfx.lineTo(ix + hw, iy + hh);     // E apex
+          gfx.lineTo(ix, iy + ISO_TILE_H);  // S apex
+          gfx.lineTo(ix - hw, iy + hh);     // W apex
+          gfx.closePath();
+          gfx.fillPath();
+          gfx.strokePath();
+        }
+      }
+    }
+
+    this.footprintGfx = gfx;
+
+    // Ghost sprite — semi-transparent building preview
+    if (!outOfBounds) {
+      const centreWx = (tx + def.footW / 2) * TILE_SIZE;
+      const centreWy = (ty + def.footD / 2) * TILE_SIZE;
+      const { x: isoX, y: isoY } = hsWorldToIso(centreWx, centreWy);
+
+      this.ghostSprite = this.add.image(isoX, isoY, def.spriteKey);
+      this.ghostSprite.setOrigin(0.5, 0.75);
+      this.ghostSprite.setAlpha(blocked ? 0.3 : 0.5);
+      this.ghostSprite.setDepth(9001);
+      if (blocked) this.ghostSprite.setTint(0xff6666);
+    } else {
       this.ghostSprite = null;
     }
   }
