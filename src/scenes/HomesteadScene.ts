@@ -71,6 +71,28 @@ function tileVariant(tx: number, ty: number): number {
   return ((tx * 7 + ty * 13) & 0x7fffffff) % 4;
 }
 
+// ── Placeable buildings ─────────────────────────────────────────────────────
+
+interface BuildingDef {
+  id: string;
+  label: string;
+  spriteKey: string;
+  /** Footprint in tiles (width × depth). */
+  footW: number;
+  footD: number;
+}
+
+const BUILDINGS: BuildingDef[] = [
+  { id: 'campfire',     label: 'Campfire',     spriteKey: 'bld-campfire',     footW: 1, footD: 1 },
+  { id: 'yurt-small',   label: 'Small Yurt',   spriteKey: 'bld-yurt-small',  footW: 2, footD: 2 },
+  { id: 'yurt-large',   label: 'Large Yurt',   spriteKey: 'bld-yurt-large',  footW: 3, footD: 3 },
+  { id: 'well',         label: 'Well',          spriteKey: 'bld-well',        footW: 1, footD: 1 },
+  { id: 'farmstead',    label: 'Farmstead',     spriteKey: 'bld-farmstead',   footW: 3, footD: 3 },
+  { id: 'smithy',       label: 'Smithy',        spriteKey: 'bld-smithy',      footW: 2, footD: 2 },
+  { id: 'cottage',      label: 'Cottage',       spriteKey: 'bld-cottage',     footW: 2, footD: 2 },
+  { id: 'shelter-hut',  label: 'Shelter',       spriteKey: 'bld-shelter-hut', footW: 2, footD: 1 },
+];
+
 // ── Available characters ────────────────────────────────────────────────────
 
 interface CharacterDef {
@@ -131,6 +153,15 @@ export class HomesteadScene extends Phaser.Scene {
   private characterKey = 'loke';  // active character sprite key
   private facingDir: 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west' = 'south';
 
+  // ── Building placement ─────────────────────────────────────────────────
+  private selectedBuilding: BuildingDef | null = null;
+  /** Tile occupancy grid — true = occupied. */
+  private occupied = new Uint8Array(GRID * GRID);
+  private placedBuildings: Phaser.GameObjects.Image[] = [];
+  private toolbarBtns: Phaser.GameObjects.Container[] = [];
+  /** Ghost preview sprite shown at cursor position while placing. */
+  private ghostSprite: Phaser.GameObjects.Image | null = null;
+
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
@@ -143,6 +174,10 @@ export class HomesteadScene extends Phaser.Scene {
     // Character spritesheets (Aseprite atlas format)
     for (const c of CHARACTERS) {
       this.load.aseprite(c.key, c.png, c.json);
+    }
+    // Building sprites (ikibeki culture)
+    for (const b of BUILDINGS) {
+      this.load.image(b.spriteKey, `/assets/packs/building-objects/ikibeki/${b.id}.png`);
     }
   }
 
@@ -374,6 +409,23 @@ export class HomesteadScene extends Phaser.Scene {
     this.add.text(cx, ISO_H + pad, 'S', dirStyle).setOrigin(0.5, 0);
     this.add.text(-pad, cy, 'W', dirStyle).setOrigin(1, 0.5);
     this.add.text(ISO_W + pad, cy, 'E', dirStyle).setOrigin(0, 0.5);
+
+    // ── Building toolbar (bottom of screen, scrollFactor 0) ──────────────
+    this.createBuildToolbar();
+
+    // ── Click-to-place on the iso grid ───────────────────────────────────
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.selectedBuilding) return;
+      // Ignore clicks on HUD elements (scrollFactor 0 zone)
+      if (pointer.y > cam.height - 70) return;
+
+      // Convert screen pointer → iso world coords → tile coords
+      const worldPt = cam.getWorldPoint(pointer.x, pointer.y);
+      const tile = this.isoToTile(worldPt.x, worldPt.y);
+      if (!tile) return;
+
+      this.placeBuilding(this.selectedBuilding, tile.tx, tile.ty);
+    });
   }
 
   update(): void {
@@ -475,6 +527,129 @@ export class HomesteadScene extends Phaser.Scene {
     if (this.actionLabel) {
       this.actionLabel.setColor(anyInRange ? '#88ff88' : '#666666');
     }
+  }
+
+  // ── Building toolbar ────────────────────────────────────────────────────
+
+  private createBuildToolbar(): void {
+    const cam = this.cameras.main;
+    const btnSize = 40;
+    const gap = 6;
+    const totalW = BUILDINGS.length * (btnSize + gap) - gap;
+    const startX = (cam.width - totalW) / 2;
+    const y = cam.height - 36;
+
+    for (let i = 0; i < BUILDINGS.length; i++) {
+      const b = BUILDINGS[i];
+      const x = startX + i * (btnSize + gap) + btnSize / 2;
+
+      const container = this.add.container(x, y).setScrollFactor(0).setDepth(260);
+
+      // Background
+      const bg = this.add.rectangle(0, 0, btnSize, btnSize, 0x1a2a1a, 0.85)
+        .setStrokeStyle(1, 0x3a5a3a, 0.8);
+      container.add(bg);
+
+      // Building icon (scaled to fit)
+      const icon = this.add.image(0, -2, b.spriteKey);
+      const scale = Math.min((btnSize - 8) / icon.width, (btnSize - 8) / icon.height);
+      icon.setScale(scale);
+      container.add(icon);
+
+      // Label
+      const label = this.add.text(0, btnSize / 2 + 4, b.label, {
+        fontSize: '7px', color: '#88aa88', fontFamily: 'monospace',
+      }).setOrigin(0.5, 0);
+      container.add(label);
+
+      container.setSize(btnSize, btnSize);
+      container.setInteractive({ useHandCursor: true });
+      container.on('pointerdown', () => this.selectBuilding(i));
+
+      this.toolbarBtns.push(container);
+    }
+  }
+
+  private selectBuilding(index: number): void {
+    // Toggle off if same building selected
+    if (this.selectedBuilding === BUILDINGS[index]) {
+      this.selectedBuilding = null;
+      this.clearGhost();
+      this.highlightToolbar(-1);
+      return;
+    }
+
+    this.selectedBuilding = BUILDINGS[index];
+    this.highlightToolbar(index);
+  }
+
+  private highlightToolbar(activeIdx: number): void {
+    for (let i = 0; i < this.toolbarBtns.length; i++) {
+      const bg = this.toolbarBtns[i].getAt(0) as Phaser.GameObjects.Rectangle;
+      if (i === activeIdx) {
+        bg.setStrokeStyle(2, 0xddaa44, 1);
+      } else {
+        bg.setStrokeStyle(1, 0x3a5a3a, 0.8);
+      }
+    }
+  }
+
+  private clearGhost(): void {
+    if (this.ghostSprite) {
+      this.ghostSprite.destroy();
+      this.ghostSprite = null;
+    }
+  }
+
+  // ── Iso ↔ tile conversion ──────────────────────────────────────────────
+
+  private isoToTile(isoX: number, isoY: number): { tx: number; ty: number } | null {
+    // Inverse of hsWorldToIso: solve for tx, ty
+    const relX = isoX - ISO_ORIGIN_X;
+    const relY = isoY;
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
+    const tx = Math.floor(((relX / hw) + (relY / hh)) / 2);
+    const ty = Math.floor(((relY / hh) - (relX / hw)) / 2);
+
+    if (tx < 0 || ty < 0 || tx >= GRID || ty >= GRID) return null;
+    return { tx, ty };
+  }
+
+  // ── Placement logic ────────────────────────────────────────────────────
+
+  private placeBuilding(def: BuildingDef, tx: number, ty: number): void {
+    // Check bounds
+    if (tx + def.footW > GRID || ty + def.footD > GRID) return;
+
+    // Check occupancy
+    for (let dx = 0; dx < def.footW; dx++) {
+      for (let dy = 0; dy < def.footD; dy++) {
+        if (this.occupied[(ty + dy) * GRID + (tx + dx)]) return;
+      }
+    }
+
+    // Mark tiles as occupied
+    for (let dx = 0; dx < def.footW; dx++) {
+      for (let dy = 0; dy < def.footD; dy++) {
+        this.occupied[(ty + dy) * GRID + (tx + dx)] = 1;
+      }
+    }
+
+    // Place sprite at the centre of the footprint in iso space
+    const centreWx = (tx + def.footW / 2) * TILE_SIZE;
+    const centreWy = (ty + def.footD / 2) * TILE_SIZE;
+    const { x: isoX, y: isoY } = hsWorldToIso(centreWx, centreWy);
+
+    const sprite = this.add.image(isoX, isoY, def.spriteKey);
+    sprite.setOrigin(0.5, 0.75); // bottom-heavy anchor for iso buildings
+    sprite.setDepth(hsIsoDepth(centreWx, centreWy));
+    this.placedBuildings.push(sprite);
+
+    // Deselect after placing
+    this.selectedBuilding = null;
+    this.highlightToolbar(-1);
+    this.clearGhost();
   }
 
   // ── Aseprite animation helper ──────────────────────────────────────────
