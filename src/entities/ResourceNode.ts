@@ -25,6 +25,7 @@
 import * as Phaser from 'phaser';
 import { InteractiveObject } from '../environment/InteractiveObject';
 import type { InventorySystem } from '../systems/InventorySystem';
+import type { TinkerTraySystem } from '../systems/TinkerTraySystem';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,9 @@ export class ResourceNode extends InteractiveObject {
   private _pendingGather = false;
   /** Visual targeting indicator. */
   private _targetRing: Phaser.GameObjects.Arc | null = null;
+  /** Perception glow — visible when tray slots 0-1 match this node's yields. */
+  private _perceptionGlow: Phaser.GameObjects.Arc | null = null;
+  private _perceptionCheckTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -110,6 +114,14 @@ export class ResourceNode extends InteractiveObject {
     this.on('pointerup', () => {
       if (this._nodeState !== 'ready') return;
       scene.events.emit('resource-node:targeted', this);
+    });
+
+    // Active perception glow (#824): check tray every 1s for matching yields.
+    // Uses a timer instead of per-frame checks to keep update() lightweight.
+    this._perceptionCheckTimer = scene.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => this.updatePerceptionGlow(),
     });
   }
 
@@ -250,9 +262,75 @@ export class ResourceNode extends InteractiveObject {
     });
   }
 
+  // ── Perception glow (#824) ───────────────────────────────────────────────
+
+  /**
+   * Check if any yield item IDs match tray slots 0-1 (prefixed with "material:").
+   * If so, show a subtle pulsing glow around this node.
+   */
+  private updatePerceptionGlow(): void {
+    if (this._nodeState !== 'ready') {
+      this.hidePerceptionGlow();
+      return;
+    }
+
+    const tray = this.scene.game.registry.get('tinkerTraySystem') as TinkerTraySystem | undefined;
+    if (!tray) { this.hidePerceptionGlow(); return; }
+
+    // Collect active tray IDs from slots 0-1
+    const activeIds = new Set<string>();
+    for (let i = 0; i < 2; i++) {
+      const id = tray.slots[i];
+      if (id) activeIds.add(id);
+    }
+
+    if (activeIds.size === 0) { this.hidePerceptionGlow(); return; }
+
+    // Check if any yield itemId matches a tray slot (with "material:" prefix)
+    const matches = this.def.yields.some(
+      y => activeIds.has(`material:${y.itemId}`) || activeIds.has(y.itemId),
+    );
+
+    if (matches) {
+      this.showPerceptionGlow();
+    } else {
+      this.hidePerceptionGlow();
+    }
+  }
+
+  private showPerceptionGlow(): void {
+    if (this._perceptionGlow) return; // already visible
+
+    // Very subtle gold aura — a gentle hint, not a beacon
+    this._perceptionGlow = this.scene.add.arc(this.x, this.y, 16, 0, 360, false)
+      .setStrokeStyle(1, 0xddaa44, 0.25)
+      .setFillStyle(0xddaa44, 0.04)
+      .setDepth(this.depth - 1);
+
+    this.scene.tweens.add({
+      targets: this._perceptionGlow,
+      alpha: { from: 0.2, to: 0.45 },
+      scaleX: { from: 1, to: 1.1 },
+      scaleY: { from: 1, to: 1.1 },
+      yoyo: true,
+      repeat: -1,
+      duration: 2000,
+      ease: 'Sine.InOut',
+    });
+  }
+
+  private hidePerceptionGlow(): void {
+    if (!this._perceptionGlow) return;
+    this.scene.tweens.killTweensOf(this._perceptionGlow);
+    this._perceptionGlow.destroy();
+    this._perceptionGlow = null;
+  }
+
   override destroy(fromScene?: boolean): void {
     this._promptText?.destroy();
     this.clearTarget();
+    this.hidePerceptionGlow();
+    this._perceptionCheckTimer?.destroy();
     super.destroy(fromScene);
   }
 }
