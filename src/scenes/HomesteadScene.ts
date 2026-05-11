@@ -17,10 +17,26 @@
  */
 
 import * as Phaser from 'phaser';
-import { InventorySystem } from '../systems/InventorySystem';
+import { InventorySystem, INVENTORY_CHANGED, type ResourceDef } from '../systems/InventorySystem';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
+import {
+  describeAuthStatus,
+  getCurrentSession,
+  getOrSignInAnon,
+  onAuthStateChange,
+  sendMagicLink,
+  signOut,
+  type HomesteadAuthStatus,
+} from '../lib/auth';
+import {
+  flushSave,
+  HOMESTEAD_SAVE_VERSION,
+  loadSave,
+  queueSave,
+  type HomesteadSaveState,
+} from '../lib/homesteadSave';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -50,6 +66,16 @@ export class HomesteadScene extends Phaser.Scene {
   private actionTapped = false;
   /** Node the player is walking toward (tap-to-target). */
   private targetNode: ResourceNode | null = null;
+  private inventory!: InventorySystem;
+  private saveEnabled = false;
+  private authStatus: HomesteadAuthStatus | null = null;
+  private authSubscription: { unsubscribe: () => void } | null = null;
+  private authPanelBg!: Phaser.GameObjects.Rectangle;
+  private authPillText!: Phaser.GameObjects.Text;
+  private authActionText!: Phaser.GameObjects.Text;
+  private saveStatusText!: Phaser.GameObjects.Text;
+  private loginModal: Phaser.GameObjects.Container | null = null;
+  private lastQueuedPlayerPos: { x: number; y: number } | null = null;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -64,8 +90,9 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
-    const resDefs = this.cache.json.get('resources') as { resources: { id: string; name: string; category: string; stackMax: number }[] } | undefined;
-    if (resDefs?.resources) inv.loadResourceDefs(resDefs.resources as never[]);
+    this.inventory = inv;
+    const resDefs = this.cache.json.get('resources') as { resources: ResourceDef[] } | undefined;
+    if (resDefs?.resources) inv.loadResourceDefs(resDefs.resources);
     inv.add('flint', 4);
     inv.add('dry-grass', 6);
 
@@ -132,11 +159,14 @@ export class HomesteadScene extends Phaser.Scene {
 
       // Static group so one collider covers all nodes
       const nodeGroup = this.physics.add.staticGroup();
+      const nodeOrdinals = new Map<string, number>();
 
       for (const p of placements) {
         const def = nodeDefs.nodeTypes.find(d => d.id === p.defId);
         if (!def) continue;
-        const node = new ResourceNode(this, p.x, p.y, def, inv);
+        const ordinal = nodeOrdinals.get(p.defId) ?? 0;
+        nodeOrdinals.set(p.defId, ordinal + 1);
+        const node = new ResourceNode(this, p.x, p.y, def, inv, `${p.defId}-${ordinal}`);
         nodeGroup.add(node);
         this.resourceNodes.push(node);
       }
@@ -233,11 +263,27 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── HUD ───────────────────────────────────────────────────────────────
     new InventoryHUD(this, inv);
+    this.createAuthHud();
 
     this.add.text(8, 8, 'Homestead Mode', {
       fontSize: '11px', color: '#aaccaa', backgroundColor: '#00000066',
       padding: { x: 6, y: 4 },
     }).setScrollFactor(0).setDepth(200);
+
+    this.game.events.on(INVENTORY_CHANGED, this.onInventoryChanged, this);
+    this.events.on('resource-gathered', this.onResourceGathered, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
+
+    this.authSubscription = onAuthStateChange((_event, session) => {
+      this.updateAuthHud(describeAuthStatus(session));
+      if (this.saveEnabled) this.queueCurrentSave('Saving...');
+    });
+
+    void this.bootstrapCloudSave().catch((error: unknown) => {
+      console.warn('[matlu] Homestead cloud save setup failed', error);
+      this.saveEnabled = false;
+      this.setSaveStatus('Cloud save unavailable');
+    });
   }
 
   update(): void {
@@ -314,6 +360,247 @@ export class HomesteadScene extends Phaser.Scene {
     }
     if (this.actionLabel) {
       this.actionLabel.setColor(anyInRange ? '#88ff88' : '#666666');
+    }
+
+    this.maybeQueuePositionSave();
+  }
+
+  private async bootstrapCloudSave(): Promise<void> {
+    this.updateAuthHud(describeAuthStatus(null));
+    const session = await getOrSignInAnon();
+    this.updateAuthHud(describeAuthStatus(session));
+
+    const save = await loadSave();
+    if (save) {
+      this.applySave(save);
+      this.setSaveStatus('Cloud save loaded');
+    } else {
+      this.setSaveStatus('New cloud save');
+    }
+
+    this.saveEnabled = session !== null;
+    this.lastQueuedPlayerPos = { x: this.player.x, y: this.player.y };
+    this.queueCurrentSave('Saved');
+  }
+
+  private createAuthHud(): void {
+    const cam = this.cameras.main;
+    const panelW = 230;
+    const panelH = 48;
+    const x = cam.width - panelW - 8;
+    const y = 8;
+
+    this.authPanelBg = this.add.rectangle(x, y, panelW, panelH, 0x07120b, 0.78)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x6faa79, 0.6)
+      .setScrollFactor(0)
+      .setDepth(300);
+
+    this.authPillText = this.add.text(x + 8, y + 6, 'Connecting...', {
+      fontSize: '10px',
+      color: '#d8ffe0',
+      fontStyle: 'bold',
+    }).setScrollFactor(0).setDepth(301);
+
+    this.authActionText = this.add.text(x + panelW - 8, y + 6, 'Sign in', {
+      fontSize: '10px',
+      color: '#ffe066',
+      fontStyle: 'bold',
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(301).setInteractive({ useHandCursor: true });
+
+    this.saveStatusText = this.add.text(x + 8, y + 26, 'Cloud save starting...', {
+      fontSize: '9px',
+      color: '#9fc79f',
+    }).setScrollFactor(0).setDepth(301);
+
+    this.authActionText.on('pointerdown', () => {
+      void this.handleAuthAction().catch((error: unknown) => {
+        console.warn('[matlu] Homestead auth action failed', error);
+        this.setSaveStatus('Auth failed');
+      });
+    });
+  }
+
+  private updateAuthHud(status: HomesteadAuthStatus): void {
+    this.authStatus = status;
+    this.authPillText.setText(status.label.length > 24 ? `${status.label.slice(0, 23)}...` : status.label);
+    this.authPillText.setColor(status.kind === 'offline' ? '#ffb3b3' : '#d8ffe0');
+
+    if (status.kind === 'signed-in') {
+      this.authActionText.setText('Sign out');
+    } else if (status.kind === 'guest') {
+      this.authActionText.setText('Sign in');
+    } else {
+      this.authActionText.setText('Retry');
+    }
+
+    this.authPanelBg.setStrokeStyle(1, status.kind === 'offline' ? 0xaa6666 : 0x6faa79, 0.6);
+    if (!this.saveEnabled) {
+      this.saveStatusText.setText(status.detail);
+    }
+  }
+
+  private async handleAuthAction(): Promise<void> {
+    if (this.authStatus?.kind === 'signed-in') {
+      this.queueCurrentSave('Saving before sign out...');
+      await flushSave();
+      await signOut();
+      const session = await getOrSignInAnon();
+      this.updateAuthHud(describeAuthStatus(session));
+      this.saveEnabled = session !== null;
+      this.queueCurrentSave('Signed out to Guest');
+      return;
+    }
+
+    if (this.authStatus?.kind === 'offline') {
+      const session = await getOrSignInAnon();
+      this.updateAuthHud(describeAuthStatus(session));
+      this.saveEnabled = session !== null;
+      if (session) this.queueCurrentSave('Cloud save ready');
+      return;
+    }
+
+    this.openLoginModal();
+  }
+
+  private openLoginModal(): void {
+    if (this.loginModal) return;
+
+    const cam = this.cameras.main;
+    const modal = this.add.container(0, 0).setScrollFactor(0).setDepth(500);
+    const overlay = this.add.rectangle(0, 0, cam.width, cam.height, 0x000000, 0.55).setOrigin(0, 0);
+    const panel = this.add.rectangle(cam.width / 2, cam.height / 2, 320, 150, 0x101820, 0.96)
+      .setStrokeStyle(2, 0x88cc88, 0.85);
+    const title = this.add.text(cam.width / 2, cam.height / 2 - 54, 'Save your Homestead', {
+      fontSize: '16px',
+      color: '#d8ffe0',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const body = this.add.text(cam.width / 2, cam.height / 2 - 22, 'Send a magic link to upgrade this guest save.', {
+      fontSize: '11px',
+      color: '#c7d6c7',
+      wordWrap: { width: 270 },
+      align: 'center',
+    }).setOrigin(0.5);
+    const emailButton = this.add.rectangle(cam.width / 2, cam.height / 2 + 24, 210, 30, 0x335533, 0.95)
+      .setStrokeStyle(1, 0xaaccaa, 0.85)
+      .setInteractive({ useHandCursor: true });
+    const emailLabel = this.add.text(cam.width / 2, cam.height / 2 + 24, 'Sign in with email', {
+      fontSize: '12px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const cancelLabel = this.add.text(cam.width / 2, cam.height / 2 + 58, 'Cancel', {
+      fontSize: '11px',
+      color: '#bbbbbb',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    modal.add([overlay, panel, title, body, emailButton, emailLabel, cancelLabel]);
+    this.loginModal = modal;
+
+    emailButton.on('pointerdown', () => this.promptForMagicLink());
+    emailLabel.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.promptForMagicLink());
+    cancelLabel.on('pointerdown', () => this.closeLoginModal());
+  }
+
+  private closeLoginModal(): void {
+    this.loginModal?.destroy(true);
+    this.loginModal = null;
+  }
+
+  private promptForMagicLink(): void {
+    const email = window.prompt('Email address for your Homestead save');
+    if (!email) return;
+
+    this.closeLoginModal();
+    this.setSaveStatus('Sending magic link...');
+    void this.submitMagicLink(email).catch((error: unknown) => {
+      console.warn('[matlu] Homestead magic link failed', error);
+      this.setSaveStatus('Magic link failed');
+    });
+  }
+
+  private async submitMagicLink(email: string): Promise<void> {
+    await sendMagicLink(email);
+    const session = await getCurrentSession();
+    this.updateAuthHud(describeAuthStatus(session));
+    this.setSaveStatus('Check your email for the magic link');
+  }
+
+  private applySave(save: HomesteadSaveState): void {
+    this.inventory.replaceAll(save.inventory.map((item) => [item.id, item.qty]));
+
+    this.player.setPosition(
+      Phaser.Math.Clamp(save.player.x, 0, WORLD_W),
+      Phaser.Math.Clamp(save.player.y, 0, WORLD_H),
+    );
+    (this.player.body as Phaser.Physics.Arcade.Body).reset(this.player.x, this.player.y);
+
+    const nodeStateById = new Map(save.nodes.map((node) => [node.id, node]));
+    for (const node of this.resourceNodes) {
+      const savedNode = nodeStateById.get(node.saveId);
+      if (!savedNode) continue;
+      node.applySavedState(savedNode.state, savedNode.respawnAt);
+    }
+  }
+
+  private captureSaveState(): HomesteadSaveState {
+    return {
+      version: HOMESTEAD_SAVE_VERSION,
+      inventory: this.inventory.entries().map(([id, qty]) => ({ id, qty })),
+      nodes: this.resourceNodes.map((node) => ({
+        id: node.saveId,
+        state: node.nodeState,
+        respawnAt: node.respawnAt,
+      })),
+      player: {
+        x: Math.round(this.player.x),
+        y: Math.round(this.player.y),
+      },
+    };
+  }
+
+  private onInventoryChanged(): void {
+    this.queueCurrentSave('Saving...');
+  }
+
+  private onResourceGathered(): void {
+    this.queueCurrentSave('Saving...');
+  }
+
+  private maybeQueuePositionSave(): void {
+    if (!this.saveEnabled || !this.lastQueuedPlayerPos) return;
+
+    const dx = this.player.x - this.lastQueuedPlayerPos.x;
+    const dy = this.player.y - this.lastQueuedPlayerPos.y;
+    if (dx * dx + dy * dy < 64) return;
+
+    this.lastQueuedPlayerPos = { x: this.player.x, y: this.player.y };
+    this.queueCurrentSave('Saving...');
+  }
+
+  private queueCurrentSave(status: string): void {
+    if (!this.saveEnabled) return;
+
+    queueSave(this.captureSaveState());
+    this.setSaveStatus(status);
+  }
+
+  private setSaveStatus(status: string): void {
+    this.saveStatusText.setText(status);
+  }
+
+  private onShutdown(): void {
+    this.game.events.off(INVENTORY_CHANGED, this.onInventoryChanged, this);
+    this.events.off('resource-gathered', this.onResourceGathered, this);
+    this.authSubscription?.unsubscribe();
+    this.authSubscription = null;
+
+    if (this.saveEnabled) {
+      queueSave(this.captureSaveState());
+      void flushSave().catch((error: unknown) => {
+        console.warn('[matlu] Homestead shutdown save failed', error);
+      });
     }
   }
 }

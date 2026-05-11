@@ -171,6 +171,21 @@ export class InventorySystem {
     return [...this.items.entries()];
   }
 
+  /**
+   * Replace the whole inventory from a save file. Cloud saves need this instead
+   * of replaying item adds because stack limits can change between versions.
+   */
+  replaceAll(entries: [string, number][]): void {
+    this.items.clear();
+    for (const [itemId, qty] of entries) {
+      if (qty > 0) {
+        this.items.set(itemId, Math.floor(qty));
+      }
+    }
+    this._persist();
+    this.game.events.emit(INVENTORY_CHANGED, '*', 0);
+  }
+
   /** Items filtered by category (requires resource defs to be loaded). */
   listByCategory(category: ItemCategory): [string, number][] {
     return this.entries().filter(([id]) => {

@@ -53,6 +53,7 @@ export type ResourceNodeState = 'ready' | 'depleted';
 export class ResourceNode extends InteractiveObject {
   readonly def: ResourceNodeTypeDef;
   private readonly inventory: InventorySystem;
+  private readonly _saveId: string;
 
   private _nodeState: ResourceNodeState = 'ready';
   private _promptText: Phaser.GameObjects.Text;
@@ -62,6 +63,8 @@ export class ResourceNode extends InteractiveObject {
   private _pendingGather = false;
   /** Visual targeting indicator. */
   private _targetRing: Phaser.GameObjects.Arc | null = null;
+  private _respawnAt: number | null = null;
+  private _respawnTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -69,6 +72,7 @@ export class ResourceNode extends InteractiveObject {
     y: number,
     def: ResourceNodeTypeDef,
     inventory: InventorySystem,
+    saveId?: string,
   ) {
     super(scene, x, y, def.spriteKey, {
       trigger: 'player-nearby',
@@ -80,6 +84,7 @@ export class ResourceNode extends InteractiveObject {
 
     this.def = def;
     this.inventory = inventory;
+    this._saveId = saveId ?? def.id;
 
     this.sortDepth();
 
@@ -115,6 +120,33 @@ export class ResourceNode extends InteractiveObject {
 
   get nodeState(): ResourceNodeState {
     return this._nodeState;
+  }
+
+  get saveId(): string {
+    return this._saveId;
+  }
+
+  get respawnAt(): number | null {
+    return this._nodeState === 'depleted' ? this._respawnAt : null;
+  }
+
+  applySavedState(state: ResourceNodeState, respawnAt: number | null): void {
+    this._clearRespawnTimer();
+
+    if (state === 'depleted') {
+      const remainingMs = typeof respawnAt === 'number' ? respawnAt - Date.now() : 0;
+      if (remainingMs > 0) {
+        this._nodeState = 'depleted';
+        this._respawnAt = respawnAt;
+        this._setDepletedVisuals();
+        this._respawnTimer = this.scene.time.delayedCall(remainingMs, () => this.respawn());
+        return;
+      }
+    }
+
+    this._nodeState = 'ready';
+    this._respawnAt = null;
+    this._setReadyVisuals();
   }
 
   /**
@@ -211,6 +243,7 @@ export class ResourceNode extends InteractiveObject {
 
     // Deplete
     this._nodeState = 'depleted';
+    this._respawnAt = this.def.respawnMs > 0 ? Date.now() + this.def.respawnMs : null;
     this._promptText.setAlpha(0);
     this._playerInRange = false;
 
@@ -223,7 +256,7 @@ export class ResourceNode extends InteractiveObject {
       repeat: 2,
       onComplete: () => {
         this.angle = 0;
-        this.setAlpha(0.35);
+        this._setDepletedVisuals();
       },
     });
 
@@ -234,12 +267,15 @@ export class ResourceNode extends InteractiveObject {
 
     // Respawn via Phaser timer — no manual delta tracking needed
     if (this.def.respawnMs > 0) {
-      this.scene.time.delayedCall(this.def.respawnMs, () => this.respawn());
+      this._clearRespawnTimer();
+      this._respawnTimer = this.scene.time.delayedCall(this.def.respawnMs, () => this.respawn());
     }
   }
 
   private respawn(): void {
     this._nodeState = 'ready';
+    this._respawnAt = null;
+    this._respawnTimer = null;
     this.scene.tweens.add({
       targets: this,
       alpha: { from: 0.35, to: 1 },
@@ -250,9 +286,27 @@ export class ResourceNode extends InteractiveObject {
     });
   }
 
+  private _setDepletedVisuals(): void {
+    this.setAlpha(0.35);
+    this._promptText.setAlpha(0);
+  }
+
+  private _setReadyVisuals(): void {
+    this.setAlpha(1);
+    this.setScale(1);
+    this.setAngle(0);
+    this._promptText.setAlpha(0);
+  }
+
+  private _clearRespawnTimer(): void {
+    this._respawnTimer?.remove(false);
+    this._respawnTimer = null;
+  }
+
   override destroy(fromScene?: boolean): void {
     this._promptText?.destroy();
     this.clearTarget();
+    this._clearRespawnTimer();
     super.destroy(fromScene);
   }
 }
