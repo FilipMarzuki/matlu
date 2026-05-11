@@ -163,6 +163,7 @@ export class HomesteadScene extends Phaser.Scene {
   private lastHoverTy = -1;
   /** UI-only game objects — rendered by the unzoomed UI camera, ignored by main. */
   private uiLayer: Phaser.GameObjects.GameObject[] = [];
+  private cancelBtn: Phaser.GameObjects.Container | null = null;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -443,7 +444,8 @@ export class HomesteadScene extends Phaser.Scene {
       if (pointer.y > cam.height - 70) return;
       const worldPt = cam.getWorldPoint(pointer.x, pointer.y);
       const tile = this.isoToTile(worldPt.x, worldPt.y);
-      if (!tile) return;
+      // Tap outside the grid → cancel (mobile-friendly)
+      if (!tile) { this.cancelPlacement(); return; }
       this.placeBuilding(this.selectedBuilding, tile.tx, tile.ty);
     });
 
@@ -601,13 +603,12 @@ export class HomesteadScene extends Phaser.Scene {
 
   private selectBuilding(index: number): void {
     if (this.selectedBuilding === BUILDINGS[index]) {
-      this.selectedBuilding = null;
-      this.clearGhost();
-      this.highlightToolbar(-1);
+      this.cancelPlacement();
       return;
     }
     this.selectedBuilding = BUILDINGS[index];
     this.highlightToolbar(index);
+    this.showCancelBtn();
   }
 
   private highlightToolbar(activeIdx: number): void {
@@ -621,6 +622,36 @@ export class HomesteadScene extends Phaser.Scene {
     this.selectedBuilding = null;
     this.clearGhost();
     this.highlightToolbar(-1);
+    this.hideCancelBtn();
+  }
+
+  private showCancelBtn(): void {
+    if (this.cancelBtn) return;
+    const cam = this.cameras.main;
+    const x = cam.width / 2;
+    const y = cam.height - 72;
+
+    const container = this.add.container(x, y).setDepth(270);
+    const bg = this.add.rectangle(0, 0, 60, 22, 0x4a2a2a, 0.9)
+      .setStrokeStyle(1, 0x884444, 0.8);
+    const label = this.add.text(0, 0, '✕ Cancel', {
+      fontSize: '9px', color: '#cc8888', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    container.add([bg, label]);
+    container.setSize(60, 22);
+    container.setInteractive({ useHandCursor: true });
+    container.on('pointerdown', () => this.cancelPlacement());
+
+    // Render on UI camera only
+    cam.ignore(container);
+    this.cancelBtn = container;
+  }
+
+  private hideCancelBtn(): void {
+    if (this.cancelBtn) {
+      this.cancelBtn.destroy();
+      this.cancelBtn = null;
+    }
   }
 
   private clearGhost(): void {
@@ -678,9 +709,7 @@ export class HomesteadScene extends Phaser.Scene {
     sprite.setDepth(hsIsoDepth(centreWx, centreWy));
     this.placedBuildings.push(sprite);
 
-    this.selectedBuilding = null;
-    this.highlightToolbar(-1);
-    this.clearGhost();
+    this.cancelPlacement();
   }
 
   // ── Placement preview ──────────────────────────────────────────────────
