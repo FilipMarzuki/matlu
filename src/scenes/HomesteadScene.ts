@@ -438,6 +438,8 @@ export class HomesteadScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.selectedBuilding) return;
+      // Right-click cancels placement
+      if (pointer.rightButtonDown()) { this.cancelPlacement(); return; }
       if (pointer.y > cam.height - 70) return;
       const worldPt = cam.getWorldPoint(pointer.x, pointer.y);
       const tile = this.isoToTile(worldPt.x, worldPt.y);
@@ -456,6 +458,9 @@ export class HomesteadScene extends Phaser.Scene {
       this.lastHoverTy = tile.ty;
       this.drawPlacementPreview(this.selectedBuilding, tile.tx, tile.ty);
     });
+
+    // Escape cancels placement
+    kb.on('keydown-ESC', () => { if (this.selectedBuilding) this.cancelPlacement(); });
   }
 
   update(): void {
@@ -610,6 +615,12 @@ export class HomesteadScene extends Phaser.Scene {
       const bg = this.toolbarBtns[i].getAt(0) as Phaser.GameObjects.Rectangle;
       bg.setStrokeStyle(i === activeIdx ? 2 : 1, i === activeIdx ? 0xddaa44 : 0x3a5a3a, i === activeIdx ? 1 : 0.8);
     }
+  }
+
+  private cancelPlacement(): void {
+    this.selectedBuilding = null;
+    this.clearGhost();
+    this.highlightToolbar(-1);
   }
 
   private clearGhost(): void {
