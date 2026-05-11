@@ -257,6 +257,7 @@ export class HomesteadScene extends Phaser.Scene {
     const { x: spawnIsoX, y: spawnIsoY } = hsWorldToIso(spawnWx, spawnWy);
     this.playerIso = this.add.sprite(spawnIsoX, spawnIsoY, this.characterKey);
     this.playerIso.setOrigin(0.5, 1); // anchor at feet
+    this.playerIso.setScale(0.45);    // ~34px wide — fits one iso tile
     this.playerIso.setDepth(hsIsoDepth(spawnWx, spawnWy));
     this.playerIso.play(`${this.characterKey}_idle_south`);
 
