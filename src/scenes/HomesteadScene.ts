@@ -306,9 +306,11 @@ export class HomesteadScene extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(200);
 
     // ── Camera ────────────────────────────────────────────────────────────
-    // Set bounds to the iso diamond bounding box, camera follows the player iso sprite.
-    this.cameras.main.setBounds(0, 0, ISO_W, ISO_H);
-    this.cameras.main.startFollow(this.playerIso, true, 0.08, 0.08);
+    // The 20×20 iso diamond fits on screen — center it, no scrolling.
+    const cam = this.cameras.main;
+    const offsetX = (cam.width - ISO_W) / 2;
+    const offsetY = (cam.height - ISO_H) / 2;
+    cam.setScroll(-offsetX, -offsetY);
   }
 
   update(): void {
