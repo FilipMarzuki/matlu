@@ -307,7 +307,6 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Camera ────────────────────────────────────────────────────────────
     // The 20×20 iso diamond fits on screen — center it, no scrolling.
-    const cam = this.cameras.main;
     const offsetX = (cam.width - ISO_W) / 2;
     const offsetY = (cam.height - ISO_H) / 2;
     cam.setScroll(-offsetX, -offsetY);
