@@ -692,11 +692,6 @@ export class HomesteadScene extends Phaser.Scene {
 
     const sprite = this.add.image(isoX, isoY, def.spriteKey);
     sprite.setOrigin(0.5, 0.75);
-    // Scale buildings so their footprint fills the iso tile area properly.
-    // Target width = footW tiles × ISO_TILE_W pixels.
-    const targetW = def.footW * ISO_TILE_W;
-    const buildingScale = targetW / sprite.width;
-    sprite.setScale(buildingScale);
     sprite.setDepth(hsIsoDepth(centreWx, centreWy));
     this.placedBuildings.push(sprite);
     this.cancelPlacement();
@@ -744,8 +739,6 @@ export class HomesteadScene extends Phaser.Scene {
       const { x: isoX, y: isoY } = hsWorldToIso(centreWx, centreWy);
       this.ghostSprite = this.add.image(isoX, isoY, def.spriteKey);
       this.ghostSprite.setOrigin(0.5, 0.75);
-      const targetW = def.footW * ISO_TILE_W;
-      this.ghostSprite.setScale(targetW / this.ghostSprite.width);
       this.ghostSprite.setAlpha(blocked ? 0.3 : 0.5);
       this.ghostSprite.setDepth(9001);
       if (blocked) this.ghostSprite.setTint(0xff6666);
