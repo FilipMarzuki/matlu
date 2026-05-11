@@ -67,6 +67,8 @@ import { CreditCard } from '../ui/CreditCard';
 import { EssenceSystem } from '../systems/EssenceSystem';
 import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem } from '../systems/TinkerTraySystem';
+import { PerceptionSystem } from '../systems/PerceptionSystem';
+import type { PerceptionEntry } from '../systems/PerceptionSystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ProjectSystem } from '../systems/ProjectSystem';
 import { EssenceHUD } from '../ui/EssenceHUD';
@@ -192,6 +194,48 @@ const NPC_DIALOG: Record<string, string> = {
   strandviken:  'Havet var annorlunda förr. Nu luktar det annorlunda vid tidvattnet.',
   skogsglanten: 'Skogen minner om saker. Lyssna när vinden vänder.',
   klippbyn:     'Det är kallt här uppe. Men utsikten — den ljuger aldrig.',
+};
+
+/** Active perception entries for settlement NPCs (#824).
+ *  When the player's tray slots 0-1 overlap with an entry's tags,
+ *  bonus insight text is appended to the NPC dialog. */
+const NPC_PERCEPTION: Record<string, PerceptionEntry[]> = {
+  strandviken: [
+    {
+      tags: ['lore:corruption-origin', 'lore:wildkin-clans'],
+      text: 'Du märker att han tittar ut mot vattnet med en blick som säger mer än orden. Korruptionen kom från havet — inte från skogen.',
+      reward: { discoveryBonus: 0.1 },
+    },
+    {
+      tags: ['concept:salt-preservation', 'material:sea-salt'],
+      text: 'Fiskaren lägger salt i mönster du känner igen. Det finns en metod bakom vanans rörelser.',
+      reward: { discoveryBonus: 0.08 },
+    },
+  ],
+  skogsglanten: [
+    {
+      tags: ['lore:earth-ruins', 'concept:inscription'],
+      text: 'Markeringarna på träden — de är inte djurklor. Någon har ristat tecken som liknar dem du sett i ruinerna.',
+      reward: { discoveryBonus: 0.1 },
+    },
+    {
+      tags: ['concept:tension', 'concept:rotation'],
+      text: 'Grenarna böjer sig i spiraler, inte bara av vinden. Det finns en kraft som vrider dem inifrån.',
+      reward: { discoveryBonus: 0.08 },
+    },
+  ],
+  klippbyn: [
+    {
+      tags: ['concept:heat-treatment', 'material:iron-ore'],
+      text: 'Smeden härdade kniven annorlunda — oljan, inte vatten. Du förstår varför bladet håller skärpan.',
+      reward: { discoveryBonus: 0.12 },
+    },
+    {
+      tags: ['lore:corrupted-beast', 'concept:material-affinity'],
+      text: 'Klippbyns jägare talar om korrupterade djur. Du inser att korruptionen binder till ben, inte kött.',
+      reward: { discoveryBonus: 0.1 },
+    },
+  ],
 };
 
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
@@ -431,6 +475,7 @@ export class GameScene extends Phaser.Scene {
   essenceSystem!: EssenceSystem;
   inventorySystem!: InventorySystem;
   tinkerTraySystem!: TinkerTraySystem;
+  perceptionSystem!: PerceptionSystem;
   discoverySystem!: DiscoverySystem;
   projectSystem!: ProjectSystem;
 
@@ -1028,6 +1073,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.tinkerTraySystem = new TinkerTraySystem(this);
+    this.perceptionSystem = new PerceptionSystem(this);
     this.discoverySystem = new DiscoverySystem(this);
     this.projectSystem = new ProjectSystem(this);
 
@@ -7010,9 +7056,20 @@ export class GameScene extends Phaser.Scene {
         if (this.interactKey && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
           this.npcDialogActive = true;
           const sid = npc.getData('settlementId') as string;
+          let text = NPC_DIALOG[sid] ?? 'Välkommen.';
+
+          // Active perception (#824): check tray slots 0-1 against NPC perception tags
+          const entries = NPC_PERCEPTION[sid];
+          if (entries) {
+            const match = this.perceptionSystem.checkAndApply(entries, this);
+            if (match) {
+              text += '\n\n' + match.entry.text;
+            }
+          }
+
           const dialogData: NpcDialogData = {
             callerKey: this.scene.key,
-            text: NPC_DIALOG[sid] ?? 'Välkommen.',
+            text,
           };
           this.scene.pause();
           this.scene.launch('NpcDialogScene', dialogData as unknown as object);

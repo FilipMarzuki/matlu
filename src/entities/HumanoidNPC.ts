@@ -36,6 +36,7 @@
  */
 
 import * as Phaser from 'phaser';
+import type { PerceptionEntry } from '../systems/PerceptionSystem';
 
 // ── Direction helpers ─────────────────────────────────────────────────────────
 // Same 8-sector mapping used by CombatEntity — left-side dirs mirror right-side.
@@ -78,6 +79,8 @@ export interface HumanoidNPCConfig {
   /** How long (ms) the NPC walks in one direction before picking a new one. */
   wanderIntervalMin?: number;
   wanderIntervalMax?: number;
+  /** Active perception entries — checked against tray slots 0-1 on interaction. */
+  perceptionEntries?: PerceptionEntry[];
 }
 
 // ── Class ─────────────────────────────────────────────────────────────────────
@@ -89,6 +92,7 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   private readonly interactRadius: number;
   private readonly wanderIntervalMin: number;
   private readonly wanderIntervalMax: number;
+  readonly perceptionEntries: PerceptionEntry[];
 
   // Wander state
   private wanderVx = 0;
@@ -123,6 +127,7 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
     this.interactRadius    = config.interactRadius    ?? 80;
     this.wanderIntervalMin = config.wanderIntervalMin ?? 1200;
     this.wanderIntervalMax = config.wanderIntervalMax ?? 3200;
+    this.perceptionEntries = config.perceptionEntries ?? [];
 
     // Anchor at feet for natural y-sorting with the hero
     this.setOrigin(0.5, 1);
@@ -236,7 +241,11 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
     if (this.dialogLines.length === 0) return;
     const line = this.dialogLines[this.dialogIndex % this.dialogLines.length];
     this.dialogIndex++;
-    this.scene.events.emit('npc-interact', { name: this.npcName, line });
+    this.scene.events.emit('npc-interact', {
+      name: this.npcName,
+      line,
+      perceptionEntries: this.perceptionEntries,
+    });
   }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
