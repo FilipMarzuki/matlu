@@ -161,6 +161,8 @@ export class HomesteadScene extends Phaser.Scene {
   private footprintGfx: Phaser.GameObjects.Graphics | null = null;
   private lastHoverTx = -1;
   private lastHoverTy = -1;
+  /** UI-only game objects — rendered by the unzoomed UI camera, ignored by main. */
+  private uiLayer: Phaser.GameObjects.GameObject[] = [];
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -334,18 +336,39 @@ export class HomesteadScene extends Phaser.Scene {
       }
     });
 
-    // ── Virtual joystick (mobile) ───────────────────────────────────────
+    // ── Camera ────────────────────────────────────────────────────────────
+    // Main camera: 3× zoom, follows the player through the iso world.
     const cam = this.cameras.main;
+    cam.setZoom(3);
+    cam.setBounds(
+      -cam.width / (2 * 3),
+      -cam.height / (2 * 3),
+      ISO_W + cam.width / 3,
+      ISO_H + cam.height / 3,
+    );
+    cam.startFollow(this.playerIso, true, 0.08, 0.08);
+
+    // UI camera: 1× zoom, no scroll — renders HUD elements at native size.
+    const uiCam = this.cameras.add(0, 0, cam.width, cam.height);
+    uiCam.setScroll(0, 0);
+
+    // Helper: mark a game object as UI-only (visible on uiCam, hidden on main cam).
+    const addUi = (...objs: Phaser.GameObjects.GameObject[]) => {
+      for (const obj of objs) {
+        cam.ignore(obj);       // main cam doesn't render it
+        this.uiLayer.push(obj);
+      }
+    };
+
+    // ── Virtual joystick (mobile) ───────────────────────────────────────
     const joyRadius = 40;
     const joyX = 60;
     const joyY = cam.height - 60;
 
-    this.add.arc(joyX, joyY, joyRadius, 0, 360, false, 0x000000, 0.25)
-      .setStrokeStyle(2, 0xffffff, 0.3)
-      .setScrollFactor(0).setDepth(250);
-
-    const thumb = this.add.arc(joyX, joyY, 14, 0, 360, false, 0xffffff, 0.5)
-      .setScrollFactor(0).setDepth(251);
+    const joyBase = this.add.arc(joyX, joyY, joyRadius, 0, 360, false, 0x000000, 0.25)
+      .setStrokeStyle(2, 0xffffff, 0.3).setDepth(250);
+    const thumb = this.add.arc(joyX, joyY, 14, 0, 360, false, 0xffffff, 0.5).setDepth(251);
+    addUi(joyBase, thumb);
 
     this.joystick = new SimpleJoystick(this, joyX, joyY, joyRadius, thumb);
 
@@ -355,25 +378,22 @@ export class HomesteadScene extends Phaser.Scene {
     const btnR = 28;
 
     this.actionBtn = this.add.arc(btnX, btnY, btnR, 0, 360, false, 0x44aa44, 0.3)
-      .setStrokeStyle(2, 0x44aa44, 0.6)
-      .setScrollFactor(0).setDepth(250)
-      .setInteractive();
-
+      .setStrokeStyle(2, 0x44aa44, 0.6).setDepth(250).setInteractive();
     this.actionLabel = this.add.text(btnX, btnY, 'E', {
       fontSize: '18px', color: '#88cc88', fontStyle: 'bold',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+    }).setOrigin(0.5).setDepth(251);
+    addUi(this.actionBtn, this.actionLabel);
 
     this.actionBtn.on('pointerdown', () => { this.actionTapped = true; });
 
     // ── Craft button ────────────────────────────────────────────────────
     const craftBtnY = btnY - 70;
     const craftBtn = this.add.arc(btnX, craftBtnY, 22, 0, 360, false, 0x4466aa, 0.3)
-      .setStrokeStyle(2, 0x4466aa, 0.6)
-      .setScrollFactor(0).setDepth(250)
-      .setInteractive();
-    this.add.text(btnX, craftBtnY, 'C', {
+      .setStrokeStyle(2, 0x4466aa, 0.6).setDepth(250).setInteractive();
+    const craftLabel = this.add.text(btnX, craftBtnY, 'C', {
       fontSize: '14px', color: '#88aacc', fontStyle: 'bold',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+    }).setOrigin(0.5).setDepth(251);
+    addUi(craftBtn, craftLabel);
 
     craftBtn.on('pointerdown', () => {
       if (this.scene.isActive('CraftingMenuScene')) {
@@ -387,21 +407,11 @@ export class HomesteadScene extends Phaser.Scene {
     new InventoryHUD(this, inv);
     new HomesteadAuth(this);
 
-    this.add.text(8, 8, 'Homestead Mode', {
+    const modeLabel = this.add.text(8, 8, 'Homestead Mode', {
       fontSize: '11px', color: '#aaccaa', backgroundColor: '#00000066',
       padding: { x: 6, y: 4 },
-    }).setScrollFactor(0).setDepth(200);
-
-    // ── Camera ────────────────────────────────────────────────────────────
-    // Zoom in 3× and follow the player so we see a close-up portion of the grid.
-    cam.setZoom(3);
-    cam.setBounds(
-      -cam.width / (2 * 3),       // allow some padding beyond diamond edges
-      -cam.height / (2 * 3),
-      ISO_W + cam.width / 3,
-      ISO_H + cam.height / 3,
-    );
-    cam.startFollow(this.playerIso, true, 0.08, 0.08);
+    }).setDepth(200);
+    addUi(modeLabel);
 
     // ── Cardinal direction labels (just outside the diamond edges) ──────
     const dirStyle: Phaser.Types.GameObjects.Text.TextStyle = {
@@ -418,6 +428,13 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Building toolbar + placement ─────────────────────────────────────
     this.createBuildToolbar();
+
+    // Tell the UI camera to ignore all non-UI game objects so it only
+    // renders HUD/toolbar elements at 1× zoom.
+    const uiSet = new Set(this.uiLayer);
+    for (const child of this.children.list) {
+      if (!uiSet.has(child)) uiCam.ignore(child);
+    }
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.selectedBuilding) return;
@@ -555,7 +572,7 @@ export class HomesteadScene extends Phaser.Scene {
     for (let i = 0; i < BUILDINGS.length; i++) {
       const b = BUILDINGS[i];
       const x = startX + i * (btnSize + gap) + btnSize / 2;
-      const container = this.add.container(x, y).setScrollFactor(0).setDepth(260);
+      const container = this.add.container(x, y).setDepth(260);
       const bg = this.add.rectangle(0, 0, btnSize, btnSize, 0x1a2a1a, 0.85)
         .setStrokeStyle(1, 0x3a5a3a, 0.8);
       container.add(bg);
@@ -571,6 +588,9 @@ export class HomesteadScene extends Phaser.Scene {
       container.setInteractive({ useHandCursor: true });
       container.on('pointerdown', () => this.selectBuilding(i));
       this.toolbarBtns.push(container);
+      // Render on UI camera only (not zoomed main camera)
+      cam.ignore(container);
+      this.uiLayer.push(container);
     }
   }
 
