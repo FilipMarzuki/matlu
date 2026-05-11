@@ -21,6 +21,7 @@ import { InventorySystem } from '../systems/InventorySystem';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
+import { HomesteadAuth } from '../lib/HomesteadAuth';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -233,6 +234,9 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── HUD ───────────────────────────────────────────────────────────────
     new InventoryHUD(this, inv);
+
+    // Auth: anonymous sign-in + status pill + login modal (#854, #855, #856)
+    new HomesteadAuth(this);
 
     this.add.text(8, 8, 'Homestead Mode', {
       fontSize: '11px', color: '#aaccaa', backgroundColor: '#00000066',
