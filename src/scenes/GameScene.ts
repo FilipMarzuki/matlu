@@ -359,6 +359,11 @@ const ISO_DIAMOND_FACE_POINTS: Phaser.Math.Vector2[] = [
   new Phaser.Math.Vector2(-ISO_TILE_W / 2,   ISO_TILE_H / 2),
 ];
 
+const CORRUPTION_SCAR_THRESHOLD = 0.42;
+const CORRUPTION_SCAR_COLOR     = 0x16081e;
+const CORRUPTION_VEIN_COLOR     = 0x4b1465;
+const CORRUPTION_ACCENT_COLOR   = 0xb34cff;
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -758,6 +763,8 @@ export class GameScene extends Phaser.Scene {
    * Opacity scales with global corruption — updated whenever cleanse-updated fires.
    */
   private cliffCorruptGfx: Phaser.GameObjects.Graphics | null = null;
+  /** Ground-level corruption scars drawn from CorruptionField; alpha fades as the zone is cleansed. */
+  private terrainCorruptRt: Phaser.GameObjects.RenderTexture | null = null;
   // ── FIL-167/168: diagonal river lookup grids ─────────────────────────────
   /**
    * 1 if the tile is covered by any diagonal river band, 0 otherwise.
@@ -3075,7 +3082,7 @@ export class GameScene extends Phaser.Scene {
 
     // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, 0x16081e, 0.30)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3164,7 +3171,9 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldTint(percent: number): void {
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
-    this.overlay.setAlpha(0.38 * (1 - ratio));
+    const corruption = 1 - ratio;
+    this.overlay.setAlpha(0.30 * corruption);
+    this.terrainCorruptRt?.setAlpha(corruption);
   }
 
   private createPortal(): void {
@@ -5766,6 +5775,8 @@ export class GameScene extends Phaser.Scene {
     // FIL-444: terrain baked into an isometric RenderTexture.
     // RT covers the full iso canvas (3760 × 1892 px). Depth 0 = drawn first (furthest back).
     const terrainRt = this.add.renderTexture(0, 0, ISO_WORLD_W, ISO_WORLD_H).setDepth(0);
+    const terrainCorruptRt = this.add.renderTexture(0, 0, ISO_WORLD_W, ISO_WORLD_H).setDepth(2.4);
+    this.terrainCorruptRt = terrainCorruptRt;
 
     // Reuse a single off-screen Image for every tile draw — setTexture/setPosition change
     // state without creating new objects. Origin (0.5, 0) = north apex of the diamond.
@@ -5774,6 +5785,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setVisible(false);
     const biomeWashGfx = this.add.graphics().setVisible(false);
+    const corruptionGfx = this.add.graphics().setVisible(false);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5894,6 +5906,47 @@ export class GameScene extends Phaser.Scene {
           terrainRt.draw(biomeWashGfx);
         }
 
+        if (!isRiverHere && !isLakeHere) {
+          const localCorruption = this.corruptionField.sample(
+            wx + TILE_SIZE / 2,
+            wy + TILE_SIZE / 2,
+            1,
+          );
+          if (localCorruption > CORRUPTION_SCAR_THRESHOLD) {
+            const intensity = Phaser.Math.Clamp(
+              (localCorruption - CORRUPTION_SCAR_THRESHOLD) / (0.9 - CORRUPTION_SCAR_THRESHOLD),
+              0,
+              1,
+            );
+            const veinVariant = ((tx * 1597 ^ ty * 2833 ^ tx * ty * 61) >>> 0) % 4;
+
+            corruptionGfx
+              .clear()
+              .setPosition(isoX, isoY)
+              .fillStyle(CORRUPTION_SCAR_COLOR, 0.16 + intensity * 0.30)
+              .fillPoints(ISO_DIAMOND_FACE_POINTS, true)
+              .lineStyle(1, CORRUPTION_VEIN_COLOR, 0.25 + intensity * 0.45);
+
+            if (veinVariant === 0) {
+              corruptionGfx.lineBetween(-12, 7, -2, 4).lineBetween(-2, 4, 12, 8);
+            } else if (veinVariant === 1) {
+              corruptionGfx.lineBetween(-8, 11, 0, 6).lineBetween(0, 6, 9, 4);
+            } else if (veinVariant === 2) {
+              corruptionGfx.lineBetween(-10, 5, 2, 10).lineBetween(2, 10, 11, 7);
+            } else {
+              corruptionGfx.lineBetween(-4, 3, 5, 8).lineBetween(5, 8, 13, 6);
+            }
+
+            if (intensity > 0.55 && veinVariant % 2 === 0) {
+              corruptionGfx
+                .lineStyle(1, CORRUPTION_ACCENT_COLOR, 0.18 + intensity * 0.22)
+                .lineBetween(-2, 5, 4, 7);
+            }
+
+            terrainCorruptRt.draw(corruptionGfx);
+          }
+        }
+
       }
     }
 
@@ -5925,6 +5978,7 @@ export class GameScene extends Phaser.Scene {
 
     tileImg.destroy();
     biomeWashGfx.destroy();
+    corruptionGfx.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
