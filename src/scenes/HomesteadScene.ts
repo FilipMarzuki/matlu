@@ -393,10 +393,15 @@ export class HomesteadScene extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(200);
 
     // ── Camera ────────────────────────────────────────────────────────────
-    // The 20×20 iso diamond fits on screen — center it, no scrolling.
-    const offsetX = (cam.width - ISO_W) / 2;
-    const offsetY = (cam.height - ISO_H) / 2;
-    cam.setScroll(-offsetX, -offsetY);
+    // Zoom in 3× and follow the player so we see a close-up portion of the grid.
+    cam.setZoom(3);
+    cam.setBounds(
+      -cam.width / (2 * 3),       // allow some padding beyond diamond edges
+      -cam.height / (2 * 3),
+      ISO_W + cam.width / 3,
+      ISO_H + cam.height / 3,
+    );
+    cam.startFollow(this.playerIso, true, 0.08, 0.08);
 
     // ── Cardinal direction labels (just outside the diamond edges) ──────
     const dirStyle: Phaser.Types.GameObjects.Text.TextStyle = {
