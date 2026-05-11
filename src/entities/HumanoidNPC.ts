@@ -40,6 +40,10 @@ import * as Phaser from 'phaser';
 // ── Direction helpers ─────────────────────────────────────────────────────────
 // Same 8-sector mapping used by CombatEntity — left-side dirs mirror right-side.
 type CanonDir = 'south' | 'south-east' | 'east' | 'north-east' | 'north';
+export type HumanoidNPCLodTier = 0 | 1 | 2;
+
+export const HUMANOID_NPC_LOD_ACTIVE_DISTANCE = 400;
+export const HUMANOID_NPC_LOD_REDUCED_DISTANCE = 900;
 
 const DIR_MAP: Record<number, [CanonDir, boolean]> = {
    0: ['east',       false],
@@ -57,6 +61,18 @@ function resolveDir(vx: number, vy: number): [CanonDir, boolean] {
   const angle  = Math.atan2(vy, vx);
   const sector = Math.round(angle / (Math.PI / 4));
   return DIR_MAP[sector] ?? ['south', false];
+}
+
+export function getHumanoidNpcLodTier(distancePx: number): HumanoidNPCLodTier {
+  if (distancePx < HUMANOID_NPC_LOD_ACTIVE_DISTANCE) return 0;
+  if (distancePx < HUMANOID_NPC_LOD_REDUCED_DISTANCE) return 1;
+  return 2;
+}
+
+function getLodInterval(tier: HumanoidNPCLodTier): number {
+  if (tier === 0) return 0;
+  if (tier === 1) return 200;
+  return 1000;
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -94,6 +110,13 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   private wanderVx = 0;
   private wanderVy = 0;
   private wanderTimer = 0;
+
+  // LOD state — scenes assign tiers on a coarse cadence to avoid per-frame
+  // distance checks for every NPC on mobile hardware.
+  private lodTier: HumanoidNPCLodTier = 0;
+  private lodAccumulator = 0;
+  private lodInterval = 0;
+  private pausedForSleepingLod = false;
 
   // Animation state — persisted to avoid restarting the same anim every frame
   private facingDir: CanonDir = 'south';
@@ -162,6 +185,85 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
    * @param playerY  Current player world-y
    */
   tick(delta: number, playerX: number, playerY: number): void {
+    const lodDelta = this.consumeLodDelta(delta);
+    if (lodDelta === null) return;
+
+    if (this.lodTier === 2) {
+      this.tickSleepingLod(lodDelta);
+      return;
+    }
+
+    this.tickActiveLod(lodDelta, playerX, playerY);
+  }
+
+  /**
+   * Assigns the AI tick tier directly. Hosting scenes should call this only on a
+   * coarse timer (for example every 200ms), not inside every frame's NPC loop.
+   */
+  setLodTier(tier: HumanoidNPCLodTier): void {
+    if (tier === this.lodTier) return;
+
+    const wasSleeping = this.lodTier === 2;
+    this.lodTier = tier;
+    this.lodInterval = getLodInterval(tier);
+    this.lodAccumulator = 0;
+
+    if (tier === 2) {
+      const body = this.body as Phaser.Physics.Arcade.Body;
+      body.setVelocity(0, 0);
+      this.promptText?.setAlpha(0);
+
+      if (this.anims.isPlaying) {
+        this.anims.pause();
+        this.pausedForSleepingLod = true;
+      }
+      return;
+    }
+
+    if (wasSleeping && this.pausedForSleepingLod) {
+      this.anims.resume();
+      this.pausedForSleepingLod = false;
+    }
+  }
+
+  /**
+   * Convenience helper for scene-level LOD assignment:
+   *
+   *   lodTimer -= delta;
+   *   if (lodTimer <= 0) {
+   *     lodTimer = 200;
+   *     for (const npc of npcs) npc.setLodTierFromPlayer(player.x, player.y);
+   *   }
+   */
+  setLodTierFromPlayer(playerX: number, playerY: number): void {
+    const distance = Phaser.Math.Distance.Between(playerX, playerY, this.x, this.y);
+    this.setLodTier(getHumanoidNpcLodTier(distance));
+  }
+
+  getLodTier(): HumanoidNPCLodTier {
+    return this.lodTier;
+  }
+
+  private consumeLodDelta(delta: number): number | null {
+    if (this.lodInterval === 0) return delta;
+
+    this.lodAccumulator += delta;
+    if (this.lodAccumulator < this.lodInterval) return null;
+
+    const elapsed = this.lodAccumulator;
+    this.lodAccumulator = 0;
+    return elapsed;
+  }
+
+  private tickSleepingLod(delta: number): void {
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    body.setVelocity(0, 0);
+    this.wanderTimer = Math.max(0, this.wanderTimer - delta);
+    this.setDepth(this.y);
+    this.promptText?.setPosition(this.x, this.y - 40);
+  }
+
+  private tickActiveLod(delta: number, playerX: number, playerY: number): void {
     // ── Wander ────────────────────────────────────────────────────────────────
     this.wanderTimer -= delta;
     if (this.wanderTimer <= 0) this.pickNewWanderDir();
