@@ -1,16 +1,13 @@
 /**
  * HomesteadScene — standalone base-building + crafting + gathering scene.
  *
- * A small playable area with resource nodes, player movement, crafting,
- * and base placement. No combat, no enemies. The chill mode / testbed
- * for the homestead epic (#834).
- *
- * Resource node proximity is handled by Phaser physics overlap — no
- * manual distance loops in update(). The scene just checks E-key input.
+ * Renders an isometric tiled meadow using the same 2:1 projection as the
+ * main world (IsoTransform). Physics stays in flat world space; only the
+ * visual rendering is projected to iso.
  *
  * Route: /homestead
  * Controls:
- *   WASD / Arrow keys — move
+ *   WASD / Arrow keys — move (iso-corrected: "up" = northwest)
  *   E — interact with nearby resource node
  *   C — open crafting menu
  *   I — toggle inventory panel
@@ -23,13 +20,56 @@ import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
 
-// ── Constants ───────────────────────────────────────────────────────────────
+// ── Homestead grid constants ───────────────────────────────────────────────
+// Small 20×20 tile grid — cozy plot, not an open world.
 
-const WORLD_W = 800;
-const WORLD_H = 600;
+const TILE_SIZE = 32;          // world-space pixels per tile
+const GRID = 20;               // tiles in each axis
+const WORLD_W = GRID * TILE_SIZE;  // 640
+const WORLD_H = GRID * TILE_SIZE;  // 640
 const PLAYER_SPEED = 120;
-/** Invisible circle around the player that triggers node overlap checks. */
 const INTERACT_RADIUS = 50;
+
+// ── Iso projection (homestead-local) ───────────────────────────────────────
+// Same 2:1 formula as IsoTransform but with homestead-specific origin offset.
+
+const ISO_TILE_W = 32;
+const ISO_TILE_H = 16;
+const ISO_ORIGIN_X = GRID * (ISO_TILE_W / 2);  // left-edge offset
+const ISO_W = (GRID + GRID) * (ISO_TILE_W / 2); // bounding width
+const ISO_H = (GRID + GRID) * (ISO_TILE_H / 2) + ISO_TILE_H; // bounding height
+
+function hsWorldToIso(wx: number, wy: number): { x: number; y: number } {
+  const tx = wx / TILE_SIZE;
+  const ty = wy / TILE_SIZE;
+  return {
+    x: ISO_ORIGIN_X + (tx - ty) * (ISO_TILE_W / 2),
+    y: (tx + ty) * (ISO_TILE_H / 2),
+  };
+}
+
+function hsIsoDepth(wx: number, wy: number): number {
+  return (wx + wy) / TILE_SIZE;
+}
+
+/**
+ * Convert screen-space input direction to world-space direction.
+ * In iso view, "screen up" = northwest in world space (rotated 45° CCW).
+ */
+function isoInputToWorld(svx: number, svy: number): { wx: number; wy: number } {
+  // Rotate 45° CCW to map screen axes → world axes
+  const cos45 = Math.SQRT1_2;
+  return {
+    wx:  svx * cos45 + svy * cos45,
+    wy: -svx * cos45 + svy * cos45,
+  };
+}
+
+// ── Tile hash for variety ──────────────────────────────────────────────────
+// Simple hash to pick one of 4 tile variants per position (deterministic).
+function tileVariant(tx: number, ty: number): number {
+  return ((tx * 7 + ty * 13) & 0x7fffffff) % 4;
+}
 
 // ── Scene ───────────────────────────────────────────────────────────────────
 
@@ -39,17 +79,15 @@ export class HomesteadScene extends Phaser.Scene {
   constructor() { super({ key: HomesteadScene.KEY }); }
 
   private player!: Phaser.Physics.Arcade.Image;
+  private playerIso!: Phaser.GameObjects.Image;  // visual sprite in iso space
   private interactZone!: Phaser.GameObjects.Arc;
   private wasd!: { up: Phaser.Input.Keyboard.Key; down: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
   private joystick: SimpleJoystick | null = null;
   private actionBtn: Phaser.GameObjects.Arc | null = null;
   private actionLabel: Phaser.GameObjects.Text | null = null;
   private resourceNodes: ResourceNode[] = [];
-  /** Nodes currently overlapping the interact zone this frame. */
   private nodesInRange = new Set<ResourceNode>();
-  /** True if the action button was tapped this frame. */
   private actionTapped = false;
-  /** Node the player is walking toward (tap-to-target). */
   private targetNode: ResourceNode | null = null;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -57,10 +95,16 @@ export class HomesteadScene extends Phaser.Scene {
   preload(): void {
     this.load.json('resources', '/macro-world/resources.json');
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
+    // Meadow tile variants (4 PNGs)
+    for (let i = 0; i < 4; i++) {
+      this.load.image(`meadow-${i}`, `/assets/packs/meadow-tiles/${i}.png`);
+    }
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#2a5a2a');
+    this.cameras.main.setBackgroundColor('#1a3a1a');
+
+    // Physics world stays in flat grid space
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
 
     // ── Inventory ─────────────────────────────────────────────────────────
@@ -70,16 +114,23 @@ export class HomesteadScene extends Phaser.Scene {
     inv.add('flint', 4);
     inv.add('dry-grass', 6);
 
-    // ── Ground ────────────────────────────────────────────────────────────
-    const gfx = this.add.graphics();
-    gfx.fillStyle(0x3a7a3a, 1);
-    gfx.fillRect(0, 0, WORLD_W, WORLD_H);
-    gfx.lineStyle(1, 0x2d6b2e, 0.3);
-    for (let x = 0; x < WORLD_W; x += 32) gfx.lineBetween(x, 0, x, WORLD_H);
-    for (let y = 0; y < WORLD_H; y += 32) gfx.lineBetween(0, y, WORLD_W, y);
-    gfx.lineStyle(3, 0x5a3a1a, 0.8);
-    gfx.strokeRect(2, 2, WORLD_W - 4, WORLD_H - 4);
-    gfx.setDepth(-1);
+    // ── Iso terrain ──────────────────────────────────────────────────────
+    // Painter's algorithm: iterate diagonals (tx + ty = constant) so
+    // back tiles render first and front tiles overlap correctly.
+    for (let diag = 0; diag < GRID * 2 - 1; diag++) {
+      const txMin = Math.max(0, diag - (GRID - 1));
+      const txMax = Math.min(diag, GRID - 1);
+      for (let tx = txMin; tx <= txMax; tx++) {
+        const ty = diag - tx;
+        const wx = tx * TILE_SIZE;
+        const wy = ty * TILE_SIZE;
+        const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+        const variant = tileVariant(tx, ty);
+        const tile = this.add.image(isoX, isoY, `meadow-${variant}`);
+        tile.setOrigin(0.5, 0);  // anchor at north apex
+        tile.setDepth(hsIsoDepth(wx, wy) - 1000); // behind everything
+      }
+    }
 
     // ── Placeholder textures ──────────────────────────────────────────────
     const textures: [string, number, number, number][] = [
@@ -100,18 +151,30 @@ export class HomesteadScene extends Phaser.Scene {
     }
 
     // ── Player ────────────────────────────────────────────────────────────
+    // Physics body lives in world space (invisible).
+    // Visual sprite is in iso space, updated each frame.
     if (!this.textures.exists('hs-player')) {
       const rt = this.add.renderTexture(0, 0, 14, 14);
       rt.fill(0x4488cc, 1);
       rt.saveTexture('hs-player');
       rt.destroy();
     }
-    this.player = this.physics.add.image(WORLD_W / 2, WORLD_H / 2, 'hs-player');
-    this.player.setCollideWorldBounds(true);
-    this.player.setDepth(100);
 
-    // Invisible interact zone — physics circle that follows the player.
-    // Overlap with nodes triggers prompt display without per-frame distance math.
+    const spawnWx = WORLD_W / 2;
+    const spawnWy = WORLD_H / 2;
+
+    // Invisible physics body
+    this.player = this.physics.add.image(spawnWx, spawnWy, 'hs-player');
+    this.player.setCollideWorldBounds(true);
+    this.player.setVisible(false); // hidden — iso sprite is the visual
+
+    // Visible iso sprite
+    const { x: spawnIsoX, y: spawnIsoY } = hsWorldToIso(spawnWx, spawnWy);
+    this.playerIso = this.add.image(spawnIsoX, spawnIsoY, 'hs-player');
+    this.playerIso.setOrigin(0.5, 1); // anchor at feet
+    this.playerIso.setDepth(hsIsoDepth(spawnWx, spawnWy));
+
+    // Invisible interact zone (world space)
     this.interactZone = this.add.arc(0, 0, INTERACT_RADIUS).setVisible(false);
     this.physics.add.existing(this.interactZone, false);
     const zoneBody = this.interactZone.body as Phaser.Physics.Arcade.Body;
@@ -119,44 +182,47 @@ export class HomesteadScene extends Phaser.Scene {
     zoneBody.setOffset(-INTERACT_RADIUS, -INTERACT_RADIUS);
 
     // ── Resource nodes ────────────────────────────────────────────────────
+    // Positions are in world space; ResourceNode renders at world coords
+    // but we reposition them to iso space after creation.
     const nodeDefs = this.cache.json.get('resource-nodes') as { nodeTypes: ResourceNodeTypeDef[] } | undefined;
     if (nodeDefs?.nodeTypes) {
-      const placements: { defId: string; x: number; y: number }[] = [
-        { defId: 'tree',  x: 120, y: 150 }, { defId: 'tree',  x: 180, y: 200 },
-        { defId: 'tree',  x: 100, y: 280 }, { defId: 'tree',  x: 160, y: 350 },
-        { defId: 'rock',  x: 550, y: 120 }, { defId: 'rock',  x: 620, y: 170 },
-        { defId: 'ore',   x: 600, y: 450 }, { defId: 'ore',   x: 670, y: 500 },
-        { defId: 'herb',  x: 300, y: 100 }, { defId: 'herb',  x: 450, y: 380 },
-        { defId: 'berry', x: 350, y: 480 }, { defId: 'berry', x: 200, y: 450 },
-        { defId: 'water', x: 400, y: 520 },
+      // Placements in world-space tile coords (tx, ty) → world pixels
+      const placements: { defId: string; tx: number; ty: number }[] = [
+        { defId: 'tree',  tx: 4,  ty: 5  }, { defId: 'tree',  tx: 6,  ty: 7  },
+        { defId: 'tree',  tx: 3,  ty: 9  }, { defId: 'tree',  tx: 5,  ty: 12 },
+        { defId: 'rock',  tx: 14, ty: 4  }, { defId: 'rock',  tx: 16, ty: 5  },
+        { defId: 'ore',   tx: 15, ty: 14 }, { defId: 'ore',   tx: 17, ty: 16 },
+        { defId: 'herb',  tx: 9,  ty: 3  }, { defId: 'herb',  tx: 12, ty: 12 },
+        { defId: 'berry', tx: 10, ty: 15 }, { defId: 'berry', tx: 6,  ty: 14 },
+        { defId: 'water', tx: 12, ty: 17 },
       ];
 
-      // Static group so one collider covers all nodes
       const nodeGroup = this.physics.add.staticGroup();
 
       for (const p of placements) {
         const def = nodeDefs.nodeTypes.find(d => d.id === p.defId);
         if (!def) continue;
-        const node = new ResourceNode(this, p.x, p.y, def, inv);
+        const wx = p.tx * TILE_SIZE + TILE_SIZE / 2;
+        const wy = p.ty * TILE_SIZE + TILE_SIZE / 2;
+        const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+        const node = new ResourceNode(this, isoX, isoY, def, inv);
+        node.setDepth(hsIsoDepth(wx, wy));
+        // Store world coords for depth sorting and proximity checks
+        node.setData('worldX', wx);
+        node.setData('worldY', wy);
         nodeGroup.add(node);
         this.resourceNodes.push(node);
       }
       nodeGroup.refresh();
 
-      // Collider: player bumps into nodes
       this.physics.add.collider(this.player, nodeGroup);
-
-      // Overlap: interact zone detects nearby nodes — Phaser's broadphase
-      // handles spatial culling, so only nodes near the player are checked.
       this.physics.add.overlap(this.interactZone, nodeGroup, (_zone, obj) => {
-        const node = obj as ResourceNode;
-        this.nodesInRange.add(node);
+        this.nodesInRange.add(obj as ResourceNode);
       });
     }
 
-    // ── Tap-to-target: player taps a node → walk to it → auto-gather ────
+    // ── Tap-to-target ────────────────────────────────────────────────────
     this.events.on('resource-node:targeted', (node: ResourceNode) => {
-      // Clear previous target
       if (this.targetNode && this.targetNode !== node) {
         this.targetNode.setTargeted(false);
       }
@@ -187,18 +253,16 @@ export class HomesteadScene extends Phaser.Scene {
     const joyX = 60;
     const joyY = cam.height - 60;
 
-    // Base ring
     this.add.arc(joyX, joyY, joyRadius, 0, 360, false, 0x000000, 0.25)
       .setStrokeStyle(2, 0xffffff, 0.3)
       .setScrollFactor(0).setDepth(250);
 
-    // Thumb (moves with touch)
     const thumb = this.add.arc(joyX, joyY, 14, 0, 360, false, 0xffffff, 0.5)
       .setScrollFactor(0).setDepth(251);
 
     this.joystick = new SimpleJoystick(this, joyX, joyY, joyRadius, thumb);
 
-    // ── Action button (mobile — replaces E key) ──────────────────────────
+    // ── Action button (mobile) ──────────────────────────────────────────
     const btnX = cam.width - 60;
     const btnY = cam.height - 60;
     const btnR = 28;
@@ -214,7 +278,7 @@ export class HomesteadScene extends Phaser.Scene {
 
     this.actionBtn.on('pointerdown', () => { this.actionTapped = true; });
 
-    // ── Craft button (above action button) ───────────────────────────────
+    // ── Craft button ────────────────────────────────────────────────────
     const craftBtnY = btnY - 70;
     const craftBtn = this.add.arc(btnX, craftBtnY, 22, 0, 360, false, 0x4466aa, 0.3)
       .setStrokeStyle(2, 0x4466aa, 0.6)
@@ -234,57 +298,70 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── HUD ───────────────────────────────────────────────────────────────
     new InventoryHUD(this, inv);
-
-    // Auth: anonymous sign-in + status pill + login modal (#854, #855, #856)
     new HomesteadAuth(this);
 
     this.add.text(8, 8, 'Homestead Mode', {
       fontSize: '11px', color: '#aaccaa', backgroundColor: '#00000066',
       padding: { x: 6, y: 4 },
     }).setScrollFactor(0).setDepth(200);
+
+    // ── Camera ────────────────────────────────────────────────────────────
+    // Set bounds to the iso diamond bounding box, camera follows the player iso sprite.
+    this.cameras.main.setBounds(0, 0, ISO_W, ISO_H);
+    this.cameras.main.startFollow(this.playerIso, true, 0.08, 0.08);
   }
 
   update(): void {
-    // ── Player movement (keyboard + joystick + auto-walk) ─────────────────
     const body = this.player.body as Phaser.Physics.Arcade.Body;
 
-    // Keyboard
-    let vx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
-    let vy = (this.wasd.down.isDown ? 1 : 0) - (this.wasd.up.isDown ? 1 : 0);
+    // ── Input → world-space velocity ─────────────────────────────────────
+    // Screen-space input is converted to world-space so "up" moves northwest.
+    let svx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
+    let svy = (this.wasd.down.isDown ? 1 : 0) - (this.wasd.up.isDown ? 1 : 0);
 
-    // Joystick overrides keyboard if active
     if (this.joystick && this.joystick.force > 4) {
-      vx = Math.cos(this.joystick.rotation);
-      vy = Math.sin(this.joystick.rotation);
+      svx = Math.cos(this.joystick.rotation);
+      svy = Math.sin(this.joystick.rotation);
     }
 
-    // Manual input cancels auto-walk target
-    if ((vx !== 0 || vy !== 0) && this.targetNode) {
+    // Convert screen-space direction to world-space direction
+    let { wx: vx, wy: vy } = isoInputToWorld(svx, svy);
+
+    if ((svx !== 0 || svy !== 0) && this.targetNode) {
       this.targetNode.setTargeted(false);
       this.targetNode = null;
     }
 
-    // Auto-walk toward targeted node
-    if (this.targetNode && vx === 0 && vy === 0) {
-      const t = this.targetNode.targetPos;
-      const dx = t.x - this.player.x;
-      const dy = t.y - this.player.y;
+    // Auto-walk toward targeted node (in world space)
+    if (this.targetNode && svx === 0 && svy === 0) {
+      const twx = this.targetNode.getData('worldX') as number;
+      const twy = this.targetNode.getData('worldY') as number;
+      const dx = twx - this.player.x;
+      const dy = twy - this.player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist > 10) {
-        // Walk toward target
         vx = dx / dist;
         vy = dy / dist;
       } else {
-        // Arrived — the overlap will trigger auto-gather via setPlayerInRange
         this.targetNode = null;
       }
     }
 
-    body.setVelocity(vx * PLAYER_SPEED, vy * PLAYER_SPEED);
-    this.player.setDepth(this.player.y);
+    // Normalize and apply speed
+    const mag = Math.sqrt(vx * vx + vy * vy);
+    if (mag > 0) {
+      body.setVelocity((vx / mag) * PLAYER_SPEED, (vy / mag) * PLAYER_SPEED);
+    } else {
+      body.setVelocity(0, 0);
+    }
 
-    // Move interact zone to player position
+    // ── Sync iso sprite to physics body ──────────────────────────────────
+    const { x: isoX, y: isoY } = hsWorldToIso(this.player.x, this.player.y);
+    this.playerIso.setPosition(isoX, isoY);
+    this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y));
+
+    // Move interact zone to player (world space)
     this.interactZone.setPosition(this.player.x, this.player.y);
     (this.interactZone.body as Phaser.Physics.Arcade.Body)
       .reset(this.player.x, this.player.y);
@@ -300,7 +377,6 @@ export class HomesteadScene extends Phaser.Scene {
       if (inRange) {
         anyInRange = true;
         node.checkInput();
-        // Action button tap triggers gather on the nearest ready node
         if (this.actionTapped && node.nodeState === 'ready') {
           node.gatherFromTouch();
           this.actionTapped = false;
@@ -308,10 +384,8 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
-    // Consume tap if no node was in range
     this.actionTapped = false;
 
-    // Highlight action button when near a harvestable node
     if (this.actionBtn) {
       this.actionBtn.setFillStyle(anyInRange ? 0x44aa44 : 0x444444, anyInRange ? 0.5 : 0.2);
       this.actionBtn.setStrokeStyle(2, anyInRange ? 0x44aa44 : 0x444444, anyInRange ? 0.8 : 0.3);
