@@ -52,13 +52,27 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
       <span lang="en">Sign out</span><span lang="sv">Logga ut</span>
     </button>
   </div>
-  <div id="signin-nudge" class="info-note">
-    <span lang="en">
-      <a href="/account/signin">Sign in</a> to save your draft across devices and track your submissions.
-    </span>
-    <span lang="sv">
-      <a href="/account/signin">Logga in</a> för att spara ditt utkast på alla enheter och följa dina inlämningar.
-    </span>
+  <div id="signin-nudge" class="signin-nudge" hidden>
+    <p class="signin-nudge__text">
+      <span lang="en">Sign in to save your draft across devices and track your submissions.</span>
+      <span lang="sv">Logga in för att spara ditt utkast på alla enheter och följa dina inlämningar.</span>
+    </p>
+    <div class="signin-nudge__buttons">
+      <button type="button" id="google-signin-btn" class="btn-google">
+        Continue with Google
+      </button>
+      <div class="signin-nudge__divider">
+        <span lang="en">or</span><span lang="sv">eller</span>
+      </div>
+      <div class="signin-nudge__email">
+        <input type="email" id="magic-email" placeholder="your@email.com" class="magic-email-input" />
+        <button type="button" id="magic-link-btn" class="btn-magic">
+          <span lang="en">Send magic link</span>
+          <span lang="sv">Skicka magisk länk</span>
+        </button>
+      </div>
+      <p id="signin-status" class="signin-status"></p>
+    </div>
   </div>
 
   <!-- Draft resume banner (shown by JS if localStorage draft exists) -->
@@ -563,7 +577,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   // ── Supabase client ───────────────────────────────────────────────────────
   const cfg = document.getElementById('supa-cfg') as HTMLElement;
   const supabase = createClient(cfg.dataset.url ?? '', cfg.dataset.key ?? '', {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
   const LICENSE_VERSION = (document.getElementById('license-ver') as HTMLElement).dataset.version ?? 'v1-2026-04';
 
@@ -573,41 +587,131 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
   let selectedKidId: string | null = null;
 
   async function initAuth(): Promise<void> {
+    // Listen for auth state changes (magic link callback, OAuth redirect, etc.)
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !session.user.is_anonymous) {
+        // Upgraded from anonymous or signed in — refresh to show auth banner
+        currentUserId = session.user.id;
+        currentToken  = session.access_token;
+        showAuthBanner(session);
+      }
+    });
+
     const { data: { session } } = await supabase.auth.getSession();
+
     if (!session) {
-      // Show sign-in nudge, keep kid field hidden
-      const nudge = document.getElementById('signin-nudge') as HTMLElement;
-      nudge.hidden = false;
+      // No session — sign in anonymously so submissions always have a user_id
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        console.warn('[submit] anonymous sign-in failed:', error.message);
+      } else if (data.session) {
+        currentUserId = data.session.user.id;
+        currentToken  = data.session.access_token;
+      }
+      // Show sign-in nudge for anonymous users
+      showSignInNudge();
       return;
     }
 
     currentUserId = session.user.id;
     currentToken  = session.access_token;
 
-    // Hide nudge, show auth banner
+    if (session.user.is_anonymous) {
+      // Anonymous session — show sign-in nudge to encourage upgrade
+      showSignInNudge();
+      return;
+    }
+
+    // Authenticated user — show auth banner
+    await showAuthBanner(session);
+  }
+
+  /** Show the sign-in nudge with Google + magic link buttons. */
+  function showSignInNudge(): void {
+    const nudge = document.getElementById('signin-nudge') as HTMLElement;
+    nudge.hidden = false;
+
+    // Google OAuth button
+    document.getElementById('google-signin-btn')?.addEventListener('click', async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.href },
+      });
+      if (error) {
+        const status = document.getElementById('signin-status') as HTMLElement;
+        status.textContent = error.message;
+        status.style.color = 'var(--red, #f87171)';
+      }
+    });
+
+    // Magic link button
+    document.getElementById('magic-link-btn')?.addEventListener('click', async () => {
+      const emailInput = document.getElementById('magic-email') as HTMLInputElement;
+      const btn = document.getElementById('magic-link-btn') as HTMLButtonElement;
+      const status = document.getElementById('signin-status') as HTMLElement;
+      const email = emailInput.value.trim();
+
+      if (!email) {
+        status.textContent = t('Please enter an email address.', 'Ange en e-postadress.');
+        status.style.color = 'var(--red, #f87171)';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = t('Sending…', 'Skickar…');
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.href },
+      });
+
+      if (error) {
+        status.textContent = error.message;
+        status.style.color = 'var(--red, #f87171)';
+        btn.textContent = t('Send magic link', 'Skicka magisk länk');
+        btn.disabled = false;
+      } else {
+        status.textContent = t('Check your email for the magic link!', 'Kolla din e-post efter den magiska länken!');
+        status.style.color = 'var(--green, #4ade80)';
+        btn.textContent = t('Sent ✓', 'Skickat ✓');
+      }
+    });
+  }
+
+  /** Show the auth banner for authenticated (non-anonymous) users. */
+  async function showAuthBanner(session: import('@supabase/supabase-js').Session): Promise<void> {
     (document.getElementById('signin-nudge') as HTMLElement).hidden = true;
     const banner = document.getElementById('auth-banner') as HTMLElement;
     banner.hidden = false;
 
-    // Load profile handle
+    // Show email as handle
+    const email = session.user.email ?? '';
+    const handleEl   = document.getElementById('auth-handle')    as HTMLElement;
+    const handleElSv = document.getElementById('auth-handle-sv') as HTMLElement;
+
+    // Try loading profile handle, fall back to email
     const profileRes = await fetch('/api/account/profile', {
       headers: { Authorization: `Bearer ${currentToken}` },
-    });
-    if (profileRes.ok) {
+    }).catch(() => null);
+    if (profileRes?.ok) {
       const profile: { handle: string } | null = await profileRes.json();
       if (profile) {
-        const handleEl   = document.getElementById('auth-handle')    as HTMLElement;
-        const handleElSv = document.getElementById('auth-handle-sv') as HTMLElement;
         handleEl.textContent   = `@${profile.handle}`;
         handleElSv.textContent = `@${profile.handle}`;
+      } else {
+        handleEl.textContent   = email;
+        handleElSv.textContent = email;
       }
+    } else {
+      handleEl.textContent   = email;
+      handleElSv.textContent = email;
     }
 
     // Load kids and populate dropdown
     const kidsRes = await fetch('/api/account/kids', {
       headers: { Authorization: `Bearer ${currentToken}` },
-    });
-    if (kidsRes.ok) {
+    }).catch(() => null);
+    if (kidsRes?.ok) {
       const kids: Array<{ id: string; kid_name: string; kid_age: number | null }> = await kidsRes.json();
       if (kids.length) {
         const sel = document.getElementById('kid_select') as HTMLSelectElement;
@@ -1225,6 +1329,82 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ?? '';
     font-size: 0.85rem;
     color: var(--text-dim);
     margin-bottom: 1rem;
+  }
+
+  /* ── Sign-in nudge ─────────────────────────────────────────── */
+  .signin-nudge {
+    background: rgba(168,85,247,0.07);
+    border: 1px solid rgba(168,85,247,0.25);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .signin-nudge__text {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    margin: 0 0 0.75rem;
+  }
+  .signin-nudge__buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 320px;
+  }
+  .signin-nudge__divider {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+  .signin-nudge__email {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .magic-email-input {
+    flex: 1;
+    background: var(--bg, #0f0f13);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .magic-email-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .btn-google {
+    width: 100%;
+    padding: 0.6rem;
+    background: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-google:hover { background: #3367d6; }
+  .btn-magic {
+    padding: 0.5rem 0.75rem;
+    background: var(--surface, #1a1a2e);
+    color: var(--accent-hi);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s;
+  }
+  .btn-magic:hover { border-color: var(--accent); }
+  .btn-magic:disabled { opacity: 0.5; cursor: not-allowed; }
+  .signin-status {
+    font-size: 0.82rem;
+    min-height: 1.2em;
+    margin: 0;
   }
 
   /* ── Submit ───────────────────────────────────────────────────── */
