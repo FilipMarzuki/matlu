@@ -352,11 +352,11 @@ const BIOME_WORLD_WASH_ALPHA: readonly number[] = [
   0.16, // 11 Snow field
 ];
 
-const ISO_DIAMOND_FACE_POINTS: readonly Phaser.Types.Math.Vector2Like[] = [
-  { x: 0,                 y: 0 },
-  { x: ISO_TILE_W / 2,    y: ISO_TILE_H / 2 },
-  { x: 0,                 y: ISO_TILE_H },
-  { x: -ISO_TILE_W / 2,   y: ISO_TILE_H / 2 },
+const ISO_DIAMOND_FACE_POINTS: Phaser.Math.Vector2[] = [
+  new Phaser.Math.Vector2(0,                 0),
+  new Phaser.Math.Vector2(ISO_TILE_W / 2,    ISO_TILE_H / 2),
+  new Phaser.Math.Vector2(0,                 ISO_TILE_H),
+  new Phaser.Math.Vector2(-ISO_TILE_W / 2,   ISO_TILE_H / 2),
 ];
 
 /**
