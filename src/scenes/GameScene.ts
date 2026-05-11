@@ -319,6 +319,47 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * In-world biome wash colours. These sit on top of the tile art at low alpha so
+ * the map keeps its pixel texture while each region has a clearer dominant hue.
+ */
+const BIOME_WORLD_WASH_COLORS: readonly number[] = [
+  0x1a4f7a, // 0  Sea — water art already carries this colour, alpha below is 0
+  0xa06632, // 1  Rocky shore — rust-brown stone
+  0xe8c870, // 2  Sandy shore — warm sand
+  0x3f7048, // 3  Marsh / bog — wet green
+  0xb47a38, // 4  Dry heath — ochre scrub
+  0x7f9b48, // 5  Coastal heath — wind-salted green
+  0x6abf45, // 6  Meadow — clear grass identity
+  0x1f7a35, // 7  Forest — broadleaf green
+  0x164f38, // 8  Spruce — cold dark green
+  0x6d7fa5, // 9  Cold granite — blue slate, not neutral grey
+  0x9b8370, // 10 Bare summit — warm exposed stone
+  0xd8e8f8, // 11 Snow field — pale blue snow
+];
+
+const BIOME_WORLD_WASH_ALPHA: readonly number[] = [
+  0.00, // 0  Sea
+  0.18, // 1  Rocky shore
+  0.18, // 2  Sandy shore
+  0.20, // 3  Marsh / bog
+  0.18, // 4  Dry heath
+  0.17, // 5  Coastal heath
+  0.18, // 6  Meadow
+  0.20, // 7  Forest
+  0.22, // 8  Spruce
+  0.20, // 9  Cold granite
+  0.17, // 10 Bare summit
+  0.16, // 11 Snow field
+];
+
+const ISO_DIAMOND_FACE_POINTS: readonly Phaser.Types.Math.Vector2Like[] = [
+  { x: 0,                 y: 0 },
+  { x: ISO_TILE_W / 2,    y: ISO_TILE_H / 2 },
+  { x: 0,                 y: ISO_TILE_H },
+  { x: -ISO_TILE_W / 2,   y: ISO_TILE_H / 2 },
+];
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -5732,6 +5773,7 @@ export class GameScene extends Phaser.Scene {
       .setScale(1)
       .setOrigin(0.5, 0)
       .setVisible(false);
+    const biomeWashGfx = this.add.graphics().setVisible(false);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5842,6 +5884,16 @@ export class GameScene extends Phaser.Scene {
         }
         terrainRt.draw(tileImg);
 
+        const biomeWashAlpha = BIOME_WORLD_WASH_ALPHA[biomeIdx] ?? 0;
+        if (!isRiverHere && !isLakeHere && biomeWashAlpha > 0) {
+          biomeWashGfx
+            .clear()
+            .fillStyle(BIOME_WORLD_WASH_COLORS[biomeIdx] ?? 0xffffff, biomeWashAlpha)
+            .fillPoints(ISO_DIAMOND_FACE_POINTS, true)
+            .setPosition(isoX, isoY);
+          terrainRt.draw(biomeWashGfx);
+        }
+
       }
     }
 
@@ -5872,6 +5924,7 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    biomeWashGfx.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
