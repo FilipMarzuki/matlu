@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { FbmNoise } from '../lib/noise';
+import { MagicField } from '../lib/MagicField';
 import { mulberry32, poissonDisk } from '../lib/rng';
 import { t } from '../lib/i18n';
 import { CHUNKS, CHUNK_COUNT, CHUNK_AVOID_ZONES, CORRUPTED_CLEARING, CORRUPTED_LANDMARKS, HIDDEN_HOLLOW, WAYMARKER_STONE } from '../world/ChunkDef';
@@ -639,6 +640,8 @@ export class GameScene extends Phaser.Scene {
   // Per-position corruption intensity — gives corruption organic geography instead
   // of uniform zone-wide darkening. Sampled each degradation tick.
   private corruptionField!: CorruptionField;
+  // Ambient ley-current field. Follow-up issues add world nodes and overlays.
+  private magicField!: MagicField;
 
   // ─── Path system ──────────────────────────────────────────────────────────────
   private pathSystem!: PathSystem;
@@ -1116,6 +1119,7 @@ export class GameScene extends Phaser.Scene {
     this.tempNoise  = new FbmNoise(this.runSeed ^ 0x74656d70);
     this.moistNoise = new FbmNoise(this.runSeed ^ 0x6d6f6973);
     this.corruptionField = new CorruptionField(this.runSeed);
+    this.magicField = new MagicField();
     // Merge hand-authored Level1Paths with procedurally generated animal trails (FIL-88).
     // generateAnimalTrails() traces noise-jittered paths between settlements and POIs,
     // returning 'animal'-type segments that the existing affinity system already honours.
@@ -1608,7 +1612,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  getMagicField(): MagicField {
+    return this.magicField;
+  }
+
   update(time: number, delta: number): void {
+    this.magicField.update(delta);
     this.communityEncounter.update();
     this.worldClock.update(delta);
     this.worldState.update(delta);
