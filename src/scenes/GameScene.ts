@@ -335,6 +335,7 @@ const STARTER_WILDLIFE: Array<{ type: 'deer' | 'hare' | 'fox'; dx: number; dy: n
   { type: 'hare', dx: -44, dy: 128 },
   { type: 'fox',  dx: 166, dy: 104 },
 ];
+const STARTER_WILDLIFE_SETTLE_MS = 3_000;
 
 /** Fox detects hares within this radius and enters chase state. */
 const FOX_CHASE_RANGE = 220;
@@ -5369,7 +5370,8 @@ export class GameScene extends Phaser.Scene {
   private spawnStarterWildlife(): void {
     for (const starter of STARTER_WILDLIFE) {
       const def = ANIMAL_DEFS[starter.type];
-      this.placeGroundAnimal(starter.type, def, SPAWN_X + starter.dx, SPAWN_Y + starter.dy);
+      const animal = this.placeGroundAnimal(starter.type, def, SPAWN_X + starter.dx, SPAWN_Y + starter.dy);
+      animal.setData('settledUntil', this.time.now + STARTER_WILDLIFE_SETTLE_MS);
     }
   }
 
@@ -5379,7 +5381,7 @@ export class GameScene extends Phaser.Scene {
    * The physics body is set to def.w × def.h so collisions feel tight despite
    * the larger visual.
    */
-  private placeGroundAnimal(type: string, def: AnimalDef, x: number, y: number): void {
+  private placeGroundAnimal(type: string, def: AnimalDef, x: number, y: number): Phaser.GameObjects.Sprite {
     const { x: _gaIsoX, y: _gaIsoY } = worldToIso(x, y);
     const sprite = this.add.sprite(_gaIsoX, _gaIsoY, `${type}-idle`, 0);
     sprite.setScale(def.scale);
@@ -5398,6 +5400,7 @@ export class GameScene extends Phaser.Scene {
     // Store world-space origin so flee/approach distance calcs remain in world space.
     sprite.setData('worldX', x);
     sprite.setData('worldY', y);
+    return sprite;
   }
 
   private updateGroundAnimals(): void {
@@ -5421,6 +5424,12 @@ export class GameScene extends Phaser.Scene {
       const def  = ANIMAL_DEFS[type];
       // While the player is driving this animal in attract mode, skip AI entirely.
       if (r.getData('playerControlled') as boolean) continue;
+      // Starter animals hold for a few seconds so the opening camera reads as
+      // alive before nearby-player flee logic takes over.
+      if (this.time.now < ((r.getData('settledUntil') as number | undefined) ?? 0)) {
+        b.setVelocity(0, 0);
+        continue;
+      }
       const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
       let state  = r.getData('animalState') as AnimalState;
       // Remember state before this frame so we can detect the transition below.
