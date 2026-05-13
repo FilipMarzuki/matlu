@@ -78,7 +78,7 @@ import { EssenceHUD } from '../ui/EssenceHUD';
 // Lets you inspect one asset type at a time without hunting through create().
 const DEBUG_SPAWN = {
   rabbits:          false,
-  groundAnimals:    false,  // deer, hare, fox, grouse, stag, boar, badger
+  groundAnimals:    true,   // deer, hare, fox, grouse, stag, boar, badger
   birds:            false,
   treeScatter:      true,   // biome-aware trees from trees.json
   decorScatter:     false,  // flowers, mushrooms, rocks, grass, stumps, sticks
@@ -328,6 +328,13 @@ const ANIMAL_DEFS: Record<string, AnimalDef> = {
   boar:   { w: 32, h: 16, scale: 1.0, fleeRange: 100, fleeSpeed:  88, roamSpeed: 26, count:  8, fleeVocal: { key: 'animal-rustle-0', volume: 0.70, rate: 0.65 } },  // low grunt
   badger: { w: 22, h: 14, scale: 1.0, fleeRange: 160, fleeSpeed: 115, roamSpeed: 32, count: 12, fleeVocal: { key: 'animal-rustle-2', volume: 0.65, rate: 0.85 } },  // snarl
 };
+
+const STARTER_WILDLIFE: Array<{ type: 'deer' | 'hare' | 'fox'; dx: number; dy: number }> = [
+  { type: 'deer', dx:  84, dy:  72 },
+  { type: 'hare', dx: 132, dy:  28 },
+  { type: 'hare', dx: -44, dy: 128 },
+  { type: 'fox',  dx: 166, dy: 104 },
+];
 
 /** Fox detects hares within this radius and enters chase state. */
 const FOX_CHASE_RANGE = 220;
@@ -5273,6 +5280,8 @@ export class GameScene extends Phaser.Scene {
     const rndBetween = (lo: number, hi: number): number =>
       Math.floor(rng() * (hi - lo + 1)) + lo;
 
+    this.spawnStarterWildlife();
+
     // ── Cluster config per species ─────────────────────────────────────────────
     // clusters: how many herds/warrens to place
     // perCluster: animals per herd [min, max]
@@ -5354,6 +5363,13 @@ export class GameScene extends Phaser.Scene {
           clustersPlaced++;
         }
       }
+    }
+  }
+
+  private spawnStarterWildlife(): void {
+    for (const starter of STARTER_WILDLIFE) {
+      const def = ANIMAL_DEFS[starter.type];
+      this.placeGroundAnimal(starter.type, def, SPAWN_X + starter.dx, SPAWN_Y + starter.dy);
     }
   }
 
