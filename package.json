@@ -24,6 +24,7 @@
     "macro:export": "node scripts/export-macro-world.mjs",
     "entity:audit": "tsx scripts/entity-audit.ts",
     "worldgen:heightmap": "tsx macro-world/scripts/convert-heightmap.ts",
+    "worldgen:validate": "tsx macro-world/scripts/validate-earth-export.ts",
     "cap:sync": "npm run build && npx cap sync",
     "unit": "vitest run",
     "dev:wiki": "npm run dev --prefix wiki",
