@@ -107,6 +107,38 @@ const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
 const CORRUPTION_SCREEN_TINT = 0x120018;
 const CORRUPTION_SCREEN_MAX_ALPHA = 0.30;
 
+interface TerrainVisualProfile {
+  /** Semi-transparent colour wash applied only to the top diamond of each land tile. */
+  glaze: number;
+  glazeAlpha: number;
+  /** Tiny deterministic flecks keep repeated 32 px tiles from reading as flat carpet. */
+  fleck: number;
+  fleckAlpha: number;
+  fleckChance: number;
+}
+
+/**
+ * Biome art direction overlay for the world terrain bake.
+ *
+ * The generated tile packs carry shape/texture, while these light glazes provide
+ * CrossCode-style colour identity: sand warms yellow, meadows read green,
+ * granite cools blue-grey, and forests deepen without changing collision.
+ */
+const TERRAIN_VISUALS: ReadonlyArray<TerrainVisualProfile | null> = [
+  null, // 0 Sea — water keeps its existing blue frame.
+  { glaze: 0x6d5538, glazeAlpha: 0.20, fleck: 0xb49b6a, fleckAlpha: 0.24, fleckChance: 0.22 }, // Rocky Shore
+  { glaze: 0xd8b55f, glazeAlpha: 0.24, fleck: 0xffdda0, fleckAlpha: 0.26, fleckChance: 0.28 }, // Sandy Shore
+  { glaze: 0x244a32, glazeAlpha: 0.24, fleck: 0x6f9150, fleckAlpha: 0.22, fleckChance: 0.24 }, // Marsh / Bog
+  { glaze: 0xaa7432, glazeAlpha: 0.22, fleck: 0xd0aa5c, fleckAlpha: 0.24, fleckChance: 0.24 }, // Dry Heath
+  { glaze: 0x748b37, glazeAlpha: 0.20, fleck: 0xb0c461, fleckAlpha: 0.22, fleckChance: 0.26 }, // Coastal Heath
+  { glaze: 0x54a541, glazeAlpha: 0.22, fleck: 0xb6e06c, fleckAlpha: 0.26, fleckChance: 0.30 }, // Meadow
+  { glaze: 0x185a28, glazeAlpha: 0.26, fleck: 0x4d8a43, fleckAlpha: 0.20, fleckChance: 0.18 }, // Forest
+  { glaze: 0x0f493b, glazeAlpha: 0.26, fleck: 0x4f7f67, fleckAlpha: 0.20, fleckChance: 0.16 }, // Forest (Cold)
+  { glaze: 0x6f7584, glazeAlpha: 0.22, fleck: 0xb8c0cf, fleckAlpha: 0.24, fleckChance: 0.24 }, // Cold Granite
+  { glaze: 0x8e8174, glazeAlpha: 0.20, fleck: 0xc1b09d, fleckAlpha: 0.22, fleckChance: 0.22 }, // Bare Summit
+  { glaze: 0xc8e6f4, glazeAlpha: 0.20, fleck: 0xf1fbff, fleckAlpha: 0.24, fleckChance: 0.26 }, // Snow Field
+];
+
 // FIL-466: biome tile packs now live in `src/world/TilePacks.ts` so all scenes
 // that render iso terrain share one source of truth (and the preload loop).
 
@@ -386,6 +418,22 @@ function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   }
   if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
   return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
+}
+
+/**
+ * Deterministic 0–1 hash for terrain decoration.
+ *
+ * This avoids a mutable RNG inside the terrain loop, so any tile can be sampled
+ * independently and still produce stable fleck placement for the same seed.
+ */
+function tileUnitHash(tx: number, ty: number, salt: number): number {
+  let h = Math.imul(tx + 0x9e3779b9, 0x85ebca6b)
+        ^ Math.imul(ty + 0xc2b2ae35, 0x27d4eb2d)
+        ^ Math.imul(salt + 0x165667b1, 0x9e3779b1);
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x7feb352d);
+  h ^= h >>> 15;
+  return (h >>> 0) / 0xffffffff;
 }
 
 /**
@@ -5785,6 +5833,11 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setVisible(false);
 
+    // Reusable stamp for biome glazes and tiny terrain flecks. Drawing this into
+    // the RenderTexture preserves the existing tile art while adding readable
+    // colour regions and player-scale texture.
+    const terrainDetailGfx = this.add.graphics({ x: -9999, y: -9999 });
+
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
@@ -5858,8 +5911,9 @@ export class GameScene extends Phaser.Scene {
           }
         }
 
+        const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
         biomeGrid[ty * tilesX + tx]    = val;
-        biomeIdxGrid[ty * tilesX + tx] = tileBiomeIdx(val, temp, effectiveMoist);
+        biomeIdxGrid[ty * tilesX + tx] = biomeIdx;
 
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
@@ -5869,7 +5923,6 @@ export class GameScene extends Phaser.Scene {
         // worldToIso() result lands at the top-centre of the sprite (north apex).
         // Painter order: ty=0 (back) drawn first, ty=tilesY-1 (front) drawn last —
         // each row's front face is covered by the diamond of the next row forward.
-        const biomeIdx = tileBiomeIdx(val, temp, effectiveMoist);
         const { x: isoX, y: isoY } = worldToIso(wx, wy);
         if (isRiverHere || isLakeHere) {
           // FIL-466: water tiles always use the shared iso-tiles river frame.
@@ -5893,6 +5946,35 @@ export class GameScene extends Phaser.Scene {
           tileImg.setTexture('iso-tiles', frame).setPosition(isoX, isoY);
         }
         terrainRt.draw(tileImg);
+
+        const visual = TERRAIN_VISUALS[biomeIdx];
+        if (visual && !isRiverHere && !isLakeHere) {
+          terrainDetailGfx.clear();
+          terrainDetailGfx.setPosition(isoX, isoY);
+
+          terrainDetailGfx.fillStyle(visual.glaze, visual.glazeAlpha);
+          terrainDetailGfx.beginPath();
+          terrainDetailGfx.moveTo(0, 0);
+          terrainDetailGfx.lineTo(ISO_TILE_W / 2, ISO_TILE_H / 2);
+          terrainDetailGfx.lineTo(0, ISO_TILE_H);
+          terrainDetailGfx.lineTo(-ISO_TILE_W / 2, ISO_TILE_H / 2);
+          terrainDetailGfx.closePath();
+          terrainDetailGfx.fillPath();
+
+          if (tileUnitHash(tx, ty, biomeIdx) < visual.fleckChance) {
+            terrainDetailGfx.fillStyle(visual.fleck, visual.fleckAlpha);
+            const flecks = tileUnitHash(tx, ty, biomeIdx + 23) > 0.72 ? 2 : 1;
+            for (let i = 0; i < flecks; i++) {
+              // Keep flecks inside the top diamond by narrowing x near the apex/base.
+              const fy = 4 + Math.floor(tileUnitHash(tx, ty, biomeIdx + 41 + i) * 8);
+              const halfWidth = Math.max(3, (ISO_TILE_W / 2) - Math.abs(fy - ISO_TILE_H / 2) * 1.7);
+              const fx = Math.round((tileUnitHash(tx, ty, biomeIdx + 59 + i) * 2 - 1) * halfWidth);
+              terrainDetailGfx.fillRect(fx, fy, 2, 1);
+            }
+          }
+
+          terrainRt.draw(terrainDetailGfx);
+        }
 
       }
     }
@@ -5924,6 +6006,7 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    terrainDetailGfx.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
