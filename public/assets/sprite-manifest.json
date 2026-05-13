@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-13T11:29:56.658Z",
-  "totalAssets": 554,
-  "wiredCount": 224,
+  "generatedAt": "2026-05-13T19:14:53.099Z",
+  "totalAssets": 566,
+  "wiredCount": 236,
   "unwiredCount": 330,
   "categories": [
     {
@@ -491,7 +491,7 @@
     },
     {
       "category": "icons",
-      "count": 90,
+      "count": 102,
       "assets": [
         {
           "name": "item-amber",
@@ -998,6 +998,13 @@
           "wired": true
         },
         {
+          "name": "patch-balance-drop",
+          "url": "/assets/sprites/icons/concepts/patch-balance-drop.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "patch-blade",
           "url": "/assets/sprites/icons/concepts/patch-blade.png",
           "folder": "icons/concepts",
@@ -1026,8 +1033,29 @@
           "wired": true
         },
         {
+          "name": "patch-catalyst",
+          "url": "/assets/sprites/icons/concepts/patch-catalyst.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-channel",
+          "url": "/assets/sprites/icons/concepts/patch-channel.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "patch-circle",
           "url": "/assets/sprites/icons/concepts/patch-circle.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-crystal-grow",
+          "url": "/assets/sprites/icons/concepts/patch-crystal-grow.png",
           "folder": "icons/concepts",
           "category": "icons",
           "wired": true
@@ -1075,6 +1103,13 @@
           "wired": true
         },
         {
+          "name": "patch-gem",
+          "url": "/assets/sprites/icons/concepts/patch-gem.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "patch-hide",
           "url": "/assets/sprites/icons/concepts/patch-hide.png",
           "folder": "icons/concepts",
@@ -1103,6 +1138,27 @@
           "wired": true
         },
         {
+          "name": "patch-press",
+          "url": "/assets/sprites/icons/concepts/patch-press.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-rune",
+          "url": "/assets/sprites/icons/concepts/patch-rune.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-rust",
+          "url": "/assets/sprites/icons/concepts/patch-rust.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "patch-scales",
           "url": "/assets/sprites/icons/concepts/patch-scales.png",
           "folder": "icons/concepts",
@@ -1117,8 +1173,36 @@
           "wired": true
         },
         {
+          "name": "patch-skull-leaf",
+          "url": "/assets/sprites/icons/concepts/patch-skull-leaf.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "patch-spark",
           "url": "/assets/sprites/icons/concepts/patch-spark.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-swirl",
+          "url": "/assets/sprites/icons/concepts/patch-swirl.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-vapor",
+          "url": "/assets/sprites/icons/concepts/patch-vapor.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-wave",
+          "url": "/assets/sprites/icons/concepts/patch-wave.png",
           "folder": "icons/concepts",
           "category": "icons",
           "wired": true
