@@ -73,6 +73,15 @@ const TAB_LABELS: Record<TabId, string> = {
   pack: '🎒 Pack',
 };
 
+/** Concept patch icon keys that have PNGs on disk. */
+const PATCH_ICONS = [
+  'patch-flame', 'patch-spark', 'patch-bow', 'patch-gear', 'patch-circle',
+  'patch-lever', 'patch-dovetail', 'patch-hide', 'patch-droplet',
+  'patch-explosion', 'patch-knot', 'patch-blade', 'patch-shield',
+  'patch-bubbles', 'patch-scales', 'patch-merge', 'patch-dissolve',
+  'patch-caliper',
+] as const;
+
 // ─── Scene ──────────────────────────────────────────────────────────────────────
 
 export class CraftingMenuScene extends Phaser.Scene {
@@ -153,6 +162,15 @@ export class CraftingMenuScene extends Phaser.Scene {
 
   constructor() {
     super({ key: 'CraftingMenuScene' });
+  }
+
+  preload(): void {
+    // Load concept patch badge sprites (48x48 PNGs)
+    for (const icon of PATCH_ICONS) {
+      if (!this.textures.exists(icon)) {
+        this.load.image(icon, `/assets/sprites/icons/concepts/${icon}.png`);
+      }
+    }
   }
 
   async create(): Promise<void> {
@@ -968,26 +986,56 @@ export class CraftingMenuScene extends Phaser.Scene {
       const dimmed = filterCat !== 'all' && concept.category !== filterCat;
       const alpha = dimmed ? 0.25 : 1;
 
-      const g = this.add.graphics();
       const mastered = rank >= concept.ranks;
+      const hasSprite = this.textures.exists(concept.icon);
 
-      if (rank > 0) {
-        g.fillStyle(color, 0.3 * alpha);
-        g.fillCircle(nx, ny, nodeSize / 2);
-        if (mastered) {
-          // Gold border for mastered
-          g.lineStyle(2.5, 0xffdd44, 0.8 * alpha);
-        } else {
-          g.lineStyle(2, color, 0.6 * alpha);
+      if (hasSprite) {
+        // Use the patch badge sprite instead of a plain circle
+        const badge = this.add.image(nx, ny, concept.icon)
+          .setDisplaySize(nodeSize, nodeSize)
+          .setAlpha(alpha);
+
+        if (rank === 0) {
+          // Locked: greyscale via dark tint + reduced alpha
+          badge.setTint(0x333333);
+          badge.setAlpha(0.4 * alpha);
+        } else if (mastered) {
+          // Mastered: gold tint overlay
+          badge.setTint(0xffdd44);
         }
-        g.strokeCircle(nx, ny, nodeSize / 2);
+        graphContainer.add(badge);
+
+        // Border ring for mastered (gold glow) or unlocked (category color)
+        if (rank > 0) {
+          const ring = this.add.graphics();
+          if (mastered) {
+            ring.lineStyle(2.5, 0xffdd44, 0.8 * alpha);
+          } else {
+            ring.lineStyle(2, color, 0.6 * alpha);
+          }
+          ring.strokeCircle(nx, ny, nodeSize / 2 + 1);
+          graphContainer.add(ring);
+        }
       } else {
-        g.fillStyle(0x333333, 0.25 * alpha);
-        g.fillCircle(nx, ny, nodeSize / 2);
-        g.lineStyle(1, 0x555555, 0.3 * alpha);
-        g.strokeCircle(nx, ny, nodeSize / 2);
+        // Fallback: colored circle for concepts without sprites yet
+        const g = this.add.graphics();
+        if (rank > 0) {
+          g.fillStyle(color, 0.3 * alpha);
+          g.fillCircle(nx, ny, nodeSize / 2);
+          if (mastered) {
+            g.lineStyle(2.5, 0xffdd44, 0.8 * alpha);
+          } else {
+            g.lineStyle(2, color, 0.6 * alpha);
+          }
+          g.strokeCircle(nx, ny, nodeSize / 2);
+        } else {
+          g.fillStyle(0x333333, 0.25 * alpha);
+          g.fillCircle(nx, ny, nodeSize / 2);
+          g.lineStyle(1, 0x555555, 0.3 * alpha);
+          g.strokeCircle(nx, ny, nodeSize / 2);
+        }
+        graphContainer.add(g);
       }
-      graphContainer.add(g);
 
       // Name (first word to save space)
       const nameText = this.add.text(nx, ny - 6,

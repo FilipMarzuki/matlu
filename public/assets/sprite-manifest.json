@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-09T21:29:49.687Z",
-  "totalAssets": 271,
-  "wiredCount": 244,
-  "unwiredCount": 27,
+  "generatedAt": "2026-05-13T11:29:56.658Z",
+  "totalAssets": 554,
+  "wiredCount": 224,
+  "unwiredCount": 330,
   "categories": [
     {
       "category": ".",
@@ -404,6 +404,54 @@
           "folder": "characters/earth/heroes/tinkerer",
           "category": "characters",
           "wired": true
+        }
+      ]
+    },
+    {
+      "category": "crossings",
+      "count": 6,
+      "assets": [
+        {
+          "name": "0",
+          "url": "/assets/sprites/crossings/stepping-stones/0.png",
+          "folder": "crossings/stepping-stones",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/crossings/stepping-stones/1.png",
+          "folder": "crossings/stepping-stones",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/crossings/stepping-stones/2.png",
+          "folder": "crossings/stepping-stones",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/crossings/stepping-stones/3.png",
+          "folder": "crossings/stepping-stones",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "4",
+          "url": "/assets/sprites/crossings/stepping-stones/4.png",
+          "folder": "crossings/stepping-stones",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "5",
+          "url": "/assets/sprites/crossings/stepping-stones/5.png",
+          "folder": "crossings/stepping-stones",
+          "category": "crossings",
+          "wired": false
         }
       ]
     },
@@ -1789,175 +1837,2114 @@
     },
     {
       "category": "trees",
-      "count": 24,
+      "count": 301,
       "assets": [
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/ancient/mature/0.png",
+          "folder": "trees/ancient/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/birch/mature/0.png",
+          "folder": "trees/birch/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/birch/sapling/0.png",
+          "folder": "trees/birch/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/birch/young/0.png",
+          "folder": "trees/birch/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/dead-snags/0.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/elm/mature/0.png",
+          "folder": "trees/elm/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/elm/sapling/0.png",
+          "folder": "trees/elm/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/elm/young/0.png",
+          "folder": "trees/elm/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/fallen-logs/0.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
+        },
         {
           "name": "0",
           "url": "/assets/sprites/trees/oak/mature/0.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "0",
           "url": "/assets/sprites/trees/oak/sapling/0.png",
           "folder": "trees/oak/sapling",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "0",
           "url": "/assets/sprites/trees/oak/young/0.png",
           "folder": "trees/oak/young",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/pine/mature/0.png",
+          "folder": "trees/pine/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/pine/sapling/0.png",
+          "folder": "trees/pine/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/pine/young/0.png",
+          "folder": "trees/pine/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/spruce/mature/0.png",
+          "folder": "trees/spruce/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/spruce/sapling/0.png",
+          "folder": "trees/spruce/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/spruce/young/0.png",
+          "folder": "trees/spruce/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "0",
+          "url": "/assets/sprites/trees/stumps/0.png",
+          "folder": "trees/stumps",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/ancient/mature/1.png",
+          "folder": "trees/ancient/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/birch/mature/1.png",
+          "folder": "trees/birch/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/birch/sapling/1.png",
+          "folder": "trees/birch/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/birch/young/1.png",
+          "folder": "trees/birch/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/dead-snags/1.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/elm/mature/1.png",
+          "folder": "trees/elm/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/elm/sapling/1.png",
+          "folder": "trees/elm/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/elm/young/1.png",
+          "folder": "trees/elm/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/fallen-logs/1.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "1",
           "url": "/assets/sprites/trees/oak/mature/1.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "1",
           "url": "/assets/sprites/trees/oak/sapling/1.png",
           "folder": "trees/oak/sapling",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "1",
           "url": "/assets/sprites/trees/oak/young/1.png",
           "folder": "trees/oak/young",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/pine/mature/1.png",
+          "folder": "trees/pine/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/pine/sapling/1.png",
+          "folder": "trees/pine/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/pine/young/1.png",
+          "folder": "trees/pine/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/spruce/mature/1.png",
+          "folder": "trees/spruce/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/spruce/sapling/1.png",
+          "folder": "trees/spruce/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/spruce/young/1.png",
+          "folder": "trees/spruce/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "1",
+          "url": "/assets/sprites/trees/stumps/1.png",
+          "folder": "trees/stumps",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "10",
+          "url": "/assets/sprites/trees/dead-snags/10.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "10",
+          "url": "/assets/sprites/trees/fallen-logs/10.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "10",
           "url": "/assets/sprites/trees/oak/mature/10.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "11",
+          "url": "/assets/sprites/trees/dead-snags/11.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "11",
+          "url": "/assets/sprites/trees/fallen-logs/11.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "11",
           "url": "/assets/sprites/trees/oak/mature/11.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "12",
+          "url": "/assets/sprites/trees/dead-snags/12.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "12",
+          "url": "/assets/sprites/trees/fallen-logs/12.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "12",
           "url": "/assets/sprites/trees/oak/mature/12.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "13",
+          "url": "/assets/sprites/trees/dead-snags/13.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "13",
+          "url": "/assets/sprites/trees/fallen-logs/13.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "13",
           "url": "/assets/sprites/trees/oak/mature/13.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "14",
+          "url": "/assets/sprites/trees/dead-snags/14.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "14",
+          "url": "/assets/sprites/trees/fallen-logs/14.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "15",
+          "url": "/assets/sprites/trees/dead-snags/15.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/ancient/mature/2.png",
+          "folder": "trees/ancient/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/birch/mature/2.png",
+          "folder": "trees/birch/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/birch/sapling/2.png",
+          "folder": "trees/birch/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/birch/young/2.png",
+          "folder": "trees/birch/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/dead-snags/2.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/elm/mature/2.png",
+          "folder": "trees/elm/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/elm/sapling/2.png",
+          "folder": "trees/elm/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/elm/young/2.png",
+          "folder": "trees/elm/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/fallen-logs/2.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "2",
           "url": "/assets/sprites/trees/oak/mature/2.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "2",
           "url": "/assets/sprites/trees/oak/sapling/2.png",
           "folder": "trees/oak/sapling",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "2",
           "url": "/assets/sprites/trees/oak/young/2.png",
           "folder": "trees/oak/young",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/pine/mature/2.png",
+          "folder": "trees/pine/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/pine/sapling/2.png",
+          "folder": "trees/pine/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/spruce/mature/2.png",
+          "folder": "trees/spruce/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/spruce/sapling/2.png",
+          "folder": "trees/spruce/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/spruce/young/2.png",
+          "folder": "trees/spruce/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "2",
+          "url": "/assets/sprites/trees/stumps/2.png",
+          "folder": "trees/stumps",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/ancient/mature/3.png",
+          "folder": "trees/ancient/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/birch/mature/3.png",
+          "folder": "trees/birch/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/birch/sapling/3.png",
+          "folder": "trees/birch/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/birch/young/3.png",
+          "folder": "trees/birch/young",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/dead-snags/3.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/elm/mature/3.png",
+          "folder": "trees/elm/mature",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/elm/sapling/3.png",
+          "folder": "trees/elm/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/fallen-logs/3.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "3",
           "url": "/assets/sprites/trees/oak/mature/3.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "3",
           "url": "/assets/sprites/trees/oak/sapling/3.png",
           "folder": "trees/oak/sapling",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "3",
           "url": "/assets/sprites/trees/oak/young/3.png",
           "folder": "trees/oak/young",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "3",
+          "url": "/assets/sprites/trees/stumps/3.png",
+          "folder": "trees/stumps",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "4",
+          "url": "/assets/sprites/trees/dead-snags/4.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "4",
+          "url": "/assets/sprites/trees/fallen-logs/4.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "4",
           "url": "/assets/sprites/trees/oak/mature/4.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "4",
           "url": "/assets/sprites/trees/oak/sapling/4.png",
           "folder": "trees/oak/sapling",
           "category": "trees",
-          "wired": true
+          "wired": false
         },
         {
           "name": "4",
           "url": "/assets/sprites/trees/oak/young/4.png",
           "folder": "trees/oak/young",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "4",
+          "url": "/assets/sprites/trees/stumps/4.png",
+          "folder": "trees/stumps",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "5",
+          "url": "/assets/sprites/trees/dead-snags/5.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "5",
+          "url": "/assets/sprites/trees/fallen-logs/5.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "5",
           "url": "/assets/sprites/trees/oak/mature/5.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "5",
+          "url": "/assets/sprites/trees/oak/sapling/5.png",
+          "folder": "trees/oak/sapling",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "6",
+          "url": "/assets/sprites/trees/dead-snags/6.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "6",
+          "url": "/assets/sprites/trees/fallen-logs/6.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "6",
           "url": "/assets/sprites/trees/oak/mature/6.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "7",
+          "url": "/assets/sprites/trees/dead-snags/7.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "7",
+          "url": "/assets/sprites/trees/fallen-logs/7.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "7",
           "url": "/assets/sprites/trees/oak/mature/7.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "8",
+          "url": "/assets/sprites/trees/dead-snags/8.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "8",
+          "url": "/assets/sprites/trees/fallen-logs/8.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "8",
           "url": "/assets/sprites/trees/oak/mature/8.png",
           "folder": "trees/oak/mature",
           "category": "trees",
-          "wired": true
+          "wired": false
+        },
+        {
+          "name": "9",
+          "url": "/assets/sprites/trees/dead-snags/9.png",
+          "folder": "trees/dead-snags",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "9",
+          "url": "/assets/sprites/trees/fallen-logs/9.png",
+          "folder": "trees/fallen-logs",
+          "category": "trees",
+          "wired": false
         },
         {
           "name": "9",
           "url": "/assets/sprites/trees/oak/mature/9.png",
           "folder": "trees/oak/mature",
           "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "berry-bush",
+          "url": "/assets/sprites/trees/birch/objects/berry-bush.png",
+          "folder": "trees/birch/objects",
+          "category": "trees",
           "wired": true
+        },
+        {
+          "name": "birch-v2-mature-0",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-1",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-10",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-11",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-11.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-12",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-13",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-14",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-15",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-2",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-3",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-4",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-5",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-6",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-7",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-8",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-mature-9",
+          "url": "/assets/sprites/trees/_unused/birch-v2-mature-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-0",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-1",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-10",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-11",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-11.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-12",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-13",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-14",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-15",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-2",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-3",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-4",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-5",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-6",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-7",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-8",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-sapling-9",
+          "url": "/assets/sprites/trees/_unused/birch-v2-sapling-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-0",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-1",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-10",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-11",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-11.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-12",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-13",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-14",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-15",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-2",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-3",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-4",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-5",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-6",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-7",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-8",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "birch-v2-young-9",
+          "url": "/assets/sprites/trees/_unused/birch-v2-young-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-10",
+          "url": "/assets/sprites/trees/_unused/elm-mature-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-11",
+          "url": "/assets/sprites/trees/_unused/elm-mature-11.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-12",
+          "url": "/assets/sprites/trees/_unused/elm-mature-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-13",
+          "url": "/assets/sprites/trees/_unused/elm-mature-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-14",
+          "url": "/assets/sprites/trees/_unused/elm-mature-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-15",
+          "url": "/assets/sprites/trees/_unused/elm-mature-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-3",
+          "url": "/assets/sprites/trees/_unused/elm-mature-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-4",
+          "url": "/assets/sprites/trees/_unused/elm-mature-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-6",
+          "url": "/assets/sprites/trees/_unused/elm-mature-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-7",
+          "url": "/assets/sprites/trees/_unused/elm-mature-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-8",
+          "url": "/assets/sprites/trees/_unused/elm-mature-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-mature-9",
+          "url": "/assets/sprites/trees/_unused/elm-mature-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-0",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-1",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-10",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-12",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-13",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-14",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-2",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-3",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-4",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-7",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-8",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-sapling-9",
+          "url": "/assets/sprites/trees/_unused/elm-sapling-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-0",
+          "url": "/assets/sprites/trees/_unused/elm-young-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-1",
+          "url": "/assets/sprites/trees/_unused/elm-young-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-10",
+          "url": "/assets/sprites/trees/_unused/elm-young-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-12",
+          "url": "/assets/sprites/trees/_unused/elm-young-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-13",
+          "url": "/assets/sprites/trees/_unused/elm-young-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-14",
+          "url": "/assets/sprites/trees/_unused/elm-young-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-2",
+          "url": "/assets/sprites/trees/_unused/elm-young-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-3",
+          "url": "/assets/sprites/trees/_unused/elm-young-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-5",
+          "url": "/assets/sprites/trees/_unused/elm-young-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-6",
+          "url": "/assets/sprites/trees/_unused/elm-young-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-7",
+          "url": "/assets/sprites/trees/_unused/elm-young-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-8",
+          "url": "/assets/sprites/trees/_unused/elm-young-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "elm-young-9",
+          "url": "/assets/sprites/trees/_unused/elm-young-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "fallen-log-15",
+          "url": "/assets/sprites/trees/_unused/fallen-log-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "log",
+          "url": "/assets/sprites/trees/birch/objects/log.png",
+          "folder": "trees/birch/objects",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-0",
+          "url": "/assets/sprites/trees/_unused/sapling-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-1",
+          "url": "/assets/sprites/trees/_unused/sapling-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-11",
+          "url": "/assets/sprites/trees/_unused/sapling-11.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-13",
+          "url": "/assets/sprites/trees/_unused/sapling-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-14",
+          "url": "/assets/sprites/trees/_unused/sapling-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-16",
+          "url": "/assets/sprites/trees/_unused/sapling-16.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-17",
+          "url": "/assets/sprites/trees/_unused/sapling-17.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-18",
+          "url": "/assets/sprites/trees/_unused/sapling-18.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-19",
+          "url": "/assets/sprites/trees/_unused/sapling-19.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-2",
+          "url": "/assets/sprites/trees/_unused/sapling-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-20",
+          "url": "/assets/sprites/trees/_unused/sapling-20.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-21",
+          "url": "/assets/sprites/trees/_unused/sapling-21.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-22",
+          "url": "/assets/sprites/trees/_unused/sapling-22.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-23",
+          "url": "/assets/sprites/trees/_unused/sapling-23.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-24",
+          "url": "/assets/sprites/trees/_unused/sapling-24.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-25",
+          "url": "/assets/sprites/trees/_unused/sapling-25.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-26",
+          "url": "/assets/sprites/trees/_unused/sapling-26.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-27",
+          "url": "/assets/sprites/trees/_unused/sapling-27.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-28",
+          "url": "/assets/sprites/trees/_unused/sapling-28.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-29",
+          "url": "/assets/sprites/trees/_unused/sapling-29.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-30",
+          "url": "/assets/sprites/trees/_unused/sapling-30.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-31",
+          "url": "/assets/sprites/trees/_unused/sapling-31.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-32",
+          "url": "/assets/sprites/trees/_unused/sapling-32.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-33",
+          "url": "/assets/sprites/trees/_unused/sapling-33.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-34",
+          "url": "/assets/sprites/trees/_unused/sapling-34.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-35",
+          "url": "/assets/sprites/trees/_unused/sapling-35.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-36",
+          "url": "/assets/sprites/trees/_unused/sapling-36.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-37",
+          "url": "/assets/sprites/trees/_unused/sapling-37.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-38",
+          "url": "/assets/sprites/trees/_unused/sapling-38.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-39",
+          "url": "/assets/sprites/trees/_unused/sapling-39.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-4",
+          "url": "/assets/sprites/trees/_unused/sapling-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-40",
+          "url": "/assets/sprites/trees/_unused/sapling-40.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-41",
+          "url": "/assets/sprites/trees/_unused/sapling-41.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-42",
+          "url": "/assets/sprites/trees/_unused/sapling-42.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-43",
+          "url": "/assets/sprites/trees/_unused/sapling-43.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-44",
+          "url": "/assets/sprites/trees/_unused/sapling-44.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-45",
+          "url": "/assets/sprites/trees/_unused/sapling-45.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-46",
+          "url": "/assets/sprites/trees/_unused/sapling-46.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-47",
+          "url": "/assets/sprites/trees/_unused/sapling-47.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-48",
+          "url": "/assets/sprites/trees/_unused/sapling-48.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-49",
+          "url": "/assets/sprites/trees/_unused/sapling-49.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-5",
+          "url": "/assets/sprites/trees/_unused/sapling-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-50",
+          "url": "/assets/sprites/trees/_unused/sapling-50.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-51",
+          "url": "/assets/sprites/trees/_unused/sapling-51.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-52",
+          "url": "/assets/sprites/trees/_unused/sapling-52.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-53",
+          "url": "/assets/sprites/trees/_unused/sapling-53.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-54",
+          "url": "/assets/sprites/trees/_unused/sapling-54.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-55",
+          "url": "/assets/sprites/trees/_unused/sapling-55.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-56",
+          "url": "/assets/sprites/trees/_unused/sapling-56.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-57",
+          "url": "/assets/sprites/trees/_unused/sapling-57.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-58",
+          "url": "/assets/sprites/trees/_unused/sapling-58.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-59",
+          "url": "/assets/sprites/trees/_unused/sapling-59.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-60",
+          "url": "/assets/sprites/trees/_unused/sapling-60.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-61",
+          "url": "/assets/sprites/trees/_unused/sapling-61.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-62",
+          "url": "/assets/sprites/trees/_unused/sapling-62.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-63",
+          "url": "/assets/sprites/trees/_unused/sapling-63.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-7",
+          "url": "/assets/sprites/trees/_unused/sapling-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "sapling-8",
+          "url": "/assets/sprites/trees/_unused/sapling-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-1",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-10",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-13",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-14",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-15",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-3",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-4",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-5",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-6",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stepping-stone-7",
+          "url": "/assets/sprites/trees/_unused/stepping-stone-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stones",
+          "url": "/assets/sprites/trees/birch/objects/stones.png",
+          "folder": "trees/birch/objects",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "stump",
+          "url": "/assets/sprites/trees/birch/objects/stump.png",
+          "folder": "trees/birch/objects",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "stump-10",
+          "url": "/assets/sprites/trees/_unused/stump-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-11",
+          "url": "/assets/sprites/trees/_unused/stump-11.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-13",
+          "url": "/assets/sprites/trees/_unused/stump-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-14",
+          "url": "/assets/sprites/trees/_unused/stump-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-15",
+          "url": "/assets/sprites/trees/_unused/stump-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-2",
+          "url": "/assets/sprites/trees/_unused/stump-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": true
+        },
+        {
+          "name": "stump-3",
+          "url": "/assets/sprites/trees/_unused/stump-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-4",
+          "url": "/assets/sprites/trees/_unused/stump-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-6",
+          "url": "/assets/sprites/trees/_unused/stump-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-8",
+          "url": "/assets/sprites/trees/_unused/stump-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "stump-9",
+          "url": "/assets/sprites/trees/_unused/stump-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-0",
+          "url": "/assets/sprites/trees/_unused/young-v1-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-1",
+          "url": "/assets/sprites/trees/_unused/young-v1-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-10",
+          "url": "/assets/sprites/trees/_unused/young-v1-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-11",
+          "url": "/assets/sprites/trees/_unused/young-v1-11.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-12",
+          "url": "/assets/sprites/trees/_unused/young-v1-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-13",
+          "url": "/assets/sprites/trees/_unused/young-v1-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-14",
+          "url": "/assets/sprites/trees/_unused/young-v1-14.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-2",
+          "url": "/assets/sprites/trees/_unused/young-v1-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-3",
+          "url": "/assets/sprites/trees/_unused/young-v1-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-5",
+          "url": "/assets/sprites/trees/_unused/young-v1-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-6",
+          "url": "/assets/sprites/trees/_unused/young-v1-6.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-7",
+          "url": "/assets/sprites/trees/_unused/young-v1-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-8",
+          "url": "/assets/sprites/trees/_unused/young-v1-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v1-9",
+          "url": "/assets/sprites/trees/_unused/young-v1-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-0",
+          "url": "/assets/sprites/trees/_unused/young-v2-0.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-1",
+          "url": "/assets/sprites/trees/_unused/young-v2-1.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-10",
+          "url": "/assets/sprites/trees/_unused/young-v2-10.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-12",
+          "url": "/assets/sprites/trees/_unused/young-v2-12.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-13",
+          "url": "/assets/sprites/trees/_unused/young-v2-13.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-15",
+          "url": "/assets/sprites/trees/_unused/young-v2-15.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-2",
+          "url": "/assets/sprites/trees/_unused/young-v2-2.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-3",
+          "url": "/assets/sprites/trees/_unused/young-v2-3.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-4",
+          "url": "/assets/sprites/trees/_unused/young-v2-4.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-5",
+          "url": "/assets/sprites/trees/_unused/young-v2-5.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-7",
+          "url": "/assets/sprites/trees/_unused/young-v2-7.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-8",
+          "url": "/assets/sprites/trees/_unused/young-v2-8.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
+        },
+        {
+          "name": "young-v2-9",
+          "url": "/assets/sprites/trees/_unused/young-v2-9.png",
+          "folder": "trees/_unused",
+          "category": "trees",
+          "wired": false
         }
       ]
     }

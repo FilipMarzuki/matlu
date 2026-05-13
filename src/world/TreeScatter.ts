@@ -35,9 +35,14 @@ export interface TreeHarvest {
   };
 }
 
+export type Season = 'summer' | 'autumn' | 'winter' | 'spring';
+
 export interface TreeStage {
   stage: 'sapling' | 'young' | 'mature';
+  /** Default sprite key (summer / backward compat). */
   sprite: string;
+  /** Seasonal sprite variants — keys are Season values. Falls back to `sprite` if missing. */
+  sprites?: Partial<Record<Season, string>>;
   scale: [number, number];
   collider: { width: number; height: number; offsetY: number };
   harvest: TreeHarvest;
@@ -48,7 +53,14 @@ export interface TreeDef {
   name: string;
   biomes: number[];
   density: 'high' | 'medium' | 'low' | 'rare';
+  /** Evergreen trees keep foliage in winter (only get snow overlay, no leaf-drop). */
+  evergreen?: boolean;
   stages: TreeStage[];
+}
+
+/** Resolve the sprite key for a stage + season, falling back to the default `sprite`. */
+export function resolveTreeSprite(stage: TreeStage, season: Season = 'summer'): string {
+  return stage.sprites?.[season] ?? stage.sprite;
 }
 
 export interface TreeRegistry {

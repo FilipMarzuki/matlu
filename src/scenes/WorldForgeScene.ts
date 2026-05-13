@@ -158,6 +158,9 @@ export class WorldForgeScene extends Phaser.Scene {
   // Allocated in buildDisplay(); row-major index: ty * GRID + tx.
   // Matches the layout AStarGrid expects so entity AI can pass it directly.
   walkabilityGrid: Uint8Array = new Uint8Array(0);
+  // Terrain type grid — 0 = land, 1 = shallow (shore/marsh with water), 2 = deep (river/ocean), 3 = cliff.
+  // More granular than walkabilityGrid — used for crossing placement, visual debug, etc.
+  private terrainGrid: Uint8Array = new Uint8Array(0);
   // Per-tile biome index grid — populated during buildDisplay() so tree scatter
   // can look up which biome each tile belongs to.
   private tileBiomeGrid: Uint8Array = new Uint8Array(0);
@@ -205,12 +208,85 @@ export class WorldForgeScene extends Phaser.Scene {
     this.load.json('trees-registry', '/macro-world/trees.json');
 
     // Oak tree sprites — variants per growth stage (PixelLab generated).
-    for (let i = 0; i < 5; i++) {
+    // Saplings: 6 variants (PixelLab candidates, originals discarded).
+    // Young: 5 variants (mix of v1 + v2 PixelLab high-top-down candidates).
+    for (let i = 0; i < 6; i++) {
       this.load.image(`tree-oak-sapling-${i}`, `/assets/sprites/trees/oak/sapling/${i}.png`);
-      this.load.image(`tree-oak-young-${i}`,   `/assets/sprites/trees/oak/young/${i}.png`);
+    }
+    for (let i = 0; i < 5; i++) {
+      this.load.image(`tree-oak-young-${i}`, `/assets/sprites/trees/oak/young/${i}.png`);
     }
     for (let i = 0; i < 14; i++) {
       this.load.image(`tree-oak-${i}`,         `/assets/sprites/trees/oak/mature/${i}.png`);
+    }
+
+    // Elm tree sprites — 4 sapling, 3 young, 4 mature.
+    for (let i = 0; i < 4; i++) {
+      this.load.image(`tree-elm-sapling-${i}`, `/assets/sprites/trees/elm/sapling/${i}.png`);
+    }
+    for (let i = 0; i < 3; i++) {
+      this.load.image(`tree-elm-young-${i}`,   `/assets/sprites/trees/elm/young/${i}.png`);
+    }
+    for (let i = 0; i < 4; i++) {
+      this.load.image(`tree-elm-${i}`,         `/assets/sprites/trees/elm/mature/${i}.png`);
+    }
+
+    // Birch tree sprites — 4 sapling, 4 young, 4 mature.
+    for (let i = 0; i < 4; i++) {
+      this.load.image(`tree-birch-sapling-${i}`, `/assets/sprites/trees/birch/sapling/${i}.png`);
+    }
+    for (let i = 0; i < 4; i++) {
+      this.load.image(`tree-birch-young-${i}`,   `/assets/sprites/trees/birch/young/${i}.png`);
+    }
+    for (let i = 0; i < 4; i++) {
+      this.load.image(`tree-birch-${i}`,         `/assets/sprites/trees/birch/mature/${i}.png`);
+    }
+
+    // Pine tree sprites — 3 sapling, 2 young, 3 mature.
+    for (let i = 0; i < 3; i++) {
+      this.load.image(`tree-pine-sapling-${i}`, `/assets/sprites/trees/pine/sapling/${i}.png`);
+    }
+    for (let i = 0; i < 2; i++) {
+      this.load.image(`tree-pine-young-${i}`,   `/assets/sprites/trees/pine/young/${i}.png`);
+    }
+    for (let i = 0; i < 3; i++) {
+      this.load.image(`tree-pine-${i}`,         `/assets/sprites/trees/pine/mature/${i}.png`);
+    }
+
+    // Spruce tree sprites — 3 sapling, 3 young, 3 mature.
+    for (let i = 0; i < 3; i++) {
+      this.load.image(`tree-spruce-sapling-${i}`, `/assets/sprites/trees/spruce/sapling/${i}.png`);
+    }
+    for (let i = 0; i < 3; i++) {
+      this.load.image(`tree-spruce-young-${i}`,   `/assets/sprites/trees/spruce/young/${i}.png`);
+    }
+    for (let i = 0; i < 3; i++) {
+      this.load.image(`tree-spruce-${i}`,         `/assets/sprites/trees/spruce/mature/${i}.png`);
+    }
+
+    // Ancient tree sprites — 4 mature variants (96px, rare).
+    for (let i = 0; i < 4; i++) {
+      this.load.image(`tree-ancient-${i}`, `/assets/sprites/trees/ancient/mature/${i}.png`);
+    }
+
+    // Stump sprites — 5 variants (32px).
+    for (let i = 0; i < 5; i++) {
+      this.load.image(`stump-${i}`, `/assets/sprites/trees/stumps/${i}.png`);
+    }
+
+    // Dead snag sprites — 16 variants (48px, standing dead trees).
+    for (let i = 0; i < 16; i++) {
+      this.load.image(`dead-snag-${i}`, `/assets/sprites/trees/dead-snags/${i}.png`);
+    }
+
+    // Fallen log sprites — 15 variants (48px, forest floor debris).
+    for (let i = 0; i < 15; i++) {
+      this.load.image(`fallen-log-${i}`, `/assets/sprites/trees/fallen-logs/${i}.png`);
+    }
+
+    // Stepping stone sprites — 6 variants (64px, water crossings).
+    for (let i = 0; i < 6; i++) {
+      this.load.image(`stepping-stone-${i}`, `/assets/sprites/crossings/stepping-stones/${i}.png`);
     }
 
     // Hero atlases — loaded so entity spawner can show actual sprites.
@@ -465,9 +541,10 @@ export class WorldForgeScene extends Phaser.Scene {
     // correct front-to-back layering for cube-style iso tiles with visible
     // front faces — no per-tile depth values needed.
     const G = this.GRID;
-    // Allocate biome + walkability grids fresh every time the display is rebuilt.
+    // Allocate biome + walkability + terrain grids fresh every time the display is rebuilt.
     this.tileBiomeGrid = new Uint8Array(G * G);
     this.walkabilityGrid = new Uint8Array(G * G);
+    this.terrainGrid = new Uint8Array(G * G); // 0=land, 1=shallow, 2=deep, 3=cliff
     for (let sum = 0; sum < G * 2 - 1; sum++) {
       const txMin = Math.max(0, sum - (G - 1));
       const txMax = Math.min(sum, G - 1);
@@ -525,29 +602,35 @@ export class WorldForgeScene extends Phaser.Scene {
         };
         const shoreBiome = SHORE_FOR_BIOME[landBiome] ?? 2;
 
+        // terrain: 0=land, 1=shallow, 2=deep, 3=cliff (set alongside visual decision)
+        let tileTerrain = 0;
+
         if (oceanDist > 1) {
           frame = isoTileFrame(0, elev); tileBiome = 0;
+          tileTerrain = 2; // deep ocean
         } else if (oceanDist > 0) {
           frame = ISO_RIVER_FRAME; tileBiome = 0;
+          tileTerrain = 2; // near-shore ocean (renders as water)
         } else if (oceanDist === 0) {
           // Shoreline — 1 tile wide, biome-dependent
-          if (onRiver) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
-          else { frame = isoTileFrame(shoreBiome, elev); customPack = CUSTOM_TILE_PACKS[shoreBiome]; tileBiome = shoreBiome; }
+          if (onRiver) { frame = ISO_RIVER_FRAME; tileBiome = 0; tileTerrain = 2; }
+          else { frame = isoTileFrame(shoreBiome, elev); customPack = CUSTOM_TILE_PACKS[shoreBiome]; tileBiome = shoreBiome; tileTerrain = 1; } // shore = shallow
         } else if (elevDist > 1) {
           // Snow field highlands — river shows as water
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; tileTerrain = 2; }
           else { frame = isoTileFrame(11, elev); customPack = CUSTOM_TILE_PACKS[11]; tileBiome = 11; }
         } else if (elevDist === 1) {
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; tileTerrain = 2; }
           else { frame = isoTileFrame(10, elev); customPack = CUSTOM_TILE_PACKS[10]; tileBiome = 10; }
         } else if (elevDist === 0) {
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; tileTerrain = 2; }
           else { frame = isoTileFrame(landBiome, elev); customPack = CUSTOM_TILE_PACKS[landBiome]; }
         } else if (elevDist === -1) {
-          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; }
+          if (onRiver || atWfBase) { frame = ISO_RIVER_FRAME; tileBiome = 0; tileTerrain = 2; }
           else { frame = isoTileFrame(landBiome, elev); customPack = CUSTOM_TILE_PACKS[landBiome]; }
         } else if (onRiver || atWfBase) {
           frame = ISO_RIVER_FRAME; tileBiome = 0;
+          tileTerrain = 2; // river in lowlands
         } else {
           frame = isoTileFrame(landBiome, elev);
           customPack = CUSTOM_TILE_PACKS[landBiome];
@@ -575,10 +658,10 @@ export class WorldForgeScene extends Phaser.Scene {
         const isWF      = showRiver && Math.abs(tx - riverCenter(diag)) <= 1;
         const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
 
-        // Walkability: sea/river water and cliff-edge tiles are impassable.
-        // oceanDist > 0 covers deep ocean and the river-mouth shoreline row.
-        const isWater = oceanDist > 0 || onRiver || atWfBase;
-        this.walkabilityGrid[ty * G + tx] = isWater || hasCliff ? 1 : 0;
+        // Walkability: deep water and cliff-edge tiles are impassable.
+        this.walkabilityGrid[ty * G + tx] = tileTerrain === 2 || hasCliff ? 1 : 0;
+        // Terrain type — set inline during visual branching above; cliff overrides.
+        this.terrainGrid[ty * G + tx] = hasCliff ? 3 : tileTerrain;
 
         if (hasCliff) {
           // Biome resolution mirrors the floor-tile logic: elevation zones take priority
@@ -982,6 +1065,49 @@ export class WorldForgeScene extends Phaser.Scene {
       this.add.text(wx - 16, wy, 'W', compassStyle).setOrigin(1, 0.5).setDepth(11),
     );
 
+
+    // Post-pass: fix river bank terrain classification.
+    // In isometric view, water/land boundaries are visible on specific sides:
+    //   NW = (tx-1, ty),  N = (tx-1, ty-1),  NE = (tx, ty-1)  — screen-north neighbours
+    //   SW = (tx+1, ty),  S = (tx+1, ty+1),  SE = (tx, ty+1)  — screen-south neighbours
+    //
+    // Rule 1: Land tile with deep water on its NW/N/NE → becomes shallow
+    //         (land tile visually shows water bleeding in from the north)
+    // Rule 2: Deep water tile with land on its NW/N/NE → becomes shallow
+    //         (water tile visually shows land on its upper edges)
+    {
+      const snap = new Uint8Array(this.terrainGrid);
+      const northNeighbours = [[-1, 0], [-1, -1], [0, -1]]; // NW, N, NE in iso
+      // southNeighbours = [[1, 0], [1, 1], [0, 1]] — reserved for future use
+
+      for (let ty = 1; ty < G - 1; ty++) {
+        for (let tx = 1; tx < G - 1; tx++) {
+          const idx = ty * G + tx;
+          const t = snap[idx];
+
+          if (t === 0) {
+            // Rule 1: land tile — check if any NW/N/NE neighbour is deep water
+            for (const [dtx, dty] of northNeighbours) {
+              const nx = tx + dtx, ny = ty + dty;
+              if (nx >= 0 && ny >= 0 && nx < G && ny < G && snap[ny * G + nx] === 2) {
+                this.terrainGrid[idx] = 1; // land → shallow
+                break;
+              }
+            }
+          } else if (t === 2) {
+            // Rule 2: deep water tile — check if any NW/N/NE neighbour is land
+            for (const [dtx, dty] of northNeighbours) {
+              const nx = tx + dtx, ny = ty + dty;
+              if (nx >= 0 && ny >= 0 && nx < G && ny < G && snap[ny * G + nx] === 0) {
+                this.terrainGrid[idx] = 1; // deep → shallow
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Scatter trees across the iso grid using biome assignments from this build.
     this.scatterTrees();
   }
@@ -1136,6 +1262,14 @@ export class WorldForgeScene extends Phaser.Scene {
     candidates.sort((a, b) =>
       (stageOrder[a.stage.stage] ?? 1) - (stageOrder[b.stage.stage] ?? 1));
 
+    // Debug manifest — maps red tree numbers to full metadata.
+    // Accessible via browser console: window.__treeManifest
+    const treeManifest: Record<number, {
+      species: string; stage: string; spriteKey: string;
+      tile: { x: number; y: number }; isoPos: { x: number; y: number };
+      biome: string; scale: number; blockSize: number;
+    }> = {};
+
     let treeIdx = 0;
     for (const { tx, ty, picked, stage, jx, jy } of candidates) {
       if (occupied[ty * G + tx]) continue;
@@ -1202,20 +1336,31 @@ export class WorldForgeScene extends Phaser.Scene {
           }
         }
 
+        // Depth based on Y position — trees further south (higher Y) render
+        // in front of trees further north, giving correct isometric overlap.
+        const treeDepth = 1 + (y + jy) * 0.001;
+
         const img = this.add.image(x + jx, y + jy, spriteKey)
           .setScale(scale)
           .setOrigin(0.5, 1)
-          .setDepth(1);
+          .setDepth(treeDepth);
 
         // Label: species + stage — font scales with zoom so it stays readable.
         const labelSize = Math.max(5, Math.round(7 * this.zoomFactor));
         const label = this.add.text(x + jx, y + jy + 2, `${picked.id}\n${stage.stage}`, {
           fontSize: `${labelSize}px`, color: '#ffffff',
           stroke: '#000000', strokeThickness: Math.max(1, this.zoomFactor),
-        }).setOrigin(0.5, 0).setDepth(2);
+        }).setOrigin(0.5, 0).setDepth(treeDepth + 0.0001);
 
         // Red index number above the tree for easy reference.
         treeIdx++;
+        const biome = this.tileBiomeGrid[ty * G + tx];
+        treeManifest[treeIdx] = {
+          species: picked.id, stage: stage.stage, spriteKey,
+          tile: { x: tx, y: ty }, isoPos: { x: x + jx, y: y + jy },
+          biome: BIOME_NAMES[biome] ?? `unknown(${biome})`,
+          scale, blockSize,
+        };
         const numSize = Math.max(6, Math.round(9 * this.zoomFactor));
         const idxLabel = this.add.text(
           x + jx, y + jy - img.displayHeight - 2,
@@ -1223,11 +1368,158 @@ export class WorldForgeScene extends Phaser.Scene {
             fontSize: `${numSize}px`, color: '#ff3333', fontStyle: 'bold',
             stroke: '#000000', strokeThickness: Math.max(2, this.zoomFactor * 1.5),
           },
-        ).setOrigin(0.5, 1).setDepth(3);
+        ).setOrigin(0.5, 1).setDepth(treeDepth + 0.0002);
 
         this.treeSprites.push(img, label, idxLabel);
     }
-    console.log(`[TreeScatter] Placed ${treeIdx} trees`);
+    // Expose manifest on window for debug — type-safe cast to avoid TS error.
+    (window as unknown as Record<string, unknown>).__treeManifest = treeManifest;
+    console.log(`[TreeScatter] Placed ${treeIdx} trees — manifest at window.__treeManifest`);
+    console.table(Object.entries(treeManifest).map(([idx, t]) =>
+      ({ '#': idx, species: t.species, stage: t.stage, sprite: t.spriteKey, biome: t.biome, tile: `${t.tile.x},${t.tile.y}` })));
+
+    // Place stepping stones on narrow water crossings for visual test.
+    this.placeSteppingStones();
+  }
+
+  // ── Stepping stones (test placement) ──────────────────────────────────────────
+
+  /**
+   * Place stepping stone crossings on narrow river sections.
+   * Checks if a river exists, rolls for whether a crossing spawns,
+   * then finds the narrowest point (prefer 1-tile, accept 2-tile).
+   */
+  private placeSteppingStones(): void {
+    const G = this.GRID;
+
+    if (!this.textures.exists('stepping-stone-0')) {
+      console.log('[SteppingStones] No sprites loaded');
+      return;
+    }
+
+    const terrain = this.terrainGrid;
+
+    // Expose terrain grid on window for console lookup: window.__terrain(tx,ty)
+    const terrainNames = ['land', 'shallow', 'deep', 'cliff'];
+    const gridSize = G;
+    (window as unknown as Record<string, unknown>).__terrain = (tx: number, ty: number) => {
+      if (tx < 0 || ty < 0 || tx >= gridSize || ty >= gridSize) return 'out of bounds';
+      return terrainNames[terrain[ty * gridSize + tx]] ?? 'unknown';
+    };
+    console.log('[Terrain] Lookup available: __terrain(tx, ty) → land/shallow/deep/cliff');
+
+    // Debug overlay: colored dots for water/shore/cliff tiles only
+    const debugG = this.add.graphics().setDepth(50);
+    for (let ty = 0; ty < G; ty++) {
+      for (let tx = 0; tx < G; tx++) {
+        const t = terrain[ty * G + tx];
+        if (t === 0) continue; // skip land
+        const { x, y } = this.isoPos(tx, ty);
+        const cy = y + this.ISO_H / 2;
+        const r = 2 * this.zoomFactor;
+        const color = t === 2 ? 0xff0000 : t === 1 ? 0xffcc00 : 0x4444ff;
+        debugG.fillStyle(color, 0.3);
+        debugG.fillCircle(x, cy, r);
+      }
+    }
+    this.treeSprites.push(debugG);
+
+    // Find crossing paths between opposite river banks.
+    // For each shallow tile, check which cardinal direction has land (= bank side).
+    // Walk the opposite direction through water. If we hit another shallow tile
+    // that has land on the far side (opposite bank), it's a valid crossing.
+
+    type CrossingLine = {
+      from: { tx: number; ty: number };
+      to: { tx: number; ty: number };
+      dist: number;
+    };
+    const crossings: CrossingLine[] = [];
+
+    const cardinals = [
+      { dtx: 1, dty: 0 },
+      { dtx: -1, dty: 0 },
+      { dtx: 0, dty: 1 },
+      { dtx: 0, dty: -1 },
+    ];
+
+    const checked = new Set<string>();
+
+    for (let ty = 2; ty < G - 2; ty++) {
+      for (let tx = 2; tx < G - 2; tx++) {
+        if (terrain[ty * G + tx] !== 1) continue; // start from shallow
+
+        // Check each cardinal direction for adjacent land
+        for (const landDir of cardinals) {
+          const lx = tx + landDir.dtx, ly = ty + landDir.dty;
+          if (lx < 0 || ly < 0 || lx >= G || ly >= G) continue;
+          if (terrain[ly * G + lx] !== 0) continue; // must be land
+
+          // Walk opposite direction (away from land, into water)
+          const wdx = -landDir.dtx, wdy = -landDir.dty;
+          const key = `${tx},${ty},${wdx},${wdy}`;
+          if (checked.has(key)) continue;
+          checked.add(key);
+
+          let cx = tx + wdx, cy = ty + wdy;
+          let dist = 1;
+
+          while (cx >= 0 && cy >= 0 && cx < G && cy < G && dist <= 5) {
+            const t = terrain[cy * G + cx];
+            if (t === 1) {
+              // Found shallow — verify it has land on the far side (opposite bank)
+              const farX = cx + wdx, farY = cy + wdy;
+              const hasOppLand = farX >= 0 && farY >= 0 && farX < G && farY < G
+                && terrain[farY * G + farX] === 0;
+              if (hasOppLand) {
+                crossings.push({ from: { tx, ty }, to: { tx: cx, ty: cy }, dist });
+              }
+              break;
+            } else if (t === 2) {
+              cx += wdx;
+              cy += wdy;
+              dist++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (crossings.length === 0) {
+      console.log('[SteppingStones] No opposite-bank crossing found');
+      return;
+    }
+
+    // Sort: shortest first, then closer to map center
+    crossings.sort((a, b) => {
+      if (a.dist !== b.dist) return a.dist - b.dist;
+      const aMid = Math.abs(a.from.tx - G / 2) + Math.abs(a.from.ty - G / 2);
+      const bMid = Math.abs(b.from.tx - G / 2) + Math.abs(b.from.ty - G / 2);
+      return aMid - bMid;
+    });
+
+    // Place a stepping stone at the midpoint of the best crossing line
+    const best = crossings[0];
+    const fromPos = this.isoPos(best.from.tx, best.from.ty);
+    const toPos = this.isoPos(best.to.tx, best.to.ty);
+    // Tile centers
+    const fx = fromPos.x, fy = fromPos.y + this.ISO_H / 2;
+    const tox = toPos.x, toy = toPos.y + this.ISO_H / 2;
+    // Midpoint of the crossing line
+    const mx = (fx + tox) / 2;
+    const my = (fy + toy) / 2;
+    const depth = 0.5 + my * 0.001;
+
+    const img = this.add.image(mx, my, 'stepping-stone-0')
+      .setScale(this.ISO_SCALE * 0.2)
+      .setOrigin(0.5, 0.5)
+      .setDepth(depth);
+    this.treeSprites.push(img);
+
+    console.log(`[SteppingStones] Placed stone at midpoint of (${best.from.tx},${best.from.ty}) → (${best.to.tx},${best.to.ty}), dist=${best.dist}, ${crossings.length} total found`);
+
   }
 
   // ── Palette UI ────────────────────────────────────────────────────────────────

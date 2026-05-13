@@ -71,8 +71,13 @@ for (const fullPath of walkPngs(spritesDir)) {
   const parts = folder.split('/');
   let category = parts[0] || 'other';
 
-  // Check if this filename appears in source code
-  const wired = sourceText.includes(name) || sourceText.includes(basename(fullPath));
+  // Check if this sprite is referenced in source code.
+  // Use the url path or a derived texture key to avoid false positives
+  // (bare names like "0" match everywhere).
+  const derivedKey = folder.replace(/\//g, '-').replace(/-candidates.*/, '') + '-' + name;
+  const wired = sourceText.includes(url)
+    || sourceText.includes(derivedKey)
+    || (name.length > 3 && (sourceText.includes(name) || sourceText.includes(basename(fullPath))));
 
   entries.push({ name, url, folder, category, wired });
 }

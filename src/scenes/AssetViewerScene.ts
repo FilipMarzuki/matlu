@@ -49,10 +49,22 @@ export class AssetViewerScene extends Phaser.Scene {
   private contentHeight = 0;
   private container!: Phaser.GameObjects.Container;
   private detailText!: Phaser.GameObjects.Text;
+  private titleText!: Phaser.GameObjects.Text;
   private manifest: SpriteManifest | null = null;
+  /** All scene objects created by buildGrid — destroyed on rebuild. */
+  private gridObjects: Phaser.GameObjects.GameObject[] = [];
+  /** Current search filter string. */
+  private searchFilter = '';
+  /** Wired filter: 'all' | 'review' (unwired only) | 'wired' (wired only) | 'workbench'. */
+  private wiredFilter: 'all' | 'review' | 'wired' | 'workbench' = 'all';
+  /** HTML search input element — destroyed on scene shutdown. */
+  private searchInput: HTMLInputElement | null = null;
 
   preload(): void {
-    this.load.json('sprite-manifest', '/assets/sprite-manifest.json');
+    // Cache-bust the manifest so HMR / hot-reload always picks up changes
+    const bust = `?t=${Date.now()}`;
+    this.cache.json.remove('sprite-manifest');
+    this.load.json('sprite-manifest', `/assets/sprite-manifest.json${bust}`);
   }
 
   create(): void {
@@ -70,16 +82,215 @@ export class AssetViewerScene extends Phaser.Scene {
     // Load all PNGs from the manifest
     for (const cat of this.manifest.categories) {
       for (const asset of cat.assets) {
-        const key = `av-${asset.category}-${asset.name}`;
+        const key = `av-${asset.folder}-${asset.name}`;
         if (!this.textures.exists(key)) {
           this.load.image(key, asset.url);
         }
       }
     }
 
-    // Wait for all images to load, then build the grid
-    this.load.once('complete', () => this.buildGrid());
+    // Log any load failures
+    this.load.on('loaderror', (file: { key: string; url: string }) => {
+      console.warn(`[AssetViewer] Failed to load: ${file.key} → ${file.url}`);
+    });
+
+    // Wait for all images to load, then build the grid + chrome
+    this.load.once('complete', () => {
+      // Report how many loaded vs expected
+      const expected = this.manifest!.totalAssets;
+      let loaded = 0;
+      for (const cat of this.manifest!.categories) {
+        for (const a of cat.assets) {
+          if (this.textures.exists(`av-${a.folder}-${a.name}`)) loaded++;
+        }
+      }
+      console.log(`[AssetViewer] Loaded ${loaded}/${expected} textures`);
+      if (loaded < expected) {
+        console.warn(`[AssetViewer] ${expected - loaded} textures failed to load`);
+      }
+      this.buildChrome();
+      this.buildGrid();
+      // Rebuild grid when window resizes so columns adapt.
+      // Track last size to avoid spurious rebuilds (Phaser fires resize often).
+      let lastW = this.scale.width;
+      let lastH = this.scale.height;
+      this.scale.on('resize', () => {
+        const w = this.scale.width;
+        const h = this.scale.height;
+        if (w === lastW && h === lastH) return;
+        lastW = w;
+        lastH = h;
+        this.rebuildGrid(true);
+      });
+    });
     this.load.start();
+  }
+
+  /** Fixed UI elements (title, detail bar, scroll, search) — created once. */
+  private buildChrome(): void {
+    // Detail bar (fixed bottom)
+    this.detailText = this.add.text(
+      this.scale.width / 2, this.scale.height - 8,
+      'Click a sprite to see details  |  Green = wired  |  Red = unwired', {
+        fontSize: '13px', color: '#888888', backgroundColor: '#000000cc',
+        padding: { x: 12, y: 8 },
+      },
+    ).setOrigin(0.5, 1).setScrollFactor(0).setDepth(100);
+
+    // Title
+    this.titleText = this.add.text(this.scale.width / 2, 4,
+      'Asset Viewer  —  npm run assets:sprites to refresh', {
+        fontSize: '14px', color: '#aaaaaa', backgroundColor: '#000000aa',
+        padding: { x: 10, y: 5 },
+      }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
+
+    // HTML search input — overlaid on top of canvas for real text search
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search assets… (name, folder, #number)';
+    Object.assign(input.style, {
+      position: 'absolute', top: '6px', right: '12px', zIndex: '1000',
+      width: '260px', padding: '6px 10px',
+      fontSize: '14px', fontFamily: 'monospace',
+      background: '#1a1a2e', color: '#eeeeee', border: '1px solid #444466',
+      borderRadius: '4px', outline: 'none',
+    });
+    input.addEventListener('focus', () => { input.style.borderColor = '#6688cc'; });
+    input.addEventListener('blur', () => { input.style.borderColor = '#444466'; });
+
+    let debounce: ReturnType<typeof setTimeout>;
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        this.searchFilter = input.value.trim().toLowerCase();
+        this.rebuildGrid();
+      }, 200);
+    });
+
+    this.game.canvas.parentElement?.appendChild(input);
+    this.searchInput = input;
+
+    // Filter tab bar — All / Review / Wired
+    const bar = document.createElement('div');
+    Object.assign(bar.style, {
+      position: 'absolute', top: '6px', left: '12px', zIndex: '1000',
+      display: 'flex', gap: '4px',
+    });
+
+    const makeBtn = (label: string, value: 'all' | 'review' | 'wired' | 'workbench', count: () => number) => {
+      const btn = document.createElement('button');
+      const updateStyle = () => {
+        const active = this.wiredFilter === value;
+        Object.assign(btn.style, {
+          padding: '5px 12px', fontSize: '13px', fontFamily: 'monospace', cursor: 'pointer',
+          background: active ? '#334' : '#1a1a2e',
+          color: active ? '#ffffff' : '#888888',
+          border: active ? '1px solid #6688cc' : '1px solid #444466',
+          borderRadius: '4px',
+        });
+        btn.textContent = `${label} (${count()})`;
+      };
+      btn.addEventListener('click', () => {
+        this.wiredFilter = value;
+        // Update all button styles
+        bar.querySelectorAll('button').forEach(() => updateStyle());
+        this.rebuildGrid();
+        // Re-render all buttons after rebuild
+        bar.querySelectorAll<HTMLButtonElement>('button').forEach(b => b.click);
+      });
+      updateStyle();
+      return btn;
+    };
+
+    const manifest = this.manifest!;
+    // Count workbench assets
+    let workbenchCount = 0;
+    for (const cat of manifest.categories) {
+      for (const a of cat.assets) {
+        if (a.folder.startsWith('_workbench')) workbenchCount++;
+      }
+    }
+
+    const allBtn = makeBtn('All', 'all', () => manifest.totalAssets);
+    const reviewBtn = makeBtn('Review', 'review', () => manifest.unwiredCount);
+    const wiredBtn = makeBtn('Wired', 'wired', () => manifest.wiredCount);
+    const workbenchBtn = makeBtn('Workbench', 'workbench', () => workbenchCount);
+    bar.append(allBtn, reviewBtn, wiredBtn, workbenchBtn);
+
+    // Update all button styles on click
+    const allBtns = [allBtn, reviewBtn, wiredBtn, workbenchBtn] as const;
+    const btnMap = new Map<HTMLButtonElement, 'all' | 'review' | 'wired' | 'workbench'>([
+      [allBtn, 'all'], [reviewBtn, 'review'], [wiredBtn, 'wired'], [workbenchBtn, 'workbench'],
+    ]);
+    const updateAllBtns = () => {
+      for (const b of allBtns) {
+        const active = this.wiredFilter === btnMap.get(b);
+        Object.assign(b.style, {
+          background: active ? '#334' : '#1a1a2e',
+          color: active ? '#ffffff' : '#888888',
+          border: active ? '1px solid ' + (btnMap.get(b) === 'workbench' ? '#cc8844' : '#6688cc') : '1px solid #444466',
+        });
+      }
+    };
+    for (const b of allBtns) {
+      b.addEventListener('click', () => {
+        this.wiredFilter = btnMap.get(b)!;
+        updateAllBtns();
+        this.rebuildGrid();
+      });
+    }
+
+    this.game.canvas.parentElement?.appendChild(bar);
+
+    // Clean up HTML elements when scene stops
+    this.events.on('shutdown', () => {
+      input.remove();
+      bar.remove();
+      this.searchInput = null;
+    });
+
+    // Scroll — wheel
+    this.input.on('wheel', (_: unknown, __: unknown, ___: unknown, dy: number) => {
+      this.scrollY = Phaser.Math.Clamp(
+        this.scrollY + dy * 0.5,
+        0, Math.max(0, this.contentHeight - this.scale.height + 40),
+      );
+      this.container.setY(-this.scrollY);
+    });
+
+    // Scroll — keyboard (only when search input not focused)
+    const kb = this.input.keyboard!;
+    kb.on('keydown-UP', () => {
+      if (document.activeElement === this.searchInput) return;
+      this.scrollY = Math.max(0, this.scrollY - 60);
+      this.container.setY(-this.scrollY);
+    });
+    kb.on('keydown-DOWN', () => {
+      if (document.activeElement === this.searchInput) return;
+      this.scrollY = Math.min(
+        Math.max(0, this.contentHeight - this.scale.height + 40),
+        this.scrollY + 60,
+      );
+      this.container.setY(-this.scrollY);
+    });
+  }
+
+  /** Tear down and rebuild the grid. Resets scroll unless preserveScroll is true. */
+  private rebuildGrid(preserveScroll = false): void {
+    // Reposition fixed chrome
+    this.detailText.setPosition(this.scale.width / 2, this.scale.height - 8);
+    this.titleText.setPosition(this.scale.width / 2, 4);
+    // Destroy old grid objects
+    for (const obj of this.gridObjects) obj.destroy();
+    this.gridObjects = [];
+    this.container.destroy();
+    if (!preserveScroll) this.scrollY = 0;
+    this.buildGrid();
+    // Re-clamp scroll after rebuild in case content is shorter now
+    this.scrollY = Phaser.Math.Clamp(
+      this.scrollY, 0, Math.max(0, this.contentHeight - this.scale.height + 40),
+    );
+    this.container.setY(-this.scrollY);
   }
 
   private buildGrid(): void {
@@ -87,37 +298,87 @@ export class AssetViewerScene extends Phaser.Scene {
 
     this.container = this.add.container(0, 0);
 
-    const PAD = 12;
-    const CELL = 72;
-    const COLS = Math.floor((this.cameras.main.width - PAD * 2) / CELL);
-    let y = 30;
-    let globalIdx = 0;
+    const PAD = 16;
+    const CELL = 100;
+    const COLS = Math.max(1, Math.floor((this.scale.width - PAD * 2) / CELL));
+    let y = 36;
+
+    // Build stable ID map — every asset gets a permanent number regardless of filter.
+    // Key = "folder/name", value = sequential ID starting at 1.
+    const allAssets: ManifestAsset[] = [];
+    for (const cat of this.manifest.categories) {
+      for (const asset of cat.assets) allAssets.push(asset);
+    }
+    const stableIdMap = new Map<string, number>();
+    let nextId = 1;
+    for (const a of allAssets) {
+      stableIdMap.set(`${a.folder}/${a.name}`, nextId++);
+    }
 
     // Summary bar
+    const filterLabel = this.searchFilter ? `  |  filter: "${this.searchFilter}"` : '';
     const summary = this.add.text(PAD, y,
-      `${this.manifest.totalAssets} assets  |  ${this.manifest.wiredCount} wired  |  ${this.manifest.unwiredCount} unwired`, {
-        fontSize: '11px', color: '#aaaaaa', backgroundColor: '#222233',
-        padding: { x: 6, y: 3 },
+      `${this.manifest.totalAssets} assets  |  ${this.manifest.wiredCount} wired  |  ${this.manifest.unwiredCount} unwired${filterLabel}`, {
+        fontSize: '14px', color: '#aaaaaa', backgroundColor: '#222233',
+        padding: { x: 8, y: 4 },
       });
     this.container.add(summary);
-    y += 28;
+    y += 34;
+    // Group by folder
+    const folderGroups = new Map<string, ManifestAsset[]>();
+    for (const asset of allAssets) {
+      const group = folderGroups.get(asset.folder) ?? [];
+      group.push(asset);
+      folderGroups.set(asset.folder, group);
+    }
+    // Sort folders so hierarchy reads naturally (trees, trees/oak, trees/oak/mature, ...)
+    const sortedFolders = [...folderGroups.keys()].sort();
 
-    for (const cat of this.manifest.categories) {
-      // Section header
-      const header = this.add.text(PAD, y,
-        `${cat.category} (${cat.count})`, {
-          fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
-          backgroundColor: '#222233', padding: { x: 6, y: 3 },
+    const filter = this.searchFilter;
+
+    for (const folder of sortedFolders) {
+      let assets = folderGroups.get(folder)!;
+
+      // Apply wired/workbench filter
+      if (this.wiredFilter === 'review') {
+        assets = assets.filter(a => !a.wired);
+      } else if (this.wiredFilter === 'wired') {
+        assets = assets.filter(a => a.wired);
+      } else if (this.wiredFilter === 'workbench') {
+        if (!folder.startsWith('_workbench')) { continue; }
+      }
+
+      // Apply search filter — match against folder, asset name, or #N stable ID
+      if (filter) {
+        assets = assets.filter(a => {
+          const sid = stableIdMap.get(`${a.folder}/${a.name}`) ?? 0;
+          const haystack = `${a.folder} ${a.name} ${a.url} #${sid}`.toLowerCase();
+          return haystack.includes(filter) || folder.toLowerCase().includes(filter);
+        });
+      }
+      if (assets.length === 0) continue; // skip empty groups
+
+      const depth = folder.split('/').length - 1;
+      const indent = depth * 16;
+
+      // Section header — deeper folders get smaller/dimmer headers
+      const isTopLevel = depth === 0;
+      const headerColor = isTopLevel ? '#ffffff' : '#cccccc';
+      const headerSize = isTopLevel ? '16px' : '13px';
+      const header = this.add.text(PAD + indent, y,
+        `${folder} (${assets.length})`, {
+          fontSize: headerSize, color: headerColor, fontStyle: 'bold',
+          backgroundColor: '#222233', padding: { x: 8, y: 3 },
         });
       this.container.add(header);
-      y += 26;
+      y += isTopLevel ? 32 : 26;
 
       let col = 0;
-      for (const asset of cat.assets) {
-        const texKey = `av-${asset.category}-${asset.name}`;
+      for (const asset of assets) {
+        const texKey = `av-${asset.folder}-${asset.name}`;
         if (!this.textures.exists(texKey)) continue;
 
-        globalIdx++;
+        const stableId = stableIdMap.get(`${asset.folder}/${asset.name}`) ?? 0;
         const cx = PAD + col * CELL + CELL / 2;
         const cy = y + CELL / 2;
 
@@ -128,44 +389,41 @@ export class AssetViewerScene extends Phaser.Scene {
         this.container.add(bg);
 
         // Sprite — fit to cell
-        const img = this.add.image(cx, cy - 4, texKey);
+        const img = this.add.image(cx, cy - 6, texKey);
         const maxDim = Math.max(img.width, img.height);
-        const scale = maxDim > 0 ? Math.min((CELL - 16) / maxDim, 2.5) : 1;
+        const scale = maxDim > 0 ? Math.min((CELL - 24) / maxDim, 3) : 1;
         img.setScale(scale);
         this.container.add(img);
 
-        // Red ID number (top-left)
-        const idLabel = this.add.text(cx - CELL / 2 + 4, cy - CELL / 2 + 2,
-          `${globalIdx}`, {
-            fontSize: '8px', color: '#ff4444', fontStyle: 'bold',
-            stroke: '#000000', strokeThickness: 2,
+        // Stable ID number (top-left) — doesn't change with filters
+        const idLabel = this.add.text(cx - CELL / 2 + 5, cy - CELL / 2 + 3,
+          `#${stableId}`, {
+            fontSize: '11px', color: '#ff4444', fontStyle: 'bold',
+            stroke: '#000000', strokeThickness: 3,
           });
         this.container.add(idLabel);
 
         // Wired indicator (top-right)
         const dot = this.add.circle(
-          cx + CELL / 2 - 8, cy - CELL / 2 + 8, 4,
+          cx + CELL / 2 - 10, cy - CELL / 2 + 10, 5,
           asset.wired ? 0x44aa44 : 0xaa4444, 1,
         );
         this.container.add(dot);
 
         // Name label (bottom)
-        const displayName = asset.name.length > 10
-          ? asset.name.slice(0, 9) + '…'
-          : asset.name;
-        const label = this.add.text(cx, cy + CELL / 2 - 14, displayName, {
-          fontSize: '7px', color: '#888888',
+        const label = this.add.text(cx, cy + CELL / 2 - 18, asset.name, {
+          fontSize: '10px', color: '#aaaaaa',
         }).setOrigin(0.5, 0);
         this.container.add(label);
 
         // Click for details
         bg.setInteractive();
-        const thisIdx = globalIdx;
+        const sid = stableId;
         bg.on('pointerdown', () => {
           const w = img.width, h = img.height;
           const status = asset.wired ? '✓ WIRED' : '✗ UNWIRED';
           this.detailText.setText(
-            `#${thisIdx}  |  ${asset.name}  |  ${w}×${h}px  |  ${asset.url}  |  ${status}`,
+            `#${sid}  |  ${asset.name}  |  ${w}×${h}px  |  ${asset.folder}  |  ${asset.url}  |  ${status}`,
           );
           this.detailText.setColor(asset.wired ? '#88ff88' : '#ff8888');
         });
@@ -174,46 +432,9 @@ export class AssetViewerScene extends Phaser.Scene {
         if (col >= COLS) { col = 0; y += CELL; }
       }
       if (col > 0) y += CELL;
-      y += 10;
+      y += 8;
     }
 
     this.contentHeight = y;
-
-    // Detail bar (fixed bottom)
-    this.detailText = this.add.text(
-      this.cameras.main.width / 2, this.cameras.main.height - 8,
-      'Click a sprite to see details  |  Green = wired  |  Red = unwired', {
-        fontSize: '10px', color: '#888888', backgroundColor: '#000000cc',
-        padding: { x: 10, y: 6 },
-      },
-    ).setOrigin(0.5, 1).setScrollFactor(0).setDepth(100);
-
-    // Title
-    this.add.text(this.cameras.main.width / 2, 4, 'Asset Viewer  —  npm run assets:sprites to refresh', {
-      fontSize: '11px', color: '#aaaaaa', backgroundColor: '#000000aa',
-      padding: { x: 8, y: 3 },
-    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
-
-    // Scroll
-    this.input.on('wheel', (_: unknown, __: unknown, ___: unknown, dy: number) => {
-      this.scrollY = Phaser.Math.Clamp(
-        this.scrollY + dy * 0.5,
-        0, Math.max(0, this.contentHeight - this.cameras.main.height + 40),
-      );
-      this.container.setY(-this.scrollY);
-    });
-
-    const kb = this.input.keyboard!;
-    kb.on('keydown-UP', () => {
-      this.scrollY = Math.max(0, this.scrollY - 60);
-      this.container.setY(-this.scrollY);
-    });
-    kb.on('keydown-DOWN', () => {
-      this.scrollY = Math.min(
-        Math.max(0, this.contentHeight - this.cameras.main.height + 40),
-        this.scrollY + 60,
-      );
-      this.container.setY(-this.scrollY);
-    });
   }
 }
