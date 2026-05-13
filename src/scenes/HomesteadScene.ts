@@ -504,6 +504,14 @@ export class HomesteadScene extends Phaser.Scene {
       body.setVelocity(0, 0);
     }
 
+    // ── Clamp player to iso diamond ─────────────────────────────────────
+    // Physics world is a square but only the iso diamond has tiles.
+    // In flat grid space the diamond is: tx ∈ [0,GRID), ty ∈ [0,GRID).
+    // Clamp with a half-tile margin so the sprite doesn't overhang.
+    const margin = TILE_SIZE * 0.5;
+    this.player.x = Phaser.Math.Clamp(this.player.x, margin, WORLD_W - margin);
+    this.player.y = Phaser.Math.Clamp(this.player.y, margin, WORLD_H - margin);
+
     // ── Sync iso sprite to physics body + animate ──────────────────────
     const { x: isoX, y: isoY } = hsWorldToIso(this.player.x, this.player.y);
     this.playerIso.setPosition(isoX, isoY);
