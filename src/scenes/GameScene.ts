@@ -101,6 +101,12 @@ const DETAIL_SCALE = 0.18;
 const TEMP_SCALE  = 0.04; // temperature varies in broad N/S-ish bands
 const MOIST_SCALE = 0.06; // moisture varies in slightly finer patches
 
+// Start-of-run corruption should feel ominous, not like a neutral fog machine.
+// A dark violet/black wash nods toward Hyper Light Drifter's hostile palette
+// while leaving enough alpha headroom for biome colours to remain readable.
+const CORRUPTION_SCREEN_TINT = 0x120018;
+const CORRUPTION_SCREEN_MAX_ALPHA = 0.30;
+
 // FIL-466: biome tile packs now live in `src/world/TilePacks.ts` so all scenes
 // that render iso terrain share one source of truth (and the preload loop).
 
@@ -3080,7 +3086,7 @@ export class GameScene extends Phaser.Scene {
 
     // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, CORRUPTION_SCREEN_TINT, CORRUPTION_SCREEN_MAX_ALPHA)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3169,7 +3175,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldTint(percent: number): void {
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
-    this.overlay.setAlpha(0.38 * (1 - ratio));
+    this.overlay.setAlpha(CORRUPTION_SCREEN_MAX_ALPHA * (1 - ratio));
   }
 
   private createPortal(): void {
