@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-13T19:14:53.099Z",
-  "totalAssets": 566,
-  "wiredCount": 236,
+  "generatedAt": "2026-05-13T19:25:17.035Z",
+  "totalAssets": 568,
+  "wiredCount": 238,
   "unwiredCount": 330,
   "categories": [
     {
@@ -491,7 +491,7 @@
     },
     {
       "category": "icons",
-      "count": 102,
+      "count": 104,
       "assets": [
         {
           "name": "item-amber",
@@ -1117,6 +1117,13 @@
           "wired": true
         },
         {
+          "name": "patch-jar",
+          "url": "/assets/sprites/icons/concepts/patch-jar.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
           "name": "patch-knot",
           "url": "/assets/sprites/icons/concepts/patch-knot.png",
           "folder": "icons/concepts",
@@ -1133,6 +1140,13 @@
         {
           "name": "patch-merge",
           "url": "/assets/sprites/icons/concepts/patch-merge.png",
+          "folder": "icons/concepts",
+          "category": "icons",
+          "wired": true
+        },
+        {
+          "name": "patch-palette",
+          "url": "/assets/sprites/icons/concepts/patch-palette.png",
           "folder": "icons/concepts",
           "category": "icons",
           "wired": true
