@@ -16,6 +16,11 @@ public/assets/audio/Shapeforms Audio Free Sound Effects/
 # Duplicate download of Kenney Impact Sounds (macOS/Windows appends " (1)" on re-download)
 public/assets/audio/kenney_impact-sounds (1)/
 
+# Paid asset provenance: license terms may be committed, but invoices/receipts stay private.
+assets/_licenses/**/[Ii]nvoice*.pdf
+assets/_licenses/**/[Rr]eceipt*.pdf
+assets/_licenses/**/[Oo]rder*.pdf
+
 # Cursor IDE config
 .cursor/
 
