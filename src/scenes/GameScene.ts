@@ -363,6 +363,29 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * Subtle baked colour wash per biome.
+ *
+ * The custom isometric tiles carry texture, but many packs sit close together in
+ * grey-brown values once the corruption shader desaturates the world.  A low
+ * alpha wash keeps the pixel detail while giving each biome a distinct dominant
+ * colour at map scale.
+ */
+const BIOME_GROUND_WASHES: ReadonlyArray<{ color: number; alpha: number }> = [
+  { color: 0x000000, alpha: 0.00 }, // 0 Sea — water keeps its own palette
+  { color: 0x6f7890, alpha: 0.18 }, // 1 Rocky Shore — cool slate
+  { color: 0xe0b765, alpha: 0.18 }, // 2 Sandy Shore — warm sand
+  { color: 0x315f45, alpha: 0.20 }, // 3 Marsh / Bog — dark wet green
+  { color: 0xb07a3f, alpha: 0.18 }, // 4 Dry Heath — rusty ochre
+  { color: 0x8aa34f, alpha: 0.16 }, // 5 Coastal Heath — wind-salted green
+  { color: 0x5fbf58, alpha: 0.13 }, // 6 Meadow — clear grass
+  { color: 0x235f3a, alpha: 0.18 }, // 7 Forest — deep leaf green
+  { color: 0x1f4f4b, alpha: 0.20 }, // 8 Spruce — cold blue-green
+  { color: 0x8895a5, alpha: 0.20 }, // 9 Cold Granite — blue grey
+  { color: 0x8b8084, alpha: 0.16 }, // 10 Bare Summit — desaturated stone
+  { color: 0xd7ecff, alpha: 0.14 }, // 11 Snow Field — icy highlight
+];
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -371,14 +394,17 @@ const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
  */
 function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   if (elev < 0.25) return 0; // Sea
-  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky Shore / Sandy Shore
-  if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
+  if (elev < 0.34) return (temp > 0.58 && moist < 0.42) ? 2 : 1; // Sandy / Rocky shore
+  if (elev < 0.48 && moist > 0.72) return 3; // Marsh / Bog
   if (elev < 0.68) {
-    // Mid-altitude band — ~45% meadow, ~55% forest.
-    if (moist > 0.55) return 7; // Forest
-    return 6;                   // Meadow
+    // Mid-altitude band: moisture creates visible heath → meadow → forest zones
+    // instead of collapsing most tiles into one green-grey material.
+    if (moist < 0.28) return 4; // Dry Heath
+    if (moist < 0.48) return 5; // Coastal Heath
+    if (moist < 0.62) return 6; // Meadow
+    return temp < 0.45 ? 8 : 7; // Spruce / Forest
   }
-  if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
+  if (elev < 0.80) return moist > 0.58 && temp > 0.35 ? 8 : 9; // Spruce / Cold Granite
   return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
 }
 
@@ -5778,6 +5804,7 @@ export class GameScene extends Phaser.Scene {
       .setScale(1)
       .setOrigin(0.5, 0)
       .setVisible(false);
+    const biomeWashGfx = this.add.graphics().setVisible(false);
 
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
@@ -5888,6 +5915,23 @@ export class GameScene extends Phaser.Scene {
         }
         terrainRt.draw(tileImg);
 
+        const wash = BIOME_GROUND_WASHES[biomeIdx];
+        if (!isRiverHere && !isLakeHere && wash && wash.alpha > 0) {
+          // Bake the biome colour directly into the terrain RT.  A transparent
+          // diamond follows the tile top face, so the region reads at overview
+          // scale without hiding the underlying pixel-art texture.
+          biomeWashGfx.clear();
+          biomeWashGfx.fillStyle(wash.color, wash.alpha);
+          biomeWashGfx.beginPath();
+          biomeWashGfx.moveTo(isoX, isoY + 1);
+          biomeWashGfx.lineTo(isoX + ISO_TILE_W / 2 - 1, isoY + ISO_TILE_H / 2);
+          biomeWashGfx.lineTo(isoX, isoY + ISO_TILE_H - 1);
+          biomeWashGfx.lineTo(isoX - ISO_TILE_W / 2 + 1, isoY + ISO_TILE_H / 2);
+          biomeWashGfx.closePath();
+          biomeWashGfx.fillPath();
+          terrainRt.draw(biomeWashGfx);
+        }
+
       }
     }
 
@@ -5918,6 +5962,7 @@ export class GameScene extends Phaser.Scene {
     // as separate iso-specific systems in later milestones.
 
     tileImg.destroy();
+    biomeWashGfx.destroy();
 
     // Store tile data so the dev overlay can be built lazily when first enabled.
     this.tileDevW     = tilesX;
