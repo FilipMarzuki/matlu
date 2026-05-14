@@ -385,6 +385,20 @@ const BIOME_GROUND_WASHES: ReadonlyArray<{ color: number; alpha: number }> = [
   { color: 0xd7ecff, alpha: 0.14 }, // 11 Snow Field — icy highlight
 ];
 
+/** Smooth Hermite interpolation used for soft corruption-zone falloff. */
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/** Deterministic per-tile hash for sparse crack placement. */
+function tileHash01(tx: number, ty: number, salt: number): number {
+  let h = ((tx * 374761393) ^ (ty * 668265263) ^ (salt * 1442695041)) >>> 0;
+  h = (h ^ (h >>> 13)) >>> 0;
+  h = Math.imul(h, 1274126177) >>> 0;
+  return (h ^ (h >>> 16)) / 0xffffffff;
+}
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -5754,6 +5768,45 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Organic local corruption strength for a world-space point.
+   *
+   * Level zones define where corruption exists, while CorruptionField breaks
+   * that area into tendrils and safe pockets.  The rectangular zone mask is
+   * feathered so the baked stains do not read as debug boxes from the overview.
+   */
+  private sampleVisibleCorruption(wx: number, wy: number): number {
+    const feather = TILE_SIZE * 5;
+    let strongest = 0;
+
+    for (const zone of ZONES) {
+      const left = zone.x;
+      const right = zone.x + zone.w;
+      const top = zone.y;
+      const bottom = zone.y + zone.h;
+      const insideX = wx >= left && wx <= right;
+      const insideY = wy >= top && wy <= bottom;
+
+      let mask = 0;
+      if (insideX && insideY) {
+        const edgeDist = Math.min(wx - left, right - wx, wy - top, bottom - wy);
+        mask = 0.45 + smoothstep(0, feather, edgeDist) * 0.55;
+      } else {
+        const dx = insideX ? 0 : Math.min(Math.abs(wx - left), Math.abs(wx - right));
+        const dy = insideY ? 0 : Math.min(Math.abs(wy - top), Math.abs(wy - bottom));
+        const outsideDist = Math.hypot(dx, dy);
+        mask = outsideDist < feather ? (1 - outsideDist / feather) * 0.45 : 0;
+      }
+
+      if (mask <= 0) continue;
+      const zoneStrength = zone.corruption / 100;
+      const field = this.corruptionField.sample(wx, wy, zoneStrength);
+      strongest = Math.max(strongest, field * mask);
+    }
+
+    return strongest;
+  }
+
+  /**
    * Generates and draws a noise-based spring-Sweden landscape:
    * open meadows, forest patches, small ponds, and a dirt clearing at spawn.
    * Uses this.runSeed for deterministic output (same seed → same map).
@@ -5930,6 +5983,39 @@ export class GameScene extends Phaser.Scene {
           biomeWashGfx.closePath();
           biomeWashGfx.fillPath();
           terrainRt.draw(biomeWashGfx);
+        }
+
+        const visibleCorruption = this.sampleVisibleCorruption(
+          wx + TILE_SIZE / 2,
+          wy + TILE_SIZE / 2,
+        );
+        if (!isRiverHere && !isLakeHere && visibleCorruption > 0.10) {
+          const stainAlpha = Math.min(0.46, (visibleCorruption - 0.08) * 0.95);
+          biomeWashGfx.clear();
+          biomeWashGfx.fillStyle(
+            visibleCorruption > 0.34 ? 0x050009 : 0x180020,
+            stainAlpha,
+          );
+          biomeWashGfx.beginPath();
+          biomeWashGfx.moveTo(isoX, isoY + 1);
+          biomeWashGfx.lineTo(isoX + ISO_TILE_W / 2 - 1, isoY + ISO_TILE_H / 2);
+          biomeWashGfx.lineTo(isoX, isoY + ISO_TILE_H - 1);
+          biomeWashGfx.lineTo(isoX - ISO_TILE_W / 2 + 1, isoY + ISO_TILE_H / 2);
+          biomeWashGfx.closePath();
+          biomeWashGfx.fillPath();
+          terrainRt.draw(biomeWashGfx);
+
+          if (visibleCorruption > 0.22 && tileHash01(tx, ty, 17) > 0.88) {
+            const crackOffset = (tileHash01(tx, ty, 41) - 0.5) * ISO_TILE_W * 0.35;
+            biomeWashGfx.clear();
+            biomeWashGfx.lineStyle(1, 0xa538ff, Math.min(0.50, visibleCorruption));
+            biomeWashGfx.beginPath();
+            biomeWashGfx.moveTo(isoX + crackOffset - 3, isoY + ISO_TILE_H * 0.36);
+            biomeWashGfx.lineTo(isoX + crackOffset + 4, isoY + ISO_TILE_H * 0.54);
+            biomeWashGfx.lineTo(isoX + crackOffset + 1, isoY + ISO_TILE_H * 0.70);
+            biomeWashGfx.strokePath();
+            terrainRt.draw(biomeWashGfx);
+          }
         }
 
       }
