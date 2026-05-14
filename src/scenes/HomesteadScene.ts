@@ -19,6 +19,10 @@ import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
+import {
+  resolveWestAnimationFacingFromIsoVelocity,
+  type WestAnimationFacing,
+} from '../lib/facingDirection';
 
 // ── Homestead grid constants ───────────────────────────────────────────────
 // Small 20×20 tile grid — cozy plot, not an open world.
@@ -107,30 +111,6 @@ const CHARACTERS: CharacterDef[] = [
   { key: 'tinkerer', label: 'Tinkerer', png: '/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.png',    json: '/assets/sprites/characters/earth/heroes/tinkerer/tinkerer.json' },
 ];
 
-// ── Direction helpers ──────────────────────────────────────────────────────
-// Map world-space velocity to a canonical facing direction.
-// West-side dirs are mirrored via flipX (same pattern as HumanoidNPC).
-
-type FaceDir = 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west';
-
-function velocityToFacing(vx: number, vy: number): { dir: FaceDir; flip: boolean } | null {
-  if (vx === 0 && vy === 0) return null;
-  const angle = Math.atan2(vy, vx);
-  const sector = Math.round(angle / (Math.PI / 4));
-  const DIR_MAP: Record<number, { dir: FaceDir; flip: boolean }> = {
-     0: { dir: 'east',       flip: false },
-     1: { dir: 'south-east', flip: false },
-     2: { dir: 'south',      flip: false },
-     3: { dir: 'south-east', flip: true  },   // SW → flip SE
-     4: { dir: 'west',       flip: false },
-    '-4': { dir: 'west',     flip: false },
-    '-3': { dir: 'north-east', flip: true  }, // NW → flip NE
-    '-2': { dir: 'north',    flip: false },
-    '-1': { dir: 'north-east', flip: false },
-  };
-  return DIR_MAP[sector] ?? { dir: 'south', flip: false };
-}
-
 // ── Scene ───────────────────────────────────────────────────────────────────
 
 export class HomesteadScene extends Phaser.Scene {
@@ -150,7 +130,7 @@ export class HomesteadScene extends Phaser.Scene {
   private actionTapped = false;
   private targetNode: ResourceNode | null = null;
   private characterKey = 'loke';
-  private facingDir: 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west' = 'south';
+  private facingDir: WestAnimationFacing = 'south';
 
   // ── Building placement ─────────────────────────────────────────────────
   private selectedBuilding: BuildingDef | null = null;
@@ -518,7 +498,9 @@ export class HomesteadScene extends Phaser.Scene {
     this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y));
 
     // Update facing direction and animation
-    const facing = velocityToFacing(vx, vy);
+    // Homestead renders flat world movement through an isometric projection, so
+    // animation facing must follow the projected screen vector, not raw world vx/vy.
+    const facing = resolveWestAnimationFacingFromIsoVelocity(vx, vy);
     if (facing) {
       this.facingDir = facing.dir;
       this.playerIso.setFlipX(facing.flip);

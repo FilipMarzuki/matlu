@@ -37,28 +37,10 @@
 
 import * as Phaser from 'phaser';
 import type { PerceptionEntry } from '../systems/PerceptionSystem';
-
-// ── Direction helpers ─────────────────────────────────────────────────────────
-// Same 8-sector mapping used by CombatEntity — left-side dirs mirror right-side.
-type CanonDir = 'south' | 'south-east' | 'east' | 'north-east' | 'north';
-
-const DIR_MAP: Record<number, [CanonDir, boolean]> = {
-   0: ['east',       false],
-   1: ['south-east', false],
-   2: ['south',      false],
-   3: ['south-east', true ],   // SW → flip SE
-   4: ['east',       true ],   // W  → flip E
-  '-4': ['east',    true ],
-  '-3': ['north-east', true ], // NW → flip NE
-  '-2': ['north',   false],
-  '-1': ['north-east', false],
-};
-
-function resolveDir(vx: number, vy: number): [CanonDir, boolean] {
-  const angle  = Math.atan2(vy, vx);
-  const sector = Math.round(angle / (Math.PI / 4));
-  return DIR_MAP[sector] ?? ['south', false];
-}
+import {
+  resolveMirroredFacingFromVelocity,
+  type MirroredFacing,
+} from '../lib/facingDirection';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -100,7 +82,7 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   private wanderTimer = 0;
 
   // Animation state — persisted to avoid restarting the same anim every frame
-  private facingDir: CanonDir = 'south';
+  private facingDir: MirroredFacing = 'south';
   private facingFlip = false;
   private currentAnimKey = '';
 
@@ -221,9 +203,11 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
     const spd = Math.sqrt(this.wanderVx * this.wanderVx + this.wanderVy * this.wanderVy);
 
     if (spd > 5) {
-      const [dir, flip] = resolveDir(this.wanderVx, this.wanderVy);
-      this.facingDir  = dir;
-      this.facingFlip = flip;
+      const facing = resolveMirroredFacingFromVelocity(this.wanderVx, this.wanderVy);
+      if (facing) {
+        this.facingDir  = facing.dir;
+        this.facingFlip = facing.flip;
+      }
     }
 
     const state   = spd > 5 ? 'walk' : 'idle';
