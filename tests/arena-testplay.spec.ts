@@ -33,6 +33,7 @@ import fs from 'fs';
 const BOOT_MS        = 12_000;
 const ARENA_READY_MS = 8_000;
 const OUT_DIR        = path.resolve('screenshots');
+const TESTPLAY_SEED  = process.env['ARENA_TESTPLAY_SEED'] ?? 'fil-517';
 
 // Simulation parameters — adjust to taste.
 // The healthy balance targets below are calibrated against a 90-second run.
@@ -54,7 +55,6 @@ type ArenaAccess = Phaser.Scene & {
   killCount:    number;
   heroAlive:    boolean;
   aliveEnemies: unknown[];
-  hero:         unknown;
   respawnHero:  () => void;
   // Injected by this spec for tracking:
   __simT:          number;
@@ -63,14 +63,22 @@ type ArenaAccess = Phaser.Scene & {
   __lastKillCount: number;
 };
 
-type CombatTestHeroAccess = {
-  /** Private Tinkerer exploration flag; JS runtime keeps it as a normal field. */
-  exitFound?: boolean;
-};
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function bootGame(page: import('@playwright/test').Page): Promise<void> {
+  await page.addInitScript((seed: string): void => {
+    let h = 1779033703 ^ seed.length;
+    for (let i = 0; i < seed.length; i++) {
+      h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    Math.random = (): number => {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return ((h ^= h >>> 16) >>> 0) / 4294967296;
+    };
+  }, TESTPLAY_SEED);
+
   await page.goto('/');
   await page.waitForFunction(
     () => !!(window as unknown as Record<string, unknown>)['__game'],
@@ -157,12 +165,7 @@ test('arena testplay — 90 sim-seconds balance report', async ({ page }) => {
 
         let t = scene.__simT;
         for (let i = 0; i < ticks; i++) {
-          // This is a combat regression test, not a dungeon-clear test. Tinkerer
-          // normally prioritises the exit after discovering it, which can make
-          // kills plateau while enemies remain alive in other rooms.
-          (scene.hero as CombatTestHeroAccess).exitFound = false;
           scene.sys.step(t, delta);
-          (scene.hero as CombatTestHeroAccess).exitFound = false;
           t += delta;
         }
         scene.__simT = t;
