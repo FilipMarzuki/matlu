@@ -383,6 +383,10 @@ const BIOME_RENDER_TINTS: Record<number, number> = {
   11: 0xd9efff, // snow field — cold blue-white
 };
 
+const CORRUPTION_WASH_COLOR = 0x180b28;
+const CORRUPTION_WASH_ALPHA = 0.32;
+const CORRUPTION_GROUND_THRESHOLD = 0.42;
+
 /**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
@@ -783,6 +787,8 @@ export class GameScene extends Phaser.Scene {
    * Opacity scales with global corruption — updated whenever cleanse-updated fires.
    */
   private cliffCorruptGfx: Phaser.GameObjects.Graphics | null = null;
+  /** Purple-black ground veins drawn from CorruptionField so corruption has geography. */
+  private groundCorruptGfx: Phaser.GameObjects.Graphics | null = null;
   // ── FIL-167/168: diagonal river lookup grids ─────────────────────────────
   /**
    * 1 if the tile is covered by any diagonal river band, 0 otherwise.
@@ -1432,6 +1438,7 @@ export class GameScene extends Phaser.Scene {
 
     this.events.on('cleanse-updated', (percent: number) => {
       this.applyWorldTint(percent);
+      this.updateGroundCorruption(percent);
       // FIL-178: update cliff corruption overlay as cleanse level changes.
       // The overlay darkens cliff faces with a purple tint in corrupted zones.
       this.updateCliffCorruption(percent);
@@ -3101,7 +3108,7 @@ export class GameScene extends Phaser.Scene {
 
     // Full-screen tint overlay — covers whatever viewport size we have.
     this.overlay = this.add
-      .rectangle(sw / 2, sh / 2, sw, sh, 0x8899aa, 0.38)
+      .rectangle(sw / 2, sh / 2, sw, sh, CORRUPTION_WASH_COLOR, CORRUPTION_WASH_ALPHA)
       .setScrollFactor(0)
       .setDepth(50);
 
@@ -3190,7 +3197,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyWorldTint(percent: number): void {
     const ratio = Phaser.Math.Clamp(percent / 100, 0, 1);
-    this.overlay.setAlpha(0.38 * (1 - ratio));
+    this.overlay.setAlpha(CORRUPTION_WASH_ALPHA * (1 - ratio));
   }
 
   private createPortal(): void {
@@ -5652,6 +5659,12 @@ export class GameScene extends Phaser.Scene {
     this.cliffCorruptGfx.setAlpha(overlayAlpha);
   }
 
+  private updateGroundCorruption(cleansePercent: number): void {
+    if (!this.groundCorruptGfx) return;
+    const globalCorruption = Math.max(0, 100 - cleansePercent) / 100;
+    this.groundCorruptGfx.setAlpha(Phaser.Math.Clamp((globalCorruption - 0.15) / 0.85, 0, 1));
+  }
+
   // ─── FIL-167: diagonal river tile grids ────────────────────────────────────
 
   /**
@@ -5934,6 +5947,7 @@ export class GameScene extends Phaser.Scene {
     // Each tile covered by a path segment gets a semi-transparent diamond in the
     // path type's color, with per-pixel noise dithering for a natural dirt/stone look.
     this.stampRoadDiamonds(terrainRt, tilesX, tilesY);
+    this.drawGroundCorruption(tilesX, tilesY);
 
     // FIL-444: dithering pass, Wang water passes, cliff edges, blend strips, and
     // animated water overlays all removed — iso cube tiles provide natural depth cues
@@ -5946,6 +5960,59 @@ export class GameScene extends Phaser.Scene {
     this.tileDevW     = tilesX;
     this.tileDevElev  = biomeGrid;
     this.tileDevBiome = biomeIdxGrid;
+  }
+
+  /**
+   * Paint organic purple-black corruption veins over the terrain.
+   *
+   * The field is sampled at full corruption once to define the geography; cleanse
+   * progress then fades the whole graphics layer out. Keeping it as one Graphics
+   * object avoids creating thousands of tile sprites.
+   */
+  private drawGroundCorruption(tilesX: number, tilesY: number): void {
+    this.groundCorruptGfx?.destroy();
+    const gfx = this.add.graphics().setDepth(0.08);
+
+    const diamond = (x: number, y: number, inset = 0): void => {
+      const halfW = ISO_TILE_W / 2 - inset;
+      const topY = y + inset * 0.5;
+      const midY = y + ISO_TILE_H / 2;
+      const bottomY = y + ISO_TILE_H - inset * 0.5;
+      gfx.beginPath();
+      gfx.moveTo(x, topY);
+      gfx.lineTo(x + halfW, midY);
+      gfx.lineTo(x, bottomY);
+      gfx.lineTo(x - halfW, midY);
+      gfx.closePath();
+      gfx.fillPath();
+    };
+
+    for (let ty = 0; ty < tilesY; ty++) {
+      for (let tx = 0; tx < tilesX; tx++) {
+        const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+        const wy = ty * TILE_SIZE + TILE_SIZE / 2;
+        const strength = this.corruptionField.sample(wx, wy, 1);
+        if (strength < CORRUPTION_GROUND_THRESHOLD) continue;
+
+        const t = Phaser.Math.Clamp(
+          (strength - CORRUPTION_GROUND_THRESHOLD) / (0.9 - CORRUPTION_GROUND_THRESHOLD),
+          0,
+          1,
+        );
+        const { x: isoX, y: isoY } = worldToIso(tx * TILE_SIZE, ty * TILE_SIZE);
+
+        gfx.fillStyle(0x100014, 0.22 + t * 0.30);
+        diamond(isoX, isoY);
+
+        if (t > 0.65) {
+          gfx.fillStyle(0x6d1b8f, 0.12 + t * 0.10);
+          diamond(isoX, isoY, 5);
+        }
+      }
+    }
+
+    this.groundCorruptGfx = gfx;
+    this.updateGroundCorruption(0);
   }
 
   // ─── Road tile auto-tiling (SBS Isometric Pathways Pack) ─────────────────────
