@@ -8,12 +8,12 @@
  * Run with: npm run arena:testplay
  *
  * Output:
- *   screenshots/arena-testplay-report.json  — balance metrics over 90 sim-s
+ *   screenshots/arena-testplay-report.json  — balance metrics over 300 sim-s
  *   screenshots/arena-testplay-{15,30,…}s.png — periodic snapshots
  *
  * Reading the report:
  *   snapshots[].simTime      — sim-seconds elapsed when this snapshot was taken
- *   snapshots[].wave         — wave group index (how many wave groups have spawned)
+ *   snapshots[].wave         — highest wave group reached so far
  *   snapshots[].kills        — cumulative enemies killed
  *   snapshots[].heroDeaths   — cumulative hero deaths
  *   snapshots[].enemiesAlive — enemies on the field at this moment
@@ -58,11 +58,13 @@ type ArenaAccess = Phaser.Scene & {
   // Injected by this spec for tracking:
   __simT:       number;
   __heroDeaths: number;
+  __totalKills: number;
+  __peakWave:   number;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function bootGame(page: import('@playwright/test').Page) {
+async function bootGame(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/');
   await page.waitForFunction(
     () => !!(window as unknown as Record<string, unknown>)['__game'],
@@ -70,7 +72,7 @@ async function bootGame(page: import('@playwright/test').Page) {
   );
 }
 
-async function startArena(page: import('@playwright/test').Page) {
+async function startArena(page: import('@playwright/test').Page): Promise<void> {
   // Stop all other scenes so the arena gets full GPU budget.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
@@ -94,7 +96,7 @@ async function startArena(page: import('@playwright/test').Page) {
   await page.waitForTimeout(500);
 }
 
-async function injectSimState(page: import('@playwright/test').Page) {
+async function injectSimState(page: import('@playwright/test').Page): Promise<void> {
   // Attach a monotonic sim-clock and a death counter to the scene instance.
   // Patch respawnHero so we can count hero deaths without modifying game code.
   await page.evaluate(() => {
@@ -103,18 +105,27 @@ async function injectSimState(page: import('@playwright/test').Page) {
 
     scene.__simT = performance.now();
     scene.__heroDeaths = 0;
+    scene.__totalKills = 0;
+    scene.__peakWave = 0;
 
     const orig = scene.respawnHero.bind(scene);
     scene.respawnHero = function (this: ArenaAccess) {
       this.__heroDeaths++;
       orig();
     };
+
+    // The scene resets killCount/waveNumber on hero death. The balance report
+    // should describe the whole simulation, so track cumulative kills and the
+    // highest wave reached separately from the per-life HUD counters.
+    scene.events.on('enemy-died', () => {
+      scene.__totalKills++;
+    });
   });
 }
 
 // ── Testplay spec ─────────────────────────────────────────────────────────────
 
-test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
+test('arena testplay — 300 sim-seconds balance report', async ({ page }): Promise<void> => {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   await bootGame(page);
@@ -145,13 +156,14 @@ test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
         let t = scene.__simT;
         for (let i = 0; i < ticks; i++) {
           scene.sys.step(t, delta);
+          scene.__peakWave = Math.max(scene.__peakWave, scene.waveNumber);
           t += delta;
         }
         scene.__simT = t;
 
         return {
-          wave:         scene.waveNumber,
-          kills:        scene.killCount,
+          wave:         scene.__peakWave,
+          kills:        scene.__totalKills,
           heroDeaths:   scene.__heroDeaths,
           heroAlive:    scene.heroAlive,
           enemiesAlive: scene.aliveEnemies.length,
@@ -186,15 +198,15 @@ test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
       totalKills:  last.kills,
       heroDeaths:  last.heroDeaths,
     },
-    // Healthy 90-second targets (rough; adjust as the game evolves):
-    //   finalWave  5–9     (one group every ~10–18 s)
-    //   totalKills 15–40   (hero kills 1 enemy per ~2–6 s on average)
-    //   heroDeaths 0–2     (hero should be competitive, not a punching bag)
+    // Healthy 300-second targets (rough; adjust as the game evolves):
+    //   finalWave  10–25   (<10: spawns too slow, >25: spawns too fast)
+    //   totalKills 30–100  (<20: hero AI struggling, >120: overpowered)
+    //   heroDeaths 0–5     (>=8 means enemies are too lethal)
     balanceHints: [
-      last.heroDeaths >= 5
+      last.heroDeaths >= 8
         ? 'WARN: hero died frequently — enemies may be too strong'
         : null,
-      last.kills < 10
+      last.kills < 20
         ? 'WARN: very few kills — hero AI may be struggling (check targeting / weapon range)'
         : null,
       last.wave > 0 && last.kills / last.wave < 2

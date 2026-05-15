@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright config for `npm run arena:testplay`.
  *
  * Runs only arena-testplay.spec.ts against the Vite preview build (headless).
- * Uses a generous timeout because the spec simulates 90 s of game time via
+ * Uses a generous timeout because the spec simulates 300 s of game time via
  * sys.step(), which takes ~30–60 s of real time depending on the machine.
  *
  * For GPU-accurate screenshots (ShimmerFilter, sprite colours), use:
@@ -15,7 +15,7 @@ export default defineConfig({
   testMatch:     ['**/arena-testplay.spec.ts'],
   fullyParallel: false,
   workers:       1,
-  // Arena boot (~8 s) + 90 s sim + screenshot overhead → 3 min should be enough.
+  // Arena boot (~8 s) + 300 s sim + screenshot overhead → 3 min should be enough.
   timeout:       180_000,
   reporter:      process.env['CI'] ? 'github' : 'list',
 

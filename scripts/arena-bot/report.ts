@@ -50,13 +50,13 @@ interface Regression {
 
 // ── Regression thresholds ─────────────────────────────────────────────────────
 //
-// Healthy targets match the comments in tests/arena-testplay.spec.ts.
+// Healthy targets match the current 300-second arena testplay window.
 // A metric is a regression when it falls outside its range.
 
 const HEALTHY = {
-  finalWave:  { min: 5,  max: 9,  label: '5–9' },
-  totalKills: { min: 15, max: 40, label: '15–40' },
-  heroDeaths: { min: 0,  max: 2,  label: '0–2' },
+  finalWave:  { min: 10, max: 25,  label: '10–25' },
+  totalKills: { min: 30, max: 100, label: '30–100' },
+  heroDeaths: { min: 0,  max: 5,   label: '0–5' },
 } as const;
 
 function detectRegressions(summary: ArenaSummary): Regression[] {

@@ -33,7 +33,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run arena testplay simulation
-        # arena:testplay boots the arena and fast-forwards 90 sim-seconds via
+        # arena:testplay boots the arena and fast-forwards 300 sim-seconds via
         # sys.step() — no GPU or real-time wait required. The Playwright webServer
         # config spins up `npm run preview` automatically before the spec runs and
         # tears it down afterwards, so we only need the build artefact above.

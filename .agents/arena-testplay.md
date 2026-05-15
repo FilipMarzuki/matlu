@@ -25,9 +25,9 @@ Output files are written to `screenshots/`:
 ```json
 {
   "summary": {
-    "finalWave":   8,   // wave group index when sim ended
-    "totalKills":  27,  // cumulative enemies killed
-    "heroDeaths":  1    // how many times the Tinkerer was killed
+    "finalWave":   18,  // highest wave group reached during the sim
+    "totalKills":  52,  // cumulative enemies killed across all lives
+    "heroDeaths":  3    // how many times the Tinkerer was killed
   },
   "balanceHints": [ ... ],  // auto-generated warnings (may be empty)
   "snapshots": [
