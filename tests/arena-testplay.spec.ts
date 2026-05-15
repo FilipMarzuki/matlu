@@ -54,12 +54,18 @@ type ArenaAccess = Phaser.Scene & {
   killCount:    number;
   heroAlive:    boolean;
   aliveEnemies: unknown[];
+  hero:         unknown;
   respawnHero:  () => void;
   // Injected by this spec for tracking:
   __simT:          number;
   __heroDeaths:    number;
   __totalKills:    number;
   __lastKillCount: number;
+};
+
+type CombatTestHeroAccess = {
+  /** Private Tinkerer exploration flag; JS runtime keeps it as a normal field. */
+  exitFound?: boolean;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -151,7 +157,12 @@ test('arena testplay — 90 sim-seconds balance report', async ({ page }) => {
 
         let t = scene.__simT;
         for (let i = 0; i < ticks; i++) {
+          // This is a combat regression test, not a dungeon-clear test. Tinkerer
+          // normally prioritises the exit after discovering it, which can make
+          // kills plateau while enemies remain alive in other rooms.
+          (scene.hero as CombatTestHeroAccess).exitFound = false;
           scene.sys.step(t, delta);
+          (scene.hero as CombatTestHeroAccess).exitFound = false;
           t += delta;
         }
         scene.__simT = t;
