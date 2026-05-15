@@ -33,7 +33,7 @@ import fs from 'fs';
 const BOOT_MS        = 12_000;
 const ARENA_READY_MS = 8_000;
 const OUT_DIR        = path.resolve('screenshots');
-const TESTPLAY_SEED  = process.env['ARENA_TESTPLAY_SEED'] ?? 'fil-517';
+const TESTPLAY_SEED  = process.env['ARENA_TESTPLAY_SEED'] ?? 'fil-517-e';
 
 // Simulation parameters — adjust to taste.
 // The healthy balance targets below are calibrated against a 90-second run.
