@@ -56,13 +56,15 @@ type ArenaAccess = Phaser.Scene & {
   aliveEnemies: unknown[];
   respawnHero:  () => void;
   // Injected by this spec for tracking:
-  __simT:       number;
-  __heroDeaths: number;
+  __simT:          number;
+  __heroDeaths:    number;
+  __totalKills:    number;
+  __lastKillCount: number;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function bootGame(page: import('@playwright/test').Page) {
+async function bootGame(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/');
   await page.waitForFunction(
     () => !!(window as unknown as Record<string, unknown>)['__game'],
@@ -70,7 +72,7 @@ async function bootGame(page: import('@playwright/test').Page) {
   );
 }
 
-async function startArena(page: import('@playwright/test').Page) {
+async function startArena(page: import('@playwright/test').Page): Promise<void> {
   // Stop all other scenes so the arena gets full GPU budget.
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
@@ -94,18 +96,23 @@ async function startArena(page: import('@playwright/test').Page) {
   await page.waitForTimeout(500);
 }
 
-async function injectSimState(page: import('@playwright/test').Page) {
-  // Attach a monotonic sim-clock and a death counter to the scene instance.
-  // Patch respawnHero so we can count hero deaths without modifying game code.
+async function injectSimState(page: import('@playwright/test').Page): Promise<void> {
+  // Attach a monotonic sim-clock and cumulative counters to the scene instance.
+  // DungeonForgeScene resets killCount on respawn, so the report tracks total
+  // session kills separately to avoid mistaking "current life" for "total".
   await page.evaluate(() => {
     const game = (window as unknown as Record<string, Phaser.Game>)['__game'];
     const scene = game.scene.getScene('DungeonForgeScene') as unknown as ArenaAccess;
 
-    scene.__simT = performance.now();
-    scene.__heroDeaths = 0;
+    scene.__simT          = performance.now();
+    scene.__heroDeaths    = 0;
+    scene.__totalKills    = 0;
+    scene.__lastKillCount = scene.killCount;
 
     const orig = scene.respawnHero.bind(scene);
     scene.respawnHero = function (this: ArenaAccess) {
+      this.__totalKills += Math.max(0, this.killCount - this.__lastKillCount);
+      this.__lastKillCount = 0;
       this.__heroDeaths++;
       orig();
     };
@@ -149,9 +156,19 @@ test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
         }
         scene.__simT = t;
 
+        const killDelta = scene.killCount - scene.__lastKillCount;
+        if (killDelta >= 0) {
+          scene.__totalKills += killDelta;
+        } else {
+          // A respawn reset killCount between samples. respawnHero() already
+          // preserved the pre-reset delta, so start tracking this new life.
+          scene.__totalKills += scene.killCount;
+        }
+        scene.__lastKillCount = scene.killCount;
+
         return {
           wave:         scene.waveNumber,
-          kills:        scene.killCount,
+          kills:        scene.__totalKills,
           heroDeaths:   scene.__heroDeaths,
           heroAlive:    scene.heroAlive,
           enemiesAlive: scene.aliveEnemies.length,
