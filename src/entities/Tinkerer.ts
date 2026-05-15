@@ -309,7 +309,7 @@ export class Tinkerer extends EarthHero {
       color:               0x996633,
       meleeRange:          36,
       attackCooldownMs:    700,
-      projectileDamage:    18,
+      projectileDamage:    22,
       projectileSpeed:     420,
       projectileColor:     0xfff8b0,
       dashSpeedMultiplier: 5,    // higher peak; linear ease-out averages ~2.5×
