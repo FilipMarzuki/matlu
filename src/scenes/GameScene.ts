@@ -194,6 +194,21 @@ const HUD_PAD = 14;
 const CORRUPTION_OVERLAY_COLOR = 0x17071f;
 const CORRUPTION_OVERLAY_MAX_ALPHA = 0.44;
 
+const BIOME_SURFACE_WASHES: readonly { color: number; alpha: number }[] = [
+  { color: 0x000000, alpha: 0.00 }, // Sea: water art already carries the blue identity.
+  { color: 0x766657, alpha: 0.16 }, // Rocky Shore
+  { color: 0xe5bd63, alpha: 0.22 }, // Sandy Shore
+  { color: 0x315a3f, alpha: 0.22 }, // Marsh / Bog
+  { color: 0xa97935, alpha: 0.22 }, // Dry Heath
+  { color: 0x789a43, alpha: 0.20 }, // Coastal Heath
+  { color: 0x73c247, alpha: 0.22 }, // Meadow
+  { color: 0x236b31, alpha: 0.23 }, // Forest
+  { color: 0x134d3e, alpha: 0.26 }, // Cold Forest / Spruce
+  { color: 0x8793a3, alpha: 0.18 }, // Cold Granite
+  { color: 0xa18f82, alpha: 0.16 }, // Bare Summit
+  { color: 0xc8e5ff, alpha: 0.16 }, // Snow Field
+];
+
 /** NPC dialog lines — one per settlement, shown when the player presses E nearby. */
 const NPC_DIALOG: Record<string, string> = {
   strandviken:  'Havet var annorlunda förr. Nu luktar det annorlunda vid tidvattnet.',
@@ -5896,6 +5911,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    this.stampBiomeColorWashes(terrainRt, biomeIdxGrid, tilesX);
+
     // Spawn clearing — stamp grass tiles (iso-tiles frame 40, bright green top) over the
     // surrounding biome so the player spawns in a recognisable open clearing.
     // FIL-444: positions use worldToIso so clearing stamps land on iso diamond tiles.
@@ -5928,6 +5945,46 @@ export class GameScene extends Phaser.Scene {
     this.tileDevW     = tilesX;
     this.tileDevElev  = biomeGrid;
     this.tileDevBiome = biomeIdxGrid;
+  }
+
+  private stampBiomeColorWashes(
+    terrainRt: Phaser.GameObjects.RenderTexture,
+    biomeIdxGrid: Uint8Array,
+    tilesX: number,
+  ): void {
+    const groups = new Map<number, number[]>();
+    for (let i = 0, len = biomeIdxGrid.length; i < len; i++) {
+      const biomeIdx = biomeIdxGrid[i];
+      const wash = BIOME_SURFACE_WASHES[biomeIdx];
+      if (!wash || wash.alpha <= 0) continue;
+      let coords = groups.get(biomeIdx);
+      if (!coords) {
+        coords = [];
+        groups.set(biomeIdx, coords);
+      }
+      coords.push(i % tilesX, Math.floor(i / tilesX));
+    }
+
+    const washGfx = this.add.graphics().setVisible(false);
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
+    for (const [biomeIdx, coords] of groups) {
+      const wash = BIOME_SURFACE_WASHES[biomeIdx];
+      washGfx.fillStyle(wash.color, wash.alpha);
+      for (let i = 0; i < coords.length; i += 2) {
+        const { x: isoX, y: isoY } = worldToIso(coords[i] * TILE_SIZE, coords[i + 1] * TILE_SIZE);
+        washGfx.beginPath();
+        washGfx.moveTo(isoX,      isoY);
+        washGfx.lineTo(isoX + hw, isoY + hh);
+        washGfx.lineTo(isoX,      isoY + ISO_TILE_H);
+        washGfx.lineTo(isoX - hw, isoY + hh);
+        washGfx.closePath();
+        washGfx.fillPath();
+      }
+    }
+
+    terrainRt.draw(washGfx);
+    washGfx.destroy();
   }
 
   // ─── Road tile auto-tiling (SBS Isometric Pathways Pack) ─────────────────────
