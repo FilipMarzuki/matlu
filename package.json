@@ -13,6 +13,7 @@
     "pixellab:sync": "node scripts/sync-pixellab.mjs",
     "test": "npx playwright test",
     "screenshot": "npx playwright test --config=playwright.screenshot.config.ts --headed",
+    "screenshots:biomes": "npx playwright test --config=playwright.screenshot.config.ts --headed tests/screenshot-biomes.spec.ts",
     "sprites:assemble": "node scripts/assemble-sprites.mjs",
     "sprites:status": "node scripts/assemble-sprites.mjs --status",
     "arena:testplay": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts",

@@ -1,0 +1,49 @@
+name: Biome Screenshots
+
+on:
+  schedule:
+    # Refresh Codex biome cards after the weekly stats run has had time to finish.
+    - cron: '0 10 * * 0'
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ci-placeholder-not-a-real-key
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture biome screenshots
+        run: xvfb-run -a npm run screenshots:biomes
+
+      - name: Commit updated biome screenshots
+        run: |
+          if git diff --quiet -- public/assets/screenshots/biomes; then
+            echo "No biome screenshot changes."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/assets/screenshots/biomes
+          git commit -m "chore: refresh biome screenshots"
+          git push

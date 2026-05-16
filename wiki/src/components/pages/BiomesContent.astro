@@ -101,6 +101,15 @@ const biomes = BIOMES.map((b) => ({
             </div>
           </div>
 
+          <div class="palette" aria-label={`${b.name} tile and decor palette`}>
+            <span class="palette-title">{t(lang, 'Palette', 'Palett')}</span>
+            <div class="palette-items">
+              {b.decorTypes.map((decor) => (
+                <span class="palette-chip" title={decor}>{decor}</span>
+              ))}
+            </div>
+          </div>
+
           <p class="desc">{b.description}</p>
         </div>
       </article>
@@ -280,6 +289,43 @@ const biomes = BIOMES.map((b) => ({
     color: var(--text-dim);
     width: 24px;
     text-align: right;
+  }
+
+  .palette {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 0.7rem 0;
+    margin-bottom: 0.85rem;
+  }
+
+  .palette-title {
+    display: block;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.45rem;
+  }
+
+  .palette-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .palette-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    border: 1px solid rgba(95, 168, 95, 0.35);
+    border-radius: 999px;
+    padding: 0.18rem 0.55rem;
+    background: rgba(95, 168, 95, 0.08);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    line-height: 1.2;
   }
 
   .desc {

@@ -84,6 +84,9 @@ export class WorldForgeScene extends Phaser.Scene {
   })();
   // Secondary biome shown on the left/right edges. Defaults to the one after the main biome.
   private selectedSecBiome = (this.selectedBiome + 1) % 12;
+  // Capture mode hides editor chrome so the Codex can use clean biome thumbnails.
+  private readonly captureMode =
+    new URLSearchParams(window.location.search).get('capture') === 'biome';
 
   // Layout constants lifted to class level so screenToTile() can access them.
   private readonly GRID        = 30;
@@ -316,7 +319,7 @@ export class WorldForgeScene extends Phaser.Scene {
     //
     // Solve for z so the diamond reaches 95% of each dimension, then take
     // the smaller value so it fits inside the screen in both axes.
-    const usableH = this.scale.height - this.PAL_AREA;
+    const usableH = this.scale.height - (this.captureMode ? 0 : this.PAL_AREA);
     const fitW    = (this.scale.width * 0.95) / ((this.GRID - 1) * 24);
     const fitH    = (usableH          * 0.95) / ((this.GRID + 1) * 12);
     this.zoomFactor = Math.min(fitW, fitH);
@@ -331,8 +334,10 @@ export class WorldForgeScene extends Phaser.Scene {
     }
 
     this.buildDisplay();
-    this.buildPalette();
-    this.buildSpawnerToolbar();
+    if (!this.captureMode) {
+      this.buildPalette();
+      this.buildSpawnerToolbar();
+    }
 
     this.input.keyboard!.on('keydown-LEFT',  () => this.cycleBiome(-1));
     this.input.keyboard!.on('keydown-RIGHT', () => this.cycleBiome(+1));
@@ -528,7 +533,7 @@ export class WorldForgeScene extends Phaser.Scene {
     const curveDepth = (h: number) =>
       Math.round(Math.sin(h * 0.29) * 2.5 + Math.cos(h * 0.53) * 1.5); // ±~4 tiles
 
-    const usableH  = H - this.PAL_AREA;
+    const usableH  = H - (this.captureMode ? 0 : this.PAL_AREA);
     const diamondH = this.GRID * this.ISO_H + this.ISO_H;
 
     // Store for screenToTile() — layout is fixed for a given screen size.
@@ -997,6 +1002,7 @@ export class WorldForgeScene extends Phaser.Scene {
       }
     }
 
+    if (!this.captureMode) {
     // Band labels — one for the right secondary strip (NE screen area),
     // one for the centre main biome, one for the left secondary strip (SW screen area).
     const labelRx   = W - 8;   // right-aligned labels
@@ -1036,6 +1042,7 @@ export class WorldForgeScene extends Phaser.Scene {
           { fontSize: '11px', color: '#88ccff', stroke: '#000000', strokeThickness: 2 },
         ).setOrigin(0.5, 0.5).setDepth(11),
       );
+    }
     }
 
     // Ocean label — centred inside the SE ocean strip.
