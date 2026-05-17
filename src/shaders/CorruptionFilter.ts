@@ -5,8 +5,8 @@
  * Passthrough at zero corruption. As the world becomes more corrupted:
  *
  *   1. Domain-warped UV distortion — the world visually "breathes" and warps.
- *   2. Purple desaturation — RGB lerps toward luminance-preserving violet.
- *   3. Pulsing vignette — sinusoidal darkness closes in from screen edges.
+ *   2. Bruised violet colour pressure that preserves most local biome hue.
+ *   3. Purple-black tendrils and a pulsing vignette for HLD-style threat.
  *   4. Corruption artefacts — rare bright violet pixel flickers.
  *
  * ## How to use (Phaser 4)
@@ -78,18 +78,27 @@ void main() {
   vec2 uv = outTexCoord + warp * 0.014 * uCorruption;
   vec4 col = texture2D(uMainSampler, clamp(uv, 0.001, 0.999));
 
-  float lum    = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-  vec3  violet = vec3(lum * 0.55, lum * 0.28, lum * 0.75 + 0.08);
-  col.rgb      = mix(col.rgb, violet, uCorruption * 0.45);
+  vec3 shadowViolet = vec3(0.025, 0.004, 0.070);
+  vec3 bruised      = col.rgb * vec3(0.82, 0.72, 0.96) + vec3(0.020, 0.000, 0.045);
+  col.rgb           = mix(col.rgb, bruised, uCorruption * 0.28);
 
-  float pulse    = 0.5 + 0.5 * sin(uTime * 1.3);
-  float dist     = length(outTexCoord - 0.5) * 1.7;
-  float vignette = 1.0 - smoothstep(0.35, 0.90, dist);
-  col.rgb       *= mix(1.0, vignette, uCorruption * 0.35 * (0.7 + 0.3 * pulse));
+  float veinNoise = fbm(outTexCoord * 8.0 + warp * 3.0 + vec2(uTime * 0.05, -uTime * 0.04));
+  float veins     = smoothstep(0.52, 0.92, veinNoise) * uCorruption;
+  float cracks    = smoothstep(0.62, 0.98,
+    noise(outTexCoord * 44.0 + vec2(-uTime * 0.9, uTime * 0.55))) * uCorruption;
 
-  float flicker = step(0.975,
+  col.rgb = mix(col.rgb, shadowViolet, veins * 0.62);
+  col.rgb = mix(col.rgb, vec3(0.120, 0.000, 0.220), cracks * 0.26);
+
+  float pulse = 0.5 + 0.5 * sin(uTime * 1.3);
+  float dist  = length(outTexCoord - 0.5) * 1.7;
+  float edge  = smoothstep(0.28, 0.95, dist);
+  vec3 edgeCol = col.rgb * 0.42 + shadowViolet * 0.58;
+  col.rgb = mix(col.rgb, edgeCol, edge * uCorruption * (0.38 + 0.12 * pulse));
+
+  float flicker = step(0.985,
     noise(outTexCoord * 22.0 + vec2(uTime * 9.0, uTime * 3.5)));
-  col.rgb += flicker * vec3(0.45, 0.0, 0.65) * uCorruption * 0.35;
+  col.rgb += flicker * vec3(0.58, 0.0, 0.85) * uCorruption * 0.45 * smoothstep(0.20, 0.95, veins + cracks);
 
   gl_FragColor = vec4(col.rgb, col.a);
 }
