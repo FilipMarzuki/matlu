@@ -26,7 +26,7 @@ export const CUSTOM_TILE_PACKS: Record<number, string> = {
   5:  'coastal-heath',
   6:  'meadow',
   7:  'forest',
-  8:  'forest',     // cold forest — same tiles as warm forest (7)
+  8:  'spruce',
   9:  'cold-granite',
   10: 'bare-summit',
   11: 'snow-field',
