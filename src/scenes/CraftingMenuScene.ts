@@ -3,6 +3,7 @@ import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ProjectSystem } from '../systems/ProjectSystem';
+import { createPanel, preloadCraftingPanels, type PanelStyle } from '../ui/PanelFactory';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -165,6 +166,8 @@ export class CraftingMenuScene extends Phaser.Scene {
   }
 
   preload(): void {
+    preloadCraftingPanels(this);
+
     // Load concept patch badge sprites (48x48 PNGs)
     for (const icon of PATCH_ICONS) {
       if (!this.textures.exists(icon)) {
@@ -198,18 +201,18 @@ export class CraftingMenuScene extends Phaser.Scene {
     const panelX = width / 2;
     const panelY = height / 2;
 
-    this.add
-      .rectangle(panelX, panelY, panelW, panelH, 0x1a1a24, 0.96)
-      .setScrollFactor(0)
-      .setDepth(DEPTH_BASE + 1)
-      .setInteractive();
-
-    // Border
-    const border = this.add.graphics().setScrollFactor(0).setDepth(DEPTH_BASE + 2);
-    border.lineStyle(1.5, 0x665533, 0.6);
-    border.strokeRect(panelX - panelW / 2, panelY - panelH / 2, panelW, panelH);
+    createPanel(this, panelX, panelY, panelW, panelH, 'wood', {
+      depth: DEPTH_BASE + 1,
+      interactive: true,
+      scrollFactor: 0,
+    });
 
     // ── Close button ──────────────────────────────────────────────────────────
+    createPanel(this, panelX + panelW / 2 - 16, panelY - panelH / 2 + 20, 30, 30, 'metal', {
+      depth: DEPTH_BASE + 9,
+      scrollFactor: 0,
+    });
+
     const closeBtn = this.add
       .text(panelX + panelW / 2 - 16, panelY - panelH / 2 + 8, '✕', {
         fontSize: '20px',
@@ -231,6 +234,11 @@ export class CraftingMenuScene extends Phaser.Scene {
 
     tabs.forEach((tab, i) => {
       const tx = panelX - panelW / 2 + tabW * i + tabW / 2;
+      createPanel(this, tx, tabY, tabW - 10, 34, this.activeTab === tab ? 'leather' : 'metal', {
+        depth: DEPTH_BASE + 4,
+        scrollFactor: 0,
+      }).setAlpha(this.activeTab === tab ? 0.95 : 0.55);
+
       const tabText = this.add
         .text(tx, tabY, TAB_LABELS[tab], {
           fontSize: '13px',
@@ -409,6 +417,21 @@ export class CraftingMenuScene extends Phaser.Scene {
     }
   }
 
+  private addPanelTo(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    style: PanelStyle,
+    alpha = 1,
+  ): Phaser.GameObjects.Container {
+    const panel = createPanel(this, x + width / 2, y + height / 2, width, height, style);
+    panel.setAlpha(alpha);
+    container.add(panel);
+    return panel;
+  }
+
   // ─── MIND TAB (Tinker Tray) ─────────────────────────────────────────────────
 
   // Drag state — tracked at scene level so event handlers can access it.
@@ -459,29 +482,17 @@ export class CraftingMenuScene extends Phaser.Scene {
         idx: i,
       });
 
-      // Slot background — degradation for slots 3-5
-      const slotBg = this.add.graphics();
       const alpha = i < 2 ? 0.3 : i < 3 ? 0.15 : 0.08;
-      slotBg.fillStyle(TAB_COLORS.mind, alpha);
-      slotBg.fillRoundedRect(panelW / 2 - slotW / 2, sy - slotH / 2, slotW, slotH, 6);
-      if (i < 2) {
-        slotBg.lineStyle(1.5, TAB_COLORS.mind, 0.6);
-        slotBg.strokeRoundedRect(panelW / 2 - slotW / 2, sy - slotH / 2, slotW, slotH, 6);
-      } else {
-        // Visual degradation: dashed feel via lower opacity + muted color
-        const borderAlpha = i < 3 ? 0.3 : i < 4 ? 0.2 : 0.12;
-        slotBg.lineStyle(1, 0x444444, borderAlpha);
-        slotBg.strokeRoundedRect(panelW / 2 - slotW / 2, sy - slotH / 2, slotW, slotH, 6);
-        // Static/noise lines for slots 4-5
-        if (i >= 3) {
-          slotBg.lineStyle(0.5, 0x333333, 0.15);
-          for (let n = 0; n < 3; n++) {
-            const ny = sy - slotH / 2 + 6 + n * 12;
-            slotBg.lineBetween(panelW / 2 - slotW / 2 + 8, ny, panelW / 2 + slotW / 2 - 8, ny);
-          }
-        }
-      }
-      this.contentContainer.add(slotBg);
+      const slotStyle: PanelStyle = i < 2 ? 'cork' : i < 3 ? 'leather' : 'metal';
+      this.addPanelTo(
+        this.contentContainer,
+        panelW / 2 - slotW / 2,
+        sy - slotH / 2,
+        slotW,
+        slotH,
+        slotStyle,
+        Math.max(alpha * 2.4, 0.28),
+      );
 
       // Slot rank label
       this.contentContainer.add(
@@ -579,12 +590,7 @@ export class CraftingMenuScene extends Phaser.Scene {
     const progress = this.trayProgress;
     const hasSlots = this.traySlots.some(Boolean);
 
-    const barBg = this.add.graphics();
-    barBg.fillStyle(0x222233, 0.8);
-    barBg.fillRoundedRect(barX, barY, barW, barH, 4);
-    barBg.lineStyle(1, 0x444466, 0.5);
-    barBg.strokeRoundedRect(barX, barY, barW, barH, 4);
-    this.contentContainer.add(barBg);
+    this.addPanelTo(this.contentContainer, barX, barY, barW, barH, 'metal', 0.82);
 
     if (progress > 0) {
       const fillG = this.add.graphics();
@@ -611,12 +617,7 @@ export class CraftingMenuScene extends Phaser.Scene {
     const restBtnX = barX + barW + 10;
     const restBtnW = 80;
     const canRest = hasSlots && progress < 1;
-    const restBg = this.add.graphics();
-    restBg.fillStyle(canRest ? 0x335533 : 0x222222, 0.8);
-    restBg.fillRoundedRect(restBtnX, barY - 1, restBtnW, barH + 2, 4);
-    restBg.lineStyle(1, canRest ? 0x44aa44 : 0x333333, 0.5);
-    restBg.strokeRoundedRect(restBtnX, barY - 1, restBtnW, barH + 2, 4);
-    this.contentContainer.add(restBg);
+    this.addPanelTo(this.contentContainer, restBtnX, barY - 1, restBtnW, barH + 2, canRest ? 'wood' : 'metal', 0.82);
 
     const restBtn = this.add.text(restBtnX + restBtnW / 2, barY + barH / 2, '🌙 Rest', {
       fontSize: '10px', color: canRest ? '#88ff88' : '#555555',
@@ -636,12 +637,7 @@ export class CraftingMenuScene extends Phaser.Scene {
     // ── Discovery notification ────────────────────────────────────────────────
     if (this.lastDiscovery) {
       const dy = barY + barH + 22;
-      const notifBg = this.add.graphics();
-      notifBg.fillStyle(this.lastDiscovery.isFalse ? 0x3a3a2a : 0x2a3a2a, 0.9);
-      notifBg.fillRoundedRect(barX, dy, panelW - 60, 40, 4);
-      notifBg.lineStyle(1, 0x88cc88, 0.5);
-      notifBg.strokeRoundedRect(barX, dy, panelW - 60, 40, 4);
-      this.contentContainer.add(notifBg);
+      this.addPanelTo(this.contentContainer, barX, dy, panelW - 60, 40, this.lastDiscovery.isFalse ? 'parchment' : 'leather', 0.9);
 
       this.contentContainer.add(
         this.add.text(barX + 8, dy + 4, `✨ ${this.lastDiscovery.type}: ${this.lastDiscovery.id}`, {
@@ -725,15 +721,9 @@ export class CraftingMenuScene extends Phaser.Scene {
 
     for (const item of items) {
       const chipW = Math.max(item.label.length * 6.5 + 16, 60);
-      const chipColor = item.type === 'concept' ? 0x3a5a3a : 0x5a4a3a;
 
-      // Chip background
-      const chipBg = this.add.graphics();
-      chipBg.fillStyle(chipColor, 0.5);
-      chipBg.fillRoundedRect(chipX, trayY, chipW, chipH, 4);
-      chipBg.lineStyle(1, item.type === 'concept' ? 0x66aa66 : 0xaa8844, 0.4);
-      chipBg.strokeRoundedRect(chipX, trayY, chipW, chipH, 4);
-      this.contentContainer.add(chipBg);
+      const chipStyle: PanelStyle = item.type === 'concept' ? 'cork' : 'leather';
+      this.addPanelTo(this.contentContainer, chipX, trayY, chipW, chipH, chipStyle, 0.75);
 
       // Chip label
       const chipLabel = this.add.text(chipX + chipW / 2, trayY + chipH / 2, item.label, {
@@ -1106,19 +1096,15 @@ export class CraftingMenuScene extends Phaser.Scene {
     );
     existing.forEach(obj => { obj.destroy(); this.contentContainer.remove(obj); });
 
-    const makeDetail = (go: Phaser.GameObjects.Text | Phaser.GameObjects.Graphics) => {
+    const makeDetail = <T extends Phaser.GameObjects.GameObject>(go: T): T => {
       (go as unknown as { _isConceptDetail: boolean })._isConceptDetail = true;
       this.contentContainer.add(go);
       return go;
     };
 
     const dy = panelH - 90;
-    const bg = this.add.graphics();
-    bg.fillStyle(0x1a1a2a, 0.95);
-    bg.fillRoundedRect(0, dy, panelW, 90, 6);
-    bg.lineStyle(1, 0x446644, 0.5);
-    bg.strokeRoundedRect(0, dy, panelW, 90, 6);
-    makeDetail(bg as unknown as Phaser.GameObjects.Text);
+    const bg = this.addPanelTo(this.contentContainer, 0, dy, panelW, 90, 'parchment', 0.95);
+    makeDetail(bg);
 
     const c = concept as Concept & { requires?: string[]; unlocks?: string[] };
 
@@ -1252,17 +1238,15 @@ export class CraftingMenuScene extends Phaser.Scene {
     );
     existing.forEach(obj => { obj.destroy(); this.contentContainer.remove(obj); });
 
-    const makeDetail = (go: Phaser.GameObjects.Text | Phaser.GameObjects.Graphics) => {
+    const makeDetail = <T extends Phaser.GameObjects.GameObject>(go: T): T => {
       (go as unknown as { _isDetail: boolean })._isDetail = true;
       this.contentContainer.add(go);
       return go;
     };
 
     // Background
-    const bg = this.add.graphics();
-    bg.fillStyle(0x222222, 0.5);
-    bg.fillRoundedRect(x, y - 8, w, h, 4);
-    makeDetail(bg as unknown as Phaser.GameObjects.Text);
+    const bg = this.addPanelTo(this.contentContainer, x, y - 8, w, h, 'parchment', 0.9);
+    makeDetail(bg);
 
     // Recipe name
     makeDetail(this.add.text(x + 12, y, recipe.name, {
@@ -1307,12 +1291,8 @@ export class CraftingMenuScene extends Phaser.Scene {
     // Craft button
     const canCraft = this.canCraftRecipe(recipe);
     const btnY = outputY + 48;
-    const btnG = this.add.graphics();
-    btnG.fillStyle(canCraft ? 0x335533 : 0x332222, 0.8);
-    btnG.fillRoundedRect(x + 12, btnY, 100, 28, 4);
-    btnG.lineStyle(1, canCraft ? 0x44aa44 : 0x553333, 0.8);
-    btnG.strokeRoundedRect(x + 12, btnY, 100, 28, 4);
-    makeDetail(btnG as unknown as Phaser.GameObjects.Text);
+    const btnG = this.addPanelTo(this.contentContainer, x + 12, btnY, 100, 28, canCraft ? 'wood' : 'metal', 0.86);
+    makeDetail(btnG);
 
     const craftBtn = this.add.text(x + 62, btnY + 14, canCraft ? 'CRAFT' : 'Missing...', {
       fontSize: '12px', color: canCraft ? '#88ff88' : '#886666', fontStyle: 'bold',
@@ -1333,12 +1313,8 @@ export class CraftingMenuScene extends Phaser.Scene {
     makeDetail(craftBtn);
 
     // [FORGE] button — opens dependency pipeline view
-    const forgeBtnG = this.add.graphics();
-    forgeBtnG.fillStyle(0x333355, 0.8);
-    forgeBtnG.fillRoundedRect(x + 120, btnY, 80, 28, 4);
-    forgeBtnG.lineStyle(1, 0x5566aa, 0.8);
-    forgeBtnG.strokeRoundedRect(x + 120, btnY, 80, 28, 4);
-    makeDetail(forgeBtnG as unknown as Phaser.GameObjects.Text);
+    const forgeBtnG = this.addPanelTo(this.contentContainer, x + 120, btnY, 80, 28, 'metal', 0.86);
+    makeDetail(forgeBtnG);
 
     const forgeBtn = this.add.text(x + 160, btnY + 14, 'FORGE', {
       fontSize: '12px', color: '#8899cc', fontStyle: 'bold',
@@ -1462,23 +1438,8 @@ export class CraftingMenuScene extends Phaser.Scene {
         nodePositions.set(key, { x: nx + nodeW / 2, y: ny + nodeH / 2, node });
 
         // Node background
-        const bg = this.add.graphics();
-        if (enough) {
-          bg.fillStyle(0x224422, 0.7);
-          bg.lineStyle(1.5, 0x44aa44, 0.8);
-        } else if (canCraftNow) {
-          bg.fillStyle(0x443322, 0.7);
-          bg.lineStyle(1.5, 0xddaa44, 0.8);
-        } else if (isRaw) {
-          bg.fillStyle(0x332222, 0.7);
-          bg.lineStyle(1.5, 0xaa4444, 0.6);
-        } else {
-          bg.fillStyle(0x222233, 0.7);
-          bg.lineStyle(1, 0x555566, 0.5);
-        }
-        bg.fillRoundedRect(nx, ny, nodeW, nodeH, 4);
-        bg.strokeRoundedRect(nx, ny, nodeW, nodeH, 4);
-        this.contentContainer.add(bg);
+        const nodeStyle: PanelStyle = enough ? 'wood' : canCraftNow ? 'leather' : isRaw ? 'parchment' : 'metal';
+        this.addPanelTo(this.contentContainer, nx, ny, nodeW, nodeH, nodeStyle, 0.78);
 
         // Status icon
         const icon = enough ? '✓' : canCraftNow ? '⚒' : isRaw ? '✗' : '○';
@@ -1547,12 +1508,7 @@ export class CraftingMenuScene extends Phaser.Scene {
 
     // ── Summary panel (bottom) ────────────────────────────────────────────────
     const sumY = panelH - 70;
-    const sumBg = this.add.graphics();
-    sumBg.fillStyle(0x1a1a2a, 0.9);
-    sumBg.fillRoundedRect(0, sumY, panelW, 70, 4);
-    sumBg.lineStyle(1, 0x444466, 0.5);
-    sumBg.strokeRoundedRect(0, sumY, panelW, 70, 4);
-    this.contentContainer.add(sumBg);
+    this.addPanelTo(this.contentContainer, 0, sumY, panelW, 70, 'leather', 0.9);
 
     // Aggregate raw materials needed
     const rawNeeds = new Map<string, { need: number; have: number }>();
@@ -1689,12 +1645,7 @@ export class CraftingMenuScene extends Phaser.Scene {
       const cy = gridStartY + row * (cellSize + cellGap) + cellSize / 2;
 
       // Cell background
-      const cellBg = this.add.graphics();
-      cellBg.fillStyle(0x222233, 0.6);
-      cellBg.fillRoundedRect(cx - cellSize / 2, cy - cellSize / 2, cellSize, cellSize, 4);
-      cellBg.lineStyle(1, 0x444466, 0.4);
-      cellBg.strokeRoundedRect(cx - cellSize / 2, cy - cellSize / 2, cellSize, cellSize, 4);
-      this.contentContainer.add(cellBg);
+      this.addPanelTo(this.contentContainer, cx - cellSize / 2, cy - cellSize / 2, cellSize, cellSize, 'metal', 0.72);
 
       // Item name (shortened)
       const displayName = itemId.replace(/-/g, ' ').split(' ').map(w => w[0].toUpperCase()).join('');
