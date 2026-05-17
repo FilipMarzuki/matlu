@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright config for `npm run screenshot`.
  *
- * Runs only screenshot.spec.ts against the Vite preview build in headed mode.
+ * Runs only visual screenshot specs against the Vite preview build in headed mode.
  * WebGL RenderTextures (terrain, ShimmerFilter) don't render correctly in
  * headless Chrome, so this config intentionally excludes `testIgnore` and is
  * always meant to be run with --headed.
@@ -12,7 +12,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir:       './tests',
-  testMatch:     ['**/screenshot.spec.ts'],
+  testMatch:     ['**/screenshot.spec.ts', '**/screenshot-biomes.spec.ts'],
   fullyParallel: false,
   workers:       1,
   // GameScene.create() is heavy — allow generous timeout.
