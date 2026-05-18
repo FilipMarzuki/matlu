@@ -66,6 +66,100 @@ Every panel should look like it belongs in the game world: something a Tinkerer 
 | Epic | `#aa66ff` | Spirit Purple |
 | Legendary | `#c8922a` | Amber Gold |
 
+## Spacing system
+
+All UI measurements are built on a **4px base grid**. Every dimension, padding, margin, and gap should be a multiple of 4. This ensures pixel-perfect alignment across all panels, buttons, and slots.
+
+### Spacing tokens
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `xs` | 4px | Minimum gap, icon padding within slots |
+| `sm` | 8px | Button inner padding, chip gaps, small margins |
+| `md` | 12px | Panel inner padding (sides), icon-to-text gaps |
+| `lg` | 16px | Panel inner padding (top/bottom), section spacing |
+| `xl` | 24px | Between major sections, panel-to-screen margin |
+| `2xl` | 32px | Title-to-content gap |
+
+### Component sizes
+
+| Component | Size | Rationale |
+|-----------|------|-----------|
+| Inventory slot | 56×56px | Touch-friendly, fits 10-col grid in 600px |
+| Standard button height | 48px | Android minimum touch target (48dp) |
+| Tab bar height | 44px | Standard tab strip |
+| Deployable slot | 40×40px | Compact HUD element, always on-screen |
+| Building toolbar button | 44×44px | Slightly larger than deployable for toolbar context |
+| Close button | 28×28px | Small but tappable (corner-positioned, less critical) |
+| Arrow button | 28×28px | Same as close |
+| Badge / mini-icon | 20×20px | Status indicators, category dots |
+| Bar icon | 16×16px | Heart, lightning, crystal beside bars |
+
+### Panel sizes
+
+Standard panel widths for consistent modal feel:
+
+| Size class | Width | Use |
+|------------|-------|-----|
+| Small | 280–320px | Pause, Settings, GameOver, LevelComplete |
+| Medium | 380–420px | Shop, Stats, Upgrades |
+| Large | 480–520px | Lore, Crafting (on smaller screens) |
+| Full | 680–720px | Crafting (on larger screens), Discovery |
+
+All panels are vertically centred with `xl` (24px) minimum margin from screen edges.
+
+### Typography scale
+
+Standardised to 7 sizes (down from the current ~15 scattered values):
+
+| Token | Size | Weight | Use |
+|-------|------|--------|-----|
+| `title` | 22px | Bold, Silkscreen | Scene titles (PAUSE, CRAFTING, etc.) |
+| `heading` | 16px | Bold, Silkscreen | Section headers, shop name |
+| `label` | 13px | Bold, system | Button text, tab labels, item names |
+| `body` | 12px | Normal, system | Descriptions, dialog text, stats |
+| `small` | 10px | Normal, system | Secondary info, costs, hints |
+| `tiny` | 8px | Normal, system | Stack counts, node labels, badge counts |
+| `logo` | 48px | Bold, Silkscreen | Main menu title only |
+
+### Consistent spacing rules
+
+1. **Panel inner padding**: `md` (12px) on sides, `lg` (16px) on top/bottom
+2. **Button vertical gap**: 44px (button height 48 minus 4px overlap = visually 44px apart, centre-to-centre)
+3. **Button horizontal padding**: `sm` (8px) minimum, `md` (12px) for primary buttons
+4. **Row height**: 20px for dense lists (stats, inventory), 52px for interactive rows (shop items, upgrades)
+5. **Grid cell gap**: `xs` (4px) between inventory slots
+6. **Chip gap**: `sm` (8px) between filter chips/tags
+7. **Section divider margin**: `lg` (16px) above and below
+8. **Close button inset**: `md` (12px) from panel top-right corner
+
+### Border standards
+
+| Context | Width | Radius |
+|---------|-------|--------|
+| Panel outer border | 1px | 4px |
+| Panel inner accent border | 1px | 3px (inset 1px from outer) |
+| Button border | 1px | 4px |
+| Slot border | 1px (2px when selected/rare+) | 4px |
+| Tooltip border | 1px | 3px |
+| Bar track border | 1px | 2px |
+| Chip border | 1px | 4px |
+| Circle buttons (action, joystick) | 2px | full radius |
+
+### Nine-slice margins
+
+All nine-slice sprites use consistent slice margins so they can be authored at the same grid:
+
+| Sprite type | Source size | Slice margin | Min stretch |
+|-------------|-----------|--------------|-------------|
+| Panel (standard) | 48×48px | 8px all sides | 48×48 |
+| Panel (tooltip) | 32×32px | 6px all sides | 32×32 |
+| Button | 32×48px | 6px left/right, 6px top/bottom | 32×48 |
+| Tab | 32×44px | 6px left/right, 4px top/bottom | 32×44 |
+| Bar track | 32×16px | 6px left/right, 2px top/bottom | 32×16 |
+| Bar fill | 28×12px | 4px left/right, 2px top/bottom | 12×12 |
+| Slot | 56×56px | — (not nine-sliced, fixed size) | — |
+
 ## Panel frames
 
 ### Construction
