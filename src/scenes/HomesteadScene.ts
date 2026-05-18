@@ -534,8 +534,11 @@ export class HomesteadScene extends Phaser.Scene {
     this.playerIso.setPosition(isoX, isoY);
     this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y));
 
-    // Update facing direction and animation
-    const facing = velocityToFacing(vx, vy);
+    // Update facing direction and animation.
+    // Use screen-space input (svx, svy) for animation direction, not
+    // world-space velocity — the animation directions (south, south-east, etc.)
+    // correspond to screen directions, not iso world axes.
+    const facing = velocityToFacing(svx, svy);
     if (facing) {
       this.facingDir = facing.dir;
       this.playerIso.setFlipX(facing.flip);
