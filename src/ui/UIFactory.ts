@@ -121,7 +121,7 @@ function makePanel(
   w: number,
   h: number,
   variant: 'system' | 'fantasy' | 'danger' | 'success' | 'sub' = 'system',
-  depth = Depth.OVERLAY,
+  depth: number = Depth.OVERLAY,
 ): PanelResult {
   const textureKey = PANEL_TEXTURE[variant];
   const hasTexture = textureKey && scene.textures.exists(textureKey);

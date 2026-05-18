@@ -86,8 +86,8 @@ const sceneOrder = (() => {
   if (path === '/recolor') return [RecolorTestScene, ...all.filter(s => s !== RecolorTestScene)];
   if (path === '/df' || path === '/dungeonforge' || path === '/arena') return [DungeonForgeScene, ...all.filter(s => s !== DungeonForgeScene)];
   if (path === '/menu')  return all;
-  // Default (/): boot straight into homestead
-  return [HomesteadScene, ...all.filter(s => s !== HomesteadScene)];
+  // Default (/): MainMenuScene (first in array = auto-started)
+  return all;
 })();
 
 const game = new Phaser.Game({

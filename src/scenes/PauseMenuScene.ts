@@ -64,16 +64,12 @@ export class PauseMenuScene extends Phaser.Scene {
     UI.makeTitle(this, cx, cy - panelH / 2 + UI.Space.xxl, t('pause.title'));
 
     // Buttons — stacked vertically inside the panel.
-    // Quit is only shown when there's a main menu to return to (GameScene).
-    const hasQuit = this.callerKey === 'GameScene';
     const buttons: { label: string; action: () => void }[] = [
       { label: t('pause.resume'),    action: () => this.resumeGame() },
       { label: t('pause.discovery'), action: () => this.openDiscovery() },
       { label: t('pause.settings'),  action: () => this.openSettings() },
+      { label: t('pause.quit'),      action: () => this.quitToMenu() },
     ];
-    if (hasQuit) {
-      buttons.push({ label: t('pause.quit'), action: () => this.quitToMenu() });
-    }
 
     const btnGap = 46;
     const totalH = (buttons.length - 1) * btnGap;
@@ -111,8 +107,7 @@ export class PauseMenuScene extends Phaser.Scene {
   }
 
   private quitToMenu(): void {
-    // Restart whatever scene launched us (HomesteadScene, GameScene, etc.)
     this.scene.stop(this.callerKey);
-    this.scene.start(this.callerKey);
+    this.scene.start('MainMenuScene');
   }
 }
