@@ -25,7 +25,7 @@ import { Color, TextColor, Font, Depth, Space } from './theme';
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const DEPTH_BADGE = Depth.HUD;
-const DEPTH_PANEL = Depth.HUD - 10;
+const DEPTH_PANEL = Depth.HUD + 5;  // panel renders above badge when open
 
 const BADGE_SIZE = 40;
 const BADGE_PAD  = Space.md;
