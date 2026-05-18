@@ -80,7 +80,7 @@ const PATCH_ICONS = [
   'patch-lever', 'patch-dovetail', 'patch-hide', 'patch-droplet',
   'patch-explosion', 'patch-knot', 'patch-blade', 'patch-shield',
   'patch-bubbles', 'patch-scales', 'patch-merge', 'patch-dissolve',
-  'patch-caliper',
+  'patch-caliper', 'patch-rune',
 ] as const;
 
 // ─── Scene ──────────────────────────────────────────────────────────────────────
@@ -1332,7 +1332,7 @@ export class CraftingMenuScene extends Phaser.Scene {
       const concept = recipe.concepts?.[0];
       if (concept) {
         const emptyIdx = this.traySlots.indexOf(null);
-        if (emptyIdx !== -1) this.traySlots[emptyIdx] = concept;
+        if (emptyIdx !== -1) this.tinkerTray.setSlot(emptyIdx, concept);
       }
     });
     makeDetail(mindBtn);

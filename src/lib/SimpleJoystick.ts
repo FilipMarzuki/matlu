@@ -22,6 +22,8 @@ export class SimpleJoystick {
   private readonly radius: number;
   private readonly thumb: Phaser.GameObjects.Arc;
 
+  private readonly scene: Phaser.Scene;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -29,15 +31,26 @@ export class SimpleJoystick {
     radius: number,
     thumb: Phaser.GameObjects.Arc,
   ) {
+    this.scene  = scene;
     this.cx     = x;
     this.cy     = y;
     this.radius = radius;
     this.thumb  = thumb;
 
-    scene.input.on('pointerdown',     this.onDown, this);
-    scene.input.on('pointermove',     this.onMove, this);
-    scene.input.on('pointerup',       this.onUp,   this);
-    scene.input.on('pointerupoutside', this.onUp,  this);
+    scene.input.on('pointerdown',      this.onDown, this);
+    scene.input.on('pointermove',      this.onMove, this);
+    scene.input.on('pointerup',        this.onUp,   this);
+    scene.input.on('pointerupoutside', this.onUp,   this);
+
+    // Clean up listeners when the scene shuts down to prevent leaks on restart
+    scene.events.once('shutdown', this.destroy, this);
+  }
+
+  destroy(): void {
+    this.scene.input.off('pointerdown',      this.onDown, this);
+    this.scene.input.off('pointermove',      this.onMove, this);
+    this.scene.input.off('pointerup',        this.onUp,   this);
+    this.scene.input.off('pointerupoutside', this.onUp,   this);
   }
 
   private onDown(pointer: Phaser.Input.Pointer): void {

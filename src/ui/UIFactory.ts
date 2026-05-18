@@ -20,8 +20,8 @@ import {
 
 export interface PanelResult {
   bg: Phaser.GameObjects.Rectangle;
-  border: Phaser.GameObjects.Graphics;
-  /** Convenience: destroy both objects. */
+  border: Phaser.GameObjects.Graphics | null;
+  /** Convenience: destroy all objects. */
   destroy: () => void;
 }
 
@@ -137,16 +137,11 @@ function makePanel(
       .setScrollFactor(0)
       .setInteractive();
 
-    // NineSlice doesn't have a separate border object — return a
-    // no-op Graphics stub so the PanelResult interface stays consistent.
-    const gfx = scene.add.graphics().setDepth(depth + 1).setScrollFactor(0);
-
     return {
       bg: ns as unknown as Phaser.GameObjects.Rectangle,
-      border: gfx,
+      border: null,
       destroy() {
         ns.destroy();
-        gfx.destroy();
       },
     };
   }
