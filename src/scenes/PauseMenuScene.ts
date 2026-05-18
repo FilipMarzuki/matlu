@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { t } from '../lib/i18n';
 import { DiscoveryScene } from './DiscoveryScene';
+import { UI } from '../ui/UIFactory';
 
 /**
  * PauseMenuScene — in-game pause overlay.
@@ -27,6 +28,10 @@ export class PauseMenuScene extends Phaser.Scene {
     super({ key: 'PauseMenuScene' });
   }
 
+  preload(): void {
+    UI.preloadUI(this);
+  }
+
   create(): void {
     // FIL-113: Duck GameScene's music and ambience while the pause menu is open.
     // We check isPaused() so this is a no-op if PauseMenuScene is ever launched
@@ -43,93 +48,28 @@ export class PauseMenuScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = height / 2;
 
-    // Full-screen semi-transparent backdrop.
-    // setInteractive + pointerdown lets the player click outside the panel to resume —
-    // a common mobile-game pattern that feels natural on tablet.
-    this.add
-      .rectangle(cx, cy, width, height, 0x000000, 0.78)
-      .setScrollFactor(0)
-      .setDepth(800)
-      .setInteractive()
-      .on('pointerdown', () => this.resumeGame());
+    // Full-screen semi-transparent backdrop — click outside panel to resume.
+    UI.makeBackdrop(this, 0.78, UI.Color.backdropBlack, () => this.resumeGame());
 
-    // Opaque panel — needs to be interactive so clicks on it don't fall through
-    // to the backdrop and accidentally dismiss the menu.
-    const panelW = 260;
-    const panelH = 256;
-    this.add
-      .rectangle(cx, cy, panelW, panelH, 0x111a11, 0.95)
-      .setScrollFactor(0)
-      .setDepth(801)
-      .setInteractive();
-
-    // Subtle border drawn with Graphics — Text objects can't have outlines,
-    // so we use strokeRect on a Graphics layer positioned above the panel.
-    const border = this.add.graphics().setScrollFactor(0).setDepth(802);
-    border.lineStyle(1, 0xffffff, 0.15);
-    border.strokeRect(cx - panelW / 2, cy - panelH / 2, panelW, panelH);
+    // Panel with Tech-Rune double-border (uses nine-slice sprite if loaded).
+    const panelW = 300;
+    const panelH = 280;
+    UI.makePanel(this, cx, cy, panelW, panelH, 'system');
 
     // Title
-    this.add
-      .text(cx, cy - panelH / 2 + 28, t('pause.title'), {
-        fontSize: '22px',
-        color: '#f0ead6',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(802);
+    UI.makeTitle(this, cx, cy - panelH / 2 + UI.Space.xxl, t('pause.title'));
 
-    // Buttons — stacked vertically inside the panel (4 buttons, centered)
+    // Buttons — stacked vertically inside the panel
     const btnY  = cy - 36;
     const btnGap = 46;
-    this.makeButton(cx, btnY,              t('pause.resume'),    () => this.resumeGame());
-    this.makeButton(cx, btnY + btnGap,     t('pause.discovery'), () => this.openDiscovery());
-    this.makeButton(cx, btnY + btnGap * 2, t('pause.settings'),  () => this.openSettings());
-    this.makeButton(cx, btnY + btnGap * 3, t('pause.quit'),      () => this.quitToMenu());
+    UI.makeButton(this, cx, btnY,              t('pause.resume'),    () => this.resumeGame(),    { fixedWidth: 200 });
+    UI.makeButton(this, cx, btnY + btnGap,     t('pause.discovery'), () => this.openDiscovery(), { fixedWidth: 200 });
+    UI.makeButton(this, cx, btnY + btnGap * 2, t('pause.settings'),  () => this.openSettings(),  { fixedWidth: 200 });
+    UI.makeButton(this, cx, btnY + btnGap * 3, t('pause.quit'),      () => this.quitToMenu(),    { fixedWidth: 200 });
 
     // Keyboard shortcuts — ESC and P both resume, matching common game conventions
     this.input.keyboard?.on('keydown-ESC', () => this.resumeGame());
     this.input.keyboard?.on('keydown-P',   () => this.resumeGame());
-  }
-
-  /**
-   * Reusable button factory — matches MainMenuScene's button style for visual
-   * consistency across the menu system (FIL-81). Gold text on dark olive bg,
-   * brightens to white on hover.
-   */
-  private makeButton(
-    x: number,
-    y: number,
-    label: string,
-    onClick: () => void,
-  ): Phaser.GameObjects.Text {
-    const btn = this.add
-      .text(x, y, label, {
-        fontSize: '15px',
-        color: '#ffe066',
-        backgroundColor: '#333300aa',
-        padding: { x: 14, y: 8 },
-        fixedWidth: 200,
-        align: 'center',
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(802)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => {
-        btn.setStyle({ color: '#ffffff' });
-        if (this.game.device.os.desktop && this.cache.audio.has('sfx-hover')) {
-          this.sound.play('sfx-hover', { volume: 0.18 });
-        }
-      })
-      .on('pointerout',  () => btn.setStyle({ color: '#ffe066' }))
-      .on('pointerdown', () => {
-        if (this.cache.audio.has('sfx-click')) this.sound.play('sfx-click', { volume: 0.4 });
-        onClick();
-      });
-
-    return btn;
   }
 
   private resumeGame(): void {

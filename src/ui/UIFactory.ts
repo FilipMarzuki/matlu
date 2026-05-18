@@ -13,6 +13,7 @@
 
 import {
   Color, TextColor, Space, Size, Font, Border, Depth, Anim,
+  NineSlice,
 } from './theme';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -106,6 +107,13 @@ function makeBackdrop(
  * @param variant 'system' (teal accent) | 'fantasy' (gold accent) |
  *                'danger' (red) | 'success' (green) | 'sub' (subtle)
  */
+/** Sprite texture keys for nine-slice panel variants (loaded in preload). */
+const PANEL_TEXTURE: Record<string, string> = {
+  system:  'ui-panel-system-9s',
+  fantasy: 'ui-panel-fantasy-9s',
+  tooltip: 'ui-panel-tooltip-9s',
+};
+
 function makePanel(
   scene: Phaser.Scene,
   x: number,
@@ -115,6 +123,35 @@ function makePanel(
   variant: 'system' | 'fantasy' | 'danger' | 'success' | 'sub' = 'system',
   depth = Depth.OVERLAY,
 ): PanelResult {
+  const textureKey = PANEL_TEXTURE[variant];
+  const hasTexture = textureKey && scene.textures.exists(textureKey);
+
+  if (hasTexture) {
+    // ── Nine-slice sprite panel (preferred) ──────────────────────────
+    const m = NineSlice.panel;
+    const ns = scene.add.nineslice(
+      x, y, textureKey, undefined,
+      w, h, m.left, m.right, m.top, m.bottom,
+    )
+      .setDepth(depth)
+      .setScrollFactor(0)
+      .setInteractive();
+
+    // NineSlice doesn't have a separate border object — return a
+    // no-op Graphics stub so the PanelResult interface stays consistent.
+    const gfx = scene.add.graphics().setDepth(depth + 1).setScrollFactor(0);
+
+    return {
+      bg: ns as unknown as Phaser.GameObjects.Rectangle,
+      border: gfx,
+      destroy() {
+        ns.destroy();
+        gfx.destroy();
+      },
+    };
+  }
+
+  // ── Graphics fallback (for variants without sprites yet) ───────────
   const accentMap: Record<string, number> = {
     system:  Color.accentTech,
     fantasy: Color.accentFantasy,
@@ -153,6 +190,17 @@ function makePanel(
       gfx.destroy();
     },
   };
+}
+
+/**
+ * Preload UI sprite assets. Call this in any scene's preload() that uses
+ * nine-slice panels or sprite-based UI elements.
+ */
+function preloadUI(scene: Phaser.Scene): void {
+  scene.load.image('ui-panel-system-9s', '/assets/sprites/ui/ui-panel-system-9s.png');
+  scene.load.image('ui-panel-fantasy-9s', '/assets/sprites/ui/ui-panel-fantasy-9s.png');
+  // Add more UI sprites here as they're created:
+  // scene.load.image('ui-panel-tooltip-9s', '/assets/sprites/ui/ui-panel-tooltip-9s.png');
 }
 
 /**
@@ -424,6 +472,7 @@ function makeText(
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export const UI = {
+  preloadUI,
   makeBackdrop,
   makePanel,
   makeButton,
