@@ -100,8 +100,8 @@ export class PauseMenuScene extends Phaser.Scene {
   }
 
   private quitToMenu(): void {
-    // Stop the caller scene and navigate to MainMenuScene.
+    // Restart whatever scene launched us (HomesteadScene, GameScene, etc.)
     this.scene.stop(this.callerKey);
-    this.scene.start('MainMenuScene');
+    this.scene.start(this.callerKey);
   }
 }
