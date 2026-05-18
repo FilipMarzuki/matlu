@@ -363,6 +363,28 @@ const BIOME_LABELS = BIOMES.map(b => b.name);
 const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
 
 /**
+ * Low-alpha colour wash drawn onto each iso tile's top face.
+ *
+ * The source tile art carries the texture/detail; this wash gives each biome a
+ * stronger CrossCode-style colour identity at map scale without replacing the
+ * pixel art. Keep alpha modest so roads, props, and sprite readability still win.
+ */
+const BIOME_TERRAIN_WASH: ReadonlyArray<{ color: number; alpha: number }> = [
+  { color: 0x225f8f, alpha: 0.14 }, // 0  Sea — cold blue
+  { color: 0x8a7662, alpha: 0.16 }, // 1  Rocky Shore — wet brown stone
+  { color: 0xe4b866, alpha: 0.18 }, // 2  Sandy Shore — warm sand
+  { color: 0x4f7f4c, alpha: 0.18 }, // 3  Marsh / Bog — saturated peat green
+  { color: 0xb48645, alpha: 0.18 }, // 4  Dry Heath — ochre scrub
+  { color: 0x789a4a, alpha: 0.17 }, // 5  Coastal Heath — salted olive grass
+  { color: 0x62b94b, alpha: 0.16 }, // 6  Meadow — bright readable green
+  { color: 0x2f7b35, alpha: 0.18 }, // 7  Forest — deep leaf green
+  { color: 0x245e47, alpha: 0.20 }, // 8  Forest (Cold) — blue-green spruce
+  { color: 0x8993a0, alpha: 0.18 }, // 9  Cold Granite — cool grey-blue
+  { color: 0x9a8768, alpha: 0.16 }, // 10 Bare Summit — exposed tan rock
+  { color: 0xd9edf7, alpha: 0.20 }, // 11 Snow Field — icy blue-white
+];
+
+/**
  * Resolve which biome index a tile belongs to from its noise values.
  * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
  *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
@@ -371,14 +393,23 @@ const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
  */
 function tileBiomeIdx(elev: number, temp: number, moist: number): number {
   if (elev < 0.25) return 0; // Sea
-  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky Shore / Sandy Shore
-  if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
-  if (elev < 0.68) {
-    // Mid-altitude band — ~45% meadow, ~55% forest.
-    if (moist > 0.55) return 7; // Forest
+  if (elev < 0.31) return (temp < 0.45 || moist > 0.54) ? 1 : 2; // Rocky Shore / Sandy Shore
+
+  if (elev < 0.52) {
+    // Lowlands carry the most biome identity: wet hollows, dry scrub, coastal
+    // grass, and meadow should be readable as different regions in overview.
+    if (moist > 0.72) return 3; // Marsh / Bog
+    if (moist < 0.34) return 4; // Dry Heath
+    if (moist < 0.52) return 5; // Coastal Heath
     return 6;                   // Meadow
   }
-  if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
+
+  if (elev < 0.70) {
+    if (moist < 0.28) return 4; // Dry ridges interrupt the midland greens
+    if (moist < 0.48) return 6; // Meadow
+    return temp < 0.45 ? 8 : 7; // Cold Forest / Forest
+  }
+  if (elev < 0.80) return moist > 0.50 ? 8 : 9; // Spruce / Cold Granite
   return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
 }
 
@@ -5779,6 +5810,13 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setVisible(false);
 
+    // Accumulate biome colour washes into one Graphics, then draw it to the RT
+    // once. This is cheaper than creating thousands of overlay objects and keeps
+    // the tint baked into the same terrain layer as the tile art.
+    const biomeWashGfx = this.add.graphics().setVisible(false);
+    const halfIsoW = ISO_TILE_W / 2;
+    const halfIsoH = ISO_TILE_H / 2;
+
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
@@ -5888,8 +5926,23 @@ export class GameScene extends Phaser.Scene {
         }
         terrainRt.draw(tileImg);
 
+        const wash = BIOME_TERRAIN_WASH[biomeIdx];
+        if (wash && !isRiverHere && !isLakeHere) {
+          biomeWashGfx.fillStyle(wash.color, wash.alpha);
+          biomeWashGfx.beginPath();
+          biomeWashGfx.moveTo(isoX,            isoY);
+          biomeWashGfx.lineTo(isoX + halfIsoW, isoY + halfIsoH);
+          biomeWashGfx.lineTo(isoX,            isoY + ISO_TILE_H);
+          biomeWashGfx.lineTo(isoX - halfIsoW, isoY + halfIsoH);
+          biomeWashGfx.closePath();
+          biomeWashGfx.fillPath();
+        }
+
       }
     }
+
+    terrainRt.draw(biomeWashGfx);
+    biomeWashGfx.destroy();
 
     // Spawn clearing — stamp grass tiles (iso-tiles frame 40, bright green top) over the
     // surrounding biome so the player spawns in a recognisable open clearing.
