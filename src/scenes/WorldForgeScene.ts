@@ -289,8 +289,9 @@ export class WorldForgeScene extends Phaser.Scene {
       this.load.image(`stepping-stone-${i}`, `/assets/sprites/crossings/stepping-stones/${i}.png`);
     }
 
-    // Bridge sprites — mid section for tile-based bridges.
+    // Bridge sprites — mid section for water tiles, ramp for shoreline tiles.
     this.load.image('bridge-mid', '/assets/sprites/crossings/bridge/mid-0.png');
+    this.load.image('bridge-ramp', '/assets/sprites/crossings/bridge-short.png');
 
     // Hero atlases — loaded so entity spawner can show actual sprites.
     this.load.atlas('tinkerer',
@@ -910,7 +911,8 @@ export class WorldForgeScene extends Phaser.Scene {
         this.tileImages.push(roadImg);
       }
 
-      // Render bridge tiles — sprite-based planks over water
+      // Render bridge tiles — use ramp sprite on shoreline, mid sprite over water.
+      // Shore tiles are bridge tiles that sit on land (walkability 0 = land).
       for (const key of bridgeTiles) {
         const [btx, bty] = key.split(',').map(Number);
         const { x: bx, y: by } = this.isoPos(btx, bty);
@@ -918,11 +920,14 @@ export class WorldForgeScene extends Phaser.Scene {
         const cx = bx;
         const cy = by + hh;
 
-        // Scale the 64px bridge sprite to fit the iso tile diamond
-        const bridgeImg = this.add.image(cx, cy, 'bridge-mid')
+        const isWater = btx >= 0 && bty >= 0 && btx < G && bty < G &&
+          this.walkabilityGrid[bty * G + btx] !== 0;
+        const tex = isWater ? 'bridge-mid' : 'bridge-ramp';
+
+        const bridgeImg = this.add.image(cx, cy, tex)
           .setDisplaySize(this.ISO_W * 1.2, this.ISO_H * 1.8)
           .setOrigin(0.5, 0.5)
-          .setDepth(0.15); // above water (0.1) and road (0.05)
+          .setDepth(0.15);
         this.tileImages.push(bridgeImg);
       }
     }
