@@ -352,16 +352,18 @@ export class InventoryHUD {
 
   // ── Input ─────────────────────────────────────────────────────────────
 
+  // Bound handler refs for cleanup
+  private _onKeyI = () => this.toggle();
+  private _onKeyQ = () => this.useActiveItem();
+  private _onKeyDown = () => { if (!this.expanded) this.cycleActiveItem(); };
+
   private _bindInput(): void {
     const kb = this.scene.input.keyboard;
     if (!kb) return;
 
-    kb.on('keydown-I', () => this.toggle());
-    kb.on('keydown-Q', () => this.useActiveItem());
-    kb.on('keydown-DOWN', () => {
-      if (this.expanded) return; // don't interfere with panel scrolling
-      this.cycleActiveItem();
-    });
+    kb.on('keydown-I', this._onKeyI);
+    kb.on('keydown-Q', this._onKeyQ);
+    kb.on('keydown-DOWN', this._onKeyDown);
   }
 
   // ── Events ────────────────────────────────────────────────────────────
@@ -402,6 +404,13 @@ export class InventoryHUD {
 
   private _dispose(): void {
     this.scene.game.events.off(INVENTORY_CHANGED, this._onInventoryChanged, this);
+    // Remove keyboard listeners to prevent leaks on scene restart
+    const kb = this.scene.input.keyboard;
+    if (kb) {
+      kb.off('keydown-I', this._onKeyI);
+      kb.off('keydown-Q', this._onKeyQ);
+      kb.off('keydown-DOWN', this._onKeyDown);
+    }
     this.badge.destroy();
     this.slotLabel.destroy();
     this.panel.destroy();

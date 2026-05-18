@@ -107,6 +107,8 @@ export class PauseMenuScene extends Phaser.Scene {
   }
 
   private quitToMenu(): void {
+    // Stop any overlay scenes that might be running alongside the caller
+    if (this.scene.isActive('CraftingMenuScene')) this.scene.stop('CraftingMenuScene');
     this.scene.stop(this.callerKey);
     this.scene.start('MainMenuScene');
   }

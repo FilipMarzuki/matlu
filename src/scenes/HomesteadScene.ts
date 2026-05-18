@@ -329,6 +329,7 @@ export class HomesteadScene extends Phaser.Scene {
     };
 
     kb.on('keydown-C', () => {
+      if (!this.scene.isActive(HomesteadScene.KEY)) return; // paused — ignore
       if (this.scene.isActive('CraftingMenuScene')) {
         this.scene.stop('CraftingMenuScene');
       } else {
@@ -461,11 +462,13 @@ export class HomesteadScene extends Phaser.Scene {
     });
 
     kb.on('keydown-ESC', () => {
+      if (!this.scene.isActive(HomesteadScene.KEY)) return; // paused — ignore
       if (this.selectedBuilding) { this.cancelPlacement(); return; }
       if (this.scene.isActive('CraftingMenuScene')) { this.scene.stop('CraftingMenuScene'); return; }
       this.openPauseMenu();
     });
     kb.on('keydown-P', () => {
+      if (!this.scene.isActive(HomesteadScene.KEY)) return; // paused — ignore
       if (!this.selectedBuilding) this.openPauseMenu();
     });
 

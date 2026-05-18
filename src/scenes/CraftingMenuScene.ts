@@ -1701,10 +1701,15 @@ export class CraftingMenuScene extends Phaser.Scene {
 
   private closeMenu(): void {
     this.scene.stop();
-    // Resume whatever called us — default to GameScene
-    const callerKey = (this.scene.settings.data as { callerKey?: string })?.callerKey ?? 'GameScene';
-    if (this.scene.isPaused(callerKey)) {
-      this.scene.resume(callerKey);
+    // Resume the caller if it was paused (GameScene pauses itself before
+    // launching crafting; HomesteadScene doesn't, so the isPaused check
+    // prevents calling resume on an already-running scene).
+    const callerCandidates = ['HomesteadScene', 'GameScene'];
+    for (const key of callerCandidates) {
+      if (this.scene.isPaused(key)) {
+        this.scene.resume(key);
+        break;
+      }
     }
   }
 }
