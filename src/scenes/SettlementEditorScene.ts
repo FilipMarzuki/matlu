@@ -189,7 +189,7 @@ export class SettlementEditorScene extends Phaser.Scene {
 
   create(): void {
     // Load culture data from Supabase (JSON fallback works immediately)
-    initSettlementData();
+    void initSettlementData().catch(e => console.warn('[SettlementEditor] data load failed:', e));
     this.cameras.main.setBackgroundColor('#1a1a2e');
 
     this.computeOrigin();

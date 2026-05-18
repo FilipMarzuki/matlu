@@ -377,15 +377,19 @@ export class MapForgeScene extends Phaser.Scene {
   // ── Settlement overlay ────────────────────────────────────────────────────
 
   private async toggleSettlementOverlay(): Promise<void> {
-    this.settlementVisible = !this.settlementVisible;
-    if (this.settlementVisible) {
-      if (!this.settlementDataReady) {
-        await initSettlementData();
-        this.settlementDataReady = true;
+    try {
+      this.settlementVisible = !this.settlementVisible;
+      if (this.settlementVisible) {
+        if (!this.settlementDataReady) {
+          await initSettlementData();
+          this.settlementDataReady = true;
+        }
+        this.rebuildSettlementOverlay();
+      } else {
+        this.clearSettlementOverlay();
       }
-      this.rebuildSettlementOverlay();
-    } else {
-      this.clearSettlementOverlay();
+    } catch (e) {
+      console.warn('[MapForge] toggleSettlementOverlay failed:', e);
     }
   }
 

@@ -288,7 +288,7 @@ export class BuildingForgeScene extends Phaser.Scene {
     }
 
     // Async: upgrade to Supabase data when available
-    this.loadFromSupabase();
+    void this.loadFromSupabase().catch(e => console.warn('[BuildingForge] load failed:', e));
 
     // URL param: ?building=smithy
     const params = new URLSearchParams(window.location.search);

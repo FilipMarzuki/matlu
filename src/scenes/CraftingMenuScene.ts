@@ -180,7 +180,7 @@ export class CraftingMenuScene extends Phaser.Scene {
     await this.loadData();
 
     // Load combo data into the tray system
-    this.loadTrayData();
+    void this.loadTrayData();
 
     const { width, height } = this.scale;
 

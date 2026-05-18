@@ -43,7 +43,7 @@ export class HomesteadAuth {
 
     this.pill.on('pointerdown', () => this.onPillTap());
 
-    this.initAuth();
+    void this.initAuth().catch(e => console.warn('[HomesteadAuth] initAuth error:', e));
   }
 
   // ── Auth lifecycle ─────────────────────────────────────────────────────

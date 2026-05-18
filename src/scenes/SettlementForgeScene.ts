@@ -214,7 +214,7 @@ export class SettlementForgeScene extends Phaser.Scene {
 
   create(): void {
     // Load culture data from Supabase (JSON fallback works immediately)
-    initSettlementData();
+    void initSettlementData().catch(e => console.warn('[SettlementForge] data load failed:', e));
 
     // Parse building registry to build a map of building id → sprite config.
     // We pick the first variant with done=true and a non-empty key.
@@ -1335,7 +1335,7 @@ export class SettlementForgeScene extends Phaser.Scene {
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) this.closeFeedback();
     });
-    document.getElementById('sf-submit')!.addEventListener('click', () => this.submitFeedback());
+    document.getElementById('sf-submit')!.addEventListener('click', () => void this.submitFeedback());
 
     const escHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { this.closeFeedback(); document.removeEventListener('keydown', escHandler); }

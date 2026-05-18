@@ -60,6 +60,7 @@ let loading: Promise<MacroWorldCache | null> | null = null;
 async function fetchAll(): Promise<MacroWorldCache | null> {
   if (!supabase) return null;
 
+  try {
   // Fire all queries in parallel
   const [
     ancestries,
@@ -130,6 +131,10 @@ async function fetchAll(): Promise<MacroWorldCache | null> {
     cultureTraitAssignments: cultureTraitAssignments.data!,
     cultureArchitectureAssignments: cultureArchitectureAssignments.data!,
   };
+  } catch (e) {
+    console.warn('[macroWorld] fetchAll failed:', e);
+    return null;
+  }
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────

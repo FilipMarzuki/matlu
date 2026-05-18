@@ -7876,15 +7876,19 @@ export class GameScene extends Phaser.Scene {
   // ── Settlement footprint overlay ────────────────────────────────────────────
 
   private async toggleSettlementOverlay(): Promise<void> {
-    this.settlementOverlayVisible = !this.settlementOverlayVisible;
-    if (this.settlementOverlayVisible) {
-      if (!this.settlementDataReady) {
-        await initSettlementData();
-        this.settlementDataReady = true;
+    try {
+      this.settlementOverlayVisible = !this.settlementOverlayVisible;
+      if (this.settlementOverlayVisible) {
+        if (!this.settlementDataReady) {
+          await initSettlementData();
+          this.settlementDataReady = true;
+        }
+        this.rebuildSettlementOverlay();
+      } else {
+        this.clearSettlementOverlay();
       }
-      this.rebuildSettlementOverlay();
-    } else {
-      this.clearSettlementOverlay();
+    } catch (e) {
+      console.warn('[GameScene] toggleSettlementOverlay failed:', e);
     }
   }
 

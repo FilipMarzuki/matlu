@@ -137,7 +137,7 @@ export class StatsScene extends Phaser.Scene {
       sepG.lineBetween(left, separatorY, right, separatorY);
 
       this.renderLeaderSection(cx, panelW, leaderTop, leaderResult);
-    });
+    }).catch(e => console.warn('[StatsScene] fetch error:', e));
   }
 
   // ── Personal section ────────────────────────────────────────────────────────
