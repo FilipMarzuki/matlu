@@ -1,11 +1,6 @@
 import * as Phaser from 'phaser';
 import { BIOMES } from '../world/biomes';
-import {
-  loadDiscovery,
-  WORLD_ORDER,
-  WORLD_LABELS,
-  type WorldId,
-} from '../lib/discoveryState';
+import { loadDiscovery } from '../lib/discoveryState';
 import entityRegistry from '../entities/entity-registry.json';
 
 /**
@@ -36,7 +31,6 @@ const DEPTH_BASE = 900;
 export class DiscoveryScene extends Phaser.Scene {
   static readonly KEY = 'DiscoveryScene';
 
-  private worldIdx                        = 0;
   private worldNameText!: Phaser.GameObjects.Text;
   private contentObjects: Phaser.GameObjects.GameObject[] = [];
   /** Caller scene key — stored once in create() so close() can resume it. */
@@ -84,48 +78,12 @@ export class DiscoveryScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(DEPTH_BASE + 2);
 
-    // ── World selector ───────────────────────────────────────────────────────
-    const arrowStyle = {
-      fontSize: '18px',
-      color: '#ffe066',
-      backgroundColor: '#333300aa',
-      padding: { x: 10, y: 6 },
-    };
-
-    const leftArrow = this.add
-      .text(cx - 200, 90, '◀', arrowStyle)
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(DEPTH_BASE + 2)
-      .setInteractive({ useHandCursor: true });
-    leftArrow
-      .on('pointerover', () => leftArrow.setStyle({ color: '#ffffff' }))
-      .on('pointerout',  () => leftArrow.setStyle({ color: '#ffe066' }))
-      .on('pointerdown', () => {
-        this.worldIdx =
-          (this.worldIdx - 1 + WORLD_ORDER.length) % WORLD_ORDER.length;
-        this.rebuildContent();
-      });
-
+    // World name label (all worlds merged — no selector needed for now)
     this.worldNameText = this.add
-      .text(cx, 90, '', { fontSize: '18px', color: '#ffe066' })
+      .text(cx, 90, 'All Worlds', { fontSize: '18px', color: '#ffe066' })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH_BASE + 2);
-
-    const rightArrow = this.add
-      .text(cx + 200, 90, '▶', arrowStyle)
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(DEPTH_BASE + 2)
-      .setInteractive({ useHandCursor: true });
-    rightArrow
-      .on('pointerover', () => rightArrow.setStyle({ color: '#ffffff' }))
-      .on('pointerout',  () => rightArrow.setStyle({ color: '#ffe066' }))
-      .on('pointerdown', () => {
-        this.worldIdx = (this.worldIdx + 1) % WORLD_ORDER.length;
-        this.rebuildContent();
-      });
 
     // Static top divider
     const divStatic = this.add.graphics().setScrollFactor(0).setDepth(DEPTH_BASE + 2);
@@ -168,16 +126,19 @@ export class DiscoveryScene extends Phaser.Scene {
     for (const obj of this.contentObjects) obj.destroy();
     this.contentObjects = [];
 
-    const world = WORLD_ORDER[this.worldIdx] as WorldId;
-    this.worldNameText.setText(WORLD_LABELS[world]);
+    this.worldNameText.setText('All Worlds');
 
     const data = loadDiscovery();
-    const discoveredBiomes  = new Set(data.biomesByWorld[world] ?? []);
+    // Merge discovered biomes from all worlds into one set.
+    const discoveredBiomes = new Set<number>();
+    for (const indices of Object.values(data.biomesByWorld)) {
+      if (indices) for (const i of indices) discoveredBiomes.add(i);
+    }
     const seenCreatures     = new Set(data.seenCreatureClasses);
 
-    // Creatures for this world — heroes are not tracked in the discovery log.
+    // All creatures across all worlds — heroes are not tracked.
     const worldCreatures = (entityRegistry.entities as RegistryEntity[]).filter(
-      e => e.world === world && e.type !== 'hero',
+      e => e.type !== 'hero',
     );
 
     const d    = DEPTH_BASE + 3;
