@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-18T08:25:45.880Z",
-  "totalAssets": 568,
-  "wiredCount": 238,
-  "unwiredCount": 330,
+  "generatedAt": "2026-05-18T11:47:35.033Z",
+  "totalAssets": 574,
+  "wiredCount": 240,
+  "unwiredCount": 334,
   "categories": [
     {
       "category": ".",
@@ -409,7 +409,7 @@
     },
     {
       "category": "crossings",
-      "count": 6,
+      "count": 10,
       "assets": [
         {
           "name": "0",
@@ -450,6 +450,34 @@
           "name": "5",
           "url": "/assets/sprites/crossings/stepping-stones/5.png",
           "folder": "crossings/stepping-stones",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "bridge-long",
+          "url": "/assets/sprites/crossings/bridge-long.png",
+          "folder": "crossings",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "bridge-short",
+          "url": "/assets/sprites/crossings/bridge-short.png",
+          "folder": "crossings",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "mid-0",
+          "url": "/assets/sprites/crossings/bridge/mid-0.png",
+          "folder": "crossings/bridge",
+          "category": "crossings",
+          "wired": false
+        },
+        {
+          "name": "mid-1",
+          "url": "/assets/sprites/crossings/bridge/mid-1.png",
+          "folder": "crossings/bridge",
           "category": "crossings",
           "wired": false
         }
@@ -4043,6 +4071,26 @@
           "folder": "trees/_unused",
           "category": "trees",
           "wired": false
+        }
+      ]
+    },
+    {
+      "category": "ui",
+      "count": 2,
+      "assets": [
+        {
+          "name": "ui-panel-fantasy-9s",
+          "url": "/assets/sprites/ui/ui-panel-fantasy-9s.png",
+          "folder": "ui",
+          "category": "ui",
+          "wired": true
+        },
+        {
+          "name": "ui-panel-system-9s",
+          "url": "/assets/sprites/ui/ui-panel-system-9s.png",
+          "folder": "ui",
+          "category": "ui",
+          "wired": true
         }
       ]
     }
