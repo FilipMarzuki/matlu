@@ -36,6 +36,10 @@ Each site has its own `package.json` and is built independently in CI.
 | `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
 | `npm run assets:sprites`  | Regenerate `public/assets/sprite-manifest.json` — catalogs all sprites + wired status |
 | `npm run screenshot`      | Capture game screenshots to `screenshots/` for visual review                     |
+| `npm run worldgen:earth`  | Full Earth map pipeline: heightmap → Azgaar import/export → validate             |
+| `npm run worldgen:heightmap` | Download + convert Earth heightmap to PNG                                     |
+| `npm run worldgen:generate`  | Playwright: import heightmap into Azgaar FMG, export .map + JSON             |
+| `npm run worldgen:validate`  | Validate exported JSON (cells, biomes, rivers, continents, temperature)      |
 
 ## Visual review
 
