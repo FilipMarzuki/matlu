@@ -291,7 +291,7 @@ export class WorldForgeScene extends Phaser.Scene {
 
     // Bridge sprites — mid section for water tiles, ramp for shoreline tiles.
     this.load.image('bridge-mid', '/assets/sprites/crossings/bridge/mid-0.png');
-    this.load.image('bridge-ramp', '/assets/sprites/crossings/bridge-short.png');
+    this.load.image('bridge-ramp', '/assets/sprites/crossings/bridge/ramp.png');
 
     // Hero atlases — loaded so entity spawner can show actual sprites.
     this.load.atlas('tinkerer',

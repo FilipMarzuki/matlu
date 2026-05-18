@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-18T11:47:35.033Z",
-  "totalAssets": 574,
-  "wiredCount": 240,
-  "unwiredCount": 334,
+  "generatedAt": "2026-05-18T19:47:18.585Z",
+  "totalAssets": 575,
+  "wiredCount": 242,
+  "unwiredCount": 333,
   "categories": [
     {
       "category": ".",
@@ -409,7 +409,7 @@
     },
     {
       "category": "crossings",
-      "count": 10,
+      "count": 11,
       "assets": [
         {
           "name": "0",
@@ -472,7 +472,7 @@
           "url": "/assets/sprites/crossings/bridge/mid-0.png",
           "folder": "crossings/bridge",
           "category": "crossings",
-          "wired": false
+          "wired": true
         },
         {
           "name": "mid-1",
@@ -480,6 +480,13 @@
           "folder": "crossings/bridge",
           "category": "crossings",
           "wired": false
+        },
+        {
+          "name": "ramp",
+          "url": "/assets/sprites/crossings/bridge/ramp.png",
+          "folder": "crossings/bridge",
+          "category": "crossings",
+          "wired": true
         }
       ]
     },
