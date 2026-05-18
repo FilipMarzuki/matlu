@@ -141,9 +141,9 @@ Small 5x5px ornamental pixel art at panel corners — a tiny rune glyph or geome
 
 ### Size and spacing
 
-- **Slot size**: 48x48px (touch-friendly minimum)
+- **Slot size**: 56x56px (generous touch target for tablet thumbs)
 - **Grid gap**: 4px between slots
-- **Icon size**: 32x32px centred within the 48px slot (8px padding each side)
+- **Icon size**: 32x32px centred within the 56px slot (12px padding each side)
 
 ### States
 
@@ -199,9 +199,11 @@ The middle pixel row of the fill is 20% brighter than the rest — creates a sub
 | Essence | `#aa66ff` | Diamond/crystal |
 | XP/Progress | `#4dd4f0` | — |
 
-### Auto-hide (HLD approach)
+### Auto-fade (Breath of the Wild approach)
 
-When all resource bars are full AND the player hasn't taken damage or spent resources for 5 seconds, fade HUD to 30% opacity. Restore to 100% instantly on any resource change. This saves screen real estate on the 800x600 tablet display.
+When all resource bars are full AND the player hasn't taken damage or spent resources for 5 seconds, fade HUD to **30% opacity** (never fully hidden). Restore to 100% instantly on any resource change (damage, item use, stamina spend).
+
+Why 30% and not 0%: Core Warden has crafting/gathering where players glance at resources mid-exploration. Full hide forces a tap just to check. 30% means bars are visible if you look for them but don't dominate the 800x600 view. BotW, Elden Ring, and HLD all use some form of auto-fade — the difference is whether you fade to transparent or near-transparent. For a resource-management game, near-transparent is safer.
 
 ## Typography
 
@@ -209,12 +211,15 @@ When all resource bars are full AND the player hasn't taken damage or spent reso
 
 | Context | Font | Size | Style |
 |---------|------|------|-------|
-| Scene titles | Pixel font (Silkscreen / Press Start 2P) | 20-24px | ALL-CAPS, bold |
-| Section headers | Pixel font | 14-16px | ALL-CAPS |
+| Scene titles | Silkscreen (pixel font) | 20-24px | ALL-CAPS, bold |
+| Section headers | Silkscreen | 14-16px | ALL-CAPS |
+| Tab labels | Silkscreen | 12-13px | ALL-CAPS |
 | Body text / labels | System sans-serif | 11-13px | Normal |
-| Button text | System sans-serif | 13-15px | Bold |
-| Small labels / counts | Pixel font | 8-9px | Normal |
+| Button text | Silkscreen | 13-15px | ALL-CAPS |
+| Small labels / counts | System sans-serif | 9-10px | Normal |
 | Tooltips | System sans-serif | 11px | Normal |
+
+**Why Silkscreen over Press Start 2P**: Silkscreen is narrower and cleaner — better for tab labels and buttons where horizontal space is tight. Press Start 2P is blocky/wide and eats too much space. Both are free (Google Fonts). Silkscreen at larger sizes (14px+) is crisp and mechanical, reinforcing the tech aesthetic. Body text stays system sans-serif for readability at arm's length on tablet.
 
 ### Drop shadow rule
 
@@ -261,10 +266,10 @@ When all resource bars are full AND the player hasn't taken damage or spent reso
 | Double border | CrossCode | Teal inner line on dark = instant tech feel |
 | Gold accents | Octopath Traveler | Warm gold on dark = luxury fantasy |
 | Nine-slice panels | All 8 games | Industry standard, Phaser supports natively |
-| 48px slots | Stardew Valley | Touch-friendly, proven at this size |
+| 56px slots | Stardew (48) + size bump | Extra generous for tablet thumbs |
 | Rarity borders | Terraria | Colour-coded borders = zero learning curve |
 | Tab navigation | Terraria (mobile) | Tabs > density on touch screens |
-| Auto-hide HUD | Hyper Light Drifter | Fade when not needed, restore on action |
+| Auto-fade HUD | BotW + HLD hybrid | Fade to 30% when idle, never fully hide |
 | Segmented bars | CrossCode | Pip marks at 25% for quick visual reading |
 | Warmth/restraint | Eastward | Don't overload — every element earns its space |
 | Dual-context UI | Moonlighter | Combat HUD and menus can have different personalities |
@@ -275,4 +280,4 @@ When all resource bars are full AND the player hasn't taken damage or spent reso
 - **Shared UI factory**: create `src/ui/UIFactory.ts` with `makePanel()`, `makeButton()`, `makeSlot()`, `makeBar()` — replaces the copy-pasted per-scene code
 - **Pilot scene**: CraftingMenuScene (most complex UI, validates the system works for everything)
 - **Sprite sheet**: all UI elements in one atlas for efficient GPU batching
-- **Touch targets**: enforce 48px minimum in UIFactory, warn in dev mode if violated
+- **Touch targets**: enforce 56px minimum for slots, 48px minimum for buttons — warn in dev mode if violated
