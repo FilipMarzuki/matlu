@@ -20,11 +20,11 @@ import sharp from 'sharp';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
-// Natural Earth III grayscale DEM — 8640×4320, public domain
+// Natural Earth III grayscale bump map — 8192×4096, public domain
 const SOURCE_URL =
-  'https://www.shadedrelief.com/natural3/ne3_data/8192/elev/NE1_HR_LC_SR_W.tif';
+  'https://shadedrelief.com/natural3/ne3_data/8192/elev_bump_8k.jpg';
 
-const CACHE_PATH = path.join(REPO_ROOT, 'macro-world', 'earth-reference', '_heightmap_source.tif');
+const CACHE_PATH = path.join(REPO_ROOT, 'macro-world', 'earth-reference', '_heightmap_source.jpg');
 const OUTPUT_PATH = path.join(REPO_ROOT, 'macro-world', 'earth-reference', 'heightmap.png');
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
@@ -71,8 +71,15 @@ function download(url: string, dest: string): Promise<void> {
       }
 
       const protocol = targetUrl.startsWith('https') ? https : http;
+      const requestUrl = new URL(targetUrl);
       protocol
-        .get(targetUrl, (res) => {
+        .get({
+          hostname: requestUrl.hostname,
+          path: requestUrl.pathname + requestUrl.search,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        }, (res) => {
           // Follow redirects (301, 302, 307, 308)
           if (
             (res.statusCode === 301 ||
@@ -155,7 +162,7 @@ async function ensureSourceFile(inputFlag: string | null): Promise<string> {
 
   console.log(`Downloading heightmap from:\n  ${SOURCE_URL}`);
   console.log(
-    'This is a large file (~200 MB). If it fails, download manually and use --input.',
+    'If it fails, download manually and use --input.',
   );
 
   fs.mkdirSync(path.dirname(CACHE_PATH), { recursive: true });
