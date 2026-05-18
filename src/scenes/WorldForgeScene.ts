@@ -927,6 +927,7 @@ export class WorldForgeScene extends Phaser.Scene {
         const bridgeImg = this.add.image(cx, cy, tex)
           .setDisplaySize(this.ISO_W * 1.2, this.ISO_H * 1.8)
           .setOrigin(0.5, 0.5)
+          .setFlipX(!isWater)  // ramp sprite faces SW — flip for SE road direction
           .setDepth(0.15);
         this.tileImages.push(bridgeImg);
       }
