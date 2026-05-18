@@ -24,6 +24,9 @@ import { UI } from '../ui/UIFactory';
  * - Quit to Main Menu: stops GameScene entirely and navigates to MainMenuScene
  */
 export class PauseMenuScene extends Phaser.Scene {
+  /** The scene key that launched us — we resume this on close. */
+  private callerKey = 'GameScene';
+
   constructor() {
     super({ key: 'PauseMenuScene' });
   }
@@ -33,12 +36,13 @@ export class PauseMenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Detect which scene launched us by checking known caller scenes.
+    // The caller pauses itself before launching PauseMenuScene.
+    const callerCandidates = ['HomesteadScene', 'GameScene'];
+    this.callerKey = callerCandidates.find(k => this.scene.isPaused(k)) ?? 'GameScene';
+
     // FIL-113: Duck GameScene's music and ambience while the pause menu is open.
-    // We check isPaused() so this is a no-op if PauseMenuScene is ever launched
-    // without GameScene being the one that paused (future-proofing).
-    // We pass our own this.tweens because GameScene's tween manager is frozen while
-    // it's paused — see GameScene.duckAudio() for the full explanation.
-    if (this.scene.isPaused('GameScene')) {
+    if (this.callerKey === 'GameScene' && this.scene.isPaused('GameScene')) {
       // Duck-typed access avoids a circular import between PauseMenuScene and GameScene.
       type DuckableScene = Phaser.Scene & { duckAudio?: (tweens: Phaser.Tweens.TweenManager) => void };
       (this.scene.get('GameScene') as DuckableScene).duckAudio?.(this.tweens);
@@ -73,11 +77,10 @@ export class PauseMenuScene extends Phaser.Scene {
   }
 
   private resumeGame(): void {
-    // Stopping this scene and resuming GameScene is all that's needed.
-    // Phaser automatically unpauses physics when a scene is resumed — no explicit
-    // physics.world.resume() call required.
+    // Stopping this scene and resuming the caller is all that's needed.
+    // Phaser automatically unpauses physics when a scene is resumed.
     this.scene.stop();
-    this.scene.resume('GameScene');
+    this.scene.resume(this.callerKey);
   }
 
   private openDiscovery(): void {
@@ -97,9 +100,8 @@ export class PauseMenuScene extends Phaser.Scene {
   }
 
   private quitToMenu(): void {
-    // Stop both scenes (GameScene is still running, paused in the background)
-    // then start MainMenuScene fresh. scene.start() stops all other scenes automatically.
-    this.scene.stop('GameScene');
+    // Stop the caller scene and navigate to MainMenuScene.
+    this.scene.stop(this.callerKey);
     this.scene.start('MainMenuScene');
   }
 }

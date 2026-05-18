@@ -412,6 +412,16 @@ export class HomesteadScene extends Phaser.Scene {
     }).setDepth(200);
     addUi(modeLabel);
 
+    // ── Pause button (top-right) ───────────────────────────────────────
+    const pauseBtn = this.add.text(cam.width - 16, 12, '\u23f8', {
+      fontSize: '16px', color: '#7a9a7a', backgroundColor: '#00000044',
+      padding: { x: 6, y: 3 },
+    }).setOrigin(1, 0).setDepth(200).setInteractive({ useHandCursor: true });
+    pauseBtn.on('pointerover', () => pauseBtn.setStyle({ color: '#f0ead6' }));
+    pauseBtn.on('pointerout',  () => pauseBtn.setStyle({ color: '#7a9a7a' }));
+    pauseBtn.on('pointerdown', () => this.openPauseMenu());
+    addUi(pauseBtn);
+
     // ── Cardinal direction labels (just outside the diamond edges) ──────
     const dirStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '10px', color: '#88aa88', fontFamily: 'monospace',
@@ -450,7 +460,14 @@ export class HomesteadScene extends Phaser.Scene {
       this.drawPlacementPreview(this.selectedBuilding, tile.tx, tile.ty);
     });
 
-    kb.on('keydown-ESC', () => { if (this.selectedBuilding) this.cancelPlacement(); });
+    kb.on('keydown-ESC', () => {
+      if (this.selectedBuilding) { this.cancelPlacement(); return; }
+      if (this.scene.isActive('CraftingMenuScene')) { this.scene.stop('CraftingMenuScene'); return; }
+      this.openPauseMenu();
+    });
+    kb.on('keydown-P', () => {
+      if (!this.selectedBuilding) this.openPauseMenu();
+    });
 
     // Tell the UI camera to ignore all non-UI game objects
     const uiSet = new Set(this.uiLayer);
@@ -618,6 +635,11 @@ export class HomesteadScene extends Phaser.Scene {
       const bg = this.toolbarBtns[i].getAt(0) as Phaser.GameObjects.Rectangle;
       bg.setStrokeStyle(i === activeIdx ? 2 : 1, i === activeIdx ? 0xddaa44 : 0x3a5a3a, i === activeIdx ? 1 : 0.8);
     }
+  }
+
+  private openPauseMenu(): void {
+    this.scene.pause();
+    this.scene.launch('PauseMenuScene');
   }
 
   private cancelPlacement(): void {
