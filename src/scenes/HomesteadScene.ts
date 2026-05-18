@@ -404,8 +404,9 @@ export class HomesteadScene extends Phaser.Scene {
     });
 
     // ── HUD ───────────────────────────────────────────────────────────────
-    new InventoryHUD(this, inv);
-    new HomesteadAuth(this);
+    const invHud = new InventoryHUD(this, inv);
+    const auth = new HomesteadAuth(this);
+    addUi(...invHud.getUIObjects(), ...auth.getUIObjects());
 
     const modeLabel = this.add.text(8, 8, 'Homestead Mode', {
       fontSize: '11px', color: '#aaccaa', backgroundColor: '#00000066',

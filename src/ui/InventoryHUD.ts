@@ -90,6 +90,11 @@ export class InventoryHUD {
 
   // ── Public API ────────────────────────────────────────────────────────
 
+  /** Top-level game objects that should be registered with a UI camera. */
+  getUIObjects(): Phaser.GameObjects.GameObject[] {
+    return [this.badge, this.slotLabel, this.panel];
+  }
+
   toggle(): void {
     this.expanded = !this.expanded;
     if (this.expanded) {

@@ -31,6 +31,11 @@ export class HomesteadAuth {
   private session: Session | null = null;
   private modalEl: HTMLDivElement | null = null;
 
+  /** Top-level game objects that should be registered with a UI camera. */
+  getUIObjects(): Phaser.GameObjects.GameObject[] {
+    return [this.pill];
+  }
+
   constructor(scene: Phaser.Scene) {
     // Status pill — top-right corner, fixed to camera
     const cam = scene.cameras.main;
