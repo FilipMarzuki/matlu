@@ -789,6 +789,12 @@ export class GameScene extends Phaser.Scene {
   private tileDevW = 0;
   // ── FIL-178: cliff system ─────────────────────────────────────────────────
   /**
+   * Organic dark stains drawn over ground tiles in high-corruption pockets.
+   * Opacity scales with cleanse progress so the stains fade as the player heals
+   * the zone, while the precomputed shapes stay deterministic for the run seed.
+   */
+  private groundCorruptGfx: Phaser.GameObjects.Graphics | null = null;
+  /**
    * Corruption overlay drawn on top of cliff faces.
    * Opacity scales with global corruption — updated whenever cleanse-updated fires.
    */
@@ -1442,6 +1448,9 @@ export class GameScene extends Phaser.Scene {
 
     this.events.on('cleanse-updated', (percent: number) => {
       this.applyWorldTint(percent);
+      // Local ground stains make corrupted geography readable at player scale;
+      // fade them alongside the broader world tint as cleansing progresses.
+      this.updateGroundCorruption(percent);
       // FIL-178: update cliff corruption overlay as cleanse level changes.
       // The overlay darkens cliff faces with a purple tint in corrupted zones.
       this.updateCliffCorruption(percent);
@@ -5641,6 +5650,18 @@ export class GameScene extends Phaser.Scene {
 
 
   /**
+   * Update opacity for the precomputed ground corruption stains.
+   *
+   * @param cleansePercent  0–100: 0 = fully corrupted, 100 = fully cleansed.
+   */
+  private updateGroundCorruption(cleansePercent: number): void {
+    if (!this.groundCorruptGfx) return;
+    const globalCorruption = Math.max(0, 100 - cleansePercent) / 100;
+    const overlayAlpha = Math.max(0, (globalCorruption - 0.08) / 0.92);
+    this.groundCorruptGfx.setAlpha(overlayAlpha);
+  }
+
+  /**
    * FIL-178: Update the cliff corruption overlay opacity to match the current
    * world corruption level.
    *
@@ -5817,6 +5838,9 @@ export class GameScene extends Phaser.Scene {
     const halfIsoW = ISO_TILE_W / 2;
     const halfIsoH = ISO_TILE_H / 2;
 
+    this.groundCorruptGfx?.destroy();
+    this.groundCorruptGfx = this.add.graphics().setDepth(0.35);
+
     // FIL-444: animated water overlays removed — iso water tiles are baked static for now.
 
     // Biome grid — one float per tile — stored for the cliff-edge shadow pass below.
@@ -5938,11 +5962,41 @@ export class GameScene extends Phaser.Scene {
           biomeWashGfx.fillPath();
         }
 
+        if (this.groundCorruptGfx && biomeIdx !== 0 && !isRiverHere && !isLakeHere) {
+          const localCorruption = this.corruptionField.sample(
+            wx + TILE_SIZE / 2,
+            wy + TILE_SIZE / 2,
+            1,
+          );
+          if (localCorruption > 0.28) {
+            const stain = Math.min(1, (localCorruption - 0.28) / 0.55);
+            const stainColor = localCorruption > 0.58 ? 0x0b0611 : 0x24102f;
+            this.groundCorruptGfx.fillStyle(stainColor, 0.16 + stain * 0.34);
+            this.groundCorruptGfx.beginPath();
+            this.groundCorruptGfx.moveTo(isoX,            isoY);
+            this.groundCorruptGfx.lineTo(isoX + halfIsoW, isoY + halfIsoH);
+            this.groundCorruptGfx.lineTo(isoX,            isoY + ISO_TILE_H);
+            this.groundCorruptGfx.lineTo(isoX - halfIsoW, isoY + halfIsoH);
+            this.groundCorruptGfx.closePath();
+            this.groundCorruptGfx.fillPath();
+
+            // Occasional violet seams keep the stain from reading as a flat shadow.
+            if (localCorruption > 0.48 && ((tx * 17 + ty * 31) % 11) === 0) {
+              this.groundCorruptGfx.lineStyle(1, 0x7b2fa3, 0.12 + stain * 0.14);
+              this.groundCorruptGfx.beginPath();
+              this.groundCorruptGfx.moveTo(isoX - halfIsoW * 0.35, isoY + halfIsoH * 0.72);
+              this.groundCorruptGfx.lineTo(isoX + halfIsoW * 0.40, isoY + halfIsoH * 1.25);
+              this.groundCorruptGfx.strokePath();
+            }
+          }
+        }
+
       }
     }
 
     terrainRt.draw(biomeWashGfx);
     biomeWashGfx.destroy();
+    this.updateGroundCorruption(this.worldState.getCleansePercent('zone-main'));
 
     // Spawn clearing — stamp grass tiles (iso-tiles frame 40, bright green top) over the
     // surrounding biome so the player spawns in a recognisable open clearing.
