@@ -63,13 +63,24 @@ export class PauseMenuScene extends Phaser.Scene {
     // Title
     UI.makeTitle(this, cx, cy - panelH / 2 + UI.Space.xxl, t('pause.title'));
 
-    // Buttons — stacked vertically inside the panel
-    const btnY  = cy - 36;
+    // Buttons — stacked vertically inside the panel.
+    // Quit is only shown when there's a main menu to return to (GameScene).
+    const hasQuit = this.callerKey === 'GameScene';
+    const buttons: { label: string; action: () => void }[] = [
+      { label: t('pause.resume'),    action: () => this.resumeGame() },
+      { label: t('pause.discovery'), action: () => this.openDiscovery() },
+      { label: t('pause.settings'),  action: () => this.openSettings() },
+    ];
+    if (hasQuit) {
+      buttons.push({ label: t('pause.quit'), action: () => this.quitToMenu() });
+    }
+
     const btnGap = 46;
-    UI.makeButton(this, cx, btnY,              t('pause.resume'),    () => this.resumeGame(),    { fixedWidth: 200 });
-    UI.makeButton(this, cx, btnY + btnGap,     t('pause.discovery'), () => this.openDiscovery(), { fixedWidth: 200 });
-    UI.makeButton(this, cx, btnY + btnGap * 2, t('pause.settings'),  () => this.openSettings(),  { fixedWidth: 200 });
-    UI.makeButton(this, cx, btnY + btnGap * 3, t('pause.quit'),      () => this.quitToMenu(),    { fixedWidth: 200 });
+    const totalH = (buttons.length - 1) * btnGap;
+    const btnY = cy - totalH / 2;
+    buttons.forEach((b, i) => {
+      UI.makeButton(this, cx, btnY + i * btnGap, b.label, b.action, { fixedWidth: 200 });
+    });
 
     // Keyboard shortcuts — ESC and P both resume, matching common game conventions
     this.input.keyboard?.on('keydown-ESC', () => this.resumeGame());
