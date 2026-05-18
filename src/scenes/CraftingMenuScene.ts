@@ -1034,20 +1034,15 @@ export class CraftingMenuScene extends Phaser.Scene {
         );
       }
 
-      // Tap zone for detail panel
+      // Tap zone for detail panel — added to graphContainer so it moves with pan
       if (!dimmed) {
-        const cx = this.contentContainer.x;
-        const cy = this.contentContainer.y;
-        const tapZone = this.add.zone(
-          cx + this.conceptPanX + nx,
-          cy + graphStartY + this.conceptPanY + ny,
-          nodeSize, nodeSize
-        ).setInteractive({ useHandCursor: true }).setDepth(DEPTH_BASE + 8);
+        const tapZone = this.add.zone(nx, ny, nodeSize, nodeSize)
+          .setInteractive({ useHandCursor: true });
 
         tapZone.on('pointerdown', () => {
           this.showConceptDetail(concept, rank, panelW, panelH);
         });
-        this.floatingObjects.push(tapZone);
+        graphContainer.add(tapZone);
       }
     }
 
@@ -1060,13 +1055,19 @@ export class CraftingMenuScene extends Phaser.Scene {
 
     let panStartX = 0;
     let panStartY = 0;
-    panZone.on('dragstart', () => {
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    panZone.on('dragstart', (pointer: Phaser.Input.Pointer) => {
       panStartX = this.conceptPanX;
       panStartY = this.conceptPanY;
+      pointerStartX = pointer.x;
+      pointerStartY = pointer.y;
     });
-    panZone.on('drag', (_p: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-      this.conceptPanX = panStartX + dragX;
-      this.conceptPanY = panStartY + dragY;
+    panZone.on('drag', (pointer: Phaser.Input.Pointer) => {
+      const dx = pointer.x - pointerStartX;
+      const dy = pointer.y - pointerStartY;
+      this.conceptPanX = panStartX + dx;
+      this.conceptPanY = panStartY + dy;
       graphContainer.setPosition(this.conceptPanX, graphStartY + this.conceptPanY);
     });
     this.floatingObjects.push(panZone);
@@ -1510,6 +1511,7 @@ export class CraftingMenuScene extends Phaser.Scene {
         if (from && to) {
           const enough = node.have >= node.qty;
           arrowG.lineStyle(1.5, enough ? 0x44aa44 : 0x555566, enough ? 0.5 : 0.3);
+          // Centre coords → draw 5px inside right edge of child to 5px inside left edge of parent
           arrowG.lineBetween(from.x + nodeW / 2 - 5, from.y, to.x - nodeW / 2 + 5, to.y);
         }
       }
