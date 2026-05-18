@@ -60,6 +60,14 @@ type ArenaAccess = Phaser.Scene & {
   __heroDeaths: number;
 };
 
+interface RawArenaSnapshot {
+  wave: number;
+  kills: number;
+  heroDeaths: number;
+  heroAlive: boolean;
+  enemiesAlive: number;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function bootGame(page: import('@playwright/test').Page) {
@@ -127,10 +135,16 @@ test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
     simTime:      number;
     wave:         number;
     kills:        number;
+    sceneWave:    number;
+    sceneKills:   number;
     heroDeaths:   number;
     heroAlive:    boolean;
     enemiesAlive: number;
   }> = [];
+  let totalWaves = 0;
+  let totalKills = 0;
+  let previousSceneWave = 0;
+  let previousSceneKills = 0;
 
   for (let b = 0; b < TOTAL_BATCHES; b++) {
     // Advance the game loop TICKS_PER_BATCH frames without rendering.
@@ -158,10 +172,32 @@ test('arena testplay — 300 sim-seconds balance report', async ({ page }) => {
         };
       },
       { ticks: TICKS_PER_BATCH, delta: DELTA },
-    );
+    ) as RawArenaSnapshot;
 
     const simTime = (b + 1) * BATCH_SECONDS;
-    snapshots.push({ simTime, ...snap });
+
+    // DungeonForgeScene intentionally resets waveNumber/killCount on hero
+    // respawn. The report is a whole-session balance signal, so accumulate
+    // positive deltas and treat counter drops as a new life/run segment.
+    totalWaves += snap.wave >= previousSceneWave
+      ? snap.wave - previousSceneWave
+      : snap.wave;
+    totalKills += snap.kills >= previousSceneKills
+      ? snap.kills - previousSceneKills
+      : snap.kills;
+    previousSceneWave = snap.wave;
+    previousSceneKills = snap.kills;
+
+    snapshots.push({
+      simTime,
+      wave:       totalWaves,
+      kills:      totalKills,
+      sceneWave:  snap.wave,
+      sceneKills: snap.kills,
+      heroDeaths: snap.heroDeaths,
+      heroAlive:  snap.heroAlive,
+      enemiesAlive: snap.enemiesAlive,
+    });
 
     // Screenshot every 15 sim-seconds.
     // NOTE: In headless Chrome, WebGL sprite rendering is handled by SwiftShader
