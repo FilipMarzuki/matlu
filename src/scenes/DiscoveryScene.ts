@@ -132,15 +132,12 @@ export class DiscoveryScene extends Phaser.Scene {
     divStatic.lineStyle(1, 0xffffff, 0.1);
     divStatic.lineBetween(cx - pw / 2 + 20, 113, cx + pw / 2 - 20, 113);
 
-    // ── Back button ──────────────────────────────────────────────────────────
+    // ── Back button (top-right of panel) ────────────────────────────────────
     const back = this.add
-      .text(cx, height - 30, 'Back', {
-        fontSize: '15px',
-        color: '#ffe066',
-        backgroundColor: '#333300aa',
-        padding: { x: 14, y: 8 },
-        fixedWidth: 120,
-        align: 'center',
+      .text(cx + pw / 2 - 14, cy - ph / 2 + 14, '\u2715', {
+        fontSize: '16px',
+        color: '#9090a8',
+        padding: { x: 4, y: 2 },
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
@@ -148,7 +145,7 @@ export class DiscoveryScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     back
       .on('pointerover', () => back.setStyle({ color: '#ffffff' }))
-      .on('pointerout',  () => back.setStyle({ color: '#ffe066' }))
+      .on('pointerout',  () => back.setStyle({ color: '#9090a8' }))
       .on('pointerdown', () => {
         if (this.cache.audio.has('sfx-click')) {
           this.sound.play('sfx-click', { volume: 0.4 });
