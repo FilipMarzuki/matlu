@@ -20,14 +20,15 @@ import {
   INVENTORY_CHANGED,
   type ItemCategory,
 } from '../systems/InventorySystem';
+import { Color, TextColor, Font, Depth, Space } from './theme';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const DEPTH_BADGE = 300;
-const DEPTH_PANEL = 290;
+const DEPTH_BADGE = Depth.HUD;
+const DEPTH_PANEL = Depth.HUD - 10;
 
 const BADGE_SIZE = 40;
-const BADGE_PAD  = 12;
+const BADGE_PAD  = Space.md;
 
 const PANEL_W    = 140;
 const ROW_H      = 20;
@@ -141,9 +142,9 @@ export class InventoryHUD {
 
     // Background
     this.badgeBg = this.scene.add.graphics();
-    this.badgeBg.fillStyle(0x111122, 0.8);
+    this.badgeBg.fillStyle(Color.panelBg, 0.8);
     this.badgeBg.fillRoundedRect(0, 0, BADGE_SIZE, BADGE_SIZE, 6);
-    this.badgeBg.lineStyle(1, 0x444466, 0.6);
+    this.badgeBg.lineStyle(1, Color.slotBorder, 0.6);
     this.badgeBg.strokeRoundedRect(0, 0, BADGE_SIZE, BADGE_SIZE, 6);
     this.badge.add(this.badgeBg);
 
@@ -155,14 +156,14 @@ export class InventoryHUD {
 
     // Stack count (bottom-right of badge)
     this.badgeQty = this.scene.add.text(BADGE_SIZE - 4, BADGE_SIZE - 4, '', {
-      fontSize: '9px', color: '#ffffff', fontStyle: 'bold',
+      ...Font.tiny, color: TextColor.primary, fontStyle: 'bold',
     }).setOrigin(1, 1);
     this.badge.add(this.badgeQty);
 
     // Slot counter below badge
     this.slotLabel = this.scene.add.text(
       x + BADGE_SIZE / 2, y + BADGE_SIZE + 4,
-      '', { fontSize: '9px', color: '#888888' },
+      '', { ...Font.tiny, color: TextColor.secondary },
     ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH_BADGE);
 
     // Badge interaction: tap = cycle active item, long-press = use, swipe-up = panel
@@ -216,7 +217,7 @@ export class InventoryHUD {
         return;
       }
       this.activeItemId = null;
-      this.badgeIcon.setFillStyle(0x333333, 0.5);
+      this.badgeIcon.setFillStyle(Color.slotBorder, 0.5);
       this.badgeQty.setText('');
     }
   }
@@ -244,14 +245,14 @@ export class InventoryHUD {
 
     // Background
     this.panelBg.clear();
-    this.panelBg.fillStyle(0x111122, 0.9);
+    this.panelBg.fillStyle(Color.panelBg, 0.9);
     this.panelBg.fillRect(0, 0, PANEL_W, h);
-    this.panelBg.lineStyle(1, 0x333355, 0.8);
+    this.panelBg.lineStyle(1, Color.slotBorder, 0.8);
     this.panelBg.lineBetween(0, 0, 0, h);
 
     // Title
     const title = this.scene.add.text(8, 8, `Inventory ${this.inventory.slotCount}/${this.inventory.maxSlots}`, {
-      fontSize: '11px', color: '#ffffff', fontStyle: 'bold',
+      ...Font.small, color: TextColor.primary, fontStyle: 'bold',
     });
     this.panel.add(title);
     this.panelRows.push(title);
@@ -282,7 +283,7 @@ export class InventoryHUD {
       this.panelRows.push(headerBg);
 
       const headerText = this.scene.add.text(8, y + 4, cat.label, {
-        fontSize: '10px', color: '#aaaaaa', fontStyle: 'bold',
+        ...Font.small, color: TextColor.secondary, fontStyle: 'bold',
       });
       this.panel.add(headerText);
       this.panelRows.push(headerText);
@@ -302,14 +303,14 @@ export class InventoryHUD {
 
         // Name
         const nameText = this.scene.add.text(18, y + 3, display, {
-          fontSize: '9px', color: '#cccccc',
+          ...Font.tiny, color: TextColor.primary,
         });
         this.panel.add(nameText);
         this.panelRows.push(nameText);
 
         // Quantity
         const qtyText = this.scene.add.text(PANEL_W - 8, y + 3, `x${qty}`, {
-          fontSize: '9px', color: '#888888',
+          ...Font.tiny, color: TextColor.secondary,
         }).setOrigin(1, 0);
         this.panel.add(qtyText);
         this.panelRows.push(qtyText);
@@ -325,10 +326,10 @@ export class InventoryHUD {
         });
         // Hover highlight
         rowHit.on('pointerover', () => {
-          nameText.setColor('#ffffff');
+          nameText.setColor(TextColor.hover);
         });
         rowHit.on('pointerout', () => {
-          nameText.setColor('#cccccc');
+          nameText.setColor(TextColor.primary);
         });
         this.panel.add(rowHit);
         this.panelRows.push(rowHit);
@@ -337,7 +338,7 @@ export class InventoryHUD {
         if (id === this.activeItemId) {
           const activeMark = this.scene.add.rectangle(
             PANEL_W / 2, y + ROW_H / 2, PANEL_W - 4, ROW_H - 2,
-          ).setStrokeStyle(1, 0xffaa33, 0.5).setFillStyle(0xffaa33, 0.08);
+          ).setStrokeStyle(1, Color.accentFantasy, 0.5).setFillStyle(Color.accentFantasy, 0.08);
           this.panel.add(activeMark);
           this.panelRows.push(activeMark);
         }

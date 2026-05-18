@@ -3,6 +3,7 @@ import { InventorySystem } from '../systems/InventorySystem';
 import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ProjectSystem } from '../systems/ProjectSystem';
+import { UI } from '../ui/UIFactory';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -165,6 +166,7 @@ export class CraftingMenuScene extends Phaser.Scene {
   }
 
   preload(): void {
+    UI.preloadUI(this);
     // Load concept patch badge sprites (48x48 PNGs)
     for (const icon of PATCH_ICONS) {
       if (!this.textures.exists(icon)) {
@@ -183,14 +185,8 @@ export class CraftingMenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // ── Backdrop ─────────────────────────────────────────────────────────────
-    this.add
-      .rectangle(width / 2, height / 2, width, height, 0x000000, 0.82)
-      .setScrollFactor(0)
-      .setDepth(DEPTH_BASE)
-      .setInteractive()
-      .on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
-        event.stopPropagation();
-      });
+    UI.makeBackdrop(this, 0.82, UI.Color.backdropBlack)
+      .setDepth(DEPTH_BASE);
 
     // ── Main panel ────────────────────────────────────────────────────────────
     const panelW = Math.min(width - PANEL_MARGIN * 2, 720);
@@ -198,31 +194,10 @@ export class CraftingMenuScene extends Phaser.Scene {
     const panelX = width / 2;
     const panelY = height / 2;
 
-    this.add
-      .rectangle(panelX, panelY, panelW, panelH, 0x1a1a24, 0.96)
-      .setScrollFactor(0)
-      .setDepth(DEPTH_BASE + 1)
-      .setInteractive();
-
-    // Border
-    const border = this.add.graphics().setScrollFactor(0).setDepth(DEPTH_BASE + 2);
-    border.lineStyle(1.5, 0x665533, 0.6);
-    border.strokeRect(panelX - panelW / 2, panelY - panelH / 2, panelW, panelH);
+    UI.makePanel(this, panelX, panelY, panelW, panelH, 'system', DEPTH_BASE + 1);
 
     // ── Close button ──────────────────────────────────────────────────────────
-    const closeBtn = this.add
-      .text(panelX + panelW / 2 - 16, panelY - panelH / 2 + 8, '✕', {
-        fontSize: '20px',
-        color: '#aa8866',
-      })
-      .setOrigin(0.5, 0)
-      .setScrollFactor(0)
-      .setDepth(DEPTH_BASE + 10)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.closeMenu());
-
-    closeBtn.on('pointerover', () => closeBtn.setColor('#ffcc88'));
-    closeBtn.on('pointerout', () => closeBtn.setColor('#aa8866'));
+    UI.makeCloseButton(this, panelX, panelY, panelW, panelH, () => this.closeMenu(), DEPTH_BASE + 10);
 
     // ── Tab bar ───────────────────────────────────────────────────────────────
     const tabY = panelY - panelH / 2 + TAB_HEIGHT / 2 + 4;

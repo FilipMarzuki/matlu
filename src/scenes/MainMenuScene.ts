@@ -36,69 +36,64 @@ export class MainMenuScene extends Phaser.Scene {
     // ── Background ────────────────────────────────────────────────────────
     this.cameras.main.setBackgroundColor(0x0a0e1a);
 
-    // ── Panel ─────────────────────────────────────────────────────────────
-    const panelW = 360;
-    const panelH = 440;
+    // ── Panel — sized to fit all content ─────────────────────────────────
+    const panelW = 340;
+    const panelH = Math.min(height - 24, 560);
     UI.makePanel(this, cx, cy, panelW, panelH, 'fantasy', 0);
 
     // ── Title ─────────────────────────────────────────────────────────────
-    this.add.text(cx, cy - panelH / 2 + 36, 'CORE WARDEN', {
+    this.add.text(cx, cy - panelH / 2 + 28, 'CORE WARDEN', {
       ...UI.Font.logo,
-      fontSize: '28px',
+      fontSize: '24px',
       color: UI.TextColor.primary,
     }).setOrigin(0.5).setDepth(1);
 
-    this.add.text(cx, cy - panelH / 2 + 64, t('menu.subtitle'), {
+    this.add.text(cx, cy - panelH / 2 + 52, t('menu.subtitle'), {
       ...UI.Font.small,
       color: UI.TextColor.secondary,
     }).setOrigin(0.5).setDepth(1);
 
-    // ── Play section ──────────────────────────────────────────────────────
-    let y = cy - panelH / 2 + 110;
-
+    // ── Play button (accent / gold) ──────────────────────────────────────
+    let y = cy - panelH / 2 + 86;
     UI.makeButton(this, cx, y, 'Play', () => this.startHomestead(), {
-      fixedWidth: 240, variant: 'accent', depth: 1,
+      fixedWidth: 220, variant: 'accent', depth: 1,
     });
 
-    // ── Dev Modes section ─────────────────────────────────────────────────
-    y += 60;
+    // ── Dev Modes ─────────────────────────────────────────────────────────
+    y += 48;
+    UI.makeDivider(this, cx, y - 8, panelW - 40, 1);
     this.add.text(cx, y, 'DEV MODES', {
-      ...UI.Font.small,
-      color: UI.TextColor.secondary,
+      ...UI.Font.tiny, color: UI.TextColor.secondary,
     }).setOrigin(0.5).setDepth(1);
 
-    y += 24;
+    y += 18;
     const devModes = [
-      { label: 'Arena',           action: () => this.scene.start('DungeonForgeScene', {}) },
-      { label: 'World Forge',     action: () => this.scene.start('WorldForgeScene') },
-      { label: 'Settlement Forge',action: () => this.scene.start('SettlementForgeScene') },
-      { label: 'Wilderview',      action: () => this.scene.start('GameScene') },
+      { label: 'Arena',            action: () => this.scene.start('DungeonForgeScene', {}) },
+      { label: 'World Forge',      action: () => this.scene.start('WorldForgeScene') },
+      { label: 'Settlement Forge', action: () => this.scene.start('SettlementForgeScene') },
+      { label: 'Wilderview',       action: () => this.scene.start('GameScene') },
     ];
     for (const mode of devModes) {
-      UI.makeButton(this, cx, y, mode.label, mode.action, {
-        fixedWidth: 240, depth: 1,
-      });
-      y += 40;
+      UI.makeButton(this, cx, y, mode.label, mode.action, { fixedWidth: 220, depth: 1 });
+      y += 34;
     }
 
-    // ── Profile section ───────────────────────────────────────────────────
-    y += 12;
+    // ── Profile ───────────────────────────────────────────────────────────
+    y += 8;
+    UI.makeDivider(this, cx, y - 8, panelW - 40, 1);
     this.add.text(cx, y, 'PROFILE', {
-      ...UI.Font.small,
-      color: UI.TextColor.secondary,
+      ...UI.Font.tiny, color: UI.TextColor.secondary,
     }).setOrigin(0.5).setDepth(1);
 
-    y += 24;
+    y += 18;
     const profileItems = [
       { label: t('menu.settings'), action: () => this.openOverlay('SettingsScene') },
       { label: t('menu.stats'),    action: () => this.openOverlay('StatsScene') },
       { label: t('menu.credits'),  action: () => this.openOverlay('CreditsScene') },
     ];
     for (const item of profileItems) {
-      UI.makeButton(this, cx, y, item.label, item.action, {
-        fixedWidth: 240, depth: 1,
-      });
-      y += 40;
+      UI.makeButton(this, cx, y, item.label, item.action, { fixedWidth: 220, depth: 1 });
+      y += 34;
     }
 
     // ── Music ─────────────────────────────────────────────────────────────
