@@ -89,6 +89,15 @@ Custom pixel art is generated via the **PixelLab MCP** (available in this projec
 **To generate pending assets:** read `src/ai/AGENTS.md` and follow the protocol.
 Raw frames go in `public/assets/sprites/_raw/` (gitignored). Assembled spritesheets go in `public/assets/sprites/` and are committed to git.
 
+### PixelLab credentials
+
+There are two ways PixelLab is accessed; they use different auth:
+
+- **MCP server (`.mcp.json` → `https://api.pixellab.ai/mcp`)** — used by Claude Code sessions for interactive sprite generation. Auth is **OAuth**, not an API key. Run `/mcp` from a *local* Claude Code session (the remote/web container's host is not on PixelLab's OAuth allowlist), pick `pixellab`, and complete the browser flow. The token is stored per-machine; remote sessions cannot use the MCP server.
+- **`PIXELLAB_API_KEY` env var** — used by `scripts/sync-pixellab.mjs`, `.github/scripts/collect-stats.js`, and the agent workflows (`stats.yml`, `agent-npc-sprite-gen.yml`, `agent-sprite-credit-burn.yml.disabled`). Get the key from https://www.pixellab.ai (Account → API).
+  - **Local:** export `PIXELLAB_API_KEY` in your shell, or pass it inline (`PIXELLAB_API_KEY=xxx node scripts/sync-pixellab.mjs`). Node scripts don't auto-load `.env.local`.
+  - **CI / agents:** add `PIXELLAB_API_KEY` as a repo secret in GitHub Settings → Secrets and variables → Actions.
+
 ## Project structure
 
 ```
