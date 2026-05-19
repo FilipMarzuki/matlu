@@ -2,7 +2,10 @@
   "mcpServers": {
     "pixellab": {
       "type": "http",
-      "url": "https://api.pixellab.ai/mcp"
+      "url": "https://api.pixellab.ai/mcp",
+      "headers": {
+        "Authorization": "Bearer ${PIXELLAB_API_KEY}"
+      }
     },
     "betterstack": {
       "type": "http",
