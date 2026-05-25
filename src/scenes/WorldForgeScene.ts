@@ -52,6 +52,7 @@ const ENTITY_TYPES = [
   { key: 'Enemy',               color: 0xff4444, label: 'Enemy',      atlasKey: null },
   { key: 'NPC',      color: 0x44dd44, label: 'NPC',      atlasKey: null },
   { key: 'Animal',   color: 0xffaa22, label: 'Animal',   atlasKey: null },
+  { key: 'Wolf',     color: 0x666677, label: 'Wolf',     atlasKey: 'wolf-idle' as string | null },
 ] as const;
 
 type EntityKey = typeof ENTITY_TYPES[number]['key'];
@@ -306,6 +307,20 @@ export class WorldForgeScene extends Phaser.Scene {
     this.load.atlas('fargglad-kordororn',
       '/assets/sprites/characters/earth/enemies/fargglad-kordororn/fargglad-kordororn.png',
       '/assets/sprites/characters/earth/enemies/fargglad-kordororn/fargglad-kordororn.json');
+
+    // Wolf spritesheets — all 8 directions for template anims, SE-only for custom.
+    const wfWolfBase = '/assets/sprites/wildlife/wolf';
+    const wfDirs = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+    for (const anim of ['idle', 'walk', 'run', 'sneak']) {
+      for (const d of wfDirs) {
+        this.load.spritesheet(`wolf-${anim}-${d}`, `${wfWolfBase}/${anim}_${d}.png`, { frameWidth: 48, frameHeight: 48 });
+      }
+    }
+    // Base keys (SE fallback)
+    this.load.spritesheet('wolf-idle',  `${wfWolfBase}/idle_se.png`,  { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-walk',  `${wfWolfBase}/walk_se.png`,  { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-run',   `${wfWolfBase}/run_se.png`,   { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-sneak', `${wfWolfBase}/sneak_se.png`, { frameWidth: 48, frameHeight: 48 });
   }
 
   create(): void {
@@ -351,11 +366,30 @@ export class WorldForgeScene extends Phaser.Scene {
     // Zoom — scroll wheel or +/- keys. Clamp to [0.25, 6]. On zoom, entity/object
     // graphics stay at old screen coords so we clear them to avoid misalignment.
     const applyZoom = (factor: number) => {
+      // Save wolf wander state so it survives the zoom rebuild.
+      const savedWander = this.liveWander ? { ...this.liveWander } : null;
+      const savedKey = this.selectedEntityKey;
       this.zoomFactor = Phaser.Math.Clamp(this.zoomFactor * factor, 0.25, 6.0);
       this.clearEntity();
       this.clearObjects();
       this.clearDecors();
       this.refreshDisplay();
+      // Re-place the wolf if it was active — reuse saved position.
+      if (savedKey === 'Wolf' && savedWander) {
+        this.selectedEntityKey = 'Wolf';
+        // Re-create wolf at its current wander position (approximate tile).
+        const fakeTx = Math.floor(this.GRID / 2);
+        const fakeTy = Math.floor(this.GRID / 2);
+        this.placeEntity(fakeTx, fakeTy);
+        // Restore the wander position so the wolf doesn't jump.
+        if (this.liveWander) {
+          this.liveWander.x = savedWander.x;
+          this.liveWander.y = savedWander.y;
+          this.liveWander.vx = savedWander.vx;
+          this.liveWander.vy = savedWander.vy;
+          this.liveWander.timer = savedWander.timer;
+        }
+      }
     };
     this.input.on('wheel',
       (_: Phaser.Input.Pointer, __: unknown, ___: unknown, deltaY: number) => {
@@ -470,6 +504,11 @@ export class WorldForgeScene extends Phaser.Scene {
     this.buildDisplay();
     this.updatePalette();
     this.refreshDecorRow();
+
+    // Re-scale wolf sprite if placed — zoom changes ISO_SCALE.
+    if (this.placedEntitySprite && this.placedEntitySprite.texture.key.startsWith('wolf-')) {
+      this.placedEntitySprite.setScale(this.ISO_SCALE * 0.6);
+    }
   }
 
   // ── Terrain ───────────────────────────────────────────────────────────────────
@@ -1708,7 +1747,47 @@ export class WorldForgeScene extends Phaser.Scene {
     // South tip of the tile diamond = character's feet in top-down iso.
     const footY = cy + this.ISO_H;
 
-    if (et.atlasKey) {
+    if (et.key === 'Wolf') {
+      // Wolf — animated spritesheet with wander AI.
+      // Register animations if not yet created.
+      if (!this.anims.exists('wf-wolf-idle')) {
+        const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+        const wolfAnims: Array<[string, string, number[], number]> = [
+          ['idle',  'wolf-idle',  [0,1,2,3,4,5,6,7], 6],
+          ['walk',  'wolf-walk',  [0,1,2,3,4,5],     8],
+          ['run',   'wolf-run',   [0,1,2,3,4,5],     12],
+          ['sneak', 'wolf-sneak', [0,1,2,3,4,5,6,7], 6],
+        ];
+        for (const [anim, baseKey, frames, rate] of wolfAnims) {
+          // Base (SE fallback)
+          this.anims.create({ key: `wf-wolf-${anim}`, frames: this.anims.generateFrameNumbers(baseKey, { frames }), frameRate: rate, repeat: -1 });
+          // Per-direction
+          for (const d of DIRS) {
+            const texKey = `wolf-${anim}-${d}`;
+            const animKey = `wf-wolf-${anim}-${d}`;
+            if (this.textures.exists(texKey) && !this.anims.exists(animKey)) {
+              this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(texKey, { frames }), frameRate: rate, repeat: -1 });
+            }
+          }
+        }
+      }
+      const sprite = this.add.sprite(cx, footY, 'wolf-idle', 0)
+        .setScale(this.ISO_SCALE * 0.6)
+        .setOrigin(0.5, 1)
+        .setDepth(5);
+      sprite.play('wf-wolf-idle');
+
+      const label = this.add.text(cx, footY - sprite.displayHeight - 4, 'Grey Wolf', {
+        fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5, 1).setDepth(6);
+
+      this.placedEntitySprite = sprite;
+      this.placedEntityLabel  = label;
+
+      // Always enable wander AI for the wolf — it's the whole point of previewing it.
+      const labelOffsetY = -sprite.displayHeight - 4;
+      this.liveWander = { x: cx, y: footY, vx: 0, vy: 0, timer: 0, labelOffsetY, speed: 45 };
+    } else if (et.atlasKey) {
       // Hero — show real idle sprite. Scale matches the tile grid:
       // ISO_SCALE = 0.75 * zoomFactor, same multiplier used for tiles.
       const sprite = this.add.sprite(cx, footY, et.atlasKey, 'idle_south_0')
@@ -2041,40 +2120,103 @@ export class WorldForgeScene extends Phaser.Scene {
       }
     }
 
-    if (!this.liveWander || !this.placedEntity) return;
+    if (!this.liveWander || (!this.placedEntity && !this.placedEntitySprite)) return;
     const lw = this.liveWander;
+    const isWolf = !!this.placedEntitySprite && this.placedEntitySprite.texture.key.startsWith('wolf-');
 
     // Wander FSM: tick direction timer and pick a new heading when it expires.
     lw.timer -= delta;
     if (lw.timer <= 0) {
-      // 25% chance to pause briefly (idle); otherwise walk in a random direction.
-      if (Math.random() < 0.25) {
+      const roll = Math.random();
+      if (roll < 0.25) {
         lw.vx = 0;
         lw.vy = 0;
         lw.timer = Phaser.Math.Between(800, 2000);
+        if (isWolf) {
+          // Pick directional idle based on last movement direction.
+          const lastDir = this.placedEntitySprite!.getData('lastDir') as string ?? 'se';
+          const idleDirKey = `wf-wolf-idle-${lastDir}`;
+          if (this.anims.exists(idleDirKey)) {
+            this.placedEntitySprite!.play(idleDirKey, true);
+          } else if (this.anims.exists('wf-wolf-idle')) {
+            this.placedEntitySprite!.play('wf-wolf-idle', true);
+          }
+        }
       } else {
+        // Move in iso-appropriate directions: the SE sprite faces down-right.
+        // Pick iso-friendly angles that match the sprite orientation.
+        // Positive vx = moving right on screen (SE sprite faces right = no flip).
+        // Negative vx = moving left (flip sprite).
+        const running = roll > 0.85;
+        const speed = (running ? lw.speed * 2 : lw.speed) * this.zoomFactor;
         const angle = Math.random() * Math.PI * 2;
-        lw.vx = Math.cos(angle) * lw.speed;
-        lw.vy = Math.sin(angle) * lw.speed;
+        lw.vx = Math.cos(angle) * speed;
+        lw.vy = Math.sin(angle) * speed * 0.5; // iso: vertical movement is half horizontal
         lw.timer = Phaser.Math.Between(1500, 4000);
+        if (isWolf) {
+          // Pick directional animation based on velocity → compass direction.
+          const wAngle = Math.atan2(lw.vy, lw.vx);
+          const wSector = Math.round(wAngle / (Math.PI / 4));
+          const wDirMap: Record<number, string> = {
+            0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
+          };
+          const wDir = wDirMap[wSector] ?? 'se';
+          const baseAnim = running ? 'run' : 'walk';
+          const dirAnimKey = `wf-wolf-${baseAnim}-${wDir}`;
+          const fallbackKey = `wf-wolf-${baseAnim}`;
+          if (this.anims.exists(dirAnimKey)) {
+            this.placedEntitySprite!.play(dirAnimKey, true);
+            this.placedEntitySprite!.setFlipX(false);
+            this.placedEntitySprite!.setData('lastDir', wDir);
+          } else if (this.anims.exists(fallbackKey)) {
+            this.placedEntitySprite!.play(fallbackKey, true);
+            this.placedEntitySprite!.setFlipX(lw.vx < 0);
+          }
+        }
       }
     }
 
     lw.x += lw.vx * (delta / 1000);
     lw.y += lw.vy * (delta / 1000);
 
-    // Soft boundary: bounce off the usable world area edges so the entity
-    // never wanders into the palette or off screen.
-    const margin = 50;
-    const maxY   = this.scale.height - this.PAL_AREA - margin;
-    if (lw.x < margin)                    { lw.vx =  Math.abs(lw.vx); lw.x = margin; }
-    if (lw.x > this.scale.width - margin) { lw.vx = -Math.abs(lw.vx); lw.x = this.scale.width - margin; }
-    if (lw.y < margin)                    { lw.vy =  Math.abs(lw.vy); lw.y = margin; }
-    if (lw.y > maxY)                      { lw.vy = -Math.abs(lw.vy); lw.y = maxY; }
+    // Constrain to the iso diamond area — use the grid center and diamond extents.
+    const centerX = this.scale.width / 2;
+    const centerY = (this.scale.height - this.PAL_AREA) / 2;
+    const halfW   = (this.GRID - 1) * this.ISO_W * 0.45;
+    const halfH   = (this.GRID - 1) * this.ISO_H * 0.45;
+    if (lw.x < centerX - halfW) { lw.vx =  Math.abs(lw.vx); lw.x = centerX - halfW; }
+    if (lw.x > centerX + halfW) { lw.vx = -Math.abs(lw.vx); lw.x = centerX + halfW; }
+    if (lw.y < centerY - halfH) { lw.vy =  Math.abs(lw.vy); lw.y = centerY - halfH; }
+    if (lw.y > centerY + halfH) { lw.vy = -Math.abs(lw.vy); lw.y = centerY + halfH; }
 
-    // Reposition the placeholder — Graphics was drawn at local (0,0), so
-    // moving its x/y translates the entire shape + footprint diamond.
-    this.placedEntity.setPosition(lw.x, lw.y);
+    // Reposition — either Graphics placeholder or actual sprite.
+    if (this.placedEntity) {
+      this.placedEntity.setPosition(lw.x, lw.y);
+    }
+    if (this.placedEntitySprite) {
+      this.placedEntitySprite.setPosition(lw.x, lw.y);
+      // For wolf: update directional animation every frame (handles boundary bounces).
+      // For non-wolf: simple flipX.
+      if (isWolf && (Math.abs(lw.vx) > 1 || Math.abs(lw.vy) > 1)) {
+        const fAngle = Math.atan2(lw.vy, lw.vx);
+        const fSector = Math.round(fAngle / (Math.PI / 4));
+        const fDirMap: Record<number, string> = {
+          0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
+        };
+        const fDir = fDirMap[fSector] ?? 'se';
+        // Get current anim base (walk/run/idle) and switch direction if needed.
+        const curKey = this.placedEntitySprite.anims.currentAnim?.key ?? '';
+        const curBase = curKey.replace(/^wf-wolf-/, '').replace(/-[a-z]+$/, '');
+        const newDirKey = `wf-wolf-${curBase}-${fDir}`;
+        if (this.anims.exists(newDirKey) && curKey !== newDirKey) {
+          this.placedEntitySprite.play(newDirKey, true);
+          this.placedEntitySprite.setFlipX(false);
+          this.placedEntitySprite.setData('lastDir', fDir);
+        }
+      } else if (!isWolf && Math.abs(lw.vx) > 1) {
+        this.placedEntitySprite.setFlipX(lw.vx < 0);
+      }
+    }
     this.placedEntityLabel?.setPosition(lw.x, lw.y + lw.labelOffsetY);
   }
 

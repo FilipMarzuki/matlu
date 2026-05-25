@@ -257,6 +257,7 @@ export class HomesteadScene extends Phaser.Scene {
   // ── Walkability ───────────────────────────────────────────────────────
   // 0 = walkable, 1 = blocked (water, cliff). Row-major: ty * GRID_W + tx.
   private walkGrid = new Uint8Array(GRID_W * GRID_H);
+  private debugGridGfx: Phaser.GameObjects.Graphics | null = null;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -593,26 +594,37 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
-    // ── Cliff base collision — block lowland tiles at the foot of cliffs ──
-    // The elevated tiles are already blocked, but cliff wall sprites extend
-    // down into adjacent lowland tiles. Mark any lowland tile that neighbours
-    // a higher tile as blocked so the player can't walk through the cliff face.
+    // ── Cliff base collision — block tiles where cliff walls extend into ──
+    // Only mark the specific lowland tiles that cliff faces overlap (south,
+    // east, west drops), not all neighbours generically.
     for (let ty = 0; ty < GRID_H; ty++) {
       for (let tx = 0; tx < GRID_W; tx++) {
-        if (this.walkGrid[ty * GRID_W + tx] === 1) continue; // already blocked
         const e = getElev(tx, ty);
-        // Check 4 neighbours — if any is higher, this tile is at a cliff base
-        const nb: [number, number][] = [[0,-1],[0,1],[-1,0],[1,0]];
-        for (const [dx, dy] of nb) {
-          const nx = tx + dx, ny = ty + dy;
-          if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
-          if (getElev(nx, ny) > e) {
-            this.walkGrid[ty * GRID_W + tx] = 1;
-            break;
-          }
+        if (e === 0) continue;
+        // South drop → cliff extends into (tx, ty+1)
+        if (ty + 1 < GRID_H && getElev(tx, ty + 1) < e) {
+          this.walkGrid[(ty + 1) * GRID_W + tx] = 1;
+        }
+        // East drop → cliff extends into (tx+1, ty)
+        if (tx + 1 < GRID_W && getElev(tx + 1, ty) < e) {
+          this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
+        }
+        // West drop → cliff extends into (tx-1, ty)
+        if (tx > 0 && getElev(tx - 1, ty) < e) {
+          this.walkGrid[ty * GRID_W + (tx - 1)] = 1;
         }
       }
     }
+
+    // ── Debug tile grid overlay ─────────────────────────────────────────
+    // Draws iso diamond outlines: green = walkable, red = blocked.
+    // Toggle with G key; off by default.
+    this.debugGridGfx = this.add.graphics().setDepth(9000).setVisible(false);
+    this.drawDebugGrid();
+    this.input.keyboard!.on('keydown-G', () => {
+      if (!this.scene.isActive(HomesteadScene.KEY)) return;
+      this.debugGridGfx!.setVisible(!this.debugGridGfx!.visible);
+    });
 
     // ── Waterfall animation timer ─────────────────────────────────────────
     // Cycle waterfall frames every 167ms (6 FPS, same as WorldForge).
@@ -1249,6 +1261,37 @@ export class HomesteadScene extends Phaser.Scene {
   // ── Tree scatter ──────────────────────────────────────────────────────
   // Populates the forest zone with dense tree coverage and sprinkles a few
   // trees in the homestead zone.  Deterministic: seeded hash per tile.
+
+  // ── Debug grid ──────────────────────────────────────────────────────
+
+  private drawDebugGrid(): void {
+    const gfx = this.debugGridGfx!;
+    const hw = ISO_TILE_W / 2;
+    const hh = ISO_TILE_H / 2;
+
+    for (let ty = 0; ty < GRID_H; ty++) {
+      for (let tx = 0; tx < GRID_W; tx++) {
+        const blocked = this.walkGrid[ty * GRID_W + tx] === 1;
+        const wx = tx * TILE_SIZE;
+        const wy = ty * TILE_SIZE;
+        const { x: ix, y: iy } = hsWorldToIso(wx, wy);
+
+        gfx.lineStyle(0.5, blocked ? 0xff4444 : 0x44ff44, blocked ? 0.4 : 0.15);
+        gfx.beginPath();
+        gfx.moveTo(ix, iy);
+        gfx.lineTo(ix + hw, iy + hh);
+        gfx.lineTo(ix, iy + ISO_TILE_H);
+        gfx.lineTo(ix - hw, iy + hh);
+        gfx.closePath();
+        gfx.strokePath();
+
+        if (blocked) {
+          gfx.fillStyle(0xff4444, 0.1);
+          gfx.fillPath();
+        }
+      }
+    }
+  }
 
   private scatterTrees(): void {
     // Species pool: key prefix + mature count.  Forest zone heavily favours

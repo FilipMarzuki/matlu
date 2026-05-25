@@ -20,6 +20,16 @@ import { WeatherSystem } from '../world/WeatherSystem';
 import { emptyLdtkLevel } from '../world/MapData';
 import type { LdtkLevel } from '../world/MapData';
 import { PathSystem, type PathType } from '../world/PathSystem';
+import {
+  type FaunaRegistryData, type AnimalDef, type HuntStrategy, type ForagingDef,
+  type LifeStage, DEFAULT_STAGES,
+  buildAnimalDefs, buildClusterConfig, buildPredatorMap, buildPreySet,
+  buildAnimDefs, buildArchetypeMap, buildActivityMap, getSpawnBias,
+} from '../world/FaunaRegistry';
+import { SwarmBrain, BASE_WEIGHTS, type BoidsNeighbour } from '../entities/SwarmBrain';
+import {
+  type EnvironmentalContext, LocalEnvironmentEffects, buildEnvironmentalContext,
+} from '../world/EnvironmentalContext';
 import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
@@ -239,7 +249,13 @@ const NPC_PERCEPTION: Record<string, PerceptionEntry[]> = {
 };
 
 type RabbitState = 'roaming' | 'chasing' | 'fleeing';
-type AnimalState = 'roaming' | 'fleeing' | 'chasing';
+type AnimalState = 'roaming' | 'fleeing' | 'chasing' | 'alert' | 'grazing' | 'stalking' | 'resting' | 'frozen' | 'sleeping'
+  | 'ambush-waiting' | 'ambush-strike'
+  | 'pack-flushing' | 'pack-intercepting'
+  | 'circling' | 'diving' | 'climbing'
+  | 'foraging'
+  | 'dying' | 'injured'
+  | 'investigating';
 
 // ── Drop tables ───────────────────────────────────────────────────────────────
 // Extensible config — add new entity keys as more enemy types are introduced (FIL-106).
@@ -300,37 +316,8 @@ const VENDOR_DEFS: ReadonlyArray<{ vendorId: string; x: number; y: number }> = [
   { vendorId: 'klippbyn',     x: 3990, y:  660 },
 ];
 
-interface AnimalDef {
-  /** Physics body size (smaller than the visual sprite). */
-  w: number; h: number;
-  fleeRange: number; fleeSpeed: number; roamSpeed: number; count: number;
-  /** Pixel scale applied to the 16×16 sprite to reach the desired display size. */
-  scale: number;
-  /**
-   * FIL-50: Per-species startle vocalization played once when the animal starts fleeing.
-   * Uses pitch-shifting (`rate`) so species sound distinct without extra audio files.
-   * rate < 1 → lower pitch (large animals); rate > 1 → higher pitch (small ones).
-   */
-  fleeVocal: { key: string; volume: number; rate: number };
-}
-
-const ANIMAL_DEFS: Record<string, AnimalDef> = {
-  deer:   { w: 22, h: 14, scale: 2.0, fleeRange: 280, fleeSpeed:  95, roamSpeed: 22, count: 18, fleeVocal: { key: 'animal-rustle-1', volume: 0.65, rate: 0.55 } },  // low snort
-  hare:   { w: 12, h:  9, scale: 1.5, fleeRange: 180, fleeSpeed: 145, roamSpeed: 38, count: 28, fleeVocal: { key: 'animal-rustle-3', volume: 0.50, rate: 2.00 } },  // high squeak
-  fox:    { w: 16, h: 11, scale: 2.0, fleeRange: 140, fleeSpeed:  82, roamSpeed: 30, count: 15, fleeVocal: { key: 'animal-rustle-2', volume: 0.60, rate: 1.30 } },  // sharp yelp
-  // Grouse: small ground bird, lives in coveys of 2–4 in dense forest.
-  // Slightly smaller display (scale 1.5) and flees faster than it roams.
-  grouse: { w: 12, h:  9, scale: 1.5, fleeRange: 160, fleeSpeed: 130, roamSpeed: 28, count: 14, fleeVocal: { key: 'animal-rustle-4', volume: 0.55, rate: 1.60 } },  // rapid cluck
-  // ── Critters pack ──────────────────────────────────────────────────────────
-  // Source frames are larger (32–42 px) so scale is 1.0–1.2 rather than 2.0.
-  // SE-direction strips are loaded; sprite flips horizontally when moving left.
-  stag:   { w: 28, h: 18, scale: 1.2, fleeRange: 320, fleeSpeed: 105, roamSpeed: 18, count: 10, fleeVocal: { key: 'animal-rustle-0', volume: 0.75, rate: 0.40 } },  // deep bellow
-  boar:   { w: 32, h: 16, scale: 1.0, fleeRange: 100, fleeSpeed:  88, roamSpeed: 26, count:  8, fleeVocal: { key: 'animal-rustle-0', volume: 0.70, rate: 0.65 } },  // low grunt
-  badger: { w: 22, h: 14, scale: 1.0, fleeRange: 160, fleeSpeed: 115, roamSpeed: 32, count: 12, fleeVocal: { key: 'animal-rustle-2', volume: 0.65, rate: 0.85 } },  // snarl
-};
-
-/** Fox detects hares within this radius and enters chase state. */
-const FOX_CHASE_RANGE = 220;
+// AnimalDef, ANIMAL_DEFS, and FOX_CHASE_RANGE are now loaded from fauna-registry.json
+// via FaunaRegistry.ts helpers. See buildAnimalDefs(), buildPredatorMap().
 
 const BIRD_COUNT      = 30;
 const BIRD_SHADOW_DX  = 7;
@@ -347,6 +334,16 @@ interface BirdObject {
   worldY:          number;
   /** True while the player is driving this bird via nav keys in attract mode. */
   playerControlled?: boolean;
+  // ── Dive hunt fields (for birds of prey) ────────────────────────────────────
+  huntState?:       'flying' | 'circling' | 'diving' | 'climbing';
+  huntTarget?:      Phaser.GameObjects.Sprite | null;
+  huntStartTime?:   number;
+  circleAngle?:     number;
+  huntCooldown?:    number;  // timestamp before which this bird won't hunt again
+  // ── Landing fields ──────────────────────────────────────────────────────────
+  landState?:       'flying' | 'landing' | 'grounded' | 'taking-off';
+  landTimer?:       number;
+  groundedUntil?:   number;
 }
 
 
@@ -445,6 +442,19 @@ export class GameScene extends Phaser.Scene {
 
   private rabbits!: Phaser.Physics.Arcade.Group;
   private groundAnimals!: Phaser.Physics.Arcade.Group;
+  // Fauna registry — populated from fauna-registry.json in create().
+  private faunaAnimalDefs!: Record<string, AnimalDef>;
+  private faunaPredatorMap!: Map<string, { prey: string[]; range: number; strategy: HuntStrategy }>;
+  private faunaPreySet!: Set<string>;
+  private faunaArchetypes!: Record<string, string>;
+  private faunaActivities!: Record<string, string>;
+  private faunaForaging!: Record<string, ForagingDef | null>;
+  private faunaStageWeights!: Record<string, { young: number; adult: number; elder: number }>;
+  // Environmental context — computed once per frame, read by all wildlife.
+  private localEnvEffects!: LocalEnvironmentEffects;
+  environmentalContext!: EnvironmentalContext;
+  // Noise propagation — any loud event (sprint, attack, falling tree, wolf howl) alerts wildlife.
+  private noiseEvents: Array<{ x: number; y: number; radius: number; time: number }> = [];
   // FIL-106: three new corrupted enemy types
   private foxEnemies!:  Phaser.Physics.Arcade.Group;
   private crowEnemies!: Phaser.Physics.Arcade.Group;
@@ -986,14 +996,14 @@ export class GameScene extends Phaser.Scene {
 
     // Water edge + chest sprites — DISABLED (part of nature sprite removal)
 
-    // ── Craftpix top-down animal sprites (FIL-73) ─────────────────────────────────
-    // Each sheet uses 16×16 px tiles. The TMX animation data shows even-column frames
-    // are the actual animation frames (0,2,4,6 for idle; 0,2,4,6,8,10 for walk).
+    // ── Fauna registry (data-driven wildlife config) ────────────────────────────
+    this.load.json('fauna-registry', 'macro-world/fauna-registry.json');
+
+    // ── Animal sprites ────────────────────────────────────────────────────────────
+    // Spritesheets must be loaded in preload() (before the registry JSON is parsed).
+    // Paths and frame sizes are documented in fauna-registry.json for reference;
+    // the create()-time code reads stats, spawning, and interactions from there.
     const craftpixBase = 'assets/packs/craftpix-net-789196-free-top-down-hunt-animals-pixel-sprite-pack/PNG/Without_shadow';
-    // ── Critters pack ──────────────────────────────────────────────────────────
-    // SE-direction horizontal strips exported from Aseprite source files.
-    // Frame sizes come from the Aseprite canvas: stag 32×41, boar 41×25 (trimmed),
-    // badger 42×32. We load one direction and flip horizontally for leftward movement.
     const critterBase = 'assets/packs/critters';
     this.load.spritesheet('stag-idle',   `${critterBase}/stag/critter_stag_SE_idle.png`,    { frameWidth: 32, frameHeight: 41 });
     this.load.spritesheet('stag-walk',   `${critterBase}/stag/critter_stag_SE_walk.png`,    { frameWidth: 32, frameHeight: 41 });
@@ -1007,11 +1017,37 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('hare-walk', `${craftpixBase}/Hare/Hare_Walk.png`, { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fox-idle',  `${craftpixBase}/Fox/Fox_Idle.png`,   { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('fox-walk',  `${craftpixBase}/Fox/Fox_walk.png`,   { frameWidth: 16, frameHeight: 16 });
-    // Black grouse flight sheet (192×128, 12 cols × 8 rows at 16×16 px) — used for all flying birds.
     this.load.spritesheet('grouse-fly',  `${craftpixBase}/Black_grouse/Black_grouse_Flight.png`, { frameWidth: 16, frameHeight: 16 });
-    // Grouse idle/walk — used for ground-walking coveys in dense forest (same frame convention as deer/hare/fox).
     this.load.spritesheet('grouse-idle', `${craftpixBase}/Black_grouse/Black_grouse_Idle.png`,   { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('grouse-walk', `${craftpixBase}/Black_grouse/Black_grouse_Walk.png`,   { frameWidth: 16, frameHeight: 16 });
+
+    // ── Wolf sprites (first pack-hunting species) ─────────────────────────────
+    // Template animations have all 8 directions; custom v3 have SE only.
+    const wolfBase = 'assets/sprites/wildlife/wolf';
+    const WOLF_DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+    for (const anim of ['idle', 'walk', 'run', 'sneak']) {
+      for (const d of WOLF_DIRS) {
+        this.load.spritesheet(`wolf-${anim}-${d}`, `${wolfBase}/${anim}_${d}.png`, { frameWidth: 48, frameHeight: 48 });
+      }
+    }
+    // Alert missing east direction — load what exists.
+    for (const d of ['s', 'se', 'ne', 'n', 'nw', 'w', 'sw']) {
+      this.load.spritesheet(`wolf-alert-${d}`, `${wolfBase}/alert_${d}.png`, { frameWidth: 48, frameHeight: 48 });
+    }
+    // Custom v3 anims — SE only.
+    for (const anim of ['eat', 'sleep', 'death', 'drink']) {
+      this.load.spritesheet(`wolf-${anim}-se`, `${wolfBase}/${anim}_se.png`, { frameWidth: 48, frameHeight: 48 });
+    }
+    // Backward compat: base keys point to SE strips (used by buildAnimDefs from registry).
+    this.load.spritesheet('wolf-idle',  `${wolfBase}/idle_se.png`,  { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-walk',  `${wolfBase}/walk_se.png`,  { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-run',   `${wolfBase}/run_se.png`,   { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-sneak', `${wolfBase}/sneak_se.png`, { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-alert', `${wolfBase}/alert_se.png`, { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-eat',   `${wolfBase}/eat_se.png`,   { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-sleep', `${wolfBase}/sleep_se.png`, { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-death', `${wolfBase}/death_se.png`, { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('wolf-drink', `${wolfBase}/drink_se.png`, { frameWidth: 48, frameHeight: 48 });
 
     // ── Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';
@@ -1364,8 +1400,29 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.createAnimalAnimations();
+    // Parse the fauna registry and build lookup structures for wildlife systems.
+    const faunaReg = this.cache.json.get('fauna-registry') as FaunaRegistryData;
+    this.faunaAnimalDefs  = buildAnimalDefs(faunaReg);
+    this.faunaPredatorMap = buildPredatorMap(faunaReg);
+    this.faunaPreySet     = buildPreySet(faunaReg);
+    this.faunaArchetypes  = buildArchetypeMap(faunaReg);
+    this.faunaActivities  = buildActivityMap(faunaReg);
+    // Build foraging lookup: species id → ForagingDef or null.
+    const foragingMap: Record<string, ForagingDef | null> = {};
+    for (const f of faunaReg.fauna) foragingMap[f.id] = f.foraging ?? null;
+    this.faunaForaging = foragingMap;
+    // Build stage weight lookup: species id → { young, adult, elder } weights.
+    const stageWeightMap: Record<string, { young: number; adult: number; elder: number }> = {};
+    for (const f of faunaReg.fauna) {
+      stageWeightMap[f.id] = f.stageWeights ?? { young: 0.25, adult: 0.60, elder: 0.15 };
+    }
+    this.faunaStageWeights = stageWeightMap;
+    this.localEnvEffects = new LocalEnvironmentEffects();
+
+    this.createAnimalAnimations(faunaReg);
     this.groundAnimals = this.physics.add.group();
+    // Animals collide with each other so herds don't stack on top of each other.
+    this.physics.add.collider(this.groundAnimals, this.groundAnimals);
     if (DEBUG_SPAWN.groundAnimals) this.spawnGroundAnimals();
     if (DEBUG_SPAWN.birds)         this.spawnBirds();
 
@@ -1739,7 +1796,13 @@ export class GameScene extends Phaser.Scene {
    *   < 0.80  dense spruce
    *   ≥ 0.80  highland granite
    */
-  private spawnBias(wx: number, wy: number, type: 'deer' | 'hare' | 'fox' | 'rabbit' | 'grouse' | 'stag' | 'boar' | 'badger'): number {
+  /**
+   * Terrain-noise-based spawn probability for a given species.
+   * Reads optimal range + falloff from the fauna registry. The terrain value `v`
+   * is computed from the same diagonal gradient + FBM as drawProceduralTerrain().
+   * Corrupted rabbits (not in the fauna registry) use a hardcoded fallback.
+   */
+  private spawnBias(wx: number, wy: number, type: string): number {
     const raw = this.baseNoise.fbm(wx * BASE_SCALE, wy * BASE_SCALE);
     // Mirror the diagonal terrain gradient from drawProceduralTerrain()
     const spawnPerp = (wx / WORLD_W - (1 - wy / WORLD_H)) / 2;
@@ -1747,17 +1810,17 @@ export class GameScene extends Phaser.Scene {
     const spawnOcB  = Math.pow(Math.max(0, spawnPerp  - 0.15), 1.5) * 3.0;
     const v = Math.max(0, Math.min(1.2, raw * 0.70 + spawnMtB - spawnOcB));
     if (v < 0.25) return 0; // never spawn in open water
-    switch (type) {
-      case 'deer':   return v > 0.33 && v < 0.65 ? 1.0 : 0.2;  // heath through mixed birch-spruce
-      case 'hare':   return v > 0.25 && v < 0.48 ? 1.0 : 0.3;  // shore through coastal heath
-      case 'fox':    return v > 0.48 && v < 0.85 ? 1.0 : 0.15; // forest belt into highland
-      case 'rabbit': return v > 0.25 && v < 0.48 ? 1.0 : 0.2;  // shore through coastal heath
-      case 'grouse': return v > 0.65 && v < 0.90 ? 1.0 : 0.1;  // dense spruce forest only
-      case 'stag':   return v > 0.40 && v < 0.72 ? 1.0 : 0.2;  // forest edge through mixed forest
-      case 'boar':   return v > 0.62 && v < 0.88 ? 1.0 : 0.1;  // dense forest interior
-      case 'badger': return v > 0.50 && v < 0.85 ? 1.0 : 0.2;  // forest belt
-      default:       return 1.0;
+
+    // Corrupted rabbits are not in the fauna registry — hardcoded fallback.
+    if (type === 'rabbit') return v > 0.25 && v < 0.48 ? 1.0 : 0.2;
+
+    // Look up from fauna registry via the parsed FaunaDef spawnBias field.
+    const reg = this.cache.json.get('fauna-registry') as FaunaRegistryData | undefined;
+    if (reg) {
+      const def = reg.fauna.find(f => f.id === type);
+      if (def) return getSpawnBias(def, v);
     }
+    return 1.0;
   }
 
   /** FIL-127: return a speed multiplier based on distance from spawn. */
@@ -1766,6 +1829,18 @@ export class GameScene extends Phaser.Scene {
     if (dist < ZONE_A_END) return 1.0;
     if (dist < ZONE_B_END) return 1.3;
     return 1.5;
+  }
+
+  /** Check if any of the 4 adjacent tiles is a river or lake tile (for fishing foraging). */
+  private hasAdjacentWater(tx: number, ty: number): boolean {
+    const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const nx = tx + dx, ny = ty + dy;
+      if (nx < 0 || ny < 0) continue;
+      const idx = ny * tilesX + nx;
+      if (this.isRiverTile?.[idx] === 1 || this.isLakeTile?.[idx] === 1) return true;
+    }
+    return false;
   }
 
   private spawnRabbits(): void {
@@ -2148,6 +2223,10 @@ export class GameScene extends Phaser.Scene {
     // Volume: 0.15 (quiet tiptoe) → 0.40 (full sprint), matching the visual cadence.
     const playerBody      = this.player.body as Phaser.Physics.Arcade.Body;
     const speedRatio      = Phaser.Math.Clamp(playerBody.speed / PLAYER_SPEED, 0, 1);
+    // Sprinting emits noise that alerts nearby wildlife.
+    if (speedRatio > 0.7) {
+      this.emitWildlifeNoise(this.player.x, this.player.y, 200);
+    }
     const dynamicInterval = speedRatio > 0.05
       ? this.FOOTSTEP_INTERVAL_MS / speedRatio
       : Infinity;
@@ -2633,7 +2712,7 @@ export class GameScene extends Phaser.Scene {
    */
   private killNeutralAnimal(animal: Phaser.GameObjects.Sprite): void {
     const type = animal.getData('animalType') as string;
-    const def = ANIMAL_DEFS[type];
+    const def = this.faunaAnimalDefs[type];
     if (!def) { animal.destroy(); return; }
 
     const prev = this.neutralKills[type] ?? 0;
@@ -4355,8 +4434,14 @@ export class GameScene extends Phaser.Scene {
     const HARE_TYPES = new Set(['hare']);
     const FOX_TYPES  = new Set(['fox', 'boar', 'badger']);
 
+    // Only awake, non-fleeing animals contribute ambient calls.
+    // Sleeping, dying, fleeing, and injured animals are silent.
+    const SILENT_STATES = new Set<string>(['sleeping', 'fleeing', 'dying', 'injured', 'frozen']);
+
     for (const child of this.groundAnimals.getChildren()) {
       const a = child as Phaser.GameObjects.Sprite;
+      const aState = a.getData('animalState') as string;
+      if (SILENT_STATES.has(aState)) continue;
       const type = a.getData('animalType') as string;
       let key: string | undefined;
       if (BIRD_TYPES.has(type))       key = 'animal-bird';
@@ -4377,13 +4462,18 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Weather dampens ambient animal sounds: rain muffles (-30%), wind masks (-20%).
+    const weatherVolMod = this.environmentalContext?.isRaining ? 0.7
+      : (this.environmentalContext?.windStrength ?? 0) > 0.6 ? 0.8
+      : 1.0;
+
     for (const [key, info] of Object.entries(closest)) {
       const s = this.animalSounds.get(key);
       if (!s) continue;
       const frac = info.dist >= MAX_DIST
         ? 0
         : Phaser.Math.Clamp((MAX_DIST - info.dist) / (MAX_DIST - FULL_DIST), 0, 1);
-      const vol = MAX_VOL * frac * this.ambienceVol;
+      const vol = MAX_VOL * frac * this.ambienceVol * weatherVolMod;
       const pan = info.dist < MAX_DIST ? this.stereoPan(info.x) : 0;
       (s as Audible).setVolume(vol);
       // setPan is WebAudioSound-only; silently absent in HTML5 fallback
@@ -4591,6 +4681,12 @@ export class GameScene extends Phaser.Scene {
     // this.player is undefined until createPlayer() runs.
     this.physics.add.collider(this.player, this.solidObjects);
     if (this.treeGroup) this.physics.add.collider(this.player, this.treeGroup);
+
+    // Wildlife collides with the same terrain obstacles as the player.
+    this.physics.add.collider(this.groundAnimals, this.mountainWalls);
+    this.physics.add.collider(this.groundAnimals, this.navigationBarriers);
+    this.physics.add.collider(this.groundAnimals, this.solidObjects);
+    if (this.treeGroup) this.physics.add.collider(this.groundAnimals, this.treeGroup);
 
     // Wire interactive object overlaps
     for (const obj of this.interactiveObjects) {
@@ -5218,31 +5314,14 @@ export class GameScene extends Phaser.Scene {
    *   - Idle sheets (128×128): 4 frames → cols 0,2,4,6
    *   - Walk sheets (160–192×128): 6 frames → cols 0,2,4,6,8,10
    */
-  private createAnimalAnimations(): void {
-    const defs: Array<[key: string, texture: string, frames: number[], frameRate: number]> = [
-      ['deer-idle-anim', 'deer-idle', [0, 2, 4, 6],          6],
-      ['deer-walk-anim', 'deer-walk', [0, 2, 4, 6, 8, 10],   8],
-      ['hare-idle-anim', 'hare-idle', [0, 2, 4, 6],         8],
-      // Hare_Walk.png is 160×128 (10 cols) so only 5 even-column frames fit in row 0.
-      // Deer/fox walk sheets are 192px wide (12 cols) and can hold 6.
-      ['hare-walk-anim', 'hare-walk', [0, 2, 4, 6, 8],    12],
-      ['fox-idle-anim',  'fox-idle',  [0, 2, 4, 6],          6],
-      ['fox-walk-anim',  'fox-walk',  [0, 2, 4, 6, 8, 10],   8],
-      // Black grouse flight — even-numbered frames from row 0 of the 192×128 sheet.
-      ['grouse-fly-anim',  'grouse-fly',  [0, 2, 4, 6, 8, 10], 10],
-      // Grouse ground animations — same even-frame convention as deer/hare/fox.
-      ['grouse-idle-anim', 'grouse-idle', [0, 2, 4, 6],          7],
-      ['grouse-walk-anim', 'grouse-walk', [0, 2, 4, 6, 8, 10],   9],
-      // ── Critters pack ────────────────────────────────────────────────────────
-      // Sequential frames (no skip columns unlike craftpix). Frame counts:
-      //   stag idle 24f / walk 11f; boar idle 7f / run 4f; badger idle 22f / walk 9f
-      ['stag-idle-anim',   'stag-idle',   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23], 12],
-      ['stag-walk-anim',   'stag-walk',   [0,1,2,3,4,5,6,7,8,9,10], 10],
-      ['boar-idle-anim',   'boar-idle',   [0,1,2,3,4,5,6],            8],
-      ['boar-walk-anim',   'boar-walk',   [0,1,2,3],                  10],
-      ['badger-idle-anim', 'badger-idle', [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21], 12],
-      ['badger-walk-anim', 'badger-walk', [0,1,2,3,4,5,6,7,8],        10],
-    ];
+  /**
+   * Register walk/idle/fly animations for all fauna species.
+   * Animation definitions are read from the fauna registry — each species' sprites
+   * object maps action → { key, frames, frameRate }. Animation keys follow the
+   * convention `{speciesId}-{action}-anim` (e.g. `deer-idle-anim`).
+   */
+  private createAnimalAnimations(reg: FaunaRegistryData): void {
+    const defs = buildAnimDefs(reg);
     for (const [key, texture, frames, frameRate] of defs) {
       if (!this.anims.exists(key)) {
         this.anims.create({
@@ -5251,6 +5330,92 @@ export class GameScene extends Phaser.Scene {
           frameRate,
           repeat: -1,
         });
+      }
+    }
+
+    // ── Synthetic animations derived from existing idle/walk sprites ──────────
+    // These make behavior states look visually distinct until real PixelLab
+    // animations are generated. They'll be overridden when the registry gets
+    // proper sprite entries (buildAnimDefs creates those with higher priority).
+    for (const f of reg.fauna) {
+      if (f.class !== 'ground') continue;
+      const walkSprite = f.sprites['walk'];
+      const idleSprite = f.sprites['idle'];
+      if (!walkSprite || !idleSprite) continue;
+
+      // run: walk frames at 1.5× framerate (faster stepping looks like running)
+      const runKey = `${f.id}-run-anim`;
+      if (!this.anims.exists(runKey)) {
+        this.anims.create({
+          key: runKey,
+          frames: this.anims.generateFrameNumbers(walkSprite.key, { frames: walkSprite.frames }),
+          frameRate: Math.round(walkSprite.frameRate * 1.5),
+          repeat: -1,
+        });
+      }
+      // eat: first 2 idle frames at slow rate (head-down pecking feel)
+      const eatKey = `${f.id}-eat-anim`;
+      if (!this.anims.exists(eatKey)) {
+        const eatFrames = idleSprite.frames.slice(0, Math.min(2, idleSprite.frames.length));
+        this.anims.create({
+          key: eatKey,
+          frames: this.anims.generateFrameNumbers(idleSprite.key, { frames: eatFrames }),
+          frameRate: Math.max(2, Math.round(idleSprite.frameRate * 0.5)),
+          repeat: -1,
+        });
+      }
+      // sleep: single idle frame, barely moving (1 fps loop)
+      const sleepKey = `${f.id}-sleep-anim`;
+      if (!this.anims.exists(sleepKey)) {
+        this.anims.create({
+          key: sleepKey,
+          frames: this.anims.generateFrameNumbers(idleSprite.key, { frames: [idleSprite.frames[0]] }),
+          frameRate: 1,
+          repeat: -1,
+        });
+      }
+      // alert: idle at faster rate (tense, jittery)
+      const alertKey = `${f.id}-alert-anim`;
+      if (!this.anims.exists(alertKey)) {
+        this.anims.create({
+          key: alertKey,
+          frames: this.anims.generateFrameNumbers(idleSprite.key, { frames: idleSprite.frames }),
+          frameRate: Math.round(idleSprite.frameRate * 1.4),
+          repeat: -1,
+        });
+      }
+      // sneak: walk at 0.5× framerate (slow, cautious movement)
+      const sneakKey = `${f.id}-sneak-anim`;
+      if (!this.anims.exists(sneakKey)) {
+        this.anims.create({
+          key: sneakKey,
+          frames: this.anims.generateFrameNumbers(walkSprite.key, { frames: walkSprite.frames }),
+          frameRate: Math.max(2, Math.round(walkSprite.frameRate * 0.5)),
+          repeat: -1,
+        });
+      }
+    }
+
+    // ── Directional animations (8-dir sprites from PixelLab) ────────────────
+    // For species that have per-direction strips (e.g. wolf-idle-n, wolf-walk-se),
+    // register them as `{species}-{action}-{dir}-anim`. The playAnimalAnim helper
+    // picks the right one based on the sprite's movement direction.
+    const DIR_SUFFIXES = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
+    for (const f of reg.fauna) {
+      if (f.class !== 'ground') continue;
+      for (const [action, spriteDef] of Object.entries(f.sprites)) {
+        for (const d of DIR_SUFFIXES) {
+          const texKey = `${f.id}-${action}-${d}`;
+          const animKey = `${f.id}-${action}-${d}-anim`;
+          if (this.textures.exists(texKey) && !this.anims.exists(animKey)) {
+            this.anims.create({
+              key: animKey,
+              frames: this.anims.generateFrameNumbers(texKey, { frames: spriteDef.frames }),
+              frameRate: spriteDef.frameRate,
+              repeat: -1,
+            });
+          }
+        }
       }
     }
   }
@@ -5273,34 +5438,11 @@ export class GameScene extends Phaser.Scene {
     const rndBetween = (lo: number, hi: number): number =>
       Math.floor(rng() * (hi - lo + 1)) + lo;
 
-    // ── Cluster config per species ─────────────────────────────────────────────
-    // clusters: how many herds/warrens to place
-    // perCluster: animals per herd [min, max]
-    // clusterR: Poisson minDist within a cluster (tight or loose?)
-    // clusterMinDist: minimum distance between cluster centres
-    const CLUSTER_CONFIG: Record<string, {
-      clusters: [number, number];
-      perCluster: [number, number];
-      clusterR: number;
-      clusterMinDist: number;
-    }> = {
-      // FIL-223: raised cluster minimums so there's a higher chance of at least
-      // one cluster landing near the SW-corner spawn point (~300, 2650).
-      // Aim: 3–5 animals visible within the 800×600 viewport at game start.
-      deer:   { clusters: [6, 9],  perCluster: [5, 8], clusterR: 60,  clusterMinDist: 600 },
-      hare:   { clusters: [10, 15], perCluster: [4, 6], clusterR: 30,  clusterMinDist: 300 },
-      fox:    { clusters: [1, 1],  perCluster: [1, 1], clusterR: 300, clusterMinDist: 300 },
-      // fox: one "cluster" of 1 — effectively solo placement with Poisson spacing
-      // Grouse: small coveys of 2–4 birds, multiple coveys per forest zone
-      grouse: { clusters: [6, 9],  perCluster: [3, 5], clusterR: 40,  clusterMinDist: 400 },
-      // Critters pack
-      stag:   { clusters: [3, 6],  perCluster: [2, 5], clusterR: 70,  clusterMinDist: 700 },
-      boar:   { clusters: [4, 7],  perCluster: [3, 5], clusterR: 50,  clusterMinDist: 500 },
-      badger: { clusters: [5, 9],  perCluster: [2, 4], clusterR: 40,  clusterMinDist: 350 },
-    };
+    // Cluster config + animal defs are now read from the fauna registry.
+    const faunaReg = this.cache.json.get('fauna-registry') as FaunaRegistryData;
+    const CLUSTER_CONFIG = buildClusterConfig(faunaReg);
 
-    for (const [type, def] of Object.entries(ANIMAL_DEFS)) {
-      const biasType = type as 'deer' | 'hare' | 'fox' | 'grouse' | 'stag' | 'boar' | 'badger';
+    for (const [type, def] of Object.entries(this.faunaAnimalDefs)) {
       const cfg = CLUSTER_CONFIG[type];
       if (!cfg) continue;
 
@@ -5319,7 +5461,7 @@ export class GameScene extends Phaser.Scene {
           const x = pt.x + 80;
           const y = pt.y + 80;
           if (Phaser.Math.Distance.Between(x, y, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR) continue;
-          if (rng() >= this.spawnBias(x, y, biasType)) continue;
+          if (rng() >= this.spawnBias(x, y, type)) continue;
           this.placeGroundAnimal(type, def, x, y);
           placed++;
         }
@@ -5335,7 +5477,7 @@ export class GameScene extends Phaser.Scene {
 
           // Reject cluster centres in the wrong biome or near spawn
           if (Phaser.Math.Distance.Between(cx, cy, SPAWN_X, SPAWN_Y) < SPAWN_CLEAR + 100) continue;
-          if (this.spawnBias(cx, cy, biasType) < 0.5) continue;
+          if (this.spawnBias(cx, cy, type) < 0.5) continue;
 
           const clusterSize = rndBetween(cfg.perCluster[0], cfg.perCluster[1]);
           // Poisson disk within a small area around the cluster centre
@@ -5358,28 +5500,225 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Play the best available animation for a wildlife sprite. Tries stage-specific
+   * animation first (e.g. `wolf-run-young-anim`), then the base animation
+   * (`wolf-run-anim`), then falls back through a sensible chain
+   * (run→walk, eat→idle, sleep→idle, sneak→walk, alert→idle, death→idle).
+   * This lets species with only idle+walk still work, while species with the full
+   * 8-animation set + stage variants get distinct visuals per behavior state + life stage.
+   */
+  private playAnimalAnim(sprite: Phaser.GameObjects.Sprite, type: string, action: string): void {
+    const stage = sprite.getData('lifeStage') as string | undefined;
+    const variantId = sprite.getData('variantId') as number | undefined;
+    const hasVariant = variantId != null && variantId > 0;
+
+    // Lookup priority (most specific → least specific):
+    // 0. directional:     wolf-walk-ne-anim (8-dir from velocity)
+    // 1. variant + stage: deer-idle-v2-young-anim
+    // 2. sex-specific:    deer-idle-male-anim
+    // 3. variant only:    deer-idle-v2-anim
+    // 4. stage only:      deer-idle-young-anim
+    // 5. base:            deer-idle-anim (SE direction, with flipX for west)
+    // 6. fallback chain:  run→walk, eat→idle, etc.
+
+    // Directional: compute facing direction from physics velocity.
+    // In iso view, screen velocity is skewed — un-project to get true compass direction.
+    // Iso projection: screenX = (wx - wy), screenY = (wx + wy) / 2
+    // Inverse: wx = screenX/2 + screenY, wy = -screenX/2 + screenY
+    // So world-space velocity: worldVx = svx/2 + svy, worldVy = -svx/2 + svy
+    const body = sprite.body as Phaser.Physics.Arcade.Body | null;
+    if (body && (Math.abs(body.velocity.x) > 2 || Math.abs(body.velocity.y) > 2)) {
+      const svx = body.velocity.x;
+      const svy = body.velocity.y;
+      const wvx = svx / 2 + svy;
+      const wvy = -svx / 2 + svy;
+      const angle = Math.atan2(wvy, wvx);
+      const sector = Math.round(angle / (Math.PI / 4));
+      const DIR_MAP: Record<number, string> = {
+         0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
+      };
+      const dir = DIR_MAP[sector] ?? 'se';
+      const dirKey = `${type}-${action}-${dir}-anim`;
+      if (this.anims.exists(dirKey)) {
+        sprite.setFlipX(false);
+        if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== dirKey) sprite.play(dirKey);
+        return;
+      }
+    }
+
+    const sex = sprite.getData('sex') as string | undefined;
+    if (sex && sex === 'male') {
+      const k = `${type}-${action}-male-anim`;
+      if (this.anims.exists(k)) {
+        if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== k) sprite.play(k);
+        return;
+      }
+    }
+
+    if (hasVariant && stage && stage !== 'adult') {
+      const k = `${type}-${action}-v${variantId}-${stage}-anim`;
+      if (this.anims.exists(k)) {
+        if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== k) sprite.play(k);
+        return;
+      }
+    }
+    if (hasVariant) {
+      const k = `${type}-${action}-v${variantId}-anim`;
+      if (this.anims.exists(k)) {
+        if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== k) sprite.play(k);
+        return;
+      }
+    }
+    if (stage && stage !== 'adult') {
+      const k = `${type}-${action}-${stage}-anim`;
+      if (this.anims.exists(k)) {
+        if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== k) sprite.play(k);
+        return;
+      }
+    }
+    // Base animation (e.g. wolf-run-anim).
+    const key = `${type}-${action}-anim`;
+    if (this.anims.exists(key)) {
+      if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== key) {
+        sprite.play(key);
+      }
+      return;
+    }
+    // Fallback chain: run→walk, eat/sleep/alert/death→idle, sneak→walk.
+    const fallbacks: Record<string, string> = {
+      run: 'walk', eat: 'idle', sleep: 'idle', sneak: 'walk',
+      alert: 'idle', death: 'idle', forage: 'idle', drink: 'eat',
+    };
+    const fb = fallbacks[action];
+    if (fb) {
+      this.playAnimalAnim(sprite, type, fb);
+    } else {
+      sprite.play(`${type}-idle-anim`);
+    }
+  }
+
+  /**
+   * Emit a noise event that wildlife can hear. Animals within radius will
+   * alert (grazers) or flee (critters). Call from any source:
+   * - Player sprint/attack
+   * - Tree falling (storm, chopped, age)
+   * - Wolf howling, predator calls
+   * - Explosions, magic
+   * Multiple concurrent noise events are supported.
+   */
+  emitWildlifeNoise(x: number, y: number, radius: number): void {
+    this.noiseEvents.push({ x, y, radius, time: this.time.now });
+  }
+
+  /**
+   * Gracefully kill a wildlife animal — play death animation (or fade), then destroy.
+   * Replaces raw `sprite.destroy()` so caught prey doesn't just pop out of existence.
+   */
+  private killWildlifeAnimal(sprite: Phaser.GameObjects.Sprite): void {
+    const type = sprite.getData('animalType') as string;
+    sprite.setData('animalState', 'dying' satisfies AnimalState);
+    const b = sprite.body as Phaser.Physics.Arcade.Body;
+    b.setVelocity(0, 0);
+    b.enable = false; // disable physics so corpse doesn't collide
+
+    // Play death animation if available; otherwise fade out.
+    this.playAnimalAnim(sprite, type, 'death');
+    const hasDeathAnim = this.anims.exists(`${type}-death-anim`);
+    const duration = hasDeathAnim ? 800 : 400;
+
+    // Fade out over the animation duration, then destroy.
+    this.tweens.add({
+      targets: sprite,
+      alpha: 0,
+      duration,
+      delay: hasDeathAnim ? 200 : 0, // slight delay so the death anim starts before fading
+      onComplete: () => { if (sprite.active) sprite.destroy(); },
+    });
+
+    // Play death sound if available.
+    if (this.audioAvailable && this.cache.audio.has('sfx-enemy-death')) {
+      this.sound.play('sfx-enemy-death', { volume: 0.25 * this.sfxVol, pan: this.stereoPan(sprite.x) });
+    }
+  }
+
+  /**
+   * Injure a wildlife animal — reduces speed, changes tint, may eventually die.
+   * Injured animals limp (50% speed), are more vulnerable to predators, and
+   * recover after a healing duration (or die if health reaches 0).
+   * Public so other systems (combat, traps, environmental hazards) can call it.
+   */
+  injureWildlifeAnimal(sprite: Phaser.GameObjects.Sprite, severity: number = 0.5): void {
+    sprite.setData('animalState', 'injured' satisfies AnimalState);
+    sprite.setData('injurySeverity', severity); // 0-1, 1 = critical
+    sprite.setData('injuryTime', this.time.now);
+    // Visual indicator: reddish tint proportional to severity.
+    const r = Math.round(0xff);
+    const g = Math.round(0xff * (1 - severity * 0.4));
+    const b = Math.round(0xff * (1 - severity * 0.4));
+    sprite.setTint(Phaser.Display.Color.GetColor(r, g, b));
+  }
+
+  /**
    * Create a single ground animal sprite at world position (x, y).
    * Uses craftpix 16×16 pixel-art sheets (FIL-73), scaled up to def.scale × 16px.
    * The physics body is set to def.w × def.h so collisions feel tight despite
    * the larger visual.
    */
+  /** Pick a life stage using weighted random selection from the species' stage weights. */
+  private pickLifeStage(type: string): LifeStage {
+    const w = this.faunaStageWeights[type] ?? { young: 0.25, adult: 0.60, elder: 0.15 };
+    const total = w.young + w.adult + w.elder;
+    const r = Math.random() * total;
+    if (r < w.young) return 'young';
+    if (r < w.young + w.adult) return 'adult';
+    return 'elder';
+  }
+
   private placeGroundAnimal(type: string, def: AnimalDef, x: number, y: number): void {
     const { x: _gaIsoX, y: _gaIsoY } = worldToIso(x, y);
+
+    // Pick a life stage and apply modifiers to scale.
+    const stage = this.pickLifeStage(type);
+    const stageDef = DEFAULT_STAGES[stage];
+    const effectiveScale = def.scale * stageDef.scaleMult;
+
     const sprite = this.add.sprite(_gaIsoX, _gaIsoY, `${type}-idle`, 0);
-    sprite.setScale(def.scale);
+    sprite.setScale(effectiveScale);
     sprite.setDepth(isoDepth(x, y));
+    if (stageDef.tint !== 0xffffff) sprite.setTint(stageDef.tint);
     sprite.play(`${type}-idle-anim`);
     this.physics.add.existing(sprite);
     const b = sprite.body as Phaser.Physics.Arcade.Body;
     b.setCollideWorldBounds(true);
     b.setDrag(60, 60);
-    // Keep the physics body compact so it matches the logical animal size
-    b.setSize(def.w, def.h);
+    // Scale physics body to match the life stage.
+    b.setSize(Math.round(def.w * stageDef.scaleMult), Math.round(def.h * stageDef.scaleMult));
     this.groundAnimals.add(sprite);
     sprite.setData('animalType', type);
+    sprite.setData('archetype', this.faunaArchetypes[type] ?? 'grazer');
+    sprite.setData('activity', this.faunaActivities[type] ?? 'diurnal');
+    sprite.setData('lifeStage', stage);
+    // Visual variant (distinctive markings) — persists through aging.
+    const faunaReg = this.cache.json.get('fauna-registry') as FaunaRegistryData;
+    const speciesDef = faunaReg.fauna.find(f => f.id === type);
+    const numVariants = speciesDef?.variants ?? 1;
+    sprite.setData('variantId', numVariants > 1 ? Math.floor(Math.random() * numVariants) : 0);
+    // Sex assignment — 50/50 unless young (sex irrelevant for juveniles).
+    const sex: import('../world/FaunaRegistry').AnimalSex = Math.random() < 0.5 ? 'male' : 'female';
+    sprite.setData('sex', sex);
+    // Apply sex-based scale dimorphism (males slightly larger for dimorphic species).
+    const dimorphism = speciesDef?.sexDimorphism;
+    if (dimorphism?.maleScaleMult && sex === 'male' && stage !== 'young') {
+      sprite.setScale(effectiveScale * dimorphism.maleScaleMult);
+    }
+    // Birth time for aging (game-day count). Animals age young→adult→elder over time.
+    sprite.setData('birthDay', this.worldClock?.dayCount ?? 0);
     sprite.setData('animalState', 'roaming' satisfies AnimalState);
     sprite.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 6000));
+    // Per-animal vocalization timer — staggered so animals don't all call at once.
+    sprite.setData('ambientSoundTimer', this.time.now + Phaser.Math.Between(5000, 20000));
     // Store world-space origin so flee/approach distance calcs remain in world space.
+    // Also used as "home" position for territory patrol (predator) and warren proximity (critter).
     sprite.setData('worldX', x);
     sprite.setData('worldY', y);
   }
@@ -5387,147 +5726,860 @@ export class GameScene extends Phaser.Scene {
   private updateGroundAnimals(): void {
     const px = this.player.x;
     const py = this.player.y;
+    const now = this.time.now;
 
-    // Cache once — getChildren() returns the same backing array each call, but
-    // calling it three times is wasteful and allocates the filter results twice.
+    // ── Activity cycle: determine which activity patterns are active right now ──
+    // Diurnal = active during day phases; nocturnal = active at night;
+    // crepuscular = active at dawn/dusk (and dimly during adjacent phases).
+    const phase = this.worldClock?.phase ?? 'morning';
+    const isNight = phase === 'night';
+    const isDawnOrDusk = phase === 'dawn' || phase === 'dusk';
+
+    // ── Environmental context (computed once per frame) ─────────────────────────
+    // Prune expired noise events (older than 10s — curiosity window).
+    this.noiseEvents = this.noiseEvents.filter(n => now - n.time < 10000);
+    this.localEnvEffects.prune(now);
+    this.environmentalContext = buildEnvironmentalContext(
+      this.worldState.weather,
+      this.seasonSystem.currentSeason,
+      phase,
+    );
+
     const allAnimals  = this.groundAnimals.getChildren() as Phaser.GameObjects.Sprite[];
-    const foxSprites  = allAnimals.filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'fox');
-    const hareSprites = allAnimals.filter(a => !a.getData('playerControlled') && a.getData('animalType') === 'hare');
+    // Build per-species sprite lists for predator-prey and herd lookups.
+    const spritesByType = new Map<string, Phaser.GameObjects.Sprite[]>();
+    for (const a of allAnimals) {
+      if (a.getData('playerControlled') as boolean) continue;
+      const t = a.getData('animalType') as string;
+      const arr = spritesByType.get(t);
+      if (arr) arr.push(a); else spritesByType.set(t, [a]);
+    }
 
     for (const child of allAnimals) {
-      // Ground animals are now sprites (FIL-73); cast accordingly.
       const r  = child as Phaser.GameObjects.Sprite;
-      // Y-sort with the same raw-Y system as chunk-placed trees so animals
-      // correctly pass behind/in-front of trees and the player as they move.
+      // Y-sort with the same raw-Y system as chunk-placed trees.
       { const { x: _gaWx, y: _gaWy } = isoToWorld(r.x, r.y); r.setDepth(isoDepth(_gaWx, _gaWy)); }
       const b  = r.body as Phaser.Physics.Arcade.Body;
       const type = r.getData('animalType') as string;
-      const def  = ANIMAL_DEFS[type];
-      // While the player is driving this animal in attract mode, skip AI entirely.
+      const def  = this.faunaAnimalDefs[type];
       if (r.getData('playerControlled') as boolean) continue;
+      const archetype = r.getData('archetype') as string;
+      const activity  = r.getData('activity') as string;
+
+      // ── Aging: advance life stage based on game-days elapsed since birth ────
+      // Only runs when the species has an `aging` config in the registry.
+      // Checks once per animal per frame but the dayCount comparison is O(1).
+      const birthDay  = (r.getData('birthDay') as number) ?? 0;
+      const currentDay = this.worldClock?.dayCount ?? 0;
+      const age = currentDay - birthDay;
+      const agingDef = (this.cache.json.get('fauna-registry') as FaunaRegistryData | undefined)
+        ?.fauna.find(f => f.id === type)?.aging;
+      if (agingDef) {
+        let expectedStage: LifeStage = 'young';
+        if (age >= agingDef.youngDuration + agingDef.adultDuration) expectedStage = 'elder';
+        else if (age >= agingDef.youngDuration) expectedStage = 'adult';
+        const currentStage = r.getData('lifeStage') as LifeStage;
+        if (currentStage !== expectedStage) {
+          r.setData('lifeStage', expectedStage);
+          const newStageMod = DEFAULT_STAGES[expectedStage];
+          r.setScale(def.scale * newStageMod.scaleMult);
+          if (newStageMod.tint !== 0xffffff) r.setTint(newStageMod.tint); else r.clearTint();
+          const body = r.body as Phaser.Physics.Arcade.Body;
+          body.setSize(Math.round(def.w * newStageMod.scaleMult), Math.round(def.h * newStageMod.scaleMult));
+        }
+      }
+
+      const stage     = (r.getData('lifeStage') as LifeStage) ?? 'adult';
+      const stageMod  = DEFAULT_STAGES[stage];
+      const envCtx    = this.environmentalContext;
+
+      // ── Effective values: base × stage × sex × weather × injury ────────────────
+      const rainFleeBoost = envCtx.isRaining && archetype !== 'predator' ? 1.3 : 1.0;
+      const coldSpeedMod  = envCtx.season === 'winter' ? 0.85 : 1.0;
+      const injurySeverity = (r.getData('injurySeverity') as number) ?? 0;
+      const injurySpeedMod = 1 - injurySeverity * 0.5;
+
+      // Sex-based modifiers (species-specific dimorphism from registry).
+      const sex = (r.getData('sex') as string) ?? 'female';
+      const faunaReg = this.cache.json.get('fauna-registry') as FaunaRegistryData;
+      const speciesDef = faunaReg.fauna.find(f => f.id === type);
+      const dimorphism = speciesDef?.sexDimorphism;
+      const sexFleeMult = sex === 'male' && dimorphism?.maleFleeRangeMult
+        ? dimorphism.maleFleeRangeMult : 1.0;
+      const sexRoamMult = sex === 'male' && dimorphism?.maleRoamMult
+        ? dimorphism.maleRoamMult : 1.0;
+      // Mothers with nearby young are more protective.
+      const isPregnant = (r.getData('pregnant') as boolean) ?? false;
+      const pregnancySpeedMod = isPregnant ? 0.75 : 1.0;
+
+      let effFleeRange = def.fleeRange * stageMod.fleeRangeMult * rainFleeBoost * sexFleeMult;
+      let effFleeSpeed = def.fleeSpeed * stageMod.fleeSpeedMult * coldSpeedMod * injurySpeedMod * pregnancySpeedMod;
+      let effRoamSpeed = def.roamSpeed * stageMod.roamSpeedMult * coldSpeedMod * injurySpeedMod * pregnancySpeedMod * sexRoamMult;
       const dist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
       let state  = r.getData('animalState') as AnimalState;
-      // Remember state before this frame so we can detect the transition below.
       const prevState = state;
 
-      if (dist < def.fleeRange) {
-        state = 'fleeing';
+      // ── Activity cycle: sleep/wake based on time of day ───────────────────────
+      // Diurnal animals sleep at night. Nocturnal animals sleep during the day.
+      // Crepuscular animals are active at dawn/dusk and sleep during deep night
+      // and midday. All animals can be woken by a direct threat (flee overrides).
+      const shouldSleep =
+        (activity === 'diurnal'     && isNight) ||
+        (activity === 'nocturnal'   && !isNight && !isDawnOrDusk) ||
+        (activity === 'crepuscular' && (isNight || phase === 'midday'));
+
+      if (shouldSleep && state !== 'sleeping' && state !== 'fleeing' && state !== 'frozen') {
+        state = 'sleeping';
         r.setData('animalState', state);
-        // Play vocalization only on the frame the animal starts fleeing, not every frame.
-        // FIL-109: each species has a distinct pitch via Phaser's `rate` parameter so
-        // a deer's snort sounds different from a hare's squeak without new audio files.
-        if (prevState !== 'fleeing') {
-          // Record the timestamp when flee begins so the acceleration ramp knows
-          // how much time has elapsed since the startle (FIL-226).
-          r.setData('fleeStartTime', this.time.now);
-          // FIL-50: fleeVocal is co-located in AnimalDef — no separate lookup needed.
-          if (this.audioAvailable && this.cache.audio.has(def.fleeVocal.key)) {
-            // FIL-116: pan the flee sound to the animal's screen position.
-            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume * this.sfxVol, rate: def.fleeVocal.rate, pan: this.stereoPan(r.x) });
-          }
-          // Switch to walk animation when fleeing starts — faster-looking movement.
-          r.play(`${type}-walk-anim`);
-        }
-      } else if (state === 'fleeing' && dist > def.fleeRange + 80) {
+        b.setVelocity(0, 0);
+        this.playAnimalAnim(r, type, 'sleep');
+        // Reduce opacity slightly so sleeping animals look dormant.
+        r.setAlpha(0.6);
+      } else if (!shouldSleep && state === 'sleeping') {
         state = 'roaming';
         r.setData('animalState', state);
-        r.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 5000));
-        // Return to idle animation once safely away from the player.
-        r.play(`${type}-idle-anim`);
+        r.setData('roamNext', now + Phaser.Math.Between(1000, 3000));
+        r.setAlpha(1);
       }
 
-      // ── Predator/prey: fox chases hare ─────────────────────────────────────────
-      // Player-flee takes priority — a fox that is already fleeing the player won't
-      // simultaneously chase a hare. Once the player retreats the fox will resume.
-      //
-      // chaseTarget and fleeFromX/Y are only needed within this loop iteration, so
-      // use local variables instead of setData/getData (DataManager hashmap lookups).
+      // Sleeping animals do nothing — but can still be startled awake by the player.
+      if (state === 'sleeping') {
+        b.setVelocity(0, 0);
+        // Wake up if the player gets very close (half flee range).
+        if (dist < effFleeRange * 0.5) {
+          state = 'fleeing';
+          r.setData('animalState', state);
+          r.setData('fleeStartTime', now);
+          r.setAlpha(1);
+          this.playAnimalAnim(r, type, 'run');
+          if (this.audioAvailable && def.fleeVocal.key && this.cache.audio.has(def.fleeVocal.key)) {
+            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume * this.sfxVol, rate: def.fleeVocal.rate, pan: this.stereoPan(r.x) });
+          }
+        }
+        continue; // skip all other logic while sleeping
+      }
+
+      // ── Noise propagation: any loud event alerts wildlife ──────────────────────
+      // Check all active noise events (player sprint, falling trees, wolf howls, etc.)
+      if (state !== 'fleeing' && state !== 'frozen') {
+        for (const noise of this.noiseEvents) {
+          if (now - noise.time > 500) continue; // expired
+          const noiseDist = Phaser.Math.Distance.Between(r.x, r.y, noise.x, noise.y);
+          if (noiseDist >= noise.radius) continue;
+          if (archetype === 'critter') {
+            state = 'fleeing';
+            r.setData('animalState', state);
+            r.setData('fleeStartTime', now);
+            this.playAnimalAnim(r, type, 'run');
+          } else if (archetype === 'grazer' && state !== 'alert') {
+            state = 'alert';
+            r.setData('animalState', state);
+            r.setData('alertStart', now);
+            b.setVelocity(0, 0);
+            this.playAnimalAnim(r, type, 'alert');
+          }
+          // Predators investigate noise (handled in curiosity section below).
+          break; // one noise reaction per frame is enough
+        }
+      }
+
+      // ── Threat detection ──────────────────────────────────────────────────────
+      // GRAZER: alert state at 1.5× fleeRange — watch the player before committing to flee.
+      if (archetype === 'grazer' && state !== 'fleeing' && state !== 'alert'
+          && dist < effFleeRange * 1.5 && dist >= effFleeRange) {
+        state = 'alert';
+        r.setData('animalState', state);
+        r.setData('alertStart', now);
+        b.setVelocity(0, 0);
+        this.playAnimalAnim(r, type, 'alert');
+      }
+      // Alert → flee: player pushed inside fleeRange while alert.
+      if (state === 'alert' && dist < effFleeRange) {
+        state = 'fleeing';
+        r.setData('animalState', state);
+        r.setData('alertStart', null);
+      }
+      // Alert → roaming: player retreated past 1.5× fleeRange.
+      if (state === 'alert' && dist >= effFleeRange * 1.5) {
+        state = 'roaming';
+        r.setData('animalState', state);
+        r.setData('alertStart', null);
+        r.setData('roamNext', now + Phaser.Math.Between(1000, 3000));
+      }
+
+      // CRITTER: freeze response — 20% chance to freeze for 0.5–1s before fleeing.
+      if (dist < effFleeRange && archetype === 'critter'
+          && prevState !== 'fleeing' && prevState !== 'frozen' && state !== 'frozen'
+          && Math.random() < 0.2) {
+        state = 'frozen';
+        r.setData('animalState', state);
+        r.setData('freezeEnd', now + Phaser.Math.Between(500, 1000));
+        b.setVelocity(0, 0);
+      }
+
+      // Standard flee trigger (all archetypes).
+      if (dist < effFleeRange && state !== 'fleeing' && state !== 'frozen') {
+        state = 'fleeing';
+        r.setData('animalState', state);
+        if (prevState !== 'fleeing') {
+          r.setData('fleeStartTime', now);
+          if (this.audioAvailable && def.fleeVocal.key && this.cache.audio.has(def.fleeVocal.key)) {
+            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume * this.sfxVol, rate: def.fleeVocal.rate, pan: this.stereoPan(r.x) });
+          }
+          this.playAnimalAnim(r, type, 'run');
+
+          // ── Group flee: alert nearby same-species animals ────────────────────
+          // When one animal startles, nearby herdmates within 150px also flee.
+          // This creates the cascade effect of an entire herd bolting at once.
+          const GROUP_FLEE_RADIUS = 150;
+          const herdMates = spritesByType.get(type);
+          if (herdMates) {
+            for (const mate of herdMates) {
+              if (mate === r) continue;
+              const mateState = mate.getData('animalState') as AnimalState;
+              if (mateState === 'fleeing' || mateState === 'frozen') continue;
+              const d = Phaser.Math.Distance.Between(r.x, r.y, mate.x, mate.y);
+              if (d < GROUP_FLEE_RADIUS) {
+                mate.setData('animalState', 'fleeing' satisfies AnimalState);
+                mate.setData('fleeStartTime', now + Phaser.Math.Between(50, 200)); // slight delay for natural cascade
+                this.playAnimalAnim(mate, type, 'run');
+              }
+            }
+          }
+        }
+      } else if (state === 'fleeing' && dist > effFleeRange + 80) {
+        state = 'roaming';
+        r.setData('animalState', state);
+        r.setData('roamNext', now + Phaser.Math.Between(2000, 5000));
+        this.playAnimalAnim(r, type, 'idle');
+      }
+
+      // ── Predator/prey (data-driven, strategy-branched) ────────────────────────
       let chaseTarget: Phaser.GameObjects.Sprite | null = null;
-      let fleeFromX = px; // default flee origin is the player
+      let fleeFromX = px;
       let fleeFromY = py;
 
-      if (type === 'fox' && state !== 'fleeing') {
-        let nearestHare: Phaser.GameObjects.Sprite | null = null;
-        let nearestDist = FOX_CHASE_RANGE;
-        for (const hare of hareSprites) {
-          const d = Phaser.Math.Distance.Between(r.x, r.y, hare.x, hare.y);
-          if (d < nearestDist) { nearestDist = d; nearestHare = hare; }
-        }
-        if (nearestHare) {
-          chaseTarget = nearestHare;
-          if (state !== 'chasing') {
-            state = 'chasing';
-            r.setData('animalState', state);
-            r.play('fox-walk-anim');
+      const predInfo = this.faunaPredatorMap.get(type);
+      // Young animals don't hunt — they follow adults instead.
+      if (predInfo && stage !== 'young' && state !== 'fleeing' && state !== 'frozen') {
+        const strategy = predInfo.strategy;
+
+        // Find nearest prey (used by pursuit + pack; ambush uses shorter range).
+        const scanRange = strategy === 'ambush' ? predInfo.range : predInfo.range;
+        let nearestPrey: Phaser.GameObjects.Sprite | null = null;
+        let nearestDist = scanRange;
+        let distantPrey: Phaser.GameObjects.Sprite | null = null;
+        let distantDist = strategy === 'pursuit' ? predInfo.range * 2 : 0;
+
+        for (const preyId of predInfo.prey) {
+          for (const prey of spritesByType.get(preyId) ?? []) {
+            const d = Phaser.Math.Distance.Between(r.x, r.y, prey.x, prey.y);
+            if (d < nearestDist) { nearestDist = d; nearestPrey = prey; }
+            if (strategy === 'pursuit' && d > predInfo.range && d < distantDist) {
+              distantDist = d; distantPrey = prey;
+            }
           }
-        } else if (state === 'chasing') {
-          state = 'roaming';
-          r.setData('animalState', state);
-          r.setData('roamNext', this.time.now + Phaser.Math.Between(2000, 5000));
-          r.play('fox-idle-anim');
         }
+
+        // ── PURSUIT strategy (fox) ──────────────────────────────────────────────
+        if (strategy === 'pursuit') {
+          if (nearestPrey) {
+            chaseTarget = nearestPrey;
+            if (state !== 'chasing') {
+              state = 'chasing';
+              r.setData('animalState', state);
+              r.setData('chaseStart', now);
+              this.playAnimalAnim(r, type, 'run');
+            }
+            // Chase resolution after 4s: 15% catch, 85% give up.
+            if (state === 'chasing') {
+              const chaseStart = (r.getData('chaseStart') as number | null) ?? now;
+              if (now - chaseStart > 4000) {
+                if (nearestDist < 25 && Math.random() < 0.15) {
+                  this.killWildlifeAnimal(nearestPrey);
+                  state = 'resting';
+                  r.setData('animalState', state);
+                  r.setData('restEnd', now + Phaser.Math.Between(10000, 18000));
+                  b.setVelocity(0, 0);
+                  this.playAnimalAnim(r, type, 'idle');
+                  chaseTarget = null;
+                } else {
+                  state = 'resting';
+                  r.setData('animalState', state);
+                  r.setData('restEnd', now + Phaser.Math.Between(6000, 12000));
+                  b.setVelocity(0, 0);
+                  this.playAnimalAnim(r, type, 'idle');
+                  chaseTarget = null;
+                }
+              }
+            }
+          } else if (state === 'chasing') {
+            state = 'resting';
+            r.setData('animalState', state);
+            r.setData('restEnd', now + Phaser.Math.Between(5000, 10000));
+            b.setVelocity(0, 0);
+            this.playAnimalAnim(r, type, 'idle');
+          } else if (distantPrey && state === 'roaming') {
+            state = 'stalking';
+            r.setData('animalState', state);
+            r.setData('stalkTarget', distantPrey);
+            this.playAnimalAnim(r, type, 'sneak');
+          }
+        }
+
+        // ── AMBUSH strategy (cat, snake) ────────────────────────────────────────
+        else if (strategy === 'ambush') {
+          if (state === 'roaming') {
+            // Find a good ambush spot: sample 6 points, pick highest trail affinity.
+            let bestSpotX = r.x, bestSpotY = r.y, bestAff = -Infinity;
+            for (let s = 0; s < 6; s++) {
+              const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+              const sx = r.x + Math.cos(a) * 120;
+              const sy = r.y + Math.sin(a) * 120;
+              const aff = this.pathSystem.getAffinityScore(sx, sy);
+              if (aff > bestAff) { bestAff = aff; bestSpotX = sx; bestSpotY = sy; }
+            }
+            if (bestAff > 0.3) {
+              r.setData('ambushSpotX', bestSpotX);
+              r.setData('ambushSpotY', bestSpotY);
+              // Move toward the spot; transition to waiting once close.
+              const dToSpot = Phaser.Math.Distance.Between(r.x, r.y, bestSpotX, bestSpotY);
+              if (dToSpot < 10) {
+                state = 'ambush-waiting';
+                r.setData('animalState', state);
+                r.setData('ambushSettleTime', now);
+                b.setVelocity(0, 0);
+                r.setAlpha(0.3);
+                this.playAnimalAnim(r, type, 'sneak');
+              }
+            }
+          } else if (state === 'ambush-waiting') {
+            b.setVelocity(0, 0);
+            r.setAlpha(0.3);
+            // Scan for prey within short strike range.
+            if (nearestPrey && nearestDist < predInfo.range) {
+              state = 'ambush-strike';
+              r.setData('animalState', state);
+              r.setData('ambushStrikeTarget', nearestPrey);
+              r.setData('ambushStrikeEnd', now + 600);
+              r.setAlpha(1);
+              this.playAnimalAnim(r, type, 'run');
+            }
+            // Give up after 18s of waiting with no prey.
+            const settleTime = r.getData('ambushSettleTime') as number;
+            if (now - settleTime > 18000) {
+              state = 'roaming';
+              r.setData('animalState', state);
+              r.setData('roamNext', now + Phaser.Math.Between(2000, 5000));
+              r.setAlpha(1);
+            }
+          } else if (state === 'ambush-strike') {
+            const strikeTarget = r.getData('ambushStrikeTarget') as Phaser.GameObjects.Sprite | null;
+            if (now > (r.getData('ambushStrikeEnd') as number)) {
+              // Resolve: ambush predators have ~40% success rate (much higher than pursuit).
+              const dToPrey = strikeTarget?.active
+                ? Phaser.Math.Distance.Between(r.x, r.y, strikeTarget.x, strikeTarget.y)
+                : 999;
+              if (dToPrey < 25 && Math.random() < 0.40) {
+                this.killWildlifeAnimal(strikeTarget!);
+                state = 'resting';
+                r.setData('animalState', state);
+                r.setData('restEnd', now + Phaser.Math.Between(12000, 20000));
+              } else {
+                state = 'resting';
+                r.setData('animalState', state);
+                r.setData('restEnd', now + Phaser.Math.Between(8000, 14000));
+              }
+              b.setVelocity(0, 0);
+              this.playAnimalAnim(r, type, 'idle');
+            } else if (strikeTarget?.active) {
+              // Burst toward prey at 2× prey's flee speed.
+              const preyDef = this.faunaAnimalDefs[strikeTarget.getData('animalType') as string];
+              const burstSpeed = preyDef ? preyDef.fleeSpeed * 2 : def.fleeSpeed * 2;
+              const toward = Phaser.Math.Angle.Between(r.x, r.y, strikeTarget.x, strikeTarget.y);
+              this.physics.velocityFromRotation(toward, burstSpeed, b.velocity);
+              r.setFlipX(Math.cos(toward) < 0);
+            }
+          }
+        }
+
+        // ── PACK strategy (wolf) ────────────────────────────────────────────────
+        else if (strategy === 'pack') {
+          const packRole = r.getData('packRole') as string | null;
+
+          if (!packRole && state === 'roaming' && nearestPrey) {
+            // Check if 2+ pack members are nearby to initiate a coordinated hunt.
+            const packMates = spritesByType.get(type) ?? [];
+            const nearbyMates = packMates.filter(m => m !== r
+              && Phaser.Math.Distance.Between(r.x, r.y, m.x, m.y) < 200
+              && !(m.getData('packRole') as string));
+            if (nearbyMates.length >= 1) {
+              // This one is the flusher (closest to prey). Others intercept.
+              r.setData('packRole', 'flusher');
+              r.setData('packTarget', nearestPrey);
+              r.setData('packHuntStart', now);
+              state = 'pack-flushing';
+              r.setData('animalState', state);
+              this.playAnimalAnim(r, type, 'run');
+              // Assign interceptors.
+              for (const mate of nearbyMates) {
+                mate.setData('packRole', 'interceptor');
+                mate.setData('packTarget', nearestPrey);
+                mate.setData('packHuntStart', now);
+                mate.setData('animalState', 'pack-intercepting' satisfies AnimalState);
+                this.playAnimalAnim(mate, type, 'run');
+              }
+            }
+          }
+          // Pack role timeout + cleanup handled in the movement section below.
+        }
+        // Dive strategy is handled in updateBirds(), not here.
       }
 
-      // Hares flee from nearby foxes using the same mechanism as player-flee.
-      if (type === 'hare') {
-        let nearestFox: Phaser.GameObjects.Sprite | null = null;
-        let nearestFoxDist = def.fleeRange;
-        for (const fox of foxSprites) {
-          const d = Phaser.Math.Distance.Between(r.x, r.y, fox.x, fox.y);
-          if (d < nearestFoxDist) { nearestFoxDist = d; nearestFox = fox; }
+      // Prey logic: flee from nearest predator.
+      if (this.faunaPreySet.has(type)) {
+        let nearestPredator: Phaser.GameObjects.Sprite | null = null;
+        let nearestPredDist = effFleeRange;
+        for (const [predId, info] of this.faunaPredatorMap) {
+          if (!info.prey.includes(type)) continue;
+          for (const pred of spritesByType.get(predId) ?? []) {
+            const d = Phaser.Math.Distance.Between(r.x, r.y, pred.x, pred.y);
+            if (d < nearestPredDist) { nearestPredDist = d; nearestPredator = pred; }
+          }
         }
-        if (nearestFox) {
-          fleeFromX = nearestFox.x;
-          fleeFromY = nearestFox.y;
+        if (nearestPredator) {
+          fleeFromX = nearestPredator.x;
+          fleeFromY = nearestPredator.y;
           if (state !== 'fleeing') {
             state = 'fleeing';
             r.setData('animalState', state);
-            // Record flee start so the ramp can compute elapsed time (FIL-226).
-            r.setData('fleeStartTime', this.time.now);
-            r.play('hare-walk-anim');
+            r.setData('fleeStartTime', now);
+            this.playAnimalAnim(r, type, 'run');
           }
         }
-        // else fleeFromX/Y stays as player position (already set above)
       }
 
-      if (state === 'fleeing') {
-        // fleeFromX/Y is either the nearest fox (hare) or the player (everyone else).
+      // ── Movement per state ────────────────────────────────────────────────────
+      // Dying animals are handled by the tween in killWildlifeAnimal — skip all AI.
+      if (state === 'dying') {
+        b.setVelocity(0, 0);
+        continue;
+      }
+
+      // Injured animals limp slowly, can still flee but at reduced speed.
+      // Recovery: after 20-40s, severity drops. If severity was mild (< 0.3), recover.
+      if (state === 'injured') {
+        const injuryTime = (r.getData('injuryTime') as number) ?? now;
+        const elapsed = now - injuryTime;
+        const severity = injurySeverity;
+        if (elapsed > 30000 && severity < 0.3) {
+          // Mild injury — recover, return to roaming.
+          r.setData('injurySeverity', 0);
+          r.setData('animalState', 'roaming' satisfies AnimalState);
+          r.setData('roamNext', now + Phaser.Math.Between(1000, 3000));
+          const stMod = DEFAULT_STAGES[(r.getData('lifeStage') as LifeStage) ?? 'adult'];
+          if (stMod.tint !== 0xffffff) r.setTint(stMod.tint); else r.clearTint();
+        } else if (elapsed > 60000 && severity >= 0.7) {
+          // Severe injury unhealed after 60s — animal dies.
+          this.killWildlifeAnimal(r);
+          continue;
+        } else {
+          // Limping: slow roam in random direction, can still flee if threatened.
+          if (dist < effFleeRange) {
+            state = 'fleeing';
+            r.setData('animalState', state);
+            r.setData('fleeStartTime', now);
+            this.playAnimalAnim(r, type, 'run');
+          } else if (now > (r.getData('roamNext') as number ?? 0)) {
+            const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            this.physics.velocityFromRotation(a, effRoamSpeed * 0.4, b.velocity);
+            r.setData('roamNext', now + Phaser.Math.Between(4000, 8000));
+            this.playAnimalAnim(r, type, 'walk');
+          }
+          continue; // skip normal state machine
+        }
+      }
+
+      if (state === 'frozen') {
+        b.setVelocity(0, 0);
+        if (now > (r.getData('freezeEnd') as number)) {
+          state = 'fleeing';
+          r.setData('animalState', state);
+          r.setData('fleeStartTime', now);
+          this.playAnimalAnim(r, type, 'run');
+          if (this.audioAvailable && def.fleeVocal.key && this.cache.audio.has(def.fleeVocal.key)) {
+            this.sound.play(def.fleeVocal.key, { volume: def.fleeVocal.volume * this.sfxVol, rate: def.fleeVocal.rate, pan: this.stereoPan(r.x) });
+          }
+        }
+      } else if (state === 'fleeing') {
         const away = Phaser.Math.Angle.Between(fleeFromX, fleeFromY, r.x, r.y);
-        // FIL-226: 100ms acceleration ramp so the direction change reads as a
-        // startle response rather than an instant velocity snap. Speed lerps from
-        // 0 → fleeSpeed over the first 100ms of the flee state.
         const FLEE_RAMP_MS = 100;
-        const fleeStart = (r.getData('fleeStartTime') as number | null) ?? this.time.now;
-        const ramp = Math.min((this.time.now - fleeStart) / FLEE_RAMP_MS, 1);
-        this.physics.velocityFromRotation(away, ramp * def.fleeSpeed, b.velocity);
+        const fleeStart = (r.getData('fleeStartTime') as number | null) ?? now;
+        const elapsed = now - fleeStart;
+        const ramp = Math.min(elapsed / FLEE_RAMP_MS, 1);
+        // CRITTER: scatter burst — 1.5× fleeSpeed for the first 500ms.
+        let speed = effFleeSpeed;
+        if (archetype === 'critter' && elapsed < 500) speed = effFleeSpeed * 1.5;
+        this.physics.velocityFromRotation(away, ramp * speed, b.velocity);
       } else if (state === 'chasing') {
         if (chaseTarget?.active) {
           const toward = Phaser.Math.Angle.Between(r.x, r.y, chaseTarget.x, chaseTarget.y);
-          this.physics.velocityFromRotation(toward, def.fleeSpeed, b.velocity);
-          // Flip sprite so the fox faces the direction it is running.
+          this.physics.velocityFromRotation(toward, effFleeSpeed, b.velocity);
           r.setFlipX(Math.cos(toward) < 0);
         }
-      } else if (this.time.now > (r.getData('roamNext') as number)) {
-        // Sample 4 candidate directions and pick the one with the highest path
-        // affinity score. This makes animals naturally gravitate toward animal
-        // trails (+1) and avoid paved roads (−1) without explicit waypoints.
-        let bestAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-        let bestScore = -Infinity;
-        for (let c = 0; c < 4; c++) {
-          const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
-          const tx = r.x + Math.cos(a) * 80;
-          const ty = r.y + Math.sin(a) * 80;
-          const score = this.pathSystem.getAffinityScore(tx, ty) + Math.random() * 0.4;
-          if (score > bestScore) { bestScore = score; bestAngle = a; }
+      } else if (state === 'stalking') {
+        // PREDATOR: approach prey at half roamSpeed until within chase range.
+        const target = r.getData('stalkTarget') as Phaser.GameObjects.Sprite | null;
+        if (target?.active && predInfo) {
+          const d = Phaser.Math.Distance.Between(r.x, r.y, target.x, target.y);
+          if (d <= predInfo.range) {
+            state = 'chasing';
+            r.setData('animalState', state);
+            r.setData('chaseStart', now);
+            chaseTarget = target;
+            this.playAnimalAnim(r, type, 'run');
+          } else {
+            const toward = Phaser.Math.Angle.Between(r.x, r.y, target.x, target.y);
+            this.physics.velocityFromRotation(toward, effRoamSpeed * 0.5, b.velocity);
+            r.setFlipX(Math.cos(toward) < 0);
+          }
+        } else {
+          state = 'roaming';
+          r.setData('animalState', state);
+          r.setData('roamNext', now + Phaser.Math.Between(2000, 5000));
         }
-        this.physics.velocityFromRotation(bestAngle, def.roamSpeed, b.velocity);
-        r.setData('roamNext', this.time.now + Phaser.Math.Between(3000, 8000));
+      } else if (state === 'alert') {
+        // GRAZER: stand still, face the player.
+        b.setVelocity(0, 0);
+        r.setFlipX(px < r.x);
+      } else if (state === 'grazing') {
+        // GRAZER: head-down idle pause — stand still until graze timer expires.
+        b.setVelocity(0, 0);
+        if (now > (r.getData('grazeEnd') as number)) {
+          state = 'roaming';
+          r.setData('animalState', state);
+          r.setData('roamNext', now + Phaser.Math.Between(3000, 8000));
+        }
+      } else if (state === 'resting') {
+        // PREDATOR: post-chase cooldown (also used after successful catch).
+        b.setVelocity(0, 0);
+        if (now > (r.getData('restEnd') as number)) {
+          // Clear pack role on hunt end so wolves can rejoin future hunts.
+          r.setData('packRole', null);
+          r.setData('packTarget', null);
+          state = 'roaming';
+          r.setData('animalState', state);
+          r.setData('roamNext', now + Phaser.Math.Between(2000, 5000));
+        }
+      } else if (state === 'pack-flushing') {
+        // PACK: flusher charges directly at prey to spook it into fleeing.
+        const packTarget = r.getData('packTarget') as Phaser.GameObjects.Sprite | null;
+        const huntStart = r.getData('packHuntStart') as number;
+        if (!packTarget?.active || now - huntStart > 6000) {
+          // Prey gone or timeout — give up, rest.
+          const caught = packTarget?.active
+            && Phaser.Math.Distance.Between(r.x, r.y, packTarget.x, packTarget.y) < 25
+            && now - huntStart > 3000 && Math.random() < 0.10;
+          if (caught) { this.killWildlifeAnimal(packTarget!); }
+          state = 'resting';
+          r.setData('animalState', state);
+          r.setData('restEnd', now + Phaser.Math.Between(caught ? 10000 : 5000, caught ? 16000 : 10000));
+          r.setData('packRole', null);
+          r.setData('packTarget', null);
+          b.setVelocity(0, 0);
+          this.playAnimalAnim(r, type, 'idle');
+        } else {
+          const toward = Phaser.Math.Angle.Between(r.x, r.y, packTarget.x, packTarget.y);
+          this.physics.velocityFromRotation(toward, effFleeSpeed, b.velocity);
+          r.setFlipX(Math.cos(toward) < 0);
+        }
+      } else if (state === 'pack-intercepting') {
+        // PACK: interceptor predicts prey flee direction and positions ahead.
+        const packTarget = r.getData('packTarget') as Phaser.GameObjects.Sprite | null;
+        const huntStart = r.getData('packHuntStart') as number;
+        if (!packTarget?.active || now - huntStart > 8000) {
+          state = 'resting';
+          r.setData('animalState', state);
+          r.setData('restEnd', now + Phaser.Math.Between(5000, 10000));
+          r.setData('packRole', null);
+          r.setData('packTarget', null);
+          b.setVelocity(0, 0);
+          this.playAnimalAnim(r, type, 'idle');
+        } else {
+          // Find the flusher to predict prey flee direction.
+          const packMates = spritesByType.get(type) ?? [];
+          const flusher = packMates.find(m => m.getData('packRole') === 'flusher');
+          if (flusher) {
+            // Prey flees away from flusher. Intercept 150px ahead along that vector.
+            const fleeAngle = Phaser.Math.Angle.Between(flusher.x, flusher.y, packTarget.x, packTarget.y);
+            const interceptX = packTarget.x + Math.cos(fleeAngle) * 150;
+            const interceptY = packTarget.y + Math.sin(fleeAngle) * 150;
+            const toward = Phaser.Math.Angle.Between(r.x, r.y, interceptX, interceptY);
+            this.physics.velocityFromRotation(toward, effFleeSpeed, b.velocity);
+            r.setFlipX(Math.cos(toward) < 0);
+          }
+          // Catch check: interceptors are more effective than flushers.
+          const dToPrey = Phaser.Math.Distance.Between(r.x, r.y, packTarget.x, packTarget.y);
+          if (dToPrey < 40 && now - huntStart > 2000 && Math.random() < 0.003) {
+            // ~25% over the 8s window (0.003 per frame at 60fps ≈ 0.18/s × ~8s)
+            this.killWildlifeAnimal(packTarget);
+            state = 'resting';
+            r.setData('animalState', state);
+            r.setData('restEnd', now + Phaser.Math.Between(10000, 18000));
+            r.setData('packRole', null);
+            r.setData('packTarget', null);
+            b.setVelocity(0, 0);
+            this.playAnimalAnim(r, type, 'idle');
+            // Also dismiss other pack members from this hunt.
+            for (const mate of (spritesByType.get(type) ?? [])) {
+              if (mate === r) continue;
+              if (mate.getData('packTarget') === packTarget) {
+                mate.setData('packRole', null);
+                mate.setData('packTarget', null);
+                mate.setData('animalState', 'resting' satisfies AnimalState);
+                mate.setData('restEnd', now + Phaser.Math.Between(8000, 14000));
+                (mate.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+              }
+            }
+          }
+        }
+      } else if (state === 'foraging') {
+        // Foraging pause — animal stops to fish/grub/browse/scavenge/peck.
+        b.setVelocity(0, 0);
+        if (now > (r.getData('forageEnd') as number)) {
+          state = 'roaming';
+          r.setData('animalState', state);
+          r.setData('roamNext', now + Phaser.Math.Between(2000, 5000));
+        }
+      } else if (state === 'investigating') {
+        // Curiosity: predator cautiously approaches a noise/kill site.
+        const invX = (r.getData('investigateX') as number) ?? r.x;
+        const invY = (r.getData('investigateY') as number) ?? r.y;
+        const invTimeout = (r.getData('investigateTimeout') as number) ?? 0;
+        const dToTarget = Phaser.Math.Distance.Between(r.x, r.y, invX, invY);
+        if (dToTarget < 20 || now > invTimeout) {
+          state = 'roaming';
+          r.setData('animalState', state);
+          r.setData('roamNext', now + Phaser.Math.Between(2000, 5000));
+          this.playAnimalAnim(r, type, 'idle');
+        } else {
+          const toward = Phaser.Math.Angle.Between(r.x, r.y, invX, invY);
+          this.physics.velocityFromRotation(toward, effRoamSpeed * 0.7, b.velocity);
+          this.playAnimalAnim(r, type, 'walk');
+          r.setFlipX(Math.cos(toward) < 0);
+        }
+      } else if (state === 'roaming' && now > (r.getData('roamNext') as number)) {
+        // ── DRINKING: all animals drink when near water ─────────────────────────
+        const { x: _drinkWx, y: _drinkWy } = isoToWorld(r.x, r.y);
+        const _drinkTx = Math.floor(_drinkWx / TILE_SIZE);
+        const _drinkTy = Math.floor(_drinkWy / TILE_SIZE);
+        if (this.hasAdjacentWater(_drinkTx, _drinkTy)
+            && now > ((r.getData('forageCooldown') as number) ?? 0)
+            && Math.random() < 0.15) {
+          state = 'foraging';
+          r.setData('animalState', state);
+          b.setVelocity(0, 0);
+          this.playAnimalAnim(r, type, 'drink');
+          r.setData('forageEnd', now + Phaser.Math.Between(2000, 5000));
+          r.setData('forageCooldown', now + Phaser.Math.Between(15000, 30000));
+        }
+        // ── CURIOSITY: predators investigate recent noise sources ────────────────
+        else if (archetype === 'predator' && Math.random() < 0.05 && this.noiseEvents.length > 0) {
+          // Find the most recent noise event within 10s.
+          const recentNoise = this.noiseEvents.find(n => now - n.time < 10000);
+          if (recentNoise) {
+            state = 'investigating';
+            r.setData('animalState', state);
+            r.setData('investigateX', recentNoise.x);
+            r.setData('investigateY', recentNoise.y);
+            r.setData('investigateTimeout', now + 8000);
+            this.playAnimalAnim(r, type, 'walk');
+          }
+        }
+        // GRAZER: 25% chance to enter a grazing pause instead of picking a new direction.
+        else if (archetype === 'grazer' && Math.random() < 0.25) {
+          state = 'grazing';
+          r.setData('animalState', state);
+          b.setVelocity(0, 0);
+          this.playAnimalAnim(r, type, 'eat');
+          r.setData('grazeEnd', now + Phaser.Math.Between(4000, 8000));
+        }
+        // FORAGING: 20% chance to forage if species has a foraging def, cooldown expired,
+        // and current tile matches the foraging biome requirements.
+        else if (this.faunaForaging[type] && now > (r.getData('forageCooldown') as number ?? 0) && Math.random() < 0.20) {
+          const forageDef = this.faunaForaging[type]!;
+          // Convert iso position to world, then to tile coordinates for biome lookup.
+          const { x: wfx, y: wfy } = isoToWorld(r.x, r.y);
+          const ftx = Math.floor(wfx / TILE_SIZE);
+          const fty = Math.floor(wfy / TILE_SIZE);
+          const tilesX = Math.ceil(WORLD_W / TILE_SIZE);
+          const biomeIdx = this.tileDevBiome?.[fty * tilesX + ftx] ?? -1;
+
+          let canForage = forageDef.biomes.includes(biomeIdx);
+          // Fishing requires an adjacent water tile.
+          if (canForage && forageDef.type === 'fishing') {
+            canForage = this.hasAdjacentWater(ftx, fty);
+          }
+          // Scavenging can also trigger near paths (not just biome match).
+          if (!canForage && forageDef.type === 'scavenging') {
+            canForage = this.pathSystem.getAffinityScore(wfx, wfy) > 0;
+          }
+
+          if (canForage) {
+            state = 'foraging';
+            r.setData('animalState', state);
+            b.setVelocity(0, 0);
+            this.playAnimalAnim(r, type, 'eat');
+            r.setData('forageEnd', now + Phaser.Math.Between(forageDef.duration[0], forageDef.duration[1]));
+            r.setData('forageCooldown', now + Phaser.Math.Between(forageDef.cooldown[0], forageDef.cooldown[1]));
+          } else {
+            // Biome doesn't match — fall through to normal roam.
+            r.setData('roamNext', now + Phaser.Math.Between(3000, 8000));
+          }
+        } else {
+          // Pick a new roaming direction — 4 candidates scored by path affinity
+          // plus archetype-specific biases (herd cohesion, territory, warren).
+          let bestAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          let bestScore = -Infinity;
+
+          // Pre-compute archetype bias angle + strength.
+          let biasAngle = 0;
+          let biasStrength = 0;
+
+          // YOUNG: strong tether toward nearest adult of same species (80px leash).
+          if (stage === 'young') {
+            const herdMates = spritesByType.get(type);
+            if (herdMates) {
+              let nearestAdult: Phaser.GameObjects.Sprite | null = null;
+              let nearestAdultDist = 200;
+              for (const mate of herdMates) {
+                if (mate === r) continue;
+                const mateStage = mate.getData('lifeStage') as LifeStage;
+                if (mateStage === 'young') continue; // only follow adults/elders
+                const d = Phaser.Math.Distance.Between(r.x, r.y, mate.x, mate.y);
+                if (d < nearestAdultDist) { nearestAdultDist = d; nearestAdult = mate; }
+              }
+              if (nearestAdult) {
+                biasAngle = Phaser.Math.Angle.Between(r.x, r.y, nearestAdult.x, nearestAdult.y);
+                // Strong pull — increases with distance from the adult.
+                biasStrength = Math.min(nearestAdultDist / 40, 3.0);
+              }
+            }
+          } else if (archetype === 'grazer') {
+            // Herd cohesion: bias toward nearest same-species animal.
+            const herdMates = spritesByType.get(type);
+            if (herdMates && herdMates.length > 1) {
+              let nearestMate: Phaser.GameObjects.Sprite | null = null;
+              let nearestMateDist = 300;
+              for (const mate of herdMates) {
+                if (mate === r) continue;
+                const d = Phaser.Math.Distance.Between(r.x, r.y, mate.x, mate.y);
+                if (d < nearestMateDist) { nearestMateDist = d; nearestMate = mate; }
+              }
+              if (nearestMate) {
+                biasAngle = Phaser.Math.Angle.Between(r.x, r.y, nearestMate.x, nearestMate.y);
+                biasStrength = 0.8;
+              }
+            }
+          } else if (archetype === 'predator') {
+            // Territory patrol: bias toward spawn point when far from home.
+            const homeX = r.getData('worldX') as number;
+            const homeY = r.getData('worldY') as number;
+            const { x: homeIsoX, y: homeIsoY } = worldToIso(homeX, homeY);
+            const distFromHome = Phaser.Math.Distance.Between(r.x, r.y, homeIsoX, homeIsoY);
+            if (distFromHome > 200) {
+              biasAngle = Phaser.Math.Angle.Between(r.x, r.y, homeIsoX, homeIsoY);
+              biasStrength = Math.min((distFromHome - 200) / 200, 1.5);
+            }
+          } else if (archetype === 'critter') {
+            // Warren proximity: bias toward spawn point, stronger when far.
+            const homeX = r.getData('worldX') as number;
+            const homeY = r.getData('worldY') as number;
+            const { x: homeIsoX, y: homeIsoY } = worldToIso(homeX, homeY);
+            const distFromHome = Phaser.Math.Distance.Between(r.x, r.y, homeIsoX, homeIsoY);
+            if (distFromHome > 60) {
+              biasAngle = Phaser.Math.Angle.Between(r.x, r.y, homeIsoX, homeIsoY);
+              biasStrength = (distFromHome / 100) * 1.5;
+            }
+          }
+
+          for (let c = 0; c < 4; c++) {
+            const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const tx = r.x + Math.cos(a) * 80;
+            const ty = r.y + Math.sin(a) * 80;
+            let score = this.pathSystem.getAffinityScore(tx, ty) + Math.random() * 0.4;
+            // Add archetype directional bias (dot product with bias direction).
+            if (biasStrength > 0) score += Math.cos(a - biasAngle) * biasStrength;
+            if (score > bestScore) { bestScore = score; bestAngle = a; }
+          }
+          this.physics.velocityFromRotation(bestAngle, effRoamSpeed, b.velocity);
+
+          // PACK: blend in SwarmBrain cohesion so pack members roam together.
+          const predInfoForRoam = this.faunaPredatorMap.get(type);
+          if (predInfoForRoam?.strategy === 'pack') {
+            const neighbours: BoidsNeighbour[] = [];
+            for (const mate of spritesByType.get(type) ?? []) {
+              if (mate === r) continue;
+              const mb = mate.body as Phaser.Physics.Arcade.Body;
+              neighbours.push({ x: mate.x, y: mate.y, vx: mb.velocity.x, vy: mb.velocity.y });
+            }
+            if (neighbours.length > 0) {
+              const steer = SwarmBrain.steer(r.x, r.y, effRoamSpeed, neighbours, BASE_WEIGHTS);
+              b.setVelocity(b.velocity.x * 0.8 + steer.vx * 0.2, b.velocity.y * 0.8 + steer.vy * 0.2);
+            }
+          }
+
+          r.setData('roamNext', now + Phaser.Math.Between(3000, 8000));
+        }
       }
 
-      // Critters pack sprites face SE; flip horizontally when moving left so they
-      // face SW instead — a simple directional cue without needing all 4 direction strips.
+      // Critters pack sprites face SE; flip horizontally when moving left.
       if (type === 'stag' || type === 'boar' || type === 'badger') {
         if (Math.abs(b.velocity.x) > 5) r.setFlipX(b.velocity.x < 0);
+      }
+
+      // ── Obstacle avoidance: unstick animals that hit walls ────────────────────
+      // When an animal is moving (roaming/fleeing/chasing) but velocity is near-zero,
+      // it's stuck against a collider. Pick a perpendicular direction immediately
+      // instead of waiting for the next roam tick.
+      if (state === 'roaming' || state === 'fleeing' || state === 'chasing' || state === 'investigating') {
+        const speed = Math.sqrt(b.velocity.x * b.velocity.x + b.velocity.y * b.velocity.y);
+        const expectedSpeed = state === 'fleeing' ? effFleeSpeed * 0.3 : effRoamSpeed * 0.3;
+        if (speed < expectedSpeed && speed > 0.1) {
+          // Stuck — rotate 90° (randomly left or right) and try again.
+          const currentAngle = Math.atan2(b.velocity.y, b.velocity.x);
+          const deflect = currentAngle + (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
+          const targetSpeed = state === 'fleeing' ? effFleeSpeed : effRoamSpeed;
+          this.physics.velocityFromRotation(deflect, targetSpeed, b.velocity);
+        }
+      }
+
+      // ── Per-animal vocalizations ──────────────────────────────────────────────
+      // Individual ambient calls at randomized intervals — only when awake and calm.
+      const VOCAL_SILENT = new Set<string>(['sleeping', 'fleeing', 'dying', 'injured', 'frozen', 'chasing', 'ambush-strike', 'pack-flushing']);
+      if (!VOCAL_SILENT.has(state)) {
+        const nextCall = (r.getData('ambientSoundTimer') as number) ?? 0;
+        if (now > nextCall) {
+          const SPECIES_AUDIO: Record<string, string> = {
+            deer: 'animal-deer', stag: 'animal-deer',
+            hare: 'animal-hare',
+            fox: 'animal-fox', badger: 'animal-fox', boar: 'animal-fox',
+            grouse: 'animal-bird',
+          };
+          const audioKey = SPECIES_AUDIO[type];
+          if (audioKey && this.audioAvailable && this.cache.audio.has(audioKey)) {
+            const vocalDist = Phaser.Math.Distance.Between(r.x, r.y, px, py);
+            if (vocalDist < 400) {
+              const vol = Math.max(0, (400 - vocalDist) / 400) * 0.25 * this.sfxVol;
+              const rate = Phaser.Math.FloatBetween(0.9, 1.1);
+              this.sound.play(audioKey, { volume: vol, rate, pan: this.stereoPan(r.x) });
+            }
+          }
+          const interval = archetype === 'predator'
+            ? Phaser.Math.Between(5000, 15000)
+            : Phaser.Math.Between(8000, 25000);
+          r.setData('ambientSoundTimer', now + interval);
+        }
       }
     }
   }
@@ -5578,7 +6630,218 @@ export class GameScene extends Phaser.Scene {
   private updateBirds(time: number, delta: number): void {
     const dt = delta / 1000;
 
+    // ── Simplified boid flocking ────────────────────────────────────────────────
+    // Birds within FLOCK_RADIUS align velocity and maintain SEPARATION_DIST spacing.
+    // With only 30 birds the O(n²) inner loop is ~900 iterations — trivially fast.
+    const FLOCK_RADIUS    = 100;
+    const SEPARATION_DIST = 30;
+    for (let i = 0; i < this.birds.length; i++) {
+      const bird = this.birds[i];
+      if (bird.playerControlled) continue;
+      // Skip hunting or landed birds from the flocking calculation.
+      if (bird.huntState && bird.huntState !== 'flying') continue;
+      if (bird.landState && bird.landState !== 'flying') continue;
+
+      let alignVx = 0, alignVy = 0, alignCount = 0;
+      let sepX = 0, sepY = 0;
+
+      for (let j = 0; j < this.birds.length; j++) {
+        if (i === j) continue;
+        const other = this.birds[j];
+        const dx = bird.worldX - other.worldX;
+        const dy = bird.worldY - other.worldY;
+        const d  = Math.sqrt(dx * dx + dy * dy);
+
+        if (d < FLOCK_RADIUS) {
+          alignVx += other.vx;
+          alignVy += other.vy;
+          alignCount++;
+
+          if (d < SEPARATION_DIST && d > 0) {
+            sepX += (dx / d) * (SEPARATION_DIST - d);
+            sepY += (dy / d) * (SEPARATION_DIST - d);
+          }
+        }
+      }
+
+      if (alignCount > 0) {
+        alignVx /= alignCount;
+        alignVy /= alignCount;
+        // Blend: 85% current velocity, 10% alignment, 5% separation.
+        const speed = Math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy);
+        bird.vx = bird.vx * 0.85 + alignVx * 0.10 + sepX * 0.05;
+        bird.vy = bird.vy * 0.85 + alignVy * 0.10 + sepY * 0.05;
+        // Normalize back to original speed so flocking doesn't accelerate/decelerate.
+        const newSpeed = Math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy);
+        if (newSpeed > 0) {
+          bird.vx = (bird.vx / newSpeed) * speed;
+          bird.vy = (bird.vy / newSpeed) * speed;
+        }
+      }
+    }
+
+    // ── Bird landing ──────────────────────────────────────────────────────────
+    // Birds occasionally land, stay grounded for 4-12s, then take off again.
+    // Startled by the player within 120px.
+    const playerX = this.player.x;
+    const playerY = this.player.y;
     for (const bird of this.birds) {
+      if (bird.playerControlled) continue;
+      if (bird.huntState && bird.huntState !== 'flying') continue; // don't land while hunting
+      const ls = bird.landState ?? 'flying';
+
+      if (ls === 'flying') {
+        // Small chance to land each frame (~1 per 5s at 60fps)
+        if (Math.random() < 0.0003) {
+          bird.landState = 'landing';
+          bird.landTimer = time;
+          bird.vx = 0;
+          bird.vy = 0;
+        }
+      } else if (ls === 'landing') {
+        // Descend over 800ms — shrink shadow offset to simulate altitude loss.
+        const elapsed = time - (bird.landTimer ?? time);
+        const t = Math.min(elapsed / 800, 1);
+        bird.shadow.setPosition(
+          bird.body.x + BIRD_SHADOW_DX * (1 - t),
+          bird.body.y + BIRD_SHADOW_DY * (1 - t),
+        );
+        bird.body.setDepth(7 - 5 * t); // 7 → 2
+        bird.vx = 0; bird.vy = 0;
+        if (t >= 1) {
+          bird.landState = 'grounded';
+          bird.groundedUntil = time + Phaser.Math.Between(4000, 12000);
+          bird.body.stop(); // stop fly animation, show resting frame
+        }
+      } else if (ls === 'grounded') {
+        bird.vx = 0; bird.vy = 0;
+        // Startled by player proximity.
+        const dToPlayer = Phaser.Math.Distance.Between(bird.body.x, bird.body.y, playerX, playerY);
+        if (time > (bird.groundedUntil ?? 0) || dToPlayer < 120) {
+          bird.landState = 'taking-off';
+          bird.landTimer = time;
+          bird.body.play('grouse-fly-anim');
+        }
+      } else if (ls === 'taking-off') {
+        const elapsed = time - (bird.landTimer ?? time);
+        const t = Math.min(elapsed / 600, 1);
+        bird.shadow.setPosition(
+          bird.body.x + BIRD_SHADOW_DX * t,
+          bird.body.y + BIRD_SHADOW_DY * t,
+        );
+        bird.body.setDepth(2 + 5 * t); // 2 → 7
+        bird.vx = 0; bird.vy = 0;
+        if (t >= 1) {
+          bird.landState = 'flying';
+          bird.body.setDepth(7);
+          const speed = Phaser.Math.Between(55, 95);
+          const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          bird.vx = Math.cos(angle) * speed;
+          bird.vy = Math.sin(angle) * speed;
+        }
+      }
+    }
+
+    // ── Dive hunting (birds of prey) ──────────────────────────────────────────
+    // Birds with huntStrategy 'dive' scan for ground prey, circle, then dive-strike.
+    const DIVE_SPEED     = 200;  // px/s (matches crow swoop speed)
+    const DIVE_DURATION  = 800;  // ms
+    const CLIMB_DURATION = 1200; // ms
+    const CIRCLE_RADIUS  = 60;   // world-space px
+
+    for (const bird of this.birds) {
+      const birdType = bird.body.getData('animalType') as string;
+      const predInfo = this.faunaPredatorMap.get(birdType);
+      if (!predInfo || predInfo.strategy !== 'dive') continue;
+
+      const huntState = bird.huntState ?? 'flying';
+      const huntStart = bird.huntStartTime ?? 0;
+
+      if (huntState === 'flying') {
+        // Don't hunt if on cooldown.
+        if (bird.huntCooldown && time < bird.huntCooldown) continue;
+        // Scan ground animals for prey within chaseRange (iso-screen distance).
+        const { x: bIsoX, y: bIsoY } = worldToIso(bird.worldX, bird.worldY);
+        const groundSprites = this.groundAnimals.getChildren() as Phaser.GameObjects.Sprite[];
+        for (const prey of groundSprites) {
+          if (!prey.active) continue;
+          const preyType = prey.getData('animalType') as string;
+          if (!predInfo.prey.includes(preyType)) continue;
+          const d = Phaser.Math.Distance.Between(bIsoX, bIsoY, prey.x, prey.y);
+          if (d < predInfo.range && Math.random() < 0.005) {
+            // Begin circling above target.
+            bird.huntState   = 'circling';
+            bird.huntTarget  = prey;
+            bird.huntStartTime = time;
+            bird.circleAngle = 0;
+            break;
+          }
+        }
+      } else if (huntState === 'circling') {
+        const target = bird.huntTarget;
+        if (!target?.active) {
+          bird.huntState = 'flying'; bird.huntTarget = null; continue;
+        }
+        // Orbit in world space around the target's world position.
+        const targetWx = target.getData('worldX') as number ?? 0;
+        const targetWy = target.getData('worldY') as number ?? 0;
+        bird.circleAngle = (bird.circleAngle ?? 0) + 2.0 * dt;
+        bird.worldX = targetWx + Math.cos(bird.circleAngle) * CIRCLE_RADIUS;
+        bird.worldY = targetWy + Math.sin(bird.circleAngle) * CIRCLE_RADIUS;
+        bird.vx = 0; bird.vy = 0; // override velocity so flocking doesn't interfere
+        // After 2-4s of circling, initiate dive.
+        if (time - huntStart > Phaser.Math.Between(2000, 4000)) {
+          bird.huntState = 'diving';
+          bird.huntStartTime = time;
+          bird.body.setDepth(3); // lower depth toward ground level
+        }
+      } else if (huntState === 'diving') {
+        const target = bird.huntTarget;
+        if (!target?.active) {
+          bird.huntState = 'climbing'; bird.huntStartTime = time;
+          bird.body.setDepth(7); continue;
+        }
+        // Swoop toward target in world space.
+        const targetWx = target.getData('worldX') as number ?? 0;
+        const targetWy = target.getData('worldY') as number ?? 0;
+        const ang = Math.atan2(targetWy - bird.worldY, targetWx - bird.worldX);
+        bird.worldX += Math.cos(ang) * DIVE_SPEED * dt;
+        bird.worldY += Math.sin(ang) * DIVE_SPEED * dt;
+        bird.vx = 0; bird.vy = 0;
+        // Shrink shadow offset to simulate altitude loss.
+        bird.shadow.setScale(0.5);
+        // After dive duration, resolve.
+        if (time - huntStart > DIVE_DURATION) {
+          const { x: bIsoX, y: bIsoY } = worldToIso(bird.worldX, bird.worldY);
+          const dToPrey = Phaser.Math.Distance.Between(bIsoX, bIsoY, target.x, target.y);
+          if (dToPrey < 30 && Math.random() < 0.30) {
+            this.killWildlifeAnimal(target);
+          }
+          bird.huntState = 'climbing';
+          bird.huntStartTime = time;
+          bird.body.setDepth(7);
+          bird.shadow.setScale(1);
+        }
+      } else if (huntState === 'climbing') {
+        // Return to flight altitude — just resume normal movement after a delay.
+        bird.vx = 0; bird.vy = 0;
+        if (time - huntStart > CLIMB_DURATION) {
+          bird.huntState = 'flying';
+          bird.huntTarget = null;
+          bird.huntCooldown = time + 15000; // 15s before hunting again
+          // Resume with a random velocity.
+          const speed = Phaser.Math.Between(55, 95);
+          const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          bird.vx = Math.cos(angle) * speed;
+          bird.vy = Math.sin(angle) * speed;
+        }
+      }
+    }
+
+    // ── Per-bird position update ────────────────────────────────────────────────
+    for (const bird of this.birds) {
+      // Skip grounded/landing/taking-off birds — their position is static.
+      if (bird.landState && bird.landState !== 'flying') continue;
       // Gently nudge direction every so often — birds don't fly perfectly straight.
       // Skip this when the player is steering the bird in attract mode.
       if (!bird.playerControlled && time > bird.nextDirChange) {
