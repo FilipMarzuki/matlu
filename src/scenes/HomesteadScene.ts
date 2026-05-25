@@ -416,8 +416,14 @@ export class HomesteadScene extends Phaser.Scene {
           const wDrop = tileElev > 0 && tx > 0           ? tileElev - getElev(tx - 1, ty) : 0;
           const hasCliff = sDrop > 0 || eDrop > 0 || wDrop > 0;
 
-          // Mark walkability — water, cliffs, and elevated terrain are impassable
-          if (hsIsWater || hasCliff || tileElev > 0) this.walkGrid[ty * GRID_W + tx] = 1;
+          // Mark walkability — shifted SE (+1 tx) so blocked zone aligns
+          // with where the cliff face / water visually sits on screen.
+          if (hsIsWater && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+          if (hasCliff) {
+            if (sDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+            if (eDrop > 0 && tx + 2 < GRID_W) this.walkGrid[ty * GRID_W + (tx + 2)] = 1;
+            if (wDrop > 0)                     this.walkGrid[ty * GRID_W + tx] = 1;
+          }
 
           if (hsIsWater) {
             this.add.image(isoX, posY, 'iso-tiles', 105)
@@ -502,8 +508,13 @@ export class HomesteadScene extends Phaser.Scene {
         const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
         const isOnRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
 
-        // Mark walkability — water, cliffs, and elevated terrain are impassable
-        if (isWater || hasCliff || tileElev > 0) this.walkGrid[ty * GRID_W + tx] = 1;
+        // Mark walkability — shifted SE (+1 tx) to align with visual
+        if (isWater && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+        if (hasCliff) {
+          if (southDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+          if (eastDrop > 0 && tx + 2 < GRID_W)  this.walkGrid[ty * GRID_W + (tx + 2)] = 1;
+          if (westDrop > 0)                      this.walkGrid[ty * GRID_W + tx] = 1;
+        }
 
         // Floor Y raised by elevation
         const posY = isoY - tileElev * CLIFF_H;
@@ -594,27 +605,7 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
-    // ── Cliff base collision — block tiles where cliff walls extend into ──
-    // Only mark the specific lowland tiles that cliff faces overlap (south,
-    // east, west drops), not all neighbours generically.
-    for (let ty = 0; ty < GRID_H; ty++) {
-      for (let tx = 0; tx < GRID_W; tx++) {
-        const e = getElev(tx, ty);
-        if (e === 0) continue;
-        // South drop → cliff extends into (tx, ty+1)
-        if (ty + 1 < GRID_H && getElev(tx, ty + 1) < e) {
-          this.walkGrid[(ty + 1) * GRID_W + tx] = 1;
-        }
-        // East drop → cliff extends into (tx+1, ty)
-        if (tx + 1 < GRID_W && getElev(tx + 1, ty) < e) {
-          this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
-        }
-        // West drop → cliff extends into (tx-1, ty)
-        if (tx > 0 && getElev(tx - 1, ty) < e) {
-          this.walkGrid[ty * GRID_W + (tx - 1)] = 1;
-        }
-      }
-    }
+
 
     // ── Debug tile grid overlay ─────────────────────────────────────────
     // Draws iso diamond outlines: green = walkable, red = blocked.
@@ -975,15 +966,31 @@ export class HomesteadScene extends Phaser.Scene {
     this.player.x = Phaser.Math.Clamp(this.player.x, margin, WORLD_W - margin);
     this.player.y = Phaser.Math.Clamp(this.player.y, margin, WORLD_H - margin);
 
-    // ── Tile collision — check a small body radius against the walk grid ──
-    const BODY_R = 6; // collision check radius in pixels
+    // ── Tile collision — walk grid + sub-tile cliff-base check ─────────
+    const BODY_R = 6;
     const isBlocked = (wx: number, wy: number) => {
-      // Check 4 corners of the body box
+      // Check 4 corners of the body box against the walkGrid
       for (const [ox, oy] of [[-BODY_R,-BODY_R],[BODY_R,-BODY_R],[-BODY_R,BODY_R],[BODY_R,BODY_R]]) {
         const ttx = Math.floor((wx + ox) / TILE_SIZE);
         const tty = Math.floor((wy + oy) / TILE_SIZE);
         if (ttx < 0 || tty < 0 || ttx >= GRID_W || tty >= GRID_H) return true;
         if (this.walkGrid[tty * GRID_W + ttx] === 1) return true;
+      }
+      // Sub-tile cliff-base check: if the tile to the north has a cliff
+      // dropping south, block the northern half of this tile.
+      const ttx = Math.floor(wx / TILE_SIZE);
+      const tty = Math.floor(wy / TILE_SIZE);
+      const localY = wy - tty * TILE_SIZE;  // 0-31 within the tile
+      // North neighbour drops south → block top half of this tile
+      if (tty > 0 && localY < TILE_SIZE / 2) {
+        const nElev = getElev(ttx, tty - 1);
+        if (nElev > getElev(ttx, tty)) return true;
+      }
+      // West neighbour drops east → block left half
+      const localX = wx - ttx * TILE_SIZE;
+      if (ttx > 0 && localX < TILE_SIZE / 2) {
+        const wElev = getElev(ttx - 1, tty);
+        if (wElev > getElev(ttx, tty)) return true;
       }
       return false;
     };
