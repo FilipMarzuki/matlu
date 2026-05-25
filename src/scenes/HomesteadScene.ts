@@ -22,15 +22,15 @@ import { HomesteadAuth } from '../lib/HomesteadAuth';
 import { preloadTilePacks, CUSTOM_TILE_PACKS } from '../world/TilePacks';
 
 // ── Grid constants ─────────────────────────────────────────────────────────
-// 60×30 non-square grid. Left half (tx 0-29) = homestead + forest.
-// Right half (tx 30-59) = WorldForge terrain (elevation, river, waterfall).
-// Mountain range along NE border (ty < 8) blends into WF highlands.
+// 60×60 grid. Left half (tx 0-29) = homestead meadow, water body in the SW.
+// Right half (tx 30-59) = WorldForge terrain (elevation, river, waterfall, ocean).
+// Mountain range along NE border blends into WF highlands.
 
 const TILE_SIZE = 32;
 const GRID_W = 60;       // tiles wide (tx axis)
-const GRID_H = 30;       // tiles tall (ty axis)
-const WORLD_W = GRID_W * TILE_SIZE;  // 1920
-const WORLD_H = GRID_H * TILE_SIZE;  //  960
+const GRID_H = 60;       // tiles tall (ty axis)
+const WORLD_W = GRID_W * TILE_SIZE;
+const WORLD_H = GRID_H * TILE_SIZE;
 const PLAYER_SPEED = 120;
 const INTERACT_RADIUS = 50;
 
@@ -66,7 +66,7 @@ function getZone(tx: number, _ty: number): ZoneType {
 // waterfall, biome bands. Local diagonal ld = ltx+lty runs NW→SE within the
 // 30×30 sub-grid.
 
-const WF_GRID     = 30;
+const WF_GRID_W   = 30;   // WF sub-grid width (ltx range: 0-29)
 const WF_ELEV_CUT = 10;   // ld < this → highlands
 const WF_OCEAN_CUT = 48;  // ld > this → ocean
 
@@ -226,8 +226,17 @@ export class HomesteadScene extends Phaser.Scene {
   private nodesInRange = new Set<ResourceNode>();
   private actionTapped = false;
   private targetNode: ResourceNode | null = null;
+
+  // Wolf wildlife preview
+  private wolfSprite?: Phaser.GameObjects.Sprite;
+  private wolfWx = 0; private wolfWy = 0;
+  private wolfVx = 0; private wolfVy = 0;
+  private wolfTimer = 0;
+  private wolfDir = 'se';
   private characterKey = 'loke';
   private facingDir: 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west' = 'south';
+  private lastSafeX = 0;
+  private lastSafeY = 0;
 
   // ── Building placement ─────────────────────────────────────────────────
   private selectedBuilding: BuildingDef | null = null;
@@ -244,6 +253,10 @@ export class HomesteadScene extends Phaser.Scene {
   // ── WF geography zone state ───────────────────────────────────────────
   private wfFrame = 0;  // current waterfall animation frame (0-4)
   private wfSprites: Phaser.GameObjects.Image[] = [];  // waterfall wall tiles
+
+  // ── Walkability ───────────────────────────────────────────────────────
+  // 0 = walkable, 1 = blocked (water, cliff). Row-major: ty * GRID_W + tx.
+  private walkGrid = new Uint8Array(GRID_W * GRID_H);
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -308,6 +321,14 @@ export class HomesteadScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) this.load.image(`tree-spruce-young-${i}`,   `/assets/sprites/trees/spruce/young/${i}.png`);
     for (let i = 0; i < 3; i++) this.load.image(`tree-spruce-${i}`,         `/assets/sprites/trees/spruce/mature/${i}.png`);
     for (let i = 0; i < 4; i++) this.load.image(`tree-ancient-${i}`, `/assets/sprites/trees/ancient/mature/${i}.png`);
+
+    // Wolf spritesheets — 8 directions for template anims
+    const wolfBase = '/assets/sprites/wildlife/wolf';
+    for (const anim of ['idle', 'walk', 'run']) {
+      for (const d of ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw']) {
+        this.load.spritesheet(`wolf-${anim}-${d}`, `${wolfBase}/${anim}_${d}.png`, { frameWidth: 48, frameHeight: 48 });
+      }
+    }
   }
 
   create(): void {
@@ -332,12 +353,19 @@ export class HomesteadScene extends Phaser.Scene {
     // system: elevation with cliff stacking, a meandering river with a
     // waterfall at the cliff edge, and biome bands (highland → midland → ocean).
 
-    // Procedural splash-dot texture for waterfall particles
+    // Procedural particle textures
     if (!this.textures.exists('splash-dot')) {
       const g = this.add.graphics();
       g.fillStyle(0xb0d0ff, 1);
       g.fillRect(0, 0, 2, 2);
       g.generateTexture('splash-dot', 2, 2);
+      g.destroy();
+    }
+    if (!this.textures.exists('foam-dot')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xe8f0ff, 1);
+      g.fillRect(0, 0, 2, 2);
+      g.generateTexture('foam-dot', 2, 2);
       g.destroy();
     }
 
@@ -361,13 +389,23 @@ export class HomesteadScene extends Phaser.Scene {
           const posY = isoY - tileElev * CLIFF_H;
           const th = wfTileHash(tx, ty);
 
+          // Water body in the SW — wavy shoreline continuing from the WF ocean
+          const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+          const hsIsWater = tileElev === 0 && ty > shoreEdge;
+
           let pack: string;
-          if (ty <= 2 && tileElev === 2) {
+          if (hsIsWater) {
+            // Water tile — rendered below, skip biome pack
+            pack = '';
+          } else if (ty <= 2 && tileElev === 2) {
             pack = CUSTOM_TILE_PACKS[11]!;
           } else if (tileElev === 2) {
             pack = CUSTOM_TILE_PACKS[10]!;
           } else if (tileElev === 1) {
             pack = CUSTOM_TILE_PACKS[9]!;
+          } else if (ty > shoreEdge - 2) {
+            // Sandy shore transition near water edge
+            pack = CUSTOM_TILE_PACKS[2]!;
           } else {
             pack = 'meadow';
           }
@@ -377,7 +415,13 @@ export class HomesteadScene extends Phaser.Scene {
           const wDrop = tileElev > 0 && tx > 0           ? tileElev - getElev(tx - 1, ty) : 0;
           const hasCliff = sDrop > 0 || eDrop > 0 || wDrop > 0;
 
-          if (hasCliff) {
+          // Mark walkability — water, cliffs, and elevated terrain are impassable
+          if (hsIsWater || hasCliff || tileElev > 0) this.walkGrid[ty * GRID_W + tx] = 1;
+
+          if (hsIsWater) {
+            this.add.image(isoX, posY, 'iso-tiles', 105)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          } else if (hasCliff) {
             const cliffBiome = tileElev === 2 ? 11 : tileElev === 1 ? 10 : 9;
             const cliffKey = wfCliffKey(cliffBiome);
             const maxDrop = Math.max(sDrop, eDrop, wDrop);
@@ -417,7 +461,7 @@ export class HomesteadScene extends Phaser.Scene {
         const atWfBase = tileElev === 0 && (() => {
           for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
             const nx = ltx + dx, ny = lty + dy;
-            if (nx < 0 || ny < 0 || nx >= WF_GRID || ny >= WF_GRID) continue;
+            if (nx < 0 || ny < 0 || nx >= WF_GRID_W || ny >= GRID_H) continue;
             if (wfGetElev(nx, ny) > 0 && Math.abs(nx - wfRiverCenter(nx + ny)) <= 1) return true;
           }
           return false;
@@ -451,11 +495,14 @@ export class HomesteadScene extends Phaser.Scene {
         }
 
         // Cliff detection (neighbour drops)
-        const southDrop = tileElev > 0 && lty + 1 < WF_GRID ? tileElev - wfGetElev(ltx, lty + 1) : 0;
-        const eastDrop  = tileElev > 0 && ltx + 1 < WF_GRID ? tileElev - wfGetElev(ltx + 1, lty) : 0;
+        const southDrop = tileElev > 0 && lty + 1 < GRID_H ? tileElev - wfGetElev(ltx, lty + 1) : 0;
+        const eastDrop  = tileElev > 0 && ltx + 1 < WF_GRID_W ? tileElev - wfGetElev(ltx + 1, lty) : 0;
         const westDrop  = tileElev > 0 && ltx > 0            ? tileElev - wfGetElev(ltx - 1, lty) : 0;
         const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
         const isOnRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
+
+        // Mark walkability — water, cliffs, and elevated terrain are impassable
+        if (isWater || hasCliff || tileElev > 0) this.walkGrid[ty * GRID_W + tx] = 1;
 
         // Floor Y raised by elevation
         const posY = isoY - tileElev * CLIFF_H;
@@ -470,11 +517,59 @@ export class HomesteadScene extends Phaser.Scene {
           const wallKey = useWaterfall ? `waterfall-${this.wfFrame}` : cliffKey;
 
           for (let step = maxDrop * 2; step >= 1; step--) {
-            // Topmost block uses water-topped variant; lower blocks use standard waterfall
             const key = useWaterfall && step === 1 ? `wf-top-${this.wfFrame}` : wallKey;
             const wallImg = this.add.image(isoX, posY + step * (CLIFF_H / 2), key)
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
             if (useWaterfall) this.wfSprites.push(wallImg);
+          }
+
+          // Waterfall particles — foam at the top, splash at the bottom
+          if (useWaterfall) {
+            const hw = ISO_TILE_W / 2;  // 16
+            const hh = ISO_TILE_H / 2;  //  8
+
+            // Foam at cliff lip (top of waterfall)
+            const foamY = posY + ISO_TILE_H * 0.5 + CLIFF_H / 2;
+            const foamCfg = {
+              speed: { min: 1, max: 3 },
+              angle: { min: 85, max: 95 },
+              accelerationY: 30,
+              scale: { start: 0.6, end: 0.1 },
+              alpha: { start: 0.7, end: 0 },
+              lifespan: { min: 1500, max: 3000 },
+              frequency: 100,
+              quantity: 2,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-4, -2, 8, 4) } as any,
+            };
+            for (const { ex, ey } of [
+              { ex: isoX - hw * 0.5, ey: foamY + hh * 0.5 },
+              { ex: isoX,            ey: foamY + hh },
+              { ex: isoX + hw * 0.5, ey: foamY + hh * 0.5 },
+            ]) {
+              this.add.particles(ex, ey, 'splash-dot', foamCfg).setDepth(baseDepth - 998);
+            }
+
+            // Splash at waterfall base (where water hits the pool)
+            const splashY = posY + maxDrop * CLIFF_H + ISO_TILE_H * 0.5 + CLIFF_H / 2;
+            const splashCfg = {
+              speed: { min: 1, max: 3 },
+              angle: { min: 260, max: 280 },
+              scale: { start: 2.0, end: 0.8 },
+              alpha: { start: 0.8, end: 0 },
+              lifespan: { min: 800, max: 2000 },
+              frequency: 100,
+              quantity: 2,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-3, -2, 6, 4) } as any,
+            };
+            for (const { ex, ey } of [
+              { ex: isoX - hw * 0.5, ey: splashY + hh * 0.5 },
+              { ex: isoX,            ey: splashY + hh },
+              { ex: isoX + hw * 0.5, ey: splashY + hh * 0.5 },
+            ]) {
+              this.add.particles(ex, ey, 'foam-dot', splashCfg).setDepth(baseDepth + 2);
+            }
           }
 
           // Floor on top of cliff
@@ -493,6 +588,27 @@ export class HomesteadScene extends Phaser.Scene {
           } else if (customPack) {
             this.add.image(isoX, posY, `${customPack}-${th}`)
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          }
+        }
+      }
+    }
+
+    // ── Cliff base collision — block lowland tiles at the foot of cliffs ──
+    // The elevated tiles are already blocked, but cliff wall sprites extend
+    // down into adjacent lowland tiles. Mark any lowland tile that neighbours
+    // a higher tile as blocked so the player can't walk through the cliff face.
+    for (let ty = 0; ty < GRID_H; ty++) {
+      for (let tx = 0; tx < GRID_W; tx++) {
+        if (this.walkGrid[ty * GRID_W + tx] === 1) continue; // already blocked
+        const e = getElev(tx, ty);
+        // Check 4 neighbours — if any is higher, this tile is at a cliff base
+        const nb: [number, number][] = [[0,-1],[0,1],[-1,0],[1,0]];
+        for (const [dx, dy] of nb) {
+          const nx = tx + dx, ny = ty + dy;
+          if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+          if (getElev(nx, ny) > e) {
+            this.walkGrid[ty * GRID_W + tx] = 1;
+            break;
           }
         }
       }
@@ -544,8 +660,11 @@ export class HomesteadScene extends Phaser.Scene {
       this.createAnimsFromAseprite(c.key);
     }
 
-    const spawnWx = WORLD_W / 2;
-    const spawnWy = WORLD_H / 2;
+    // Spawn on lowland meadow (left half, below the mountain range)
+    const spawnWx = 15 * TILE_SIZE;
+    const spawnWy = 20 * TILE_SIZE;
+    this.lastSafeX = spawnWx;
+    this.lastSafeY = spawnWy;
 
     // Invisible physics body — a tiny placeholder texture for the physics sprite
     if (!this.textures.exists('hs-player-phys')) {
@@ -658,6 +777,9 @@ export class HomesteadScene extends Phaser.Scene {
       ISO_H + cam.height / 3,
     );
     cam.startFollow(this.playerIso, true, 0.08, 0.08);
+
+    // ── Wolf wildlife preview ─────────────────────────────────────────────
+    this.spawnWolf();
 
     // UI camera: 1× zoom, no scroll — renders HUD elements at native size.
     const uiCam = this.cameras.add(0, 0, cam.width, cam.height);
@@ -791,6 +913,7 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   update(): void {
+    this.updateWolf(this.game.loop.delta);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
 
     // ── Input → world-space velocity ─────────────────────────────────────
@@ -835,13 +958,42 @@ export class HomesteadScene extends Phaser.Scene {
       body.setVelocity(0, 0);
     }
 
-    // ── Clamp player to iso diamond ─────────────────────────────────────
-    // Physics world is a square but only the iso diamond has tiles.
-    // In flat grid space the diamond is: tx ∈ [0,GRID_W), ty ∈ [0,GRID_H).
-    // Clamp with a half-tile margin so the sprite doesn't overhang.
+    // Clamp to world bounds
     const margin = TILE_SIZE * 0.5;
     this.player.x = Phaser.Math.Clamp(this.player.x, margin, WORLD_W - margin);
     this.player.y = Phaser.Math.Clamp(this.player.y, margin, WORLD_H - margin);
+
+    // ── Tile collision — check a small body radius against the walk grid ──
+    const BODY_R = 6; // collision check radius in pixels
+    const isBlocked = (wx: number, wy: number) => {
+      // Check 4 corners of the body box
+      for (const [ox, oy] of [[-BODY_R,-BODY_R],[BODY_R,-BODY_R],[-BODY_R,BODY_R],[BODY_R,BODY_R]]) {
+        const ttx = Math.floor((wx + ox) / TILE_SIZE);
+        const tty = Math.floor((wy + oy) / TILE_SIZE);
+        if (ttx < 0 || tty < 0 || ttx >= GRID_W || tty >= GRID_H) return true;
+        if (this.walkGrid[tty * GRID_W + ttx] === 1) return true;
+      }
+      return false;
+    };
+
+    if (isBlocked(this.player.x, this.player.y)) {
+      // Try sliding: keep new X, revert Y
+      if (!isBlocked(this.player.x, this.lastSafeY)) {
+        this.player.y = this.lastSafeY;
+      // Try sliding: keep new Y, revert X
+      } else if (!isBlocked(this.lastSafeX, this.player.y)) {
+        this.player.x = this.lastSafeX;
+      } else {
+        // Fully blocked — revert both
+        this.player.x = this.lastSafeX;
+        this.player.y = this.lastSafeY;
+      }
+      body.setVelocity(0, 0);
+    }
+
+    // Store last safe position
+    this.lastSafeX = this.player.x;
+    this.lastSafeY = this.player.y;
 
     // ── Sync iso sprite to physics body + animate ──────────────────────
     const { x: isoX, y: isoY } = hsWorldToIso(this.player.x, this.player.y);
@@ -1128,7 +1280,7 @@ export class HomesteadScene extends Phaser.Scene {
 
         // Only place trees on homestead half; skip rock/snow tile types
         if (zone === 'wf') continue;
-        if (getElev(tx, ty) > 0) continue;
+        if (this.walkGrid[ty * GRID_W + tx] === 1) continue;
 
         // Skip tiles occupied by resource nodes
         if (nodeSet.has(`${tx},${ty}`)) continue;
@@ -1214,5 +1366,115 @@ export class HomesteadScene extends Phaser.Scene {
       const isLoop = tag.name.includes('idle') || tag.name.includes('walk');
       this.anims.create({ key: tag.name, frames: animFrames, repeat: isLoop ? -1 : 0 });
     }
+  }
+
+  // ── Wolf wildlife ──────────────────────────────────────────────────────────
+
+  private spawnWolf(): void {
+    // Register wolf directional animations.
+    const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+    const WOLF_ANIMS: Array<[string, number[], number]> = [
+      ['idle', [0,1,2,3,4,5,6,7], 6],
+      ['walk', [0,1,2,3,4,5],     8],
+      ['run',  [0,1,2,3,4,5],     12],
+    ];
+    for (const [anim, frames, rate] of WOLF_ANIMS) {
+      for (const d of DIRS) {
+        const texKey = `wolf-${anim}-${d}`;
+        const animKey = `hs-wolf-${anim}-${d}`;
+        if (this.textures.exists(texKey) && !this.anims.exists(animKey)) {
+          this.anims.create({
+            key: animKey,
+            frames: this.anims.generateFrameNumbers(texKey, { frames }),
+            frameRate: rate,
+            repeat: -1,
+          });
+        }
+      }
+    }
+
+    // Spawn in world space — somewhere in the forest zone (east side).
+    // Spawn wolf on lowland meadow
+    this.wolfWx = 18 * TILE_SIZE;
+    this.wolfWy = 22 * TILE_SIZE;
+    const { x: isoX, y: isoY } = hsWorldToIso(this.wolfWx, this.wolfWy);
+    this.wolfSprite = this.add.sprite(isoX, isoY, 'wolf-idle-se', 0)
+      .setScale(0.55)
+      .setOrigin(0.5, 0.8)
+      .setDepth(hsIsoDepth(this.wolfWx, this.wolfWy));
+    this.wolfSprite.play('hs-wolf-idle-se');
+    this.wolfTimer = 0;
+  }
+
+  private updateWolf(delta: number): void {
+    if (!this.wolfSprite) return;
+
+    this.wolfTimer -= delta;
+    if (this.wolfTimer <= 0) {
+      const roll = Math.random();
+      if (roll < 0.25) {
+        // Idle
+        this.wolfVx = 0;
+        this.wolfVy = 0;
+        this.wolfTimer = Phaser.Math.Between(800, 2000);
+        const idleKey = `hs-wolf-idle-${this.wolfDir}`;
+        if (this.anims.exists(idleKey)) this.wolfSprite.play(idleKey, true);
+      } else {
+        // Walk or run
+        const running = roll > 0.85;
+        const speed = running ? 60 : 30;
+        const angle = Math.random() * Math.PI * 2;
+        this.wolfVx = Math.cos(angle) * speed;
+        this.wolfVy = Math.sin(angle) * speed;
+        this.wolfTimer = Phaser.Math.Between(1500, 4000);
+
+        // Compute direction from world-space velocity
+        const wAngle = Math.atan2(this.wolfVy, this.wolfVx);
+        const sector = Math.round(wAngle / (Math.PI / 4));
+        const DIR_MAP: Record<number, string> = {
+          0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
+        };
+        this.wolfDir = DIR_MAP[sector] ?? 'se';
+        const animBase = running ? 'run' : 'walk';
+        const animKey = `hs-wolf-${animBase}-${this.wolfDir}`;
+        if (this.anims.exists(animKey)) {
+          this.wolfSprite.play(animKey, true);
+          this.wolfSprite.setFlipX(false);
+        }
+      }
+    }
+
+    // Move in world space
+    const dt = delta / 1000;
+    const nextWx = this.wolfWx + this.wolfVx * dt;
+    const nextWy = this.wolfWy + this.wolfVy * dt;
+
+    // Check walkability before committing the move
+    const wtx = Math.floor(nextWx / TILE_SIZE);
+    const wty = Math.floor(nextWy / TILE_SIZE);
+    if (wtx >= 0 && wty >= 0 && wtx < GRID_W && wty < GRID_H &&
+        this.walkGrid[wty * GRID_W + wtx] === 1) {
+      // Blocked — reverse direction to bounce away
+      this.wolfVx = -this.wolfVx;
+      this.wolfVy = -this.wolfVy;
+      this.wolfTimer = 0; // pick a new direction next frame
+    } else {
+      this.wolfWx = nextWx;
+      this.wolfWy = nextWy;
+    }
+
+    // Soft boundary — keep within map
+    const MARGIN = 40;
+    const mapW = GRID_W * TILE_SIZE;
+    const mapH = GRID_H * TILE_SIZE;
+    if (this.wolfWx < MARGIN)     { this.wolfVx =  Math.abs(this.wolfVx); this.wolfWx = MARGIN; }
+    if (this.wolfWx > mapW - MARGIN) { this.wolfVx = -Math.abs(this.wolfVx); this.wolfWx = mapW - MARGIN; }
+    if (this.wolfWy < MARGIN)     { this.wolfVy =  Math.abs(this.wolfVy); this.wolfWy = MARGIN; }
+    if (this.wolfWy > mapH - MARGIN) { this.wolfVy = -Math.abs(this.wolfVy); this.wolfWy = mapH - MARGIN; }
+
+    // Project to iso
+    const { x: isoX, y: isoY } = hsWorldToIso(this.wolfWx, this.wolfWy);
+    this.wolfSprite.setPosition(isoX, isoY);
+    this.wolfSprite.setDepth(hsIsoDepth(this.wolfWx, this.wolfWy));
   }
 }
