@@ -15,6 +15,7 @@
     "screenshot": "npx playwright test --config=playwright.screenshot.config.ts --headed",
     "sprites:assemble": "node scripts/assemble-sprites.mjs",
     "sprites:status": "node scripts/assemble-sprites.mjs --status",
+    "wildlife:audit": "node scripts/audit-wildlife-sprites.cjs",
     "arena:testplay": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts",
     "arena:testplay:headed": "npx playwright test tests/arena-testplay.spec.ts --config=playwright.arena-testplay.config.ts --headed",
     "arena-bot": "tsx scripts/arena-bot/run.ts",

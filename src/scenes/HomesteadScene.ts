@@ -233,6 +233,7 @@ export class HomesteadScene extends Phaser.Scene {
   private wolfVx = 0; private wolfVy = 0;
   private wolfTimer = 0;
   private wolfDir = 'se';
+  private wolfManual = false; // hold F to control wolf manually
   private characterKey = 'loke';
   private facingDir: 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west' = 'south';
   private lastSafeX = 0;
@@ -917,6 +918,22 @@ export class HomesteadScene extends Phaser.Scene {
 
   update(): void {
     this.updateWolf(this.game.loop.delta);
+
+    // When holding F, input controls the wolf — freeze the player.
+    if (this.wolfManual) {
+      const body = this.player.body as Phaser.Physics.Arcade.Body;
+      body.setVelocity(0, 0);
+      // Camera follows wolf instead of player when in manual mode.
+      if (this.wolfSprite) {
+        this.cameras.main.startFollow(this.wolfSprite, true, 0.08, 0.08);
+      }
+      return;
+    }
+    // Restore camera to player if we were following wolf.
+    if (this.cameras.main.deadzone === undefined) {
+      this.cameras.main.startFollow(this.playerIso, true, 0.08, 0.08);
+    }
+
     const body = this.player.body as Phaser.Physics.Arcade.Body;
 
     // ── Input → world-space velocity ─────────────────────────────────────
@@ -1459,37 +1476,74 @@ export class HomesteadScene extends Phaser.Scene {
   private updateWolf(delta: number): void {
     if (!this.wolfSprite) return;
 
-    this.wolfTimer -= delta;
-    if (this.wolfTimer <= 0) {
-      const roll = Math.random();
-      if (roll < 0.25) {
-        // Idle
-        this.wolfVx = 0;
-        this.wolfVy = 0;
-        this.wolfTimer = Phaser.Math.Between(800, 2000);
-        const idleKey = `hs-wolf-idle-${this.wolfDir}`;
-        if (this.anims.exists(idleKey)) this.wolfSprite.play(idleKey, true);
-      } else {
-        // Walk or run
-        const running = roll > 0.85;
-        const speed = running ? 60 : 30;
-        const angle = Math.random() * Math.PI * 2;
-        this.wolfVx = Math.cos(angle) * speed;
-        this.wolfVy = Math.sin(angle) * speed;
-        this.wolfTimer = Phaser.Math.Between(1500, 4000);
+    // Hold F to control the wolf manually with WASD/arrows.
+    const fKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.F, false);
+    this.wolfManual = fKey?.isDown ?? false;
 
-        // Compute direction from world-space velocity
-        const wAngle = Math.atan2(this.wolfVy, this.wolfVx);
-        const sector = Math.round(wAngle / (Math.PI / 4));
+    if (this.wolfManual) {
+      // Manual control — read WASD for screen-space input, convert to world-space.
+      let svx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
+      let svy = (this.wasd.down.isDown ? 1 : 0) - (this.wasd.up.isDown ? 1 : 0);
+      const { wx: wvx, wy: wvy } = isoInputToWorld(svx, svy);
+      const len = Math.sqrt(wvx * wvx + wvy * wvy);
+      const speed = 60;
+      if (len > 0.01) {
+        this.wolfVx = (wvx / len) * speed;
+        this.wolfVy = (wvy / len) * speed;
+        // Use screen-space input (svx, svy) for animation direction — same as Loke.
+        // The sprite directions (south, south-east, etc.) are screen-space, not world-space.
+        const sAngle = Math.atan2(svy, svx);
+        const sector = Math.round(sAngle / (Math.PI / 4));
         const DIR_MAP: Record<number, string> = {
           0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
         };
         this.wolfDir = DIR_MAP[sector] ?? 'se';
-        const animBase = running ? 'run' : 'walk';
-        const animKey = `hs-wolf-${animBase}-${this.wolfDir}`;
+        const animKey = `hs-wolf-walk-${this.wolfDir}`;
         if (this.anims.exists(animKey)) {
           this.wolfSprite.play(animKey, true);
           this.wolfSprite.setFlipX(false);
+        }
+      } else {
+        this.wolfVx = 0;
+        this.wolfVy = 0;
+        const idleKey = `hs-wolf-idle-${this.wolfDir}`;
+        if (this.anims.exists(idleKey)) this.wolfSprite.play(idleKey, true);
+      }
+    } else {
+      // Auto-wander AI
+      this.wolfTimer -= delta;
+      if (this.wolfTimer <= 0) {
+        const roll = Math.random();
+        if (roll < 0.25) {
+          this.wolfVx = 0;
+          this.wolfVy = 0;
+          this.wolfTimer = Phaser.Math.Between(800, 2000);
+          const idleKey = `hs-wolf-idle-${this.wolfDir}`;
+          if (this.anims.exists(idleKey)) this.wolfSprite.play(idleKey, true);
+        } else {
+          const running = roll > 0.85;
+          const speed = running ? 60 : 30;
+          const angle = Math.random() * Math.PI * 2;
+          this.wolfVx = Math.cos(angle) * speed;
+          this.wolfVy = Math.sin(angle) * speed;
+          this.wolfTimer = Phaser.Math.Between(1500, 4000);
+
+          // Convert world velocity to screen-space for animation direction.
+          // Iso projection: screenX ∝ (wx - wy), screenY ∝ (wx + wy)/2
+          const screenVx = this.wolfVx - this.wolfVy;
+          const screenVy = (this.wolfVx + this.wolfVy) / 2;
+          const sAngle = Math.atan2(screenVy, screenVx);
+          const sector = Math.round(sAngle / (Math.PI / 4));
+          const DIR_MAP: Record<number, string> = {
+            0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
+          };
+          this.wolfDir = DIR_MAP[sector] ?? 'se';
+          const animBase = running ? 'run' : 'walk';
+          const animKey = `hs-wolf-${animBase}-${this.wolfDir}`;
+          if (this.anims.exists(animKey)) {
+            this.wolfSprite.play(animKey, true);
+            this.wolfSprite.setFlipX(false);
+          }
         }
       }
     }

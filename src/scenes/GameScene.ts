@@ -5522,17 +5522,12 @@ export class GameScene extends Phaser.Scene {
     // 6. fallback chain:  run→walk, eat→idle, etc.
 
     // Directional: compute facing direction from physics velocity.
-    // In iso view, screen velocity is skewed — un-project to get true compass direction.
-    // Iso projection: screenX = (wx - wy), screenY = (wx + wy) / 2
-    // Inverse: wx = screenX/2 + screenY, wy = -screenX/2 + screenY
-    // So world-space velocity: worldVx = svx/2 + svy, worldVy = -svx/2 + svy
+    // Sprite directions (south, south-east, etc.) are screen-space directions.
+    // In GameScene, physics operates in iso-screen space already, so velocity
+    // directly maps to screen direction — no conversion needed.
     const body = sprite.body as Phaser.Physics.Arcade.Body | null;
     if (body && (Math.abs(body.velocity.x) > 2 || Math.abs(body.velocity.y) > 2)) {
-      const svx = body.velocity.x;
-      const svy = body.velocity.y;
-      const wvx = svx / 2 + svy;
-      const wvy = -svx / 2 + svy;
-      const angle = Math.atan2(wvy, wvx);
+      const angle = Math.atan2(body.velocity.y, body.velocity.x);
       const sector = Math.round(angle / (Math.PI / 4));
       const DIR_MAP: Record<number, string> = {
          0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',

@@ -108,7 +108,31 @@ For **birds**, replace idle/walk/run/sneak with:
 
 Bird full set: **fly, dive, glide, eat, sleep, alert, death** (7 animations).
 
-### 3b. Choose PixelLab parameters
+### 3b. Direction convention (CRITICAL)
+
+PixelLab generates 8 directions. These are **screen-space** directions, not world-space:
+
+```
+        N (screen up)
+    NW      NE
+  W            E
+    SW      SE
+        S (screen down)
+```
+
+**Naming convention**: `{species}-{anim}_{dir}.png` where `dir` is one of: `s`, `se`, `e`, `ne`, `n`, `nw`, `w`, `sw`.
+
+**Direction mapping** (proven with wolf, must be identical for all species):
+- PixelLab `south` → file suffix `_s` → sprite faces screen-down
+- PixelLab `south-east` → file suffix `_se` → sprite faces screen-down-right (the default/base direction)
+- PixelLab `east` → file suffix `_e` → sprite faces screen-right
+- etc.
+
+**The animation system picks direction from screen-space velocity**, not world-space. In iso view, pressing "screen right" shows the `e` sprite — the iso projection handles the visual. This is the same convention as the Loke character in HomesteadScene.
+
+**Do NOT rotate or remap directions.** If PixelLab generates `south-east`, save it as `_se.png`. The code handles everything else.
+
+### 3c. Choose PixelLab parameters
 
 | Creature type | `body_type` | `template` | `n_directions` | `view` |
 |---------------|-------------|-----------|----------------|--------|
