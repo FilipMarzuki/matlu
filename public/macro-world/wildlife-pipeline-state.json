@@ -1,0 +1,25 @@
+{
+  "_doc": "Tracks each species' progress through the wildlife pipeline. The nightly agent reads this to know what step to do next. Never redo a completed step.",
+  "species": {
+    "wolf": {
+      "status": "complete",
+      "pixellabCharacterId": "dfb83cc6-f2b9-4586-a22a-de70bb3b8b5d",
+      "characterApproved": true,
+      "animations": {
+        "idle": { "status": "done", "directions": 8 },
+        "walk": { "status": "done", "directions": 8 },
+        "run": { "status": "done", "directions": 8 },
+        "sneak": { "status": "done", "directions": 8 },
+        "alert": { "status": "done", "directions": 7 },
+        "eat": { "status": "done", "directions": 1 },
+        "sleep": { "status": "done", "directions": 1 },
+        "death": { "status": "done", "directions": 1 },
+        "drink": { "status": "done", "directions": 1 }
+      },
+      "registryWired": true,
+      "preloadWired": true,
+      "auditPassed": true
+    }
+  },
+  "queue": ["wildcat", "buzzard", "hedgehog", "squirrel", "heron", "owl", "snake", "bear", "woodpecker"]
+}
