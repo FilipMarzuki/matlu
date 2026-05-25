@@ -19,25 +19,99 @@ import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
+import { preloadTilePacks, CUSTOM_TILE_PACKS } from '../world/TilePacks';
 
-// ── Homestead grid constants ───────────────────────────────────────────────
-// Small 20×20 tile grid — cozy plot, not an open world.
+// ── Grid constants ─────────────────────────────────────────────────────────
+// 60×30 non-square grid. Left half (tx 0-29) = homestead + forest.
+// Right half (tx 30-59) = WorldForge terrain (elevation, river, waterfall).
+// Mountain range along NE border (ty < 8) blends into WF highlands.
 
-const TILE_SIZE = 32;          // world-space pixels per tile
-const GRID = 20;               // tiles in each axis
-const WORLD_W = GRID * TILE_SIZE;  // 640
-const WORLD_H = GRID * TILE_SIZE;  // 640
+const TILE_SIZE = 32;
+const GRID_W = 60;       // tiles wide (tx axis)
+const GRID_H = 30;       // tiles tall (ty axis)
+const WORLD_W = GRID_W * TILE_SIZE;  // 1920
+const WORLD_H = GRID_H * TILE_SIZE;  //  960
 const PLAYER_SPEED = 120;
 const INTERACT_RADIUS = 50;
 
-// ── Iso projection (homestead-local) ───────────────────────────────────────
-// Same 2:1 formula as IsoTransform but with homestead-specific origin offset.
+// Offset to shift original 20×20 resource/node placements into the left half.
+const HS_OFFSET = 5;
+
+// ── Iso projection ────────────────────────────────────────────────────────
+// 2:1 diamond for a non-square grid (GRID_W × GRID_H).
 
 const ISO_TILE_W = 32;
 const ISO_TILE_H = 16;
-const ISO_ORIGIN_X = GRID * (ISO_TILE_W / 2);  // left-edge offset
-const ISO_W = (GRID + GRID) * (ISO_TILE_W / 2); // bounding width
-const ISO_H = (GRID + GRID) * (ISO_TILE_H / 2) + ISO_TILE_H; // bounding height
+const ISO_ORIGIN_X = GRID_H * (ISO_TILE_W / 2);  // W apex → left edge
+const ISO_W = (GRID_W + GRID_H) * (ISO_TILE_W / 2);
+const ISO_H = (GRID_W + GRID_H) * (ISO_TILE_H / 2) + ISO_TILE_H;
+
+// ── Cliff / elevation ─────────────────────────────────────────────────────
+const CLIFF_H = 32;  // one elevation step = one 32×32 cliff block
+
+// ── Zone system ───────────────────────────────────────────────────────────
+// Left half (tx < 30): homestead meadow + NW forest + NE mountain strip.
+// Right half (tx ≥ 30): full WorldForge terrain at native 30×30 size.
+
+type ZoneType = 'homestead' | 'wf';
+
+function getZone(tx: number, _ty: number): ZoneType {
+  // Right half → WorldForge terrain (elevation, river, waterfall)
+  if (tx >= 30) return 'wf';
+  return 'homestead';
+}
+
+// ── WorldForge terrain (right half, local coords ltx=tx-30, lty=ty) ───────
+// Ported from WorldForgeScene.buildDisplay() — full elevation, river, cliffs,
+// waterfall, biome bands. Local diagonal ld = ltx+lty runs NW→SE within the
+// 30×30 sub-grid.
+
+const WF_GRID     = 30;
+const WF_ELEV_CUT = 10;   // ld < this → highlands
+const WF_OCEAN_CUT = 48;  // ld > this → ocean
+
+/** River centre at local diagonal ld — meanders via two sine terms. */
+function wfRiverCenter(ld: number): number {
+  return Math.round(ld / 2 + Math.sin(ld * 0.35) * 3 + Math.cos(ld * 0.65) * 1.5);
+}
+
+/** Curved boundary perturbation for biome edges. */
+const wfCurveDepth = (h: number) =>
+  Math.round(Math.sin(h * 0.29) * 2.5 + Math.cos(h * 0.53) * 1.5);
+
+/** Elevation: 0 = lowland, 1 = mid, 2 = peak. */
+function wfGetElev(ltx: number, lty: number): 0 | 1 | 2 {
+  const ld = ltx + lty;
+  const horiz = ltx - lty;
+  const effDist = WF_ELEV_CUT + wfCurveDepth(horiz) - ld;
+  if (effDist <= 0) return 0;
+  if (horiz > 7) return effDist > 3 ? 2 : 1;
+  return 2;
+}
+
+/** Cliff material for a biome index. */
+const WF_CLIFF_MAT: Record<number, string> = {
+  1: 'cliff-stone', 3: 'cliff-peat', 9: 'cliff-stone',
+  10: 'cliff-stone', 11: 'cliff-snow',
+};
+function wfCliffKey(biomeIdx: number): string {
+  return WF_CLIFF_MAT[biomeIdx] ?? 'cliff-earthy';
+}
+
+/** Shore biome for ocean edge. */
+const WF_SHORE: Record<number, number> = {
+  1: 1, 2: 2, 3: 3, 4: 2, 5: 1, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1, 11: 1,
+};
+
+/** Dual-grid tile hash (natural texture variety within a biome). */
+function wfTileHash(tx: number, ty: number): number {
+  const px = Math.floor(tx / 6),       py = Math.floor(ty / 6);
+  const qx = Math.floor((tx + 3) / 6), qy = Math.floor((ty + 2) / 6);
+  const coarse  = ((px * 3571 ^ py * 2297 ^ px * py * 53) >>> 0) % 3;
+  const coarse2 = ((qx * 4733 ^ qy * 1867 ^ qx * qy * 97) >>> 0) % 3;
+  const fine    = ((tx * 1597 ^ ty * 2833 ^ (tx + ty) * 743) >>> 0) % 7;
+  return fine === 0 ? 3 : (fine <= 2 ? coarse2 : coarse);
+}
 
 function hsWorldToIso(wx: number, wy: number): { x: number; y: number } {
   const tx = wx / TILE_SIZE;
@@ -154,7 +228,7 @@ export class HomesteadScene extends Phaser.Scene {
 
   // ── Building placement ─────────────────────────────────────────────────
   private selectedBuilding: BuildingDef | null = null;
-  private occupied = new Uint8Array(GRID * GRID);
+  private occupied = new Uint8Array(GRID_W * GRID_H);
   private placedBuildings: Phaser.GameObjects.Image[] = [];
   private toolbarBtns: Phaser.GameObjects.Container[] = [];
   private ghostSprite: Phaser.GameObjects.Image | null = null;
@@ -164,15 +238,43 @@ export class HomesteadScene extends Phaser.Scene {
   private uiLayer: Phaser.GameObjects.GameObject[] = [];
   private cancelBtn: Phaser.GameObjects.Container | null = null;
 
+  // ── WF geography zone state ───────────────────────────────────────────
+  private wfFrame = 0;  // current waterfall animation frame (0-4)
+  private wfSprites: Phaser.GameObjects.Image[] = [];  // waterfall wall tiles
+
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
     this.load.json('resources', '/macro-world/resources.json');
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
-    // Meadow tile variants (4 PNGs)
-    for (let i = 0; i < 4; i++) {
-      this.load.image(`meadow-${i}`, `/assets/packs/meadow-tiles/${i}.png`);
+
+    // All biome tile packs (meadow, forest, cold-granite, bare-summit, etc.)
+    preloadTilePacks(this);
+
+    // Iso spritesheet — used for water tiles in the WF geography zone
+    this.load.spritesheet('iso-tiles',
+      '/assets/packs/isometric tileset/spritesheet.png',
+      { frameWidth: 32, frameHeight: 32 });
+
+    // Cliff block tiles (32×32 cubes) — stacked for elevation walls
+    this.load.image('cliff-earthy', '/assets/packs/cliff-iso-gen/earthy_0.png');
+    this.load.image('cliff-snow',   '/assets/packs/cliff-iso-gen/snow_0.png');
+    this.load.image('cliff-peat',   '/assets/packs/cliff-iso-gen/peat_0.png');
+    this.load.image('cliff-stone',  '/assets/packs/cliff-iso-gen/stone_iso_0.png');
+
+    // Waterfall tiles — 5-frame animation replacing cliff blocks where river drops
+    for (let i = 0; i < 5; i++) {
+      this.load.image(`waterfall-${i}`, `/assets/packs/waterfall-tiles/${i}.png`);
     }
+
+    // Bridge sprites for road-over-river crossings
+    this.load.image('bridge-mid',  '/assets/sprites/crossings/bridge/mid-0.png');
+    this.load.image('bridge-ramp', '/assets/sprites/crossings/bridge/ramp.png');
+
+    // Road tiles — dirt road for the WF geography zone
+    this.load.spritesheet('road-dirt', '/assets/sprites/tilesets/roads/road-dirt.png',
+      { frameWidth: 32, frameHeight: 16 });
+
     // Character spritesheets (Aseprite atlas format)
     for (const c of CHARACTERS) {
       this.load.aseprite(c.key, c.png, c.json);
@@ -181,6 +283,24 @@ export class HomesteadScene extends Phaser.Scene {
     for (const b of BUILDINGS) {
       this.load.image(b.spriteKey, `/assets/packs/building-objects/ikibeki/${b.id}.png`);
     }
+
+    // ── Tree sprites for the forest zone ──────────────────────────────────
+    for (let i = 0; i < 6; i++)  this.load.image(`tree-oak-sapling-${i}`, `/assets/sprites/trees/oak/sapling/${i}.png`);
+    for (let i = 0; i < 5; i++)  this.load.image(`tree-oak-young-${i}`,   `/assets/sprites/trees/oak/young/${i}.png`);
+    for (let i = 0; i < 14; i++) this.load.image(`tree-oak-${i}`,         `/assets/sprites/trees/oak/mature/${i}.png`);
+    for (let i = 0; i < 4; i++) this.load.image(`tree-elm-sapling-${i}`, `/assets/sprites/trees/elm/sapling/${i}.png`);
+    for (let i = 0; i < 3; i++) this.load.image(`tree-elm-young-${i}`,   `/assets/sprites/trees/elm/young/${i}.png`);
+    for (let i = 0; i < 4; i++) this.load.image(`tree-elm-${i}`,         `/assets/sprites/trees/elm/mature/${i}.png`);
+    for (let i = 0; i < 4; i++) this.load.image(`tree-birch-sapling-${i}`, `/assets/sprites/trees/birch/sapling/${i}.png`);
+    for (let i = 0; i < 4; i++) this.load.image(`tree-birch-young-${i}`,   `/assets/sprites/trees/birch/young/${i}.png`);
+    for (let i = 0; i < 4; i++) this.load.image(`tree-birch-${i}`,         `/assets/sprites/trees/birch/mature/${i}.png`);
+    for (let i = 0; i < 3; i++) this.load.image(`tree-pine-sapling-${i}`, `/assets/sprites/trees/pine/sapling/${i}.png`);
+    for (let i = 0; i < 2; i++) this.load.image(`tree-pine-young-${i}`,   `/assets/sprites/trees/pine/young/${i}.png`);
+    for (let i = 0; i < 3; i++) this.load.image(`tree-pine-${i}`,         `/assets/sprites/trees/pine/mature/${i}.png`);
+    for (let i = 0; i < 3; i++) this.load.image(`tree-spruce-sapling-${i}`, `/assets/sprites/trees/spruce/sapling/${i}.png`);
+    for (let i = 0; i < 3; i++) this.load.image(`tree-spruce-young-${i}`,   `/assets/sprites/trees/spruce/young/${i}.png`);
+    for (let i = 0; i < 3; i++) this.load.image(`tree-spruce-${i}`,         `/assets/sprites/trees/spruce/mature/${i}.png`);
+    for (let i = 0; i < 4; i++) this.load.image(`tree-ancient-${i}`, `/assets/sprites/trees/ancient/mature/${i}.png`);
   }
 
   create(): void {
@@ -199,20 +319,158 @@ export class HomesteadScene extends Phaser.Scene {
     // ── Iso terrain ──────────────────────────────────────────────────────
     // Painter's algorithm: iterate diagonals (tx + ty = constant) so
     // back tiles render first and front tiles overlap correctly.
-    for (let diag = 0; diag < GRID * 2 - 1; diag++) {
-      const txMin = Math.max(0, diag - (GRID - 1));
-      const txMax = Math.min(diag, GRID - 1);
+    //
+    // Non-geography zones get a simple flat tile per position.
+    // The right half (tx ≥ 30) uses the full WorldForge terrain
+    // system: elevation with cliff stacking, a meandering river with a
+    // waterfall at the cliff edge, and biome bands (highland → midland → ocean).
+
+    // Procedural splash-dot texture for waterfall particles
+    if (!this.textures.exists('splash-dot')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xb0d0ff, 1);
+      g.fillRect(0, 0, 2, 2);
+      g.generateTexture('splash-dot', 2, 2);
+      g.destroy();
+    }
+
+    // The main biome used for WF midlands (Meadow).
+    const wfBiome = 6;
+
+    for (let diag = 0; diag < GRID_W + GRID_H - 1; diag++) {
+      const txMin = Math.max(0, diag - (GRID_H - 1));
+      const txMax = Math.min(diag, GRID_W - 1);
       for (let tx = txMin; tx <= txMax; tx++) {
         const ty = diag - tx;
+        const zone = getZone(tx, ty);
         const wx = tx * TILE_SIZE;
         const wy = ty * TILE_SIZE;
         const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
-        const variant = tileVariant(tx, ty);
-        const tile = this.add.image(isoX, isoY, `meadow-${variant}`);
-        tile.setOrigin(0.5, 0);  // anchor at north apex
-        tile.setDepth(hsIsoDepth(wx, wy) - 1000); // behind everything
+        const baseDepth = hsIsoDepth(wx, wy);
+
+        // ── Left half: meadow tiles ──────────────────────────────────
+        if (zone !== 'wf') {
+          const v = tileVariant(tx, ty);
+          this.add.image(isoX, isoY, `meadow-${v}`).setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          continue;
+        }
+
+        // ── Right half: WorldForge terrain (local coords) ─────────────
+        const ltx = tx - 30;   // 0-29 within the WF sub-grid
+        const lty = ty;        // 0-29
+        const ld    = ltx + lty;
+        const horiz = ltx - lty;
+        const tileElev = wfGetElev(ltx, lty);
+
+        // Curved boundary thresholds
+        const effElevCut  = WF_ELEV_CUT + wfCurveDepth(horiz);
+        const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
+        const elevDist  = effElevCut - ld;
+        const oceanDist = ld - effOceanCut;
+
+        // All land tiles use meadow (same as homestead half)
+        const landBiome = wfBiome;
+
+        // River channel — 2 tiles wide
+        const onRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
+
+        // Splash pool at waterfall base
+        const atWfBase = tileElev === 0 && (() => {
+          for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+            const nx = ltx + dx, ny = lty + dy;
+            if (nx < 0 || ny < 0 || nx >= WF_GRID || ny >= WF_GRID) continue;
+            if (wfGetElev(nx, ny) > 0 && Math.abs(nx - wfRiverCenter(nx + ny)) <= 1) return true;
+          }
+          return false;
+        })();
+
+        // Determine tile type (water vs land biome)
+        let isWater = false;
+        let customPack: string | undefined;
+        const shoreBiome = WF_SHORE[landBiome] ?? 2;
+
+        if (oceanDist > 1) {
+          isWater = true;
+        } else if (oceanDist > 0) {
+          isWater = true;
+        } else if (oceanDist === 0) {
+          if (onRiver) { isWater = true; }
+          else { customPack = CUSTOM_TILE_PACKS[shoreBiome]; }
+        } else if (elevDist > 1) {
+          if (onRiver || atWfBase) { isWater = true; }
+          else { customPack = CUSTOM_TILE_PACKS[11]; }
+        } else if (elevDist === 1) {
+          if (onRiver || atWfBase) { isWater = true; }
+          else { customPack = CUSTOM_TILE_PACKS[10]; }
+        } else if (elevDist === 0 || elevDist === -1) {
+          if (onRiver || atWfBase) { isWater = true; }
+          else { customPack = CUSTOM_TILE_PACKS[landBiome]; }
+        } else if (onRiver || atWfBase) {
+          isWater = true;
+        } else {
+          customPack = CUSTOM_TILE_PACKS[landBiome];
+        }
+
+        // Cliff detection (neighbour drops)
+        const southDrop = tileElev > 0 && lty + 1 < WF_GRID ? tileElev - wfGetElev(ltx, lty + 1) : 0;
+        const eastDrop  = tileElev > 0 && ltx + 1 < WF_GRID ? tileElev - wfGetElev(ltx + 1, lty) : 0;
+        const westDrop  = tileElev > 0 && ltx > 0            ? tileElev - wfGetElev(ltx - 1, lty) : 0;
+        const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
+        const isOnRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
+
+        // Floor Y raised by elevation
+        const posY = isoY - tileElev * CLIFF_H;
+        const th = wfTileHash(ltx, lty);
+
+        if (hasCliff) {
+          const cliffBiome = elevDist > 1 ? 11 : elevDist === 1 ? 10
+            : elevDist === 0 ? 9 : landBiome;
+          const cliffKey = wfCliffKey(cliffBiome);
+          const maxDrop = Math.max(southDrop, eastDrop, westDrop);
+          const useWaterfall = southDrop > 0 && isOnRiver;
+          const wallKey = useWaterfall ? `waterfall-${this.wfFrame}` : cliffKey;
+
+          for (let step = maxDrop * 2; step >= 1; step--) {
+            const wallImg = this.add.image(isoX, posY + step * (CLIFF_H / 2), wallKey)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+            if (useWaterfall) this.wfSprites.push(wallImg);
+          }
+
+          // Floor on top of cliff
+          if (customPack) {
+            this.add.image(isoX, posY, `${customPack}-${th}`)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 999);
+          } else if (isWater) {
+            this.add.image(isoX, posY, 'iso-tiles', 105)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 999);
+          }
+        } else {
+          // Flat tile
+          if (isWater) {
+            this.add.image(isoX, posY, 'iso-tiles', 105)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          } else if (customPack) {
+            this.add.image(isoX, posY, `${customPack}-${th}`)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          }
+        }
       }
     }
+
+    // ── Waterfall animation timer ─────────────────────────────────────────
+    // Cycle waterfall frames every 167ms (6 FPS, same as WorldForge).
+    this.time.addEvent({
+      delay: 167,
+      loop: true,
+      callback: () => {
+        this.wfFrame = (this.wfFrame + 1) % 5;
+        const key = `waterfall-${this.wfFrame}`;
+        for (const s of this.wfSprites) s.setTexture(key);
+      },
+    });
+
+    // ── Tree scatter (forest zone + sparse homestead trees) ──────────
+    this.scatterTrees();
 
     // ── Placeholder textures ──────────────────────────────────────────────
     const textures: [string, number, number, number][] = [
@@ -276,14 +534,21 @@ export class HomesteadScene extends Phaser.Scene {
     const nodeDefs = this.cache.json.get('resource-nodes') as { nodeTypes: ResourceNodeTypeDef[] } | undefined;
     if (nodeDefs?.nodeTypes) {
       // Placements in world-space tile coords (tx, ty) → world pixels
+      // Placements shifted by HS_OFFSET so they sit in the centre homestead zone.
       const placements: { defId: string; tx: number; ty: number }[] = [
-        { defId: 'tree',  tx: 4,  ty: 5  }, { defId: 'tree',  tx: 6,  ty: 7  },
-        { defId: 'tree',  tx: 3,  ty: 9  }, { defId: 'tree',  tx: 5,  ty: 12 },
-        { defId: 'rock',  tx: 14, ty: 4  }, { defId: 'rock',  tx: 16, ty: 5  },
-        { defId: 'ore',   tx: 15, ty: 14 }, { defId: 'ore',   tx: 17, ty: 16 },
-        { defId: 'herb',  tx: 9,  ty: 3  }, { defId: 'herb',  tx: 12, ty: 12 },
-        { defId: 'berry', tx: 10, ty: 15 }, { defId: 'berry', tx: 6,  ty: 14 },
-        { defId: 'water', tx: 12, ty: 17 },
+        { defId: 'tree',  tx: 4  + HS_OFFSET, ty: 5  + HS_OFFSET },
+        { defId: 'tree',  tx: 6  + HS_OFFSET, ty: 7  + HS_OFFSET },
+        { defId: 'tree',  tx: 3  + HS_OFFSET, ty: 9  + HS_OFFSET },
+        { defId: 'tree',  tx: 5  + HS_OFFSET, ty: 12 + HS_OFFSET },
+        { defId: 'rock',  tx: 14 + HS_OFFSET, ty: 4  + HS_OFFSET },
+        { defId: 'rock',  tx: 16 + HS_OFFSET, ty: 5  + HS_OFFSET },
+        { defId: 'ore',   tx: 15 + HS_OFFSET, ty: 14 + HS_OFFSET },
+        { defId: 'ore',   tx: 17 + HS_OFFSET, ty: 16 + HS_OFFSET },
+        { defId: 'herb',  tx: 9  + HS_OFFSET, ty: 3  + HS_OFFSET },
+        { defId: 'herb',  tx: 12 + HS_OFFSET, ty: 12 + HS_OFFSET },
+        { defId: 'berry', tx: 10 + HS_OFFSET, ty: 15 + HS_OFFSET },
+        { defId: 'berry', tx: 6  + HS_OFFSET, ty: 14 + HS_OFFSET },
+        { defId: 'water', tx: 12 + HS_OFFSET, ty: 17 + HS_OFFSET },
       ];
 
       const nodeGroup = this.physics.add.staticGroup();
@@ -527,7 +792,7 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Clamp player to iso diamond ─────────────────────────────────────
     // Physics world is a square but only the iso diamond has tiles.
-    // In flat grid space the diamond is: tx ∈ [0,GRID), ty ∈ [0,GRID).
+    // In flat grid space the diamond is: tx ∈ [0,GRID_W), ty ∈ [0,GRID_H).
     // Clamp with a half-tile margin so the sprite doesn't overhang.
     const margin = TILE_SIZE * 0.5;
     this.player.x = Phaser.Math.Clamp(this.player.x, margin, WORLD_W - margin);
@@ -698,17 +963,17 @@ export class HomesteadScene extends Phaser.Scene {
     const hh = ISO_TILE_H / 2;
     const tx = Math.floor(((relX / hw) + (relY / hh)) / 2);
     const ty = Math.floor(((relY / hh) - (relX / hw)) / 2);
-    if (tx < 0 || ty < 0 || tx >= GRID || ty >= GRID) return null;
+    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return null;
     return { tx, ty };
   }
 
   // ── Placement logic ────────────────────────────────────────────────────
 
   private canPlace(def: BuildingDef, tx: number, ty: number): boolean {
-    if (tx + def.footW > GRID || ty + def.footD > GRID) return false;
+    if (tx + def.footW > GRID_W || ty + def.footD > GRID_H) return false;
     for (let dx = 0; dx < def.footW; dx++) {
       for (let dy = 0; dy < def.footD; dy++) {
-        if (this.occupied[(ty + dy) * GRID + (tx + dx)]) return false;
+        if (this.occupied[(ty + dy) * GRID_W + (tx + dx)]) return false;
       }
     }
     return true;
@@ -719,7 +984,7 @@ export class HomesteadScene extends Phaser.Scene {
 
     for (let dx = 0; dx < def.footW; dx++) {
       for (let dy = 0; dy < def.footD; dy++) {
-        this.occupied[(ty + dy) * GRID + (tx + dx)] = 1;
+        this.occupied[(ty + dy) * GRID_W + (tx + dx)] = 1;
       }
     }
 
@@ -740,7 +1005,7 @@ export class HomesteadScene extends Phaser.Scene {
     if (this.footprintGfx) this.footprintGfx.destroy();
     if (this.ghostSprite) this.ghostSprite.destroy();
 
-    const outOfBounds = tx + def.footW > GRID || ty + def.footD > GRID;
+    const outOfBounds = tx + def.footW > GRID_W || ty + def.footD > GRID_H;
     let blocked = outOfBounds;
     if (!outOfBounds) blocked = !this.canPlace(def, tx, ty);
 
@@ -781,6 +1046,99 @@ export class HomesteadScene extends Phaser.Scene {
       if (blocked) this.ghostSprite.setTint(0xff6666);
     } else {
       this.ghostSprite = null;
+    }
+  }
+
+  // ── Tree scatter ──────────────────────────────────────────────────────
+  // Populates the forest zone with dense tree coverage and sprinkles a few
+  // trees in the homestead zone.  Deterministic: seeded hash per tile.
+
+  private scatterTrees(): void {
+    // Species pool: key prefix + mature count.  Forest zone heavily favours
+    // conifers (pine, spruce) with deciduous (oak, birch, elm) mixed in.
+    const species: { prefix: string; matureN: number; youngN: number; saplingN: number; weight: number }[] = [
+      { prefix: 'tree-pine',   matureN: 3,  youngN: 2, saplingN: 3, weight: 30 },
+      { prefix: 'tree-spruce', matureN: 3,  youngN: 3, saplingN: 3, weight: 30 },
+      { prefix: 'tree-oak',    matureN: 14, youngN: 5, saplingN: 6, weight: 15 },
+      { prefix: 'tree-birch',  matureN: 4,  youngN: 4, saplingN: 4, weight: 15 },
+      { prefix: 'tree-elm',    matureN: 4,  youngN: 3, saplingN: 4, weight: 10 },
+    ];
+    const totalWeight = species.reduce((s, sp) => s + sp.weight, 0);
+
+    // Simple deterministic hash for per-tile decisions.
+    const hash = (a: number, b: number, salt: number) =>
+      (((a * 2654435761 + b * 2246822519 + salt) >>> 0) & 0x7fffffff);
+
+    // Mark tiles that already have resource nodes so trees don't overlap.
+    const nodeSet = new Set<string>();
+    for (const n of this.resourceNodes) {
+      const nwx = n.getData('worldX') as number;
+      const nwy = n.getData('worldY') as number;
+      nodeSet.add(`${Math.floor(nwx / TILE_SIZE)},${Math.floor(nwy / TILE_SIZE)}`);
+    }
+
+    for (let tx = 1; tx < GRID_W - 1; tx++) {
+      for (let ty = 1; ty < GRID_H - 1; ty++) {
+        const zone = getZone(tx, ty);
+
+        // Only place trees in forest and (sparsely) homestead zones
+        if (zone === 'wf') continue;
+
+        // Skip tiles occupied by resource nodes
+        if (nodeSet.has(`${tx},${ty}`)) continue;
+
+        // Cluster noise — two overlapping waves create natural clumps
+        const n1 = Math.sin(tx * 0.35 + ty * 0.25) * Math.cos(ty * 0.4 - tx * 0.15);
+        const n2 = Math.sin(tx * 0.18 - ty * 0.32) * Math.cos(tx * 0.28 + ty * 0.12);
+        const cluster = (n1 + n2 + 2) / 4; // normalise to 0-1
+
+        // Sparse scatter on homestead half
+        const threshold = 0.65;
+        if (cluster < threshold) continue;
+
+        const spawnChance = (cluster - threshold) / (1 - threshold);
+        const roll = (hash(tx, ty, 0xBEEF) % 1000) / 1000;
+        if (roll > spawnChance) continue;
+
+        {
+          // Pick species by weighted random
+          const specRoll = hash(tx, ty, 0xCAFE) % totalWeight;
+          let acc = 0;
+          let sp = species[0];
+          for (const s of species) {
+            acc += s.weight;
+            if (specRoll < acc) { sp = s; break; }
+          }
+
+          // 40% mature, 35% young, 25% sapling
+          const stageRoll = hash(tx, ty, 0xFACE) % 100;
+          let textureKey: string;
+          if (stageRoll < 40) {
+            textureKey = `${sp.prefix}-${hash(tx, ty, 0xAA) % sp.matureN}`;
+          } else if (stageRoll < 75) {
+            textureKey = `${sp.prefix}-young-${hash(tx, ty, 0xBB) % sp.youngN}`;
+          } else {
+            textureKey = `${sp.prefix}-sapling-${hash(tx, ty, 0xCC) % sp.saplingN}`;
+          }
+
+          // Position with jitter so trees don't sit on a rigid grid
+          const jx = ((hash(tx, ty, 0x111) % 20) - 10) * 0.6;
+          const jy = ((hash(tx, ty, 0x222) % 20) - 10) * 0.6;
+          const wx = tx * TILE_SIZE + TILE_SIZE / 2 + jx;
+          const wy = ty * TILE_SIZE + TILE_SIZE / 2 + jy;
+          const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+
+          const tree = this.add.image(isoX, isoY, textureKey);
+          tree.setOrigin(0.5, 1);
+          tree.setDepth(hsIsoDepth(wx, wy));
+
+          const isMature = !textureKey.includes('young') && !textureKey.includes('sapling');
+          const isSapling = textureKey.includes('sapling');
+          const baseScale = isMature ? 0.55 : isSapling ? 0.3 : 0.4;
+          const scaleJitter = 1 + ((hash(tx, ty, 0x333) % 20) - 10) * 0.01;
+          tree.setScale(baseScale * scaleJitter);
+        }
+      }
     }
   }
 
