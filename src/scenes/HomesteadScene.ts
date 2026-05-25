@@ -79,7 +79,7 @@ function wfRiverCenter(ld: number): number {
 const wfCurveDepth = (h: number) =>
   Math.round(Math.sin(h * 0.29) * 2.5 + Math.cos(h * 0.53) * 1.5);
 
-/** Elevation: 0 = lowland, 1 = mid, 2 = peak. */
+/** Elevation: 0 = lowland, 1 = mid, 2 = peak (WF right half). */
 function wfGetElev(ltx: number, lty: number): 0 | 1 | 2 {
   const ld = ltx + lty;
   const horiz = ltx - lty;
@@ -87,6 +87,15 @@ function wfGetElev(ltx: number, lty: number): 0 | 1 | 2 {
   if (effDist <= 0) return 0;
   if (horiz > 7) return effDist > 3 ? 2 : 1;
   return 2;
+}
+
+/** Unified elevation for the full map — highland strip along NE edge. */
+function getElev(tx: number, ty: number): 0 | 1 | 2 {
+  if (tx >= 30) return wfGetElev(tx - 30, ty);
+  const horiz = tx - ty;
+  const effDist = WF_ELEV_CUT + wfCurveDepth(horiz) - ty;
+  if (effDist <= 0) return 0;
+  return effDist > 3 ? 2 : 1;
 }
 
 /** Cliff material for a biome index. */
@@ -137,12 +146,6 @@ function isoInputToWorld(svx: number, svy: number): { wx: number; wy: number } {
     wx:  svx * cos45 + svy * cos45,
     wy: -svx * cos45 + svy * cos45,
   };
-}
-
-// ── Tile hash for variety ──────────────────────────────────────────────────
-// Simple hash to pick one of 4 tile variants per position (deterministic).
-function tileVariant(tx: number, ty: number): number {
-  return ((tx * 7 + ty * 13) & 0x7fffffff) % 4;
 }
 
 // ── Placeable buildings ─────────────────────────────────────────────────────
@@ -348,10 +351,42 @@ export class HomesteadScene extends Phaser.Scene {
         const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
         const baseDepth = hsIsoDepth(wx, wy);
 
-        // ── Left half: meadow tiles ──────────────────────────────────
+        // ── Left half: meadow with elevation along NE edge ───────────
         if (zone !== 'wf') {
-          const v = tileVariant(tx, ty);
-          this.add.image(isoX, isoY, `meadow-${v}`).setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          const tileElev = getElev(tx, ty);
+          const posY = isoY - tileElev * CLIFF_H;
+          const th = wfTileHash(tx, ty);
+
+          let pack: string;
+          if (ty <= 2 && tileElev === 2) {
+            pack = CUSTOM_TILE_PACKS[11]!;
+          } else if (tileElev === 2) {
+            pack = CUSTOM_TILE_PACKS[10]!;
+          } else if (tileElev === 1) {
+            pack = CUSTOM_TILE_PACKS[9]!;
+          } else {
+            pack = 'meadow';
+          }
+
+          const sDrop = tileElev > 0 && ty + 1 < GRID_H ? tileElev - getElev(tx, ty + 1) : 0;
+          const eDrop = tileElev > 0 && tx + 1 < GRID_W ? tileElev - getElev(tx + 1, ty) : 0;
+          const wDrop = tileElev > 0 && tx > 0           ? tileElev - getElev(tx - 1, ty) : 0;
+          const hasCliff = sDrop > 0 || eDrop > 0 || wDrop > 0;
+
+          if (hasCliff) {
+            const cliffBiome = tileElev === 2 ? 11 : tileElev === 1 ? 10 : 9;
+            const cliffKey = wfCliffKey(cliffBiome);
+            const maxDrop = Math.max(sDrop, eDrop, wDrop);
+            for (let step = maxDrop * 2; step >= 1; step--) {
+              this.add.image(isoX, posY + step * (CLIFF_H / 2), cliffKey)
+                .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+            }
+            this.add.image(isoX, posY, `${pack}-${th}`)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 999);
+          } else {
+            this.add.image(isoX, posY, `${pack}-${th}`)
+              .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          }
           continue;
         }
 
@@ -1081,8 +1116,9 @@ export class HomesteadScene extends Phaser.Scene {
       for (let ty = 1; ty < GRID_H - 1; ty++) {
         const zone = getZone(tx, ty);
 
-        // Only place trees in forest and (sparsely) homestead zones
+        // Only place trees on homestead half; skip rock/snow tile types
         if (zone === 'wf') continue;
+        if (getElev(tx, ty) > 0) continue;
 
         // Skip tiles occupied by resource nodes
         if (nodeSet.has(`${tx},${ty}`)) continue;
