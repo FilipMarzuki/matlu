@@ -421,7 +421,7 @@ export class HomesteadScene extends Phaser.Scene {
           if (hsIsWater && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
           if (hasCliff) {
             if (sDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-            if (eDrop > 0 && tx + 2 < GRID_W) this.walkGrid[ty * GRID_W + (tx + 2)] = 1;
+            if (eDrop > 0 && tx + 1 < GRID_W) this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
             if (wDrop > 0)                     this.walkGrid[ty * GRID_W + tx] = 1;
           }
 
@@ -512,7 +512,7 @@ export class HomesteadScene extends Phaser.Scene {
         if (isWater && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
         if (hasCliff) {
           if (southDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-          if (eastDrop > 0 && tx + 2 < GRID_W)  this.walkGrid[ty * GRID_W + (tx + 2)] = 1;
+          if (eastDrop > 0 && tx + 1 < GRID_W)  this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
           if (westDrop > 0)                      this.walkGrid[ty * GRID_W + tx] = 1;
         }
 
