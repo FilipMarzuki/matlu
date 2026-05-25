@@ -269,6 +269,10 @@ export class HomesteadScene extends Phaser.Scene {
     for (let i = 0; i < 5; i++) {
       this.load.image(`waterfall-${i}`, `/assets/packs/waterfall-tiles/${i}.png`);
     }
+    // Water-topped waterfall blocks — 6-frame animation for the topmost block
+    for (let i = 0; i < 6; i++) {
+      this.load.image(`wf-top-${i}`, `/assets/packs/waterfall-tiles/t${i}.png`);
+    }
 
     // Bridge sprites for road-over-river crossings
     this.load.image('bridge-mid',  '/assets/sprites/crossings/bridge/mid-0.png');
@@ -466,7 +470,9 @@ export class HomesteadScene extends Phaser.Scene {
           const wallKey = useWaterfall ? `waterfall-${this.wfFrame}` : cliffKey;
 
           for (let step = maxDrop * 2; step >= 1; step--) {
-            const wallImg = this.add.image(isoX, posY + step * (CLIFF_H / 2), wallKey)
+            // Topmost block uses water-topped variant; lower blocks use standard waterfall
+            const key = useWaterfall && step === 1 ? `wf-top-${this.wfFrame}` : wallKey;
+            const wallImg = this.add.image(isoX, posY + step * (CLIFF_H / 2), key)
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
             if (useWaterfall) this.wfSprites.push(wallImg);
           }
@@ -498,9 +504,13 @@ export class HomesteadScene extends Phaser.Scene {
       delay: 167,
       loop: true,
       callback: () => {
-        this.wfFrame = (this.wfFrame + 1) % 5;
-        const key = `waterfall-${this.wfFrame}`;
-        for (const s of this.wfSprites) s.setTexture(key);
+        this.wfFrame = (this.wfFrame + 1) % 30; // LCM of 5 and 6
+        for (const s of this.wfSprites) {
+          const isTop = s.texture.key.startsWith('wf-top-');
+          s.setTexture(isTop
+            ? `wf-top-${this.wfFrame % 6}`
+            : `waterfall-${this.wfFrame % 5}`);
+        }
       },
     });
 
