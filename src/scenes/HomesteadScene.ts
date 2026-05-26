@@ -1345,9 +1345,29 @@ export class HomesteadScene extends Phaser.Scene {
       for (let ty = 1; ty < GRID_H - 1; ty++) {
         const zone = getZone(tx, ty);
 
-        // Only place trees on homestead half; skip rock/snow tile types
+        // Only place trees on homestead half; skip non-walkable tiles
         if (zone === 'wf') continue;
         if (this.walkGrid[ty * GRID_W + tx] === 1) continue;
+
+        // Only spawn on flat meadow — skip water, rock, granite, summit tiles
+        const tileElev = getElev(tx, ty);
+        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+        const hsIsWater = tileElev === 0 && ty > shoreEdge;
+        if (hsIsWater) continue;
+        if (tileElev >= 1) continue; // rock/granite/summit — no trees
+
+        // 1-tile buffer from cliff faces: skip if any neighbour has elevation
+        let nearCliff = false;
+        for (let dx = -1; dx <= 1 && !nearCliff; dx++) {
+          for (let dy = -1; dy <= 1 && !nearCliff; dy++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = tx + dx, ny = ty + dy;
+            if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H) {
+              if (getElev(nx, ny) > 0) nearCliff = true;
+            }
+          }
+        }
+        if (nearCliff) continue;
 
         // Skip tiles occupied by resource nodes
         if (nodeSet.has(`${tx},${ty}`)) continue;
