@@ -89,6 +89,18 @@ Custom pixel art is generated via the **PixelLab MCP** (available in this projec
 **To generate pending assets:** read `src/ai/AGENTS.md` and follow the protocol.
 Raw frames go in `public/assets/sprites/_raw/` (gitignored). Assembled spritesheets go in `public/assets/sprites/` and are committed to git.
 
+### PixelLab credentials
+
+Two auth methods depending on context:
+
+| Context | Method | Notes |
+| ------- | ------ | ----- |
+| **Local Claude Code** | MCP OAuth (automatic) | PixelLab's allowlist supports the local CLI; no key needed |
+| **Remote Claude Code / CI** | `PIXELLAB_API_KEY` env var | Set in repo secrets + `.mcp.json` passes it as Bearer token |
+| **Scripts** (`sprite-credit-burn`, `wildlife-species`) | `PIXELLAB_API_KEY` env var | Read by workflow YAML |
+
+Get your API key from the [PixelLab dashboard](https://pixellab.ai/dashboard) → API Keys. Add to `.env.local` for local script use or to GitHub repo secrets for CI.
+
 ## Project structure
 
 ```
