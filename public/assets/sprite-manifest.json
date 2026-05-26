@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-05-18T19:47:18.585Z",
-  "totalAssets": 575,
-  "wiredCount": 242,
-  "unwiredCount": 333,
+  "generatedAt": "2026-05-26T12:30:52.741Z",
+  "totalAssets": 579,
+  "wiredCount": 238,
+  "unwiredCount": 341,
   "categories": [
     {
       "category": ".",
@@ -492,7 +492,7 @@
     },
     {
       "category": "environment",
-      "count": 4,
+      "count": 12,
       "assets": [
         {
           "name": "bird-bluetit-drink",
@@ -518,6 +518,62 @@
         {
           "name": "bird-bluetit-idle",
           "url": "/assets/sprites/environment/bird-bluetit-idle.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-boar-idle",
+          "url": "/assets/sprites/environment/fauna-boar-idle.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-boar-walk",
+          "url": "/assets/sprites/environment/fauna-boar-walk.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-deer-idle",
+          "url": "/assets/sprites/environment/fauna-deer-idle.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-deer-walk",
+          "url": "/assets/sprites/environment/fauna-deer-walk.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-fox-idle",
+          "url": "/assets/sprites/environment/fauna-fox-idle.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-fox-walk",
+          "url": "/assets/sprites/environment/fauna-fox-walk.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-rabbit-idle",
+          "url": "/assets/sprites/environment/fauna-rabbit-idle.png",
+          "folder": "environment",
+          "category": "environment",
+          "wired": false
+        },
+        {
+          "name": "fauna-rabbit-walk",
+          "url": "/assets/sprites/environment/fauna-rabbit-walk.png",
           "folder": "environment",
           "category": "environment",
           "wired": false
@@ -1691,7 +1747,7 @@
     },
     {
       "category": "tilesets",
-      "count": 39,
+      "count": 35,
       "assets": [
         {
           "name": "arena_floor_colosseum",
@@ -1781,34 +1837,6 @@
           "name": "portal",
           "url": "/assets/sprites/tilesets/arena/portal.png",
           "folder": "tilesets/arena",
-          "category": "tilesets",
-          "wired": true
-        },
-        {
-          "name": "road_animal",
-          "url": "/assets/sprites/tilesets/roads/road_animal.png",
-          "folder": "tilesets/roads",
-          "category": "tilesets",
-          "wired": true
-        },
-        {
-          "name": "road_dirt",
-          "url": "/assets/sprites/tilesets/roads/road_dirt.png",
-          "folder": "tilesets/roads",
-          "category": "tilesets",
-          "wired": true
-        },
-        {
-          "name": "road_forest",
-          "url": "/assets/sprites/tilesets/roads/road_forest.png",
-          "folder": "tilesets/roads",
-          "category": "tilesets",
-          "wired": true
-        },
-        {
-          "name": "road_paved",
-          "url": "/assets/sprites/tilesets/roads/road_paved.png",
-          "folder": "tilesets/roads",
           "category": "tilesets",
           "wired": true
         },
