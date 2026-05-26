@@ -1,0 +1,14 @@
+{
+  "_doc": "Per-culture overlays for NPC archetypes. Agents fill incrementally.",
+  "_schema": {
+    "key": "<archetype-id>:<culture-id>",
+    "fields": {
+      "spritePalette": "Reference to a palette in matlu-palette.hex",
+      "accessory": "Optional culturally-typical prop",
+      "voiceSet": "Audio bank id (optional)",
+      "namePool": "Culture-appropriate first names",
+      "idleAnimSeed": "Seed for procedural idle variation"
+    }
+  },
+  "variants": {}
+}

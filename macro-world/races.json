@@ -1,0 +1,85 @@
+{
+  "_doc": "Base presentation data for the 15 canonical Mistheim Peoples. Keyed by TitleCase race ID matching WORLD.md / AXES.md / peoples-and-races.md.",
+  "_schema": {
+    "stature": "Physical build — tall | medium | short-broad | massive | colossal | varies",
+    "skeleton": "Sprite skeleton template — biped-standard | biped-stocky | biped-slender | biped-bovine | centaur | quadruped-winged | aquatic-biped | biped-small | fae-shift | biped-massive | preserved | mechanical | ineffable",
+    "baseVoice": "Default voice timbre — low | mid | high | rumble | varies | silent | mechanical | ineffable"
+  },
+  "races": {
+    "Bergfolk": {
+      "stature": "short-broad",
+      "skeleton": "biped-stocky",
+      "baseVoice": "low"
+    },
+    "Lövfolk": {
+      "stature": "tall",
+      "skeleton": "biped-slender",
+      "baseVoice": "mid"
+    },
+    "Markfolk": {
+      "stature": "medium",
+      "skeleton": "biped-standard",
+      "baseVoice": "mid"
+    },
+    "Viddfolk": {
+      "stature": "tall",
+      "skeleton": "centaur",
+      "baseVoice": "mid"
+    },
+    "Steinfolk": {
+      "stature": "massive",
+      "skeleton": "biped-bovine",
+      "baseVoice": "low"
+    },
+    "Pandor": {
+      "stature": "medium",
+      "skeleton": "biped-stocky",
+      "baseVoice": "mid"
+    },
+    "Deepwalkers": {
+      "stature": "medium",
+      "skeleton": "biped-standard",
+      "baseVoice": "low"
+    },
+    "Merfolk": {
+      "stature": "medium",
+      "skeleton": "aquatic-biped",
+      "baseVoice": "high"
+    },
+    "Goblins": {
+      "stature": "short-broad",
+      "skeleton": "biped-small",
+      "baseVoice": "high"
+    },
+    "Fae": {
+      "stature": "varies",
+      "skeleton": "fae-shift",
+      "baseVoice": "varies"
+    },
+    "Giants": {
+      "stature": "colossal",
+      "skeleton": "biped-massive",
+      "baseVoice": "rumble"
+    },
+    "Dragons": {
+      "stature": "colossal",
+      "skeleton": "quadruped-winged",
+      "baseVoice": "rumble"
+    },
+    "Everstill": {
+      "stature": "varies",
+      "skeleton": "preserved",
+      "baseVoice": "silent"
+    },
+    "Constructs": {
+      "stature": "varies",
+      "skeleton": "mechanical",
+      "baseVoice": "mechanical"
+    },
+    "Remnants": {
+      "stature": "varies",
+      "skeleton": "ineffable",
+      "baseVoice": "ineffable"
+    }
+  }
+}
