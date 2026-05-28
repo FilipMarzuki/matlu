@@ -20,6 +20,7 @@ import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
 import { preloadTilePacks, CUSTOM_TILE_PACKS } from '../world/TilePacks';
+import { aStarWeighted } from '../ai/AStarGrid';
 
 // ── Grid constants ─────────────────────────────────────────────────────────
 // 60×60 grid. Left half (tx 0-29) = homestead meadow, water body in the SW.
@@ -166,50 +167,97 @@ function isoInputToWorld(svx: number, svy: number): { wx: number; wy: number } {
   };
 }
 
-// ── Road path (west→east winding trail) ────────────────────────────────────
-// A single-tile-wide dirt road that gently curves across the full map width.
-// Built by walking column-by-column and only stepping ±1 in ty so the path
-// stays connected without diagonal gaps.
+// ── Road + bridge (A* pathfinding) ─────────────────────────────────────────
+// Build a cost grid from the terrain, then run weighted A* from the west
+// edge to the east edge. Water tiles are expensive (→ bridge), cliffs are
+// impassable. The path naturally routes around obstacles and picks the
+// cheapest river crossing.
 
 const roadGrid = new Uint8Array(GRID_W * GRID_H);
+const bridgeTiles: { tx: number; ty: number }[] = [];
 
-/** Target road centre ty — follows a hand-tuned path through the clear
- *  terrain above the water bodies, curving gently like a natural trail. */
-function roadTargetTy(tx: number): number {
-  // Enters from the west around ty 15, dips south through the middle,
-  // then curves back north to exit the east side around ty 8.
-  const t = tx / (GRID_W - 1); // 0→1 across the map
-  // Base path: starts north, bows south in the middle, returns north
-  const base = 15 + Math.sin(t * Math.PI) * 8;
-  // Gentle wobble for natural feel
-  const wobble = Math.sin(tx * 0.15) * 2 + Math.cos(tx * 0.09 + 1.0) * 1.5;
-  // Pull north on the right half so it exits high
-  const northPull = tx > 30 ? ((tx - 30) / 30) * 10 : 0;
-  return base + wobble - northPull;
-}
-
-// Build road path — same approach as WorldForgeScene:
-// 1. Compute target ty per column
-// 2. Fill vertical gaps when ty jumps more than 1 between columns
 {
-  const rawRoadY: number[] = [];
-  for (let tx = 0; tx < GRID_W; tx++) {
-    rawRoadY.push(Math.max(1, Math.min(GRID_H - 2, Math.round(roadTargetTy(tx)))));
-  }
-  // Build road tile set, filling vertical gaps at each column
-  let prevTy = -1;
-  for (let tx = 0; tx < GRID_W; tx++) {
-    const ty = rawRoadY[tx];
-    roadGrid[ty * GRID_W + tx] = 1;
-    // Fill vertical gap from previous column's ty to this one
-    if (prevTy >= 0 && ty !== prevTy) {
-      const step = ty > prevTy ? 1 : -1;
-      for (let fy = prevTy; fy !== ty; fy += step) {
-        const cfy = Math.max(0, Math.min(GRID_H - 1, fy));
-        roadGrid[cfy * GRID_W + tx] = 1;
+  // ── Cost grid ──────────────────────────────────────────────────────────
+  // First pass: base terrain costs
+  const cost = new Float32Array(GRID_W * GRID_H);
+  for (let ty = 0; ty < GRID_H; ty++) {
+    for (let tx = 0; tx < GRID_W; tx++) {
+      const elev = getElev(tx, ty);
+      if (elev > 0) { cost[ty * GRID_W + tx] = 0; continue; }  // impassable
+
+      if (tx < 30) {
+        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+        if (ty > shoreEdge) {
+          cost[ty * GRID_W + tx] = 0;   // homestead water — impassable
+        } else if (ty > shoreEdge - 2) {
+          cost[ty * GRID_W + tx] = 15;  // shore buffer
+        } else {
+          cost[ty * GRID_W + tx] = 1;
+        }
+      } else {
+        const ltx = tx - 30, ld = ltx + ty;
+        const horiz = ltx - ty;
+        const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
+        if (ld - effOceanCut > 0) {
+          cost[ty * GRID_W + tx] = 0;   // deep ocean — impassable
+        } else if (ld - effOceanCut >= -1) {
+          cost[ty * GRID_W + tx] = 0;   // ocean edge — impassable
+        } else if (Math.abs(ltx - wfRiverCenter(ld)) <= 1) {
+          cost[ty * GRID_W + tx] = 30;  // river — expensive but crossable (bridge)
+        } else {
+          cost[ty * GRID_W + tx] = 1;
+        }
       }
     }
-    prevTy = ty;
+  }
+
+  // Second pass: mark cliff-adjacent tiles as expensive (same SE-offset
+  // logic the walkGrid uses, so the road avoids the dark blocked tiles).
+  for (let ty = 0; ty < GRID_H; ty++) {
+    for (let tx = 0; tx < GRID_W; tx++) {
+      const elev = getElev(tx, ty);
+      // Water tiles set their SE-offset neighbour as blocked
+      if (tx < 30) {
+        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+        if (elev === 0 && ty > shoreEdge && ty + 1 < GRID_H && tx + 1 < GRID_W) {
+          cost[(ty + 1) * GRID_W + (tx + 1)] = 0;  // impassable
+        }
+      }
+      // Cliff drops block their SE-offset neighbours
+      if (elev > 0) {
+        const sDrop = ty + 1 < GRID_H ? elev - getElev(tx, ty + 1) : 0;
+        const eDrop = tx + 1 < GRID_W ? elev - getElev(tx + 1, ty) : 0;
+        if (sDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) {
+          cost[(ty + 1) * GRID_W + (tx + 1)] = 0;
+        }
+        if (eDrop > 0 && tx + 1 < GRID_W) {
+          cost[ty * GRID_W + (tx + 1)] = 0;
+        }
+      }
+    }
+  }
+
+  // ── A* from west edge to east edge ─────────────────────────────────────
+  // Start at (0, 15), goal at (GRID_W-1, 10) — roughly where we want
+  // the road to enter/exit.
+  const startTy = 15, goalTy = 10;
+  const path = aStarWeighted(cost, GRID_W, GRID_H,
+    0, startTy, GRID_W - 1, goalTy, 20000);
+
+  if (path) {
+    // Mark path tiles in the road grid
+    roadGrid[startTy * GRID_W + 0] = 1;  // include start tile
+    for (const p of path) {
+      roadGrid[p.y * GRID_W + p.x] = 1;
+    }
+
+    // Detect bridge tiles — road tiles on water (cost ≥ 30)
+    roadGrid[startTy * GRID_W + 0] = 1;
+    for (const p of path) {
+      if (cost[p.y * GRID_W + p.x] >= 30) {
+        bridgeTiles.push({ tx: p.x, ty: p.y });
+      }
+    }
   }
 }
 
@@ -236,6 +284,10 @@ const ROAD_BITMASK_TO_FRAME = [
 function isRoad(tx: number, ty: number): boolean {
   if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return false;
   return roadGrid[ty * GRID_W + tx] === 1;
+}
+
+function isBridgeTile(tx: number, ty: number): boolean {
+  return bridgeTiles.some(b => b.tx === tx && b.ty === ty);
 }
 
 // ── Placeable buildings ─────────────────────────────────────────────────────
@@ -548,9 +600,9 @@ export class HomesteadScene extends Phaser.Scene {
           }
 
           // ── Road overlay on the homestead half ──────────────────────────
-          if (isRoad(tx, ty) && !hsIsWater && tileElev === 0 && this.walkGrid[ty * GRID_W + tx] === 0) {
+          // Skip bridge tiles (rendered separately) and water tiles
+          if (isRoad(tx, ty) && !hsIsWater && !isBridgeTile(tx, ty) && tileElev === 0) {
             let mask = 0;
-            // Edge tiles pretend they connect off-screen (straight exit)
             if (tx === 0   || isRoad(tx - 1, ty)) mask |= 1;  // NW
             if (isRoad(tx, ty - 1))                mask |= 2;  // NE
             if (tx === GRID_W - 1 || isRoad(tx + 1, ty)) mask |= 4;  // SE
@@ -721,7 +773,8 @@ export class HomesteadScene extends Phaser.Scene {
         }
 
         // ── Road overlay on WF half ─────────────────────────────────────
-        if (isRoad(tx, ty) && !isWater && tileElev === 0 && this.walkGrid[ty * GRID_W + tx] === 0) {
+        // Skip bridge tiles and water — bridge sprites handle the crossing
+        if (isRoad(tx, ty) && !isBridgeTile(tx, ty) && !isWater && tileElev === 0) {
           let mask = 0;
           if (isRoad(tx - 1, ty))                mask |= 1;
           if (isRoad(tx, ty - 1))                mask |= 2;
@@ -734,36 +787,17 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
-    // ── Bridge tiles where the road crosses water/blocked tiles ─────────
-    // Water/cliffs mark walkGrid with a SE offset (+1 tx, +1 ty), so bridge
-    // unblocking must clear both the road tile itself AND the offset cell.
-    for (let ty = 0; ty < GRID_H; ty++) {
-      for (let tx = 0; tx < GRID_W; tx++) {
-        if (!isRoad(tx, ty)) continue;
-        // Check if this road tile or its offset neighbour is blocked
-        const selfBlocked = this.walkGrid[ty * GRID_W + tx] === 1;
-        const offsetBlocked = ty + 1 < GRID_H && tx + 1 < GRID_W &&
-          this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] === 1;
-        // Also check if the tile that would have *caused* this offset block
-        // is water (i.e. (tx-1, ty-1) is water → blocked (tx, ty))
-        const isOffsetVictim = ty > 0 && tx > 0 &&
-          this.walkGrid[ty * GRID_W + tx] === 1;
-        if (!selfBlocked && !offsetBlocked && !isOffsetVictim) continue;
-
-        const wx = tx * TILE_SIZE;
-        const wy = ty * TILE_SIZE;
-        const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
-        const depth = hsIsoDepth(wx, wy);
-        this.add.image(isoX, isoY + ISO_TILE_H / 2, 'bridge-mid')
-          .setDisplaySize(ISO_TILE_W * 1.2, ISO_TILE_H * 1.8)
-          .setOrigin(0.5, 0.5)
-          .setDepth(depth);
-        // Unblock the road tile and its SE offset so the player can cross
-        this.walkGrid[ty * GRID_W + tx] = 0;
-        if (ty + 1 < GRID_H && tx + 1 < GRID_W) {
-          this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 0;
-        }
-      }
+    // ── Bridge tiles at the pre-computed river crossing ─────────────────
+    for (const { tx, ty } of bridgeTiles) {
+      const wx = tx * TILE_SIZE;
+      const wy = ty * TILE_SIZE;
+      const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+      this.add.image(isoX, isoY + ISO_TILE_H / 2, 'bridge-mid')
+        .setDisplaySize(ISO_TILE_W * 1.2, ISO_TILE_H * 1.8)
+        .setOrigin(0.5, 0.5)
+        .setDepth(hsIsoDepth(wx, wy));
+      // Unblock so the player can walk across
+      this.walkGrid[ty * GRID_W + tx] = 0;
     }
 
     // ── Debug tile grid overlay ─────────────────────────────────────────

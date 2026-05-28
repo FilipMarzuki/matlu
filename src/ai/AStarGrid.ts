@@ -124,3 +124,101 @@ export function aStarPath(
 
   return null; // no path found
 }
+
+/**
+ * Weighted A* — same as aStarPath but uses a cost grid (Float32Array)
+ * instead of a binary wall grid.  Each cell's value is the movement cost
+ * to enter it.  Infinity = impassable.
+ *
+ * @param costGrid  Flat Float32Array of per-tile costs, row-major.
+ *                  0 or negative = impassable.  Typical values: land=1, water=30.
+ * @param cols      Grid width in tiles.
+ * @param rows      Grid height in tiles.
+ * @param sx        Start tile X.
+ * @param sy        Start tile Y.
+ * @param gx        Goal tile X.
+ * @param gy        Goal tile Y.
+ * @param maxVisit  Max nodes to expand (default 10000).
+ * @returns         Array of waypoints (start excluded, goal included), or null.
+ */
+export function aStarWeighted(
+  costGrid: Float32Array,
+  cols: number,
+  rows: number,
+  sx: number,
+  sy: number,
+  gx: number,
+  gy: number,
+  maxVisit = 10000,
+): TilePoint[] | null {
+  if (sx === gx && sy === gy) return [];
+
+  const idx = (x: number, y: number) => y * cols + x;
+  const heuristic = (x: number, y: number) => Math.abs(x - gx) + Math.abs(y - gy);
+
+  const gScore = new Float32Array(cols * rows).fill(Infinity);
+  const fScore = new Float32Array(cols * rows).fill(Infinity);
+  const cameFrom = new Int32Array(cols * rows).fill(-1);
+
+  const startIdx = idx(sx, sy);
+  gScore[startIdx] = 0;
+  fScore[startIdx] = heuristic(sx, sy);
+
+  const open: number[] = [startIdx];
+  const inOpen = new Uint8Array(cols * rows);
+  inOpen[startIdx] = 1;
+
+  let visited = 0;
+
+  while (open.length > 0 && visited < maxVisit) {
+    let bestI = 0;
+    for (let i = 1; i < open.length; i++) {
+      if (fScore[open[i]] < fScore[open[bestI]]) bestI = i;
+    }
+    const current = open[bestI];
+    open[bestI] = open[open.length - 1];
+    open.pop();
+    inOpen[current] = 0;
+    visited++;
+
+    const cx = current % cols;
+    const cy = (current - cx) / cols;
+
+    if (cx === gx && cy === gy) {
+      const path: TilePoint[] = [];
+      let node = current;
+      while (node !== startIdx) {
+        const nx = node % cols;
+        const ny = (node - nx) / cols;
+        path.push({ x: nx, y: ny });
+        node = cameFrom[node];
+      }
+      path.reverse();
+      return path;
+    }
+
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + DX[d];
+      const ny = cy + DY[d];
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+
+      const ni = idx(nx, ny);
+      const cost = costGrid[ni];
+      if (cost <= 0 || !isFinite(cost)) continue; // impassable
+
+      const tentG = gScore[current] + cost;
+      if (tentG >= gScore[ni]) continue;
+
+      cameFrom[ni] = current;
+      gScore[ni] = tentG;
+      fScore[ni] = tentG + heuristic(nx, ny);
+
+      if (!inOpen[ni]) {
+        open.push(ni);
+        inOpen[ni] = 1;
+      }
+    }
+  }
+
+  return null;
+}
