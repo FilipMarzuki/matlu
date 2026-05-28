@@ -1,0 +1,50 @@
+{
+  "_doc": "PixelLab character IDs for all P1+P2 wildlife species. Used for animation generation.",
+  "quadrupeds": {
+    "lynx":         { "id": "4a5ee485-26b6-4c62-831c-2c4873db0a7a", "template": "cat",   "size": 32, "anims": ["idle", "running-6-frames"] },
+    "wildcat":      { "id": "1c72503c-ab7f-46df-9cdc-c7806fb789eb", "template": "cat",   "size": 32, "anims": [] },
+    "bear":         { "id": "147321e3-6572-4bb5-ba85-d55c132cd68a", "template": "bear",  "size": 48, "anims": [] },
+    "squirrel":     { "id": "97d23b68-0579-4d41-836d-077043f47703", "template": "cat",   "size": 16, "anims": [] },
+    "hedgehog":     { "id": "1feb8b5a-9a90-4575-a247-252378fa6d64", "template": "cat",   "size": 16, "anims": [] },
+    "elk":          { "id": "a0341fce-661b-4241-8a7f-1ede8610deb3", "template": "horse", "size": 48, "anims": [] },
+    "bison":        { "id": "4ae8b75c-a445-4b39-ad28-6f2029e3b7ab", "template": "horse", "size": 48, "anims": [] },
+    "roe-deer":     { "id": "d8c5b1a1-82b1-4440-88bf-6d658c89ffc2", "template": "horse", "size": 32, "anims": [] },
+    "wolverine":    { "id": "9e8321f7-545a-4c3b-95bd-0a315dd599f6", "template": "bear",  "size": 32, "anims": [] },
+    "rabbit":       { "id": "9ba09240-a0ba-4c80-86f0-115f76195431", "template": "cat",   "size": 16, "anims": [] },
+    "pine-marten":  { "id": "e3e2cdff-e3e6-4baf-a14c-bb95ab6bdef5", "template": "cat",   "size": 24, "anims": [] },
+    "beech-marten": { "id": "d69ae300-7afa-4c8b-90e8-3d0c9a4ef05b", "template": "cat",   "size": 24, "anims": [] },
+    "polecat":      { "id": "0f8994d2-3991-4082-805c-769acb213aab", "template": "cat",   "size": 24, "anims": [] },
+    "stoat":        { "id": "df776d72-ecb7-46c9-89e4-72067e9878b9", "template": "cat",   "size": 16, "anims": [] },
+    "weasel":       { "id": "1d00382a-698f-4cf5-835c-7e7ddc0cf6f0", "template": "cat",   "size": 16, "anims": [] },
+    "raccoon":      { "id": "37ae6144-c357-4454-9dfa-61c72ef9d7ea", "template": "cat",   "size": 24, "anims": [] },
+    "rat":          { "id": "e51a59c3-2185-4a8e-8087-20cf465e4799", "template": "cat",   "size": 16, "anims": [] },
+    "grass-snake":  { "id": "5ac7b3f3-2751-4464-93e4-ab1b490adf2b", "template": "cat",   "size": 24, "anims": [] }
+  },
+  "birds": {
+    "buzzard":            { "id": "e783015b-9359-42d2-9439-7020c9ac6ea2", "size": 24 },
+    "owl":                { "id": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195", "size": 24 },
+    "heron":              { "id": "ffa65404-cf24-4584-a926-48a8fd8b0aeb", "size": 32 },
+    "golden-eagle":       { "id": "5e62209e-ec0a-4baf-8e5c-09c85b336717", "size": 32 },
+    "white-tailed-eagle": { "id": "dd162fb0-7d72-464e-a392-b6d5d126b54e", "size": 32 },
+    "sparrowhawk":        { "id": "2117bcd2-06c3-4383-9d8b-e346f2855001", "size": 24 },
+    "goshawk":            { "id": "f21c75eb-d15f-4ae9-bca4-d57955a1f429", "size": 24 },
+    "kestrel":            { "id": "a76a0d13-e64b-4165-be1c-170686af7eb3", "size": 24 },
+    "red-kite":           { "id": "22300994-c4ed-4723-8753-15ce9a68eab9", "size": 24 },
+    "barn-owl":           { "id": "784d9b9a-f357-45ee-afa7-10e5041a144e", "size": 24 },
+    "eagle-owl":          { "id": "e6ea2362-f955-4c09-b8a3-c9d023145495", "size": 32 },
+    "pheasant":           { "id": "ce907331-f094-4e20-9102-d1cc5ca313d0", "size": 24 },
+    "partridge":          { "id": "273622d0-203b-4f05-a8a5-ae097f37bcfc", "size": 16 },
+    "capercaillie":       { "id": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5", "size": 32 },
+    "stork":              { "id": "4cd7222e-e874-40f1-9ed7-5651337f1aeb", "size": 32 },
+    "mallard":            { "id": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894", "size": 16 },
+    "swan":               { "id": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7", "size": 32 },
+    "kingfisher":         { "id": "3999a2a7-fdbd-42a0-9573-881b63e1b019", "size": 16 },
+    "woodpecker":         { "id": "cb574856-2d5e-4011-bde5-144d835a6bbd", "size": 24 },
+    "raven":              { "id": "454af1b9-715f-47b8-9b30-2d21c241285a", "size": 24 },
+    "great-tit":          { "id": "27dd3374-7aeb-4475-a52d-14427d657eda", "size": 16 }
+  },
+  "failed": {
+    "magpie": "a934682f-7c43-4e25-b40d-64d611e6c9b3"
+  },
+  "not_yet_created": ["robin", "blackbird", "jay", "swallow", "adder", "sand-lizard", "frog", "toad", "starling", "green-woodpecker"]
+}
