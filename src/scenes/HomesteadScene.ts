@@ -349,6 +349,7 @@ export class HomesteadScene extends Phaser.Scene {
   // 0 = walkable, 1 = blocked (water, cliff). Row-major: ty * GRID_W + tx.
   private walkGrid = new Uint8Array(GRID_W * GRID_H);
   private debugGridGfx: Phaser.GameObjects.Graphics | null = null;
+  private playerTileGfx: Phaser.GameObjects.Graphics | null = null;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -733,6 +734,38 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
+    // ── Bridge tiles where the road crosses water/blocked tiles ─────────
+    // Water/cliffs mark walkGrid with a SE offset (+1 tx, +1 ty), so bridge
+    // unblocking must clear both the road tile itself AND the offset cell.
+    for (let ty = 0; ty < GRID_H; ty++) {
+      for (let tx = 0; tx < GRID_W; tx++) {
+        if (!isRoad(tx, ty)) continue;
+        // Check if this road tile or its offset neighbour is blocked
+        const selfBlocked = this.walkGrid[ty * GRID_W + tx] === 1;
+        const offsetBlocked = ty + 1 < GRID_H && tx + 1 < GRID_W &&
+          this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] === 1;
+        // Also check if the tile that would have *caused* this offset block
+        // is water (i.e. (tx-1, ty-1) is water → blocked (tx, ty))
+        const isOffsetVictim = ty > 0 && tx > 0 &&
+          this.walkGrid[ty * GRID_W + tx] === 1;
+        if (!selfBlocked && !offsetBlocked && !isOffsetVictim) continue;
+
+        const wx = tx * TILE_SIZE;
+        const wy = ty * TILE_SIZE;
+        const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+        const depth = hsIsoDepth(wx, wy);
+        this.add.image(isoX, isoY + ISO_TILE_H / 2, 'bridge-mid')
+          .setDisplaySize(ISO_TILE_W * 1.2, ISO_TILE_H * 1.8)
+          .setOrigin(0.5, 0.5)
+          .setDepth(depth);
+        // Unblock the road tile and its SE offset so the player can cross
+        this.walkGrid[ty * GRID_W + tx] = 0;
+        if (ty + 1 < GRID_H && tx + 1 < GRID_W) {
+          this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 0;
+        }
+      }
+    }
+
     // ── Debug tile grid overlay ─────────────────────────────────────────
     // Draws iso diamond outlines: green = walkable, red = blocked.
     // Toggle with G key; off by default.
@@ -742,6 +775,9 @@ export class HomesteadScene extends Phaser.Scene {
       if (!this.scene.isActive(HomesteadScene.KEY)) return;
       this.debugGridGfx!.setVisible(!this.debugGridGfx!.visible);
     });
+
+    // ── Player tile highlight — golden diamond under the character ───────
+    this.playerTileGfx = this.add.graphics().setDepth(8999);
 
     // ── Waterfall animation timer ─────────────────────────────────────────
     // Cycle waterfall frames every 167ms (6 FPS, same as WorldForge).
@@ -1157,9 +1193,34 @@ export class HomesteadScene extends Phaser.Scene {
     this.lastSafeY = this.player.y;
 
     // ── Sync iso sprite to physics body + animate ──────────────────────
+    // Offset sprite so feet land in the centre of the tile diamond.
+    // The diamond centre is at (isoX, isoY + ISO_TILE_H/2) relative to
+    // the north apex; shift sprite there.
     const { x: isoX, y: isoY } = hsWorldToIso(this.player.x, this.player.y);
-    this.playerIso.setPosition(isoX, isoY);
+    this.playerIso.setPosition(isoX, isoY + ISO_TILE_H);
     this.playerIso.setDepth(hsIsoDepth(this.player.x, this.player.y));
+
+    // ── Player tile highlight — golden diamond on the tile the player occupies
+    if (this.playerTileGfx) {
+      this.playerTileGfx.clear();
+      const ptx = Math.floor(this.player.x / TILE_SIZE);
+      const pty = Math.floor(this.player.y / TILE_SIZE);
+      const twx = ptx * TILE_SIZE;
+      const twy = pty * TILE_SIZE;
+      const { x: tix, y: tiy } = hsWorldToIso(twx, twy);
+      const hw = ISO_TILE_W / 2;
+      const hh = ISO_TILE_H / 2;
+      this.playerTileGfx.lineStyle(1.5, 0xf0c040, 0.8);
+      this.playerTileGfx.fillStyle(0xf0c040, 0.15);
+      this.playerTileGfx.beginPath();
+      this.playerTileGfx.moveTo(tix, tiy);
+      this.playerTileGfx.lineTo(tix + hw, tiy + hh);
+      this.playerTileGfx.lineTo(tix, tiy + ISO_TILE_H);
+      this.playerTileGfx.lineTo(tix - hw, tiy + hh);
+      this.playerTileGfx.closePath();
+      this.playerTileGfx.fillPath();
+      this.playerTileGfx.strokePath();
+    }
 
     // Update facing direction and animation.
     // Use screen-space input (svx, svy) for animation direction, not
