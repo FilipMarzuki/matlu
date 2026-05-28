@@ -50,7 +50,7 @@ const ISO_H = (GRID_W + GRID_H) * (ISO_TILE_H / 2) + ISO_TILE_H;
 const CLIFF_H = 32;  // one elevation step = one 32×32 cliff block
 
 // ── Zone system ───────────────────────────────────────────────────────────
-// Left half (tx < 30): homestead meadow + NW forest + NE mountain strip.
+// Left half (tx < 30): forest (west) → meadow (east) with wavy transition.
 // Right half (tx ≥ 30): full WorldForge terrain at native 30×30 size.
 
 type ZoneType = 'homestead' | 'wf';
@@ -59,6 +59,24 @@ function getZone(tx: number, _ty: number): ZoneType {
   // Right half → WorldForge terrain (elevation, river, waterfall)
   if (tx >= 30) return 'wf';
   return 'homestead';
+}
+
+/**
+ * Wavy forest/meadow boundary — returns a value from 0 (deep forest) to 1
+ * (open meadow).  The boundary line meanders around tx ≈ 15 using layered
+ * sine waves so the edge feels organic, not a straight vertical cut.
+ */
+function forestMeadowBlend(tx: number, ty: number): number {
+  const edge = 21
+    + Math.sin(ty * 0.22) * 3.5
+    + Math.cos(ty * 0.11 + 1.7) * 2.0
+    + Math.sin(ty * 0.37 + tx * 0.05) * 1.5;
+
+  // Transition width: ~4 tiles of blended zone
+  const half = 2;
+  if (tx <= edge - half) return 0;   // pure forest
+  if (tx >= edge + half) return 1;   // pure meadow
+  return (tx - (edge - half)) / (half * 2);  // 0→1 across transition
 }
 
 // ── WorldForge terrain (right half, local coords ltx=tx-30, lty=ty) ───────
@@ -146,6 +164,78 @@ function isoInputToWorld(svx: number, svy: number): { wx: number; wy: number } {
     wx:  svx * cos45 + svy * cos45,
     wy: -svx * cos45 + svy * cos45,
   };
+}
+
+// ── Road path (west→east winding trail) ────────────────────────────────────
+// A single-tile-wide dirt road that gently curves across the full map width.
+// Built by walking column-by-column and only stepping ±1 in ty so the path
+// stays connected without diagonal gaps.
+
+const roadGrid = new Uint8Array(GRID_W * GRID_H);
+
+/** Target road centre ty — follows a hand-tuned path through the clear
+ *  terrain above the water bodies, curving gently like a natural trail. */
+function roadTargetTy(tx: number): number {
+  // Enters from the west around ty 15, dips south through the middle,
+  // then curves back north to exit the east side around ty 8.
+  const t = tx / (GRID_W - 1); // 0→1 across the map
+  // Base path: starts north, bows south in the middle, returns north
+  const base = 15 + Math.sin(t * Math.PI) * 8;
+  // Gentle wobble for natural feel
+  const wobble = Math.sin(tx * 0.15) * 2 + Math.cos(tx * 0.09 + 1.0) * 1.5;
+  // Pull north on the right half so it exits high
+  const northPull = tx > 30 ? ((tx - 30) / 30) * 10 : 0;
+  return base + wobble - northPull;
+}
+
+// Build road path — same approach as WorldForgeScene:
+// 1. Compute target ty per column
+// 2. Fill vertical gaps when ty jumps more than 1 between columns
+{
+  const rawRoadY: number[] = [];
+  for (let tx = 0; tx < GRID_W; tx++) {
+    rawRoadY.push(Math.max(1, Math.min(GRID_H - 2, Math.round(roadTargetTy(tx)))));
+  }
+  // Build road tile set, filling vertical gaps at each column
+  let prevTy = -1;
+  for (let tx = 0; tx < GRID_W; tx++) {
+    const ty = rawRoadY[tx];
+    roadGrid[ty * GRID_W + tx] = 1;
+    // Fill vertical gap from previous column's ty to this one
+    if (prevTy >= 0 && ty !== prevTy) {
+      const step = ty > prevTy ? 1 : -1;
+      for (let fy = prevTy; fy !== ty; fy += step) {
+        const cfy = Math.max(0, Math.min(GRID_H - 1, fy));
+        roadGrid[cfy * GRID_W + tx] = 1;
+      }
+    }
+    prevTy = ty;
+  }
+}
+
+/** Auto-tile bitmask → spritesheet frame (same mapping as GameScene). */
+const ROAD_BITMASK_TO_FRAME = [
+  /*  0 none     */ 0,
+  /*  1 NW       */ 9,
+  /*  2 NE       */ 8,
+  /*  3 NW+NE    */ 11,
+  /*  4 SE       */ 8,
+  /*  5 NW+SE    */ 2,
+  /*  6 NE+SE    */ 8,
+  /*  7 NW+NE+SE */ 6,
+  /*  8 SW       */ 9,
+  /*  9 NW+SW    */ 9,
+  /* 10 NE+SW    */ 1,
+  /* 11 NW+NE+SW */ 7,
+  /* 12 SE+SW    */ 10,
+  /* 13 NW+SE+SW */ 5,
+  /* 14 NE+SE+SW */ 4,
+  /* 15 all      */ 0,
+];
+
+function isRoad(tx: number, ty: number): boolean {
+  if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return false;
+  return roadGrid[ty * GRID_W + tx] === 1;
 }
 
 // ── Placeable buildings ─────────────────────────────────────────────────────
@@ -409,7 +499,19 @@ export class HomesteadScene extends Phaser.Scene {
             // Sandy shore transition near water edge
             pack = CUSTOM_TILE_PACKS[2]!;
           } else {
-            pack = 'meadow';
+            // Forest on the left, meadow on the right, with a wavy blend zone.
+            // In the transition strip, use a seeded coin-flip per tile so tiles
+            // interleave naturally instead of a hard line.
+            const blend = forestMeadowBlend(tx, ty);
+            if (blend <= 0) {
+              pack = 'forest';
+            } else if (blend >= 1) {
+              pack = 'meadow';
+            } else {
+              // Transition: probabilistic mix based on blend + tile hash
+              const roll = (wfTileHash(tx, ty) % 100) / 100;
+              pack = roll < blend ? 'meadow' : 'forest';
+            }
           }
 
           const sDrop = tileElev > 0 && ty + 1 < GRID_H ? tileElev - getElev(tx, ty + 1) : 0;
@@ -442,6 +544,19 @@ export class HomesteadScene extends Phaser.Scene {
           } else {
             this.add.image(isoX, posY, `${pack}-${th}`)
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
+          }
+
+          // ── Road overlay on the homestead half ──────────────────────────
+          if (isRoad(tx, ty) && !hsIsWater && tileElev === 0 && this.walkGrid[ty * GRID_W + tx] === 0) {
+            let mask = 0;
+            // Edge tiles pretend they connect off-screen (straight exit)
+            if (tx === 0   || isRoad(tx - 1, ty)) mask |= 1;  // NW
+            if (isRoad(tx, ty - 1))                mask |= 2;  // NE
+            if (tx === GRID_W - 1 || isRoad(tx + 1, ty)) mask |= 4;  // SE
+            if (isRoad(tx, ty + 1))                mask |= 8;  // SW
+            const frame = ROAD_BITMASK_TO_FRAME[mask];
+            this.add.image(isoX, posY + ISO_TILE_H / 2, 'road-dirt', frame)
+              .setOrigin(0.5, 0.5).setDepth(baseDepth - 999);
           }
           continue;
         }
@@ -603,10 +718,20 @@ export class HomesteadScene extends Phaser.Scene {
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
           }
         }
+
+        // ── Road overlay on WF half ─────────────────────────────────────
+        if (isRoad(tx, ty) && !isWater && tileElev === 0 && this.walkGrid[ty * GRID_W + tx] === 0) {
+          let mask = 0;
+          if (isRoad(tx - 1, ty))                mask |= 1;
+          if (isRoad(tx, ty - 1))                mask |= 2;
+          if (tx === GRID_W - 1 || isRoad(tx + 1, ty)) mask |= 4;
+          if (isRoad(tx, ty + 1))                mask |= 8;
+          const frame = ROAD_BITMASK_TO_FRAME[mask];
+          this.add.image(isoX, posY + ISO_TILE_H / 2, 'road-dirt', frame)
+            .setOrigin(0.5, 0.5).setDepth(baseDepth - 999);
+        }
       }
     }
-
-
 
     // ── Debug tile grid overlay ─────────────────────────────────────────
     // Draws iso diamond outlines: green = walkable, red = blocked.
@@ -1283,8 +1408,8 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   // ── Tree scatter ──────────────────────────────────────────────────────
-  // Populates the forest zone with dense tree coverage and sprinkles a few
-  // trees in the homestead zone.  Deterministic: seeded hash per tile.
+  // Dense forest on the left, sparse meadow trees on the right, with a
+  // natural transition zone.  Deterministic: seeded hash per tile.
 
   // ── Debug grid ──────────────────────────────────────────────────────
 
@@ -1327,7 +1452,7 @@ export class HomesteadScene extends Phaser.Scene {
       { prefix: 'tree-birch',  matureN: 4,  youngN: 4, saplingN: 4, weight: 15 },
       { prefix: 'tree-elm',    matureN: 4,  youngN: 3, saplingN: 4, weight: 10 },
     ];
-    const totalWeight = species.reduce((s, sp) => s + sp.weight, 0);
+    // Per-species weights are computed per-tile based on forest/meadow blend.
 
     // Simple deterministic hash for per-tile decisions.
     const hash = (a: number, b: number, salt: number) =>
@@ -1345,9 +1470,10 @@ export class HomesteadScene extends Phaser.Scene {
       for (let ty = 1; ty < GRID_H - 1; ty++) {
         const zone = getZone(tx, ty);
 
-        // Only place trees on homestead half; skip non-walkable tiles
+        // Only place trees on homestead half; skip non-walkable tiles and roads
         if (zone === 'wf') continue;
         if (this.walkGrid[ty * GRID_W + tx] === 1) continue;
+        if (isRoad(tx, ty)) continue;
 
         // Only spawn on flat meadow — skip water, rock, granite, summit tiles
         const tileElev = getElev(tx, ty);
@@ -1372,35 +1498,56 @@ export class HomesteadScene extends Phaser.Scene {
         // Skip tiles occupied by resource nodes
         if (nodeSet.has(`${tx},${ty}`)) continue;
 
+        // Forest/meadow blend drives tree density:
+        //   forest (blend=0) → ~85% coverage, dense canopy
+        //   transition       → gradual thinning
+        //   meadow (blend=1) → ~5% coverage, occasional lone trees
+        const blend = forestMeadowBlend(tx, ty);
+
         // Cluster noise — two overlapping waves create natural clumps
         const n1 = Math.sin(tx * 0.35 + ty * 0.25) * Math.cos(ty * 0.4 - tx * 0.15);
         const n2 = Math.sin(tx * 0.18 - ty * 0.32) * Math.cos(tx * 0.28 + ty * 0.12);
         const cluster = (n1 + n2 + 2) / 4; // normalise to 0-1
 
-        // Sparse scatter on homestead half
-        const threshold = 0.65;
+        // Density threshold: low in forest (easy to pass), high in meadow (rare)
+        const threshold = blend <= 0 ? 0.10
+          : blend >= 1 ? 0.85
+          : 0.10 + blend * 0.75;
         if (cluster < threshold) continue;
 
         const spawnChance = (cluster - threshold) / (1 - threshold);
+        // Forest side: almost always spawn when cluster passes; meadow: sparse
+        const densityBoost = blend <= 0 ? 0.95 : blend >= 1 ? 0.3 : 0.95 - blend * 0.65;
         const roll = (hash(tx, ty, 0xBEEF) % 1000) / 1000;
-        if (roll > spawnChance) continue;
+        if (roll > spawnChance * densityBoost + (1 - blend) * 0.4) continue;
 
         {
-          // Pick species by weighted random
-          const specRoll = hash(tx, ty, 0xCAFE) % totalWeight;
+          // Pick species by weighted random.
+          // Forest side strongly favours conifers; meadow side favours deciduous.
+          const forestWeights = [40, 35, 10, 10, 5];  // pine, spruce, oak, birch, elm
+          const meadowWeights = [10, 10, 35, 30, 15]; // pine, spruce, oak, birch, elm
+          const weights = species.map((_, i) => {
+            const fw = forestWeights[i], mw = meadowWeights[i];
+            return Math.round(fw + (mw - fw) * blend);
+          });
+          const tw = weights.reduce((a, b) => a + b, 0);
+          const specRoll = hash(tx, ty, 0xCAFE) % tw;
           let acc = 0;
           let sp = species[0];
-          for (const s of species) {
-            acc += s.weight;
-            if (specRoll < acc) { sp = s; break; }
+          for (let i = 0; i < species.length; i++) {
+            acc += weights[i];
+            if (specRoll < acc) { sp = species[i]; break; }
           }
 
-          // 40% mature, 35% young, 25% sapling
+          // Forest: mostly mature trees for a dense canopy.
+          // Meadow: more young/sapling for an open feel.
+          const matureChance = blend <= 0 ? 65 : blend >= 1 ? 30 : Math.round(65 - 35 * blend);
+          const youngCap = blend <= 0 ? 90 : blend >= 1 ? 70 : Math.round(90 - 20 * blend);
           const stageRoll = hash(tx, ty, 0xFACE) % 100;
           let textureKey: string;
-          if (stageRoll < 40) {
+          if (stageRoll < matureChance) {
             textureKey = `${sp.prefix}-${hash(tx, ty, 0xAA) % sp.matureN}`;
-          } else if (stageRoll < 75) {
+          } else if (stageRoll < youngCap) {
             textureKey = `${sp.prefix}-young-${hash(tx, ty, 0xBB) % sp.youngN}`;
           } else {
             textureKey = `${sp.prefix}-sapling-${hash(tx, ty, 0xCC) % sp.saplingN}`;
@@ -1417,11 +1564,13 @@ export class HomesteadScene extends Phaser.Scene {
           tree.setOrigin(0.5, 1);
           tree.setDepth(hsIsoDepth(wx, wy));
 
+          // Forest trees are slightly larger for a thick canopy feel
           const isMature = !textureKey.includes('young') && !textureKey.includes('sapling');
           const isSapling = textureKey.includes('sapling');
+          const forestScaleBoost = blend <= 0 ? 1.15 : 1 + (1 - blend) * 0.15;
           const baseScale = isMature ? 0.55 : isSapling ? 0.3 : 0.4;
           const scaleJitter = 1 + ((hash(tx, ty, 0x333) % 20) - 10) * 0.01;
-          tree.setScale(baseScale * scaleJitter);
+          tree.setScale(baseScale * scaleJitter * forestScaleBoost);
         }
       }
     }
