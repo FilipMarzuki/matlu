@@ -139,6 +139,8 @@ export function aStarPath(
  * @param gx        Goal tile X.
  * @param gy        Goal tile Y.
  * @param maxVisit  Max nodes to expand (default 10000).
+ * @param verticalPenalty  Multiplier for north/south movement cost (default 1).
+ *                         Values > 1 bias the path toward horizontal travel.
  * @returns         Array of waypoints (start excluded, goal included), or null.
  */
 export function aStarWeighted(
@@ -150,6 +152,7 @@ export function aStarWeighted(
   gx: number,
   gy: number,
   maxVisit = 10000,
+  verticalPenalty = 1,
 ): TilePoint[] | null {
   if (sx === gx && sy === gy) return [];
 
@@ -206,7 +209,9 @@ export function aStarWeighted(
       const cost = costGrid[ni];
       if (cost <= 0 || !isFinite(cost)) continue; // impassable
 
-      const tentG = gScore[current] + cost;
+      // Apply vertical penalty for north/south moves (d >= 2)
+      const moveCost = d >= 2 ? cost * verticalPenalty : cost;
+      const tentG = gScore[current] + moveCost;
       if (tentG >= gScore[ni]) continue;
 
       cameFrom[ni] = current;

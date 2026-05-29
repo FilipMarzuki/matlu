@@ -1474,15 +1474,27 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
-    // A* from west edge to east edge
-    const startTy = 15, goalTy = 10;
+    // A* between interior points, then extend straight to map edges.
+    // This prevents A* from running along the edge to reach a fixed ty.
+    // Vertical penalty (3×) biases toward horizontal travel.
+    const startTx = 2, startTy = 15;
+    const goalTx = GRID_W - 3, goalTy = 10;
     const path = aStarWeighted(cost, GRID_W, GRID_H,
-      0, startTy, GRID_W - 1, goalTy, 20000);
+      startTx, startTy, goalTx, goalTy, 20000, 3);
 
     if (path) {
-      this.roadGrid[startTy * GRID_W + 0] = 1;
+      // Extend road straight west from start to map edge
+      for (let tx = 0; tx <= startTx; tx++) {
+        this.roadGrid[startTy * GRID_W + tx] = 1;
+      }
+      // Mark A* path
       for (const p of path) {
         this.roadGrid[p.y * GRID_W + p.x] = 1;
+      }
+      // Extend road straight east from goal to map edge
+      const endTy = path.length > 0 ? path[path.length - 1].y : goalTy;
+      for (let tx = goalTx; tx < GRID_W; tx++) {
+        this.roadGrid[endTy * GRID_W + tx] = 1;
       }
       // Bridge tiles = road tiles on water (cost ≥ 30)
       for (const p of path) {
