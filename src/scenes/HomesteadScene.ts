@@ -1214,14 +1214,17 @@ export class HomesteadScene extends Phaser.Scene {
       const b = BUILDINGS[i];
       const x = startX + i * (btnSize + gap) + btnSize / 2;
       const container = this.add.container(x, y).setScrollFactor(0).setDepth(260);
-      const bg = this.add.rectangle(0, 0, btnSize, btnSize, 0x1a2a1a, 0.85)
+      // Create children via `new` to avoid adding them to the scene display
+      // list — only the container should be in the list. This prevents the
+      // main camera from rendering the toolbar icons as tiny world sprites.
+      const bg = new Phaser.GameObjects.Rectangle(this, 0, 0, btnSize, btnSize, 0x1a2a1a, 0.85)
         .setStrokeStyle(1, 0x3a5a3a, 0.8);
       container.add(bg);
-      const icon = this.add.image(0, -2, b.spriteKey);
+      const icon = new Phaser.GameObjects.Image(this, 0, -2, b.spriteKey);
       const scale = Math.min((btnSize - 8) / icon.width, (btnSize - 8) / icon.height);
       icon.setScale(scale);
       container.add(icon);
-      const label = this.add.text(0, btnSize / 2 + 4, b.label, {
+      const label = new Phaser.GameObjects.Text(this, 0, btnSize / 2 + 4, b.label, {
         fontSize: '7px', color: '#88aa88', fontFamily: 'monospace',
       }).setOrigin(0.5, 0);
       container.add(label);
@@ -1338,6 +1341,8 @@ export class HomesteadScene extends Phaser.Scene {
     const sprite = this.add.image(isoX, isoY, def.spriteKey);
     sprite.setOrigin(0.5, 0.75);
     sprite.setDepth(hsIsoDepth(centreWx, centreWy));
+    // Hide from UI camera so it only renders on the main (zoomed) camera
+    this.cameras.cameras[1]?.ignore(sprite);
     this.placedBuildings.push(sprite);
     this.cancelPlacement();
   }
@@ -1377,6 +1382,7 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
     this.footprintGfx = gfx;
+    this.cameras.cameras[1]?.ignore(gfx);
 
     if (!outOfBounds) {
       const centreWx = (tx + def.footW / 2) * TILE_SIZE;
@@ -1386,6 +1392,7 @@ export class HomesteadScene extends Phaser.Scene {
       this.ghostSprite.setOrigin(0.5, 0.75);
       this.ghostSprite.setAlpha(blocked ? 0.3 : 0.5);
       this.ghostSprite.setDepth(9001);
+      this.cameras.cameras[1]?.ignore(this.ghostSprite);
       if (blocked) this.ghostSprite.setTint(0xff6666);
     } else {
       this.ghostSprite = null;
