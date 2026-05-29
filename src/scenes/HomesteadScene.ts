@@ -167,100 +167,6 @@ function isoInputToWorld(svx: number, svy: number): { wx: number; wy: number } {
   };
 }
 
-// ── Road + bridge (A* pathfinding) ─────────────────────────────────────────
-// Build a cost grid from the terrain, then run weighted A* from the west
-// edge to the east edge. Water tiles are expensive (→ bridge), cliffs are
-// impassable. The path naturally routes around obstacles and picks the
-// cheapest river crossing.
-
-const roadGrid = new Uint8Array(GRID_W * GRID_H);
-const bridgeTiles: { tx: number; ty: number }[] = [];
-
-{
-  // ── Cost grid ──────────────────────────────────────────────────────────
-  // First pass: base terrain costs
-  const cost = new Float32Array(GRID_W * GRID_H);
-  for (let ty = 0; ty < GRID_H; ty++) {
-    for (let tx = 0; tx < GRID_W; tx++) {
-      const elev = getElev(tx, ty);
-      if (elev > 0) { cost[ty * GRID_W + tx] = 0; continue; }  // impassable
-
-      if (tx < 30) {
-        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
-        if (ty > shoreEdge) {
-          cost[ty * GRID_W + tx] = 0;   // homestead water — impassable
-        } else if (ty > shoreEdge - 2) {
-          cost[ty * GRID_W + tx] = 15;  // shore buffer
-        } else {
-          cost[ty * GRID_W + tx] = 1;
-        }
-      } else {
-        const ltx = tx - 30, ld = ltx + ty;
-        const horiz = ltx - ty;
-        const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
-        if (ld - effOceanCut > 0) {
-          cost[ty * GRID_W + tx] = 0;   // deep ocean — impassable
-        } else if (ld - effOceanCut >= -1) {
-          cost[ty * GRID_W + tx] = 0;   // ocean edge — impassable
-        } else if (Math.abs(ltx - wfRiverCenter(ld)) <= 1) {
-          cost[ty * GRID_W + tx] = 30;  // river — expensive but crossable (bridge)
-        } else {
-          cost[ty * GRID_W + tx] = 1;
-        }
-      }
-    }
-  }
-
-  // Second pass: mark cliff-adjacent tiles as expensive (same SE-offset
-  // logic the walkGrid uses, so the road avoids the dark blocked tiles).
-  for (let ty = 0; ty < GRID_H; ty++) {
-    for (let tx = 0; tx < GRID_W; tx++) {
-      const elev = getElev(tx, ty);
-      // Water tiles set their SE-offset neighbour as blocked
-      if (tx < 30) {
-        const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
-        if (elev === 0 && ty > shoreEdge && ty + 1 < GRID_H && tx + 1 < GRID_W) {
-          cost[(ty + 1) * GRID_W + (tx + 1)] = 0;  // impassable
-        }
-      }
-      // Cliff drops block their SE-offset neighbours
-      if (elev > 0) {
-        const sDrop = ty + 1 < GRID_H ? elev - getElev(tx, ty + 1) : 0;
-        const eDrop = tx + 1 < GRID_W ? elev - getElev(tx + 1, ty) : 0;
-        if (sDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) {
-          cost[(ty + 1) * GRID_W + (tx + 1)] = 0;
-        }
-        if (eDrop > 0 && tx + 1 < GRID_W) {
-          cost[ty * GRID_W + (tx + 1)] = 0;
-        }
-      }
-    }
-  }
-
-  // ── A* from west edge to east edge ─────────────────────────────────────
-  // Start at (0, 15), goal at (GRID_W-1, 10) — roughly where we want
-  // the road to enter/exit.
-  const startTy = 15, goalTy = 10;
-  const path = aStarWeighted(cost, GRID_W, GRID_H,
-    0, startTy, GRID_W - 1, goalTy, 20000);
-
-  if (path) {
-    // Mark path tiles in the road grid
-    roadGrid[startTy * GRID_W + 0] = 1;  // include start tile
-    for (const p of path) {
-      roadGrid[p.y * GRID_W + p.x] = 1;
-    }
-
-    // Detect bridge tiles — road tiles on water (cost ≥ 30)
-    roadGrid[startTy * GRID_W + 0] = 1;
-    for (const p of path) {
-      if (cost[p.y * GRID_W + p.x] >= 30) {
-        bridgeTiles.push({ tx: p.x, ty: p.y });
-      }
-    }
-  }
-}
-
 /** Auto-tile bitmask → spritesheet frame (same mapping as GameScene). */
 const ROAD_BITMASK_TO_FRAME = [
   /*  0 none     */ 0,
@@ -280,15 +186,6 @@ const ROAD_BITMASK_TO_FRAME = [
   /* 14 NE+SE+SW */ 4,
   /* 15 all      */ 0,
 ];
-
-function isRoad(tx: number, ty: number): boolean {
-  if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return false;
-  return roadGrid[ty * GRID_W + tx] === 1;
-}
-
-function isBridgeTile(tx: number, ty: number): boolean {
-  return bridgeTiles.some(b => b.tx === tx && b.ty === ty);
-}
 
 // ── Placeable buildings ─────────────────────────────────────────────────────
 
@@ -400,6 +297,8 @@ export class HomesteadScene extends Phaser.Scene {
   // ── Walkability ───────────────────────────────────────────────────────
   // 0 = walkable, 1 = blocked (water, cliff). Row-major: ty * GRID_W + tx.
   private walkGrid = new Uint8Array(GRID_W * GRID_H);
+  private roadGrid = new Uint8Array(GRID_W * GRID_H);
+  private bridgeTiles: { tx: number; ty: number }[] = [];
   private debugGridGfx: Phaser.GameObjects.Graphics | null = null;
   private playerTileGfx: Phaser.GameObjects.Graphics | null = null;
 
@@ -481,6 +380,10 @@ export class HomesteadScene extends Phaser.Scene {
 
     // Physics world stays in flat grid space
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
+
+    // ── Pre-pass: build walkGrid + road path before rendering ──────────
+    this.buildWalkGrid();
+    this.buildRoadPath();
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
@@ -572,14 +475,7 @@ export class HomesteadScene extends Phaser.Scene {
           const wDrop = tileElev > 0 && tx > 0           ? tileElev - getElev(tx - 1, ty) : 0;
           const hasCliff = sDrop > 0 || eDrop > 0 || wDrop > 0;
 
-          // Mark walkability — shifted SE (+1 tx) so blocked zone aligns
-          // with where the cliff face / water visually sits on screen.
-          if (hsIsWater && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-          if (hasCliff) {
-            if (sDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-            if (eDrop > 0 && tx + 1 < GRID_W) this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
-            if (wDrop > 0)                     this.walkGrid[ty * GRID_W + tx] = 1;
-          }
+          // walkGrid already populated by buildWalkGrid() pre-pass.
 
           if (hsIsWater) {
             this.add.image(isoX, posY, 'iso-tiles', 105)
@@ -601,12 +497,12 @@ export class HomesteadScene extends Phaser.Scene {
 
           // ── Road overlay on the homestead half ──────────────────────────
           // Skip bridge tiles (rendered separately) and water tiles
-          if (isRoad(tx, ty) && !hsIsWater && !isBridgeTile(tx, ty) && tileElev === 0) {
+          if (this.isRoad(tx, ty) && !hsIsWater && !this.isBridgeTile(tx, ty) && tileElev === 0) {
             let mask = 0;
-            if (tx === 0   || isRoad(tx - 1, ty)) mask |= 1;  // NW
-            if (isRoad(tx, ty - 1))                mask |= 2;  // NE
-            if (tx === GRID_W - 1 || isRoad(tx + 1, ty)) mask |= 4;  // SE
-            if (isRoad(tx, ty + 1))                mask |= 8;  // SW
+            if (tx === 0   || this.isRoad(tx - 1, ty)) mask |= 1;  // NW
+            if (this.isRoad(tx, ty - 1))                mask |= 2;  // NE
+            if (tx === GRID_W - 1 || this.isRoad(tx + 1, ty)) mask |= 4;  // SE
+            if (this.isRoad(tx, ty + 1))                mask |= 8;  // SW
             const frame = ROAD_BITMASK_TO_FRAME[mask];
             this.add.image(isoX, posY + ISO_TILE_H / 2, 'road-dirt', frame)
               .setOrigin(0.5, 0.5).setDepth(baseDepth - 999);
@@ -677,13 +573,7 @@ export class HomesteadScene extends Phaser.Scene {
         const hasCliff  = southDrop > 0 || eastDrop > 0 || westDrop > 0;
         const isOnRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
 
-        // Mark walkability — shifted SE (+1 tx) to align with visual
-        if (isWater && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-        if (hasCliff) {
-          if (southDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
-          if (eastDrop > 0 && tx + 1 < GRID_W)  this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
-          if (westDrop > 0)                      this.walkGrid[ty * GRID_W + tx] = 1;
-        }
+        // walkGrid already populated by buildWalkGrid() pre-pass.
 
         // Floor Y raised by elevation
         const posY = isoY - tileElev * CLIFF_H;
@@ -774,12 +664,12 @@ export class HomesteadScene extends Phaser.Scene {
 
         // ── Road overlay on WF half ─────────────────────────────────────
         // Skip bridge tiles and water — bridge sprites handle the crossing
-        if (isRoad(tx, ty) && !isBridgeTile(tx, ty) && !isWater && tileElev === 0) {
+        if (this.isRoad(tx, ty) && !this.isBridgeTile(tx, ty) && !isWater && tileElev === 0) {
           let mask = 0;
-          if (isRoad(tx - 1, ty))                mask |= 1;
-          if (isRoad(tx, ty - 1))                mask |= 2;
-          if (tx === GRID_W - 1 || isRoad(tx + 1, ty)) mask |= 4;
-          if (isRoad(tx, ty + 1))                mask |= 8;
+          if (this.isRoad(tx - 1, ty))                mask |= 1;
+          if (this.isRoad(tx, ty - 1))                mask |= 2;
+          if (tx === GRID_W - 1 || this.isRoad(tx + 1, ty)) mask |= 4;
+          if (this.isRoad(tx, ty + 1))                mask |= 8;
           const frame = ROAD_BITMASK_TO_FRAME[mask];
           this.add.image(isoX, posY + ISO_TILE_H / 2, 'road-dirt', frame)
             .setOrigin(0.5, 0.5).setDepth(baseDepth - 999);
@@ -788,7 +678,7 @@ export class HomesteadScene extends Phaser.Scene {
     }
 
     // ── Bridge tiles at the pre-computed river crossing ─────────────────
-    for (const { tx, ty } of bridgeTiles) {
+    for (const { tx, ty } of this.bridgeTiles) {
       const wx = tx * TILE_SIZE;
       const wy = ty * TILE_SIZE;
       const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
@@ -1502,6 +1392,116 @@ export class HomesteadScene extends Phaser.Scene {
     }
   }
 
+  // ── Walk grid + road path (pre-pass before rendering) ────────────────
+
+  /** Populate walkGrid from terrain — water + cliff SE-offset blocking. */
+  private buildWalkGrid(): void {
+    for (let ty = 0; ty < GRID_H; ty++) {
+      for (let tx = 0; tx < GRID_W; tx++) {
+        if (tx < 30) {
+          // Homestead half
+          const tileElev = getElev(tx, ty);
+          const shoreEdge = 42 + Math.round(Math.sin(tx * 0.3) * 3 + Math.cos(tx * 0.18) * 2);
+          const hsIsWater = tileElev === 0 && ty > shoreEdge;
+
+          if (hsIsWater && ty + 1 < GRID_H && tx + 1 < GRID_W) {
+            this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+          }
+          const sDrop = tileElev > 0 && ty + 1 < GRID_H ? tileElev - getElev(tx, ty + 1) : 0;
+          const eDrop = tileElev > 0 && tx + 1 < GRID_W ? tileElev - getElev(tx + 1, ty) : 0;
+          const wDrop = tileElev > 0 && tx > 0           ? tileElev - getElev(tx - 1, ty) : 0;
+          if (sDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+          if (eDrop > 0 && tx + 1 < GRID_W) this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
+          if (wDrop > 0)                     this.walkGrid[ty * GRID_W + tx] = 1;
+        } else {
+          // WF half
+          const ltx = tx - 30, lty = ty;
+          const ld = ltx + lty, horiz = ltx - lty;
+          const tileElev = wfGetElev(ltx, lty);
+          const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
+          const oceanDist = ld - effOceanCut;
+          const onRiver = Math.abs(ltx - wfRiverCenter(ld)) <= 1;
+
+          // Splash pool at waterfall base
+          const atWfBase = tileElev === 0 && (() => {
+            for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+              const nx = ltx + dx, ny = lty + dy;
+              if (nx < 0 || ny < 0 || nx >= WF_GRID_W || ny >= GRID_H) continue;
+              if (wfGetElev(nx, ny) > 0 && Math.abs(nx - wfRiverCenter(nx + ny)) <= 1) return true;
+            }
+            return false;
+          })();
+
+          // Same isWater logic as the WF terrain loop
+          let isWater = false;
+          if (oceanDist > 0) { isWater = true; }
+          else if (oceanDist === 0) { if (onRiver) isWater = true; }
+          else if (onRiver || atWfBase) { isWater = true; }
+
+          if (isWater && ty + 1 < GRID_H && tx + 1 < GRID_W) {
+            this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+          }
+          const southDrop = tileElev > 0 && lty + 1 < GRID_H ? tileElev - wfGetElev(ltx, lty + 1) : 0;
+          const eastDrop  = tileElev > 0 && ltx + 1 < WF_GRID_W ? tileElev - wfGetElev(ltx + 1, lty) : 0;
+          const westDrop  = tileElev > 0 && ltx > 0            ? tileElev - wfGetElev(ltx - 1, lty) : 0;
+          if (southDrop > 0 && ty + 1 < GRID_H && tx + 1 < GRID_W) this.walkGrid[(ty + 1) * GRID_W + (tx + 1)] = 1;
+          if (eastDrop > 0 && tx + 1 < GRID_W)  this.walkGrid[ty * GRID_W + (tx + 1)] = 1;
+          if (westDrop > 0)                      this.walkGrid[ty * GRID_W + tx] = 1;
+        }
+      }
+    }
+  }
+
+  /** Build cost grid from walkGrid, run A*, populate roadGrid + bridgeTiles. */
+  private buildRoadPath(): void {
+    const cost = new Float32Array(GRID_W * GRID_H);
+    for (let i = 0; i < GRID_W * GRID_H; i++) {
+      // Blocked tiles are impassable; clear tiles cost 1
+      cost[i] = this.walkGrid[i] === 1 ? 0 : 1;
+    }
+
+    // Override: river tiles in WF half are expensive but crossable (→ bridge)
+    for (let ty = 0; ty < GRID_H; ty++) {
+      for (let tx = 30; tx < GRID_W; tx++) {
+        const ltx = tx - 30, ld = ltx + ty;
+        const horiz = ltx - ty;
+        const effOceanCut = WF_OCEAN_CUT + wfCurveDepth(horiz);
+        if (ld - effOceanCut >= 0) continue;  // ocean — stay impassable
+        if (wfGetElev(ltx, ty) > 0) continue; // cliff — stay impassable
+        if (Math.abs(ltx - wfRiverCenter(ld)) <= 1) {
+          cost[ty * GRID_W + tx] = 30;  // river — crossable via bridge
+        }
+      }
+    }
+
+    // A* from west edge to east edge
+    const startTy = 15, goalTy = 10;
+    const path = aStarWeighted(cost, GRID_W, GRID_H,
+      0, startTy, GRID_W - 1, goalTy, 20000);
+
+    if (path) {
+      this.roadGrid[startTy * GRID_W + 0] = 1;
+      for (const p of path) {
+        this.roadGrid[p.y * GRID_W + p.x] = 1;
+      }
+      // Bridge tiles = road tiles on water (cost ≥ 30)
+      for (const p of path) {
+        if (cost[p.y * GRID_W + p.x] >= 30) {
+          this.bridgeTiles.push({ tx: p.x, ty: p.y });
+        }
+      }
+    }
+  }
+
+  private isRoad(tx: number, ty: number): boolean {
+    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return false;
+    return this.roadGrid[ty * GRID_W + tx] === 1;
+  }
+
+  private isBridgeTile(tx: number, ty: number): boolean {
+    return this.bridgeTiles.some(b => b.tx === tx && b.ty === ty);
+  }
+
   // ── Tree scatter ──────────────────────────────────────────────────────
   // Dense forest on the left, sparse meadow trees on the right, with a
   // natural transition zone.  Deterministic: seeded hash per tile.
@@ -1568,7 +1568,7 @@ export class HomesteadScene extends Phaser.Scene {
         // Only place trees on homestead half; skip non-walkable tiles and roads
         if (zone === 'wf') continue;
         if (this.walkGrid[ty * GRID_W + tx] === 1) continue;
-        if (isRoad(tx, ty)) continue;
+        if (this.isRoad(tx, ty)) continue;
 
         // Only spawn on flat meadow — skip water, rock, granite, summit tiles
         const tileElev = getElev(tx, ty);
