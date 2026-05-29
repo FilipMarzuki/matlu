@@ -1575,10 +1575,7 @@ export class HomesteadScene extends Phaser.Scene {
 
     for (let tx = 1; tx < GRID_W - 1; tx++) {
       for (let ty = 1; ty < GRID_H - 1; ty++) {
-        const zone = getZone(tx, ty);
-
-        // Only place trees on homestead half; skip non-walkable tiles and roads
-        if (zone === 'wf') continue;
+        // Skip non-walkable tiles and roads
         if (this.walkGrid[ty * GRID_W + tx] === 1) continue;
         if (this.isRoad(tx, ty)) continue;
 
@@ -1616,17 +1613,18 @@ export class HomesteadScene extends Phaser.Scene {
         const n2 = Math.sin(tx * 0.18 - ty * 0.32) * Math.cos(tx * 0.28 + ty * 0.12);
         const cluster = (n1 + n2 + 2) / 4; // normalise to 0-1
 
-        // Density threshold: low in forest (easy to pass), high in meadow (rare)
-        const threshold = blend <= 0 ? 0.10
-          : blend >= 1 ? 0.85
-          : 0.10 + blend * 0.75;
+        // Forest: low threshold (0.10) for dense canopy.
+        // Meadow: moderate threshold (0.45, same as WorldForge) for natural scatter.
+        const threshold = 0.10 + blend * 0.35;  // forest=0.10, meadow=0.45
         if (cluster < threshold) continue;
 
         const spawnChance = (cluster - threshold) / (1 - threshold);
-        // Forest side: almost always spawn when cluster passes; meadow: sparse
-        const densityBoost = blend <= 0 ? 0.95 : blend >= 1 ? 0.3 : 0.95 - blend * 0.65;
         const roll = (hash(tx, ty, 0xBEEF) % 1000) / 1000;
-        if (roll > spawnChance * densityBoost + (1 - blend) * 0.4) continue;
+        // Forest: high bonus keeps it dense. Meadow: solid bonus ensures
+        // visible tree scatter across open areas.
+        const forestBonus = (1 - blend) * 0.4;
+        const meadowBonus = blend * 0.35;
+        if (roll > spawnChance + forestBonus + meadowBonus) continue;
 
         {
           // Pick species by weighted random.
