@@ -56,7 +56,7 @@ export interface StageDef {
 
 /** Default stage modifiers — used when a species doesn't override them. */
 export const DEFAULT_STAGES: Record<LifeStage, StageDef> = {
-  young: { scaleMult: 0.6, roamSpeedMult: 1.2, fleeSpeedMult: 1.3, fleeRangeMult: 0.7, tint: 0xffffff },
+  young: { scaleMult: 0.6, roamSpeedMult: 0.75, fleeSpeedMult: 0.85, fleeRangeMult: 1.5, tint: 0xffffff },
   adult: { scaleMult: 1.0, roamSpeedMult: 1.0, fleeSpeedMult: 1.0, fleeRangeMult: 1.0, tint: 0xffffff },
   elder: { scaleMult: 0.93, roamSpeedMult: 0.8, fleeSpeedMult: 0.85, fleeRangeMult: 1.3, tint: 0xdddddd },
 };

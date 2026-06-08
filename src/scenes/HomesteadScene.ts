@@ -21,6 +21,8 @@ import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
 import { preloadTilePacks, CUSTOM_TILE_PACKS } from '../world/TilePacks';
 import { aStarWeighted } from '../ai/AStarGrid';
+import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSystem';
+import type { FaunaRegistryData } from '../world/FaunaRegistry';
 
 // ── Grid constants ─────────────────────────────────────────────────────────
 // 60×60 grid. Left half (tx 0-29) = homestead meadow, water body in the SW.
@@ -266,13 +268,8 @@ export class HomesteadScene extends Phaser.Scene {
   private actionTapped = false;
   private targetNode: ResourceNode | null = null;
 
-  // Wolf wildlife preview
-  private wolfSprite?: Phaser.GameObjects.Sprite;
-  private wolfWx = 0; private wolfWy = 0;
-  private wolfVx = 0; private wolfVy = 0;
-  private wolfTimer = 0;
-  private wolfDir = 'se';
-  private wolfManual = false; // hold F to control wolf manually
+  // Wildlife system — replaces the old inline wolf preview
+  private wildlife?: WildlifeSystem;
   private characterKey = 'loke';
   private facingDir: 'south' | 'south-east' | 'east' | 'north-east' | 'north' | 'west' = 'south';
   private lastSafeX = 0;
@@ -366,13 +363,16 @@ export class HomesteadScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) this.load.image(`tree-spruce-${i}`,         `/assets/sprites/trees/spruce/mature/${i}.png`);
     for (let i = 0; i < 4; i++) this.load.image(`tree-ancient-${i}`, `/assets/sprites/trees/ancient/mature/${i}.png`);
 
-    // Wolf spritesheets — 8 directions for template anims
+    // Wildlife: wolf spritesheets — 8 directions for template anims
     const wolfBase = '/assets/sprites/wildlife/wolf';
     for (const anim of ['idle', 'walk', 'run']) {
       for (const d of ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw']) {
         this.load.spritesheet(`wolf-${anim}-${d}`, `${wolfBase}/${anim}_${d}.png`, { frameWidth: 48, frameHeight: 48 });
       }
     }
+
+    // Fauna registry for WildlifeSystem
+    this.load.json('fauna-registry', '/macro-world/fauna-registry.json');
   }
 
   create(): void {
@@ -867,8 +867,8 @@ export class HomesteadScene extends Phaser.Scene {
     );
     cam.startFollow(this.playerIso, true, 0.08, 0.08);
 
-    // ── Wolf wildlife preview ─────────────────────────────────────────────
-    this.spawnWolf();
+    // ── Wildlife system ────────────────────────────────────────────────────
+    this.initWildlife();
 
     // UI camera: 1× zoom, no scroll — renders HUD elements at native size.
     const uiCam = this.cameras.add(0, 0, cam.width, cam.height);
@@ -1002,21 +1002,15 @@ export class HomesteadScene extends Phaser.Scene {
   }
 
   update(): void {
-    this.updateWolf(this.game.loop.delta);
-
-    // When holding F, input controls the wolf — freeze the player.
-    if (this.wolfManual) {
-      const body = this.player.body as Phaser.Physics.Arcade.Body;
-      body.setVelocity(0, 0);
-      // Camera follows wolf instead of player when in manual mode.
-      if (this.wolfSprite) {
-        this.cameras.main.startFollow(this.wolfSprite, true, 0.08, 0.08);
-      }
-      return;
-    }
-    // Restore camera to player if we were following wolf.
-    if (this.cameras.main.deadzone === undefined) {
-      this.cameras.main.startFollow(this.playerIso, true, 0.08, 0.08);
+    // Wildlife system update — pass player world-space position (physics body)
+    // so distance checks are in world space, matching the refactored WildlifeSystem.
+    if (this.wildlife && this.player) {
+      this.wildlife.update(
+        this.game.loop.time,
+        this.game.loop.delta,
+        this.player.x,
+        this.player.y,
+      );
     }
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -1716,10 +1710,11 @@ export class HomesteadScene extends Phaser.Scene {
     }
   }
 
-  // ── Wolf wildlife ──────────────────────────────────────────────────────────
+  // ── Wildlife system ────────────────────────────────────────────────────────
 
-  private spawnWolf(): void {
-    // Register wolf directional animations.
+  private initWildlife(): void {
+    // Register wolf directional animations for the WildlifeSystem to use.
+    // Animation keys follow the pattern: wolf-{action}-{dir}-anim
     const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
     const WOLF_ANIMS: Array<[string, number[], number]> = [
       ['idle', [0,1,2,3,4,5,6,7], 6],
@@ -1729,7 +1724,7 @@ export class HomesteadScene extends Phaser.Scene {
     for (const [anim, frames, rate] of WOLF_ANIMS) {
       for (const d of DIRS) {
         const texKey = `wolf-${anim}-${d}`;
-        const animKey = `hs-wolf-${anim}-${d}`;
+        const animKey = `wolf-${anim}-${d}-anim`;
         if (this.textures.exists(texKey) && !this.anims.exists(animKey)) {
           this.anims.create({
             key: animKey,
@@ -1740,126 +1735,66 @@ export class HomesteadScene extends Phaser.Scene {
         }
       }
     }
-
-    // Spawn in world space — somewhere in the forest zone (east side).
-    // Spawn wolf on lowland meadow
-    this.wolfWx = 18 * TILE_SIZE;
-    this.wolfWy = 22 * TILE_SIZE;
-    const { x: isoX, y: isoY } = hsWorldToIso(this.wolfWx, this.wolfWy);
-    this.wolfSprite = this.add.sprite(isoX, isoY, 'wolf-idle-se', 0)
-      .setScale(0.55)
-      .setOrigin(0.5, 0.8)
-      .setDepth(hsIsoDepth(this.wolfWx, this.wolfWy));
-    this.wolfSprite.play('hs-wolf-idle-se');
-    this.wolfTimer = 0;
-  }
-
-  private updateWolf(delta: number): void {
-    if (!this.wolfSprite) return;
-
-    // Hold F to control the wolf manually with WASD/arrows.
-    const fKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.F, false);
-    this.wolfManual = fKey?.isDown ?? false;
-
-    if (this.wolfManual) {
-      // Manual control — read WASD for screen-space input, convert to world-space.
-      let svx = (this.wasd.right.isDown ? 1 : 0) - (this.wasd.left.isDown ? 1 : 0);
-      let svy = (this.wasd.down.isDown ? 1 : 0) - (this.wasd.up.isDown ? 1 : 0);
-      const { wx: wvx, wy: wvy } = isoInputToWorld(svx, svy);
-      const len = Math.sqrt(wvx * wvx + wvy * wvy);
-      const speed = 60;
-      if (len > 0.01) {
-        this.wolfVx = (wvx / len) * speed;
-        this.wolfVy = (wvy / len) * speed;
-        // Use screen-space input (svx, svy) for animation direction — same as Loke.
-        // The sprite directions (south, south-east, etc.) are screen-space, not world-space.
-        const sAngle = Math.atan2(svy, svx);
-        const sector = Math.round(sAngle / (Math.PI / 4));
-        const DIR_MAP: Record<number, string> = {
-          0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
-        };
-        this.wolfDir = DIR_MAP[sector] ?? 'se';
-        const animKey = `hs-wolf-walk-${this.wolfDir}`;
-        if (this.anims.exists(animKey)) {
-          this.wolfSprite.play(animKey, true);
-          this.wolfSprite.setFlipX(false);
-        }
-      } else {
-        this.wolfVx = 0;
-        this.wolfVy = 0;
-        const idleKey = `hs-wolf-idle-${this.wolfDir}`;
-        if (this.anims.exists(idleKey)) this.wolfSprite.play(idleKey, true);
-      }
-    } else {
-      // Auto-wander AI
-      this.wolfTimer -= delta;
-      if (this.wolfTimer <= 0) {
-        const roll = Math.random();
-        if (roll < 0.25) {
-          this.wolfVx = 0;
-          this.wolfVy = 0;
-          this.wolfTimer = Phaser.Math.Between(800, 2000);
-          const idleKey = `hs-wolf-idle-${this.wolfDir}`;
-          if (this.anims.exists(idleKey)) this.wolfSprite.play(idleKey, true);
-        } else {
-          const running = roll > 0.85;
-          const speed = running ? 60 : 30;
-          const angle = Math.random() * Math.PI * 2;
-          this.wolfVx = Math.cos(angle) * speed;
-          this.wolfVy = Math.sin(angle) * speed;
-          this.wolfTimer = Phaser.Math.Between(1500, 4000);
-
-          // Convert world velocity to screen-space for animation direction.
-          // Iso projection: screenX ∝ (wx - wy), screenY ∝ (wx + wy)/2
-          const screenVx = this.wolfVx - this.wolfVy;
-          const screenVy = (this.wolfVx + this.wolfVy) / 2;
-          const sAngle = Math.atan2(screenVy, screenVx);
-          const sector = Math.round(sAngle / (Math.PI / 4));
-          const DIR_MAP: Record<number, string> = {
-            0: 'e', 1: 'se', 2: 's', 3: 'sw', 4: 'w', '-4': 'w', '-3': 'nw', '-2': 'n', '-1': 'ne',
-          };
-          this.wolfDir = DIR_MAP[sector] ?? 'se';
-          const animBase = running ? 'run' : 'walk';
-          const animKey = `hs-wolf-${animBase}-${this.wolfDir}`;
-          if (this.anims.exists(animKey)) {
-            this.wolfSprite.play(animKey, true);
-            this.wolfSprite.setFlipX(false);
-          }
-        }
-      }
+    // Also create base idle-anim for the fallback chain
+    if (this.textures.exists('wolf-idle-se') && !this.anims.exists('wolf-idle-anim')) {
+      this.anims.create({
+        key: 'wolf-idle-anim',
+        frames: this.anims.generateFrameNumbers('wolf-idle-se', { frames: [0,1,2,3,4,5,6,7] }),
+        frameRate: 6,
+        repeat: -1,
+      });
     }
 
-    // Move in world space
-    const dt = delta / 1000;
-    const nextWx = this.wolfWx + this.wolfVx * dt;
-    const nextWy = this.wolfWy + this.wolfVy * dt;
+    const faunaReg = this.cache.json.get('fauna-registry') as FaunaRegistryData | undefined;
+    if (!faunaReg) return;
 
-    // Check walkability before committing the move
-    const wtx = Math.floor(nextWx / TILE_SIZE);
-    const wty = Math.floor(nextWy / TILE_SIZE);
-    if (wtx >= 0 && wty >= 0 && wtx < GRID_W && wty < GRID_H &&
-        this.walkGrid[wty * GRID_W + wtx] === 1) {
-      // Blocked — reverse direction to bounce away
-      this.wolfVx = -this.wolfVx;
-      this.wolfVy = -this.wolfVy;
-      this.wolfTimer = 0; // pick a new direction next frame
-    } else {
-      this.wolfWx = nextWx;
-      this.wolfWy = nextWy;
-    }
+    // Iso helper that converts world-to-iso and back, matching the scene's projection.
+    // WildlifeSystem uses world-space physics bodies + iso-projected visual sprites.
+    const isoToWorld = (ix: number, iy: number): { x: number; y: number } => {
+      // Invert hsWorldToIso: ix = O + (tx-ty)*Tw/2, iy = (tx+ty)*Th/2
+      const sum  = iy / (ISO_TILE_H / 2);               // tx + ty
+      const diff = (ix - ISO_ORIGIN_X) / (ISO_TILE_W / 2); // tx - ty
+      const tx = (sum + diff) / 2;
+      const ty = (sum - diff) / 2;
+      return { x: tx * TILE_SIZE, y: ty * TILE_SIZE };
+    };
 
-    // Soft boundary — keep within map
-    const MARGIN = 40;
-    const mapW = GRID_W * TILE_SIZE;
-    const mapH = GRID_H * TILE_SIZE;
-    if (this.wolfWx < MARGIN)     { this.wolfVx =  Math.abs(this.wolfVx); this.wolfWx = MARGIN; }
-    if (this.wolfWx > mapW - MARGIN) { this.wolfVx = -Math.abs(this.wolfVx); this.wolfWx = mapW - MARGIN; }
-    if (this.wolfWy < MARGIN)     { this.wolfVy =  Math.abs(this.wolfVy); this.wolfWy = MARGIN; }
-    if (this.wolfWy > mapH - MARGIN) { this.wolfVy = -Math.abs(this.wolfVy); this.wolfWy = mapH - MARGIN; }
-
-    // Project to iso
-    const { x: isoX, y: isoY } = hsWorldToIso(this.wolfWx, this.wolfWy);
-    this.wolfSprite.setPosition(isoX, isoY);
-    this.wolfSprite.setDepth(hsIsoDepth(this.wolfWx, this.wolfWy));
+    this.wildlife = new WildlifeSystem({
+      scene: this,
+      faunaRegistry: faunaReg,
+      worldW: WORLD_W,
+      worldH: WORLD_H,
+      tileSize: TILE_SIZE,
+      worldToIso: hsWorldToIso,
+      isoToWorld,
+      isoDepth: hsIsoDepth,
+      // Only spawn wolf for now — expand later as more species get sprites
+      speciesFilter: ['wolf'],
+      seed: 12345,
+      // Keep wolves in the homestead meadow half (tx 5-25), away from WF terrain
+      spawnClearCenter: { x: 15 * TILE_SIZE, y: 15 * TILE_SIZE },
+      spawnClearRadius: 80,
+      // Constrain spawning to the left (homestead) half of the map
+      spawnBias: (wx: number, _wy: number) => {
+        const tx = wx / TILE_SIZE;
+        if (tx >= 28) return 0;   // reject WF terrain half
+        if (tx < 3) return 0;     // reject edge
+        return 1;
+      },
+      // Scale override: HomesteadScene is more zoomed than GameScene,
+      // so wildlife sprites need to be smaller.
+      scaleOverride: 0.55,
+      // Pass walkGrid so animals avoid water, cliffs, and other blocked tiles
+      walkGrid: this.walkGrid,
+      gridW: GRID_W,
+      gridH: GRID_H,
+      getEnvContext: (): WildlifeEnvContext => ({
+        isRaining: false,
+        season: 'summer',
+        phase: 'morning',
+      }),
+    });
+    this.wildlife.init();
+    this.wildlife.spawnGroundAnimals();
   }
 }
