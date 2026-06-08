@@ -8,7 +8,13 @@ export const INVENTORY_CHANGED = 'inventory-changed';
 /** Emitted on game.events when an add fails because the pack is full. */
 export const INVENTORY_FULL = 'inventory-full';
 
-/** Categories from resources.json. */
+/**
+ * Item categories — covers every category in item-registry.json.
+ *
+ * The original resources.json only had 8 categories. The unified registry
+ * adds tool, weapon, document, sacred, authority, instrument, container,
+ * crafted, and quest so NPC props and quest rewards are also typed.
+ */
 export type ItemCategory =
   | 'raw'
   | 'refined'
@@ -17,7 +23,16 @@ export type ItemCategory =
   | 'equipment'
   | 'structure'
   | 'deployable'
-  | 'lore-fragment';
+  | 'lore-fragment'
+  | 'tool'
+  | 'weapon'
+  | 'document'
+  | 'sacred'
+  | 'authority'
+  | 'instrument'
+  | 'container'
+  | 'crafted'
+  | 'quest';
 
 export type EquipSlot = 'weapon' | 'body' | 'offhand' | 'back';
 

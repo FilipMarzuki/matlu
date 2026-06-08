@@ -1,0 +1,2335 @@
+{
+  "_doc": "Unified item registry for Core Warden. Every item that exists in the game — craftable, tradeable, NPC prop, structure, quest reward. Other files (recipes.json, shop-inventories.json, loot-tables.json) reference item IDs from this registry.",
+  "_schema": {
+    "id": "Unique kebab-case identifier",
+    "name": "Display name",
+    "category": "One of: raw, refined, component, consumable, equipment, structure, deployable, lore-fragment, tool, weapon, document, sacred, authority, instrument, container, crafted, quest",
+    "stackMax": "Max quantity per inventory slot (default 1)",
+    "playerObtainable": "true = can enter player inventory; false = NPC-only prop",
+    "icon": "Filename in public/assets/sprites/icons/items/ (null = pending)",
+    "slot": "(optional) Equipment slot: weapon | body | offhand | back",
+    "source": "(optional) How player obtains: mining, gathering, hunting, loot, etc.",
+    "biomes": "(optional) Where it spawns in the world",
+    "associatedRole": "(optional) NPC role that uses this item",
+    "building": "(optional) Building where this is found",
+    "useInGame": "(optional) Gameplay contexts for this item",
+    "placeable": "(optional) true for structures/deployables",
+    "placeColor": "(optional) Hex color for toolbar preview",
+    "placeSpriteKey": "(optional) Phaser texture key for placed structure",
+    "shopEffect": "(optional) Consumable effect type (heal, cleanse_pct)",
+    "shopValue": "(optional) Effect magnitude",
+    "iconDescription": "(optional) PixelLab prompt for generating missing icons",
+    "description": "(optional) Flavor/lore text"
+  },
+  "_stats": {
+    "totalItems": 176,
+    "categories": {
+      "raw": 56,
+      "refined": 24,
+      "component": 6,
+      "consumable": 20,
+      "equipment": 9,
+      "structure": 13,
+      "tool": 34,
+      "weapon": 3,
+      "document": 3,
+      "sacred": 2,
+      "authority": 1,
+      "instrument": 1,
+      "container": 2,
+      "crafted": 1,
+      "quest": 1
+    },
+    "withIcon": 72,
+    "pendingIcon": 104
+  },
+  "items": [
+    {
+      "id": "amber",
+      "name": "Amber",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": "item-amber.png",
+      "source": [
+        "mining",
+        "gathering"
+      ],
+      "biomes": [
+        "old-growth",
+        "forest",
+        "coast"
+      ]
+    },
+    {
+      "id": "animal-fat",
+      "name": "Animal Fat",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-animal-fat.png",
+      "source": [
+        "hunting"
+      ],
+      "biomes": [
+        "any"
+      ]
+    },
+    {
+      "id": "berries",
+      "name": "Berries",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-berries.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "meadow",
+        "plains"
+      ]
+    },
+    {
+      "id": "bog-iron",
+      "name": "Bog Iron",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering",
+        "mining"
+      ],
+      "biomes": [
+        "swamp",
+        "bog"
+      ]
+    },
+    {
+      "id": "bone",
+      "name": "Bone",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-bone.png",
+      "source": [
+        "hunting",
+        "loot"
+      ],
+      "biomes": [
+        "any"
+      ]
+    },
+    {
+      "id": "clay",
+      "name": "Clay",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-clay.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "riverbank",
+        "swamp",
+        "lake"
+      ]
+    },
+    {
+      "id": "coal",
+      "name": "Coal",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-coal.png",
+      "source": [
+        "mining",
+        "gathering"
+      ],
+      "biomes": [
+        "mountain",
+        "cave",
+        "swamp"
+      ]
+    },
+    {
+      "id": "copper-ore",
+      "name": "Copper Ore",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-copper-ore.png",
+      "source": [
+        "mining"
+      ],
+      "biomes": [
+        "mountain",
+        "cave",
+        "riverbank"
+      ]
+    },
+    {
+      "id": "coral",
+      "name": "Coral",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "diving",
+        "gathering"
+      ],
+      "biomes": [
+        "coast",
+        "sea"
+      ]
+    },
+    {
+      "id": "corrupted-shard",
+      "name": "Corrupted Shard",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "loot",
+        "mining"
+      ],
+      "biomes": [
+        "corrupted",
+        "ruin",
+        "cave"
+      ]
+    },
+    {
+      "id": "dried-fish",
+      "name": "Dried Fish",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "fishing",
+        "trade"
+      ],
+      "biomes": [
+        "coast",
+        "riverbank",
+        "lake"
+      ]
+    },
+    {
+      "id": "driftwood",
+      "name": "Driftwood",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "coast",
+        "riverbank"
+      ]
+    },
+    {
+      "id": "eggs",
+      "name": "Eggs",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering",
+        "trade"
+      ],
+      "biomes": [
+        "forest",
+        "plains",
+        "cliff"
+      ]
+    },
+    {
+      "id": "feather",
+      "name": "Feather",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-feather.png",
+      "source": [
+        "hunting",
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "cliff",
+        "plains"
+      ]
+    },
+    {
+      "id": "flint",
+      "name": "Flint",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-flint.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "riverbank",
+        "cliff",
+        "plains"
+      ]
+    },
+    {
+      "id": "fur-pelt",
+      "name": "Fur Pelt",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "hunting"
+      ],
+      "biomes": [
+        "taiga",
+        "tundra",
+        "mountain"
+      ]
+    },
+    {
+      "id": "game-meat",
+      "name": "Game Meat",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "hunting"
+      ],
+      "biomes": [
+        "any"
+      ]
+    },
+    {
+      "id": "gold-nugget",
+      "name": "Gold Nugget",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "mining",
+        "panning"
+      ],
+      "biomes": [
+        "riverbank",
+        "mountain",
+        "cave"
+      ]
+    },
+    {
+      "id": "grain",
+      "name": "Grain",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-grain.png",
+      "source": [
+        "gathering",
+        "farming",
+        "trade"
+      ],
+      "biomes": [
+        "plains",
+        "meadow"
+      ]
+    },
+    {
+      "id": "grain-sheaf",
+      "name": "Grain Sheaf",
+      "category": "raw",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Bundled sheaf of golden wheat tied with twine",
+      "associatedRole": "farmer",
+      "building": "farmstead",
+      "useInGame": [
+        "farming output",
+        "granary storage",
+        "trade good"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Bundle of golden wheat stalks tied with rough twine at center. Golden-yellow-brown palette. Selective outline."
+    },
+    {
+      "id": "hardwood-log",
+      "name": "Hardwood Log",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-hardwood-log.png",
+      "source": [
+        "chopping"
+      ],
+      "biomes": [
+        "old-growth",
+        "forest"
+      ]
+    },
+    {
+      "id": "herb-bitter",
+      "name": "Bitter Root",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-herb-bitter.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "swamp",
+        "cave",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "herb-fire",
+      "name": "Flamecap Mushroom",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": "item-herb-fire.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "cave",
+        "volcanic",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "herb-green",
+      "name": "Green Herb",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-herb-green.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "plains",
+        "meadow"
+      ]
+    },
+    {
+      "id": "hide-raw",
+      "name": "Raw Hide",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-hide-raw.png",
+      "source": [
+        "hunting",
+        "loot"
+      ],
+      "biomes": [
+        "forest",
+        "plains",
+        "tundra"
+      ]
+    },
+    {
+      "id": "honey",
+      "name": "Honey",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "meadow",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "iron-ore",
+      "name": "Iron Ore",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-iron-ore.png",
+      "source": [
+        "mining",
+        "loot"
+      ],
+      "biomes": [
+        "mountain",
+        "cave",
+        "cliff"
+      ]
+    },
+    {
+      "id": "living-wood",
+      "name": "Living Wood",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "sacred-grove",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "moonstone",
+      "name": "Moonstone",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "mining",
+        "loot"
+      ],
+      "biomes": [
+        "mountain",
+        "shrine",
+        "cave"
+      ]
+    },
+    {
+      "id": "mushroom",
+      "name": "Mushroom",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "cave",
+        "swamp",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "nuts",
+      "name": "Nuts",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "mining"
+      ],
+      "biomes": [
+        "volcanic",
+        "mountain"
+      ]
+    },
+    {
+      "id": "pearl",
+      "name": "Pearl",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "diving",
+        "trade"
+      ],
+      "biomes": [
+        "coast",
+        "sea"
+      ]
+    },
+    {
+      "id": "peat",
+      "name": "Peat",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-peat.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "swamp",
+        "bog"
+      ]
+    },
+    {
+      "id": "plant-fiber",
+      "name": "Plant Fiber",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-plant-fiber.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "plains",
+        "swamp",
+        "meadow"
+      ]
+    },
+    {
+      "id": "purified-crystal",
+      "name": "Purified Crystal",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "cleansing",
+        "loot"
+      ],
+      "biomes": [
+        "shrine",
+        "sacred-grove"
+      ]
+    },
+    {
+      "id": "quartz",
+      "name": "Quartz",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-quartz.png",
+      "source": [
+        "mining"
+      ],
+      "biomes": [
+        "mountain",
+        "cave",
+        "riverbank"
+      ]
+    },
+    {
+      "id": "resin",
+      "name": "Resin",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-resin.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "taiga"
+      ]
+    },
+    {
+      "id": "root-vegetable",
+      "name": "Root Vegetable",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering",
+        "farming"
+      ],
+      "biomes": [
+        "plains",
+        "forest",
+        "meadow"
+      ]
+    },
+    {
+      "id": "rune-dust",
+      "name": "Rune Dust",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-rune-dust.png",
+      "source": [
+        "loot",
+        "disassemble"
+      ],
+      "biomes": [
+        "ruin",
+        "shrine"
+      ]
+    },
+    {
+      "id": "salt",
+      "name": "Salt",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-salt.png",
+      "source": [
+        "mining",
+        "gathering"
+      ],
+      "biomes": [
+        "coast",
+        "salt-flat",
+        "cave"
+      ]
+    },
+    {
+      "id": "seaweed",
+      "name": "Seaweed",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "coast",
+        "sea"
+      ]
+    },
+    {
+      "id": "silk-thread",
+      "name": "Silk Thread",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering",
+        "loot"
+      ],
+      "biomes": [
+        "cave",
+        "old-growth",
+        "forest"
+      ]
+    },
+    {
+      "id": "silver-ore",
+      "name": "Silver Ore",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-silver-ore.png",
+      "source": [
+        "mining"
+      ],
+      "biomes": [
+        "mountain",
+        "cave"
+      ]
+    },
+    {
+      "id": "sinew",
+      "name": "Sinew",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-sinew.png",
+      "source": [
+        "hunting"
+      ],
+      "biomes": [
+        "any"
+      ]
+    },
+    {
+      "id": "spirit-amber",
+      "name": "Spirit Amber",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering",
+        "ritual"
+      ],
+      "biomes": [
+        "sacred-grove",
+        "old-growth",
+        "shrine"
+      ]
+    },
+    {
+      "id": "spirit-sap",
+      "name": "Spirit Sap",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-spirit-sap.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "sacred-grove",
+        "old-growth"
+      ]
+    },
+    {
+      "id": "steamstone",
+      "name": "Steamstone",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "mining"
+      ],
+      "biomes": [
+        "mountain",
+        "volcanic",
+        "cave"
+      ]
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-stone.png",
+      "source": [
+        "mining",
+        "gathering"
+      ],
+      "biomes": [
+        "mountain",
+        "cliff",
+        "plains",
+        "riverbank"
+      ]
+    },
+    {
+      "id": "sulfur",
+      "name": "Sulfur",
+      "category": "raw",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-sulfur.png",
+      "source": [
+        "mining",
+        "gathering"
+      ],
+      "biomes": [
+        "volcanic",
+        "cave",
+        "hot-spring"
+      ]
+    },
+    {
+      "id": "tainted-resin",
+      "name": "Tainted Resin",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "corrupted",
+        "swamp"
+      ]
+    },
+    {
+      "id": "tin-ore",
+      "name": "Tin Ore",
+      "category": "raw",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-tin-ore.png",
+      "source": [
+        "mining"
+      ],
+      "biomes": [
+        "mountain",
+        "riverbank",
+        "cave"
+      ]
+    },
+    {
+      "id": "void-dust",
+      "name": "Void Dust",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "loot"
+      ],
+      "biomes": [
+        "corrupted",
+        "ruin"
+      ]
+    },
+    {
+      "id": "wild-spice",
+      "name": "Wild Spice",
+      "category": "raw",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "forest",
+        "meadow",
+        "swamp"
+      ]
+    },
+    {
+      "id": "wood-log",
+      "name": "Wood Log",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-wood-log.png",
+      "source": [
+        "gathering",
+        "chopping"
+      ],
+      "biomes": [
+        "forest",
+        "plains",
+        "taiga"
+      ]
+    },
+    {
+      "id": "wool",
+      "name": "Wool",
+      "category": "raw",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null,
+      "source": [
+        "shearing",
+        "trade"
+      ],
+      "biomes": [
+        "plains",
+        "meadow",
+        "tundra"
+      ]
+    },
+    {
+      "id": "brick",
+      "name": "Brick",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-brick.png"
+    },
+    {
+      "id": "bronze-ingot",
+      "name": "Bronze Ingot",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-bronze-ingot.png"
+    },
+    {
+      "id": "butter",
+      "name": "Butter",
+      "category": "refined",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "charcoal",
+      "name": "Charcoal",
+      "category": "refined",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-charcoal.png"
+    },
+    {
+      "id": "cloth",
+      "name": "Cloth",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-cloth.png"
+    },
+    {
+      "id": "copper-ingot",
+      "name": "Copper Ingot",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-copper-ingot.png"
+    },
+    {
+      "id": "flour",
+      "name": "Flour",
+      "category": "refined",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "fur-lining",
+      "name": "Fur Lining",
+      "category": "refined",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "glass",
+      "name": "Glass",
+      "category": "refined",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": "item-glass.png"
+    },
+    {
+      "id": "glue",
+      "name": "Glue",
+      "category": "refined",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": "item-glue.png"
+    },
+    {
+      "id": "gold-bar",
+      "name": "Gold Bar",
+      "category": "refined",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "hardwood-plank",
+      "name": "Hardwood Plank",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-hardwood-plank.png"
+    },
+    {
+      "id": "iron-ingot",
+      "name": "Iron Ingot",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-iron-ingot.png"
+    },
+    {
+      "id": "leather",
+      "name": "Leather",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-leather.png"
+    },
+    {
+      "id": "obsidian-shard",
+      "name": "Obsidian Shard",
+      "category": "refined",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "oil",
+      "name": "Oil",
+      "category": "refined",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": "item-oil.png"
+    },
+    {
+      "id": "preserved-fish",
+      "name": "Preserved Fish",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "purified-essence",
+      "name": "Purified Essence",
+      "category": "refined",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "rope",
+      "name": "Rope",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-rope.png"
+    },
+    {
+      "id": "silk-cloth",
+      "name": "Silk Cloth",
+      "category": "refined",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "silver-ingot",
+      "name": "Silver Ingot",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "smoked-meat",
+      "name": "Smoked Meat",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "wood-plank",
+      "name": "Wood Plank",
+      "category": "refined",
+      "stackMax": 15,
+      "playerObtainable": true,
+      "icon": "item-wood-plank.png"
+    },
+    {
+      "id": "wool-felt",
+      "name": "Wool Felt",
+      "category": "refined",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "arrow-shaft",
+      "name": "Arrow Shaft",
+      "category": "component",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-arrow-shaft.png"
+    },
+    {
+      "id": "bowstring",
+      "name": "Bowstring",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-bowstring.png"
+    },
+    {
+      "id": "iron-blade",
+      "name": "Iron Blade",
+      "category": "component",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-iron-blade.png"
+    },
+    {
+      "id": "iron-nails",
+      "name": "Iron Nails",
+      "category": "component",
+      "stackMax": 20,
+      "playerObtainable": true,
+      "icon": "item-iron-nails.png"
+    },
+    {
+      "id": "leather-strip",
+      "name": "Leather Strip",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-leather-strip.png"
+    },
+    {
+      "id": "wood-handle",
+      "name": "Wood Handle",
+      "category": "component",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-wood-handle.png"
+    },
+    {
+      "id": "antidote",
+      "name": "Antidote",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-antidote.png"
+    },
+    {
+      "id": "bandage",
+      "name": "Bandage",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-bandage.png"
+    },
+    {
+      "id": "berry-tonic",
+      "name": "Berry Tonic",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "cleanse-boost",
+      "name": "Grove Blessing",
+      "category": "consumable",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "cooked-meal",
+      "name": "Cooked Meal",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "fire-bomb",
+      "name": "Fire Bomb",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-fire-bomb.png"
+    },
+    {
+      "id": "foaming-tankard",
+      "name": "Foaming Tankard",
+      "category": "consumable",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-foaming-tankard.png",
+      "description": "Wooden tankard overflowing with frothy ale",
+      "associatedRole": "barkeep",
+      "building": "tavern",
+      "useInGame": [
+        "tavern interactions",
+        "buff item",
+        "barkeep dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Sturdy wooden tankard with iron bands, overflowing foam head. Warm brown-amber-white palette. Selective outline."
+    },
+    {
+      "id": "heal-large",
+      "name": "Root Tonic",
+      "category": "consumable",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "heal-small",
+      "name": "Herbal Remedy",
+      "category": "consumable",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "healing-salve",
+      "name": "Healing Salve",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-healing-salve.png"
+    },
+    {
+      "id": "hearty-stew",
+      "name": "Hearty Stew",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "honey-bread",
+      "name": "Honey Bread",
+      "category": "consumable",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "mushroom-broth",
+      "name": "Mushroom Broth",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "ration",
+      "name": "Trail Ration",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": "item-ration.png"
+    },
+    {
+      "id": "smoke-bomb",
+      "name": "Smoke Bomb",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-smoke-bomb.png"
+    },
+    {
+      "id": "smoked-fish-ration",
+      "name": "Smoked Fish Ration",
+      "category": "consumable",
+      "stackMax": 8,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "spiced-jerky",
+      "name": "Spiced Jerky",
+      "category": "consumable",
+      "stackMax": 10,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "torch",
+      "name": "Torch",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-torch.png"
+    },
+    {
+      "id": "trap-snare",
+      "name": "Snare Trap",
+      "category": "consumable",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-trap-snare.png"
+    },
+    {
+      "id": "war-feast",
+      "name": "War Feast",
+      "category": "consumable",
+      "stackMax": 3,
+      "playerObtainable": true,
+      "icon": null
+    },
+    {
+      "id": "hide-cloak",
+      "name": "Hide Cloak",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-hide-cloak.png",
+      "slot": "back"
+    },
+    {
+      "id": "hunting-bow",
+      "name": "Hunting Bow",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-hunting-bow.png",
+      "slot": "weapon"
+    },
+    {
+      "id": "iron-axe",
+      "name": "Iron Axe",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-iron-axe.png",
+      "slot": "weapon"
+    },
+    {
+      "id": "iron-dagger",
+      "name": "Iron Dagger",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-iron-dagger.png",
+      "slot": "weapon"
+    },
+    {
+      "id": "iron-dagger-runed",
+      "name": "Rune-etched Dagger",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-iron-dagger-runed.png",
+      "slot": "weapon"
+    },
+    {
+      "id": "iron-sword",
+      "name": "Iron Sword",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-iron-sword.png",
+      "slot": "weapon"
+    },
+    {
+      "id": "leather-armor",
+      "name": "Leather Armor",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-leather-armor.png",
+      "slot": "body"
+    },
+    {
+      "id": "tinkerer-goggles",
+      "name": "Tinkerer's Goggles",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Brass-rimmed goggles with adjustable magnifying lenses",
+      "associatedRole": "tinkerer",
+      "building": "mechanical-oddity",
+      "useInGame": [
+        "tinkerer dialog prop",
+        "crafting bonus",
+        "inspection mechanic"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Brass-rimmed goggles with multiple flip-down magnifying lenses, leather strap. Copper-brass-leather palette. Selective outline."
+    },
+    {
+      "id": "wooden-shield",
+      "name": "Wooden Shield",
+      "category": "equipment",
+      "stackMax": 1,
+      "playerObtainable": true,
+      "icon": "item-wooden-shield.png",
+      "slot": "offhand"
+    },
+    {
+      "id": "campfire",
+      "name": "Campfire",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "lean-to",
+      "name": "Lean-To",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-beacon",
+      "name": "Beacon",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-drying-rack",
+      "name": "Drying Rack",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-field-forge",
+      "name": "Field Forge",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-generator",
+      "name": "Generator",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-mech-dock",
+      "name": "Mech Dock",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-palisade",
+      "name": "Palisade",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-rain-catcher",
+      "name": "Rain Catcher",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-storage-chest",
+      "name": "Storage Chest",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-watchtower",
+      "name": "Watchtower",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "struct-workbench",
+      "name": "Workbench",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "tent",
+      "name": "Tent",
+      "category": "structure",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null
+    },
+    {
+      "id": "armour-fitting-gauge",
+      "name": "Fitting Gauge",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Adjustable metal gauge for measuring armour fit",
+      "associatedRole": "armourer",
+      "building": "armory",
+      "useInGame": [
+        "armory interactions",
+        "equipment fitting"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Adjustable metal caliper-style gauge with measurement markings. Steel palette. Selective outline."
+    },
+    {
+      "id": "barrel-tap",
+      "name": "Barrel Tap",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Wooden spigot for drawing from casks",
+      "associatedRole": "brewer",
+      "building": "brewery",
+      "useInGame": [
+        "brewery mechanic",
+        "brewer dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Wooden barrel tap/spigot with handle, wet from use. Dark wood palette. Selective outline."
+    },
+    {
+      "id": "brass-keyring",
+      "name": "Brass Key Ring",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-brass-keyring.png",
+      "description": "Ring of brass keys, jangling and well-worn",
+      "associatedRole": "innkeeper",
+      "building": "inn",
+      "useInGame": [
+        "inn UI",
+        "room/rest mechanic",
+        "innkeeper dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Brass ring holding 4-5 ornate keys of different sizes, glinting. Warm brass-gold palette. Selective outline."
+    },
+    {
+      "id": "caulking-iron",
+      "name": "Caulking Iron",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Flat iron chisel for sealing boat planks",
+      "associatedRole": "boat-builder",
+      "building": "boat-shed",
+      "useInGame": [
+        "boat-shed interactions",
+        "shipbuilding"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Flat-bladed iron caulking chisel with wooden handle. Steel-wood palette. Selective outline."
+    },
+    {
+      "id": "cooking-pot",
+      "name": "Cooking Pot",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Cast iron pot with handle, blackened from fire",
+      "associatedRole": "hearthkeeper",
+      "building": "longhouse",
+      "useInGame": [
+        "longhouse interactions",
+        "cooking mechanic"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Round cast iron cooking pot, bail handle, blackened bottom from fire use. Dark iron palette with warm highlights. Selective outline."
+    },
+    {
+      "id": "counting-board",
+      "name": "Counting Board",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Wooden abacus-style counting board with stone beads",
+      "associatedRole": "market-master",
+      "building": "market-hall",
+      "useInGame": [
+        "trade UI",
+        "market calculations"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Wooden frame counting board with rows of colored stone beads. Wood and stone palette. Selective outline."
+    },
+    {
+      "id": "feed-bucket",
+      "name": "Feed Bucket",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Wooden bucket filled with oats and hay",
+      "associatedRole": "stablehand",
+      "building": "stables",
+      "useInGame": [
+        "stable interactions",
+        "animal feeding"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Wooden bucket with iron bands, oats and hay visible over the rim. Wood-golden-green palette. Selective outline."
+    },
+    {
+      "id": "fire-poker",
+      "name": "Fire Poker",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Long iron rod for tending campfires",
+      "associatedRole": "fire-keeper",
+      "building": "campfire",
+      "useInGame": [
+        "campfire interactions",
+        "fire-keeper dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Long iron fire poker with hooked end, tip glowing faintly red. Dark iron-orange palette. Selective outline."
+    },
+    {
+      "id": "fishing-line",
+      "name": "Fishing Line & Hook",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Coiled line with iron hook",
+      "associatedRole": "fisher",
+      "building": "fishing-dock",
+      "useInGame": [
+        "fishing mechanic"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Coiled brown line with small iron hook at end. Brown-steel palette. Selective outline."
+    },
+    {
+      "id": "fishing-net",
+      "name": "Fishing Net",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Knotted hemp net with stone weights at edges",
+      "associatedRole": "fisher",
+      "building": "fishing-dock",
+      "useInGame": [
+        "fishing mechanic",
+        "fisher dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Bundled hemp fishing net with small stone weights visible at edges. Tan-grey palette. Selective outline."
+    },
+    {
+      "id": "forge-hammer",
+      "name": "Forge Hammer",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-forge-hammer.png",
+      "description": "Heavy iron hammer with leather-wrapped handle, soot-darkened head",
+      "associatedRole": "blacksmith",
+      "building": "smithy",
+      "useInGame": [
+        "smithy interactions",
+        "crafting UI",
+        "blacksmith dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Heavy iron forge hammer, leather grip, dark metal head with use marks. Warm steel-brown palette. Selective outline."
+    },
+    {
+      "id": "gravedigger-shovel",
+      "name": "Gravedigger's Shovel",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Iron-headed shovel, permanently dirt-stained",
+      "associatedRole": "gravedigger",
+      "building": "graveyard",
+      "useInGame": [
+        "graveyard interactions",
+        "gravedigger dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Iron-headed shovel with long wooden handle, dirt clinging to blade. Dark brown-steel palette. Selective outline."
+    },
+    {
+      "id": "herding-crook",
+      "name": "Herding Crook",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Tall wooden crook with curved head for guiding animals",
+      "associatedRole": "herder",
+      "building": "barn",
+      "useInGame": [
+        "herding mechanic",
+        "herder dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Tall wooden shepherd's crook with curved hook at top, smooth from use. Light wood palette. Selective outline."
+    },
+    {
+      "id": "hoe",
+      "name": "Hoe",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Iron-headed hoe with long wooden handle",
+      "associatedRole": "farmer",
+      "building": "farmstead",
+      "useInGame": [
+        "farming mechanic",
+        "farmer dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Simple iron hoe head on a long wooden shaft, dirt-stained. Earth-brown-steel palette. Selective outline."
+    },
+    {
+      "id": "horse-brush",
+      "name": "Horse Brush",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Stiff-bristled grooming brush with leather strap",
+      "associatedRole": "stablehand",
+      "building": "stables",
+      "useInGame": [
+        "stable interactions",
+        "animal care"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Oval wooden grooming brush with stiff bristles, leather hand strap. Brown-tan palette. Selective outline."
+    },
+    {
+      "id": "ledger-book",
+      "name": "Ledger",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-ledger-book.png",
+      "description": "Leather-bound ledger with ink-stained pages, brass corner clasps",
+      "associatedRole": "market-master",
+      "building": "market-hall",
+      "useInGame": [
+        "trade UI",
+        "market-master dialog prop",
+        "shop interface"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Thick leather-bound ledger, pages visible at edge, brass corner clasps, ink stains on cover. Brown-brass palette. Selective outline."
+    },
+    {
+      "id": "measuring-scoop",
+      "name": "Measuring Scoop",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Wooden scoop with volume markings",
+      "associatedRole": "granary-keeper",
+      "building": "granary",
+      "useInGame": [
+        "granary interactions",
+        "rationing mechanic"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Deep wooden scoop with notch marks on handle for measuring. Light wood palette. Selective outline."
+    },
+    {
+      "id": "mine-lantern",
+      "name": "Mine Lantern",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Iron-caged lantern with oil flame",
+      "associatedRole": "mine-foreman",
+      "building": "mine-entrance",
+      "useInGame": [
+        "mine interactions",
+        "light source",
+        "foreman dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Small iron-caged lantern with warm orange flame visible inside, ring handle on top. Dark iron-orange palette. Selective outline."
+    },
+    {
+      "id": "pickaxe",
+      "name": "Pickaxe",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Iron-headed pickaxe, wooden handle worn smooth",
+      "associatedRole": "miner",
+      "building": "mine-entrance",
+      "useInGame": [
+        "mining mechanic",
+        "miner dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Iron pickaxe with dual pointed head, smooth wooden handle. Steel-brown palette. Selective outline."
+    },
+    {
+      "id": "pilgrim-staff",
+      "name": "Pilgrim's Staff",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Sturdy walking staff with travel tokens tied to it",
+      "associatedRole": "pilgrim",
+      "building": "pilgrim-shelter",
+      "useInGame": [
+        "pilgrim dialog prop",
+        "travel mechanic"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Tall wooden walking staff with small carved tokens and ribbons tied near the top. Wood-colorful palette. Selective outline."
+    },
+    {
+      "id": "quill-and-ink",
+      "name": "Quill & Ink",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Feather quill with small inkpot",
+      "associatedRole": "clerk",
+      "building": "town-hall",
+      "useInGame": [
+        "town-hall interactions",
+        "clerk dialog prop",
+        "document signing"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. White feather quill resting against a small glass inkpot, dark ink visible. White-black-amber palette. Selective outline."
+    },
+    {
+      "id": "sickle",
+      "name": "Sickle",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Curved iron blade for harvesting grain",
+      "associatedRole": "farmer",
+      "building": "farmstead",
+      "useInGame": [
+        "harvesting mechanic",
+        "farmer dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Curved iron sickle blade with short wooden handle. Steel-wood palette. Selective outline."
+    },
+    {
+      "id": "smithing-tongs",
+      "name": "Smithing Tongs",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Long iron tongs for holding hot metal",
+      "associatedRole": "blacksmith",
+      "building": "smithy",
+      "useInGame": [
+        "smithy interactions",
+        "crafting animation"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Iron smithing tongs, long handles, gripping jaws blackened from heat. Dark metal palette. Selective outline."
+    },
+    {
+      "id": "smoke-rack-hook",
+      "name": "Smoke Rack Hook",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Iron S-hook for hanging fish and meat over smoke",
+      "associatedRole": "smoker",
+      "building": "smokehouse",
+      "useInGame": [
+        "smokehouse interactions",
+        "food preservation"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Iron S-shaped hook with pointed ends, darkened from smoke. Dark iron palette. Selective outline."
+    },
+    {
+      "id": "tally-board",
+      "name": "Tally Board",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Wooden board with notched tallies and charcoal marks",
+      "associatedRole": "mine-foreman",
+      "building": "mine-entrance",
+      "useInGame": [
+        "production tracking",
+        "foreman dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Flat wooden board with carved tally notches and charcoal writing. Light wood-grey palette. Selective outline."
+    },
+    {
+      "id": "tally-stick",
+      "name": "Tally Stick",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Notched wooden stick for counting inventory",
+      "associatedRole": "stockmaster",
+      "building": "warehouse",
+      "useInGame": [
+        "warehouse interactions",
+        "counting mechanic"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Thin wooden stick with regular notch marks along its length. Light wood palette. Selective outline."
+    },
+    {
+      "id": "tanning-knife",
+      "name": "Tanning Knife",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Curved two-handled scraping knife for working hides",
+      "associatedRole": "tanner",
+      "building": "tannery",
+      "useInGame": [
+        "tannery interactions",
+        "leatherworking"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Curved tanning knife with wooden handles at each end, stained blade. Brown-steel palette. Selective outline."
+    },
+    {
+      "id": "tasting-cup",
+      "name": "Tasting Cup",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Small wooden sampling cup with carved handle",
+      "associatedRole": "brewer",
+      "building": "brewery",
+      "useInGame": [
+        "brewery interactions",
+        "brewer dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Small carved wooden cup with short handle, amber liquid visible inside. Warm wood-amber palette. Selective outline."
+    },
+    {
+      "id": "telescope",
+      "name": "Telescope",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Brass collapsible telescope, well-polished",
+      "associatedRole": "harbour-master",
+      "building": "harbour-dock",
+      "useInGame": [
+        "harbour interactions",
+        "harbour-master dialog prop",
+        "scouting"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Brass telescope, partially extended, polished with visible segments. Brass-gold palette. Selective outline."
+    },
+    {
+      "id": "two-man-saw",
+      "name": "Two-Man Saw",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Long crosscut saw with handles at each end",
+      "associatedRole": "sawyer",
+      "building": "sawmill",
+      "useInGame": [
+        "sawmill interactions",
+        "lumber processing"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Long steel crosscut saw blade with wooden handles at each end, teeth visible. Steel-wood palette. Selective outline."
+    },
+    {
+      "id": "water-yoke",
+      "name": "Water Yoke",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Wooden shoulder yoke with two hanging buckets",
+      "associatedRole": "water-carrier",
+      "building": "well",
+      "useInGame": [
+        "well interactions",
+        "water-carrier prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Curved wooden yoke with rope-hung wooden buckets on each end. Light wood-rope palette. Selective outline."
+    },
+    {
+      "id": "wood-plane",
+      "name": "Wood Plane",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Hand plane for smoothing hull planks",
+      "associatedRole": "boat-builder",
+      "building": "boat-shed",
+      "useInGame": [
+        "boat-shed interactions",
+        "woodworking"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Wooden hand plane with iron blade, wood shavings curling from edge. Wood-steel palette. Selective outline."
+    },
+    {
+      "id": "woodcutting-axe",
+      "name": "Woodcutting Axe",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Heavy felling axe with iron head and long handle",
+      "associatedRole": "lumber-worker",
+      "building": "lumberyard",
+      "useInGame": [
+        "chopping mechanic",
+        "lumber-worker dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Large iron axe head on long wooden handle, blade edge glinting. Steel-brown palette. Selective outline."
+    },
+    {
+      "id": "wooden-ladle",
+      "name": "Wooden Ladle",
+      "category": "tool",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Carved wooden ladle, well-worn from daily use",
+      "associatedRole": "hearthkeeper",
+      "building": "longhouse",
+      "useInGame": [
+        "cooking mechanic",
+        "longhouse prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Hand-carved wooden ladle, smooth from years of use, light wood grain. Warm wood palette. Selective outline."
+    },
+    {
+      "id": "crystal-staff",
+      "name": "Crystal Staff",
+      "category": "weapon",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-crystal-staff.png",
+      "description": "Dark wood staff topped with a glowing crystal, rune-etched shaft",
+      "associatedRole": "mage",
+      "building": "mage-tower",
+      "useInGame": [
+        "magic shop",
+        "enchanting UI",
+        "mage dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Tall dark wood staff with glowing purple crystal at top, geometric runes carved along shaft. Purple-dark wood palette. Selective outline."
+    },
+    {
+      "id": "drill-sword",
+      "name": "Training Sword",
+      "category": "weapon",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Blunted wooden practice sword, heavily dented",
+      "associatedRole": "drill-master",
+      "building": "training-yard",
+      "useInGame": [
+        "training-yard interactions",
+        "recruit equipment",
+        "combat tutorial"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Wooden practice sword, blade edge rounded and covered in dents and nicks. Worn wood palette. Selective outline."
+    },
+    {
+      "id": "iron-spear",
+      "name": "Iron Spear",
+      "category": "weapon",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-iron-spear.png",
+      "description": "Long wooden shaft with iron spearhead",
+      "associatedRole": "gate-guard",
+      "building": "palisade-gate",
+      "useInGame": [
+        "gate-guard dialog prop",
+        "guard equipment",
+        "weapon"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Tall wooden spear shaft with leaf-shaped iron head, leather grip wrap at center. Steel-brown palette. Selective outline."
+    },
+    {
+      "id": "manifest-scroll",
+      "name": "Cargo Manifest",
+      "category": "document",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Long parchment inventory list with checkmarks",
+      "associatedRole": "stockmaster",
+      "building": "warehouse",
+      "useInGame": [
+        "warehouse interactions",
+        "inventory management"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Long parchment scroll with itemized list and ink checkmarks. Cream-black palette. Selective outline."
+    },
+    {
+      "id": "official-scroll",
+      "name": "Official Scroll",
+      "category": "document",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Sealed parchment scroll with wax stamp",
+      "associatedRole": "magistrate",
+      "building": "town-hall",
+      "useInGame": [
+        "quest items",
+        "magistrate dialog prop",
+        "authority documents"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Rolled parchment scroll with red wax seal, ribbon tie. Cream-red palette. Selective outline."
+    },
+    {
+      "id": "route-map",
+      "name": "Route Map",
+      "category": "document",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Rolled leather map with trade route markings",
+      "associatedRole": "caravan-master",
+      "building": "caravansary",
+      "useInGame": [
+        "caravan interactions",
+        "trade route mechanic",
+        "caravan-master dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Partially unrolled leather map with ink trade route lines and location marks. Tan-brown-red palette. Selective outline."
+    },
+    {
+      "id": "holy-symbol",
+      "name": "Holy Symbol",
+      "category": "sacred",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-holy-symbol.png",
+      "description": "Leaf-woven sacred symbol on a cord, faintly glowing",
+      "associatedRole": "priest",
+      "building": "temple",
+      "useInGame": [
+        "blessing mechanic",
+        "shrine UI",
+        "priest dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Woven leaf-and-vine circular holy symbol on a leather cord, faint green glow at center. Green-silver-gold palette. Selective outline."
+    },
+    {
+      "id": "incense-censer",
+      "name": "Incense Censer",
+      "category": "sacred",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Small bronze censer on chains, trailing smoke",
+      "associatedRole": "acolyte",
+      "building": "temple",
+      "useInGame": [
+        "temple rituals",
+        "acolyte dialog prop"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Small ornate bronze censer hanging from chains, wisp of smoke rising. Bronze-grey palette. Selective outline."
+    },
+    {
+      "id": "bronze-seal",
+      "name": "Chief's Seal",
+      "category": "authority",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": "item-bronze-seal.png",
+      "description": "Bronze medallion with settlement crest, worn on a chain",
+      "associatedRole": "chief",
+      "building": "longhouse",
+      "useInGame": [
+        "chief dialog prop",
+        "quest-granting symbol",
+        "authority check"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Round bronze medallion with engraved crest, hanging from a thick chain. Warm gold-bronze palette. Selective outline."
+    },
+    {
+      "id": "lute",
+      "name": "Lute",
+      "category": "instrument",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Pear-shaped stringed instrument with ornate sound hole",
+      "associatedRole": "bard",
+      "building": "tavern",
+      "useInGame": [
+        "bard dialog prop",
+        "music mechanic",
+        "morale buff"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Wooden pear-shaped lute with visible strings and ornate rosette sound hole. Warm wood-gold palette. Selective outline."
+    },
+    {
+      "id": "grain-sack",
+      "name": "Grain Sack",
+      "category": "container",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Burlap sack bulging with flour, tied at top",
+      "associatedRole": "miller",
+      "building": "windmill",
+      "useInGame": [
+        "windmill output",
+        "trade good",
+        "granary storage"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Bulging burlap sack tied with rope at top, dusted white with flour. Tan-white palette. Selective outline."
+    },
+    {
+      "id": "salt-basket",
+      "name": "Salt Basket",
+      "category": "container",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Woven basket filled with coarse salt crystals",
+      "associatedRole": "salt-worker",
+      "building": "salt-works",
+      "useInGame": [
+        "salt-works output",
+        "preserving mechanic",
+        "trade good"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Woven reed basket filled with white crystalline salt, some spilling over edge. Tan-white palette. Selective outline."
+    },
+    {
+      "id": "pottery-wheel-pot",
+      "name": "Clay Pot",
+      "category": "crafted",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Freshly shaped clay pot, still unglazed",
+      "associatedRole": "potter",
+      "building": "kiln",
+      "useInGame": [
+        "kiln output",
+        "trade good",
+        "storage container"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Round terracotta clay pot, simple form, unglazed surface with visible clay texture. Warm terracotta palette. Selective outline."
+    },
+    {
+      "id": "relic-fragment",
+      "name": "Relic Fragment",
+      "category": "quest",
+      "stackMax": 1,
+      "playerObtainable": false,
+      "icon": null,
+      "description": "Cloth-wrapped salvaged artifact, faintly humming",
+      "associatedRole": "ruin-scavenger",
+      "building": "earth-ruin-building",
+      "useInGame": [
+        "quest item",
+        "ruin-scavenger dialog prop",
+        "lore collectible"
+      ],
+      "iconDescription": "Pixel art item icon, side view, transparent background. Irregular stone/metal fragment wrapped in cloth, faint blue glow seeping through wrapping. Grey-blue-cream palette. Selective outline."
+    }
+  ]
+}

@@ -1,0 +1,409 @@
+{
+  "_doc": "NPC asset tracker — single source of truth for what graphics each NPC character has. Covers portraits (96×96 dialog art), sprites (full character with rotations), and animations (idle/walk/run). Run manually or extend entity:audit to validate.",
+  "_assetTypes": {
+    "portrait": "96×96 bust portrait for dialog UI. Path: public/assets/sprites/portraits/{role}.png",
+    "sprite": "PixelLab character with 8 directional rotations. Tracked by character_id.",
+    "animations": "Template-based animations on the PixelLab character. Key anims: breathing-idle, walking, running.",
+    "itemIcon": "48×48 tool-of-trade icon. Path: public/assets/sprites/icons/items/item-{id}.png"
+  },
+
+  "characters": {
+    "_fieldborn": {
+      "culture": "Fieldborn",
+      "race": "Markfolk (human)",
+      "npcs": [
+        {
+          "role": "chief",
+          "name": "Fieldborn Chief",
+          "pixellabId": "df8e572c-5a63-4ca1-88ca-080b789d3d2e",
+          "portrait": "chief.png",
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-bronze-seal.png",
+          "notes": null
+        },
+        {
+          "role": "blacksmith",
+          "name": "Fieldborn Blacksmith",
+          "pixellabId": "6ac2e614-ed1a-453f-929c-9a3de12fb2d4",
+          "portrait": "blacksmith.png",
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-forge-hammer.png",
+          "notes": "Second blacksmith at 83e224c5"
+        },
+        {
+          "role": "farmer",
+          "name": "Fieldborn Farmer",
+          "pixellabId": "d37c78d8-8b9c-4f6e-a277-da8366bf1db9",
+          "portrait": "farmer.png",
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-hoe.png",
+          "notes": null
+        },
+        {
+          "role": "gate-guard",
+          "name": "Fieldborn Guard",
+          "pixellabId": "bc764364-4c54-4486-a993-a0024f9715e9",
+          "portrait": "gate-guard.png",
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-iron-spear.png",
+          "notes": null
+        },
+        {
+          "role": "hearthkeeper",
+          "name": "Fieldborn Hearthkeeper",
+          "pixellabId": "f91bacef-35a0-4b28-97da-e0dcef85f56b",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "Needs portrait"
+        },
+        {
+          "role": "shrine-keeper",
+          "name": "Fieldborn Shrine Keeper",
+          "pixellabId": "a2fb4727-809e-4cd9-a748-1e1674037541",
+          "portrait": "shrine-keeper.png",
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-holy-symbol.png",
+          "notes": "Portrait is Pandor race but Fieldborn sprite is human"
+        },
+        {
+          "role": "elder-villager",
+          "name": "Fieldborn Elder",
+          "pixellabId": "079fb6cb-a6cf-4b1d-b97b-caf8d30c0982",
+          "portrait": "elder.png",
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "child",
+          "name": "Fieldborn Child",
+          "pixellabId": "6ca8be8c-e15e-45a2-ba5d-b17b639995a8",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": true },
+          "itemIcon": null,
+          "notes": "Walking anim completed 2026-06-08. Needs portrait (child-specific)."
+        }
+      ]
+    },
+
+    "_wallborn": {
+      "culture": "Wallborn",
+      "race": "Markfolk/Dvergr mix",
+      "npcs": [
+        {
+          "role": "gate-guard",
+          "name": "Wallborn Gate Guard",
+          "pixellabId": "2f7089b1-eb05-43c6-958d-48fa38082181",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-iron-spear.png",
+          "notes": "Shares gate-guard portrait with Fieldborn variant"
+        }
+      ]
+    },
+
+    "_ikibeki": {
+      "culture": "Ikibeki",
+      "race": "Wildkin (beastkin)",
+      "npcs": [
+        {
+          "role": "highfang",
+          "name": "Wolf-Highfang",
+          "pixellabId": "d1e05856-0965-4e8e-8388-f21984dc3c68",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": "partial-4dirs", "walking": false },
+          "itemIcon": null,
+          "notes": "Idle has south/west/north/east only — diagonals missing"
+        },
+        {
+          "role": "herbalist",
+          "name": "Fox-Herbalist",
+          "pixellabId": "95130b77-71bd-4484-8487-196015fc143f",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "scout",
+          "name": "Hawk-Scout",
+          "pixellabId": "9f1cec15-2ac9-45c3-8c42-5624948cf01a",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "smith",
+          "name": "Boar-Smith",
+          "pixellabId": "3f8740cd-d161-4e9e-b865-e296f5b04361",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-forge-hammer.png",
+          "notes": null
+        },
+        {
+          "role": "brewer",
+          "name": "Cat-Brewer",
+          "pixellabId": "95857118-c1e7-434e-9d4f-3adb78bcc101",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "lorekeeper",
+          "name": "Snake-Lorekeeper",
+          "pixellabId": "324b433e-34da-4f4d-bc36-983ced7eed0b",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "cook",
+          "name": "Wolf-Cook",
+          "pixellabId": "8ed0aa47-8da0-4dbb-a0f4-36bf52ef94de",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "sweeper",
+          "name": "Cat-Sweeper",
+          "pixellabId": "d20b01a8-fc9f-4d35-8a67-3e2dbdb19874",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "barmaid",
+          "name": "Fox-Barmaid",
+          "pixellabId": "e040a266-7a46-42e9-830e-65bc74902cbc",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-foaming-tankard.png",
+          "notes": null
+        },
+        {
+          "role": "granary",
+          "name": "Boar-Granary",
+          "pixellabId": "27e147cf-1b8d-4573-a4d3-5acf363eab70",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "runner",
+          "name": "Rabbit-Runner",
+          "pixellabId": "1d4726ad-b9e5-4542-8d56-f02794473bea",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "porter",
+          "name": "Mixed-Porter",
+          "pixellabId": "e4359419-9b7f-45e2-80e8-c189eb0bfc24",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "woodcutter",
+          "name": "Boar-Woodcutter",
+          "pixellabId": "d7e5682c-a288-4c73-ac2f-e3fa5861136b",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-woodcutting-axe.png",
+          "notes": null
+        },
+        {
+          "role": "stablehand",
+          "name": "Bear-Stablehand",
+          "pixellabId": "e124b495-8ea2-4d6d-bd3b-97488530b232",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "Second variant at a6df8d9e"
+        },
+        {
+          "role": "barmaid",
+          "name": "Rabbit-Barmaid",
+          "pixellabId": "22f9b022-dcf2-4b16-b166-6f0b18653f6e",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-foaming-tankard.png",
+          "notes": null
+        },
+        {
+          "role": "warrior",
+          "name": "Wolf Warrior",
+          "pixellabId": "a8f9554e-a9e0-4e51-8143-c522399a1293",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": "8-anims-exist", "walking": "check" },
+          "itemIcon": null,
+          "notes": "Has 8 existing anims — check what they are"
+        },
+        {
+          "role": "trader",
+          "name": "Fox Trader",
+          "pixellabId": "35f01005-d66f-4de8-94ab-a434ced7c54e",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "farmer",
+          "name": "Boar Farmer",
+          "pixellabId": "ee729bd5-732c-4975-bf6d-3e6a047506f2",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": "item-hoe.png",
+          "notes": null
+        },
+        {
+          "role": "commoner",
+          "name": "Rabbit Commoner",
+          "pixellabId": "dafd4e02-eb58-4c7d-a718-a1d1142216fc",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        },
+        {
+          "role": "elder",
+          "name": "Bear Elder",
+          "pixellabId": "d74ed413-2856-44fa-bce3-dd4a1e91f38d",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": null
+        }
+      ]
+    },
+
+    "_ikibeki_children": {
+      "culture": "Ikibeki",
+      "race": "Wildkin children",
+      "npcs": [
+        {
+          "role": "child",
+          "name": "Wolf-Pup",
+          "pixellabId": "6499978a-93ec-4af4-99dd-80f9c4fa9618",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "48×48 child variant"
+        },
+        {
+          "role": "child",
+          "name": "Fox-Kit",
+          "pixellabId": "e03d7939-1463-4496-a271-271159e3a2df",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "48×48 child variant"
+        },
+        {
+          "role": "child",
+          "name": "Bear-Cub",
+          "pixellabId": "708c03a3-6093-4bdb-9bb4-52aeaf66e4c3",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "48×48 child variant"
+        },
+        {
+          "role": "child",
+          "name": "Boar-Piglet",
+          "pixellabId": "87cf8d4f-1934-4893-bf86-c11f920273b5",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "48×48 child variant"
+        },
+        {
+          "role": "child",
+          "name": "Cat-Kitten",
+          "pixellabId": "fce53cdc-f51a-4459-8290-cb0d12bd767a",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "48×48 child variant"
+        },
+        {
+          "role": "child",
+          "name": "Rabbit-Leveret",
+          "pixellabId": "c56e902a-9b79-4384-8fd5-3b815101dbe2",
+          "portrait": null,
+          "sprite": true,
+          "animations": { "breathing-idle": false, "walking": false },
+          "itemIcon": null,
+          "notes": "48×48 child variant"
+        }
+      ]
+    }
+  },
+
+  "_summary": {
+    "totalNPCs": 37,
+    "withPortrait": 16,
+    "withoutPortrait": 21,
+    "withIdleAnim": 2,
+    "withWalkAnim": 2,
+    "withItemIcon": 12,
+    "fullyComplete": 0
+  },
+
+  "_portraitsMissing": [
+    "Fieldborn Hearthkeeper",
+    "Fieldborn Child",
+    "Wallborn Gate Guard",
+    "All 20 Ikibeki NPCs (beastkin portraits needed — different art style from Markfolk)",
+    "All 6 Ikibeki children"
+  ],
+
+  "_animationsPending": "Nearly all — only Wolf-Highfang (partial idle) and Fieldborn Child (walking) have any animations. Sequential agent is processing wildlife first, then will move to NPCs."
+}

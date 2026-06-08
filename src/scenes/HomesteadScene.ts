@@ -15,6 +15,7 @@
 
 import * as Phaser from 'phaser';
 import { InventorySystem } from '../systems/InventorySystem';
+import { playerItems, type RegistryItem } from '../lib/items';
 import { InventoryHUD } from '../ui/InventoryHUD';
 import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode';
 import { SimpleJoystick } from '../lib/SimpleJoystick';
@@ -302,7 +303,7 @@ export class HomesteadScene extends Phaser.Scene {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   preload(): void {
-    this.load.json('resources', '/macro-world/resources.json');
+    this.load.json('item-registry', '/macro-world/item-registry.json');
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
 
     // All biome tile packs (meadow, forest, cold-granite, bare-summit, etc.)
@@ -387,8 +388,9 @@ export class HomesteadScene extends Phaser.Scene {
 
     // ── Inventory ─────────────────────────────────────────────────────────
     const inv = new InventorySystem(this);
-    const resDefs = this.cache.json.get('resources') as { resources: { id: string; name: string; category: string; stackMax: number }[] } | undefined;
-    if (resDefs?.resources) inv.loadResourceDefs(resDefs.resources as never[]);
+    // Load item definitions from the unified registry (replaces resources.json).
+    const registry = this.cache.json.get('item-registry') as { items: RegistryItem[] } | undefined;
+    if (registry?.items) inv.loadResourceDefs(playerItems(registry.items) as never[]);
     inv.add('flint', 4);
     inv.add('dry-grass', 6);
 

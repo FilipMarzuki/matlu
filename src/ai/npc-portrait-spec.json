@@ -1,0 +1,205 @@
+{
+  "_doc": "NPC portrait generation spec for the dialog system. Portraits are 96×96 pixel art busts used in NpcDialogScene. Generated via PixelLab create_map_object (side view, 96×96).",
+  "_artDirection": {
+    "style": "anime-tech-meets-fantasy pixel art. Organic materials (fur, leather, cloth) with subtle geometric precision — clean edges, deliberate highlights, no anti-aliasing.",
+    "framing": "Bust portrait — head + shoulders + upper chest. Centered, facing slightly left (3/4 view toward the text area). Transparent background.",
+    "palette": "Rich but restrained. 8-12 colors per portrait. Warm skin tones, culturally-distinct clothing accents. Dark outlines (selective outline style).",
+    "shading": "Medium shading — enough for depth and expression without over-rendering. Consistent top-left light source across all portraits.",
+    "resolution": "96×96 pixels. No sub-pixel tricks. Every pixel deliberate.",
+    "outline": "Selective outline — thicker on silhouette edges, thinner or absent on internal detail.",
+    "mood": "Each NPC should feel like a person with a life. Expression matches their spriteNotes personality."
+  },
+  "_pixellabParams": {
+    "tool": "create_map_object",
+    "width": 96,
+    "height": 96,
+    "view": "side",
+    "detail": "high detail",
+    "shading": "medium shading",
+    "outline": "selective outline"
+  },
+  "_descriptionTemplate": "Pixel art bust portrait, 3/4 view facing left, transparent background. [Race body — build, skin, head features]. [Clothing from fashion variant — visible collar/shoulders/headwear]. [Expression and personality from spriteNotes]. Anime-tech-meets-fantasy style, selective outline, warm palette.",
+  "_outputPath": "public/assets/sprites/portraits/{role}.png",
+  "_priority": "Phase 1 = NPCs the player interacts with most (dialog-heavy roles). Phase 2 = remaining building NPCs. Phase 3 = ambient NPCs.",
+
+  "batches": {
+    "phase1_dialog_heavy": {
+      "_note": "Core NPCs the player talks to regularly. Generate these first — they appear in the dialog box.",
+      "portraits": [
+        {
+          "id": "portrait-chief",
+          "role": "chief",
+          "building": "longhouse",
+          "name": "Settlement Chief",
+          "race": "Markfolk",
+          "fashionVariant": "elder",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Medium-build human, weathered olive skin, strong jawline, short cropped hair with grey at temples. Elder-variant clothing — heavy fur-lined mantle over layered tunic, bronze clasp at shoulder. Confident stern expression, arms-crossed posture implied. Anime-tech-meets-fantasy style, selective outline, warm earthy palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-blacksmith",
+          "role": "blacksmith",
+          "building": "smithy",
+          "name": "Blacksmith",
+          "race": "Bergfolk",
+          "fashionVariant": "artisan",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Short-broad dwarf, ruddy tan skin, thick braided beard with soot streaks, broad nose, heavy brow. Artisan clothing — leather apron over bare muscular shoulders, forge goggles pushed up on forehead. Focused squinting expression, slight grin. Anime-tech-meets-fantasy style, selective outline, warm orange-brown palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-innkeeper",
+          "role": "innkeeper",
+          "building": "inn",
+          "name": "Innkeeper",
+          "race": "Markfolk",
+          "fashionVariant": "common",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Stout human, warm brown skin, round friendly face, double chin, receding hairline with tied-back ponytail. Common clothing — clean linen shirt with rolled sleeves, cloth over one shoulder. Warm welcoming smile, rosy cheeks. Anime-tech-meets-fantasy style, selective outline, warm amber palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-market-master",
+          "role": "market-master",
+          "building": "market-hall",
+          "name": "Market Master",
+          "race": "Markfolk",
+          "fashionVariant": "elder",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Lean sharp-featured human, pale skin, thin greying mustache, narrow calculating eyes, high cheekbones. Elder clothing — embroidered collar coat, quill tucked behind ear, ink-stained fingers visible at chest. Sharp evaluating expression. Anime-tech-meets-fantasy style, selective outline, cool blue-grey palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-priest",
+          "role": "priest",
+          "building": "temple",
+          "name": "Priest",
+          "race": "Lövfolk",
+          "fashionVariant": "ceremonial",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Tall slender elf, pale green-tinted skin, angular features, pointed ears, long white hair braided with small leaves. Ceremonial robes — layered silk with geometric embroidery at collar, subtle glow-thread accents. Serene knowing expression, half-lidded eyes. Anime-tech-meets-fantasy style, selective outline, cool green-silver palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-mage",
+          "role": "mage",
+          "building": "mage-tower",
+          "name": "Mage",
+          "race": "Markfolk",
+          "fashionVariant": "ceremonial",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Wiry human, dark skin, sharp intelligent eyes with faint arcane glow, close-cropped silver hair, angular face. Ceremonial robe — high collar with geometric rune patterns, crystal pendant at throat, subtle tech-circuit motifs in fabric. Intense focused expression. Anime-tech-meets-fantasy style, selective outline, deep purple-blue palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-barkeep",
+          "role": "barkeep",
+          "building": "tavern",
+          "name": "Barkeep",
+          "race": "Markfolk",
+          "fashionVariant": "common",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Broad-shouldered human, tanned skin, square jaw, bushy eyebrows, thick forearms visible. Common clothing — dark vest over white shirt, sleeves rolled past elbows, bar towel draped over shoulder. Gruff but amused expression, one eyebrow raised. Anime-tech-meets-fantasy style, selective outline, warm brown-red palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-gate-guard",
+          "role": "gate-guard",
+          "building": "palisade-gate",
+          "name": "Gate Guard",
+          "race": "Markfolk",
+          "fashionVariant": "warrior",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Athletic human, light skin with a scar across nose bridge, close-cropped dark hair under open-face helmet. Warrior clothing — chainmail collar visible under fur-lined cloak, leather shoulder guard. Alert watchful expression, jaw set. Anime-tech-meets-fantasy style, selective outline, steel-grey and brown palette.",
+          "creditCost": 1
+        }
+      ]
+    },
+
+    "phase2_building_npcs": {
+      "_note": "Secondary NPCs — less frequent dialog but still interactable. Generate after phase 1 is validated.",
+      "portraits": [
+        {
+          "id": "portrait-farmer",
+          "role": "farmer",
+          "building": "farmstead",
+          "race": "Markfolk",
+          "fashionVariant": "common",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Weathered human, sun-darkened skin, laugh lines, straw hat pushed back on head, calloused hands at chest. Common clothing — patched linen shirt, leather vest. Tired but content expression. Anime-tech-meets-fantasy style, selective outline, warm golden-green palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-bard",
+          "role": "bard",
+          "building": "tavern",
+          "race": "Lövfolk",
+          "fashionVariant": "common",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Slender elf, warm amber skin, bright playful eyes, pointed ears with small hoop earrings, wavy auburn hair to shoulders. Common clothing — embroidered vest over flowing shirt, lute neck visible at shoulder edge. Mischievous grin, one eye winking. Anime-tech-meets-fantasy style, selective outline, rich amber-teal palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-shrine-keeper",
+          "role": "shrine-keeper",
+          "building": "shrine",
+          "race": "Pandor",
+          "fashionVariant": "ceremonial",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Stocky amphibian-featured humanoid, mottled blue-grey skin, wide calm eyes, flat nose, small frill behind ears. Ceremonial wrap — woven water-reed shawl with shell clasps, moss-dyed patterns. Peaceful contemplative expression. Anime-tech-meets-fantasy style, selective outline, cool aqua-grey palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-caravan-master",
+          "role": "caravan-master",
+          "building": "caravansary",
+          "race": "Markfolk",
+          "fashionVariant": "common",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Lean weathered human, dark olive skin, deep-set shrewd eyes, trimmed beard, sun-bleached headwrap. Common clothing — layered travel cloak with many clasps and pockets, road dust visible. World-weary but sharp expression. Anime-tech-meets-fantasy style, selective outline, dusty ochre-brown palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-retired-hero",
+          "role": "retired-hero",
+          "building": "hero-house",
+          "race": "Markfolk",
+          "fashionVariant": "noble",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Muscular human showing age, greying temples, old battle scar on cheek, strong but softened features. Noble clothing — fine but understated tunic with a faded military insignia, old sword-pendant at neck. Wise melancholic half-smile. Anime-tech-meets-fantasy style, selective outline, muted gold-charcoal palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-tinkerer",
+          "role": "tinkerer",
+          "building": "mechanical-oddity",
+          "race": "Bergfolk",
+          "fashionVariant": "artisan",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Short stocky dwarf, ruddy pale skin, wild frizzy hair, magnifying lens strapped to head, grease smudge on cheek. Artisan clothing — tool-belt visible at chest, leather jerkin covered in pockets and gears. Excited wide-eyed expression, mid-explanation. Anime-tech-meets-fantasy style, selective outline, copper-brass-green palette.",
+          "creditCost": 1
+        }
+      ]
+    },
+
+    "phase3_ambient_and_generic": {
+      "_note": "Ambient NPCs and generic roles. Lower priority — some may use shared portraits.",
+      "portraits": [
+        {
+          "id": "portrait-elder",
+          "role": "elder-villager",
+          "building": null,
+          "race": "Markfolk",
+          "fashionVariant": "elder",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Elderly human, deeply wrinkled warm brown skin, kind cloudy eyes, white wispy hair, missing a few teeth. Elder clothing — heavy knitted shawl, wooden brooch. Gentle nostalgic smile. Anime-tech-meets-fantasy style, selective outline, soft brown-cream palette.",
+          "creditCost": 1
+        },
+        {
+          "id": "portrait-wanderer",
+          "role": "wanderer",
+          "building": null,
+          "race": "Markfolk",
+          "fashionVariant": "common",
+          "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Rangy human, wind-chapped light skin, distant curious eyes, tangled brown hair, patchy stubble. Common clothing — hooded travel cloak, frayed scarf, pack strap visible at shoulder. Restless half-smile, looking past viewer. Anime-tech-meets-fantasy style, selective outline, muted forest green-grey palette.",
+          "creditCost": 1
+        }
+      ]
+    }
+  },
+
+  "_totalCredits": 16,
+  "_notes": [
+    "Each portrait costs ~1 generation (create_map_object, single image).",
+    "Total: 8 phase1 + 6 phase2 + 2 phase3 = 16 generations.",
+    "Culture-specific variants (same role, different race/fashion) can be added later by cloning a description and swapping race + fashion fields.",
+    "Portraits are race-generic defaults. For culture-specific settlements, generate variant portraits with the matching ancestry + fashion.",
+    "Wildkin (beastkin) portraits will need separate descriptions per clan line (Wolf-clan, Bear-clan, Fox-clan etc.) — schedule as a separate batch."
+  ]
+}

@@ -101,6 +101,17 @@ Two auth methods depending on context:
 
 Get your API key from the [PixelLab dashboard](https://pixellab.ai/dashboard) → API Keys. Add to `.env.local` for local script use or to GitHub repo secrets for CI.
 
+### PixelLab animation generation — SERIAL ONLY
+
+**Never launch multiple agents/processes that call `animate_character` in parallel.** The account has a **10-concurrent-job limit**, and each 8-direction template animation requires 8 free slots. Multiple agents competing for the same slots causes total gridlock — all agents spin-wait and none make progress.
+
+Rules:
+- Use **one sequential agent** for all animation work in a session
+- Queue one animation at a time: fire → wait for completion → fire next
+- You MAY fire idle + run for the **same species** in parallel (8+8 ≤ 10 slots if nothing else is running)
+- Never launch a second PixelLab animation agent while one is active
+- Check `get_balance()` before starting — if `generations_remaining` is low, stop and report
+
 ## Project structure
 
 ```

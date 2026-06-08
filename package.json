@@ -33,7 +33,9 @@
     "dev:wiki": "npm run dev --prefix wiki",
     "dev:sites": "npm run dev --prefix wiki & npm run dev --prefix dev",
     "build:all": "npm run build && npm run build --prefix wiki && npm run build --prefix dev",
-    "typecheck:all": "npm run typecheck && npm run typecheck --prefix wiki && npm run typecheck --prefix dev"
+    "typecheck:all": "npm run typecheck && npm run typecheck --prefix wiki && npm run typecheck --prefix dev",
+    "items:merge": "node scripts/merge-items.mjs",
+    "items:validate": "node scripts/validate-items.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",

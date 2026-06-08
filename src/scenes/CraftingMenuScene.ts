@@ -4,6 +4,7 @@ import { TinkerTraySystem, type Discovery } from '../systems/TinkerTraySystem';
 import { DiscoverySystem } from '../systems/DiscoverySystem';
 import { ProjectSystem } from '../systems/ProjectSystem';
 import { UI } from '../ui/UIFactory';
+import { playerItems, type RegistryItem } from '../lib/items';
 
 /**
  * CraftingMenuScene — prototype crafting menu overlay.
@@ -242,10 +243,10 @@ export class CraftingMenuScene extends Phaser.Scene {
 
   private async loadData(): Promise<void> {
     try {
-      const [conceptsRes, recipesRes, resourcesRes] = await Promise.all([
+      const [conceptsRes, recipesRes, registryRes] = await Promise.all([
         fetch('/macro-world/concepts.json'),
         fetch('/macro-world/recipes.json'),
-        fetch('/macro-world/resources.json'),
+        fetch('/macro-world/item-registry.json'),
       ]);
       // Note: macro-world isn't in public/ so these will 404 in dev.
       // For the prototype, we'll use inline fallback data if fetch fails.
@@ -260,9 +261,13 @@ export class CraftingMenuScene extends Phaser.Scene {
         this.discoverySys.loadRecipeDefs(this.recipes);
         this.projectSys.loadRecipes(this.recipes);
       }
-      if (resourcesRes.ok) {
-        const data = await resourcesRes.json();
-        this.resources = data.resources ?? [];
+      if (registryRes.ok) {
+        // item-registry.json wraps the array in { items: [...] }.
+        // playerItems() filters to items the player can carry and extracts
+        // only the fields the inventory system needs.
+        const data = await registryRes.json();
+        const allItems: RegistryItem[] = data.items ?? [];
+        this.resources = playerItems(allItems) as Resource[];
         // Feed stack limits + categories into the shared inventory system
         const sys = this.inventorySystem;
         if (sys) sys.loadResourceDefs(this.resources);
