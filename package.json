@@ -38,11 +38,11 @@
     "items:validate": "node scripts/validate-items.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.3.4",
-    "@capacitor/cli": "^8.3.4",
-    "@capacitor/core": "^8.3.4",
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
     "@logtail/browser": "^0.5.8",
-    "@supabase/supabase-js": "^2.106.2",
+    "@supabase/supabase-js": "^2.107.0",
     "phaser": "^4.0.0",
     "simplex-noise": "^4.0.3"
   },
