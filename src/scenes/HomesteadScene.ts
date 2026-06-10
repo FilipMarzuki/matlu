@@ -354,28 +354,34 @@ export class HomesteadScene extends Phaser.Scene {
 
     // Wildlife spritesheets — 8 directions for idle+run (all species)
     const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+    // 8-directional animations per species — generated from on-disk files.
+    // WildlifeSystem's playAnimalAnim() falls back gracefully (run→walk, sneak→walk, alert→idle).
     const wildlifeSpecs: { species: string; anims: string[]; size: number }[] = [
-      { species: 'wolf',        anims: ['idle', 'walk', 'run'], size: 48 },
-      { species: 'lynx',        anims: ['idle', 'run'],         size: 48 },
-      { species: 'bear',        anims: ['idle', 'run'],         size: 68 },
-      { species: 'squirrel',    anims: ['idle', 'run'],         size: 24 },
-      { species: 'hedgehog',    anims: ['idle', 'run'],         size: 24 },
-      { species: 'elk',         anims: ['idle', 'run'],         size: 68 },
-      { species: 'bison',       anims: ['idle', 'run'],         size: 68 },
-      { species: 'roe-deer',    anims: ['idle', 'run'],         size: 48 },
-      { species: 'wolverine',   anims: ['idle', 'run'],         size: 48 },
-      { species: 'rabbit',      anims: ['idle', 'run'],         size: 24 },
-      { species: 'pine-marten', anims: ['idle', 'run'],         size: 36 },
-      { species: 'polecat',     anims: ['idle', 'run'],         size: 36 },
-      { species: 'stoat',       anims: ['idle', 'run'],         size: 24 },
-      { species: 'beaver',      anims: ['idle', 'run'],         size: 48 },
-      { species: 'wild-boar',   anims: ['idle', 'run'],         size: 68 },
-      { species: 'badger',      anims: ['idle', 'run'],         size: 48 },
-      { species: 'beech-marten', anims: ['idle', 'run'],        size: 36 },
-      { species: 'weasel',      anims: ['idle', 'run'],         size: 24 },
-      { species: 'wildcat',     anims: ['idle', 'run'],         size: 48 },
-      { species: 'raccoon',     anims: ['idle', 'run'],         size: 36 },
-      { species: 'grass-snake', anims: ['idle', 'run'],         size: 36 },
+      { species: 'wolf',         anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 48 },
+      { species: 'lynx',         anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 48 },
+      { species: 'bear',         anims: ['idle', 'run', 'walk', 'alert'],                   size: 68 },
+      { species: 'squirrel',     anims: ['idle', 'run', 'walk', 'alert'],                   size: 24 },
+      { species: 'hedgehog',     anims: ['idle', 'run', 'walk', 'alert'],                   size: 24 },
+      { species: 'elk',          anims: ['idle', 'run', 'alert'],                           size: 68 },
+      { species: 'bison',        anims: ['idle', 'run', 'alert'],                           size: 68 },
+      { species: 'roe-deer',     anims: ['idle', 'run', 'alert'],                           size: 48 },
+      { species: 'wolverine',    anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 48 },
+      { species: 'rabbit',       anims: ['idle', 'run', 'walk', 'alert'],                   size: 24 },
+      { species: 'pine-marten',  anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 36 },
+      { species: 'polecat',      anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 36 },
+      { species: 'stoat',        anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 24 },
+      { species: 'beaver',       anims: ['idle', 'run', 'walk', 'alert'],                   size: 48 },
+      { species: 'wild-boar',    anims: ['idle', 'run', 'walk', 'alert'],                   size: 68 },
+      { species: 'badger',       anims: ['idle', 'run', 'walk', 'alert'],                   size: 48 },
+      { species: 'beech-marten', anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 36 },
+      { species: 'weasel',       anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 24 },
+      { species: 'wildcat',      anims: ['idle', 'run', 'walk', 'alert', 'sneak'],          size: 48 },
+      { species: 'raccoon',      anims: ['idle', 'run', 'walk', 'alert'],                   size: 36 },
+      { species: 'grass-snake',  anims: ['idle', 'run', 'alert'],                           size: 36 },
+      { species: 'arctic-fox',   anims: ['idle', 'run', 'alert', 'sneak'],                  size: 36 },
+      { species: 'fallow-deer',  anims: ['idle', 'run', 'alert'],                           size: 48 },
+      { species: 'red-deer',     anims: ['idle', 'run', 'alert'],                           size: 68 },
+      { species: 'moose',        anims: ['idle', 'run'],                                    size: 68 },
     ];
     for (const { species, anims, size } of wildlifeSpecs) {
       const base = `/assets/sprites/wildlife/${species}`;
@@ -1731,34 +1737,65 @@ export class HomesteadScene extends Phaser.Scene {
   private initWildlife(): void {
     // Register wolf directional animations for the WildlifeSystem to use.
     // Animation keys follow the pattern: wolf-{action}-{dir}-anim
+    // Register directional animations for all wildlife species.
+    // Frame counts and rates per animation type — the spritesheet frame count varies
+    // by species/template, so we detect it from the loaded texture.
+    const ANIM_RATES: Record<string, number> = {
+      idle: 6, walk: 8, run: 12, alert: 6, sneak: 6,
+    };
     const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
-    const WOLF_ANIMS: Array<[string, number[], number]> = [
-      ['idle', [0,1,2,3,4,5,6,7], 6],
-      ['walk', [0,1,2,3,4,5],     8],
-      ['run',  [0,1,2,3,4,5],     12],
+
+    // Re-read the wildlifeSpecs used in preload to know which species+anims were loaded
+    const allSpecs = [
+      { species: 'wolf', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'lynx', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'bear', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'squirrel', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'hedgehog', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'elk', anims: ['idle', 'run', 'alert'] },
+      { species: 'bison', anims: ['idle', 'run', 'alert'] },
+      { species: 'roe-deer', anims: ['idle', 'run', 'alert'] },
+      { species: 'wolverine', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'rabbit', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'pine-marten', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'polecat', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'stoat', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'beaver', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'wild-boar', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'badger', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'beech-marten', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'weasel', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'wildcat', anims: ['idle', 'run', 'walk', 'alert', 'sneak'] },
+      { species: 'raccoon', anims: ['idle', 'run', 'walk', 'alert'] },
+      { species: 'grass-snake', anims: ['idle', 'run', 'alert'] },
+      { species: 'arctic-fox', anims: ['idle', 'run', 'alert', 'sneak'] },
+      { species: 'fallow-deer', anims: ['idle', 'run', 'alert'] },
+      { species: 'red-deer', anims: ['idle', 'run', 'alert'] },
+      { species: 'moose', anims: ['idle', 'run'] },
     ];
-    for (const [anim, frames, rate] of WOLF_ANIMS) {
-      for (const d of DIRS) {
-        const texKey = `wolf-${anim}-${d}`;
-        const animKey = `wolf-${anim}-${d}-anim`;
-        if (this.textures.exists(texKey) && !this.anims.exists(animKey)) {
-          this.anims.create({
-            key: animKey,
-            frames: this.anims.generateFrameNumbers(texKey, { frames }),
-            frameRate: rate,
-            repeat: -1,
-          });
+
+    for (const { species, anims } of allSpecs) {
+      for (const anim of anims) {
+        const rate = ANIM_RATES[anim] ?? 6;
+        for (const d of DIRS) {
+          const texKey = `${species}-${anim}-${d}`;
+          const animKey = `${species}-${anim}-${d}-anim`;
+          if (this.textures.exists(texKey) && !this.anims.exists(animKey)) {
+            // For spritesheets, Phaser already knows the frame count from the load call
+            const frameCount = this.textures.get(texKey).getFrameNames(false).length;
+            const frames = Array.from({ length: Math.max(1, frameCount) }, (_, i) => i);
+            this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(texKey, { frames }), frameRate: rate, repeat: -1 });
+          }
         }
       }
-    }
-    // Also create base idle-anim for the fallback chain
-    if (this.textures.exists('wolf-idle-se') && !this.anims.exists('wolf-idle-anim')) {
-      this.anims.create({
-        key: 'wolf-idle-anim',
-        frames: this.anims.generateFrameNumbers('wolf-idle-se', { frames: [0,1,2,3,4,5,6,7] }),
-        frameRate: 6,
-        repeat: -1,
-      });
+      // Base idle-anim fallback (SE direction, used when no directional anim matches)
+      const fallbackTex = `${species}-idle-se`;
+      const fallbackKey = `${species}-idle-anim`;
+      if (this.textures.exists(fallbackTex) && !this.anims.exists(fallbackKey)) {
+        const frameCount = this.textures.get(fallbackTex).getFrameNames(false).length;
+        const frames = Array.from({ length: Math.max(1, frameCount) }, (_, i) => i);
+        this.anims.create({ key: fallbackKey, frames: this.anims.generateFrameNumbers(fallbackTex, { frames }), frameRate: 6, repeat: -1 });
+      }
     }
 
     const faunaReg = this.cache.json.get('fauna-registry') as FaunaRegistryData | undefined;
@@ -1784,8 +1821,13 @@ export class HomesteadScene extends Phaser.Scene {
       worldToIso: hsWorldToIso,
       isoToWorld,
       isoDepth: hsIsoDepth,
-      // Only spawn wolf for now — expand later as more species get sprites
-      speciesFilter: ['wolf'],
+      // Spawn a variety of wildlife — all species with sprites
+      speciesFilter: [
+        'wolf', 'lynx', 'bear', 'squirrel', 'hedgehog', 'rabbit',
+        'beaver', 'badger', 'raccoon', 'wildcat', 'arctic-fox',
+        'pine-marten', 'beech-marten', 'polecat', 'stoat', 'weasel',
+        'elk', 'roe-deer', 'fallow-deer', 'red-deer',
+      ],
       seed: 12345,
       // Keep wolves in the homestead meadow half (tx 5-25), away from WF terrain
       spawnClearCenter: { x: 15 * TILE_SIZE, y: 15 * TILE_SIZE },

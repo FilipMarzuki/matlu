@@ -26,6 +26,11 @@ const RENAME_RULES = [
   { match: /^alert_ears_up.*/, target: 'alert' },
   { match: /^alert_head_raised.*/, target: 'alert' },
   { match: /^alert_standing_tall.*/, target: 'alert' },
+  // Hash-suffixed alert duplicates
+  { match: /^alert-[a-f0-9]{6,}/, target: 'alert' },
+  { match: /^alert_standing_tall_looking_around_cautiously-[a-f0-9]+/, target: 'alert' },
+  { match: /^alert_head_raised_high_ears_forward_body_rigid-[a-f0-9]+/, target: 'alert' },
+  { match: /^alert_ears_up_body_tense_looking_around-[a-f0-9]+/, target: 'alert' },
   // Sneak variants
   { match: /^sneaking_stealthily.*/, target: 'sneak' },
   { match: /^sneaking.*/, target: 'sneak' },
@@ -34,33 +39,44 @@ const RENAME_RULES = [
   { match: /^attacking_left.*/, target: 'attack' },
   { match: /^attack_left.*/, target: 'attack' },
   // Walk variants
+  { match: /^walking_on_the_ground.*/, target: 'walk' },  // bird walk
+  { match: /^walking-[a-f0-9]{6,}/, target: 'walk' },     // hash-suffixed walk duplicates
   { match: /^walking_/, target: 'walk' },
   // Sleep variants
   { match: /^sitting_down.*/, target: 'sleep' },
   { match: /^going_to_sleep.*/, target: 'sleep' },
+  { match: /^resting_idle-[a-f0-9]{6,}/, target: 'sleep' },  // hash-suffixed bear idle→sleep
   { match: /^resting_idle.*/, target: 'sleep' },
   // Drink variants
   { match: /^drinking_head_lowered.*/, target: 'drink' },
   { match: /^drinking.*/, target: 'drink' },
   // Death variants
   { match: /^dying.*/, target: 'death' },
-  // Eat variants (capitalized from some downloads)
+  // Decompose
+  { match: /^decomposing_after_death.*/, target: 'decompose' },
+  // Eat variants
+  { match: /^pecking_at_the_ground.*/, target: 'eat' },   // bird eat
   { match: /^Eating_/, target: 'eat' },
   { match: /^eating_/, target: 'eat' },
-  // Idle variants (capitalized)
+  // Idle variants
   { match: /^Seated_on_Belly_Idle/, target: 'idle' },
-  // Run variants (capitalized)
+  { match: /^idle-[a-f0-9]{6,}/, target: 'idle' },        // hash-suffixed idle duplicates
+  { match: /^shaking_head-[a-f0-9]+/, target: 'idle' },   // horse idle renamed
+  // Run variants
   { match: /^Slow_Run/, target: 'run' },
   { match: /^Run_/, target: 'run' },
-  // Licking → eat (close enough)
+  { match: /^running-[a-f0-9]{6,}/, target: 'run' },      // hash-suffixed run duplicates
+  // Licking → eat
   { match: /^Licking/, target: 'eat' },
   // Flight
   { match: /^flying_with_wings_spread.*/, target: 'fly' },
   { match: /^flying_with_wings_flapping.*/, target: 'fly' },
   { match: /^flying.*/, target: 'fly' },
-  // Idle with hash suffixes (duplicate idle downloads)
-  { match: /^idle-[a-f0-9]{6,}/, target: 'idle' },
-  { match: /^resting_idle-[a-f0-9]{6,}/, target: 'idle' },
+  // Bird ground behaviors
+  { match: /^swimming_on_water.*/, target: 'swim' },
+  { match: /^landing_wings_spread.*/, target: 'land' },
+  { match: /^taking_off_jumping.*/, target: 'takeoff' },
+  { match: /^perched_on_a_branch.*/, target: 'perch' },
 ];
 
 // Direction suffixes to preserve
