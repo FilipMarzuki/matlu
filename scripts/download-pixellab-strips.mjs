@@ -77,6 +77,8 @@ const ANIM_REMAP = {
   'flying_with_wings_spread_soaring_through_the_air': 'fly',
   'flying_with_wings_flapping': 'fly',
   'flying': 'fly',
+  // Generic v3 custom animation (NPC role anims download as "animating")
+  'animating': 'action',
 };
 
 // For v3 custom animations, the ZIP folder name is the full action description

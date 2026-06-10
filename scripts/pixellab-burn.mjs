@@ -164,8 +164,20 @@ async function animateCharacter(charId, templateAnimId, directions, mode, action
   if (actionDescription) params.action_description = actionDescription;
   if (frameCount) params.frame_count = frameCount;
 
-  log(`  Firing animate_character: ${templateAnimId || actionDescription || 'custom'} [${(directions || ['all']).join(',')}]`);
+  log(`  Firing animate_character: ${templateAnimId || actionDescription || 'custom'} [${(directions || ['all']).join(',')}] ${mode === 'pro' ? '(PRO)' : ''}`);
   if (DRY_RUN) { log('  [DRY RUN] skipped'); return 'dry-run'; }
+
+  // Pro mode requires confirm_cost flow: first call to see price, then confirm
+  if (mode === 'pro') {
+    params.confirm_cost = false;
+    const costText = await mcpCallWithRetry('animate_character', params);
+    log(`  Pro cost check: ${costText.slice(0, 150)}`);
+    // Now confirm
+    params.confirm_cost = true;
+    const text = await mcpCallWithRetry('animate_character', params);
+    log(`  Response: ${text.slice(0, 200)}`);
+    return text;
+  }
 
   const text = await mcpCallWithRetry('animate_character', params);
   log(`  Response: ${text.slice(0, 200)}`);
