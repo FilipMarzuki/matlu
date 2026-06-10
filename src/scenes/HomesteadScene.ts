@@ -21,6 +21,7 @@ import { ResourceNode, type ResourceNodeTypeDef } from '../entities/ResourceNode
 import { SimpleJoystick } from '../lib/SimpleJoystick';
 import { HomesteadAuth } from '../lib/HomesteadAuth';
 import { preloadTilePacks, CUSTOM_TILE_PACKS } from '../world/TilePacks';
+import { cliffKeyForBiome, SHORE_BIOME_MAP } from '../world/biomes';
 import { aStarWeighted } from '../ai/AStarGrid';
 import { WildlifeSystem, type WildlifeEnvContext } from '../systems/WildlifeSystem';
 import type { FaunaRegistryData } from '../world/FaunaRegistry';
@@ -120,19 +121,6 @@ function getElev(tx: number, ty: number): 0 | 1 | 2 {
   return effDist > 3 ? 2 : 1;
 }
 
-/** Cliff material for a biome index. */
-const WF_CLIFF_MAT: Record<number, string> = {
-  1: 'cliff-stone', 3: 'cliff-peat', 9: 'cliff-stone',
-  10: 'cliff-stone', 11: 'cliff-snow',
-};
-function wfCliffKey(biomeIdx: number): string {
-  return WF_CLIFF_MAT[biomeIdx] ?? 'cliff-earthy';
-}
-
-/** Shore biome for ocean edge. */
-const WF_SHORE: Record<number, number> = {
-  1: 1, 2: 2, 3: 3, 4: 2, 5: 1, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1, 11: 1,
-};
 
 /** Dual-grid tile hash (natural texture variety within a biome). */
 function wfTileHash(tx: number, ty: number): number {
@@ -364,11 +352,37 @@ export class HomesteadScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) this.load.image(`tree-spruce-${i}`,         `/assets/sprites/trees/spruce/mature/${i}.png`);
     for (let i = 0; i < 4; i++) this.load.image(`tree-ancient-${i}`, `/assets/sprites/trees/ancient/mature/${i}.png`);
 
-    // Wildlife: wolf spritesheets — 8 directions for template anims
-    const wolfBase = '/assets/sprites/wildlife/wolf';
-    for (const anim of ['idle', 'walk', 'run']) {
-      for (const d of ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw']) {
-        this.load.spritesheet(`wolf-${anim}-${d}`, `${wolfBase}/${anim}_${d}.png`, { frameWidth: 48, frameHeight: 48 });
+    // Wildlife spritesheets — 8 directions for idle+run (all species)
+    const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+    const wildlifeSpecs: { species: string; anims: string[]; size: number }[] = [
+      { species: 'wolf',        anims: ['idle', 'walk', 'run'], size: 48 },
+      { species: 'lynx',        anims: ['idle', 'run'],         size: 48 },
+      { species: 'bear',        anims: ['idle', 'run'],         size: 68 },
+      { species: 'squirrel',    anims: ['idle', 'run'],         size: 24 },
+      { species: 'hedgehog',    anims: ['idle', 'run'],         size: 24 },
+      { species: 'elk',         anims: ['idle', 'run'],         size: 68 },
+      { species: 'bison',       anims: ['idle', 'run'],         size: 68 },
+      { species: 'roe-deer',    anims: ['idle', 'run'],         size: 48 },
+      { species: 'wolverine',   anims: ['idle', 'run'],         size: 48 },
+      { species: 'rabbit',      anims: ['idle', 'run'],         size: 24 },
+      { species: 'pine-marten', anims: ['idle', 'run'],         size: 36 },
+      { species: 'polecat',     anims: ['idle', 'run'],         size: 36 },
+      { species: 'stoat',       anims: ['idle', 'run'],         size: 24 },
+      { species: 'beaver',      anims: ['idle', 'run'],         size: 48 },
+      { species: 'wild-boar',   anims: ['idle', 'run'],         size: 68 },
+      { species: 'badger',      anims: ['idle', 'run'],         size: 48 },
+      { species: 'beech-marten', anims: ['idle', 'run'],        size: 36 },
+      { species: 'weasel',      anims: ['idle', 'run'],         size: 24 },
+      { species: 'wildcat',     anims: ['idle', 'run'],         size: 48 },
+      { species: 'raccoon',     anims: ['idle', 'run'],         size: 36 },
+      { species: 'grass-snake', anims: ['idle', 'run'],         size: 36 },
+    ];
+    for (const { species, anims, size } of wildlifeSpecs) {
+      const base = `/assets/sprites/wildlife/${species}`;
+      for (const anim of anims) {
+        for (const d of DIRS) {
+          this.load.spritesheet(`${species}-${anim}-${d}`, `${base}/${anim}_${d}.png`, { frameWidth: size, frameHeight: size });
+        }
       }
     }
 
@@ -484,7 +498,7 @@ export class HomesteadScene extends Phaser.Scene {
               .setOrigin(0.5, 0).setDepth(baseDepth - 1000);
           } else if (hasCliff) {
             const cliffBiome = tileElev === 2 ? 11 : tileElev === 1 ? 10 : 9;
-            const cliffKey = wfCliffKey(cliffBiome);
+            const cliffKey = cliffKeyForBiome(cliffBiome);
             const maxDrop = Math.max(sDrop, eDrop, wDrop);
             for (let step = maxDrop * 2; step >= 1; step--) {
               this.add.image(isoX, posY + step * (CLIFF_H / 2), cliffKey)
@@ -544,7 +558,7 @@ export class HomesteadScene extends Phaser.Scene {
         // Determine tile type (water vs land biome)
         let isWater = false;
         let customPack: string | undefined;
-        const shoreBiome = WF_SHORE[landBiome] ?? 2;
+        const shoreBiome = SHORE_BIOME_MAP[landBiome] ?? 2;
 
         if (oceanDist > 1) {
           isWater = true;
@@ -584,7 +598,7 @@ export class HomesteadScene extends Phaser.Scene {
         if (hasCliff) {
           const cliffBiome = elevDist > 1 ? 11 : elevDist === 1 ? 10
             : elevDist === 0 ? 9 : landBiome;
-          const cliffKey = wfCliffKey(cliffBiome);
+          const cliffKey = cliffKeyForBiome(cliffBiome);
           const maxDrop = Math.max(southDrop, eastDrop, westDrop);
           const useWaterfall = southDrop > 0 && isOnRiver;
           const wallKey = useWaterfall ? `waterfall-${this.wfFrame}` : cliffKey;

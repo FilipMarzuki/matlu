@@ -153,3 +153,37 @@ export const BIOMES: BiomeDef[] = [
     description:  'Permanent snowfield at the highest elevations where the cold does not break between seasons. The Steinfolk say the first snowfields appeared when the first mountain did; they treat them as boundary markers between the world of the living and whatever is above it.',
     decorTypes: ['Snow Drift', 'Ice Crystal', 'Frost'],  },
 ];
+
+// ── Derived constants ────────────────────────────────────────────────────────
+// Single source of truth — import these instead of re-deriving per scene.
+
+/** Biome display names indexed by biome ID (0-11). */
+export const BIOME_LABELS: readonly string[] = BIOMES.map(b => b.name);
+
+/** Biome overlay colors indexed by biome ID (0-11). */
+export const BIOME_OVERLAY_COLORS: readonly number[] = BIOMES.map(b => b.overlayColor);
+
+/** Biome index → cliff material sprite key. Default: 'cliff-earthy'. */
+export const CLIFF_MATERIALS: Readonly<Record<number, string>> = {
+  1: 'cliff-stone', 3: 'cliff-peat', 9: 'cliff-stone',
+  10: 'cliff-stone', 11: 'cliff-snow',
+};
+
+export function cliffKeyForBiome(biomeIdx: number): string {
+  return CLIFF_MATERIALS[biomeIdx] ?? 'cliff-earthy';
+}
+
+/** Biome index → nearest shore biome for coastal transitions. */
+export const SHORE_BIOME_MAP: Readonly<Record<number, number>> = {
+  1: 1, 2: 2, 3: 3, 4: 2, 5: 1, 6: 2, 7: 2, 8: 1, 9: 1, 10: 1, 11: 1,
+};
+
+/** Resolve biome index from noise values (elevation, temperature, moisture). */
+export function tileBiomeIdx(elev: number, temp: number, moist: number): number {
+  if (elev < 0.25) return 0;
+  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2;
+  if (elev < 0.45 && moist > 0.72) return 3;
+  if (elev < 0.68) return moist > 0.55 ? 7 : 6;
+  if (elev < 0.80) return temp > 0.50 ? 8 : 9;
+  return temp < 0.40 ? 11 : 10;
+}

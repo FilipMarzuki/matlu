@@ -33,7 +33,7 @@ import {
 import { LEVEL1_PATHS } from '../world/Level1Paths';
 import { generateAnimalTrails } from '../world/AnimalTrailGen';
 import { CorruptionField }   from '../world/CorruptionField';
-import { BIOMES }            from '../world/biomes';
+import { BIOME_LABELS, BIOME_OVERLAY_COLORS, tileBiomeIdx } from '../world/biomes';
 import { CUSTOM_TILE_PACKS, preloadTilePacks } from '../world/TilePacks';
 import { WindSystem }        from '../systems/WindSystem';
 import {
@@ -348,36 +348,8 @@ interface BirdObject {
 
 
 // ── Dev overlay helpers ──────────────────────────────────────────────────────
-
-/**
- * Short label per biome index — sourced from the canonical biomes.ts list.
- * All 12 biome indices are used by tileBiomeIdx. Meadow (6) covers moderate-
- * moisture mid-altitude tiles, sitting between Coastal Heath and Forest.
- */
-const BIOME_LABELS = BIOMES.map(b => b.name);
-
-/** Fill colour per biome index — sourced from the canonical biomes.ts list. */
-const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
-
-/**
- * Resolve which biome index a tile belongs to from its noise values.
- * Indices align with the canonical 12-entry BIOMES array in biomes.ts:
- *   0  Sea       1  Rocky Shore   2  Sandy Shore   3  Marsh/Bog
- *   4  Dry Heath 5  Coastal Heath 6  Meadow        7 Forest
- *   8  Spruce    9  Cold Granite  10 Bare Summit    11 Snow Field
- */
-function tileBiomeIdx(elev: number, temp: number, moist: number): number {
-  if (elev < 0.25) return 0; // Sea
-  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky Shore / Sandy Shore
-  if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
-  if (elev < 0.68) {
-    // Mid-altitude band — ~45% meadow, ~55% forest.
-    if (moist > 0.55) return 7; // Forest
-    return 6;                   // Meadow
-  }
-  if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
-  return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
-}
+// BIOME_LABELS, BIOME_OVERLAY_COLORS, and tileBiomeIdx are imported from
+// '../world/biomes' — single source of truth shared across all scenes.
 
 /**
  * Maps a normalised elevation t∈[0,1] to a heatmap hex colour:
@@ -1021,33 +993,51 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('grouse-idle', `${craftpixBase}/Black_grouse/Black_grouse_Idle.png`,   { frameWidth: 16, frameHeight: 16 });
     this.load.spritesheet('grouse-walk', `${craftpixBase}/Black_grouse/Black_grouse_Walk.png`,   { frameWidth: 16, frameHeight: 16 });
 
-    // ── Wolf sprites (first pack-hunting species) ─────────────────────────────
-    // Template animations have all 8 directions; custom v3 have SE only.
-    const wolfBase = 'assets/sprites/wildlife/wolf';
-    const WOLF_DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
-    for (const anim of ['idle', 'walk', 'run', 'sneak']) {
-      for (const d of WOLF_DIRS) {
-        this.load.spritesheet(`wolf-${anim}-${d}`, `${wolfBase}/${anim}_${d}.png`, { frameWidth: 48, frameHeight: 48 });
+    // ── Wildlife sprites — data-driven loading for all species with animations ──
+    const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+    const wildlifeSpecs: { species: string; anims: string[]; size: number }[] = [
+      { species: 'wolf',        anims: ['idle', 'walk', 'run', 'sneak'], size: 48 },
+      { species: 'lynx',        anims: ['idle', 'run'],                  size: 48 },
+      { species: 'bear',        anims: ['idle', 'run'],                  size: 68 },
+      { species: 'squirrel',    anims: ['idle', 'run'],                  size: 24 },
+      { species: 'hedgehog',    anims: ['idle', 'run'],                  size: 24 },
+      { species: 'elk',         anims: ['idle', 'run'],                  size: 68 },
+      { species: 'bison',       anims: ['idle', 'run'],                  size: 68 },
+      { species: 'roe-deer',    anims: ['idle', 'run'],                  size: 48 },
+      { species: 'wolverine',   anims: ['idle', 'run'],                  size: 48 },
+      { species: 'rabbit',      anims: ['idle', 'run'],                  size: 24 },
+      { species: 'pine-marten', anims: ['idle', 'run'],                  size: 36 },
+      { species: 'polecat',     anims: ['idle', 'run'],                  size: 36 },
+      { species: 'stoat',       anims: ['idle', 'run'],                  size: 24 },
+      { species: 'beaver',      anims: ['idle', 'run'],                  size: 48 },
+      { species: 'wild-boar',   anims: ['idle', 'run'],                  size: 68 },
+      { species: 'badger',      anims: ['idle', 'run'],                  size: 48 },
+      { species: 'beech-marten', anims: ['idle', 'run'],                size: 36 },
+      { species: 'weasel',      anims: ['idle', 'run'],                  size: 24 },
+      { species: 'wildcat',     anims: ['idle', 'run'],                  size: 48 },
+      { species: 'raccoon',     anims: ['idle', 'run'],                  size: 36 },
+      { species: 'grass-snake', anims: ['idle', 'run'],                  size: 36 },
+    ];
+    for (const { species, anims, size } of wildlifeSpecs) {
+      const base = `assets/sprites/wildlife/${species}`;
+      for (const anim of anims) {
+        for (const d of DIRS) {
+          this.load.spritesheet(`${species}-${anim}-${d}`, `${base}/${anim}_${d}.png`, { frameWidth: size, frameHeight: size });
+        }
       }
     }
-    // Alert missing east direction — load what exists.
+    // Wolf extras: alert (missing east), v3 single-direction anims, backward compat keys.
+    const wolfBase = 'assets/sprites/wildlife/wolf';
     for (const d of ['s', 'se', 'ne', 'n', 'nw', 'w', 'sw']) {
       this.load.spritesheet(`wolf-alert-${d}`, `${wolfBase}/alert_${d}.png`, { frameWidth: 48, frameHeight: 48 });
     }
-    // Custom v3 anims — SE only.
     for (const anim of ['eat', 'sleep', 'death', 'drink']) {
       this.load.spritesheet(`wolf-${anim}-se`, `${wolfBase}/${anim}_se.png`, { frameWidth: 48, frameHeight: 48 });
     }
     // Backward compat: base keys point to SE strips (used by buildAnimDefs from registry).
-    this.load.spritesheet('wolf-idle',  `${wolfBase}/idle_se.png`,  { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-walk',  `${wolfBase}/walk_se.png`,  { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-run',   `${wolfBase}/run_se.png`,   { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-sneak', `${wolfBase}/sneak_se.png`, { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-alert', `${wolfBase}/alert_se.png`, { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-eat',   `${wolfBase}/eat_se.png`,   { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-sleep', `${wolfBase}/sleep_se.png`, { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-death', `${wolfBase}/death_se.png`, { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('wolf-drink', `${wolfBase}/drink_se.png`, { frameWidth: 48, frameHeight: 48 });
+    for (const anim of ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink']) {
+      this.load.spritesheet(`wolf-${anim}`, `${wolfBase}/${anim}_se.png`, { frameWidth: 48, frameHeight: 48 });
+    }
 
     // ── Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
     const bodyBase = 'assets/packs/Pixel Crawler - Free Pack 2.0.4/Pixel Crawler - Free Pack/Entities/Characters/Body_A/Animations';

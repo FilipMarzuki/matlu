@@ -23,26 +23,10 @@
 
 import * as Phaser from 'phaser';
 import { isoTileFrame, ISO_RIVER_FRAME, ISO_TILE_NATIVE_SIZE } from '../world/IsoTileMap';
-import { BIOMES } from '../world/biomes';
+import { BIOMES, BIOME_LABELS, BIOME_OVERLAY_COLORS, cliffKeyForBiome, SHORE_BIOME_MAP } from '../world/biomes';
 import { CUSTOM_TILE_PACKS, preloadTilePacks } from '../world/TilePacks';
 import type { TreeRegistry, TreeDef } from '../world/TreeScatter';
 
-const BIOME_NAMES          = BIOMES.map(b => b.name);
-const BIOME_OVERLAY_COLORS = BIOMES.map(b => b.overlayColor);
-
-/**
- * Maps biome index → isometric cliff block tile key.
- * Elevation zones take priority (snow/stone highlands), lowlands fall back to earthy.
- */
-const CLIFF_MAT: Record<number, string> = {
-  1:  'cliff-stone',   // rocky shore
-  3:  'cliff-peat',    // marsh
-  9:  'cliff-stone',   // cold granite
-  10: 'cliff-stone',   // bare summit
-  11: 'cliff-snow',    // snow field
-};
-const cliffKeyForBiome = (biomeIdx: number): string =>
-  CLIFF_MAT[biomeIdx] ?? 'cliff-earthy';
 
 const ENTITY_TYPES = [
   { key: 'tinkerer',            color: 0x44aaff, label: 'Tinkerer',   atlasKey: 'tinkerer'            as string | null },
@@ -637,13 +621,7 @@ export class WorldForgeScene extends Phaser.Scene {
 
         // Shoreline biome depends on the adjacent land — warm/soft biomes get sandy,
         // cold/rocky biomes get rocky shore, marsh stays marshy.
-        const SHORE_FOR_BIOME: Record<number, number> = {
-          1: 1, 2: 2, 3: 3,   // rocky/sandy/marsh stay themselves
-          4: 2, 5: 1, 6: 2,   // dry heath→sandy, coastal heath→rocky, meadow→sandy
-          7: 2, 8: 1, 9: 1,   // forest→sandy, spruce→rocky, cold granite→rocky
-          10: 1, 11: 1,       // bare summit→rocky, snow→rocky
-        };
-        const shoreBiome = SHORE_FOR_BIOME[landBiome] ?? 2;
+        const shoreBiome = SHORE_BIOME_MAP[landBiome] ?? 2;
 
         // terrain: 0=land, 1=shallow, 2=deep, 3=cliff (set alongside visual decision)
         let tileTerrain = 0;
@@ -1025,17 +1003,17 @@ export class WorldForgeScene extends Phaser.Scene {
 
     this.bandLabels.push(
       this.add.text(labelRx, rightLabelY,
-        `[${secBiome}] ${BIOME_NAMES[secBiome]}`,
+        `[${secBiome}] ${BIOME_LABELS[secBiome]}`,
         { fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 },
       ).setOrigin(1, 0.5).setDepth(11),
 
       this.add.text(labelRx, centerLabelY,
-        `[${this.selectedBiome}] ${BIOME_NAMES[this.selectedBiome]} \u2014 selected`,
+        `[${this.selectedBiome}] ${BIOME_LABELS[this.selectedBiome]} \u2014 selected`,
         { fontSize: '15px', color: '#ffe84d', stroke: '#000000', strokeThickness: 3 },
       ).setOrigin(1, 0.5).setDepth(11),
 
       this.add.text(labelLx, leftLabelY,
-        `[${secBiome}] ${BIOME_NAMES[secBiome]}`,
+        `[${secBiome}] ${BIOME_LABELS[secBiome]}`,
         { fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 },
       ).setOrigin(0, 0.5).setDepth(11),
     );
@@ -1372,7 +1350,7 @@ export class WorldForgeScene extends Phaser.Scene {
         treeManifest[treeIdx] = {
           species: picked.id, stage: stage.stage, spriteKey,
           tile: { x: tx, y: ty }, isoPos: { x: x + jx, y: y + jy },
-          biome: BIOME_NAMES[biome] ?? `unknown(${biome})`,
+          biome: BIOME_LABELS[biome] ?? `unknown(${biome})`,
           scale, blockSize,
         };
         const numSize = Math.max(6, Math.round(9 * this.zoomFactor));
@@ -1560,7 +1538,7 @@ export class WorldForgeScene extends Phaser.Scene {
         .setDepth(12).setInteractive()
         .on('pointerdown', () => this.selectBiome(i));
 
-      const abbrev = BIOME_NAMES[i].length > 9 ? BIOME_NAMES[i].slice(0, 8) + '.' : BIOME_NAMES[i];
+      const abbrev = BIOME_LABELS[i].length > 9 ? BIOME_LABELS[i].slice(0, 8) + '.' : BIOME_LABELS[i];
       this.add.text(bx + 3, startY + 3,          `${i}`,  { fontSize: '10px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 }).setDepth(13);
       this.add.text(bx + 3, startY + BOX_H - 14, abbrev,  { fontSize: '9px',  color: '#ffffff', stroke: '#000000', strokeThickness: 2 }).setDepth(13);
     }
@@ -1580,7 +1558,7 @@ export class WorldForgeScene extends Phaser.Scene {
         .setDepth(12).setInteractive()
         .on('pointerdown', () => this.selectSecBiome(i));
 
-      const abbrev = BIOME_NAMES[i].length > 9 ? BIOME_NAMES[i].slice(0, 8) + '.' : BIOME_NAMES[i];
+      const abbrev = BIOME_LABELS[i].length > 9 ? BIOME_LABELS[i].slice(0, 8) + '.' : BIOME_LABELS[i];
       this.add.text(bx + 3, secStartY + SEC_BOX_H / 2 - 5, abbrev, {
         fontSize: '8px', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
       }).setDepth(13);
@@ -1626,8 +1604,8 @@ export class WorldForgeScene extends Phaser.Scene {
 
     const roadName = WorldForgeScene.ROAD_TYPES[this.roadTypeIdx];
     this.biomeLabel!.setText(
-      `WorldForge v0.8 \u2014 [${this.selectedBiome}] ${BIOME_NAMES[this.selectedBiome]}` +
-      `  \u2194  [${this.selectedSecBiome}] ${BIOME_NAMES[this.selectedSecBiome]}` +
+      `WorldForge v0.8 \u2014 [${this.selectedBiome}] ${BIOME_LABELS[this.selectedBiome]}` +
+      `  \u2194  [${this.selectedSecBiome}] ${BIOME_LABELS[this.selectedSecBiome]}` +
       `  |  road: ${roadName} (R)`
     );
   }

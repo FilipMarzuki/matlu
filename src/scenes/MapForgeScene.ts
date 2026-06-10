@@ -23,6 +23,7 @@ import { generateSettlement, initSettlementData } from '../world/SettlementGener
 import { placeBuildings } from '../world/SettlementPlacement';
 import type { SettlementSite, Geography } from '../world/SettlementSpec';
 import { SETTLEMENTS } from '../world/Level1';
+import { tileBiomeIdx } from '../world/biomes';
 
 // ── Noise constants — match GameScene exactly ────────────────────────────────
 const WORLD_W    = 4500;
@@ -32,19 +33,6 @@ const BASE_SCALE   = 0.07;
 const DETAIL_SCALE = 0.18;
 const TEMP_SCALE   = 0.04;
 const MOIST_SCALE  = 0.06;
-
-function tileBiomeIdx(elev: number, temp: number, moist: number): number {
-  if (elev < 0.25) return 0; // Sea
-  if (elev < 0.30) return (temp < 0.45 || moist > 0.50) ? 1 : 2; // Rocky/Sandy Shore
-  if (elev < 0.45 && moist > 0.72) return 3; // Marsh / Bog
-  if (elev < 0.68) {
-    // Mid-altitude band — ~45% meadow, ~55% forest.
-    if (moist > 0.55) return 7; // Forest
-    return 6;                   // Meadow
-  }
-  if (elev < 0.80) return temp > 0.50 ? 8 : 9; // Spruce / Cold Granite
-  return temp < 0.40 ? 11 : 10;                 // Snow Field / Bare Summit
-}
 
 // ── Category colors for settlement overlay ───────────────────────────────────
 const CATEGORY_COLORS: Record<string, number> = {
