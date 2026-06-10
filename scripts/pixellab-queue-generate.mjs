@@ -435,15 +435,47 @@ if (all || onlyBirds) {
     const isGroundBird = GROUND_BIRDS.has(species);
     const isRaptor = RAPTORS.has(species);
 
-    // Pro flight (south only, 16 frames) — all birds
-    if (!hasSprite(species, 'fly', 'south')) {
+    // Flight (8 directions, pro mode, 16 frames) — species-specific descriptions
+    const FLIGHT_DESCS = {
+      'buzzard':            'common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides',
+      'golden-eagle':       'golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette',
+      'white-tailed-eagle': 'white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips',
+      'sparrowhawk':        'sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees',
+      'goshawk':            'goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision',
+      'kestrel':            'common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting',
+      'red-kite':           'red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight',
+      'owl':                'tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter',
+      'barn-owl':           'barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields',
+      'eagle-owl':          'eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl',
+      'heron':              'grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings',
+      'stork':              'white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight',
+      'mallard':            'mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight',
+      'swan':               'mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight',
+      'kingfisher':         'kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory',
+      'woodpecker':         'great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible',
+      'raven':              'raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls',
+      'great-tit':          'great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe',
+      'pheasant':           'pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover',
+      'partridge':          'grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground',
+      'capercaillie':       'capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size',
+    };
+
+    const flightDesc = FLIGHT_DESCS[species] || `${species.replace(/-/g, ' ')} flying with wings spread`;
+    const ALL_DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west'];
+
+    for (const dir of ALL_DIRS) {
+      if (hasSprite(species, 'fly', dir === 'south' ? 'south' : dir.replace(/-/g, ''))) continue;
+      // Check abbreviated dir too
+      const dirAbbrev = { south: 's', 'south-east': 'se', east: 'e', 'north-east': 'ne', north: 'n', 'north-west': 'nw', west: 'w', 'south-west': 'sw' };
+      if (hasSprite(species, 'fly', dirAbbrev[dir])) continue;
+
       queue.push({
         type: 'animate', species, characterId: data.id,
         mode: 'pro',
-        actionDescription: 'flying, wings spread, soaring through the air',
-        frameCount: 16, directions: ['south'],
+        actionDescription: flightDesc,
+        frameCount: 16, directions: [dir],
         status: 'pending', pass: 'birds-flight',
-        note: 'Pro mode — call without confirm_cost first, check cost, then confirm',
+        note: `Pro mode ${dir} — call without confirm_cost first, check cost, then confirm`,
       });
     }
 

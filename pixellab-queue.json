@@ -8,9 +8,8 @@
     "actionDescription": "walking",
     "frameCount": 8,
     "directions": 8,
-    "status": "done",
-    "pass": "extras",
-    "completedAt": "2026-06-10T04:43:41.853Z"
+    "status": "pending",
+    "pass": "extras"
   },
   {
     "type": "animate",
@@ -21,22 +20,8 @@
     "actionDescription": "alert, standing tall, looking around cautiously",
     "frameCount": 8,
     "directions": 8,
-    "status": "done",
-    "pass": "extras",
-    "completedAt": "2026-06-10T04:44:30.654Z"
-  },
-  {
-    "type": "animate",
-    "species": "squirrel",
-    "characterId": "97d23b68-0579-4d41-836d-077043f47703",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, ears up, body tense, looking around",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "done",
-    "pass": "extras",
-    "completedAt": "2026-06-10T04:45:17.686Z"
+    "status": "pending",
+    "pass": "extras"
   },
   {
     "type": "animate",
@@ -47,9 +32,8 @@
     "actionDescription": "walking",
     "frameCount": 8,
     "directions": 8,
-    "status": "done",
-    "pass": "extras",
-    "completedAt": "2026-06-10T04:46:05.596Z"
+    "status": "pending",
+    "pass": "extras"
   },
   {
     "type": "animate",
@@ -60,9 +44,8 @@
     "actionDescription": null,
     "frameCount": null,
     "directions": 8,
-    "status": "done",
-    "pass": "extras",
-    "completedAt": "2026-06-10T04:46:48.379Z"
+    "status": "pending",
+    "pass": "extras"
   },
   {
     "type": "animate",
@@ -84,18 +67,6 @@
     "mode": null,
     "actionDescription": null,
     "frameCount": null,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "bison",
-    "characterId": "4ae8b75c-a445-4b39-ad28-6f2029e3b7ab",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, head raised high, ears forward, body rigid",
-    "frameCount": 8,
     "directions": 8,
     "status": "pending",
     "pass": "extras"
@@ -118,18 +89,6 @@
     "characterId": "9e8321f7-545a-4c3b-95bd-0a315dd599f6",
     "template": null,
     "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "wolverine",
-    "characterId": "9e8321f7-545a-4c3b-95bd-0a315dd599f6",
-    "template": null,
-    "mode": "v3",
     "actionDescription": "sneaking stealthily, low heavy crouch",
     "frameCount": 8,
     "directions": 8,
@@ -138,30 +97,6 @@
   },
   {
     "type": "animate",
-    "species": "rabbit",
-    "characterId": "9ba09240-a0ba-4c80-86f0-115f76195431",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "pine-marten",
-    "characterId": "e3e2cdff-e3e6-4baf-a14c-bb95ab6bdef5",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
     "species": "pine-marten",
     "characterId": "e3e2cdff-e3e6-4baf-a14c-bb95ab6bdef5",
     "template": null,
@@ -171,18 +106,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "beech-marten",
-    "characterId": "d69ae300-7afa-4c8b-90e8-3d0c9a4ef05b",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
   },
   {
     "type": "animate",
@@ -203,18 +126,6 @@
     "template": null,
     "mode": "v3",
     "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "polecat",
-    "characterId": "0f8994d2-3991-4082-805c-769acb213aab",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, ears up, body tense, looking around",
     "frameCount": 8,
     "directions": 8,
     "status": "pending",
@@ -262,35 +173,11 @@
     "characterId": "1d00382a-698f-4cf5-835c-7e7ddc0cf6f0",
     "template": null,
     "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "weasel",
-    "characterId": "1d00382a-698f-4cf5-835c-7e7ddc0cf6f0",
-    "template": null,
-    "mode": "v3",
     "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
     "frameCount": 8,
     "directions": 8,
     "status": "pending",
     "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "raccoon",
-    "characterId": "37ae6144-c357-4454-9dfa-61c72ef9d7ea",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, ears up, body tense, looking around",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
   },
   {
     "type": "animate",
@@ -342,30 +229,6 @@
   },
   {
     "type": "animate",
-    "species": "beaver",
-    "characterId": "ad0e546c-f15d-4229-b61c-3a2eab0d3a36",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "wild-boar",
-    "characterId": "19c0575b-82d1-41b5-9fd0-85da2302f160",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, standing tall, looking around cautiously",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
     "species": "wild-boar",
     "characterId": "19c0575b-82d1-41b5-9fd0-85da2302f160",
     "template": null,
@@ -378,61 +241,11 @@
   },
   {
     "type": "animate",
-    "species": "badger",
-    "characterId": "69500eb8-69db-44d2-8795-4b0576117de0",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "badger",
-    "characterId": "69500eb8-69db-44d2-8795-4b0576117de0",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, standing tall, looking around cautiously",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "badger",
-    "characterId": "69500eb8-69db-44d2-8795-4b0576117de0",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "dying",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
     "species": "arctic-fox",
     "characterId": "bcf356d7-a26c-45f6-8859-96788c1d6578",
     "template": null,
     "mode": "v3",
     "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "arctic-fox",
-    "characterId": "bcf356d7-a26c-45f6-8859-96788c1d6578",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, ears up, body tense, looking around",
     "frameCount": 8,
     "directions": 8,
     "status": "pending",
@@ -447,34 +260,6 @@
     "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
     "frameCount": 8,
     "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "arctic-fox",
-    "characterId": "bcf356d7-a26c-45f6-8859-96788c1d6578",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "dying",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "arctic-fox",
-    "characterId": "bcf356d7-a26c-45f6-8859-96788c1d6578",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "biting, attacking, lunging forward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
     "status": "pending",
     "pass": "predator-extras"
   },
@@ -486,18 +271,6 @@
     "mode": null,
     "actionDescription": null,
     "frameCount": null,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "fallow-deer",
-    "characterId": "794234d8-604c-45e1-b24c-38975cf25dee",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, head raised high, ears forward, body rigid",
-    "frameCount": 8,
     "directions": 8,
     "status": "pending",
     "pass": "extras"
@@ -518,20 +291,6 @@
   },
   {
     "type": "animate",
-    "species": "fallow-deer",
-    "characterId": "794234d8-604c-45e1-b24c-38975cf25dee",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "drinking, head lowered to water",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
     "species": "red-deer",
     "characterId": "0417c353-2a03-44b5-96ce-99cbdff36bae",
     "template": "walk-cycle",
@@ -539,32 +298,6 @@
     "actionDescription": null,
     "frameCount": null,
     "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "red-deer",
-    "characterId": "0417c353-2a03-44b5-96ce-99cbdff36bae",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, head raised high, ears forward, body rigid",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "red-deer",
-    "characterId": "0417c353-2a03-44b5-96ce-99cbdff36bae",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "drinking, head lowered to water",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
     "status": "pending",
     "pass": "extras"
   },
@@ -589,20 +322,6 @@
     "actionDescription": "alert, head raised high, ears forward, body rigid",
     "frameCount": 8,
     "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "moose",
-    "characterId": "8b63d1e5-8081-4f71-a60c-090946b4d87a",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "drinking, head lowered to water",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
     "status": "pending",
     "pass": "extras"
   },
@@ -1250,15 +969,6 @@
     "species": "fieldborn-chief",
     "characterId": "df8e572c-5a63-4ca1-88ca-080b789d3d2e",
     "template": "breathing-idle",
-    "directions": 8,
-    "status": "pending",
-    "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "fieldborn-chief",
-    "characterId": "df8e572c-5a63-4ca1-88ca-080b789d3d2e",
-    "template": "running-6-frames",
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
@@ -3190,6 +2900,104 @@
     "type": "animate",
     "species": "buzzard",
     "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
+    "mode": "pro",
+    "actionDescription": "common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "buzzard",
+    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
+    "mode": "pro",
+    "actionDescription": "common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "buzzard",
+    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
+    "mode": "pro",
+    "actionDescription": "common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "buzzard",
+    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
+    "mode": "pro",
+    "actionDescription": "common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "buzzard",
+    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
+    "mode": "pro",
+    "actionDescription": "common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "buzzard",
+    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
+    "mode": "pro",
+    "actionDescription": "common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "buzzard",
+    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
+    "mode": "pro",
+    "actionDescription": "common buzzard soaring with broad rounded wings held in a shallow V-shape, tail fanned, riding thermals, slow deliberate wingbeats between long glides",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "buzzard",
+    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
     "mode": "v3",
     "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
     "frameCount": 8,
@@ -3229,6 +3037,104 @@
     "type": "animate",
     "species": "owl",
     "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
+    "mode": "pro",
+    "actionDescription": "tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "owl",
+    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
+    "mode": "pro",
+    "actionDescription": "tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "owl",
+    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
+    "mode": "pro",
+    "actionDescription": "tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "owl",
+    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
+    "mode": "pro",
+    "actionDescription": "tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "owl",
+    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
+    "mode": "pro",
+    "actionDescription": "tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "owl",
+    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
+    "mode": "pro",
+    "actionDescription": "tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "owl",
+    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
+    "mode": "pro",
+    "actionDescription": "tawny owl in silent flight, round face forward, broad rounded wings beating softly, feathers muffling sound, ghostly nocturnal hunter",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "owl",
+    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
     "mode": "v3",
     "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
     "frameCount": 8,
@@ -3263,6 +3169,104 @@
     ],
     "status": "pending",
     "pass": "birds-ground"
+  },
+  {
+    "type": "animate",
+    "species": "heron",
+    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
+    "mode": "pro",
+    "actionDescription": "grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "heron",
+    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
+    "mode": "pro",
+    "actionDescription": "grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "heron",
+    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
+    "mode": "pro",
+    "actionDescription": "grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "heron",
+    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
+    "mode": "pro",
+    "actionDescription": "grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "heron",
+    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
+    "mode": "pro",
+    "actionDescription": "grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "heron",
+    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
+    "mode": "pro",
+    "actionDescription": "grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "heron",
+    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
+    "mode": "pro",
+    "actionDescription": "grey heron flying with slow deep wingbeats, long neck folded in S-shape tucked back, long legs trailing behind, broad bowed wings",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3329,6 +3333,104 @@
     "type": "animate",
     "species": "golden-eagle",
     "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
+    "mode": "pro",
+    "actionDescription": "golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "golden-eagle",
+    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
+    "mode": "pro",
+    "actionDescription": "golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "golden-eagle",
+    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
+    "mode": "pro",
+    "actionDescription": "golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "golden-eagle",
+    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
+    "mode": "pro",
+    "actionDescription": "golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "golden-eagle",
+    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
+    "mode": "pro",
+    "actionDescription": "golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "golden-eagle",
+    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
+    "mode": "pro",
+    "actionDescription": "golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "golden-eagle",
+    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
+    "mode": "pro",
+    "actionDescription": "golden eagle in powerful flight, massive wingspan fully extended, dark brown plumage with golden nape catching light, deep slow wingbeats, apex predator silhouette",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "golden-eagle",
+    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
     "mode": "v3",
     "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
     "frameCount": 8,
@@ -3363,6 +3465,104 @@
     ],
     "status": "pending",
     "pass": "birds-ground"
+  },
+  {
+    "type": "animate",
+    "species": "white-tailed-eagle",
+    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
+    "mode": "pro",
+    "actionDescription": "white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "white-tailed-eagle",
+    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
+    "mode": "pro",
+    "actionDescription": "white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "white-tailed-eagle",
+    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
+    "mode": "pro",
+    "actionDescription": "white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "white-tailed-eagle",
+    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
+    "mode": "pro",
+    "actionDescription": "white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "white-tailed-eagle",
+    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
+    "mode": "pro",
+    "actionDescription": "white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "white-tailed-eagle",
+    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
+    "mode": "pro",
+    "actionDescription": "white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "white-tailed-eagle",
+    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
+    "mode": "pro",
+    "actionDescription": "white-tailed eagle flying with huge broad plank-like wings, short wedge-shaped white tail visible, heavy deliberate flight, fingered wingtips",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3408,14 +3608,112 @@
     "species": "sparrowhawk",
     "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "sparrowhawk",
+    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
+    "mode": "pro",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "sparrowhawk",
+    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
+    "mode": "pro",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "sparrowhawk",
+    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
+    "mode": "pro",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "sparrowhawk",
+    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
+    "mode": "pro",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "sparrowhawk",
+    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
+    "mode": "pro",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "sparrowhawk",
+    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
+    "mode": "pro",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "sparrowhawk",
+    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
+    "mode": "pro",
+    "actionDescription": "sparrowhawk in fast agile flight, short rounded wings with rapid flap-flap-glide pattern, long tail for sharp turns, dashing between trees",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3461,14 +3759,112 @@
     "species": "goshawk",
     "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "goshawk",
+    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
+    "mode": "pro",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "goshawk",
+    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
+    "mode": "pro",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "goshawk",
+    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
+    "mode": "pro",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "goshawk",
+    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
+    "mode": "pro",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "goshawk",
+    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
+    "mode": "pro",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "goshawk",
+    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
+    "mode": "pro",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "goshawk",
+    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
+    "mode": "pro",
+    "actionDescription": "goshawk flying with powerful direct flight, broad wings and long tail, muscular wingbeats, fierce predator moving through forest with precision",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3514,14 +3910,112 @@
     "species": "kestrel",
     "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kestrel",
+    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
+    "mode": "pro",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kestrel",
+    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
+    "mode": "pro",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kestrel",
+    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
+    "mode": "pro",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kestrel",
+    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
+    "mode": "pro",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kestrel",
+    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
+    "mode": "pro",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kestrel",
+    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
+    "mode": "pro",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kestrel",
+    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
+    "mode": "pro",
+    "actionDescription": "common kestrel hovering in wind, wings beating rapidly, tail fanned and angled down, head perfectly still scanning ground below, characteristic hover-hunting",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3567,14 +4061,112 @@
     "species": "red-kite",
     "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "red-kite",
+    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
+    "mode": "pro",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "red-kite",
+    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
+    "mode": "pro",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "red-kite",
+    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
+    "mode": "pro",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "red-kite",
+    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
+    "mode": "pro",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "red-kite",
+    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
+    "mode": "pro",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "red-kite",
+    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
+    "mode": "pro",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "red-kite",
+    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
+    "mode": "pro",
+    "actionDescription": "red kite soaring gracefully, long forked russet tail twisting to steer, angled wings with pale patches, elegant effortless flight",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3620,14 +4212,112 @@
     "species": "barn-owl",
     "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "barn-owl",
+    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
+    "mode": "pro",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "barn-owl",
+    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
+    "mode": "pro",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "barn-owl",
+    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
+    "mode": "pro",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "barn-owl",
+    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
+    "mode": "pro",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "barn-owl",
+    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
+    "mode": "pro",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "barn-owl",
+    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
+    "mode": "pro",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "barn-owl",
+    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
+    "mode": "pro",
+    "actionDescription": "barn owl gliding silently on pale wings, heart-shaped white face, golden-buff upperparts, legs dangling slightly, hunting low over fields",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3673,14 +4363,112 @@
     "species": "eagle-owl",
     "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "eagle-owl",
+    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
+    "mode": "pro",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "eagle-owl",
+    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
+    "mode": "pro",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "eagle-owl",
+    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
+    "mode": "pro",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "eagle-owl",
+    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
+    "mode": "pro",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "eagle-owl",
+    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
+    "mode": "pro",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "eagle-owl",
+    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
+    "mode": "pro",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "eagle-owl",
+    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
+    "mode": "pro",
+    "actionDescription": "eagle owl in powerful flight, massive orange eyes visible, ear tufts flattened, enormous wingspan with deep wingbeats, largest European owl",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3726,14 +4514,112 @@
     "species": "pheasant",
     "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "pheasant",
+    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
+    "mode": "pro",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "pheasant",
+    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
+    "mode": "pro",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "pheasant",
+    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
+    "mode": "pro",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "pheasant",
+    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
+    "mode": "pro",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "pheasant",
+    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
+    "mode": "pro",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "pheasant",
+    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
+    "mode": "pro",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "pheasant",
+    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
+    "mode": "pro",
+    "actionDescription": "pheasant in explosive burst flight, short rounded wings beating frantically, long copper tail streaming behind, low fast escape flight through cover",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3790,14 +4676,112 @@
     "species": "partridge",
     "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "partridge",
+    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
+    "mode": "pro",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "partridge",
+    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
+    "mode": "pro",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "partridge",
+    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
+    "mode": "pro",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "partridge",
+    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
+    "mode": "pro",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "partridge",
+    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
+    "mode": "pro",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "partridge",
+    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
+    "mode": "pro",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "partridge",
+    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
+    "mode": "pro",
+    "actionDescription": "grey partridge in whirring low flight, rapid wingbeats on short rounded wings, gliding on bowed wings between bursts, hugging close to ground",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3854,14 +4838,112 @@
     "species": "capercaillie",
     "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "capercaillie",
+    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
+    "mode": "pro",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "capercaillie",
+    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
+    "mode": "pro",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "capercaillie",
+    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
+    "mode": "pro",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "capercaillie",
+    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
+    "mode": "pro",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "capercaillie",
+    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
+    "mode": "pro",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "capercaillie",
+    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
+    "mode": "pro",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "capercaillie",
+    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
+    "mode": "pro",
+    "actionDescription": "capercaillie in heavy powerful flight through forest, large dark body, broad wings beating with audible whooshing, crashing through branches, impressive size",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3918,14 +5000,112 @@
     "species": "stork",
     "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "stork",
+    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
+    "mode": "pro",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "stork",
+    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
+    "mode": "pro",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "stork",
+    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
+    "mode": "pro",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "stork",
+    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
+    "mode": "pro",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "stork",
+    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
+    "mode": "pro",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "stork",
+    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
+    "mode": "pro",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "stork",
+    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
+    "mode": "pro",
+    "actionDescription": "white stork soaring with neck outstretched forward, long red legs trailing straight behind, black and white wings spread wide, thermal-riding migration flight",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -3993,14 +5173,112 @@
     "species": "mallard",
     "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "mallard",
+    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
+    "mode": "pro",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "mallard",
+    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
+    "mode": "pro",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "mallard",
+    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
+    "mode": "pro",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "mallard",
+    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
+    "mode": "pro",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "mallard",
+    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
+    "mode": "pro",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "mallard",
+    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
+    "mode": "pro",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "mallard",
+    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
+    "mode": "pro",
+    "actionDescription": "mallard duck in fast direct flight, rapid wingbeats, short wings whirring, iridescent green head visible on male, compact powerful flight",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -4068,14 +5346,112 @@
     "species": "swan",
     "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "swan",
+    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
+    "mode": "pro",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "swan",
+    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
+    "mode": "pro",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "swan",
+    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
+    "mode": "pro",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "swan",
+    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
+    "mode": "pro",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "swan",
+    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
+    "mode": "pro",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "swan",
+    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
+    "mode": "pro",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "swan",
+    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
+    "mode": "pro",
+    "actionDescription": "mute swan in flight with neck outstretched forward, powerful rhythmic wingbeats creating whooping sound, large white body, heavy majestic flight",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -4143,14 +5519,112 @@
     "species": "kingfisher",
     "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kingfisher",
+    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
+    "mode": "pro",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kingfisher",
+    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
+    "mode": "pro",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kingfisher",
+    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
+    "mode": "pro",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kingfisher",
+    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
+    "mode": "pro",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kingfisher",
+    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
+    "mode": "pro",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kingfisher",
+    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
+    "mode": "pro",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "kingfisher",
+    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
+    "mode": "pro",
+    "actionDescription": "kingfisher darting in fast low flight over water, electric blue back flashing, short wings whirring rapidly, orange belly, arrow-straight trajectory",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -4218,14 +5692,112 @@
     "species": "woodpecker",
     "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "woodpecker",
+    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
+    "mode": "pro",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "woodpecker",
+    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
+    "mode": "pro",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "woodpecker",
+    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
+    "mode": "pro",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "woodpecker",
+    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
+    "mode": "pro",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "woodpecker",
+    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
+    "mode": "pro",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "woodpecker",
+    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
+    "mode": "pro",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "woodpecker",
+    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
+    "mode": "pro",
+    "actionDescription": "great spotted woodpecker in distinctive bounding undulating flight, wings folded closed between bursts of rapid flapping, red under-tail visible",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -4282,14 +5854,112 @@
     "species": "raven",
     "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "raven",
+    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
+    "mode": "pro",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "raven",
+    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
+    "mode": "pro",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "raven",
+    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
+    "mode": "pro",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "raven",
+    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
+    "mode": "pro",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "raven",
+    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
+    "mode": "pro",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "raven",
+    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
+    "mode": "pro",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "raven",
+    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
+    "mode": "pro",
+    "actionDescription": "raven in confident acrobatic flight, glossy black plumage, wedge-shaped tail, deep croaking wingbeats alternating with soaring glides, playful barrel rolls",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
@@ -4346,14 +6016,112 @@
     "species": "great-tit",
     "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
     "mode": "pro",
-    "actionDescription": "flying, wings spread, soaring through the air",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
     "frameCount": 16,
     "directions": [
       "south"
     ],
     "status": "pending",
     "pass": "birds-flight",
-    "note": "Pro mode — call without confirm_cost first, check cost, then confirm"
+    "note": "Pro mode south — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "great-tit",
+    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
+    "mode": "pro",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
+    "frameCount": 16,
+    "directions": [
+      "south-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "great-tit",
+    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
+    "mode": "pro",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
+    "frameCount": 16,
+    "directions": [
+      "east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "great-tit",
+    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
+    "mode": "pro",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
+    "frameCount": 16,
+    "directions": [
+      "north-east"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-east — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "great-tit",
+    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
+    "mode": "pro",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
+    "frameCount": 16,
+    "directions": [
+      "north"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "great-tit",
+    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
+    "mode": "pro",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
+    "frameCount": 16,
+    "directions": [
+      "north-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode north-west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "great-tit",
+    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
+    "mode": "pro",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
+    "frameCount": 16,
+    "directions": [
+      "west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode west — call without confirm_cost first, check cost, then confirm"
+  },
+  {
+    "type": "animate",
+    "species": "great-tit",
+    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
+    "mode": "pro",
+    "actionDescription": "great tit in small bounding flight, rapid wing fluttering between brief closed-wing pauses, undulating trajectory, yellow-green body with black head stripe",
+    "frameCount": 16,
+    "directions": [
+      "south-west"
+    ],
+    "status": "pending",
+    "pass": "birds-flight",
+    "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
   },
   {
     "type": "animate",
