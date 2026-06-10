@@ -18,7 +18,14 @@
     "weasel":       { "id": "1d00382a-698f-4cf5-835c-7e7ddc0cf6f0", "template": "cat",   "size": 16, "anims": [] },
     "raccoon":      { "id": "37ae6144-c357-4454-9dfa-61c72ef9d7ea", "template": "cat",   "size": 24, "anims": [] },
     "rat":          { "id": "e51a59c3-2185-4a8e-8087-20cf465e4799", "template": "cat",   "size": 16, "anims": [] },
-    "grass-snake":  { "id": "5ac7b3f3-2751-4464-93e4-ab1b490adf2b", "template": "cat",   "size": 24, "anims": [] }
+    "grass-snake":  { "id": "5ac7b3f3-2751-4464-93e4-ab1b490adf2b", "template": "cat",   "size": 24, "anims": [] },
+    "beaver":       { "id": "ad0e546c-f15d-4229-b61c-3a2eab0d3a36", "template": "bear",  "size": 32, "anims": [] },
+    "wild-boar":    { "id": "19c0575b-82d1-41b5-9fd0-85da2302f160", "template": "bear",  "size": 48, "anims": [] },
+    "badger":       { "id": "69500eb8-69db-44d2-8795-4b0576117de0", "template": "bear",  "size": 32, "anims": [] },
+    "arctic-fox":   { "id": "bcf356d7-a26c-45f6-8859-96788c1d6578", "template": "cat",   "size": 24, "anims": [] },
+    "fallow-deer":  { "id": "794234d8-604c-45e1-b24c-38975cf25dee", "template": "horse", "size": 32, "anims": [] },
+    "red-deer":     { "id": "0417c353-2a03-44b5-96ce-99cbdff36bae", "template": "horse", "size": 48, "anims": [] },
+    "moose":        { "id": "8b63d1e5-8081-4f71-a60c-090946b4d87a", "template": "horse", "size": 48, "anims": [] }
   },
   "birds": {
     "buzzard":            { "id": "e783015b-9359-42d2-9439-7020c9ac6ea2", "size": 24 },

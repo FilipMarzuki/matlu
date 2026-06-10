@@ -1,7 +1,7 @@
 # Wildlife Animation Queue
 
 Tracking issue: #929
-Status as of 2026-06-08.
+Status as of 2026-06-08 (session 2).
 
 ## Animation sets per template
 
@@ -45,7 +45,7 @@ Squirrel, Hedgehog, Rabbit, Rat, Grass Snake, Beaver, Badger, Raccoon, Elk, Biso
 | Species | Template | idle | run | walk | eat | sleep | death | drink |
 |---------|----------|------|-----|------|-----|-------|-------|-------|
 | Lynx | cat | 8/8 | 8/8 | - | - | - | - | - |
-| Wildcat | cat | 7/8 | 7/8 | - | - | - | - | - |
+| Wildcat | cat | 8/8 | 8/8 | - | - | - | - | - |
 | Bear | bear | 8/8 | 8/8 | - | - | - | - | - |
 | Squirrel | cat | 8/8 | 8/8 | - | - | - | - | - |
 | Hedgehog | cat | 8/8 | 8/8 | - | - | - | - | - |
@@ -53,26 +53,31 @@ Squirrel, Hedgehog, Rabbit, Rat, Grass Snake, Beaver, Badger, Raccoon, Elk, Biso
 | Bison | horse | 8/8 | 8/8 | - | - | - | - | - |
 | Roe Deer | horse | 8/8 | 8/8 | - | - | - | - | - |
 | Wolverine | bear | 8/8 | 8/8 | - | 1/1 | - | - | - |
+| Rabbit | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Pine Marten | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Beaver | bear | 8/8 | 8/8 | - | - | - | - | - |
+| Wild Boar | bear | 8/8 | 8/8 | - | - | - | - | - |
+| Badger | bear | 8/8 | 8/8 | - | - | - | - | - |
+| Beech Marten | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Polecat | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Stoat | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Weasel | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Raccoon | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Grass Snake | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Arctic Fox | cat | 8/8 | 8/8 | - | - | - | - | - |
+| Fallow Deer | horse | 8/8 | 8/8 | - | - | - | - | - |
+| Red Deer | horse | 8/8 | 8/8 | - | - | - | - | - |
+| Moose | horse | 8/8 | processing | - | - | - | - | - |
 
-## Generating idle+run (queued 2026-06-08)
-| # | Species | ID | Template | idle | run | Status |
-|---|---------|-----|----------|------|-----|--------|
-| 7 | Rabbit | `9ba09240` | cat | queued | queued | batch 1 |
-| 8 | Pine Marten | `e3e2cdff` | cat | queued | queued | batch 1 |
-| 9 | Beech Marten | `d69ae300` | cat | queued | queued | batch 1 |
-| 10 | Polecat | `0f8994d2` | cat | queued | queued | batch 1 |
-| 11 | Stoat | `df776d72` | cat | queued | queued | batch 1 |
-| 12 | Weasel | `1d00382a` | cat | queued | queued | batch 2 |
-| 13 | Raccoon | `37ae6144` | cat | queued | queued | batch 2 |
-| 14 | Rat | `e51a59c3` | cat | queued | queued | batch 2 |
-| 15 | Grass Snake | `5ac7b3f3` | cat | queued | queued | batch 2 |
-| 16 | Arctic Fox | `bcf356d7` | cat | queued | queued | batch 2 |
-| 17 | Beaver | `ad0e546c` | bear | queued | queued | batch 3 |
-| 18 | Wild Boar | `19c0575b` | bear | queued | queued | batch 3 |
-| 19 | Badger | `69500eb8` | bear | queued | queued | batch 3 |
-| 20 | Fallow Deer | `794234d8` | horse | queued | queued | batch 3 |
-| 21 | Red Deer | `0417c353` | horse | queued | queued | batch 3 |
-| 22 | Moose | `8b63d1e5` | horse | queued | queued | batch 3 |
+## Remaining idle+run needed
+All quadrupeds complete!
+
+## Bird pro flight animations (south only, 16f each)
+| Bird | ID | Status |
+|------|-----|--------|
+| Buzzard | `e783015b` | done (south, 16f pro) |
+| Golden Eagle | `5e62209e` | done (south, 16f pro) |
+| Owl | `0f2c2af8` | processing (south, pro) |
 
 ## Extra animations pass (after idle+run done)
 Go back and add walk/eat/sleep/death/drink for all species.
