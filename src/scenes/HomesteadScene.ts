@@ -392,6 +392,35 @@ export class HomesteadScene extends Phaser.Scene {
       }
     }
 
+    // NPC spritesheets — 8 directions for idle+walk+run+role
+    const NPC_SPECS: { id: string; anims: string[]; size: number }[] = [
+      { id: 'fieldborn-blacksmith',   anims: ['idle', 'walk', 'run', 'hammer'],  size: 68 },
+      { id: 'fieldborn-chief',        anims: ['idle', 'walk', 'run', 'command'], size: 68 },
+      { id: 'fieldborn-child',        anims: ['idle', 'walk', 'run', 'play'],    size: 48 },
+      { id: 'fieldborn-elder',        anims: ['idle', 'walk', 'run', 'gesture'], size: 68 },
+      { id: 'fieldborn-farmer',       anims: ['idle', 'walk', 'run', 'dig'],     size: 68 },
+      { id: 'fieldborn-guard',        anims: ['idle', 'walk', 'run', 'alert'],   size: 68 },
+      { id: 'fieldborn-hearthkeeper', anims: ['idle', 'walk', 'run', 'serve'],   size: 68 },
+      { id: 'fieldborn-shrine',       anims: ['idle', 'walk', 'run', 'pray'],    size: 68 },
+      { id: 'ikibeki-smith',          anims: ['idle', 'walk', 'run'],            size: 68 },
+      { id: 'ikibeki-trader',         anims: ['idle', 'walk', 'run', 'gesture'], size: 68 },
+      { id: 'ikibeki-warrior',        anims: ['idle', 'walk', 'run', 'alert'],   size: 68 },
+      { id: 'ikibeki-elder',          anims: ['idle', 'walk', 'run', 'gesture'], size: 68 },
+      { id: 'ikibeki-farmer',         anims: ['idle', 'walk', 'run', 'dig'],     size: 68 },
+      { id: 'ikibeki-cook',           anims: ['idle', 'walk', 'run', 'serve'],   size: 68 },
+      { id: 'ikibeki-porter',         anims: ['idle', 'walk', 'run', 'carry'],   size: 68 },
+      { id: 'ikibeki-scout',          anims: ['idle', 'walk', 'run', 'lookout'], size: 68 },
+      { id: 'wanderer',               anims: ['idle', 'walk', 'run'],            size: 48 },
+    ];
+    for (const { id, anims, size } of NPC_SPECS) {
+      const base = `/assets/sprites/characters/npcs/${id}`;
+      for (const anim of anims) {
+        for (const d of DIRS) {
+          this.load.spritesheet(`npc-${id}-${anim}-${d}`, `${base}/${anim}_${d}.png`, { frameWidth: size, frameHeight: size });
+        }
+      }
+    }
+
     // Fauna registry for WildlifeSystem
     this.load.json('fauna-registry', '/macro-world/fauna-registry.json');
   }
@@ -1826,7 +1855,8 @@ export class HomesteadScene extends Phaser.Scene {
         'wolf', 'lynx', 'bear', 'squirrel', 'hedgehog', 'rabbit',
         'beaver', 'badger', 'raccoon', 'wildcat', 'arctic-fox',
         'pine-marten', 'beech-marten', 'polecat', 'stoat', 'weasel',
-        'elk', 'roe-deer', 'fallow-deer', 'red-deer',
+        'elk', 'bison', 'roe-deer', 'fallow-deer', 'red-deer', 'moose',
+        'wolverine', 'wild-boar', 'grass-snake',
       ],
       seed: 12345,
       // Keep wolves in the homestead meadow half (tx 5-25), away from WF terrain
@@ -1854,5 +1884,84 @@ export class HomesteadScene extends Phaser.Scene {
     });
     this.wildlife.init();
     this.wildlife.spawnGroundAnimals();
+
+    // ── NPC animations + spawning ────────────────────────────────────────
+    this.initNpcs();
+  }
+
+  private initNpcs(): void {
+    const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
+    const ANIM_RATES: Record<string, number> = {
+      idle: 6, walk: 8, run: 12, alert: 6,
+      hammer: 6, dig: 6, serve: 6, gesture: 6, pray: 6,
+      stir: 6, carry: 8, lookout: 6, command: 6, play: 8,
+    };
+
+    // NPC specs matching preload
+    const NPC_LIST = [
+      'fieldborn-blacksmith', 'fieldborn-chief', 'fieldborn-child',
+      'fieldborn-elder', 'fieldborn-farmer', 'fieldborn-guard',
+      'fieldborn-hearthkeeper', 'fieldborn-shrine',
+      'ikibeki-smith', 'ikibeki-trader', 'ikibeki-warrior',
+      'ikibeki-elder', 'ikibeki-farmer', 'ikibeki-cook',
+      'ikibeki-porter', 'ikibeki-scout', 'wanderer',
+    ];
+
+    // Register animations for all loaded NPC spritesheets
+    for (const npcId of NPC_LIST) {
+      for (const anim of ['idle', 'walk', 'run', 'hammer', 'dig', 'serve', 'gesture', 'pray', 'stir', 'carry', 'lookout', 'command', 'play', 'alert']) {
+        const rate = ANIM_RATES[anim] ?? 6;
+        for (const d of DIRS) {
+          const texKey = `npc-${npcId}-${anim}-${d}`;
+          const animKey = `npc-${npcId}-${anim}-${d}-anim`;
+          if (this.textures.exists(texKey) && !this.anims.exists(animKey)) {
+            const frameCount = this.textures.get(texKey).getFrameNames(false).length;
+            const frames = Array.from({ length: Math.max(1, frameCount) }, (_, i) => i);
+            this.anims.create({ key: animKey, frames: this.anims.generateFrameNumbers(texKey, { frames }), frameRate: rate, repeat: -1 });
+          }
+        }
+        // Base fallback (SE direction)
+        const fallbackTex = `npc-${npcId}-${anim}-se`;
+        const fallbackKey = `npc-${npcId}-${anim}-anim`;
+        if (this.textures.exists(fallbackTex) && !this.anims.exists(fallbackKey)) {
+          const frameCount = this.textures.get(fallbackTex).getFrameNames(false).length;
+          const frames = Array.from({ length: Math.max(1, frameCount) }, (_, i) => i);
+          this.anims.create({ key: fallbackKey, frames: this.anims.generateFrameNumbers(fallbackTex, { frames }), frameRate: rate, repeat: -1 });
+        }
+      }
+    }
+
+    // Spawn a few NPCs at fixed positions on the homestead meadow.
+    // Simple wandering NPCs — they idle, walk around, and play role animations.
+    const NPC_SPAWNS = [
+      { id: 'fieldborn-farmer',       wx: 18, wy: 25, role: 'dig' },
+      { id: 'fieldborn-blacksmith',   wx: 22, wy: 20, role: 'hammer' },
+      { id: 'fieldborn-guard',        wx: 14, wy: 18, role: 'alert' },
+      { id: 'ikibeki-trader',         wx: 20, wy: 30, role: 'gesture' },
+      { id: 'wanderer',               wx: 12, wy: 28, role: 'idle' },
+    ];
+
+    for (const spawn of NPC_SPAWNS) {
+      const wx = spawn.wx * TILE_SIZE;
+      const wy = spawn.wy * TILE_SIZE;
+      const { x: isoX, y: isoY } = hsWorldToIso(wx, wy);
+      const texKey = `npc-${spawn.id}-idle-se`;
+      if (!this.textures.exists(texKey)) continue;
+
+      const npc = this.add.sprite(isoX, isoY, texKey, 0);
+      npc.setOrigin(0.5, 0.8);
+      npc.setScale(0.45);
+      npc.setDepth(hsIsoDepth(wx, wy));
+
+      // Play idle animation
+      const idleAnim = `npc-${spawn.id}-idle-se-anim`;
+      if (this.anims.exists(idleAnim)) npc.play(idleAnim);
+
+      // Store data for future NPC AI system
+      npc.setData('npcId', spawn.id);
+      npc.setData('role', spawn.role);
+      npc.setData('worldX', wx);
+      npc.setData('worldY', wy);
+    }
   }
 }
