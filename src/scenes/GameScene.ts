@@ -1017,6 +1017,10 @@ export class GameScene extends Phaser.Scene {
       { species: 'wildcat',     anims: ['idle', 'run'],                  size: 48 },
       { species: 'raccoon',     anims: ['idle', 'run'],                  size: 36 },
       { species: 'grass-snake', anims: ['idle', 'run'],                  size: 36 },
+      { species: 'arctic-fox', anims: ['idle', 'run'],                   size: 36 },
+      { species: 'fallow-deer', anims: ['idle', 'run'],                  size: 48 },
+      { species: 'red-deer',    anims: ['idle', 'run'],                  size: 68 },
+      { species: 'moose',       anims: ['idle', 'run'],                  size: 68 },
     ];
     for (const { species, anims, size } of wildlifeSpecs) {
       const base = `assets/sprites/wildlife/${species}`;

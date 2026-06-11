@@ -1,60 +1,12 @@
 [
   {
     "type": "animate",
-    "species": "bear",
-    "characterId": "147321e3-6572-4bb5-ba85-d55c132cd68a",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "bear",
-    "characterId": "147321e3-6572-4bb5-ba85-d55c132cd68a",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, standing tall, looking around cautiously",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "hedgehog",
-    "characterId": "1feb8b5a-9a90-4575-a247-252378fa6d64",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
     "species": "elk",
     "characterId": "a0341fce-661b-4241-8a7f-1ede8610deb3",
     "template": "walk-cycle",
     "mode": null,
     "actionDescription": null,
     "frameCount": null,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "elk",
-    "characterId": "a0341fce-661b-4241-8a7f-1ede8610deb3",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, head raised high, ears forward, body rigid",
-    "frameCount": 8,
     "directions": 8,
     "status": "pending",
     "pass": "extras"
@@ -85,140 +37,8 @@
   },
   {
     "type": "animate",
-    "species": "wolverine",
-    "characterId": "9e8321f7-545a-4c3b-95bd-0a315dd599f6",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "sneaking stealthily, low heavy crouch",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "pine-marten",
-    "characterId": "e3e2cdff-e3e6-4baf-a14c-bb95ab6bdef5",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "beech-marten",
-    "characterId": "d69ae300-7afa-4c8b-90e8-3d0c9a4ef05b",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "polecat",
-    "characterId": "0f8994d2-3991-4082-805c-769acb213aab",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "polecat",
-    "characterId": "0f8994d2-3991-4082-805c-769acb213aab",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "stoat",
-    "characterId": "df776d72-ecb7-46c9-89e4-72067e9878b9",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "stoat",
-    "characterId": "df776d72-ecb7-46c9-89e4-72067e9878b9",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
-    "species": "weasel",
-    "characterId": "1d00382a-698f-4cf5-835c-7e7ddc0cf6f0",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
-  },
-  {
-    "type": "animate",
     "species": "rat",
     "characterId": "e51a59c3-2185-4a8e-8087-20cf465e4799",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "rat",
-    "characterId": "e51a59c3-2185-4a8e-8087-20cf465e4799",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "alert, ears up, body tense, looking around",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "grass-snake",
-    "characterId": "5ac7b3f3-2751-4464-93e4-ab1b490adf2b",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "walking",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "grass-snake",
-    "characterId": "5ac7b3f3-2751-4464-93e4-ab1b490adf2b",
     "template": null,
     "mode": "v3",
     "actionDescription": "alert, ears up, body tense, looking around",
@@ -250,18 +70,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "extras"
-  },
-  {
-    "type": "animate",
-    "species": "arctic-fox",
-    "characterId": "bcf356d7-a26c-45f6-8859-96788c1d6578",
-    "template": null,
-    "mode": "v3",
-    "actionDescription": "sneaking stealthily, low crouch, slow careful movement",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "predator-extras"
   },
   {
     "type": "animate",
@@ -390,19 +198,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-herbalist",
-    "characterId": "95130b77-71bd-4484-8487-196015fc143f",
-    "mode": "v3",
-    "actionDescription": "beckoning gesture, inviting to trade, hand waving",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "portrait-ikibeki-trader",
     "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Fox Trader. Anime-tech-meets-fantasy style, selective outline, warm palette.",
@@ -432,19 +227,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "ikibeki-trader",
-    "characterId": "35f01005-d66f-4de8-94ab-a434ced7c54e",
-    "mode": "v3",
-    "actionDescription": "beckoning gesture, inviting to trade, hand waving",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -478,17 +260,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-highfang",
-    "characterId": "d1e05856-0965-4e8e-8388-f21984dc3c68",
-    "mode": "v3",
-    "actionDescription": "alert stance, hand on weapon, scanning for threats",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-ikibeki-cook",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Wolf-Cook (Ikibeki). Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -507,19 +278,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "ikibeki-cook",
-    "characterId": "8ed0aa47-8da0-4dbb-a0f4-36bf52ef94de",
-    "mode": "v3",
-    "actionDescription": "serving a drink, holding a mug, offering forward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -553,19 +311,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-brewer",
-    "characterId": "95857118-c1e7-434e-9d4f-3adb78bcc101",
-    "mode": "v3",
-    "actionDescription": "stirring a large barrel or pot, brewing motion",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-ikibeki-lorekeeper",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Snake-Lorekeeper (Ikibeki). Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -584,19 +329,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "ikibeki-lorekeeper",
-    "characterId": "324b433e-34da-4f4d-bc36-983ced7eed0b",
-    "mode": "v3",
-    "actionDescription": "praying, hands together, head bowed, ritualistic",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -672,17 +404,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-porter",
-    "characterId": "3189f782-b0ba-4c2c-a378-6999330d286e",
-    "mode": "v3",
-    "actionDescription": "carrying heavy load on back, walking with burden",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-ikibeki-woodcutter",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Boar-Woodcutter (Ikibeki). Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -701,19 +422,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "ikibeki-woodcutter",
-    "characterId": "d7e5682c-a288-4c73-ac2f-e3fa5861136b",
-    "mode": "v3",
-    "actionDescription": "digging with a hoe, bending and lifting, farming",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -747,17 +455,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-warrior",
-    "characterId": "a8f9554e-a9e0-4e51-8143-c522399a1293",
-    "mode": "v3",
-    "actionDescription": "alert stance, hand on weapon, scanning for threats",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-ikibeki-elder",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Bear Elder. Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -778,19 +475,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-elder",
-    "characterId": "d74ed413-2856-44fa-bce3-dd4a1e91f38d",
-    "mode": "v3",
-    "actionDescription": "wise gesturing while speaking, hand raised, storytelling",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-ikibeki-farmer",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Boar Farmer. Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -809,19 +493,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "ikibeki-farmer",
-    "characterId": "ee729bd5-732c-4975-bf6d-3e6a047506f2",
-    "mode": "v3",
-    "actionDescription": "digging with a hoe, bending and lifting, farming",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -897,19 +568,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-commoner",
-    "characterId": "dafd4e02-eb58-4c7d-a718-a1d1142216fc",
-    "mode": "v3",
-    "actionDescription": "friendly wave greeting, casual, welcoming",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "portrait-ikibeki-stablehand",
     "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Bear-Stablehand (Ikibeki). Anime-tech-meets-fantasy style, selective outline, warm palette.",
@@ -941,19 +599,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "ikibeki-stablehand",
-    "characterId": "e124b495-8ea2-4d6d-bd3b-97488530b232",
-    "mode": "v3",
-    "actionDescription": "brushing or grooming an animal, caring motion",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-fieldborn-chief",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Fieldborn Chief. Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -972,19 +617,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "fieldborn-chief",
-    "characterId": "df8e572c-5a63-4ca1-88ca-080b789d3d2e",
-    "mode": "v3",
-    "actionDescription": "authoritative pointing gesture, giving orders, commanding",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -1007,19 +639,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "fieldborn-blacksmith",
-    "characterId": "6ac2e614-ed1a-453f-929c-9a3de12fb2d4",
-    "mode": "v3",
-    "actionDescription": "hammering on an anvil, forging metal, arm swinging down",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-fieldborn-farmer",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Fieldborn Farmer. Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -1038,19 +657,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "fieldborn-farmer",
-    "characterId": "d37c78d8-8b9c-4f6e-a277-da8366bf1db9",
-    "mode": "v3",
-    "actionDescription": "digging with a hoe, bending and lifting, farming",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -1084,17 +690,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "fieldborn-guard",
-    "characterId": "bc764364-4c54-4486-a993-a0024f9715e9",
-    "mode": "v3",
-    "actionDescription": "alert stance, hand on weapon, scanning for threats",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-fieldborn-hearthkeeper",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Fieldborn Hearthkeeper. Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -1113,19 +708,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "fieldborn-hearthkeeper",
-    "characterId": "f91bacef-35a0-4b28-97da-e0dcef85f56b",
-    "mode": "v3",
-    "actionDescription": "serving a drink, holding a mug, offering forward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -1148,19 +730,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "fieldborn-shrine",
-    "characterId": "a2fb4727-809e-4cd9-a748-1e1674037541",
-    "mode": "v3",
-    "actionDescription": "praying, hands together, head bowed, ritualistic",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "fullbody-fieldborn-elder",
     "description": "Pixel art full body character, standing pose facing forward, transparent background. Fieldborn Elder. Full outfit visible head to toe. Anime-tech-meets-fantasy style, selective outline.",
@@ -1179,19 +748,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "fieldborn-elder",
-    "characterId": "079fb6cb-a6cf-4b1d-b97b-caf8d30c0982",
-    "mode": "v3",
-    "actionDescription": "wise gesturing while speaking, hand raised, storytelling",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -1225,19 +781,6 @@
     "pass": "npc-anims"
   },
   {
-    "type": "animate",
-    "species": "fieldborn-child",
-    "characterId": "6ca8be8c-e15e-45a2-ba5d-b17b639995a8",
-    "mode": "v3",
-    "actionDescription": "playful jumping, excited, energetic child movement",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "npc-role-anims"
-  },
-  {
     "type": "create_map_object",
     "name": "portrait-wallborn-gate-guard",
     "description": "Pixel art bust portrait, 3/4 view facing left, transparent background. Wallborn Gate Guard. Anime-tech-meets-fantasy style, selective outline, warm palette.",
@@ -1267,17 +810,6 @@
     "directions": 8,
     "status": "pending",
     "pass": "npc-anims"
-  },
-  {
-    "type": "animate",
-    "species": "wallborn-gate-guard",
-    "characterId": "2f7089b1-eb05-43c6-958d-48fa38082181",
-    "mode": "v3",
-    "actionDescription": "alert stance, hand on weapon, scanning for threats",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "npc-role-anims"
   },
   {
     "type": "create_map_object",
@@ -1362,19 +894,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "wildcat",
-    "characterId": "1c72503c-ab7f-46df-9cdc-c7806fb789eb",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "bear-sleep-state",
     "characterId": "147321e3-6572-4bb5-ba85-d55c132cd68a",
@@ -1391,19 +910,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\bear\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "bear",
-    "characterId": "147321e3-6572-4bb5-ba85-d55c132cd68a",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1424,19 +930,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "squirrel",
-    "characterId": "97d23b68-0579-4d41-836d-077043f47703",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "hedgehog-sleep-state",
     "characterId": "1feb8b5a-9a90-4575-a247-252378fa6d64",
@@ -1453,19 +946,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\hedgehog\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "hedgehog",
-    "characterId": "1feb8b5a-9a90-4575-a247-252378fa6d64",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1486,19 +966,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "elk",
-    "characterId": "a0341fce-661b-4241-8a7f-1ede8610deb3",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "bison-sleep-state",
     "characterId": "4ae8b75c-a445-4b39-ad28-6f2029e3b7ab",
@@ -1515,19 +982,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\bison\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "bison",
-    "characterId": "4ae8b75c-a445-4b39-ad28-6f2029e3b7ab",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1548,19 +1002,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "roe-deer",
-    "characterId": "d8c5b1a1-82b1-4440-88bf-6d658c89ffc2",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "wolverine-sleep-state",
     "characterId": "9e8321f7-545a-4c3b-95bd-0a315dd599f6",
@@ -1577,19 +1018,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\wolverine\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "wolverine",
-    "characterId": "9e8321f7-545a-4c3b-95bd-0a315dd599f6",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1610,19 +1038,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "rabbit",
-    "characterId": "9ba09240-a0ba-4c80-86f0-115f76195431",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "pine-marten-sleep-state",
     "characterId": "e3e2cdff-e3e6-4baf-a14c-bb95ab6bdef5",
@@ -1639,19 +1054,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\pine-marten\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "pine-marten",
-    "characterId": "e3e2cdff-e3e6-4baf-a14c-bb95ab6bdef5",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1672,19 +1074,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "beech-marten",
-    "characterId": "d69ae300-7afa-4c8b-90e8-3d0c9a4ef05b",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "polecat-sleep-state",
     "characterId": "0f8994d2-3991-4082-805c-769acb213aab",
@@ -1701,19 +1090,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\polecat\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "polecat",
-    "characterId": "0f8994d2-3991-4082-805c-769acb213aab",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1734,19 +1110,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "stoat",
-    "characterId": "df776d72-ecb7-46c9-89e4-72067e9878b9",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "weasel-sleep-state",
     "characterId": "1d00382a-698f-4cf5-835c-7e7ddc0cf6f0",
@@ -1763,19 +1126,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\weasel\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "weasel",
-    "characterId": "1d00382a-698f-4cf5-835c-7e7ddc0cf6f0",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1796,19 +1146,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "raccoon",
-    "characterId": "37ae6144-c357-4454-9dfa-61c72ef9d7ea",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "rat-sleep-state",
     "characterId": "e51a59c3-2185-4a8e-8087-20cf465e4799",
@@ -1825,19 +1162,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\rat\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "rat",
-    "characterId": "e51a59c3-2185-4a8e-8087-20cf465e4799",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1858,19 +1182,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "grass-snake",
-    "characterId": "5ac7b3f3-2751-4464-93e4-ab1b490adf2b",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "beaver-sleep-state",
     "characterId": "ad0e546c-f15d-4229-b61c-3a2eab0d3a36",
@@ -1887,19 +1198,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\beaver\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "beaver",
-    "characterId": "ad0e546c-f15d-4229-b61c-3a2eab0d3a36",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1920,19 +1218,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "wild-boar",
-    "characterId": "19c0575b-82d1-41b5-9fd0-85da2302f160",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "badger-sleep-state",
     "characterId": "69500eb8-69db-44d2-8795-4b0576117de0",
@@ -1949,19 +1234,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\badger\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "badger",
-    "characterId": "69500eb8-69db-44d2-8795-4b0576117de0",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -1982,19 +1254,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "arctic-fox",
-    "characterId": "bcf356d7-a26c-45f6-8859-96788c1d6578",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "fallow-deer-sleep-state",
     "characterId": "794234d8-604c-45e1-b24c-38975cf25dee",
@@ -2011,19 +1270,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\fallow-deer\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "fallow-deer",
-    "characterId": "794234d8-604c-45e1-b24c-38975cf25dee",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -2044,19 +1290,6 @@
     "pass": "wildlife-states"
   },
   {
-    "type": "animate",
-    "species": "red-deer",
-    "characterId": "0417c353-2a03-44b5-96ce-99cbdff36bae",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
-  },
-  {
     "type": "create_object_state",
     "name": "moose-sleep-state",
     "characterId": "8b63d1e5-8081-4f71-a60c-090946b4d87a",
@@ -2073,19 +1306,6 @@
     "outputPath": "C:\\Users\\marzu\\matlu\\public\\assets\\sprites\\wildlife\\moose\\dead-state_s.png",
     "status": "pending",
     "pass": "wildlife-states"
-  },
-  {
-    "type": "animate",
-    "species": "moose",
-    "characterId": "8b63d1e5-8081-4f71-a60c-090946b4d87a",
-    "mode": "v3",
-    "actionDescription": "decomposing after death, body gradually decaying, flesh fading away, revealing skeleton, ending as bare bones on the ground",
-    "frameCount": 16,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "wildlife-decompose"
   },
   {
     "type": "create_object_state",
@@ -2996,45 +2216,6 @@
   },
   {
     "type": "animate",
-    "species": "buzzard",
-    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "buzzard",
-    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "buzzard",
-    "characterId": "e783015b-9359-42d2-9439-7020c9ac6ea2",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "owl",
     "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
     "mode": "pro",
@@ -3136,33 +2317,7 @@
     "species": "owl",
     "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
     "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "owl",
-    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
-    "mode": "v3",
     "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "owl",
-    "characterId": "0f2c2af8-2c20-4e1f-b672-e1370e5f9195",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
     "frameCount": 8,
     "directions": [
       "south"
@@ -3270,67 +2425,6 @@
   },
   {
     "type": "animate",
-    "species": "heron",
-    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "heron",
-    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "heron",
-    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
-    "mode": "v3",
-    "actionDescription": "swimming on water, floating, gentle paddling",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-swim"
-  },
-  {
-    "type": "animate",
-    "species": "heron",
-    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "heron",
-    "characterId": "ffa65404-cf24-4584-a926-48a8fd8b0aeb",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "golden-eagle",
     "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
     "mode": "pro",
@@ -3426,45 +2520,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "golden-eagle",
-    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "golden-eagle",
-    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "golden-eagle",
-    "characterId": "5e62209e-ec0a-4baf-8e5c-09c85b336717",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -3566,45 +2621,6 @@
   },
   {
     "type": "animate",
-    "species": "white-tailed-eagle",
-    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "white-tailed-eagle",
-    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "white-tailed-eagle",
-    "characterId": "dd162fb0-7d72-464e-a392-b6d5d126b54e",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "sparrowhawk",
     "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
     "mode": "pro",
@@ -3714,45 +2730,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "sparrowhawk",
-    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "sparrowhawk",
-    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "sparrowhawk",
-    "characterId": "2117bcd2-06c3-4383-9d8b-e346f2855001",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -3868,45 +2845,6 @@
   },
   {
     "type": "animate",
-    "species": "goshawk",
-    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "goshawk",
-    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "goshawk",
-    "characterId": "f21c75eb-d15f-4ae9-bca4-d57955a1f429",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "kestrel",
     "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
     "mode": "pro",
@@ -4016,45 +2954,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "kestrel",
-    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "kestrel",
-    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "kestrel",
-    "characterId": "a76a0d13-e64b-4165-be1c-170686af7eb3",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -4170,45 +3069,6 @@
   },
   {
     "type": "animate",
-    "species": "red-kite",
-    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "red-kite",
-    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "red-kite",
-    "characterId": "22300994-c4ed-4723-8753-15ce9a68eab9",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "barn-owl",
     "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
     "mode": "pro",
@@ -4318,45 +3178,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "barn-owl",
-    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "barn-owl",
-    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "barn-owl",
-    "characterId": "784d9b9a-f357-45ee-afa7-10e5041a144e",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -4472,45 +3293,6 @@
   },
   {
     "type": "animate",
-    "species": "eagle-owl",
-    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "eagle-owl",
-    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "eagle-owl",
-    "characterId": "e6ea2362-f955-4c09-b8a3-c9d023145495",
-    "mode": "v3",
-    "actionDescription": "perched on a branch, sitting still, alert, occasionally turning head",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "pheasant",
     "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
     "mode": "pro",
@@ -4620,43 +3402,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "pheasant",
-    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "pheasant",
-    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "pheasant",
-    "characterId": "ce907331-f094-4e20-9102-d1cc5ca313d0",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -4785,56 +3530,6 @@
   },
   {
     "type": "animate",
-    "species": "partridge",
-    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "partridge",
-    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "partridge",
-    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "partridge",
-    "characterId": "273622d0-203b-4f05-a8a5-ae097f37bcfc",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "capercaillie",
     "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
     "mode": "pro",
@@ -4947,56 +3642,6 @@
   },
   {
     "type": "animate",
-    "species": "capercaillie",
-    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "capercaillie",
-    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "capercaillie",
-    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "capercaillie",
-    "characterId": "713e65fb-d108-4f6c-9de4-f9d1fc6087b5",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "stork",
     "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
     "mode": "pro",
@@ -5106,30 +3751,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "stork",
-    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "stork",
-    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -5144,32 +3765,6 @@
   },
   {
     "type": "animate",
-    "species": "stork",
-    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "stork",
-    "characterId": "4cd7222e-e874-40f1-9ed7-5651337f1aeb",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "mallard",
     "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
     "mode": "pro",
@@ -5279,30 +3874,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "mallard",
-    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "mallard",
-    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -5330,19 +3901,6 @@
   },
   {
     "type": "animate",
-    "species": "mallard",
-    "characterId": "dc4b3388-c990-4f3f-a6bb-00f2eb14f894",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "swan",
     "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
     "mode": "pro",
@@ -5452,30 +4010,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "swan",
-    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "swan",
-    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -5490,32 +4024,6 @@
   },
   {
     "type": "animate",
-    "species": "swan",
-    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "swan",
-    "characterId": "8a6cf93f-598a-4bda-903d-dadac0bf4cc7",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "kingfisher",
     "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
     "mode": "pro",
@@ -5625,67 +4133,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "kingfisher",
-    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "kingfisher",
-    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "kingfisher",
-    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
-    "mode": "v3",
-    "actionDescription": "swimming on water, floating, gentle paddling",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-swim"
-  },
-  {
-    "type": "animate",
-    "species": "kingfisher",
-    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "kingfisher",
-    "characterId": "3999a2a7-fdbd-42a0-9573-881b63e1b019",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "animate",
@@ -5804,44 +4251,7 @@
     "species": "woodpecker",
     "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
     "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "woodpecker",
-    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
-    "mode": "v3",
     "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "woodpecker",
-    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "woodpecker",
-    "characterId": "cb574856-2d5e-4011-bde5-144d835a6bbd",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
     "frameCount": 8,
     "directions": [
       "south"
@@ -5963,56 +4373,6 @@
   },
   {
     "type": "animate",
-    "species": "raven",
-    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "raven",
-    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "raven",
-    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "raven",
-    "characterId": "454af1b9-715f-47b8-9b30-2d21c241285a",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
     "species": "great-tit",
     "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
     "mode": "pro",
@@ -6122,56 +4482,6 @@
     "status": "pending",
     "pass": "birds-flight",
     "note": "Pro mode south-west — call without confirm_cost first, check cost, then confirm"
-  },
-  {
-    "type": "animate",
-    "species": "great-tit",
-    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
-    "mode": "v3",
-    "actionDescription": "walking on the ground, short steps, head bobbing",
-    "frameCount": 8,
-    "directions": 8,
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "great-tit",
-    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
-    "mode": "v3",
-    "actionDescription": "pecking at the ground, eating, head down then up",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "great-tit",
-    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
-    "mode": "v3",
-    "actionDescription": "landing, wings spread slowing down, feet reaching for ground",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
-  },
-  {
-    "type": "animate",
-    "species": "great-tit",
-    "characterId": "27dd3374-7aeb-4475-a52d-14427d657eda",
-    "mode": "v3",
-    "actionDescription": "taking off, jumping up, wings opening and flapping upward",
-    "frameCount": 8,
-    "directions": [
-      "south"
-    ],
-    "status": "pending",
-    "pass": "birds-ground"
   },
   {
     "type": "create_object_state",
