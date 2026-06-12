@@ -24,6 +24,7 @@
     "macro:import": "node scripts/seed-macro-world.mjs",
     "macro:export": "node scripts/export-macro-world.mjs",
     "entity:audit": "tsx scripts/entity-audit.ts",
+    "story": "tsx storytelling/main.ts --years 200 --seed 42",
     "worldgen:heightmap": "tsx macro-world/scripts/convert-heightmap.ts",
     "worldgen:generate": "tsx macro-world/scripts/generate-earth-map.ts",
     "worldgen:validate": "tsx macro-world/scripts/validate-earth-export.ts",
