@@ -1417,6 +1417,17 @@ export class GameScene extends Phaser.Scene {
     this.groundAnimals = this.physics.add.group();
     // Animals collide with each other so herds don't stack on top of each other.
     this.physics.add.collider(this.groundAnimals, this.groundAnimals);
+    // Wildlife collides with the same terrain obstacles as the player. These
+    // MUST be registered here (not in createPlayer) because createPlayer() runs
+    // earlier in create(), before this.groundAnimals exists — registering them
+    // there bound the collider to `undefined` and crashed Arcade physics on the
+    // first world step ("Cannot read properties of undefined (reading
+    // 'isParent')" in collideObjects). mountainWalls / navigationBarriers /
+    // solidObjects are all created earlier in create(), so they're safe here.
+    this.physics.add.collider(this.groundAnimals, this.mountainWalls);
+    this.physics.add.collider(this.groundAnimals, this.navigationBarriers);
+    this.physics.add.collider(this.groundAnimals, this.solidObjects);
+    if (this.treeGroup) this.physics.add.collider(this.groundAnimals, this.treeGroup);
     if (DEBUG_SPAWN.groundAnimals) this.spawnGroundAnimals();
     if (DEBUG_SPAWN.birds)         this.spawnBirds();
 
@@ -4676,11 +4687,12 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.solidObjects);
     if (this.treeGroup) this.physics.add.collider(this.player, this.treeGroup);
 
-    // Wildlife collides with the same terrain obstacles as the player.
-    this.physics.add.collider(this.groundAnimals, this.mountainWalls);
-    this.physics.add.collider(this.groundAnimals, this.navigationBarriers);
-    this.physics.add.collider(this.groundAnimals, this.solidObjects);
-    if (this.treeGroup) this.physics.add.collider(this.groundAnimals, this.treeGroup);
+    // NOTE: the groundAnimals↔terrain colliders used to be registered here, but
+    // createPlayer() runs before the groundAnimals group is created, so they
+    // bound to `undefined` and crashed Arcade physics on the first world step.
+    // They now live in create(), immediately after the groundAnimals group is
+    // built. The player↔terrain colliders above stay here because they need
+    // this.player, which only exists once createPlayer() has run.
 
     // Wire interactive object overlaps
     for (const obj of this.interactiveObjects) {
