@@ -94,9 +94,47 @@ arrive from many sources in one year (plague, age, murder, war).
 | `seed.ts` | Starting tableau: 8 provinces, 3 houses, ~28 chars |
 | `tick.ts` | One year, in canonical order |
 | `sifter.ts` | Story sifting (significance + shapes) |
+| `arcs.ts` | Group significant events into story arcs (threads) |
 | `render.ts` | Stub templated prose renderer |
+| `persist.ts` | Save a run: `events.ndjson` (canon) + `meta.json` |
 | `magic.ts` | Optional leveling / magic layer (see below) |
 | `main.ts` | CLI entry point |
+
+## Saving stories & the story model
+
+The sim is **deterministic**, so the durable artifact has three layers, and only
+the middle one is canon:
+
+```
+1. INPUTS      { seed, years, magic, version }      ← 8 bytes reproduce everything
+2. EVENT LOG   WorldEvent[]   (append-only, no prose) ← THE canon / source of truth
+3. DERIVED     state snapshots · sifted chronicle · arcs ← regenerate, never store as truth
+```
+
+A **story** is the ordered `WorldEvent[]`. The chronicle and the arcs are *views*
+over it. Persist the log when you want to query or render a story without
+re-running the sim:
+
+```bash
+npx tsx storytelling/main.ts --years 200 --seed 42 --magic --save --arcs
+```
+
+- `--save` writes `storytelling/runs/<seed-years[-magic]>/`:
+  - `events.ndjson` — one `WorldEvent` per line (append-friendly, greppable, and
+    diffable, so you can *see* how a code change altered history),
+  - `meta.json` — inputs, a summary (kingdoms, surviving houses), and the arc index.
+- `--arcs` prints the **story arcs** — threads of related significant events,
+  biggest first. An arc shares a *focus*: a contested title (a multi-generation
+  claim war), a pair of people (a feud), a house (its fall / a lost art), or a
+  figure (a saga). Long focuses split on 40-year gaps, so you get "The Wars for
+  Kingdom of Halvar (1024–1128)" rather than one 200-year blob. Arcs are the
+  natural unit to hand the LLM later ("render *this thread* as a chapter").
+
+The same shape maps 1:1 onto **Supabase** for productionizing (the project already
+uses it): `story_runs(seed, config, version, summary jsonb)` +
+`story_events(run_id, id, year, type, actor_id, …, data jsonb, significance)`.
+That's the read source for the nightly Claude Message-Batches renderer — "give me
+every murder in run X" or "feed this arc's events to Opus" become one query each.
 
 ## Magic / leveling layer (`--magic`)
 

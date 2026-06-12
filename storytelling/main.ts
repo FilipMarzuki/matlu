@@ -4,11 +4,16 @@
 //
 //   npx tsx main.ts --years 200 --seed 42
 
+import { extractArcs } from "./arcs.js";
 import { magicInit } from "./magic.js";
+import { saveRun } from "./persist.js";
 import { renderChronicle, renderEpilogue } from "./render.js";
 import { buildWorld } from "./seed.js";
 import { sift } from "./sifter.js";
 import { tick } from "./tick.js";
+
+// Bump when the sim's behaviour changes, so saved runs record what produced them.
+const STORY_VERSION = "0.2";
 
 interface Args {
   years: number;
@@ -16,10 +21,20 @@ interface Args {
   threshold: number;
   verbose: boolean;
   magic: boolean;
+  save: boolean;
+  arcs: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { years: 200, seed: 42, threshold: 4, verbose: false, magic: false };
+  const args: Args = {
+    years: 200,
+    seed: 42,
+    threshold: 4,
+    verbose: false,
+    magic: false,
+    save: false,
+    arcs: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--years") args.years = parseInt(argv[++i], 10);
@@ -27,6 +42,8 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--threshold") args.threshold = parseInt(argv[++i], 10);
     else if (a === "--verbose") args.verbose = true;
     else if (a === "--magic") args.magic = true;
+    else if (a === "--save") args.save = true;
+    else if (a === "--arcs") args.arcs = true;
   }
   return args;
 }
@@ -63,6 +80,29 @@ function main(): void {
 
   console.log(renderChronicle(world, chronicle));
   console.log(renderEpilogue(world));
+
+  // Group the significant events into story arcs (threads). Needed for --arcs
+  // and saved into meta.json by --save.
+  const arcs = extractArcs(world, chronicle);
+
+  if (args.arcs) {
+    console.log("\n" + "═".repeat(64));
+    console.log("STORY ARCS (threads, biggest first)");
+    console.log("─".repeat(64));
+    for (const a of arcs.slice(0, 20)) {
+      console.log(`  [${String(a.significance).padStart(3)}] ${a.title}  ·  ${a.eventIds.length} events`);
+    }
+    console.log(`(${arcs.length} arcs total)`);
+  }
+
+  if (args.save) {
+    const dir = saveRun(
+      world,
+      { seed: args.seed, years: args.years, magic: args.magic, version: STORY_VERSION },
+      arcs,
+    );
+    console.log(`\nSaved run to ${dir}/ (events.ndjson + meta.json).`);
+  }
 
   if (args.verbose) {
     // Raw event-type tally to gauge the simulation's behaviour at a glance.
