@@ -4,6 +4,7 @@
 //
 //   npx tsx main.ts --years 200 --seed 42
 
+import { magicInit } from "./magic.js";
 import { renderChronicle, renderEpilogue } from "./render.js";
 import { buildWorld } from "./seed.js";
 import { sift } from "./sifter.js";
@@ -14,16 +15,18 @@ interface Args {
   seed: number;
   threshold: number;
   verbose: boolean;
+  magic: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { years: 200, seed: 42, threshold: 4, verbose: false };
+  const args: Args = { years: 200, seed: 42, threshold: 4, verbose: false, magic: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--years") args.years = parseInt(argv[++i], 10);
     else if (a === "--seed") args.seed = parseInt(argv[++i], 10);
     else if (a === "--threshold") args.threshold = parseInt(argv[++i], 10);
     else if (a === "--verbose") args.verbose = true;
+    else if (a === "--magic") args.magic = true;
   }
   return args;
 }
@@ -32,6 +35,14 @@ function main(): void {
   const args = parseArgs(process.argv.slice(2));
 
   const world = buildWorld(args.seed);
+
+  // Opt into the magic / leveling layer. Off by default so the base chronicle
+  // is unchanged; `--magic` turns on classes, levels, inherited capital, the
+  // comfort governor, and lost arts.
+  if (args.magic) {
+    world.magicEnabled = true;
+    magicInit(world);
+  }
 
   // Run the simulation. Nothing is rendered during the loop — we simulate
   // first, then sift, exactly as the brief insists: the LLM (or stub) never
@@ -46,7 +57,7 @@ function main(): void {
   console.log("═".repeat(64));
   console.log("A CHRONICLE OF THE MATLU MULTIWORLD");
   console.log(
-    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling`,
+    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling${args.magic ? " · magic: on" : ""}`,
   );
   console.log("═".repeat(64));
 

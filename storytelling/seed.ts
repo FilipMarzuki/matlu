@@ -153,6 +153,16 @@ function addProvince(
   riverConnected: boolean,
   population: number,
 ): void {
+  // Mana density is derived from terrain: wild, untamed land (mountains,
+  // forests) holds more of it — and is more perilous, which is what mints
+  // high-level people. The fat farming heartlands are mana-poor and safe.
+  const MANA: Record<string, number> = {
+    mountain: 0.8,
+    forest: 0.6,
+    coast: 0.4,
+    hills: 0.4,
+    plains: 0.25,
+  };
   w.provinces.set(id, {
     id,
     name,
@@ -163,6 +173,7 @@ function addProvince(
     neighbors: [],
     population,
     titleId: "", // filled by addTitle
+    manaDensity: MANA[terrain] ?? 0.3,
   });
 }
 

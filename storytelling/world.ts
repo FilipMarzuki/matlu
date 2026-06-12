@@ -24,6 +24,11 @@ export class World {
   year = 0;
   rng: RNG;
 
+  // When true, the magic/leveling layer (magic.ts) runs each tick and personal
+  // combat prowess feeds into power(). Off by default so the base sim is
+  // unchanged and the two chronicles can be diffed.
+  magicEnabled = false;
+
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
   provinces = new Map<ProvinceId, Province>();
@@ -152,6 +157,32 @@ export class World {
       // Higher tiers project authority beyond their own seat.
       p += t.tier === "kingdom" ? 600 : t.tier === "duchy" ? 250 : 60;
     }
+    // Magic layer: a high-level martial figure is worth an army. This is the
+    // "overmighty subject" coupling — a level-20 warden on the frontier can
+    // out-fight a soft king with three counties. Kept inline (no import of
+    // magic.ts) so world.ts stays dependency-free.
+    if (this.magicEnabled) p += personalCombat(c);
     return p;
   }
+}
+
+// How much a person's own prowess weighs in a war, in the same units as levies.
+// Grows super-linearly with level so the very top tier is genuinely decisive,
+// scaled by how martial the class is.
+const MARTIAL: Record<string, number> = {
+  warden: 1.0,
+  stormcaller: 1.1,
+  knight: 0.85,
+  necromancer: 0.8,
+  soldier: 0.55,
+  hunter: 0.45,
+  commoner: 0.2,
+  scholar: 0.15,
+  merchant: 0.1,
+};
+
+export function personalCombat(c: Character): number {
+  if (!c.alive || c.level <= 1) return 0;
+  const martial = MARTIAL[c.charClass] ?? 0.3;
+  return Math.round(Math.pow(c.level, 1.4) * martial * 6);
 }

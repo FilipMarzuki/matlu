@@ -14,6 +14,7 @@
 
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
+import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
@@ -24,6 +25,10 @@ import type { World } from "./world.js";
 
 export function tick(w: World): void {
   w.year++;
+
+  // Mark where this year's events begin, so the magic layer can level people
+  // from exactly the deeds done this year (and nothing earlier).
+  const evStart = w.events.length;
 
   // --- Environmental layer: geography + natural phenomena ----------------
   regrowPopulation(w);
@@ -56,6 +61,12 @@ export function tick(w: World): void {
 
   // --- bookkeeping: dynasty extinction -----------------------------------
   detectExtinctions(w);
+
+  // --- magic / leveling layer (no-op unless enabled) ---------------------
+  // Runs last: it reads the year's events to grow people, then advances the
+  // capital/comfort/rite economy. Kept after the base loop so base behaviour is
+  // byte-identical when magic is off.
+  if (w.magicEnabled) runMagic(w, evStart);
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +164,11 @@ function syntheticDeceased(title: Title): Character {
     opinion: {},
     reputation: { schemer: 0, just: 0 },
     lowborn: false,
+    level: 1,
+    lifeXp: 0,
+    charClass: "commoner",
+    comfort: 0,
+    ventured: false,
   };
 }
 

@@ -95,7 +95,51 @@ arrive from many sources in one year (plague, age, murder, war).
 | `tick.ts` | One year, in canonical order |
 | `sifter.ts` | Story sifting (significance + shapes) |
 | `render.ts` | Stub templated prose renderer |
+| `magic.ts` | Optional leveling / magic layer (see below) |
 | `main.ts` | CLI entry point |
+
+## Magic / leveling layer (`--magic`)
+
+An optional high-fantasy layer: classes, levels, inherited capital and lost arts.
+**Off by default** so the base chronicle is byte-identical; turn it on with:
+
+```bash
+npx tsx storytelling/main.ts --years 200 --seed 42 --magic
+```
+
+The design question it answers: how do you add leveling to a dynastic history
+*without* breaking the causal closure that makes it feel like history? The answer
+is one positive loop and two negative loops, so power **breathes** instead of
+running away or flat-lining:
+
+- **(+) Matthew effect** — leveling is gated by **inherited capital** (a house's
+  wealth, its rare class-rite, being landed). XP itself echoes the *sifter's*
+  significance: you grow from doing dangerous, significant things. So power
+  concentrates in the same houses that hold land — the aristocracy is high-level
+  because it's *advantaged*, not born special.
+- **(−) Comfort governor** — too many advantages remove the real risk leveling
+  needs *and* the will to seek it. Safe training (`SHELTER`) buys levels only up
+  to a plateau; past it the only way up is real, lethal peril (`TEMPER` / venture
+  / war), and the cost rises exponentially. So entrenched houses **rot from
+  within** — heirs plateau below the grandparents who built the house.
+- **(−) Catastrophe** — war and plague cull the high-level tier and can sever the
+  transmission of a rite, resetting the board (handled by `phenomena` +
+  `maintainRites`).
+
+Other pieces: **rare class-rites** live in houses and are **lost** if the last
+master dies un-transmitted (`ART_LOST` — forgetting is the default); **frontier**
+provinces are more perilous and breed higher-level houses than the soft interior;
+**personal prowess feeds `power()`**, so a high-level landless cadet can out-fight
+a soft king (the "overmighty subject"). Watch the epilogue's *Mightiest of the
+age* and *Living arts*, and the chronicle's "mightiest soul of the age" beats.
+
+Textures it produces unscripted: third-generation decline, the landless/frontier
+out-levelling the crowned, low-born breakouts (`HERO_RISEN`), and — on some seeds
+— a **dark age** where every rare art is forgotten.
+
+Intellectual lineage: Merton's *Matthew Effect* + Bourdieu's *capital* (accrual),
+Ibn Khaldun's *asabiyyah* decay + Scheidel's *Great Leveler* (the two governors),
+Henrich on knowledge-loss, and The Wandering Inn / Cradle / Mistborn for flavor.
 
 ## v1 deliberately DEFERS
 

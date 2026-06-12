@@ -30,6 +30,12 @@ const BASE: Record<EventType, number> = {
   DYNASTY_EXTINCT: 9,
   LOWBORN_RISE: 8,
   GRUDGE_FORMED: 1,
+  // Magic / leveling layer.
+  CLASS_GAINED: 2, // routine generational handover of a rite — logged, rarely chronicled
+  LEVELED: 4, // milestone (12+) — bumped by how high in the per-event pass
+  HEIR_TEMPERED: 2, // a house forged its heir; bumped if it reached the heroic tier
+  ART_LOST: 9, // an art lost to history
+  HERO_RISEN: 8, // a low-born breakthrough
 };
 
 export interface SiftResult {
@@ -144,6 +150,28 @@ export function sift(w: World, threshold = 4): SiftResult {
         }
         break;
       }
+      case "LEVELED": {
+        // Logged only at milestones above the plateau (12+), so every LEVELED
+        // event is already noteworthy; the higher the tier, the bigger the news.
+        const lvl = Number(ev.data["level"] ?? 0);
+        if (lvl >= 30) s += 7;
+        else if (lvl >= 20) s += 4;
+        else if (lvl >= 16) s += 2;
+        if (lvl >= 16) tags.push("titan");
+        if (ev.data["ascendant"]) {
+          s += 3; // a new mightiest-of-the-age is always worth telling
+          tags.push("ascendant");
+        }
+        break;
+      }
+      case "HEIR_TEMPERED": {
+        const lvl = Number(ev.data["level"] ?? 0);
+        s += lvl >= 16 ? 4 : lvl >= 14 ? 2 : 0; // forging a formidable heir is notable
+        break;
+      }
+      case "HERO_RISEN":
+        tags.push("breakout");
+        break;
       default:
         break;
     }

@@ -74,6 +74,13 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
     opinion: {},
     reputation: { schemer: 0, just: w.rng.float(0.2, 0.6) },
     lowborn: opts.lowborn ?? false,
+    // Magic/leveling defaults — everyone starts ordinary. The magic layer
+    // (magic.ts) assigns classes at adulthood and grows levels over a life.
+    level: 1,
+    lifeXp: 0,
+    charClass: "commoner",
+    comfort: 0,
+    ventured: false,
   };
   w.characters.set(id, c);
   // Wire the child into its parents' child lists so the family graph is whole.
@@ -86,7 +93,15 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
 
 export function createDynasty(w: World, name: string, founderId: string): Dynasty {
   const id = w.freshId("d");
-  const dyn: Dynasty = { id, name, founderId, extinctYear: null };
+  const dyn: Dynasty = {
+    id,
+    name,
+    founderId,
+    extinctYear: null,
+    wealth: 0,
+    rite: null,
+    riteBearerId: null,
+  };
   w.dynasties.set(id, dyn);
   return dyn;
 }
