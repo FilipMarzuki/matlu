@@ -2029,7 +2029,12 @@ export class DungeonForgeScene extends Phaser.Scene {
 
   toggleHeroPlayerMode(): void {
     this.heroPlayerMode = !this.heroPlayerMode;
-    this.hero.setPlayerControlled(this.heroPlayerMode);
+    // The hero is spawned synchronously in create(), but external callers
+    // (e.g. the Playwright suite, or a nav button mid-scene-restart) can invoke
+    // this before spawnHero() has run. Guard so we flip the flag without
+    // crashing on an undefined hero; the next spawnHero()/respawnHero() applies
+    // heroPlayerMode via setPlayerControlled() anyway.
+    this.hero?.setPlayerControlled(this.heroPlayerMode);
     this.game.events.emit('nav-play-mode-changed', this.heroPlayerMode);
   }
 

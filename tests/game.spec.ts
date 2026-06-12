@@ -51,9 +51,14 @@ test('pressing W key moves the player upward', async ({ page }) => {
   });
 
   // GameScene.create() does heavy work (terrain, chunks, animals).
-  // Poll until the player object exists before interacting with keyboard.
+  // Poll until the player AND its physics body exist before interacting with
+  // the keyboard. Gating on `player` alone let the test drive `sys.step()`
+  // while create() was still wiring up bodies/colliders, which crashed
+  // intermittently inside Arcade physics ("Cannot read properties of undefined
+  // (reading 'isParent')" in collideObjects). Requiring `player.body` ensures
+  // physics setup has progressed before we hand-crank the world update.
   await page.waitForFunction(
-    () => !!((window as unknown as Record<string, { scene?: { getScene?: (k: string) => { player?: unknown } | null } }>)['__game']?.scene?.getScene?.('GameScene')?.player),
+    () => !!((window as unknown as Record<string, { scene?: { getScene?: (k: string) => { player?: { body?: unknown } } | null } }>)['__game']?.scene?.getScene?.('GameScene')?.player?.body),
     { timeout: SCENE_READY_MS },
   );
 
@@ -167,8 +172,22 @@ test('hero walk animation loops after completing one cycle', async ({ page }) =>
     { timeout: ARENA_BOOT_MS },
   );
 
-  // Short settle so create() finishes before we drive input.
-  await page.waitForTimeout(500);
+  // Wait until create() has actually spawned the hero before driving input.
+  // Waiting on `sys.settings.active` alone is not enough: under SwiftShader
+  // software WebGL in CI the scene can report active before create() finishes,
+  // leaving `scene.hero` (and therefore toggleHeroPlayerMode) undefined — which
+  // crashed intermittently with "Cannot read properties of undefined
+  // (reading 'setPlayerControlled')". Gate on the concrete object instead.
+  await page.waitForFunction(
+    () => {
+      const g = (window as unknown as Record<string, Phaser.Game>)['__game'];
+      const s = g?.scene?.getScene('DungeonForgeScene') as
+        | (Phaser.Scene & { hero?: unknown })
+        | null;
+      return !!s?.hero;
+    },
+    { timeout: ARENA_BOOT_MS },
+  );
 
   const result = await page.evaluate(() => {
     type ArenaParts = Phaser.Scene & {
