@@ -2,10 +2,17 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  // screenshot.spec.ts is a visual capture tool, not a pass/fail test suite.
-  // It requires --headed mode (WebGL RenderTextures don't render in headless Chrome)
-  // and is meant to be run manually via `npm run screenshot`, not in CI.
-  testIgnore: ['**/screenshot.spec.ts'],
+  // Some specs are analysis/capture tools, not pass/fail CI gates. They're run
+  // deliberately via their own npm scripts (and, where needed, their own config),
+  // so exclude them from the default `npm test` / CI run:
+  //   - screenshot.spec.ts     — visual capture; needs --headed (WebGL
+  //     RenderTextures don't render headless). Run via `npm run screenshot`.
+  //   - arena-testplay.spec.ts — a 300 sim-second balance report that writes a
+  //     JSON report + screenshots. It's intentionally slow and exceeds this
+  //     config's 120 s CI timeout, so it has its own playwright.arena-testplay
+  //     .config.ts (180 s) run via `npm run arena:testplay`. Gating CI on it just
+  //     flakes on the wall-clock timeout.
+  testIgnore: ['**/screenshot.spec.ts', '**/arena-testplay.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
