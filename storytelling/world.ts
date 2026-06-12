@@ -1,0 +1,157 @@
+// world.ts — the live state container plus the query helpers every system uses.
+//
+// The World holds all canonical state in plain maps/arrays. Systems (goals,
+// schemes, inheritance, phenomena) mutate it through these helpers so the
+// bookkeeping (event ids, child links, opinion defaults) stays in one place.
+
+import { RNG } from "./rng.js";
+import type {
+  Character,
+  CharId,
+  Dynasty,
+  DynastyId,
+  EventType,
+  Goal,
+  Province,
+  ProvinceId,
+  Scheme,
+  Title,
+  TitleId,
+  WorldEvent,
+} from "./types.js";
+
+export class World {
+  year = 0;
+  rng: RNG;
+
+  characters = new Map<CharId, Character>();
+  dynasties = new Map<DynastyId, Dynasty>();
+  provinces = new Map<ProvinceId, Province>();
+  titles = new Map<TitleId, Title>();
+
+  goals: Goal[] = [];
+  schemes: Scheme[] = [];
+  events: WorldEvent[] = [];
+
+  private nextEventId = 1;
+  private nextEntityId = 1;
+
+  constructor(seed: number) {
+    this.rng = new RNG(seed);
+  }
+
+  // A monotonic id source for generated characters, goals, schemes, etc.
+  freshId(prefix: string): string {
+    return `${prefix}${this.nextEntityId++}`;
+  }
+
+  // ---- logging -----------------------------------------------------------
+  // Every system funnels through here so the event log is the single trace of
+  // history. Significance is set later by the sifter, hence the 0 default.
+  log(
+    type: EventType,
+    fields: Partial<Omit<WorldEvent, "id" | "year" | "type" | "significance">> = {},
+  ): WorldEvent {
+    const ev: WorldEvent = {
+      id: this.nextEventId++,
+      year: this.year,
+      type,
+      actorId: fields.actorId ?? null,
+      targetId: fields.targetId ?? null,
+      titleId: fields.titleId ?? null,
+      provinceId: fields.provinceId ?? null,
+      data: fields.data ?? {},
+      significance: 0,
+    };
+    this.events.push(ev);
+    return ev;
+  }
+
+  // ---- basic getters -----------------------------------------------------
+  char(id: CharId | null): Character | undefined {
+    return id ? this.characters.get(id) : undefined;
+  }
+  dynasty(id: DynastyId): Dynasty | undefined {
+    return this.dynasties.get(id);
+  }
+  province(id: ProvinceId): Province | undefined {
+    return this.provinces.get(id);
+  }
+  title(id: TitleId | null): Title | undefined {
+    return id ? this.titles.get(id) : undefined;
+  }
+
+  // ---- collections -------------------------------------------------------
+  living(): Character[] {
+    const out: Character[] = [];
+    for (const c of this.characters.values()) if (c.alive) out.push(c);
+    return out;
+  }
+
+  // Adults are eligible for goals, marriage, and scheming.
+  adults(): Character[] {
+    return this.living().filter((c) => this.age(c) >= 16);
+  }
+
+  age(c: Character): number {
+    return this.year - c.birthYear;
+  }
+
+  // Living members of a dynasty, eldest first — used by seniority succession
+  // and for detecting dynasty extinction.
+  dynastyMembers(id: DynastyId): Character[] {
+    return this.living()
+      .filter((c) => c.dynastyId === id)
+      .sort((a, b) => a.birthYear - b.birthYear);
+  }
+
+  // Direct legitimate children, eldest first. Bastardy isn't modelled in v1,
+  // so "legitimate" just means a recorded child.
+  children(c: Character): Character[] {
+    return c.childrenIds
+      .map((id) => this.characters.get(id))
+      .filter((k): k is Character => !!k)
+      .sort((a, b) => a.birthYear - b.birthYear);
+  }
+
+  livingChildren(c: Character): Character[] {
+    return this.children(c).filter((k) => k.alive);
+  }
+
+  titlesHeldBy(id: CharId): Title[] {
+    const out: Title[] = [];
+    for (const t of this.titles.values()) if (t.holderId === id) out.push(t);
+    return out;
+  }
+
+  // ---- opinion -----------------------------------------------------------
+  // Opinion is lazily defaulted to 0 (neutral). Dynasty kin start a little
+  // warmer; this is a query so callers never have to special-case missing keys.
+  opinionOf(a: Character, bId: CharId): number {
+    if (a.opinion[bId] !== undefined) return a.opinion[bId];
+    const b = this.char(bId);
+    const base = b && b.dynastyId === a.dynastyId ? 15 : 0;
+    a.opinion[bId] = base;
+    return base;
+  }
+
+  adjustOpinion(a: Character, bId: CharId, delta: number): void {
+    const cur = this.opinionOf(a, bId);
+    a.opinion[bId] = Math.max(-100, Math.min(100, cur + delta));
+  }
+
+  // ---- power -------------------------------------------------------------
+  // A character's "power" is the levy + wealth their lands can raise, derived
+  // straight from geography. Carrying capacity caps population caps levy, so
+  // scarcity and conquest both flow into political strength here.
+  power(c: Character): number {
+    let p = 0;
+    for (const t of this.titlesHeldBy(c.id)) {
+      const prov = this.province(t.provinceId);
+      if (prov) p += prov.population;
+      // Higher tiers project authority beyond their own seat.
+      p += t.tier === "kingdom" ? 600 : t.tier === "duchy" ? 250 : 60;
+    }
+    return p;
+  }
+}
