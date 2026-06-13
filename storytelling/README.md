@@ -91,7 +91,8 @@ arrive from many sources in one year (plague, age, murder, war).
 | `inheritance.ts` | Succession laws, claims, succession crises |
 | `people.ts` | Character / dynasty factories |
 | `names.ts` | Name pools |
-| `seed.ts` | Starting tableau: 8 provinces, 3 houses, ~28 chars |
+| `world-spec.ts` | `WorldSpec` schema + `DEFAULT_SPEC` (the world as DATA) |
+| `seed.ts` | `loadWorld(spec)` — turn a WorldSpec into a live World |
 | `tick.ts` | One year, in canonical order |
 | `sifter.ts` | Story sifting (significance + shapes) |
 | `arcs.ts` | Group significant events into story arcs (threads) |
@@ -99,6 +100,37 @@ arrive from many sources in one year (plague, age, murder, war).
 | `persist.ts` | Save a run: `events.ndjson` (canon) + `meta.json` |
 | `magic.ts` | Optional leveling / magic layer (see below) |
 | `main.ts` | CLI entry point |
+
+## Feeding in world data (`WorldSpec` / `--spec`)
+
+The world is **data, not code**. `world-spec.ts` defines a `WorldSpec` — provinces
+(terrain, fertility, coast/river, neighbors, population, **mana**), titles
+(tier + succession law), dynasties, and characters (drives + relationships +
+claims) — and `seed.ts`'s `loadWorld(spec, seed)` turns it into a live World. The
+entire geographic surface the engine reads is the `Province` record; produce that
+(plus the title/dynasty graph) and everything downstream (carrying capacity,
+scarcity, plague spread, peril, the leveling ceiling) is derived.
+
+Feed in a different world by passing a JSON `WorldSpec`:
+
+```bash
+npx tsx storytelling/main.ts --spec my-world.spec.json --seed 42 --magic
+```
+
+`mana` is **authored data** per province (no longer derived from terrain) — the
+"second geography" you can drive from a corruption / ley overlay. To wire the real
+Matlu world, write small adapters that emit a `WorldSpec`:
+
+- **geography** ← the Azgaar export (`npm run worldgen:earth`: biomes → fertility,
+  rivers/coast, temperature → harvest variance), **aggregated** to ~30 provinces;
+- **mana** ← a corruption/ley overlay;
+- **cultures** ← `macro-world/cultures.json` → succession law + name pools +
+  drive/temperament biases (so regions read as *places*);
+- **resources** ← `macro-world/resources.json`;
+- **dynasties/characters** ← lore (WORLD.md / Notion).
+
+The engine never changes — each new world is just a different `WorldSpec`. (That
+spec is also the byte-stable "world bible" you'd freeze as the LLM's cached prefix.)
 
 ## Saving stories & the story model
 
