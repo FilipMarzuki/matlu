@@ -36,6 +36,9 @@ Each site has its own `package.json` and is built independently in CI.
 | `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
 | `npm run assets:sprites`  | Regenerate `public/assets/sprite-manifest.json` — catalogs all sprites + wired status |
 | `npm run screenshot`      | Capture game screenshots to `screenshots/` for visual review                     |
+| `npm run pixellab:queue`  | Regenerate `pixellab-queue.json` from current sprite state                       |
+| `npm run pixellab:burn`   | Run PixelLab burn pipeline (generate → poll → download → commit)                 |
+| `npm run pixellab:burn:dry` | Dry-run burn — logs actions without calling API                                |
 | `npm run worldgen:earth`  | Full Earth map pipeline: heightmap → Azgaar import/export → validate             |
 | `npm run worldgen:heightmap` | Download + convert Earth heightmap to PNG                                     |
 | `npm run worldgen:generate`  | Playwright: import heightmap into Azgaar FMG, export .map + JSON             |
@@ -72,22 +75,37 @@ Browse all sprites at `/assets` — red dot = unwired (not used in code), green 
 
 ## AI asset generation (PixelLab)
 
-Custom pixel art is generated via the **PixelLab MCP** (available in this project via `.mcp.json`).
+Custom pixel art is generated via the **pixellab-burn pipeline** — a Node.js script that calls PixelLab's MCP HTTP API directly. This is the **default and preferred** method for all PixelLab generation (characters, animations, objects, tiles).
 
-| File | Purpose |
-| ---- | ------- |
-| `src/ai/asset-spec.json` | Declarative spec — what to generate, PixelLab params, output paths |
-| `src/ai/AGENTS.md` | **Full step-by-step protocol** for generating assets autonomously |
+### Pipeline overview
+
+1. **`pixellab-queue-generate.mjs`** scans existing sprites + `pixellab-ids.json` and builds `pixellab-queue.json` with everything that's missing
+2. **`pixellab-burn.mjs`** processes the queue sequentially: generate → poll → download → commit
 
 | Command | Description |
 | ------- | ----------- |
-| `npm run sprites:status` | Show pending / done assets |
+| `npm run pixellab:queue` | Regenerate `pixellab-queue.json` from current state |
+| `npm run pixellab:burn` | Process the queue (generate, download, commit) |
+| `npm run pixellab:burn:dry` | Dry run — log what would happen without API calls |
+| `npm run pixellab:burn -- --limit 10` | Process at most 10 items |
+| `npm run pixellab:burn -- --skip-download` | Generate only, no download/commit |
+| `npm run sprites:status` | Show pending / done assets (from `asset-spec.json`) |
 | `npm run sprites:assemble` | Assemble raw frames → spritesheets + JSON |
 | `npm run sprites:assemble -- --id skald` | Assemble one asset only |
-| `npm run sprites:assemble -- --dry-run` | Preview without writing |
 
-**To generate pending assets:** read `src/ai/AGENTS.md` and follow the protocol.
-Raw frames go in `public/assets/sprites/_raw/` (gitignored). Assembled spritesheets go in `public/assets/sprites/` and are committed to git.
+### Queue passes
+
+The queue generator supports filters: `--idle-run`, `--extras`, `--birds`, `--npcs`, `--art`. Without flags it generates everything.
+
+### Adding new generation work
+
+To add new items to the pipeline, edit **`scripts/pixellab-queue-generate.mjs`** — add entries to the relevant section (quadrupeds, birds, NPCs, buildings, furniture, tiles, etc.). The generator checks what already exists on disk and only queues missing items.
+
+For one-off or experimental generations, the **PixelLab MCP** tools are still available via `.mcp.json` for interactive use.
+
+### Legacy spec file
+
+`src/ai/asset-spec.json` contains older generation specs (icons, map objects). These are still read by `sprites:assemble` but new work should go through the queue generator.
 
 ### PixelLab credentials
 
@@ -343,5 +361,5 @@ Most agent workflows run as GitHub Actions cron jobs. Each spawns a single Claud
 | **Weekly Engineering Stats** | `0 8 * * 0` (Sunday) | `collect-stats.js` (script, not agent) | `GITHUB_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTION_API_KEY` | Collects delivery/quality/rework metrics; writes to Supabase `stats_weekly` + `cognitive_load`; triggers Vercel rebuild |
 | Weekly Release Notes | after Weekly Engineering Stats | `.agents/release-notes.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes release notes from merged PRs, posts to Notion |
 | Agent Performance Log | after Weekly Release Notes | `.agents/agent-perf-log.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Queries GitHub Issues for agent:* outcome labels, creates weekly summary child page in Notion "Agent Performance Log" |
-| **Sprite Credit Burn** | **manual only** (`workflow_dispatch`) | `.agents/sprite-credit-burn.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Generates PixelLab sprites for all entities missing them (Pass 1), then drains queued community creature submissions (Pass 2); commits after each entity/creature; stops cleanly when credits run out. Run before the 9th of the month. |
+| **Sprite Credit Burn** | **manual only** (`workflow_dispatch`) | `.agents/sprite-credit-burn.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Runs `npm run pixellab:queue` then `npm run pixellab:burn` — the Node.js burn script handles all PixelLab generation via HTTP API. Commits after each entity; stops when credits run out. Run before the 9th of the month. |
 | **Wildlife Species** | nightly (after Dev Agent) | `.agents/wildlife-species.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY` | One pipeline step per session for the next wildlife species. State tracked in `wildlife-pipeline-state.json`. Character creation requires human approval before animations are queued. ~48 credits per species. |

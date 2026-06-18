@@ -1,11 +1,27 @@
 # Asset Generation Protocol
 
-Instructions for Claude agents generating pixel art assets overnight or on demand.
-Read `src/ai/asset-spec.json` first. All generation parameters are defined there.
+## Preferred method: pixellab-burn pipeline
+
+For bulk generation (characters, animations, objects, tiles), use the **burn script**:
+
+```bash
+npm run pixellab:queue    # regenerate queue from current state
+npm run pixellab:burn     # process queue: generate → poll → download → commit
+```
+
+The burn script (`scripts/pixellab-burn.mjs`) calls PixelLab's HTTP API directly — no MCP tool calls needed. It handles rate limiting, polling, downloading, and git commits automatically. See `.agents/sprite-credit-burn.md` for the full agent workflow.
+
+To add new items, edit `scripts/pixellab-queue-generate.mjs`.
+
+## Manual / interactive generation (MCP)
+
+The protocol below is for **interactive use** — one-off generation, reviewing previews, or experimenting with new character designs where human approval is needed before spending credits.
+
+Read `src/ai/asset-spec.json` for generation parameters.
 
 ---
 
-## Overview
+## Overview (manual MCP workflow)
 
 1. Check what's pending
 2. Generate characters (PixelLab MCP)
