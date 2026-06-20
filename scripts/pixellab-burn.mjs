@@ -420,9 +420,9 @@ async function main() {
       } else if (item.type === 'create_isometric_tile') {
         log(`  create_isometric_tile: ${item.description?.slice(0, 80)}`);
         if (!DRY_RUN) {
-          const text = await mcpCallWithRetry('create_isometric_tile', {
-            description: item.description,
-          });
+          const params = { description: item.description };
+          if (item.tile_shape) params.tile_shape = item.tile_shape;
+          const text = await mcpCallWithRetry('create_isometric_tile', params);
           log(`  Response: ${text.slice(0, 200)}`);
           item.status = 'done';
           item.completedAt = new Date().toISOString();

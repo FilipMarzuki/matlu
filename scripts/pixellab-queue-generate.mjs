@@ -87,7 +87,8 @@ const args = process.argv.slice(2);
 const onlyIdleRun = args.includes('--idle-run');
 const onlyExtras = args.includes('--extras');
 const onlyBirds = args.includes('--birds');
-const all = !onlyIdleRun && !onlyExtras && !onlyBirds;
+const onlyTiles = args.includes('--tiles');
+const all = !onlyIdleRun && !onlyExtras && !onlyBirds && !onlyTiles;
 
 // ── Build queue ──────────────────────────────────────────────────────────────
 
@@ -792,6 +793,230 @@ if (all || onlyArt) {
       description: `${r.desc}. 32x32 isometric diamond tile. Transparent background.`,
       outputPath: outPath, status: 'pending', pass: 'road-tiles',
     });
+  }
+}
+
+// ── Biome transition tiles, rare variants, edge scatter ─────────────────────
+const PACKS_DIR = join(ROOT, 'public/assets/packs');
+const TRANSITIONS_DIR = join(ROOT, 'public/assets/sprites/transitions');
+
+if (all || onlyTiles) {
+  // ── Layer 1: Transition tile sets (16-tile Wang set per biome pair) ──────
+  // Each transition tile blends two biome styles at isometric diamond corners.
+  // Bitmask 0-15: bit0=NW, bit1=NE, bit2=SE, bit3=SW. Set bit = biome B corner.
+
+  const TRANSITION_PAIRS = [
+    {
+      folder: 'transition-meadow-forest',
+      biomeA: 'meadow', biomeB: 'forest',
+      descA: 'bright green grass meadow with small flowers',
+      descB: 'dark dense forest floor with leaf litter and moss',
+    },
+    {
+      folder: 'transition-meadow-marsh',
+      biomeA: 'meadow', biomeB: 'marsh',
+      descA: 'bright green grass meadow',
+      descB: 'dark wet marshy ground with puddles, reeds, and peat',
+    },
+    {
+      folder: 'transition-shore-meadow',
+      biomeA: 'sandy shore', biomeB: 'meadow',
+      descA: 'sandy beige shoreline with small pebbles',
+      descB: 'bright green grass meadow',
+    },
+    {
+      folder: 'transition-forest-granite',
+      biomeA: 'forest', biomeB: 'cold granite',
+      descA: 'dark forest floor with moss and fallen leaves',
+      descB: 'grey exposed granite rock with lichen patches',
+    },
+    {
+      folder: 'transition-forest-spruce',
+      biomeA: 'broad-leaf forest', biomeB: 'spruce forest',
+      descA: 'warm brown forest floor with broad leaves and moss',
+      descB: 'dark cold spruce forest floor with needles and sparse undergrowth',
+    },
+    {
+      folder: 'transition-granite-snow',
+      biomeA: 'cold granite', biomeB: 'snow field',
+      descA: 'grey granite rock surface with lichen',
+      descB: 'white snow covering with ice crystals and frost',
+    },
+    {
+      folder: 'transition-meadow-heath',
+      biomeA: 'meadow', biomeB: 'dry heath',
+      descA: 'bright green grass meadow',
+      descB: 'dry brown heath with heather, sparse rocks, and sandy patches',
+    },
+  ];
+
+  const CORNER_LABELS = ['NW', 'NE', 'SE', 'SW'];
+
+  for (const pair of TRANSITION_PAIRS) {
+    const pairDir = join(PACKS_DIR, pair.folder);
+    for (let mask = 1; mask < 16; mask++) {
+      // Skip mask 0 (no transition) — base tile handles it
+      const outPath = join(pairDir, `${mask}.png`);
+      if (existsSync(outPath)) continue;
+
+      // Build a description of which corners are which biome
+      const corners = CORNER_LABELS.map((label, i) =>
+        `${label} corner: ${(mask & (1 << i)) ? pair.descB : pair.descA}`
+      ).join(', ');
+
+      queue.push({
+        type: 'create_isometric_tile',
+        name: `${pair.folder}-${mask}`,
+        description: `Isometric 32x32 diamond transition tile blending two terrain types. ${corners}. Smooth natural gradient between the two materials at the boundary. Pixel art style matching existing game tiles. Transparent background.`,
+        outputPath: outPath,
+        status: 'pending',
+        pass: 'transition-tiles',
+        tile_shape: 'thick tile',
+      });
+    }
+
+    // Also generate mask 0 as a pure biome-A tile (optional — base tile usually covers this)
+    const zeroPath = join(pairDir, '0.png');
+    if (!existsSync(zeroPath)) {
+      queue.push({
+        type: 'create_isometric_tile',
+        name: `${pair.folder}-0`,
+        description: `Isometric 32x32 diamond tile, pure ${pair.descA}. Pixel art style matching existing game tiles. Transparent background.`,
+        outputPath: zeroPath,
+        status: 'pending',
+        pass: 'transition-tiles',
+        tile_shape: 'thick tile',
+      });
+    }
+  }
+
+  // ── Layer 3: Edge scatter decoration sprites ────────────────────────────
+  // Small semi-transparent sprites placed at biome boundaries to hide seams.
+
+  const EDGE_SCATTER = [
+    // Meadow ↔ Forest
+    { id: 'scatter-grass-tuft-1',   desc: 'small grass tuft, 2-3 blades, green, growing at forest edge',       w: 16, h: 16 },
+    { id: 'scatter-grass-tuft-2',   desc: 'small grass tuft, wider spread, light green, meadow edge',           w: 16, h: 16 },
+    { id: 'scatter-fallen-leaves-1',desc: 'small pile of fallen brown/orange leaves on grass',                   w: 16, h: 12 },
+    { id: 'scatter-fallen-leaves-2',desc: 'scattered autumn leaves, red and brown, on ground',                   w: 16, h: 12 },
+    { id: 'scatter-sapling',        desc: 'tiny tree sapling, 2-3 small leaves, thin trunk, just sprouted',      w: 12, h: 16 },
+    // Meadow ↔ Marsh
+    { id: 'scatter-reed-1',         desc: 'small cluster of marsh reeds, 3-4 tall stems, brownish-green',        w: 16, h: 20 },
+    { id: 'scatter-reed-2',         desc: 'single tall marsh reed with seed head, wetland plant',                w: 12, h: 20 },
+    { id: 'scatter-puddle',         desc: 'small shallow puddle of water on grass, reflective, oval shape',      w: 16, h: 12 },
+    { id: 'scatter-moss-patch',     desc: 'dark green moss growing on ground, soft texture, irregular patch',    w: 16, h: 12 },
+    // Shore ↔ Meadow
+    { id: 'scatter-sand-wisp',      desc: 'thin trail of sand blown onto grass, sandy streak on green',          w: 16, h: 8  },
+    { id: 'scatter-dune-grass',     desc: 'coastal dune grass, tall sparse blades growing in sand',              w: 16, h: 20 },
+    { id: 'scatter-pebbles-1',      desc: 'small cluster of round pebbles on ground, grey and brown',           w: 16, h: 12 },
+    { id: 'scatter-pebbles-2',      desc: 'scattered beach pebbles, small stones, varied colors',               w: 16, h: 12 },
+    // Forest ↔ Granite
+    { id: 'scatter-lichen-rock',    desc: 'small rock with yellow-green lichen growing on it, at treeline',      w: 16, h: 14 },
+    { id: 'scatter-thin-soil',      desc: 'exposed thin soil with small roots visible, rocky ground patch',      w: 16, h: 12 },
+    { id: 'scatter-stunted-bush',   desc: 'small wind-stunted bush, sparse leaves, growing between rocks',       w: 16, h: 14 },
+    // Granite ↔ Snow
+    { id: 'scatter-frost-patch',    desc: 'thin frost/ice patch on rock surface, white crystals on grey stone',  w: 16, h: 12 },
+    { id: 'scatter-ice-pebbles',    desc: 'small ice-coated pebbles, frosted stones, mountain summit',           w: 16, h: 10 },
+    { id: 'scatter-thin-snow',      desc: 'thin dusting of snow on rock, partial coverage, wind-blown pattern',  w: 16, h: 12 },
+    // General / fallback
+    { id: 'scatter-edge-grass',     desc: 'generic short grass growing at terrain edge, could be any boundary',  w: 16, h: 12 },
+    { id: 'scatter-edge-stones',    desc: 'small loose stones at terrain transition, natural debris',            w: 16, h: 10 },
+  ];
+
+  for (const s of EDGE_SCATTER) {
+    const outPath = join(TRANSITIONS_DIR, `${s.id}.png`);
+    if (existsSync(outPath)) continue;
+    queue.push({
+      type: 'create_map_object',
+      name: s.id,
+      description: `Tiny pixel art decoration sprite. ${s.desc}. Transparent background. Semi-transparent edges for blending. Isometric perspective matching 32x32 diamond tiles.`,
+      width: s.w, height: s.h, view: 'low top-down',
+      outputPath: outPath,
+      status: 'pending',
+      pass: 'edge-scatter',
+    });
+  }
+
+  // ── Layer 4: Sub-biome rare variant tiles ───────────────────────────────
+  // Expand each biome pack from 4 to 8 variants. Variants 4-7 are rare
+  // (appear ~10% of the time) and add visual richness.
+
+  const RARE_VARIANTS = [
+    { pack: 'meadow',       variants: [
+      { idx: 4, desc: 'meadow with small wildflower patch, purple and yellow flowers among green grass' },
+      { idx: 5, desc: 'meadow with clover field, dense low clover leaves, slightly darker green' },
+      { idx: 6, desc: 'meadow with dried grass patch, golden-brown dry spot in green grass, late summer' },
+      { idx: 7, desc: 'meadow with small rocky outcrop, 2-3 stones poking through grass' },
+    ]},
+    { pack: 'forest',       variants: [
+      { idx: 4, desc: 'forest floor with thick moss carpet, deep emerald green, soft looking' },
+      { idx: 5, desc: 'forest floor with fallen log, rotting wood across ground, mushrooms growing on it' },
+      { idx: 6, desc: 'forest floor with mushroom cluster, small brown and red mushrooms in a ring' },
+      { idx: 7, desc: 'forest floor dense with ferns, bright green frond leaves covering ground' },
+    ]},
+    { pack: 'marsh',        variants: [
+      { idx: 4, desc: 'marsh with deep puddle, standing water reflecting sky, dark peaty edges' },
+      { idx: 5, desc: 'marsh with dense reed cluster, tall green-brown reeds growing from wet ground' },
+      { idx: 6, desc: 'marsh with peat mound, raised dark brown earth, decomposing plant matter' },
+      { idx: 7, desc: 'marsh with green algae pool, stagnant water with surface algae, murky' },
+    ]},
+    { pack: 'cold-granite', variants: [
+      { idx: 4, desc: 'granite rock covered in yellow-green lichen, natural rock surface with organic growth' },
+      { idx: 5, desc: 'granite with visible quartz vein, white crystal streak through grey rock' },
+      { idx: 6, desc: 'cracked granite surface, deep fissure running across stone, weathered' },
+      { idx: 7, desc: 'granite with frost pocket, ice crystals in rock crevice, cold and exposed' },
+    ]},
+    { pack: 'sandy-shore',  variants: [
+      { idx: 4, desc: 'sandy shore with scattered seashells, small white and pink shells on sand' },
+      { idx: 5, desc: 'sandy shore with dried seaweed strand, dark brown kelp on beige sand' },
+      { idx: 6, desc: 'sandy shore with tide pool mark, wet darker sand ring, recently receded water' },
+      { idx: 7, desc: 'sandy shore with smooth beach pebbles, rounded grey stones on sand' },
+    ]},
+    { pack: 'rocky-shore',  variants: [
+      { idx: 4, desc: 'rocky shore with barnacle-covered stone, white crusty barnacles on dark rock' },
+      { idx: 5, desc: 'rocky shore with tide pool, small water pool between rocks, clear water' },
+      { idx: 6, desc: 'rocky shore with green seaweed, bright green algae growing on wet rock' },
+      { idx: 7, desc: 'rocky shore with salt crust, white mineral deposits on dark stone, dried spray' },
+    ]},
+    { pack: 'dry-heath',    variants: [
+      { idx: 4, desc: 'dry heath with heather bloom, small purple-pink flowering heather bush on rocky ground' },
+      { idx: 5, desc: 'dry heath with ant mound, small earth mound among scrubby vegetation' },
+      { idx: 6, desc: 'dry heath with exposed root, gnarled woody root crossing stony ground' },
+      { idx: 7, desc: 'dry heath with lichen-covered stone, flat stone with orange and grey lichen' },
+    ]},
+    { pack: 'snow-field',   variants: [
+      { idx: 4, desc: 'snow field with wind-sculpted drift, smooth curved snow formation, sastrugi pattern' },
+      { idx: 5, desc: 'snow field with exposed ice patch, clear blue-white ice showing through snow' },
+      { idx: 6, desc: 'snow field with animal tracks, small footprints crossing pristine snow surface' },
+      { idx: 7, desc: 'snow field with frost crystals, surface hoar frost, sparkling ice needles' },
+    ]},
+    { pack: 'bare-summit',  variants: [
+      { idx: 4, desc: 'bare summit with wind-polished rock, smooth grey surface, exposed to elements' },
+      { idx: 5, desc: 'bare summit with cairn stones, small stack of balanced rocks, trail marker' },
+      { idx: 6, desc: 'bare summit with thin moss stripe, green line of moss in rock crack' },
+      { idx: 7, desc: 'bare summit with quartz fragments, scattered white crystal shards on grey stone' },
+    ]},
+    { pack: 'coastal-heath', variants: [
+      { idx: 4, desc: 'coastal heath with sea thrift flowers, small pink round flowers on rocky ground' },
+      { idx: 5, desc: 'coastal heath with salt-burned grass, yellowish wind-damaged vegetation' },
+      { idx: 6, desc: 'coastal heath with gorse bush patch, small thorny yellow-flowered shrub' },
+      { idx: 7, desc: 'coastal heath with driftwood piece, weathered grey wood on heath ground' },
+    ]},
+  ];
+
+  for (const biome of RARE_VARIANTS) {
+    for (const v of biome.variants) {
+      const outPath = join(PACKS_DIR, `${biome.pack}-tiles`, `${v.idx}.png`);
+      if (existsSync(outPath)) continue;
+      queue.push({
+        type: 'create_isometric_tile',
+        name: `${biome.pack}-rare-${v.idx}`,
+        description: `Isometric 32x32 diamond tile. ${v.desc}. Pixel art style matching existing ${biome.pack} tiles. Transparent background.`,
+        outputPath: outPath,
+        status: 'pending',
+        pass: 'rare-variants',
+      });
+    }
   }
 }
 
