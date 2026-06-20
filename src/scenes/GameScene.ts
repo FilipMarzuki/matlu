@@ -994,33 +994,36 @@ export class GameScene extends Phaser.Scene {
     this.load.spritesheet('grouse-walk', `${craftpixBase}/Black_grouse/Black_grouse_Walk.png`,   { frameWidth: 16, frameHeight: 16 });
 
     // ── Wildlife sprites — data-driven loading for all species with animations ──
+    // Sizes match actual PixelLab sprite dimensions. Only 8-direction anims go in
+    // the multi-dir loop; 1-direction anims are loaded as SE-only below.
     const DIRS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'];
     const wildlifeSpecs: { species: string; anims: string[]; size: number }[] = [
-      { species: 'wolf',        anims: ['idle', 'walk', 'run', 'sneak'], size: 48 },
-      { species: 'lynx',        anims: ['idle', 'run'],                  size: 48 },
-      { species: 'bear',        anims: ['idle', 'run'],                  size: 68 },
-      { species: 'squirrel',    anims: ['idle', 'run'],                  size: 24 },
-      { species: 'hedgehog',    anims: ['idle', 'run'],                  size: 24 },
-      { species: 'elk',         anims: ['idle', 'run'],                  size: 68 },
-      { species: 'bison',       anims: ['idle', 'run'],                  size: 68 },
-      { species: 'roe-deer',    anims: ['idle', 'run'],                  size: 48 },
-      { species: 'wolverine',   anims: ['idle', 'run'],                  size: 48 },
-      { species: 'rabbit',      anims: ['idle', 'run'],                  size: 24 },
-      { species: 'pine-marten', anims: ['idle', 'run'],                  size: 36 },
-      { species: 'polecat',     anims: ['idle', 'run'],                  size: 36 },
-      { species: 'stoat',       anims: ['idle', 'run'],                  size: 24 },
-      { species: 'beaver',      anims: ['idle', 'run'],                  size: 48 },
-      { species: 'wild-boar',   anims: ['idle', 'run'],                  size: 68 },
-      { species: 'badger',      anims: ['idle', 'run'],                  size: 48 },
-      { species: 'beech-marten', anims: ['idle', 'run'],                size: 36 },
-      { species: 'weasel',      anims: ['idle', 'run'],                  size: 24 },
-      { species: 'wildcat',     anims: ['idle', 'run'],                  size: 48 },
-      { species: 'raccoon',     anims: ['idle', 'run'],                  size: 36 },
-      { species: 'grass-snake', anims: ['idle', 'run'],                  size: 36 },
-      { species: 'arctic-fox', anims: ['idle', 'run'],                   size: 36 },
-      { species: 'fallow-deer', anims: ['idle', 'run'],                  size: 48 },
-      { species: 'red-deer',    anims: ['idle', 'run'],                  size: 68 },
-      { species: 'moose',       anims: ['idle', 'run'],                  size: 68 },
+      { species: 'wolf',         anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 48 },
+      { species: 'lynx',         anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 32 },
+      { species: 'wildcat',      anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 32 },
+      { species: 'bear',         anims: ['idle', 'walk', 'run', 'alert', 'sleep'],          size: 48 },
+      { species: 'squirrel',     anims: ['idle', 'walk', 'run', 'alert'],                   size: 16 },
+      { species: 'hedgehog',     anims: ['idle', 'walk', 'run', 'alert'],                   size: 16 },
+      { species: 'elk',          anims: ['idle', 'run', 'alert'],                            size: 48 },
+      { species: 'bison',        anims: ['idle', 'run', 'alert'],                            size: 48 },
+      { species: 'roe-deer',     anims: ['idle', 'run', 'alert'],                            size: 32 },
+      { species: 'wolverine',    anims: ['idle', 'walk', 'run', 'sneak', 'alert', 'sleep'], size: 32 },
+      { species: 'rabbit',       anims: ['idle', 'walk', 'run', 'alert'],                   size: 16 },
+      { species: 'pine-marten',  anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 24 },
+      { species: 'beech-marten', anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 24 },
+      { species: 'polecat',      anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 24 },
+      { species: 'stoat',        anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 16 },
+      { species: 'weasel',       anims: ['idle', 'walk', 'run', 'sneak', 'alert'],          size: 16 },
+      { species: 'raccoon',      anims: ['idle', 'walk', 'run', 'alert'],                   size: 24 },
+      { species: 'rat',          anims: ['idle', 'walk', 'alert'],                           size: 16 },
+      { species: 'grass-snake',  anims: ['idle', 'walk', 'run', 'alert'],                   size: 24 },
+      { species: 'beaver',       anims: ['idle', 'walk', 'run', 'alert', 'sleep'],          size: 32 },
+      { species: 'wild-boar',    anims: ['idle', 'walk', 'run', 'alert', 'sleep'],          size: 48 },
+      { species: 'badger',       anims: ['idle', 'walk', 'run', 'alert', 'sleep'],          size: 32 },
+      { species: 'arctic-fox',   anims: ['idle', 'run', 'sneak', 'alert'],                  size: 24 },
+      { species: 'fallow-deer',  anims: ['idle', 'run', 'alert'],                            size: 32 },
+      { species: 'red-deer',     anims: ['idle', 'walk', 'run', 'alert'],                   size: 48 },
+      { species: 'moose',        anims: ['idle', 'run'],                                     size: 48 },
     ];
     for (const { species, anims, size } of wildlifeSpecs) {
       const base = `assets/sprites/wildlife/${species}`;
@@ -1030,17 +1033,100 @@ export class GameScene extends Phaser.Scene {
         }
       }
     }
-    // Wolf extras: alert (missing east), v3 single-direction anims, backward compat keys.
-    const wolfBase = 'assets/sprites/wildlife/wolf';
-    for (const d of ['s', 'se', 'ne', 'n', 'nw', 'w', 'sw']) {
-      this.load.spritesheet(`wolf-alert-${d}`, `${wolfBase}/alert_${d}.png`, { frameWidth: 48, frameHeight: 48 });
+
+    // ── Bird sprites — 8-direction anims (fly, idle, walk with 6+ dirs) ──
+    const birdSpecs: { species: string; anims: string[]; size: number }[] = [
+      { species: 'buzzard',            anims: ['idle', 'fly'],               size: 24 },
+      { species: 'owl',                anims: ['idle', 'fly'],               size: 24 },
+      { species: 'heron',              anims: ['idle', 'fly', 'walk'],       size: 32 },
+      { species: 'golden-eagle',       anims: ['idle', 'fly'],               size: 32 },
+      { species: 'white-tailed-eagle', anims: ['idle', 'fly'],               size: 32 },
+      { species: 'sparrowhawk',        anims: ['idle', 'fly'],               size: 24 },
+      { species: 'goshawk',            anims: ['idle', 'fly'],               size: 24 },
+      { species: 'kestrel',            anims: ['idle'],                       size: 24 },
+      { species: 'red-kite',           anims: ['idle', 'fly'],               size: 24 },
+      { species: 'barn-owl',           anims: ['idle', 'fly'],               size: 24 },
+      { species: 'eagle-owl',          anims: ['idle', 'fly'],               size: 32 },
+      { species: 'pheasant',           anims: ['fly', 'walk'],               size: 24 },
+      { species: 'partridge',          anims: ['fly', 'walk'],               size: 16 },
+      { species: 'capercaillie',       anims: ['idle', 'fly', 'walk'],       size: 32 },
+      { species: 'stork',              anims: ['idle', 'fly', 'walk'],       size: 32 },
+      { species: 'mallard',            anims: ['idle', 'fly', 'walk'],       size: 16 },
+      { species: 'swan',               anims: ['idle', 'fly', 'walk'],       size: 32 },
+      { species: 'kingfisher',         anims: ['idle', 'fly', 'walk'],       size: 16 },
+      { species: 'woodpecker',         anims: ['idle', 'walk'],              size: 24 },
+      { species: 'raven',              anims: ['idle', 'fly', 'walk'],       size: 24 },
+      { species: 'great-tit',          anims: ['idle', 'walk'],              size: 16 },
+    ];
+    for (const { species, anims, size } of birdSpecs) {
+      const base = `assets/sprites/wildlife/${species}`;
+      for (const anim of anims) {
+        for (const d of DIRS) {
+          this.load.spritesheet(`${species}-${anim}-${d}`, `${base}/${anim}_${d}.png`, { frameWidth: size, frameHeight: size });
+        }
+      }
     }
-    for (const anim of ['eat', 'sleep', 'death', 'drink']) {
-      this.load.spritesheet(`wolf-${anim}-se`, `${wolfBase}/${anim}_se.png`, { frameWidth: 48, frameHeight: 48 });
-    }
-    // Backward compat: base keys point to SE strips (used by buildAnimDefs from registry).
-    for (const anim of ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink']) {
-      this.load.spritesheet(`wolf-${anim}`, `${wolfBase}/${anim}_se.png`, { frameWidth: 48, frameHeight: 48 });
+
+    // ── Single-direction anims (SE) + backward-compat base keys for ALL species ──
+    // Phaser silently deduplicates loader entries with the same key.
+    const allSpecs = [...wildlifeSpecs, ...birdSpecs];
+    const speciesAllAnims: Record<string, string[]> = {
+      'wolf':         ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'lynx':         ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'wildcat':      ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'bear':         ['idle', 'walk', 'run', 'alert', 'sleep', 'eat', 'death', 'drink'],
+      'squirrel':     ['idle', 'walk', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'hedgehog':     ['idle', 'walk', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'elk':          ['idle', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'bison':        ['idle', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'roe-deer':     ['idle', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'wolverine':    ['idle', 'walk', 'run', 'sneak', 'alert', 'sleep', 'eat', 'death', 'drink', 'attack'],
+      'rabbit':       ['idle', 'walk', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'pine-marten':  ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'beech-marten': ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'polecat':      ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'stoat':        ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'weasel':       ['idle', 'walk', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'raccoon':      ['idle', 'walk', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'rat':          ['idle', 'walk', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'grass-snake':  ['idle', 'walk', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'beaver':       ['idle', 'walk', 'run', 'alert', 'sleep', 'eat', 'death', 'drink'],
+      'wild-boar':    ['idle', 'walk', 'run', 'alert', 'sleep', 'eat', 'death', 'drink', 'attack'],
+      'badger':       ['idle', 'walk', 'run', 'alert', 'sleep', 'eat', 'death', 'drink'],
+      'arctic-fox':   ['idle', 'run', 'sneak', 'alert', 'eat', 'sleep', 'death', 'drink', 'attack'],
+      'fallow-deer':  ['idle', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'red-deer':     ['idle', 'walk', 'run', 'alert', 'eat', 'sleep', 'death', 'drink'],
+      'moose':        ['idle', 'run', 'eat', 'sleep', 'death', 'drink'],
+      'buzzard':      ['idle', 'fly', 'land', 'perch'],
+      'owl':          ['idle', 'fly', 'land', 'perch'],
+      'heron':        ['idle', 'fly', 'walk', 'eat', 'land'],
+      'golden-eagle': ['idle', 'fly', 'land', 'perch'],
+      'white-tailed-eagle': ['idle', 'fly', 'land', 'perch'],
+      'sparrowhawk':  ['idle', 'fly', 'land', 'perch'],
+      'goshawk':      ['idle', 'fly', 'land', 'perch'],
+      'kestrel':      ['idle', 'fly', 'land', 'perch'],
+      'red-kite':     ['idle', 'fly', 'land', 'perch'],
+      'barn-owl':     ['idle', 'fly', 'land', 'perch'],
+      'eagle-owl':    ['idle', 'fly', 'land', 'perch'],
+      'pheasant':     ['fly', 'walk', 'eat', 'land'],
+      'partridge':    ['fly', 'walk', 'eat', 'land'],
+      'capercaillie': ['idle', 'fly', 'walk', 'eat', 'land'],
+      'stork':        ['idle', 'fly', 'walk', 'eat', 'land'],
+      'mallard':      ['idle', 'fly', 'walk', 'eat', 'land'],
+      'swan':         ['idle', 'fly', 'walk', 'eat', 'land'],
+      'kingfisher':   ['idle', 'fly', 'walk', 'eat', 'land'],
+      'woodpecker':   ['idle', 'walk', 'fly', 'land'],
+      'raven':        ['idle', 'fly', 'walk', 'eat', 'land'],
+      'great-tit':    ['idle', 'walk', 'fly', 'eat', 'land'],
+    };
+    for (const { species, size } of allSpecs) {
+      const base = `assets/sprites/wildlife/${species}`;
+      const anims = speciesAllAnims[species] ?? [];
+      for (const anim of anims) {
+        // SE-direction key + backward-compat base key (no direction) → SE strip.
+        this.load.spritesheet(`${species}-${anim}-se`, `${base}/${anim}_se.png`, { frameWidth: size, frameHeight: size });
+        this.load.spritesheet(`${species}-${anim}`, `${base}/${anim}_se.png`, { frameWidth: size, frameHeight: size });
+      }
     }
 
     // ── Pixel Crawler Free Pack — Body_A character sprite sheets (64×64 px frames)
@@ -5408,7 +5494,6 @@ export class GameScene extends Phaser.Scene {
     // picks the right one based on the sprite's movement direction.
     const DIR_SUFFIXES = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
     for (const f of reg.fauna) {
-      if (f.class !== 'ground') continue;
       for (const [action, spriteDef] of Object.entries(f.sprites)) {
         for (const d of DIR_SUFFIXES) {
           const texKey = `${f.id}-${action}-${d}`;
