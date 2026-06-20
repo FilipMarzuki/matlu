@@ -394,6 +394,7 @@ export class HomesteadScene extends Phaser.Scene {
 
     // NPC spritesheets — 8 directions for idle+walk+run+role
     const NPC_SPECS: { id: string; anims: string[]; size: number }[] = [
+      // Fieldborn culture NPCs
       { id: 'fieldborn-blacksmith',   anims: ['idle', 'walk', 'run', 'hammer'],  size: 68 },
       { id: 'fieldborn-chief',        anims: ['idle', 'walk', 'run', 'command'], size: 68 },
       { id: 'fieldborn-child',        anims: ['idle', 'walk', 'run', 'play'],    size: 48 },
@@ -402,14 +403,26 @@ export class HomesteadScene extends Phaser.Scene {
       { id: 'fieldborn-guard',        anims: ['idle', 'walk', 'run', 'alert'],   size: 68 },
       { id: 'fieldborn-hearthkeeper', anims: ['idle', 'walk', 'run', 'serve'],   size: 68 },
       { id: 'fieldborn-shrine',       anims: ['idle', 'walk', 'run', 'pray'],    size: 68 },
-      { id: 'ikibeki-smith',          anims: ['idle', 'walk', 'run'],            size: 68 },
-      { id: 'ikibeki-trader',         anims: ['idle', 'walk', 'run', 'gesture'], size: 68 },
-      { id: 'ikibeki-warrior',        anims: ['idle', 'walk', 'run', 'alert'],   size: 68 },
+      // Ikibeki culture NPCs
+      { id: 'ikibeki-barmaid',        anims: ['idle', 'walk', 'run', 'serve'],   size: 68 },
+      { id: 'ikibeki-brewer',         anims: ['idle', 'walk', 'run', 'stir'],    size: 68 },
+      { id: 'ikibeki-commoner',       anims: ['idle', 'walk', 'run', 'wave'],    size: 68 },
+      { id: 'ikibeki-cook',           anims: ['idle', 'walk', 'run', 'serve'],   size: 68 },
       { id: 'ikibeki-elder',          anims: ['idle', 'walk', 'run', 'gesture'], size: 68 },
       { id: 'ikibeki-farmer',         anims: ['idle', 'walk', 'run', 'dig'],     size: 68 },
-      { id: 'ikibeki-cook',           anims: ['idle', 'walk', 'run', 'serve'],   size: 68 },
+      { id: 'ikibeki-herbalist',      anims: ['idle', 'walk', 'run', 'gesture'], size: 68 },
+      { id: 'ikibeki-highfang',       anims: ['idle', 'walk', 'run', 'alert'],   size: 68 },
+      { id: 'ikibeki-lorekeeper',     anims: ['idle', 'walk', 'run', 'pray'],    size: 68 },
       { id: 'ikibeki-porter',         anims: ['idle', 'walk', 'run', 'carry'],   size: 68 },
       { id: 'ikibeki-scout',          anims: ['idle', 'walk', 'run', 'lookout'], size: 68 },
+      { id: 'ikibeki-smith',          anims: ['idle', 'walk', 'run'],            size: 68 },
+      { id: 'ikibeki-stablehand',     anims: ['idle', 'walk', 'run', 'brush'],   size: 68 },
+      { id: 'ikibeki-trader',         anims: ['idle', 'walk', 'run', 'gesture'], size: 68 },
+      { id: 'ikibeki-warrior',        anims: ['idle', 'walk', 'run', 'alert'],   size: 68 },
+      { id: 'ikibeki-woodcutter',     anims: ['idle', 'walk', 'run', 'dig'],     size: 68 },
+      // Wallborn culture NPCs
+      { id: 'wallborn-gate-guard',    anims: ['idle', 'walk', 'run', 'alert'],   size: 68 },
+      // Independent NPCs
       { id: 'wanderer',               anims: ['idle', 'walk', 'run'],            size: 48 },
     ];
     for (const { id, anims, size } of NPC_SPECS) {
@@ -1895,16 +1908,26 @@ export class HomesteadScene extends Phaser.Scene {
       idle: 6, walk: 8, run: 12, alert: 6,
       hammer: 6, dig: 6, serve: 6, gesture: 6, pray: 6,
       stir: 6, carry: 8, lookout: 6, command: 6, play: 8,
+      wave: 6, brush: 6,
     };
 
-    // NPC specs matching preload
+    // NPC specs matching preload — all cultures + independents
     const NPC_LIST = [
+      // Fieldborn
       'fieldborn-blacksmith', 'fieldborn-chief', 'fieldborn-child',
       'fieldborn-elder', 'fieldborn-farmer', 'fieldborn-guard',
       'fieldborn-hearthkeeper', 'fieldborn-shrine',
-      'ikibeki-smith', 'ikibeki-trader', 'ikibeki-warrior',
-      'ikibeki-elder', 'ikibeki-farmer', 'ikibeki-cook',
-      'ikibeki-porter', 'ikibeki-scout', 'wanderer',
+      // Ikibeki
+      'ikibeki-barmaid', 'ikibeki-brewer', 'ikibeki-commoner',
+      'ikibeki-cook', 'ikibeki-elder', 'ikibeki-farmer',
+      'ikibeki-herbalist', 'ikibeki-highfang', 'ikibeki-lorekeeper',
+      'ikibeki-porter', 'ikibeki-scout', 'ikibeki-smith',
+      'ikibeki-stablehand', 'ikibeki-trader', 'ikibeki-warrior',
+      'ikibeki-woodcutter',
+      // Wallborn
+      'wallborn-gate-guard',
+      // Independent
+      'wanderer',
     ];
 
     // Register animations for all loaded NPC spritesheets
@@ -1934,10 +1957,23 @@ export class HomesteadScene extends Phaser.Scene {
     // Spawn a few NPCs at fixed positions on the homestead meadow.
     // Simple wandering NPCs — they idle, walk around, and play role animations.
     const NPC_SPAWNS = [
+      // Fieldborn villagers
       { id: 'fieldborn-farmer',       wx: 18, wy: 25, role: 'dig' },
       { id: 'fieldborn-blacksmith',   wx: 22, wy: 20, role: 'hammer' },
       { id: 'fieldborn-guard',        wx: 14, wy: 18, role: 'alert' },
+      { id: 'fieldborn-hearthkeeper', wx: 20, wy: 22, role: 'serve' },
+      { id: 'fieldborn-shrine',       wx: 16, wy: 16, role: 'pray' },
+      // Ikibeki villagers
       { id: 'ikibeki-trader',         wx: 20, wy: 30, role: 'gesture' },
+      { id: 'ikibeki-highfang',       wx: 24, wy: 18, role: 'alert' },
+      { id: 'ikibeki-barmaid',        wx: 22, wy: 28, role: 'serve' },
+      { id: 'ikibeki-brewer',         wx: 24, wy: 26, role: 'stir' },
+      { id: 'ikibeki-herbalist',      wx: 16, wy: 30, role: 'gesture' },
+      { id: 'ikibeki-stablehand',     wx: 26, wy: 22, role: 'brush' },
+      { id: 'ikibeki-woodcutter',     wx: 10, wy: 22, role: 'dig' },
+      // Wallborn
+      { id: 'wallborn-gate-guard',    wx: 14, wy: 14, role: 'alert' },
+      // Independent
       { id: 'wanderer',               wx: 12, wy: 28, role: 'idle' },
     ];
 
