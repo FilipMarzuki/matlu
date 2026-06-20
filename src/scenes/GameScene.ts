@@ -1167,6 +1167,15 @@ export class GameScene extends Phaser.Scene {
     for (const p of PORTRAIT_KEYS) {
       this.load.image(`portrait-${p}`, `${portraitBase}/${p}.png`);
     }
+    // ── Wildlife portraits (96×96 px face portraits for info popups) ─────────────
+    const WILDLIFE_PORTRAIT_KEYS = [
+      'barn-owl', 'bear', 'bison', 'buzzard', 'elk', 'fox', 'golden-eagle',
+      'hedgehog', 'lynx', 'rabbit', 'red-deer', 'roe-deer', 'squirrel',
+      'wild-boar', 'wildcat', 'wolf', 'wolverine',
+    ];
+    for (const w of WILDLIFE_PORTRAIT_KEYS) {
+      this.load.image(`portrait-${w}`, `${portraitBase}/wildlife/${w}.png`);
+    }
 
     // ── Arena mode: Tinkerer hero (48×48 px PixelLab atlas) ───────────────────────
     // Only loaded in arena mode — avoids a needless download in wilderview.
@@ -5825,6 +5834,10 @@ export class GameScene extends Phaser.Scene {
     // Also used as "home" position for territory patrol (predator) and warren proximity (critter).
     sprite.setData('worldX', x);
     sprite.setData('worldY', y);
+
+    // Tap/click to show wildlife info popup with portrait.
+    sprite.setInteractive({ useHandCursor: true });
+    sprite.on('pointerdown', () => this.showAnimalInfo(sprite));
   }
 
   private updateGroundAnimals(): void {
@@ -8447,6 +8460,44 @@ export class GameScene extends Phaser.Scene {
         return; // only the nearest NPC counts per frame
       }
     }
+  }
+
+  // ── Wildlife info popup ─────────────────────────────────────────────────────
+
+  /**
+   * Show a brief info popup when the player taps a wildlife sprite.
+   * Reuses NpcDialogScene with the animal's portrait and species details.
+   */
+  private showAnimalInfo(sprite: Phaser.GameObjects.Sprite): void {
+    if (this.npcDialogActive) return;
+    const type = sprite.getData('animalType') as string;
+    if (!type) return;
+
+    const faunaReg = this.cache.json.get('fauna-registry') as FaunaRegistryData;
+    const def = faunaReg.fauna.find(f => f.id === type);
+    if (!def) return;
+
+    const stage = sprite.getData('lifeStage') as string | undefined;
+    const stageLabel = stage && stage !== 'adult' ? ` (${stage})` : '';
+    const activity = def.activity === 'diurnal' ? 'Day-active'
+      : def.activity === 'nocturnal' ? 'Night-active' : 'Dawn/dusk';
+    const diet = def.diet ? def.diet.charAt(0).toUpperCase() + def.diet.slice(1) : '';
+
+    const lines = [`${activity} · ${diet}`];
+    if (def.archetype) lines.push(`Behavior: ${def.archetype}`);
+
+    // Use portrait if available, otherwise no portrait
+    const portraitKey = this.textures.exists(`portrait-${type}`) ? `portrait-${type}` : undefined;
+
+    this.npcDialogActive = true;
+    const dialogData: NpcDialogData = {
+      callerKey: this.scene.key,
+      text: lines.join('\n'),
+      speakerName: `${def.name}${stageLabel}`,
+      portrait: portraitKey,
+    };
+    this.scene.pause();
+    this.scene.launch('NpcDialogScene', dialogData as unknown as object);
   }
 
   // ── Vendors (FIL-93) ────────────────────────────────────────────────────────
