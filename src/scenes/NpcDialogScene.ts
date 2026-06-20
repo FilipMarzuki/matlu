@@ -41,6 +41,10 @@ export interface NpcDialogData {
   text: string;
   /** Optional choices shown after text is fully revealed */
   choices?: DialogChoice[];
+  /** NPC name shown above the text */
+  speakerName?: string;
+  /** Phaser texture key for a 96×96 portrait shown left of the text panel */
+  portrait?: string;
 }
 
 export class NpcDialogScene extends Phaser.Scene {
@@ -74,6 +78,12 @@ export class NpcDialogScene extends Phaser.Scene {
     const px = width / 2;
     const py = height - panelH / 2 - 24;
 
+    // Portrait shown? Reserve space on the left side of the panel.
+    const hasPortrait = !!this.dialogData.portrait && this.textures.exists(this.dialogData.portrait);
+    const portraitSize = 80; // displayed size (96px scaled to fit)
+    const portraitPad = 12;
+    const textOffsetX = hasPortrait ? portraitSize + portraitPad * 2 : 20;
+
     // Semi-transparent panel background
     this.add
       .rectangle(px, py, panelW, panelH, 0x000000, 0.82)
@@ -87,14 +97,44 @@ export class NpcDialogScene extends Phaser.Scene {
     border.lineStyle(2, 0xffffff, 0.25);
     border.strokeRect(px - panelW / 2, py - panelH / 2, panelW, panelH);
 
+    // Portrait image (96×96 bust, scaled to portraitSize)
+    if (hasPortrait) {
+      const portraitX = px - panelW / 2 + portraitPad + portraitSize / 2;
+      const portraitY = py;
+      this.add.image(portraitX, portraitY, this.dialogData.portrait!)
+        .setDisplaySize(portraitSize, portraitSize)
+        .setScrollFactor(0)
+        .setDepth(902);
+
+      // Thin separator line between portrait and text
+      const sep = this.add.graphics().setDepth(901).setScrollFactor(0);
+      sep.lineStyle(1, 0xffffff, 0.15);
+      const sepX = px - panelW / 2 + portraitSize + portraitPad * 1.5;
+      sep.lineBetween(sepX, py - panelH / 2 + 10, sepX, py + panelH / 2 - 10);
+    }
+
+    // Speaker name above the text
+    const textLeft = px - panelW / 2 + textOffsetX;
+    let textTop = py - panelH / 2 + 14;
+    if (this.dialogData.speakerName) {
+      this.add.text(textLeft, textTop, this.dialogData.speakerName, {
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#ffe066',
+      })
+        .setScrollFactor(0)
+        .setDepth(902);
+      textTop += 20;
+    }
+
     this.fullText = this.dialogData.text;
     this.charProgress = 0;
 
     this.textObj = this.add
-      .text(px - panelW / 2 + 20, py - panelH / 2 + 18, '', {
+      .text(textLeft, textTop, '', {
         fontSize: '15px',
         color: '#f0ead6',
-        wordWrap: { width: panelW - 40 },
+        wordWrap: { width: panelW - textOffsetX - 20 },
         lineSpacing: 4,
       })
       .setScrollFactor(0)

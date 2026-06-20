@@ -206,6 +206,13 @@ const NPC_DIALOG: Record<string, string> = {
   klippbyn:     'Det är kallt här uppe. Men utsikten — den ljuger aldrig.',
 };
 
+/** Portrait texture key + display name for each settlement NPC. */
+const NPC_PORTRAIT: Record<string, { portrait: string; name: string }> = {
+  strandviken:  { portrait: 'portrait-innkeeper',  name: 'Innkeeper' },
+  skogsglanten: { portrait: 'portrait-elder',      name: 'Elder' },
+  klippbyn:     { portrait: 'portrait-gate-guard', name: 'Gate Guard' },
+};
+
 /** Active perception entries for settlement NPCs (#824).
  *  When the player's tray slots 0-1 overlap with an entry's tags,
  *  bonus insight text is appended to the NPC dialog. */
@@ -1149,6 +1156,17 @@ export class GameScene extends Phaser.Scene {
     this.load.image('mw-smokehouse',  `${mwb}/mw-smokehouse.png`);
     this.load.image('mw-workshop',    `${mwb}/mw-workshop.png`);
     this.load.image('mw-market-hall', `${mwb}/mw-market-hall.png`);
+
+    // ── NPC portraits (96×96 px busts for dialog boxes) ──────────────────────────
+    const portraitBase = 'assets/sprites/portraits';
+    const PORTRAIT_KEYS = [
+      'chief', 'blacksmith', 'farmer', 'elder', 'gate-guard', 'shrine-keeper',
+      'innkeeper', 'mage', 'priest', 'market-master', 'bard', 'barkeep',
+      'caravan-master', 'retired-hero', 'tinkerer', 'wanderer',
+    ];
+    for (const p of PORTRAIT_KEYS) {
+      this.load.image(`portrait-${p}`, `${portraitBase}/${p}.png`);
+    }
 
     // ── Arena mode: Tinkerer hero (48×48 px PixelLab atlas) ───────────────────────
     // Only loaded in arena mode — avoids a needless download in wilderview.
@@ -8416,9 +8434,12 @@ export class GameScene extends Phaser.Scene {
             }
           }
 
+          const npcInfo = NPC_PORTRAIT[sid];
           const dialogData: NpcDialogData = {
             callerKey: this.scene.key,
             text,
+            speakerName: npcInfo?.name,
+            portrait: npcInfo?.portrait,
           };
           this.scene.pause();
           this.scene.launch('NpcDialogScene', dialogData as unknown as object);
@@ -8784,6 +8805,8 @@ export class GameScene extends Phaser.Scene {
     const dialogData: NpcDialogData = {
       callerKey: this.scene.key,
       text: openingLine,
+      speakerName: 'Elder',
+      portrait: 'portrait-elder',
       choices: PATH_CHOICES.map(c => ({ id: c.id, label: c.label })),
     };
 

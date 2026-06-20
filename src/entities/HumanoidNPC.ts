@@ -81,6 +81,8 @@ export interface HumanoidNPCConfig {
   wanderIntervalMax?: number;
   /** Active perception entries — checked against tray slots 0-1 on interaction. */
   perceptionEntries?: PerceptionEntry[];
+  /** Phaser texture key for a 96×96 portrait shown in dialog boxes. */
+  portraitKey?: string;
 }
 
 // ── Class ─────────────────────────────────────────────────────────────────────
@@ -93,6 +95,7 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
   private readonly wanderIntervalMin: number;
   private readonly wanderIntervalMax: number;
   readonly perceptionEntries: PerceptionEntry[];
+  readonly portraitKey?: string;
 
   // Wander state
   private wanderVx = 0;
@@ -128,6 +131,7 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
     this.wanderIntervalMin = config.wanderIntervalMin ?? 1200;
     this.wanderIntervalMax = config.wanderIntervalMax ?? 3200;
     this.perceptionEntries = config.perceptionEntries ?? [];
+    this.portraitKey       = config.portraitKey;
 
     // Anchor at feet for natural y-sorting with the hero
     this.setOrigin(0.5, 1);
@@ -245,6 +249,7 @@ export class HumanoidNPC extends Phaser.Physics.Arcade.Sprite {
       name: this.npcName,
       line,
       perceptionEntries: this.perceptionEntries,
+      portraitKey: this.portraitKey,
     });
   }
 
