@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matlu — Concept & Knowledge Web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&display=swap"
+    />
+    <style>
+      /*
+        This is a standalone *designer* tool, deliberately NOT part of the Phaser
+        game bundle. It's plain HTML + SVG + vanilla JS so it:
+          - has zero build dependencies (nothing to install, no CDN graph lib),
+          - is trivially shareable (just open the URL),
+          - reads the live registry at /macro-world/concepts.json, so it never
+            drifts from the real data.
+        Served by Vite in dev and copied verbatim into dist/ on build, so it
+        works at  /concepts.html  in both `npm run dev` and the Vercel preview.
+      */
+      :root {
+        --bg: #14161c;
+        --panel: #1d212b;
+        --panel-2: #252a36;
+        --ink: #e7e9ee;
+        --ink-dim: #9aa0ad;
+        --line: #333845;
+        --accent: #6fb1ff;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Syne', system-ui, sans-serif;
+        overflow: hidden;
+      }
+      #app { display: flex; height: 100%; }
+
+      /* ── Left rail: title, search, category legend/filters ──────────────── */
+      #rail {
+        width: 264px;
+        flex: 0 0 264px;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 16px;
+        overflow-y: auto;
+      }
+      #rail h1 { font-size: 18px; margin: 0 0 2px; font-weight: 700; }
+      #rail .sub { font-size: 12px; color: var(--ink-dim); margin-bottom: 14px; }
+      #search {
+        width: 100%;
+        padding: 8px 10px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        margin-bottom: 14px;
+      }
+      .section-label {
+        font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+        color: var(--ink-dim); margin: 12px 0 8px;
+      }
+      .cat {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 8px; border-radius: 6px; cursor: pointer;
+        font-size: 13px; user-select: none;
+      }
+      .cat:hover { background: var(--panel-2); }
+      .cat.off { opacity: .35; }
+      .cat .swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 12px; }
+      .cat .count { margin-left: auto; color: var(--ink-dim); font-size: 11px; }
+
+      .toggles { margin-top: 14px; }
+      .toggle {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 13px; padding: 5px 0; cursor: pointer; user-select: none;
+      }
+      .toggle input { accent-color: var(--accent); }
+
+      .legend-edges { margin-top: 14px; font-size: 12px; color: var(--ink-dim); line-height: 1.7; }
+      .legend-edges b { color: var(--ink); font-weight: 600; }
+
+      /* ── Center: the graph canvas ───────────────────────────────────────── */
+      #stage { flex: 1; position: relative; }
+      svg { width: 100%; height: 100%; display: block; cursor: grab; }
+      svg.panning { cursor: grabbing; }
+
+      .edge { stroke: #4a5160; stroke-width: 1.4; fill: none; }
+      .edge.hl { stroke: var(--accent); stroke-width: 2.4; }
+      .edge-rank {
+        fill: var(--ink-dim); font-size: 9px; paint-order: stroke;
+        stroke: var(--bg); stroke-width: 3px;
+      }
+
+      .node { cursor: pointer; }
+      .node circle { stroke: #11131a; stroke-width: 1.5; transition: stroke .1s; }
+      .node text {
+        fill: var(--ink); font-size: 11px; pointer-events: none;
+        paint-order: stroke; stroke: var(--bg); stroke-width: 3px;
+      }
+      .node.dim { opacity: .15; }
+      .node.sel circle { stroke: #fff; stroke-width: 2.5; }
+      .node .ring { fill: none; stroke: #fff; stroke-opacity: .0; }
+
+      #hint {
+        position: absolute; bottom: 12px; left: 12px;
+        font-size: 11px; color: var(--ink-dim);
+        background: rgba(0,0,0,.35); padding: 6px 10px; border-radius: 6px;
+      }
+
+      /* ── Right: detail panel for a selected concept ─────────────────────── */
+      #detail {
+        width: 320px; flex: 0 0 320px;
+        background: var(--panel);
+        border-left: 1px solid var(--line);
+        padding: 18px; overflow-y: auto;
+        display: none;
+      }
+      #detail.open { display: block; }
+      #detail .badge {
+        display: inline-block; font-size: 11px; padding: 2px 9px;
+        border-radius: 10px; color: #11131a; font-weight: 700; margin-bottom: 10px;
+      }
+      #detail h2 { font-size: 20px; margin: 0 0 4px; }
+      #detail .desc { font-size: 13px; line-height: 1.55; color: #cfd3db; margin: 10px 0 4px; }
+      #detail .note {
+        font-size: 12px; line-height: 1.5; color: var(--ink-dim);
+        font-style: italic; border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px;
+      }
+      #detail .ranks { display: flex; gap: 4px; margin: 6px 0 2px; }
+      #detail .pip { width: 22px; height: 6px; border-radius: 3px; background: var(--line); }
+      #detail .field-label {
+        font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+        color: var(--ink-dim); margin: 16px 0 7px;
+      }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip {
+        font-size: 12px; padding: 3px 9px; border-radius: 6px;
+        background: var(--panel-2); border: 1px solid var(--line); color: #cfd3db;
+      }
+      .chip.link { cursor: pointer; }
+      .chip.link:hover { border-color: var(--accent); color: #fff; }
+      .chip.unlock { border-style: dashed; color: var(--ink-dim); }
+      #detail .close {
+        float: right; cursor: pointer; color: var(--ink-dim);
+        font-size: 18px; line-height: 1; margin: -4px -4px 0 0;
+      }
+      #detail .close:hover { color: var(--ink); }
+
+      #error {
+        position: absolute; inset: 0; display: none;
+        align-items: center; justify-content: center; text-align: center;
+        padding: 40px; color: var(--ink-dim); font-size: 14px; line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="rail">
+        <h1>Concept &amp; Knowledge Web</h1>
+        <div class="sub" id="counts">loading…</div>
+        <input id="search" type="text" placeholder="Search concepts…" autocomplete="off" />
+        <div class="section-label">Categories — click to filter</div>
+        <div id="cats"></div>
+        <div class="toggles">
+          <div class="section-label">View</div>
+          <label class="toggle"><input type="checkbox" id="t-labels" checked /> Always show labels</label>
+          <label class="toggle"><input type="checkbox" id="t-sources" /> Show source items (how learned)</label>
+        </div>
+        <div class="legend-edges">
+          <b>Arrows</b> point from a prerequisite to the concept it unlocks.<br />
+          The small number on an arrow is the <b>rank</b> of the prerequisite required.
+        </div>
+      </aside>
+
+      <main id="stage">
+        <svg id="svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#4a5160" />
+            </marker>
+            <marker id="arrow-hl" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#6fb1ff" />
+            </marker>
+          </defs>
+          <g id="viewport">
+            <g id="edges"></g>
+            <g id="nodes"></g>
+          </g>
+        </svg>
+        <div id="hint">drag nodes to rearrange · scroll to zoom · drag background to pan · click a node for details</div>
+        <div id="error"></div>
+      </main>
+
+      <aside id="detail"></aside>
+    </div>
+
+    <script>
+    (async function () {
+      const SVGNS = 'http://www.w3.org/2000/svg';
+      const svg = document.getElementById('svg');
+      const vp = document.getElementById('viewport');
+      const gEdges = document.getElementById('edges');
+      const gNodes = document.getElementById('nodes');
+
+      // ── Load the live registry ──────────────────────────────────────────
+      let data;
+      try {
+        const res = await fetch('/macro-world/concepts.json');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+      } catch (e) {
+        const err = document.getElementById('error');
+        err.style.display = 'flex';
+        err.innerHTML =
+          'Could not load <code>/macro-world/concepts.json</code> (' + e.message + ').<br>' +
+          'This page must be served (it fetches the registry at runtime).<br>' +
+          'Run <code>npm run dev</code> and open <code>/concepts.html</code>, ' +
+          'or view it on the Vercel preview.';
+        return;
+      }
+
+      const catById = {};
+      (data.categories || []).forEach(c => (catById[c.id] = c));
+      const fallbackColor = '#888f9e';
+      const colorOf = id => (catById[id] && catById[id].color) || fallbackColor;
+
+      // ── Build the node + edge model ─────────────────────────────────────
+      // Nodes are concepts. Edges come from each concept's `requires` list,
+      // e.g. requires: ["friction:1"]  →  edge friction ──▶ thisConcept (rank 1).
+      const concepts = data.concepts || [];
+      const byId = {};
+      concepts.forEach(c => {
+        c._kind = 'concept';
+        c._unlockCount = (c.unlocks || []).length;
+        byId[c.id] = c;
+      });
+
+      const edges = [];
+      concepts.forEach(c => {
+        (c.requires || []).forEach(req => {
+          const [srcId, rank] = req.split(':');
+          if (byId[srcId]) edges.push({ source: srcId, target: c.id, rank: rank || '1' });
+        });
+      });
+
+      // Optional "source item" satellite nodes (the `learnedFrom` knowledge side).
+      // Off by default to keep the tech-web readable; toggled on from the rail.
+      // We skip entries that reference concepts/NPCs/observation triggers so the
+      // overlay shows only concrete craftable/gatherable sources.
+      const sourceNodes = [];
+      const sourceEdges = [];
+      const seenSrc = {};
+      concepts.forEach(c => {
+        (c.learnedFrom || []).forEach(raw => {
+          const head = raw.split(':')[0];
+          if (raw.includes(':')) return;        // npc:…, observation:…, rotation:2 (concept rank)
+          if (byId[head]) return;               // already a concept node
+          const sid = 's:' + raw;
+          if (!seenSrc[sid]) {
+            seenSrc[sid] = { id: sid, label: raw, _kind: 'source' };
+            sourceNodes.push(seenSrc[sid]);
+          }
+          sourceEdges.push({ source: sid, target: c.id });
+        });
+      });
+
+      document.getElementById('counts').textContent =
+        concepts.length + ' concepts · ' + (data.categories || []).length +
+        ' categories · ' + edges.length + ' prerequisites';
+
+      // ── Layout: a small hand-rolled force simulation ────────────────────
+      // n is tiny (~35), so naive O(n²) repulsion is instant. Forces:
+      //   repulsion  — every node pushes every other apart,
+      //   springs    — `requires` edges pull connected concepts together,
+      //   category   — gentle pull toward a per-category anchor so related
+      //                concepts cluster by discipline,
+      //   centering  — keeps the whole graph near the middle.
+      const W = 1000, H = 760;                 // virtual layout space (we zoom-to-fit after)
+      const cats = data.categories || [];
+      const anchor = {};
+      cats.forEach((c, i) => {
+        const a = (i / cats.length) * Math.PI * 2;
+        anchor[c.id] = { x: W / 2 + Math.cos(a) * 300, y: H / 2 + Math.sin(a) * 230 };
+      });
+
+      const sim = [];                          // simulation nodes (concepts + optional sources)
+      const simById = {};
+      function seed(n, isSource) {
+        const an = anchor[n.category] || { x: W / 2, y: H / 2 };
+        n.x = an.x + (Math.random() - 0.5) * 120;
+        n.y = an.y + (Math.random() - 0.5) * 120;
+        n.vx = 0; n.vy = 0; n.fixed = false; n.isSource = isSource;
+        sim.push(n); simById[n.id] = n;
+      }
+      concepts.forEach(c => seed(c, false));
+
+      let showSources = false;
+      let activeEdges = edges.slice();
+
+      function rebuildSources() {
+        // add/remove source satellite nodes from the simulation
+        if (showSources) {
+          sourceNodes.forEach(s => { if (!simById[s.id]) { s.category = null; seed(s, true); } });
+          activeEdges = edges.concat(sourceEdges);
+        } else {
+          for (let i = sim.length - 1; i >= 0; i--) {
+            if (sim[i].isSource) { delete simById[sim[i].id]; sim.splice(i, 1); }
+          }
+          activeEdges = edges.slice();
+        }
+        render();
+      }
+
+      function tick() {
+        // repulsion
+        for (let i = 0; i < sim.length; i++) {
+          const a = sim[i];
+          for (let j = i + 1; j < sim.length; j++) {
+            const b = sim[j];
+            let dx = a.x - b.x, dy = a.y - b.y;
+            let d2 = dx * dx + dy * dy || 0.01;
+            const rep = (a.isSource || b.isSource ? 1400 : 5200) / d2;
+            const d = Math.sqrt(d2);
+            const fx = (dx / d) * rep, fy = (dy / d) * rep;
+            a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+          }
+        }
+        // springs along edges
+        activeEdges.forEach(e => {
+          const a = simById[e.source], b = simById[e.target];
+          if (!a || !b) return;
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+          const rest = a.isSource || b.isSource ? 70 : 130;
+          const k = (d - rest) * 0.012;
+          const fx = (dx / d) * k, fy = (dy / d) * k;
+          a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+        });
+        // category anchor + centering
+        sim.forEach(n => {
+          const an = anchor[n.category];
+          if (an) { n.vx += (an.x - n.x) * 0.006; n.vy += (an.y - n.y) * 0.006; }
+          n.vx += (W / 2 - n.x) * 0.002; n.vy += (H / 2 - n.y) * 0.002;
+          if (n.fixed) { n.vx = 0; n.vy = 0; return; }
+          n.vx *= 0.86; n.vy *= 0.86;          // damping
+          n.x += n.vx; n.y += n.vy;
+        });
+      }
+
+      // ── Rendering ───────────────────────────────────────────────────────
+      const nodeEls = {}, edgeEls = [];
+      let selected = null;
+
+      function radiusOf(n) {
+        if (n.isSource) return 4;
+        return 9 + Math.min(8, (n._unlockCount || 0) * 1.6) + (n.ranks || 1);
+      }
+
+      function render() {
+        gEdges.innerHTML = ''; gNodes.innerHTML = '';
+        edgeEls.length = 0;
+        for (const k in nodeEls) delete nodeEls[k];
+
+        activeEdges.forEach(e => {
+          const line = document.createElementNS(SVGNS, 'path');
+          line.setAttribute('class', 'edge');
+          if (!simById[e.source]?.isSource && !simById[e.target]?.isSource)
+            line.setAttribute('marker-end', 'url(#arrow)');
+          line.dataset.s = e.source; line.dataset.t = e.target;
+          gEdges.appendChild(line);
+          let label = null;
+          if (e.rank) {
+            label = document.createElementNS(SVGNS, 'text');
+            label.setAttribute('class', 'edge-rank');
+            label.textContent = e.rank;
+            gEdges.appendChild(label);
+          }
+          edgeEls.push({ e, line, label });
+        });
+
+        sim.forEach(n => {
+          const g = document.createElementNS(SVGNS, 'g');
+          g.setAttribute('class', 'node');
+          const c = document.createElementNS(SVGNS, 'circle');
+          c.setAttribute('r', radiusOf(n));
+          c.setAttribute('fill', n.isSource ? '#3a3f4d' : colorOf(n.category));
+          if (n.isSource) c.setAttribute('stroke-dasharray', '2 2');
+          g.appendChild(c);
+          const t = document.createElementNS(SVGNS, 'text');
+          t.setAttribute('x', radiusOf(n) + 4);
+          t.setAttribute('y', 4);
+          t.textContent = n.isSource ? n.label : n.name;
+          if (n.isSource) t.setAttribute('fill', '#7c8392');
+          g.appendChild(t);
+          gNodes.appendChild(g);
+          nodeEls[n.id] = { g, c, t, n };
+          attachDrag(g, n);
+          if (!n.isSource) g.addEventListener('click', ev => { ev.stopPropagation(); select(n.id); });
+        });
+        applyFilter();
+        if (selected) highlight(selected);
+        position();
+      }
+
+      function position() {
+        edgeEls.forEach(({ e, line, label }) => {
+          const a = simById[e.source], b = simById[e.target];
+          if (!a || !b) return;
+          // stop the line at the target circle's edge so the arrowhead sits outside it
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const d = Math.sqrt(dx * dx + dy * dy) || 1;
+          const r = radiusOf(b) + 3;
+          const ex = b.x - (dx / d) * r, ey = b.y - (dy / d) * r;
+          line.setAttribute('d', `M${a.x},${a.y} L${ex},${ey}`);
+          if (label) { label.setAttribute('x', (a.x + b.x) / 2); label.setAttribute('y', (a.y + b.y) / 2); }
+        });
+        for (const id in nodeEls) {
+          const { g, n } = nodeEls[id];
+          g.setAttribute('transform', `translate(${n.x},${n.y})`);
+        }
+      }
+
+      function loop() { tick(); position(); requestAnimationFrame(loop); }
+
+      // ── Category filter ─────────────────────────────────────────────────
+      const off = {};                          // category id -> hidden?
+      function applyFilter() {
+        for (const id in nodeEls) {
+          const { g, n } = nodeEls[id];
+          const hidden = n.category && off[n.category];
+          g.style.display = hidden ? 'none' : '';
+        }
+        edgeEls.forEach(({ e, line, label }) => {
+          const a = simById[e.source], b = simById[e.target];
+          const hidden = (a && a.category && off[a.category]) || (b && b.category && off[b.category]);
+          line.style.display = hidden ? 'none' : '';
+          if (label) label.style.display = hidden ? 'none' : '';
+        });
+      }
+
+      // ── Hover / selection highlighting ──────────────────────────────────
+      function neighborsOf(id) {
+        const set = new Set([id]);
+        activeEdges.forEach(e => {
+          if (e.source === id) set.add(e.target);
+          if (e.target === id) set.add(e.source);
+        });
+        return set;
+      }
+      function highlight(id) {
+        const near = neighborsOf(id);
+        for (const nid in nodeEls) {
+          nodeEls[nid].g.classList.toggle('dim', !near.has(nid));
+          nodeEls[nid].g.classList.toggle('sel', nid === id);
+        }
+        edgeEls.forEach(({ e, line }) => {
+          const on = e.source === id || e.target === id;
+          line.classList.toggle('hl', on);
+          line.setAttribute('marker-end',
+            on ? 'url(#arrow-hl)'
+               : (!simById[e.source]?.isSource && !simById[e.target]?.isSource ? 'url(#arrow)' : ''));
+        });
+      }
+      function clearHighlight() {
+        for (const nid in nodeEls) { nodeEls[nid].g.classList.remove('dim'); nodeEls[nid].g.classList.remove('sel'); }
+        edgeEls.forEach(({ e, line }) => {
+          line.classList.remove('hl');
+          line.setAttribute('marker-end',
+            !simById[e.source]?.isSource && !simById[e.target]?.isSource ? 'url(#arrow)' : '');
+        });
+      }
+
+      // ── Detail panel ────────────────────────────────────────────────────
+      const detail = document.getElementById('detail');
+      function chip(text, opts) {
+        const s = document.createElement('span');
+        s.className = 'chip' + (opts && opts.link ? ' link' : '') + (opts && opts.unlock ? ' unlock' : '');
+        s.textContent = text;
+        if (opts && opts.onClick) s.onclick = opts.onClick;
+        return s;
+      }
+      function field(label, nodes) {
+        if (!nodes.length) return '';
+        const wrap = document.createElement('div');
+        const l = document.createElement('div'); l.className = 'field-label'; l.textContent = label;
+        const chips = document.createElement('div'); chips.className = 'chips';
+        nodes.forEach(n => chips.appendChild(n));
+        wrap.appendChild(l); wrap.appendChild(chips);
+        return wrap;
+      }
+      function select(id) {
+        selected = id;
+        highlight(id);
+        const c = byId[id];
+        const cat = catById[c.category] || { name: c.category, color: fallbackColor };
+        detail.innerHTML = '';
+        const close = document.createElement('span'); close.className = 'close'; close.textContent = '✕';
+        close.onclick = deselect; detail.appendChild(close);
+
+        const badge = document.createElement('span'); badge.className = 'badge';
+        badge.style.background = cat.color; badge.textContent = cat.name; detail.appendChild(badge);
+        const h = document.createElement('h2'); h.textContent = c.name; detail.appendChild(h);
+
+        const ranks = document.createElement('div'); ranks.className = 'ranks';
+        for (let i = 0; i < (c.ranks || 1); i++) {
+          const p = document.createElement('div'); p.className = 'pip'; p.style.background = cat.color; ranks.appendChild(p);
+        }
+        detail.appendChild(ranks);
+        const rl = document.createElement('div'); rl.className = 'field-label';
+        rl.style.margin = '4px 0 0'; rl.textContent = (c.ranks || 1) + ' ranks'; detail.appendChild(rl);
+
+        const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = c.description || '';
+        detail.appendChild(desc);
+        if (c.note) { const n = document.createElement('div'); n.className = 'note'; n.textContent = c.note; detail.appendChild(n); }
+
+        // Requires (clickable — jump to the prerequisite concept)
+        const reqChips = (c.requires || []).map(r => {
+          const [rid, rank] = r.split(':');
+          const known = byId[rid];
+          return chip((known ? known.name : rid) + (rank ? ' ·' + rank : ''),
+            { link: !!known, onClick: known ? () => select(rid) : null });
+        });
+        const reqF = field('Requires', reqChips); if (reqF) detail.appendChild(reqF);
+
+        // Concepts that depend on THIS one (downstream)
+        const depChips = edges.filter(e => e.source === id).map(e =>
+          chip(byId[e.target].name + ' ·' + e.rank, { link: true, onClick: () => select(e.target) }));
+        const depF = field('Leads to', depChips); if (depF) detail.appendChild(depF);
+
+        // Learned from (the knowledge-acquisition side)
+        const lfChips = (c.learnedFrom || []).map(s => chip(s));
+        const lfF = field('Learned from', lfChips); if (lfF) detail.appendChild(lfF);
+
+        // Unlocks (future recipes mastery opens up)
+        const unChips = (c.unlocks || []).map(s => chip(s, { unlock: true }));
+        const unF = field('Unlocks', unChips); if (unF) detail.appendChild(unF);
+
+        detail.classList.add('open');
+      }
+      function deselect() { selected = null; clearHighlight(); detail.classList.remove('open'); }
+      svg.addEventListener('click', deselect);
+
+      // ── Rail: category legend + filters ─────────────────────────────────
+      const catsEl = document.getElementById('cats');
+      const catCount = {};
+      concepts.forEach(c => (catCount[c.category] = (catCount[c.category] || 0) + 1));
+      cats.forEach(cat => {
+        const row = document.createElement('div'); row.className = 'cat';
+        row.innerHTML =
+          '<span class="swatch" style="background:' + cat.color + '"></span>' +
+          '<span>' + cat.name + '</span>' +
+          '<span class="count">' + (catCount[cat.id] || 0) + '</span>';
+        row.title = cat.description || '';
+        row.onclick = () => {
+          off[cat.id] = !off[cat.id];
+          row.classList.toggle('off', !!off[cat.id]);
+          applyFilter();
+        };
+        catsEl.appendChild(row);
+      });
+
+      // ── Toggles ─────────────────────────────────────────────────────────
+      document.getElementById('t-labels').addEventListener('change', e => {
+        gNodes.classList.toggle('hide-labels', !e.target.checked);
+        document.querySelectorAll('#nodes text').forEach(t => t.style.display = e.target.checked ? '' : 'none');
+      });
+      document.getElementById('t-sources').addEventListener('change', e => {
+        showSources = e.target.checked; rebuildSources();
+      });
+
+      // ── Search ──────────────────────────────────────────────────────────
+      document.getElementById('search').addEventListener('input', e => {
+        const q = e.target.value.trim().toLowerCase();
+        if (!q) { clearHighlight(); selected = null; return; }
+        const match = concepts.find(c => c.name.toLowerCase().includes(q) || c.id.includes(q));
+        if (match) {
+          // pan/zoom toward the match and select it
+          select(match.id);
+          const n = simById[match.id];
+          if (n) { view.x = svg.clientWidth / 2 - n.x * view.k; view.y = svg.clientHeight / 2 - n.y * view.k; applyView(); }
+        }
+      });
+
+      // ── Pan / zoom ──────────────────────────────────────────────────────
+      const view = { x: 0, y: 0, k: 1 };
+      function applyView() { vp.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`); }
+      svg.addEventListener('wheel', e => {
+        e.preventDefault();
+        const rect = svg.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        const k2 = Math.max(0.3, Math.min(3, view.k * factor));
+        view.x = mx - (mx - view.x) * (k2 / view.k);
+        view.y = my - (my - view.y) * (k2 / view.k);
+        view.k = k2; applyView();
+      }, { passive: false });
+
+      let panning = false, panStart = null;
+      svg.addEventListener('mousedown', e => {
+        if (e.target.closest('.node')) return;     // node drag handles itself
+        panning = true; svg.classList.add('panning');
+        panStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+      });
+      window.addEventListener('mousemove', e => {
+        if (!panning) return;
+        view.x = e.clientX - panStart.x; view.y = e.clientY - panStart.y; applyView();
+      });
+      window.addEventListener('mouseup', () => { panning = false; svg.classList.remove('panning'); });
+
+      // ── Node dragging ───────────────────────────────────────────────────
+      function attachDrag(g, n) {
+        g.addEventListener('mousedown', e => {
+          e.stopPropagation();
+          n.fixed = true;
+          const move = ev => {
+            const rect = svg.getBoundingClientRect();
+            n.x = (ev.clientX - rect.left - view.x) / view.k;
+            n.y = (ev.clientY - rect.top - view.y) / view.k;
+          };
+          const up = () => {
+            n.fixed = false;
+            window.removeEventListener('mousemove', move);
+            window.removeEventListener('mouseup', up);
+          };
+          window.addEventListener('mousemove', move);
+          window.addEventListener('mouseup', up);
+        });
+        g.addEventListener('mouseenter', () => { if (!selected) highlight(n.id); });
+        g.addEventListener('mouseleave', () => { if (!selected) clearHighlight(); });
+      }
+
+      // ── Boot ────────────────────────────────────────────────────────────
+      // Warm up the simulation off-screen so it opens already settled, then
+      // fit the graph to the viewport.
+      for (let i = 0; i < 320; i++) tick();
+      render();
+      fitToView();
+      loop();
+
+      function fitToView() {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        sim.forEach(n => { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); maxX = Math.max(maxX, n.x); maxY = Math.max(maxY, n.y); });
+        const pad = 80;
+        const gw = maxX - minX + pad * 2, gh = maxY - minY + pad * 2;
+        const k = Math.min(svg.clientWidth / gw, svg.clientHeight / gh, 1.4);
+        view.k = k;
+        view.x = (svg.clientWidth - (maxX + minX) * k) / 2;
+        view.y = (svg.clientHeight - (maxY + minY) * k) / 2;
+        applyView();
+      }
+    })();
+    </script>
+  </body>
+</html>
