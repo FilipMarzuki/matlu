@@ -21,7 +21,7 @@ jobs:
       contents: write        # agent commits last-release-notes.txt
       pull-requests: read    # read merged PRs
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
