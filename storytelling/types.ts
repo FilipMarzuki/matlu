@@ -250,6 +250,8 @@ export type EventType =
   | "DYNASTY_EXTINCT"
   | "LOWBORN_RISE"
   | "GRUDGE_FORMED"
+  // --- Deep past ---
+  | "LEGEND" // a mythic prehistory event (foundings, golden ages, cataclysms)
   // --- Magic / leveling layer ---
   | "CLASS_GAINED" // gained a rare, rite-gated class
   | "LEVELED" // crossed a milestone level / became the mightiest of the age

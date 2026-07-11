@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import { extractArcs } from "./arcs.js";
 import { magicInit } from "./magic.js";
+import { generatePrehistory } from "./prehistory.js";
 import { saveRun } from "./persist.js";
 import { renderChronicle, renderEpilogue, renderLayeredChronicle } from "./render.js";
 import { loadWorld } from "./seed.js";
@@ -37,6 +38,8 @@ interface Args {
   flat: boolean; // flat chronicle (no temporal level-of-detail)
   living: number | undefined; // living-memory window (years)
   chronicle: number | undefined; // chronicle window (years)
+  prehistory: boolean; // generate a mythic deep past before the sim
+  prehistorySpan: number; // years of prehistory to reach back over
 }
 
 function parseArgs(argv: string[]): Args {
@@ -53,6 +56,8 @@ function parseArgs(argv: string[]): Args {
     flat: false,
     living: undefined,
     chronicle: undefined,
+    prehistory: false,
+    prehistorySpan: 800,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -68,6 +73,14 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--flat") args.flat = true;
     else if (a === "--living") args.living = parseInt(argv[++i], 10);
     else if (a === "--chronicle") args.chronicle = parseInt(argv[++i], 10);
+    else if (a === "--prehistory") {
+      args.prehistory = true;
+      const n = parseInt(argv[i + 1], 10); // optional span follows the flag
+      if (!Number.isNaN(n)) {
+        args.prehistorySpan = n;
+        i++;
+      }
+    }
   }
   return args;
 }
@@ -88,6 +101,13 @@ function main(): void {
   if (args.magic) {
     world.magicEnabled = true;
     magicInit(world);
+  }
+
+  // Optional deep past: manufacture a mythic prehistory (a golden age, a
+  // cataclysm, lost arts, migrations) and leave residue — ancestral grudges —
+  // in the starting world, so the present begins already freighted with history.
+  if (args.prehistory) {
+    generatePrehistory(world, args.prehistorySpan);
   }
 
   // Run the simulation. Nothing is rendered during the loop — we simulate

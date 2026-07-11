@@ -167,6 +167,30 @@ export function renderEvent(w: World, ev: WorldEvent): string {
     case "GRUDGE_FORMED":
       return `${who(w, ev.actorId)} swore a grudge against ${who(w, ev.targetId)}.`;
 
+    case "LEGEND": {
+      const L = ev.data;
+      switch (String(L["legend"])) {
+        case "found":
+          return `In the elder days, ${L["figure"]} raised ${L["realm"]} in the green heart of the world.`;
+        case "golden":
+          return `Under ${L["realm"]}, the art of ${L["art"]} flowered as it never has since.`;
+        case "height":
+          return `${L["realm"]} spanned from sea to steppe, and lesser kings paid it tribute.`;
+        case "war":
+          return `${L["realm"]} and ${L["foe"]} fell to war, and the age of gold began to wane.`;
+        case "cataclysm":
+          return `Then came ${L["cataclysm"]}: ${L["realm"]} was broken, and the art of ${L["art"]} was lost to the world.`;
+        case "fall":
+          return `The old kingdoms crumbled; their towers still stand as ruins in the wild, mana-haunted places.`;
+        case "migration":
+          return `The ${L["people"]} came into these lands after the Fall, and made them their own.`;
+        case "dawn":
+          return `From the ashes of the fallen realms, the houses of the present age slowly rose.`;
+        default:
+          return `[a legend of the elder days]`;
+      }
+    }
+
     // --- Magic / leveling layer ---
     case "LEVELED": {
       const lvl = ev.data["level"];
@@ -251,23 +275,32 @@ export function renderLayeredChronicle(
   const bareTitle = (t: string) => t.replace(/\s*\([0-9–-]+\)\s*$/, "");
   const out: string[] = [];
 
-  // ── AGES OF LEGEND — arcs older than the chronicle window, by century ────
+  // ── AGES OF LEGEND — the deep past: mythic events + arc-eras by century ──
+  // Prehistory LEGEND events form the mythic backbone; ordinary ancient arcs
+  // (from the simulated deep past) aggregate into terse century lines beneath.
+  const ancientLegends = events
+    .filter((e) => now - e.year > W2 && e.type === "LEGEND")
+    .sort((a, b) => a.year - b.year || a.id - b.id);
   const ancient = arcs.filter((a) => now - a.endYear > W2 && remembered(a) >= 18);
-  if (ancient.length) {
+  if (ancientLegends.length || ancient.length) {
     out.push("─".repeat(64), "AGES OF LEGEND", "─".repeat(64));
-    const buckets = new Map<number, Arc[]>();
-    for (const a of ancient) {
-      const c = Math.floor(a.startYear / 100) * 100;
-      let b = buckets.get(c);
-      if (!b) buckets.set(c, (b = []));
-      b.push(a);
-    }
-    for (const c of [...buckets.keys()].sort((x, y) => x - y)) {
-      const top = buckets
-        .get(c)!
-        .sort((x, y) => remembered(y) - remembered(x))
-        .slice(0, 2);
-      out.push(`  the ${c}s — ${top.map((a) => bareTitle(a.title)).join("; ")}.`);
+    for (const ev of ancientLegends) out.push(`  ${renderEvent(w, ev)}`);
+    if (ancient.length) {
+      if (ancientLegends.length) out.push("");
+      const buckets = new Map<number, Arc[]>();
+      for (const a of ancient) {
+        const c = Math.floor(a.startYear / 100) * 100;
+        let b = buckets.get(c);
+        if (!b) buckets.set(c, (b = []));
+        b.push(a);
+      }
+      for (const c of [...buckets.keys()].sort((x, y) => x - y)) {
+        const top = buckets
+          .get(c)!
+          .sort((x, y) => remembered(y) - remembered(x))
+          .slice(0, 2);
+        out.push(`  the ${c}s — ${top.map((a) => bareTitle(a.title)).join("; ")}.`);
+      }
     }
   }
 

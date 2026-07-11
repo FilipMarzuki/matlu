@@ -224,10 +224,33 @@ npx tsx storytelling/main.ts --flat                                   # old flat
 # tune the windows: --living <years> --chronicle <years>
 ```
 
-This is the temporal analog of the (deferred) spatial LOD, and it's the read-out
-half of "generate background history": a coarse **prehistory** pass can later
-seed the sim with an already-old world, and this renderer will show its deep past
-as legend automatically.
+This is the temporal analog of the (deferred) spatial LOD.
+
+### Generating the deep past (`--prehistory`)
+
+The other half: `--prehistory` manufactures a mythic backstory *cheaply* — not by
+full-simulating millennia, but by AUTHORING a compact procedural saga
+(`prehistory.ts`): a founding, a golden age, a lost art, a cataclysm, the fall of
+the old realms, and the migrations that brought the present peoples. These are
+stamped across the ancient years as `LEGEND` events, which the renderer shows as
+*Ages of Legend*:
+
+```
+In the elder days, Ildis of the Thousand Halls raised the Drowned Kingdom …
+Under the Drowned Kingdom, the art of the greater healing flowered as never since.
+Then came the Long Night: the Drowned Kingdom was broken, and the art was lost …
+The Ibiki came into these lands after the Fall, and made them their own.
+```
+
+Its real payload is **residue** in the starting world: the great houses of
+*hostile peoples* begin already at odds "since the cataclysm" (ancestral grudges,
+seeded off the peoples layer's own faith/race hostility). So the present opens
+freighted with a past — within a few years you'll see `… at last took revenge …`
+murders firing along the ancient fault lines. `O(1)`, deterministic, opt-in.
+
+```bash
+npx tsx storytelling/main.ts --world frontier --years 250 --magic --prehistory
+```
 
 ## Magic / leveling layer (`--magic`)
 
