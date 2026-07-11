@@ -30,6 +30,7 @@ const BASE: Record<EventType, number> = {
   DYNASTY_EXTINCT: 9,
   LOWBORN_RISE: 8,
   GRUDGE_FORMED: 1,
+  LEGEND: 10, // mythic-past events are, by definition, the memorable ones
   // Magic / leveling layer.
   CLASS_GAINED: 2, // routine generational handover of a rite — logged, rarely chronicled
   LEVELED: 4, // milestone (12+) — bumped by how high in the per-event pass
