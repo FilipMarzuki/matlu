@@ -17,6 +17,10 @@ const TERRAIN_YIELD: Record<Terrain, number> = {
   forest: 0.6,
   coast: 0.85, // fishing supplements the land
   mountain: 0.4,
+  steppe: 0.5, // grazing land — feeds herds and raiders, not cities
+  desert: 0.2, // oasis-thin; scarcity here is the engine of the raids
+  swamp: 0.45,
+  jungle: 0.6, // lush but hard to clear
 };
 
 // The maximum population a province can sustain. Capacity caps population,

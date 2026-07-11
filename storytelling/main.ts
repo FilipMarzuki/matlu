@@ -9,10 +9,17 @@ import { extractArcs } from "./arcs.js";
 import { magicInit } from "./magic.js";
 import { saveRun } from "./persist.js";
 import { renderChronicle, renderEpilogue } from "./render.js";
-import { buildWorld, loadWorld } from "./seed.js";
+import { loadWorld } from "./seed.js";
 import { sift } from "./sifter.js";
 import { tick } from "./tick.js";
-import type { WorldSpec } from "./world-spec.js";
+import { DEFAULT_SPEC, type WorldSpec } from "./world-spec.js";
+import { FRONTIER_SPEC } from "./worlds/frontier.js";
+
+// Built-in named worlds. `--world <name>` picks one; --spec <file> overrides.
+const WORLDS: Record<string, WorldSpec> = {
+  default: DEFAULT_SPEC,
+  frontier: FRONTIER_SPEC,
+};
 
 // Bump when the sim's behaviour changes, so saved runs record what produced them.
 const STORY_VERSION = "0.2";
@@ -25,7 +32,8 @@ interface Args {
   magic: boolean;
   save: boolean;
   arcs: boolean;
-  spec: string | null; // path to a WorldSpec JSON; null = the built-in default
+  spec: string | null; // path to a WorldSpec JSON; overrides --world
+  world: string; // a built-in named world (see WORLDS)
 }
 
 function parseArgs(argv: string[]): Args {
@@ -38,6 +46,7 @@ function parseArgs(argv: string[]): Args {
     save: false,
     arcs: false,
     spec: null,
+    world: "default",
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -49,6 +58,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--save") args.save = true;
     else if (a === "--arcs") args.arcs = true;
     else if (a === "--spec") args.spec = argv[++i];
+    else if (a === "--world") args.world = argv[++i];
   }
   return args;
 }
@@ -56,11 +66,12 @@ function parseArgs(argv: string[]): Args {
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
 
-  // Build the world from a fed-in WorldSpec (an authored / Azgaar- / culture-
-  // derived world) when --spec is given; otherwise the built-in default tableau.
-  const world = args.spec
-    ? loadWorld(JSON.parse(readFileSync(args.spec, "utf8")) as WorldSpec, args.seed)
-    : buildWorld(args.seed);
+  // Pick the world: an external JSON via --spec, a built-in named world via
+  // --world, or the default tableau. (buildWorld === loadWorld(DEFAULT_SPEC).)
+  const spec: WorldSpec = args.spec
+    ? (JSON.parse(readFileSync(args.spec, "utf8")) as WorldSpec)
+    : (WORLDS[args.world] ?? DEFAULT_SPEC);
+  const world = loadWorld(spec, args.seed);
 
   // Opt into the magic / leveling layer. Off by default so the base chronicle
   // is unchanged; `--magic` turns on classes, levels, inherited capital, the
@@ -83,7 +94,7 @@ function main(): void {
   console.log("═".repeat(64));
   console.log("A CHRONICLE OF THE MATLU MULTIWORLD");
   console.log(
-    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling${args.magic ? " · magic: on" : ""}${args.spec ? ` · world: ${args.spec.split("/").pop()}` : ""}`,
+    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling${args.magic ? " · magic: on" : ""}${args.spec ? ` · world: ${args.spec.split("/").pop()}` : args.world !== "default" ? ` · world: ${args.world}` : ""}`,
   );
   console.log("═".repeat(64));
 

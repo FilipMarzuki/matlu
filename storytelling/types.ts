@@ -131,7 +131,16 @@ export interface Dynasty {
 // Geography — provinces with scarcity. Geography gives history a persistent
 // grain: carrying capacity caps population, which caps levies and wealth.
 // ---------------------------------------------------------------------------
-export type Terrain = "plains" | "hills" | "forest" | "coast" | "mountain";
+export type Terrain =
+  | "plains"
+  | "hills"
+  | "forest"
+  | "coast"
+  | "mountain"
+  | "steppe" // arid grassland — grazing, raiders, thin farming
+  | "desert" // barely habitable, harsh
+  | "swamp" // wetland, disease-prone
+  | "jungle"; // lush but hard to clear/farm
 
 export interface Province {
   id: ProvinceId;

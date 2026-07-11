@@ -111,11 +111,25 @@ entire geographic surface the engine reads is the `Province` record; produce tha
 (plus the title/dynasty graph) and everything downstream (carrying capacity,
 scarcity, plague spread, peril, the leveling ceiling) is derived.
 
-Feed in a different world by passing a JSON `WorldSpec`:
+Run a built-in named world, or feed in an external JSON `WorldSpec`:
 
 ```bash
+npx tsx storytelling/main.ts --world frontier --seed 3 --magic --arcs   # or: npm run story:frontier
 npx tsx storytelling/main.ts --spec my-world.spec.json --seed 42 --magic
 ```
+
+**Built-in worlds** (`--world <name>`, in `worlds/`):
+- `default` — the original three-realm tableau.
+- `frontier` — an authored "approximate geography": an ocean coast (west), a
+  mountain spine, an arid **steppe + desert** raider frontier (an elective orc/
+  human Horde — hungry, vengeful), a **swamp + jungle** south, and a settled
+  human **Empire of Zafran** beyond the desert. Culture is encoded via succession
+  law + drive vectors + gen-0 names; the desert's brutal carrying capacity keeps
+  the Horde raiding, and high frontier mana breeds high-level warlords while the
+  soft empire does not (Ibn Khaldun by geography). Terrain now includes `steppe`,
+  `desert`, `swamp`, `jungle` alongside plains/hills/forest/coast/mountain.
+
+Authoring a world is just data — see `worlds/frontier.ts` as a worked example.
 
 `mana` is **authored data** per province (no longer derived from terrain) — the
 "second geography" you can drive from a corruption / ley overlay. To wire the real
