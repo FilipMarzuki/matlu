@@ -39,6 +39,26 @@ jobs:
       - name: Run Playwright tests
         run: npm run test
 
+  storytelling:
+    name: Storytelling engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - run: npm ci
+
+      # Standalone strict typecheck of the (dependency-free) engine.
+      - run: npm run story:typecheck
+
+      # Golden-master + determinism + cross-seed invariant tests. Fast (pure
+      # computation, no browser), so it runs on every push.
+      - run: npm run unit:story
+
   build-wiki:
     name: Build Matlu Codex (wiki/)
     runs-on: ubuntu-latest
