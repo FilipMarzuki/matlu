@@ -1,30 +1,30 @@
-// worlds/frontier.ts — an authored "approximate geography" WorldSpec.
+// worlds/frontier.ts — the Ibiki heartland and its frontier, as data.
 //
-// A deliberately-designed regional layout (not a generated Earth map). The
-// engine only reads terrain + the neighbor graph, so this encodes the shape:
+// The lush green CENTER (meadow + forest) is the Ibiki homeland — the seat of
+// most of the story and intrigue. It is ringed by frontier peoples:
 //
-//        OCEAN (west)                                         (east)
-//   ┌───────────────┐   ┌──────────┐   ┌───────────────┐   ┌────────────┐
-//   │  Saltmere     │   │ Ironspine │   │  Ashen Steppe │   │  Empire of │
-//   │  (coast +     │──▶│ (mountain │──▶│  + deserts    │──▶│  Zafran    │
-//   │   heartland)  │   │  spine)   │   │  RAIDER HORDE │   │  (settled) │
-//   └──────┬────────┘   └──────────┘   └──────┬────────┘   └────────────┘
-//          │                                  │
-//          ▼                                  ▼
-//   ┌───────────────── Mirewood: swamp + jungle (south) ──────────────┐
+//                      IRONSPINE (mountains, N) — ridgefolk clans
+//                              ▲
+//   SALTMERE (ocean, W) ◀──  ★ IBIKI HEARTLAND ★  ──▶ ASHEN STEPPE (E)
+//   coastborn                 meadow + forest          orc/human HORDE
+//                              (the story)               │
+//                              ▼                         ▼  beyond the desert:
+//                      MIREWOOD (swamp/jungle, S)    EMPIRE OF ZAFRAN (settled)
 //
-// Culture is expressed through succession law, drive vectors, and (gen-0)
-// names: settled empires use primogeniture and lean pious/hierarchical; the
-// steppe Horde is ELECTIVE (a warlord meritocracy) and leans ambitious/greedy/
-// vengeful; the mountain clans use gavelkind. The desert's brutal carrying
-// capacity (fertility 0.2 × yield 0.2) keeps the Horde hungry — scarcity is
-// what turns their raids on rich Zafran into war. High mana on the frontier
-// (mountains, steppe, swamp, jungle) breeds high-level people; the soft, mana-
-// poor empire does not — the Ibn Khaldun frontier-vs-core dynamic, by geography.
+// Every frontier people has its own CULTURE (names + temperament + law), RACE
+// (human, or the Horde's orcs), and FAITH (a holy-war / grudge axis). The Ibiki
+// centre holds TWO rival houses — royal Aeryn and the elder-line Doriel, who
+// claim the throne — so the densest intrigue is at home. The steppe Horde
+// claims both a Zafran border satrapy AND an Ibiki meadow (the raids press on
+// the heartland), and its orcs claim the Khaganate from their human Khagan.
 
 import type {
   CharacterSpec,
+  CultureSpec,
+  DynastySpec,
+  FaithSpec,
   ProvinceSpec,
+  RaceSpec,
   TitleSpec,
   WorldSpec,
 } from "../world-spec.js";
@@ -32,7 +32,6 @@ import type { Sex } from "../types.js";
 
 const D = (a: number, g: number, v: number, p: number, l: number, f: number): number[] => [a, g, v, p, l, f];
 
-// Compact character builder — fills the optional fields so entries stay short.
 function ch(
   o: {
     id: string;
@@ -47,98 +46,202 @@ function ch(
   return { father: null, mother: null, spouse: null, founds: null, holds: null, claims: [], ...o };
 }
 
+// ── Geography: the Ibiki hub (i*) ringed by frontier provinces (p*) ──────────
 const provinces: ProvinceSpec[] = [
-  // --- The Sunset Coast + heartland (House Vaeryn) — ocean to the west ---
-  { id: "p0", name: "Saltmere", terrain: "coast", fertility: 0.6, coastal: true, river: true, neighbors: ["p1", "p2"], population: 500, mana: 0.3 },
-  { id: "p1", name: "Gullhaven", terrain: "coast", fertility: 0.55, coastal: true, river: false, neighbors: ["p0", "p2"], population: 400, mana: 0.3 },
-  { id: "p2", name: "Emberhold", terrain: "plains", fertility: 0.8, coastal: false, river: true, neighbors: ["p0", "p1", "p3", "p4"], population: 640, mana: 0.25 },
-  { id: "p3", name: "Green Hollow", terrain: "forest", fertility: 0.6, coastal: false, river: false, neighbors: ["p2", "p4", "p11"], population: 360, mana: 0.45 },
-  // --- The Ironspine (House Grimmr) — the mountain wall ---
-  { id: "p4", name: "Ironspine", terrain: "mountain", fertility: 0.35, coastal: false, river: false, neighbors: ["p2", "p3", "p5", "p6"], population: 130, mana: 0.8 },
+  // Ibiki heartland — the lush green centre, densest and richest.
+  { id: "i0", name: "Ibiki Vale", terrain: "meadow", fertility: 0.9, coastal: false, river: true, neighbors: ["i1", "i2", "i3", "i4"], population: 720, mana: 0.35 },
+  { id: "i1", name: "Sunmeadow", terrain: "meadow", fertility: 0.85, coastal: false, river: false, neighbors: ["i0", "i4", "i3", "p6"], population: 640, mana: 0.3 },
+  { id: "i2", name: "Elmwood", terrain: "forest", fertility: 0.7, coastal: false, river: false, neighbors: ["i0", "i4", "i3", "p0", "p1"], population: 500, mana: 0.4 },
+  { id: "i3", name: "Rivenbrook", terrain: "plains", fertility: 0.8, coastal: false, river: true, neighbors: ["i0", "i2", "i1", "p11"], population: 560, mana: 0.3 },
+  { id: "i4", name: "Thornwood", terrain: "forest", fertility: 0.65, coastal: false, river: false, neighbors: ["i0", "i1", "i2", "p4"], population: 420, mana: 0.45 },
+  // Saltmere — the ocean coast (west).
+  { id: "p0", name: "Saltmere", terrain: "coast", fertility: 0.6, coastal: true, river: true, neighbors: ["p1", "i2"], population: 500, mana: 0.3 },
+  { id: "p1", name: "Gullhaven", terrain: "coast", fertility: 0.55, coastal: true, river: false, neighbors: ["p0", "i2"], population: 400, mana: 0.3 },
+  // The Ironspine — the mountain wall (north).
+  { id: "p4", name: "Ironspine", terrain: "mountain", fertility: 0.35, coastal: false, river: false, neighbors: ["p5", "i4"], population: 130, mana: 0.8 },
   { id: "p5", name: "Highpass", terrain: "mountain", fertility: 0.3, coastal: false, river: false, neighbors: ["p4", "p6"], population: 90, mana: 0.75 },
-  // --- The Ashen Steppe + deserts (the Horde) — raider frontier ---
-  { id: "p6", name: "Ashen Steppe", terrain: "steppe", fertility: 0.35, coastal: false, river: true, neighbors: ["p4", "p5", "p7", "p8"], population: 300, mana: 0.6 },
+  // The Ashen Steppe + deserts — the raider frontier (east).
+  { id: "p6", name: "Ashen Steppe", terrain: "steppe", fertility: 0.35, coastal: false, river: true, neighbors: ["p5", "p7", "p8", "i1"], population: 300, mana: 0.6 },
   { id: "p7", name: "Sunscour", terrain: "desert", fertility: 0.2, coastal: false, river: false, neighbors: ["p6", "p8", "p9"], population: 130, mana: 0.55 },
   { id: "p8", name: "Dunemarch", terrain: "desert", fertility: 0.25, coastal: false, river: false, neighbors: ["p6", "p7", "p9", "p10", "p12"], population: 160, mana: 0.5 },
-  // --- The Empire of Zafran (House Darzan) — settled, beyond the desert ---
+  // The Empire of Zafran — settled humans beyond the desert (far east).
   { id: "p9", name: "Zafran", terrain: "plains", fertility: 0.85, coastal: false, river: true, neighbors: ["p7", "p8", "p10"], population: 720, mana: 0.2 },
   { id: "p10", name: "Khoresh", terrain: "hills", fertility: 0.7, coastal: false, river: false, neighbors: ["p8", "p9"], population: 520, mana: 0.25 },
-  // --- Mirewood: swamp + jungle (House Sythe) — the fevered south ---
-  { id: "p11", name: "Mirewood", terrain: "swamp", fertility: 0.4, coastal: false, river: true, neighbors: ["p3", "p12"], population: 210, mana: 0.65 },
+  // Mirewood — swamp + jungle (south).
+  { id: "p11", name: "Mirewood", terrain: "swamp", fertility: 0.4, coastal: false, river: true, neighbors: ["i3", "p12"], population: 210, mana: 0.65 },
   { id: "p12", name: "Verdant Fever", terrain: "jungle", fertility: 0.5, coastal: false, river: false, neighbors: ["p11", "p8"], population: 190, mana: 0.7 },
 ];
 
 const titles: TitleSpec[] = [
-  // Saltmere — a settled coastal kingdom.
-  { id: "t2", name: "Kingdom of Saltmere", tier: "kingdom", law: "primogeniture", seat: "p2", liege: null },
-  { id: "t0", name: "County of Saltmere", tier: "county", law: "primogeniture", seat: "p0", liege: "t2" },
-  { id: "t1", name: "County of Gullhaven", tier: "county", law: "primogeniture", seat: "p1", liege: "t2" },
-  { id: "t3", name: "County of Green Hollow", tier: "county", law: "primogeniture", seat: "p3", liege: "t2" },
-  // Ironspine — hardy mountain clans, gavelkind (endless fractious claimants).
-  { id: "t4", name: "Kingdom of the Ironspine", tier: "kingdom", law: "gavelkind", seat: "p4", liege: null },
-  { id: "t5", name: "County of Highpass", tier: "county", law: "gavelkind", seat: "p5", liege: "t4" },
-  // The Horde — elective Khaganate: whoever's strongest leads. Orc + human.
-  { id: "t6", name: "Khaganate of the Ashen Steppe", tier: "kingdom", law: "elective", seat: "p6", liege: null },
-  { id: "t7", name: "Clanhold of Sunscour", tier: "county", law: "elective", seat: "p7", liege: "t6" },
-  { id: "t8", name: "Clanhold of Dunemarch", tier: "county", law: "elective", seat: "p8", liege: "t6" },
-  // Zafran — a grand settled empire, primogeniture.
-  { id: "t9", name: "Empire of Zafran", tier: "kingdom", law: "primogeniture", seat: "p9", liege: null },
-  { id: "t10", name: "Satrapy of Khoresh", tier: "county", law: "primogeniture", seat: "p10", liege: "t9" },
-  // Mirewood — insular swamp realm, seniority (the eldest of the coven leads).
-  { id: "t11", name: "Duchy of Mirewood", tier: "duchy", law: "seniority", seat: "p11", liege: null },
-  { id: "t12", name: "County of the Verdant Fever", tier: "county", law: "seniority", seat: "p12", liege: "t11" },
+  // Ibiki heartland — two rival houses.
+  { id: "t_ki", name: "Kingdom of Ibiki", tier: "kingdom", law: "primogeniture", seat: "i0", liege: null },
+  { id: "t_sm", name: "County of Sunmeadow", tier: "county", law: "primogeniture", seat: "i1", liege: "t_ki" },
+  { id: "t_ew", name: "County of Elmwood", tier: "county", law: "primogeniture", seat: "i2", liege: "t_ki" },
+  { id: "t_rb", name: "Duchy of Rivenbrook", tier: "duchy", law: "primogeniture", seat: "i3", liege: null },
+  { id: "t_tw", name: "County of Thornwood", tier: "county", law: "primogeniture", seat: "i4", liege: "t_rb" },
+  // Saltmere (coast).
+  { id: "t_sa", name: "Duchy of Saltmere", tier: "duchy", law: "primogeniture", seat: "p0", liege: null },
+  { id: "t_gh", name: "County of Gullhaven", tier: "county", law: "primogeniture", seat: "p1", liege: "t_sa" },
+  // Ironspine (mountains).
+  { id: "t_is", name: "Kingdom of the Ironspine", tier: "kingdom", law: "gavelkind", seat: "p4", liege: null },
+  { id: "t_hp", name: "County of Highpass", tier: "county", law: "gavelkind", seat: "p5", liege: "t_is" },
+  // The Horde (steppe/desert) — elective.
+  { id: "t_kh", name: "Khaganate of the Ashen Steppe", tier: "kingdom", law: "elective", seat: "p6", liege: null },
+  { id: "t_ss", name: "Clanhold of Sunscour", tier: "county", law: "elective", seat: "p7", liege: "t_kh" },
+  { id: "t_dm", name: "Clanhold of Dunemarch", tier: "county", law: "elective", seat: "p8", liege: "t_kh" },
+  // Empire of Zafran (settled).
+  { id: "t_zf", name: "Empire of Zafran", tier: "kingdom", law: "primogeniture", seat: "p9", liege: null },
+  { id: "t_kx", name: "Satrapy of Khoresh", tier: "county", law: "primogeniture", seat: "p10", liege: "t_zf" },
+  // Mirewood (swamp).
+  { id: "t_mw", name: "Duchy of Mirewood", tier: "duchy", law: "seniority", seat: "p11", liege: null },
+  { id: "t_vf", name: "County of the Verdant Fever", tier: "county", law: "seniority", seat: "p12", liege: "t_mw" },
 ];
 
-const dynasties = [
-  { id: "vaeryn", name: "Vaeryn" }, // Saltmere — coastal humans
-  { id: "grimmr", name: "Grimmr" }, // Ironspine — mountain clans
-  { id: "qarash", name: "Qarash" }, // Horde — human steppe riders
-  { id: "gorthak", name: "Gorthak" }, // Horde — orc tribe (the mix)
-  { id: "darzan", name: "Darzan" }, // Zafran — settled empire
-  { id: "sythe", name: "Sythe" }, // Mirewood — swamp folk
+const dynasties: DynastySpec[] = [
+  { id: "aeryn", name: "Aeryn", culture: "ibiki", race: "human", faith: "verdant" }, // royal Ibiki
+  { id: "doriel", name: "Doriel", culture: "ibiki", race: "human", faith: "verdant" }, // elder-line Ibiki rival
+  { id: "harlow", name: "Harlow", culture: "coastborn", race: "human", faith: "sea" },
+  { id: "grimmr", name: "Grimmr", culture: "ridgefolk", race: "human", faith: "stone" },
+  { id: "qarash", name: "Qarash", culture: "steppe", race: "human", faith: "skyfather" }, // human Horde
+  { id: "gorthak", name: "Gorthak", culture: "orctongue", race: "orc", faith: "skyfather" }, // orc Horde
+  { id: "darzan", name: "Darzan", culture: "zafrani", race: "human", faith: "sunlord" },
+  { id: "sythe", name: "Sythe", culture: "mire", race: "human", faith: "mire" },
+];
+
+const races: RaceSpec[] = [
+  { id: "human", name: "Human", affinities: { orc: -20 } },
+  { id: "orc", name: "Orc", affinities: { human: -20 } },
+];
+
+const faiths: FaithSpec[] = [
+  { id: "verdant", name: "the Verdant Path", hostileTo: ["mire"] }, // Ibiki nature-faith
+  { id: "sea", name: "the Tidefather" },
+  { id: "stone", name: "the Stone Below" },
+  { id: "skyfather", name: "the Sky Father", hostileTo: ["sunlord"] }, // steppe / Horde
+  { id: "sunlord", name: "the Sun Lord", hostileTo: ["skyfather"] }, // Zafran imperial cult
+  { id: "mire", name: "the Drowned Ones", hostileTo: ["verdant", "sunlord"] }, // swamp cult
+];
+
+const cultures: CultureSpec[] = [
+  {
+    id: "ibiki",
+    name: "Ibiki",
+    law: "primogeniture",
+    driveBias: D(0.6, 0.45, 0.6, 0.45, 0.5, 0.35), // ambitious, feuding courtiers
+    namesMale: ["Aeryn", "Caelum", "Doriel", "Elwin", "Faelan", "Ilric", "Kaevo", "Maren", "Orin", "Taviel"],
+    namesFemale: ["Aeliss", "Bryn", "Cirel", "Elowen", "Faye", "Lira", "Maeve", "Nira", "Selune", "Wyn"],
+    surnames: ["Fairwind", "Greenbourne", "Ashvale", "Meadowlight", "Riverwynd"],
+  },
+  {
+    id: "coastborn",
+    name: "Coastborn",
+    law: "primogeniture",
+    driveBias: D(0.55, 0.5, 0.45, 0.4, 0.5, 0.4),
+    namesMale: ["Aldous", "Halden", "Bram", "Corwin", "Sten", "Erik", "Rurik", "Osric", "Leif", "Torgan"],
+    namesFemale: ["Astrid", "Mira", "Sela", "Inga", "Freya", "Edda", "Ylva", "Runa", "Solveig", "Signy"],
+    surnames: ["Harlow", "Tidewell", "Gullhaven", "Saltmere"],
+  },
+  {
+    id: "ridgefolk",
+    name: "Ridgefolk",
+    law: "gavelkind",
+    driveBias: D(0.5, 0.5, 0.55, 0.4, 0.5, 0.2), // hardy, fearless
+    namesMale: ["Bardin", "Dorin", "Grimm", "Torvald", "Durn", "Brok", "Onar", "Vidar", "Hral", "Konr"],
+    namesFemale: ["Torva", "Hilda", "Kaila", "Brenna", "Gudrun", "Signe", "Vela", "Ada", "Sunniva", "Ragna"],
+    surnames: ["Grimmr", "Stoneholt", "Ironvein"],
+  },
+  {
+    id: "steppe",
+    name: "Steppe",
+    law: "elective",
+    driveBias: D(0.85, 0.7, 0.75, 0.12, 0.55, 0.15), // hungry raiders
+    namesMale: ["Temur", "Ghazan", "Yusuf", "Kadir", "Tariq", "Bahadur", "Orhan", "Kaan", "Altan", "Berke"],
+    namesFemale: ["Sabah", "Aisha", "Leyla", "Nur", "Roxana", "Yildiz", "Zara", "Gul", "Aynur", "Perizad"],
+    surnames: ["Qarash", "Bloodmoon", "Windrider"],
+  },
+  {
+    id: "orctongue",
+    name: "Orctongue",
+    law: "elective",
+    driveBias: D(0.85, 0.8, 0.85, 0.05, 0.5, 0.1), // fiercest of the Horde
+    namesMale: ["Uzruk", "Gruul", "Gharruk", "Morg", "Drak", "Thok", "Grash", "Bolg", "Ozruk", "Karg"],
+    namesFemale: ["Ushka", "Grima", "Draka", "Morga", "Thrag", "Ruka", "Grisha", "Nazka", "Ulga", "Braga"],
+    surnames: ["Gorthak", "Skullsplit", "Ironfang"],
+  },
+  {
+    id: "zafrani",
+    name: "Zafrani",
+    law: "primogeniture",
+    driveBias: D(0.45, 0.5, 0.3, 0.72, 0.5, 0.42), // pious, settled, soft
+    namesMale: ["Khosru", "Bahram", "Farid", "Darius", "Kaveh", "Rostam", "Cyrus", "Jamshid", "Sohrab", "Kian"],
+    namesFemale: ["Roshanak", "Yasmin", "Anahita", "Parisa", "Shirin", "Nastaran", "Soraya", "Farah", "Laleh", "Golnar"],
+    surnames: ["Darzan", "Zafrani", "Khoreshi"],
+  },
+  {
+    id: "mire",
+    name: "Mire",
+    law: "seniority",
+    driveBias: D(0.5, 0.4, 0.62, 0.68, 0.45, 0.5), // insular, vengeful, superstitious
+    namesMale: ["Doran", "Vorm", "Grell", "Mosk", "Eril", "Thane", "Bosk", "Fenn", "Ordo", "Sabb"],
+    namesFemale: ["Vessa", "Nessa", "Ligeia", "Sable", "Ondine", "Bryony", "Hazel", "Iria", "Wren", "Maura"],
+    surnames: ["Sythe", "Blackfen", "Marshlight"],
+  },
 ];
 
 const characters: CharacterSpec[] = [
-  // ── House Vaeryn (Saltmere, primogeniture) — balanced, seafaring ──────────
-  ch({ id: "aldous", name: "Aldous", sex: "male", dynasty: "vaeryn", birthYear: 962, province: "p2", drives: D(0.55, 0.4, 0.35, 0.5, 0.5, 0.35), founds: "vaeryn", holds: "t2" }),
-  ch({ id: "mirelle", name: "Mirelle", sex: "female", dynasty: "grimmr", birthYear: 966, province: "p2", drives: D(0.4, 0.4, 0.4, 0.5, 0.5, 0.4), spouse: "aldous" }),
-  ch({ id: "corwin", name: "Corwin", sex: "male", dynasty: "vaeryn", birthYear: 988, province: "p2", drives: D(0.7, 0.45, 0.4, 0.4, 0.5, 0.35), father: "aldous", mother: "mirelle" }),
-  ch({ id: "rowan", name: "Rowan", sex: "female", dynasty: "vaeryn", birthYear: 991, province: "p2", drives: D(0.5, 0.4, 0.45, 0.5, 0.5, 0.4), father: "aldous", mother: "mirelle" }),
-  ch({ id: "halden", name: "Halden", sex: "male", dynasty: "vaeryn", birthYear: 965, province: "p0", drives: D(0.6, 0.55, 0.5, 0.3, 0.5, 0.4), holds: "t0" }),
-  ch({ id: "bram", name: "Bramwell", sex: "male", dynasty: "vaeryn", birthYear: 968, province: "p1", drives: D(0.5, 0.6, 0.45, 0.35, 0.5, 0.45), holds: "t1" }),
-  ch({ id: "edda", name: "Edda", sex: "female", dynasty: "vaeryn", birthYear: 970, province: "p3", drives: D(0.55, 0.45, 0.5, 0.45, 0.5, 0.4), holds: "t3" }),
+  // ── Ibiki heartland — House Aeryn (royal, Kingdom of Ibiki) ──────────────
+  ch({ id: "caelum", name: "Caelum", sex: "male", dynasty: "aeryn", birthYear: 962, province: "i0", drives: D(0.65, 0.45, 0.55, 0.45, 0.5, 0.3), founds: "aeryn", holds: "t_ki" }),
+  ch({ id: "elowen", name: "Elowen", sex: "female", dynasty: "aeryn", birthYear: 966, province: "i0", drives: D(0.5, 0.4, 0.55, 0.5, 0.5, 0.4), spouse: "caelum" }),
+  ch({ id: "faelan", name: "Faelan", sex: "male", dynasty: "aeryn", birthYear: 988, province: "i0", drives: D(0.7, 0.45, 0.6, 0.35, 0.5, 0.3), father: "caelum", mother: "elowen" }),
+  ch({ id: "lira", name: "Lira", sex: "female", dynasty: "aeryn", birthYear: 990, province: "i0", drives: D(0.55, 0.45, 0.6, 0.45, 0.5, 0.4), father: "caelum", mother: "elowen" }),
+  ch({ id: "maren", name: "Maren", sex: "male", dynasty: "aeryn", birthYear: 992, province: "i1", drives: D(0.6, 0.5, 0.65, 0.3, 0.5, 0.45), father: "caelum", mother: "elowen", holds: "t_sm" }),
+  ch({ id: "ilric", name: "Ilric", sex: "male", dynasty: "aeryn", birthYear: 965, province: "i2", drives: D(0.7, 0.5, 0.6, 0.3, 0.5, 0.4), holds: "t_ew" }),
 
-  // ── House Grimmr (Ironspine, gavelkind) — hardy, unafraid ─────────────────
-  ch({ id: "bardin", name: "Bardin", sex: "male", dynasty: "grimmr", birthYear: 958, province: "p4", drives: D(0.5, 0.5, 0.5, 0.4, 0.5, 0.2), founds: "grimmr", holds: "t4" }),
+  // ── Ibiki heartland — House Doriel (elder line, Duchy of Rivenbrook) ──────
+  // Taviel claims the Ibiki throne itself: the central intrigue is at home.
+  ch({ id: "taviel", name: "Taviel", sex: "male", dynasty: "doriel", birthYear: 960, province: "i3", drives: D(0.8, 0.5, 0.7, 0.3, 0.5, 0.3), founds: "doriel", holds: "t_rb",
+       claims: [{ title: "t_ki", strength: "weak", basis: "the elder line, passed over in the old succession", year: 1000 }] }),
+  ch({ id: "nira", name: "Nira", sex: "female", dynasty: "doriel", birthYear: 964, province: "i3", drives: D(0.6, 0.45, 0.65, 0.4, 0.5, 0.4), spouse: "taviel" }),
+  ch({ id: "elwin", name: "Elwin", sex: "male", dynasty: "doriel", birthYear: 986, province: "i4", drives: D(0.75, 0.5, 0.7, 0.25, 0.5, 0.35), father: "taviel", mother: "nira", holds: "t_tw" }),
+  ch({ id: "aeliss", name: "Aeliss", sex: "female", dynasty: "doriel", birthYear: 989, province: "i3", drives: D(0.6, 0.45, 0.65, 0.35, 0.5, 0.4), father: "taviel", mother: "nira" }),
+
+  // ── Saltmere — House Harlow (coastborn) ──────────────────────────────────
+  ch({ id: "aldous", name: "Aldous", sex: "male", dynasty: "harlow", birthYear: 961, province: "p0", drives: D(0.55, 0.5, 0.4, 0.4, 0.5, 0.4), founds: "harlow", holds: "t_sa" }),
+  ch({ id: "astrid", name: "Astrid", sex: "female", dynasty: "harlow", birthYear: 965, province: "p0", drives: D(0.5, 0.45, 0.4, 0.45, 0.5, 0.4), spouse: "aldous" }),
+  ch({ id: "corwin", name: "Corwin", sex: "male", dynasty: "harlow", birthYear: 987, province: "p1", drives: D(0.6, 0.55, 0.45, 0.35, 0.5, 0.4), father: "aldous", mother: "astrid", holds: "t_gh" }),
+
+  // ── Ironspine — House Grimmr (ridgefolk, gavelkind) ──────────────────────
+  ch({ id: "bardin", name: "Bardin", sex: "male", dynasty: "grimmr", birthYear: 958, province: "p4", drives: D(0.5, 0.5, 0.55, 0.4, 0.5, 0.2), founds: "grimmr", holds: "t_is" }),
   ch({ id: "torva", name: "Torva", sex: "female", dynasty: "grimmr", birthYear: 962, province: "p4", drives: D(0.55, 0.45, 0.5, 0.4, 0.5, 0.25), spouse: "bardin" }),
-  ch({ id: "dorin", name: "Dorin", sex: "male", dynasty: "grimmr", birthYear: 984, province: "p5", drives: D(0.6, 0.5, 0.6, 0.3, 0.5, 0.2), father: "bardin", mother: "torva", holds: "t5" }),
+  ch({ id: "dorin", name: "Dorin", sex: "male", dynasty: "grimmr", birthYear: 984, province: "p5", drives: D(0.6, 0.5, 0.6, 0.3, 0.5, 0.2), father: "bardin", mother: "torva", holds: "t_hp" }),
   ch({ id: "kaila", name: "Kaila", sex: "female", dynasty: "grimmr", birthYear: 988, province: "p4", drives: D(0.65, 0.5, 0.6, 0.3, 0.5, 0.25), father: "bardin", mother: "torva" }),
 
-  // ── House Qarash (the Horde, elective) — human steppe riders, hungry ──────
-  ch({ id: "temur", name: "Temur", sex: "male", dynasty: "qarash", birthYear: 960, province: "p6", drives: D(0.9, 0.75, 0.7, 0.15, 0.6, 0.15), founds: "qarash", holds: "t6",
-       claims: [{ title: "t10", strength: "weak", basis: "the old grazing lands, seized by the settled folk", year: 1000 }] }),
+  // ── The Horde — House Qarash (human Khagan) ──────────────────────────────
+  // Temur claims a Zafran satrapy AND an Ibiki meadow: the raids press both.
+  ch({ id: "temur", name: "Temur", sex: "male", dynasty: "qarash", birthYear: 960, province: "p6", drives: D(0.9, 0.75, 0.7, 0.15, 0.6, 0.15), founds: "qarash", holds: "t_kh",
+       claims: [
+         { title: "t_kx", strength: "weak", basis: "the old grazing lands the settled folk fenced", year: 1000 },
+         { title: "t_sm", strength: "weak", basis: "the green meadow the steppe once watered its herds upon", year: 1000 },
+       ] }),
   ch({ id: "sabah", name: "Sabah", sex: "female", dynasty: "qarash", birthYear: 968, province: "p6", drives: D(0.7, 0.6, 0.65, 0.2, 0.6, 0.3), spouse: "temur" }),
   ch({ id: "yusuf", name: "Yusuf", sex: "male", dynasty: "qarash", birthYear: 986, province: "p6", drives: D(0.88, 0.7, 0.7, 0.1, 0.5, 0.2), father: "temur", mother: "sabah" }),
-  ch({ id: "kadir", name: "Kadir", sex: "male", dynasty: "qarash", birthYear: 990, province: "p6", drives: D(0.82, 0.7, 0.75, 0.1, 0.5, 0.25), father: "temur", mother: "sabah" }),
-  ch({ id: "ghazan", name: "Ghazan", sex: "male", dynasty: "qarash", birthYear: 964, province: "p7", drives: D(0.85, 0.7, 0.8, 0.1, 0.5, 0.2), holds: "t7",
-       claims: [{ title: "t6", strength: "weak", basis: "a war-chief's right to the Khaganate", year: 1000 }] }),
+  ch({ id: "ghazan", name: "Ghazan", sex: "male", dynasty: "qarash", birthYear: 964, province: "p7", drives: D(0.85, 0.7, 0.8, 0.1, 0.5, 0.2), holds: "t_ss",
+       claims: [{ title: "t_kh", strength: "weak", basis: "a war-chief's right to the Khaganate", year: 1000 }] }),
 
-  // ── House Gorthak (the Horde, orcs — the "mix") ──────────────────────────
-  ch({ id: "uzruk", name: "Uzruk", sex: "male", dynasty: "gorthak", birthYear: 963, province: "p8", drives: D(0.85, 0.8, 0.85, 0.05, 0.5, 0.1), founds: "gorthak", holds: "t8",
-       claims: [{ title: "t6", strength: "weak", basis: "the orcs will not kneel to a Qarash Khagan forever", year: 1000 }] }),
+  // ── The Horde — House Gorthak (orcs — the mix) ───────────────────────────
+  ch({ id: "uzruk", name: "Uzruk", sex: "male", dynasty: "gorthak", birthYear: 963, province: "p8", drives: D(0.85, 0.8, 0.85, 0.05, 0.5, 0.1), founds: "gorthak", holds: "t_dm",
+       claims: [{ title: "t_kh", strength: "weak", basis: "the orcs will not kneel to a Qarash Khagan forever", year: 1000 }] }),
   ch({ id: "gruul", name: "Gruul", sex: "male", dynasty: "gorthak", birthYear: 989, province: "p8", drives: D(0.8, 0.75, 0.85, 0.05, 0.5, 0.15), father: "uzruk" }),
 
-  // ── House Darzan (Empire of Zafran, primogeniture) — settled, pious, soft ─
-  ch({ id: "khosru", name: "Khosru", sex: "male", dynasty: "darzan", birthYear: 955, province: "p9", drives: D(0.45, 0.5, 0.3, 0.75, 0.5, 0.4), founds: "darzan", holds: "t9" }),
+  // ── Empire of Zafran — House Darzan (zafrani, settled, pious) ────────────
+  ch({ id: "khosru", name: "Khosru", sex: "male", dynasty: "darzan", birthYear: 955, province: "p9", drives: D(0.45, 0.5, 0.3, 0.75, 0.5, 0.4), founds: "darzan", holds: "t_zf" }),
   ch({ id: "roshanak", name: "Roshanak", sex: "female", dynasty: "darzan", birthYear: 960, province: "p9", drives: D(0.4, 0.5, 0.35, 0.7, 0.5, 0.4), spouse: "khosru" }),
   ch({ id: "bahram", name: "Bahram", sex: "male", dynasty: "darzan", birthYear: 985, province: "p9", drives: D(0.5, 0.55, 0.4, 0.6, 0.5, 0.45), father: "khosru", mother: "roshanak" }),
-  ch({ id: "yasmin", name: "Yasmin", sex: "female", dynasty: "darzan", birthYear: 988, province: "p9", drives: D(0.55, 0.5, 0.4, 0.55, 0.5, 0.4), father: "khosru", mother: "roshanak" }),
-  ch({ id: "farid", name: "Farid", sex: "male", dynasty: "darzan", birthYear: 959, province: "p10", drives: D(0.6, 0.6, 0.5, 0.4, 0.5, 0.4), holds: "t10" }),
+  ch({ id: "farid", name: "Farid", sex: "male", dynasty: "darzan", birthYear: 959, province: "p10", drives: D(0.6, 0.6, 0.5, 0.4, 0.5, 0.4), holds: "t_kx" }),
 
-  // ── House Sythe (Mirewood, seniority) — insular, superstitious ───────────
-  ch({ id: "vessa", name: "Vessa", sex: "female", dynasty: "sythe", birthYear: 961, province: "p11", drives: D(0.5, 0.4, 0.6, 0.7, 0.4, 0.5), founds: "sythe", holds: "t11" }),
-  ch({ id: "doran", name: "Doran", sex: "male", dynasty: "sythe", birthYear: 964, province: "p12", drives: D(0.5, 0.45, 0.6, 0.6, 0.5, 0.5), holds: "t12" }),
-  ch({ id: "nessa", name: "Nessa", sex: "female", dynasty: "sythe", birthYear: 990, province: "p11", drives: D(0.55, 0.4, 0.65, 0.6, 0.5, 0.5) }),
+  // ── Mirewood — House Sythe (mire, seniority) ─────────────────────────────
+  ch({ id: "vessa", name: "Vessa", sex: "female", dynasty: "sythe", birthYear: 961, province: "p11", drives: D(0.5, 0.4, 0.62, 0.68, 0.45, 0.5), founds: "sythe", holds: "t_mw" }),
+  ch({ id: "doran", name: "Doran", sex: "male", dynasty: "sythe", birthYear: 964, province: "p12", drives: D(0.5, 0.45, 0.6, 0.6, 0.5, 0.5), holds: "t_vf" }),
 ];
 
 export const FRONTIER_SPEC: WorldSpec = {
@@ -147,4 +250,7 @@ export const FRONTIER_SPEC: WorldSpec = {
   titles,
   dynasties,
   characters,
+  cultures,
+  races,
+  faiths,
 };

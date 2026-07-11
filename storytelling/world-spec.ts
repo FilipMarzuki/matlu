@@ -41,6 +41,40 @@ export interface TitleSpec {
 export interface DynastySpec {
   id: string;
   name: string;
+  culture?: string; // CultureSpec.id
+  race?: string; // RaceSpec.id
+  faith?: string; // FaithSpec.id
+}
+
+// --- Peoples layer -----------------------------------------------------------
+// A culture gives its houses a naming convention, a temperament (drive biases
+// that newborns pull toward), and a default succession law. This is what makes
+// a region read as a distinct people across generations, not just gen-0.
+export interface CultureSpec {
+  id: string;
+  name: string;
+  namesMale: string[];
+  namesFemale: string[];
+  surnames?: string[]; // for low-born risers who found new houses in this land
+  // Target drive profile [ambition, greed, vengeance, piety, lust, fear];
+  // newborns of this culture blend toward it. Omit to leave temperament free.
+  driveBias?: number[];
+  law?: SuccessionLaw; // default succession law for this culture's realms
+}
+
+// A race carries an inter-group opinion modifier: how members of this race
+// regard members of another (negative = friction). Drives the orc/human strain.
+export interface RaceSpec {
+  id: string;
+  name: string;
+  affinities?: Record<string, number>; // otherRaceId -> opinion delta
+}
+
+// A faith can be hostile to others — a holy-war axis and a source of grudges.
+export interface FaithSpec {
+  id: string;
+  name: string;
+  hostileTo?: string[]; // faith ids this faith is hostile toward
 }
 
 export interface ClaimSpec {
@@ -72,6 +106,11 @@ export interface WorldSpec {
   titles: TitleSpec[];
   dynasties: DynastySpec[];
   characters: CharacterSpec[];
+  // Optional peoples layer. Absent (as in DEFAULT_SPEC) = no cultures, and the
+  // sim falls back to the global name pool with no temperament/opinion effects.
+  cultures?: CultureSpec[];
+  races?: RaceSpec[];
+  faiths?: FaithSpec[];
 }
 
 export const DEFAULT_SPEC: WorldSpec =

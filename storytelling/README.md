@@ -120,16 +120,34 @@ npx tsx storytelling/main.ts --spec my-world.spec.json --seed 42 --magic
 
 **Built-in worlds** (`--world <name>`, in `worlds/`):
 - `default` — the original three-realm tableau.
-- `frontier` — an authored "approximate geography": an ocean coast (west), a
-  mountain spine, an arid **steppe + desert** raider frontier (an elective orc/
-  human Horde — hungry, vengeful), a **swamp + jungle** south, and a settled
-  human **Empire of Zafran** beyond the desert. Culture is encoded via succession
-  law + drive vectors + gen-0 names; the desert's brutal carrying capacity keeps
-  the Horde raiding, and high frontier mana breeds high-level warlords while the
-  soft empire does not (Ibn Khaldun by geography). Terrain now includes `steppe`,
-  `desert`, `swamp`, `jungle` alongside plains/hills/forest/coast/mountain.
+- `frontier` — the **Ibiki heartland** (a lush `meadow`+`forest` centre, the seat
+  of the story) ringed by frontiers: an ocean coast (west), a mountain spine
+  (north), an arid **steppe+desert** orc/human raider Horde (east) with a settled
+  **Empire of Zafran** beyond it, and a **swamp+jungle** Mirewood (south). The
+  heartland holds two rival Ibiki houses (royal Aeryn vs the elder-line Doriel,
+  who claims the throne), so the densest intrigue is at home; the Horde presses
+  in with claims on both a Zafran satrapy and an Ibiki meadow. Terrain now
+  includes `meadow`/`steppe`/`desert`/`swamp`/`jungle`.
 
 Authoring a world is just data — see `worlds/frontier.ts` as a worked example.
+
+### The peoples layer (culture · race · faith)
+
+A WorldSpec may define **cultures**, **races**, and **faiths** (all optional; the
+default world uses none, so it stays byte-identical). They make a region read as
+a distinct people *across generations*, not just at gen-0:
+
+- **Culture** → a name pool (so Ibiki children stay Ibiki-named for 200 years,
+  fixing the drift), a temperament (`driveBias` that newborns pull toward — the
+  Horde stays hungry, Zafran pious), and a default succession law.
+- **Race** (e.g. human / orc) → an inter-race opinion modifier, so the orc/human
+  split inside the Horde is *mechanical* friction, not just flavour.
+- **Faith** → hostility pairs (a holy-war / grudge axis — Sky Father vs Sun Lord,
+  the swamp cult against all).
+
+Wiring: `CultureSpec`/`RaceSpec`/`FaithSpec` on the WorldSpec, `culture`/`race`/
+`faith` on each dynasty; naming and drive-bias are threaded through births in
+`people.ts`, and the opinion modifier lives in `World.peoplesModifier`.
 
 `mana` is **authored data** per province (no longer derived from terrain) — the
 "second geography" you can drive from a corruption / ley overlay. To wire the real

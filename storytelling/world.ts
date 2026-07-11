@@ -19,6 +19,7 @@ import type {
   TitleId,
   WorldEvent,
 } from "./types.js";
+import type { CultureSpec, FaithSpec, RaceSpec } from "./world-spec.js";
 
 export class World {
   year = 0;
@@ -33,6 +34,11 @@ export class World {
   dynasties = new Map<DynastyId, Dynasty>();
   provinces = new Map<ProvinceId, Province>();
   titles = new Map<TitleId, Title>();
+
+  // Peoples layer (populated from the WorldSpec; empty in the default world).
+  cultures = new Map<string, CultureSpec>();
+  races = new Map<string, RaceSpec>();
+  faiths = new Map<string, FaithSpec>();
 
   goals: Goal[] = [];
   schemes: Scheme[] = [];
@@ -129,13 +135,48 @@ export class World {
     return out;
   }
 
+  // ---- peoples -----------------------------------------------------------
+  cultureOf(c: Character): CultureSpec | undefined {
+    const id = this.dynasty(c.dynastyId)?.cultureId;
+    return id ? this.cultures.get(id) : undefined;
+  }
+  raceIdOf(c: Character): string {
+    return this.dynasty(c.dynastyId)?.raceId ?? "";
+  }
+  faithIdOf(c: Character): string {
+    return this.dynasty(c.dynastyId)?.faithId ?? "";
+  }
+
+  // The standing opinion modifier between two peoples: race affinity + faith
+  // hostility. Zero when the world defines no races/faiths, so the default
+  // world is unaffected. This is what makes orc/human and cross-faith tension
+  // mechanical rather than merely flavour.
+  peoplesModifier(a: Character, b: Character): number {
+    let m = 0;
+    const ra = this.raceIdOf(a), rb = this.raceIdOf(b);
+    if (ra && rb && ra !== rb) {
+      m += this.races.get(ra)?.affinities?.[rb] ?? 0;
+    }
+    const fa = this.faithIdOf(a), fb = this.faithIdOf(b);
+    if (fa && fb && fa !== fb) {
+      const hostile =
+        this.faiths.get(fa)?.hostileTo?.includes(fb) ||
+        this.faiths.get(fb)?.hostileTo?.includes(fa);
+      if (hostile) m -= 25;
+    }
+    return m;
+  }
+
   // ---- opinion -----------------------------------------------------------
-  // Opinion is lazily defaulted to 0 (neutral). Dynasty kin start a little
-  // warmer; this is a query so callers never have to special-case missing keys.
+  // Opinion is lazily defaulted. Dynasty kin start a little warmer; members of
+  // hostile races/faiths start colder. A query, so callers never special-case
+  // missing keys.
   opinionOf(a: Character, bId: CharId): number {
     if (a.opinion[bId] !== undefined) return a.opinion[bId];
     const b = this.char(bId);
-    const base = b && b.dynastyId === a.dynastyId ? 15 : 0;
+    let base = b && b.dynastyId === a.dynastyId ? 15 : 0;
+    if (b) base += this.peoplesModifier(a, b);
+    base = Math.max(-100, Math.min(100, base));
     a.opinion[bId] = base;
     return base;
   }

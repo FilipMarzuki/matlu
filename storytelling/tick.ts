@@ -114,6 +114,7 @@ function runBirths(w: World): void {
       drives: inheritDrives(w.rng, father.drives, mother.drives),
       fatherId: father.id,
       motherId: mother.id,
+      biasCulture: true, // pull the child toward its house's cultural temperament
     });
     w.log("BIRTH", {
       actorId: child.id,
@@ -396,7 +397,14 @@ function findDomesticPartner(w: World, c: Character): Character | null {
 function makeForeignSpouse(w: World, c: Character): Character {
   const wantSex = c.sex === "male" ? "female" : "male";
   // A lightweight foreign house — reuse one per few years to avoid a flood.
-  const dyn = createDynasty(w, `${commonSurname(w.rng)}`, "");
+  // It takes on the local people (culture/race/faith of the house it marries
+  // into) so the married-in spouse is named and tempered like the region.
+  const home = w.dynasty(c.dynastyId);
+  const dyn = createDynasty(w, `${commonSurname(w.rng)}`, "", {
+    culture: home?.cultureId,
+    race: home?.raceId,
+    faith: home?.faithId,
+  });
   const spouse = createCharacter(w, {
     sex: wantSex,
     dynastyId: dyn.id,

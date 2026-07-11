@@ -121,6 +121,13 @@ export interface Dynasty {
   founderId: CharId;
   extinctYear: number | null; // set when the last member dies
 
+  // --- Peoples layer (empty string = none; only used when the world defines
+  // cultures/races/faiths). A house belongs to a people; its members inherit
+  // that people's names, temperament, and faith.
+  cultureId: string;
+  raceId: string;
+  faithId: string;
+
   // --- Magic / leveling layer (only used when World.magicEnabled) ----------
   wealth: number; // treasury; earned from lands, spent cultivating heirs
   rite: RareClass | null; // a heritable rare class-rite the house can grant
@@ -132,6 +139,7 @@ export interface Dynasty {
 // grain: carrying capacity caps population, which caps levies and wealth.
 // ---------------------------------------------------------------------------
 export type Terrain =
+  | "meadow" // lush green heartland — the richest farmland
   | "plains"
   | "hills"
   | "forest"

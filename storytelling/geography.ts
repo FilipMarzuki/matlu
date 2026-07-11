@@ -12,6 +12,7 @@ import type { World } from "./world.js";
 // feed armies; mountains starve them. These multipliers are the whole reason
 // a kingdom's heartland sits where it does.
 const TERRAIN_YIELD: Record<Terrain, number> = {
+  meadow: 1.05, // the lush heartland — the richest land there is
   plains: 1.0,
   hills: 0.7,
   forest: 0.6,

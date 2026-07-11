@@ -58,10 +58,18 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
     if (prov) prov.titleId = t.id;
   }
 
+  // --- Peoples layer (optional) — cultures/races/faiths as data ---------
+  for (const c of spec.cultures ?? []) w.cultures.set(c.id, c);
+  for (const r of spec.races ?? []) w.races.set(r.id, r);
+  for (const fa of spec.faiths ?? []) w.faiths.set(fa.id, fa);
+
   // --- Dynasties (founderId wired in the character pass) -----------------
   const dynId = new Map<string, string>(); // spec label -> real id
   for (const dy of spec.dynasties) {
-    dynId.set(dy.id, createDynasty(w, dy.name, "").id);
+    dynId.set(
+      dy.id,
+      createDynasty(w, dy.name, "", { culture: dy.culture, race: dy.race, faith: dy.faith }).id,
+    );
   }
 
   // --- Characters -------------------------------------------------------
