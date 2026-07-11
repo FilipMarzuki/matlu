@@ -19,15 +19,26 @@ import type {
   TitleId,
   WorldEvent,
 } from "./types.js";
+import type { CultureSpec, FaithSpec, RaceSpec } from "./world-spec.js";
 
 export class World {
   year = 0;
   rng: RNG;
 
+  // When true, the magic/leveling layer (magic.ts) runs each tick and personal
+  // combat prowess feeds into power(). Off by default so the base sim is
+  // unchanged and the two chronicles can be diffed.
+  magicEnabled = false;
+
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
   provinces = new Map<ProvinceId, Province>();
   titles = new Map<TitleId, Title>();
+
+  // Peoples layer (populated from the WorldSpec; empty in the default world).
+  cultures = new Map<string, CultureSpec>();
+  races = new Map<string, RaceSpec>();
+  faiths = new Map<string, FaithSpec>();
 
   goals: Goal[] = [];
   schemes: Scheme[] = [];
@@ -124,13 +135,48 @@ export class World {
     return out;
   }
 
+  // ---- peoples -----------------------------------------------------------
+  cultureOf(c: Character): CultureSpec | undefined {
+    const id = this.dynasty(c.dynastyId)?.cultureId;
+    return id ? this.cultures.get(id) : undefined;
+  }
+  raceIdOf(c: Character): string {
+    return this.dynasty(c.dynastyId)?.raceId ?? "";
+  }
+  faithIdOf(c: Character): string {
+    return this.dynasty(c.dynastyId)?.faithId ?? "";
+  }
+
+  // The standing opinion modifier between two peoples: race affinity + faith
+  // hostility. Zero when the world defines no races/faiths, so the default
+  // world is unaffected. This is what makes orc/human and cross-faith tension
+  // mechanical rather than merely flavour.
+  peoplesModifier(a: Character, b: Character): number {
+    let m = 0;
+    const ra = this.raceIdOf(a), rb = this.raceIdOf(b);
+    if (ra && rb && ra !== rb) {
+      m += this.races.get(ra)?.affinities?.[rb] ?? 0;
+    }
+    const fa = this.faithIdOf(a), fb = this.faithIdOf(b);
+    if (fa && fb && fa !== fb) {
+      const hostile =
+        this.faiths.get(fa)?.hostileTo?.includes(fb) ||
+        this.faiths.get(fb)?.hostileTo?.includes(fa);
+      if (hostile) m -= 25;
+    }
+    return m;
+  }
+
   // ---- opinion -----------------------------------------------------------
-  // Opinion is lazily defaulted to 0 (neutral). Dynasty kin start a little
-  // warmer; this is a query so callers never have to special-case missing keys.
+  // Opinion is lazily defaulted. Dynasty kin start a little warmer; members of
+  // hostile races/faiths start colder. A query, so callers never special-case
+  // missing keys.
   opinionOf(a: Character, bId: CharId): number {
     if (a.opinion[bId] !== undefined) return a.opinion[bId];
     const b = this.char(bId);
-    const base = b && b.dynastyId === a.dynastyId ? 15 : 0;
+    let base = b && b.dynastyId === a.dynastyId ? 15 : 0;
+    if (b) base += this.peoplesModifier(a, b);
+    base = Math.max(-100, Math.min(100, base));
     a.opinion[bId] = base;
     return base;
   }
@@ -152,6 +198,32 @@ export class World {
       // Higher tiers project authority beyond their own seat.
       p += t.tier === "kingdom" ? 600 : t.tier === "duchy" ? 250 : 60;
     }
+    // Magic layer: a high-level martial figure is worth an army. This is the
+    // "overmighty subject" coupling — a level-20 warden on the frontier can
+    // out-fight a soft king with three counties. Kept inline (no import of
+    // magic.ts) so world.ts stays dependency-free.
+    if (this.magicEnabled) p += personalCombat(c);
     return p;
   }
+}
+
+// How much a person's own prowess weighs in a war, in the same units as levies.
+// Grows super-linearly with level so the very top tier is genuinely decisive,
+// scaled by how martial the class is.
+const MARTIAL: Record<string, number> = {
+  warden: 1.0,
+  stormcaller: 1.1,
+  knight: 0.85,
+  necromancer: 0.8,
+  soldier: 0.55,
+  hunter: 0.45,
+  commoner: 0.2,
+  scholar: 0.15,
+  merchant: 0.1,
+};
+
+export function personalCombat(c: Character): number {
+  if (!c.alive || c.level <= 1) return 0;
+  const martial = MARTIAL[c.charClass] ?? 0.3;
+  return Math.round(Math.pow(c.level, 1.4) * martial * 6);
 }

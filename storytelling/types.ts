@@ -85,20 +85,70 @@ export interface Character {
   // Set true once a character has been promoted up from the pops (social
   // mobility / "breakout"). Lets the sifter spotlight low-born risers.
   lowborn: boolean;
+
+  // --- Magic / leveling layer ------------------------------------------------
+  // Only exercised when World.magicEnabled. Kept on every Character (rather than
+  // a side-map) so the base sim and the magic sim share one object shape; in
+  // base mode these fields are simply initialised once and never touched.
+  level: number; // power tier; 1 = an ordinary person
+  lifeXp: number; // accumulated XP toward the next level
+  charClass: CharClass; // current class — sets martial weight, XP rate, access
+  comfort: number; // 0..1 safety+luxury; throttles XP and the will to risk
+  ventured: boolean; // transient: sought danger this year (for the chronicle)
 }
+
+// Classes are tiered by how they're acquired:
+//   common  — soft-gated, anyone can fall into them
+//   mid     — capital-gated (wealth/knowledge ease the path)
+//   rare    — rite-gated: only a house/guild that holds the rite can grant them
+export type CharClass =
+  | "commoner"
+  | "soldier"
+  | "hunter"
+  | "knight"
+  | "scholar"
+  | "merchant"
+  | "warden"
+  | "stormcaller"
+  | "necromancer";
+
+// The rare classes — heritable "intellectual property" a dynasty can lose.
+export type RareClass = "warden" | "stormcaller" | "necromancer";
 
 export interface Dynasty {
   id: DynastyId;
   name: string;
   founderId: CharId;
   extinctYear: number | null; // set when the last member dies
+
+  // --- Peoples layer (empty string = none; only used when the world defines
+  // cultures/races/faiths). A house belongs to a people; its members inherit
+  // that people's names, temperament, and faith.
+  cultureId: string;
+  raceId: string;
+  faithId: string;
+
+  // --- Magic / leveling layer (only used when World.magicEnabled) ----------
+  wealth: number; // treasury; earned from lands, spent cultivating heirs
+  rite: RareClass | null; // a heritable rare class-rite the house can grant
+  riteBearerId: CharId | null; // the living master who can pass the rite on
 }
 
 // ---------------------------------------------------------------------------
 // Geography — provinces with scarcity. Geography gives history a persistent
 // grain: carrying capacity caps population, which caps levies and wealth.
 // ---------------------------------------------------------------------------
-export type Terrain = "plains" | "hills" | "forest" | "coast" | "mountain";
+export type Terrain =
+  | "meadow" // lush green heartland — the richest farmland
+  | "plains"
+  | "hills"
+  | "forest"
+  | "coast"
+  | "mountain"
+  | "steppe" // arid grassland — grazing, raiders, thin farming
+  | "desert" // barely habitable, harsh
+  | "swamp" // wetland, disease-prone
+  | "jungle"; // lush but hard to clear/farm
 
 export interface Province {
   id: ProvinceId;
@@ -111,6 +161,12 @@ export interface Province {
 
   population: number; // abstract pops (statistical tier)
   titleId: TitleId; // the title that controls this province
+
+  // --- Magic / leveling layer (only used when World.magicEnabled) ----------
+  // Mana density supports rare classes and raises a region's leveling ceiling;
+  // it also makes a province more PERILOUS (dungeons, monsters), and peril is
+  // exactly what mints high-level people.
+  manaDensity: number; // 0..1
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +249,13 @@ export type EventType =
   | "HARVEST_FAILURE"
   | "DYNASTY_EXTINCT"
   | "LOWBORN_RISE"
-  | "GRUDGE_FORMED";
+  | "GRUDGE_FORMED"
+  // --- Magic / leveling layer ---
+  | "CLASS_GAINED" // gained a rare, rite-gated class
+  | "LEVELED" // crossed a milestone level / became the mightiest of the age
+  | "HEIR_TEMPERED" // a house forged an heir in real peril and they grew
+  | "ART_LOST" // a rare class-rite died un-transmitted with its last master
+  | "HERO_RISEN"; // a low-born striver broke through to the heroic tier
 
 export interface WorldEvent {
   id: number;

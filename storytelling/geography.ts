@@ -12,11 +12,16 @@ import type { World } from "./world.js";
 // feed armies; mountains starve them. These multipliers are the whole reason
 // a kingdom's heartland sits where it does.
 const TERRAIN_YIELD: Record<Terrain, number> = {
+  meadow: 1.05, // the lush heartland — the richest land there is
   plains: 1.0,
   hills: 0.7,
   forest: 0.6,
   coast: 0.85, // fishing supplements the land
   mountain: 0.4,
+  steppe: 0.5, // grazing land — feeds herds and raiders, not cities
+  desert: 0.2, // oasis-thin; scarcity here is the engine of the raids
+  swamp: 0.45,
+  jungle: 0.6, // lush but hard to clear
 };
 
 // The maximum population a province can sustain. Capacity caps population,

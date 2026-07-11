@@ -4,26 +4,61 @@
 //
 //   npx tsx main.ts --years 200 --seed 42
 
+import { readFileSync } from "node:fs";
+import { extractArcs } from "./arcs.js";
+import { magicInit } from "./magic.js";
+import { saveRun } from "./persist.js";
 import { renderChronicle, renderEpilogue } from "./render.js";
-import { buildWorld } from "./seed.js";
+import { loadWorld } from "./seed.js";
 import { sift } from "./sifter.js";
 import { tick } from "./tick.js";
+import { DEFAULT_SPEC, type WorldSpec } from "./world-spec.js";
+import { FRONTIER_SPEC } from "./worlds/frontier.js";
+
+// Built-in named worlds. `--world <name>` picks one; --spec <file> overrides.
+const WORLDS: Record<string, WorldSpec> = {
+  default: DEFAULT_SPEC,
+  frontier: FRONTIER_SPEC,
+};
+
+// Bump when the sim's behaviour changes, so saved runs record what produced them.
+const STORY_VERSION = "0.2";
 
 interface Args {
   years: number;
   seed: number;
   threshold: number;
   verbose: boolean;
+  magic: boolean;
+  save: boolean;
+  arcs: boolean;
+  spec: string | null; // path to a WorldSpec JSON; overrides --world
+  world: string; // a built-in named world (see WORLDS)
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { years: 200, seed: 42, threshold: 4, verbose: false };
+  const args: Args = {
+    years: 200,
+    seed: 42,
+    threshold: 4,
+    verbose: false,
+    magic: false,
+    save: false,
+    arcs: false,
+    spec: null,
+    world: "default",
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--years") args.years = parseInt(argv[++i], 10);
     else if (a === "--seed") args.seed = parseInt(argv[++i], 10);
     else if (a === "--threshold") args.threshold = parseInt(argv[++i], 10);
     else if (a === "--verbose") args.verbose = true;
+    else if (a === "--magic") args.magic = true;
+    else if (a === "--save") args.save = true;
+    else if (a === "--arcs") args.arcs = true;
+    else if (a === "--spec") args.spec = argv[++i];
+    else if (a === "--world") args.world = argv[++i];
   }
   return args;
 }
@@ -31,7 +66,20 @@ function parseArgs(argv: string[]): Args {
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
 
-  const world = buildWorld(args.seed);
+  // Pick the world: an external JSON via --spec, a built-in named world via
+  // --world, or the default tableau. (buildWorld === loadWorld(DEFAULT_SPEC).)
+  const spec: WorldSpec = args.spec
+    ? (JSON.parse(readFileSync(args.spec, "utf8")) as WorldSpec)
+    : (WORLDS[args.world] ?? DEFAULT_SPEC);
+  const world = loadWorld(spec, args.seed);
+
+  // Opt into the magic / leveling layer. Off by default so the base chronicle
+  // is unchanged; `--magic` turns on classes, levels, inherited capital, the
+  // comfort governor, and lost arts.
+  if (args.magic) {
+    world.magicEnabled = true;
+    magicInit(world);
+  }
 
   // Run the simulation. Nothing is rendered during the loop — we simulate
   // first, then sift, exactly as the brief insists: the LLM (or stub) never
@@ -46,12 +94,35 @@ function main(): void {
   console.log("═".repeat(64));
   console.log("A CHRONICLE OF THE MATLU MULTIWORLD");
   console.log(
-    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling`,
+    `seed ${args.seed} · ${args.years} years (${chronicle[0]?.year ?? "?"}–${world.year}) · ${chronicle.length} events worth telling${args.magic ? " · magic: on" : ""}${args.spec ? ` · world: ${args.spec.split("/").pop()}` : args.world !== "default" ? ` · world: ${args.world}` : ""}`,
   );
   console.log("═".repeat(64));
 
   console.log(renderChronicle(world, chronicle));
   console.log(renderEpilogue(world));
+
+  // Group the significant events into story arcs (threads). Needed for --arcs
+  // and saved into meta.json by --save.
+  const arcs = extractArcs(world, chronicle);
+
+  if (args.arcs) {
+    console.log("\n" + "═".repeat(64));
+    console.log("STORY ARCS (threads, biggest first)");
+    console.log("─".repeat(64));
+    for (const a of arcs.slice(0, 20)) {
+      console.log(`  [${String(a.significance).padStart(3)}] ${a.title}  ·  ${a.eventIds.length} events`);
+    }
+    console.log(`(${arcs.length} arcs total)`);
+  }
+
+  if (args.save) {
+    const dir = saveRun(
+      world,
+      { seed: args.seed, years: args.years, magic: args.magic, version: STORY_VERSION },
+      arcs,
+    );
+    console.log(`\nSaved run to ${dir}/ (events.ndjson + meta.json).`);
+  }
 
   if (args.verbose) {
     // Raw event-type tally to gauge the simulation's behaviour at a glance.

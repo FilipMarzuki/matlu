@@ -7,6 +7,7 @@
 // Design note: the renderer is a pure function of canonical state. It invents
 // no facts (that would corrupt canon); it only phrases facts the sim recorded.
 
+import { topHeroes } from "./magic.js";
 import type { Character, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
@@ -165,6 +166,31 @@ export function renderEvent(w: World, ev: WorldEvent): string {
     case "GRUDGE_FORMED":
       return `${who(w, ev.actorId)} swore a grudge against ${who(w, ev.targetId)}.`;
 
+    // --- Magic / leveling layer ---
+    case "LEVELED": {
+      const lvl = ev.data["level"];
+      const cls = ev.data["class"];
+      if (tags.includes("ascendant")) {
+        return `${who(w, ev.actorId)} rose to become the mightiest soul of the age — a ${cls} at level ${lvl}.`;
+      }
+      if (tags.includes("titan")) {
+        return `${who(w, ev.actorId)} grew into a ${cls} of fearsome power (level ${lvl}), a name spoken across the realms.`;
+      }
+      return `${who(w, ev.actorId)} came into their strength as a ${cls} of note (level ${lvl}).`;
+    }
+
+    case "HERO_RISEN":
+      return `${who(w, ev.actorId)}, born to no house of note, rose by sheer deed to the heroic tier — a ${ev.data["class"]} at level ${ev.data["level"]}.`;
+
+    case "HEIR_TEMPERED":
+      return `The House of ${ev.data["house"]} forged ${who(w, ev.actorId)} in real peril, and they came back the stronger (level ${ev.data["level"]}).`;
+
+    case "CLASS_GAINED":
+      return `The ${ev.data["class"]} art of House ${ev.data["house"]} passed to ${who(w, ev.actorId)}, its new master.`;
+
+    case "ART_LOST":
+      return `The ${ev.data["class"]} art of House ${ev.data["house"]} died with its last master, lost to the age.`;
+
     default:
       return `[${ev.type}]`;
   }
@@ -209,6 +235,31 @@ export function renderEpilogue(w: World): string {
   lines.push(
     `Surviving houses of note: ${houseNames.slice(0, 12).join(", ") || "none"}.`,
   );
+
+  // Magic layer: who ended the age as its mightiest, and which arts still live.
+  if (w.magicEnabled) {
+    lines.push("─".repeat(64));
+    const heroes = topHeroes(w, 6);
+    if (heroes.length) {
+      lines.push("Mightiest of the age:");
+      for (const h of heroes) {
+        const seat = w.titlesHeldBy(h.id)[0];
+        const role = seat ? `holds ${seat.name}` : h.lowborn ? "lowborn" : "landless";
+        lines.push(
+          `  ${who(w, h.id)} — ${h.charClass} lvl ${h.level}, aged ${w.age(h)} (${role}).`,
+        );
+      }
+    }
+    const rites = [...w.dynasties.values()].filter((dy) => dy.rite);
+    lines.push(
+      `Living arts: ${
+        rites.length
+          ? rites.map((dy) => `${dy.rite} (House ${dy.name})`).join(", ")
+          : "all lost"
+      }.`,
+    );
+  }
+
   lines.push(`Total recorded events: ${w.events.length}.`);
   return lines.join("\n");
 }
