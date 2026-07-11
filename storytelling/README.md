@@ -200,6 +200,35 @@ uses it): `story_runs(seed, config, version, summary jsonb)` +
 That's the read source for the nightly Claude Message-Batches renderer — "give me
 every murder in run X" or "feed this arc's events to Opus" become one query each.
 
+## History as a cone of detail (temporal level-of-detail)
+
+Real history isn't uniformly dense — the present is sharp, the deep past
+compresses into a few remembered threads and then into myth. The default view
+renders that gradient, in three zones by age from the last simulated year:
+
+- **LIVING MEMORY** (recent, ~70y) — individual dated events, full detail.
+- **THE CHRONICLE** (older, ~70–160y) — one line per story **arc** (the thread,
+  not its events).
+- **AGES OF LEGEND** (ancient) — arcs aggregated into terse century-eras.
+
+Old threads are also *forgotten* unless they're big or still-relevant: an arc's
+remembered strength decays with age but is kept alive if it still touches a
+**surviving house or a title still held** (the winners' history endures — the
+losers' fades). So a 200-year run shows a chronicle + living memory; a 400-year
+run grows a mythic "ages of legend" preamble. The **simulation is unchanged** —
+this is purely how much of it we *remember* at each distance.
+
+```bash
+npx tsx storytelling/main.ts --world frontier --years 400 --magic     # the cone
+npx tsx storytelling/main.ts --flat                                   # old flat view
+# tune the windows: --living <years> --chronicle <years>
+```
+
+This is the temporal analog of the (deferred) spatial LOD, and it's the read-out
+half of "generate background history": a coarse **prehistory** pass can later
+seed the sim with an already-old world, and this renderer will show its deep past
+as legend automatically.
+
 ## Magic / leveling layer (`--magic`)
 
 An optional high-fantasy layer: classes, levels, inherited capital and lost arts.

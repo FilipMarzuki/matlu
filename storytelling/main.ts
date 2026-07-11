@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { extractArcs } from "./arcs.js";
 import { magicInit } from "./magic.js";
 import { saveRun } from "./persist.js";
-import { renderChronicle, renderEpilogue } from "./render.js";
+import { renderChronicle, renderEpilogue, renderLayeredChronicle } from "./render.js";
 import { loadWorld } from "./seed.js";
 import { sift } from "./sifter.js";
 import { tick } from "./tick.js";
@@ -34,6 +34,9 @@ interface Args {
   arcs: boolean;
   spec: string | null; // path to a WorldSpec JSON; overrides --world
   world: string; // a built-in named world (see WORLDS)
+  flat: boolean; // flat chronicle (no temporal level-of-detail)
+  living: number | undefined; // living-memory window (years)
+  chronicle: number | undefined; // chronicle window (years)
 }
 
 function parseArgs(argv: string[]): Args {
@@ -47,6 +50,9 @@ function parseArgs(argv: string[]): Args {
     arcs: false,
     spec: null,
     world: "default",
+    flat: false,
+    living: undefined,
+    chronicle: undefined,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -59,6 +65,9 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--arcs") args.arcs = true;
     else if (a === "--spec") args.spec = argv[++i];
     else if (a === "--world") args.world = argv[++i];
+    else if (a === "--flat") args.flat = true;
+    else if (a === "--living") args.living = parseInt(argv[++i], 10);
+    else if (a === "--chronicle") args.chronicle = parseInt(argv[++i], 10);
   }
   return args;
 }
@@ -98,12 +107,24 @@ function main(): void {
   );
   console.log("═".repeat(64));
 
-  console.log(renderChronicle(world, chronicle));
-  console.log(renderEpilogue(world));
-
-  // Group the significant events into story arcs (threads). Needed for --arcs
-  // and saved into meta.json by --save.
+  // Group the significant events into story arcs (threads) — needed both for the
+  // temporal level-of-detail renderer and for --arcs / --save.
   const arcs = extractArcs(world, chronicle);
+
+  // Default view: a cone of detail (legend → chronicle → living memory), so
+  // history reads sparse-and-mythic long ago, dense-and-detailed near the
+  // present. --flat prints the old year-by-year chronicle instead.
+  if (args.flat) {
+    console.log(renderChronicle(world, chronicle));
+  } else {
+    console.log(
+      renderLayeredChronicle(world, chronicle, arcs, {
+        living: args.living,
+        chronicle: args.chronicle,
+      }),
+    );
+  }
+  console.log(renderEpilogue(world));
 
   if (args.arcs) {
     console.log("\n" + "═".repeat(64));

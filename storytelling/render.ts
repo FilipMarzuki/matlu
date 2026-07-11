@@ -7,6 +7,7 @@
 // Design note: the renderer is a pure function of canonical state. It invents
 // no facts (that would corrupt canon); it only phrases facts the sim recorded.
 
+import type { Arc } from "./arcs.js";
 import { topHeroes } from "./magic.js";
 import type { Character, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
@@ -196,7 +197,113 @@ export function renderEvent(w: World, ev: WorldEvent): string {
   }
 }
 
-// Render the whole selected chronicle as dated lines, grouped by year.
+// Temporal level-of-detail: history is a cone of detail — the present is sharp,
+// the deep past compresses into a few remembered threads and then into myth.
+// We render three zones by age from the last simulated year:
+//   • LIVING MEMORY (recent)   — individual dated events, full detail
+//   • THE CHRONICLE (older)    — one line per story ARC (the thread, not events)
+//   • AGES OF LEGEND (ancient) — arcs aggregated into century-eras, terse
+// Old threads are also FORGOTTEN unless big or still-relevant: an arc's
+// remembered strength decays with age but is kept alive if it still touches a
+// surviving house or a title still held (the winners' history endures).
+export interface LayeredOpts {
+  living?: number; // living-memory window in years (default 70)
+  chronicle?: number; // chronicle window in years (default 160)
+  arcDecay?: number; // remembered-significance lost per year of age (default 0.2)
+}
+
+export function renderLayeredChronicle(
+  w: World,
+  events: WorldEvent[],
+  arcs: Arc[],
+  opts: LayeredOpts = {},
+): string {
+  const now = w.year;
+  const W1 = opts.living ?? 70;
+  const W2 = opts.chronicle ?? 160;
+  const decay = opts.arcDecay ?? 0.2;
+
+  const byId = new Map<number, WorldEvent>(events.map((e) => [e.id, e]));
+  const surviving = new Set<string>();
+  for (const dy of w.dynasties.values()) {
+    if (dy.extinctYear === null && w.dynastyMembers(dy.id).length > 0) surviving.add(dy.id);
+  }
+
+  // Does this arc still connect to the present (a surviving house, a held title)?
+  const touchesPresent = (arc: Arc): boolean =>
+    arc.eventIds.some((id) => {
+      const ev = byId.get(id);
+      if (!ev) return false;
+      for (const cid of [ev.actorId, ev.targetId]) {
+        const c = w.char(cid);
+        if (c && surviving.has(c.dynastyId)) return true;
+      }
+      const t = w.title(ev.titleId);
+      return !!(t && t.holderId);
+    });
+
+  // Remembered strength: significance, decayed by age, kept alive by relevance.
+  const remembered = (arc: Arc): number => {
+    const mid = (arc.startYear + arc.endYear) / 2;
+    return arc.significance - decay * (now - mid) + (touchesPresent(arc) ? 12 : 0);
+  };
+
+  const bareTitle = (t: string) => t.replace(/\s*\([0-9–-]+\)\s*$/, "");
+  const out: string[] = [];
+
+  // ── AGES OF LEGEND — arcs older than the chronicle window, by century ────
+  const ancient = arcs.filter((a) => now - a.endYear > W2 && remembered(a) >= 18);
+  if (ancient.length) {
+    out.push("─".repeat(64), "AGES OF LEGEND", "─".repeat(64));
+    const buckets = new Map<number, Arc[]>();
+    for (const a of ancient) {
+      const c = Math.floor(a.startYear / 100) * 100;
+      let b = buckets.get(c);
+      if (!b) buckets.set(c, (b = []));
+      b.push(a);
+    }
+    for (const c of [...buckets.keys()].sort((x, y) => x - y)) {
+      const top = buckets
+        .get(c)!
+        .sort((x, y) => remembered(y) - remembered(x))
+        .slice(0, 2);
+      out.push(`  the ${c}s — ${top.map((a) => bareTitle(a.title)).join("; ")}.`);
+    }
+  }
+
+  // ── THE CHRONICLE — arcs in the middle window, one summary line each ─────
+  const chronicled = arcs
+    .filter((a) => {
+      const age = now - a.endYear;
+      return age > W1 && age <= W2 && remembered(a) >= 20;
+    })
+    .sort((x, y) => x.startYear - y.startYear || y.significance - x.significance);
+  if (chronicled.length) {
+    if (out.length) out.push("");
+    out.push("─".repeat(64), "THE CHRONICLE", "─".repeat(64));
+    for (const a of chronicled) out.push(`  ${a.title}`);
+  }
+
+  // ── LIVING MEMORY — individual events within the recent window ───────────
+  const living = events.filter((e) => now - e.year <= W1);
+  if (living.length) {
+    if (out.length) out.push("");
+    out.push("─".repeat(64), `LIVING MEMORY (${living[0].year}–${now})`, "─".repeat(64));
+    let lastYear = -Infinity;
+    for (const ev of living) {
+      if (ev.year !== lastYear) {
+        out.push("");
+        lastYear = ev.year;
+      }
+      out.push(`${String(ev.year).padStart(4, " ")}  ${renderEvent(w, ev)}`);
+    }
+  }
+
+  return out.join("\n");
+}
+
+// Render the whole selected chronicle as dated lines, grouped by year (the flat,
+// no-LOD view; --flat).
 export function renderChronicle(w: World, events: WorldEvent[]): string {
   const lines: string[] = [];
   let lastYear = -Infinity;
