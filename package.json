@@ -36,6 +36,8 @@
     "worldgen:earth": "npm run worldgen:heightmap && npm run worldgen:generate && npm run worldgen:validate",
     "cap:sync": "npm run build && npx cap sync",
     "unit": "vitest run",
+    "unit:story": "vitest run storytelling",
+    "story:typecheck": "tsc -p storytelling/tsconfig.json",
     "dev:wiki": "npm run dev --prefix wiki",
     "dev:sites": "npm run dev --prefix wiki & npm run dev --prefix dev",
     "build:all": "npm run build && npm run build --prefix wiki && npm run build --prefix dev",

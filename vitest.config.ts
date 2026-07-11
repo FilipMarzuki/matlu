@@ -5,6 +5,11 @@ export default defineConfig({
     // Only pick up test files under src/, wiki/src/, and dev/src/.
     // Excluding tests/ prevents Vitest from picking up Playwright specs, which
     // use a different test() API and would throw at runtime.
-    include: ['src/**/*.test.ts', 'wiki/src/**/*.test.ts', 'dev/src/**/*.test.ts'],
+    include: [
+      'src/**/*.test.ts',
+      'wiki/src/**/*.test.ts',
+      'dev/src/**/*.test.ts',
+      'storytelling/**/*.test.ts',
+    ],
   },
 });
