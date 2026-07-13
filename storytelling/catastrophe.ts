@@ -310,7 +310,87 @@ const DELVED_TOO_DEEP: CatastropheTemplate = {
   ],
 };
 
-const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE, DELVED_TOO_DEEP];
+// --- 5. Feral Surge — the mire awakens, wild corruption spreads from jungle/swamp --
+// The living corruption of deep jungle or ancient swamp stirs and overflows into the
+// world. Unlike necrotic dead zones, feral provinces remain alive but twisted —
+// beasts run mad, plants strangle paths, and the people turn to warrior-zeal.
+const FERAL_SURGE: CatastropheTemplate = {
+  id: "feral_surge",
+  drawProb: 0.005,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      (p.terrain === "jungle" || p.terrain === "swamp") &&
+      p.blightLevel < 0.2 &&
+      !p.zoneFlags.includes("blighted") &&
+      !p.zoneFlags.includes("dead_zone") &&
+      w.year > 15
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        p.blightLevel = Math.min(1, p.blightLevel + 0.25);
+        p.corruptionType = "feral";
+        const loss = Math.round(p.population * 0.1);
+        p.population = Math.max(50, p.population - loss);
+        w.log("BLIGHT_SPREADS", {
+          provinceId: p.id,
+          data: { deaths: loss, blightLevel: p.blightLevel, source: "feral_surge" },
+        });
+      },
+    },
+    {
+      delay: 10,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        p.blightLevel = Math.min(1, p.blightLevel + 0.35);
+        const loss = Math.round(p.population * 0.2);
+        p.population = Math.max(50, p.population - loss);
+        // Feral energy bleeds into neighbours — wildlife and plants run wild.
+        for (const nId of p.neighbors) {
+          const n = w.province(nId);
+          if (!n || n.zoneFlags.includes("dead_zone")) continue;
+          n.blightLevel = Math.min(1, n.blightLevel + 0.06);
+          n.corruptionType = n.corruptionType ?? "feral";
+          const nLoss = Math.round(n.population * 0.04);
+          n.population = Math.max(50, n.population - nLoss);
+          w.log("CORRUPTION_SPREADS", {
+            provinceId: n.id,
+            data: { sourceProvinceId: p.id, deaths: nLoss },
+          });
+        }
+        w.log("BLIGHT_DEEPENS", {
+          provinceId: p.id,
+          data: { deaths: loss, blightLevel: p.blightLevel, source: "feral_surge" },
+        });
+      },
+    },
+    {
+      delay: 20,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        p.blightLevel = Math.min(1, p.blightLevel + 0.15);
+        if (!p.zoneFlags.includes("blighted")) p.zoneFlags.push("blighted");
+        p.manaDensity = Math.min(1, p.manaDensity + 0.2);
+        const dead = killResidentsByChance(w, p.id, "feral_surge", 0.2);
+        w.log("BLIGHT_LOCKED", {
+          provinceId: p.id,
+          data: { named_dead: dead, blightLevel: p.blightLevel, source: "feral_surge" },
+        });
+      },
+    },
+  ],
+};
+
+const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE, DELVED_TOO_DEEP, FERAL_SURGE];
 
 // ---------------------------------------------------------------------------
 // Chain engine

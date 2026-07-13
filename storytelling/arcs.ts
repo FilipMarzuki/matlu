@@ -13,7 +13,7 @@
 import type { WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
-export type ArcKind = "title" | "feud" | "dynasty" | "figure" | "calamity";
+export type ArcKind = "title" | "feud" | "dynasty" | "figure" | "calamity" | "culture";
 
 export interface Arc {
   id: string;
@@ -96,11 +96,36 @@ function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
     case "LEVELED":
     case "HEIR_TEMPERED":
       return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
+    case "MADNESS_ONSET":
+      return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
     case "PLAGUE":
     case "FAMINE":
+    case "BLIGHT_SPREADS":
+    case "BLIGHT_DEEPENS":
+    case "BLIGHT_LOCKED":
+    case "PORTAL_OPENS":
+    case "MASS_DEATH":
+    case "DEAD_ZONE_FORMS":
+    case "UNDEAD_RAID":
+    case "RITUAL_GONE_WRONG":
+    case "MANA_RUPTURE":
+    case "CORRUPTION_SPREADS":
+    case "DELVED_TOO_DEEP":
       return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
+    case "TRUCE_BROKEN":
+    case "ALLIANCE_BETRAYED":
+      if (ev.actorId && ev.targetId) {
+        const pair = [ev.actorId, ev.targetId].sort().join("~");
+        return { key: `F:${pair}`, kind: "feud" };
+      }
+      return null;
+    case "CULTURAL_RIFT":
+    case "CULTURAL_SHIFT": {
+      const cname = String(ev.data["culture"] ?? "");
+      return cname ? { key: `C:${cname}`, kind: "culture" } : null;
+    }
     default:
-      return null; // births, marriages, harvest failures — not arc spines
+      return null; // births, marriages, harvest failures, minor cultural contests — not arc spines
   }
 }
 
@@ -144,12 +169,23 @@ function nameArc(w: World, kind: ArcKind, events: WorldEvent[]): string {
     }
     case "figure": {
       const who = events.find((e) => e.actorId)?.actorId ?? null;
-      if (has("HERO_RISEN")) return `The Rise of ${shortName(w, who)} (${span})`;
+      if (has("HERO_RISEN"))    return `The Rise of ${shortName(w, who)} (${span})`;
+      if (has("MADNESS_ONSET")) return `The Madness of ${shortName(w, who)} (${span})`;
       return `The Saga of ${shortName(w, who)} (${span})`;
     }
     case "calamity": {
       const prov = w.province(events[0].provinceId ?? "")?.name ?? "the land";
+      if (has("DEAD_ZONE_FORMS")) return `The Dead Zone of ${prov} (${span})`;
+      if (has("DELVED_TOO_DEEP")) return `The Breach of ${prov} (${span})`;
+      if (has("MANA_RUPTURE"))    return `The Void-Scar of ${prov} (${span})`;
+      if (has("BLIGHT_LOCKED"))   return `The Withering of ${prov} (${span})`;
+      if (has("UNDEAD_RAID"))     return `The Raids from ${prov} (${span})`;
       return `The Calamities of ${prov} (${span})`;
+    }
+    case "culture": {
+      const cname = String(events[0].data["culture"] ?? "the people");
+      if (has("CULTURAL_RIFT")) return `The Rift of ${cname} (${span})`;
+      return `The Transformation of ${cname} (${span})`;
     }
   }
 }
