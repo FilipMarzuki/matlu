@@ -287,20 +287,43 @@ export function renderEvent(w: World, ev: WorldEvent): string {
     case "ALLIANCE_BETRAYED":
       return `${who(w, ev.actorId)} betrayed the pact, turning blade against ${who(w, ev.targetId)}, their sworn ally.`;
 
+    case "CULTURAL_CONTESTED": {
+      const culture = String(ev.data["culture"] ?? "the people");
+      const trait   = String(ev.data["trait"]   ?? "");
+      const tier    = String(ev.data["tier"]     ?? "both");
+      const cause   = String(ev.data["cause"]    ?? "gradual drift");
+      const label   = traitDisplayName(trait);
+      const tierPhrase = tier === "elite" ? "among the lords and great houses"
+        : tier === "folk"  ? "among the common people"
+        : "from hall to field";
+      return `${label} begins to stir ${tierPhrase} of the ${culture} — ${cause}.`;
+    }
+
+    case "CULTURAL_RIFT": {
+      const culture    = String(ev.data["culture"]     ?? "the people");
+      const eliteTrait = traitDisplayName(String(ev.data["elite_trait"] ?? ""));
+      const folkTrait  = traitDisplayName(String(ev.data["folk_trait"]  ?? ""));
+      return `A rift tears through the ${culture} — their lords uphold ${eliteTrait.toLowerCase()}, while the common people cleave to ${folkTrait.toLowerCase()}.`;
+    }
+
     case "CULTURAL_SHIFT": {
       const culture = String(ev.data["culture"] ?? "the people");
-      const trait = String(ev.data["trait"] ?? "");
+      const trait   = String(ev.data["trait"]   ?? "");
       const adopted = ev.data["adopted"] !== false;
-      const cause = String(ev.data["cause"] ?? "gradual drift");
+      const cause   = String(ev.data["cause"]   ?? "gradual drift");
+      const tier    = String(ev.data["tier"]     ?? "both");
       if (trait === "aesthetic") {
         const quirk = String(ev.data["aesthetic_value"] ?? "a new custom");
         return `${who(w, ev.actorId)}'s ${quirk} became the manner of the ${culture} people, spreading to their children and children's children.`;
       }
-      const label = traitDisplayName(trait);
+      const label      = traitDisplayName(trait);
+      const tierPhrase = tier === "elite" ? "among the lords and great houses of the"
+        : tier === "folk"  ? "among the common people of the"
+        : "throughout the";
       if (adopted) {
-        return `${label} took root among the ${culture} people — ${cause}.`;
+        return `${label} took root ${tierPhrase} ${culture} — ${cause}.`;
       } else {
-        return `${label} faded from the customs of the ${culture} people — ${cause}.`;
+        return `${label} faded ${tierPhrase} ${culture} — ${cause}.`;
       }
     }
 

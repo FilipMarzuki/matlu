@@ -211,7 +211,9 @@ const BASE: Record<EventType, number> = {
   TRUCE_BROKEN: 7,     // breaking sworn peace is a character moment
   ALLIANCE_BETRAYED: 9, // attacking your own ally is close to kinslaying in shock value
   // Cultural evolution layer.
-  CULTURAL_SHIFT: 6,   // a trait adopted/abandoned or aesthetic drift crystallised
+  CULTURAL_CONTESTED: 3, // a trait crossed the pressure threshold — contest begins
+  CULTURAL_RIFT: 8,      // elite and folk hold opposed traits — fracture visible
+  CULTURAL_SHIFT: 6,     // a trait established/abandoned in a tier, or aesthetic drift
 };
 
 export interface SiftResult {
@@ -348,12 +350,23 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
       case "HERO_RISEN":
         tags.push("breakout");
         break;
+      case "CULTURAL_CONTESTED": {
+        // Surface traits (mercantile, literacy_valued) enter contest quietly.
+        const traitC = String(ev.data["trait"] ?? "");
+        const coreTraits = new Set(["slavery", "warrior_culture", "zealous_faith", "caste_rigid"]);
+        if (!coreTraits.has(traitC)) s = 1;
+        break;
+      }
+      case "CULTURAL_RIFT":
+        tags.push("cultural-fracture");
+        break;
       case "CULTURAL_SHIFT": {
         // Aesthetic drift is a softer story beat; mechanical trait changes are
         // heavier, especially slavery (acquisition or abolition) and reversals.
         if (ev.data["trait"] === "aesthetic") s = 5;
         if (ev.data["trait"] === "slavery") s += 2;
-        if (ev.data["adopted"] === false) s += 1; // abolition/abandonment is harder to tell
+        if (ev.data["adopted"] === false) s += 1; // abandonment is harder to tell
+        if (ev.data["tier"] === "both") s += 1;   // cross-tier establishment
         break;
       }
       default:

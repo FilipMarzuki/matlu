@@ -68,7 +68,10 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
     // Seed the live state with any traits the spec declares at founding.
     if (c.startingTraits?.length) {
       const state = w.cultureState(c.id);
-      for (const t of c.startingTraits) state.traits.add(t);
+      for (const t of c.startingTraits) {
+        state.eliteTraits.add(t);
+        state.folkTraits.add(t);
+      }
     }
   }
   for (const r of spec.races ?? []) w.races.set(r.id, r);

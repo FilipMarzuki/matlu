@@ -170,8 +170,15 @@ export class World {
     if (!s) {
       s = {
         cultureId: id,
-        traits: new Set(),
-        traitPressure: {},
+        elitePressure: {},
+        folkPressure: {},
+        eliteTraits: new Set(),
+        folkTraits: new Set(),
+        contested: {},
+        stratification: 0.3,
+        legacySeeds: {},
+        contactYears: {},
+        activeRifts: new Set(),
         aesthetic: { linguisticShift: null, fashionStyle: null },
         establishedFigureId: null,
         establishedSince: 0,

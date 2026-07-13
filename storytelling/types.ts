@@ -166,20 +166,38 @@ export interface Character {
 // CultureState — the live, mutable overlay for a culture's current shape.
 //
 // CultureSpec (in world-spec.ts) is the immutable world bible. CultureState
-// is what the sim keeps at runtime: which mechanical traits are active, how
-// much pressure is building toward the next one, and the aesthetic drift left
+// is what the sim keeps at runtime: which traits are active by tier, how much
+// pressure is building, contested liminal states, and the aesthetic drift left
 // by a long-ruling figure. Stored in World.liveCultures.
+//
+// Two pressure pools (elite/folk) converge at bleedRate = BLEED_BASE × (1 − stratification).
+// Traits become CONTESTED when pressure crosses a threshold, then ESTABLISHED after
+// `period` years — generational lag models how long real cultural change takes.
 // ---------------------------------------------------------------------------
 export interface CultureState {
   cultureId: string;
-  // Active mechanical traits (e.g. "slavery", "warrior_culture").
-  traits: Set<string>;
-  // Pressure toward each trait, decays ×0.93/yr. Crosses ±1.0 to tip.
-  traitPressure: Record<string, number>;
+  // Separate pressure pools for lords (titled characters) and commons (untitled).
+  elitePressure: Record<string, number>;
+  folkPressure:  Record<string, number>;
+  // Traits currently established in each tier.
+  eliteTraits: Set<string>;
+  folkTraits:  Set<string>;
+  // Traits in the liminal contested zone (threshold crossed, not yet established).
+  // Key: "elite:trait" | "folk:trait" | "elite:abandon:trait" | "folk:abandon:trait".
+  contested: Record<string, { tier: "elite" | "folk"; trait: string; years: number; direction: "adopt" | "abandon" }>;
+  // 0 = fluid society (tiers bleed freely); 1 = rigidly sealed.
+  // Shaped by traits (caste_rigid/slavery push up, meritocracy pulls down) and events.
+  stratification: number;
+  // Permanent pressure-per-year from significant historical events; never decays.
+  legacySeeds: Record<string, number>;
+  // Years of continuous contact with neighbouring cultures (for folk contagion).
+  contactYears: Record<string, number>;
+  // Which (a-vs-b) rift pairs have already fired a CULTURAL_RIFT event.
+  activeRifts: Set<string>;
   // Aesthetic drift — surface flavour shaped by a dominant figure's quirks.
   aesthetic: {
     linguisticShift: string | null; // e.g. "sibilant speech", "clipped consonants"
-    fashionStyle: string | null;    // e.g. "elaborate fold-style", "austere simplicity"
+    fashionStyle:    string | null; // e.g. "elaborate fold-style", "austere simplicity"
   };
   // The current dominant figure (highest-tier title holder of this culture).
   establishedFigureId: string | null;
@@ -399,7 +417,9 @@ export type EventType =
   | "TRUCE_BROKEN"     // a paranoid/conqueror_confident ruler breaks the truce early
   | "ALLIANCE_BETRAYED" // a ruler attacks their own ally
   // --- Cultural evolution layer ---
-  | "CULTURAL_SHIFT"; // a mechanical trait adopted/abandoned, or aesthetic drift crystallised
+  | "CULTURAL_CONTESTED" // a trait crossed the pressure threshold — generational contest begins
+  | "CULTURAL_RIFT"      // elite and folk tiers hold directly opposed traits
+  | "CULTURAL_SHIFT";    // a trait established/abandoned in one or both tiers, or aesthetic drift
 
 export interface WorldEvent {
   id: number;
