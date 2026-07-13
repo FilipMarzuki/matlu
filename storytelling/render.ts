@@ -9,6 +9,7 @@
 
 import type { Arc } from "./arcs.js";
 import { topHeroes } from "./magic.js";
+import type { FocusContext } from "./sifter.js";
 import type { Character, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
@@ -304,6 +305,7 @@ export interface LayeredOpts {
   living?: number; // living-memory window in years (default 70)
   chronicle?: number; // chronicle window in years (default 160)
   arcDecay?: number; // remembered-significance lost per year of age (default 0.2)
+  focus?: FocusContext; // when set, prepend a focus banner to the output
 }
 
 export function renderLayeredChronicle(
@@ -344,6 +346,11 @@ export function renderLayeredChronicle(
 
   const bareTitle = (t: string) => t.replace(/\s*\([0-9–-]+\)\s*$/, "");
   const out: string[] = [];
+
+  // Focus banner — precedes all chronicle sections when a focus is active.
+  if (opts.focus) {
+    out.push("═".repeat(64), `FOCUS: ${opts.focus.label}`, "═".repeat(64));
+  }
 
   // ── AGES OF LEGEND — the deep past: mythic events + arc-eras by century ──
   // Prehistory LEGEND events form the mythic backbone; ordinary ancient arcs

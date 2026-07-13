@@ -11,6 +11,159 @@
 import type { CharId, EventType, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
+// ---------------------------------------------------------------------------
+// Frame-relative focus — the spatial/relational axis of LOD.
+// When a focus is set, events are re-scored relative to how close they are to
+// the chosen entity, so the same history reads differently from each perspective.
+// ---------------------------------------------------------------------------
+export type FocusScale = "individual" | "dynasty" | "province" | "realm";
+
+export interface FocusContext {
+  scale: FocusScale;
+  id: string; // CharId | DynastyId | ProvinceId | TitleId depending on scale
+  label: string; // human-readable, e.g. "House Aeryn (dynasty)"
+}
+
+type ProximityTier = "SPOTLIGHT" | "NAMED" | "ABSTRACT" | "STATISTICAL";
+
+// Additive bonuses applied on top of the global significance pass.
+const PROXIMITY_BONUS: Record<ProximityTier, number> = {
+  SPOTLIGHT: 8,   // directly involves the focus — always chronicle-worthy
+  NAMED: 4,       // close relation (family / ally / neighbor)
+  ABSTRACT: 0,    // same theater, no change
+  STATISTICAL: -4, // unrelated background — suppresses below threshold
+};
+
+function proximity(ev: WorldEvent, w: World, focus: FocusContext): ProximityTier {
+  const { scale, id } = focus;
+
+  switch (scale) {
+    case "individual": {
+      const c = w.char(id);
+      if (!c) return "STATISTICAL";
+      if (ev.actorId === id || ev.targetId === id) return "SPOTLIGHT";
+      const dynId = c.dynastyId;
+      const isDynMate = (cid: string | null) => !!w.char(cid) && w.char(cid)!.dynastyId === dynId;
+      if (isDynMate(ev.actorId) || isDynMate(ev.targetId)) return "NAMED";
+      if (ev.actorId === c.spouseId || ev.targetId === c.spouseId) return "NAMED";
+      if (ev.actorId === c.fatherId || ev.targetId === c.fatherId) return "NAMED";
+      if (ev.actorId === c.motherId || ev.targetId === c.motherId) return "NAMED";
+      if (c.childrenIds.includes(ev.actorId ?? "") || c.childrenIds.includes(ev.targetId ?? "")) return "NAMED";
+      const evTitle = w.title(ev.titleId);
+      if (evTitle && evTitle.holderId === id) return "NAMED";
+      const kingdomId = seatKingdom(w, id);
+      if (kingdomId) {
+        if (seatKingdom(w, ev.actorId) === kingdomId || seatKingdom(w, ev.targetId) === kingdomId)
+          return "ABSTRACT";
+      }
+      return "STATISTICAL";
+    }
+
+    case "dynasty": {
+      const members = w.dynastyMembers(id);
+      const memberSet = new Set(members.map((m) => m.id));
+      const isDynMember = (cid: string | null): boolean => !!cid && memberSet.has(cid);
+      if (isDynMember(ev.actorId) || isDynMember(ev.targetId)) return "SPOTLIGHT";
+      const evTitle = w.title(ev.titleId);
+      if (evTitle && isDynMember(evTitle.holderId)) return "SPOTLIGHT";
+      // NAMED: the other party has an active treaty with any dynasty member.
+      const hasTreatyWithDyn = (cid: string | null): boolean => {
+        if (!cid) return false;
+        return w.treaties.some(
+          (t) =>
+            (t.partyA === cid && memberSet.has(t.partyB)) ||
+            (t.partyB === cid && memberSet.has(t.partyA)),
+        );
+      };
+      if (hasTreatyWithDyn(ev.actorId) || hasTreatyWithDyn(ev.targetId)) return "NAMED";
+      const dynSeatKingdom = members.length ? seatKingdom(w, members[0].id) : null;
+      if (dynSeatKingdom) {
+        if (
+          seatKingdom(w, ev.actorId) === dynSeatKingdom ||
+          seatKingdom(w, ev.targetId) === dynSeatKingdom
+        )
+          return "ABSTRACT";
+      }
+      return "STATISTICAL";
+    }
+
+    case "province": {
+      const prov = w.province(id);
+      if (!prov) return "STATISTICAL";
+      const provTitle = w.title(prov.titleId);
+      if (ev.provinceId === id) return "SPOTLIGHT";
+      if (ev.titleId === prov.titleId) return "SPOTLIGHT";
+      if (provTitle && (ev.actorId === provTitle.holderId || ev.targetId === provTitle.holderId))
+        return "SPOTLIGHT";
+      if (ev.provinceId && prov.neighbors.includes(ev.provinceId)) return "NAMED";
+      const provKingdom = provTitle ? liegeKingdom(w, provTitle.id) : null;
+      if (provKingdom) {
+        if (seatKingdom(w, ev.actorId) === provKingdom || seatKingdom(w, ev.targetId) === provKingdom)
+          return "ABSTRACT";
+      }
+      return "STATISTICAL";
+    }
+
+    case "realm": {
+      const kingdom = w.title(id);
+      if (!kingdom) return "STATISTICAL";
+      if (ev.titleId === id) return "SPOTLIGHT";
+      const holdsKingdomOrVassal = (cid: string | null): boolean => {
+        if (!cid) return false;
+        return w.titlesHeldBy(cid).some((t) => t.id === id || t.liegeId === id);
+      };
+      if (holdsKingdomOrVassal(ev.actorId) || holdsKingdomOrVassal(ev.targetId)) return "SPOTLIGHT";
+      // NAMED: any character holding a title whose liegeId chain reaches this kingdom.
+      const isVassal = (cid: string | null): boolean => {
+        if (!cid) return false;
+        return w.titlesHeldBy(cid).some((t) => liegeKingdom(w, t.id) === id);
+      };
+      if (isVassal(ev.actorId) || isVassal(ev.targetId)) return "NAMED";
+      // ABSTRACT: kingdoms that share a province-neighbor.
+      const kingdomProv = w.province(kingdom.provinceId);
+      if (kingdomProv) {
+        const neighborKingdoms = new Set(
+          kingdomProv.neighbors
+            .map((nid) => w.province(nid))
+            .filter(Boolean)
+            .map((np) => liegeKingdom(w, np!.titleId))
+            .filter((k): k is string => k !== null),
+        );
+        const ak = seatKingdom(w, ev.actorId);
+        const tk = seatKingdom(w, ev.targetId);
+        if ((ak && neighborKingdoms.has(ak)) || (tk && neighborKingdoms.has(tk)))
+          return "ABSTRACT";
+      }
+      return "STATISTICAL";
+    }
+  }
+}
+
+// Walk liegeId chain to the top-level kingdom title for a given title.
+function liegeKingdom(w: World, titleId: string | null): string | null {
+  let t = w.title(titleId);
+  while (t) {
+    if (t.tier === "kingdom") return t.id;
+    t = w.title(t.liegeId);
+  }
+  return null;
+}
+
+// The kingdom a character is seated in (via their held titles or province).
+function seatKingdom(w: World, charId: string | null): string | null {
+  if (!charId) return null;
+  for (const t of w.titlesHeldBy(charId)) {
+    const k = liegeKingdom(w, t.id);
+    if (k) return k;
+  }
+  const c = w.char(charId);
+  if (c) {
+    const prov = w.province(c.provinceId);
+    if (prov) return liegeKingdom(w, prov.titleId);
+  }
+  return null;
+}
+
 // Baseline drama by type before context adjustments.
 const BASE: Record<EventType, number> = {
   BIRTH: 1,
@@ -63,7 +216,7 @@ export interface SiftResult {
   chronicle: WorldEvent[]; // events worth telling, chronological
 }
 
-export function sift(w: World, threshold = 4): SiftResult {
+export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult {
   // Pre-index relationships the per-event pass needs to recognise shapes.
   const ruledTitle = new Set<CharId>(); // characters who ever held a throne
   const wasRulerAtDeath = new Set<CharId>(); // died holding a title
@@ -199,6 +352,15 @@ export function sift(w: World, threshold = 4): SiftResult {
 
     if (tags.length) ev.data["_tags"] = tags.join(",");
     ev.significance = s;
+  }
+
+  // Frame-relative rescoring: if a focus is set, apply proximity bonuses so
+  // events close to the focus surface and distant noise recedes.
+  if (focus) {
+    for (const ev of w.events) {
+      const tier = proximity(ev, w, focus);
+      ev.significance += PROXIMITY_BONUS[tier];
+    }
   }
 
   const chronicle = w.events
