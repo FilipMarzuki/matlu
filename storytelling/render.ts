@@ -143,6 +143,9 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       return `${who(w, ev.actorId)} had ${who(w, ev.targetId)} quietly murdered.`;
     }
 
+    case "USURP":
+      return `${who(w, ev.actorId)} wrested ${titleName(w, ev.titleId)} from ${who(w, ev.targetId)} through court intrigue and subversion.`;
+
     case "REFORM":
       return `${who(w, ev.actorId)} reformed the succession of ${titleName(w, ev.titleId)} to ${ev.data["law"]}.`;
 

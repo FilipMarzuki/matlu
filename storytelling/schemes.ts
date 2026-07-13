@@ -55,6 +55,53 @@ export function spawnSchemes(w: World): void {
     });
   }
 
+  // Usurp schemes: SEIZE_TITLE goals where the actor is outgunned — they can't
+  // press a claim by force so they build a court faction instead.
+  // Gate: weak claim only (strong claimants go to war via resolveWars), power
+  // deficit, and enough ambition to plot rather than accept the status quo.
+  const seizureGoals = w.goals
+    .filter((g) => g.type === "SEIZE_TITLE")
+    .sort((a, b) => b.priority - a.priority);
+  for (const g of seizureGoals) {
+    const owner = w.char(g.actorId);
+    const defender = w.char(g.targetCharId);
+    if (!owner || !defender || !defender.alive) continue;
+    const title = w.title(g.targetTitleId);
+    if (!title || title.holderId !== defender.id) continue;
+    // Strong claimants can win wars — let resolveWars handle them.
+    const claim = owner.claims.find((cl) => cl.titleId === title.id);
+    if (claim?.strength === "strong") continue;
+    // Must be clearly outgunned; otherwise war remains viable.
+    if (w.power(owner) >= w.power(defender) * 0.7) continue;
+    if (owner.drives.ambition <= 0.5) continue;
+    // One active usurp scheme per title.
+    if (w.schemes.some((s) => s.type === "USURP" && s.targetTitleId === title.id && !s.discovered)) continue;
+    // Don't stack a usurp on top of an active murder plot against the same person.
+    if (w.schemes.some((s) => s.type === "MURDER" && s.ownerId === owner.id && s.targetCharId === defender.id && !s.discovered)) continue;
+
+    if (!w.rng.chance(clamp01(0.15 + g.priority * 0.25))) continue;
+
+    w.schemes.push({
+      id: w.freshId("s"),
+      type: "USURP",
+      ownerId: owner.id,
+      targetCharId: defender.id,
+      targetTitleId: title.id,
+      conspirators: [],
+      progress: 0,
+      // Court intrigue is harder to hide than a murder plot; reputation costs extra.
+      secrecy: clamp01(0.65 - owner.reputation.schemer * 0.3),
+      discovered: false,
+      startYear: w.year,
+    });
+    w.log("SCHEME_HATCHED", {
+      actorId: owner.id,
+      targetId: defender.id,
+      titleId: title.id,
+      data: { scheme: "USURP" },
+    });
+  }
+
   // Reform schemes: REFORM_LAW goals hatch into quiet lobbying campaigns.
   // Secrecy starts lower than murder — law-pushing is quasi-public and
   // leaks through the baronial grapevine rather than a conspiracy cell.
@@ -101,8 +148,12 @@ export function advanceSchemes(w: World): void {
 
     if (s.type === "REFORM") {
       if (!advanceReform(w, s, owner)) survivors.push(s);
+    } else if (s.type === "USURP") {
+      const target = w.char(s.targetCharId);
+      if (!target || !target.alive) continue;
+      if (!advanceUsurp(w, s, owner, target)) survivors.push(s);
     } else {
-      // MURDER (and future USURP): needs a live target.
+      // MURDER: needs a live target.
       const target = w.char(s.targetCharId);
       if (!target || !target.alive) continue;
       if (!advanceMurder(w, s, owner, target)) survivors.push(s);
@@ -233,6 +284,88 @@ function executeScheme(
   });
   // Murderers, even undiscovered, accrue a faint dark reputation (rumour).
   owner.reputation.schemer = clamp01(owner.reputation.schemer + 0.1);
+}
+
+function advanceUsurp(w: World, s: Scheme, owner: Character, target: Character): boolean {
+  maybeRecruit(w, s, owner, target); // court members who dislike the holder join the faction
+
+  const speed = 0.12 + s.conspirators.length * 0.08 + owner.drives.ambition * 0.08;
+  s.progress = clamp01(s.progress + speed);
+  s.secrecy = clamp01(s.secrecy - 0.035 - s.conspirators.length * 0.05);
+
+  const exposure = (1 - s.secrecy) * (0.3 + s.conspirators.length * 0.15);
+  if (w.rng.chance(clamp01(exposure))) {
+    discoverUsurpScheme(w, s, owner, target);
+    return true;
+  }
+  if (s.progress >= 1) {
+    executeUsurpScheme(w, s, owner, target);
+    return true;
+  }
+  return false;
+}
+
+function discoverUsurpScheme(w: World, s: Scheme, owner: Character, target: Character): void {
+  s.discovered = true;
+  // The conspiracy is exposed — the holder is furious, the court is scandalised.
+  target.grudges.push({
+    targetId: owner.id,
+    reason: `plotted to seize my throne in ${w.year}`,
+    year: w.year,
+  });
+  w.adjustOpinion(target, owner.id, -50);
+  // The holder's dynasty closes ranks against the would-be usurper.
+  for (const c of w.adults()) {
+    if (c.dynastyId === target.dynastyId && c.id !== owner.id) {
+      w.adjustOpinion(c, owner.id, -20);
+    }
+  }
+  owner.reputation.schemer = clamp01(owner.reputation.schemer + 0.15);
+  w.log("SCHEME_DISCOVERED", {
+    actorId: owner.id,
+    targetId: target.id,
+    titleId: s.targetTitleId,
+    data: { conspirators: s.conspirators.length, scheme: s.type },
+  });
+  w.log("GRUDGE_FORMED", {
+    actorId: target.id,
+    targetId: owner.id,
+    data: { reason: "usurpation attempt" },
+  });
+}
+
+function executeUsurpScheme(w: World, s: Scheme, owner: Character, target: Character): void {
+  const title = w.title(s.targetTitleId);
+  // Title may have changed hands during the plot — bail if it did.
+  if (!title || title.holderId !== target.id) return;
+
+  title.holderId = owner.id;
+  w.log("USURP", {
+    actorId: owner.id,
+    targetId: target.id,
+    titleId: title.id,
+    provinceId: title.provinceId,
+  });
+  // The dispossessed lord mints a weak claim — seed of the next war.
+  target.claims.push({
+    titleId: title.id,
+    strength: "weak",
+    basis: `dispossessed by usurpation in ${w.year}`,
+    year: w.year,
+  });
+  target.grudges.push({
+    targetId: owner.id,
+    reason: `stole my title in ${w.year}`,
+    year: w.year,
+  });
+  w.adjustOpinion(target, owner.id, -80);
+  for (const c of w.adults()) {
+    if (c.dynastyId === target.dynastyId && c.id !== owner.id) {
+      w.adjustOpinion(c, owner.id, -20);
+    }
+  }
+  // A successful usurper accrues a faint scheming reputation even when undiscovered.
+  owner.reputation.schemer = clamp01(owner.reputation.schemer + 0.05);
 }
 
 function discoverReformScheme(w: World, s: Scheme, owner: Character): void {
