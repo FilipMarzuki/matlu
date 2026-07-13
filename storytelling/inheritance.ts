@@ -87,6 +87,20 @@ export function resolveSuccession(w: World, title: Title, deceased: Character): 
       provinceId: title.provinceId,
       data: { title: title.name, law: title.law },
     });
+    // For clan_elder holds: surviving dynasty members who weren't found by
+    // selectHeir (e.g. they reside in a vassal province) get strong claims so
+    // they'll press the vacant hold via SEIZE_TITLE next year. This is the
+    // reconquest path — the clan reclaims the ancestral seat after a crisis.
+    if (title.law === "clan_elder") {
+      for (const m of w.dynastyMembers(deceased.dynastyId)) {
+        addClaim(m, {
+          titleId: title.id,
+          strength: "strong",
+          basis: `ancestral right; hold vacant in ${w.year}`,
+          year: w.year,
+        });
+      }
+    }
     return;
   }
 

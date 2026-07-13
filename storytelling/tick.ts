@@ -75,17 +75,26 @@ export function tick(w: World): void {
 
 // ---------------------------------------------------------------------------
 // Mortality — age-driven, with a famine/plague boost handled separately in
-// phenomena.ts. A gentle baseline plus a steep climb after ~60 gives realistic
-// reign lengths and the occasional heirless old king.
+// phenomena.ts. Dwarfs follow a different curve: very low baseline and curves
+// that kick in at 120+ rather than 50+, giving them 150–200-year lifespans.
 // ---------------------------------------------------------------------------
 function runMortality(w: World): void {
   for (const c of w.living()) {
     const age = w.age(c);
-    let p = 0.006; // baseline annual hazard
-    if (age < 3) p += 0.03; // infant mortality
-    if (age > 50) p += (age - 50) * 0.004;
-    if (age > 70) p += (age - 70) * 0.02; // old age catches up fast
-    if (age > 90) p += 0.15;
+    const isDwarf = w.dynasty(c.dynastyId)?.raceId === "dwarf";
+    let p: number;
+    if (isDwarf) {
+      p = 0.002;                               // hardy baseline
+      if (age > 120) p += (age - 120) * 0.004;
+      if (age > 160) p += (age - 160) * 0.02; // old age comes late
+      if (age > 200) p += 0.15;
+    } else {
+      p = 0.006;
+      if (age < 3) p += 0.03;                 // infant mortality
+      if (age > 50) p += (age - 50) * 0.004;
+      if (age > 70) p += (age - 70) * 0.02;   // old age catches up fast
+      if (age > 90) p += 0.15;
+    }
     if (w.rng.chance(Math.min(0.9, p))) {
       markDead(w, c, age > 60 ? "old age" : "illness");
     }
@@ -101,7 +110,8 @@ function runBirths(w: World): void {
   for (const mother of w.living()) {
     if (mother.sex !== "female") continue;
     const age = w.age(mother);
-    if (age < 16 || age > 45) continue;
+    const isDwarfMother = w.dynasty(mother.dynastyId)?.raceId === "dwarf";
+    if (age < 16 || age > (isDwarfMother ? 80 : 45)) continue;
     const father = w.char(mother.spouseId);
     if (!father || !father.alive) continue;
 
@@ -212,7 +222,10 @@ function resolveWars(w: World): void {
     }
 
     // --- Held title: does the attacker dare press? ----------------------
-    const aPow = w.power(attacker);
+    // Underground fortifications heavily favour the defender: attackers
+    // advancing through narrow tunnels lose much of their numerical edge.
+    const prov = w.province(title.provinceId);
+    const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0);
     const dPow = w.power(defender);
     const hasStrongClaim = attacker.claims.some(
       (c) => c.titleId === title.id && c.strength === "strong",
@@ -307,9 +320,12 @@ function transferTitle(title: Title, to: Character): void {
 // the full multi-scale mobility engine.)
 // ---------------------------------------------------------------------------
 function maybeLowbornRise(w: World, title: Title): boolean {
-  // clan_elder titles can never pass to outsiders — if the bloodline dies the
-  // hold stays vacant forever; no commoner can take the seat.
-  if (title.law === "clan_elder") return false;
+  if (title.law === "clan_elder") {
+    // Random commoners cannot claim a clan_elder hold. But if the hold is
+    // subsurface and the founding bloodline is spent, a new dwarf clan may
+    // rise from the deep — an age-of-legend event, rare by design.
+    return maybeDwarfClanFounding(w, title);
+  }
   // Only when nobody, anywhere, holds a claim to this title.
   const anyClaimant = [...w.characters.values()].some(
     (c) => c.alive && c.claims.some((cl) => cl.titleId === title.id),
@@ -350,6 +366,51 @@ function maybeLowbornRise(w: World, title: Title): boolean {
   return true;
 }
 
+// When a subsurface clan_elder hold is vacant and its founding bloodline is
+// spent, a new dwarf clan may form from the deep folk — once per ~10 years on
+// average. The new clan takes the culture/race/faith of any surviving dwarf
+// dynasty in the world (so the flavour stays consistent even if the original
+// house is gone). Logged as LOWBORN_RISE to reuse the existing sifter/renderer
+// path rather than introducing a new event type.
+function maybeDwarfClanFounding(w: World, title: Title): boolean {
+  const prov = w.province(title.provinceId);
+  if (!prov?.subsurface) return false;
+  if (!w.rng.chance(0.1)) return false;
+
+  // Find a dwarf cultural template to stamp the new clan with.
+  const refDyn = [...w.dynasties.values()].find((d) => d.raceId === "dwarf");
+  if (!refDyn) return false;
+
+  const dyn = createDynasty(w, commonSurname(w.rng), "", {
+    culture: refDyn.cultureId,
+    race: refDyn.raceId,
+    faith: refDyn.faithId,
+  });
+  const founder = createCharacter(w, {
+    sex: w.rng.chance(0.85) ? "male" : "female",
+    dynastyId: dyn.id,
+    birthYear: w.year - w.rng.int(40, 80), // experienced, not a youth
+    provinceId: title.provinceId,
+    drives: { ...randomDrives(w.rng), ambition: w.rng.float(0.6, 0.9), greed: w.rng.float(0.65, 0.9) },
+    lowborn: true,
+  });
+  dyn.founderId = founder.id;
+  title.holderId = founder.id;
+  addClaim(founder, {
+    titleId: title.id,
+    strength: "strong",
+    basis: `new clan founded the hold in ${w.year}`,
+    year: w.year,
+  });
+  w.log("LOWBORN_RISE", {
+    actorId: founder.id,
+    titleId: title.id,
+    provinceId: title.provinceId,
+    data: { house: dyn.name, title: title.name },
+  });
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Marriages — every unwed title-holder seeks a match (heirs keep dynasties
 // alive). Prefer an unwed noble of another house (an alliance); if none exists,
@@ -367,14 +428,12 @@ function runMarriages(w: World): void {
   // rather than ballooning into a full population census. (When a parent dies,
   // passed-over children are minted claims — so they become "relevant" and
   // marriageable exactly when they start to matter to the succession.)
-  const eligible = w
-    .adults()
-    .filter(
-      (c) =>
-        !c.spouseId &&
-        w.age(c) <= 50 &&
-        (w.titlesHeldBy(c.id).length > 0 || c.claims.length > 0),
-    );
+  const eligible = w.adults().filter((c) => {
+    if (c.spouseId) return false;
+    const ageLimit = w.dynasty(c.dynastyId)?.raceId === "dwarf" ? 100 : 50;
+    if (w.age(c) > ageLimit) return false;
+    return w.titlesHeldBy(c.id).length > 0 || c.claims.length > 0;
+  });
 
   for (const c of eligible) {
     if (c.spouseId) continue; // may have been wed earlier this pass
@@ -389,7 +448,8 @@ function findDomesticPartner(w: World, c: Character): Character | null {
     if (o.spouseId || o.sex !== wantSex) return false;
     if (o.id === c.id) return false;
     if (o.dynastyId === c.dynastyId) return false; // no close-kin marriage in v1
-    if (w.age(o) > 50) return false;
+    const partnerAgeLimit = w.dynasty(o.dynastyId)?.raceId === "dwarf" ? 100 : 50;
+    if (w.age(o) > partnerAgeLimit) return false;
     return true;
   });
   if (candidates.length === 0) return null;

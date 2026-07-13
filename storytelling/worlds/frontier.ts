@@ -275,8 +275,11 @@ const characters: CharacterSpec[] = [
   // a genuine possibility, especially if DELVED_TOO_DEEP fires.
   ch({ id: "thorgrim", name: "Thorgrim", sex: "male", dynasty: "deepvault", birthYear: 935, province: "d0", drives: D(0.5, 0.85, 0.9, 0.7, 0.3, 0.1), founds: "deepvault", holds: "t_hh" }),
   ch({ id: "hildra", name: "Hildra", sex: "female", dynasty: "deepvault", birthYear: 940, province: "d0", drives: D(0.4, 0.75, 0.8, 0.65, 0.3, 0.15), spouse: "thorgrim" }),
-  // Karag — eldest son, would inherit under clan_elder after Thorgrim.
-  ch({ id: "karag", name: "Karag", sex: "male", dynasty: "deepvault", birthYear: 966, province: "d0", drives: D(0.6, 0.8, 0.85, 0.6, 0.3, 0.1), father: "thorgrim", mother: "hildra" }),
+  // Karag — eldest son, heir apparent under clan_elder. A weak claim at game
+  // start lets him marry before Thorgrim dies (otherwise he'd be 50+ and past
+  // the marriage window by the time he inherits).
+  ch({ id: "karag", name: "Karag", sex: "male", dynasty: "deepvault", birthYear: 966, province: "d0", drives: D(0.6, 0.8, 0.85, 0.6, 0.3, 0.1), father: "thorgrim", mother: "hildra",
+       claims: [{ title: "t_hh", strength: "weak", basis: "firstborn of Thorgrim, heir apparent to the Hold", year: 1000 }] }),
   // Durm — younger son, holds The Deep Ore; more martial, drives the mining frontier.
   ch({ id: "durm", name: "Durm", sex: "male", dynasty: "deepvault", birthYear: 970, province: "d1", drives: D(0.65, 0.8, 0.88, 0.55, 0.25, 0.05), father: "thorgrim", mother: "hildra", holds: "t_do" }),
 ];
