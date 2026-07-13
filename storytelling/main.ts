@@ -137,7 +137,7 @@ function main(): void {
   let focus: FocusContext | undefined;
   if (args.focus) {
     focus = resolveFocus(world, args.focus, args.focusScale);
-    if (!focus) console.warn(`[warning] --focus "${args.focus}" not found; proceeding without focus.`);
+    if (!focus) console.error(`[warning] --focus "${args.focus}" not found; proceeding without focus.`);
   }
 
   const { chronicle } = sift(world, args.threshold, focus);
