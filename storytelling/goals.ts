@@ -4,6 +4,7 @@
 // move: if one person is the obstacle to MANY goals, an ELIMINATE_RIVAL goal
 // crystallises against them — nobody scripted the murder, the structure did.
 
+import { hasTruce } from "./diplomacy.js";
 import { scarcity } from "./geography.js";
 import type { World } from "./world.js";
 
@@ -26,6 +27,8 @@ export function regenerateGoals(w: World): void {
       if (!title) continue;
       if (title.holderId === c.id) continue; // already theirs
       const holderId = title.holderId; // may be null (vacant = crisis)
+      // Honour truces — don't press a claim against a sworn peace partner.
+      if (holderId && hasTruce(w, c.id, holderId)) continue;
       const priority =
         (claim.strength === "strong" ? 0.6 : 0.35) +
         c.drives.ambition * 0.4 -
@@ -53,6 +56,8 @@ export function regenerateGoals(w: World): void {
           if (!np) continue;
           const neighbourTitle = w.title(np.titleId);
           if (!neighbourTitle || neighbourTitle.holderId === c.id) continue;
+          // Honour truces — don't expand into a peace partner's land.
+          if (neighbourTitle.holderId && hasTruce(w, c.id, neighbourTitle.holderId)) continue;
           const priority =
             0.25 + c.drives.ambition * 0.35 + (scarcity(seat) - 0.9) * 0.5;
           w.goals.push({
@@ -98,6 +103,27 @@ export function regenerateGoals(w: World): void {
         priority: clamp01(0.3 + c.drives.vengeance * 0.5),
       });
       bump(target.id);
+    }
+
+    // REFORM_LAW — a landed ruler who wants a different succession law.
+    // Preferred law is drive-derived: piety → primogeniture (stable / God-ordained),
+    // ambition → elective (can engineer the outcome), fear → seniority (age, not sword).
+    // No human obstacle: tradition and conservative lords resist, not a named rival,
+    // so REFORM_LAW goals never feed the ELIMINATE_RIVAL counter.
+    for (const t of held) {
+      const want =
+        c.drives.piety > 0.6 ? "primogeniture" :
+        c.drives.ambition > 0.65 ? "elective" :
+        c.drives.fear > 0.55 ? "seniority" : "primogeniture";
+      if (t.law === want) continue;
+      w.goals.push({
+        id: w.freshId("g"),
+        actorId: c.id,
+        type: "REFORM_LAW",
+        targetTitleId: t.id,
+        targetCharId: null,
+        priority: clamp01(0.2 + c.drives.ambition * 0.25 + c.drives.piety * 0.15),
+      });
     }
   }
 

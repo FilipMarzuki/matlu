@@ -13,13 +13,16 @@
 // since exogenous shocks are supposed to ripple UP into everything else.
 
 import { runCatastrophes } from "./catastrophe.js";
+import { advanceCultureDrift } from "./culture-drift.js";
+import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
 import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
-import { createCharacter, createDynasty, inheritDrives, randomDrives } from "./people.js";
+import { createCharacter, createDynasty, inheritDrives, randomDrives, zeroPsyche } from "./people.js";
+import { applyPerception, computeInbreeding, decayBiases, maybeOnsetMadness, onConquerorVictory, onTitleLost } from "./perception.js";
 import { advanceSchemes, spawnSchemes } from "./schemes.js";
 import type { Character, Title } from "./types.js";
 import type { World } from "./world.js";
@@ -45,10 +48,20 @@ export function tick(w: World): void {
   // --- mortality / birth -------------------------------------------------
   runMortality(w);
   runBirths(w);
+  // Annual perception update: biases fade, distortions may onset.
+  decayBiases(w);
+  maybeOnsetMadness(w);
   resolvePendingSuccessions(w);
+
+  // --- diplomacy: purge expired treaties, then advance (alliances + truce breaks)
+  // Must run BEFORE regenerateGoals so updated treaty state suppresses war goals.
+  purgeTreaties(w);
+  advanceDiplomacy(w);
 
   // --- regenerate goals --------------------------------------------------
   regenerateGoals(w);
+  // Apply perceptual biases and distortions to the clean goal set.
+  applyPerception(w);
 
   // --- spawn / advance schemes (murders may happen here) -----------------
   spawnSchemes(w);
@@ -65,6 +78,11 @@ export function tick(w: World): void {
 
   // --- bookkeeping: dynasty extinction -----------------------------------
   detectExtinctions(w);
+
+  // --- cultural evolution (no-op unless cultures are defined) ------------
+  // Runs after all this year's events are logged so event-pressure reads the
+  // full picture before deciding whether a trait tips.
+  advanceCultureDrift(w);
 
   // --- magic / leveling layer (no-op unless enabled) ---------------------
   // Runs last: it reads the year's events to grow people, then advances the
@@ -130,6 +148,9 @@ function runBirths(w: World): void {
       motherId: mother.id,
       biasCulture: true, // pull the child toward its house's cultural temperament
     });
+    // Inbreeding coefficient requires the full family graph, so compute it after
+    // createCharacter has wired the child into both parents' childrenIds lists.
+    child.psyche.inbreedingCoeff = computeInbreeding(w, father.id, mother.id);
     w.log("BIRTH", {
       actorId: child.id,
       targetId: father.id,
@@ -178,7 +199,9 @@ function syntheticDeceased(title: Title): Character {
     grudges: [],
     opinion: {},
     reputation: { schemer: 0, just: 0 },
+    psyche: zeroPsyche(),
     lowborn: false,
+    quirk: null,
     level: 1,
     lifeXp: 0,
     charClass: "commoner",
@@ -222,11 +245,37 @@ function resolveWars(w: World): void {
     }
 
     // --- Held title: does the attacker dare press? ----------------------
+
+    // Alliance betrayal: if the attacker is attacking their own ally, the pact
+    // is shattered before the war and both parties pay an opinion penalty.
+    if (hasAlliance(w, attacker.id, defender.id)) {
+      w.treaties = w.treaties.filter(
+        (t) =>
+          !(
+            t.type === "alliance" &&
+            ((t.partyA === attacker.id && t.partyB === defender.id) ||
+              (t.partyA === defender.id && t.partyB === attacker.id))
+          ),
+      );
+      w.log("ALLIANCE_BETRAYED", {
+        actorId: attacker.id,
+        targetId: defender.id,
+        titleId: title.id,
+        data: { title: title.name },
+      });
+      w.adjustOpinion(defender, attacker.id, -40);
+    }
+
     // Underground fortifications heavily favour the defender: attackers
     // advancing through narrow tunnels lose much of their numerical edge.
     const prov = w.province(title.provinceId);
     const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0);
-    const dPow = w.power(defender);
+    // loss_aversion makes defenders fight harder to keep what they have.
+    const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25);
+    // A defensive ally contributes half their power to the defender's cause.
+    const ally = allyFor(w, defender.id, attacker.id);
+    const dPow = defBase + (ally ? w.power(ally) * 0.5 : 0);
+
     const hasStrongClaim = attacker.claims.some(
       (c) => c.titleId === title.id && c.strength === "strong",
     );
@@ -254,12 +303,18 @@ function resolveWars(w: World): void {
 
     if (attackerWins) {
       transferTitle(title, attacker);
+      onConquerorVictory(w, attacker);
+      onTitleLost(w, defender);
+    } else {
+      onConquerorVictory(w, defender);
     }
     // The loser is minted a (renewed) weak claim — wars rarely truly end.
+    // Defenders who lost their seat get a "dispossessed" basis so loss_aversion
+    // in the perception pass recognises it as recovery rather than fresh conquest.
     addClaim(loser, {
       titleId: title.id,
       strength: "weak",
-      basis: `lost the war of ${w.year}`,
+      basis: attackerWins ? `dispossessed in the war of ${w.year}` : `lost the war of ${w.year}`,
       year: w.year,
     });
     w.adjustOpinion(loser, winner.id, -30);
@@ -285,6 +340,11 @@ function resolveWars(w: World): void {
         casualty: casualty ? casualty.id : "",
       },
     });
+
+    // Mint a truce so neither party immediately rekindles the same war.
+    // This runs AFTER the WAR event so the truce comes logically after the fight.
+    const truceDuration = w.rng.int(10, 15);
+    mintTruce(w, winner.id, loser.id, truceDuration);
   }
 }
 

@@ -9,6 +9,7 @@ import type {
   CatastropheQueueItem,
   Character,
   CharId,
+  CultureState,
   Dynasty,
   DynastyId,
   EventType,
@@ -18,6 +19,7 @@ import type {
   Scheme,
   Title,
   TitleId,
+  Treaty,
   WorldEvent,
 } from "./types.js";
 import type { CultureSpec, FaithSpec, RaceSpec } from "./world-spec.js";
@@ -49,8 +51,13 @@ export class World {
   races = new Map<string, RaceSpec>();
   faiths = new Map<string, FaithSpec>();
 
+  // Live mutable overlay for each culture — traits, pressure, aesthetic drift.
+  // Lazily initialised by cultureState(); only populated when cultures exist.
+  liveCultures = new Map<string, CultureState>();
+
   goals: Goal[] = [];
   schemes: Scheme[] = [];
+  treaties: Treaty[] = [];
   events: WorldEvent[] = [];
 
   private nextEventId = 1;
@@ -154,6 +161,32 @@ export class World {
   }
   faithIdOf(c: Character): string {
     return this.dynasty(c.dynastyId)?.faithId ?? "";
+  }
+
+  // Lazily creates the live culture state for a cultureId. Callers can mutate
+  // the returned object; the map holds the reference.
+  cultureState(id: string): CultureState {
+    let s = this.liveCultures.get(id);
+    if (!s) {
+      s = {
+        cultureId: id,
+        elitePressure: {},
+        folkPressure: {},
+        eliteTraits: new Set(),
+        folkTraits: new Set(),
+        contested: {},
+        stratification: 0.3,
+        legacySeeds: {},
+        contactYears: {},
+        activeRifts: new Set(),
+        aesthetic: { linguisticShift: null, fashionStyle: null },
+        establishedFigureId: null,
+        establishedSince: 0,
+        figureQuirks: {},
+      };
+      this.liveCultures.set(id, s);
+    }
+    return s;
   }
 
   // The standing opinion modifier between two peoples: race affinity + faith

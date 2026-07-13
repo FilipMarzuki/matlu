@@ -11,7 +11,7 @@ import { generatePrehistory } from "./prehistory.js";
 import { saveRun } from "./persist.js";
 import { renderChronicle, renderEpilogue, renderLayeredChronicle } from "./render.js";
 import { loadWorld } from "./seed.js";
-import { sift } from "./sifter.js";
+import { sift, type FocusContext, type FocusScale } from "./sifter.js";
 import { tick } from "./tick.js";
 import { DEFAULT_SPEC, type WorldSpec } from "./world-spec.js";
 import { FRONTIER_SPEC } from "./worlds/frontier.js";
@@ -41,6 +41,8 @@ interface Args {
   prehistory: boolean; // generate a mythic deep past before the sim
   prehistorySpan: number; // years of prehistory to reach back over
   catastrophes: boolean; // enable exogenous world shocks (blight, portals, mana ruptures)
+  focus: string | null; // entity name to focus the chronicle on
+  focusScale: FocusScale | null; // override auto-detected scale
 }
 
 function parseArgs(argv: string[]): Args {
@@ -60,6 +62,8 @@ function parseArgs(argv: string[]): Args {
     prehistory: false,
     prehistorySpan: 800,
     catastrophes: false,
+    focus: null,
+    focusScale: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -76,6 +80,8 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--living") args.living = parseInt(argv[++i], 10);
     else if (a === "--chronicle") args.chronicle = parseInt(argv[++i], 10);
     else if (a === "--catastrophes") args.catastrophes = true;
+    else if (a === "--focus") args.focus = argv[++i];
+    else if (a === "--focus-scale") args.focusScale = argv[++i] as FocusScale;
     else if (a === "--prehistory") {
       args.prehistory = true;
       const n = parseInt(argv[i + 1], 10); // optional span follows the flag
@@ -126,7 +132,15 @@ function main(): void {
     tick(world);
   }
 
-  const { chronicle } = sift(world, args.threshold);
+  // Resolve --focus NAME to a FocusContext. Resolution order: character →
+  // dynasty → province → title. --focus-scale overrides auto-detection.
+  let focus: FocusContext | undefined;
+  if (args.focus) {
+    focus = resolveFocus(world, args.focus, args.focusScale);
+    if (!focus) console.error(`[warning] --focus "${args.focus}" not found; proceeding without focus.`);
+  }
+
+  const { chronicle } = sift(world, args.threshold, focus);
 
   // Header.
   console.log("═".repeat(64));
@@ -150,6 +164,7 @@ function main(): void {
       renderLayeredChronicle(world, chronicle, arcs, {
         living: args.living,
         chronicle: args.chronicle,
+        focus,
       }),
     );
   }
@@ -187,3 +202,39 @@ function main(): void {
 }
 
 main();
+
+// Resolve a name string to a FocusContext by searching characters, dynasties,
+// provinces, and titles in order. --focus-scale overrides auto-detection.
+function resolveFocus(world: ReturnType<typeof loadWorld>, name: string, scaleOverride: FocusScale | null): FocusContext | undefined {
+  const q = name.toLowerCase();
+
+  if (!scaleOverride || scaleOverride === "individual") {
+    for (const c of world.characters.values()) {
+      if (c.name.toLowerCase() === q) {
+        return { scale: "individual", id: c.id, label: `${c.name} (individual)` };
+      }
+    }
+  }
+  if (!scaleOverride || scaleOverride === "dynasty") {
+    for (const d of world.dynasties.values()) {
+      if (d.name.toLowerCase() === q || `house ${d.name}`.toLowerCase() === q) {
+        return { scale: "dynasty", id: d.id, label: `House ${d.name} (dynasty)` };
+      }
+    }
+  }
+  if (!scaleOverride || scaleOverride === "province") {
+    for (const p of world.provinces.values()) {
+      if (p.name.toLowerCase() === q) {
+        return { scale: "province", id: p.id, label: `${p.name} (province)` };
+      }
+    }
+  }
+  if (!scaleOverride || scaleOverride === "realm") {
+    for (const t of world.titles.values()) {
+      if (t.name.toLowerCase() === q) {
+        return { scale: "realm", id: t.id, label: `${t.name} (realm)` };
+      }
+    }
+  }
+  return undefined;
+}

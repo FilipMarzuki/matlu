@@ -9,6 +9,7 @@
 
 import type { Arc } from "./arcs.js";
 import { topHeroes } from "./magic.js";
+import type { FocusContext } from "./sifter.js";
 import type { Character, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
@@ -143,6 +144,9 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       return `${who(w, ev.actorId)} had ${who(w, ev.targetId)} quietly murdered.`;
     }
 
+    case "USURP":
+      return `${who(w, ev.actorId)} wrested ${titleName(w, ev.titleId)} from ${who(w, ev.targetId)} through court intrigue and subversion.`;
+
     case "REFORM":
       return `${who(w, ev.actorId)} reformed the succession of ${titleName(w, ev.titleId)} to ${ev.data["law"]}.`;
 
@@ -266,9 +270,79 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       return `Something stirred in the deeps beneath ${provName(w, ev.provinceId)}. ${lord} was the first to fall. The halls went dark, and those who survived sealed the tunnel and did not speak of what they had found.`;
     }
 
+    // --- Perception / madness layer ---
+    case "MADNESS_ONSET":
+      return `${who(w, ev.actorId)} broke from reason, consumed by ${ev.data["distortion"] ?? "madness"}.`;
+
+    // --- Diplomacy layer ---
+    case "TRUCE":
+      return `${who(w, ev.actorId)} and ${who(w, ev.targetId)} sealed a truce — the war between them laid to rest for ${ev.data["years"]} years.`;
+
+    case "ALLIANCE_FORMED":
+      return `${who(w, ev.actorId)} and ${who(w, ev.targetId)} swore a pact of mutual defence.`;
+
+    case "TRUCE_BROKEN":
+      return `${who(w, ev.actorId)} spurned the peace and broke the truce with ${who(w, ev.targetId)}.`;
+
+    case "ALLIANCE_BETRAYED":
+      return `${who(w, ev.actorId)} betrayed the pact, turning blade against ${who(w, ev.targetId)}, their sworn ally.`;
+
+    case "CULTURAL_CONTESTED": {
+      const culture = String(ev.data["culture"] ?? "the people");
+      const trait   = String(ev.data["trait"]   ?? "");
+      const tier    = String(ev.data["tier"]     ?? "both");
+      const cause   = String(ev.data["cause"]    ?? "gradual drift");
+      const label   = traitDisplayName(trait);
+      const tierPhrase = tier === "elite" ? "among the lords and great houses"
+        : tier === "folk"  ? "among the common people"
+        : "from hall to field";
+      return `${label} begins to stir ${tierPhrase} of the ${culture} — ${cause}.`;
+    }
+
+    case "CULTURAL_RIFT": {
+      const culture    = String(ev.data["culture"]     ?? "the people");
+      const eliteTrait = traitDisplayName(String(ev.data["elite_trait"] ?? ""));
+      const folkTrait  = traitDisplayName(String(ev.data["folk_trait"]  ?? ""));
+      return `A rift tears through the ${culture} — their lords uphold ${eliteTrait.toLowerCase()}, while the common people cleave to ${folkTrait.toLowerCase()}.`;
+    }
+
+    case "CULTURAL_SHIFT": {
+      const culture = String(ev.data["culture"] ?? "the people");
+      const trait   = String(ev.data["trait"]   ?? "");
+      const adopted = ev.data["adopted"] !== false;
+      const cause   = String(ev.data["cause"]   ?? "gradual drift");
+      const tier    = String(ev.data["tier"]     ?? "both");
+      if (trait === "aesthetic") {
+        const quirk = String(ev.data["aesthetic_value"] ?? "a new custom");
+        return `${who(w, ev.actorId)}'s ${quirk} became the manner of the ${culture} people, spreading to their children and children's children.`;
+      }
+      const label      = traitDisplayName(trait);
+      const tierPhrase = tier === "elite" ? "among the lords and great houses of the"
+        : tier === "folk"  ? "among the common people of the"
+        : "throughout the";
+      if (adopted) {
+        return `${label} took root ${tierPhrase} ${culture} — ${cause}.`;
+      } else {
+        return `${label} faded ${tierPhrase} ${culture} — ${cause}.`;
+      }
+    }
+
     default:
       return `[${ev.type}]`;
   }
+}
+
+function traitDisplayName(trait: string): string {
+  const labels: Record<string, string> = {
+    slavery: "The practice of slavery",
+    warrior_culture: "A warrior's way of life",
+    caste_rigid: "Rigid caste divisions",
+    meritocracy: "The rise of merit over birth",
+    mercantile: "A mercantile spirit",
+    literacy_valued: "The esteem of learning and letters",
+    zealous_faith: "Zealous devotion to the faith",
+  };
+  return labels[trait] ?? `A change in custom (${trait})`;
 }
 
 // Temporal level-of-detail: history is a cone of detail — the present is sharp,
@@ -284,6 +358,7 @@ export interface LayeredOpts {
   living?: number; // living-memory window in years (default 70)
   chronicle?: number; // chronicle window in years (default 160)
   arcDecay?: number; // remembered-significance lost per year of age (default 0.2)
+  focus?: FocusContext; // when set, prepend a focus banner to the output
 }
 
 export function renderLayeredChronicle(
@@ -324,6 +399,11 @@ export function renderLayeredChronicle(
 
   const bareTitle = (t: string) => t.replace(/\s*\([0-9–-]+\)\s*$/, "");
   const out: string[] = [];
+
+  // Focus banner — precedes all chronicle sections when a focus is active.
+  if (opts.focus) {
+    out.push("═".repeat(64), `FOCUS: ${opts.focus.label}`, "═".repeat(64));
+  }
 
   // ── AGES OF LEGEND — the deep past: mythic events + arc-eras by century ──
   // Prehistory LEGEND events form the mythic backbone; ordinary ancient arcs
