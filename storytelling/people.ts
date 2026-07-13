@@ -7,9 +7,27 @@
 
 import type { RNG } from "./rng.js";
 import { givenName } from "./names.js";
-import type { Character, Drives, Dynasty, ProvinceId, Sex } from "./types.js";
+import type { Character, Drives, Dynasty, PerceptualBias, ProvinceId, Psyche, Sex } from "./types.js";
 import type { World } from "./world.js";
 import type { CultureSpec } from "./world-spec.js";
+
+// A zeroed Psyche — all biases at 0, no distortion. Used as the default for
+// new characters before cultural/faith/experience biases are applied.
+export function zeroPsyche(): Psyche {
+  return {
+    distortion: "none",
+    distortionOnsetYear: null,
+    biases: {
+      honor_bound: 0, fatalist: 0, mercantile: 0,
+      providential: 0, doctrinal: 0,
+      confirmation: 0, wishful: 0, betrayal_scarred: 0,
+      grief_locked: 0, conqueror_confident: 0,
+      sunk_cost: 0, loss_aversion: 0,
+    },
+    inbreedingCoeff: 0,
+    lastMajorLossYear: null,
+  };
+}
 
 // A random personality. Drives are independent uniforms; correlations (a
 // pious character being less ambitious, say) are left to emerge rather than
@@ -114,7 +132,11 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
     charClass: "commoner",
     comfort: 0,
     ventured: false,
+    psyche: zeroPsyche(), // patched below once drives are resolved
   };
+  // Apply cultural/faith bias seeds and universal baselines AFTER the character
+  // is constructed so we can read their final blended drives.
+  c.psyche = buildPsyche(w, c.drives, culture, w.faiths.get(dyn?.faithId ?? ""));
   w.characters.set(id, c);
   // Wire the child into its parents' child lists so the family graph is whole.
   const father = w.char(opts.fatherId ?? null);
@@ -128,6 +150,48 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
 // it unchanged when there's no culture bias to apply.
 function biasDrives(d: Drives, culture: CultureSpec | undefined): Drives {
   return culture?.driveBias ? blendToCulture(d, culture.driveBias) : d;
+}
+
+// Build the initial Psyche for a new character. Applies:
+//   1. Cultural bias seeds (with ±0.15 individual noise)
+//   2. Faith bias seeds (stacked on cultural, with ±0.12 noise)
+//   3. Universal baselines — sunk_cost and loss_aversion are non-zero in
+//      everyone, derived from drives + a small random spread.
+function buildPsyche(
+  w: World,
+  drives: Drives,
+  culture: CultureSpec | undefined,
+  faith: import("./world-spec.js").FaithSpec | undefined,
+): Psyche {
+  const p = zeroPsyche();
+
+  // Cultural seeds — each entry adds a base value with individual noise.
+  if (culture?.biasSeed) {
+    for (const [bias, base] of Object.entries(culture.biasSeed) as [PerceptualBias, number][]) {
+      p.biases[bias] = clamp01((base as number) + w.rng.float(-0.15, 0.15));
+    }
+  }
+  // Faith seeds stack on top of the cultural layer.
+  if (faith?.biasSeed) {
+    for (const [bias, base] of Object.entries(faith.biasSeed) as [PerceptualBias, number][]) {
+      p.biases[bias] = clamp01(p.biases[bias] + (base as number) + w.rng.float(-0.12, 0.12));
+    }
+  }
+
+  // Universal baselines — everyone has some sunk_cost and loss_aversion.
+  // Fear amplifies both: a fearful character holds on harder and hurts more.
+  p.biases.sunk_cost = clamp01(
+    Math.max(p.biases.sunk_cost, 0.12 + w.rng.float(0, 0.22) + drives.fear * 0.1),
+  );
+  p.biases.loss_aversion = clamp01(
+    Math.max(p.biases.loss_aversion, 0.12 + w.rng.float(0, 0.3) + drives.fear * 0.2),
+  );
+
+  return p;
+}
+
+function clamp01(x: number): number {
+  return Math.max(0, Math.min(1, x));
 }
 
 export function createDynasty(

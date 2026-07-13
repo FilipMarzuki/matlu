@@ -50,6 +50,8 @@ const BASE: Record<EventType, number> = {
   CORRUPTION_SPREADS: 7,
   // Underground / dwarf layer.
   DELVED_TOO_DEEP: 10,
+  // Perception / madness layer.
+  MADNESS_ONSET: 7, // a named character breaks from reality — high drama
 };
 
 export interface SiftResult {

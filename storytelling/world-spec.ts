@@ -15,7 +15,7 @@
 // data (and crucially the character ORDER, which fixes the RNG stream) matches
 // the original exactly.
 
-import type { SuccessionLaw, Terrain, Tier, Sex } from "./types.js";
+import type { SuccessionLaw, Terrain, Tier, Sex, PerceptualBias } from "./types.js";
 
 export interface ProvinceSpec {
   id: string;
@@ -62,6 +62,9 @@ export interface CultureSpec {
   // newborns of this culture blend toward it. Omit to leave temperament free.
   driveBias?: number[];
   law?: SuccessionLaw; // default succession law for this culture's realms
+  // Perceptual bias seeds: base intensities stamped at birth, with ±0.15 noise.
+  // Stacks on top of faith seeds. Omit keys that don't characterise the culture.
+  biasSeed?: Partial<Record<PerceptualBias, number>>;
 }
 
 // A race carries an inter-group opinion modifier: how members of this race
@@ -77,6 +80,8 @@ export interface FaithSpec {
   id: string;
   name: string;
   hostileTo?: string[]; // faith ids this faith is hostile toward
+  // Perceptual bias seeds layered on top of the character's cultural seeds.
+  biasSeed?: Partial<Record<PerceptualBias, number>>;
 }
 
 export interface ClaimSpec {

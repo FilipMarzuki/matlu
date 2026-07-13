@@ -19,7 +19,8 @@ import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
-import { createCharacter, createDynasty, inheritDrives, randomDrives } from "./people.js";
+import { createCharacter, createDynasty, inheritDrives, randomDrives, zeroPsyche } from "./people.js";
+import { applyPerception, computeInbreeding, decayBiases, maybeOnsetMadness, onConquerorVictory, onTitleLost } from "./perception.js";
 import { advanceSchemes, spawnSchemes } from "./schemes.js";
 import type { Character, Title } from "./types.js";
 import type { World } from "./world.js";
@@ -45,10 +46,15 @@ export function tick(w: World): void {
   // --- mortality / birth -------------------------------------------------
   runMortality(w);
   runBirths(w);
+  // Annual perception update: biases fade, distortions may onset.
+  decayBiases(w);
+  maybeOnsetMadness(w);
   resolvePendingSuccessions(w);
 
   // --- regenerate goals --------------------------------------------------
   regenerateGoals(w);
+  // Apply perceptual biases and distortions to the clean goal set.
+  applyPerception(w);
 
   // --- spawn / advance schemes (murders may happen here) -----------------
   spawnSchemes(w);
@@ -130,6 +136,9 @@ function runBirths(w: World): void {
       motherId: mother.id,
       biasCulture: true, // pull the child toward its house's cultural temperament
     });
+    // Inbreeding coefficient requires the full family graph, so compute it after
+    // createCharacter has wired the child into both parents' childrenIds lists.
+    child.psyche.inbreedingCoeff = computeInbreeding(w, father.id, mother.id);
     w.log("BIRTH", {
       actorId: child.id,
       targetId: father.id,
@@ -178,6 +187,7 @@ function syntheticDeceased(title: Title): Character {
     grudges: [],
     opinion: {},
     reputation: { schemer: 0, just: 0 },
+    psyche: zeroPsyche(),
     lowborn: false,
     level: 1,
     lifeXp: 0,
@@ -226,7 +236,8 @@ function resolveWars(w: World): void {
     // advancing through narrow tunnels lose much of their numerical edge.
     const prov = w.province(title.provinceId);
     const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0);
-    const dPow = w.power(defender);
+    // loss_aversion makes defenders fight harder to keep what they have.
+    const dPow = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25);
     const hasStrongClaim = attacker.claims.some(
       (c) => c.titleId === title.id && c.strength === "strong",
     );
@@ -254,12 +265,18 @@ function resolveWars(w: World): void {
 
     if (attackerWins) {
       transferTitle(title, attacker);
+      onConquerorVictory(w, attacker);
+      onTitleLost(w, defender);
+    } else {
+      onConquerorVictory(w, defender);
     }
     // The loser is minted a (renewed) weak claim — wars rarely truly end.
+    // Defenders who lost their seat get a "dispossessed" basis so loss_aversion
+    // in the perception pass recognises it as recovery rather than fresh conquest.
     addClaim(loser, {
       titleId: title.id,
       strength: "weak",
-      basis: `lost the war of ${w.year}`,
+      basis: attackerWins ? `dispossessed in the war of ${w.year}` : `lost the war of ${w.year}`,
       year: w.year,
     });
     w.adjustOpinion(loser, winner.id, -30);

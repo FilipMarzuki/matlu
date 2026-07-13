@@ -7,6 +7,7 @@
 // seed of the next vengeance cycle.
 
 import { markDead } from "./phenomena.js";
+import { onBetrayal } from "./perception.js";
 import type { Character, Scheme } from "./types.js";
 import type { World } from "./world.js";
 
@@ -111,6 +112,9 @@ function maybeRecruit(
   target: Character,
 ): void {
   if (s.conspirators.length >= 3) return;
+  // A deeply betrayal-scarred schemer goes it alone — burned too many times to
+  // bring anyone into their confidence.
+  if (owner.psyche.biases.betrayal_scarred > 0.5) return;
   if (!w.rng.chance(0.3)) return;
 
   // Candidate pool: adults who dislike the target and aren't the owner/target.
@@ -137,6 +141,8 @@ function discoverScheme(
   target: Character,
 ): void {
   s.discovered = true;
+  // The psychic wound of betrayal — hardens the target's lone-wolf tendencies.
+  onBetrayal(target);
   // The mark now bears a grudge — a future REVENGE goal, possibly a counter-plot.
   target.grudges.push({
     targetId: owner.id,

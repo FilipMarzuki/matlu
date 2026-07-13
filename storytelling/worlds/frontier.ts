@@ -127,13 +127,13 @@ const races: RaceSpec[] = [
 
 const faiths: FaithSpec[] = [
   { id: "verdant", name: "the Verdant Path", hostileTo: ["mire"] }, // Ibiki nature-faith
-  { id: "sea", name: "the Tidefather" },
-  { id: "stone", name: "the Stone Below" },
-  { id: "skyfather", name: "the Sky Father", hostileTo: ["sunlord"] }, // steppe / Horde
-  { id: "sunlord", name: "the Sun Lord", hostileTo: ["skyfather"] }, // Zafran imperial cult
-  { id: "mire", name: "the Drowned Ones", hostileTo: ["verdant", "sunlord"] }, // swamp cult
+  { id: "sea", name: "the Tidefather", biasSeed: { fatalist: 0.25, mercantile: 0.2 } },
+  { id: "stone", name: "the Stone Below", biasSeed: { sunk_cost: 0.15 } },
+  { id: "skyfather", name: "the Sky Father", hostileTo: ["sunlord"], biasSeed: { providential: 0.4, doctrinal: 0.25 } }, // steppe / Horde
+  { id: "sunlord", name: "the Sun Lord", hostileTo: ["skyfather"], biasSeed: { providential: 0.45, doctrinal: 0.45 } }, // Zafran imperial cult
+  { id: "mire", name: "the Drowned Ones", hostileTo: ["verdant", "sunlord"], biasSeed: { grief_locked: 0.25, betrayal_scarred: 0.2, confirmation: 0.2 } }, // swamp cult
   // Dwarfs wage grudge wars, not holy wars; no hostileTo — but they never forget a slight.
-  { id: "stone_ancestors", name: "the Stone Ancestors" },
+  { id: "stone_ancestors", name: "the Stone Ancestors", biasSeed: { sunk_cost: 0.3, loss_aversion: 0.3 } },
 ];
 
 const cultures: CultureSpec[] = [
@@ -142,6 +142,7 @@ const cultures: CultureSpec[] = [
     name: "Ibiki",
     law: "primogeniture",
     driveBias: D(0.6, 0.45, 0.6, 0.45, 0.5, 0.35), // ambitious, feuding courtiers
+    biasSeed: { confirmation: 0.35, wishful: 0.25, sunk_cost: 0.3 },
     namesMale: ["Aeryn", "Caelum", "Doriel", "Elwin", "Faelan", "Ilric", "Kaevo", "Maren", "Orin", "Taviel"],
     namesFemale: ["Aeliss", "Bryn", "Cirel", "Elowen", "Faye", "Lira", "Maeve", "Nira", "Selune", "Wyn"],
     surnames: ["Fairwind", "Greenbourne", "Ashvale", "Meadowlight", "Riverwynd"],
@@ -151,6 +152,7 @@ const cultures: CultureSpec[] = [
     name: "Coastborn",
     law: "primogeniture",
     driveBias: D(0.55, 0.5, 0.45, 0.4, 0.5, 0.4),
+    biasSeed: { mercantile: 0.4, loss_aversion: 0.35 },
     namesMale: ["Aldous", "Halden", "Bram", "Corwin", "Sten", "Erik", "Rurik", "Osric", "Leif", "Torgan"],
     namesFemale: ["Astrid", "Mira", "Sela", "Inga", "Freya", "Edda", "Ylva", "Runa", "Solveig", "Signy"],
     surnames: ["Harlow", "Tidewell", "Gullhaven", "Saltmere"],
@@ -160,6 +162,7 @@ const cultures: CultureSpec[] = [
     name: "Ridgefolk",
     law: "gavelkind",
     driveBias: D(0.5, 0.5, 0.55, 0.4, 0.5, 0.2), // hardy, fearless
+    biasSeed: { honor_bound: 0.5, fatalist: 0.4 },
     namesMale: ["Bardin", "Dorin", "Grimm", "Torvald", "Durn", "Brok", "Onar", "Vidar", "Hral", "Konr"],
     namesFemale: ["Torva", "Hilda", "Kaila", "Brenna", "Gudrun", "Signe", "Vela", "Ada", "Sunniva", "Ragna"],
     surnames: ["Grimmr", "Stoneholt", "Ironvein"],
@@ -169,6 +172,7 @@ const cultures: CultureSpec[] = [
     name: "Steppe",
     law: "elective",
     driveBias: D(0.85, 0.7, 0.75, 0.12, 0.55, 0.15), // hungry raiders
+    biasSeed: { honor_bound: 0.45, conqueror_confident: 0.25, loss_aversion: 0.3 },
     namesMale: ["Temur", "Ghazan", "Yusuf", "Kadir", "Tariq", "Bahadur", "Orhan", "Kaan", "Altan", "Berke"],
     namesFemale: ["Sabah", "Aisha", "Leyla", "Nur", "Roxana", "Yildiz", "Zara", "Gul", "Aynur", "Perizad"],
     surnames: ["Qarash", "Bloodmoon", "Windrider"],
@@ -178,6 +182,7 @@ const cultures: CultureSpec[] = [
     name: "Orctongue",
     law: "elective",
     driveBias: D(0.85, 0.8, 0.85, 0.05, 0.5, 0.1), // fiercest of the Horde
+    biasSeed: { honor_bound: 0.65, confirmation: 0.4 },
     namesMale: ["Uzruk", "Gruul", "Gharruk", "Morg", "Drak", "Thok", "Grash", "Bolg", "Ozruk", "Karg"],
     namesFemale: ["Ushka", "Grima", "Draka", "Morga", "Thrag", "Ruka", "Grisha", "Nazka", "Ulga", "Braga"],
     surnames: ["Gorthak", "Skullsplit", "Ironfang"],
@@ -187,6 +192,7 @@ const cultures: CultureSpec[] = [
     name: "Zafrani",
     law: "primogeniture",
     driveBias: D(0.45, 0.5, 0.3, 0.72, 0.5, 0.42), // pious, settled, soft
+    biasSeed: { providential: 0.5, doctrinal: 0.35 },
     namesMale: ["Khosru", "Bahram", "Farid", "Darius", "Kaveh", "Rostam", "Cyrus", "Jamshid", "Sohrab", "Kian"],
     namesFemale: ["Roshanak", "Yasmin", "Anahita", "Parisa", "Shirin", "Nastaran", "Soraya", "Farah", "Laleh", "Golnar"],
     surnames: ["Darzan", "Zafrani", "Khoreshi"],
@@ -196,6 +202,7 @@ const cultures: CultureSpec[] = [
     name: "Mire",
     law: "seniority",
     driveBias: D(0.5, 0.4, 0.62, 0.68, 0.45, 0.5), // insular, vengeful, superstitious
+    biasSeed: { grief_locked: 0.35, betrayal_scarred: 0.3, sunk_cost: 0.35 },
     namesMale: ["Doran", "Vorm", "Grell", "Mosk", "Eril", "Thane", "Bosk", "Fenn", "Ordo", "Sabb"],
     namesFemale: ["Vessa", "Nessa", "Ligeia", "Sable", "Ondine", "Bryony", "Hazel", "Iria", "Wren", "Maura"],
     surnames: ["Sythe", "Blackfen", "Marshlight"],
@@ -207,6 +214,7 @@ const cultures: CultureSpec[] = [
     // Stubborn, wealth-obsessed, and corrosively vengeful. Low lust (slow to
     // breed) and near-zero fear (they do not flinch from the dark).
     driveBias: D(0.5, 0.8, 0.85, 0.6, 0.3, 0.15),
+    biasSeed: { sunk_cost: 0.6, loss_aversion: 0.65, honor_bound: 0.55, betrayal_scarred: 0.4 },
     namesMale: ["Durm", "Karag", "Balin", "Thorgrim", "Brynn", "Ord", "Durak", "Gimrel", "Stondar", "Vark"],
     namesFemale: ["Hilda", "Brunhilde", "Kara", "Dura", "Mira", "Gorma", "Velda", "Udra", "Brynna", "Astara"],
     surnames: ["Deepvault", "Ironmantle", "Stoneheart", "Oreborn"],

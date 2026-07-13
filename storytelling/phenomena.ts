@@ -6,6 +6,7 @@
 // The drama isn't the plague itself — it's the throne it empties.
 
 import { scarcity } from "./geography.js";
+import { onGrief } from "./perception.js";
 import type { Character } from "./types.js";
 import type { World } from "./world.js";
 
@@ -145,4 +146,11 @@ export function markDead(w: World, c: Character, cause: string): void {
     provinceId: c.provinceId,
     data: { cause, age: w.year - c.birthYear, dynasty: c.dynastyId },
   });
+  // Notify living close kin — grief warps their perceptual lens.
+  const spouse = w.char(c.spouseId);
+  if (spouse?.alive) onGrief(spouse);
+  const father = w.char(c.fatherId);
+  if (father?.alive) onGrief(father);
+  const mother = w.char(c.motherId);
+  if (mother?.alive) onGrief(mother);
 }

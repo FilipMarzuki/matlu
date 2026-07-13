@@ -63,9 +63,9 @@ export function canonHash(w: World): string {
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "bb9d2daa" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "7b101929" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "6412f459" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "5d1488d5" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "b3707c65" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "e1d9d48b" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "d9c73fd7",
+    hash: "72270732",
   },
 ];
 
@@ -134,6 +134,20 @@ export function checkInvariants(w: World): string[] {
   // Province population never drops below the hard floor.
   for (const p of w.provinces.values()) {
     if (p.population < 50) v.push(`province ${p.id} population ${p.population} < 50`);
+  }
+
+  // Psyche bounds.
+  const validDistortions = new Set(["none", "paranoid", "megalomaniac", "zealot"]);
+  for (const c of w.characters.values()) {
+    if (!validDistortions.has(c.psyche.distortion))
+      v.push(`char ${c.id} has invalid distortion "${c.psyche.distortion}"`);
+    if (c.psyche.distortion !== "none" && c.psyche.distortionOnsetYear === null)
+      v.push(`char ${c.id} has distortion but null distortionOnsetYear`);
+    if (c.psyche.inbreedingCoeff < 0 || c.psyche.inbreedingCoeff > 1)
+      v.push(`char ${c.id} inbreedingCoeff ${c.psyche.inbreedingCoeff} out of [0,1]`);
+    for (const [bias, val] of Object.entries(c.psyche.biases)) {
+      if (val < 0 || val > 1) v.push(`char ${c.id} bias ${bias}=${val} out of [0,1]`);
+    }
   }
 
   // Magic bounds.
