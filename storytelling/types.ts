@@ -292,6 +292,9 @@ export interface Province {
   // Both are initialised to 0 / [] in seed.ts and mutate over the run.
   blightLevel: number;  // 0..1; 0 = pristine, 1 = fully blighted
   zoneFlags: string[];  // 'dead_zone' | 'undead_heavy' | 'mana_corrupted' | 'blighted'
+  // Flavor of the active corruption — drives which psyche distortion and culture
+  // traits are amplified. undefined = pristine or unclassified blight.
+  corruptionType?: "necrotic" | "void" | "feral";
 }
 
 // ---------------------------------------------------------------------------

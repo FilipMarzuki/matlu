@@ -179,6 +179,26 @@ dev/                    # Agentic Experiments — AI/automation dev log (Astro 6
 - **Settlements live in Mistheim.** There is no separate worldgen for other realms — the 22 cultures (`macro-world/cultures.json`) all populate Mistheim. Spinolandet, Earth, and other narrative realms exist as lore but have no procedural settlement system.
 - **Cultures are race-agnostic.** Many races can share a culture. Culture IDs have no race prefix (e.g. `coastborn`, not `human-seafaring`). `racePreferences` is an optional weighted hint; absent means sample from regional demographics.
 
+## Story engine — update checklist
+
+When adding new world elements to `storytelling/` (new Province fields, new races/biology traits, new event types, new catastrophe templates), update ALL of the following layers that the new element touches:
+
+| Layer | File | What to check |
+| ----- | ---- | ------------- |
+| Data model | `types.ts` | Add the field/type |
+| Spec | `world-spec.ts` | Add to `WorldSpec` / `RaceSpec` if configurable |
+| Seed | `seed.ts` | Initialize the field on Province/Character/Dynasty |
+| Simulation | `tick.ts`, `phenomena.ts`, `geography.ts`, `people.ts` | Wire the field into the annual simulation passes |
+| Psyche | `perception.ts` | Does the new element affect distortion onset or bias weights? |
+| Culture | `culture-drift.ts` | Does the new element create cultural pressure? |
+| Catastrophe | `catastrophe.ts` | Does it enable a new shock template or modify existing ones? |
+| Magic | `magic.ts` | Does it affect XP / class access / comfort? |
+| Sifter | `sifter.ts` | Should the new event type carry a significance score? |
+| Renderer | `render.ts` | Does it need a prose template? |
+| Tests | `testkit.ts` | Rebaseline golden hashes if the RNG stream changed |
+
+**Golden hash rule**: any change that touches the RNG stream for default-world or frontier configs **requires rebaselineing** the affected hashes in `testkit.ts`. Run `npm run unit:story` and copy the new hashes from the failure output.
+
 ## Current milestone
 
 Milestone 1 — vehicle moving on a map with joystick controls ✓

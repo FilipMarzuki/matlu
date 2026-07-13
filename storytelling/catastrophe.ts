@@ -51,6 +51,7 @@ const WITHERING: CatastropheTemplate = {
         const p = w.province(item.provinceId);
         if (!p) return;
         p.blightLevel = Math.min(1, p.blightLevel + 0.3);
+        p.corruptionType = "necrotic";
         const loss = Math.round(p.population * 0.15);
         p.population = Math.max(50, p.population - loss);
         w.log("BLIGHT_SPREADS", {
@@ -152,6 +153,7 @@ const PORTAL_CATASTROPHE: CatastropheTemplate = {
         if (!p.zoneFlags.includes("dead_zone")) p.zoneFlags.push("dead_zone");
         if (!p.zoneFlags.includes("undead_heavy")) p.zoneFlags.push("undead_heavy");
         p.blightLevel = 1;
+        p.corruptionType = "necrotic";
         p.manaDensity = Math.min(1, p.manaDensity + 0.4);
         // Kill every living character still in this province — no one survives.
         for (const c of w.living()) {
@@ -211,6 +213,7 @@ const MANA_RUPTURE: CatastropheTemplate = {
         const loss = Math.round(p.population * 0.55);
         p.population = Math.max(50, p.population - loss);
         if (!p.zoneFlags.includes("mana_corrupted")) p.zoneFlags.push("mana_corrupted");
+        p.corruptionType = "void";
         p.manaDensity = Math.min(1, p.manaDensity + 0.3);
         const namedDead = killResidentsByChance(w, p.id, "mana_rupture", 0.45);
         w.log("MANA_RUPTURE", {
@@ -224,11 +227,12 @@ const MANA_RUPTURE: CatastropheTemplate = {
       fire: (w, item) => {
         const p = w.province(item.provinceId);
         if (!p) return;
-        // Corruption bleeds into every neighbour.
+        // Corruption bleeds into every neighbour, inheriting the source type.
         for (const nId of p.neighbors) {
           const n = w.province(nId);
           if (!n) continue;
           n.blightLevel = Math.min(1, n.blightLevel + 0.15);
+          n.corruptionType = n.corruptionType ?? p.corruptionType ?? "void";
           n.manaDensity = Math.min(1, n.manaDensity + 0.1);
           const nLoss = Math.round(n.population * 0.08);
           n.population = Math.max(50, n.population - nLoss);
@@ -291,6 +295,7 @@ const DELVED_TOO_DEEP: CatastropheTemplate = {
         if (!p.zoneFlags.includes("dead_zone")) p.zoneFlags.push("dead_zone");
         if (!p.zoneFlags.includes("undead_heavy")) p.zoneFlags.push("undead_heavy");
         p.blightLevel = 1;
+        p.corruptionType = "necrotic";
         p.manaDensity = Math.min(1, p.manaDensity + 0.3);
         for (const c of w.living()) {
           if (c.provinceId === p.id) markDead(w, c, "delved_too_deep");
@@ -389,5 +394,13 @@ export function runCatastrophes(w: World): void {
       provinceId: target.id,
       data: { sourceProvinceId: p.id, deaths: raidLoss, named_dead: namedDead },
     });
+  }
+
+  // 4. Natural blight decay — slow passive cleansing (~0.5%/yr).
+  // Dead zones are permanent and do not decay; everything else gradually heals.
+  for (const p of provinces) {
+    if (p.blightLevel <= 0 || p.zoneFlags.includes("dead_zone")) continue;
+    p.blightLevel = Math.max(0, p.blightLevel - 0.005);
+    if (p.blightLevel <= 0) p.corruptionType = undefined;
   }
 }
