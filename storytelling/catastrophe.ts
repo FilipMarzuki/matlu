@@ -38,6 +38,7 @@ const WITHERING: CatastropheTemplate = {
     const p = w.province(pid);
     if (!p) return false;
     return (
+      !p.subsurface &&
       (p.terrain === "steppe" || p.terrain === "desert") &&
       p.blightLevel < 0.2 &&
       !p.zoneFlags.includes("blighted")
@@ -103,6 +104,7 @@ const PORTAL_CATASTROPHE: CatastropheTemplate = {
     // Fires at most once per world — one permanent dead zone is the story.
     if (w.events.some((e) => e.type === "PORTAL_OPENS")) return false;
     return (
+      !p.subsurface &&
       (p.terrain === "mountain" || p.terrain === "jungle") &&
       !p.coastal &&
       !p.riverConnected &&
@@ -240,7 +242,70 @@ const MANA_RUPTURE: CatastropheTemplate = {
   ],
 };
 
-const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE];
+// --- 4. Delved Too Deep — an underground hold breaches something ancient -------
+// The Moria scenario: the hold's mana-saturated deep is disturbed, the lord is
+// slain, and two years later the dead rise and seal the hall forever. Undead
+// then raid surface provinces through the tunnel exits the dwarfs dug.
+const DELVED_TOO_DEEP: CatastropheTemplate = {
+  id: "delved_too_deep",
+  drawProb: 0.004,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      p.subsurface &&
+      p.manaDensity > 0.55 &&
+      p.population > 100 &&
+      !p.zoneFlags.includes("dead_zone") &&
+      w.year > 30
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        // Something stirs in the deep — the hold-lord is the first to fall.
+        const title = w.title(p.titleId);
+        const holder = title ? w.char(title.holderId) : undefined;
+        if (holder && holder.alive) {
+          markDead(w, holder, "delved_too_deep");
+          item.data.actorId = holder.id;
+        }
+        const loss = Math.round(p.population * 0.3);
+        p.population = Math.max(50, p.population - loss);
+        w.log("DELVED_TOO_DEEP", {
+          provinceId: p.id,
+          actorId: holder?.id ?? null,
+          data: { manaDensity: p.manaDensity, deaths: loss },
+        });
+      },
+    },
+    {
+      delay: 2,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        // The dead rise — the hold falls completely.
+        if (!p.zoneFlags.includes("dead_zone")) p.zoneFlags.push("dead_zone");
+        if (!p.zoneFlags.includes("undead_heavy")) p.zoneFlags.push("undead_heavy");
+        p.blightLevel = 1;
+        p.manaDensity = Math.min(1, p.manaDensity + 0.3);
+        for (const c of w.living()) {
+          if (c.provinceId === p.id) markDead(w, c, "delved_too_deep");
+        }
+        p.population = 50;
+        w.log("DEAD_ZONE_FORMS", {
+          provinceId: p.id,
+          data: { blightLevel: p.blightLevel, manaDensity: p.manaDensity, source: "delved_too_deep" },
+        });
+      },
+    },
+  ],
+};
+
+const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE, DELVED_TOO_DEEP];
 
 // ---------------------------------------------------------------------------
 // Chain engine

@@ -60,6 +60,14 @@ function selectHeir(w: World, title: Title, deceased: Character): Character | nu
       if (candidates.length === 0) return null;
       return candidates.sort((a, b) => w.power(b) - w.power(a))[0];
     }
+    case "clan_elder": {
+      // The eldest living member of the FOUNDING bloodline only. Outsiders
+      // can never inherit — if the dynasty dies, the hold falls vacant forever.
+      const members = w
+        .dynastyMembers(deceased.dynastyId)
+        .filter((m) => m.id !== deceased.id);
+      return members.length > 0 ? members[0] : null;
+    }
   }
 }
 

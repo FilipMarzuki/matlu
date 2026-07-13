@@ -56,7 +56,9 @@ export function runPlague(w: World): void {
   if (!w.rng.chance(0.03)) return;
 
   const provs = [...w.provinces.values()];
-  const origin = w.rng.pick(provs);
+  // Plagues originate only on the surface — underground halls are immune to the
+  // vectors (airborne, water-borne) that drive surface epidemics.
+  const origin = w.rng.pick(provs.filter((p) => !p.subsurface));
 
   // BFS-style spread frontier with decaying probability.
   const infected = new Set<string>([origin.id]);
@@ -72,6 +74,8 @@ export function runPlague(w: World): void {
         if (infected.has(nId)) continue;
         const n = w.province(nId);
         if (!n) continue;
+        // Underground halls are sealed from surface contagion.
+        if (n.subsurface) continue;
         // Rivers and coasts are highways for disease.
         const conduit = (p.coastal && n.coastal) || (p.riverConnected && n.riverConnected);
         const chance = spreadChance * (conduit ? 1.0 : 0.55);

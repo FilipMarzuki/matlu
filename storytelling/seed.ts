@@ -42,6 +42,8 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
       manaDensity: p.mana,
       blightLevel: 0,
       zoneFlags: [],
+      subsurface: p.subsurface ?? false,
+      mineralWealth: p.mineralWealth ?? 0,
     });
   }
 

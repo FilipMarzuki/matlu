@@ -48,6 +48,8 @@ const BASE: Record<EventType, number> = {
   RITUAL_GONE_WRONG: 7,
   MANA_RUPTURE: 8,
   CORRUPTION_SPREADS: 7,
+  // Underground / dwarf layer.
+  DELVED_TOO_DEEP: 10,
 };
 
 export interface SiftResult {

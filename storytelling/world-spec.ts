@@ -27,6 +27,8 @@ export interface ProvinceSpec {
   neighbors: string[];
   population: number;
   mana: number;
+  subsurface?: boolean;   // underground hall; uses mineralWealth instead of fertility
+  mineralWealth?: number; // 0..1; carrying capacity base when subsurface
 }
 
 export interface TitleSpec {

@@ -261,6 +261,11 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       return `Mana corruption from ${src} bled into ${provName(w, ev.provinceId)}, tainting soil and sky alike.`;
     }
 
+    case "DELVED_TOO_DEEP": {
+      const lord = ev.actorId ? who(w, ev.actorId) : "the hold-lord";
+      return `Something stirred in the deeps beneath ${provName(w, ev.provinceId)}. ${lord} was the first to fall. The halls went dark, and those who survived sealed the tunnel and did not speak of what they had found.`;
+    }
+
     default:
       return `[${ev.type}]`;
   }

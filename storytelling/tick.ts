@@ -307,6 +307,9 @@ function transferTitle(title: Title, to: Character): void {
 // the full multi-scale mobility engine.)
 // ---------------------------------------------------------------------------
 function maybeLowbornRise(w: World, title: Title): boolean {
+  // clan_elder titles can never pass to outsiders — if the bloodline dies the
+  // hold stays vacant forever; no commoner can take the seat.
+  if (title.law === "clan_elder") return false;
   // Only when nobody, anywhere, holds a claim to this title.
   const anyClaimant = [...w.characters.values()].some(
     (c) => c.alive && c.claims.some((cl) => cl.titleId === title.id),
@@ -442,12 +445,17 @@ function wed(w: World, a: Character, b: Character): void {
 // ---------------------------------------------------------------------------
 function opinionDrift(w: World): void {
   for (const c of w.living()) {
+    // Dwarfs never forgive — negative opinions are immortal. This is the grudge
+    // immortality that makes their long-simmering feuds feel true to the lore.
+    const isDwarf = w.dynasty(c.dynastyId)?.raceId === "dwarf";
     for (const otherId of Object.keys(c.opinion)) {
       const other = w.char(otherId);
       if (!other) continue;
       let v = c.opinion[otherId];
-      // Mean-revert by 1 toward 0.
-      v += v > 0 ? -1 : v < 0 ? 1 : 0;
+      // Mean-revert toward 0, but dwarfs never forgive negative opinions.
+      if (!(isDwarf && v < 0)) {
+        v += v > 0 ? -1 : v < 0 ? 1 : 0;
+      }
       // Known schemers keep losing the room.
       if (other.reputation.schemer > 0.4) v -= 1;
       c.opinion[otherId] = Math.max(-100, Math.min(100, v));

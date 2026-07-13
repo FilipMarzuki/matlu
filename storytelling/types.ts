@@ -162,6 +162,14 @@ export interface Province {
   population: number; // abstract pops (statistical tier)
   titleId: TitleId; // the title that controls this province
 
+  // --- Underground layer ---------------------------------------------------
+  // Subsurface provinces are underground halls; they use mineralWealth instead
+  // of fertility for carrying capacity and are immune to surface spread effects
+  // (plague, blight). Tunnel connections to surface provinces let undead raids
+  // emerge above ground if the hold falls.
+  subsurface: boolean;
+  mineralWealth: number; // 0..1; replaces fertility for underground capacity
+
   // --- Magic / leveling layer (only used when World.magicEnabled) ----------
   // Mana density supports rare classes and raises a region's leveling ceiling;
   // it also makes a province more PERILOUS (dungeons, monsters), and peril is
@@ -196,7 +204,8 @@ export type SuccessionLaw =
   | "primogeniture" // eldest legitimate child
   | "gavelkind" // split among children (approximated: heir + claims to siblings)
   | "elective" // realm picks strongest dynast
-  | "seniority"; // eldest member of the dynasty
+  | "seniority" // eldest member of the dynasty
+  | "clan_elder"; // eldest of the founding bloodline only; outsiders can never inherit
 
 export type Tier = "county" | "duchy" | "kingdom";
 
@@ -287,7 +296,9 @@ export type EventType =
   | "UNDEAD_RAID"       // raid erupting from a dead zone onto a neighbour
   | "RITUAL_GONE_WRONG" // a mana-working spirals out of control
   | "MANA_RUPTURE"      // province devastated; mana spikes wildly
-  | "CORRUPTION_SPREADS"; // mana corruption bleeds into neighbouring provinces
+  | "CORRUPTION_SPREADS" // mana corruption bleeds into neighbouring provinces
+  // --- Underground / dwarf layer ---
+  | "DELVED_TOO_DEEP"; // a subsurface hold breaches something ancient; the hold falls to the undead
 
 export interface WorldEvent {
   id: number;
