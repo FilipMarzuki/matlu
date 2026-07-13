@@ -4,6 +4,7 @@
 // move: if one person is the obstacle to MANY goals, an ELIMINATE_RIVAL goal
 // crystallises against them — nobody scripted the murder, the structure did.
 
+import { hasTruce } from "./diplomacy.js";
 import { scarcity } from "./geography.js";
 import type { World } from "./world.js";
 
@@ -26,6 +27,8 @@ export function regenerateGoals(w: World): void {
       if (!title) continue;
       if (title.holderId === c.id) continue; // already theirs
       const holderId = title.holderId; // may be null (vacant = crisis)
+      // Honour truces — don't press a claim against a sworn peace partner.
+      if (holderId && hasTruce(w, c.id, holderId)) continue;
       const priority =
         (claim.strength === "strong" ? 0.6 : 0.35) +
         c.drives.ambition * 0.4 -
@@ -53,6 +56,8 @@ export function regenerateGoals(w: World): void {
           if (!np) continue;
           const neighbourTitle = w.title(np.titleId);
           if (!neighbourTitle || neighbourTitle.holderId === c.id) continue;
+          // Honour truces — don't expand into a peace partner's land.
+          if (neighbourTitle.holderId && hasTruce(w, c.id, neighbourTitle.holderId)) continue;
           const priority =
             0.25 + c.drives.ambition * 0.35 + (scarcity(seat) - 0.9) * 0.5;
           w.goals.push({

@@ -13,6 +13,7 @@
 // since exogenous shocks are supposed to ripple UP into everything else.
 
 import { runCatastrophes } from "./catastrophe.js";
+import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
 import { runMagic } from "./magic.js";
@@ -50,6 +51,11 @@ export function tick(w: World): void {
   decayBiases(w);
   maybeOnsetMadness(w);
   resolvePendingSuccessions(w);
+
+  // --- diplomacy: purge expired treaties, then advance (alliances + truce breaks)
+  // Must run BEFORE regenerateGoals so updated treaty state suppresses war goals.
+  purgeTreaties(w);
+  advanceDiplomacy(w);
 
   // --- regenerate goals --------------------------------------------------
   regenerateGoals(w);
@@ -232,12 +238,37 @@ function resolveWars(w: World): void {
     }
 
     // --- Held title: does the attacker dare press? ----------------------
+
+    // Alliance betrayal: if the attacker is attacking their own ally, the pact
+    // is shattered before the war and both parties pay an opinion penalty.
+    if (hasAlliance(w, attacker.id, defender.id)) {
+      w.treaties = w.treaties.filter(
+        (t) =>
+          !(
+            t.type === "alliance" &&
+            ((t.partyA === attacker.id && t.partyB === defender.id) ||
+              (t.partyA === defender.id && t.partyB === attacker.id))
+          ),
+      );
+      w.log("ALLIANCE_BETRAYED", {
+        actorId: attacker.id,
+        targetId: defender.id,
+        titleId: title.id,
+        data: { title: title.name },
+      });
+      w.adjustOpinion(defender, attacker.id, -40);
+    }
+
     // Underground fortifications heavily favour the defender: attackers
     // advancing through narrow tunnels lose much of their numerical edge.
     const prov = w.province(title.provinceId);
     const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0);
     // loss_aversion makes defenders fight harder to keep what they have.
-    const dPow = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25);
+    const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25);
+    // A defensive ally contributes half their power to the defender's cause.
+    const ally = allyFor(w, defender.id, attacker.id);
+    const dPow = defBase + (ally ? w.power(ally) * 0.5 : 0);
+
     const hasStrongClaim = attacker.claims.some(
       (c) => c.titleId === title.id && c.strength === "strong",
     );
@@ -302,6 +333,11 @@ function resolveWars(w: World): void {
         casualty: casualty ? casualty.id : "",
       },
     });
+
+    // Mint a truce so neither party immediately rekindles the same war.
+    // This runs AFTER the WAR event so the truce comes logically after the fight.
+    const truceDuration = w.rng.int(10, 15);
+    mintTruce(w, winner.id, loser.id, truceDuration);
   }
 }
 

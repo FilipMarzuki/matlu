@@ -18,6 +18,7 @@ import type {
   Scheme,
   Title,
   TitleId,
+  Treaty,
   WorldEvent,
 } from "./types.js";
 import type { CultureSpec, FaithSpec, RaceSpec } from "./world-spec.js";
@@ -51,6 +52,7 @@ export class World {
 
   goals: Goal[] = [];
   schemes: Scheme[] = [];
+  treaties: Treaty[] = [];
   events: WorldEvent[] = [];
 
   private nextEventId = 1;

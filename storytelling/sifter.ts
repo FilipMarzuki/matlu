@@ -52,6 +52,11 @@ const BASE: Record<EventType, number> = {
   DELVED_TOO_DEEP: 10,
   // Perception / madness layer.
   MADNESS_ONSET: 7, // a named character breaks from reality — high drama
+  // Diplomacy layer.
+  TRUCE: 2,            // routine post-war ceasefire — background, not foreground
+  ALLIANCE_FORMED: 3,  // pacts form quietly; usually only notable when the alliance is tested
+  TRUCE_BROKEN: 7,     // breaking sworn peace is a character moment
+  ALLIANCE_BETRAYED: 9, // attacking your own ally is close to kinslaying in shock value
 };
 
 export interface SiftResult {

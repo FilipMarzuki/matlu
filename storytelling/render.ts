@@ -266,6 +266,23 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       return `Something stirred in the deeps beneath ${provName(w, ev.provinceId)}. ${lord} was the first to fall. The halls went dark, and those who survived sealed the tunnel and did not speak of what they had found.`;
     }
 
+    // --- Perception / madness layer ---
+    case "MADNESS_ONSET":
+      return `${who(w, ev.actorId)} broke from reason, consumed by ${ev.data["distortion"] ?? "madness"}.`;
+
+    // --- Diplomacy layer ---
+    case "TRUCE":
+      return `${who(w, ev.actorId)} and ${who(w, ev.targetId)} sealed a truce — the war between them laid to rest for ${ev.data["years"]} years.`;
+
+    case "ALLIANCE_FORMED":
+      return `${who(w, ev.actorId)} and ${who(w, ev.targetId)} swore a pact of mutual defence.`;
+
+    case "TRUCE_BROKEN":
+      return `${who(w, ev.actorId)} spurned the peace and broke the truce with ${who(w, ev.targetId)}.`;
+
+    case "ALLIANCE_BETRAYED":
+      return `${who(w, ev.actorId)} betrayed the pact, turning blade against ${who(w, ev.targetId)}, their sworn ally.`;
+
     default:
       return `[${ev.type}]`;
   }

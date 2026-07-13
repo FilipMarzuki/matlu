@@ -93,6 +93,18 @@ export interface Grudge {
   year: number;
 }
 
+// A temporary peace or permanent defensive pact between two rulers. Truces are
+// minted by the engine after wars; alliances form from sustained high opinion.
+// Both are stored in World.treaties and queried by the goal and war systems.
+export interface Treaty {
+  id: string;
+  type: "truce" | "alliance";
+  partyA: CharId;
+  partyB: CharId;
+  startYear: number;
+  expiresYear: number | null; // null = permanent (alliances)
+}
+
 export interface Character {
   id: CharId;
   name: string;
@@ -347,7 +359,13 @@ export type EventType =
   | "CORRUPTION_SPREADS" // mana corruption bleeds into neighbouring provinces
   // --- Underground / dwarf layer ---
   | "DELVED_TOO_DEEP"   // a subsurface hold breaches something ancient; the hold falls to the undead
-  | "MADNESS_ONSET";   // a character develops a structured psychological distortion
+  // --- Perception / madness layer ---
+  | "MADNESS_ONSET"    // a character develops a structured psychological distortion
+  // --- Diplomacy layer ---
+  | "TRUCE"            // cease-fire minted after war
+  | "ALLIANCE_FORMED"  // defensive pact formed between two rulers
+  | "TRUCE_BROKEN"     // a paranoid/conqueror_confident ruler breaks the truce early
+  | "ALLIANCE_BETRAYED"; // a ruler attacks their own ally
 
 export interface WorldEvent {
   id: number;
