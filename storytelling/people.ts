@@ -125,6 +125,7 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
     opinion: {},
     reputation: { schemer: 0, just: w.rng.float(0.2, 0.6) },
     lowborn: opts.lowborn ?? false,
+    quirk: null,
     // Magic/leveling defaults — everyone starts ordinary. The magic layer
     // (magic.ts) assigns classes at adulthood and grows levels over a life.
     level: 1,

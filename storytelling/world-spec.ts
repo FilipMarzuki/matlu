@@ -65,6 +65,9 @@ export interface CultureSpec {
   // Perceptual bias seeds: base intensities stamped at birth, with ±0.15 noise.
   // Stacks on top of faith seeds. Omit keys that don't characterise the culture.
   biasSeed?: Partial<Record<PerceptualBias, number>>;
+  // Mechanical traits active from the world's founding (e.g. ["slavery"]).
+  // Populated into CultureState.traits at world load, before the sim runs.
+  startingTraits?: string[];
 }
 
 // A race carries an inter-group opinion modifier: how members of this race

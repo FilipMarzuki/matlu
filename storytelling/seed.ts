@@ -63,7 +63,14 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
   }
 
   // --- Peoples layer (optional) — cultures/races/faiths as data ---------
-  for (const c of spec.cultures ?? []) w.cultures.set(c.id, c);
+  for (const c of spec.cultures ?? []) {
+    w.cultures.set(c.id, c);
+    // Seed the live state with any traits the spec declares at founding.
+    if (c.startingTraits?.length) {
+      const state = w.cultureState(c.id);
+      for (const t of c.startingTraits) state.traits.add(t);
+    }
+  }
   for (const r of spec.races ?? []) w.races.set(r.id, r);
   for (const fa of spec.faiths ?? []) w.faiths.set(fa.id, fa);
 

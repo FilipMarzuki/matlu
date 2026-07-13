@@ -287,9 +287,39 @@ export function renderEvent(w: World, ev: WorldEvent): string {
     case "ALLIANCE_BETRAYED":
       return `${who(w, ev.actorId)} betrayed the pact, turning blade against ${who(w, ev.targetId)}, their sworn ally.`;
 
+    case "CULTURAL_SHIFT": {
+      const culture = String(ev.data["culture"] ?? "the people");
+      const trait = String(ev.data["trait"] ?? "");
+      const adopted = ev.data["adopted"] !== false;
+      const cause = String(ev.data["cause"] ?? "gradual drift");
+      if (trait === "aesthetic") {
+        const quirk = String(ev.data["aesthetic_value"] ?? "a new custom");
+        return `${who(w, ev.actorId)}'s ${quirk} became the manner of the ${culture} people, spreading to their children and children's children.`;
+      }
+      const label = traitDisplayName(trait);
+      if (adopted) {
+        return `${label} took root among the ${culture} people — ${cause}.`;
+      } else {
+        return `${label} faded from the customs of the ${culture} people — ${cause}.`;
+      }
+    }
+
     default:
       return `[${ev.type}]`;
   }
+}
+
+function traitDisplayName(trait: string): string {
+  const labels: Record<string, string> = {
+    slavery: "The practice of slavery",
+    warrior_culture: "A warrior's way of life",
+    caste_rigid: "Rigid caste divisions",
+    meritocracy: "The rise of merit over birth",
+    mercantile: "A mercantile spirit",
+    literacy_valued: "The esteem of learning and letters",
+    zealous_faith: "Zealous devotion to the faith",
+  };
+  return labels[trait] ?? `A change in custom (${trait})`;
 }
 
 // Temporal level-of-detail: history is a cone of detail — the present is sharp,

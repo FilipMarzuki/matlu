@@ -210,6 +210,8 @@ const BASE: Record<EventType, number> = {
   ALLIANCE_FORMED: 3,  // pacts form quietly; usually only notable when the alliance is tested
   TRUCE_BROKEN: 7,     // breaking sworn peace is a character moment
   ALLIANCE_BETRAYED: 9, // attacking your own ally is close to kinslaying in shock value
+  // Cultural evolution layer.
+  CULTURAL_SHIFT: 6,   // a trait adopted/abandoned or aesthetic drift crystallised
 };
 
 export interface SiftResult {
@@ -346,6 +348,14 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
       case "HERO_RISEN":
         tags.push("breakout");
         break;
+      case "CULTURAL_SHIFT": {
+        // Aesthetic drift is a softer story beat; mechanical trait changes are
+        // heavier, especially slavery (acquisition or abolition) and reversals.
+        if (ev.data["trait"] === "aesthetic") s = 5;
+        if (ev.data["trait"] === "slavery") s += 2;
+        if (ev.data["adopted"] === false) s += 1; // abolition/abandonment is harder to tell
+        break;
+      }
       default:
         break;
     }

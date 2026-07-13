@@ -13,6 +13,7 @@
 // since exogenous shocks are supposed to ripple UP into everything else.
 
 import { runCatastrophes } from "./catastrophe.js";
+import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
@@ -77,6 +78,11 @@ export function tick(w: World): void {
 
   // --- bookkeeping: dynasty extinction -----------------------------------
   detectExtinctions(w);
+
+  // --- cultural evolution (no-op unless cultures are defined) ------------
+  // Runs after all this year's events are logged so event-pressure reads the
+  // full picture before deciding whether a trait tips.
+  advanceCultureDrift(w);
 
   // --- magic / leveling layer (no-op unless enabled) ---------------------
   // Runs last: it reads the year's events to grow people, then advances the
@@ -195,6 +201,7 @@ function syntheticDeceased(title: Title): Character {
     reputation: { schemer: 0, just: 0 },
     psyche: zeroPsyche(),
     lowborn: false,
+    quirk: null,
     level: 1,
     lifeXp: 0,
     charClass: "commoner",

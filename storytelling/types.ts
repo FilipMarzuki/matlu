@@ -146,6 +146,11 @@ export interface Character {
   // mobility / "breakout"). Lets the sifter spotlight low-born risers.
   lowborn: boolean;
 
+  // A personal quirk (speech pattern, dress style, bearing) that, if the
+  // character becomes a long-established ruler, can propagate into the culture's
+  // aesthetic. null = none yet assigned. Set lazily by culture-drift.ts.
+  quirk: string | null;
+
   // --- Magic / leveling layer ------------------------------------------------
   // Only exercised when World.magicEnabled. Kept on every Character (rather than
   // a side-map) so the base sim and the magic sim share one object shape; in
@@ -155,6 +160,33 @@ export interface Character {
   charClass: CharClass; // current class — sets martial weight, XP rate, access
   comfort: number; // 0..1 safety+luxury; throttles XP and the will to risk
   ventured: boolean; // transient: sought danger this year (for the chronicle)
+}
+
+// ---------------------------------------------------------------------------
+// CultureState — the live, mutable overlay for a culture's current shape.
+//
+// CultureSpec (in world-spec.ts) is the immutable world bible. CultureState
+// is what the sim keeps at runtime: which mechanical traits are active, how
+// much pressure is building toward the next one, and the aesthetic drift left
+// by a long-ruling figure. Stored in World.liveCultures.
+// ---------------------------------------------------------------------------
+export interface CultureState {
+  cultureId: string;
+  // Active mechanical traits (e.g. "slavery", "warrior_culture").
+  traits: Set<string>;
+  // Pressure toward each trait, decays ×0.93/yr. Crosses ±1.0 to tip.
+  traitPressure: Record<string, number>;
+  // Aesthetic drift — surface flavour shaped by a dominant figure's quirks.
+  aesthetic: {
+    linguisticShift: string | null; // e.g. "sibilant speech", "clipped consonants"
+    fashionStyle: string | null;    // e.g. "elaborate fold-style", "austere simplicity"
+  };
+  // The current dominant figure (highest-tier title holder of this culture).
+  establishedFigureId: string | null;
+  // Year they became the dominant figure — quirks propagate after 20yr tenure.
+  establishedSince: number;
+  // Personal quirks assigned to characters so far (charId -> quirk string).
+  figureQuirks: Record<string, string>;
 }
 
 // Classes are tiered by how they're acquired:
@@ -365,7 +397,9 @@ export type EventType =
   | "TRUCE"            // cease-fire minted after war
   | "ALLIANCE_FORMED"  // defensive pact formed between two rulers
   | "TRUCE_BROKEN"     // a paranoid/conqueror_confident ruler breaks the truce early
-  | "ALLIANCE_BETRAYED"; // a ruler attacks their own ally
+  | "ALLIANCE_BETRAYED" // a ruler attacks their own ally
+  // --- Cultural evolution layer ---
+  | "CULTURAL_SHIFT"; // a mechanical trait adopted/abandoned, or aesthetic drift crystallised
 
 export interface WorldEvent {
   id: number;
