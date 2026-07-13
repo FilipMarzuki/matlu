@@ -6,6 +6,7 @@
 
 import { RNG } from "./rng.js";
 import type {
+  CatastropheQueueItem,
   Character,
   CharId,
   Dynasty,
@@ -29,6 +30,14 @@ export class World {
   // combat prowess feeds into power(). Off by default so the base sim is
   // unchanged and the two chronicles can be diffed.
   magicEnabled = false;
+
+  // When true, the world catastrophe layer (catastrophe.ts) draws from the
+  // event deck each year and fires chain events that mutate province state.
+  // Off by default so base golden-master hashes are unaffected.
+  catastrophesEnabled = false;
+
+  // Pending chain steps from in-progress catastrophe events.
+  catastropheQueue: CatastropheQueueItem[] = [];
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();

@@ -111,7 +111,7 @@ export function runPlague(w: World): void {
 // Returns how many died so the plague event can report a body count of the
 // people the chronicle actually cares about. The deaths themselves are logged
 // individually so inheritance can react to each one in the same tick.
-function killResidentsByChance(
+export function killResidentsByChance(
   w: World,
   provinceId: string,
   cause: string,

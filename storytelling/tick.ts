@@ -12,6 +12,7 @@
 // We bracket that with the environmental layer (geography + phenomena) up top,
 // since exogenous shocks are supposed to ripple UP into everything else.
 
+import { runCatastrophes } from "./catastrophe.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
 import { runMagic } from "./magic.js";
@@ -31,6 +32,9 @@ export function tick(w: World): void {
   const evStart = w.events.length;
 
   // --- Environmental layer: geography + natural phenomena ----------------
+  // Catastrophes run first so province state is updated before population
+  // growth, harvest, and plague read it this tick.
+  runCatastrophes(w);
   regrowPopulation(w);
   runHarvest(w);
   runPlague(w);

@@ -37,6 +37,17 @@ const BASE: Record<EventType, number> = {
   HEIR_TEMPERED: 2, // a house forged its heir; bumped if it reached the heroic tier
   ART_LOST: 9, // an art lost to history
   HERO_RISEN: 8, // a low-born breakthrough
+  // World catastrophe layer.
+  BLIGHT_SPREADS: 6,
+  BLIGHT_DEEPENS: 8,
+  BLIGHT_LOCKED: 10,
+  PORTAL_OPENS: 9,
+  MASS_DEATH: 10,
+  DEAD_ZONE_FORMS: 10,
+  UNDEAD_RAID: 6,
+  RITUAL_GONE_WRONG: 7,
+  MANA_RUPTURE: 8,
+  CORRUPTION_SPREADS: 7,
 };
 
 export interface SiftResult {

@@ -40,6 +40,8 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
       population: p.population,
       titleId: "", // set by the title pass
       manaDensity: p.mana,
+      blightLevel: 0,
+      zoneFlags: [],
     });
   }
 
