@@ -104,6 +104,27 @@ export function regenerateGoals(w: World): void {
       });
       bump(target.id);
     }
+
+    // REFORM_LAW — a landed ruler who wants a different succession law.
+    // Preferred law is drive-derived: piety → primogeniture (stable / God-ordained),
+    // ambition → elective (can engineer the outcome), fear → seniority (age, not sword).
+    // No human obstacle: tradition and conservative lords resist, not a named rival,
+    // so REFORM_LAW goals never feed the ELIMINATE_RIVAL counter.
+    for (const t of held) {
+      const want =
+        c.drives.piety > 0.6 ? "primogeniture" :
+        c.drives.ambition > 0.65 ? "elective" :
+        c.drives.fear > 0.55 ? "seniority" : "primogeniture";
+      if (t.law === want) continue;
+      w.goals.push({
+        id: w.freshId("g"),
+        actorId: c.id,
+        type: "REFORM_LAW",
+        targetTitleId: t.id,
+        targetCharId: null,
+        priority: clamp01(0.2 + c.drives.ambition * 0.25 + c.drives.piety * 0.15),
+      });
+    }
   }
 
   // Second pass: emergent ELIMINATE_RIVAL. If a character is the obstacle to
