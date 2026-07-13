@@ -29,7 +29,18 @@ const TERRAIN_YIELD: Record<Terrain, number> = {
 // ripples all the way up into politics.
 export function carryingCapacity(p: Province): number {
   const base = 1000; // a fully fertile plains county
-  return Math.round(base * p.fertility * TERRAIN_YIELD[p.terrain]);
+  const blight = p.blightLevel ?? 0;
+  // Underground halls are fed by mineral extraction, not farmland; their
+  // productive base is mineralWealth, scaled lower than surface agriculture.
+  const baseYield = p.subsurface
+    ? (p.mineralWealth ?? 0) * 0.55
+    : p.fertility * TERRAIN_YIELD[p.terrain];
+  const raw = base * baseYield * (1 - blight * 0.8);
+  // Only floor at 50 when blighted — a fully blighted province can still feed
+  // a minimal remnant, but an untouched desert is allowed its natural scarcity.
+  // Without the guard, the floor would alter pop dynamics in naturally-thin
+  // provinces and break the golden-master hashes.
+  return blight > 0 ? Math.max(50, Math.round(raw)) : Math.round(raw);
 }
 
 // Scarcity in [0, ~1.5]: population relative to capacity. Below ~0.8 there's

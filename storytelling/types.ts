@@ -162,11 +162,38 @@ export interface Province {
   population: number; // abstract pops (statistical tier)
   titleId: TitleId; // the title that controls this province
 
+  // --- Underground layer ---------------------------------------------------
+  // Subsurface provinces are underground halls; they use mineralWealth instead
+  // of fertility for carrying capacity and are immune to surface spread effects
+  // (plague, blight). Tunnel connections to surface provinces let undead raids
+  // emerge above ground if the hold falls.
+  subsurface: boolean;
+  mineralWealth: number; // 0..1; replaces fertility for underground capacity
+
   // --- Magic / leveling layer (only used when World.magicEnabled) ----------
   // Mana density supports rare classes and raises a region's leveling ceiling;
   // it also makes a province more PERILOUS (dungeons, monsters), and peril is
   // exactly what mints high-level people.
   manaDensity: number; // 0..1
+
+  // --- World catastrophe overlay (written by catastrophe.ts) ---------------
+  // blightLevel degrades carrying capacity; zoneFlags gate special behaviours
+  // (undead raids, impassability, mana corruption spread).
+  // Both are initialised to 0 / [] in seed.ts and mutate over the run.
+  blightLevel: number;  // 0..1; 0 = pristine, 1 = fully blighted
+  zoneFlags: string[];  // 'dead_zone' | 'undead_heavy' | 'mana_corrupted' | 'blighted'
+}
+
+// ---------------------------------------------------------------------------
+// Catastrophe queue — pending chain steps stored on the World. Kept here (not
+// in catastrophe.ts) so world.ts can hold the queue without a circular import.
+// ---------------------------------------------------------------------------
+export interface CatastropheQueueItem {
+  provinceId: ProvinceId;
+  templateId: string;   // which CatastropheTemplate this step belongs to
+  stepIndex: number;    // index into that template's steps[]
+  fireYear: number;     // the year this step should execute
+  data: Record<string, string | number>; // carry state between steps
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +204,8 @@ export type SuccessionLaw =
   | "primogeniture" // eldest legitimate child
   | "gavelkind" // split among children (approximated: heir + claims to siblings)
   | "elective" // realm picks strongest dynast
-  | "seniority"; // eldest member of the dynasty
+  | "seniority" // eldest member of the dynasty
+  | "clan_elder"; // eldest of the founding bloodline only; outsiders can never inherit
 
 export type Tier = "county" | "duchy" | "kingdom";
 
@@ -257,7 +285,20 @@ export type EventType =
   | "LEVELED" // crossed a milestone level / became the mightiest of the age
   | "HEIR_TEMPERED" // a house forged an heir in real peril and they grew
   | "ART_LOST" // a rare class-rite died un-transmitted with its last master
-  | "HERO_RISEN"; // a low-born striver broke through to the heroic tier
+  | "HERO_RISEN" // a low-born striver broke through to the heroic tier
+  // --- World catastrophe layer ---
+  | "BLIGHT_SPREADS"    // first sign: land begins to dry and die
+  | "BLIGHT_DEEPENS"    // second stage: terrain shifts, population flees
+  | "BLIGHT_LOCKED"     // final stage: province permanently blighted
+  | "PORTAL_OPENS"      // dimensional rift: displaced people materialise
+  | "MASS_DEATH"        // the displaced die — wrong season, wrong world
+  | "DEAD_ZONE_FORMS"   // the dead rise; province becomes an undead no-go zone
+  | "UNDEAD_RAID"       // raid erupting from a dead zone onto a neighbour
+  | "RITUAL_GONE_WRONG" // a mana-working spirals out of control
+  | "MANA_RUPTURE"      // province devastated; mana spikes wildly
+  | "CORRUPTION_SPREADS" // mana corruption bleeds into neighbouring provinces
+  // --- Underground / dwarf layer ---
+  | "DELVED_TOO_DEEP"; // a subsurface hold breaches something ancient; the hold falls to the undead
 
 export interface WorldEvent {
   id: number;

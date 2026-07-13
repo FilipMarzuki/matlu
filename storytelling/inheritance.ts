@@ -60,6 +60,14 @@ function selectHeir(w: World, title: Title, deceased: Character): Character | nu
       if (candidates.length === 0) return null;
       return candidates.sort((a, b) => w.power(b) - w.power(a))[0];
     }
+    case "clan_elder": {
+      // The eldest living member of the FOUNDING bloodline only. Outsiders
+      // can never inherit — if the dynasty dies, the hold falls vacant forever.
+      const members = w
+        .dynastyMembers(deceased.dynastyId)
+        .filter((m) => m.id !== deceased.id);
+      return members.length > 0 ? members[0] : null;
+    }
   }
 }
 
@@ -79,6 +87,20 @@ export function resolveSuccession(w: World, title: Title, deceased: Character): 
       provinceId: title.provinceId,
       data: { title: title.name, law: title.law },
     });
+    // For clan_elder holds: surviving dynasty members who weren't found by
+    // selectHeir (e.g. they reside in a vassal province) get strong claims so
+    // they'll press the vacant hold via SEIZE_TITLE next year. This is the
+    // reconquest path — the clan reclaims the ancestral seat after a crisis.
+    if (title.law === "clan_elder") {
+      for (const m of w.dynastyMembers(deceased.dynastyId)) {
+        addClaim(m, {
+          titleId: title.id,
+          strength: "strong",
+          basis: `ancestral right; hold vacant in ${w.year}`,
+          year: w.year,
+        });
+      }
+    }
     return;
   }
 

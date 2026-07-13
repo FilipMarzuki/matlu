@@ -70,6 +70,12 @@ const provinces: ProvinceSpec[] = [
   // Mirewood — swamp + jungle (south).
   { id: "p11", name: "Mirewood", terrain: "swamp", fertility: 0.4, coastal: false, river: true, neighbors: ["i3", "p12"], population: 210, mana: 0.65 },
   { id: "p12", name: "Verdant Fever", terrain: "jungle", fertility: 0.5, coastal: false, river: false, neighbors: ["p11", "p8"], population: 190, mana: 0.7 },
+  // The Deepvault — subsurface halls beneath the Ironspine mountains.
+  // Tunnel exits connect d0 to p4 (Ironspine) and p5 (Highpass) above.
+  // Underground halls are immune to plague and surface catastrophes, but
+  // their neighbours list lets undead raids emerge topside if the hold falls.
+  { id: "d0", name: "Ironheart Hall", terrain: "mountain", fertility: 0, coastal: false, river: false, neighbors: ["d1", "p4", "p5"], population: 320, mana: 0.65, subsurface: true, mineralWealth: 0.85 },
+  { id: "d1", name: "The Deep Ore", terrain: "mountain", fertility: 0, coastal: false, river: false, neighbors: ["d0"], population: 180, mana: 0.9, subsurface: true, mineralWealth: 0.7 },
 ];
 
 const titles: TitleSpec[] = [
@@ -95,6 +101,9 @@ const titles: TitleSpec[] = [
   // Mirewood (swamp).
   { id: "t_mw", name: "Duchy of Mirewood", tier: "duchy", law: "seniority", seat: "p11", liege: null },
   { id: "t_vf", name: "County of the Verdant Fever", tier: "county", law: "seniority", seat: "p12", liege: "t_mw" },
+  // The Deepvault — dwarf holds, clan_elder succession (founding bloodline only).
+  { id: "t_hh", name: "Hold of Ironheart", tier: "kingdom", law: "clan_elder", seat: "d0", liege: null },
+  { id: "t_do", name: "The Deep Ore", tier: "county", law: "clan_elder", seat: "d1", liege: "t_hh" },
 ];
 
 const dynasties: DynastySpec[] = [
@@ -106,11 +115,14 @@ const dynasties: DynastySpec[] = [
   { id: "gorthak", name: "Gorthak", culture: "orctongue", race: "orc", faith: "skyfather" }, // orc Horde
   { id: "darzan", name: "Darzan", culture: "zafrani", race: "human", faith: "sunlord" },
   { id: "sythe", name: "Sythe", culture: "mire", race: "human", faith: "mire" },
+  { id: "deepvault", name: "Deepvault", culture: "deepborn", race: "dwarf", faith: "stone_ancestors" },
 ];
 
 const races: RaceSpec[] = [
   { id: "human", name: "Human", affinities: { orc: -20 } },
   { id: "orc", name: "Orc", affinities: { human: -20 } },
+  // Dwarfs: suspicious of humans, genuinely hostile to orcs who raid the mountain passes.
+  { id: "dwarf", name: "Dwarf", affinities: { human: -15, orc: -40 } },
 ];
 
 const faiths: FaithSpec[] = [
@@ -120,6 +132,8 @@ const faiths: FaithSpec[] = [
   { id: "skyfather", name: "the Sky Father", hostileTo: ["sunlord"] }, // steppe / Horde
   { id: "sunlord", name: "the Sun Lord", hostileTo: ["skyfather"] }, // Zafran imperial cult
   { id: "mire", name: "the Drowned Ones", hostileTo: ["verdant", "sunlord"] }, // swamp cult
+  // Dwarfs wage grudge wars, not holy wars; no hostileTo — but they never forget a slight.
+  { id: "stone_ancestors", name: "the Stone Ancestors" },
 ];
 
 const cultures: CultureSpec[] = [
@@ -186,6 +200,17 @@ const cultures: CultureSpec[] = [
     namesFemale: ["Vessa", "Nessa", "Ligeia", "Sable", "Ondine", "Bryony", "Hazel", "Iria", "Wren", "Maura"],
     surnames: ["Sythe", "Blackfen", "Marshlight"],
   },
+  {
+    id: "deepborn",
+    name: "Deepborn",
+    law: "clan_elder",
+    // Stubborn, wealth-obsessed, and corrosively vengeful. Low lust (slow to
+    // breed) and near-zero fear (they do not flinch from the dark).
+    driveBias: D(0.5, 0.8, 0.85, 0.6, 0.3, 0.15),
+    namesMale: ["Durm", "Karag", "Balin", "Thorgrim", "Brynn", "Ord", "Durak", "Gimrel", "Stondar", "Vark"],
+    namesFemale: ["Hilda", "Brunhilde", "Kara", "Dura", "Mira", "Gorma", "Velda", "Udra", "Brynna", "Astara"],
+    surnames: ["Deepvault", "Ironmantle", "Stoneheart", "Oreborn"],
+  },
 ];
 
 const characters: CharacterSpec[] = [
@@ -242,6 +267,21 @@ const characters: CharacterSpec[] = [
   // ── Mirewood — House Sythe (mire, seniority) ─────────────────────────────
   ch({ id: "vessa", name: "Vessa", sex: "female", dynasty: "sythe", birthYear: 961, province: "p11", drives: D(0.5, 0.4, 0.62, 0.68, 0.45, 0.5), founds: "sythe", holds: "t_mw" }),
   ch({ id: "doran", name: "Doran", sex: "male", dynasty: "sythe", birthYear: 964, province: "p12", drives: D(0.5, 0.45, 0.6, 0.6, 0.5, 0.5), holds: "t_vf" }),
+
+  // ── The Deepvault — House Deepvault (dwarfs, clan_elder) ─────────────────
+  // Thorgrim is old — the question of succession hangs over the hold from day 1.
+  // All three are male; the clan grows only through marriage (a rarity for dwarfs)
+  // or not at all — their slow breeding and grudge-driven politics make extinction
+  // a genuine possibility, especially if DELVED_TOO_DEEP fires.
+  ch({ id: "thorgrim", name: "Thorgrim", sex: "male", dynasty: "deepvault", birthYear: 935, province: "d0", drives: D(0.5, 0.85, 0.9, 0.7, 0.3, 0.1), founds: "deepvault", holds: "t_hh" }),
+  ch({ id: "hildra", name: "Hildra", sex: "female", dynasty: "deepvault", birthYear: 940, province: "d0", drives: D(0.4, 0.75, 0.8, 0.65, 0.3, 0.15), spouse: "thorgrim" }),
+  // Karag — eldest son, heir apparent under clan_elder. A weak claim at game
+  // start lets him marry before Thorgrim dies (otherwise he'd be 50+ and past
+  // the marriage window by the time he inherits).
+  ch({ id: "karag", name: "Karag", sex: "male", dynasty: "deepvault", birthYear: 966, province: "d0", drives: D(0.6, 0.8, 0.85, 0.6, 0.3, 0.1), father: "thorgrim", mother: "hildra",
+       claims: [{ title: "t_hh", strength: "weak", basis: "firstborn of Thorgrim, heir apparent to the Hold", year: 1000 }] }),
+  // Durm — younger son, holds The Deep Ore; more martial, drives the mining frontier.
+  ch({ id: "durm", name: "Durm", sex: "male", dynasty: "deepvault", birthYear: 970, province: "d1", drives: D(0.65, 0.8, 0.88, 0.55, 0.25, 0.05), father: "thorgrim", mother: "hildra", holds: "t_do" }),
 ];
 
 export const FRONTIER_SPEC: WorldSpec = {

@@ -216,6 +216,56 @@ export function renderEvent(w: World, ev: WorldEvent): string {
     case "ART_LOST":
       return `The ${ev.data["class"]} art of House ${ev.data["house"]} died with its last master, lost to the age.`;
 
+    // --- World catastrophe layer ---
+    case "BLIGHT_SPREADS":
+      return `A creeping blight began to wither the land of ${provName(w, ev.provinceId)}, the soil cracking and the grasses dying.`;
+
+    case "BLIGHT_DEEPENS":
+      return `The blight of ${provName(w, ev.provinceId)} deepened — ${ev.data["deaths"]} fled or perished as the terrain shifted toward desert.`;
+
+    case "BLIGHT_LOCKED":
+      return `${provName(w, ev.provinceId)} was lost to the blight; no crop will ever grow there again.`;
+
+    case "PORTAL_OPENS": {
+      const n = Number(ev.data["stranded"] ?? 0);
+      return `A rift tore open above ${provName(w, ev.provinceId)} and ${n.toLocaleString()} people fell through from another world — terrified, disoriented, and utterly lost.`;
+    }
+
+    case "MASS_DEATH": {
+      const died = Number(ev.data["died"] ?? 0);
+      const stranded = Number(ev.data["stranded"] ?? 0);
+      return `Of the ${stranded.toLocaleString()} displaced souls who appeared at ${provName(w, ev.provinceId)}, ${died.toLocaleString()} died within the year — wrong season, wrong world, no way home.`;
+    }
+
+    case "DEAD_ZONE_FORMS":
+      return `The dead of ${provName(w, ev.provinceId)} rose. The province became a no-go zone — sealed by undead, mana-saturated, and abandoned to the dark.`;
+
+    case "UNDEAD_RAID": {
+      const src = provName(w, String(ev.data["sourceProvinceId"] ?? ""));
+      const named = Number(ev.data["named_dead"] ?? 0);
+      const nb = named > 0 ? ` ${named} of noble blood were slain.` : "";
+      return `An undead host poured out of ${src} and raided ${provName(w, ev.provinceId)}, killing ${ev.data["deaths"]}.${nb}`;
+    }
+
+    case "RITUAL_GONE_WRONG":
+      return `A mana-working at ${provName(w, ev.provinceId)} spiralled out of control, killing ${who(w, ev.actorId)} and shaking the land.`;
+
+    case "MANA_RUPTURE": {
+      const named = Number(ev.data["named_dead"] ?? 0);
+      const nb = named > 0 ? ` Among the dead: ${named} of noble blood.` : "";
+      return `The ruptured mana at ${provName(w, ev.provinceId)} devastated the province — ${ev.data["deaths"]} perished and the land was left mana-corrupted.${nb}`;
+    }
+
+    case "CORRUPTION_SPREADS": {
+      const src = provName(w, String(ev.data["sourceProvinceId"] ?? ""));
+      return `Mana corruption from ${src} bled into ${provName(w, ev.provinceId)}, tainting soil and sky alike.`;
+    }
+
+    case "DELVED_TOO_DEEP": {
+      const lord = ev.actorId ? who(w, ev.actorId) : "the hold-lord";
+      return `Something stirred in the deeps beneath ${provName(w, ev.provinceId)}. ${lord} was the first to fall. The halls went dark, and those who survived sealed the tunnel and did not speak of what they had found.`;
+    }
+
     default:
       return `[${ev.type}]`;
   }

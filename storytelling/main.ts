@@ -40,6 +40,7 @@ interface Args {
   chronicle: number | undefined; // chronicle window (years)
   prehistory: boolean; // generate a mythic deep past before the sim
   prehistorySpan: number; // years of prehistory to reach back over
+  catastrophes: boolean; // enable exogenous world shocks (blight, portals, mana ruptures)
 }
 
 function parseArgs(argv: string[]): Args {
@@ -58,6 +59,7 @@ function parseArgs(argv: string[]): Args {
     chronicle: undefined,
     prehistory: false,
     prehistorySpan: 800,
+    catastrophes: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -73,6 +75,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--flat") args.flat = true;
     else if (a === "--living") args.living = parseInt(argv[++i], 10);
     else if (a === "--chronicle") args.chronicle = parseInt(argv[++i], 10);
+    else if (a === "--catastrophes") args.catastrophes = true;
     else if (a === "--prehistory") {
       args.prehistory = true;
       const n = parseInt(argv[i + 1], 10); // optional span follows the flag
@@ -101,6 +104,12 @@ function main(): void {
   if (args.magic) {
     world.magicEnabled = true;
     magicInit(world);
+  }
+
+  // Opt into world catastrophes — exogenous shocks (blight, portals, mana ruptures).
+  // Off by default so the base chronicle and golden hashes are unaffected.
+  if (args.catastrophes) {
+    world.catastrophesEnabled = true;
   }
 
   // Optional deep past: manufacture a mythic prehistory (a golden age, a
