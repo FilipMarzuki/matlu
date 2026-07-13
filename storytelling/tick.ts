@@ -21,7 +21,8 @@ import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
-import { createCharacter, createDynasty, inheritDrives, randomDrives, zeroPsyche } from "./people.js";
+import { getBiology } from "./biology.js";
+import { createCharacter, createDynasty, inheritDrives, naturalDeathAge, randomDrives, zeroPsyche } from "./people.js";
 import { applyPerception, computeInbreeding, decayBiases, maybeOnsetMadness, onConquerorVictory, onTitleLost } from "./perception.js";
 import { advanceSchemes, spawnSchemes } from "./schemes.js";
 import type { Character, Title } from "./types.js";
@@ -93,28 +94,41 @@ export function tick(w: World): void {
 
 // ---------------------------------------------------------------------------
 // Mortality — age-driven, with a famine/plague boost handled separately in
-// phenomena.ts. Dwarfs follow a different curve: very low baseline and curves
-// that kick in at 120+ rather than 50+, giving them 150–200-year lifespans.
+// phenomena.ts. Two paths:
+//   Biology path  (race has a biology block): character has a sampled natural
+//     death age drawn once from Normal(lifespan, 15). Baseline hazard is very
+//     low; it spikes sharply once the character passes their drawn death age.
+//   Piecewise path (no biology): the original curve — human-tuned, unchanged.
 // ---------------------------------------------------------------------------
 function runMortality(w: World): void {
   for (const c of w.living()) {
     const age = w.age(c);
-    const isDwarf = w.dynasty(c.dynastyId)?.raceId === "dwarf";
+    const deathAge = naturalDeathAge(w, c);
     let p: number;
-    if (isDwarf) {
-      p = 0.002;                               // hardy baseline
-      if (age > 120) p += (age - 120) * 0.004;
-      if (age > 160) p += (age - 160) * 0.02; // old age comes late
-      if (age > 200) p += 0.15;
+    if (deathAge !== null) {
+      // Biology path: very low baseline, accelerates near the drawn death age.
+      p = 0.002;
+      if (age < 3) p += 0.03;
+      if (age >= deathAge) {
+        p += 0.5 + (age - deathAge) * 0.1; // rapid decline past natural age
+      } else if (age >= deathAge * 0.9) {
+        p += (age - deathAge * 0.9) * 0.03; // late-life acceleration
+      }
+      // Use a lifespan-relative old-age threshold for the cause label.
+      const oldThreshold = Math.round(deathAge * 0.7);
+      if (w.rng.chance(Math.min(0.9, p))) {
+        markDead(w, c, age > oldThreshold ? "old age" : "illness");
+      }
     } else {
+      // Original piecewise hazard for races without biology.
       p = 0.006;
       if (age < 3) p += 0.03;                 // infant mortality
       if (age > 50) p += (age - 50) * 0.004;
       if (age > 70) p += (age - 70) * 0.02;   // old age catches up fast
       if (age > 90) p += 0.15;
-    }
-    if (w.rng.chance(Math.min(0.9, p))) {
-      markDead(w, c, age > 60 ? "old age" : "illness");
+      if (w.rng.chance(Math.min(0.9, p))) {
+        markDead(w, c, age > 60 ? "old age" : "illness");
+      }
     }
   }
 }
@@ -128,8 +142,13 @@ function runBirths(w: World): void {
   for (const mother of w.living()) {
     if (mother.sex !== "female") continue;
     const age = w.age(mother);
-    const isDwarfMother = w.dynasty(mother.dynastyId)?.raceId === "dwarf";
-    if (age < 16 || age > (isDwarfMother ? 80 : 45)) continue;
+    const motherRaceId = w.raceIdOf(mother);
+    const motherRace = motherRaceId ? w.races.get(motherRaceId) : undefined;
+    // Biology-aware max fertile age: 35% of natural lifespan. Fallback: 45.
+    const maxFertileAge = motherRace?.biology
+      ? Math.round(getBiology(motherRace).lifespan * 0.35)
+      : 45;
+    if (age < 16 || age > maxFertileAge) continue;
     const father = w.char(mother.spouseId);
     if (!father || !father.alive) continue;
 
@@ -490,7 +509,9 @@ function runMarriages(w: World): void {
   // marriageable exactly when they start to matter to the succession.)
   const eligible = w.adults().filter((c) => {
     if (c.spouseId) return false;
-    const ageLimit = w.dynasty(c.dynastyId)?.raceId === "dwarf" ? 100 : 50;
+    const raceId = w.raceIdOf(c);
+    const race = raceId ? w.races.get(raceId) : undefined;
+    const ageLimit = race?.biology ? Math.round(getBiology(race).lifespan * 0.35) : 50;
     if (w.age(c) > ageLimit) return false;
     return w.titlesHeldBy(c.id).length > 0 || c.claims.length > 0;
   });
@@ -508,7 +529,9 @@ function findDomesticPartner(w: World, c: Character): Character | null {
     if (o.spouseId || o.sex !== wantSex) return false;
     if (o.id === c.id) return false;
     if (o.dynastyId === c.dynastyId) return false; // no close-kin marriage in v1
-    const partnerAgeLimit = w.dynasty(o.dynastyId)?.raceId === "dwarf" ? 100 : 50;
+    const oRaceId = w.raceIdOf(o);
+    const oRace = oRaceId ? w.races.get(oRaceId) : undefined;
+    const partnerAgeLimit = oRace?.biology ? Math.round(getBiology(oRace).lifespan * 0.35) : 50;
     if (w.age(o) > partnerAgeLimit) return false;
     return true;
   });

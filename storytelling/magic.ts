@@ -18,6 +18,7 @@
 // The net effect we're hunting for in the chronicle: third-generation decline,
 // frontier houses eclipsing the soft core, and the rare low-born breakout.
 
+import { getBiology } from "./biology.js";
 import { scarcity } from "./geography.js";
 import { markDead } from "./phenomena.js";
 import type { CharClass, Character, Dynasty, Province, RareClass, WorldEvent } from "./types.js";
@@ -186,6 +187,11 @@ function levelCost(level: number): number {
 
 function addXp(w: World, c: Character, gain: number): void {
   if (gain <= 0 || c.level >= LEVEL_CAP) return;
+  // Biology: mana-attuned races gain XP faster; manaAffinity=0.5 is neutral
+  // (human baseline). Scale by affinity/0.5 so 0.5→1×, 0.7→1.4×, 0.25→0.5×.
+  const raceId = w.raceIdOf(c);
+  const race = raceId ? w.races.get(raceId) : undefined;
+  if (race?.biology) gain = gain * (getBiology(race).manaAffinity / 0.5);
   c.lifeXp += gain;
   while (c.lifeXp >= levelCost(c.level) && c.level < LEVEL_CAP) {
     c.lifeXp -= levelCost(c.level);

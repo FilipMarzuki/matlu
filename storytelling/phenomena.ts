@@ -5,6 +5,7 @@
 // mid-war), a plague kills named characters (triggering succession crises).
 // The drama isn't the plague itself — it's the throne it empties.
 
+import { getBiology } from "./biology.js";
 import { scarcity } from "./geography.js";
 import { onGrief } from "./perception.js";
 import type { Character } from "./types.js";
@@ -125,7 +126,16 @@ export function killResidentsByChance(
   let dead = 0;
   for (const c of w.living()) {
     if (c.provinceId !== provinceId) continue;
-    if (w.rng.chance(chance)) {
+    // Biology: plague resistance reduces effective kill chance per character.
+    let effectiveChance = chance;
+    if (cause === "plague") {
+      const raceId = w.raceIdOf(c);
+      const race = raceId ? w.races.get(raceId) : undefined;
+      if (race?.biology) {
+        effectiveChance = chance * (1 - getBiology(race).plagueResistance);
+      }
+    }
+    if (w.rng.chance(effectiveChance)) {
       markDead(w, c, cause);
       dead++;
     }

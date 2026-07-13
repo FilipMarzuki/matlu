@@ -122,7 +122,21 @@ const races: RaceSpec[] = [
   { id: "human", name: "Human", affinities: { orc: -20 } },
   { id: "orc", name: "Orc", affinities: { human: -20 } },
   // Dwarfs: suspicious of humans, genuinely hostile to orcs who raid the mountain passes.
-  { id: "dwarf", name: "Dwarf", affinities: { human: -15, orc: -40 } },
+  // Biology: 280-year lifespan, low fertility (0.35), sun-adverse (0.4), high mana
+  // affinity (0.7), plague-resistant (0.5), lithivore (mineral diet), mountain-born.
+  {
+    id: "dwarf", name: "Dwarf",
+    affinities: { human: -15, orc: -40 },
+    biology: {
+      lifespan: 280,
+      sunTolerance: 0.4,
+      manaAffinity: 0.7,
+      fertilityRate: 0.35,
+      plagueResistance: 0.5,
+      dietType: "lithivore",
+      preferredTerrain: ["mountain", "hills"],
+    },
+  },
 ];
 
 const faiths: FaithSpec[] = [
