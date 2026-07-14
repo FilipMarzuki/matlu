@@ -130,6 +130,18 @@ function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
     case "MERCANTILE_ASCENDANT":
     case "KNOWLEDGE_LOST":
       return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
+    // Challenge events: SPAWNED/SLAYS-CHALLENGER cluster under the province
+    // (the challenge is a persistent feature of the place). ATTEMPTED /
+    // VANQUISHED / SKILL / CLASS cluster under the challenger — it's their story.
+    case "CHALLENGE_SPAWNED":
+      return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
+    case "CHALLENGE_SLAYS_CHALLENGER":
+      return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
+    case "CHALLENGE_ATTEMPTED":
+    case "CHALLENGE_VANQUISHED":
+    case "SKILL_LEARNED_FROM_TRIAL":
+    case "CLASS_UNLOCKED_BY_TRIAL":
+      return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
     case "PLAGUE":
     case "FAMINE":
     case "BLIGHT_SPREADS":
@@ -213,6 +225,9 @@ function nameArc(w: World, kind: ArcKind, events: WorldEvent[]): string {
     }
     case "figure": {
       const who = events.find((e) => e.actorId)?.actorId ?? null;
+      if (has("CHALLENGE_VANQUISHED"))     return `The Trials of ${shortName(w, who)} (${span})`;
+      if (has("SKILL_LEARNED_FROM_TRIAL")) return `The Testing of ${shortName(w, who)} (${span})`;
+      if (has("CLASS_UNLOCKED_BY_TRIAL"))  return `The Awakening of ${shortName(w, who)} (${span})`;
       if (has("ARCHMAGE_EMERGES"))         return `The Ascendancy of ${shortName(w, who)} (${span})`;
       if (has("LEGENDARY_SKILL_MANIFESTS")) return `The Legend of ${shortName(w, who)} (${span})`;
       if (has("DARK_PROPHET_RISES"))       return `The Prophet ${shortName(w, who)} (${span})`;

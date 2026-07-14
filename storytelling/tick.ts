@@ -13,6 +13,7 @@
 // since exogenous shocks are supposed to ripple UP into everything else.
 
 import { runCatastrophes } from "./catastrophe.js";
+import { runChallenges } from "./challenges.js";
 import { runEmergence } from "./emergence.js";
 import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
@@ -97,6 +98,11 @@ export function tick(w: World): void {
   // the log and can gate emergence checks. Zero RNG when magicEnabled=false,
   // so golden-hash worlds are byte-identical.
   runEmergence(w);
+
+  // --- discrete challenges layer (dragons, wraith hosts, abyssal gates) ---
+  // Runs last: reads catastrophes that fired earlier this tick (to spawn
+  // reactive challenges) and this year's XP state to pick brave challengers.
+  runChallenges(w);
 }
 
 // ---------------------------------------------------------------------------

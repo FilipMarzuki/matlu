@@ -247,6 +247,13 @@ const BASE: Record<EventType, number> = {
   MARTIAL_DECADENCE:       6,
   MERCANTILE_ASCENDANT:    6,
   KNOWLEDGE_LOST:          7,
+  // Challenges layer — trial-driven growth.
+  CHALLENGE_SPAWNED:            5,  // background — worth telling once, not narrated forever
+  CHALLENGE_ATTEMPTED:          4,
+  CHALLENGE_VANQUISHED:         9,  // hero moment
+  CHALLENGE_SLAYS_CHALLENGER:   7,  // the challenge stands, and someone brave is dead
+  SKILL_LEARNED_FROM_TRIAL:     8,
+  CLASS_UNLOCKED_BY_TRIAL:      8,
 };
 
 export interface SiftResult {

@@ -470,6 +470,38 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       const y = Number(ev.data["yearsQuiet"] ?? 0);
       return `The learned tradition of ${provName(w, ev.provinceId)} was quietly lost — no scholar had studied there in ${y} years.`;
     }
+    case "CHALLENGE_SPAWNED": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      const tier = Number(ev.data["tier"] ?? 1);
+      return `A ${kind.replace(/_/g, " ")} (tier ${tier}) took root in ${provName(w, ev.provinceId)}, and the countryside knew fear.`;
+    }
+    case "CHALLENGE_ATTEMPTED": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      const lvl = Number(ev.data["challengerLevel"] ?? 1);
+      return `${who(w, ev.actorId)} — at the ${lvl}th tier — set out against the ${kind.replace(/_/g, " ")} of ${provName(w, ev.provinceId)}.`;
+    }
+    case "CHALLENGE_VANQUISHED": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      const first = Number(ev.data["vanquishedBefore"] ?? 0) === 0;
+      const bonus = first ? " — first of their kind to do so" : "";
+      const lvl = Number(ev.data["newLevel"] ?? 0);
+      return `${who(w, ev.actorId)} slew the ${kind.replace(/_/g, " ")} of ${provName(w, ev.provinceId)}${bonus}, and rose to the ${lvl}th tier.`;
+    }
+    case "CHALLENGE_SLAYS_CHALLENGER": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      return `${who(w, ev.actorId)} fell to the ${kind.replace(/_/g, " ")} of ${provName(w, ev.provinceId)} — the ${kind.replace(/_/g, " ")} yet endures.`;
+    }
+    case "SKILL_LEARNED_FROM_TRIAL": {
+      const skill = String(ev.data["skill"] ?? "a rare art");
+      const first = ev.data["firstOfKind"] === true;
+      const flavor = first ? " — a skill no living soul had claimed before" : "";
+      return `${who(w, ev.actorId)} came away from the trial with the mark of ${skill.replace(/_/g, " ")}${flavor}.`;
+    }
+    case "CLASS_UNLOCKED_BY_TRIAL": {
+      const newClass = String(ev.data["newClass"] ?? "an old art");
+      const kind = String(ev.data["kind"] ?? "the trial");
+      return `Having overcome the ${kind.replace(/_/g, " ")}, ${who(w, ev.actorId)} took the path of the ${newClass} — no rite of any house was needed.`;
+    }
 
     default:
       return `[${ev.type}]`;

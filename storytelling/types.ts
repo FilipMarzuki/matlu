@@ -160,6 +160,11 @@ export interface Character {
   charClass: CharClass; // current class — sets martial weight, XP rate, access
   comfort: number; // 0..1 safety+luxury; throttles XP and the will to risk
   ventured: boolean; // transient: sought danger this year (for the chronicle)
+
+  // Optional — named skills earned by surviving specific trials (e.g. "dragon_slayer",
+  // "void_walker"). Undefined for characters that never trial-earned anything, so
+  // canonHash / base-sim JSON stays byte-identical. Populated only by challenges.ts.
+  skills?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -455,7 +460,14 @@ export type EventType =
   | "LIBRARY_BURNED"         // war or blight destroys a founded library
   | "MARTIAL_DECADENCE"      // long peace + no martial characters in a wealthy province
   | "MERCANTILE_ASCENDANT"   // merchants dominate a province's politics
-  | "KNOWLEDGE_LOST";        // scholars vanish from a province that had a tradition
+  | "KNOWLEDGE_LOST"         // scholars vanish from a province that had a tradition
+  // --- Challenges layer (discrete opportunities for high-risk growth) ---
+  | "CHALLENGE_SPAWNED"      // a dragon, wraith host, abyssal gate etc. appears
+  | "CHALLENGE_ATTEMPTED"    // a named figure tries their strength against it
+  | "CHALLENGE_VANQUISHED"   // and defeats it — a hero is made
+  | "CHALLENGE_SLAYS_CHALLENGER" // or is defeated by it — the challenge remains
+  | "SKILL_LEARNED_FROM_TRIAL"   // unique named skill earned by beating a hard trial
+  | "CLASS_UNLOCKED_BY_TRIAL";   // a class gained by trial, outside the rite path
 
 export interface WorldEvent {
   id: number;
@@ -470,4 +482,23 @@ export interface WorldEvent {
   data: Record<string, string | number | boolean>;
   // Filled in by the sifter, not at creation time.
   significance: number;
+}
+
+// ---------------------------------------------------------------------------
+// Challenge — a discrete, high-risk opportunity for a character to grow. A
+// dragon in the mountain, a wraith host in a dead-zone, an abyssal gate.
+// Lives on the World as long as it's unvanquished; consumed when a hero beats
+// it. Only spawned/attempted under World.magicEnabled — no impact on base sim.
+// ---------------------------------------------------------------------------
+export interface Challenge {
+  id: string;
+  provinceId: ProvinceId;
+  kind: string;         // e.g. "dragon" | "wraith_host" | "abyssal_gate" — see challenges.ts
+  tier: number;         // 1..5 — scales XP reward AND danger
+  bornYear: number;
+  bornFromEventId: number | null; // if spawned by a catastrophe, that event's id
+  vanquishedBy: CharId | null;
+  vanquishedYear: number | null;
+  unlocksClass: CharClass | null;
+  unlocksSkill: string | null;
 }

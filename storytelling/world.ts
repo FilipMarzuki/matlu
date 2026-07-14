@@ -7,6 +7,7 @@
 import { RNG } from "./rng.js";
 import type {
   CatastropheQueueItem,
+  Challenge,
   Character,
   CharId,
   CultureState,
@@ -40,6 +41,11 @@ export class World {
 
   // Pending chain steps from in-progress catastrophe events.
   catastropheQueue: CatastropheQueueItem[] = [];
+
+  // Discrete challenges (dragons, wraith hosts, abyssal gates) that named
+  // characters can attempt for XP + class/skill unlocks. Only populated when
+  // magicEnabled (challenges.ts is a no-op otherwise).
+  challenges = new Map<string, Challenge>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
