@@ -116,6 +116,20 @@ function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
       return { key: `D:${ev.data["house"] ?? ev.data["fromHouse"] ?? "?"}`, kind: "dynasty" };
     case "FORBIDDEN_ART_PRACTICED":
       return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
+    // Trade & class-composition events — group by province.
+    case "TRADE_ROUTE_ESTABLISHED":
+    case "TRADE_ROUTE_DISRUPTED":
+    case "TRIBUTE_IMPOSED":
+    case "TRIBUTE_REVOKED":
+    case "VASSAL_REBELS":
+    case "MARKET_MONOPOLY":
+    case "SCHOLAR_FLOURISH":
+    case "LIBRARY_FOUNDED":
+    case "LIBRARY_BURNED":
+    case "MARTIAL_DECADENCE":
+    case "MERCANTILE_ASCENDANT":
+    case "KNOWLEDGE_LOST":
+      return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
     case "PLAGUE":
     case "FAMINE":
     case "BLIGHT_SPREADS":
@@ -221,6 +235,15 @@ function nameArc(w: World, kind: ArcKind, events: WorldEvent[]): string {
       if (has("ERUPTION") || has("ASH_SUMMER")) return `The Ashen Years of ${prov} (${span})`;
       if (has("DROUGHT"))                        return `The Great Drought of ${prov} (${span})`;
       if (has("LOCUST_SWARM"))                   return `The Locust Plague of ${prov} (${span})`;
+      if (has("LIBRARY_BURNED"))                 return `The Burning of the Library of ${prov} (${span})`;
+      if (has("VASSAL_REBELS"))                  return `The Revolt of ${prov} (${span})`;
+      if (has("MARKET_MONOPOLY"))                return `The Great Market of ${prov} (${span})`;
+      if (has("MERCANTILE_ASCENDANT"))           return `The Merchants' ${prov} (${span})`;
+      if (has("MARTIAL_DECADENCE"))              return `The Softening of ${prov} (${span})`;
+      if (has("LIBRARY_FOUNDED") || has("SCHOLAR_FLOURISH")) return `The Learning of ${prov} (${span})`;
+      if (has("KNOWLEDGE_LOST"))                 return `The Silence of ${prov} (${span})`;
+      if (has("TRIBUTE_IMPOSED") || has("TRIBUTE_REVOKED")) return `The Tributes of ${prov} (${span})`;
+      if (has("TRADE_ROUTE_ESTABLISHED") || has("TRADE_ROUTE_DISRUPTED")) return `The Trade of ${prov} (${span})`;
       return `The Calamities of ${prov} (${span})`;
     }
     case "culture": {

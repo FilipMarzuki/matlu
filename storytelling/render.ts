@@ -414,6 +414,62 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       const to   = String(ev.data["toHouse"] ?? "another");
       return `${who(w, ev.actorId)} took the rite of ${rite} by blood — stripped from house ${from}, taken by house ${to}.`;
     }
+    case "TRADE_ROUTE_ESTABLISHED": {
+      const from = provName(w, String(ev.data["fromProvinceId"] ?? ""));
+      const to   = provName(w, String(ev.data["toProvinceId"] ?? ""));
+      const conduit = String(ev.data["conduit"] ?? "trade");
+      return `A ${conduit}-borne trade route opened between ${from} and ${to} — the merchants of ${from} came to lean on the trade of ${to}.`;
+    }
+    case "TRADE_ROUTE_DISRUPTED": {
+      const from = provName(w, String(ev.data["fromProvinceId"] ?? ""));
+      const to   = provName(w, String(ev.data["toProvinceId"] ?? ""));
+      const cause = String(ev.data["cause"] ?? "shock");
+      return `The trade route between ${from} and ${to} was severed — ${cause.toLowerCase()} broke the lane.`;
+    }
+    case "TRIBUTE_IMPOSED": {
+      const master = String(ev.data["masterHouse"] ?? "the strong house");
+      const vassal = String(ev.data["vassalHouse"] ?? "the weaker one");
+      const ratio  = Number(ev.data["powerRatio"] ?? 3);
+      return `House ${master} imposed tribute on house ${vassal} — outmatching them ${ratio.toFixed(1)} to one.`;
+    }
+    case "TRIBUTE_REVOKED": {
+      const master = String(ev.data["masterHouse"] ?? "the master");
+      const vassal = String(ev.data["vassalHouse"] ?? "the vassal");
+      return `The tribute from house ${vassal} to house ${master} quietly lapsed — the vassal had risen too far to bow.`;
+    }
+    case "VASSAL_REBELS": {
+      const years = Number(ev.data["yearsUnder"] ?? 0);
+      return `In ${provName(w, ev.provinceId)}, the vassal rose in open revolt — after ${years} years under the yoke, the martial house took up arms.`;
+    }
+    case "MARKET_MONOPOLY": {
+      const routes = Number(ev.data["routes"] ?? 3);
+      return `${provName(w, ev.provinceId)} became the great market of its cluster — ${routes} trade routes converged upon it.`;
+    }
+    case "SCHOLAR_FLOURISH": {
+      const n = Number(ev.data["scholars"] ?? 0);
+      return `The scholars of ${provName(w, ev.provinceId)} grew to ${n} — a small tradition took root.`;
+    }
+    case "LIBRARY_FOUNDED": {
+      const house = String(ev.data["house"] ?? "a great house");
+      return `House ${house} founded a library at ${provName(w, ev.provinceId)}, gathering the province's scholars under one roof.`;
+    }
+    case "LIBRARY_BURNED": {
+      const house = String(ev.data["house"] ?? "an old house");
+      const year  = Number(ev.data["foundedInYear"] ?? 0);
+      return `The library at ${provName(w, ev.provinceId)}, founded by house ${house} in ${year}, was destroyed — a generation's learning turned to ash.`;
+    }
+    case "MARTIAL_DECADENCE": {
+      const house = String(ev.data["house"] ?? "the ruling house");
+      return `The house of ${house} at ${provName(w, ev.provinceId)} grew soft — merchants and scholars filled the halls where soldiers had once stood.`;
+    }
+    case "MERCANTILE_ASCENDANT": {
+      const m = Number(ev.data["merchants"] ?? 0);
+      return `The merchants of ${provName(w, ev.provinceId)} — ${m} strong — took the reins of the province in all but name.`;
+    }
+    case "KNOWLEDGE_LOST": {
+      const y = Number(ev.data["yearsQuiet"] ?? 0);
+      return `The learned tradition of ${provName(w, ev.provinceId)} was quietly lost — no scholar had studied there in ${y} years.`;
+    }
 
     default:
       return `[${ev.type}]`;

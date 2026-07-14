@@ -31,10 +31,115 @@ function cultureHasTrait(w: World, c: Character, trait: string): boolean {
   return (w.cultures.get(dyn.cultureId)?.startingTraits ?? []).includes(trait);
 }
 
+// Composition snapshot: how many characters of each class live in this
+// province. Computed on demand; cheap for a few hundred characters.
+interface Composition {
+  total: number;
+  adults: number;
+  scholars: number;
+  merchants: number;
+  knights: number;
+  soldiers: number;
+  hunters: number;
+  wardens: number;
+  stormcallers: number;
+  necromancers: number;
+  martial: number;    // knights + soldiers
+  literate: number;   // scholars
+  mageish: number;    // wardens + stormcallers + necromancers
+}
+
+
+// Per-tick indices, built once and reused across the year's checks so we don't
+// re-walk the event log for every province. Without this the trade/composition
+// checks become O(events × provinces × years) and blow past the test timeout.
+interface EmergenceContext {
+  activeTradeRoutes: Set<string>; // canonical "min~max" province pair keys
+  activeTributes:    Set<string>; // "master|vassal" keys
+  routeCounts:       Map<string, number>; // per-province endpoint count
+  recentShocks:      Set<string>; // province ids with WAR/PLAGUE/FAMINE/DROUGHT/LOCUST in last 2y
+  recentShockCause:  Map<string, string>; // pid -> event type name of most recent shock
+  composition:       Map<string, Composition>; // per-province class snapshot
+}
+
+function buildContext(w: World): EmergenceContext {
+  const active = new Set<string>();
+  const tribs = new Set<string>();
+  const counts = new Map<string, number>();
+  for (const e of w.events) {
+    if (e.type === "TRADE_ROUTE_ESTABLISHED") {
+      const from = String(e.data["fromProvinceId"] ?? "");
+      const to   = String(e.data["toProvinceId"] ?? "");
+      if (!from || !to) continue;
+      active.add([from, to].sort().join("~"));
+    } else if (e.type === "TRADE_ROUTE_DISRUPTED") {
+      const from = String(e.data["fromProvinceId"] ?? "");
+      const to   = String(e.data["toProvinceId"] ?? "");
+      if (!from || !to) continue;
+      active.delete([from, to].sort().join("~"));
+    } else if (e.type === "TRIBUTE_IMPOSED") {
+      const m = String(e.data["masterProvinceId"] ?? "");
+      const v = String(e.data["vassalProvinceId"] ?? "");
+      if (m && v) tribs.add(`${m}|${v}`);
+    } else if (e.type === "TRIBUTE_REVOKED" || e.type === "VASSAL_REBELS") {
+      const m = String(e.data["masterProvinceId"] ?? "");
+      const v = String(e.data["vassalProvinceId"] ?? "");
+      if (m && v) tribs.delete(`${m}|${v}`);
+    }
+  }
+  // Route-endpoint counts from active set.
+  for (const key of active) {
+    const [a, b] = key.split("~");
+    counts.set(a, (counts.get(a) ?? 0) + 1);
+    counts.set(b, (counts.get(b) ?? 0) + 1);
+  }
+  // Recent shocks — last 2 years only. Walk the tail of the log rather than
+  // scanning it in full each time.
+  const shocks = new Set<string>();
+  const cause = new Map<string, string>();
+  const shockTypes = new Set(["WAR", "PLAGUE", "FAMINE", "DROUGHT", "LOCUST_SWARM", "BLIGHT_LOCKED", "MASS_DEATH"]);
+  for (let i = w.events.length - 1; i >= 0; i--) {
+    const e = w.events[i];
+    if (w.year - e.year > 2) break;
+    if (shockTypes.has(e.type) && e.provinceId) {
+      shocks.add(e.provinceId);
+      if (!cause.has(e.provinceId)) cause.set(e.provinceId, e.type);
+    }
+  }
+  // Composition — single walk of living characters, bucket by provinceId.
+  const comp = new Map<string, Composition>();
+  for (const p of w.provinces.values()) {
+    comp.set(p.id, {
+      total: 0, adults: 0, scholars: 0, merchants: 0, knights: 0,
+      soldiers: 0, hunters: 0, wardens: 0, stormcallers: 0, necromancers: 0,
+      martial: 0, literate: 0, mageish: 0,
+    });
+  }
+  for (const ch of w.living()) {
+    const c = comp.get(ch.provinceId);
+    if (!c) continue;
+    c.total++;
+    if (w.age(ch) >= 16) c.adults++;
+    switch (ch.charClass) {
+      case "scholar":     c.scholars++;    c.literate++; break;
+      case "merchant":    c.merchants++;   break;
+      case "knight":      c.knights++;     c.martial++;  break;
+      case "soldier":     c.soldiers++;    c.martial++;  break;
+      case "hunter":      c.hunters++;     break;
+      case "warden":      c.wardens++;     c.mageish++;  break;
+      case "stormcaller": c.stormcallers++; c.mageish++; break;
+      case "necromancer": c.necromancers++; c.mageish++; break;
+    }
+  }
+  return { activeTradeRoutes: active, activeTributes: tribs, routeCounts: counts,
+           recentShocks: shocks, recentShockCause: cause, composition: comp };
+}
+
 // Public entry: runs once per tick after magic advances (so this year's LEVELED
 // events are already in the log and can gate emergence checks below).
 export function runEmergence(w: World): void {
   if (!w.magicEnabled) return;
+  const ctx = buildContext(w);
   checkArchmageEmerges(w);
   checkDarkProphetRises(w);
   checkWarlordAscendant(w);
@@ -47,6 +152,20 @@ export function runEmergence(w: World): void {
   checkLegendarySkillManifests(w);
   checkClassLineageBroken(w);
   checkRiteStolen(w);
+  // Trade & asymmetric relations
+  checkTradeRouteEstablished(w, ctx);
+  checkTradeRouteDisrupted(w, ctx);
+  checkTributeImposed(w, ctx);
+  checkTributeRevoked(w, ctx);
+  checkVassalRebels(w, ctx);
+  checkMarketMonopoly(w, ctx);
+  // Class-composition driven
+  checkScholarFlourish(w, ctx);
+  checkLibraryFounded(w, ctx);
+  checkLibraryBurned(w, ctx);
+  checkMartialDecadence(w, ctx);
+  checkMercantileAscendant(w, ctx);
+  checkKnowledgeLost(w, ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -426,6 +545,369 @@ function checkRiteStolen(w: World): void {
       },
     });
     return; // one per year
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Trade & asymmetric relations layer
+// ---------------------------------------------------------------------------
+
+// TRADE_ROUTE_ESTABLISHED — two neighbouring provinces both have merchants and
+// a shared trade conduit (both coastal or both river). Strength stored in data
+// gives an asymmetric weight — smaller/poorer province depends more on the
+// larger. Route is durable until a DISRUPTED event tears it down.
+function checkTradeRouteEstablished(w: World, ctx: EmergenceContext): void {
+  for (const a of w.provinces.values()) {
+    if (a.subsurface) continue;
+    const compA = ctx.composition.get(a.id)!;
+    if (compA.merchants < 1) continue;
+    for (const bId of a.neighbors) {
+      if (a.id >= bId) continue; // canonical ordering to dedupe
+      const b = w.province(bId);
+      if (!b || b.subsurface) continue;
+      const compB = ctx.composition.get(b.id)!;
+      if (compB.merchants < 1) continue;
+      // Need a shared conduit — both coastal, both river, or coastal+coastal
+      // adjacency counts as sea trade.
+      const conduit = (a.coastal && b.coastal) || (a.riverConnected && b.riverConnected);
+      if (!conduit) continue;
+      if (ctx.activeTradeRoutes.has([a.id, b.id].sort().join("~"))) continue;
+      const p = 0.06 + Math.min(compA.merchants, compB.merchants) * 0.03;
+      if (!w.rng.chance(Math.min(0.25, p))) continue;
+      // Strength: min of merchant counts, normalised. Direction: the province
+      // with FEWER merchants depends more (higher "dependence" from A→B if B
+      // has more merchants).
+      const strength = Math.min(compA.merchants, compB.merchants) / 6;
+      const aDependsOnB = compB.merchants > compA.merchants;
+      w.log("TRADE_ROUTE_ESTABLISHED", {
+        provinceId: a.id,
+        data: {
+          fromProvinceId: aDependsOnB ? a.id : b.id,
+          toProvinceId:   aDependsOnB ? b.id : a.id,
+          strength: Math.min(1, strength),
+          conduit: a.coastal && b.coastal ? "sea" : "river",
+        },
+      });
+      return;
+    }
+  }
+}
+
+// TRADE_ROUTE_DISRUPTED — an active route where one endpoint suffered a
+// severe event (WAR, PLAGUE, FAMINE, DROUGHT, LOCUST_SWARM) in the last 2y.
+function checkTradeRouteDisrupted(w: World, ctx: EmergenceContext): void {
+  // Only consider active routes (from index) — no full log walk.
+  for (const key of ctx.activeTradeRoutes) {
+    const [a, b] = key.split("~");
+    const shockedA = ctx.recentShocks.has(a);
+    const shockedB = ctx.recentShocks.has(b);
+    if (!shockedA && !shockedB) continue;
+    if (!w.rng.chance(0.45)) continue;
+    const shocked = shockedA ? a : b;
+    w.log("TRADE_ROUTE_DISRUPTED", {
+      provinceId: shocked,
+      data: {
+        fromProvinceId: a,
+        toProvinceId: b,
+        cause: ctx.recentShockCause.get(shocked) ?? "shock",
+      },
+    });
+    return;
+  }
+}
+
+// TRIBUTE_IMPOSED — a title-holder projects >= 3x the power of a neighbouring
+// title-holder. The stronger house extracts tribute. Directional: master → vassal.
+function checkTributeImposed(w: World, ctx: EmergenceContext): void {
+  // Pre-index titles by provinceId so the inner loop is O(1) instead of O(T).
+  const titleByProv = new Map<string, typeof w.titles extends Map<string, infer T> ? T : never>();
+  for (const t of w.titles.values()) titleByProv.set(t.provinceId, t);
+  for (const title of w.titles.values()) {
+    const holder = w.char(title.holderId);
+    if (!holder) continue;
+    const masterProv = w.province(title.provinceId);
+    if (!masterProv) continue;
+    for (const nId of masterProv.neighbors) {
+      const nProv = w.province(nId);
+      if (!nProv || nProv.subsurface !== masterProv.subsurface) continue;
+      const nTitle = titleByProv.get(nId);
+      if (!nTitle) continue;
+      const vHolder = w.char(nTitle.holderId);
+      if (!vHolder || vHolder.id === holder.id) continue;
+      const mp = w.power(holder);
+      const vp = w.power(vHolder);
+      if (mp < vp * 3) continue;
+      if (ctx.activeTributes.has(`${masterProv.id}|${nProv.id}`)) continue;
+      if (!w.rng.chance(0.12)) continue;
+      w.log("TRIBUTE_IMPOSED", {
+        actorId: holder.id,
+        targetId: vHolder.id,
+        titleId: title.id,
+        provinceId: masterProv.id,
+        data: {
+          masterProvinceId: masterProv.id,
+          vassalProvinceId: nProv.id,
+          masterHouse: w.dynasty(holder.dynastyId)?.name,
+          vassalHouse: w.dynasty(vHolder.dynastyId)?.name,
+          powerRatio: Math.round((mp / Math.max(1, vp)) * 100) / 100,
+        },
+      });
+      return;
+    }
+  }
+}
+
+// TRIBUTE_REVOKED — an active tribute where vassal has caught up (within 1.5x)
+// and master doesn't want a war it can't win.
+function checkTributeRevoked(w: World, ctx: EmergenceContext): void {
+  for (const e of w.events) {
+    if (e.type !== "TRIBUTE_IMPOSED") continue;
+    const master = String(e.data["masterProvinceId"] ?? "");
+    const vassal = String(e.data["vassalProvinceId"] ?? "");
+    if (!master || !vassal) continue;
+    if (!ctx.activeTributes.has(`${master}|${vassal}`)) continue;
+    const masterHolder = w.char(e.actorId);
+    const vassalHolder = w.char(e.targetId);
+    if (!masterHolder || !vassalHolder) continue;
+    const mp = w.power(masterHolder);
+    const vp = w.power(vassalHolder);
+    if (vp * 1.5 < mp) continue;
+    if (!w.rng.chance(0.15)) continue;
+    w.log("TRIBUTE_REVOKED", {
+      actorId: masterHolder.id,
+      targetId: vassalHolder.id,
+      provinceId: master,
+      data: {
+        masterProvinceId: master,
+        vassalProvinceId: vassal,
+        masterHouse: w.dynasty(masterHolder.dynastyId)?.name,
+        vassalHouse: w.dynasty(vassalHolder.dynastyId)?.name,
+      },
+    });
+    return;
+  }
+}
+
+// VASSAL_REBELS — active tribute, vassal has strong martial composition and
+// vengeance drive. Instead of gracefully lapsing, they throw off the yoke.
+function checkVassalRebels(w: World, ctx: EmergenceContext): void {
+  const titleByProv = new Map<string, typeof w.titles extends Map<string, infer T> ? T : never>();
+  for (const t of w.titles.values()) titleByProv.set(t.provinceId, t);
+  for (const e of w.events) {
+    if (e.type !== "TRIBUTE_IMPOSED") continue;
+    const master = String(e.data["masterProvinceId"] ?? "");
+    const vassal = String(e.data["vassalProvinceId"] ?? "");
+    if (!master || !vassal) continue;
+    if (!ctx.activeTributes.has(`${master}|${vassal}`)) continue;
+    const yearsUnder = w.year - e.year;
+    if (yearsUnder < 8) continue;
+    const vassalTitle = titleByProv.get(vassal);
+    const vassalHolder = w.char(vassalTitle?.holderId ?? null);
+    if (!vassalHolder) continue;
+    const comp = ctx.composition.get(vassal)!;
+    if (comp.martial < 2) continue;
+    const drive = vassalHolder.drives.vengeance + vassalHolder.drives.ambition;
+    if (drive < 1.0) continue;
+    const p = Math.min(0.35, 0.05 + yearsUnder * 0.01 + comp.martial * 0.03);
+    if (!w.rng.chance(p)) continue;
+    w.log("VASSAL_REBELS", {
+      actorId: vassalHolder.id,
+      targetId: e.actorId,
+      provinceId: vassal,
+      data: {
+        masterProvinceId: master,
+        vassalProvinceId: vassal,
+        yearsUnder,
+        martial: comp.martial,
+      },
+    });
+    return;
+  }
+}
+
+// MARKET_MONOPOLY — one province is endpoint of 3+ active trade routes; it
+// becomes the dominant hub of its cluster. Fires once per province.
+function checkMarketMonopoly(w: World, ctx: EmergenceContext): void {
+  const alreadyNamed = new Set(
+    w.events.filter((e) => e.type === "MARKET_MONOPOLY").map((e) => e.provinceId),
+  );
+  for (const [pid, count] of ctx.routeCounts) {
+    if (count < 3 || alreadyNamed.has(pid)) continue;
+    if (!w.rng.chance(0.35)) continue;
+    w.log("MARKET_MONOPOLY", {
+      provinceId: pid,
+      data: { routes: count, province: w.province(pid)?.name ?? pid },
+    });
+    return;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Class-composition driven layer
+// ---------------------------------------------------------------------------
+
+// SCHOLAR_FLOURISH — a province accumulates 3+ living scholars. Fires once
+// per province per century.
+function checkScholarFlourish(w: World, ctx: EmergenceContext): void {
+  for (const p of w.provinces.values()) {
+    const comp = ctx.composition.get(p.id)!;
+    if (comp.scholars < 3) continue;
+    const recent = w.events.some(
+      (e) => e.type === "SCHOLAR_FLOURISH" && e.provinceId === p.id && w.year - e.year < 100,
+    );
+    if (recent) continue;
+    if (!w.rng.chance(0.4)) continue;
+    w.log("SCHOLAR_FLOURISH", {
+      provinceId: p.id,
+      data: { scholars: comp.scholars, adults: comp.adults },
+    });
+    return;
+  }
+}
+
+// LIBRARY_FOUNDED — a wealthy title-holder in a scholar-heavy province funds
+// a lasting institution. Requires an active SCHOLAR_FLOURISH.
+function checkLibraryFounded(w: World, _ctx: EmergenceContext): void {
+  const flourishing = new Set<string>();
+  const alreadyFounded = new Set<string>();
+  for (let i = w.events.length - 1; i >= 0; i--) {
+    const e = w.events[i];
+    if (e.type === "SCHOLAR_FLOURISH" && e.provinceId && w.year - e.year < 60) {
+      flourishing.add(e.provinceId);
+    } else if (e.type === "LIBRARY_FOUNDED" && e.provinceId) {
+      alreadyFounded.add(e.provinceId);
+    }
+  }
+  const titleByProv = new Map<string, typeof w.titles extends Map<string, infer T> ? T : never>();
+  for (const t of w.titles.values()) titleByProv.set(t.provinceId, t);
+  for (const pid of flourishing) {
+    if (alreadyFounded.has(pid)) continue;
+    const title = titleByProv.get(pid);
+    const holder = w.char(title?.holderId ?? null);
+    const dyn = w.dynasty(holder?.dynastyId ?? "");
+    if (!holder || !dyn || dyn.wealth < 400) continue;
+    if (!w.rng.chance(0.2)) continue;
+    w.log("LIBRARY_FOUNDED", {
+      actorId: holder.id,
+      titleId: title?.id ?? null,
+      provinceId: pid,
+      data: { house: dyn.name, wealth: dyn.wealth },
+    });
+    return;
+  }
+}
+
+// LIBRARY_BURNED — a founded library at a province that suffered war or
+// blight-locked in the last 2 years.
+function checkLibraryBurned(w: World, ctx: EmergenceContext): void {
+  // Use the shared recent-shocks index (already includes WAR, BLIGHT_LOCKED,
+  // MASS_DEATH). Precompute already-burned (foundedYear) set once.
+  const burnedYears = new Set<string>(); // key = `${pid}|${foundedYear}`
+  const foundedLibs: WorldEvent[] = [];
+  for (const e of w.events) {
+    if (e.type === "LIBRARY_BURNED") {
+      burnedYears.add(`${e.provinceId}|${e.data["foundedInYear"] ?? -1}`);
+    } else if (e.type === "LIBRARY_FOUNDED" && e.provinceId) {
+      foundedLibs.push(e);
+    }
+  }
+  for (const e of foundedLibs) {
+    if (!e.provinceId) continue;
+    if (!ctx.recentShocks.has(e.provinceId)) continue;
+    if (burnedYears.has(`${e.provinceId}|${e.year}`)) continue;
+    if (!w.rng.chance(0.4)) continue;
+    w.log("LIBRARY_BURNED", {
+      provinceId: e.provinceId,
+      data: { house: e.data["house"], foundedInYear: e.year },
+    });
+    return;
+  }
+}
+
+// MARTIAL_DECADENCE — a wealthy title-holder's province has no soldier/knight,
+// no war for 30+ years, and merchants+scholars dominate. Fires once per
+// province per 60 years.
+function checkMartialDecadence(w: World, ctx: EmergenceContext): void {
+  // Single walk to build war-in-30y and recent-MARTIAL_DECADENCE indices.
+  const recentWar = new Set<string>();
+  const recentDecadence = new Set<string>();
+  for (let i = w.events.length - 1; i >= 0; i--) {
+    const e = w.events[i];
+    if (w.year - e.year > 60) break;
+    if (e.type === "WAR" && e.provinceId && w.year - e.year < 30) recentWar.add(e.provinceId);
+    if (e.type === "MARTIAL_DECADENCE" && e.provinceId && w.year - e.year < 60) recentDecadence.add(e.provinceId);
+  }
+  const titleByProv = new Map<string, typeof w.titles extends Map<string, infer T> ? T : never>();
+  for (const t of w.titles.values()) titleByProv.set(t.provinceId, t);
+  for (const p of w.provinces.values()) {
+    const comp = ctx.composition.get(p.id)!;
+    if (comp.martial > 0) continue;
+    if (comp.merchants + comp.scholars < 2) continue;
+    if (recentWar.has(p.id)) continue;
+    if (recentDecadence.has(p.id)) continue;
+    const title = titleByProv.get(p.id);
+    const holder = w.char(title?.holderId ?? null);
+    const dyn = w.dynasty(holder?.dynastyId ?? "");
+    if (!dyn || dyn.wealth < 300) continue;
+    if (!w.rng.chance(0.25)) continue;
+    w.log("MARTIAL_DECADENCE", {
+      provinceId: p.id,
+      titleId: title?.id ?? null,
+      data: {
+        house: dyn.name,
+        wealth: dyn.wealth,
+        merchants: comp.merchants,
+        scholars: comp.scholars,
+      },
+    });
+    return;
+  }
+}
+
+// MERCANTILE_ASCENDANT — a province where merchants outnumber martial 3:1
+// AND the province is coastal/river becomes politically dominated by them.
+function checkMercantileAscendant(w: World, ctx: EmergenceContext): void {
+  const alreadyNamed = new Set(
+    w.events.filter((e) => e.type === "MERCANTILE_ASCENDANT").map((e) => e.provinceId),
+  );
+  for (const p of w.provinces.values()) {
+    if (alreadyNamed.has(p.id)) continue;
+    if (!p.coastal && !p.riverConnected) continue;
+    const comp = ctx.composition.get(p.id)!;
+    if (comp.merchants < 3) continue;
+    if (comp.merchants < comp.martial * 3 && comp.martial > 0) continue;
+    if (!w.rng.chance(0.3)) continue;
+    w.log("MERCANTILE_ASCENDANT", {
+      provinceId: p.id,
+      data: { merchants: comp.merchants, martial: comp.martial },
+    });
+    return;
+  }
+}
+
+// KNOWLEDGE_LOST — a province that once had SCHOLAR_FLOURISH now has no
+// scholars for 20+ years. Records a slow decline.
+function checkKnowledgeLost(w: World, ctx: EmergenceContext): void {
+  const lostYears = new Set<string>();
+  const oldFlourishes: WorldEvent[] = [];
+  for (const e of w.events) {
+    if (e.type === "KNOWLEDGE_LOST") {
+      lostYears.add(`${e.provinceId}|${e.data["flourishedInYear"] ?? -1}`);
+    } else if (e.type === "SCHOLAR_FLOURISH" && e.provinceId && w.year - e.year >= 40) {
+      oldFlourishes.push(e);
+    }
+  }
+  for (const e of oldFlourishes) {
+    if (!e.provinceId) continue;
+    const comp = ctx.composition.get(e.provinceId);
+    if (!comp || comp.scholars > 0) continue;
+    if (lostYears.has(`${e.provinceId}|${e.year}`)) continue;
+    if (!w.rng.chance(0.15)) continue;
+    w.log("KNOWLEDGE_LOST", {
+      provinceId: e.provinceId,
+      data: { flourishedInYear: e.year, yearsQuiet: w.year - e.year },
+    });
+    return;
   }
 }
 

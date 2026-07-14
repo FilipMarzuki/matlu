@@ -441,7 +441,21 @@ export type EventType =
   | "FORBIDDEN_ART_PRACTICED" // dark art wielded openly in a corrupted province
   | "LEGENDARY_SKILL_MANIFESTS" // unique skill awakens in a near-death survivor
   | "CLASS_LINEAGE_BROKEN"   // final capable bearer of a rite dies; art will lapse
-  | "RITE_STOLEN";           // a scheme transfers a rite between dynasties
+  | "RITE_STOLEN"            // a scheme transfers a rite between dynasties
+  // --- Trade & asymmetric relations layer ---
+  | "TRADE_ROUTE_ESTABLISHED" // durable exchange between two provinces (directional strength)
+  | "TRADE_ROUTE_DISRUPTED"  // war/plague/famine breaks an established route
+  | "TRIBUTE_IMPOSED"        // stronger title extracts wealth from weaker neighbor
+  | "TRIBUTE_REVOKED"        // subordinate outgrows master; tribute lapses
+  | "VASSAL_REBELS"          // long-tributary province throws off the yoke by force
+  | "MARKET_MONOPOLY"        // one province becomes the dominant trade hub of a cluster
+  // --- Class-composition driven layer ---
+  | "SCHOLAR_FLOURISH"       // 3+ scholars concentrate in a province
+  | "LIBRARY_FOUNDED"        // scholars + a wealthy ruling house build a lasting institution
+  | "LIBRARY_BURNED"         // war or blight destroys a founded library
+  | "MARTIAL_DECADENCE"      // long peace + no martial characters in a wealthy province
+  | "MERCANTILE_ASCENDANT"   // merchants dominate a province's politics
+  | "KNOWLEDGE_LOST";        // scholars vanish from a province that had a tradition
 
 export interface WorldEvent {
   id: number;

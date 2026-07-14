@@ -233,6 +233,20 @@ const BASE: Record<EventType, number> = {
   LEGENDARY_SKILL_MANIFESTS: 10,
   CLASS_LINEAGE_BROKEN:    7,
   RITE_STOLEN:             9,
+  // Trade & asymmetric relations layer.
+  TRADE_ROUTE_ESTABLISHED: 3, // background — becomes interesting in aggregate
+  TRADE_ROUTE_DISRUPTED:   5,
+  TRIBUTE_IMPOSED:         6,
+  TRIBUTE_REVOKED:         6,
+  VASSAL_REBELS:           8,
+  MARKET_MONOPOLY:         7,
+  // Class-composition driven layer.
+  SCHOLAR_FLOURISH:        5,
+  LIBRARY_FOUNDED:         7,
+  LIBRARY_BURNED:          9,
+  MARTIAL_DECADENCE:       6,
+  MERCANTILE_ASCENDANT:    6,
+  KNOWLEDGE_LOST:          7,
 };
 
 export interface SiftResult {
