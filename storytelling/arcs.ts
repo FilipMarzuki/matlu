@@ -112,6 +112,15 @@ function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
     case "CORRUPTION_SPREADS":
     case "DELVED_TOO_DEEP":
       return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
+    case "ERUPTION":
+      return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
+    case "ASH_SUMMER":
+    case "DROUGHT":
+    case "LOCUST_SWARM": {
+      // Group all events from a regional/global disaster under the source province arc.
+      const src = String(ev.data["sourceProvinceId"] ?? ev.provinceId ?? "");
+      return src ? { key: `E:${src}`, kind: "calamity" } : null;
+    }
     case "TRUCE_BROKEN":
     case "ALLIANCE_BETRAYED":
       if (ev.actorId && ev.targetId) {
@@ -180,6 +189,9 @@ function nameArc(w: World, kind: ArcKind, events: WorldEvent[]): string {
       if (has("MANA_RUPTURE"))    return `The Void-Scar of ${prov} (${span})`;
       if (has("BLIGHT_LOCKED"))   return `The Withering of ${prov} (${span})`;
       if (has("UNDEAD_RAID"))     return `The Raids from ${prov} (${span})`;
+      if (has("ERUPTION") || has("ASH_SUMMER")) return `The Ashen Years of ${prov} (${span})`;
+      if (has("DROUGHT"))                        return `The Great Drought of ${prov} (${span})`;
+      if (has("LOCUST_SWARM"))                   return `The Locust Plague of ${prov} (${span})`;
       return `The Calamities of ${prov} (${span})`;
     }
     case "culture": {

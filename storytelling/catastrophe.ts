@@ -390,7 +390,190 @@ const FERAL_SURGE: CatastropheTemplate = {
   ],
 };
 
-const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE, DELVED_TOO_DEEP, FERAL_SURGE];
+// ---------------------------------------------------------------------------
+// Helper: ash sweep — all surface provinces take population loss
+// ---------------------------------------------------------------------------
+
+function ashSweep(w: World, originId: string, wave: number, loss: number): void {
+  for (const p of w.provinces.values()) {
+    if (p.subsurface || p.zoneFlags.includes("dead_zone")) continue;
+    const deaths = Math.round(p.population * loss);
+    p.population = Math.max(50, p.population - deaths);
+    w.log("ASH_SUMMER", { provinceId: p.id, data: { deaths, wave, sourceProvinceId: originId } });
+  }
+}
+
+// Helper: drought BFS — flood-fill through dry terrain provinces
+function droughtBFS(w: World, originId: string): string[] {
+  const DRY = new Set(["steppe", "plains", "desert", "hills"]);
+  const out: string[] = [];
+  const queue = [originId];
+  const seen = new Set([originId]);
+  while (queue.length) {
+    const pid = queue.shift()!;
+    out.push(pid);
+    const p = w.province(pid)!;
+    for (const nId of p.neighbors) {
+      if (seen.has(nId)) continue;
+      seen.add(nId);
+      const n = w.province(nId);
+      if (!n || n.subsurface || n.zoneFlags.includes("dead_zone")) continue;
+      if (DRY.has(n.terrain) && w.rng.next() < 0.65) queue.push(nId);
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// VOLCANIC_ERUPTION — global reach (3-wave ash summer)
+// ---------------------------------------------------------------------------
+
+const VOLCANIC_ERUPTION: CatastropheTemplate = {
+  id: "volcanic_eruption",
+  drawProb: 0.002,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      p.terrain === "mountain" &&
+      !p.zoneFlags.includes("dead_zone") &&
+      w.year > 30 &&
+      !w.events.some((e) => e.type === "ERUPTION")
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        const loss = Math.round(p.population * 0.3);
+        p.population = Math.max(50, p.population - loss);
+        if (!p.zoneFlags.includes("ash_shrouded")) p.zoneFlags.push("ash_shrouded");
+        const dead = killResidentsByChance(w, p.id, "eruption", 0.35);
+        w.log("ERUPTION", { provinceId: p.id, data: { deaths: loss, named_dead: dead } });
+      },
+    },
+    { delay: 4,  fire: (w, item) => ashSweep(w, item.provinceId, 1, 0.08) },
+    { delay: 9,  fire: (w, item) => ashSweep(w, item.provinceId, 2, 0.06) },
+    { delay: 15, fire: (w, item) => ashSweep(w, item.provinceId, 3, 0.04) },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// DROUGHT_CYCLE — regional (dry terrain BFS, 3-year chain)
+// ---------------------------------------------------------------------------
+
+const DROUGHT_CYCLE: CatastropheTemplate = {
+  id: "drought_cycle",
+  drawProb: 0.010,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      (p.terrain === "steppe" || p.terrain === "plains" || p.terrain === "desert" || p.terrain === "hills") &&
+      p.population > 80 &&
+      w.year > 5
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        for (const pid of droughtBFS(w, item.provinceId)) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.12);
+          p.population = Math.max(50, p.population - loss);
+          const dead = killResidentsByChance(w, pid, "drought", 0.04);
+          w.log("DROUGHT", { provinceId: pid, data: { deaths: loss, named_dead: dead, wave: 1, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+    {
+      delay: 1,
+      fire: (w, item) => {
+        for (const pid of droughtBFS(w, item.provinceId)) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.09);
+          p.population = Math.max(50, p.population - loss);
+          const dead = killResidentsByChance(w, pid, "drought", 0.03);
+          w.log("DROUGHT", { provinceId: pid, data: { deaths: loss, named_dead: dead, wave: 2, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+    {
+      delay: 2,
+      fire: (w, item) => {
+        for (const pid of droughtBFS(w, item.provinceId)) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.06);
+          p.population = Math.max(50, p.population - loss);
+          const dead = killResidentsByChance(w, pid, "drought", 0.02);
+          w.log("DROUGHT", { provinceId: pid, data: { deaths: loss, named_dead: dead, wave: 3, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// LOCUST_SWARM — regional (fertile terrain BFS, single wave)
+// ---------------------------------------------------------------------------
+
+const LOCUST_SWARM_TEMPLATE: CatastropheTemplate = {
+  id: "locust_swarm",
+  drawProb: 0.008,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      (p.terrain === "meadow" || p.terrain === "plains" || p.terrain === "forest" || p.terrain === "jungle") &&
+      p.fertility > 0.4 &&
+      w.year > 5
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        const FERTILE = new Set(["meadow", "plains", "forest", "jungle", "swamp"]);
+        const BLOCK   = new Set(["desert", "mountain", "steppe"]);
+        const affected: string[] = [];
+        const queue = [item.provinceId];
+        const seen  = new Set([item.provinceId]);
+        while (queue.length) {
+          const pid = queue.shift()!;
+          affected.push(pid);
+          const p = w.province(pid)!;
+          for (const nId of p.neighbors) {
+            if (seen.has(nId)) continue;
+            seen.add(nId);
+            const n = w.province(nId);
+            if (!n || n.subsurface || n.zoneFlags.includes("dead_zone")) continue;
+            if (BLOCK.has(n.terrain)) continue;
+            if (FERTILE.has(n.terrain) && w.rng.next() < 0.60) queue.push(nId);
+          }
+        }
+        for (const pid of affected) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.08);
+          p.population = Math.max(50, p.population - loss);
+          p.fertility = Math.max(0.1, p.fertility - 0.06);
+          w.log("LOCUST_SWARM", { provinceId: pid, data: { deaths: loss, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+  ],
+};
+
+const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE, DELVED_TOO_DEEP, FERAL_SURGE, VOLCANIC_ERUPTION, DROUGHT_CYCLE, LOCUST_SWARM_TEMPLATE];
 
 // ---------------------------------------------------------------------------
 // Chain engine

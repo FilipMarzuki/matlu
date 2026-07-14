@@ -214,6 +214,11 @@ const BASE: Record<EventType, number> = {
   CULTURAL_CONTESTED: 3, // a trait crossed the pressure threshold — contest begins
   CULTURAL_RIFT: 8,      // elite and folk hold opposed traits — fracture visible
   CULTURAL_SHIFT: 6,     // a trait established/abandoned in a tier, or aesthetic drift
+  // Natural disaster layer.
+  ERUPTION:     10,
+  ASH_SUMMER:    4,  // fires globally (many events); low per-event, high in aggregate
+  DROUGHT:       6,
+  LOCUST_SWARM:  5,
 };
 
 export interface SiftResult {
@@ -367,6 +372,16 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
         if (ev.data["trait"] === "slavery") s += 2;
         if (ev.data["adopted"] === false) s += 1; // abandonment is harder to tell
         if (ev.data["tier"] === "both") s += 1;   // cross-tier establishment
+        break;
+      }
+      case "ASH_SUMMER": {
+        // Wave 1 is the most dramatic — the skies darken for the first time.
+        if (Number(ev.data["wave"] ?? 1) === 1) s += 2;
+        break;
+      }
+      case "DROUGHT": {
+        // First year of drought is the revelation; later years are grinding repetition.
+        if (Number(ev.data["wave"] ?? 1) === 1) s += 2;
         break;
       }
       default:

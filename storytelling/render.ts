@@ -327,6 +327,37 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       }
     }
 
+    case "ERUPTION": {
+      const prov = provName(w, ev.provinceId);
+      const d = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} perished in the initial fury.` : "";
+      return `The mountain of ${prov} erupted, and columns of ash blotted out the sun.${toll}`;
+    }
+    case "ASH_SUMMER": {
+      const prov = provName(w, ev.provinceId);
+      const wave = Number(ev.data["wave"] ?? 1);
+      const d    = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} starved.` : "";
+      if (wave === 1) return `Ash from the great eruption choked the harvests of ${prov}.${toll}`;
+      if (wave === 2) return `A second ashen summer darkened ${prov}.${toll}`;
+      return `A third year of ash dimmed the skies over ${prov}.${toll}`;
+    }
+    case "DROUGHT": {
+      const prov = provName(w, ev.provinceId);
+      const wave = Number(ev.data["wave"] ?? 1);
+      const d    = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} perished of thirst and hunger.` : "";
+      if (wave === 1) return `A great drought gripped ${prov} and the rivers ran dry.${toll}`;
+      if (wave === 2) return `Drought gripped ${prov} for a second year.${toll}`;
+      return `The drought in ${prov} lingered into a third year.${toll}`;
+    }
+    case "LOCUST_SWARM": {
+      const prov = provName(w, ev.provinceId);
+      const d    = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} starved in the aftermath.` : "";
+      return `A vast swarm of locusts swept through ${prov}, stripping the fields bare.${toll}`;
+    }
+
     default:
       return `[${ev.type}]`;
   }

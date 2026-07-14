@@ -422,7 +422,12 @@ export type EventType =
   // --- Cultural evolution layer ---
   | "CULTURAL_CONTESTED" // a trait crossed the pressure threshold — generational contest begins
   | "CULTURAL_RIFT"      // elite and folk tiers hold directly opposed traits
-  | "CULTURAL_SHIFT";    // a trait established/abandoned in one or both tiers, or aesthetic drift
+  | "CULTURAL_SHIFT"     // a trait established/abandoned in one or both tiers, or aesthetic drift
+  // --- Natural disaster layer ---
+  | "ERUPTION"           // volcanic eruption at a mountain province — ash cloud follows
+  | "ASH_SUMMER"         // harvest failure from volcanic ash; fires globally 2-3 years after ERUPTION
+  | "DROUGHT"            // multi-year water shortage spreading through dry-terrain provinces
+  | "LOCUST_SWARM";      // crop-destroying insect swarm sweeping fertile-terrain provinces
 
 export interface WorldEvent {
   id: number;
