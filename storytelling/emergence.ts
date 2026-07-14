@@ -647,8 +647,8 @@ function checkTributeImposed(w: World, ctx: EmergenceContext): void {
         data: {
           masterProvinceId: masterProv.id,
           vassalProvinceId: nProv.id,
-          masterHouse: w.dynasty(holder.dynastyId)?.name,
-          vassalHouse: w.dynasty(vHolder.dynastyId)?.name,
+          masterHouse: w.dynasty(holder.dynastyId)?.name ?? "",
+          vassalHouse: w.dynasty(vHolder.dynastyId)?.name ?? "",
           powerRatio: Math.round((mp / Math.max(1, vp)) * 100) / 100,
         },
       });
@@ -680,8 +680,8 @@ function checkTributeRevoked(w: World, ctx: EmergenceContext): void {
       data: {
         masterProvinceId: master,
         vassalProvinceId: vassal,
-        masterHouse: w.dynasty(masterHolder.dynastyId)?.name,
-        vassalHouse: w.dynasty(vassalHolder.dynastyId)?.name,
+        masterHouse: w.dynasty(masterHolder.dynastyId)?.name ?? "",
+        vassalHouse: w.dynasty(vassalHolder.dynastyId)?.name ?? "",
       },
     });
     return;
