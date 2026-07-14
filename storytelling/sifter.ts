@@ -219,6 +219,20 @@ const BASE: Record<EventType, number> = {
   ASH_SUMMER:    4,  // fires globally (many events); low per-event, high in aggregate
   DROUGHT:       6,
   LOCUST_SWARM:  5,
+  // Emergent hero / faction layer.
+  ARCHMAGE_EMERGES:       9,
+  DARK_PROPHET_RISES:     8,
+  WARLORD_ASCENDANT:      7,
+  LONE_GENIUS_EMERGES:    7,
+  PARIAH_TURNS_CHAMPION:  8,
+  FALLEN_NOBLE_RISES:     7,
+  // Class / art layer.
+  ART_REDISCOVERED:        9,
+  LOST_CLASS_RESURFACES:   8,
+  FORBIDDEN_ART_PRACTICED: 8,
+  LEGENDARY_SKILL_MANIFESTS: 10,
+  CLASS_LINEAGE_BROKEN:    7,
+  RITE_STOLEN:             9,
 };
 
 export interface SiftResult {

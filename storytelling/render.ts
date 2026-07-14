@@ -358,6 +358,63 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       return `A vast swarm of locusts swept through ${prov}, stripping the fields bare.${toll}`;
     }
 
+    case "ARCHMAGE_EMERGES": {
+      const cls = String(ev.data["charClass"] ?? "the arts");
+      const lvl = Number(ev.data["level"] ?? 0);
+      return `${who(w, ev.actorId)} was named archmage — reaching the ${lvl}th mastery of ${cls} in the mana-thick lands of ${provName(w, ev.provinceId)}.`;
+    }
+    case "DARK_PROPHET_RISES": {
+      const zealous = ev.data["zealous"] === true;
+      const flavor = zealous ? "the faithful began to gather" : "an unsettled crowd began to gather";
+      return `In blighted ${provName(w, ev.provinceId)}, ${who(w, ev.actorId)} rose as a dark prophet — ${flavor}.`;
+    }
+    case "WARLORD_ASCENDANT": {
+      const wc = ev.data["warriorCulture"] === true;
+      const flavor = wc ? "the war-people rallied to the call" : "sworn men flocked to their banner";
+      return `${who(w, ev.actorId)} became a warlord — ${flavor} across ${provName(w, ev.provinceId)}.`;
+    }
+    case "LONE_GENIUS_EMERGES": {
+      const cls = String(ev.data["charClass"] ?? "an art");
+      return `Far from any court, in ${provName(w, ev.provinceId)}, ${who(w, ev.actorId)} was mastering ${cls} alone — the mark of a lone genius.`;
+    }
+    case "PARIAH_TURNS_CHAMPION": {
+      const g = Number(ev.data["grudges"] ?? 0);
+      return `Once scorned, ${who(w, ev.actorId)} of ${provName(w, ev.provinceId)} rose as a champion — ${g} unforgotten wrongs sharpened the blade.`;
+    }
+    case "FALLEN_NOBLE_RISES": {
+      const house = String(ev.data["house"] ?? "a lost house");
+      return `${who(w, ev.actorId)} — of the fallen house of ${house} — stepped once more into the world, rising in ${provName(w, ev.provinceId)}.`;
+    }
+    case "ART_REDISCOVERED": {
+      const rite = String(ev.data["rite"] ?? "a lost art");
+      const lost = Number(ev.data["lostInYear"] ?? 0);
+      return `${who(w, ev.actorId)} rediscovered the art of ${rite}, lost to the world since the year ${lost}.`;
+    }
+    case "LOST_CLASS_RESURFACES": {
+      const cls = String(ev.data["charClass"] ?? "an old class");
+      const yrs = Number(ev.data["dormantYears"] ?? 0);
+      return `The old class of ${cls} resurfaced in ${who(w, ev.actorId)} — dormant for ${yrs} years.`;
+    }
+    case "FORBIDDEN_ART_PRACTICED": {
+      const kind = String(ev.data["corruptionType"] ?? "corruption");
+      return `In ${provName(w, ev.provinceId)}, ${who(w, ev.actorId)} began to practise the forbidden art openly, and the ${kind} crept deeper into the land.`;
+    }
+    case "LEGENDARY_SKILL_MANIFESTS": {
+      const lvl = Number(ev.data["level"] ?? 0);
+      return `A legendary skill manifested in ${who(w, ev.actorId)} — a mastery unseen in living memory, at the ${lvl}th tier.`;
+    }
+    case "CLASS_LINEAGE_BROKEN": {
+      const house = String(ev.data["house"] ?? "a great house");
+      const rite = String(ev.data["rite"] ?? "their art");
+      return `The lineage of ${rite} within house ${house} was broken — no capable heir remained to receive the rite.`;
+    }
+    case "RITE_STOLEN": {
+      const rite = String(ev.data["rite"] ?? "a rite");
+      const from = String(ev.data["fromHouse"] ?? "a house");
+      const to   = String(ev.data["toHouse"] ?? "another");
+      return `${who(w, ev.actorId)} took the rite of ${rite} by blood — stripped from house ${from}, taken by house ${to}.`;
+    }
+
     default:
       return `[${ev.type}]`;
   }

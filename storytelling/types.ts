@@ -427,7 +427,21 @@ export type EventType =
   | "ERUPTION"           // volcanic eruption at a mountain province — ash cloud follows
   | "ASH_SUMMER"         // harvest failure from volcanic ash; fires globally 2-3 years after ERUPTION
   | "DROUGHT"            // multi-year water shortage spreading through dry-terrain provinces
-  | "LOCUST_SWARM";      // crop-destroying insect swarm sweeping fertile-terrain provinces
+  | "LOCUST_SWARM"       // crop-destroying insect swarm sweeping fertile-terrain provinces
+  // --- Emergent hero/faction layer (state-conditional emergence) ---
+  | "ARCHMAGE_EMERGES"       // world's highest-level mage in a high-mana province
+  | "DARK_PROPHET_RISES"     // charismatic figure preaches in blighted/pious province
+  | "WARLORD_ASCENDANT"      // martial character consolidates power outside titles
+  | "LONE_GENIUS_EMERGES"    // solo breakthrough in isolated province, no institution
+  | "PARIAH_TURNS_CHAMPION"  // scorned lowborn with grudges becomes powerful
+  | "FALLEN_NOBLE_RISES"     // remnant of an extinct dynasty reclaims relevance
+  // --- Class & art layer (arts lost, regained, stolen, transformed) ---
+  | "ART_REDISCOVERED"       // a scholar recovers a lost art in the culture that lost it
+  | "LOST_CLASS_RESURFACES"  // a class not seen for generations reappears
+  | "FORBIDDEN_ART_PRACTICED" // dark art wielded openly in a corrupted province
+  | "LEGENDARY_SKILL_MANIFESTS" // unique skill awakens in a near-death survivor
+  | "CLASS_LINEAGE_BROKEN"   // final capable bearer of a rite dies; art will lapse
+  | "RITE_STOLEN";           // a scheme transfers a rite between dynasties
 
 export interface WorldEvent {
   id: number;

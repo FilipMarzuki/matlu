@@ -13,6 +13,7 @@
 // since exogenous shocks are supposed to ripple UP into everything else.
 
 import { runCatastrophes } from "./catastrophe.js";
+import { runEmergence } from "./emergence.js";
 import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
@@ -90,6 +91,12 @@ export function tick(w: World): void {
   // capital/comfort/rite economy. Kept after the base loop so base behaviour is
   // byte-identical when magic is off.
   if (w.magicEnabled) runMagic(w, evStart);
+
+  // --- emergent hero / faction layer (no-op unless magic is on) ----------
+  // Runs after runMagic so this year's LEVELED / CLASS_GAINED events are in
+  // the log and can gate emergence checks. Zero RNG when magicEnabled=false,
+  // so golden-hash worlds are byte-identical.
+  runEmergence(w);
 }
 
 // ---------------------------------------------------------------------------

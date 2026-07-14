@@ -98,6 +98,24 @@ function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
       return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
     case "MADNESS_ONSET":
       return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
+    // Emergent hero events cluster under the figure they name — the
+    // hallmark event of a saga arc.
+    case "ARCHMAGE_EMERGES":
+    case "DARK_PROPHET_RISES":
+    case "WARLORD_ASCENDANT":
+    case "LONE_GENIUS_EMERGES":
+    case "PARIAH_TURNS_CHAMPION":
+    case "FALLEN_NOBLE_RISES":
+    case "LOST_CLASS_RESURFACES":
+    case "LEGENDARY_SKILL_MANIFESTS":
+      return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
+    // Rite events cluster under the losing house — the tragedy of a lineage.
+    case "ART_REDISCOVERED":
+    case "CLASS_LINEAGE_BROKEN":
+    case "RITE_STOLEN":
+      return { key: `D:${ev.data["house"] ?? ev.data["fromHouse"] ?? "?"}`, kind: "dynasty" };
+    case "FORBIDDEN_ART_PRACTICED":
+      return ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null;
     case "PLAGUE":
     case "FAMINE":
     case "BLIGHT_SPREADS":
@@ -172,12 +190,23 @@ function nameArc(w: World, kind: ArcKind, events: WorldEvent[]): string {
       return `The Feud of ${shortName(w, a)} and ${shortName(w, b)} (${span})`;
     }
     case "dynasty": {
-      const house = events[0].data["house"] ?? "?";
+      const house = events[0].data["house"] ?? events[0].data["fromHouse"] ?? "?";
+      if (has("RITE_STOLEN"))         return `The Stolen Rite of House ${house} (${span})`;
+      if (has("ART_REDISCOVERED"))    return `The Reclamation of House ${house} (${span})`;
+      if (has("CLASS_LINEAGE_BROKEN")) return `The Broken Lineage of House ${house} (${span})`;
       if (has("ART_LOST")) return `The Lost Art of House ${house} (${span})`;
       return `The Fall of House ${house} (${span})`;
     }
     case "figure": {
       const who = events.find((e) => e.actorId)?.actorId ?? null;
+      if (has("ARCHMAGE_EMERGES"))         return `The Ascendancy of ${shortName(w, who)} (${span})`;
+      if (has("LEGENDARY_SKILL_MANIFESTS")) return `The Legend of ${shortName(w, who)} (${span})`;
+      if (has("DARK_PROPHET_RISES"))       return `The Prophet ${shortName(w, who)} (${span})`;
+      if (has("WARLORD_ASCENDANT"))        return `The Wars of Warlord ${shortName(w, who)} (${span})`;
+      if (has("LONE_GENIUS_EMERGES"))      return `The Solitary Genius ${shortName(w, who)} (${span})`;
+      if (has("PARIAH_TURNS_CHAMPION"))    return `The Vindication of ${shortName(w, who)} (${span})`;
+      if (has("FALLEN_NOBLE_RISES"))       return `The Return of ${shortName(w, who)} (${span})`;
+      if (has("LOST_CLASS_RESURFACES"))    return `The Reawakening of ${shortName(w, who)} (${span})`;
       if (has("HERO_RISEN"))    return `The Rise of ${shortName(w, who)} (${span})`;
       if (has("MADNESS_ONSET")) return `The Madness of ${shortName(w, who)} (${span})`;
       return `The Saga of ${shortName(w, who)} (${span})`;
