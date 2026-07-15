@@ -65,7 +65,7 @@ export function canonHash(w: World): string {
 export const GOLDEN: (SimConfig & { hash: string })[] = [
   { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "cf1168ff" },
   { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "9df0545e" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "b6f32cd8" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "05cdcc4b" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "cf2c7c49",
+    hash: "51f8d7f7",
   },
 ];
 

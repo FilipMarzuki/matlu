@@ -4,6 +4,7 @@
 // import. Add each new spec file below as it's authored.
 
 import { registerSpecs } from "../event-spec.js";
+import { CHURCH_SPECS } from "./church-events.js";
 import { CULTURE_SPECS } from "./culture-events.js";
 import { FACTION_SPECS } from "./faction-events.js";
 import { LOST_PEOPLES_SPECS } from "./lost-peoples-events.js";
@@ -14,6 +15,7 @@ import { REVOLT_SPECS } from "./revolt-events.js";
 import { SUCCESSION_LEGITIMACY_SPECS } from "./succession-legitimacy.js";
 import { URBAN_SPECS } from "./urban-events.js";
 
+registerSpecs(CHURCH_SPECS);
 registerSpecs(CULTURE_SPECS);
 registerSpecs(FACTION_SPECS);
 registerSpecs(LOST_PEOPLES_SPECS);
