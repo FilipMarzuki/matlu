@@ -165,8 +165,10 @@ function seatKingdom(w: World, charId: string | null): string | null {
   return null;
 }
 
-// Baseline drama by type before context adjustments.
-const BASE: Record<EventType, number> = {
+// Baseline drama by type before context adjustments. Partial because events
+// registered via the EventSpec catalog (event-spec.ts) get their base score
+// from the spec instead — they don't need a BASE entry here.
+const BASE: Partial<Record<EventType, number>> = {
   BIRTH: 1,
   DEATH: 2,
   MARRIAGE: 2,
@@ -288,7 +290,7 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
     // and optional scoreBoost via SPEC_REGISTRY. Hand-written events fall
     // through to the BASE table + switch below unchanged.
     const spec = SPEC_REGISTRY.get(ev.type);
-    let s = spec ? spec.base + (spec.scoreBoost?.(ev, w) ?? 0) : BASE[ev.type];
+    let s: number = spec ? spec.base + (spec.scoreBoost?.(ev, w) ?? 0) : (BASE[ev.type] ?? 0);
     const tags: string[] = [];
 
     switch (ev.type) {

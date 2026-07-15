@@ -475,7 +475,23 @@ export type EventType =
   | "DOOM_LAID"              // a wronged party's kin curses the wrongdoer
   | "DOOM_FULFILLED"         // the doom-cursed comes to a violent end
   | "LEGEND_INSCRIBED"       // a figure's deeds pass into cultural memory
-  | "LEGEND_INVOKED";        // a later character calls upon the legend's name
+  | "LEGEND_INVOKED"         // a later character calls upon the legend's name
+  // --- Culture-driven events (specs/culture-events.ts) ---
+  | "SLAVE_REVOLT"           // slavery culture + LOWBORN_RISE or high blight
+  | "CASTE_UPRISING"         // caste_rigid + long peace + high pop
+  | "MERITOCRATIC_REFORM"    // meritocracy establishes + REFORM follows
+  | "PRINTING_PRESS"         // literacy_valued + SCHOLAR_FLOURISH + year>100
+  | "TREATISE_PUBLISHED"     // literacy_valued + high-level scholar dies
+  | "CRUSADE_CALLED"         // zealous_faith + different-faith neighbour
+  | "HERESY_TRIAL"           // zealous_faith + contested against that trait
+  | "GUILD_CHARTERED"        // mercantile + MERCANTILE_ASCENDANT + wealth
+  | "MERCHANT_PRINCE_RISES"  // mercantile + level-12+ merchant character
+  | "CULTURE_SCHISM"         // CULTURAL_RIFT persists 30+ years
+  | "CULTURE_MERGED"         // sustained contact + trait overlap
+  | "SYNCRETIC_FAITH_BORN"   // two zealous_faith cultures merge
+  | "CASTE_FLUIDITY_LOST"    // high stratification for 20+ years
+  | "SLAVE_LIBERATION"       // slavery abandoned via CULTURAL_SHIFT
+  | "POLYMATH_EMERGES";      // meritocracy + literacy_valued + multi-skilled figure
 
 export interface WorldEvent {
   id: number;

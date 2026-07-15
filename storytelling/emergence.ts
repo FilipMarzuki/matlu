@@ -299,6 +299,12 @@ function checkPariahTurnsChampion(w: World): void {
     if (!c.lowborn) continue;
     if (c.level < 14) continue;
     if (c.grudges.length < 2) continue;
+    // Culture gate — slave/caste-rigid societies suppress pariah-champion
+    // arcs. The wronged lowborn there die anonymous, or become SLAVE_REVOLT
+    // sparks. This is the trait-consumer side of the culture layer.
+    if (cultureHasTrait(w, c, "slavery") || cultureHasTrait(w, c, "caste_rigid")) {
+      if (!w.rng.chance(0.2)) continue; // 80% suppression
+    }
     // Prob scales with grudge count and level.
     const p = Math.min(0.25, 0.04 + c.grudges.length * 0.03 + (c.level - 14) * 0.015);
     if (!w.rng.chance(p)) continue;
@@ -375,8 +381,11 @@ function checkArtRediscovered(w: World): void {
     if (candidates.length === 0) continue;
     candidates.sort((a, b) => b.level - a.level);
     const scholar = candidates[0];
-    const p = 0.02 + (scholar.level - 8) * 0.02;
-    if (!w.rng.chance(Math.min(0.25, p))) continue;
+    let p = 0.02 + (scholar.level - 8) * 0.02;
+    let cap = 0.25;
+    // literacy_valued cultures preserve and rediscover lost arts more readily.
+    if (cultureHasTrait(w, scholar, "literacy_valued")) { p *= 2; cap = 0.35; }
+    if (!w.rng.chance(Math.min(cap, p))) continue;
     // Restore the rite to the scholar's dynasty.
     const dyn = w.dynasty(scholar.dynastyId);
     if (!dyn) continue;
@@ -638,7 +647,10 @@ function checkTributeImposed(w: World, ctx: EmergenceContext): void {
       const vp = w.power(vHolder);
       if (mp < vp * 3) continue;
       if (ctx.activeTributes.has(`${masterProv.id}|${nProv.id}`)) continue;
-      if (!w.rng.chance(0.12)) continue;
+      // warrior_culture masters extract tribute more readily.
+      let prob = 0.12;
+      if (cultureHasTrait(w, holder, "warrior_culture")) prob = 0.2;
+      if (!w.rng.chance(prob)) continue;
       w.log("TRIBUTE_IMPOSED", {
         actorId: holder.id,
         targetId: vHolder.id,
@@ -876,6 +888,11 @@ function checkMercantileAscendant(w: World, ctx: EmergenceContext): void {
     const comp = ctx.composition.get(p.id)!;
     if (comp.merchants < 3) continue;
     if (comp.merchants < comp.martial * 3 && comp.martial > 0) continue;
+    // Culture gate: a slave-culture doesn't produce mercantile-ascendant
+    // provinces (the merchants are the property, not the power).
+    const title = [...w.titles.values()].find((t) => t.provinceId === p.id);
+    const holder = w.char(title?.holderId ?? null);
+    if (holder && cultureHasTrait(w, holder, "slavery")) continue;
     if (!w.rng.chance(0.3)) continue;
     w.log("MERCANTILE_ASCENDANT", {
       provinceId: p.id,

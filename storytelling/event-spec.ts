@@ -117,14 +117,18 @@ export function runSpecs(w: World): void {
 }
 
 // Walk THIS year's events; when a matching source event fires, prob-roll our
-// spec against it.
+// spec against it. IMPORTANT: skip the RNG call entirely when prob is 0 —
+// otherwise gate-and-return-0 patterns would still consume an RNG value and
+// break the hash of worlds that never have this spec's preconditions.
 function runOnEventSpec(w: World, spec: EventSpec): void {
   const trig = spec.onEvent!;
   for (let i = w.events.length - 1; i >= 0; i--) {
     const e = w.events[i];
     if (e.year !== w.year) break; // this-year events are at the tail
     if (e.type !== trig.source) continue;
-    if (!w.rng.chance(trig.prob(w, e))) continue;
+    const p = trig.prob(w, e);
+    if (p <= 0) continue;
+    if (!w.rng.chance(p)) continue;
     trig.fire(w, e);
   }
 }
@@ -146,7 +150,9 @@ function runAmbientSpec(w: World, spec: EventSpec, ctx: SpecContext): void {
     :                                "";
     if (amb.once && alreadyFired.has(key)) continue;
     if (!amb.gate(w, item)) continue;
-    if (!w.rng.chance(amb.prob(w, item))) continue;
+    const p = amb.prob(w, item);
+    if (p <= 0) continue; // same RNG-consumption guard as onEvent
+    if (!w.rng.chance(p)) continue;
     amb.fire(w, item);
     if (amb.once) alreadyFired.add(key);
     firedThisTick++;
