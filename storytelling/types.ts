@@ -563,7 +563,60 @@ export type EventType =
   | "LOST_PERSIAN_IMMORTALS" // elite guard — soldiers, loyalty above all
   | "LOST_CARTHAGINIAN_FLEET" // merchant fleet — coastal, mercantile, greedy
   | "LOST_NORMAN_KNIGHTS"    // feudal cavalry — knights, ambitious
-  | "LOST_HAN_EXPEDITION";   // classical Chinese — scholars + soldiers, literate
+  | "LOST_HAN_EXPEDITION"    // classical Chinese — scholars + soldiers, literate
+  // --- Succession legitimacy (specs/succession-legitimacy.ts) ---
+  | "BASTARD_ACKNOWLEDGED"   // ruler recognizes a natural child
+  | "BASTARD_LEGITIMIZED"    // formal legitimization (William the Conqueror pattern)
+  | "SECRET_HEIR_DISCOVERED" // a hidden royal child is revealed
+  | "PRETENDER_APPEARS"      // false claimant (Warbeck, false Dmitry)
+  | "PRETENDER_UNMASKED"     // and is exposed
+  | "CHILD_KING_CROWNED"     // succession with a minor holder
+  | "REGENCY_ESTABLISHED"    // regent takes power over a child king
+  | "REGENT_USURPS"          // regent seizes the crown outright
+  | "KING_INCAPACITATED"     // madness / illness / madness_onset on the throne
+  | "ABDICATION"             // ruler voluntarily steps down
+  | "FAVORITE_ASCENDS"       // court favorite becomes de facto power
+  | "COUP_D_ETAT"            // military coup (distinct from usurpation)
+  // --- Omens & celestial signs (specs/omens-events.ts) ---
+  | "SOLAR_ECLIPSE"          // rare, interpreted as omen
+  | "COMET_APPEARS"          // once-a-generation
+  | "AURORA_SIGHTED"         // northern lights in southern sky = portent
+  | "BLOOD_MOON"             // lunar eclipse, doom read into it
+  | "EARTHQUAKE_TREMORS"     // felt tremor without catastrophe damage
+  | "MONSTROUS_BIRTH"        // deformed calf/child, folk-omen
+  | "TWIN_STARS"             // supernova / paired bright stars
+  // --- Popular revolts (specs/revolt-events.ts) ---
+  | "PEASANT_REVOLT"         // agrarian uprising (Wat Tyler, Jacquerie)
+  | "URBAN_MOB_RIOT"         // city crowd, no clear leader
+  | "FOOD_RIOT"              // FAMINE + high pop, specifically about bread
+  | "MERCHANT_STRIKE"        // guild refuses to trade — economic pressure
+  | "TAX_COLLECTOR_LYNCHED"  // rural anger against extraction
+  // --- Papal schism / church politics (specs/church-events.ts) ---
+  | "ANTIPOPE_ELECTED"       // rival pope claimed (Great Western Schism)
+  | "PAPAL_SCHISM"           // formal split of the faith's leadership
+  | "COUNCIL_OF_BISHOPS"     // church council convened (Nicaea, Trent)
+  | "EXCOMMUNICATION_ISSUED" // formal expulsion from the faith
+  | "INTERDICT_LAID"         // a whole region cut off from sacraments
+  // --- Family betrayal (specs/betrayal-events.ts) ---
+  | "KINSLAYING_NOTORIOUS"   // MURDER within one dynasty becomes generational curse
+  | "FRATRICIDE_OPENS_WAR"   // brother kills brother, kingdom splits
+  | "OATH_OF_FEALTY_TAKEN"   // formal loyalty pledge
+  | "OATH_BROKEN_SACRED"     // sworn oath violated in aggravated way
+  | "HOSTAGE_KILLED_TERMS"   // hostage murdered against agreed terms
+  | "GUEST_RIGHT_BROKEN"     // sacred host-guest bond violated (Red Wedding)
+  | "MENTOR_BETRAYED"        // student turns on their master
+  // --- Individual crime & folk-legend (specs/crime-events.ts) ---
+  | "SERIAL_KILLER_STALKS"   // repeated MURDERs by one figure creates fear
+  | "HIGHWAY_ROBBER_LEGEND"  // Robin Hood analog — the outlaw becomes a name
+  | "PIRATE_BLACK_FLAG"      // named pirate captain, distinct from raids
+  | "MASS_JAILBREAK"         // dungeon breach in a wealthy province
+  | "CROWN_JEWELS_STOLEN"    // symbol-of-power theft
+  // --- Concubine & favorite politics (specs/court-events.ts) ---
+  | "CONCUBINE_FAVORED"      // ruler takes a low-born favorite
+  | "CONCUBINE_BEARS_HEIR"   // Ottoman/Ming pattern — dynastic implications
+  | "MISTRESS_INFLUENCES_CROWN" // de Pompadour analog — soft power
+  | "EUNUCH_MINISTER_ASCENDS" // gelded court official runs the palace
+  | "COURT_INTRIGUE_UNRAVELS";  // shadow-cabinet exposed
 
 export interface WorldEvent {
   id: number;
