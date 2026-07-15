@@ -56,7 +56,7 @@ const provinces: ProvinceSpec[] = [
   { id: "i4", name: "Thornwood", terrain: "forest", fertility: 0.65, coastal: false, river: false, neighbors: ["i0", "i1", "i2", "p4"], population: 420, mana: 0.45 },
   // Saltmere — the ocean coast (west).
   { id: "p0", name: "Saltmere", terrain: "coast", fertility: 0.6, coastal: true, river: true, neighbors: ["p1", "i2"], population: 500, mana: 0.3 },
-  { id: "p1", name: "Gullhaven", terrain: "coast", fertility: 0.55, coastal: true, river: false, neighbors: ["p0", "i2"], population: 400, mana: 0.3 },
+  { id: "p1", name: "Gullhaven", terrain: "coast", fertility: 0.55, coastal: true, river: false, neighbors: ["p0", "i2"], population: 400, mana: 0.3, zoneFlags: ["port"] },
   // The Ironspine — the mountain wall (north).
   { id: "p4", name: "Ironspine", terrain: "mountain", fertility: 0.35, coastal: false, river: false, neighbors: ["p5", "i4"], population: 130, mana: 0.8 },
   { id: "p5", name: "Highpass", terrain: "mountain", fertility: 0.3, coastal: false, river: false, neighbors: ["p4", "p6"], population: 90, mana: 0.75 },
@@ -122,7 +122,21 @@ const races: RaceSpec[] = [
   { id: "human", name: "Human", affinities: { orc: -20 } },
   { id: "orc", name: "Orc", affinities: { human: -20 } },
   // Dwarfs: suspicious of humans, genuinely hostile to orcs who raid the mountain passes.
-  { id: "dwarf", name: "Dwarf", affinities: { human: -15, orc: -40 } },
+  // Biology: 280-year lifespan, low fertility (0.35), sun-adverse (0.4), high mana
+  // affinity (0.7), plague-resistant (0.5), lithivore (mineral diet), mountain-born.
+  {
+    id: "dwarf", name: "Dwarf",
+    affinities: { human: -15, orc: -40 },
+    biology: {
+      lifespan: 280,
+      sunTolerance: 0.4,
+      manaAffinity: 0.7,
+      fertilityRate: 0.35,
+      plagueResistance: 0.5,
+      dietType: "lithivore",
+      preferredTerrain: ["mountain", "hills"],
+    },
+  },
 ];
 
 const faiths: FaithSpec[] = [
@@ -143,6 +157,7 @@ const cultures: CultureSpec[] = [
     law: "primogeniture",
     driveBias: D(0.6, 0.45, 0.6, 0.45, 0.5, 0.35), // ambitious, feuding courtiers
     biasSeed: { confirmation: 0.35, wishful: 0.25, sunk_cost: 0.3 },
+    startingTraits: ["warrior_culture"],
     namesMale: ["Aeryn", "Caelum", "Doriel", "Elwin", "Faelan", "Ilric", "Kaevo", "Maren", "Orin", "Taviel"],
     namesFemale: ["Aeliss", "Bryn", "Cirel", "Elowen", "Faye", "Lira", "Maeve", "Nira", "Selune", "Wyn"],
     surnames: ["Fairwind", "Greenbourne", "Ashvale", "Meadowlight", "Riverwynd"],
@@ -153,6 +168,7 @@ const cultures: CultureSpec[] = [
     law: "primogeniture",
     driveBias: D(0.55, 0.5, 0.45, 0.4, 0.5, 0.4),
     biasSeed: { mercantile: 0.4, loss_aversion: 0.35 },
+    startingTraits: ["mercantile", "literacy_valued"],
     namesMale: ["Aldous", "Halden", "Bram", "Corwin", "Sten", "Erik", "Rurik", "Osric", "Leif", "Torgan"],
     namesFemale: ["Astrid", "Mira", "Sela", "Inga", "Freya", "Edda", "Ylva", "Runa", "Solveig", "Signy"],
     surnames: ["Harlow", "Tidewell", "Gullhaven", "Saltmere"],
@@ -163,6 +179,7 @@ const cultures: CultureSpec[] = [
     law: "gavelkind",
     driveBias: D(0.5, 0.5, 0.55, 0.4, 0.5, 0.2), // hardy, fearless
     biasSeed: { honor_bound: 0.5, fatalist: 0.4 },
+    startingTraits: ["warrior_culture", "meritocracy"],
     namesMale: ["Bardin", "Dorin", "Grimm", "Torvald", "Durn", "Brok", "Onar", "Vidar", "Hral", "Konr"],
     namesFemale: ["Torva", "Hilda", "Kaila", "Brenna", "Gudrun", "Signe", "Vela", "Ada", "Sunniva", "Ragna"],
     surnames: ["Grimmr", "Stoneholt", "Ironvein"],
@@ -173,6 +190,7 @@ const cultures: CultureSpec[] = [
     law: "elective",
     driveBias: D(0.85, 0.7, 0.75, 0.12, 0.55, 0.15), // hungry raiders
     biasSeed: { honor_bound: 0.45, conqueror_confident: 0.25, loss_aversion: 0.3 },
+    startingTraits: ["warrior_culture", "slavery"],
     namesMale: ["Temur", "Ghazan", "Yusuf", "Kadir", "Tariq", "Bahadur", "Orhan", "Kaan", "Altan", "Berke"],
     namesFemale: ["Sabah", "Aisha", "Leyla", "Nur", "Roxana", "Yildiz", "Zara", "Gul", "Aynur", "Perizad"],
     surnames: ["Qarash", "Bloodmoon", "Windrider"],
@@ -183,6 +201,7 @@ const cultures: CultureSpec[] = [
     law: "elective",
     driveBias: D(0.85, 0.8, 0.85, 0.05, 0.5, 0.1), // fiercest of the Horde
     biasSeed: { honor_bound: 0.65, confirmation: 0.4 },
+    startingTraits: ["warrior_culture", "caste_rigid"],
     namesMale: ["Uzruk", "Gruul", "Gharruk", "Morg", "Drak", "Thok", "Grash", "Bolg", "Ozruk", "Karg"],
     namesFemale: ["Ushka", "Grima", "Draka", "Morga", "Thrag", "Ruka", "Grisha", "Nazka", "Ulga", "Braga"],
     surnames: ["Gorthak", "Skullsplit", "Ironfang"],
@@ -193,6 +212,7 @@ const cultures: CultureSpec[] = [
     law: "primogeniture",
     driveBias: D(0.45, 0.5, 0.3, 0.72, 0.5, 0.42), // pious, settled, soft
     biasSeed: { providential: 0.5, doctrinal: 0.35 },
+    startingTraits: ["zealous_faith", "caste_rigid"],
     namesMale: ["Khosru", "Bahram", "Farid", "Darius", "Kaveh", "Rostam", "Cyrus", "Jamshid", "Sohrab", "Kian"],
     namesFemale: ["Roshanak", "Yasmin", "Anahita", "Parisa", "Shirin", "Nastaran", "Soraya", "Farah", "Laleh", "Golnar"],
     surnames: ["Darzan", "Zafrani", "Khoreshi"],
@@ -203,6 +223,7 @@ const cultures: CultureSpec[] = [
     law: "seniority",
     driveBias: D(0.5, 0.4, 0.62, 0.68, 0.45, 0.5), // insular, vengeful, superstitious
     biasSeed: { grief_locked: 0.35, betrayal_scarred: 0.3, sunk_cost: 0.35 },
+    startingTraits: ["zealous_faith"],
     namesMale: ["Doran", "Vorm", "Grell", "Mosk", "Eril", "Thane", "Bosk", "Fenn", "Ordo", "Sabb"],
     namesFemale: ["Vessa", "Nessa", "Ligeia", "Sable", "Ondine", "Bryony", "Hazel", "Iria", "Wren", "Maura"],
     surnames: ["Sythe", "Blackfen", "Marshlight"],
@@ -215,6 +236,7 @@ const cultures: CultureSpec[] = [
     // breed) and near-zero fear (they do not flinch from the dark).
     driveBias: D(0.5, 0.8, 0.85, 0.6, 0.3, 0.15),
     biasSeed: { sunk_cost: 0.6, loss_aversion: 0.65, honor_bound: 0.55, betrayal_scarred: 0.4 },
+    startingTraits: ["caste_rigid", "meritocracy"],
     namesMale: ["Durm", "Karag", "Balin", "Thorgrim", "Brynn", "Ord", "Durak", "Gimrel", "Stondar", "Vark"],
     namesFemale: ["Hilda", "Brunhilde", "Kara", "Dura", "Mira", "Gorma", "Velda", "Udra", "Brynna", "Astara"],
     surnames: ["Deepvault", "Ironmantle", "Stoneheart", "Oreborn"],

@@ -51,6 +51,7 @@ const WITHERING: CatastropheTemplate = {
         const p = w.province(item.provinceId);
         if (!p) return;
         p.blightLevel = Math.min(1, p.blightLevel + 0.3);
+        p.corruptionType = "necrotic";
         const loss = Math.round(p.population * 0.15);
         p.population = Math.max(50, p.population - loss);
         w.log("BLIGHT_SPREADS", {
@@ -152,6 +153,7 @@ const PORTAL_CATASTROPHE: CatastropheTemplate = {
         if (!p.zoneFlags.includes("dead_zone")) p.zoneFlags.push("dead_zone");
         if (!p.zoneFlags.includes("undead_heavy")) p.zoneFlags.push("undead_heavy");
         p.blightLevel = 1;
+        p.corruptionType = "necrotic";
         p.manaDensity = Math.min(1, p.manaDensity + 0.4);
         // Kill every living character still in this province — no one survives.
         for (const c of w.living()) {
@@ -211,6 +213,7 @@ const MANA_RUPTURE: CatastropheTemplate = {
         const loss = Math.round(p.population * 0.55);
         p.population = Math.max(50, p.population - loss);
         if (!p.zoneFlags.includes("mana_corrupted")) p.zoneFlags.push("mana_corrupted");
+        p.corruptionType = "void";
         p.manaDensity = Math.min(1, p.manaDensity + 0.3);
         const namedDead = killResidentsByChance(w, p.id, "mana_rupture", 0.45);
         w.log("MANA_RUPTURE", {
@@ -224,11 +227,12 @@ const MANA_RUPTURE: CatastropheTemplate = {
       fire: (w, item) => {
         const p = w.province(item.provinceId);
         if (!p) return;
-        // Corruption bleeds into every neighbour.
+        // Corruption bleeds into every neighbour, inheriting the source type.
         for (const nId of p.neighbors) {
           const n = w.province(nId);
           if (!n) continue;
           n.blightLevel = Math.min(1, n.blightLevel + 0.15);
+          n.corruptionType = n.corruptionType ?? p.corruptionType ?? "void";
           n.manaDensity = Math.min(1, n.manaDensity + 0.1);
           const nLoss = Math.round(n.population * 0.08);
           n.population = Math.max(50, n.population - nLoss);
@@ -291,6 +295,7 @@ const DELVED_TOO_DEEP: CatastropheTemplate = {
         if (!p.zoneFlags.includes("dead_zone")) p.zoneFlags.push("dead_zone");
         if (!p.zoneFlags.includes("undead_heavy")) p.zoneFlags.push("undead_heavy");
         p.blightLevel = 1;
+        p.corruptionType = "necrotic";
         p.manaDensity = Math.min(1, p.manaDensity + 0.3);
         for (const c of w.living()) {
           if (c.provinceId === p.id) markDead(w, c, "delved_too_deep");
@@ -305,7 +310,270 @@ const DELVED_TOO_DEEP: CatastropheTemplate = {
   ],
 };
 
-const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE, DELVED_TOO_DEEP];
+// --- 5. Feral Surge — the mire awakens, wild corruption spreads from jungle/swamp --
+// The living corruption of deep jungle or ancient swamp stirs and overflows into the
+// world. Unlike necrotic dead zones, feral provinces remain alive but twisted —
+// beasts run mad, plants strangle paths, and the people turn to warrior-zeal.
+const FERAL_SURGE: CatastropheTemplate = {
+  id: "feral_surge",
+  drawProb: 0.005,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      (p.terrain === "jungle" || p.terrain === "swamp") &&
+      p.blightLevel < 0.2 &&
+      !p.zoneFlags.includes("blighted") &&
+      !p.zoneFlags.includes("dead_zone") &&
+      w.year > 15
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        p.blightLevel = Math.min(1, p.blightLevel + 0.25);
+        p.corruptionType = "feral";
+        const loss = Math.round(p.population * 0.1);
+        p.population = Math.max(50, p.population - loss);
+        w.log("BLIGHT_SPREADS", {
+          provinceId: p.id,
+          data: { deaths: loss, blightLevel: p.blightLevel, source: "feral_surge" },
+        });
+      },
+    },
+    {
+      delay: 10,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        p.blightLevel = Math.min(1, p.blightLevel + 0.35);
+        const loss = Math.round(p.population * 0.2);
+        p.population = Math.max(50, p.population - loss);
+        // Feral energy bleeds into neighbours — wildlife and plants run wild.
+        for (const nId of p.neighbors) {
+          const n = w.province(nId);
+          if (!n || n.zoneFlags.includes("dead_zone")) continue;
+          n.blightLevel = Math.min(1, n.blightLevel + 0.06);
+          n.corruptionType = n.corruptionType ?? "feral";
+          const nLoss = Math.round(n.population * 0.04);
+          n.population = Math.max(50, n.population - nLoss);
+          w.log("CORRUPTION_SPREADS", {
+            provinceId: n.id,
+            data: { sourceProvinceId: p.id, deaths: nLoss },
+          });
+        }
+        w.log("BLIGHT_DEEPENS", {
+          provinceId: p.id,
+          data: { deaths: loss, blightLevel: p.blightLevel, source: "feral_surge" },
+        });
+      },
+    },
+    {
+      delay: 20,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        p.blightLevel = Math.min(1, p.blightLevel + 0.15);
+        if (!p.zoneFlags.includes("blighted")) p.zoneFlags.push("blighted");
+        p.manaDensity = Math.min(1, p.manaDensity + 0.2);
+        const dead = killResidentsByChance(w, p.id, "feral_surge", 0.2);
+        w.log("BLIGHT_LOCKED", {
+          provinceId: p.id,
+          data: { named_dead: dead, blightLevel: p.blightLevel, source: "feral_surge" },
+        });
+      },
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Helper: ash sweep — all surface provinces take population loss
+// ---------------------------------------------------------------------------
+
+function ashSweep(w: World, originId: string, wave: number, loss: number): void {
+  for (const p of w.provinces.values()) {
+    if (p.subsurface || p.zoneFlags.includes("dead_zone")) continue;
+    const deaths = Math.round(p.population * loss);
+    p.population = Math.max(50, p.population - deaths);
+    w.log("ASH_SUMMER", { provinceId: p.id, data: { deaths, wave, sourceProvinceId: originId } });
+  }
+}
+
+// Helper: drought BFS — flood-fill through dry terrain provinces
+function droughtBFS(w: World, originId: string): string[] {
+  const DRY = new Set(["steppe", "plains", "desert", "hills"]);
+  const out: string[] = [];
+  const queue = [originId];
+  const seen = new Set([originId]);
+  while (queue.length) {
+    const pid = queue.shift()!;
+    out.push(pid);
+    const p = w.province(pid)!;
+    for (const nId of p.neighbors) {
+      if (seen.has(nId)) continue;
+      seen.add(nId);
+      const n = w.province(nId);
+      if (!n || n.subsurface || n.zoneFlags.includes("dead_zone")) continue;
+      if (DRY.has(n.terrain) && w.rng.next() < 0.65) queue.push(nId);
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// VOLCANIC_ERUPTION — global reach (3-wave ash summer)
+// ---------------------------------------------------------------------------
+
+const VOLCANIC_ERUPTION: CatastropheTemplate = {
+  id: "volcanic_eruption",
+  drawProb: 0.002,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      p.terrain === "mountain" &&
+      !p.zoneFlags.includes("dead_zone") &&
+      w.year > 30 &&
+      !w.events.some((e) => e.type === "ERUPTION")
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        const p = w.province(item.provinceId);
+        if (!p) return;
+        const loss = Math.round(p.population * 0.3);
+        p.population = Math.max(50, p.population - loss);
+        if (!p.zoneFlags.includes("ash_shrouded")) p.zoneFlags.push("ash_shrouded");
+        const dead = killResidentsByChance(w, p.id, "eruption", 0.35);
+        w.log("ERUPTION", { provinceId: p.id, data: { deaths: loss, named_dead: dead } });
+      },
+    },
+    { delay: 4,  fire: (w, item) => ashSweep(w, item.provinceId, 1, 0.08) },
+    { delay: 9,  fire: (w, item) => ashSweep(w, item.provinceId, 2, 0.06) },
+    { delay: 15, fire: (w, item) => ashSweep(w, item.provinceId, 3, 0.04) },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// DROUGHT_CYCLE — regional (dry terrain BFS, 3-year chain)
+// ---------------------------------------------------------------------------
+
+const DROUGHT_CYCLE: CatastropheTemplate = {
+  id: "drought_cycle",
+  drawProb: 0.010,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      (p.terrain === "steppe" || p.terrain === "plains" || p.terrain === "desert" || p.terrain === "hills") &&
+      p.population > 80 &&
+      w.year > 5
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        for (const pid of droughtBFS(w, item.provinceId)) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.12);
+          p.population = Math.max(50, p.population - loss);
+          const dead = killResidentsByChance(w, pid, "drought", 0.04);
+          w.log("DROUGHT", { provinceId: pid, data: { deaths: loss, named_dead: dead, wave: 1, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+    {
+      delay: 1,
+      fire: (w, item) => {
+        for (const pid of droughtBFS(w, item.provinceId)) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.09);
+          p.population = Math.max(50, p.population - loss);
+          const dead = killResidentsByChance(w, pid, "drought", 0.03);
+          w.log("DROUGHT", { provinceId: pid, data: { deaths: loss, named_dead: dead, wave: 2, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+    {
+      delay: 2,
+      fire: (w, item) => {
+        for (const pid of droughtBFS(w, item.provinceId)) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.06);
+          p.population = Math.max(50, p.population - loss);
+          const dead = killResidentsByChance(w, pid, "drought", 0.02);
+          w.log("DROUGHT", { provinceId: pid, data: { deaths: loss, named_dead: dead, wave: 3, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// LOCUST_SWARM — regional (fertile terrain BFS, single wave)
+// ---------------------------------------------------------------------------
+
+const LOCUST_SWARM_TEMPLATE: CatastropheTemplate = {
+  id: "locust_swarm",
+  drawProb: 0.008,
+  eligible: (w, pid) => {
+    const p = w.province(pid);
+    if (!p) return false;
+    return (
+      !p.subsurface &&
+      (p.terrain === "meadow" || p.terrain === "plains" || p.terrain === "forest" || p.terrain === "jungle") &&
+      p.fertility > 0.4 &&
+      w.year > 5
+    );
+  },
+  steps: [
+    {
+      delay: 0,
+      fire: (w, item) => {
+        const FERTILE = new Set(["meadow", "plains", "forest", "jungle", "swamp"]);
+        const BLOCK   = new Set(["desert", "mountain", "steppe"]);
+        const affected: string[] = [];
+        const queue = [item.provinceId];
+        const seen  = new Set([item.provinceId]);
+        while (queue.length) {
+          const pid = queue.shift()!;
+          affected.push(pid);
+          const p = w.province(pid)!;
+          for (const nId of p.neighbors) {
+            if (seen.has(nId)) continue;
+            seen.add(nId);
+            const n = w.province(nId);
+            if (!n || n.subsurface || n.zoneFlags.includes("dead_zone")) continue;
+            if (BLOCK.has(n.terrain)) continue;
+            if (FERTILE.has(n.terrain) && w.rng.next() < 0.60) queue.push(nId);
+          }
+        }
+        for (const pid of affected) {
+          const p = w.province(pid);
+          if (!p) continue;
+          const loss = Math.round(p.population * 0.08);
+          p.population = Math.max(50, p.population - loss);
+          p.fertility = Math.max(0.1, p.fertility - 0.06);
+          w.log("LOCUST_SWARM", { provinceId: pid, data: { deaths: loss, sourceProvinceId: item.provinceId } });
+        }
+      },
+    },
+  ],
+};
+
+const TEMPLATES: CatastropheTemplate[] = [WITHERING, PORTAL_CATASTROPHE, MANA_RUPTURE, DELVED_TOO_DEEP, FERAL_SURGE, VOLCANIC_ERUPTION, DROUGHT_CYCLE, LOCUST_SWARM_TEMPLATE];
 
 // ---------------------------------------------------------------------------
 // Chain engine
@@ -389,5 +657,13 @@ export function runCatastrophes(w: World): void {
       provinceId: target.id,
       data: { sourceProvinceId: p.id, deaths: raidLoss, named_dead: namedDead },
     });
+  }
+
+  // 4. Natural blight decay — slow passive cleansing (~0.5%/yr).
+  // Dead zones are permanent and do not decay; everything else gradually heals.
+  for (const p of provinces) {
+    if (p.blightLevel <= 0 || p.zoneFlags.includes("dead_zone")) continue;
+    p.blightLevel = Math.max(0, p.blightLevel - 0.005);
+    if (p.blightLevel <= 0) p.corruptionType = undefined;
   }
 }

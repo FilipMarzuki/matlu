@@ -67,6 +67,12 @@ export function maybeOnsetMadness(w: World): void {
     if (age > 45) chance += 0.002;
     if (age > 70) chance += 0.004;
 
+    // Corruption in the home province amplifies distortion onset.
+    const homeProv = w.province(c.provinceId);
+    if (homeProv && homeProv.blightLevel > 0) {
+      chance += homeProv.blightLevel * 0.015;
+    }
+
     if (!w.rng.chance(chance)) continue;
 
     const type = pickDistortionType(w, c);
@@ -102,6 +108,15 @@ function pickDistortionType(
       c.drives.piety * 0.75 +
       c.psyche.biases.doctrinal * 0.3 +
       c.psyche.inbreedingCoeff * 0.15;
+  }
+  // Corruption type biases toward a matching distortion.
+  const prov = w.province(c.provinceId);
+  const bl = prov?.blightLevel ?? 0;
+  const ct = prov?.corruptionType;
+  if (bl > 0) {
+    if (ct === "necrotic") scores.paranoid += bl * 0.3;
+    if (ct === "void")     scores.megalomaniac += bl * 0.3;
+    if (ct === "feral")    scores.zealot = (scores.zealot ?? 0) + bl * 0.3;
   }
   const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
   return best as "paranoid" | "megalomaniac" | "zealot";

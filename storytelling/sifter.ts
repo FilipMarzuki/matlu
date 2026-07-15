@@ -8,6 +8,7 @@
 // This is where "which of the thousand things that happened are worth telling"
 // lives — deliberately separate from rendering, so judgment and prose decouple.
 
+import { SPEC_REGISTRY } from "./event-spec.js";
 import type { CharId, EventType, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
@@ -164,8 +165,10 @@ function seatKingdom(w: World, charId: string | null): string | null {
   return null;
 }
 
-// Baseline drama by type before context adjustments.
-const BASE: Record<EventType, number> = {
+// Baseline drama by type before context adjustments. Partial because events
+// registered via the EventSpec catalog (event-spec.ts) get their base score
+// from the spec instead — they don't need a BASE entry here.
+const BASE: Partial<Record<EventType, number>> = {
   BIRTH: 1,
   DEATH: 2,
   MARRIAGE: 2,
@@ -214,6 +217,54 @@ const BASE: Record<EventType, number> = {
   CULTURAL_CONTESTED: 3, // a trait crossed the pressure threshold — contest begins
   CULTURAL_RIFT: 8,      // elite and folk hold opposed traits — fracture visible
   CULTURAL_SHIFT: 6,     // a trait established/abandoned in a tier, or aesthetic drift
+  // Natural disaster layer.
+  ERUPTION:     10,
+  ASH_SUMMER:    4,  // fires globally (many events); low per-event, high in aggregate
+  DROUGHT:       6,
+  LOCUST_SWARM:  5,
+  // Emergent hero / faction layer.
+  ARCHMAGE_EMERGES:       9,
+  DARK_PROPHET_RISES:     8,
+  WARLORD_ASCENDANT:      7,
+  LONE_GENIUS_EMERGES:    7,
+  PARIAH_TURNS_CHAMPION:  8,
+  FALLEN_NOBLE_RISES:     7,
+  // Class / art layer.
+  ART_REDISCOVERED:        9,
+  LOST_CLASS_RESURFACES:   8,
+  FORBIDDEN_ART_PRACTICED: 8,
+  LEGENDARY_SKILL_MANIFESTS: 10,
+  CLASS_LINEAGE_BROKEN:    7,
+  RITE_STOLEN:             9,
+  // Trade & asymmetric relations layer.
+  TRADE_ROUTE_ESTABLISHED: 3, // background — becomes interesting in aggregate
+  TRADE_ROUTE_DISRUPTED:   5,
+  TRIBUTE_IMPOSED:         6,
+  TRIBUTE_REVOKED:         6,
+  VASSAL_REBELS:           8,
+  MARKET_MONOPOLY:         7,
+  // Class-composition driven layer.
+  SCHOLAR_FLOURISH:        5,
+  LIBRARY_FOUNDED:         7,
+  LIBRARY_BURNED:          9,
+  MARTIAL_DECADENCE:       6,
+  MERCANTILE_ASCENDANT:    6,
+  KNOWLEDGE_LOST:          7,
+  // Challenges layer — trial-driven growth.
+  CHALLENGE_SPAWNED:            5,  // background — worth telling once, not narrated forever
+  CHALLENGE_ATTEMPTED:          4,
+  CHALLENGE_VANQUISHED:         9,  // hero moment
+  CHALLENGE_SLAYS_CHALLENGER:   7,  // the challenge stands, and someone brave is dead
+  SKILL_LEARNED_FROM_TRIAL:     8,
+  CLASS_UNLOCKED_BY_TRIAL:      8,
+  // Fate / doom / legend layer — the events that make a chronicle epic.
+  PROPHECY_UTTERED:             7,  // a prophet speaks: a hinge for the reader
+  PROPHECY_FULFILLED:           10, // dramatic irony: the darkest peak
+  PROPHECY_DEFIED:              8,  // subverting the prophet is also great story
+  DOOM_LAID:                    7,
+  DOOM_FULFILLED:               10,
+  LEGEND_INSCRIBED:             9,  // a figure passes into cultural memory
+  LEGEND_INVOKED:               6,  // a later character calls the old name
 };
 
 export interface SiftResult {
@@ -235,7 +286,11 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
   }
 
   for (const ev of w.events) {
-    let s = BASE[ev.type];
+    // EventSpec catalog takes precedence — new events register a base score
+    // and optional scoreBoost via SPEC_REGISTRY. Hand-written events fall
+    // through to the BASE table + switch below unchanged.
+    const spec = SPEC_REGISTRY.get(ev.type);
+    let s: number = spec ? spec.base + (spec.scoreBoost?.(ev, w) ?? 0) : (BASE[ev.type] ?? 0);
     const tags: string[] = [];
 
     switch (ev.type) {
@@ -367,6 +422,16 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
         if (ev.data["trait"] === "slavery") s += 2;
         if (ev.data["adopted"] === false) s += 1; // abandonment is harder to tell
         if (ev.data["tier"] === "both") s += 1;   // cross-tier establishment
+        break;
+      }
+      case "ASH_SUMMER": {
+        // Wave 1 is the most dramatic — the skies darken for the first time.
+        if (Number(ev.data["wave"] ?? 1) === 1) s += 2;
+        break;
+      }
+      case "DROUGHT": {
+        // First year of drought is the revelation; later years are grinding repetition.
+        if (Number(ev.data["wave"] ?? 1) === 1) s += 2;
         break;
       }
       default:

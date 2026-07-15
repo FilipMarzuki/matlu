@@ -7,6 +7,7 @@
 import { RNG } from "./rng.js";
 import type {
   CatastropheQueueItem,
+  Challenge,
   Character,
   CharId,
   CultureState,
@@ -40,6 +41,11 @@ export class World {
 
   // Pending chain steps from in-progress catastrophe events.
   catastropheQueue: CatastropheQueueItem[] = [];
+
+  // Discrete challenges (dragons, wraith hosts, abyssal gates) that named
+  // characters can attempt for XP + class/skill unlocks. Only populated when
+  // magicEnabled (challenges.ts is a no-op otherwise).
+  challenges = new Map<string, Challenge>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -264,8 +270,28 @@ const MARTIAL: Record<string, number> = {
   merchant: 0.1,
 };
 
+// Named skills earned by challenge trials add a flat combat bonus in the same
+// units personalCombat produces. A skill is a small army in the hands of a
+// hero — the tenth dragon-slayer isn't as fearsome as the first, but they
+// still tilt a war. Amounts scale with the challenge tier that granted them
+// (see challenges.ts KINDS table): void_walker (tier 5) > dragon_slayer /
+// wyrm_slayer (tier 4-5) > corruption_purger (tier 4) > grove_cleanser /
+// beast_master (tier 2).
+const SKILL_COMBAT: Record<string, number> = {
+  void_walker:       100,
+  dragon_slayer:      80,
+  wyrm_slayer:        60,
+  corruption_purger:  60,
+  grove_cleanser:     25,
+  beast_master:       20,
+};
+
 export function personalCombat(c: Character): number {
   if (!c.alive || c.level <= 1) return 0;
   const martial = MARTIAL[c.charClass] ?? 0.3;
-  return Math.round(Math.pow(c.level, 1.4) * martial * 6);
+  let p = Math.round(Math.pow(c.level, 1.4) * martial * 6);
+  if (c.skills) {
+    for (const s of c.skills) p += SKILL_COMBAT[s] ?? 0;
+  }
+  return p;
 }

@@ -10,6 +10,7 @@ import { givenName } from "./names.js";
 import type { Character, Drives, Dynasty, PerceptualBias, ProvinceId, Psyche, Sex } from "./types.js";
 import type { World } from "./world.js";
 import type { CultureSpec } from "./world-spec.js";
+import { getBiology } from "./biology.js";
 
 // A zeroed Psyche — all biases at 0, no distortion. Used as the default for
 // new characters before cultural/faith/experience biases are applied.
@@ -99,6 +100,27 @@ function blendToCulture(d: Drives, target: number[]): Drives {
     lust: mix(d.lust, target[4]),
     fear: mix(d.fear, target[5]),
   };
+}
+
+// Cache the natural death age for each character once, drawn from
+// Normal(lifespan, 15). The WeakMap key is the World instance so caches are
+// GC'd with the world; the inner Map is keyed by character id. Only populated
+// for races with a biology block — all others use the piecewise hazard curve.
+const _deathAgeCache = new WeakMap<object, Map<string, number>>();
+
+export function naturalDeathAge(w: World, c: Character): number | null {
+  const raceId = w.raceIdOf(c);
+  if (!raceId) return null;
+  const race = w.races.get(raceId);
+  if (!race?.biology) return null;
+  let m = _deathAgeCache.get(w);
+  if (!m) { m = new Map(); _deathAgeCache.set(w, m); }
+  let age = m.get(c.id);
+  if (age === undefined) {
+    age = Math.max(1, Math.round(w.rng.gaussian(getBiology(race).lifespan, 15)));
+    m.set(c.id, age);
+  }
+  return age;
 }
 
 export function createCharacter(w: World, opts: NewCharacterOpts): Character {

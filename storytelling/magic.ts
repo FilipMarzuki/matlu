@@ -18,6 +18,7 @@
 // The net effect we're hunting for in the chronicle: third-generation decline,
 // frontier houses eclipsing the soft core, and the rare low-born breakout.
 
+import { getBiology } from "./biology.js";
 import { scarcity } from "./geography.js";
 import { markDead } from "./phenomena.js";
 import type { CharClass, Character, Dynasty, Province, RareClass, WorldEvent } from "./types.js";
@@ -186,6 +187,11 @@ function levelCost(level: number): number {
 
 function addXp(w: World, c: Character, gain: number): void {
   if (gain <= 0 || c.level >= LEVEL_CAP) return;
+  // Biology: mana-attuned races gain XP faster; manaAffinity=0.5 is neutral
+  // (human baseline). Scale by affinity/0.5 so 0.5→1×, 0.7→1.4×, 0.25→0.5×.
+  const raceId = w.raceIdOf(c);
+  const race = raceId ? w.races.get(raceId) : undefined;
+  if (race?.biology) gain = gain * (getBiology(race).manaAffinity / 0.5);
   c.lifeXp += gain;
   while (c.lifeXp >= levelCost(c.level) && c.level < LEVEL_CAP) {
     c.lifeXp -= levelCost(c.level);
@@ -392,10 +398,35 @@ function accrueWealth(w: World): void {
       const prov = w.province(t.provinceId);
       if (prov) income += prov.population / 100;
       income += t.tier === "kingdom" ? 10 : t.tier === "duchy" ? 5 : 3;
+      // Class-holder productivity multiplier — a [Master Trader] holding a
+      // seat brings dramatically more silver into the treasury than a
+      // battle-hardened knight; a necromancer holding a seat pushes tax-
+      // payers to flee. Level tacks on a further scholar/administrator
+      // bonus above the "just competent" threshold.
+      const classMult = WEALTH_CLASS_MULT[holder.charClass] ?? 1.0;
+      const levelMult = holder.level >= 15
+        ? 1 + Math.min(0.5, (holder.level - 14) * 0.03)  // +3% per level past 15, cap +50%
+        : 1;
+      income *= classMult * levelMult;
     }
     dyn.wealth = Math.min(5000, dyn.wealth + income);
   }
 }
+
+// Class → wealth-accrual multiplier for a title-holder. Merchants and
+// scholars grow the treasury; martial classes hold the line; necromancers
+// actively cost the ledger (people flee their lands).
+const WEALTH_CLASS_MULT: Record<string, number> = {
+  merchant:    1.5,
+  scholar:     1.25,
+  hunter:      1.1,
+  knight:      1.0,
+  soldier:     0.95,
+  warden:      0.95,
+  stormcaller: 1.0,
+  necromancer: 0.75,
+  commoner:    1.0,
+};
 
 // ───────────────────────────────────────────────────────────────────────────
 // Rites — a house's rare class-rite is its most precious capital. It survives

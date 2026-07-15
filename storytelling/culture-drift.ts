@@ -133,6 +133,9 @@ export function advanceCultureDrift(w: World): void {
     // 2. Event-based pressure — routed to elite or folk by event type.
     applyEventPressure(state, thisYearEvents, allMembers);
 
+    // 2b. Blight pressure — corruption in inhabited provinces warps culture over time.
+    applyBlightPressure(w, state, allMembers);
+
     // 3. Reactive hardening — military defeats spike existing folk traits.
     applyReactiveHardening(state, thisYearEvents, allMembers);
 
@@ -580,6 +583,54 @@ function advanceDominantFigure(
         aesthetic_value: quirk,
       },
     });
+  }
+}
+
+// --------------------------------------------------------------------------
+// Blight pressure: corruption in provinces where culture members live slowly
+// warps traits. Each corruption type amplifies different trait clusters:
+//   necrotic — fear/isolation → caste_rigid, cruelty → slavery
+//   void     — ambition/power → warrior_culture, anti-knowledge
+//   feral    — tribalism/violence → warrior_culture + zealous_faith
+// Effect is slow (0.02–0.04/yr per blight point) — takes decades to shift traits.
+// --------------------------------------------------------------------------
+function applyBlightPressure(
+  w: World,
+  state: ReturnType<World["cultureState"]>,
+  members: Character[],
+): void {
+  const seen = new Set<string>();
+  let necrotic = 0, void_ = 0, feral = 0;
+  for (const c of members) {
+    if (seen.has(c.provinceId)) continue;
+    seen.add(c.provinceId);
+    const prov = w.province(c.provinceId);
+    if (!prov || prov.blightLevel <= 0) continue;
+    const bl = prov.blightLevel;
+    const ct = prov.corruptionType ?? "necrotic";
+    if (ct === "necrotic") necrotic += bl;
+    else if (ct === "void") void_ += bl;
+    else feral += bl;
+  }
+
+  if (necrotic > 0) {
+    const s = Math.min(0.3, necrotic * 0.03);
+    addPressure(state.folkPressure,  "caste_rigid",   s);
+    addPressure(state.elitePressure, "caste_rigid",   s * 0.5);
+    addPressure(state.elitePressure, "slavery",       s * 0.4);
+    addPressure(state.folkPressure,  "zealous_faith", s * 0.3);
+  }
+  if (void_ > 0) {
+    const s = Math.min(0.3, void_ * 0.03);
+    addPressure(state.elitePressure, "warrior_culture",  s);
+    addPressure(state.folkPressure,  "warrior_culture",  s * 0.5);
+    addPressure(state.elitePressure, "literacy_valued",  -s * 0.4);
+  }
+  if (feral > 0) {
+    const s = Math.min(0.3, feral * 0.03);
+    addPressure(state.folkPressure,  "warrior_culture", s * 1.2);
+    addPressure(state.folkPressure,  "zealous_faith",   s);
+    addPressure(state.elitePressure, "meritocracy",     -s * 0.3);
   }
 }
 

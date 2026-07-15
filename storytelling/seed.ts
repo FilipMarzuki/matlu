@@ -41,7 +41,7 @@ export function loadWorld(spec: WorldSpec, seed: number): World {
       titleId: "", // set by the title pass
       manaDensity: p.mana,
       blightLevel: 0,
-      zoneFlags: [],
+      zoneFlags: [...(p.zoneFlags ?? [])],
       subsurface: p.subsurface ?? false,
       mineralWealth: p.mineralWealth ?? 0,
     });

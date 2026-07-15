@@ -5,6 +5,7 @@
 // that ceiling, scarcity rises, and scarcity is the pressure that later turns
 // ordinary ambition into war. Nothing here is random — it's pure structure.
 
+import { getBiology } from "./biology.js";
 import type { Province, Terrain } from "./types.js";
 import type { World } from "./world.js";
 
@@ -67,10 +68,54 @@ export function regrowPopulation(w: World): void {
     } else {
       rate = -0.04 * (s - 1); // overdrawn land bleeds people
     }
+    // Biology: apply the ruling race's fertility and sun-tolerance modifiers
+    // to growth (positive rate only — starvation pressure is terrain-driven).
+    if (rate > 0) {
+      const raceId = provinceRaceId(w, p.id);
+      const race = raceId ? w.races.get(raceId) : undefined;
+      if (race?.biology) {
+        const bio = getBiology(race);
+        rate *= bio.fertilityRate;
+        if (!p.subsurface && bio.sunTolerance < 0.5) rate *= bio.sunTolerance;
+      }
+    }
+    // Class-holder productivity: a living scholar in-province adds a small
+    // healthcare/agronomy bonus (2%), a warden guards against corruption
+    // and beast (1%), a necromancer's presence depresses fertility (-2%).
+    // Only meaningful under magicEnabled (in the base sim everyone is
+    // "commoner", so no term matches and the base hash is unchanged).
+    if (rate > 0 && w.magicEnabled) {
+      let bonus = 0;
+      let scholar = 0, warden = 0, necro = 0;
+      for (const c of w.living()) {
+        if (c.provinceId !== p.id) continue;
+        if (c.charClass === "scholar")     scholar++;
+        else if (c.charClass === "warden") warden++;
+        else if (c.charClass === "necromancer") necro++;
+      }
+      // Diminishing returns — capped so a scholar-heavy metropolis doesn't
+      // double every generation.
+      bonus += Math.min(0.04, scholar * 0.02);
+      bonus += Math.min(0.02, warden  * 0.01);
+      bonus -= Math.min(0.04, necro   * 0.02);
+      rate += bonus;
+    }
     p.population = Math.max(50, Math.round(p.population * (1 + rate)));
     // Never let a province balloon far past what it can feed.
     p.population = Math.min(p.population, Math.round(cap * 1.25));
   }
+}
+
+// Resolve the race of the character who currently holds this province's title.
+// Returns an empty string when the province is untitled or the seat is vacant.
+function provinceRaceId(w: World, provinceId: string): string {
+  for (const t of w.titles.values()) {
+    if (t.provinceId === provinceId && t.holderId) {
+      const holder = w.char(t.holderId);
+      if (holder) return w.raceIdOf(holder);
+    }
+  }
+  return "";
 }
 
 // Mean scarcity across the realm — handy for the chronicle's mood and for

@@ -29,6 +29,7 @@ export interface ProvinceSpec {
   mana: number;
   subsurface?: boolean;   // underground hall; uses mineralWealth instead of fertility
   mineralWealth?: number; // 0..1; carrying capacity base when subsurface
+  zoneFlags?: string[];   // authored tags: "port", "sanctuary", "battlefield" etc.
 }
 
 export interface TitleSpec {
@@ -70,12 +71,29 @@ export interface CultureSpec {
   startingTraits?: string[];
 }
 
+// Physical traits that vary between races and feed into simulation mechanics:
+// lifespan governs the mortality curve, fertility/sun drive population growth,
+// plague resistance modulates epidemic kill rates, mana affinity scales XP gain.
+// All fields are optional; absent fields fall back to human-baseline defaults in
+// getBiology() (biology.ts). That way adding biology to one race never touches
+// the code paths for races that haven't been characterised yet.
+export interface RaceBiology {
+  lifespan?: number;           // natural lifespan in years; default 75
+  sunTolerance?: number;       // 0..1; <0.5 penalises surface pop growth; default 1.0
+  manaAffinity?: number;       // 0..1; XP multiplier (neutral = 0.5); default 0.5
+  fertilityRate?: number;      // multiplier on province population growth; default 1.0
+  plagueResistance?: number;   // 0..1 fraction of plague mortality absorbed; default 0.0
+  dietType?: "omnivore" | "carnivore" | "herbivore" | "lithivore";
+  preferredTerrain?: Terrain[];
+}
+
 // A race carries an inter-group opinion modifier: how members of this race
 // regard members of another (negative = friction). Drives the orc/human strain.
 export interface RaceSpec {
   id: string;
   name: string;
   affinities?: Record<string, number>; // otherRaceId -> opinion delta
+  biology?: RaceBiology;
 }
 
 // A faith can be hostile to others — a holy-war axis and a source of grudges.

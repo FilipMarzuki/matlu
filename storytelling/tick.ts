@@ -13,6 +13,11 @@
 // since exogenous shocks are supposed to ripple UP into everything else.
 
 import { runCatastrophes } from "./catastrophe.js";
+import { runChallenges } from "./challenges.js";
+import { runEmergence } from "./emergence.js";
+import { runFate } from "./fate.js";
+import { runSpecs } from "./event-spec.js";
+import "./specs/index.js"; // side-effect: registers all catalog specs
 import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
@@ -21,7 +26,8 @@ import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
-import { createCharacter, createDynasty, inheritDrives, randomDrives, zeroPsyche } from "./people.js";
+import { getBiology } from "./biology.js";
+import { createCharacter, createDynasty, inheritDrives, naturalDeathAge, randomDrives, zeroPsyche } from "./people.js";
 import { applyPerception, computeInbreeding, decayBiases, maybeOnsetMadness, onConquerorVictory, onTitleLost } from "./perception.js";
 import { advanceSchemes, spawnSchemes } from "./schemes.js";
 import type { Character, Title } from "./types.js";
@@ -89,34 +95,92 @@ export function tick(w: World): void {
   // capital/comfort/rite economy. Kept after the base loop so base behaviour is
   // byte-identical when magic is off.
   if (w.magicEnabled) runMagic(w, evStart);
+
+  // --- emergent hero / faction layer (no-op unless magic is on) ----------
+  // Runs after runMagic so this year's LEVELED / CLASS_GAINED events are in
+  // the log and can gate emergence checks. Zero RNG when magicEnabled=false,
+  // so golden-hash worlds are byte-identical.
+  runEmergence(w);
+
+  // --- discrete challenges layer (dragons, wraith hosts, abyssal gates) ---
+  // Runs last: reads catastrophes that fired earlier this tick (to spawn
+  // reactive challenges) and this year's XP state to pick brave challengers.
+  runChallenges(w);
+
+  // --- fate / doom / legend layer ---
+  // Runs after challenges so CHALLENGE_VANQUISHED/SKILL events this tick
+  // can qualify a dying figure for LEGEND_INSCRIBED. Also resolves this
+  // year's DEATHs against active prophecies and dooms.
+  runFate(w);
+
+  // --- catalog-driven events (EventSpec / SPEC_REGISTRY) ---
+  // No-op if no specs are registered. Runs LAST so any spec's onEvent can
+  // react to catastrophes, challenges, or fate events fired earlier this
+  // tick, and ambient specs see the fresh world state.
+  runSpecs(w);
 }
 
 // ---------------------------------------------------------------------------
 // Mortality — age-driven, with a famine/plague boost handled separately in
-// phenomena.ts. Dwarfs follow a different curve: very low baseline and curves
-// that kick in at 120+ rather than 50+, giving them 150–200-year lifespans.
+// phenomena.ts. Two paths:
+//   Biology path  (race has a biology block): character has a sampled natural
+//     death age drawn once from Normal(lifespan, 15). Baseline hazard is very
+//     low; it spikes sharply once the character passes their drawn death age.
+//   Piecewise path (no biology): the original curve — human-tuned, unchanged.
 // ---------------------------------------------------------------------------
 function runMortality(w: World): void {
   for (const c of w.living()) {
     const age = w.age(c);
-    const isDwarf = w.dynasty(c.dynastyId)?.raceId === "dwarf";
+    // Level-based lifespan extension: high-tier characters live radically
+    // longer (Wandering Inn / He-Who-Fights-Monsters style). Baseline for
+    // level < 16 is 1.0. Only kicks in when magic is on (level > 1 requires
+    // magic.ts running), so base-sim hashes are byte-identical.
+    const lifeMult = levelLifespanMultiplier(c.level);
+    const deathAge = naturalDeathAge(w, c);
     let p: number;
-    if (isDwarf) {
-      p = 0.002;                               // hardy baseline
-      if (age > 120) p += (age - 120) * 0.004;
-      if (age > 160) p += (age - 160) * 0.02; // old age comes late
-      if (age > 200) p += 0.15;
+    if (deathAge !== null) {
+      const eff = deathAge * lifeMult;
+      // Biology path: very low baseline, accelerates near the drawn death age.
+      p = 0.002;
+      if (age < 3) p += 0.03;
+      if (age >= eff) {
+        p += 0.5 + (age - eff) * 0.1; // rapid decline past natural age
+      } else if (age >= eff * 0.9) {
+        p += (age - eff * 0.9) * 0.03; // late-life acceleration
+      }
+      // Use a lifespan-relative old-age threshold for the cause label.
+      const oldThreshold = Math.round(eff * 0.7);
+      if (w.rng.chance(Math.min(0.9, p))) {
+        markDead(w, c, age > oldThreshold ? "old age" : "illness");
+      }
     } else {
+      // Original piecewise hazard for races without biology, with the same
+      // level extension applied to the age thresholds.
       p = 0.006;
-      if (age < 3) p += 0.03;                 // infant mortality
-      if (age > 50) p += (age - 50) * 0.004;
-      if (age > 70) p += (age - 70) * 0.02;   // old age catches up fast
-      if (age > 90) p += 0.15;
-    }
-    if (w.rng.chance(Math.min(0.9, p))) {
-      markDead(w, c, age > 60 ? "old age" : "illness");
+      if (age < 3) p += 0.03;                                     // infant mortality
+      if (age > 50 * lifeMult) p += (age - 50 * lifeMult) * 0.004;
+      if (age > 70 * lifeMult) p += (age - 70 * lifeMult) * 0.02; // old age catches up fast
+      if (age > 90 * lifeMult) p += 0.15;
+      if (w.rng.chance(Math.min(0.9, p))) {
+        markDead(w, c, age > 60 * lifeMult ? "old age" : "illness");
+      }
     }
   }
+}
+
+// Level → lifespan multiplier. A level-30 warden or archmage doesn't die of
+// old age at 70 — they linger. Calibrated so:
+//   level < 16:  1.0x (no extension; magic layer hasn't lifted them)
+//   level 16-19: 1.2x
+//   level 20-24: 1.6x
+//   level 25-29: 2.2x
+//   level 30+:   3.5x  (an Elder — grandfather to the age)
+function levelLifespanMultiplier(level: number): number {
+  if (level < 16) return 1.0;
+  if (level < 20) return 1.2;
+  if (level < 25) return 1.6;
+  if (level < 30) return 2.2;
+  return 3.5;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,8 +192,13 @@ function runBirths(w: World): void {
   for (const mother of w.living()) {
     if (mother.sex !== "female") continue;
     const age = w.age(mother);
-    const isDwarfMother = w.dynasty(mother.dynastyId)?.raceId === "dwarf";
-    if (age < 16 || age > (isDwarfMother ? 80 : 45)) continue;
+    const motherRaceId = w.raceIdOf(mother);
+    const motherRace = motherRaceId ? w.races.get(motherRaceId) : undefined;
+    // Biology-aware max fertile age: 35% of natural lifespan. Fallback: 45.
+    const maxFertileAge = motherRace?.biology
+      ? Math.round(getBiology(motherRace).lifespan * 0.35)
+      : 45;
+    if (age < 16 || age > maxFertileAge) continue;
     const father = w.char(mother.spouseId);
     if (!father || !father.alive) continue;
 
@@ -490,7 +559,9 @@ function runMarriages(w: World): void {
   // marriageable exactly when they start to matter to the succession.)
   const eligible = w.adults().filter((c) => {
     if (c.spouseId) return false;
-    const ageLimit = w.dynasty(c.dynastyId)?.raceId === "dwarf" ? 100 : 50;
+    const raceId = w.raceIdOf(c);
+    const race = raceId ? w.races.get(raceId) : undefined;
+    const ageLimit = race?.biology ? Math.round(getBiology(race).lifespan * 0.35) : 50;
     if (w.age(c) > ageLimit) return false;
     return w.titlesHeldBy(c.id).length > 0 || c.claims.length > 0;
   });
@@ -508,7 +579,9 @@ function findDomesticPartner(w: World, c: Character): Character | null {
     if (o.spouseId || o.sex !== wantSex) return false;
     if (o.id === c.id) return false;
     if (o.dynastyId === c.dynastyId) return false; // no close-kin marriage in v1
-    const partnerAgeLimit = w.dynasty(o.dynastyId)?.raceId === "dwarf" ? 100 : 50;
+    const oRaceId = w.raceIdOf(o);
+    const oRace = oRaceId ? w.races.get(oRaceId) : undefined;
+    const partnerAgeLimit = oRace?.biology ? Math.round(getBiology(oRace).lifespan * 0.35) : 50;
     if (w.age(o) > partnerAgeLimit) return false;
     return true;
   });

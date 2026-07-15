@@ -160,6 +160,11 @@ export interface Character {
   charClass: CharClass; // current class — sets martial weight, XP rate, access
   comfort: number; // 0..1 safety+luxury; throttles XP and the will to risk
   ventured: boolean; // transient: sought danger this year (for the chronicle)
+
+  // Optional — named skills earned by surviving specific trials (e.g. "dragon_slayer",
+  // "void_walker"). Undefined for characters that never trial-earned anything, so
+  // canonHash / base-sim JSON stays byte-identical. Populated only by challenges.ts.
+  skills?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -292,6 +297,9 @@ export interface Province {
   // Both are initialised to 0 / [] in seed.ts and mutate over the run.
   blightLevel: number;  // 0..1; 0 = pristine, 1 = fully blighted
   zoneFlags: string[];  // 'dead_zone' | 'undead_heavy' | 'mana_corrupted' | 'blighted'
+  // Flavor of the active corruption — drives which psyche distortion and culture
+  // traits are amplified. undefined = pristine or unclassified blight.
+  corruptionType?: "necrotic" | "void" | "feral";
 }
 
 // ---------------------------------------------------------------------------
@@ -419,7 +427,87 @@ export type EventType =
   // --- Cultural evolution layer ---
   | "CULTURAL_CONTESTED" // a trait crossed the pressure threshold — generational contest begins
   | "CULTURAL_RIFT"      // elite and folk tiers hold directly opposed traits
-  | "CULTURAL_SHIFT";    // a trait established/abandoned in one or both tiers, or aesthetic drift
+  | "CULTURAL_SHIFT"     // a trait established/abandoned in one or both tiers, or aesthetic drift
+  // --- Natural disaster layer ---
+  | "ERUPTION"           // volcanic eruption at a mountain province — ash cloud follows
+  | "ASH_SUMMER"         // harvest failure from volcanic ash; fires globally 2-3 years after ERUPTION
+  | "DROUGHT"            // multi-year water shortage spreading through dry-terrain provinces
+  | "LOCUST_SWARM"       // crop-destroying insect swarm sweeping fertile-terrain provinces
+  // --- Emergent hero/faction layer (state-conditional emergence) ---
+  | "ARCHMAGE_EMERGES"       // world's highest-level mage in a high-mana province
+  | "DARK_PROPHET_RISES"     // charismatic figure preaches in blighted/pious province
+  | "WARLORD_ASCENDANT"      // martial character consolidates power outside titles
+  | "LONE_GENIUS_EMERGES"    // solo breakthrough in isolated province, no institution
+  | "PARIAH_TURNS_CHAMPION"  // scorned lowborn with grudges becomes powerful
+  | "FALLEN_NOBLE_RISES"     // remnant of an extinct dynasty reclaims relevance
+  // --- Class & art layer (arts lost, regained, stolen, transformed) ---
+  | "ART_REDISCOVERED"       // a scholar recovers a lost art in the culture that lost it
+  | "LOST_CLASS_RESURFACES"  // a class not seen for generations reappears
+  | "FORBIDDEN_ART_PRACTICED" // dark art wielded openly in a corrupted province
+  | "LEGENDARY_SKILL_MANIFESTS" // unique skill awakens in a near-death survivor
+  | "CLASS_LINEAGE_BROKEN"   // final capable bearer of a rite dies; art will lapse
+  | "RITE_STOLEN"            // a scheme transfers a rite between dynasties
+  // --- Trade & asymmetric relations layer ---
+  | "TRADE_ROUTE_ESTABLISHED" // durable exchange between two provinces (directional strength)
+  | "TRADE_ROUTE_DISRUPTED"  // war/plague/famine breaks an established route
+  | "TRIBUTE_IMPOSED"        // stronger title extracts wealth from weaker neighbor
+  | "TRIBUTE_REVOKED"        // subordinate outgrows master; tribute lapses
+  | "VASSAL_REBELS"          // long-tributary province throws off the yoke by force
+  | "MARKET_MONOPOLY"        // one province becomes the dominant trade hub of a cluster
+  // --- Class-composition driven layer ---
+  | "SCHOLAR_FLOURISH"       // 3+ scholars concentrate in a province
+  | "LIBRARY_FOUNDED"        // scholars + a wealthy ruling house build a lasting institution
+  | "LIBRARY_BURNED"         // war or blight destroys a founded library
+  | "MARTIAL_DECADENCE"      // long peace + no martial characters in a wealthy province
+  | "MERCANTILE_ASCENDANT"   // merchants dominate a province's politics
+  | "KNOWLEDGE_LOST"         // scholars vanish from a province that had a tradition
+  // --- Challenges layer (discrete opportunities for high-risk growth) ---
+  | "CHALLENGE_SPAWNED"      // a dragon, wraith host, abyssal gate etc. appears
+  | "CHALLENGE_ATTEMPTED"    // a named figure tries their strength against it
+  | "CHALLENGE_VANQUISHED"   // and defeats it — a hero is made
+  | "CHALLENGE_SLAYS_CHALLENGER" // or is defeated by it — the challenge remains
+  | "SKILL_LEARNED_FROM_TRIAL"   // unique named skill earned by beating a hard trial
+  | "CLASS_UNLOCKED_BY_TRIAL"    // a class gained by trial, outside the rite path
+  // --- Fate / doom / legend layer ---
+  | "PROPHECY_UTTERED"       // a prophet foretells a specific doom for a target
+  | "PROPHECY_FULFILLED"     // the target died in the way the prophet said
+  | "PROPHECY_DEFIED"        // the target died in a way that made a mockery of it
+  | "DOOM_LAID"              // a wronged party's kin curses the wrongdoer
+  | "DOOM_FULFILLED"         // the doom-cursed comes to a violent end
+  | "LEGEND_INSCRIBED"       // a figure's deeds pass into cultural memory
+  | "LEGEND_INVOKED"         // a later character calls upon the legend's name
+  // --- Culture-driven events (specs/culture-events.ts) ---
+  | "SLAVE_REVOLT"           // slavery culture + LOWBORN_RISE or high blight
+  | "CASTE_UPRISING"         // caste_rigid + long peace + high pop
+  | "MERITOCRATIC_REFORM"    // meritocracy establishes + REFORM follows
+  | "PRINTING_PRESS"         // literacy_valued + SCHOLAR_FLOURISH + year>100
+  | "TREATISE_PUBLISHED"     // literacy_valued + high-level scholar dies
+  | "CRUSADE_CALLED"         // zealous_faith + different-faith neighbour
+  | "HERESY_TRIAL"           // zealous_faith + contested against that trait
+  | "GUILD_CHARTERED"        // mercantile + MERCANTILE_ASCENDANT + wealth
+  | "MERCHANT_PRINCE_RISES"  // mercantile + level-12+ merchant character
+  | "CULTURE_SCHISM"         // CULTURAL_RIFT persists 30+ years
+  | "CULTURE_MERGED"         // sustained contact + trait overlap
+  | "SYNCRETIC_FAITH_BORN"   // two zealous_faith cultures merge
+  | "CASTE_FLUIDITY_LOST"    // high stratification for 20+ years
+  | "SLAVE_LIBERATION"       // slavery abandoned via CULTURAL_SHIFT
+  | "POLYMATH_EMERGES"       // meritocracy + literacy_valued + multi-skilled figure
+  // --- Maritime events (specs/maritime-events.ts) ---
+  | "SEA_STORM"              // ambient at coastal, pop damage
+  | "TSUNAMI"                // reactive from ERUPTION at coastal-adjacent
+  | "PIRATE_RAID"            // ambient at coastal, scales with trade routes
+  | "WHALING_BOOM"           // coastal windfall — pop + wealth
+  | "FISHERY_COLLAPSE"       // ambient at coastal, reactive to WHALING/STORM
+  | "NEW_LANDS_DISCOVERED"   // coastal + explorer temperament
+  | "NAVAL_BATTLE"           // WAR at coastal-vs-coastal
+  | "SHIPWRECK"              // reactive to SEA_STORM
+  | "PLAGUE_SHIP"            // PLAGUE at trade partner jumps via sea
+  | "TRADING_COMPANY_FORMS"  // MARKET_MONOPOLY + mercantile + 40+y
+  | "LIGHTHOUSE_BUILT"       // port + wealthy scholar/merchant
+  | "NAVIGATION_CHART_MADE"  // port + literacy_valued
+  | "SEA_MONSTER_SPOTTED"    // coastal + high mana
+  | "ISLAND_COLONY_FOUNDED"  // after NEW_LANDS_DISCOVERED
+  | "SIREN_LURE";            // coastal + high mana kills martial challenger
 
 export interface WorldEvent {
   id: number;
@@ -434,4 +522,29 @@ export interface WorldEvent {
   data: Record<string, string | number | boolean>;
   // Filled in by the sifter, not at creation time.
   significance: number;
+}
+
+// ---------------------------------------------------------------------------
+// ArcKind — the shape of a story arc. Declared here (not in arcs.ts) so both
+// arcs.ts and event-spec.ts can reference it without a circular import.
+// ---------------------------------------------------------------------------
+export type ArcKind = "title" | "feud" | "dynasty" | "figure" | "calamity" | "culture";
+
+// ---------------------------------------------------------------------------
+// Challenge — a discrete, high-risk opportunity for a character to grow. A
+// dragon in the mountain, a wraith host in a dead-zone, an abyssal gate.
+// Lives on the World as long as it's unvanquished; consumed when a hero beats
+// it. Only spawned/attempted under World.magicEnabled — no impact on base sim.
+// ---------------------------------------------------------------------------
+export interface Challenge {
+  id: string;
+  provinceId: ProvinceId;
+  kind: string;         // e.g. "dragon" | "wraith_host" | "abyssal_gate" — see challenges.ts
+  tier: number;         // 1..5 — scales XP reward AND danger
+  bornYear: number;
+  bornFromEventId: number | null; // if spawned by a catastrophe, that event's id
+  vanquishedBy: CharId | null;
+  vanquishedYear: number | null;
+  unlocksClass: CharClass | null;
+  unlocksSkill: string | null;
 }

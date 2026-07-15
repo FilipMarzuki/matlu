@@ -8,6 +8,7 @@
 // no facts (that would corrupt canon); it only phrases facts the sim recorded.
 
 import type { Arc } from "./arcs.js";
+import { SPEC_REGISTRY } from "./event-spec.js";
 import { topHeroes } from "./magic.js";
 import type { FocusContext } from "./sifter.js";
 import type { Character, WorldEvent } from "./types.js";
@@ -77,6 +78,10 @@ function tagsOf(ev: WorldEvent): string[] {
 
 // The core: one event -> one chronicle sentence.
 export function renderEvent(w: World, ev: WorldEvent): string {
+  // EventSpec catalog takes precedence. Hand-written events fall through to
+  // the switch statement below unchanged.
+  const spec = SPEC_REGISTRY.get(ev.type);
+  if (spec) return spec.render(ev, w);
   const tags = tagsOf(ev);
   switch (ev.type) {
     case "BIRTH":
@@ -327,8 +332,233 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       }
     }
 
+    case "ERUPTION": {
+      const prov = provName(w, ev.provinceId);
+      const d = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} perished in the initial fury.` : "";
+      return `The mountain of ${prov} erupted, and columns of ash blotted out the sun.${toll}`;
+    }
+    case "ASH_SUMMER": {
+      const prov = provName(w, ev.provinceId);
+      const wave = Number(ev.data["wave"] ?? 1);
+      const d    = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} starved.` : "";
+      if (wave === 1) return `Ash from the great eruption choked the harvests of ${prov}.${toll}`;
+      if (wave === 2) return `A second ashen summer darkened ${prov}.${toll}`;
+      return `A third year of ash dimmed the skies over ${prov}.${toll}`;
+    }
+    case "DROUGHT": {
+      const prov = provName(w, ev.provinceId);
+      const wave = Number(ev.data["wave"] ?? 1);
+      const d    = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} perished of thirst and hunger.` : "";
+      if (wave === 1) return `A great drought gripped ${prov} and the rivers ran dry.${toll}`;
+      if (wave === 2) return `Drought gripped ${prov} for a second year.${toll}`;
+      return `The drought in ${prov} lingered into a third year.${toll}`;
+    }
+    case "LOCUST_SWARM": {
+      const prov = provName(w, ev.provinceId);
+      const d    = Number(ev.data["deaths"] ?? 0);
+      const toll = d > 0 ? ` ${d} starved in the aftermath.` : "";
+      return `A vast swarm of locusts swept through ${prov}, stripping the fields bare.${toll}`;
+    }
+
+    case "ARCHMAGE_EMERGES": {
+      const cls = String(ev.data["charClass"] ?? "the arts");
+      const lvl = Number(ev.data["level"] ?? 0);
+      return `${who(w, ev.actorId)} was named archmage — reaching the ${lvl}th mastery of ${cls} in the mana-thick lands of ${provName(w, ev.provinceId)}.`;
+    }
+    case "DARK_PROPHET_RISES": {
+      const zealous = ev.data["zealous"] === true;
+      const flavor = zealous ? "the faithful began to gather" : "an unsettled crowd began to gather";
+      return `In blighted ${provName(w, ev.provinceId)}, ${who(w, ev.actorId)} rose as a dark prophet — ${flavor}.`;
+    }
+    case "WARLORD_ASCENDANT": {
+      const wc = ev.data["warriorCulture"] === true;
+      const flavor = wc ? "the war-people rallied to the call" : "sworn men flocked to their banner";
+      return `${who(w, ev.actorId)} became a warlord — ${flavor} across ${provName(w, ev.provinceId)}.`;
+    }
+    case "LONE_GENIUS_EMERGES": {
+      const cls = String(ev.data["charClass"] ?? "an art");
+      return `Far from any court, in ${provName(w, ev.provinceId)}, ${who(w, ev.actorId)} was mastering ${cls} alone — the mark of a lone genius.`;
+    }
+    case "PARIAH_TURNS_CHAMPION": {
+      const g = Number(ev.data["grudges"] ?? 0);
+      return `Once scorned, ${who(w, ev.actorId)} of ${provName(w, ev.provinceId)} rose as a champion — ${g} unforgotten wrongs sharpened the blade.`;
+    }
+    case "FALLEN_NOBLE_RISES": {
+      const house = String(ev.data["house"] ?? "a lost house");
+      return `${who(w, ev.actorId)} — of the fallen house of ${house} — stepped once more into the world, rising in ${provName(w, ev.provinceId)}.`;
+    }
+    case "ART_REDISCOVERED": {
+      const rite = String(ev.data["rite"] ?? "a lost art");
+      const lost = Number(ev.data["lostInYear"] ?? 0);
+      return `${who(w, ev.actorId)} rediscovered the art of ${rite}, lost to the world since the year ${lost}.`;
+    }
+    case "LOST_CLASS_RESURFACES": {
+      const cls = String(ev.data["charClass"] ?? "an old class");
+      const yrs = Number(ev.data["dormantYears"] ?? 0);
+      return `The old class of ${cls} resurfaced in ${who(w, ev.actorId)} — dormant for ${yrs} years.`;
+    }
+    case "FORBIDDEN_ART_PRACTICED": {
+      const kind = String(ev.data["corruptionType"] ?? "corruption");
+      return `In ${provName(w, ev.provinceId)}, ${who(w, ev.actorId)} began to practise the forbidden art openly, and the ${kind} crept deeper into the land.`;
+    }
+    case "LEGENDARY_SKILL_MANIFESTS": {
+      const lvl = Number(ev.data["level"] ?? 0);
+      return `A legendary skill manifested in ${who(w, ev.actorId)} — a mastery unseen in living memory, at the ${lvl}th tier.`;
+    }
+    case "CLASS_LINEAGE_BROKEN": {
+      const house = String(ev.data["house"] ?? "a great house");
+      const rite = String(ev.data["rite"] ?? "their art");
+      return `The lineage of ${rite} within house ${house} was broken — no capable heir remained to receive the rite.`;
+    }
+    case "RITE_STOLEN": {
+      const rite = String(ev.data["rite"] ?? "a rite");
+      const from = String(ev.data["fromHouse"] ?? "a house");
+      const to   = String(ev.data["toHouse"] ?? "another");
+      return `${who(w, ev.actorId)} took the rite of ${rite} by blood — stripped from house ${from}, taken by house ${to}.`;
+    }
+    case "TRADE_ROUTE_ESTABLISHED": {
+      const from = provName(w, String(ev.data["fromProvinceId"] ?? ""));
+      const to   = provName(w, String(ev.data["toProvinceId"] ?? ""));
+      const conduit = String(ev.data["conduit"] ?? "trade");
+      return `A ${conduit}-borne trade route opened between ${from} and ${to} — the merchants of ${from} came to lean on the trade of ${to}.`;
+    }
+    case "TRADE_ROUTE_DISRUPTED": {
+      const from = provName(w, String(ev.data["fromProvinceId"] ?? ""));
+      const to   = provName(w, String(ev.data["toProvinceId"] ?? ""));
+      const cause = String(ev.data["cause"] ?? "shock");
+      return `The trade route between ${from} and ${to} was severed — ${cause.toLowerCase()} broke the lane.`;
+    }
+    case "TRIBUTE_IMPOSED": {
+      const master = String(ev.data["masterHouse"] ?? "the strong house");
+      const vassal = String(ev.data["vassalHouse"] ?? "the weaker one");
+      const ratio  = Number(ev.data["powerRatio"] ?? 3);
+      return `House ${master} imposed tribute on house ${vassal} — outmatching them ${ratio.toFixed(1)} to one.`;
+    }
+    case "TRIBUTE_REVOKED": {
+      const master = String(ev.data["masterHouse"] ?? "the master");
+      const vassal = String(ev.data["vassalHouse"] ?? "the vassal");
+      return `The tribute from house ${vassal} to house ${master} quietly lapsed — the vassal had risen too far to bow.`;
+    }
+    case "VASSAL_REBELS": {
+      const years = Number(ev.data["yearsUnder"] ?? 0);
+      return `In ${provName(w, ev.provinceId)}, the vassal rose in open revolt — after ${years} years under the yoke, the martial house took up arms.`;
+    }
+    case "MARKET_MONOPOLY": {
+      const routes = Number(ev.data["routes"] ?? 3);
+      return `${provName(w, ev.provinceId)} became the great market of its cluster — ${routes} trade routes converged upon it.`;
+    }
+    case "SCHOLAR_FLOURISH": {
+      const n = Number(ev.data["scholars"] ?? 0);
+      return `The scholars of ${provName(w, ev.provinceId)} grew to ${n} — a small tradition took root.`;
+    }
+    case "LIBRARY_FOUNDED": {
+      const house = String(ev.data["house"] ?? "a great house");
+      return `House ${house} founded a library at ${provName(w, ev.provinceId)}, gathering the province's scholars under one roof.`;
+    }
+    case "LIBRARY_BURNED": {
+      const house = String(ev.data["house"] ?? "an old house");
+      const year  = Number(ev.data["foundedInYear"] ?? 0);
+      return `The library at ${provName(w, ev.provinceId)}, founded by house ${house} in ${year}, was destroyed — a generation's learning turned to ash.`;
+    }
+    case "MARTIAL_DECADENCE": {
+      const house = String(ev.data["house"] ?? "the ruling house");
+      return `The house of ${house} at ${provName(w, ev.provinceId)} grew soft — merchants and scholars filled the halls where soldiers had once stood.`;
+    }
+    case "MERCANTILE_ASCENDANT": {
+      const m = Number(ev.data["merchants"] ?? 0);
+      return `The merchants of ${provName(w, ev.provinceId)} — ${m} strong — took the reins of the province in all but name.`;
+    }
+    case "KNOWLEDGE_LOST": {
+      const y = Number(ev.data["yearsQuiet"] ?? 0);
+      return `The learned tradition of ${provName(w, ev.provinceId)} was quietly lost — no scholar had studied there in ${y} years.`;
+    }
+    case "CHALLENGE_SPAWNED": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      const tier = Number(ev.data["tier"] ?? 1);
+      return `A ${kind.replace(/_/g, " ")} (tier ${tier}) took root in ${provName(w, ev.provinceId)}, and the countryside knew fear.`;
+    }
+    case "CHALLENGE_ATTEMPTED": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      const lvl = Number(ev.data["challengerLevel"] ?? 1);
+      return `${who(w, ev.actorId)} — at the ${lvl}th tier — set out against the ${kind.replace(/_/g, " ")} of ${provName(w, ev.provinceId)}.`;
+    }
+    case "CHALLENGE_VANQUISHED": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      const first = Number(ev.data["vanquishedBefore"] ?? 0) === 0;
+      const bonus = first ? " — first of their kind to do so" : "";
+      const lvl = Number(ev.data["newLevel"] ?? 0);
+      return `${who(w, ev.actorId)} slew the ${kind.replace(/_/g, " ")} of ${provName(w, ev.provinceId)}${bonus}, and rose to the ${lvl}th tier.`;
+    }
+    case "CHALLENGE_SLAYS_CHALLENGER": {
+      const kind = String(ev.data["kind"] ?? "menace");
+      return `${who(w, ev.actorId)} fell to the ${kind.replace(/_/g, " ")} of ${provName(w, ev.provinceId)} — the ${kind.replace(/_/g, " ")} yet endures.`;
+    }
+    case "SKILL_LEARNED_FROM_TRIAL": {
+      const skill = String(ev.data["skill"] ?? "a rare art");
+      const first = ev.data["firstOfKind"] === true;
+      const flavor = first ? " — a skill no living soul had claimed before" : "";
+      return `${who(w, ev.actorId)} came away from the trial with the mark of ${skill.replace(/_/g, " ")}${flavor}.`;
+    }
+    case "CLASS_UNLOCKED_BY_TRIAL": {
+      const newClass = String(ev.data["newClass"] ?? "an old art");
+      const kind = String(ev.data["kind"] ?? "the trial");
+      return `Having overcome the ${kind.replace(/_/g, " ")}, ${who(w, ev.actorId)} took the path of the ${newClass} — no rite of any house was needed.`;
+    }
+    case "PROPHECY_UTTERED": {
+      const predType = String(ev.data["predictionType"] ?? "");
+      const doom = predictionPhrase(predType);
+      return `${who(w, ev.actorId)} spoke a prophecy over ${who(w, ev.targetId)}: ${doom}.`;
+    }
+    case "PROPHECY_FULFILLED": {
+      const predType = String(ev.data["predictionType"] ?? "");
+      const yrs = Number(ev.data["yearsToOutcome"] ?? 0);
+      return `The old prophecy came to pass — ${who(w, ev.targetId)} met the doom foretold ${yrs} years before (${predictionPhrase(predType)}).`;
+    }
+    case "PROPHECY_DEFIED": {
+      const predType = String(ev.data["predictionType"] ?? "");
+      const reason = String(ev.data["reason"] ?? "");
+      const yrs = Number(ev.data["yearsToOutcome"] ?? 0);
+      if (reason === "outlived") return `The prophecy against ${who(w, ev.targetId)} — that ${predictionPhrase(predType)} — was defied; they lived on regardless.`;
+      return `The prophecy was mocked: ${who(w, ev.targetId)} died in no such way as the prophet had said ${yrs} years earlier.`;
+    }
+    case "DOOM_LAID": {
+      const vh = String(ev.data["victimHouse"] ?? "the murdered");
+      const kh = String(ev.data["killerHouse"] ?? "the killer");
+      return `${who(w, ev.actorId)} of house ${vh} laid a doom upon ${who(w, ev.targetId)} of house ${kh} — that violence would answer violence.`;
+    }
+    case "DOOM_FULFILLED": {
+      const cause = String(ev.data["cause"] ?? "violence");
+      const yrs = Number(ev.data["yearsToOutcome"] ?? 0);
+      return `The doom laid ${yrs} years before came to its answer — ${who(w, ev.targetId)} fell to ${cause}, as had been cursed.`;
+    }
+    case "LEGEND_INSCRIBED": {
+      const figure = String(ev.data["figure"] ?? "a great figure");
+      const house = String(ev.data["house"] ?? "an old house");
+      const age = Number(ev.data["diedAge"] ?? 0);
+      return `The name of ${figure} of house ${house} passed into the songs, at the age of ${age}.`;
+    }
+    case "LEGEND_INVOKED": {
+      const figure = String(ev.data["legendFigure"] ?? "an old name");
+      const yrs = Number(ev.data["yearsSinceInscription"] ?? 0);
+      return `${who(w, ev.actorId)} invoked the name of ${figure}, dead these ${yrs} years, and swore to walk their path.`;
+    }
+
     default:
       return `[${ev.type}]`;
+  }
+}
+
+function predictionPhrase(pred: string): string {
+  switch (pred) {
+    case "die_by_kin":    return "they would fall to kin's hand";
+    case "die_by_fire":   return "fire would take them";
+    case "die_in_battle": return "they would fall in war";
+    case "die_of_slay":   return "a great beast would end them";
+    case "line_extinct":  return "their line would be extinguished";
+    default:              return "an ill fate";
   }
 }
 
