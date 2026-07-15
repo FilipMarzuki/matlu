@@ -491,7 +491,23 @@ export type EventType =
   | "SYNCRETIC_FAITH_BORN"   // two zealous_faith cultures merge
   | "CASTE_FLUIDITY_LOST"    // high stratification for 20+ years
   | "SLAVE_LIBERATION"       // slavery abandoned via CULTURAL_SHIFT
-  | "POLYMATH_EMERGES";      // meritocracy + literacy_valued + multi-skilled figure
+  | "POLYMATH_EMERGES"       // meritocracy + literacy_valued + multi-skilled figure
+  // --- Maritime events (specs/maritime-events.ts) ---
+  | "SEA_STORM"              // ambient at coastal, pop damage
+  | "TSUNAMI"                // reactive from ERUPTION at coastal-adjacent
+  | "PIRATE_RAID"            // ambient at coastal, scales with trade routes
+  | "WHALING_BOOM"           // coastal windfall — pop + wealth
+  | "FISHERY_COLLAPSE"       // ambient at coastal, reactive to WHALING/STORM
+  | "NEW_LANDS_DISCOVERED"   // coastal + explorer temperament
+  | "NAVAL_BATTLE"           // WAR at coastal-vs-coastal
+  | "SHIPWRECK"              // reactive to SEA_STORM
+  | "PLAGUE_SHIP"            // PLAGUE at trade partner jumps via sea
+  | "TRADING_COMPANY_FORMS"  // MARKET_MONOPOLY + mercantile + 40+y
+  | "LIGHTHOUSE_BUILT"       // port + wealthy scholar/merchant
+  | "NAVIGATION_CHART_MADE"  // port + literacy_valued
+  | "SEA_MONSTER_SPOTTED"    // coastal + high mana
+  | "ISLAND_COLONY_FOUNDED"  // after NEW_LANDS_DISCOVERED
+  | "SIREN_LURE";            // coastal + high mana kills martial challenger
 
 export interface WorldEvent {
   id: number;

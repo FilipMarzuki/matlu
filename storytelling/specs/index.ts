@@ -5,6 +5,7 @@
 
 import { registerSpecs } from "../event-spec.js";
 import { CULTURE_SPECS } from "./culture-events.js";
+import { MARITIME_SPECS } from "./maritime-events.js";
 
 registerSpecs(CULTURE_SPECS);
-// registerSpecs(MARITIME_SPECS);  // added in the maritime commit
+registerSpecs(MARITIME_SPECS);

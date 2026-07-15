@@ -29,6 +29,7 @@ export interface ProvinceSpec {
   mana: number;
   subsurface?: boolean;   // underground hall; uses mineralWealth instead of fertility
   mineralWealth?: number; // 0..1; carrying capacity base when subsurface
+  zoneFlags?: string[];   // authored tags: "port", "sanctuary", "battlefield" etc.
 }
 
 export interface TitleSpec {

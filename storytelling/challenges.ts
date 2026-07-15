@@ -94,6 +94,26 @@ const KINDS: ChallengeKindSpec[] = [
       prob: 0.006,
     },
   },
+  // Maritime menaces — coastal deep-water threats. kraken is the ocean's
+  // dragon (tier 5); sea_monster is a lesser sighting.
+  { kind: "kraken",          tier: 5, unlocksClass: null,        unlocksSkill: "kraken_slayer",
+    ambient: {
+      eligible: (w, pid) => {
+        const p = w.province(pid);
+        return !!p && p.coastal && p.manaDensity > 0.6 && w.year > 80;
+      },
+      prob: 0.002,
+    },
+  },
+  { kind: "sea_monster",     tier: 3, unlocksClass: null,        unlocksSkill: "sea_hunter",
+    ambient: {
+      eligible: (w, pid) => {
+        const p = w.province(pid);
+        return !!p && p.coastal && p.population > 100;
+      },
+      prob: 0.006,
+    },
+  },
 ];
 
 // Hard cap on active ambient challenges — prevents runaway spawn from swamping

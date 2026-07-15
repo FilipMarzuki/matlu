@@ -56,7 +56,7 @@ const provinces: ProvinceSpec[] = [
   { id: "i4", name: "Thornwood", terrain: "forest", fertility: 0.65, coastal: false, river: false, neighbors: ["i0", "i1", "i2", "p4"], population: 420, mana: 0.45 },
   // Saltmere — the ocean coast (west).
   { id: "p0", name: "Saltmere", terrain: "coast", fertility: 0.6, coastal: true, river: true, neighbors: ["p1", "i2"], population: 500, mana: 0.3 },
-  { id: "p1", name: "Gullhaven", terrain: "coast", fertility: 0.55, coastal: true, river: false, neighbors: ["p0", "i2"], population: 400, mana: 0.3 },
+  { id: "p1", name: "Gullhaven", terrain: "coast", fertility: 0.55, coastal: true, river: false, neighbors: ["p0", "i2"], population: 400, mana: 0.3, zoneFlags: ["port"] },
   // The Ironspine — the mountain wall (north).
   { id: "p4", name: "Ironspine", terrain: "mountain", fertility: 0.35, coastal: false, river: false, neighbors: ["p5", "i4"], population: 130, mana: 0.8 },
   { id: "p5", name: "Highpass", terrain: "mountain", fertility: 0.3, coastal: false, river: false, neighbors: ["p4", "p6"], population: 90, mana: 0.75 },
