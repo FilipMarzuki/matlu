@@ -546,7 +546,24 @@ export type EventType =
   | "SCHISM_HEALED"          // syncretic faith + generations of peace
   | "APOSTASY_MOMENT"        // ruler abandons the faith
   | "MONASTIC_ORDER_FOUNDED" // temple built + scholars
-  | "FAITH_MARTYRED";        // holy war + priest character dies violently
+  | "FAITH_MARTYRED"         // holy war + priest character dies violently
+  // --- Lost peoples of Earth (specs/lost-peoples-events.ts) ---
+  // Groups from pre-medieval to medieval Earth history arrive with no
+  // memory of Earth. Each event spawns a new dynasty with themed founders,
+  // classes, and drives. Once per world per group — Rome fell once, and
+  // Rome arrives in Matlu once.
+  | "LOST_ROMAN_LEGION"      // legionnaires — disciplined soldiers, Latin names
+  | "LOST_VIKING_EXPEDITION" // longship raiders — coastal, greedy, martial
+  | "LOST_MONGOL_TUMEN"      // horse archers — steppe, high ambition, hunter/soldier
+  | "LOST_GREEK_HOPLITES"    // phalanx warriors — soldiers, honor_bound
+  | "LOST_EGYPTIAN_PRIESTHOOD" // priest caste — scholars, high piety
+  | "LOST_CELTIC_WARBAND"    // iron-age warriors — forest, hunter/soldier, vengeance
+  | "LOST_SAMURAI_RETINUE"   // feudal knights — extreme honor_bound
+  | "LOST_BYZANTINE_CATAPHRACTS" // heavy cavalry — knights, doctrinal bias
+  | "LOST_PERSIAN_IMMORTALS" // elite guard — soldiers, loyalty above all
+  | "LOST_CARTHAGINIAN_FLEET" // merchant fleet — coastal, mercantile, greedy
+  | "LOST_NORMAN_KNIGHTS"    // feudal cavalry — knights, ambitious
+  | "LOST_HAN_EXPEDITION";   // classical Chinese — scholars + soldiers, literate
 
 export interface WorldEvent {
   id: number;
