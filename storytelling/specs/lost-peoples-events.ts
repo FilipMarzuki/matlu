@@ -50,14 +50,20 @@ interface LostPeopleSpawn {
   retinueDrives: Drives;
   eligibleTerrain: (t: string) => boolean;
   minYear: number;
+  // Set true for seafaring groups (Viking, Carthaginian) — restricts pickProvince
+  // to provinces with coastal=true, so we don't create a dynasty on a landlocked
+  // tile only to bail out post-hoc and leak orphan characters into the world.
+  coastalRequired?: boolean;
 }
 
 // Pick a fitting province: surface, no active blight-lock, matches terrain
-// predicate, and PREFER an unclaimed one (no title-holder). Falls back to any
-// eligible province if all are claimed.
+// predicate (and coastal if required), and PREFER an unclaimed one (no
+// title-holder). Falls back to any eligible province if all are claimed.
 function pickProvince(w: World, spec: LostPeopleSpawn): Province | null {
   const eligible = [...w.provinces.values()].filter(
-    (p) => !p.subsurface && !p.zoneFlags.includes("dead_zone") && spec.eligibleTerrain(p.terrain),
+    (p) => !p.subsurface && !p.zoneFlags.includes("dead_zone")
+        && spec.eligibleTerrain(p.terrain)
+        && (!spec.coastalRequired || p.coastal),
   );
   if (eligible.length === 0) return null;
   // Prefer provinces whose title has no holder (a vacuum for the newcomers).
@@ -172,8 +178,9 @@ const VIKING_SPAWN: LostPeopleSpawn = {
   retinueSize: 5, founderLevel: 11, retinueLevel: 7,
   founderDrives: D(0.75, 0.7, 0.5, 0.35, 0.5, 0.15),   // hungry, fearless
   retinueDrives: D(0.6, 0.65, 0.45, 0.3, 0.5, 0.2),
-  eligibleTerrain: (_t) => true, // gated by coastal, handled in the fire()
+  eligibleTerrain: (t) => t === "coast" || t === "plains" || t === "meadow",
   minYear: 90,
+  coastalRequired: true, // ensure pickProvince returns a coastal tile
 };
 
 const LOST_VIKING_EXPEDITION: EventSpec = {
@@ -188,20 +195,13 @@ const LOST_VIKING_EXPEDITION: EventSpec = {
     scan: "provinces",
     gate: (w) => {
       if (w.year <= VIKING_SPAWN.minYear) return false;
-      // Require at least one coastal province exists.
+      // Require at least one coastal province exists (pickProvince enforces it too).
       return [...w.provinces.values()].some((p) => p.coastal && !p.subsurface);
     },
     prob: () => 0.0008,
     fire: (w) => {
-      // Override eligibleTerrain: force coastal for Vikings.
-      const res = spawnLostPeople(w, {
-        ...VIKING_SPAWN,
-        eligibleTerrain: (t) => t === "coast" || t === "plains" || t === "meadow",
-      });
+      const res = spawnLostPeople(w, VIKING_SPAWN);
       if (!res) return;
-      // Only proceed if we actually got a coastal province.
-      const prov = w.province(res.provinceId);
-      if (!prov?.coastal) return;
       w.log("LOST_VIKING_EXPEDITION", { actorId: res.founderId, provinceId: res.provinceId });
     },
     once: "world",
@@ -468,6 +468,7 @@ const CARTHAGE_SPAWN: LostPeopleSpawn = {
   retinueDrives: D(0.5, 0.7, 0.4, 0.4, 0.4, 0.3),
   eligibleTerrain: (t) => t === "coast" || t === "plains",
   minYear: 90,
+  coastalRequired: true, // ensure pickProvince returns a coastal tile
 };
 
 const LOST_CARTHAGINIAN_FLEET: EventSpec = {
@@ -485,8 +486,6 @@ const LOST_CARTHAGINIAN_FLEET: EventSpec = {
     fire: (w) => {
       const res = spawnLostPeople(w, CARTHAGE_SPAWN);
       if (!res) return;
-      const prov = w.province(res.provinceId);
-      if (!prov?.coastal) return;
       w.log("LOST_CARTHAGINIAN_FLEET", { actorId: res.founderId, provinceId: res.provinceId });
     },
     once: "world",
