@@ -467,7 +467,15 @@ export type EventType =
   | "CHALLENGE_VANQUISHED"   // and defeats it — a hero is made
   | "CHALLENGE_SLAYS_CHALLENGER" // or is defeated by it — the challenge remains
   | "SKILL_LEARNED_FROM_TRIAL"   // unique named skill earned by beating a hard trial
-  | "CLASS_UNLOCKED_BY_TRIAL";   // a class gained by trial, outside the rite path
+  | "CLASS_UNLOCKED_BY_TRIAL"    // a class gained by trial, outside the rite path
+  // --- Fate / doom / legend layer ---
+  | "PROPHECY_UTTERED"       // a prophet foretells a specific doom for a target
+  | "PROPHECY_FULFILLED"     // the target died in the way the prophet said
+  | "PROPHECY_DEFIED"        // the target died in a way that made a mockery of it
+  | "DOOM_LAID"              // a wronged party's kin curses the wrongdoer
+  | "DOOM_FULFILLED"         // the doom-cursed comes to a violent end
+  | "LEGEND_INSCRIBED"       // a figure's deeds pass into cultural memory
+  | "LEGEND_INVOKED";        // a later character calls upon the legend's name
 
 export interface WorldEvent {
   id: number;

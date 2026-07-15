@@ -15,6 +15,7 @@
 import { runCatastrophes } from "./catastrophe.js";
 import { runChallenges } from "./challenges.js";
 import { runEmergence } from "./emergence.js";
+import { runFate } from "./fate.js";
 import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
@@ -103,6 +104,12 @@ export function tick(w: World): void {
   // Runs last: reads catastrophes that fired earlier this tick (to spawn
   // reactive challenges) and this year's XP state to pick brave challengers.
   runChallenges(w);
+
+  // --- fate / doom / legend layer ---
+  // Runs after challenges so CHALLENGE_VANQUISHED/SKILL events this tick
+  // can qualify a dying figure for LEGEND_INSCRIBED. Also resolves this
+  // year's DEATHs against active prophecies and dooms.
+  runFate(w);
 }
 
 // ---------------------------------------------------------------------------

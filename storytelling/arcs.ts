@@ -142,6 +142,20 @@ function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
     case "SKILL_LEARNED_FROM_TRIAL":
     case "CLASS_UNLOCKED_BY_TRIAL":
       return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
+    // Fate / doom / legend events cluster under the target — the doomed
+    // character IS the story arc, not the prophet or the curser.
+    case "PROPHECY_UTTERED":
+    case "PROPHECY_FULFILLED":
+    case "PROPHECY_DEFIED":
+    case "DOOM_LAID":
+    case "DOOM_FULFILLED":
+      return ev.targetId ? { key: `P:${ev.targetId}`, kind: "figure" } : null;
+    case "LEGEND_INSCRIBED":
+      return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
+    case "LEGEND_INVOKED":
+      // Invocations cluster under the INVOKER, not the old legend — they're
+      // the current character's psyche moment.
+      return ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null;
     case "PLAGUE":
     case "FAMINE":
     case "BLIGHT_SPREADS":
@@ -225,6 +239,12 @@ function nameArc(w: World, kind: ArcKind, events: WorldEvent[]): string {
     }
     case "figure": {
       const who = events.find((e) => e.actorId)?.actorId ?? null;
+      if (has("PROPHECY_FULFILLED"))       return `The Fulfilled Doom of ${shortName(w, who)} (${span})`;
+      if (has("PROPHECY_DEFIED"))          return `The Defied Prophecy of ${shortName(w, who)} (${span})`;
+      if (has("DOOM_FULFILLED"))           return `The Answered Doom of ${shortName(w, who)} (${span})`;
+      if (has("PROPHECY_UTTERED"))         return `The Prophecy Over ${shortName(w, who)} (${span})`;
+      if (has("DOOM_LAID"))                return `The Doom Laid on ${shortName(w, who)} (${span})`;
+      if (has("LEGEND_INSCRIBED"))         return `The Legend of ${shortName(w, who)} (${span})`;
       if (has("CHALLENGE_VANQUISHED"))     return `The Trials of ${shortName(w, who)} (${span})`;
       if (has("SKILL_LEARNED_FROM_TRIAL")) return `The Testing of ${shortName(w, who)} (${span})`;
       if (has("CLASS_UNLOCKED_BY_TRIAL"))  return `The Awakening of ${shortName(w, who)} (${span})`;

@@ -502,9 +502,58 @@ export function renderEvent(w: World, ev: WorldEvent): string {
       const kind = String(ev.data["kind"] ?? "the trial");
       return `Having overcome the ${kind.replace(/_/g, " ")}, ${who(w, ev.actorId)} took the path of the ${newClass} — no rite of any house was needed.`;
     }
+    case "PROPHECY_UTTERED": {
+      const predType = String(ev.data["predictionType"] ?? "");
+      const doom = predictionPhrase(predType);
+      return `${who(w, ev.actorId)} spoke a prophecy over ${who(w, ev.targetId)}: ${doom}.`;
+    }
+    case "PROPHECY_FULFILLED": {
+      const predType = String(ev.data["predictionType"] ?? "");
+      const yrs = Number(ev.data["yearsToOutcome"] ?? 0);
+      return `The old prophecy came to pass — ${who(w, ev.targetId)} met the doom foretold ${yrs} years before (${predictionPhrase(predType)}).`;
+    }
+    case "PROPHECY_DEFIED": {
+      const predType = String(ev.data["predictionType"] ?? "");
+      const reason = String(ev.data["reason"] ?? "");
+      const yrs = Number(ev.data["yearsToOutcome"] ?? 0);
+      if (reason === "outlived") return `The prophecy against ${who(w, ev.targetId)} — that ${predictionPhrase(predType)} — was defied; they lived on regardless.`;
+      return `The prophecy was mocked: ${who(w, ev.targetId)} died in no such way as the prophet had said ${yrs} years earlier.`;
+    }
+    case "DOOM_LAID": {
+      const vh = String(ev.data["victimHouse"] ?? "the murdered");
+      const kh = String(ev.data["killerHouse"] ?? "the killer");
+      return `${who(w, ev.actorId)} of house ${vh} laid a doom upon ${who(w, ev.targetId)} of house ${kh} — that violence would answer violence.`;
+    }
+    case "DOOM_FULFILLED": {
+      const cause = String(ev.data["cause"] ?? "violence");
+      const yrs = Number(ev.data["yearsToOutcome"] ?? 0);
+      return `The doom laid ${yrs} years before came to its answer — ${who(w, ev.targetId)} fell to ${cause}, as had been cursed.`;
+    }
+    case "LEGEND_INSCRIBED": {
+      const figure = String(ev.data["figure"] ?? "a great figure");
+      const house = String(ev.data["house"] ?? "an old house");
+      const age = Number(ev.data["diedAge"] ?? 0);
+      return `The name of ${figure} of house ${house} passed into the songs, at the age of ${age}.`;
+    }
+    case "LEGEND_INVOKED": {
+      const figure = String(ev.data["legendFigure"] ?? "an old name");
+      const yrs = Number(ev.data["yearsSinceInscription"] ?? 0);
+      return `${who(w, ev.actorId)} invoked the name of ${figure}, dead these ${yrs} years, and swore to walk their path.`;
+    }
 
     default:
       return `[${ev.type}]`;
+  }
+}
+
+function predictionPhrase(pred: string): string {
+  switch (pred) {
+    case "die_by_kin":    return "they would fall to kin's hand";
+    case "die_by_fire":   return "fire would take them";
+    case "die_in_battle": return "they would fall in war";
+    case "die_of_slay":   return "a great beast would end them";
+    case "line_extinct":  return "their line would be extinguished";
+    default:              return "an ill fate";
   }
 }
 

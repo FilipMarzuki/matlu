@@ -254,6 +254,14 @@ const BASE: Record<EventType, number> = {
   CHALLENGE_SLAYS_CHALLENGER:   7,  // the challenge stands, and someone brave is dead
   SKILL_LEARNED_FROM_TRIAL:     8,
   CLASS_UNLOCKED_BY_TRIAL:      8,
+  // Fate / doom / legend layer — the events that make a chronicle epic.
+  PROPHECY_UTTERED:             7,  // a prophet speaks: a hinge for the reader
+  PROPHECY_FULFILLED:           10, // dramatic irony: the darkest peak
+  PROPHECY_DEFIED:              8,  // subverting the prophet is also great story
+  DOOM_LAID:                    7,
+  DOOM_FULFILLED:               10,
+  LEGEND_INSCRIBED:             9,  // a figure passes into cultural memory
+  LEGEND_INVOKED:               6,  // a later character calls the old name
 };
 
 export interface SiftResult {
