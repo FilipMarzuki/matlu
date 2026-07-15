@@ -255,16 +255,44 @@ const SCHISM_HEALED: EventSpec = {
     const a = String(ev.data["cultureA"] ?? "");
     return a ? { key: `C:${a}`, kind: "culture" } : null;
   },
-  onEvent: {
-    source: "SYNCRETIC_FAITH_BORN",
-    prob: (w, e) => {
-      // Only if it's been at least 60y since the syncretic event's own year —
-      // this reactive spec is a delayed followup, so use a temporal check.
-      return w.year - e.year >= 60 ? 0.4 : 0;
+  // Ambient rather than onEvent: onEvent handlers only see events fired THIS
+  // tick (runOnEventSpec breaks on year mismatch), so a "60y after X" delay
+  // can't be expressed reactively. We poll instead.
+  ambient: {
+    scan: "provinces",
+    gate: (w, _item) => {
+      // Find any unresolved SYNCRETIC_FAITH_BORN aged 60+ years.
+      for (const e of w.events) {
+        if (e.type !== "SYNCRETIC_FAITH_BORN") continue;
+        if (w.year - e.year < 60) continue;
+        const a = String(e.data["cultureA"] ?? "");
+        const b = String(e.data["cultureB"] ?? "");
+        const already = w.events.some(
+          (x) => x.type === "SCHISM_HEALED" &&
+                 x.data["cultureA"] === a && x.data["cultureB"] === b,
+        );
+        if (!already) return true;
+      }
+      return false;
     },
-    fire: (w, e) => {
-      w.log("SCHISM_HEALED", { data: { cultureA: e.data["cultureA"], cultureB: e.data["cultureB"] } });
+    prob: () => 0.05,
+    fire: (w, _item) => {
+      for (const e of w.events) {
+        if (e.type !== "SYNCRETIC_FAITH_BORN") continue;
+        if (w.year - e.year < 60) continue;
+        const a = String(e.data["cultureA"] ?? "");
+        const b = String(e.data["cultureB"] ?? "");
+        const already = w.events.some(
+          (x) => x.type === "SCHISM_HEALED" &&
+                 x.data["cultureA"] === a && x.data["cultureB"] === b,
+        );
+        if (already) continue;
+        w.log("SCHISM_HEALED", { data: { cultureA: a, cultureB: b } });
+        return;
+      }
     },
+    once: "world",
+    maxPerTick: 1,
   },
 };
 
