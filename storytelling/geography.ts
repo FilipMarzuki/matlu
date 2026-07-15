@@ -79,6 +79,27 @@ export function regrowPopulation(w: World): void {
         if (!p.subsurface && bio.sunTolerance < 0.5) rate *= bio.sunTolerance;
       }
     }
+    // Class-holder productivity: a living scholar in-province adds a small
+    // healthcare/agronomy bonus (2%), a warden guards against corruption
+    // and beast (1%), a necromancer's presence depresses fertility (-2%).
+    // Only meaningful under magicEnabled (in the base sim everyone is
+    // "commoner", so no term matches and the base hash is unchanged).
+    if (rate > 0 && w.magicEnabled) {
+      let bonus = 0;
+      let scholar = 0, warden = 0, necro = 0;
+      for (const c of w.living()) {
+        if (c.provinceId !== p.id) continue;
+        if (c.charClass === "scholar")     scholar++;
+        else if (c.charClass === "warden") warden++;
+        else if (c.charClass === "necromancer") necro++;
+      }
+      // Diminishing returns — capped so a scholar-heavy metropolis doesn't
+      // double every generation.
+      bonus += Math.min(0.04, scholar * 0.02);
+      bonus += Math.min(0.02, warden  * 0.01);
+      bonus -= Math.min(0.04, necro   * 0.02);
+      rate += bonus;
+    }
     p.population = Math.max(50, Math.round(p.population * (1 + rate)));
     // Never let a province balloon far past what it can feed.
     p.population = Math.min(p.population, Math.round(cap * 1.25));

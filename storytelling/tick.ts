@@ -131,34 +131,56 @@ export function tick(w: World): void {
 function runMortality(w: World): void {
   for (const c of w.living()) {
     const age = w.age(c);
+    // Level-based lifespan extension: high-tier characters live radically
+    // longer (Wandering Inn / He-Who-Fights-Monsters style). Baseline for
+    // level < 16 is 1.0. Only kicks in when magic is on (level > 1 requires
+    // magic.ts running), so base-sim hashes are byte-identical.
+    const lifeMult = levelLifespanMultiplier(c.level);
     const deathAge = naturalDeathAge(w, c);
     let p: number;
     if (deathAge !== null) {
+      const eff = deathAge * lifeMult;
       // Biology path: very low baseline, accelerates near the drawn death age.
       p = 0.002;
       if (age < 3) p += 0.03;
-      if (age >= deathAge) {
-        p += 0.5 + (age - deathAge) * 0.1; // rapid decline past natural age
-      } else if (age >= deathAge * 0.9) {
-        p += (age - deathAge * 0.9) * 0.03; // late-life acceleration
+      if (age >= eff) {
+        p += 0.5 + (age - eff) * 0.1; // rapid decline past natural age
+      } else if (age >= eff * 0.9) {
+        p += (age - eff * 0.9) * 0.03; // late-life acceleration
       }
       // Use a lifespan-relative old-age threshold for the cause label.
-      const oldThreshold = Math.round(deathAge * 0.7);
+      const oldThreshold = Math.round(eff * 0.7);
       if (w.rng.chance(Math.min(0.9, p))) {
         markDead(w, c, age > oldThreshold ? "old age" : "illness");
       }
     } else {
-      // Original piecewise hazard for races without biology.
+      // Original piecewise hazard for races without biology, with the same
+      // level extension applied to the age thresholds.
       p = 0.006;
-      if (age < 3) p += 0.03;                 // infant mortality
-      if (age > 50) p += (age - 50) * 0.004;
-      if (age > 70) p += (age - 70) * 0.02;   // old age catches up fast
-      if (age > 90) p += 0.15;
+      if (age < 3) p += 0.03;                                     // infant mortality
+      if (age > 50 * lifeMult) p += (age - 50 * lifeMult) * 0.004;
+      if (age > 70 * lifeMult) p += (age - 70 * lifeMult) * 0.02; // old age catches up fast
+      if (age > 90 * lifeMult) p += 0.15;
       if (w.rng.chance(Math.min(0.9, p))) {
-        markDead(w, c, age > 60 ? "old age" : "illness");
+        markDead(w, c, age > 60 * lifeMult ? "old age" : "illness");
       }
     }
   }
+}
+
+// Level → lifespan multiplier. A level-30 warden or archmage doesn't die of
+// old age at 70 — they linger. Calibrated so:
+//   level < 16:  1.0x (no extension; magic layer hasn't lifted them)
+//   level 16-19: 1.2x
+//   level 20-24: 1.6x
+//   level 25-29: 2.2x
+//   level 30+:   3.5x  (an Elder — grandfather to the age)
+function levelLifespanMultiplier(level: number): number {
+  if (level < 16) return 1.0;
+  if (level < 20) return 1.2;
+  if (level < 25) return 1.6;
+  if (level < 30) return 2.2;
+  return 3.5;
 }
 
 // ---------------------------------------------------------------------------
