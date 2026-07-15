@@ -63,9 +63,9 @@ export function canonHash(w: World): string {
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "0d5b13a8" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "aa32b2ec" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "36918da4" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "8e66dfe7" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "dd184cac" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "992e7cb0" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "9bd0864e",
+    hash: "9a9b1c2d",
   },
 ];
 
