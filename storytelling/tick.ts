@@ -118,6 +118,12 @@ export function tick(w: World): void {
   // react to catastrophes, challenges, or fate events fired earlier this
   // tick, and ambient specs see the fresh world state.
   runSpecs(w);
+
+  // End-of-tick sweep: runChallenges can kill title-holders (challenger
+  // slain by a hostile kind), and the last resolvePendingSuccessions call
+  // was before that. Without this the "title held by dead char" invariant
+  // can fail at end-of-simulation, since no next tick arrives to clean up.
+  resolvePendingSuccessions(w);
 }
 
 // ---------------------------------------------------------------------------

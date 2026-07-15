@@ -64,7 +64,7 @@ export function canonHash(w: World): string {
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
   { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "a362f2a1" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "06911d07" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "0d1e8a72" },
   { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "1e353a03" },
   {
     name: "frontier·magic·prehistory·s5·250y",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "6ddae8c5",
+    hash: "d7e9d141",
   },
 ];
 

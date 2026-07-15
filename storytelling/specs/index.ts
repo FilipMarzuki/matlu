@@ -6,6 +6,7 @@
 import { registerSpecs } from "../event-spec.js";
 import { BETRAYAL_SPECS } from "./betrayal-events.js";
 import { CHURCH_SPECS } from "./church-events.js";
+import { COURT_SPECS } from "./court-events.js";
 import { CRIME_SPECS } from "./crime-events.js";
 import { CULTURE_SPECS } from "./culture-events.js";
 import { FACTION_SPECS } from "./faction-events.js";
@@ -19,6 +20,7 @@ import { URBAN_SPECS } from "./urban-events.js";
 
 registerSpecs(BETRAYAL_SPECS);
 registerSpecs(CHURCH_SPECS);
+registerSpecs(COURT_SPECS);
 registerSpecs(CRIME_SPECS);
 registerSpecs(CULTURE_SPECS);
 registerSpecs(FACTION_SPECS);
