@@ -10,6 +10,7 @@ import { LOST_PEOPLES_SPECS } from "./lost-peoples-events.js";
 import { MARITIME_SPECS } from "./maritime-events.js";
 import { OMENS_SPECS } from "./omens-events.js";
 import { RELIGIOUS_SPECS } from "./religious-events.js";
+import { REVOLT_SPECS } from "./revolt-events.js";
 import { SUCCESSION_LEGITIMACY_SPECS } from "./succession-legitimacy.js";
 import { URBAN_SPECS } from "./urban-events.js";
 
@@ -19,5 +20,6 @@ registerSpecs(LOST_PEOPLES_SPECS);
 registerSpecs(MARITIME_SPECS);
 registerSpecs(OMENS_SPECS);
 registerSpecs(RELIGIOUS_SPECS);
+registerSpecs(REVOLT_SPECS);
 registerSpecs(SUCCESSION_LEGITIMACY_SPECS);
 registerSpecs(URBAN_SPECS);
