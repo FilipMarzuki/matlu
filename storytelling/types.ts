@@ -507,7 +507,46 @@ export type EventType =
   | "NAVIGATION_CHART_MADE"  // port + literacy_valued
   | "SEA_MONSTER_SPOTTED"    // coastal + high mana
   | "ISLAND_COLONY_FOUNDED"  // after NEW_LANDS_DISCOVERED
-  | "SIREN_LURE";            // coastal + high mana kills martial challenger
+  | "SIREN_LURE"             // coastal + high mana kills martial challenger
+  // --- Faction events (specs/faction-events.ts) ---
+  | "KNIGHTLY_ORDER_FOUNDED" // warrior culture + multiple knights
+  | "THIEVES_GUILD_FORMS"    // repeat murders in a wealthy province spawn organised crime
+  | "MERCHANT_LEAGUE_FORMED" // trade-route hub with multiple sea routes
+  | "HERETIC_MOVEMENT"       // zealous_faith contested internally
+  | "ROYAL_INQUISITION"      // heresy trial escalates into standing office
+  | "MASONS_GUILD_CHARTERED" // library founded + literacy_valued establishes builders
+  | "ADVENTURERS_GUILD_HALL" // multiple challenges vanquished at same province
+  | "MERCENARY_COMPANY_RAISED" // war + wealth spawns a for-hire army
+  | "BANDIT_KING_RISES"      // vacant title + high pop + no war + ambitious warrior
+  | "ASSASSINS_LODGE_FOUNDED" // repeat kinslayings in one dynasty
+  | "PIRATE_CONFEDERATION"   // multiple pirate raids consolidate into a fleet
+  | "WITCHCOVEN_FORMS"       // high mana + no zealous_faith + necromancer/stormcaller
+  // --- Urban / festival / civic events (specs/urban-events.ts) ---
+  | "MARKETPLACE_RIOT"       // famine or high pop + no ruler
+  | "FESTIVAL_HELD"          // stable ruler + no famine/plague for 10y
+  | "ROYAL_TOUR"             // kingdom-tier holder + old age + no war
+  | "GRAND_FAIR"             // market monopoly aftermath
+  | "PLAGUE_QUARANTINE"      // plague at coastal + literacy_valued + wealthy holder
+  | "PUBLIC_WORKS_BEGUN"     // guild + wealth + long peace
+  | "TAX_REVOLT"             // caste_rigid or slavery + high wealth extraction
+  | "GRAND_TOURNAMENT"       // knightly order + peace + kingdom holder
+  | "MAY_DAY_PARADE"         // mercantile + peace + coastal
+  | "STREET_PROPHET"         // dark prophet events + high pop
+  | "ARCHITECT_APPRENTICED"  // masons guild + scholar
+  | "CIVIC_FEUD"             // rival houses in same province + murder
+  // --- Religious / miracle events (specs/religious-events.ts) ---
+  | "MIRACLE_WITNESSED"      // high piety + zealous_faith culture
+  | "SAINT_CANONIZED"        // legend inscribed + zealous_faith + 30y+ old
+  | "PILGRIMAGE_ROUTE_OPENED" // saint canonized + trade route
+  | "FALSE_PROPHET_UNMASKED" // dark prophet + inquisition
+  | "RELIC_UNEARTHED"        // ancient tomb vanquished + zealous_faith
+  | "TEMPLE_BUILT"           // wealth + zealous_faith + long peace
+  | "HOLY_WAR_DECLARED"      // crusade called + kingdom-tier + strong martial
+  | "SACRED_GROVE_RECOGNIZED" // high mana + forest terrain + zealous_faith absent
+  | "SCHISM_HEALED"          // syncretic faith + generations of peace
+  | "APOSTASY_MOMENT"        // ruler abandons the faith
+  | "MONASTIC_ORDER_FOUNDED" // temple built + scholars
+  | "FAITH_MARTYRED";        // holy war + priest character dies violently
 
 export interface WorldEvent {
   id: number;

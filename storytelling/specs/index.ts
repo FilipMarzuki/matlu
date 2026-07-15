@@ -5,7 +5,9 @@
 
 import { registerSpecs } from "../event-spec.js";
 import { CULTURE_SPECS } from "./culture-events.js";
+import { FACTION_SPECS } from "./faction-events.js";
 import { MARITIME_SPECS } from "./maritime-events.js";
 
 registerSpecs(CULTURE_SPECS);
+registerSpecs(FACTION_SPECS);
 registerSpecs(MARITIME_SPECS);
