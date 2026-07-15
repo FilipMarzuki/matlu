@@ -10,10 +10,11 @@
 // Derived, never canonical: arcs are recomputed from the event log, exactly like
 // the chronicle. Nothing here invents facts.
 
-import type { WorldEvent } from "./types.js";
+import { SPEC_REGISTRY } from "./event-spec.js";
+import type { ArcKind, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
-export type ArcKind = "title" | "feud" | "dynasty" | "figure" | "calamity" | "culture";
+export type { ArcKind };
 
 export interface Arc {
   id: string;
@@ -73,6 +74,10 @@ export function extractArcs(w: World, chronicle: WorldEvent[]): Arc[] {
 
 // What story does this event belong to?
 function focusOf(ev: WorldEvent): { key: string; kind: ArcKind } | null {
+  // EventSpec catalog takes precedence — a spec's arc function overrides any
+  // hand-written case below. Hand-written events unchanged.
+  const spec = SPEC_REGISTRY.get(ev.type);
+  if (spec?.arc) return spec.arc(ev);
   switch (ev.type) {
     case "WAR":
     case "SUCCESSION":

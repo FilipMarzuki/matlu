@@ -493,6 +493,12 @@ export interface WorldEvent {
 }
 
 // ---------------------------------------------------------------------------
+// ArcKind — the shape of a story arc. Declared here (not in arcs.ts) so both
+// arcs.ts and event-spec.ts can reference it without a circular import.
+// ---------------------------------------------------------------------------
+export type ArcKind = "title" | "feud" | "dynasty" | "figure" | "calamity" | "culture";
+
+// ---------------------------------------------------------------------------
 // Challenge — a discrete, high-risk opportunity for a character to grow. A
 // dragon in the mountain, a wraith host in a dead-zone, an abyssal gate.
 // Lives on the World as long as it's unvanquished; consumed when a hero beats

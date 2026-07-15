@@ -16,6 +16,8 @@ import { runCatastrophes } from "./catastrophe.js";
 import { runChallenges } from "./challenges.js";
 import { runEmergence } from "./emergence.js";
 import { runFate } from "./fate.js";
+import { runSpecs } from "./event-spec.js";
+import "./specs/index.js"; // side-effect: registers all catalog specs
 import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
@@ -110,6 +112,12 @@ export function tick(w: World): void {
   // can qualify a dying figure for LEGEND_INSCRIBED. Also resolves this
   // year's DEATHs against active prophecies and dooms.
   runFate(w);
+
+  // --- catalog-driven events (EventSpec / SPEC_REGISTRY) ---
+  // No-op if no specs are registered. Runs LAST so any spec's onEvent can
+  // react to catastrophes, challenges, or fate events fired earlier this
+  // tick, and ambient specs see the fresh world state.
+  runSpecs(w);
 }
 
 // ---------------------------------------------------------------------------

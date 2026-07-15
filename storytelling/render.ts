@@ -8,6 +8,7 @@
 // no facts (that would corrupt canon); it only phrases facts the sim recorded.
 
 import type { Arc } from "./arcs.js";
+import { SPEC_REGISTRY } from "./event-spec.js";
 import { topHeroes } from "./magic.js";
 import type { FocusContext } from "./sifter.js";
 import type { Character, WorldEvent } from "./types.js";
@@ -77,6 +78,10 @@ function tagsOf(ev: WorldEvent): string[] {
 
 // The core: one event -> one chronicle sentence.
 export function renderEvent(w: World, ev: WorldEvent): string {
+  // EventSpec catalog takes precedence. Hand-written events fall through to
+  // the switch statement below unchanged.
+  const spec = SPEC_REGISTRY.get(ev.type);
+  if (spec) return spec.render(ev, w);
   const tags = tagsOf(ev);
   switch (ev.type) {
     case "BIRTH":

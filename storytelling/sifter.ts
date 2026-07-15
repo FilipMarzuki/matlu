@@ -8,6 +8,7 @@
 // This is where "which of the thousand things that happened are worth telling"
 // lives — deliberately separate from rendering, so judgment and prose decouple.
 
+import { SPEC_REGISTRY } from "./event-spec.js";
 import type { CharId, EventType, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
 
@@ -283,7 +284,11 @@ export function sift(w: World, threshold = 4, focus?: FocusContext): SiftResult 
   }
 
   for (const ev of w.events) {
-    let s = BASE[ev.type];
+    // EventSpec catalog takes precedence — new events register a base score
+    // and optional scoreBoost via SPEC_REGISTRY. Hand-written events fall
+    // through to the BASE table + switch below unchanged.
+    const spec = SPEC_REGISTRY.get(ev.type);
+    let s = spec ? spec.base + (spec.scoreBoost?.(ev, w) ?? 0) : BASE[ev.type];
     const tags: string[] = [];
 
     switch (ev.type) {
