@@ -155,6 +155,11 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
     charClass: "commoner",
     comfort: 0,
     ventured: false,
+    // Personal skill premium & craft lineage — inactive in base sim; populated
+    // only when magicEnabled (innovation.ts).
+    personalWealth: 0,
+    mentorId: null,
+    apprenticeIds: [],
     psyche: zeroPsyche(), // patched below once drives are resolved
   };
   // Apply cultural/faith bias seeds and universal baselines AFTER the character

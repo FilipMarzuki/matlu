@@ -22,6 +22,7 @@ import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
+import { runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
@@ -114,10 +115,15 @@ export function tick(w: World): void {
   runFate(w);
 
   // --- catalog-driven events (EventSpec / SPEC_REGISTRY) ---
-  // No-op if no specs are registered. Runs LAST so any spec's onEvent can
-  // react to catastrophes, challenges, or fate events fired earlier this
-  // tick, and ambient specs see the fresh world state.
+  // Registered specs (including specs/innovation-events.ts) fire here. Ambient
+  // specs consume RNG; the innovation specs' probability is inversely scaled
+  // by manaDensity so high-mana provinces see less codified innovation.
   runSpecs(w);
+
+  // --- codified craft-secrets: leak rolls + lost checks ---
+  // Runs after runSpecs so any INVENTION_MADE fired this tick immediately
+  // participates in leak/lost bookkeeping next tick. No-op when magic is off.
+  runInnovations(w);
 
   // End-of-tick sweep: runChallenges can kill title-holders (challenger
   // slain by a hostile kind), and the last resolvePendingSuccessions call
@@ -282,6 +288,9 @@ function syntheticDeceased(title: Title): Character {
     charClass: "commoner",
     comfort: 0,
     ventured: false,
+    personalWealth: 0,
+    mentorId: null,
+    apprenticeIds: [],
   };
 }
 

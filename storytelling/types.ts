@@ -165,6 +165,19 @@ export interface Character {
   // "void_walker"). Undefined for characters that never trial-earned anything, so
   // canonHash / base-sim JSON stays byte-identical. Populated only by challenges.ts.
   skills?: string[];
+
+  // --- Personal skill premium & craft lineage --------------------------------
+  // Wealth captured by personal skill (master craftsman charges premium). Unlike
+  // Dynasty.wealth (dynastic), personalWealth dies with the character unless it
+  // passes to an apprentice on death. Populated only when innovation.ts is active
+  // (magicEnabled); otherwise stays 0 and is byte-identical to base sim.
+  personalWealth: number;
+
+  // A named craft-lineage link: master and apprentices. When the master dies,
+  // top apprentice inherits personalWealth + level bump. Enables the "skill dies
+  // with you unless you take a student" mechanic that Factor 2 depends on.
+  mentorId: CharId | null;
+  apprenticeIds: CharId[];
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +260,45 @@ export interface Dynasty {
   wealth: number; // treasury; earned from lands, spent cultivating heirs
   rite: RareClass | null; // a heritable rare class-rite the house can grant
   riteBearerId: CharId | null; // the living master who can pass the rite on
+}
+
+// ---------------------------------------------------------------------------
+// Invention — persistent codified knowledge with secrecy and leak dynamics.
+// The generalisation of Dynasty.rite/riteBearerId, applied to procedurally
+// invented craft-secrets instead of hardcoded rare classes. Modeled with a
+// leak probability because pre-patent worlds substitute guild secrecy for IP.
+// Magic-heavy provinces suppress invention (magic occupies the same niche).
+// ---------------------------------------------------------------------------
+export type InventionCategory =
+  | "metallurgy"
+  | "printing"
+  | "medicine"
+  | "military"
+  | "agriculture"
+  | "navigation"
+  | "architecture"
+  | "textiles";
+
+export type InventionId = string;
+
+export interface Invention {
+  id: InventionId;
+  name: string; // procedurally-named ("Coastborn compass", "Ibiki brasswork")
+  category: InventionCategory;
+  tier: 1 | 2 | 3; // small / medium / breakthrough — scales mechanical benefit
+  inventedYear: number;
+  inventorId: CharId;
+  inventorDynastyId: DynastyId;
+  inventorProvinceId: ProvinceId;
+
+  // Secrecy — the Factor 1 mechanic. spreadTo holds every dynasty that knows the
+  // craft; while secret, this stays a single-dynasty set. Leak rolls per tick.
+  secret: boolean;
+  leakProbBase: number; // 0.02 default; 0.005 if guild-protected; 0.05 if none
+  spreadTo: DynastyId[];
+  guildProtected: boolean; // set by GUILD_MONOPOLY_CLAIMED, halves leak
+  lost: boolean; // last living carrier died without transmission
+  lostYear: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -616,7 +668,18 @@ export type EventType =
   | "CONCUBINE_BEARS_HEIR"   // Ottoman/Ming pattern — dynastic implications
   | "MISTRESS_INFLUENCES_CROWN" // de Pompadour analog — soft power
   | "EUNUCH_MINISTER_ASCENDS" // gelded court official runs the palace
-  | "COURT_INTRIGUE_UNRAVELS";  // shadow-cabinet exposed
+  | "COURT_INTRIGUE_UNRAVELS"  // shadow-cabinet exposed
+  // --- Innovation & personal skill premium (specs/innovation-events.ts) ---
+  | "INVENTION_MADE"           // a craftsman codifies a new technique
+  | "GUILD_MONOPOLY_CLAIMED"   // mercantile culture formalizes guild exclusivity
+  | "INVENTION_LEAKED"         // the secret escapes to another dynasty
+  | "RIVAL_REVERSE_ENGINEERS"  // a peer scholar independently reproduces it
+  | "INVENTION_LOST"           // last carrier dies, invention passes into legend
+  | "INVENTION_REDISCOVERED"   // a later scholar reawakens a lost art
+  | "TREATISE_LEAKS_SECRET"    // published treatise inadvertently spreads craft
+  | "APPRENTICE_TAKEN"         // master craftsman takes on a student
+  | "MASTER_ARTISAN_HONORED"   // personal-mastery path recognised
+  | "PATENT_LAW_ADOPTED";      // proto-IP (Venetian statute analog) formalized
 
 export interface WorldEvent {
   id: number;
