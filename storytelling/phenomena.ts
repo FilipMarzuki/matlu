@@ -7,7 +7,7 @@
 
 import { getBiology } from "./biology.js";
 import { scarcity } from "./geography.js";
-import { transferOnDeath } from "./innovation.js";
+import { plagueResistBonus, transferOnDeath } from "./innovation.js";
 import { onGrief } from "./perception.js";
 import type { Character } from "./types.js";
 import type { World } from "./world.js";
@@ -128,6 +128,7 @@ export function killResidentsByChance(
   for (const c of w.living()) {
     if (c.provinceId !== provinceId) continue;
     // Biology: plague resistance reduces effective kill chance per character.
+    // Held medicine-inventions further reduce plague mortality.
     let effectiveChance = chance;
     if (cause === "plague") {
       const raceId = w.raceIdOf(c);
@@ -135,6 +136,8 @@ export function killResidentsByChance(
       if (race?.biology) {
         effectiveChance = chance * (1 - getBiology(race).plagueResistance);
       }
+      // Medicine inventions held by this dynasty attenuate plague further.
+      effectiveChance *= 1 - plagueResistBonus(w, c.dynastyId);
     }
     if (w.rng.chance(effectiveChance)) {
       markDead(w, c, cause);

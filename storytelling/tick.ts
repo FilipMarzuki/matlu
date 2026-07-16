@@ -22,7 +22,7 @@ import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
-import { runInnovations } from "./innovation.js";
+import { militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
@@ -353,9 +353,13 @@ function resolveWars(w: World): void {
     // Underground fortifications heavily favour the defender: attackers
     // advancing through narrow tunnels lose much of their numerical edge.
     const prov = w.province(title.provinceId);
-    const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0);
+    // Military inventions (siege engines, war-drill, metallurgy) held by the
+    // dynasty amplify raised power. Symmetric — both sides get their bonus.
+    const aMil = 1 + militaryBonus(w, attacker.dynastyId);
+    const dMil = 1 + militaryBonus(w, defender.dynastyId);
+    const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0) * aMil;
     // loss_aversion makes defenders fight harder to keep what they have.
-    const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25);
+    const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25) * dMil;
     // A defensive ally contributes half their power to the defender's cause.
     const ally = allyFor(w, defender.id, attacker.id);
     const dPow = defBase + (ally ? w.power(ally) * 0.5 : 0);
