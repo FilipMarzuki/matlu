@@ -15,6 +15,8 @@ import type {
   DynastyId,
   EventType,
   Goal,
+  Invention,
+  InventionId,
   Province,
   ProvinceId,
   Scheme,
@@ -46,6 +48,11 @@ export class World {
   // characters can attempt for XP + class/skill unlocks. Only populated when
   // magicEnabled (challenges.ts is a no-op otherwise).
   challenges = new Map<string, Challenge>();
+
+  // Codified craft-secrets — procedurally created by INVENTION_MADE, protected
+  // by guilds, leaked over time, potentially lost. Only populated when
+  // magicEnabled (innovation.ts guards on that flag for RNG symmetry).
+  inventions = new Map<InventionId, Invention>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -154,6 +161,39 @@ export class World {
   titlesHeldBy(id: CharId): Title[] {
     const out: Title[] = [];
     for (const t of this.titles.values()) if (t.holderId === id) out.push(t);
+    return out;
+  }
+
+  // ---- inventions --------------------------------------------------------
+  // Every dynasty knows every invention in its spreadTo set. Query cheap; the
+  // set is at most a few dozen dynasties in a fully-diffused breakthrough.
+  dynastyKnows(dynId: DynastyId, inv: Invention): boolean {
+    return inv.inventorDynastyId === dynId || inv.spreadTo.includes(dynId);
+  }
+
+  activeInventions(): Invention[] {
+    const out: Invention[] = [];
+    for (const inv of this.inventions.values()) if (!inv.lost) out.push(inv);
+    return out;
+  }
+
+  // Living characters whose dynasty knows this invention. Used by innovation.ts
+  // to decide when an invention becomes LOST (empty carrier chain).
+  livingBearersOf(inv: Invention): Character[] {
+    const carriers = new Set<DynastyId>([inv.inventorDynastyId, ...inv.spreadTo]);
+    const out: Character[] = [];
+    for (const c of this.characters.values()) if (c.alive && carriers.has(c.dynastyId)) out.push(c);
+    return out;
+  }
+
+  // All active inventions currently known to a dynasty. Used by the benefits
+  // pass in innovation.ts to sum up bonuses when accruing wealth / resolving
+  // wars / handling plague.
+  inventionsKnownBy(dynId: DynastyId): Invention[] {
+    const out: Invention[] = [];
+    for (const inv of this.inventions.values()) {
+      if (!inv.lost && this.dynastyKnows(dynId, inv)) out.push(inv);
+    }
     return out;
   }
 

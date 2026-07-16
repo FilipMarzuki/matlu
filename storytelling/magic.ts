@@ -20,6 +20,7 @@
 
 import { getBiology } from "./biology.js";
 import { scarcity } from "./geography.js";
+import { economicBonus } from "./innovation.js";
 import { markDead } from "./phenomena.js";
 import type { CharClass, Character, Dynasty, Province, RareClass, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
@@ -407,9 +408,25 @@ function accrueWealth(w: World): void {
       const levelMult = holder.level >= 15
         ? 1 + Math.min(0.5, (holder.level - 14) * 0.03)  // +3% per level past 15, cap +50%
         : 1;
-      income *= classMult * levelMult;
+      // Invention-driven economic bonus — held craft-secrets multiply dynastic
+      // income (textiles + printing above; each contributes tier-scaled multipliers).
+      const invBonus = 1 + economicBonus(w, dyn.id);
+      income *= classMult * levelMult * invBonus;
     }
     dyn.wealth = Math.min(5000, dyn.wealth + income);
+  }
+  // Personal wealth for craftsmen (Factor 2). Scholars and merchants at level
+  // 3+ earn a personal wealth stream that DIES WITH THEM (transferred to top
+  // apprentice on death via transferOnDeath). Enables the "personal-mastery"
+  // path that competes with codified invention when IP protection is weak.
+  for (const c of w.characters.values()) {
+    if (!c.alive) continue;
+    if (c.charClass !== "scholar" && c.charClass !== "merchant") continue;
+    if (c.level < 3) continue;
+    const base = 1.2;
+    const classMult = c.charClass === "merchant" ? 1.5 : 1.25;
+    const levelMult = 1 + (c.level - 2) * 0.05;
+    c.personalWealth = Math.min(2000, c.personalWealth + base * classMult * levelMult);
   }
 }
 

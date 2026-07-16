@@ -22,6 +22,7 @@ import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
+import { militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
@@ -114,10 +115,21 @@ export function tick(w: World): void {
   runFate(w);
 
   // --- catalog-driven events (EventSpec / SPEC_REGISTRY) ---
-  // No-op if no specs are registered. Runs LAST so any spec's onEvent can
-  // react to catastrophes, challenges, or fate events fired earlier this
-  // tick, and ambient specs see the fresh world state.
+  // Registered specs (including specs/innovation-events.ts) fire here. Ambient
+  // specs consume RNG; the innovation specs' probability is inversely scaled
+  // by manaDensity so high-mana provinces see less codified innovation.
   runSpecs(w);
+
+  // --- codified craft-secrets: leak rolls + lost checks ---
+  // Runs after runSpecs so any INVENTION_MADE fired this tick immediately
+  // participates in leak/lost bookkeeping next tick. No-op when magic is off.
+  runInnovations(w);
+
+  // End-of-tick sweep: runChallenges can kill title-holders (challenger
+  // slain by a hostile kind), and the last resolvePendingSuccessions call
+  // was before that. Without this the "title held by dead char" invariant
+  // can fail at end-of-simulation, since no next tick arrives to clean up.
+  resolvePendingSuccessions(w);
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +288,9 @@ function syntheticDeceased(title: Title): Character {
     charClass: "commoner",
     comfort: 0,
     ventured: false,
+    personalWealth: 0,
+    mentorId: null,
+    apprenticeIds: [],
   };
 }
 
@@ -338,9 +353,13 @@ function resolveWars(w: World): void {
     // Underground fortifications heavily favour the defender: attackers
     // advancing through narrow tunnels lose much of their numerical edge.
     const prov = w.province(title.provinceId);
-    const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0);
+    // Military inventions (siege engines, war-drill, metallurgy) held by the
+    // dynasty amplify raised power. Symmetric — both sides get their bonus.
+    const aMil = 1 + militaryBonus(w, attacker.dynastyId);
+    const dMil = 1 + militaryBonus(w, defender.dynastyId);
+    const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0) * aMil;
     // loss_aversion makes defenders fight harder to keep what they have.
-    const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25);
+    const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25) * dMil;
     // A defensive ally contributes half their power to the defender's cause.
     const ally = allyFor(w, defender.id, attacker.id);
     const dPow = defBase + (ally ? w.power(ally) * 0.5 : 0);

@@ -63,9 +63,9 @@ export function canonHash(w: World): string {
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "6882f656" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "33799cd1" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "cb50dd81" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "cab0f149" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "29ed914b" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "9b120e04" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "9a9b1c2d",
+    hash: "8915e9cc",
   },
 ];
 
@@ -166,6 +166,27 @@ export function checkInvariants(w: World): string[] {
     if (e.year < lastYear) v.push(`event year ${e.year} < previous ${lastYear}`);
     lastId = e.id;
     lastYear = e.year;
+  }
+
+  // Innovation invariants — personal wealth non-negative, mentor/apprentice
+  // consistency, invention state coherent.
+  for (const c of w.characters.values()) {
+    if (c.personalWealth < 0) v.push(`char ${c.id} personalWealth ${c.personalWealth} < 0`);
+    if (c.alive && c.mentorId) {
+      const m = w.char(c.mentorId);
+      if (!m) v.push(`living char ${c.id} points to missing mentor ${c.mentorId}`);
+      else if (!m.alive) v.push(`living char ${c.id} points to dead mentor ${m.id}`);
+      else if (!m.apprenticeIds.includes(c.id))
+        v.push(`char ${c.id} lists mentor ${m.id} but master doesn't list them back`);
+    }
+  }
+  for (const inv of w.inventions.values()) {
+    if (inv.leakProbBase < 0 || inv.leakProbBase > 1)
+      v.push(`invention ${inv.id} leakProbBase ${inv.leakProbBase} out of [0,1]`);
+    if (inv.tier < 1 || inv.tier > 3)
+      v.push(`invention ${inv.id} tier ${inv.tier} out of [1,3]`);
+    if (inv.lost && inv.lostYear === null)
+      v.push(`invention ${inv.id} lost but lostYear null`);
   }
 
   return v;

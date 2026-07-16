@@ -165,6 +165,19 @@ export interface Character {
   // "void_walker"). Undefined for characters that never trial-earned anything, so
   // canonHash / base-sim JSON stays byte-identical. Populated only by challenges.ts.
   skills?: string[];
+
+  // --- Personal skill premium & craft lineage --------------------------------
+  // Wealth captured by personal skill (master craftsman charges premium). Unlike
+  // Dynasty.wealth (dynastic), personalWealth dies with the character unless it
+  // passes to an apprentice on death. Populated only when innovation.ts is active
+  // (magicEnabled); otherwise stays 0 and is byte-identical to base sim.
+  personalWealth: number;
+
+  // A named craft-lineage link: master and apprentices. When the master dies,
+  // top apprentice inherits personalWealth + level bump. Enables the "skill dies
+  // with you unless you take a student" mechanic that Factor 2 depends on.
+  mentorId: CharId | null;
+  apprenticeIds: CharId[];
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +260,45 @@ export interface Dynasty {
   wealth: number; // treasury; earned from lands, spent cultivating heirs
   rite: RareClass | null; // a heritable rare class-rite the house can grant
   riteBearerId: CharId | null; // the living master who can pass the rite on
+}
+
+// ---------------------------------------------------------------------------
+// Invention — persistent codified knowledge with secrecy and leak dynamics.
+// The generalisation of Dynasty.rite/riteBearerId, applied to procedurally
+// invented craft-secrets instead of hardcoded rare classes. Modeled with a
+// leak probability because pre-patent worlds substitute guild secrecy for IP.
+// Magic-heavy provinces suppress invention (magic occupies the same niche).
+// ---------------------------------------------------------------------------
+export type InventionCategory =
+  | "metallurgy"
+  | "printing"
+  | "medicine"
+  | "military"
+  | "agriculture"
+  | "navigation"
+  | "architecture"
+  | "textiles";
+
+export type InventionId = string;
+
+export interface Invention {
+  id: InventionId;
+  name: string; // procedurally-named ("Coastborn compass", "Ibiki brasswork")
+  category: InventionCategory;
+  tier: 1 | 2 | 3; // small / medium / breakthrough — scales mechanical benefit
+  inventedYear: number;
+  inventorId: CharId;
+  inventorDynastyId: DynastyId;
+  inventorProvinceId: ProvinceId;
+
+  // Secrecy — the Factor 1 mechanic. spreadTo holds every dynasty that knows the
+  // craft; while secret, this stays a single-dynasty set. Leak rolls per tick.
+  secret: boolean;
+  leakProbBase: number; // 0.02 default; 0.005 if guild-protected; 0.05 if none
+  spreadTo: DynastyId[];
+  guildProtected: boolean; // set by GUILD_MONOPOLY_CLAIMED, halves leak
+  lost: boolean; // last living carrier died without transmission
+  lostYear: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -563,7 +615,71 @@ export type EventType =
   | "LOST_PERSIAN_IMMORTALS" // elite guard — soldiers, loyalty above all
   | "LOST_CARTHAGINIAN_FLEET" // merchant fleet — coastal, mercantile, greedy
   | "LOST_NORMAN_KNIGHTS"    // feudal cavalry — knights, ambitious
-  | "LOST_HAN_EXPEDITION";   // classical Chinese — scholars + soldiers, literate
+  | "LOST_HAN_EXPEDITION"    // classical Chinese — scholars + soldiers, literate
+  // --- Succession legitimacy (specs/succession-legitimacy.ts) ---
+  | "BASTARD_ACKNOWLEDGED"   // ruler recognizes a natural child
+  | "BASTARD_LEGITIMIZED"    // formal legitimization (William the Conqueror pattern)
+  | "SECRET_HEIR_DISCOVERED" // a hidden royal child is revealed
+  | "PRETENDER_APPEARS"      // false claimant (Warbeck, false Dmitry)
+  | "PRETENDER_UNMASKED"     // and is exposed
+  | "CHILD_KING_CROWNED"     // succession with a minor holder
+  | "REGENCY_ESTABLISHED"    // regent takes power over a child king
+  | "REGENT_USURPS"          // regent seizes the crown outright
+  | "KING_INCAPACITATED"     // madness / illness / madness_onset on the throne
+  | "ABDICATION"             // ruler voluntarily steps down
+  | "FAVORITE_ASCENDS"       // court favorite becomes de facto power
+  | "COUP_D_ETAT"            // military coup (distinct from usurpation)
+  // --- Omens & celestial signs (specs/omens-events.ts) ---
+  | "SOLAR_ECLIPSE"          // rare, interpreted as omen
+  | "COMET_APPEARS"          // once-a-generation
+  | "AURORA_SIGHTED"         // northern lights in southern sky = portent
+  | "BLOOD_MOON"             // lunar eclipse, doom read into it
+  | "EARTHQUAKE_TREMORS"     // felt tremor without catastrophe damage
+  | "MONSTROUS_BIRTH"        // deformed calf/child, folk-omen
+  | "TWIN_STARS"             // supernova / paired bright stars
+  // --- Popular revolts (specs/revolt-events.ts) ---
+  | "PEASANT_REVOLT"         // agrarian uprising (Wat Tyler, Jacquerie)
+  | "URBAN_MOB_RIOT"         // city crowd, no clear leader
+  | "FOOD_RIOT"              // FAMINE + high pop, specifically about bread
+  | "MERCHANT_STRIKE"        // guild refuses to trade — economic pressure
+  | "TAX_COLLECTOR_LYNCHED"  // rural anger against extraction
+  // --- Papal schism / church politics (specs/church-events.ts) ---
+  | "ANTIPOPE_ELECTED"       // rival pope claimed (Great Western Schism)
+  | "PAPAL_SCHISM"           // formal split of the faith's leadership
+  | "COUNCIL_OF_BISHOPS"     // church council convened (Nicaea, Trent)
+  | "EXCOMMUNICATION_ISSUED" // formal expulsion from the faith
+  | "INTERDICT_LAID"         // a whole region cut off from sacraments
+  // --- Family betrayal (specs/betrayal-events.ts) ---
+  | "KINSLAYING_NOTORIOUS"   // MURDER within one dynasty becomes generational curse
+  | "FRATRICIDE_OPENS_WAR"   // brother kills brother, kingdom splits
+  | "OATH_OF_FEALTY_TAKEN"   // formal loyalty pledge
+  | "OATH_BROKEN_SACRED"     // sworn oath violated in aggravated way
+  | "HOSTAGE_KILLED_TERMS"   // hostage murdered against agreed terms
+  | "GUEST_RIGHT_BROKEN"     // sacred host-guest bond violated (Red Wedding)
+  | "MENTOR_BETRAYED"        // student turns on their master
+  // --- Individual crime & folk-legend (specs/crime-events.ts) ---
+  | "SERIAL_KILLER_STALKS"   // repeated MURDERs by one figure creates fear
+  | "HIGHWAY_ROBBER_LEGEND"  // Robin Hood analog — the outlaw becomes a name
+  | "PIRATE_BLACK_FLAG"      // named pirate captain, distinct from raids
+  | "MASS_JAILBREAK"         // dungeon breach in a wealthy province
+  | "CROWN_JEWELS_STOLEN"    // symbol-of-power theft
+  // --- Concubine & favorite politics (specs/court-events.ts) ---
+  | "CONCUBINE_FAVORED"      // ruler takes a low-born favorite
+  | "CONCUBINE_BEARS_HEIR"   // Ottoman/Ming pattern — dynastic implications
+  | "MISTRESS_INFLUENCES_CROWN" // de Pompadour analog — soft power
+  | "EUNUCH_MINISTER_ASCENDS" // gelded court official runs the palace
+  | "COURT_INTRIGUE_UNRAVELS"  // shadow-cabinet exposed
+  // --- Innovation & personal skill premium (specs/innovation-events.ts) ---
+  | "INVENTION_MADE"           // a craftsman codifies a new technique
+  | "GUILD_MONOPOLY_CLAIMED"   // mercantile culture formalizes guild exclusivity
+  | "INVENTION_LEAKED"         // the secret escapes to another dynasty
+  | "RIVAL_REVERSE_ENGINEERS"  // a peer scholar independently reproduces it
+  | "INVENTION_LOST"           // last carrier dies, invention passes into legend
+  | "INVENTION_REDISCOVERED"   // a later scholar reawakens a lost art
+  | "TREATISE_LEAKS_SECRET"    // published treatise inadvertently spreads craft
+  | "APPRENTICE_TAKEN"         // master craftsman takes on a student
+  | "MASTER_ARTISAN_HONORED"   // personal-mastery path recognised
+  | "PATENT_LAW_ADOPTED";      // proto-IP (Venetian statute analog) formalized
 
 export interface WorldEvent {
   id: number;
