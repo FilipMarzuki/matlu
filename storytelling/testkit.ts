@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "8915e9cc",
+    hash: "2e599e33",
   },
 ];
 

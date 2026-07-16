@@ -229,6 +229,7 @@ export class World {
         establishedFigureId: null,
         establishedSince: 0,
         figureQuirks: {},
+        innovationOssified: false,
       };
       this.liveCultures.set(id, s);
     }

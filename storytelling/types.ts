@@ -223,6 +223,10 @@ export interface CultureState {
   establishedSince: number;
   // Personal quirks assigned to characters so far (charId -> quirk string).
   figureQuirks: Record<string, string>;
+  // Innovation ossification — set true by CANONICAL_ORTHODOXY_FROZEN, further
+  // dampens invention probability for members of this culture. Post-Song Ming
+  // Confucian pattern: canon-knowledge crowds out new-knowledge production.
+  innovationOssified: boolean;
 }
 
 // Classes are tiered by how they're acquired:
@@ -679,7 +683,9 @@ export type EventType =
   | "TREATISE_LEAKS_SECRET"    // published treatise inadvertently spreads craft
   | "APPRENTICE_TAKEN"         // master craftsman takes on a student
   | "MASTER_ARTISAN_HONORED"   // personal-mastery path recognised
-  | "PATENT_LAW_ADOPTED";      // proto-IP (Venetian statute analog) formalized
+  | "PATENT_LAW_ADOPTED"       // proto-IP (Venetian statute analog) formalized
+  | "HERESY_TRIAL_SUPPRESSES"  // zealous_faith destroys a new invention (Bruno, Galileo)
+  | "CANONICAL_ORTHODOXY_FROZEN"; // caste_rigid + zealous_faith → cultural innovation ossifies
 
 export interface WorldEvent {
   id: number;
