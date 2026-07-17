@@ -20,7 +20,7 @@
 
 import { getBiology } from "./biology.js";
 import { scarcity } from "./geography.js";
-import { economicBonus } from "./innovation.js";
+import { dynastyWealthSynergy, economicBonus } from "./innovation.js";
 import { markDead } from "./phenomena.js";
 import type { CharClass, Character, Dynasty, Province, RareClass, WorldEvent } from "./types.js";
 import type { World } from "./world.js";
@@ -411,7 +411,11 @@ function accrueWealth(w: World): void {
       // Invention-driven economic bonus — held craft-secrets multiply dynastic
       // income (textiles + printing above; each contributes tier-scaled multipliers).
       const invBonus = 1 + economicBonus(w, dyn.id);
-      income *= classMult * levelMult * invBonus;
+      // Dynasty specialization synergy — a house of merchants/scholars gets a
+      // super-linear boost that grows with member count × specializationDepth.
+      // Historical: Medici, Rothschilds, Fugger — multi-generational commercial houses.
+      const synBonus = 1 + dynastyWealthSynergy(w, dyn.id);
+      income *= classMult * levelMult * invBonus * synBonus;
     }
     dyn.wealth = Math.min(5000, dyn.wealth + income);
   }
@@ -496,6 +500,18 @@ function maintainRites(w: World): void {
 function desiredClass(w: World, c: Character): CharClass {
   if (RARE.has(c.charClass)) return c.charClass; // never demote a master
   const dyn = w.dynasty(c.dynastyId);
+  // House tradition — a member of a specialized house is DRAWN to the family
+  // craft (nepotism, apprenticeship, upbringing). Historical: Bernoulli
+  // mathematicians, Habsburg soldiers, Rothschild bankers. The pull is strong
+  // when specialization depth is high, weak otherwise.
+  if (dyn?.dominantClass && dyn.specializationDepth >= 0.3
+      && dyn.dominantClass !== "commoner"
+      && !RARE.has(dyn.dominantClass)) {
+    // Higher depth = stronger pull; even at ceiling, ambition/greed/piety can
+    // still overrule (a merchant house can still produce a mystic). The pull
+    // is soft: prob = 0.4 + 0.5 * depth, so a very deep house has 90% pull.
+    if (w.rng.chance(0.4 + 0.5 * dyn.specializationDepth)) return dyn.dominantClass;
+  }
   const noble = !!dyn?.rite || houseHoldsTitle(w, dyn);
   if (noble) {
     if (c.drives.greed > 0.6) return "merchant";

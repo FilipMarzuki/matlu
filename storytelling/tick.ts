@@ -22,8 +22,13 @@ import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
-import { militaryBonus, runInnovations } from "./innovation.js";
+import { runAcademies } from "./academies.js";
+import { runClimate } from "./climate.js";
+import { runReligion } from "./religion.js";
+import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
+import { runSieges, trySpawnSiege } from "./sieges.js";
+import { runTradeRoutes } from "./trade.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
@@ -42,8 +47,12 @@ export function tick(w: World): void {
   const evStart = w.events.length;
 
   // --- Environmental layer: geography + natural phenomena ----------------
-  // Catastrophes run first so province state is updated before population
-  // growth, harvest, and plague read it this tick.
+  // Climate phase drift runs first — multi-decade cold/warm periods that
+  // modulate downstream harvest yield and plague spread. No-op when
+  // catastrophes are disabled.
+  runClimate(w);
+  // Catastrophes run before population growth / harvest / plague so
+  // province state is updated before those read it this tick.
   runCatastrophes(w);
   regrowPopulation(w);
   runHarvest(w);
@@ -103,6 +112,12 @@ export function tick(w: World): void {
   // so golden-hash worlds are byte-identical.
   runEmergence(w);
 
+  // --- persistent trade routes: age wealth, dormancy, revive, abandon ---
+  // Guarded on catastrophesEnabled so base sim stays byte-identical. Reads
+  // this year's TRADE_ROUTE_DISRUPTED / ESTABLISHED events (already fired by
+  // emergence) to update entity state.
+  runTradeRoutes(w);
+
   // --- discrete challenges layer (dragons, wraith hosts, abyssal gates) ---
   // Runs last: reads catastrophes that fired earlier this tick (to spawn
   // reactive challenges) and this year's XP state to pick brave challengers.
@@ -124,6 +139,20 @@ export function tick(w: World): void {
   // Runs after runSpecs so any INVENTION_MADE fired this tick immediately
   // participates in leak/lost bookkeeping next tick. No-op when magic is off.
   runInnovations(w);
+
+  // --- persistent academies — form new ones, age prestige, migrate on shock.
+  // Runs after runInnovations so this tick's inventions boost prestige.
+  runAcademies(w);
+
+  // --- organised religion — deity manifestation, church aging, schisms,
+  // investiture conflicts, divine wrath / intervention. In this world gods
+  // are real, so doctrine is pact and miracles auditable. Guarded on
+  // magicEnabled inside religion.ts (RNG-symmetric no-op otherwise).
+  runReligion(w);
+
+  // --- multi-year sieges — advance provisions/morale, resolve terminations.
+  // No-op when the queue is empty.
+  runSieges(w);
 
   // End-of-tick sweep: runChallenges can kill title-holders (challenger
   // slain by a hostile kind), and the last resolvePendingSuccessions call
@@ -291,6 +320,7 @@ function syntheticDeceased(title: Title): Character {
     personalWealth: 0,
     mentorId: null,
     apprenticeIds: [],
+    guildId: null,
   };
 }
 
@@ -355,8 +385,11 @@ function resolveWars(w: World): void {
     const prov = w.province(title.provinceId);
     // Military inventions (siege engines, war-drill, metallurgy) held by the
     // dynasty amplify raised power. Symmetric — both sides get their bonus.
-    const aMil = 1 + militaryBonus(w, attacker.dynastyId);
-    const dMil = 1 + militaryBonus(w, defender.dynastyId);
+    // Dynasty martial specialization — a house of soldiers/knights (or a
+    // rare-class rite of stormcallers/necromancers/wardens) adds super-linear
+    // force. Multiple rare-class bearers is CATASTROPHIC for the opponent.
+    const aMil = 1 + militaryBonus(w, attacker.dynastyId) + dynastyMartialSynergy(w, attacker.dynastyId);
+    const dMil = 1 + militaryBonus(w, defender.dynastyId) + dynastyMartialSynergy(w, defender.dynastyId);
     const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0) * aMil;
     // loss_aversion makes defenders fight harder to keep what they have.
     const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25) * dMil;
@@ -379,6 +412,11 @@ function resolveWars(w: World): void {
 
     settledThisYear.add(title.id);
     warsFought++;
+
+    // Well-fortified target + close power ratio → LONG SIEGE instead of one-
+    // shot. Sieges are queued and processed each tick by sieges.ts:runSieges.
+    // Only fires when magicEnabled (guard inside trySpawnSiege).
+    if (trySpawnSiege(w, attacker, defender, title, aPow, dPow)) continue;
 
     // Victory probability from relative power, nudged by a strong claim's
     // legitimacy (it rallies more support).

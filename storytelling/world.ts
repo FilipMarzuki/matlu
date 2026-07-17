@@ -6,22 +6,36 @@
 
 import { RNG } from "./rng.js";
 import type {
+  Academy,
+  AcademyId,
+  Church,
+  ChurchId,
+  Deity,
+  DeityId,
   CatastropheQueueItem,
   Challenge,
   Character,
+  CharClass,
   CharId,
+  Climate,
   CultureState,
   Dynasty,
   DynastyId,
   EventType,
   Goal,
+  Guild,
+  GuildCraft,
+  GuildId,
   Invention,
   InventionId,
   Province,
   ProvinceId,
   Scheme,
+  Siege,
   Title,
   TitleId,
+  TradeRoute,
+  TradeRouteId,
   Treaty,
   WorldEvent,
 } from "./types.js";
@@ -53,6 +67,53 @@ export class World {
   // by guilds, leaked over time, potentially lost. Only populated when
   // magicEnabled (innovation.ts guards on that flag for RNG symmetry).
   inventions = new Map<InventionId, Invention>();
+
+  // Persistent guilds — cross-dynasty organisations of same-craft masters.
+  // Bind apprentices across dynastic lines, hold monopolies on inventions,
+  // pool wealth. Only populated when magicEnabled.
+  guilds = new Map<GuildId, Guild>();
+
+  // Multi-year sieges — queued from resolveWars when the target is a well-
+  // fortified kingdom/duchy tier title and the power ratio is close. Each
+  // tick, sieges.ts:runSieges advances provisions/morale and may fire mid-
+  // siege events (sallies, breaches, starvation) or resolve the siege.
+  siegeQueue: Siege[] = [];
+
+  // Multi-decade climate phase. Neutral by default; runClimate rolls transitions
+  // every ~30-80 years when catastrophesEnabled. Feeds runHarvest and runPlague.
+  climate: Climate = {
+    phase: "neutral",
+    phaseStartYear: 0,
+    phaseDurationYears: 40,
+    severity: 0,
+  };
+
+  // Persistent trade routes — minted from TRADE_ROUTE_ESTABLISHED events, ages
+  // over years via trade.ts:runTradeRoutes. Emergence still creates them; trade
+  // module ages them and fires FLOURISHES / ABANDONED / REVIVED / MARKET_FAIR.
+  tradeRoutes = new Map<TradeRouteId, TradeRoute>();
+
+  // Persistent academies — cross-dynasty scholar organisations. Guild-like
+  // shape but with prestige (0..1) and migration semantics. Aged by
+  // academies.ts:runAcademies.
+  academies = new Map<AcademyId, Academy>();
+
+  // Real gods — tangible, powered, capable of dying. Populated by religion.ts.
+  // Guarded on magicEnabled (in this world gods are a supernatural phenomenon).
+  deities = new Map<DeityId, Deity>();
+
+  // Persistent churches — mortal institutions organised around a specific
+  // deity. Shape mirrors Academy but with doctrineDrift (measures distance
+  // from the deity's actual pact) and militantOrder / investitureConflictWith
+  // fields. Aged by religion.ts:runReligion.
+  churches = new Map<ChurchId, Church>();
+
+  // Cosmological arc: the "Great Vanishing" — an ancient event in which the
+  // old pantheon left the mortal world all at once, 500-2000 years before the
+  // sim's start. Set by prehistory.ts when magic + prehistory are both on.
+  // religion.ts reads it to suppress new deity manifestation in the century
+  // after the sim begins (the world lost trust in gods).
+  godsVanishedYear: number | null = null;
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -194,6 +255,123 @@ export class World {
     for (const inv of this.inventions.values()) {
       if (!inv.lost && this.dynastyKnows(dynId, inv)) out.push(inv);
     }
+    return out;
+  }
+
+  // ---- guilds ------------------------------------------------------------
+  // Living members of a guild — walk stored ids and filter alive. Handles
+  // characters who died without the guild bookkeeping catching up.
+  guildMembers(g: Guild): Character[] {
+    const out: Character[] = [];
+    for (const id of g.memberIds) {
+      const c = this.characters.get(id);
+      if (c && c.alive) out.push(c);
+    }
+    return out;
+  }
+
+  activeGuilds(): Guild[] {
+    const out: Guild[] = [];
+    for (const g of this.guilds.values()) if (g.disbandedYear === null) out.push(g);
+    return out;
+  }
+
+  guildAt(provinceId: ProvinceId, craft: GuildCraft): Guild | undefined {
+    for (const g of this.guilds.values()) {
+      if (g.disbandedYear !== null) continue;
+      if (g.provinceId === provinceId && g.craft === craft) return g;
+    }
+    return undefined;
+  }
+
+  // ---- dynasty specialization --------------------------------------------
+  // Adult (age 16+) dynasty members.
+  dynastyAdults(dynId: DynastyId): Character[] {
+    const out: Character[] = [];
+    for (const c of this.characters.values()) {
+      if (!c.alive) continue;
+      if (c.dynastyId !== dynId) continue;
+      if (this.age(c) < 16) continue;
+      out.push(c);
+    }
+    return out;
+  }
+
+  // Members of dynasty at or above a level threshold for a given class.
+  dynastyMastersOfClass(dynId: DynastyId, cls: CharClass, minLevel: number): Character[] {
+    return this.dynastyAdults(dynId).filter(
+      (c) => c.charClass === cls && c.level >= minLevel,
+    );
+  }
+
+  // ---- sieges ------------------------------------------------------------
+  // Does this title currently have an active siege queued? Used by resolveWars
+  // to avoid double-queuing sieges on the same title.
+  activeSiegeAt(titleId: TitleId): Siege | undefined {
+    for (const s of this.siegeQueue) {
+      if (s.outcome === "active" && s.titleId === titleId) return s;
+    }
+    return undefined;
+  }
+
+  // ---- trade routes ------------------------------------------------------
+  // Canonical unordered key for a route between two provinces — used to
+  // deduplicate. Existing emergence code produces this shape ("a~b" sorted).
+  routeKey(a: ProvinceId, b: ProvinceId): string {
+    return a < b ? `${a}~${b}` : `${b}~${a}`;
+  }
+
+  // Find an active (non-closed) route between two provinces regardless of
+  // direction. Returns undefined if the pair has never traded or is closed.
+  routeBetween(a: ProvinceId, b: ProvinceId): TradeRoute | undefined {
+    for (const r of this.tradeRoutes.values()) {
+      if (r.closedYear !== null) continue;
+      if ((r.fromProvinceId === a && r.toProvinceId === b) ||
+          (r.fromProvinceId === b && r.toProvinceId === a)) return r;
+    }
+    return undefined;
+  }
+
+  activeTradeRoutes(): TradeRoute[] {
+    const out: TradeRoute[] = [];
+    for (const r of this.tradeRoutes.values()) if (r.closedYear === null) out.push(r);
+    return out;
+  }
+
+  // ---- religion ----------------------------------------------------------
+  // A deity is "living" if it has any power left. Dead gods stay in the map
+  // as historical objects (churches remember them) but they never intervene.
+  livingDeities(): Deity[] {
+    const out: Deity[] = [];
+    for (const d of this.deities.values()) if (d.mood !== "dead") out.push(d);
+    return out;
+  }
+
+  // Churches at a specific province. Multiple can coexist if they serve
+  // different deities — competing patrons in the same city.
+  churchesAt(provinceId: ProvinceId): Church[] {
+    const out: Church[] = [];
+    for (const ch of this.churches.values()) {
+      if (ch.disbandedYear !== null) continue;
+      if (ch.headProvinceId === provinceId) out.push(ch);
+    }
+    return out;
+  }
+
+  // Churches whose patron is this deity. Used by the schism / god-death
+  // cascades to touch every affiliated church at once.
+  churchesOf(deityId: DeityId): Church[] {
+    const out: Church[] = [];
+    for (const ch of this.churches.values()) {
+      if (ch.disbandedYear !== null) continue;
+      if (ch.deityId === deityId) out.push(ch);
+    }
+    return out;
+  }
+
+  activeChurches(): Church[] {
+    const out: Church[] = [];
+    for (const ch of this.churches.values()) if (ch.disbandedYear === null) out.push(ch);
     return out;
   }
 

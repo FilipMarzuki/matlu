@@ -63,9 +63,9 @@ export function canonHash(w: World): string {
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "cab0f149" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "29ed914b" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "9b120e04" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "8afd30e6" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "805ffd83" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "eea4b60d" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "2e599e33",
+    hash: "14ab80e6",
   },
 ];
 
@@ -187,6 +187,85 @@ export function checkInvariants(w: World): string[] {
       v.push(`invention ${inv.id} tier ${inv.tier} out of [1,3]`);
     if (inv.lost && inv.lostYear === null)
       v.push(`invention ${inv.id} lost but lostYear null`);
+  }
+
+  // Dynasty specialization + guild invariants.
+  for (const dyn of w.dynasties.values()) {
+    if (dyn.specializationDepth < 0 || dyn.specializationDepth > 1)
+      v.push(`dynasty ${dyn.id} specializationDepth ${dyn.specializationDepth} out of [0,1]`);
+  }
+  for (const g of w.guilds.values()) {
+    if (g.disbandedYear === null && g.memberIds.length < 1)
+      v.push(`active guild ${g.id} has no members`);
+    for (const mid of g.memberIds) {
+      const m = w.char(mid);
+      if (m && m.alive && m.guildId !== g.id)
+        v.push(`guild ${g.id} lists member ${mid} but char points to guildId ${m.guildId}`);
+    }
+  }
+
+  // Siege invariants.
+  for (const s of w.siegeQueue) {
+    if (s.provisions < 0 || s.provisions > 1)
+      v.push(`siege ${s.id} provisions ${s.provisions} out of [0,1]`);
+    if (s.attackerMorale < 0 || s.attackerMorale > 1)
+      v.push(`siege ${s.id} attackerMorale ${s.attackerMorale} out of [0,1]`);
+    if (s.defenderMorale < 0 || s.defenderMorale > 1)
+      v.push(`siege ${s.id} defenderMorale ${s.defenderMorale} out of [0,1]`);
+    if (s.yearsElapsed < 0)
+      v.push(`siege ${s.id} yearsElapsed ${s.yearsElapsed} negative`);
+  }
+
+  // Climate invariants.
+  const cl = w.climate;
+  if (cl.severity < 0 || cl.severity > 1)
+    v.push(`climate severity ${cl.severity} out of [0,1]`);
+  if (cl.phaseDurationYears < 1)
+    v.push(`climate phaseDurationYears ${cl.phaseDurationYears} < 1`);
+  if (cl.phase === "neutral" && cl.severity !== 0)
+    v.push(`neutral climate should have severity 0, got ${cl.severity}`);
+
+  // Trade route invariants.
+  for (const r of w.tradeRoutes.values()) {
+    if (r.wealth < 0 || r.wealth > 1)
+      v.push(`trade route ${r.id} wealth ${r.wealth} out of [0,1]`);
+    if (r.closedYear !== null && r.closedYear < r.foundedYear)
+      v.push(`trade route ${r.id} closed before founded`);
+    if (r.peakWealth < r.wealth)
+      v.push(`trade route ${r.id} peakWealth ${r.peakWealth} < current wealth ${r.wealth}`);
+  }
+
+  // Academy invariants.
+  for (const a of w.academies.values()) {
+    if (a.prestige < 0 || a.prestige > 1)
+      v.push(`academy ${a.id} prestige ${a.prestige} out of [0,1]`);
+    if (a.closedYear !== null && a.closedYear < a.foundedYear)
+      v.push(`academy ${a.id} closed before founded`);
+    if (a.peakPrestige < a.prestige)
+      v.push(`academy ${a.id} peakPrestige < current prestige`);
+  }
+
+  // Religion invariants — power/prestige/drift in bounds, church-deity link
+  // resolves, dead gods have diedYear, church.disbandedYear >= foundedYear.
+  for (const d of w.deities.values()) {
+    if (d.power < 0 || d.power > 1)
+      v.push(`deity ${d.id} power ${d.power} out of [0,1]`);
+    if (d.peakPower < d.power)
+      v.push(`deity ${d.id} peakPower ${d.peakPower} < current power ${d.power}`);
+    if (d.mood === "dead" && d.diedYear === null)
+      v.push(`deity ${d.id} is dead but diedYear is null`);
+  }
+  for (const ch of w.churches.values()) {
+    if (ch.prestige < 0 || ch.prestige > 1)
+      v.push(`church ${ch.id} prestige ${ch.prestige} out of [0,1]`);
+    if (ch.peakPrestige < ch.prestige)
+      v.push(`church ${ch.id} peakPrestige < current prestige`);
+    if (ch.doctrineDrift < 0 || ch.doctrineDrift > 1)
+      v.push(`church ${ch.id} doctrineDrift ${ch.doctrineDrift} out of [0,1]`);
+    if (ch.disbandedYear !== null && ch.disbandedYear < ch.foundedYear)
+      v.push(`church ${ch.id} disbanded before founded`);
+    if (!w.deities.get(ch.deityId))
+      v.push(`church ${ch.id} references missing deity ${ch.deityId}`);
   }
 
   return v;

@@ -20,9 +20,11 @@ describe("golden master — the event log is stable", () => {
 });
 
 describe("determinism — same config, same history", () => {
+  // 15s timeout: reproducibility runs the sim TWICE back-to-back, so a 250y
+  // frontier + magic + prehistory run can easily cross the default 5s.
   test.each([GOLDEN[1], GOLDEN[3]])("$name is reproducible", (c) => {
     expect(canonHash(runSim(c))).toBe(canonHash(runSim(c)));
-  });
+  }, 15000);
 });
 
 describe("invariants — hold across seeds, worlds and flags", () => {

@@ -578,8 +578,8 @@ function checkTradeRouteEstablished(w: World, ctx: EmergenceContext): void {
       if (compB.merchants < 1) continue;
       // Need a shared conduit — both coastal, both river, or coastal+coastal
       // adjacency counts as sea trade.
-      const conduit = (a.coastal && b.coastal) || (a.riverConnected && b.riverConnected);
-      if (!conduit) continue;
+      const hasConduit = (a.coastal && b.coastal) || (a.riverConnected && b.riverConnected);
+      if (!hasConduit) continue;
       if (ctx.activeTradeRoutes.has([a.id, b.id].sort().join("~"))) continue;
       const p = 0.06 + Math.min(compA.merchants, compB.merchants) * 0.03;
       if (!w.rng.chance(Math.min(0.25, p))) continue;
@@ -588,13 +588,53 @@ function checkTradeRouteEstablished(w: World, ctx: EmergenceContext): void {
       // has more merchants).
       const strength = Math.min(compA.merchants, compB.merchants) / 6;
       const aDependsOnB = compB.merchants > compA.merchants;
+      const conduit: "sea" | "river" | "land" = a.coastal && b.coastal ? "sea" : "river";
+      const from = aDependsOnB ? a.id : b.id;
+      const to =   aDependsOnB ? b.id : a.id;
+      // Mint or revive the persistent TradeRoute entity. If a closed route
+      // between these two exists (dormantSince set), revive it. Otherwise
+      // create a new one.
+      const existing = w.routeBetween(a.id, b.id);
+      let routeId: string;
+      if (existing) {
+        routeId = existing.id;
+      } else {
+        // Check if there's a closed one that should be revived instead.
+        let revived: string | null = null;
+        for (const r of w.tradeRoutes.values()) {
+          if (r.closedYear !== null) continue;
+          if ((r.fromProvinceId === a.id && r.toProvinceId === b.id) ||
+              (r.fromProvinceId === b.id && r.toProvinceId === a.id)) {
+            revived = r.id; break;
+          }
+        }
+        if (revived) {
+          routeId = revived;
+        } else {
+          routeId = w.freshId("tr");
+          w.tradeRoutes.set(routeId, {
+            id: routeId,
+            fromProvinceId: from,
+            toProvinceId: to,
+            conduit,
+            foundedYear: w.year,
+            closedYear: null,
+            dormantSince: null,
+            wealth: Math.min(1, strength),
+            peakWealth: Math.min(1, strength),
+            flourishesLoggedAt: null,
+            shockCount: 0,
+          });
+        }
+      }
       w.log("TRADE_ROUTE_ESTABLISHED", {
         provinceId: a.id,
         data: {
-          fromProvinceId: aDependsOnB ? a.id : b.id,
-          toProvinceId:   aDependsOnB ? b.id : a.id,
+          fromProvinceId: from,
+          toProvinceId: to,
           strength: Math.min(1, strength),
-          conduit: a.coastal && b.coastal ? "sea" : "river",
+          conduit,
+          routeId,
         },
       });
       return;
@@ -613,12 +653,21 @@ function checkTradeRouteDisrupted(w: World, ctx: EmergenceContext): void {
     if (!shockedA && !shockedB) continue;
     if (!w.rng.chance(0.45)) continue;
     const shocked = shockedA ? a : b;
+    // Persistent-route hit: bleed the route's wealth and mark it as recently
+    // shocked. The trade.ts:runTradeRoutes pass will detect it and log the
+    // secondary events (ABANDONED, REVIVED) as needed.
+    const route = w.routeBetween(a, b);
+    if (route) {
+      route.wealth = Math.max(0, route.wealth - 0.35);
+      route.shockCount++;
+    }
     w.log("TRADE_ROUTE_DISRUPTED", {
       provinceId: shocked,
       data: {
         fromProvinceId: a,
         toProvinceId: b,
         cause: ctx.recentShockCause.get(shocked) ?? "shock",
+        routeId: route?.id ?? "",
       },
     });
     return;

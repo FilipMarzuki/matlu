@@ -178,6 +178,10 @@ export interface Character {
   // with you unless you take a student" mechanic that Factor 2 depends on.
   mentorId: CharId | null;
   apprenticeIds: CharId[];
+
+  // Guild membership — a character belongs to at most one guild at a time.
+  // Only used when innovation.ts is active; null in base sim.
+  guildId: GuildId | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +268,235 @@ export interface Dynasty {
   wealth: number; // treasury; earned from lands, spent cultivating heirs
   rite: RareClass | null; // a heritable rare class-rite the house can grant
   riteBearerId: CharId | null; // the living master who can pass the rite on
+
+  // --- Specialization layer (only used when World.magicEnabled) ------------
+  // A house acquires an IDENTITY when its members concentrate in one class:
+  // the mining house, the scholar house, the warrior house. Recomputed each
+  // tick from member class distribution. `dominantClass` is null when no
+  // class holds a majority of adult members. `specializationDepth` measures
+  // (memberFraction × avgLevelInClass / 20), capped at 1 — a house with 80%
+  // of its adults as level-15 scholars gets depth 0.6.
+  //
+  // `guildTradition` is a lazily-assigned flavor name that HOUSE_SPECIALIZES
+  // sets and never changes. Together these drive the super-linear synergy
+  // that makes an established house of masters dominate its craft.
+  dominantClass: CharClass | null;
+  specializationDepth: number;
+  guildTradition: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Guild — a persistent cross-dynasty organisation of same-craft masters. The
+// engine already has GUILD_CHARTERED / GUILD_MONOPOLY_CLAIMED log events;
+// Guild upgrades those to persistent entities with member rosters, treasury,
+// and a mastership succession. Guilds bind APPRENTICES across dynastic lines,
+// which is how personal craft-knowledge historically diffused faster than
+// dynastic inheritance alone allowed.
+// ---------------------------------------------------------------------------
+export type GuildId = string;
+
+export type GuildCraft =
+  | "smithing"    // metallurgy / weaponsmith / armorer
+  | "textiles"    // weaver / dyer
+  | "trade"       // merchant / factor / banker
+  | "letters"     // scholar / scribe / physician
+  | "arms"        // knightly order / mercenary company
+  | "arcana";     // rare-class holders (very rare, cross-dynasty)
+
+export interface Guild {
+  id: GuildId;
+  name: string;                    // "Guild of Sunmeadow Weavers"
+  craft: GuildCraft;
+  provinceId: ProvinceId;          // guildhall / headquarters
+  foundedYear: number;
+  disbandedYear: number | null;
+  masterId: CharId | null;         // current guildmaster (highest-level member)
+  memberIds: CharId[];             // living members with matching craft
+  wealth: number;                  // guild treasury
+  monopolyInventionId: string | null; // if the guild monopolizes an invention
+}
+
+// ---------------------------------------------------------------------------
+// Siege — persistent multi-year state for long sieges. Historical: Constantinople
+// 1453 (7 weeks), Vienna 1683 (2 months), Alesia 52 BC (months), Masada 73 CE
+// (months), the seige of Baghdad 1258 (13 days). The engine's one-shot WAR
+// resolution can't model these — they need state that spans ticks, plus events
+// mid-siege (sallies, breaches, starvation, plague-in-camp).
+//
+// Sieges are QUEUED from resolveWars when the target is kingdom-tier + close
+// power ratio (attacker doesn't crush defender; defender doesn't overwhelm).
+// Processed each tick by sieges.ts:runSieges — provisions and morale drop,
+// random mid-siege events fire, termination checks fire.
+// ---------------------------------------------------------------------------
+export type SiegeId = string;
+
+export interface Siege {
+  id: SiegeId;
+  attackerId: CharId;             // may die during siege
+  defenderId: CharId;             // may die too — usually leads to fall
+  provinceId: ProvinceId;         // the besieged province (defender's seat)
+  titleId: TitleId;               // title being fought over
+  startYear: number;
+  yearsElapsed: number;           // 0 at siege start
+
+  // Attrition dynamics — provisions runs out inside the walls; morale on both
+  // sides declines slowly with events accelerating it.
+  provisions: number;             // 0..1, defender food stores
+  attackerMorale: number;         // 0..1
+  defenderMorale: number;         // 0..1
+
+  breached: boolean;              // walls breached — endgame conditions apply
+  outcome: "active" | "fallen" | "lifted"; // "active" while running
+}
+
+// ---------------------------------------------------------------------------
+// Climate — multi-decade climate phases. Historical: Medieval Warm Period
+// (~950-1250), Little Ice Age (~1300-1850), the 8.2 ky cold event. Cold phases
+// depress harvest yield and slow plague spread; warm phases boost harvest and
+// speed plague. Phase transitions happen every 30-80 years on average.
+//
+// Guarded on `catastrophesEnabled` for RNG symmetry — the base sim without
+// catastrophes stays byte-identical.
+// ---------------------------------------------------------------------------
+export type ClimatePhase = "cold" | "warm" | "neutral";
+
+export interface Climate {
+  phase: ClimatePhase;
+  phaseStartYear: number;
+  phaseDurationYears: number;    // typically 30-80
+  severity: number;              // 0..1, how extreme the phase is
+}
+
+// ---------------------------------------------------------------------------
+// TradeRoute — persistent entity that spans years. Formed when both endpoints
+// have enough merchants + a shared conduit; grows in `wealth` while healthy;
+// takes hits from shocks (siege, plague, famine, cold climate); dormant when
+// wealth drops to 0; abandoned after 15 dormant years. Historical arcs: Silk
+// Road (~200 BCE-1450 CE), Amber Road (~200 BCE-500 CE), Trans-Saharan
+// (~700-1500). Composes with sieges (SIEGE_LAID at endpoint disrupts),
+// climate (cold phase saps trade), and inventions (navigation boosts sea routes).
+// ---------------------------------------------------------------------------
+export type TradeRouteId = string;
+
+export type TradeConduit = "sea" | "river" | "land";
+
+export interface TradeRoute {
+  id: TradeRouteId;
+  fromProvinceId: ProvinceId;    // less-merchant end (dependent)
+  toProvinceId: ProvinceId;      // more-merchant end (dominant)
+  conduit: TradeConduit;
+  foundedYear: number;
+  closedYear: number | null;     // permanently abandoned
+  dormantSince: number | null;   // wealth hit 0 in this year; may revive
+  wealth: number;                // 0..1, current traffic/prosperity index
+  peakWealth: number;            // highest wealth seen; used to detect FLOURISHES
+  flourishesLoggedAt: number | null; // year FLOURISHES fired; prevents re-firing
+  shockCount: number;            // lifetime disruption count
+}
+
+// ---------------------------------------------------------------------------
+// Academy — persistent cross-dynasty organisation of scholar-masters.
+// Historical: Al-Azhar (970 CE), Sorbonne (1150), Nalanda (5th century BCE),
+// Timbuktu (1200s). Parallel to Guild but for letters — a bigger prestige
+// horizon and magnet-effect on foreign scholars. Sacking or ossification can
+// send scholars into diaspora (ACADEMY_MIGRATED — Byzantine → Italy pattern).
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Religion — tangible gods and their churches.
+//
+// The engine's premise (magic-real, mana-real, portals-real) means faith isn't
+// a matter of belief but of PATRONAGE. Doctrine is contract, not interpretation.
+// Gods have measurable power (their attention on this world), followers gain
+// mechanical boons for adherence, and gods can die when their power runs out.
+//
+// This differs from Earth religions in the ways historians would recognise as
+// pre-Axial-Age paganism (Homer, Ashur, Enûma Eliš) taken to its logical
+// conclusion: schisms are about which god to serve, not about creed. Miracles
+// are auditable. Investiture Conflict is a real transaction — an excommunicated
+// king's provinces literally lose the god's boons.
+// ---------------------------------------------------------------------------
+export type DeityId = string;
+
+export type DeityDomain =
+  | "war"
+  | "harvest"
+  | "sea"
+  | "death"
+  | "knowledge"
+  | "forge"
+  | "hearth"
+  | "shadow"
+  | "stars"
+  | "beasts"
+  | "trickery"
+  | "law";
+
+export type DeityMood =
+  | "attentive"    // active god, blesses & wraths freely
+  | "distant"      // fading attention; boons weaker, no miracles
+  | "wrathful"     // pact broken; smites its own churches
+  | "withdrawing"  // stopped answering prayers; countdown to death
+  | "dead";        // no power; churches keep offices as habit
+
+// A "true" deity is a fully-ascended god from before the Vanishing. A
+// "demigod" is what post-Vanishing mortals can produce: powerful, domain-
+// bearing, capable of miracles, but ANCHORED to a mortal form and therefore
+// killable. The ascended plane is closed to new entrants — the ladder is
+// broken. Every post-Vanishing manifestation is tier="demigod".
+export type DeityTier = "true" | "demigod";
+
+export interface Deity {
+  id: DeityId;
+  name: string;
+  domain: DeityDomain;
+  tier: DeityTier;        // true = pre-Vanishing ascended god; demigod = post
+  mood: DeityMood;
+  power: number;          // 0..1 — current divine attention on this world
+  peakPower: number;      // 0..1 — high-water mark, sets scale of memory
+  followerCount: number;  // last-computed count of lay + clergy followers
+  emergedYear: number;    // when this god first manifested to mortals
+  slumberSince: number | null;  // year mood dropped below "attentive"
+  diedYear: number | null;      // year power reached 0 permanently
+  slayerId: CharId | null;      // for demigods: the mortal who killed the vessel
+  pactTerms: string[];    // human-readable demands ("no ships on the death-day")
+  homeProvinceId: ProvinceId | null; // some gods are geographically anchored
+  rivalDeityIds: DeityId[];          // pantheon rivalries (proxy-war template)
+}
+
+export type ChurchId = string;
+
+export interface Church {
+  id: ChurchId;
+  name: string;                      // "Temple of Iku the Forge-Wright"
+  deityId: DeityId;
+  foundedYear: number;
+  disbandedYear: number | null;
+  headProvinceId: ProvinceId;
+  patriarchId: CharId | null;        // living high priest (highest-level cleric)
+  memberIds: CharId[];               // ordained clergy
+  prestige: number;                  // 0..1 mundane influence
+  peakPrestige: number;
+  doctrineDrift: number;             // 0..1 — distance from deity's actual pact
+  schismedFromId: ChurchId | null;   // family tree; null for founding churches
+  militantOrder: boolean;            // spun up a Templars-style order
+  investitureConflictWithIds: TitleId[]; // active church-vs-crown disputes
+  flourishesLoggedAt: number | null;
+}
+
+export type AcademyId = string;
+
+export interface Academy {
+  id: AcademyId;
+  name: string;                    // "Academy of Rivenbrook", "College of Zafran"
+  provinceId: ProvinceId;
+  foundedYear: number;
+  closedYear: number | null;
+  masterId: CharId | null;         // rector / chancellor — highest-level scholar
+  memberIds: CharId[];             // living scholar-members
+  prestige: number;                // 0..1
+  peakPrestige: number;
+  flourishesLoggedAt: number | null;
+  patronDynastyId: DynastyId | null; // founding house (may be null if crowdsourced)
 }
 
 // ---------------------------------------------------------------------------
@@ -685,7 +918,58 @@ export type EventType =
   | "MASTER_ARTISAN_HONORED"   // personal-mastery path recognised
   | "PATENT_LAW_ADOPTED"       // proto-IP (Venetian statute analog) formalized
   | "HERESY_TRIAL_SUPPRESSES"  // zealous_faith destroys a new invention (Bruno, Galileo)
-  | "CANONICAL_ORTHODOXY_FROZEN"; // caste_rigid + zealous_faith → cultural innovation ossifies
+  | "CANONICAL_ORTHODOXY_FROZEN" // caste_rigid + zealous_faith → cultural innovation ossifies
+  // --- Dynasty specialization & persistent guilds (specs/dynasty-specialization-events.ts) ---
+  | "HOUSE_SPECIALIZES"        // a dynasty acquires a class identity (60%+ same class + level-10s)
+  | "MASTER_LINEAGE_FORMS"     // 3 generations of level-15+ same class in same house
+  | "RARE_LINEAGE_EXPONENTIAL" // 3+ rare-class bearers alive in the same house — dangerous
+  | "HOUSE_LOSES_TRADITION"    // no more level-10+ of the dominant class — decline
+  | "GUILD_FOUNDED"            // a persistent guild entity is chartered
+  | "GUILD_DISSOLVED"          // no more level-8+ members — guild falls
+  | "RIVAL_HOUSES_CLASH"       // two same-specialization houses go to war
+  // --- Multi-year sieges (sieges.ts + specs/siege-events.ts) ---
+  | "SIEGE_LAID"               // hosts encamp outside the walls — multi-year siege begins
+  | "SIEGE_SALLY"              // defender sortie, costs attacker morale
+  | "SIEGE_STARVATION"         // defenders begin to starve — provisions past tipping point
+  | "SIEGE_WALLS_BREACHED"     // breach opened — endgame near
+  | "SIEGE_FALLEN"             // city falls — title transfers, prose remembers
+  | "SIEGE_LIFTED"             // attacker withdraws — camp broken, siege ends
+  // --- Multi-year climate (climate.ts + specs/climate-events.ts) ---
+  | "CLIMATE_COLD_ONSET"       // multi-decade cold phase begins (Little Ice Age)
+  | "CLIMATE_WARM_ONSET"       // multi-decade warm phase begins (Medieval Warm Period)
+  | "CLIMATE_NEUTRAL_RESUMES"  // climate returns to normal
+  | "GREAT_FROST"              // extreme cold event during a cold phase (Baltic freezes)
+  | "LONG_SUMMER"              // extreme heat event during a warm phase
+  // --- Persistent trade routes (trade.ts + specs/trade-events.ts) ---
+  | "TRADE_ROUTE_FLOURISHES"   // route wealth crosses the peak threshold — Silk Road at its height
+  | "TRADE_ROUTE_ABANDONED"    // permanently closed — no traffic in 15+ years
+  | "TRADE_ROUTE_REVIVED"      // reopened after long dormancy (route entity re-activated)
+  | "GREAT_MARKET_FAIR"        // annual/near-annual fair at a well-traded hub province
+  // --- Persistent academies (academies.ts + specs/academy-events.ts) ---
+  | "ACADEMY_FOUNDED"          // Sorbonne / Al-Azhar / Nalanda pattern
+  | "ACADEMY_FLOURISHES"       // prestige at peak — magnet for foreign scholars
+  | "ACADEMY_MIGRATED"         // scholarship exodus (Byzantine → Italy after 1453)
+  | "ACADEMY_DISSOLVED"        // permanently closed
+  // --- Organized religion (religion.ts + specs/religion-events.ts) ---
+  // Gods are REAL here: doctrine is pact, not creed; miracles are auditable;
+  // gods can die when their power runs out; schisms are patron-switching.
+  | "DEITY_MANIFESTS"          // a new god arrives / emerges (rare)
+  | "CHURCH_FOUNDED"           // ordained clergy consecrate a persistent church
+  | "CHURCH_FLOURISHES"        // church prestige crosses threshold
+  | "CHURCH_SCHISM"            // faction defects and forms a new church
+  | "CHURCH_MIGRATES_PATRON"   // whole church switches deity (impossible on Earth)
+  | "DIVINE_WRATH"             // pact broken → god smites a province
+  | "DIVINE_INTERVENTION"      // attentive god intervenes in a war for a devotee
+  | "MIRACLE_CANONISED"        // widely witnessed miracle boosts prestige
+  | "INVESTITURE_CONFLICT"     // patriarch and holder go to war over primacy
+  | "CONCORDAT_SIGNED"         // investiture conflict resolved
+  | "MILITANT_ORDER_FOUNDED"   // Templars/Teutonic Order analog
+  | "DEITY_WITHDRAWS"          // mood drops to withdrawing (countdown to death)
+  | "DEITY_DIES"               // power hit 0 for 20+ years
+  | "DEITY_REBORN"             // dead god returns weakened via a devotee's rite
+  | "CHURCH_DISSOLVED"         // no clergy remain
+  | "GREAT_VANISHING"          // ancient event: every god of the old pantheon left the world at once (500-2000y before sim)
+  | "DEMIGOD_SLAIN";           // post-Vanishing: a mortal kills a half-god's vessel, ending that divinity forever
 
 export interface WorldEvent {
   id: number;
