@@ -350,6 +350,24 @@ export interface Siege {
 }
 
 // ---------------------------------------------------------------------------
+// Climate — multi-decade climate phases. Historical: Medieval Warm Period
+// (~950-1250), Little Ice Age (~1300-1850), the 8.2 ky cold event. Cold phases
+// depress harvest yield and slow plague spread; warm phases boost harvest and
+// speed plague. Phase transitions happen every 30-80 years on average.
+//
+// Guarded on `catastrophesEnabled` for RNG symmetry — the base sim without
+// catastrophes stays byte-identical.
+// ---------------------------------------------------------------------------
+export type ClimatePhase = "cold" | "warm" | "neutral";
+
+export interface Climate {
+  phase: ClimatePhase;
+  phaseStartYear: number;
+  phaseDurationYears: number;    // typically 30-80
+  severity: number;              // 0..1, how extreme the phase is
+}
+
+// ---------------------------------------------------------------------------
 // Invention — persistent codified knowledge with secrecy and leak dynamics.
 // The generalisation of Dynasty.rite/riteBearerId, applied to procedurally
 // invented craft-secrets instead of hardcoded rare classes. Modeled with a
@@ -783,7 +801,13 @@ export type EventType =
   | "SIEGE_STARVATION"         // defenders begin to starve — provisions past tipping point
   | "SIEGE_WALLS_BREACHED"     // breach opened — endgame near
   | "SIEGE_FALLEN"             // city falls — title transfers, prose remembers
-  | "SIEGE_LIFTED";            // attacker withdraws — camp broken, siege ends
+  | "SIEGE_LIFTED"             // attacker withdraws — camp broken, siege ends
+  // --- Multi-year climate (climate.ts + specs/climate-events.ts) ---
+  | "CLIMATE_COLD_ONSET"       // multi-decade cold phase begins (Little Ice Age)
+  | "CLIMATE_WARM_ONSET"       // multi-decade warm phase begins (Medieval Warm Period)
+  | "CLIMATE_NEUTRAL_RESUMES"  // climate returns to normal
+  | "GREAT_FROST"              // extreme cold event during a cold phase (Baltic freezes)
+  | "LONG_SUMMER";             // extreme heat event during a warm phase
 
 export interface WorldEvent {
   id: number;

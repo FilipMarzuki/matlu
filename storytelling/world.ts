@@ -11,6 +11,7 @@ import type {
   Character,
   CharClass,
   CharId,
+  Climate,
   CultureState,
   Dynasty,
   DynastyId,
@@ -69,6 +70,15 @@ export class World {
   // tick, sieges.ts:runSieges advances provisions/morale and may fire mid-
   // siege events (sallies, breaches, starvation) or resolve the siege.
   siegeQueue: Siege[] = [];
+
+  // Multi-decade climate phase. Neutral by default; runClimate rolls transitions
+  // every ~30-80 years when catastrophesEnabled. Feeds runHarvest and runPlague.
+  climate: Climate = {
+    phase: "neutral",
+    phaseStartYear: 0,
+    phaseDurationYears: 40,
+    severity: 0,
+  };
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();

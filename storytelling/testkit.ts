@@ -216,5 +216,14 @@ export function checkInvariants(w: World): string[] {
       v.push(`siege ${s.id} yearsElapsed ${s.yearsElapsed} negative`);
   }
 
+  // Climate invariants.
+  const cl = w.climate;
+  if (cl.severity < 0 || cl.severity > 1)
+    v.push(`climate severity ${cl.severity} out of [0,1]`);
+  if (cl.phaseDurationYears < 1)
+    v.push(`climate phaseDurationYears ${cl.phaseDurationYears} < 1`);
+  if (cl.phase === "neutral" && cl.severity !== 0)
+    v.push(`neutral climate should have severity 0, got ${cl.severity}`);
+
   return v;
 }

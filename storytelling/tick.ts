@@ -22,6 +22,7 @@ import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
+import { runClimate } from "./climate.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { runSieges, trySpawnSiege } from "./sieges.js";
@@ -43,8 +44,12 @@ export function tick(w: World): void {
   const evStart = w.events.length;
 
   // --- Environmental layer: geography + natural phenomena ----------------
-  // Catastrophes run first so province state is updated before population
-  // growth, harvest, and plague read it this tick.
+  // Climate phase drift runs first — multi-decade cold/warm periods that
+  // modulate downstream harvest yield and plague spread. No-op when
+  // catastrophes are disabled.
+  runClimate(w);
+  // Catastrophes run before population growth / harvest / plague so
+  // province state is updated before those read it this tick.
   runCatastrophes(w);
   regrowPopulation(w);
   runHarvest(w);

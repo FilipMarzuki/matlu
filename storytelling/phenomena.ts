@@ -6,6 +6,7 @@
 // The drama isn't the plague itself — it's the throne it empties.
 
 import { getBiology } from "./biology.js";
+import { climateHarvestMultiplier, climatePlagueMultiplier } from "./climate.js";
 import { scarcity } from "./geography.js";
 import { plagueResistBonus, transferOnDeath } from "./innovation.js";
 import { onGrief } from "./perception.js";
@@ -17,10 +18,14 @@ import type { World } from "./world.js";
 // fails badly. A failed harvest on top of existing scarcity is what tips a
 // province into famine.
 export function runHarvest(w: World): void {
+  // Multi-year climate phase modulates baseline yield. Cold phases push mean
+  // yield down (crops fail in cold summers, snowier winters); warm phases push
+  // it up. Neutral = 1.0. Applied to the gaussian mean so variance stays fair.
+  const climateMean = climateHarvestMultiplier(w);
   for (const p of w.provinces.values()) {
     // Fertile land has steadier harvests; marginal land swings wildly.
     const variance = 0.18 + (1 - p.fertility) * 0.15;
-    const yield_ = w.rng.gaussian(1.0, variance);
+    const yield_ = w.rng.gaussian(climateMean, variance);
 
     if (yield_ < 0.7) {
       // A poor harvest. Population takes a hit; the worse the harvest and the
@@ -63,10 +68,12 @@ export function runPlague(w: World): void {
   // vectors (airborne, water-borne) that drive surface epidemics.
   const origin = w.rng.pick(provs.filter((p) => !p.subsurface));
 
-  // BFS-style spread frontier with decaying probability.
+  // BFS-style spread frontier with decaying probability. Warm climate phases
+  // accelerate spread (rats + fleas surge); cold phases dampen it.
+  const climateMult = climatePlagueMultiplier(w);
   const infected = new Set<string>([origin.id]);
   let frontier = [origin.id];
-  let spreadChance = 0.8;
+  let spreadChance = 0.8 * climateMult;
 
   while (frontier.length > 0 && spreadChance > 0.1) {
     const nextFrontier: string[] = [];
