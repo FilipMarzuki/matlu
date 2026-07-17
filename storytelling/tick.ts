@@ -24,6 +24,7 @@ import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
 import { runAcademies } from "./academies.js";
 import { runClimate } from "./climate.js";
+import { runReligion } from "./religion.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { runSieges, trySpawnSiege } from "./sieges.js";
@@ -142,6 +143,12 @@ export function tick(w: World): void {
   // --- persistent academies — form new ones, age prestige, migrate on shock.
   // Runs after runInnovations so this tick's inventions boost prestige.
   runAcademies(w);
+
+  // --- organised religion — deity manifestation, church aging, schisms,
+  // investiture conflicts, divine wrath / intervention. In this world gods
+  // are real, so doctrine is pact and miracles auditable. Guarded on
+  // magicEnabled inside religion.ts (RNG-symmetric no-op otherwise).
+  runReligion(w);
 
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.

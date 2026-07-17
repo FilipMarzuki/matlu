@@ -8,6 +8,10 @@ import { RNG } from "./rng.js";
 import type {
   Academy,
   AcademyId,
+  Church,
+  ChurchId,
+  Deity,
+  DeityId,
   CatastropheQueueItem,
   Challenge,
   Character,
@@ -93,6 +97,23 @@ export class World {
   // shape but with prestige (0..1) and migration semantics. Aged by
   // academies.ts:runAcademies.
   academies = new Map<AcademyId, Academy>();
+
+  // Real gods — tangible, powered, capable of dying. Populated by religion.ts.
+  // Guarded on magicEnabled (in this world gods are a supernatural phenomenon).
+  deities = new Map<DeityId, Deity>();
+
+  // Persistent churches — mortal institutions organised around a specific
+  // deity. Shape mirrors Academy but with doctrineDrift (measures distance
+  // from the deity's actual pact) and militantOrder / investitureConflictWith
+  // fields. Aged by religion.ts:runReligion.
+  churches = new Map<ChurchId, Church>();
+
+  // Cosmological arc: the "Great Vanishing" — an ancient event in which the
+  // old pantheon left the mortal world all at once, 500-2000 years before the
+  // sim's start. Set by prehistory.ts when magic + prehistory are both on.
+  // religion.ts reads it to suppress new deity manifestation in the century
+  // after the sim begins (the world lost trust in gods).
+  godsVanishedYear: number | null = null;
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -314,6 +335,43 @@ export class World {
   activeTradeRoutes(): TradeRoute[] {
     const out: TradeRoute[] = [];
     for (const r of this.tradeRoutes.values()) if (r.closedYear === null) out.push(r);
+    return out;
+  }
+
+  // ---- religion ----------------------------------------------------------
+  // A deity is "living" if it has any power left. Dead gods stay in the map
+  // as historical objects (churches remember them) but they never intervene.
+  livingDeities(): Deity[] {
+    const out: Deity[] = [];
+    for (const d of this.deities.values()) if (d.mood !== "dead") out.push(d);
+    return out;
+  }
+
+  // Churches at a specific province. Multiple can coexist if they serve
+  // different deities — competing patrons in the same city.
+  churchesAt(provinceId: ProvinceId): Church[] {
+    const out: Church[] = [];
+    for (const ch of this.churches.values()) {
+      if (ch.disbandedYear !== null) continue;
+      if (ch.headProvinceId === provinceId) out.push(ch);
+    }
+    return out;
+  }
+
+  // Churches whose patron is this deity. Used by the schism / god-death
+  // cascades to touch every affiliated church at once.
+  churchesOf(deityId: DeityId): Church[] {
+    const out: Church[] = [];
+    for (const ch of this.churches.values()) {
+      if (ch.disbandedYear !== null) continue;
+      if (ch.deityId === deityId) out.push(ch);
+    }
+    return out;
+  }
+
+  activeChurches(): Church[] {
+    const out: Church[] = [];
+    for (const ch of this.churches.values()) if (ch.disbandedYear === null) out.push(ch);
     return out;
   }
 

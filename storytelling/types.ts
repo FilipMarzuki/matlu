@@ -401,6 +401,79 @@ export interface TradeRoute {
 // horizon and magnet-effect on foreign scholars. Sacking or ossification can
 // send scholars into diaspora (ACADEMY_MIGRATED — Byzantine → Italy pattern).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Religion — tangible gods and their churches.
+//
+// The engine's premise (magic-real, mana-real, portals-real) means faith isn't
+// a matter of belief but of PATRONAGE. Doctrine is contract, not interpretation.
+// Gods have measurable power (their attention on this world), followers gain
+// mechanical boons for adherence, and gods can die when their power runs out.
+//
+// This differs from Earth religions in the ways historians would recognise as
+// pre-Axial-Age paganism (Homer, Ashur, Enûma Eliš) taken to its logical
+// conclusion: schisms are about which god to serve, not about creed. Miracles
+// are auditable. Investiture Conflict is a real transaction — an excommunicated
+// king's provinces literally lose the god's boons.
+// ---------------------------------------------------------------------------
+export type DeityId = string;
+
+export type DeityDomain =
+  | "war"
+  | "harvest"
+  | "sea"
+  | "death"
+  | "knowledge"
+  | "forge"
+  | "hearth"
+  | "shadow"
+  | "stars"
+  | "beasts"
+  | "trickery"
+  | "law";
+
+export type DeityMood =
+  | "attentive"    // active god, blesses & wraths freely
+  | "distant"      // fading attention; boons weaker, no miracles
+  | "wrathful"     // pact broken; smites its own churches
+  | "withdrawing"  // stopped answering prayers; countdown to death
+  | "dead";        // no power; churches keep offices as habit
+
+export interface Deity {
+  id: DeityId;
+  name: string;
+  domain: DeityDomain;
+  mood: DeityMood;
+  power: number;          // 0..1 — current divine attention on this world
+  peakPower: number;      // 0..1 — high-water mark, sets scale of memory
+  followerCount: number;  // last-computed count of lay + clergy followers
+  emergedYear: number;    // when this god first manifested to mortals
+  slumberSince: number | null;  // year mood dropped below "attentive"
+  diedYear: number | null;      // year power reached 0 permanently
+  pactTerms: string[];    // human-readable demands ("no ships on the death-day")
+  homeProvinceId: ProvinceId | null; // some gods are geographically anchored
+  rivalDeityIds: DeityId[];          // pantheon rivalries (proxy-war template)
+}
+
+export type ChurchId = string;
+
+export interface Church {
+  id: ChurchId;
+  name: string;                      // "Temple of Iku the Forge-Wright"
+  deityId: DeityId;
+  foundedYear: number;
+  disbandedYear: number | null;
+  headProvinceId: ProvinceId;
+  patriarchId: CharId | null;        // living high priest (highest-level cleric)
+  memberIds: CharId[];               // ordained clergy
+  prestige: number;                  // 0..1 mundane influence
+  peakPrestige: number;
+  doctrineDrift: number;             // 0..1 — distance from deity's actual pact
+  schismedFromId: ChurchId | null;   // family tree; null for founding churches
+  militantOrder: boolean;            // spun up a Templars-style order
+  investitureConflictWithIds: TitleId[]; // active church-vs-crown disputes
+  flourishesLoggedAt: number | null;
+}
+
 export type AcademyId = string;
 
 export interface Academy {
@@ -867,7 +940,26 @@ export type EventType =
   | "ACADEMY_FOUNDED"          // Sorbonne / Al-Azhar / Nalanda pattern
   | "ACADEMY_FLOURISHES"       // prestige at peak — magnet for foreign scholars
   | "ACADEMY_MIGRATED"         // scholarship exodus (Byzantine → Italy after 1453)
-  | "ACADEMY_DISSOLVED";       // permanently closed
+  | "ACADEMY_DISSOLVED"        // permanently closed
+  // --- Organized religion (religion.ts + specs/religion-events.ts) ---
+  // Gods are REAL here: doctrine is pact, not creed; miracles are auditable;
+  // gods can die when their power runs out; schisms are patron-switching.
+  | "DEITY_MANIFESTS"          // a new god arrives / emerges (rare)
+  | "CHURCH_FOUNDED"           // ordained clergy consecrate a persistent church
+  | "CHURCH_FLOURISHES"        // church prestige crosses threshold
+  | "CHURCH_SCHISM"            // faction defects and forms a new church
+  | "CHURCH_MIGRATES_PATRON"   // whole church switches deity (impossible on Earth)
+  | "DIVINE_WRATH"             // pact broken → god smites a province
+  | "DIVINE_INTERVENTION"      // attentive god intervenes in a war for a devotee
+  | "MIRACLE_CANONISED"        // widely witnessed miracle boosts prestige
+  | "INVESTITURE_CONFLICT"     // patriarch and holder go to war over primacy
+  | "CONCORDAT_SIGNED"         // investiture conflict resolved
+  | "MILITANT_ORDER_FOUNDED"   // Templars/Teutonic Order analog
+  | "DEITY_WITHDRAWS"          // mood drops to withdrawing (countdown to death)
+  | "DEITY_DIES"               // power hit 0 for 20+ years
+  | "DEITY_REBORN"             // dead god returns weakened via a devotee's rite
+  | "CHURCH_DISSOLVED"         // no clergy remain
+  | "GREAT_VANISHING";         // ancient event: every god of the old pantheon left the world at once (500-2000y before sim)
 
 export interface WorldEvent {
   id: number;

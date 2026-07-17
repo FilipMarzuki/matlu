@@ -64,7 +64,7 @@ export function canonHash(w: World): string {
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
   { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "8afd30e6" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "bde8f129" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "d900f349" },
   { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "eea4b60d" },
   {
     name: "frontier·magic·prehistory·s5·250y",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "4dab75a5",
+    hash: "14ab80e6",
   },
 ];
 
@@ -243,6 +243,29 @@ export function checkInvariants(w: World): string[] {
       v.push(`academy ${a.id} closed before founded`);
     if (a.peakPrestige < a.prestige)
       v.push(`academy ${a.id} peakPrestige < current prestige`);
+  }
+
+  // Religion invariants — power/prestige/drift in bounds, church-deity link
+  // resolves, dead gods have diedYear, church.disbandedYear >= foundedYear.
+  for (const d of w.deities.values()) {
+    if (d.power < 0 || d.power > 1)
+      v.push(`deity ${d.id} power ${d.power} out of [0,1]`);
+    if (d.peakPower < d.power)
+      v.push(`deity ${d.id} peakPower ${d.peakPower} < current power ${d.power}`);
+    if (d.mood === "dead" && d.diedYear === null)
+      v.push(`deity ${d.id} is dead but diedYear is null`);
+  }
+  for (const ch of w.churches.values()) {
+    if (ch.prestige < 0 || ch.prestige > 1)
+      v.push(`church ${ch.id} prestige ${ch.prestige} out of [0,1]`);
+    if (ch.peakPrestige < ch.prestige)
+      v.push(`church ${ch.id} peakPrestige < current prestige`);
+    if (ch.doctrineDrift < 0 || ch.doctrineDrift > 1)
+      v.push(`church ${ch.id} doctrineDrift ${ch.doctrineDrift} out of [0,1]`);
+    if (ch.disbandedYear !== null && ch.disbandedYear < ch.foundedYear)
+      v.push(`church ${ch.id} disbanded before founded`);
+    if (!w.deities.get(ch.deityId))
+      v.push(`church ${ch.id} references missing deity ${ch.deityId}`);
   }
 
   return v;

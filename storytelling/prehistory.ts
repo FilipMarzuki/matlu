@@ -66,6 +66,20 @@ export function generatePrehistory(w: World, span = 800): void {
     w.log("LEGEND", { data: { legend: kind, ...data } });
   };
 
+  // The Great Vanishing — the oldest event a chronicler can name. Fires
+  // BEFORE the legend sequence so the event log stays monotonic in year.
+  // Logical yearsAgo is [500, 2000] per the design; the actual logged year
+  // is pushed back to at least `span + 1` years so this event precedes every
+  // legend() call (whose years live within [startYear-span, startYear]).
+  if (w.magicEnabled) {
+    const targetYearsAgo = Math.round(500 + rng.next() * 1500);
+    const yearsAgo = Math.max(targetYearsAgo, span + 1);
+    const vanishingYear = startYear - yearsAgo;
+    w.year = vanishingYear;
+    w.godsVanishedYear = vanishingYear;
+    w.log("GREAT_VANISHING", { data: { yearsAgo, realm, cataclysm } });
+  }
+
   legend(0.02, "found", { figure, realm });
   legend(0.18, "golden", { realm, art });
   legend(0.34, "height", { realm });
