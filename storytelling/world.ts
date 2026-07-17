@@ -233,7 +233,7 @@ export class World {
   }
 
   // ---- dynasty specialization --------------------------------------------
-  // Adult (age 16+) dynasty members, cached-friendly walk.
+  // Adult (age 16+) dynasty members.
   dynastyAdults(dynId: DynastyId): Character[] {
     const out: Character[] = [];
     for (const c of this.characters.values()) {

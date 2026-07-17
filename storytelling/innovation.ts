@@ -20,7 +20,7 @@
 // the state-mutating machinery (leak rolls, lost checks, benefit application,
 // personal-wealth transfer on death).
 
-import type { CharClass, DynastyId, Guild, Invention, InventionCategory } from "./types.js";
+import type { CharClass, Character, DynastyId, Guild, Invention, InventionCategory } from "./types.js";
 import type { World } from "./world.js";
 
 // Rare classes get a stronger synergy curve than common classes — a house of
@@ -36,9 +36,14 @@ const RARE_SYNERGY = 0.6;   // 2 arcanists = 1.6x each, 3 = 2.2x each, 4 = 2.8x
 export function runInnovations(w: World): void {
   if (!w.magicEnabled) return;
 
+  // Build the adults-by-dynasty index once — recomputeDynastySpecialization
+  // reuses it. Not cached across the tick boundary (would give specs stale
+  // one-tick-old data on the following tick and break golden hashes).
+  const adultsByDyn = buildAdultsIndex(w);
+
   // Recompute dynasty specialization from current member class distribution.
   // Pure structural read — no RNG.
-  recomputeDynastySpecialization(w);
+  recomputeDynastySpecialization(w, adultsByDyn);
 
   // Prune dead guildmasters; disband guilds whose masters are gone. Pure
   // structural. Also prunes dead members from memberIds lists.
@@ -54,16 +59,32 @@ export function runInnovations(w: World): void {
   checkLostInventions(w);
 }
 
+// Build an index of living adults grouped by dynasty. O(N) once per tick,
+// replacing what would otherwise be O(dynasties × chars) inside the spec
+// recompute. Same idea applies to synergy readers — see W._adultsByDynasty
+// which world.ts caches during runInnovations.
+function buildAdultsIndex(w: World): Map<DynastyId, Character[]> {
+  const map = new Map<DynastyId, Character[]>();
+  for (const c of w.characters.values()) {
+    if (!c.alive) continue;
+    if (w.age(c) < 16) continue;
+    let arr = map.get(c.dynastyId);
+    if (!arr) { arr = []; map.set(c.dynastyId, arr); }
+    arr.push(c);
+  }
+  return map;
+}
+
 // ---------------------------------------------------------------------------
 // Dynasty specialization — recompute each tick from member class distribution.
 // A dynasty acquires a `dominantClass` when at least 40% of adult members share
 // a class AND at least one member is level 8+. `specializationDepth` = fraction
 // × avgLevel/20 (capped at 1), which is what synergy readers multiply against.
 // ---------------------------------------------------------------------------
-function recomputeDynastySpecialization(w: World): void {
+function recomputeDynastySpecialization(w: World, adultsByDyn: Map<DynastyId, Character[]>): void {
   for (const dyn of w.dynasties.values()) {
     if (dyn.extinctYear !== null) continue;
-    const adults = w.dynastyAdults(dyn.id);
+    const adults = adultsByDyn.get(dyn.id) ?? [];
     if (adults.length === 0) {
       dyn.dominantClass = null;
       dyn.specializationDepth = 0;
