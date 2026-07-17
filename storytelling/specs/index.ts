@@ -20,6 +20,7 @@ import { RELIGIOUS_SPECS } from "./religious-events.js";
 import { REVOLT_SPECS } from "./revolt-events.js";
 import { SIEGE_SPECS } from "./siege-events.js";
 import { SUCCESSION_LEGITIMACY_SPECS } from "./succession-legitimacy.js";
+import { TRADE_SPECS } from "./trade-events.js";
 import { URBAN_SPECS } from "./urban-events.js";
 
 registerSpecs(BETRAYAL_SPECS);
@@ -38,4 +39,5 @@ registerSpecs(RELIGIOUS_SPECS);
 registerSpecs(REVOLT_SPECS);
 registerSpecs(SIEGE_SPECS);
 registerSpecs(SUCCESSION_LEGITIMACY_SPECS);
+registerSpecs(TRADE_SPECS);
 registerSpecs(URBAN_SPECS);

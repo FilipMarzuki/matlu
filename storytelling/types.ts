@@ -368,6 +368,33 @@ export interface Climate {
 }
 
 // ---------------------------------------------------------------------------
+// TradeRoute — persistent entity that spans years. Formed when both endpoints
+// have enough merchants + a shared conduit; grows in `wealth` while healthy;
+// takes hits from shocks (siege, plague, famine, cold climate); dormant when
+// wealth drops to 0; abandoned after 15 dormant years. Historical arcs: Silk
+// Road (~200 BCE-1450 CE), Amber Road (~200 BCE-500 CE), Trans-Saharan
+// (~700-1500). Composes with sieges (SIEGE_LAID at endpoint disrupts),
+// climate (cold phase saps trade), and inventions (navigation boosts sea routes).
+// ---------------------------------------------------------------------------
+export type TradeRouteId = string;
+
+export type TradeConduit = "sea" | "river" | "land";
+
+export interface TradeRoute {
+  id: TradeRouteId;
+  fromProvinceId: ProvinceId;    // less-merchant end (dependent)
+  toProvinceId: ProvinceId;      // more-merchant end (dominant)
+  conduit: TradeConduit;
+  foundedYear: number;
+  closedYear: number | null;     // permanently abandoned
+  dormantSince: number | null;   // wealth hit 0 in this year; may revive
+  wealth: number;                // 0..1, current traffic/prosperity index
+  peakWealth: number;            // highest wealth seen; used to detect FLOURISHES
+  flourishesLoggedAt: number | null; // year FLOURISHES fired; prevents re-firing
+  shockCount: number;            // lifetime disruption count
+}
+
+// ---------------------------------------------------------------------------
 // Invention — persistent codified knowledge with secrecy and leak dynamics.
 // The generalisation of Dynasty.rite/riteBearerId, applied to procedurally
 // invented craft-secrets instead of hardcoded rare classes. Modeled with a
@@ -807,7 +834,12 @@ export type EventType =
   | "CLIMATE_WARM_ONSET"       // multi-decade warm phase begins (Medieval Warm Period)
   | "CLIMATE_NEUTRAL_RESUMES"  // climate returns to normal
   | "GREAT_FROST"              // extreme cold event during a cold phase (Baltic freezes)
-  | "LONG_SUMMER";             // extreme heat event during a warm phase
+  | "LONG_SUMMER"              // extreme heat event during a warm phase
+  // --- Persistent trade routes (trade.ts + specs/trade-events.ts) ---
+  | "TRADE_ROUTE_FLOURISHES"   // route wealth crosses the peak threshold — Silk Road at its height
+  | "TRADE_ROUTE_ABANDONED"    // permanently closed — no traffic in 15+ years
+  | "TRADE_ROUTE_REVIVED"      // reopened after long dormancy (route entity re-activated)
+  | "GREAT_MARKET_FAIR";       // annual/near-annual fair at a well-traded hub province
 
 export interface WorldEvent {
   id: number;

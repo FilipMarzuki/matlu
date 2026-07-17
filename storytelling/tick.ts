@@ -26,6 +26,7 @@ import { runClimate } from "./climate.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { runSieges, trySpawnSiege } from "./sieges.js";
+import { runTradeRoutes } from "./trade.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
@@ -108,6 +109,12 @@ export function tick(w: World): void {
   // the log and can gate emergence checks. Zero RNG when magicEnabled=false,
   // so golden-hash worlds are byte-identical.
   runEmergence(w);
+
+  // --- persistent trade routes: age wealth, dormancy, revive, abandon ---
+  // Guarded on catastrophesEnabled so base sim stays byte-identical. Reads
+  // this year's TRADE_ROUTE_DISRUPTED / ESTABLISHED events (already fired by
+  // emergence) to update entity state.
+  runTradeRoutes(w);
 
   // --- discrete challenges layer (dragons, wraith hosts, abyssal gates) ---
   // Runs last: reads catastrophes that fired earlier this tick (to spawn

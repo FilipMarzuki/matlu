@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "552bc720",
+    hash: "eca0094f",
   },
 ];
 
@@ -224,6 +224,16 @@ export function checkInvariants(w: World): string[] {
     v.push(`climate phaseDurationYears ${cl.phaseDurationYears} < 1`);
   if (cl.phase === "neutral" && cl.severity !== 0)
     v.push(`neutral climate should have severity 0, got ${cl.severity}`);
+
+  // Trade route invariants.
+  for (const r of w.tradeRoutes.values()) {
+    if (r.wealth < 0 || r.wealth > 1)
+      v.push(`trade route ${r.id} wealth ${r.wealth} out of [0,1]`);
+    if (r.closedYear !== null && r.closedYear < r.foundedYear)
+      v.push(`trade route ${r.id} closed before founded`);
+    if (r.peakWealth < r.wealth)
+      v.push(`trade route ${r.id} peakWealth ${r.peakWealth} < current wealth ${r.wealth}`);
+  }
 
   return v;
 }

@@ -28,6 +28,8 @@ import type {
   Siege,
   Title,
   TitleId,
+  TradeRoute,
+  TradeRouteId,
   Treaty,
   WorldEvent,
 } from "./types.js";
@@ -79,6 +81,11 @@ export class World {
     phaseDurationYears: 40,
     severity: 0,
   };
+
+  // Persistent trade routes — minted from TRADE_ROUTE_ESTABLISHED events, ages
+  // over years via trade.ts:runTradeRoutes. Emergence still creates them; trade
+  // module ages them and fires FLOURISHES / ABANDONED / REVIVED / MARKET_FAIR.
+  tradeRoutes = new Map<TradeRouteId, TradeRoute>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -277,6 +284,30 @@ export class World {
       if (s.outcome === "active" && s.titleId === titleId) return s;
     }
     return undefined;
+  }
+
+  // ---- trade routes ------------------------------------------------------
+  // Canonical unordered key for a route between two provinces — used to
+  // deduplicate. Existing emergence code produces this shape ("a~b" sorted).
+  routeKey(a: ProvinceId, b: ProvinceId): string {
+    return a < b ? `${a}~${b}` : `${b}~${a}`;
+  }
+
+  // Find an active (non-closed) route between two provinces regardless of
+  // direction. Returns undefined if the pair has never traded or is closed.
+  routeBetween(a: ProvinceId, b: ProvinceId): TradeRoute | undefined {
+    for (const r of this.tradeRoutes.values()) {
+      if (r.closedYear !== null) continue;
+      if ((r.fromProvinceId === a && r.toProvinceId === b) ||
+          (r.fromProvinceId === b && r.toProvinceId === a)) return r;
+    }
+    return undefined;
+  }
+
+  activeTradeRoutes(): TradeRoute[] {
+    const out: TradeRoute[] = [];
+    for (const r of this.tradeRoutes.values()) if (r.closedYear === null) out.push(r);
+    return out;
   }
 
   // ---- peoples -----------------------------------------------------------
