@@ -317,6 +317,39 @@ export interface Guild {
 }
 
 // ---------------------------------------------------------------------------
+// Siege — persistent multi-year state for long sieges. Historical: Constantinople
+// 1453 (7 weeks), Vienna 1683 (2 months), Alesia 52 BC (months), Masada 73 CE
+// (months), the seige of Baghdad 1258 (13 days). The engine's one-shot WAR
+// resolution can't model these — they need state that spans ticks, plus events
+// mid-siege (sallies, breaches, starvation, plague-in-camp).
+//
+// Sieges are QUEUED from resolveWars when the target is kingdom-tier + close
+// power ratio (attacker doesn't crush defender; defender doesn't overwhelm).
+// Processed each tick by sieges.ts:runSieges — provisions and morale drop,
+// random mid-siege events fire, termination checks fire.
+// ---------------------------------------------------------------------------
+export type SiegeId = string;
+
+export interface Siege {
+  id: SiegeId;
+  attackerId: CharId;             // may die during siege
+  defenderId: CharId;             // may die too — usually leads to fall
+  provinceId: ProvinceId;         // the besieged province (defender's seat)
+  titleId: TitleId;               // title being fought over
+  startYear: number;
+  yearsElapsed: number;           // 0 at siege start
+
+  // Attrition dynamics — provisions runs out inside the walls; morale on both
+  // sides declines slowly with events accelerating it.
+  provisions: number;             // 0..1, defender food stores
+  attackerMorale: number;         // 0..1
+  defenderMorale: number;         // 0..1
+
+  breached: boolean;              // walls breached — endgame conditions apply
+  outcome: "active" | "fallen" | "lifted"; // "active" while running
+}
+
+// ---------------------------------------------------------------------------
 // Invention — persistent codified knowledge with secrecy and leak dynamics.
 // The generalisation of Dynasty.rite/riteBearerId, applied to procedurally
 // invented craft-secrets instead of hardcoded rare classes. Modeled with a
@@ -743,7 +776,14 @@ export type EventType =
   | "HOUSE_LOSES_TRADITION"    // no more level-10+ of the dominant class — decline
   | "GUILD_FOUNDED"            // a persistent guild entity is chartered
   | "GUILD_DISSOLVED"          // no more level-8+ members — guild falls
-  | "RIVAL_HOUSES_CLASH";      // two same-specialization houses go to war
+  | "RIVAL_HOUSES_CLASH"       // two same-specialization houses go to war
+  // --- Multi-year sieges (sieges.ts + specs/siege-events.ts) ---
+  | "SIEGE_LAID"               // hosts encamp outside the walls — multi-year siege begins
+  | "SIEGE_SALLY"              // defender sortie, costs attacker morale
+  | "SIEGE_STARVATION"         // defenders begin to starve — provisions past tipping point
+  | "SIEGE_WALLS_BREACHED"     // breach opened — endgame near
+  | "SIEGE_FALLEN"             // city falls — title transfers, prose remembers
+  | "SIEGE_LIFTED";            // attacker withdraws — camp broken, siege ends
 
 export interface WorldEvent {
   id: number;

@@ -64,7 +64,7 @@ export function canonHash(w: World): string {
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
   { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "8afd30e6" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "36457b40" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "bde8f129" },
   { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "eea4b60d" },
   {
     name: "frontier·magic·prehistory·s5·250y",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "fdb84ae8",
+    hash: "552bc720",
   },
 ];
 
@@ -202,6 +202,18 @@ export function checkInvariants(w: World): string[] {
       if (m && m.alive && m.guildId !== g.id)
         v.push(`guild ${g.id} lists member ${mid} but char points to guildId ${m.guildId}`);
     }
+  }
+
+  // Siege invariants.
+  for (const s of w.siegeQueue) {
+    if (s.provisions < 0 || s.provisions > 1)
+      v.push(`siege ${s.id} provisions ${s.provisions} out of [0,1]`);
+    if (s.attackerMorale < 0 || s.attackerMorale > 1)
+      v.push(`siege ${s.id} attackerMorale ${s.attackerMorale} out of [0,1]`);
+    if (s.defenderMorale < 0 || s.defenderMorale > 1)
+      v.push(`siege ${s.id} defenderMorale ${s.defenderMorale} out of [0,1]`);
+    if (s.yearsElapsed < 0)
+      v.push(`siege ${s.id} yearsElapsed ${s.yearsElapsed} negative`);
   }
 
   return v;

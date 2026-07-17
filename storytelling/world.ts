@@ -24,6 +24,7 @@ import type {
   Province,
   ProvinceId,
   Scheme,
+  Siege,
   Title,
   TitleId,
   Treaty,
@@ -62,6 +63,12 @@ export class World {
   // Bind apprentices across dynastic lines, hold monopolies on inventions,
   // pool wealth. Only populated when magicEnabled.
   guilds = new Map<GuildId, Guild>();
+
+  // Multi-year sieges — queued from resolveWars when the target is a well-
+  // fortified kingdom/duchy tier title and the power ratio is close. Each
+  // tick, sieges.ts:runSieges advances provisions/morale and may fire mid-
+  // siege events (sallies, breaches, starvation) or resolve the siege.
+  siegeQueue: Siege[] = [];
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -250,6 +257,16 @@ export class World {
     return this.dynastyAdults(dynId).filter(
       (c) => c.charClass === cls && c.level >= minLevel,
     );
+  }
+
+  // ---- sieges ------------------------------------------------------------
+  // Does this title currently have an active siege queued? Used by resolveWars
+  // to avoid double-queuing sieges on the same title.
+  activeSiegeAt(titleId: TitleId): Siege | undefined {
+    for (const s of this.siegeQueue) {
+      if (s.outcome === "active" && s.titleId === titleId) return s;
+    }
+    return undefined;
   }
 
   // ---- peoples -----------------------------------------------------------

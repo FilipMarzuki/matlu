@@ -24,6 +24,7 @@ import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
+import { runSieges, trySpawnSiege } from "./sieges.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
 import { markDead, runHarvest, runPlague } from "./phenomena.js";
@@ -124,6 +125,10 @@ export function tick(w: World): void {
   // Runs after runSpecs so any INVENTION_MADE fired this tick immediately
   // participates in leak/lost bookkeeping next tick. No-op when magic is off.
   runInnovations(w);
+
+  // --- multi-year sieges — advance provisions/morale, resolve terminations.
+  // No-op when the queue is empty.
+  runSieges(w);
 
   // End-of-tick sweep: runChallenges can kill title-holders (challenger
   // slain by a hostile kind), and the last resolvePendingSuccessions call
@@ -383,6 +388,11 @@ function resolveWars(w: World): void {
 
     settledThisYear.add(title.id);
     warsFought++;
+
+    // Well-fortified target + close power ratio → LONG SIEGE instead of one-
+    // shot. Sieges are queued and processed each tick by sieges.ts:runSieges.
+    // Only fires when magicEnabled (guard inside trySpawnSiege).
+    if (trySpawnSiege(w, attacker, defender, title, aPow, dPow)) continue;
 
     // Victory probability from relative power, nudged by a strong claim's
     // legitimacy (it rallies more support).
