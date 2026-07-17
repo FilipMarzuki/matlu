@@ -22,11 +22,26 @@ const DEITY_MANIFESTS: EventSpec = {
     const domain = String(ev.data["domain"] ?? "the unknown");
     const home = String(ev.data["home"] ?? provName(w, ev.provinceId));
     const pact = String(ev.data["pact"] ?? "silent demands");
+    const tier = String(ev.data["tier"] ?? "true");
     const post = Boolean(ev.data["postVanishing"]);
-    if (post) {
-      return `${deity}, first god to manifest since the Great Vanishing, appeared at ${home}. Old-tongue priests fell to their knees; the young suspected a trick. The god's pact was recorded and disputed by scholars for a generation: ${pact}.`;
+    if (tier === "demigod" || post) {
+      return `${deity} manifested at ${home} — a demigod, patron of ${domain}. The ladder to the ascended plane has been broken since the Vanishing, so no true god can rise: this power wears a mortal shape and bleeds. Its pact was proclaimed and disputed by scholars for a generation: ${pact}.`;
     }
     return `${deity}, patron of ${domain}, first walked among mortals — the priests of ${home} bound themselves to its pact: ${pact}.`;
+  },
+  arc: (ev) => ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null,
+};
+
+const DEMIGOD_SLAIN: EventSpec = {
+  type: "DEMIGOD_SLAIN",
+  base: 13,
+  render: (ev, w) => {
+    const deity = String(ev.data["deity"] ?? "the half-god");
+    const domain = String(ev.data["domain"] ?? "");
+    const slayer = String(ev.data["slayer"] ?? "an unnamed hero");
+    const cls = String(ev.data["slayerClass"] ?? "warrior");
+    const lvl = Number(ev.data["slayerLevel"] ?? 0);
+    return `${deity}, demigod of ${domain}, was slain at ${provName(w, ev.provinceId)} — ${slayer} (${cls}, lvl ${lvl}) drove a blade through the vessel and no ascended plane received the spirit. The domain fell silent that hour, and every temple that bore its name closed its doors.`;
   },
   arc: (ev) => ev.provinceId ? { key: `E:${ev.provinceId}`, kind: "calamity" } : null,
 };
@@ -185,6 +200,7 @@ const CHURCH_DISSOLVED: EventSpec = {
 export const RELIGION_SPECS: EventSpec[] = [
   GREAT_VANISHING,
   DEITY_MANIFESTS,
+  DEMIGOD_SLAIN,
   CHURCH_FOUNDED,
   CHURCH_FLOURISHES,
   CHURCH_SCHISM,

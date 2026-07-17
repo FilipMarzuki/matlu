@@ -23,6 +23,13 @@ const DEITY_MANIFEST_PROB = 0.008;     // ~1 in 125y after that
 // that window, the manifestation rate is a fraction of the pre-Vanishing pace.
 const POST_VANISHING_SKEPTIC_YEARS = 100;
 const POST_VANISHING_PROB_SCALE = 0.15;
+
+// The ladder to the ascended plane closed at the Vanishing. Nothing new can
+// ascend all the way — the highest post-Vanishing form is a DEMIGOD:
+// powerful, domain-bearing, but anchored to a mortal vessel and killable.
+const DEMIGOD_PEAK_POWER = 0.4;   // hard cap on demigod peakPower
+const DEMIGOD_INITIAL_POWER = 0.25;
+const DEMIGOD_SLAY_BASE_PROB = 0.05;  // per year, per demigod — a hero may try
 const MAX_LIVING_DEITIES = 8;          // small pantheon; keep prose readable
 const CHURCH_FORMATION_PROB = 0.06;    // per-eligible-province per-year
 const CHURCH_FLOURISH_THRESHOLD = 0.7;
@@ -125,17 +132,21 @@ function maybeManifestDeity(w: World): void {
   const pactTerms = shuffle(w, [...pool]).slice(0, Math.min(2, pool.length));
 
   const id: DeityId = w.freshId("dt");
+  const tier: "true" | "demigod" = postVanishing ? "demigod" : "true";
+  const startPower = postVanishing ? DEMIGOD_INITIAL_POWER : 0.5;
   const deity: Deity = {
     id,
     name,
     domain,
+    tier,
     mood: "attentive",
-    power: 0.5,
-    peakPower: 0.5,
+    power: startPower,
+    peakPower: startPower,
     followerCount: 0,
     emergedYear: w.year,
     slumberSince: null,
     diedYear: null,
+    slayerId: null,
     pactTerms,
     homeProvinceId: anchor.id,
     rivalDeityIds: [],
@@ -160,6 +171,7 @@ function maybeManifestDeity(w: World): void {
       pact: pactTerms.join(" · "),
       home: anchor.name,
       postVanishing,
+      tier,
     },
   });
 }
@@ -279,7 +291,10 @@ function ageDeities(w: World): void {
       default:
         break;
     }
-    god.power = Math.max(0, Math.min(1, god.power + delta));
+    // Post-Vanishing demigods live under a hard power ceiling — the ascended
+    // plane is closed, so they cannot grow into full gods.
+    const ceiling = god.tier === "demigod" ? DEMIGOD_PEAK_POWER : 1;
+    god.power = Math.max(0, Math.min(ceiling, god.power + delta));
     if (god.power > god.peakPower) god.peakPower = god.power;
 
     // Mood transitions.
@@ -338,6 +353,42 @@ function ageDeities(w: World): void {
             drift: Math.round(victim.doctrineDrift * 100) / 100,
           },
         });
+      }
+    }
+
+    // Demigods are killable — the ascended plane is closed, so nothing they
+    // can do makes them safe from a strong mortal. Odds rise when the god is
+    // wrathful (making enemies), scale with the god's power (a target worth
+    // hunting), and require a high-level warrior or mage to be alive.
+    if (god.tier === "demigod" && god.mood !== "dead") {
+      let slayProb = DEMIGOD_SLAY_BASE_PROB * (0.5 + god.power);
+      if (god.mood === "wrathful") slayProb *= 3;
+      if (w.rng.chance(slayProb)) {
+        const heroes = w.living().filter(
+          (c) => c.level >= 15 && (c.charClass === "knight" || c.charClass === "soldier"
+              || c.charClass === "stormcaller" || c.charClass === "necromancer" || c.charClass === "warden"),
+        );
+        if (heroes.length > 0) {
+          const slayer = heroes.reduce((a, b) => (b.level > a.level ? b : a));
+          god.power = 0;
+          god.mood = "dead";
+          god.diedYear = w.year;
+          god.slayerId = slayer.id;
+          w.log("DEMIGOD_SLAIN", {
+            actorId: slayer.id,
+            provinceId: god.homeProvinceId,
+            data: {
+              deityId: god.id,
+              deity: god.name,
+              domain: god.domain,
+              slayer: slayer.name,
+              slayerLevel: slayer.level,
+              slayerClass: slayer.charClass,
+            },
+          });
+          // Cascade: all this demigod's churches are cut loose.
+          for (const ch of w.churchesOf(god.id)) ch.doctrineDrift = 1;
+        }
       }
     }
   }

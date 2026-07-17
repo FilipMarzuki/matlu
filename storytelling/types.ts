@@ -438,10 +438,18 @@ export type DeityMood =
   | "withdrawing"  // stopped answering prayers; countdown to death
   | "dead";        // no power; churches keep offices as habit
 
+// A "true" deity is a fully-ascended god from before the Vanishing. A
+// "demigod" is what post-Vanishing mortals can produce: powerful, domain-
+// bearing, capable of miracles, but ANCHORED to a mortal form and therefore
+// killable. The ascended plane is closed to new entrants — the ladder is
+// broken. Every post-Vanishing manifestation is tier="demigod".
+export type DeityTier = "true" | "demigod";
+
 export interface Deity {
   id: DeityId;
   name: string;
   domain: DeityDomain;
+  tier: DeityTier;        // true = pre-Vanishing ascended god; demigod = post
   mood: DeityMood;
   power: number;          // 0..1 — current divine attention on this world
   peakPower: number;      // 0..1 — high-water mark, sets scale of memory
@@ -449,6 +457,7 @@ export interface Deity {
   emergedYear: number;    // when this god first manifested to mortals
   slumberSince: number | null;  // year mood dropped below "attentive"
   diedYear: number | null;      // year power reached 0 permanently
+  slayerId: CharId | null;      // for demigods: the mortal who killed the vessel
   pactTerms: string[];    // human-readable demands ("no ships on the death-day")
   homeProvinceId: ProvinceId | null; // some gods are geographically anchored
   rivalDeityIds: DeityId[];          // pantheon rivalries (proxy-war template)
@@ -959,7 +968,8 @@ export type EventType =
   | "DEITY_DIES"               // power hit 0 for 20+ years
   | "DEITY_REBORN"             // dead god returns weakened via a devotee's rite
   | "CHURCH_DISSOLVED"         // no clergy remain
-  | "GREAT_VANISHING";         // ancient event: every god of the old pantheon left the world at once (500-2000y before sim)
+  | "GREAT_VANISHING"          // ancient event: every god of the old pantheon left the world at once (500-2000y before sim)
+  | "DEMIGOD_SLAIN";           // post-Vanishing: a mortal kills a half-god's vessel, ending that divinity forever
 
 export interface WorldEvent {
   id: number;
