@@ -70,9 +70,48 @@ const CATEGORY_NOUN: Record<InventionCategory, string[]> = {
   textiles:    ["weaveworks", "loom-craft", "dyeworks", "silk-scheme", "brocade"],
 };
 
-// Pick an invention category weighted by the inventor's context. Scholars lean
-// toward printing/medicine; merchants toward navigation/textiles. Provincial
-// context tilts further — coastal + merchant → navigation, blighted + medicine.
+// How much local pressure has built up recently for a given category? Necessity
+// is the mother of invention: plagues → medicine; wars → military/metallurgy;
+// famines → agriculture; sea storms → navigation; earthquakes → architecture;
+// merchant strikes → textiles/printing. Returns a 0-1 boost that multiplies the
+// category's picking weight in pickCategory. Reads only the event log — no RNG.
+function recentPressure(w: World, provinceId: string, cat: InventionCategory, window: number = 8): number {
+  const recent = (types: string[]) => w.events.some(
+    (e) => types.includes(e.type)
+         && w.year - e.year < window
+         && (e.provinceId === provinceId || provinceIsNeighbor(w, provinceId, e.provinceId)),
+  );
+  switch (cat) {
+    case "medicine":     return recent(["PLAGUE", "PLAGUE_SHIP", "FOOD_RIOT", "MONSTROUS_BIRTH"]) ? 3 : 0;
+    case "military":     return recent(["WAR", "PEASANT_REVOLT", "COUP_D_ETAT", "PIRATE_RAID"]) ? 3 : 0;
+    case "metallurgy":   return recent(["WAR", "TRIBUTE_IMPOSED"]) ? 2 : 0;
+    case "agriculture":  return recent(["FAMINE", "BLIGHT_SPREADS", "BLIGHT_DEEPENS", "FOOD_RIOT"]) ? 3 : 0;
+    case "navigation":   return recent(["SEA_STORM", "SHIPWRECK", "PIRATE_RAID", "TSUNAMI"]) ? 3 : 0;
+    case "architecture": return recent(["EARTHQUAKE_TREMORS", "TSUNAMI", "SIEGE", "URBAN_MOB_RIOT"]) ? 2 : 0;
+    case "textiles":     return recent(["MERCHANT_STRIKE", "MARKET_MONOPOLY", "GUILD_CHARTERED"]) ? 2 : 0;
+    case "printing":     return recent(["TREATISE_PUBLISHED", "HERESY_TRIAL", "COUNCIL_OF_BISHOPS"]) ? 2 : 0;
+  }
+}
+
+function provinceIsNeighbor(w: World, a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  return !!w.province(a)?.neighbors?.includes(b);
+}
+
+// Sum ALL pressure boosts for a province — feeds INVENTION_MADE base probability
+// so that a place with a plague AND a famine AND a war innovates faster than a
+// quiet one. Necessity is (multi-)mother of invention.
+function totalPressureAt(w: World, provinceId: string): number {
+  const cats: InventionCategory[] = ["metallurgy", "printing", "medicine", "military", "agriculture", "navigation", "architecture", "textiles"];
+  let sum = 0;
+  for (const c of cats) sum += recentPressure(w, provinceId, c);
+  return sum;
+}
+
+// Pick an invention category weighted by the inventor's context AND by recent
+// pressure. Baseline weights lean scholar→printing/medicine, merchant→trade;
+// province context tilts further; local pressure (plague/war/famine/etc) then
+// bumps a specific category by up to 3x. Category selection is problem-driven.
 function pickCategory(w: World, c: Character): InventionCategory {
   const p = w.province(c.provinceId);
   const isCoastal = !!p?.coastal;
@@ -80,8 +119,7 @@ function pickCategory(w: World, c: Character): InventionCategory {
   const isMountain = p?.terrain === "mountain" || !!p?.subsurface;
   const isFertile = (p?.fertility ?? 0) > 0.7;
 
-  // Weighted pool
-  const weights: Array<[InventionCategory, number]> = [
+  const baseWeights: Array<[InventionCategory, number]> = [
     ["metallurgy",   isMountain ? 4 : 1],
     ["printing",     c.charClass === "scholar" ? 3 : 1],
     ["medicine",     c.charClass === "scholar" ? 2 : 1 + (isBlighted ? 2 : 0)],
@@ -91,6 +129,11 @@ function pickCategory(w: World, c: Character): InventionCategory {
     ["architecture", 1],
     ["textiles",     c.charClass === "merchant" ? 3 : 1],
   ];
+  // Apply pressure boost — a plague-hit province with a scholar makes medicine
+  // much more likely than the flat demographics would predict.
+  const weights: Array<[InventionCategory, number]> = baseWeights.map(
+    ([cat, w2]) => [cat, w2 * (1 + recentPressure(w, c.provinceId, cat))],
+  );
   const total = weights.reduce((s, [, w2]) => s + w2, 0);
   let r = w.rng.float(0, total);
   for (const [cat, wt] of weights) {
@@ -150,10 +193,24 @@ const INVENTION_MADE: EventSpec = {
       const c = item as Character;
       const p = w.province(c.provinceId);
       const magicSuppression = 1 - Math.min(1, (p?.manaDensity ?? 0) * 0.7);
+      // Orthodoxy suppression — caste_rigid and zealous_faith both dampen
+      // innovation. Historical: post-Song Ming (caste_rigid, Confucian canon),
+      // Counter-Reformation Church (zealous_faith), Tokugawa Sakoku (both).
+      // A CANONICAL_ORTHODOXY_FROZEN culture is halved AGAIN on top of that.
+      const casteMult = cultureHasTrait(w, c, "caste_rigid") ? 0.55 : 1;
+      const zealMult = cultureHasTrait(w, c, "zealous_faith") ? 0.55 : 1;
+      const dyn = w.dynasty(c.dynastyId);
+      const ossifiedMult = (dyn?.cultureId && w.liveCultures.get(dyn.cultureId)?.innovationOssified) ? 0.4 : 1;
+      // Problem-driven boost — a province with active pressures (plague / war /
+      // famine / sea storms / earthquakes / merchant strikes) invents faster.
+      const pressureMult = 1 + Math.min(3, totalPressureAt(w, c.provinceId) * 0.15);
       const base = 0.005;
       const meritBonus = cultureHasTrait(w, c, "meritocracy") ? 1.5 : 1;
       const mercBonus = cultureHasTrait(w, c, "mercantile") ? 1.2 : 1;
-      return Math.min(0.02, base * magicSuppression * meritBonus * mercBonus);
+      return Math.min(
+        0.04,
+        base * magicSuppression * casteMult * zealMult * ossifiedMult * pressureMult * meritBonus * mercBonus,
+      );
     },
     fire: (w, item) => {
       const c = item as Character;
@@ -523,6 +580,88 @@ const PATENT_LAW_ADOPTED: EventSpec = {
 };
 
 // ---------------------------------------------------------------------------
+// HERESY_TRIAL_SUPPRESSES — reactive to INVENTION_MADE in a zealous_faith
+// culture. Historical: Giordano Bruno burned, Galileo silenced, Copernicus's
+// book withheld until deathbed. The invention is FORCIBLY LOST — marked
+// immediately, no chance for guild protection to save it.
+// ---------------------------------------------------------------------------
+const HERESY_TRIAL_SUPPRESSES: EventSpec = {
+  type: "HERESY_TRIAL_SUPPRESSES",
+  base: 9,
+  render: (ev, w) => {
+    const invName = String(ev.data["invention"] ?? "the craft");
+    return `A tribunal at ${provName(w, ev.provinceId)} condemned ${invName} as heresy — ${charName(w, ev.actorId)} recanted, and the craft was buried with the notebooks.`;
+  },
+  arc: (ev) => ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null,
+  onEvent: {
+    source: "INVENTION_MADE",
+    prob: (w, e) => {
+      const inventor = w.char(e.actorId);
+      if (!inventor) return 0;
+      return cultureHasTrait(w, inventor, "zealous_faith") ? 0.3 : 0;
+    },
+    fire: (w, e) => {
+      const invId = String(e.data["inventionId"] ?? "");
+      const inv = w.inventions.get(invId);
+      if (!inv) return;
+      inv.lost = true;
+      inv.lostYear = w.year;
+      w.log("HERESY_TRIAL_SUPPRESSES", {
+        actorId: e.actorId, provinceId: e.provinceId,
+        data: { invention: inv.name, inventionId: invId },
+      });
+    },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// CANONICAL_ORTHODOXY_FROZEN — once per culture. Fires when a culture has BOTH
+// caste_rigid AND zealous_faith AND at least 5+ MASTER_ARTISAN_HONORED events
+// (a mature culture that has settled into its personal-mastery grooves). Sets
+// innovationOssified=true so the culture's INVENTION_MADE rate drops to 40%
+// forever after. Historical: post-Song Ming Confucian ossification, late
+// Byzantine icon-canon, late Egyptian Ptolemaic pedagogy.
+// ---------------------------------------------------------------------------
+const CANONICAL_ORTHODOXY_FROZEN: EventSpec = {
+  type: "CANONICAL_ORTHODOXY_FROZEN",
+  base: 9,
+  render: (ev) => {
+    const cultureName = String(ev.data["culture"] ?? "the folk");
+    return `The scholars of ${cultureName} settled on a canon — new questions were rebuked as impiety, and the great masters became the last word.`;
+  },
+  arc: (ev) => ev.actorId ? { key: `P:${ev.actorId}`, kind: "figure" } : null,
+  ambient: {
+    scan: "chars",
+    gate: (w, item) => {
+      const c = item as Character;
+      if (!isCraftsman(c)) return false;
+      if (c.level < 12) return false;
+      if (!cultureHasTrait(w, c, "caste_rigid")) return false;
+      if (!cultureHasTrait(w, c, "zealous_faith")) return false;
+      const dyn = w.dynasty(c.dynastyId);
+      if (!dyn?.cultureId) return false;
+      const state = w.liveCultures.get(dyn.cultureId);
+      if (state?.innovationOssified) return false;
+      const masterEvents = w.events.filter((e) => e.type === "MASTER_ARTISAN_HONORED").length;
+      return masterEvents >= 5;
+    },
+    prob: () => 0.02,
+    fire: (w, item) => {
+      const c = item as Character;
+      const dyn = w.dynasty(c.dynastyId);
+      if (!dyn?.cultureId) return;
+      const state = w.cultureState(dyn.cultureId);
+      state.innovationOssified = true;
+      w.log("CANONICAL_ORTHODOXY_FROZEN", {
+        actorId: c.id, provinceId: c.provinceId,
+        data: { culture: w.cultures.get(dyn.cultureId)?.name ?? dyn.cultureId },
+      });
+    },
+    once: "world",
+  },
+};
+
+// ---------------------------------------------------------------------------
 export const INNOVATION_SPECS: EventSpec[] = [
   INVENTION_MADE,
   GUILD_MONOPOLY_CLAIMED,
@@ -534,4 +673,6 @@ export const INNOVATION_SPECS: EventSpec[] = [
   APPRENTICE_TAKEN,
   MASTER_ARTISAN_HONORED,
   PATENT_LAW_ADOPTED,
+  HERESY_TRIAL_SUPPRESSES,
+  CANONICAL_ORTHODOXY_FROZEN,
 ];
