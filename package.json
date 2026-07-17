@@ -30,6 +30,7 @@
     "story": "tsx storytelling/main.ts --years 200 --seed 42",
     "story:magic": "tsx storytelling/main.ts --years 200 --seed 42 --magic",
     "story:frontier": "tsx storytelling/main.ts --world frontier --years 200 --seed 3 --magic --arcs",
+    "story:canon": "tsx scripts/generate-story-canon.ts",
     "worldgen:heightmap": "tsx macro-world/scripts/convert-heightmap.ts",
     "worldgen:generate": "tsx macro-world/scripts/generate-earth-map.ts",
     "worldgen:validate": "tsx macro-world/scripts/validate-earth-export.ts",

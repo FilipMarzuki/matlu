@@ -26,6 +26,7 @@ const translations: Record<Lang, Record<string, string>> = {
     // Nav
     'nav.home':        'Home',
     'nav.lore':        'Lore',
+    'nav.chronicles':  'Chronicles',
     'nav.biomes':      'Biomes',
     'nav.creatures':   'Creatures',
     'nav.playtest':    'Playtest',
@@ -135,6 +136,7 @@ const translations: Record<Lang, Record<string, string>> = {
     // Nav
     'nav.home':        'Hem',
     'nav.lore':        'Lore',
+    'nav.chronicles':  'Krönikor',
     'nav.biomes':      'Biomer',
     'nav.creatures':   'Varelser',
     'nav.playtest':    'Speltesta',
