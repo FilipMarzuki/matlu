@@ -54,6 +54,10 @@ token-log.json
 # Astro generated files
 dev/.astro/
 wiki/.astro/settings.json
+wiki/.astro/content.d.ts
+
+# Sprites synced into wiki/public by `sync-assets` prebuild — source lives in root public/
+wiki/public/assets/sprites/characters/
 
 # Build-time issue cache written by github-issues.ts
 wiki/.cache/
