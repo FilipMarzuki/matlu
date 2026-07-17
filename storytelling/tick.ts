@@ -22,6 +22,7 @@ import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
+import { runAcademies } from "./academies.js";
 import { runClimate } from "./climate.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
@@ -137,6 +138,10 @@ export function tick(w: World): void {
   // Runs after runSpecs so any INVENTION_MADE fired this tick immediately
   // participates in leak/lost bookkeeping next tick. No-op when magic is off.
   runInnovations(w);
+
+  // --- persistent academies — form new ones, age prestige, migrate on shock.
+  // Runs after runInnovations so this tick's inventions boost prestige.
+  runAcademies(w);
 
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.

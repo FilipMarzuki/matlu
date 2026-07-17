@@ -6,6 +6,8 @@
 
 import { RNG } from "./rng.js";
 import type {
+  Academy,
+  AcademyId,
   CatastropheQueueItem,
   Challenge,
   Character,
@@ -86,6 +88,11 @@ export class World {
   // over years via trade.ts:runTradeRoutes. Emergence still creates them; trade
   // module ages them and fires FLOURISHES / ABANDONED / REVIVED / MARKET_FAIR.
   tradeRoutes = new Map<TradeRouteId, TradeRoute>();
+
+  // Persistent academies — cross-dynasty scholar organisations. Guild-like
+  // shape but with prestige (0..1) and migration semantics. Aged by
+  // academies.ts:runAcademies.
+  academies = new Map<AcademyId, Academy>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();

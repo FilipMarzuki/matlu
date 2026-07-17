@@ -4,6 +4,7 @@
 // import. Add each new spec file below as it's authored.
 
 import { registerSpecs } from "../event-spec.js";
+import { ACADEMY_SPECS } from "./academy-events.js";
 import { BETRAYAL_SPECS } from "./betrayal-events.js";
 import { CHURCH_SPECS } from "./church-events.js";
 import { CLIMATE_SPECS } from "./climate-events.js";
@@ -23,6 +24,7 @@ import { SUCCESSION_LEGITIMACY_SPECS } from "./succession-legitimacy.js";
 import { TRADE_SPECS } from "./trade-events.js";
 import { URBAN_SPECS } from "./urban-events.js";
 
+registerSpecs(ACADEMY_SPECS);
 registerSpecs(BETRAYAL_SPECS);
 registerSpecs(CHURCH_SPECS);
 registerSpecs(CLIMATE_SPECS);

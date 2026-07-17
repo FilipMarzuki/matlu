@@ -395,6 +395,29 @@ export interface TradeRoute {
 }
 
 // ---------------------------------------------------------------------------
+// Academy — persistent cross-dynasty organisation of scholar-masters.
+// Historical: Al-Azhar (970 CE), Sorbonne (1150), Nalanda (5th century BCE),
+// Timbuktu (1200s). Parallel to Guild but for letters — a bigger prestige
+// horizon and magnet-effect on foreign scholars. Sacking or ossification can
+// send scholars into diaspora (ACADEMY_MIGRATED — Byzantine → Italy pattern).
+// ---------------------------------------------------------------------------
+export type AcademyId = string;
+
+export interface Academy {
+  id: AcademyId;
+  name: string;                    // "Academy of Rivenbrook", "College of Zafran"
+  provinceId: ProvinceId;
+  foundedYear: number;
+  closedYear: number | null;
+  masterId: CharId | null;         // rector / chancellor — highest-level scholar
+  memberIds: CharId[];             // living scholar-members
+  prestige: number;                // 0..1
+  peakPrestige: number;
+  flourishesLoggedAt: number | null;
+  patronDynastyId: DynastyId | null; // founding house (may be null if crowdsourced)
+}
+
+// ---------------------------------------------------------------------------
 // Invention — persistent codified knowledge with secrecy and leak dynamics.
 // The generalisation of Dynasty.rite/riteBearerId, applied to procedurally
 // invented craft-secrets instead of hardcoded rare classes. Modeled with a
@@ -839,7 +862,12 @@ export type EventType =
   | "TRADE_ROUTE_FLOURISHES"   // route wealth crosses the peak threshold — Silk Road at its height
   | "TRADE_ROUTE_ABANDONED"    // permanently closed — no traffic in 15+ years
   | "TRADE_ROUTE_REVIVED"      // reopened after long dormancy (route entity re-activated)
-  | "GREAT_MARKET_FAIR";       // annual/near-annual fair at a well-traded hub province
+  | "GREAT_MARKET_FAIR"        // annual/near-annual fair at a well-traded hub province
+  // --- Persistent academies (academies.ts + specs/academy-events.ts) ---
+  | "ACADEMY_FOUNDED"          // Sorbonne / Al-Azhar / Nalanda pattern
+  | "ACADEMY_FLOURISHES"       // prestige at peak — magnet for foreign scholars
+  | "ACADEMY_MIGRATED"         // scholarship exodus (Byzantine → Italy after 1453)
+  | "ACADEMY_DISSOLVED";       // permanently closed
 
 export interface WorldEvent {
   id: number;

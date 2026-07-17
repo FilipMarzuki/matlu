@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "eca0094f",
+    hash: "4dab75a5",
   },
 ];
 
@@ -233,6 +233,16 @@ export function checkInvariants(w: World): string[] {
       v.push(`trade route ${r.id} closed before founded`);
     if (r.peakWealth < r.wealth)
       v.push(`trade route ${r.id} peakWealth ${r.peakWealth} < current wealth ${r.wealth}`);
+  }
+
+  // Academy invariants.
+  for (const a of w.academies.values()) {
+    if (a.prestige < 0 || a.prestige > 1)
+      v.push(`academy ${a.id} prestige ${a.prestige} out of [0,1]`);
+    if (a.closedYear !== null && a.closedYear < a.foundedYear)
+      v.push(`academy ${a.id} closed before founded`);
+    if (a.peakPrestige < a.prestige)
+      v.push(`academy ${a.id} peakPrestige < current prestige`);
   }
 
   return v;
