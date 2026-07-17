@@ -9,12 +9,16 @@ import type {
   CatastropheQueueItem,
   Challenge,
   Character,
+  CharClass,
   CharId,
   CultureState,
   Dynasty,
   DynastyId,
   EventType,
   Goal,
+  Guild,
+  GuildCraft,
+  GuildId,
   Invention,
   InventionId,
   Province,
@@ -53,6 +57,11 @@ export class World {
   // by guilds, leaked over time, potentially lost. Only populated when
   // magicEnabled (innovation.ts guards on that flag for RNG symmetry).
   inventions = new Map<InventionId, Invention>();
+
+  // Persistent guilds — cross-dynasty organisations of same-craft masters.
+  // Bind apprentices across dynastic lines, hold monopolies on inventions,
+  // pool wealth. Only populated when magicEnabled.
+  guilds = new Map<GuildId, Guild>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -195,6 +204,52 @@ export class World {
       if (!inv.lost && this.dynastyKnows(dynId, inv)) out.push(inv);
     }
     return out;
+  }
+
+  // ---- guilds ------------------------------------------------------------
+  // Living members of a guild — walk stored ids and filter alive. Handles
+  // characters who died without the guild bookkeeping catching up.
+  guildMembers(g: Guild): Character[] {
+    const out: Character[] = [];
+    for (const id of g.memberIds) {
+      const c = this.characters.get(id);
+      if (c && c.alive) out.push(c);
+    }
+    return out;
+  }
+
+  activeGuilds(): Guild[] {
+    const out: Guild[] = [];
+    for (const g of this.guilds.values()) if (g.disbandedYear === null) out.push(g);
+    return out;
+  }
+
+  guildAt(provinceId: ProvinceId, craft: GuildCraft): Guild | undefined {
+    for (const g of this.guilds.values()) {
+      if (g.disbandedYear !== null) continue;
+      if (g.provinceId === provinceId && g.craft === craft) return g;
+    }
+    return undefined;
+  }
+
+  // ---- dynasty specialization --------------------------------------------
+  // Adult (age 16+) dynasty members, cached-friendly walk.
+  dynastyAdults(dynId: DynastyId): Character[] {
+    const out: Character[] = [];
+    for (const c of this.characters.values()) {
+      if (!c.alive) continue;
+      if (c.dynastyId !== dynId) continue;
+      if (this.age(c) < 16) continue;
+      out.push(c);
+    }
+    return out;
+  }
+
+  // Members of dynasty at or above a level threshold for a given class.
+  dynastyMastersOfClass(dynId: DynastyId, cls: CharClass, minLevel: number): Character[] {
+    return this.dynastyAdults(dynId).filter(
+      (c) => c.charClass === cls && c.level >= minLevel,
+    );
   }
 
   // ---- peoples -----------------------------------------------------------

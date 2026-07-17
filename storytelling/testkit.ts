@@ -63,9 +63,9 @@ export function canonHash(w: World): string {
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "cab0f149" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "29ed914b" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "9b120e04" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "8afd30e6" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "36457b40" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "eea4b60d" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "2e599e33",
+    hash: "fdb84ae8",
   },
 ];
 
@@ -187,6 +187,21 @@ export function checkInvariants(w: World): string[] {
       v.push(`invention ${inv.id} tier ${inv.tier} out of [1,3]`);
     if (inv.lost && inv.lostYear === null)
       v.push(`invention ${inv.id} lost but lostYear null`);
+  }
+
+  // Dynasty specialization + guild invariants.
+  for (const dyn of w.dynasties.values()) {
+    if (dyn.specializationDepth < 0 || dyn.specializationDepth > 1)
+      v.push(`dynasty ${dyn.id} specializationDepth ${dyn.specializationDepth} out of [0,1]`);
+  }
+  for (const g of w.guilds.values()) {
+    if (g.disbandedYear === null && g.memberIds.length < 1)
+      v.push(`active guild ${g.id} has no members`);
+    for (const mid of g.memberIds) {
+      const m = w.char(mid);
+      if (m && m.alive && m.guildId !== g.id)
+        v.push(`guild ${g.id} lists member ${mid} but char points to guildId ${m.guildId}`);
+    }
   }
 
   return v;

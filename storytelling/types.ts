@@ -178,6 +178,10 @@ export interface Character {
   // with you unless you take a student" mechanic that Factor 2 depends on.
   mentorId: CharId | null;
   apprenticeIds: CharId[];
+
+  // Guild membership — a character belongs to at most one guild at a time.
+  // Only used when innovation.ts is active; null in base sim.
+  guildId: GuildId | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +268,52 @@ export interface Dynasty {
   wealth: number; // treasury; earned from lands, spent cultivating heirs
   rite: RareClass | null; // a heritable rare class-rite the house can grant
   riteBearerId: CharId | null; // the living master who can pass the rite on
+
+  // --- Specialization layer (only used when World.magicEnabled) ------------
+  // A house acquires an IDENTITY when its members concentrate in one class:
+  // the mining house, the scholar house, the warrior house. Recomputed each
+  // tick from member class distribution. `dominantClass` is null when no
+  // class holds a majority of adult members. `specializationDepth` measures
+  // (memberFraction × avgLevelInClass / 20), capped at 1 — a house with 80%
+  // of its adults as level-15 scholars gets depth 0.6.
+  //
+  // `guildTradition` is a lazily-assigned flavor name that HOUSE_SPECIALIZES
+  // sets and never changes. Together these drive the super-linear synergy
+  // that makes an established house of masters dominate its craft.
+  dominantClass: CharClass | null;
+  specializationDepth: number;
+  guildTradition: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Guild — a persistent cross-dynasty organisation of same-craft masters. The
+// engine already has GUILD_CHARTERED / GUILD_MONOPOLY_CLAIMED log events;
+// Guild upgrades those to persistent entities with member rosters, treasury,
+// and a mastership succession. Guilds bind APPRENTICES across dynastic lines,
+// which is how personal craft-knowledge historically diffused faster than
+// dynastic inheritance alone allowed.
+// ---------------------------------------------------------------------------
+export type GuildId = string;
+
+export type GuildCraft =
+  | "smithing"    // metallurgy / weaponsmith / armorer
+  | "textiles"    // weaver / dyer
+  | "trade"       // merchant / factor / banker
+  | "letters"     // scholar / scribe / physician
+  | "arms"        // knightly order / mercenary company
+  | "arcana";     // rare-class holders (very rare, cross-dynasty)
+
+export interface Guild {
+  id: GuildId;
+  name: string;                    // "Guild of Sunmeadow Weavers"
+  craft: GuildCraft;
+  provinceId: ProvinceId;          // guildhall / headquarters
+  foundedYear: number;
+  disbandedYear: number | null;
+  masterId: CharId | null;         // current guildmaster (highest-level member)
+  memberIds: CharId[];             // living members with matching craft
+  wealth: number;                  // guild treasury
+  monopolyInventionId: string | null; // if the guild monopolizes an invention
 }
 
 // ---------------------------------------------------------------------------
@@ -685,7 +735,15 @@ export type EventType =
   | "MASTER_ARTISAN_HONORED"   // personal-mastery path recognised
   | "PATENT_LAW_ADOPTED"       // proto-IP (Venetian statute analog) formalized
   | "HERESY_TRIAL_SUPPRESSES"  // zealous_faith destroys a new invention (Bruno, Galileo)
-  | "CANONICAL_ORTHODOXY_FROZEN"; // caste_rigid + zealous_faith → cultural innovation ossifies
+  | "CANONICAL_ORTHODOXY_FROZEN" // caste_rigid + zealous_faith → cultural innovation ossifies
+  // --- Dynasty specialization & persistent guilds (specs/dynasty-specialization-events.ts) ---
+  | "HOUSE_SPECIALIZES"        // a dynasty acquires a class identity (60%+ same class + level-10s)
+  | "MASTER_LINEAGE_FORMS"     // 3 generations of level-15+ same class in same house
+  | "RARE_LINEAGE_EXPONENTIAL" // 3+ rare-class bearers alive in the same house — dangerous
+  | "HOUSE_LOSES_TRADITION"    // no more level-10+ of the dominant class — decline
+  | "GUILD_FOUNDED"            // a persistent guild entity is chartered
+  | "GUILD_DISSOLVED"          // no more level-8+ members — guild falls
+  | "RIVAL_HOUSES_CLASH";      // two same-specialization houses go to war
 
 export interface WorldEvent {
   id: number;

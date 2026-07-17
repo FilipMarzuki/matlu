@@ -21,6 +21,7 @@
 // itself fires) purely rendering.
 
 import type { EventSpec } from "../event-spec.js";
+import { dynastyInnovationSynergy } from "../innovation.js";
 import type { Character, Invention, InventionCategory, Title } from "../types.js";
 import type { World } from "../world.js";
 
@@ -207,9 +208,13 @@ const INVENTION_MADE: EventSpec = {
       const base = 0.005;
       const meritBonus = cultureHasTrait(w, c, "meritocracy") ? 1.5 : 1;
       const mercBonus = cultureHasTrait(w, c, "mercantile") ? 1.2 : 1;
+      // Dynasty specialization synergy — a house of scholars invents faster.
+      // Historical: the al-Kindi lineage, the Bernoulli mathematicians, the
+      // Curie physicist family — multi-master lineages compound.
+      const synergyBonus = 1 + dynastyInnovationSynergy(w, c.dynastyId);
       return Math.min(
-        0.04,
-        base * magicSuppression * casteMult * zealMult * ossifiedMult * pressureMult * meritBonus * mercBonus,
+        0.06,
+        base * magicSuppression * casteMult * zealMult * ossifiedMult * pressureMult * synergyBonus * meritBonus * mercBonus,
       );
     },
     fire: (w, item) => {

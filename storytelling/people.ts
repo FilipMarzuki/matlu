@@ -160,6 +160,7 @@ export function createCharacter(w: World, opts: NewCharacterOpts): Character {
     personalWealth: 0,
     mentorId: null,
     apprenticeIds: [],
+    guildId: null,
     psyche: zeroPsyche(), // patched below once drives are resolved
   };
   // Apply cultural/faith bias seeds and universal baselines AFTER the character
@@ -240,6 +241,10 @@ export function createDynasty(
     cultureId: people?.culture ?? "",
     raceId: people?.race ?? "",
     faithId: people?.faith ?? "",
+    // Specialization defaults — recomputed by innovation.ts each tick.
+    dominantClass: null,
+    specializationDepth: 0,
+    guildTradition: null,
   };
   w.dynasties.set(id, dyn);
   return dyn;

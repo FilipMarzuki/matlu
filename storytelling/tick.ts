@@ -22,7 +22,7 @@ import { advanceCultureDrift } from "./culture-drift.js";
 import { advanceDiplomacy, allyFor, hasAlliance, mintTruce, purgeTreaties } from "./diplomacy.js";
 import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
-import { militaryBonus, runInnovations } from "./innovation.js";
+import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { addClaim, resolveSuccession } from "./inheritance.js";
 import { commonSurname } from "./names.js";
@@ -291,6 +291,7 @@ function syntheticDeceased(title: Title): Character {
     personalWealth: 0,
     mentorId: null,
     apprenticeIds: [],
+    guildId: null,
   };
 }
 
@@ -355,8 +356,11 @@ function resolveWars(w: World): void {
     const prov = w.province(title.provinceId);
     // Military inventions (siege engines, war-drill, metallurgy) held by the
     // dynasty amplify raised power. Symmetric — both sides get their bonus.
-    const aMil = 1 + militaryBonus(w, attacker.dynastyId);
-    const dMil = 1 + militaryBonus(w, defender.dynastyId);
+    // Dynasty martial specialization — a house of soldiers/knights (or a
+    // rare-class rite of stormcallers/necromancers/wardens) adds super-linear
+    // force. Multiple rare-class bearers is CATASTROPHIC for the opponent.
+    const aMil = 1 + militaryBonus(w, attacker.dynastyId) + dynastyMartialSynergy(w, attacker.dynastyId);
+    const dMil = 1 + militaryBonus(w, defender.dynastyId) + dynastyMartialSynergy(w, defender.dynastyId);
     const aPow = w.power(attacker) * (prov?.subsurface ? 0.5 : 1.0) * aMil;
     // loss_aversion makes defenders fight harder to keep what they have.
     const defBase = w.power(defender) * (1 + defender.psyche.biases.loss_aversion * 0.25) * dMil;
