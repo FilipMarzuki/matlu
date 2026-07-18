@@ -27,6 +27,7 @@ import { runClimate } from "./climate.js";
 import { runCompanies } from "./companies.js";
 import { runDiseases } from "./disease.js";
 import { runLanguages } from "./language.js";
+import { runHeroes } from "./heroes.js";
 import { runReligion } from "./religion.js";
 import { runUnions } from "./unions.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
@@ -153,6 +154,11 @@ export function tick(w: World): void {
   // are real, so doctrine is pact and miracles auditable. Guarded on
   // magicEnabled inside religion.ts (RNG-symmetric no-op otherwise).
   runReligion(w);
+
+  // --- named heroes & legendary artefacts — a hero earns a living epithet;
+  // masters forge persistent artefacts that pass through inheritance, get
+  // stolen, get lost, and can be rediscovered. Magic-guarded.
+  runHeroes(w);
 
   // --- language drift — proto-languages per culture, split on isolation,
   // converge on active trade routes, mint linguae francae, translation
