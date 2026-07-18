@@ -672,6 +672,52 @@ export interface Expedition {
 }
 
 // ---------------------------------------------------------------------------
+// Migration — mass movements of population between provinces.
+//
+// Historically the biggest population-scale event after plague. A wave rises
+// from an origin province under some pressure (climate collapse, sacked
+// homeland, religious expulsion, famine) and reaches for one or more
+// destination provinces. If it arrives, either:
+//   • it SETTLES — becomes a diaspora community that colours the destination
+//   • it FIGHTS — an armed migration, functionally an invasion cascade
+//   • it DISPERSES — the wave broke up on the road, small remainders scatter
+//
+// Composes with:
+//   • climate.ts — cold + severe climate spawns climate_refugee waves
+//   • war/siege — barbarian_invasion waves fire a nominal war target
+//   • religion.ts — an excommunicated deity's followers can be expelled
+//   • disease.ts — migrating populations carry strains along
+// ---------------------------------------------------------------------------
+export type MigrationWaveId = string;
+
+export type MigrationKind =
+  | "climate_refugees"     // a province becomes uninhabitable
+  | "barbarian_invasion"   // an armed movement seeking to settle by conquest
+  | "religious_expulsion"  // driven out by a schism / investiture
+  | "famine_flight"        // sub-critical harvest drives farmhands to move
+  | "war_displaced";       // conquered populations flee sacked homeland
+
+export type MigrationStatus =
+  | "traveling"    // in motion, not yet resolved
+  | "settled"      // successfully absorbed at destination
+  | "dispersed"    // broke up on the road
+  | "repelled";    // destination refused / fought them off
+
+export interface MigrationWave {
+  id: MigrationWaveId;
+  kind: MigrationKind;
+  fromProvinceId: ProvinceId;
+  cultureId: string | null;       // culture id (empty in default world)
+  sizeInSouls: number;            // rough number of migrants
+  triggeredYear: number;
+  status: MigrationStatus;
+  destinationProvinceId: ProvinceId | null; // set when a target is chosen
+  resolvedYear: number | null;
+  formedDiaspora: boolean;        // whether a lasting diaspora resulted
+  reason: string;                 // short procedural reason string
+}
+
+// ---------------------------------------------------------------------------
 // Religion — tangible gods and their churches.
 //
 // The engine's premise (magic-real, mana-real, portals-real) means faith isn't
@@ -1292,7 +1338,15 @@ export type EventType =
   | "NEW_LANDS_CHARTED"        // an expedition mapped a new coast / archipelago
   | "FIRST_CONTACT_ESTABLISHED"// contact with a previously unknown culture
   | "GREAT_EXCHANGE"           // biological / cultural exchange on return
-  | "SEA_MONSTER_ENCOUNTERED";// magic-only: expedition met (and may have lost to) a leviathan
+  | "SEA_MONSTER_ENCOUNTERED"  // magic-only: expedition met (and may have lost to) a leviathan
+  // --- Migration (migration.ts + specs/migration-events.ts) ---
+  | "MIGRATION_WAVE_RISES"
+  | "REFUGEES_ARRIVE"
+  | "BARBARIAN_INVASION"
+  | "RELIGIOUS_EXPULSION"
+  | "SETTLED_NEW_HOMELAND"
+  | "WAVE_DISPERSED"
+  | "DIASPORA_FORMED";
 
 export interface WorldEvent {
   id: number;

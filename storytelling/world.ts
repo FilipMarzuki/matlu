@@ -28,6 +28,8 @@ import type {
   NamedHero,
   SpeciesId,
   WildlifeSpecies,
+  MigrationWave,
+  MigrationWaveId,
   CatastropheQueueItem,
   Challenge,
   Character,
@@ -160,9 +162,7 @@ export class World {
   // → dead languages (potentially revived by scholars).
   languages = new Map<LanguageId, Language>();
 
-  // Persistent dynastic unions — marriages between two ruling houses that
-  // upgrade into a formal compact (marriage_alliance / personal_union /
-  // cadet_branch). Aged by unions.ts:runUnions each tick.
+  // Persistent dynastic unions.
   unions = new Map<UnionId, DynasticUnion>();
 
   // Persistent wildlife species — apex predators, megafauna, mana-beasts.
@@ -173,6 +173,9 @@ export class World {
   // wrecked. Aged by exploration.ts:runExploration. Guarded on
   // catastrophesEnabled so RNG symmetry with golden hashes is preserved.
   expeditions = new Map<ExpeditionId, Expedition>();
+
+  // Persistent migration waves.
+  migrations = new Map<MigrationWaveId, MigrationWave>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -474,8 +477,6 @@ export class World {
     return out;
   }
 
-  // Return the active union between two dynasties in either order, if any.
-  // Two houses can have at most one active union.
   unionBetween(a: DynastyId, b: DynastyId): DynasticUnion | undefined {
     for (const u of this.unions.values()) {
       if (u.dissolvedYear !== null) continue;
@@ -548,6 +549,13 @@ export class World {
   activeExpeditions(): Expedition[] {
     const out: Expedition[] = [];
     for (const ex of this.expeditions.values()) if (ex.resolvedYear === null) out.push(ex);
+    return out;
+  }
+
+  // ---- migrations --------------------------------------------------------
+  activeMigrations(): MigrationWave[] {
+    const out: MigrationWave[] = [];
+    for (const m of this.migrations.values()) if (m.resolvedYear === null) out.push(m);
     return out;
   }
 

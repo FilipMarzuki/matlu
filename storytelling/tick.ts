@@ -28,6 +28,7 @@ import { runCompanies } from "./companies.js";
 import { runDiseases } from "./disease.js";
 import { runWildlife } from "./wildlife.js";
 import { runExploration } from "./exploration.js";
+import { runMigration } from "./migration.js";
 import { runLanguages } from "./language.js";
 import { runHeroes } from "./heroes.js";
 import { runReligion } from "./religion.js";
@@ -175,15 +176,9 @@ export function tick(w: World): void {
   // (RNG-symmetric no-op when off).
   runDiseases(w);
 
-  // --- dynastic unions — detect new political marriages between title-
-  // holders, mint personal unions when heirs inherit both crowns, age
-  // strength, dissolve on war. Runs on every world (not guarded on any flag).
   runUnions(w);
-
-  // --- persistent companies — mercenary companies get hired, turn
-  // condottiere on their patrons; pirate fleets raid coastal provinces and
-  // get busted in naval battles. Runs on every world (not flag-guarded).
   runCompanies(w);
+  runMigration(w);
 
   // --- wildlife — seeded once at world init, aged annually. Hunters bag
   // trophies; blight culls habitat; species drift toward extinction or
