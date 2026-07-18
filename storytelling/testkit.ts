@@ -245,6 +245,20 @@ export function checkInvariants(w: World): string[] {
       v.push(`academy ${a.id} peakPrestige < current prestige`);
   }
 
+  // Disease invariants — bounded lethality, parent resolves, burn-out ordering.
+  for (const d of w.diseases.values()) {
+    if (d.lethality < 0 || d.lethality > 1)
+      v.push(`disease ${d.id} lethality ${d.lethality} out of [0,1]`);
+    if (d.burnedOutYear !== null && d.burnedOutYear < d.emergedYear)
+      v.push(`disease ${d.id} burnedOutYear ${d.burnedOutYear} < emergedYear ${d.emergedYear}`);
+    if (d.parentStrainId && !w.diseases.get(d.parentStrainId))
+      v.push(`disease ${d.id} references missing parent ${d.parentStrainId}`);
+    if (d.strikeCount < 0)
+      v.push(`disease ${d.id} negative strikeCount ${d.strikeCount}`);
+    if (d.totalDeaths < 0)
+      v.push(`disease ${d.id} negative totalDeaths ${d.totalDeaths}`);
+  }
+
   // Language invariants — bounded scores, parent resolves, death consistency.
   for (const lg of w.languages.values()) {
     if (lg.driftScore < 0 || lg.driftScore > 1)
