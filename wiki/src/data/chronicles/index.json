@@ -1,0 +1,43 @@
+{
+  "chronicles": [
+    {
+      "slug": "the-frontier",
+      "label": "The Frontier",
+      "labelSv": "Gränslandet",
+      "subtitle": "A tangible-god age closes; the world learns to live without.",
+      "subtitleSv": "En tid av påtagliga gudar tar slut; världen lär sig att leva utan.",
+      "seed": 5,
+      "world": "frontier",
+      "years": 300,
+      "magic": true,
+      "catastrophes": true,
+      "prehistorySpan": 800
+    },
+    {
+      "slug": "the-long-shadow",
+      "label": "The Long Shadow",
+      "labelSv": "Den långa skuggan",
+      "subtitle": "Five centuries of demigods, sieges, plagues and dying tongues.",
+      "subtitleSv": "Fem sekel av halvgudar, belägringar, farsoter och döende språk.",
+      "seed": 13,
+      "world": "frontier",
+      "years": 500,
+      "magic": true,
+      "catastrophes": true,
+      "prehistorySpan": 800
+    },
+    {
+      "slug": "the-mundane-frontier",
+      "label": "The Mundane Frontier",
+      "labelSv": "Det jordnära gränslandet",
+      "subtitle": "A world without magic — only kings, houses, and their claims.",
+      "subtitleSv": "En värld utan magi — bara kungar, ätter och deras anspråk.",
+      "seed": 7,
+      "world": "frontier",
+      "years": 300,
+      "magic": false,
+      "catastrophes": false,
+      "prehistorySpan": 0
+    }
+  ]
+}

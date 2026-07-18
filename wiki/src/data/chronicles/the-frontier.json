@@ -1,6 +1,11 @@
 {
   "meta": {
-    "generatedAt": "2026-07-18T07:03:43.441Z",
+    "generatedAt": "2026-07-18T07:53:59.084Z",
+    "slug": "the-frontier",
+    "label": "The Frontier",
+    "labelSv": "Gränslandet",
+    "subtitle": "A tangible-god age closes; the world learns to live without.",
+    "subtitleSv": "En tid av påtagliga gudar tar slut; världen lär sig att leva utan.",
     "seed": 5,
     "world": "frontier",
     "years": 300,
@@ -118,6 +123,130 @@
       "members": 1,
       "specialization": "hunter",
       "specializationDepth": 0.7
+    }
+  ],
+  "livingDeities": [
+    {
+      "name": "Sil the Rime-Crowned",
+      "domain": "sea",
+      "tier": "demigod",
+      "mood": "attentive",
+      "power": 0.4,
+      "peakPower": 0.4
+    }
+  ],
+  "livingLanguages": [
+    {
+      "name": "Upper Tessador",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    },
+    {
+      "name": "Coastal Naritessa",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    },
+    {
+      "name": "Lower Meruiri",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    },
+    {
+      "name": "Coastal Ziniri",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    },
+    {
+      "name": "Middle Ulukal",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    },
+    {
+      "name": "New Uluulu",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    },
+    {
+      "name": "Middle Korosil",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    },
+    {
+      "name": "New Merusil",
+      "driftScore": 0,
+      "writtenCorpus": 0,
+      "linguaFrancaRoutes": 0,
+      "speakerCultures": 1
+    }
+  ],
+  "notableDiseases": [
+    {
+      "name": "the Grey Sighing-Death",
+      "family": "hemorrhagic",
+      "category": "mundane",
+      "emergedYear": 1088,
+      "burnedOutYear": null,
+      "strikeCount": 8,
+      "totalDeaths": 229
+    },
+    {
+      "name": "the Grey Sighing-Death II",
+      "family": "hemorrhagic",
+      "category": "mundane",
+      "emergedYear": 1132,
+      "burnedOutYear": null,
+      "strikeCount": 3,
+      "totalDeaths": 73
+    },
+    {
+      "name": "the Black Bloom",
+      "family": "mana_fever",
+      "category": "magical",
+      "emergedYear": 1059,
+      "burnedOutYear": null,
+      "strikeCount": 5,
+      "totalDeaths": 45
+    },
+    {
+      "name": "the Rust Cough",
+      "family": "mana_fever",
+      "category": "magical",
+      "emergedYear": 1174,
+      "burnedOutYear": null,
+      "strikeCount": 2,
+      "totalDeaths": 22
+    },
+    {
+      "name": "the Black Bloom II",
+      "family": "mana_fever",
+      "category": "magical",
+      "emergedYear": 1179,
+      "burnedOutYear": null,
+      "strikeCount": 2,
+      "totalDeaths": 8
+    },
+    {
+      "name": "the Black Bloom II II",
+      "family": "mana_fever",
+      "category": "magical",
+      "emergedYear": 1180,
+      "burnedOutYear": null,
+      "strikeCount": 1,
+      "totalDeaths": 3
     }
   ],
   "arcs": [

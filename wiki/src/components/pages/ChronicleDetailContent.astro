@@ -1,103 +1,52 @@
 ---
 import Base from '../../layouts/Base.astro';
-import canonRaw from '../../data/story-canon.json';
+import type { Chronicle } from '../../lib/chronicles';
 import { t } from '../../i18n/index';
 import type { Lang } from '../../i18n/index';
 
 interface Props {
   lang: Lang;
+  chronicle: Chronicle;
 }
 
-// Explicit shape for the canon JSON — Astro/TS can't infer non-`never` types
-// from empty arrays in a static JSON import, so we widen the type ourselves.
-interface CanonKingdom { name: string; seat: string; holder: string | null }
-interface CanonHouse {
-  name: string;
-  foundedYear: number;
-  members: number;
-  specialization: string | null;
-  specializationDepth: number;
-}
-interface CanonArcEvent { year: number; type: string; text: string }
-interface CanonArc {
-  id: string;
-  title: string;
-  kind: string;
-  startYear: number;
-  endYear: number;
-  eventCount: number;
-  significance: number;
-  events: CanonArcEvent[];
-}
-interface CanonTradeRoute {
-  from: string;
-  to: string;
-  conduit: string;
-  foundedYear: number;
-  wealth: number;
-  peakWealth: number;
-}
-interface CanonAcademy {
-  name: string;
-  province: string;
-  foundedYear: number;
-  prestige: number;
-  peakPrestige: number;
-  scholars: number;
-}
-interface CanonGuild {
-  name: string;
-  craft: string;
-  foundedYear: number;
-  members: number;
-}
-interface Canon {
-  meta: {
-    generatedAt: string;
-    seed: number;
-    world: string;
-    years: number;
-    prehistorySpan: number;
-    magic: boolean;
-    catastrophes: boolean;
-    threshold: number;
-    startYear: number;
-    endYear: number;
-    totalEvents: number;
-    chronicledEvents: number;
-  };
-  climate: { phase: string; severity: number; phaseStartYear: number; phaseDurationYears: number };
-  kingdoms: CanonKingdom[];
-  survivingHouses: CanonHouse[];
-  arcs: CanonArc[];
-  tradeRoutes: CanonTradeRoute[];
-  academies: CanonAcademy[];
-  guilds: CanonGuild[];
-  eventTally: { type: string; count: number }[];
-}
+const { lang, chronicle: c } = Astro.props;
 
-const { lang } = Astro.props;
-const c = canonRaw as unknown as Canon;
+const label = lang === 'sv' ? c.meta.labelSv : c.meta.label;
+const subtitle = lang === 'sv' ? c.meta.subtitleSv : c.meta.subtitle;
 
-// Kind → localized label. Keeps arc chips readable.
 const KIND_LABEL: Record<string, [string, string]> = {
-  succession:   ['succession',   'tronföljd'],
-  war:          ['war',          'krig'],
-  house:        ['house',        'ätt'],
-  calamity:     ['calamity',     'olycka'],
-  religion:     ['religion',     'religion'],
-  founding:     ['founding',     'grundande'],
-  scheme:       ['scheme',       'ränksmide'],
-  challenger:   ['challenger',   'utmanare'],
-  culture:      ['culture',      'kultur'],
-  ancient:      ['ancient',      'urgammalt'],
+  succession: ['succession', 'tronföljd'],
+  war:        ['war', 'krig'],
+  house:      ['house', 'ätt'],
+  calamity:   ['calamity', 'olycka'],
+  religion:   ['religion', 'religion'],
+  founding:   ['founding', 'grundande'],
+  scheme:     ['scheme', 'ränksmide'],
+  challenger: ['challenger', 'utmanare'],
+  culture:    ['culture', 'kultur'],
+  ancient:    ['ancient', 'urgammalt'],
 };
 function kindLabel(k: string): string {
   const pair = KIND_LABEL[k];
   return pair ? t(lang, pair[0], pair[1]) : k;
 }
 
-// Climate phase → localized label.
+const KIND_COLOR: Record<string, string> = {
+  succession: '#c9a45e',
+  war:        '#d16565',
+  house:      '#8a6ec7',
+  calamity:   '#7d5b3d',
+  religion:   '#7fa9d1',
+  founding:   '#5fa85f',
+  scheme:     '#a35fa8',
+  challenger: '#c9a45e',
+  culture:    '#5fa5a8',
+  ancient:    '#8a8a8a',
+};
+function kindColor(k: string): string {
+  return KIND_COLOR[k] ?? '#8a8a8a';
+}
+
 const CLIMATE_LABEL: Record<string, [string, string]> = {
   cold:    ['a cold age',      'en kall tidsålder'],
   warm:    ['a warm age',      'en varm tidsålder'],
@@ -105,18 +54,37 @@ const CLIMATE_LABEL: Record<string, [string, string]> = {
 };
 const climatePair = CLIMATE_LABEL[c.climate.phase] ?? ['a temperate age', 'en tempererad tidsålder'];
 const climatePhrase = t(lang, climatePair[0], climatePair[1]);
+
+// --- Timeline maths -------------------------------------------------------
+// Map each arc to a horizontal bar over the chronicle's year range. Timeline
+// is only rendered when we have >= 2 arcs (otherwise it's noise).
+const timelineFrom = Math.min(c.meta.startYear, ...c.arcs.map((a) => a.startYear));
+const timelineTo   = Math.max(c.meta.endYear, ...c.arcs.map((a) => a.endYear));
+const timelineSpan = Math.max(1, timelineTo - timelineFrom);
+function bar(a: (typeof c.arcs)[number]): { leftPct: number; widthPct: number } {
+  const leftPct  = ((a.startYear - timelineFrom) / timelineSpan) * 100;
+  const widthPct = Math.max(0.8, ((a.endYear - a.startYear) / timelineSpan) * 100);
+  return { leftPct, widthPct };
+}
+const yearTicks: number[] = [];
+{
+  const step = Math.max(50, Math.round(timelineSpan / 8 / 25) * 25);
+  for (let y = Math.ceil(timelineFrom / step) * step; y <= timelineTo; y += step) yearTicks.push(y);
+}
+
+const backHref = lang === 'sv' ? '/sv/chronicles' : '/chronicles';
 ---
 
 <Base
-  title={t(lang, 'The Frontier Chronicle', 'Frontier-krönikan')}
-  description={t(lang, 'A procedural chronicle generated by the Matlu story engine — the frontier realms, seed 5.', 'En procedurell krönika genererad av Matlu-berättelsemotorn — gränslanden, frö 5.')}
+  title={label}
+  description={subtitle}
   lang={lang}
 >
   <div class="breadcrumb">
-    <a href={lang === 'sv' ? '/sv/chronicles' : '/chronicles'}>← {t(lang, 'All chronicles', 'Alla krönikor')}</a>
+    <a href={backHref}>← {t(lang, 'All chronicles', 'Alla krönikor')}</a>
   </div>
 
-  <h1>{t(lang, 'The Frontier Chronicle', 'Frontier-krönikan')}</h1>
+  <h1>{label}</h1>
   <p class="header-line">
     {t(lang, 'World', 'Värld')}: <strong>{c.meta.world}</strong>
     · {t(lang, 'seed', 'frö')} <strong>{c.meta.seed}</strong>
@@ -124,15 +92,49 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
     · {c.meta.chronicledEvents} {t(lang, 'events chronicled', 'krönta händelser')} / {c.meta.totalEvents} {t(lang, 'total', 'totalt')}
   </p>
 
-  {/* Prose intro derived from the current world state — a scene-setting paragraph. */}
   <section class="intro">
+    <p>{subtitle}</p>
     <p>
       {t(lang,
-        `The year is ${c.meta.endYear}. The frontier realms are living through ${climatePhrase} — the ${c.climate.phase} phase has held for ${c.meta.endYear - c.climate.phaseStartYear} years, and its severity has climbed to ${c.climate.severity}. ${c.kingdoms.length} kingdoms still hold their thrones, ${c.survivingHouses.length} houses still name their heirs, and ${c.academies.length} academies still lecture beneath their vaulted halls.`,
-        `Året är ${c.meta.endYear}. Gränslanden lever genom ${climatePhrase} — ${c.climate.phase}-fasen har hållit i ${c.meta.endYear - c.climate.phaseStartYear} år, och dess allvar har stigit till ${c.climate.severity}. ${c.kingdoms.length} kungariken sitter fortfarande vid sina troner, ${c.survivingHouses.length} ätter namnger fortfarande sina arvingar, och ${c.academies.length} akademier undervisar fortfarande under sina valv.`,
+        `The year is ${c.meta.endYear}. This world lives through ${climatePhrase} — the ${c.climate.phase} phase has held for ${c.meta.endYear - c.climate.phaseStartYear} years, its severity ${c.climate.severity}. ${c.kingdoms.length} kingdoms still hold their thrones, ${c.survivingHouses.length} houses still name their heirs.`,
+        `Året är ${c.meta.endYear}. Denna värld lever genom ${climatePhrase} — ${c.climate.phase}-fasen har hållit i ${c.meta.endYear - c.climate.phaseStartYear} år, med allvar ${c.climate.severity}. ${c.kingdoms.length} kungariken sitter fortfarande vid sina troner, ${c.survivingHouses.length} ätter namnger fortfarande sina arvingar.`,
       )}
     </p>
   </section>
+
+  {c.arcs.length >= 2 && (
+    <section>
+      <h2>{t(lang, 'Arc timeline', 'Bågtidslinje')}</h2>
+      <p class="section-lead">
+        {t(lang,
+          'The biggest story-threads plotted against the years. Colour by kind; length shows how long each arc ran.',
+          'De största berättelsetrådarna över åren. Färg per typ; längd visar hur länge varje båge pågick.',
+        )}
+      </p>
+      <div class="timeline">
+        <div class="year-axis">
+          {yearTicks.map((y) => (
+            <span class="tick" style={`left:${((y - timelineFrom) / timelineSpan) * 100}%`}>{y}</span>
+          ))}
+        </div>
+        {c.arcs.slice(0, 16).map((a) => {
+          const b = bar(a);
+          return (
+            <div class="row">
+              <span class="row-label">{a.title}</span>
+              <div class="track">
+                <div
+                  class="bar"
+                  style={`left:${b.leftPct}%;width:${b.widthPct}%;background:${kindColor(a.kind)}`}
+                  title={`${a.title} (${a.startYear}-${a.endYear})`}
+                ></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  )}
 
   <section class="grid">
     <div class="col">
@@ -166,15 +168,15 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
   <section>
     <h2>{t(lang, 'Story arcs', 'Berättelsebågar')}</h2>
     <p class="section-lead">
-      {t(lang, 'The chronicle sorted into threads — the biggest stories first. Click a heading to expand year-by-year events.',
-              'Krönikan sorterad i trådar — de största berättelserna först. Klicka på en rubrik för att se händelserna år för år.')}
+      {t(lang, 'Threads sorted biggest first. Click a heading to expand year-by-year events.',
+              'Trådar sorterade störst först. Klicka på en rubrik för att se händelserna år för år.')}
     </p>
     {c.arcs.map((arc) => (
       <details class="arc">
         <summary>
           <span class="arc-title">{arc.title}</span>
           <span class="arc-meta">
-            <span class="kind">{kindLabel(arc.kind)}</span>
+            <span class="kind" style={`color:${kindColor(arc.kind)}`}>{kindLabel(arc.kind)}</span>
             · {arc.startYear}–{arc.endYear}
             · {arc.eventCount} {t(lang, 'events', 'händelser')}
             · {t(lang, 'weight', 'vikt')} {arc.significance}
@@ -192,6 +194,58 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
     ))}
   </section>
 
+  {c.livingDeities.length > 0 && (
+    <section>
+      <h2>{t(lang, 'Powers of the age', 'Krafter i tiden')}</h2>
+      <ul class="plain">
+        {c.livingDeities.map((d) => (
+          <li>
+            <strong>{d.name}</strong> <span class="dim">— {d.tier === 'demigod' ? t(lang, 'demigod', 'halvgud') : t(lang, 'god', 'gud')}, {t(lang, 'patron of', 'beskyddare av')} {d.domain}</span>
+            <br /><span class="dim">{t(lang, 'mood', 'sinnesstämning')} {d.mood} · {t(lang, 'power', 'kraft')} {d.power} ({t(lang, 'peaked at', 'toppade vid')} {d.peakPower})</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  {c.livingLanguages.length > 0 && (
+    <section>
+      <h2>{t(lang, 'Living tongues', 'Levande tungomål')}</h2>
+      <ul class="plain">
+        {c.livingLanguages.map((lg) => (
+          <li>
+            <strong>{lg.name}</strong>
+            <span class="dim">
+              — {lg.speakerCultures} {t(lang, 'speaker cultures', 'talande kulturer')}
+              · {t(lang, 'drift', 'drift')} {lg.driftScore}
+              · {t(lang, 'corpus', 'korpus')} {lg.writtenCorpus}
+              {lg.linguaFrancaRoutes > 0 && <> · {t(lang, 'lingua franca on', 'lingua franca på')} {lg.linguaFrancaRoutes} {t(lang, 'routes', 'vägar')}</>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  {c.notableDiseases.length > 0 && (
+    <section>
+      <h2>{t(lang, 'Named plagues', 'Namngivna farsoter')}</h2>
+      <ul class="plain">
+        {c.notableDiseases.map((d) => (
+          <li>
+            <strong>{d.name}</strong> <span class="dim">— {d.category === 'magical' ? t(lang, 'magical', 'magisk') : t(lang, 'mundane', 'jordnära')} {d.family}</span>
+            <br /><span class="dim">
+              {t(lang, 'emerged', 'framträdde')} {d.emergedYear}
+              {d.burnedOutYear !== null && <> · {t(lang, 'burned out', 'brann ut')} {d.burnedOutYear}</>}
+              · {d.strikeCount} {t(lang, 'strikes', 'anfall')}
+              · {d.totalDeaths.toLocaleString('en')} {t(lang, 'dead', 'döda')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
   {c.academies.length > 0 && (
     <section>
       <h2>{t(lang, 'Academies still standing', 'Kvarstående akademier')}</h2>
@@ -208,7 +262,7 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
 
   {c.tradeRoutes.length > 0 && (
     <section>
-      <h2>{t(lang, 'Trade routes of the frontier', 'Handelsvägar i gränslandet')}</h2>
+      <h2>{t(lang, 'Trade routes of the age', 'Handelsvägar i tiden')}</h2>
       <ul class="plain">
         {c.tradeRoutes.map((r) => (
           <li>
@@ -238,15 +292,13 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
       {t(lang, 'Generated', 'Genererad')} {new Date(c.meta.generatedAt).toISOString().slice(0, 10)}
       · {t(lang, 'engine seed', 'motorfrö')} {c.meta.seed}
       · {c.meta.years} {t(lang, 'years simulated', 'år simulerade')}
-      · {c.meta.prehistorySpan} {t(lang, 'years of prehistory', 'års förhistoria')}
+      {c.meta.prehistorySpan > 0 && <> · {c.meta.prehistorySpan} {t(lang, 'years of prehistory', 'års förhistoria')}</>}
     </p>
   </section>
 </Base>
 
 <style>
-  h1 {
-    margin-bottom: 0.4rem;
-  }
+  h1 { margin-bottom: 0.4rem; }
 
   .breadcrumb {
     margin-bottom: 1rem;
@@ -277,9 +329,11 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
   }
 
   .intro p {
-    margin: 0;
+    margin: 0 0 0.5rem 0;
     line-height: 1.7;
   }
+
+  .intro p:last-child { margin-bottom: 0; }
 
   section {
     margin-bottom: 2.5rem;
@@ -329,6 +383,67 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
     font-size: 0.8rem;
   }
 
+  /* --- Arc timeline ------------------------------------------------------ */
+  .timeline {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem 1rem;
+    overflow-x: auto;
+    min-width: 100%;
+  }
+
+  .year-axis {
+    position: relative;
+    height: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+    margin-left: 14rem;
+  }
+
+  .year-axis .tick {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    top: 0.15rem;
+    font-family: 'Pixelify Sans', monospace;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 14rem 1fr;
+    align-items: center;
+    gap: 0.5rem;
+    height: 1.4rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .row-label {
+    font-size: 0.78rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 0.5rem;
+  }
+
+  .track {
+    position: relative;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 2px;
+  }
+
+  .bar {
+    position: absolute;
+    top: 0.15rem;
+    bottom: 0.15rem;
+    border-radius: 2px;
+    opacity: 0.75;
+  }
+
+  /* --- Arc details ------------------------------------------------------ */
   .arc {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -368,7 +483,6 @@ const climatePhrase = t(lang, climatePair[0], climatePair[1]);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-weight: 600;
-    color: var(--accent);
   }
 
   .events {
