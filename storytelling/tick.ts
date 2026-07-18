@@ -24,6 +24,7 @@ import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
 import { runAcademies } from "./academies.js";
 import { runClimate } from "./climate.js";
+import { runDiseases } from "./disease.js";
 import { runLanguages } from "./language.js";
 import { runReligion } from "./religion.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
@@ -157,6 +158,12 @@ export function tick(w: World): void {
   // so worlds with no defined cultures (the default tableau) get no
   // language activity.
   runLanguages(w);
+
+  // --- disease strains — persistent named diseases (mundane + magical)
+  // that emerge, strike repeatedly, mutate, jump routes, and burn out on
+  // cross-immunity. Guarded on catastrophesEnabled inside disease.ts
+  // (RNG-symmetric no-op when off).
+  runDiseases(w);
 
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.

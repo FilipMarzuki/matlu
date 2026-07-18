@@ -12,6 +12,8 @@ import type {
   ChurchId,
   Deity,
   DeityId,
+  Disease,
+  DiseaseId,
   Language,
   LanguageId,
   CatastropheQueueItem,
@@ -116,6 +118,13 @@ export class World {
   // religion.ts reads it to suppress new deity manifestation in the century
   // after the sim begins (the world lost trust in gods).
   godsVanishedYear: number | null = null;
+
+  // Persistent disease strains — a Disease is a named, long-lived arc that
+  // strikes multiple times over decades before burning out on cross-immunity.
+  // The one-shot PLAGUE event still fires for calamity-level shocks; this map
+  // tracks longer-arc strains (bubonic/hemorrhagic/pox + magical: mana-fever,
+  // rot-plague, unraveling, choking-mist). Aged by disease.ts:runDiseases.
+  diseases = new Map<DiseaseId, Disease>();
 
   // Persistent languages — one proto-language per culture at world init,
   // then drift accumulates from isolation and shrinks with trade contact.
@@ -381,6 +390,22 @@ export class World {
   activeChurches(): Church[] {
     const out: Church[] = [];
     for (const ch of this.churches.values()) if (ch.disbandedYear === null) out.push(ch);
+    return out;
+  }
+
+  // ---- diseases ----------------------------------------------------------
+  activeDiseases(): Disease[] {
+    const out: Disease[] = [];
+    for (const d of this.diseases.values()) if (d.burnedOutYear === null) out.push(d);
+    return out;
+  }
+
+  // Related strains — same family. Used for cross-immunity resolution: a
+  // culture that survived one bubonic outbreak has partial immunity to any
+  // other bubonic strain.
+  strainsInFamily(family: string): Disease[] {
+    const out: Disease[] = [];
+    for (const d of this.diseases.values()) if (d.family === family) out.push(d);
     return out;
   }
 

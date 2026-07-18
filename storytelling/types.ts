@@ -402,6 +402,47 @@ export interface TradeRoute {
 // send scholars into diaspora (ACADEMY_MIGRATED — Byzantine → Italy pattern).
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// Diseases — persistent, named strains with cross-immunity.
+//
+// PLAGUE (the one-shot event) is still fired for narrative shocks — famines
+// and calamities. Named diseases are the LONGER arc: Black Death sweeps
+// 1348, returns in 1361, mutates by 1400, burns out around 1600 as populations
+// build resistance. Some strains are magical (rot-plague, mana-fever) and
+// only appear in magic-enabled worlds — those defy cultural resistance and
+// require magical medicine to counter.
+// ---------------------------------------------------------------------------
+export type DiseaseId = string;
+
+export type DiseaseCategory = "mundane" | "magical";
+
+export type DiseaseFamily =
+  // Mundane families
+  | "bubonic"       // Yersinia — bubonic / pneumonic plague
+  | "hemorrhagic"   // Ebola / red-plague — high mortality, short outbreaks
+  | "respiratory"   // consumption, tuberculosis — slow burn
+  | "pox"           // smallpox — high mortality, permanent cross-immunity
+  // Magical families
+  | "mana_fever"    // hallucinatory fever that fires only in high-mana provinces
+  | "rot_plague"    // necrotic — kills, then RAISES the dead (undead-raid vector)
+  | "unraveling"    // devours language + memory in survivors
+  | "choking_mist"; // a wrathful god's calling-card
+
+export interface Disease {
+  id: DiseaseId;
+  name: string;                         // "the Ashen Cough", "the Ninefold Rot"
+  category: DiseaseCategory;
+  family: DiseaseFamily;
+  lethality: number;                    // 0..1 base mortality per strike
+  emergedYear: number;
+  originProvinceId: ProvinceId | null;
+  parentStrainId: DiseaseId | null;     // for mutations
+  burnedOutYear: number | null;         // dormant after cross-immunity + fatigue
+  strikeCount: number;                  // how many times it has struck
+  immunisedCultures: string[];          // cultures with strong survival exposure
+  totalDeaths: number;
+}
+
+// ---------------------------------------------------------------------------
 // Languages — persistent, procedurally-named tongues attached to cultures.
 //
 // Every culture starts with a proto-language. Isolation drifts languages
@@ -1005,7 +1046,14 @@ export type EventType =
   | "TRANSLATOR_HONOURED"      // a polyglot scholar rises to prominence bridging two cultures
   | "TREATISE_TRANSLATED"      // a treatise crosses a language barrier — knowledge diffuses
   | "LANGUAGE_DIES"            // the last speaker culture went extinct
-  | "LANGUAGE_REVIVED_BY_SCHOLARS"; // scholars reconstruct a dead tongue from surviving corpus
+  | "LANGUAGE_REVIVED_BY_SCHOLARS" // scholars reconstruct a dead tongue from surviving corpus
+  // --- Disease strains (disease.ts + specs/disease-events.ts) ---
+  | "DISEASE_EMERGES"          // a named disease strain first strikes the world
+  | "DISEASE_RETURNS"          // a known strain re-emerges (Black Death 1361 / 1374)
+  | "DISEASE_MUTATES"          // a strain spawns a related strain with different profile
+  | "DISEASE_JUMPS_ROUTE"      // spreads to a distant province via trade
+  | "DISEASE_BURNS_OUT"        // cross-immunity + population loss ends the arc
+  | "MAGICAL_PLAGUE_ERUPTS";   // a magical strain fires with distinct prose
 
 export interface WorldEvent {
   id: number;
