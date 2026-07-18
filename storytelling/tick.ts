@@ -27,6 +27,7 @@ import { runClimate } from "./climate.js";
 import { runCompanies } from "./companies.js";
 import { runDiseases } from "./disease.js";
 import { runWildlife } from "./wildlife.js";
+import { runExploration } from "./exploration.js";
 import { runLanguages } from "./language.js";
 import { runHeroes } from "./heroes.js";
 import { runReligion } from "./religion.js";
@@ -190,6 +191,13 @@ export function tick(w: World): void {
   // manifest in high-mana provinces in magic worlds. Guarded on
   // catastrophesEnabled inside wildlife.ts (RNG-symmetric no-op otherwise).
   runWildlife(w);
+
+  // --- maritime exploration — Age-of-Discovery voyages that leave coastal
+  // ports and, over several years, return with charts / discoveries, are
+  // lost, or wrecked. Composes with wildlife (species), disease (zoonotic),
+  // and cultures (first contact). Guarded on catastrophesEnabled inside
+  // exploration.ts (RNG-symmetric no-op when off).
+  runExploration(w);
 
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.
