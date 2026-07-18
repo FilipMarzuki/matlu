@@ -65,7 +65,7 @@ export function canonHash(w: World): string {
 export const GOLDEN: (SimConfig & { hash: string })[] = [
   { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "8afd30e6" },
   { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "805ffd83" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "eea4b60d" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "06cc6f64" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "14ab80e6",
+    hash: "a031eda5",
   },
 ];
 
@@ -243,6 +243,20 @@ export function checkInvariants(w: World): string[] {
       v.push(`academy ${a.id} closed before founded`);
     if (a.peakPrestige < a.prestige)
       v.push(`academy ${a.id} peakPrestige < current prestige`);
+  }
+
+  // Language invariants — bounded scores, parent resolves, death consistency.
+  for (const lg of w.languages.values()) {
+    if (lg.driftScore < 0 || lg.driftScore > 1)
+      v.push(`language ${lg.id} driftScore ${lg.driftScore} out of [0,1]`);
+    if (lg.writtenCorpus < 0 || lg.writtenCorpus > 1)
+      v.push(`language ${lg.id} writtenCorpus ${lg.writtenCorpus} out of [0,1]`);
+    if (lg.parentId && !w.languages.get(lg.parentId))
+      v.push(`language ${lg.id} references missing parent ${lg.parentId}`);
+    if (lg.diedYear !== null && lg.diedYear < lg.bornYear)
+      v.push(`language ${lg.id} died before it was born`);
+    if (lg.revivedYear !== null && lg.diedYear === null)
+      v.push(`language ${lg.id} has revivedYear but never died`);
   }
 
   // Religion invariants — power/prestige/drift in bounds, church-deity link

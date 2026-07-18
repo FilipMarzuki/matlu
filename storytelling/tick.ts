@@ -24,6 +24,7 @@ import { regrowPopulation, scarcity } from "./geography.js";
 import { regenerateGoals } from "./goals.js";
 import { runAcademies } from "./academies.js";
 import { runClimate } from "./climate.js";
+import { runLanguages } from "./language.js";
 import { runReligion } from "./religion.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
@@ -149,6 +150,13 @@ export function tick(w: World): void {
   // are real, so doctrine is pact and miracles auditable. Guarded on
   // magicEnabled inside religion.ts (RNG-symmetric no-op otherwise).
   runReligion(w);
+
+  // --- language drift — proto-languages per culture, split on isolation,
+  // converge on active trade routes, mint linguae francae, translation
+  // events, language death + scholarly revival. Runs on cultures only,
+  // so worlds with no defined cultures (the default tableau) get no
+  // language activity.
+  runLanguages(w);
 
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.

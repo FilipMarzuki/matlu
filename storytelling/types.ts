@@ -402,6 +402,35 @@ export interface TradeRoute {
 // send scholars into diaspora (ACADEMY_MIGRATED — Byzantine → Italy pattern).
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// Languages — persistent, procedurally-named tongues attached to cultures.
+//
+// Every culture starts with a proto-language. Isolation drifts languages
+// apart; sustained trade contact pulls them back together. Flourishing trade
+// routes anoint a lingua franca — the hub culture's tongue becomes the
+// working language of the whole route. Academies check for shared language;
+// foreign scholars need translators.
+//
+// A language can DIE (last speaker culture goes extinct) and be REVIVED
+// (scholars work from surviving treatises to reconstruct it — Sanskrit /
+// Latin / Hebrew analog).
+// ---------------------------------------------------------------------------
+export type LanguageId = string;
+
+export interface Language {
+  id: LanguageId;
+  name: string;                       // procedural — "Old Coastborn", "High Ibiki"
+  cultureId: string | null;           // primary culture; null when it becomes a shared lingua franca
+  parentId: LanguageId | null;        // parent language (family tree)
+  bornYear: number;
+  diedYear: number | null;            // last-speaker culture went extinct
+  revivedYear: number | null;         // scholars reconstructed it from treatises
+  driftScore: number;                 // 0..1 — distance from parent
+  speakerCultures: string[];          // culture ids currently speaking this (for lingua franca)
+  linguaFrancaRoutes: string[];       // trade-route ids where this language dominates
+  writtenCorpus: number;              // 0..1 — quantity of surviving written material (for revival gating)
+}
+
+// ---------------------------------------------------------------------------
 // Religion — tangible gods and their churches.
 //
 // The engine's premise (magic-real, mana-real, portals-real) means faith isn't
@@ -969,7 +998,14 @@ export type EventType =
   | "DEITY_REBORN"             // dead god returns weakened via a devotee's rite
   | "CHURCH_DISSOLVED"         // no clergy remain
   | "GREAT_VANISHING"          // ancient event: every god of the old pantheon left the world at once (500-2000y before sim)
-  | "DEMIGOD_SLAIN";           // post-Vanishing: a mortal kills a half-god's vessel, ending that divinity forever
+  | "DEMIGOD_SLAIN"            // post-Vanishing: a mortal kills a half-god's vessel, ending that divinity forever
+  // --- Language drift (language.ts + specs/language-events.ts) ---
+  | "LANGUAGE_SPLITS"          // a culture's tongue diverged into a distinct daughter language
+  | "LINGUA_FRANCA_ESTABLISHED" // a trade route's hub tongue becomes the shared merchant language
+  | "TRANSLATOR_HONOURED"      // a polyglot scholar rises to prominence bridging two cultures
+  | "TREATISE_TRANSLATED"      // a treatise crosses a language barrier — knowledge diffuses
+  | "LANGUAGE_DIES"            // the last speaker culture went extinct
+  | "LANGUAGE_REVIVED_BY_SCHOLARS"; // scholars reconstruct a dead tongue from surviving corpus
 
 export interface WorldEvent {
   id: number;

@@ -12,6 +12,8 @@ import type {
   ChurchId,
   Deity,
   DeityId,
+  Language,
+  LanguageId,
   CatastropheQueueItem,
   Challenge,
   Character,
@@ -114,6 +116,13 @@ export class World {
   // religion.ts reads it to suppress new deity manifestation in the century
   // after the sim begins (the world lost trust in gods).
   godsVanishedYear: number | null = null;
+
+  // Persistent languages — one proto-language per culture at world init,
+  // then drift accumulates from isolation and shrinks with trade contact.
+  // language.ts:runLanguages ages them; split events fire when drift crosses
+  // threshold; flourishing trade routes mint linguae francae; dead cultures
+  // → dead languages (potentially revived by scholars).
+  languages = new Map<LanguageId, Language>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -372,6 +381,23 @@ export class World {
   activeChurches(): Church[] {
     const out: Church[] = [];
     for (const ch of this.churches.values()) if (ch.disbandedYear === null) out.push(ch);
+    return out;
+  }
+
+  // ---- languages ---------------------------------------------------------
+  // The current living language spoken by a culture (if any). Undefined for
+  // cultures that never had one, or dead cultures whose tongue was lost.
+  languageOfCulture(cultureId: string): Language | undefined {
+    for (const lg of this.languages.values()) {
+      if (lg.diedYear !== null) continue;
+      if (lg.cultureId === cultureId) return lg;
+    }
+    return undefined;
+  }
+
+  livingLanguages(): Language[] {
+    const out: Language[] = [];
+    for (const lg of this.languages.values()) if (lg.diedYear === null) out.push(lg);
     return out;
   }
 
