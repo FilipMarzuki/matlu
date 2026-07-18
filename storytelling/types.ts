@@ -402,6 +402,43 @@ export interface TradeRoute {
 // send scholars into diaspora (ACADEMY_MIGRATED — Byzantine → Italy pattern).
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// Dynastic unions — persistent Union entities linking two title-holding
+// houses via marriage. Marriages fire as one-shot MARRIAGE events; a UNION
+// upgrades one where BOTH sides are dynasty-holders (Habsburg pattern).
+//
+// Three shapes:
+// - marriage_alliance: a mutual-aid pact between two houses. Suppresses war
+//   between them and lets each press the other's claims when useful.
+// - personal_union: one holder wears the crowns of BOTH dynasties (Charles V
+//   1519 — Habsburg + Trastámara + Burgundy). Formed when the heir of a
+//   marriage_alliance inherits both.
+// - cadet_branch: a scion of house A weds into a distant realm and founds a
+//   related-but-distinct sub-house (Bourbon-Anjou from Bourbon-Bourbon).
+//
+// Strength drifts down each generation; wars between the two houses break the
+// union outright.
+// ---------------------------------------------------------------------------
+export type UnionId = string;
+
+export type UnionKind = "marriage_alliance" | "personal_union" | "cadet_branch";
+
+export interface DynasticUnion {
+  id: UnionId;
+  kind: UnionKind;
+  dynastyAId: DynastyId;
+  dynastyBId: DynastyId;
+  formedYear: number;
+  originMarriageA: CharId | null;
+  originMarriageB: CharId | null;
+  // Personal-union holder (a single character holding titles from both sides).
+  // Null for marriage_alliance / cadet_branch.
+  currentHolderId: CharId | null;
+  strength: number;         // 0..1 — decays over years; used to weight suppress/rally effects
+  dissolvedYear: number | null;
+  dissolvedReason: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Diseases — persistent, named strains with cross-immunity.
 //
 // PLAGUE (the one-shot event) is still fired for narrative shocks — famines
@@ -1053,7 +1090,14 @@ export type EventType =
   | "DISEASE_MUTATES"          // a strain spawns a related strain with different profile
   | "DISEASE_JUMPS_ROUTE"      // spreads to a distant province via trade
   | "DISEASE_BURNS_OUT"        // cross-immunity + population loss ends the arc
-  | "MAGICAL_PLAGUE_ERUPTS";   // a magical strain fires with distinct prose
+  | "MAGICAL_PLAGUE_ERUPTS"    // a magical strain fires with distinct prose
+  // --- Dynastic unions (unions.ts + specs/union-events.ts) ---
+  | "DYNASTIC_UNION_FORMED"    // two ruling houses bound by a royal marriage
+  | "PERSONAL_UNION_ESTABLISHED" // one holder wears both crowns (Habsburg pattern)
+  | "PERSONAL_UNION_DISSOLVED"  // heir split — the crowns separate again
+  | "UNION_INHERITED"          // union claim passed to a new generation
+  | "CADET_BRANCH_ESTABLISHED"  // scion founds a related-but-distinct house
+  | "UNION_BROKEN_BY_WAR"      // allied houses go to war — the compact ends
 
 export interface WorldEvent {
   id: number;

@@ -25,6 +25,7 @@ import { REVOLT_SPECS } from "./revolt-events.js";
 import { SIEGE_SPECS } from "./siege-events.js";
 import { SUCCESSION_LEGITIMACY_SPECS } from "./succession-legitimacy.js";
 import { TRADE_SPECS } from "./trade-events.js";
+import { UNION_SPECS } from "./union-events.js";
 import { URBAN_SPECS } from "./urban-events.js";
 
 registerSpecs(ACADEMY_SPECS);
@@ -48,4 +49,5 @@ registerSpecs(REVOLT_SPECS);
 registerSpecs(SIEGE_SPECS);
 registerSpecs(SUCCESSION_LEGITIMACY_SPECS);
 registerSpecs(TRADE_SPECS);
+registerSpecs(UNION_SPECS);
 registerSpecs(URBAN_SPECS);

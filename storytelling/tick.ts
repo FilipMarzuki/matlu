@@ -27,6 +27,7 @@ import { runClimate } from "./climate.js";
 import { runDiseases } from "./disease.js";
 import { runLanguages } from "./language.js";
 import { runReligion } from "./religion.js";
+import { runUnions } from "./unions.js";
 import { dynastyMartialSynergy, militaryBonus, runInnovations } from "./innovation.js";
 import { runMagic } from "./magic.js";
 import { runSieges, trySpawnSiege } from "./sieges.js";
@@ -164,6 +165,11 @@ export function tick(w: World): void {
   // cross-immunity. Guarded on catastrophesEnabled inside disease.ts
   // (RNG-symmetric no-op when off).
   runDiseases(w);
+
+  // --- dynastic unions — detect new political marriages between title-
+  // holders, mint personal unions when heirs inherit both crowns, age
+  // strength, dissolve on war. Runs on every world (not guarded on any flag).
+  runUnions(w);
 
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.
