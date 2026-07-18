@@ -26,6 +26,7 @@ import { runAcademies } from "./academies.js";
 import { runClimate } from "./climate.js";
 import { runCompanies } from "./companies.js";
 import { runDiseases } from "./disease.js";
+import { runWildlife } from "./wildlife.js";
 import { runLanguages } from "./language.js";
 import { runHeroes } from "./heroes.js";
 import { runReligion } from "./religion.js";
@@ -182,6 +183,13 @@ export function tick(w: World): void {
   // condottiere on their patrons; pirate fleets raid coastal provinces and
   // get busted in naval battles. Runs on every world (not flag-guarded).
   runCompanies(w);
+
+  // --- wildlife — seeded once at world init, aged annually. Hunters bag
+  // trophies; blight culls habitat; species drift toward extinction or
+  // recover; rare zoonotic jumps carry pathogens into humans. Mana-beasts
+  // manifest in high-mana provinces in magic worlds. Guarded on
+  // catastrophesEnabled inside wildlife.ts (RNG-symmetric no-op otherwise).
+  runWildlife(w);
 
   // --- multi-year sieges — advance provisions/morale, resolve terminations.
   // No-op when the queue is empty.

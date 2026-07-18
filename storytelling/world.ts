@@ -24,6 +24,8 @@ import type {
   LanguageId,
   LegendaryArtefact,
   NamedHero,
+  SpeciesId,
+  WildlifeSpecies,
   CatastropheQueueItem,
   Challenge,
   Character,
@@ -160,6 +162,9 @@ export class World {
   // upgrade into a formal compact (marriage_alliance / personal_union /
   // cadet_branch). Aged by unions.ts:runUnions each tick.
   unions = new Map<UnionId, DynasticUnion>();
+
+  // Persistent wildlife species — apex predators, megafauna, mana-beasts.
+  wildlife = new Map<SpeciesId, WildlifeSpecies>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -511,6 +516,22 @@ export class World {
     if (!charId) return [];
     const out: LegendaryArtefact[] = [];
     for (const a of this.artefacts.values()) if (a.bearerId === charId) out.push(a);
+    return out;
+  }
+
+  // ---- wildlife ----------------------------------------------------------
+  activeSpecies(): WildlifeSpecies[] {
+    const out: WildlifeSpecies[] = [];
+    for (const s of this.wildlife.values()) if (s.extinctYear === null) out.push(s);
+    return out;
+  }
+
+  speciesAt(provinceId: ProvinceId): WildlifeSpecies[] {
+    const out: WildlifeSpecies[] = [];
+    for (const s of this.wildlife.values()) {
+      if (s.extinctYear !== null) continue;
+      if (s.provinces.includes(provinceId)) out.push(s);
+    }
     return out;
   }
 

@@ -344,5 +344,22 @@ export function checkInvariants(w: World): string[] {
       v.push(`church ${ch.id} references missing deity ${ch.deityId}`);
   }
 
+  // Wildlife invariants — health in [0,1], extinct chronology, province refs
+  // resolve, active species must have at least one province.
+  for (const s of w.wildlife.values()) {
+    if (s.populationHealth < 0 || s.populationHealth > 1)
+      v.push(`species ${s.id} populationHealth ${s.populationHealth} out of [0,1]`);
+    if (s.extinctYear !== null && s.extinctYear < s.firstDocumentedYear)
+      v.push(`species ${s.id} extinct before it was documented`);
+    if (s.huntTrophyCount < 0)
+      v.push(`species ${s.id} negative huntTrophyCount ${s.huntTrophyCount}`);
+    for (const pid of s.provinces) {
+      if (!w.province(pid))
+        v.push(`species ${s.id} references missing province ${pid}`);
+    }
+    if (s.extinctYear === null && s.provinces.length === 0)
+      v.push(`species ${s.id} is active but has no provinces`);
+  }
+
   return v;
 }
