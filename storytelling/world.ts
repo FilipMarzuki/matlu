@@ -12,6 +12,8 @@ import type {
   ChurchId,
   Deity,
   DeityId,
+  Company,
+  CompanyId,
   Disease,
   DiseaseId,
   DynasticUnion,
@@ -127,6 +129,12 @@ export class World {
   // tracks longer-arc strains (bubonic/hemorrhagic/pox + magical: mana-fever,
   // rot-plague, unraveling, choking-mist). Aged by disease.ts:runDiseases.
   diseases = new Map<DiseaseId, Disease>();
+
+  // Persistent companies — mercenary and pirate factions. The one-shot
+  // MERCENARY_COMPANY_RAISED / PIRATE_CONFEDERATION events still fire; this
+  // map holds the ones that upgrade into long-lived entities. Aged by
+  // companies.ts:runCompanies each tick.
+  companies = new Map<CompanyId, Company>();
 
   // Persistent languages — one proto-language per culture at world init,
   // then drift accumulates from isolation and shrinks with trade contact.
@@ -449,6 +457,22 @@ export class World {
           (u.dynastyAId === b && u.dynastyBId === a)) return u;
     }
     return undefined;
+  }
+
+  // ---- companies ---------------------------------------------------------
+  activeCompanies(): Company[] {
+    const out: Company[] = [];
+    for (const co of this.companies.values()) if (co.disbandedYear === null) out.push(co);
+    return out;
+  }
+
+  companiesAt(provinceId: ProvinceId): Company[] {
+    const out: Company[] = [];
+    for (const co of this.companies.values()) {
+      if (co.disbandedYear !== null) continue;
+      if (co.homeProvinceId === provinceId) out.push(co);
+    }
+    return out;
   }
 
   // ---- peoples -----------------------------------------------------------

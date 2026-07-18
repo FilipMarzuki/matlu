@@ -245,6 +245,20 @@ export function checkInvariants(w: World): string[] {
       v.push(`academy ${a.id} peakPrestige < current prestige`);
   }
 
+  // Company invariants — bounded metrics, captain resolves, disbanded ordering.
+  for (const co of w.companies.values()) {
+    if (co.wealth < 0 || co.wealth > 1)
+      v.push(`company ${co.id} wealth ${co.wealth} out of [0,1]`);
+    if (co.prestige < 0 || co.prestige > 1)
+      v.push(`company ${co.id} prestige ${co.prestige} out of [0,1]`);
+    if (co.memberCount < 0)
+      v.push(`company ${co.id} memberCount ${co.memberCount} negative`);
+    if (co.disbandedYear !== null && co.disbandedYear < co.formedYear)
+      v.push(`company ${co.id} disbandedYear ${co.disbandedYear} < formedYear ${co.formedYear}`);
+    if (!w.char(co.captainId))
+      v.push(`company ${co.id} captain ${co.captainId} missing`);
+  }
+
   // Disease invariants — bounded lethality, parent resolves, burn-out ordering.
   for (const d of w.diseases.values()) {
     if (d.lethality < 0 || d.lethality > 1)
