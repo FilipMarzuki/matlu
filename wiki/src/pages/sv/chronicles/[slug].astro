@@ -1,0 +1,15 @@
+---
+import ChronicleDetailContent from '../../../components/pages/ChronicleDetailContent.astro';
+import { allChronicleSlugs, loadChronicle } from '../../../lib/chronicles';
+
+export async function getStaticPaths() {
+  return allChronicleSlugs().map((slug) => ({ params: { slug } }));
+}
+
+const { slug } = Astro.params;
+const chronicle = loadChronicle(slug!);
+if (!chronicle) {
+  return Astro.redirect('/sv/chronicles');
+}
+---
+<ChronicleDetailContent lang="sv" chronicle={chronicle} />
