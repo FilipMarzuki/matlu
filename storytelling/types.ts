@@ -1388,7 +1388,7 @@ export type EventType =
   | "STEPPE_STORM_OMEN"        // mana-storm — reading differs by culture
   // --- Class stratification (specs/class-events.ts) ---
   | "BREAD_RIOT"                // famine + urban / free-yeomen province → riot
-  | "TAX_REVOLT"                // high extraction on peasant class
+  | "TITHE_REFUSED"             // agrarian province refuses extraction from over-wealthy lord
   | "PEASANT_JACQUERIE"         // dispossessed rise (1358 flavour)
   | "GUILD_UPRISING"            // guild-driven urban revolt against noble overreach
   | "PATRICIAN_FEUD"            // two burgher families battle for city dominance

@@ -390,5 +390,17 @@ export function checkInvariants(w: World): string[] {
       v.push(`migration ${wv.id} references missing destination ${wv.destinationProvinceId}`);
   }
 
+  // Class-stratification invariants — burgherStrength in [0,1], classStructure
+  // is one of the expected values.
+  const validClass = new Set([
+    "agrarian_serfs", "free_yeomen", "urban_patriciate", "pastoral_bands", "mixed",
+  ]);
+  for (const p of w.provinces.values()) {
+    if (!validClass.has(p.classStructure))
+      v.push(`province ${p.id} has invalid classStructure "${p.classStructure}"`);
+    if (p.burgherStrength < 0 || p.burgherStrength > 1)
+      v.push(`province ${p.id} burgherStrength ${p.burgherStrength} out of [0,1]`);
+  }
+
   return v;
 }

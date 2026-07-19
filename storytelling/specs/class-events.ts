@@ -9,7 +9,7 @@
 //
 // Composition:
 //   phenomena.ts   → FAMINE fires BREAD_RIOT / PEASANT_JACQUERIE
-//   magic.ts       → wealth accrual fires TAX_REVOLT
+//   magic.ts       → wealth accrual fires TITHE_REFUSED
 //   emergence.ts   → merchant/scholar guilds gate GUILD_UPRISING / PATRONAGE
 //   trade.ts       → market fair activity feeds MERCHANT_COUNCIL_FORMED
 //
@@ -20,7 +20,7 @@
 // are only reached in catastrophes-enabled or magic-enabled worlds.
 
 import type { EventSpec } from "../event-spec.js";
-import type { Character, Dynasty, Province, WorldEvent } from "../types.js";
+import type { Dynasty, Province } from "../types.js";
 import type { World } from "../world.js";
 
 // ---------------------------------------------------------------------------
@@ -81,6 +81,7 @@ const BREAD_RIOT: EventSpec = {
   onEvent: {
     source: "FAMINE",
     prob: (w, e) => {
+      if (!w.catastrophesEnabled) return 0;
       const p = w.province(e.provinceId ?? "");
       if (!p) return 0;
       if (p.classStructure !== "urban_patriciate" &&
@@ -100,11 +101,11 @@ const BREAD_RIOT: EventSpec = {
 };
 
 // ---------------------------------------------------------------------------
-// TAX_REVOLT — a peasant/rural province revolts when its holding dynasty's
+// TITHE_REFUSED — a peasant/rural province revolts when its holding dynasty's
 // wealth extraction (as proxied by dynasty wealth growth) crosses a threshold.
 // ---------------------------------------------------------------------------
-const TAX_REVOLT: EventSpec = {
-  type: "TAX_REVOLT",
+const TITHE_REFUSED: EventSpec = {
+  type: "TITHE_REFUSED",
   base: 8,
   render: (ev, w) => {
     const where = provName(w, ev.provinceId);
@@ -115,6 +116,7 @@ const TAX_REVOLT: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "agrarian_serfs" && p.classStructure !== "free_yeomen") return false;
       if (p.population < 200) return false;
@@ -127,7 +129,7 @@ const TAX_REVOLT: EventSpec = {
       if (!dyn) return false;
       return (dyn.wealth ?? 0) > 200;
     },
-    prob: (w, item) => {
+    prob: (_w, item) => {
       const p = item as Province;
       // Blight amplifies unrest; higher blight = higher chance.
       return 0.02 + 0.05 * (p.blightLevel ?? 0);
@@ -138,7 +140,7 @@ const TAX_REVOLT: EventSpec = {
       const h = w.char(t?.holderId ?? null);
       const dyn = w.dynasty(h?.dynastyId ?? "");
       if (dyn) dyn.wealth = Math.max(0, (dyn.wealth ?? 0) - 30);
-      w.log("TAX_REVOLT", {
+      w.log("TITHE_REFUSED", {
         provinceId: p.id,
         actorId: h?.id ?? null,
         data: { holderName: h?.name ?? "the lord" },
@@ -162,12 +164,13 @@ const PEASANT_JACQUERIE: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "agrarian_serfs") return false;
-      // Escalation from prior BREAD_RIOT or TAX_REVOLT in the last 20 years,
+      // Escalation from prior BREAD_RIOT or TITHE_REFUSED in the last 20 years,
       // OR severe blight.
       const priorUnrest = countRecentEventsAt(w, "BREAD_RIOT", p.id, 20) +
-                          countRecentEventsAt(w, "TAX_REVOLT", p.id, 20);
+                          countRecentEventsAt(w, "TITHE_REFUSED", p.id, 20);
       return priorUnrest >= 2 || (p.blightLevel ?? 0) > 0.5;
     },
     prob: () => 0.05,
@@ -203,22 +206,25 @@ const GUILD_UPRISING: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "urban_patriciate" && p.classStructure !== "mixed") return false;
       if (p.burgherStrength < 0.3) return false;
       // Needs an active guild in this province.
       const guildsHere = [...w.guilds.values()].filter(
-        (g) => g.disbandedYear === null && g.provinceIds.includes(p.id)
+        (g) => g.disbandedYear === null && g.provinceId === p.id
       );
-      if (guildsHere.length === 0) return false;
-      // Higher chance if mercantile.
-      return hasCultureTrait(w, p.id, "mercantile") || w.rng.next() < 0.5;
+      return guildsHere.length > 0;
     },
-    prob: () => 0.03,
+    // Higher probability if the local culture is mercantile.
+    prob: (w, item) => {
+      const p = item as Province;
+      return hasCultureTrait(w, p.id, "mercantile") ? 0.05 : 0.02;
+    },
     fire: (w, item) => {
       const p = item as Province;
       const guildsHere = [...w.guilds.values()].filter(
-        (g) => g.disbandedYear === null && g.provinceIds.includes(p.id)
+        (g) => g.disbandedYear === null && g.provinceId === p.id
       );
       const g = guildsHere.length > 0 ? guildsHere[0] : null;
       p.burgherStrength = Math.min(1, p.burgherStrength + 0.10);
@@ -246,6 +252,7 @@ const PATRICIAN_FEUD: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "urban_patriciate") return false;
       if (p.burgherStrength < 0.4) return false;
@@ -275,6 +282,7 @@ const MERCHANT_COUNCIL_FORMED: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "urban_patriciate") return false;
       if (p.burgherStrength < 0.55) return false;
@@ -305,12 +313,15 @@ const URBAN_MIGRATION: EventSpec = {
     const to = provName(w, ev.provinceId);
     const from = String(ev.data["fromName"] ?? "the countryside");
     const migrants = Number(ev.data["migrants"] ?? 0);
-    return `A quiet stream of families left ${from} for ${to}; the manor rolls were shorter that autumn, and the city's rented rooms full.`;
+    return migrants > 20
+      ? `A stream of ${migrants} families left ${from} for ${to}; the manor rolls were shorter that autumn, and the city's rented rooms full.`
+      : `A quiet stream of families left ${from} for ${to}; the manor rolls were shorter that autumn, and the city's rented rooms full.`;
   },
   arc: (ev) => ev.provinceId ? { key: `UM:${ev.provinceId}`, kind: "dynasty" } : null,
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "urban_patriciate") return false;
       if (p.burgherStrength < 0.45) return false;
@@ -367,6 +378,7 @@ const CIVIC_CHARTER_GRANTED: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "urban_patriciate") return false;
       // Preconditions: an active merchant council + strong burghers.
@@ -410,6 +422,7 @@ const NOBLE_HOSTAGE_TAKEN: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.classStructure !== "urban_patriciate") return false;
       if (p.burgherStrength < 0.5) return false;
@@ -461,6 +474,7 @@ const SUMPTUARY_LAW_PASSED: EventSpec = {
   ambient: {
     scan: "provinces",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const p = item as Province;
       if (p.burgherStrength < 0.4) return false;
       // Needs a title-holder with high ambition (proud noble class).
@@ -496,6 +510,7 @@ const PATRONAGE_EXTENDED: EventSpec = {
   ambient: {
     scan: "dynasties",
     gate: (w, item) => {
+      if (!w.catastrophesEnabled) return false;
       const d = item as Dynasty;
       if ((d.wealth ?? 0) < 250) return false;
       // Find a home province with strong burghers + an active academy.
@@ -504,7 +519,7 @@ const PATRONAGE_EXTENDED: EventSpec = {
       const p = w.province(anyMember.provinceId);
       if (!p || p.burgherStrength < 0.4) return false;
       const academyHere = [...w.academies.values()].find(
-        (a) => a.disbandedYear === null && a.provinceIds.includes(p.id)
+        (a) => a.closedYear === null && a.provinceId === p.id
       );
       return !!academyHere;
     },
@@ -516,7 +531,7 @@ const PATRONAGE_EXTENDED: EventSpec = {
       const p = w.province(anyMember.provinceId);
       if (!p) return;
       const academy = [...w.academies.values()].find(
-        (a) => a.disbandedYear === null && a.provinceIds.includes(p.id)
+        (a) => a.closedYear === null && a.provinceId === p.id
       );
       if (!academy) return;
       d.wealth = Math.max(0, (d.wealth ?? 0) - 50);
@@ -538,7 +553,7 @@ const PATRONAGE_EXTENDED: EventSpec = {
 // ---------------------------------------------------------------------------
 export const CLASS_SPECS: EventSpec[] = [
   BREAD_RIOT,
-  TAX_REVOLT,
+  TITHE_REFUSED,
   PEASANT_JACQUERIE,
   GUILD_UPRISING,
   PATRICIAN_FEUD,
