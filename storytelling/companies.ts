@@ -18,7 +18,6 @@ import type {
   Company,
   CompanyId,
   CompanyKind,
-  ProvinceId,
 } from "./types.js";
 import type { World } from "./world.js";
 
