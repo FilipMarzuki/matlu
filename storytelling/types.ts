@@ -405,18 +405,6 @@ export interface TradeRoute {
 // Dynastic unions — persistent Union entities linking two title-holding
 // houses via marriage. Marriages fire as one-shot MARRIAGE events; a UNION
 // upgrades one where BOTH sides are dynasty-holders (Habsburg pattern).
-//
-// Three shapes:
-// - marriage_alliance: a mutual-aid pact between two houses. Suppresses war
-//   between them and lets each press the other's claims when useful.
-// - personal_union: one holder wears the crowns of BOTH dynasties (Charles V
-//   1519 — Habsburg + Trastámara + Burgundy). Formed when the heir of a
-//   marriage_alliance inherits both.
-// - cadet_branch: a scion of house A weds into a distant realm and founds a
-//   related-but-distinct sub-house (Bourbon-Anjou from Bourbon-Bourbon).
-//
-// Strength drifts down each generation; wars between the two houses break the
-// union outright.
 // ---------------------------------------------------------------------------
 export type UnionId = string;
 
@@ -430,28 +418,14 @@ export interface DynasticUnion {
   formedYear: number;
   originMarriageA: CharId | null;
   originMarriageB: CharId | null;
-  // Personal-union holder (a single character holding titles from both sides).
-  // Null for marriage_alliance / cadet_branch.
   currentHolderId: CharId | null;
-  strength: number;         // 0..1 — decays over years; used to weight suppress/rally effects
+  strength: number;
   dissolvedYear: number | null;
   dissolvedReason: string | null;
 }
 
 // ---------------------------------------------------------------------------
 // Companies — persistent piracy fleets and mercenary companies.
-//
-// The one-shot events `MERCENARY_COMPANY_RAISED` and `PIRATE_CONFEDERATION`
-// still fire from spec triggers. This layer upgrades a subset of them into
-// persistent entities with captains, wealth, member counts, and lifecycles.
-//
-// Two kinds:
-//   mercenary — a for-hire company. Hired by title-holders in wars. If left
-//               unpaid too long, can turn CONDOTTIERE and seize a province
-//               they were meant to protect (Francesco Sforza 1450 pattern).
-//   pirate    — a fleet operating from a coastal hub. Raids other coastal
-//               provinces; can be busted in a naval battle. May crown a
-//               "pirate king" and formalise a de-facto realm.
 // ---------------------------------------------------------------------------
 export type CompanyId = string;
 export type CompanyKind = "mercenary" | "pirate";
@@ -463,15 +437,13 @@ export interface Company {
   captainId: CharId;
   homeProvinceId: ProvinceId;
   memberCount: number;
-  wealth: number;               // 0..1
-  prestige: number;             // 0..1
+  wealth: number;
+  prestige: number;
   formedYear: number;
   disbandedYear: number | null;
   disbandedReason: string | null;
-  // Mercenary-only: who is currently paying them (title-holder). null when idle.
   contractHolderId: CharId | null;
-  yearsUnpaid: number;          // ticks up when idle; triggers condottiere at threshold
-  // Pirate-only: provinces raided so far (for the chronicle summary).
+  yearsUnpaid: number;
   raidTargetProvinceIds: ProvinceId[];
   lastActionYear: number;
 }
@@ -551,6 +523,33 @@ export interface LegendaryArtefact {
   history: ArtefactRecord[];
   martialBonus: number;               // added to bearer's power in wars
   fame: number;                       // 0..1
+}
+
+// ---------------------------------------------------------------------------
+// Wildlife — apex predators, prey, and mana-beasts.
+// ---------------------------------------------------------------------------
+export type SpeciesId = string;
+
+export type SpeciesKind =
+  | "apex"
+  | "megafauna"
+  | "mana_beast"
+  | "flying"
+  | "amphibious"
+  | "swarm";
+
+export interface WildlifeSpecies {
+  id: SpeciesId;
+  name: string;
+  kind: SpeciesKind;
+  terrainAffinity: string[];
+  provinces: ProvinceId[];
+  populationHealth: number;
+  firstDocumentedYear: number;
+  extinctYear: number | null;
+  extinctReason: string | null;
+  huntTrophyCount: number;
+  lastNotableHuntYear: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1207,12 +1206,12 @@ export type EventType =
   | "DISEASE_BURNS_OUT"        // cross-immunity + population loss ends the arc
   | "MAGICAL_PLAGUE_ERUPTS"    // a magical strain fires with distinct prose
   // --- Dynastic unions (unions.ts + specs/union-events.ts) ---
-  | "DYNASTIC_UNION_FORMED"    // two ruling houses bound by a royal marriage
-  | "PERSONAL_UNION_ESTABLISHED" // one holder wears both crowns (Habsburg pattern)
-  | "PERSONAL_UNION_DISSOLVED"  // heir split — the crowns separate again
-  | "UNION_INHERITED"          // union claim passed to a new generation
-  | "CADET_BRANCH_ESTABLISHED"  // scion founds a related-but-distinct house
-  | "UNION_BROKEN_BY_WAR"      // allied houses go to war — the compact ends
+  | "DYNASTIC_UNION_FORMED"
+  | "PERSONAL_UNION_ESTABLISHED"
+  | "PERSONAL_UNION_DISSOLVED"
+  | "UNION_INHERITED"
+  | "CADET_BRANCH_ESTABLISHED"
+  | "UNION_BROKEN_BY_WAR"
   // --- Persistent companies (companies.ts + specs/company-events.ts) ---
   | "COMPANY_FORMED"           // a mercenary/pirate company mints as a persistent entity
   | "COMPANY_HIRED"            // title-holder contracts a mercenary company
@@ -1227,7 +1226,15 @@ export type EventType =
   | "ARTEFACT_INHERITED"       // succession passes a legendary artefact to a new bearer
   | "ARTEFACT_STOLEN"          // scheme relieves a bearer of a legendary artefact
   | "ARTEFACT_LOST"            // bearer dies with no legal heir — artefact drops from history
-  | "ARTEFACT_REDISCOVERED";   // a lost artefact is unearthed by a hero or scholar
+  | "ARTEFACT_REDISCOVERED"    // a lost artefact is unearthed by a hero or scholar
+  // --- Wildlife (wildlife.ts + specs/wildlife-events.ts) ---
+  | "SPECIES_DISCOVERED"
+  | "HUNT_TROPHY_TAKEN"
+  | "SPECIES_THREATENED"
+  | "SPECIES_EXTINCT"
+  | "MANA_BEAST_MANIFESTS"
+  | "WILDLIFE_RESURGENCE"
+  | "ZOONOTIC_JUMP";
 
 export interface WorldEvent {
   id: number;

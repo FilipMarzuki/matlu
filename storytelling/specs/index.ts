@@ -29,6 +29,7 @@ import { SUCCESSION_LEGITIMACY_SPECS } from "./succession-legitimacy.js";
 import { TRADE_SPECS } from "./trade-events.js";
 import { UNION_SPECS } from "./union-events.js";
 import { URBAN_SPECS } from "./urban-events.js";
+import { WILDLIFE_SPECS } from "./wildlife-events.js";
 
 registerSpecs(ACADEMY_SPECS);
 registerSpecs(BETRAYAL_SPECS);
@@ -55,3 +56,4 @@ registerSpecs(SUCCESSION_LEGITIMACY_SPECS);
 registerSpecs(TRADE_SPECS);
 registerSpecs(UNION_SPECS);
 registerSpecs(URBAN_SPECS);
+registerSpecs(WILDLIFE_SPECS);
