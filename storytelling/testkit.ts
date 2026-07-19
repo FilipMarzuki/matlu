@@ -361,5 +361,20 @@ export function checkInvariants(w: World): string[] {
       v.push(`species ${s.id} is active but has no provinces`);
   }
 
+  // Expedition invariants — chronology + status/resolved coherence + refs
+  // resolve. resolvedYear !== null iff status !== "launched".
+  for (const ex of w.expeditions.values()) {
+    if (ex.yearsAtSea < 0)
+      v.push(`expedition ${ex.id} yearsAtSea ${ex.yearsAtSea} negative`);
+    if (ex.resolvedYear !== null && ex.resolvedYear < ex.launchedYear)
+      v.push(`expedition ${ex.id} resolved before it launched`);
+    if ((ex.status === "launched") !== (ex.resolvedYear === null))
+      v.push(`expedition ${ex.id} status/resolvedYear inconsistent`);
+    if (!w.province(ex.launchedFromProvinceId))
+      v.push(`expedition ${ex.id} references missing port ${ex.launchedFromProvinceId}`);
+    if (ex.sponsorDynastyId !== null && !w.dynasty(ex.sponsorDynastyId))
+      v.push(`expedition ${ex.id} references missing sponsor ${ex.sponsorDynastyId}`);
+  }
+
   return v;
 }

@@ -623,6 +623,55 @@ export interface Language {
 }
 
 // ---------------------------------------------------------------------------
+// Expeditions — Age-of-Discovery voyages that reach beyond the mapped world.
+//
+// A wealthy coastal port sponsors a captain with a fleet; the expedition
+// heads over the horizon and, over several years, either returns with charts
+// of unknown lands + exchange goods, is lost at sea, or is wrecked on a
+// distant shore. Successful returns can unlock:
+//   • NEW_LANDS_CHARTED — a marker discovery event
+//   • FIRST_CONTACT_ESTABLISHED — the world learns of another culture
+//   • GREAT_EXCHANGE — biological/cultural cross-pollination (Columbian analog)
+//
+// Composes with wildlife (new species carried back), disease (zoonotic
+// crossings on return), and language (foreign tongues logged for future
+// translation). Guarded on catastrophesEnabled so the golden-hash worlds
+// see no expedition activity.
+// ---------------------------------------------------------------------------
+export type ExpeditionId = string;
+
+export type ExpeditionStatus =
+  | "launched"    // still at sea, unresolved
+  | "returned"    // safely back to port
+  | "lost"        // presumed lost at sea (never returned)
+  | "wrecked";    // wrecked on a distant shore, some survivors
+
+export type ExpeditionPurpose =
+  | "trade"       // find new markets
+  | "conquest"    // seed a distant colony
+  | "religious"   // spread doctrine / seek relics
+  | "scientific"  // chart unknown coasts, catalogue species
+  | "raid";       // one-time armed foray (privateer flavour)
+
+export interface Expedition {
+  id: ExpeditionId;
+  name: string;                         // "the Voyage of the Wave-cutter"
+  purpose: ExpeditionPurpose;
+  launchedYear: number;
+  launchedFromProvinceId: ProvinceId;   // home port
+  sponsorDynastyId: DynastyId | null;   // funding house (may be null for private)
+  captainId: CharId;                    // may die en route
+  status: ExpeditionStatus;
+  yearsAtSea: number;                   // increments while status === launched
+  resolvedYear: number | null;          // when status flipped from launched
+  discoveredLands: string[];            // procedural place names charted
+  contactedCulture: string | null;      // culture id first-contacted (if any)
+  broughtBackSpeciesId: string | null;  // wildlife spillover on return
+  triggeredZoonotic: boolean;           // seeded a zoonotic jump on return
+  lostReason: string | null;            // narrative reason if lost/wrecked
+}
+
+// ---------------------------------------------------------------------------
 // Religion — tangible gods and their churches.
 //
 // The engine's premise (magic-real, mana-real, portals-real) means faith isn't
@@ -1234,7 +1283,16 @@ export type EventType =
   | "SPECIES_EXTINCT"
   | "MANA_BEAST_MANIFESTS"
   | "WILDLIFE_RESURGENCE"
-  | "ZOONOTIC_JUMP";
+  | "ZOONOTIC_JUMP"
+  // --- Exploration (exploration.ts + specs/exploration-events.ts) ---
+  | "EXPEDITION_LAUNCHED"      // a fleet departs its home port for the unknown
+  | "EXPEDITION_RETURNED"      // fleet returned; discoveries follow
+  | "EXPEDITION_LOST"          // never returned; presumed lost at sea
+  | "EXPEDITION_WRECKED"       // washed up on a foreign shore, few survivors
+  | "NEW_LANDS_CHARTED"        // an expedition mapped a new coast / archipelago
+  | "FIRST_CONTACT_ESTABLISHED"// contact with a previously unknown culture
+  | "GREAT_EXCHANGE"           // biological / cultural exchange on return
+  | "SEA_MONSTER_ENCOUNTERED";// magic-only: expedition met (and may have lost to) a leviathan
 
 export interface WorldEvent {
   id: number;

@@ -18,6 +18,8 @@ import type {
   Disease,
   DiseaseId,
   DynasticUnion,
+  Expedition,
+  ExpeditionId,
   UnionId,
   HeroId,
   Language,
@@ -165,6 +167,12 @@ export class World {
 
   // Persistent wildlife species — apex predators, megafauna, mana-beasts.
   wildlife = new Map<SpeciesId, WildlifeSpecies>();
+
+  // Persistent expeditions — Age-of-Discovery voyages that leave a coastal
+  // port and, over years, either return with charts/exchange or are lost /
+  // wrecked. Aged by exploration.ts:runExploration. Guarded on
+  // catastrophesEnabled so RNG symmetry with golden hashes is preserved.
+  expeditions = new Map<ExpeditionId, Expedition>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -532,6 +540,14 @@ export class World {
       if (s.extinctYear !== null) continue;
       if (s.provinces.includes(provinceId)) out.push(s);
     }
+    return out;
+  }
+
+  // ---- expeditions -------------------------------------------------------
+  // Voyages still at sea. resolvedYear === null iff status === "launched".
+  activeExpeditions(): Expedition[] {
+    const out: Expedition[] = [];
+    for (const ex of this.expeditions.values()) if (ex.resolvedYear === null) out.push(ex);
     return out;
   }
 
