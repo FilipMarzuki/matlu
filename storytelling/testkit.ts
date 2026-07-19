@@ -376,5 +376,19 @@ export function checkInvariants(w: World): string[] {
       v.push(`expedition ${ex.id} references missing sponsor ${ex.sponsorDynastyId}`);
   }
 
+  // Migration invariants — chronology, refs resolve, non-negative size.
+  for (const wv of w.migrations.values()) {
+    if (wv.sizeInSouls < 0)
+      v.push(`migration ${wv.id} sizeInSouls ${wv.sizeInSouls} negative`);
+    if (wv.resolvedYear !== null && wv.resolvedYear < wv.triggeredYear)
+      v.push(`migration ${wv.id} resolved before it triggered`);
+    if ((wv.status === "traveling") !== (wv.resolvedYear === null))
+      v.push(`migration ${wv.id} status/resolvedYear inconsistent`);
+    if (!w.province(wv.fromProvinceId))
+      v.push(`migration ${wv.id} references missing origin ${wv.fromProvinceId}`);
+    if (wv.destinationProvinceId !== null && !w.province(wv.destinationProvinceId))
+      v.push(`migration ${wv.id} references missing destination ${wv.destinationProvinceId}`);
+  }
+
   return v;
 }
