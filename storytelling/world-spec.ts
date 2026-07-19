@@ -69,6 +69,10 @@ export interface CultureSpec {
   // Mechanical traits active from the world's founding (e.g. ["slavery"]).
   // Populated into CultureState.traits at world load, before the sim runs.
   startingTraits?: string[];
+  // Clan / tribal-subunit names for cultures organised below the dynastic level
+  // (steppe horde, beastkin tribes, dwarven holds). Consumed by the steppe
+  // events catalog for kinship prose and by the surname picker as fallback.
+  clans?: string[];
 }
 
 // Physical traits that vary between races and feed into simulation mechanics:
