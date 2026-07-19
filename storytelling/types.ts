@@ -439,6 +439,44 @@ export interface DynasticUnion {
 }
 
 // ---------------------------------------------------------------------------
+// Companies — persistent piracy fleets and mercenary companies.
+//
+// The one-shot events `MERCENARY_COMPANY_RAISED` and `PIRATE_CONFEDERATION`
+// still fire from spec triggers. This layer upgrades a subset of them into
+// persistent entities with captains, wealth, member counts, and lifecycles.
+//
+// Two kinds:
+//   mercenary — a for-hire company. Hired by title-holders in wars. If left
+//               unpaid too long, can turn CONDOTTIERE and seize a province
+//               they were meant to protect (Francesco Sforza 1450 pattern).
+//   pirate    — a fleet operating from a coastal hub. Raids other coastal
+//               provinces; can be busted in a naval battle. May crown a
+//               "pirate king" and formalise a de-facto realm.
+// ---------------------------------------------------------------------------
+export type CompanyId = string;
+export type CompanyKind = "mercenary" | "pirate";
+
+export interface Company {
+  id: CompanyId;
+  name: string;
+  kind: CompanyKind;
+  captainId: CharId;
+  homeProvinceId: ProvinceId;
+  memberCount: number;
+  wealth: number;               // 0..1
+  prestige: number;             // 0..1
+  formedYear: number;
+  disbandedYear: number | null;
+  disbandedReason: string | null;
+  // Mercenary-only: who is currently paying them (title-holder). null when idle.
+  contractHolderId: CharId | null;
+  yearsUnpaid: number;          // ticks up when idle; triggers condottiere at threshold
+  // Pirate-only: provinces raided so far (for the chronicle summary).
+  raidTargetProvinceIds: ProvinceId[];
+  lastActionYear: number;
+}
+
+// ---------------------------------------------------------------------------
 // Diseases — persistent, named strains with cross-immunity.
 //
 // PLAGUE (the one-shot event) is still fired for narrative shocks — famines
@@ -1098,6 +1136,13 @@ export type EventType =
   | "UNION_INHERITED"          // union claim passed to a new generation
   | "CADET_BRANCH_ESTABLISHED"  // scion founds a related-but-distinct house
   | "UNION_BROKEN_BY_WAR"      // allied houses go to war — the compact ends
+  // --- Persistent companies (companies.ts + specs/company-events.ts) ---
+  | "COMPANY_FORMED"           // a mercenary/pirate company mints as a persistent entity
+  | "COMPANY_HIRED"            // title-holder contracts a mercenary company
+  | "COMPANY_TURNS_CONDOTTIERE" // unpaid mercenary company seizes a province (Sforza 1450)
+  | "COMPANY_RAIDS"            // pirate fleet raids a coastal province
+  | "COMPANY_BUSTED"           // naval defeat sinks the fleet (or company is annihilated)
+  | "COMPANY_DISBANDED";       // captain died or funds ran out, last members disperse
 
 export interface WorldEvent {
   id: number;

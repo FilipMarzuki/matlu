@@ -63,9 +63,9 @@ export function canonHash(w: World): string {
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "fd26ca4a" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "e3f3446f" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "7c915e86" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "7f582fbe" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "6e197d35" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "a67263a6" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "79ca1b60",
+    hash: "78aa8d77",
   },
 ];
 
@@ -243,6 +243,20 @@ export function checkInvariants(w: World): string[] {
       v.push(`academy ${a.id} closed before founded`);
     if (a.peakPrestige < a.prestige)
       v.push(`academy ${a.id} peakPrestige < current prestige`);
+  }
+
+  // Company invariants — bounded metrics, captain resolves, disbanded ordering.
+  for (const co of w.companies.values()) {
+    if (co.wealth < 0 || co.wealth > 1)
+      v.push(`company ${co.id} wealth ${co.wealth} out of [0,1]`);
+    if (co.prestige < 0 || co.prestige > 1)
+      v.push(`company ${co.id} prestige ${co.prestige} out of [0,1]`);
+    if (co.memberCount < 0)
+      v.push(`company ${co.id} memberCount ${co.memberCount} negative`);
+    if (co.disbandedYear !== null && co.disbandedYear < co.formedYear)
+      v.push(`company ${co.id} disbandedYear ${co.disbandedYear} < formedYear ${co.formedYear}`);
+    if (!w.char(co.captainId))
+      v.push(`company ${co.id} captain ${co.captainId} missing`);
   }
 
   // Disease invariants — bounded lethality, parent resolves, burn-out ordering.
