@@ -64,7 +64,7 @@ export function canonHash(w: World): string {
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
   { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "7f582fbe" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "6e197d35" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "4b13928d" },
   { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "a67263a6" },
   {
     name: "frontier·magic·prehistory·s5·250y",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "78aa8d77",
+    hash: "093440aa",
   },
 ];
 
@@ -285,6 +285,26 @@ export function checkInvariants(w: World): string[] {
       v.push(`union ${u.id} references missing dynastyB ${u.dynastyBId}`);
     if (u.dynastyAId === u.dynastyBId)
       v.push(`union ${u.id} pairs a dynasty with itself`);
+  }
+
+  // Named heroes / artefacts invariants.
+  for (const h of w.namedHeroes.values()) {
+    if (h.fame < 0 || h.fame > 1)
+      v.push(`hero ${h.id} fame ${h.fame} out of [0,1]`);
+    if (h.died && h.diedYear === null)
+      v.push(`hero ${h.id} died but diedYear null`);
+    if (!w.char(h.characterId))
+      v.push(`hero ${h.id} references missing character ${h.characterId}`);
+  }
+  for (const a of w.artefacts.values()) {
+    if (a.fame < 0 || a.fame > 1)
+      v.push(`artefact ${a.id} fame ${a.fame} out of [0,1]`);
+    if (a.lostYear !== null && a.lostYear < a.forgedYear)
+      v.push(`artefact ${a.id} lost before forged`);
+    if (a.bearerId && !w.char(a.bearerId))
+      v.push(`artefact ${a.id} bearer ${a.bearerId} missing`);
+    if (a.lostYear !== null && a.bearerId !== null)
+      v.push(`artefact ${a.id} is lost but still has a bearer`);
   }
 
   // Language invariants — bounded scores, parent resolves, death consistency.

@@ -12,14 +12,18 @@ import type {
   ChurchId,
   Deity,
   DeityId,
+  ArtefactId,
   Company,
   CompanyId,
   Disease,
   DiseaseId,
   DynasticUnion,
   UnionId,
+  HeroId,
   Language,
   LanguageId,
+  LegendaryArtefact,
+  NamedHero,
   CatastropheQueueItem,
   Challenge,
   Character,
@@ -135,6 +139,15 @@ export class World {
   // map holds the ones that upgrade into long-lived entities. Aged by
   // companies.ts:runCompanies each tick.
   companies = new Map<CompanyId, Company>();
+
+  // Persistent named heroes — living legends with earned epithets. Distinct
+  // from LEGEND_INSCRIBED which fires posthumously; a named hero is fame in
+  // life. Populated by heroes.ts.
+  namedHeroes = new Map<HeroId, NamedHero>();
+
+  // Persistent legendary artefacts — forged by masters, passed through
+  // succession, sometimes stolen, occasionally lost, rarely rediscovered.
+  artefacts = new Map<ArtefactId, LegendaryArtefact>();
 
   // Persistent languages — one proto-language per culture at world init,
   // then drift accumulates from isolation and shrinks with trade contact.
@@ -472,6 +485,32 @@ export class World {
       if (co.disbandedYear !== null) continue;
       if (co.homeProvinceId === provinceId) out.push(co);
     }
+    return out;
+  }
+
+  // ---- heroes & artefacts -----------------------------------------------
+  livingNamedHeroes(): NamedHero[] {
+    const out: NamedHero[] = [];
+    for (const h of this.namedHeroes.values()) if (!h.died) out.push(h);
+    return out;
+  }
+
+  heroOfCharacter(charId: CharId | null): NamedHero | undefined {
+    if (!charId) return undefined;
+    for (const h of this.namedHeroes.values()) if (h.characterId === charId) return h;
+    return undefined;
+  }
+
+  activeArtefacts(): LegendaryArtefact[] {
+    const out: LegendaryArtefact[] = [];
+    for (const a of this.artefacts.values()) if (a.lostYear === null) out.push(a);
+    return out;
+  }
+
+  artefactsHeldBy(charId: CharId | null): LegendaryArtefact[] {
+    if (!charId) return [];
+    const out: LegendaryArtefact[] = [];
+    for (const a of this.artefacts.values()) if (a.bearerId === charId) out.push(a);
     return out;
   }
 

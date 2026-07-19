@@ -477,6 +477,83 @@ export interface Company {
 }
 
 // ---------------------------------------------------------------------------
+// Named heroes & legendary artefacts.
+//
+// A NamedHero is a LIVING legend: a character who earns an epithet through
+// notable deeds while alive. Distinct from LEGEND_INSCRIBED which fires
+// posthumously. Named heroes gain a fame score that decays over the years
+// after their death, but their name persists in the chronicle forever.
+//
+// A LegendaryArtefact is a persistent named object (weapon, relic, crown,
+// tome, ring). Forged by a master-craftsman OR bestowed at moment of a great
+// deed. Passes through inheritance, is stolen by schemes, can be lost when
+// its bearer dies without a legal heir, and can be REDISCOVERED (rare) by a
+// hero or scholar in a blighted / high-mana province.
+// ---------------------------------------------------------------------------
+export type HeroId = string;
+
+export type HeroEpithetShape =
+  | "slayer"     // "the Dragon-Slayer", "the Wraith-Reaver"
+  | "conqueror"  // "the Kingmaker", "the Uniter"
+  | "sage"       // "the Wise", "the Golden-Tongue"
+  | "kinbreaker" // "the Kinslayer", "the Betrayer"
+  | "unbroken"   // "the Unbroken", "the Iron-Willed" (survived great peril)
+  | "wanderer";  // "the Wanderer", "the Far-Farer"
+
+export interface NamedHero {
+  id: HeroId;
+  characterId: CharId;
+  epithet: string;                    // "the Dragon-Slayer of Ithan"
+  shape: HeroEpithetShape;
+  foundingDeed: string;               // event type snippet describing the deed
+  foundingDeedYear: number;
+  levelAtNaming: number;
+  charClassAtNaming: CharClass;
+  died: boolean;
+  diedYear: number | null;
+  // Fame slowly fades after death. Below the floor a hero drops from the
+  // "living memory" summary but remains in the chronicle.
+  fame: number;                       // 0..1
+}
+
+export type ArtefactId = string;
+
+export type ArtefactCategory =
+  | "weapon"    // Durendal, Excalibur
+  | "relic"     // Ark, Holy Grail, saint's finger
+  | "crown"     // Iron Crown of Lombardy
+  | "tome"      // Book of Kells, Necronomicon
+  | "ring";     // One Ring, Signet-of-Ithan
+
+export type ArtefactBinding =
+  | "free"        // anyone can wield
+  | "bloodline"   // only descendants of the creator
+  | "class"       // only a specific class
+  | "worthy";     // "he who wields it must be pure" — level threshold
+
+export interface ArtefactRecord {
+  year: number;
+  bearerId: CharId | null;
+  event: "forged" | "inherited" | "stolen" | "lost" | "rediscovered";
+}
+
+export interface LegendaryArtefact {
+  id: ArtefactId;
+  name: string;                       // procedurally-named ("Durendal", "the Winter-Blade")
+  category: ArtefactCategory;
+  forgedYear: number;
+  creatorId: CharId;
+  bearerId: CharId | null;            // null if lost
+  bindingType: ArtefactBinding;
+  bindingClass: CharClass | null;     // when bindingType = "class"
+  lostYear: number | null;
+  lostProvinceId: ProvinceId | null;
+  history: ArtefactRecord[];
+  martialBonus: number;               // added to bearer's power in wars
+  fame: number;                       // 0..1
+}
+
+// ---------------------------------------------------------------------------
 // Diseases — persistent, named strains with cross-immunity.
 //
 // PLAGUE (the one-shot event) is still fired for narrative shocks — famines
@@ -1142,7 +1219,15 @@ export type EventType =
   | "COMPANY_TURNS_CONDOTTIERE" // unpaid mercenary company seizes a province (Sforza 1450)
   | "COMPANY_RAIDS"            // pirate fleet raids a coastal province
   | "COMPANY_BUSTED"           // naval defeat sinks the fleet (or company is annihilated)
-  | "COMPANY_DISBANDED";       // captain died or funds ran out, last members disperse
+  | "COMPANY_DISBANDED"        // captain died or funds ran out, last members disperse
+  // --- Named heroes & legendary artefacts (heroes.ts + specs/hero-events.ts) ---
+  | "NAMED_HERO_RISES"         // a living character earns a legendary epithet
+  | "NAMED_HERO_FALLS"         // a named hero dies (special send-off prose)
+  | "ARTEFACT_FORGED"          // master craftsman forges a persistent legendary item
+  | "ARTEFACT_INHERITED"       // succession passes a legendary artefact to a new bearer
+  | "ARTEFACT_STOLEN"          // scheme relieves a bearer of a legendary artefact
+  | "ARTEFACT_LOST"            // bearer dies with no legal heir — artefact drops from history
+  | "ARTEFACT_REDISCOVERED";   // a lost artefact is unearthed by a hero or scholar
 
 export interface WorldEvent {
   id: number;
