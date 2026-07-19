@@ -63,9 +63,9 @@ export function canonHash(w: World): string {
 // The golden-master matrix. Hashes are filled in from an actual run (see the
 // note at the bottom); a mismatch means the simulation changed.
 export const GOLDEN: (SimConfig & { hash: string })[] = [
-  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "8afd30e6" },
-  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "805ffd83" },
-  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "06cc6f64" },
+  { name: "default·s42·200y", world: "default", seed: 42, years: 200, hash: "fd26ca4a" },
+  { name: "default·magic·s42·200y", world: "default", seed: 42, years: 200, magic: true, hash: "e3f3446f" },
+  { name: "frontier·s5·200y", world: "frontier", seed: 5, years: 200, hash: "7c915e86" },
   {
     name: "frontier·magic·prehistory·s5·250y",
     world: "frontier",
@@ -73,7 +73,7 @@ export const GOLDEN: (SimConfig & { hash: string })[] = [
     years: 250,
     magic: true,
     prehistory: true,
-    hash: "a031eda5",
+    hash: "79ca1b60",
   },
 ];
 
@@ -257,6 +257,20 @@ export function checkInvariants(w: World): string[] {
       v.push(`disease ${d.id} negative strikeCount ${d.strikeCount}`);
     if (d.totalDeaths < 0)
       v.push(`disease ${d.id} negative totalDeaths ${d.totalDeaths}`);
+  }
+
+  // Union invariants — strength bounds, dissolvedYear ordering, dynasties resolve.
+  for (const u of w.unions.values()) {
+    if (u.strength < 0 || u.strength > 1)
+      v.push(`union ${u.id} strength ${u.strength} out of [0,1]`);
+    if (u.dissolvedYear !== null && u.dissolvedYear < u.formedYear)
+      v.push(`union ${u.id} dissolvedYear ${u.dissolvedYear} < formedYear ${u.formedYear}`);
+    if (!w.dynasty(u.dynastyAId))
+      v.push(`union ${u.id} references missing dynastyA ${u.dynastyAId}`);
+    if (!w.dynasty(u.dynastyBId))
+      v.push(`union ${u.id} references missing dynastyB ${u.dynastyBId}`);
+    if (u.dynastyAId === u.dynastyBId)
+      v.push(`union ${u.id} pairs a dynasty with itself`);
   }
 
   // Language invariants — bounded scores, parent resolves, death consistency.

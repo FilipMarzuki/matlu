@@ -14,6 +14,8 @@ import type {
   DeityId,
   Disease,
   DiseaseId,
+  DynasticUnion,
+  UnionId,
   Language,
   LanguageId,
   CatastropheQueueItem,
@@ -132,6 +134,11 @@ export class World {
   // threshold; flourishing trade routes mint linguae francae; dead cultures
   // → dead languages (potentially revived by scholars).
   languages = new Map<LanguageId, Language>();
+
+  // Persistent dynastic unions — marriages between two ruling houses that
+  // upgrade into a formal compact (marriage_alliance / personal_union /
+  // cadet_branch). Aged by unions.ts:runUnions each tick.
+  unions = new Map<UnionId, DynasticUnion>();
 
   characters = new Map<CharId, Character>();
   dynasties = new Map<DynastyId, Dynasty>();
@@ -424,6 +431,24 @@ export class World {
     const out: Language[] = [];
     for (const lg of this.languages.values()) if (lg.diedYear === null) out.push(lg);
     return out;
+  }
+
+  // ---- dynastic unions ---------------------------------------------------
+  activeUnions(): DynasticUnion[] {
+    const out: DynasticUnion[] = [];
+    for (const u of this.unions.values()) if (u.dissolvedYear === null) out.push(u);
+    return out;
+  }
+
+  // Return the active union between two dynasties in either order, if any.
+  // Two houses can have at most one active union.
+  unionBetween(a: DynastyId, b: DynastyId): DynasticUnion | undefined {
+    for (const u of this.unions.values()) {
+      if (u.dissolvedYear !== null) continue;
+      if ((u.dynastyAId === a && u.dynastyBId === b) ||
+          (u.dynastyAId === b && u.dynastyBId === a)) return u;
+    }
+    return undefined;
   }
 
   // ---- peoples -----------------------------------------------------------
