@@ -1346,7 +1346,23 @@ export type EventType =
   | "RELIGIOUS_EXPULSION"
   | "SETTLED_NEW_HOMELAND"
   | "WAVE_DISPERSED"
-  | "DIASPORA_FORMED";
+  | "DIASPORA_FORMED"
+  // --- Steppe cultures (specs/steppe-events.ts) ---
+  // Orctongue-specific:
+  | "KURULTAI_CONVENED"        // clan-assembly meets to elect a khan
+  | "CATTLE_RAID"              // small-scale herd/slave raid on a neighbour
+  | "HORDE_TRIBUTE_DEMANDED"   // khan formalises extraction; refusal → war
+  | "HORDE_SPLINTERS"          // weak khanate loses a clan-tier defection
+  | "SLAVE_UPRISING_CRUSHED"   // horde slave-economy maintenance
+  // Ikibeki-specific:
+  | "SPIRIT_WALK_UNDERTAKEN"   // fasting quest — returns with epithet + level
+  | "ANCESTOR_COUNCIL_SPOKE"   // shaman channels ancestors for succession
+  | "TOTEM_BEAST_CHOSEN"       // clan bonds to a wildlife species
+  | "SPIRITUAL_CRISIS"         // totem beast lost → dynasty legitimacy shock
+  // Cross-culture:
+  | "BLOOD_DEBT_DECLARED"      // enduring vengeance-arc between houses
+  | "PEACE_CIRCLE_HELD"        // Ikibeki-invited summit — truce or war
+  | "STEPPE_STORM_OMEN";       // mana-storm — reading differs by culture
 
 export interface WorldEvent {
   id: number;

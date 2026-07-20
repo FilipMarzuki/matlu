@@ -61,9 +61,12 @@ const provinces: ProvinceSpec[] = [
   { id: "p4", name: "Ironspine", terrain: "mountain", fertility: 0.35, coastal: false, river: false, neighbors: ["p5", "i4"], population: 130, mana: 0.8 },
   { id: "p5", name: "Highpass", terrain: "mountain", fertility: 0.3, coastal: false, river: false, neighbors: ["p4", "p6"], population: 90, mana: 0.75 },
   // The Ashen Steppe + deserts — the raider frontier (east).
-  { id: "p6", name: "Ashen Steppe", terrain: "steppe", fertility: 0.35, coastal: false, river: true, neighbors: ["p5", "p7", "p8", "i1"], population: 300, mana: 0.6 },
-  { id: "p7", name: "Sunscour", terrain: "desert", fertility: 0.2, coastal: false, river: false, neighbors: ["p6", "p8", "p9"], population: 130, mana: 0.55 },
+  { id: "p6", name: "Ashen Steppe", terrain: "steppe", fertility: 0.35, coastal: false, river: true, neighbors: ["p5", "p7", "p8", "p13", "i1"], population: 300, mana: 0.6 },
+  { id: "p7", name: "Sunscour", terrain: "desert", fertility: 0.2, coastal: false, river: false, neighbors: ["p6", "p8", "p9", "p13"], population: 130, mana: 0.55 },
   { id: "p8", name: "Dunemarch", terrain: "desert", fertility: 0.25, coastal: false, river: false, neighbors: ["p6", "p7", "p9", "p10", "p12"], population: 160, mana: 0.5 },
+  // Spirit-Ridge — the Ikibeki heartland, a high-mana grass-and-cedar plateau
+  // wedged between the Ashen Steppe and the Sunscour dunes.
+  { id: "p13", name: "Spirit-Ridge", terrain: "steppe", fertility: 0.4, coastal: false, river: true, neighbors: ["p6", "p7"], population: 220, mana: 0.75 },
   // The Empire of Zafran — settled humans beyond the desert (far east).
   { id: "p9", name: "Zafran", terrain: "plains", fertility: 0.85, coastal: false, river: true, neighbors: ["p7", "p8", "p10"], population: 720, mana: 0.2 },
   { id: "p10", name: "Khoresh", terrain: "hills", fertility: 0.7, coastal: false, river: false, neighbors: ["p8", "p9"], population: 520, mana: 0.25 },
@@ -95,6 +98,8 @@ const titles: TitleSpec[] = [
   { id: "t_kh", name: "Khaganate of the Ashen Steppe", tier: "kingdom", law: "elective", seat: "p6", liege: null },
   { id: "t_ss", name: "Clanhold of Sunscour", tier: "county", law: "elective", seat: "p7", liege: "t_kh" },
   { id: "t_dm", name: "Clanhold of Dunemarch", tier: "county", law: "elective", seat: "p8", liege: "t_kh" },
+  // The Ikibeki — beastkin tribal coalition, elective (council of shamans + war-chiefs).
+  { id: "t_ic", name: "Circle of the Ikibeki", tier: "kingdom", law: "elective", seat: "p13", liege: null },
   // Empire of Zafran (settled).
   { id: "t_zf", name: "Empire of Zafran", tier: "kingdom", law: "primogeniture", seat: "p9", liege: null },
   { id: "t_kx", name: "Satrapy of Khoresh", tier: "county", law: "primogeniture", seat: "p10", liege: "t_zf" },
@@ -116,6 +121,11 @@ const dynasties: DynastySpec[] = [
   { id: "darzan", name: "Darzan", culture: "zafrani", race: "human", faith: "sunlord" },
   { id: "sythe", name: "Sythe", culture: "mire", race: "human", faith: "mire" },
   { id: "deepvault", name: "Deepvault", culture: "deepborn", race: "dwarf", faith: "stone_ancestors" },
+  // The Ikibeki tribes — two founding clans, both wildkin, both bound to
+  // the spirits of the wild. Their seat is the Spirit-Ridge, wedged between
+  // the Horde's steppe and Sunscour.
+  { id: "wolfclan", name: "of the Wolf-Clan", culture: "ikibeki", race: "wildkin", faith: "beast-spirits" },
+  { id: "beargrove", name: "of the Bear-Clan", culture: "ikibeki", race: "wildkin", faith: "beast-spirits" },
 ];
 
 const races: RaceSpec[] = [
@@ -137,6 +147,24 @@ const races: RaceSpec[] = [
       preferredTerrain: ["mountain", "hills"],
     },
   },
+  // Wildkin — beastkin peoples, majority of the Ikibeki tribes. Composite race:
+  // wolf-, bear-, otter-, crane-, fox-, etc.-clans all fall under this one race
+  // spec (individual totem is a clan/dynasty flavour, not a biology split).
+  // Biology: human lifespan, mild mana bump (nature-attuned), slightly higher
+  // fertility (deep kin networks), forest/steppe preferred. Neutral to humans
+  // and dwarfs, wary of orcs (raiders have always come from that direction).
+  {
+    id: "wildkin", name: "Wildkin",
+    affinities: { orc: -15 },
+    biology: {
+      lifespan: 78,
+      sunTolerance: 1.0,
+      manaAffinity: 0.6,
+      fertilityRate: 1.1,
+      plagueResistance: 0.15,
+      preferredTerrain: ["steppe", "forest", "hills"],
+    },
+  },
 ];
 
 const faiths: FaithSpec[] = [
@@ -148,6 +176,11 @@ const faiths: FaithSpec[] = [
   { id: "mire", name: "the Drowned Ones", hostileTo: ["verdant", "sunlord"], biasSeed: { grief_locked: 0.25, betrayal_scarred: 0.2, confirmation: 0.2 } }, // swamp cult
   // Dwarfs wage grudge wars, not holy wars; no hostileTo — but they never forget a slight.
   { id: "stone_ancestors", name: "the Stone Ancestors", biasSeed: { sunk_cost: 0.3, loss_aversion: 0.3 } },
+  // Beast-spirits — the Ikibeki animist tradition. Many spirits, no throne; the
+  // land itself is holy. Theologically opposed to the Sky Father's one-throne
+  // cosmology: the tension is between a sky-owning monarch and a chorus of
+  // land-owning ancestors.
+  { id: "beast-spirits", name: "the Spirits of the Wild", hostileTo: ["skyfather"], biasSeed: { fatalist: 0.3, honor_bound: 0.35, providential: 0.25 } },
 ];
 
 const cultures: CultureSpec[] = [
@@ -199,12 +232,55 @@ const cultures: CultureSpec[] = [
     id: "orctongue",
     name: "Orctongue",
     law: "elective",
-    driveBias: D(0.85, 0.8, 0.85, 0.05, 0.5, 0.1), // fiercest of the Horde
-    biasSeed: { honor_bound: 0.65, confirmation: 0.4 },
-    startingTraits: ["warrior_culture", "caste_rigid"],
-    namesMale: ["Uzruk", "Gruul", "Gharruk", "Morg", "Drak", "Thok", "Grash", "Bolg", "Ozruk", "Karg"],
-    namesFemale: ["Ushka", "Grima", "Draka", "Morga", "Thrag", "Ruka", "Grisha", "Nazka", "Ulga", "Braga"],
-    surnames: ["Gorthak", "Skullsplit", "Ironfang"],
+    // Slight greed dial-down: Orctongue values glory over gold. Kurultai-elected
+    // khans are meritocratic INSIDE the clan; slavery of outsiders defines the
+    // clan's economic base — hence slavery (not caste_rigid) as the second trait.
+    driveBias: D(0.85, 0.72, 0.85, 0.08, 0.5, 0.10),
+    biasSeed: {
+      honor_bound: 0.65,          // debt-of-blood defines a lifetime
+      confirmation: 0.40,         // strength proves right
+      conqueror_confident: 0.30,  // pride of the steppe carries into first-battle
+    },
+    startingTraits: ["warrior_culture", "slavery"],
+    clans: [
+      "Ashenbrand", "Wolfhowl", "Ironhoof", "Blackfang",
+      "Skysplitter", "Bonebreak", "Redteeth", "Wintersoul",
+    ],
+    namesMale: ["Uzruk", "Gruul", "Gharruk", "Morg", "Drak", "Thok", "Grash", "Bolg",
+                "Ozruk", "Karg", "Tarkhan", "Baturr", "Yesukai", "Kurgak", "Ozar"],
+    namesFemale: ["Ushka", "Grima", "Draka", "Morga", "Thrag", "Ruka", "Grisha", "Nazka",
+                  "Ulga", "Braga", "Alka", "Torgak", "Nesha", "Ovka"],
+    surnames: ["Gorthak", "Skullsplit", "Ironfang", "Bloodmoon", "Windrider",
+               "Ashenbrand", "Kurgak", "Nine-Skulls"],
+  },
+  {
+    id: "ikibeki",
+    name: "Ikibeki",
+    law: "elective",
+    // Ikibeki beastkin nomads — spirit-bound, ancestor-guided. Low ambition and
+    // greed by cultural norm; high piety (the world is alive, every choice has
+    // a witness); moderate vengeance (a blood-debt is real but the peace-circle
+    // can absorb it); low fear (the ancestors are already watching).
+    driveBias: D(0.35, 0.30, 0.50, 0.75, 0.5, 0.25),
+    biasSeed: {
+      fatalist: 0.40,             // the seasons decide
+      honor_bound: 0.35,          // ancestor eyes see everything
+      providential: 0.30,         // the spirits arrange outcomes
+    },
+    startingTraits: ["warrior_culture", "zealous_faith"],
+    clans: [
+      "Bear-Clan", "Wolf-Clan", "Otter-Clan", "Crane-Clan",
+      "Salmon-Clan", "Fox-Clan", "Owl-Clan", "Elk-Clan",
+    ],
+    namesMale: ["Kaito", "Hoku", "Sannu", "Yoru", "Takumi", "Owek", "Miska", "Tekan",
+                "Rin", "Shirow", "Kanjiro", "Tama", "Yohei"],
+    namesFemale: ["Yuki", "Nanami", "Ayame", "Miku", "Sora", "Chiyo", "Aponi",
+                  "Nokomis", "Sena", "Rina", "Kaori", "Meiko", "Hinata"],
+    surnames: [
+      "of the Bear-Clan", "of the Wolf-Clan", "of the Crane-Clan",
+      "White-Feather", "Salmon-Runner", "Cedar-Voice",
+      "Wind-Listener", "Standing-Elk", "Deep-Water",
+    ],
   },
   {
     id: "zafrani",
@@ -287,6 +363,19 @@ const characters: CharacterSpec[] = [
   ch({ id: "uzruk", name: "Uzruk", sex: "male", dynasty: "gorthak", birthYear: 963, province: "p8", drives: D(0.85, 0.8, 0.85, 0.05, 0.5, 0.1), founds: "gorthak", holds: "t_dm",
        claims: [{ title: "t_kh", strength: "weak", basis: "the orcs will not kneel to a Qarash Khagan forever", year: 1000 }] }),
   ch({ id: "gruul", name: "Gruul", sex: "male", dynasty: "gorthak", birthYear: 989, province: "p8", drives: D(0.8, 0.75, 0.85, 0.05, 0.5, 0.15), father: "uzruk" }),
+
+  // ── Ikibeki — House of the Wolf-Clan (holds the Circle of the Ikibeki) ────
+  // Kaito is elected chief-of-chiefs of the Ikibeki; the Circle recognises
+  // him but the ancestor-council can turn against him if a blood-debt sours.
+  ch({ id: "kaito", name: "Kaito", sex: "male", dynasty: "wolfclan", birthYear: 961, province: "p13", drives: D(0.4, 0.3, 0.55, 0.8, 0.5, 0.2), founds: "wolfclan", holds: "t_ic" }),
+  ch({ id: "yuki", name: "Yuki", sex: "female", dynasty: "wolfclan", birthYear: 964, province: "p13", drives: D(0.35, 0.25, 0.5, 0.85, 0.5, 0.2), spouse: "kaito" }),
+  ch({ id: "hoku", name: "Hoku", sex: "male", dynasty: "wolfclan", birthYear: 987, province: "p13", drives: D(0.45, 0.3, 0.55, 0.7, 0.5, 0.25), father: "kaito", mother: "yuki" }),
+
+  // ── Ikibeki — House of the Bear-Clan (rival tribal alliance) ─────────────
+  // Sannu leads the Bear-Clan; they are not vassals of Kaito but sit on the
+  // Circle beside him. Their ancestral holy site is the Spirit-Ridge cedar.
+  ch({ id: "sannu", name: "Sannu", sex: "male", dynasty: "beargrove", birthYear: 959, province: "p13", drives: D(0.5, 0.3, 0.55, 0.75, 0.5, 0.2), founds: "beargrove" }),
+  ch({ id: "aponi", name: "Aponi", sex: "female", dynasty: "beargrove", birthYear: 963, province: "p13", drives: D(0.4, 0.25, 0.5, 0.8, 0.5, 0.25), spouse: "sannu" }),
 
   // ── Empire of Zafran — House Darzan (zafrani, settled, pious) ────────────
   ch({ id: "khosru", name: "Khosru", sex: "male", dynasty: "darzan", birthYear: 955, province: "p9", drives: D(0.45, 0.5, 0.3, 0.75, 0.5, 0.4), founds: "darzan", holds: "t_zf" }),
