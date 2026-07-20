@@ -905,7 +905,30 @@ export interface Province {
   // Flavor of the active corruption — drives which psyche distortion and culture
   // traits are amplified. undefined = pristine or unclassified blight.
   corruptionType?: "necrotic" | "void" | "feral";
+
+  // --- Class stratification -------------------------------------------------
+  // Who does the work here and how they organise. Set once at seed time from
+  // terrain + culture + population; may shift over decades via events like
+  // CIVIC_CHARTER_GRANTED or URBAN_MIGRATION. Read by specs/class-events.ts
+  // to gate revolts, guild uprisings, patrician feuds, patronage.
+  //   agrarian_serfs    — settled peasants bound to nobles (Zafran, Kievan)
+  //   free_yeomen       — peasant land-holders under weaker lords (Ibiki, Mire)
+  //   urban_patriciate  — merchant/burgher-led cities (coastal, mercantile)
+  //   pastoral_bands    — herder societies, weak class stratification (steppe)
+  //   mixed             — no dominant mode (fallback)
+  classStructure: ClassStructure;
+  // 0..1 abstract share of urban/burgher wealth in the province. Rises with
+  // trade routes + mercantile drift, falls with wars and famines. Only
+  // meaningful when classStructure ∈ {urban_patriciate, mixed}.
+  burgherStrength: number;
 }
+
+export type ClassStructure =
+  | "agrarian_serfs"
+  | "free_yeomen"
+  | "urban_patriciate"
+  | "pastoral_bands"
+  | "mixed";
 
 // ---------------------------------------------------------------------------
 // Catastrophe queue — pending chain steps stored on the World. Kept here (not
@@ -1362,7 +1385,19 @@ export type EventType =
   // Cross-culture:
   | "BLOOD_DEBT_DECLARED"      // enduring vengeance-arc between houses
   | "PEACE_CIRCLE_HELD"        // Ikibeki-invited summit — truce or war
-  | "STEPPE_STORM_OMEN";       // mana-storm — reading differs by culture
+  | "STEPPE_STORM_OMEN"        // mana-storm — reading differs by culture
+  // --- Class stratification (specs/class-events.ts) ---
+  | "BREAD_RIOT"                // famine + urban / free-yeomen province → riot
+  | "TITHE_REFUSED"             // agrarian province refuses extraction from over-wealthy lord
+  | "PEASANT_JACQUERIE"         // dispossessed rise (1358 flavour)
+  | "GUILD_UPRISING"            // guild-driven urban revolt against noble overreach
+  | "PATRICIAN_FEUD"            // two burgher families battle for city dominance
+  | "MERCHANT_COUNCIL_FORMED"   // burgher institution supplants noble authority
+  | "URBAN_MIGRATION"           // rural pops flow to burgher-heavy centres
+  | "CIVIC_CHARTER_GRANTED"     // city elevated to charter/free-status
+  | "NOBLE_HOSTAGE_TAKEN"       // burghers seize a lord to extract concessions
+  | "SUMPTUARY_LAW_PASSED"      // nobles restrict burgher displays of wealth
+  | "PATRONAGE_EXTENDED";       // patrician family bankrolls a scholar/artist
 
 export interface WorldEvent {
   id: number;
