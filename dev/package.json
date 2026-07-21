@@ -10,7 +10,7 @@
     "typecheck": "astro check"
   },
   "dependencies": {
-    "@astrojs/rss": "^4.0.11",
+    "@astrojs/rss": "^4.0.19",
     "@notionhq/client": "^2.2.15",
     "@supabase/supabase-js": "^2.49.4",
     "marked": "^13.0.3",
