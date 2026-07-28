@@ -51,12 +51,12 @@
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
     "@logtail/browser": "^0.5.8",
-    "@supabase/supabase-js": "^2.110.7",
+    "@supabase/supabase-js": "^2.110.8",
     "phaser": "^4.0.0",
     "simplex-noise": "^4.0.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@types/sharp": "^0.32.0",
     "googleapis": "^173.0.0",
     "sharp": "^0.35.3",
