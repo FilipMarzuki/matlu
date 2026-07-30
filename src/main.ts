@@ -39,6 +39,7 @@ import { PlotForgeScene } from './scenes/PlotForgeScene';
 import { BaseForgeScene } from './scenes/BaseForgeScene';
 import { HomesteadScene } from './scenes/HomesteadScene';
 import { AssetViewerScene } from './scenes/AssetViewerScene';
+import { CraftForgeScene } from './scenes/CraftForgeScene';
 
 // Direct URL routing — lets testers jump straight to a scene without
 // navigating through the main menu. Vercel rewrites all paths to index.html
@@ -64,13 +65,15 @@ import { AssetViewerScene } from './scenes/AssetViewerScene';
 //   /baseforge       → BaseForgeScene        (alias)
 //   /homestead       → HomesteadScene        (standalone gathering + crafting + building)
 //   /assets          → AssetViewerScene      (browsable sprite inventory)
+//   /craftforge      → CraftForgeScene       (new crafting/knowledge UI testbed — Mind/Concepts/Recipes/Refine)
+//   /cf              → CraftForgeScene       (alias)
 //   /mf              → MapForgeScene        (map generation testbed)
 //   /mapforge       → MapForgeScene        (alias)
 //   /recolor     → RecolorTestScene      (spike #703 — programmatic sprite recoloring)
 //   /            → MainMenuScene         (default — full game flow)
 const path = window.location.pathname.replace(/\/$/, '');
 const sceneOrder = (() => {
-  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, DungeonForgeScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, BuildingForgeScene, PlotForgeScene, BaseForgeScene, HomesteadScene, AssetViewerScene, SettlementScene, SettlementEditorScene, RecolorTestScene, MapForgeScene, CraftingMenuScene];
+  const all = [MainMenuScene, WilderviewScene, GameScene, CreditsScene, NpcDialogScene, SettingsScene, PauseMenuScene, DiscoveryScene, GameOverScene, LevelCompleteScene, DungeonForgeScene, ArenaSelectScene, UpgradeScene, NavScene, EndingScene, StatsScene, LoreScene, ShopScene, WorldForgeScene, SettlementForgeScene, BuildingForgeScene, PlotForgeScene, BaseForgeScene, HomesteadScene, AssetViewerScene, SettlementScene, SettlementEditorScene, RecolorTestScene, MapForgeScene, CraftingMenuScene, CraftForgeScene];
   if (path === '/world') return [GameScene,           ...all.filter(s => s !== GameScene)];
   if (path === '/biome' || path === '/worldforge' || path === '/wf') return [WorldForgeScene, ...all.filter(s => s !== WorldForgeScene)];
   if (path === '/sf' || path === '/settlementforge') return [SettlementForgeScene, ...all.filter(s => s !== SettlementForgeScene)];
@@ -83,6 +86,7 @@ const sceneOrder = (() => {
   if (path === '/assets') return [AssetViewerScene, ...all.filter(s => s !== AssetViewerScene)];
   if (path === '/mf' || path === '/mapforge') return [MapForgeScene, ...all.filter(s => s !== MapForgeScene)];
   if (path === '/craft' || path === '/crafting') return [CraftingMenuScene, ...all.filter(s => s !== CraftingMenuScene)];
+  if (path === '/craftforge' || path === '/cf') return [CraftForgeScene, ...all.filter(s => s !== CraftForgeScene)];
   if (path === '/recolor') return [RecolorTestScene, ...all.filter(s => s !== RecolorTestScene)];
   if (path === '/df' || path === '/dungeonforge' || path === '/arena') return [DungeonForgeScene, ...all.filter(s => s !== DungeonForgeScene)];
   if (path === '/menu')  return all;
