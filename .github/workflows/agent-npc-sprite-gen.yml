@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_TRACKER_TOKEN }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20.19.0'
 
