@@ -51,7 +51,7 @@
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@logtail/browser": "^0.5.8",
-    "@supabase/supabase-js": "^2.112.2",
+    "@supabase/supabase-js": "^2.112.3",
     "phaser": "^4.0.0",
     "simplex-noise": "^4.0.3"
   },
@@ -60,7 +60,7 @@
     "@types/sharp": "^0.32.0",
     "googleapis": "^174.0.1",
     "sharp": "^0.35.3",
-    "tsx": "^4.23.10",
+    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "unzipper": "^0.12.5",
     "vite": "^8.2.1",
