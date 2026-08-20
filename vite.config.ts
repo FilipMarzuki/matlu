@@ -122,6 +122,14 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    rollupOptions: {
+      // Multi-page: the game (index.html) plus a standalone crafting testbed
+      // (crafting.html → src/crafting.ts) that ships without the rest of the game.
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        crafting: resolve(__dirname, 'crafting.html'),
+      },
+    },
   },
   define: {
     'import.meta.env.VITE_GIT_SHA': JSON.stringify(

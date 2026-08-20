@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import {
   CraftState, cfTitle,
-  CF_CATS, CF_CONCEPTS, CF_ITEMS, CF_RECIPES, CF_HINTS, CF_PROCS, CF_LOCKED_PROCS,
+  CF_CATS, CF_CONCEPTS, CF_ITEMS, CF_RECIPES, CF_PROCS, CF_LOCKED_PROCS, CF_REFINE_BAYS,
   CF_STATIONS, CF_LOCS, CF_TRAY_POOL, CF_REAL_DISCOVERIES, CF_FALSE_DISCOVERIES,
   type CFConcept, type CFRecipe, type CFDiscovery, type CFPoolEntry,
 } from './craftForgeData';
@@ -58,9 +58,10 @@ export class CraftForgeScene extends Phaser.Scene {
   private tab: TabId = 'mind';
   // recipes
   private rFilter = 'all';
-  private rSel = 'beacon';
+  private rSel = CF_RECIPES[0]?.id ?? '';
   private rView: 'list' | 'forge' = 'list';
-  private forgeId = 'beacon';
+  private forgeId = CF_RECIPES[0]?.id ?? '';
+  private rScroll = 0;
   // mind
   private mSel: string | null = null;
   private mFilter: 'all' | 'concept' | 'material' | 'recipe' = 'all';
@@ -87,8 +88,20 @@ export class CraftForgeScene extends Phaser.Scene {
     this.renderAll();
 
     this.scale.on('resize', this.layout, this);
-    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('MainMenuScene'));
+    this.input.keyboard?.on('keydown-ESC', () => this.toMenu());
+    // Mouse-wheel scrolls the recipe list (touch users get the ▲/▼ buttons).
+    this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+      if (this.tab !== 'recipes' || this.rView !== 'list') return;
+      this.rScroll = Math.max(0, this.rScroll + (dy > 0 ? 1 : -1));
+      this.renderAll();
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', this.layout, this));
+  }
+
+  /** Return to the main menu — a no-op in the standalone /crafting.html entry
+   *  where MainMenuScene isn't registered. */
+  private toMenu(): void {
+    if (this.scene.get('MainMenuScene')) this.scene.start('MainMenuScene');
   }
 
   update(time: number): void {
@@ -184,7 +197,7 @@ export class CraftForgeScene extends Phaser.Scene {
       x += w + 6;
     }
     this.t(cx, DW - 16, 24, 'ESC · MENU', { pixel: true, size: 7, color: H.faint, ox: 1, oy: 0.5 });
-    this.hit(cx, DW - 90, 12, 74, 24, () => this.scene.start('MainMenuScene'));
+    this.hit(cx, DW - 90, 12, 74, 24, () => this.toMenu());
   }
 
   // ── RECIPES tab ─────────────────────────────────────────────────────────────
@@ -201,30 +214,35 @@ export class CraftForgeScene extends Phaser.Scene {
   private drawRecipes(): void {
     const cx = this.root;
     const y0 = HEADER_H + 10;
-    // Station filter chips
-    const chips: [string, string][] = [['all', 'ALL'], ['field', 'FIELD'], ['smelter', 'SMELTER'], ['smithy', 'SMITHY'], ['workshop', 'WORKSHOP'], ['tannery', 'TANNERY']];
-    let cxp = 16;
-    for (const [id, label] of chips) {
-      const on = this.rFilter === id, w = 14 + label.length * 8;
-      this.rr(cx, cxp, y0, w, 34, 8, on ? C.gold : C.subDark, on ? 0.1 : 1, on ? C.gold : C.border, 1);
-      this.t(cx, cxp + w / 2, y0 + 17, label, { pixel: true, size: 8, color: on ? H.gold : H.white, ox: 0.5, oy: 0.5 });
-      this.hit(cx, cxp, y0, w, 34, () => { this.rFilter = id; this.renderAll(); });
-      cxp += w + 6;
-    }
+    // "AT" (current station) — cycles through every real station.
     this.t(cx, DW - 16, y0 + 17, `◈ AT: ${this.loc().label}`, { pixel: true, size: 8, color: H.teal, ox: 1, oy: 0.5 });
     this.hit(cx, DW - 200, y0, 184, 34, () => { this.st.atIdx = (this.st.atIdx + 1) % CF_LOCS.length; this.renderAll(); });
 
-    // Recipe list (left) — compact rows; cap to what fits.
-    const listX = 16, listY = y0 + 44, listW = 584, rowH = 40, area = DH - listY - 12;
+    // Station filter chips — data-driven from the real station set, wrapping to
+    // multiple rows so every one of the 12 stations is reachable.
+    const chips: [string, string][] = [['all', 'ALL'], ...Object.entries(CF_STATIONS).map(([id, l]) => [id, l] as [string, string])];
+    let cxp = 16, cy = y0;
+    for (const [id, label] of chips) {
+      const on = this.rFilter === id, w = 14 + label.length * 7;
+      const rightLimit = cy === y0 ? DW - 210 : DW - 16;   // keep row 0 clear of the AT toggle
+      if (cxp + w > rightLimit) { cxp = 16; cy += 40; }
+      this.rr(cx, cxp, cy, w, 34, 8, on ? C.gold : C.subDark, on ? 0.1 : 1, on ? C.gold : C.border, 1);
+      this.t(cx, cxp + w / 2, cy + 17, label, { pixel: true, size: 7.5, color: on ? H.gold : H.white, ox: 0.5, oy: 0.5 });
+      this.hit(cx, cxp, cy, w, 34, () => { this.rFilter = id; this.rScroll = 0; this.renderAll(); });
+      cxp += w + 6;
+    }
+
+    // Recipe list (left) — windowed + scrollable so every recipe is reachable.
+    const listX = 16, listY = cy + 44, listW = 584, rowH = 40, area = DH - listY - 12;
     const rows = CF_RECIPES.filter(r => this.rFilter === 'all' || r.station === this.rFilter);
-    const hints = CF_HINTS.filter(h => this.rFilter === 'all' || h.station === this.rFilter);
-    const maxRows = Math.floor(area / (rowH + 6));
-    let ry = listY, count = 0;
-    for (const r of rows) {
-      if (count >= maxRows) break;
+    const maxRows = Math.floor(area / (rowH + 6)) - 1;   // reserve a row for the scroll bar
+    const maxScroll = Math.max(0, rows.length - maxRows);
+    if (this.rScroll > maxScroll) this.rScroll = maxScroll;
+    let ry = listY;
+    for (const r of rows.slice(this.rScroll, this.rScroll + maxRows)) {
       const ok = this.matsOk(r) && !this.unmet(r);
       const sel = this.rSel === r.id;
-      this.rr(cx, listX, ry, listW, rowH, 10, sel ? C.sub : C.sub, 1, sel ? C.gold : C.border, sel ? 2 : 1);
+      this.rr(cx, listX, ry, listW, rowH, 10, C.sub, 1, sel ? C.gold : C.border, sel ? 2 : 1);
       const dot = this.add.graphics(); dot.fillStyle(ok ? C.green : C.warn, 1); dot.fillCircle(listX + 18, ry + rowH / 2, 5); cx.add(dot);
       this.t(cx, listX + 34, ry + 8, CF_ITEMS[r.id].name, { size: 14, bold: true });
       this.t(cx, listX + 34, ry + 25, this.stnLabel(r), { pixel: true, size: 7, color: H.dim });
@@ -232,22 +250,21 @@ export class CraftForgeScene extends Phaser.Scene {
       this.t(cx, listX + listW - 12, ry + rowH / 2, tag, { pixel: true, size: 7, color: ok ? H.green : this.unmet(r) ? H.amber : H.warn, ox: 1, oy: 0.5 });
       const rid = r.id;
       this.hit(cx, listX, ry, listW, rowH, () => { this.rSel = rid; this.renderAll(); });
-      ry += rowH + 6; count++;
+      ry += rowH + 6;
     }
-    for (const h of hints) {
-      if (count >= maxRows) break;
-      const sel = this.rSel === h.id;
-      this.rr(cx, listX, ry, listW, rowH, 10, 0x131422, 0.6, sel ? C.gold : C.border2, sel ? 2 : 1);
-      this.t(cx, listX + 20, ry + rowH / 2, '?', { pixel: true, size: 12, color: H.faint, ox: 0.5, oy: 0.5 });
-      this.t(cx, listX + 40, ry + 8, '? ? ?', { pixel: true, size: 11, color: H.faint });
-      this.t(cx, listX + 40, ry + 26, `${CF_STATIONS[h.station] ?? h.station} · ${h.method}`, { pixel: true, size: 6.5, color: H.faint });
-      this.t(cx, listX + listW - 12, ry + rowH / 2, h.hint, { size: 11, color: H.faint, ox: 1, oy: 0.5 });
-      const hid = h.id;
-      this.hit(cx, listX, ry, listW, rowH, () => { this.rSel = hid; this.renderAll(); });
-      ry += rowH + 6; count++;
+    // Scroll bar: "X–Y of N" + ▲/▼ (touch/click); mouse wheel also scrolls.
+    if (rows.length > maxRows) {
+      const from = this.rScroll + 1, to = Math.min(this.rScroll + maxRows, rows.length);
+      this.t(cx, listX, ry + 5, `${from}–${to} of ${rows.length}  ·  scroll / ▲ ▼`, { size: 10, color: H.faint });
+      const bw = 34, upX = listX + listW - bw * 2 - 6, dnX = listX + listW - bw;
+      const canUp = this.rScroll > 0, canDn = this.rScroll < maxScroll;
+      this.rr(cx, upX, ry, bw, 24, 6, C.subDark, 1, canUp ? C.teal : C.border2, 1);
+      this.t(cx, upX + bw / 2, ry + 12, '▲', { size: 11, color: canUp ? H.teal : H.faint, ox: 0.5, oy: 0.5 });
+      if (canUp) this.hit(cx, upX, ry, bw, 24, () => { this.rScroll = Math.max(0, this.rScroll - maxRows); this.renderAll(); });
+      this.rr(cx, dnX, ry, bw, 24, 6, C.subDark, 1, canDn ? C.teal : C.border2, 1);
+      this.t(cx, dnX + bw / 2, ry + 12, '▼', { size: 11, color: canDn ? H.teal : H.faint, ox: 0.5, oy: 0.5 });
+      if (canDn) this.hit(cx, dnX, ry, bw, 24, () => { this.rScroll = Math.min(maxScroll, this.rScroll + maxRows); this.renderAll(); });
     }
-    const overflow = (rows.length + hints.length) - count;
-    if (overflow > 0) this.t(cx, listX, ry + 2, `+${overflow} more — use the station filters`, { size: 11, color: H.faint });
 
     // Detail (right)
     this.drawRecipeDetail(616, listY, 392, DH - listY - 12);
@@ -257,7 +274,6 @@ export class CraftForgeScene extends Phaser.Scene {
     const cx = this.root;
     this.rr(cx, x, y, w, h, 12, C.panel, 1, C.border, 1);
     const r = this.recipe(this.rSel);
-    const hint = CF_HINTS.find(hh => hh.id === this.rSel);
     const pad = 16;
     if (r) {
       const stOk = this.stationOk(r), lock = this.unmet(r);
@@ -304,11 +320,6 @@ export class CraftForgeScene extends Phaser.Scene {
       this.rr(cx, fx, by, fw, 54, 10, C.teal, 0.06, C.teal, 2, 0.55);
       this.t(cx, fx + fw / 2, by + 27, '⛓ FORGE', { pixel: true, size: 10, color: H.teal, ox: 0.5, oy: 0.5 });
       this.hit(cx, fx, by, fw, 54, () => { this.rView = 'forge'; this.forgeId = r.id; this.renderAll(); });
-    } else if (hint) {
-      this.t(cx, x + w / 2, y + h / 2 - 40, '?', { pixel: true, size: 34, color: H.faint, ox: 0.5, oy: 0.5 });
-      this.t(cx, x + w / 2, y + h / 2, '? ? ?', { pixel: true, size: 13, color: H.faint, ox: 0.5, oy: 0.5 });
-      this.t(cx, x + w / 2, y + h / 2 + 24, `${CF_STATIONS[hint.station] ?? hint.station} · ${hint.method}`, { pixel: true, size: 7, color: H.dim, ox: 0.5, oy: 0.5 });
-      this.t(cx, x + w / 2, y + h / 2 + 48, hint.hint, { size: 13, color: H.dim, ox: 0.5, oy: 0.5, wrap: w - 60 });
     }
   }
 
@@ -761,7 +772,7 @@ export class CraftForgeScene extends Phaser.Scene {
     const listW = 600;
     for (const p of CF_PROCS) {
       const mx = this.maxRuns(p);
-      const bayFree = [0, 1, 2].some(i => this.bayStation(i) === p.station && !this.jobs.some(j => j.bay === i));
+      const bayFree = CF_REFINE_BAYS.some((b, i) => b.station === p.station && !this.jobs.some(j => j.bay === i));
       const ok = mx > 0 && bayFree;
       this.rr(cx, 16, py, listW, 78, 10, C.sub, 1, C.border, 1);
       this.t(cx, 28, py + 12, p.name, { size: 13.5, bold: true });
@@ -795,7 +806,7 @@ export class CraftForgeScene extends Phaser.Scene {
     const bx = 632, bw = DW - bx - 16;
     this.t(cx, bx, y0, 'PROCESSING BAYS', { pixel: true, size: 8, color: H.amber });
     let byy = y0 + 18;
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < CF_REFINE_BAYS.length; i++) {
       const j = this.jobs.find(x => x.bay === i);
       const bh = 92;
       const done = j ? (this.time.now - j.t0 >= j.dur) : false;
@@ -828,12 +839,11 @@ export class CraftForgeScene extends Phaser.Scene {
     let ly2 = byy + 28;
     for (const e of this.log.slice(0, 4)) { this.t(cx, bx + 12, ly2, `+${e.n}  ${e.name}`, { size: 11.5, color: H.green }); ly2 += 18; }
   }
-  private bayStation(i: number): string { return ['smelter', 'workshop', 'field'][i]; }
-  private bayLabel(i: number): string { return [`BAY 1 · SMELTER T1`, `BAY 2 · WORKSHOP T2`, `BAY 3 · FIELD KIT`][i]; }
-  private bayLabelFor(station: string): string { return station === 'smelter' ? 'BAY 1 · SMELTER T1' : station === 'workshop' ? 'BAY 2 · WORKSHOP T2' : 'BAY 3 · FIELD KIT'; }
+  private bayLabel(i: number): string { return CF_REFINE_BAYS[i]?.label ?? ''; }
+  private bayLabelFor(station: string): string { return CF_REFINE_BAYS.find(b => b.station === station)?.label ?? station.toUpperCase(); }
 
   private runProc(p: typeof CF_PROCS[number], n: number): void {
-    const bay = [0, 1, 2].findIndex(i => this.bayStation(i) === p.station && !this.jobs.some(j => j.bay === i));
+    const bay = CF_REFINE_BAYS.findIndex((b, i) => b.station === p.station && !this.jobs.some(j => j.bay === i));
     const mx = this.maxRuns(p);
     if (bay < 0 || mx === 0) return;
     const runs = n === -1 ? Math.min(mx, 9) : Math.min(n, mx);
