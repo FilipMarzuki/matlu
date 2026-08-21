@@ -53,6 +53,9 @@ export class CraftForgeScene extends Phaser.Scene {
   private st = new CraftState();
   private root!: Phaser.GameObjects.Container;   // the 1024×640 design canvas
   private fx!: Phaser.GameObjects.Graphics;      // full-viewport scanline/vignette overlay
+  /** Text render resolution — matched to the fit-scale × DPR so glyphs stay
+   *  crisp when the design canvas is upscaled (see layout()). */
+  private textRes = 2;
 
   // UI state ------------------------------------------------------------------
   private tab: TabId = 'mind';
@@ -87,7 +90,7 @@ export class CraftForgeScene extends Phaser.Scene {
     this.layout();
     this.renderAll();
 
-    this.scale.on('resize', this.layout, this);
+    this.scale.on('resize', this.onResize, this);
     this.input.keyboard?.on('keydown-ESC', () => this.toMenu());
     // Mouse-wheel scrolls the recipe list (touch users get the ▲/▼ buttons).
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
@@ -95,7 +98,7 @@ export class CraftForgeScene extends Phaser.Scene {
       this.rScroll = Math.max(0, this.rScroll + (dy > 0 ? 1 : -1));
       this.renderAll();
     });
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', this.layout, this));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', this.onResize, this));
   }
 
   /** Return to the main menu — a no-op in the standalone /crafting.html entry
@@ -117,6 +120,10 @@ export class CraftForgeScene extends Phaser.Scene {
     const vw = this.scale.width, vh = this.scale.height;
     const s = Math.min(vw / DW, vh / DH);
     this.root.setScale(s).setPosition((vw - DW * s) / 2, (vh - DH * s) / 2);
+    // Render glyph textures at (upscale × device-pixel-ratio) so text stays sharp
+    // when the canvas is blown up to fill the screen. Capped to keep textures sane.
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    this.textRes = Math.min(4, Math.max(2, s * dpr));
 
     this.fx.clear();
     this.fx.fillStyle(0x000000, 1).fillRect(0, 0, vw, vh);                 // letterbox
@@ -126,6 +133,13 @@ export class CraftForgeScene extends Phaser.Scene {
     this.fx.fillStyle(0x000000, 0.16);
     for (let y = 0; y < vh; y += 3) this.fx.fillRect(0, y, vw, 1);
     this.fx.setDepth(-1); // behind the root content
+  }
+
+  /** Re-fit and repaint on viewport resize (repaint so text picks up the new
+   *  resolution — a pure rescale would leave old glyph textures blurry). */
+  private onResize(): void {
+    this.layout();
+    this.renderAll();
   }
 
   // ── Drawing helpers ────────────────────────────────────────────────────────
@@ -147,6 +161,7 @@ export class CraftForgeScene extends Phaser.Scene {
       ...(opts.wrap ? { wordWrap: { width: opts.wrap } } : {}),
     });
     txt.setOrigin(opts.ox ?? opts.origin ?? 0, opts.oy ?? opts.origin ?? 0);
+    txt.setResolution(this.textRes);   // render the glyph texture crisp for the current upscale
     cx.add(txt); return txt;
   }
   private hit(cx: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, cb: () => void): void {

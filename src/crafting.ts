@@ -16,8 +16,13 @@ const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game-container',
   backgroundColor: 0x0d0e1a,
-  // Crisp pixel art (matches the game).
-  render: { pixelArt: true },
+  // Antialiased, NOT pixel-art. The in-game world uses pixelArt (nearest-
+  // neighbour) so sprites stay crunchy, but these are pure UI menus — rendering
+  // them smooth means the vector panels and (high-resolution) text stay crisp at
+  // any scale instead of going blocky when the design canvas is upscaled to fill
+  // a big screen. The "pixel feel" comes from the Silkscreen font + chunky
+  // Tech-Rune styling, not from low-resolution rendering.
+  render: { antialias: true, roundPixels: false, pixelArt: false },
   // Fill the viewport; the scene draws to a fixed 1024×640 design canvas and
   // scales itself to fit, so it works on phones, tablets, and desktop.
   scale: {
