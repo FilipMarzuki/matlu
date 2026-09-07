@@ -47,11 +47,11 @@
     "items:validate": "node scripts/validate-items.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.0",
-    "@capacitor/cli": "^8.5.0",
-    "@capacitor/core": "^8.5.0",
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "@logtail/browser": "^0.5.8",
-    "@supabase/supabase-js": "^2.112.4",
+    "@supabase/supabase-js": "^2.115.0",
     "phaser": "^4.0.0",
     "simplex-noise": "^4.0.3"
   },
@@ -60,7 +60,7 @@
     "@types/sharp": "^0.32.0",
     "googleapis": "^178.0.0",
     "sharp": "^0.35.4",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "unzipper": "^0.12.5",
     "vite": "^8.2.2",
