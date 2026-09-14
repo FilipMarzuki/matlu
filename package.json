@@ -58,7 +58,7 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/sharp": "^0.32.0",
-    "googleapis": "^178.0.0",
+    "googleapis": "^180.0.0",
     "sharp": "^0.35.4",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
