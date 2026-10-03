@@ -20,6 +20,9 @@
 import * as Phaser from 'phaser';
 import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from '../crafting/ActionQueue';
 import { Inventory, type ResourceDef } from '../crafting/Inventory';
+import { WorldFeed } from '../crafting/WorldFeed';
+import { loadWorld } from '../../storytelling/seed.js';
+import { DEFAULT_SPEC } from '../../storytelling/world-spec.js';
 import { localStorageStore, nullEmitter, type SaveStore } from '../crafting/ports';
 import { playerItems, itemIconPath, type RegistryItem } from '../lib/items';
 import { Color, TextColor, Font } from '../ui/theme';
@@ -90,6 +93,8 @@ export class CrafterScene extends Phaser.Scene {
 
   private inventory!: Inventory;
   private queue!: ActionQueue;
+  /** The storytelling engine behind the sim: seasons, harvest yields, news. */
+  private feed!: WorldFeed;
   private sources: HarvestSource[] = [];
   private recipes: Recipe[] = [];
   private items = new Map<string, RegistryItem>();
@@ -179,12 +184,22 @@ export class CrafterScene extends Phaser.Scene {
     this.inventory = new Inventory({ emitter: nullEmitter, store: crafterStore });
     this.inventory.loadResourceDefs(playerItems(itemRegistryData.items as RegistryItem[]) as ResourceDef[]);
 
+    // The world is rebuilt from the same seed and fast-forwarded to the saved
+    // tick, so a reload lands in the same year and season. The engine is
+    // deterministic per seed, so this reproduces the same history; the news
+    // from the fast-forward is drained and discarded (it's old news).
+    this.feed = new WorldFeed({ world: loadWorld(DEFAULT_SPEC, this.seed) });
+    this.feed.advance(this.tick);
+    this.feed.drainEvents();
+
     this.queue = new ActionQueue({
       inventory: this.inventory,
       rng: mulberry32(this.seed + this.tick),
       sources: this.sources,
       recipes: this.recipes,
       initialEntries: saved?.entries,
+      // Current world conditions at the moment an action resolves.
+      context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season }),
     });
   }
 
@@ -213,11 +228,16 @@ export class CrafterScene extends Phaser.Scene {
     else this.pushLog('Not enough materials.');
   }
 
-  /** Advance the sim by n ticks and feed any outcomes into the log. */
+  /**
+   * Advance the sim by n ticks: the world moves on (even with nothing
+   * queued — seasons don't wait), queued actions progress, and any outcomes
+   * or world news go into the log.
+   */
   step(n: number): void {
-    if (this.queue.entries.length === 0) return;
     this.tick += n;
+    this.feed.advance(n);
     for (const outcome of this.queue.tick(n)) this.log.push(...outcome.log);
+    for (const line of this.feed.drainEvents()) this.log.push(`✦ ${line}`);
     this.commit();
   }
 
@@ -277,7 +297,8 @@ export class CrafterScene extends Phaser.Scene {
   private renderHeader(): void {
     this.panel(0, 0, DW, HEADER_H, Color.panelBgSub);
     this.text(12, 12, 'CRAFTER', Font.heading, ACCENT_GOLD);
-    this.text(118, 16, `text sim · tick ${this.tick}${this.paused ? ' · PAUSED' : ''}`, Font.body, TextColor.secondary);
+    const yieldPct = Math.round(this.feed.yieldMultiplier * 100);
+    this.text(118, 16, `year ${this.feed.year} · ${this.feed.season} · tick ${this.tick} · yields ${yieldPct}%${this.paused ? ' · PAUSED' : ''}`, Font.body, TextColor.secondary);
 
     let x = DW - 12;
     for (const [label, fn] of [

@@ -86,6 +86,9 @@ export class WorldFeed {
   drainEvents(): string[] {
     const fresh = this.world.events.slice(this.drained, this.drained + MAX_EVENTS_PER_DRAIN);
     this.drained = this.world.events.length;
-    return fresh.map(ev => renderEvent(this.world, ev)).filter(line => line.trim().length > 0);
+    return fresh
+      .map(ev => renderEvent(this.world, ev))
+      // Events without a prose template render as "[EVENT_TYPE]" — not news.
+      .filter(line => line.trim().length > 0 && !/^\[[A-Z0-9_]+\]$/.test(line.trim()));
   }
 }
