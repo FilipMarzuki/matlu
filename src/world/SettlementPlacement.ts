@@ -68,28 +68,55 @@ function mulberry32(seed: number): () => number {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** AABB overlap check for building placement. */
+/**
+ * Tile offsets [lo, hi] (inclusive) covered by a footprint of `n` tiles
+ * anchored on a centre tile. Even sizes lean towards negative offsets, e.g.
+ * n=2 → [-1, 0], n=3 → [-1, 1]. This must match how the renderers draw a
+ * PlacedBuilding (GameScene's settlement overlay loops
+ * `-floor(n/2) .. n - floor(n/2) - 1`), otherwise placement reserves a
+ * different area than the one that gets drawn.
+ */
+export function footprintSpan(n: number): [number, number] {
+  const lo = 0 - Math.floor(n / 2); // `0 -` avoids -0 for n = 1
+  return [lo, lo + n - 1];
+}
+
+/**
+ * AABB overlap check for building placement. Rectangles are footprints of
+ * `w` × `d` tiles (see footprintSpan); `d` defaults to `w` (square).
+ * `gap` is the number of empty tiles required between the two footprints,
+ * so with gap 0 buildings may touch edge-to-edge but not share a tile.
+ */
 export function rectsOverlap(
   ax: number, ay: number, aw: number,
   bx: number, by: number, bw: number,
   gap: number,
+  ad: number = aw, bd: number = bw,
 ): boolean {
-  // Use ceil to match the actual stamp footprint (centre ± ceil(w/2))
-  const halfA = Math.ceil(aw / 2) + gap;
-  const halfB = Math.ceil(bw / 2);
-  return Math.abs(ax - bx) <= (halfA + halfB) &&
-         Math.abs(ay - by) <= (halfA + halfB);
+  const [aLoX, aHiX] = footprintSpan(aw);
+  const [aLoY, aHiY] = footprintSpan(ad);
+  const [bLoX, bHiX] = footprintSpan(bw);
+  const [bLoY, bHiY] = footprintSpan(bd);
+  return ax + aLoX - gap <= bx + bHiX && bx + bLoX <= ax + aHiX + gap &&
+         ay + aLoY - gap <= by + bHiY && by + bLoY <= ay + aHiY + gap;
 }
 
-/** Mark a rectangular area on the grid as wall (1). */
-function stampBuilding(grid: Uint8Array, cols: number, cx: number, cy: number, half: number): void {
-  for (let dx = -half; dx <= half; dx++) {
-    for (let dy = -half; dy <= half; dy++) {
-      const gx = cx + dx;
-      const gy = cy + dy;
-      if (gx >= 0 && gy >= 0 && gx < cols && gy < cols) {
-        grid[gy * cols + gx] = 1;
-      }
+/** All [x, y] tiles covered by a w × d footprint centred on (cx, cy). */
+function footprintTiles(cx: number, cy: number, w: number, d: number): Array<[number, number]> {
+  const [loX, hiX] = footprintSpan(w);
+  const [loY, hiY] = footprintSpan(d);
+  const tiles: Array<[number, number]> = [];
+  for (let dx = loX; dx <= hiX; dx++) {
+    for (let dy = loY; dy <= hiY; dy++) tiles.push([cx + dx, cy + dy]);
+  }
+  return tiles;
+}
+
+/** Mark a building footprint on the grid as wall (1). */
+function stampBuilding(grid: Uint8Array, cols: number, cx: number, cy: number, w: number, d: number): void {
+  for (const [gx, gy] of footprintTiles(cx, cy, w, d)) {
+    if (gx >= 0 && gy >= 0 && gx < cols && gy < cols) {
+      grid[gy * cols + gx] = 1;
     }
   }
 }
@@ -226,7 +253,7 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
   }
   for (const k of mainRoadSet) allPathSet.add(k);
 
-  const placed: Array<{ tx: number; ty: number; size: number }> = [];
+  const placed: Array<{ tx: number; ty: number; w: number; d: number }> = [];
   const result: PlacedBuilding[] = [];
   const connectorPaths: RoadTile[] = [];
 
@@ -236,7 +263,16 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
     // building.w is already in iso block units (from the registry)
     const widthT = Math.max(1, building.w);
     const depthT = Math.max(1, building.d ?? widthT);
-    const half = Math.ceil(widthT / 2);
+    const [loX, hiX] = footprintSpan(widthT);
+    const [loY, hiY] = footprintSpan(depthT);
+
+    // A candidate centre is valid when the w × d footprint is inside the
+    // grid, touches no road/path tile, and keeps a 1-tile gap to others.
+    const fits = (tx: number, ty: number): boolean => {
+      if (tx + loX < 0 || ty + loY < 0 || tx + hiX >= gridSize || ty + hiY >= gridSize) return false;
+      if (footprintTiles(tx, ty, widthT, depthT).some(([x, y]) => allPathSet.has(`${x},${y}`))) return false;
+      return !placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.w, 1, depthT, p.d));
+    };
 
     // ── Place ─────────────────────────────────────────────────────────────
     let placedTx = mid;
@@ -252,20 +288,7 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
       const dist = radiusTiles * (minR + rng() * (maxR - minR));
       const tx = Math.round(mid + Math.cos(angle) * dist);
       const ty = Math.round(mid + Math.sin(angle) * dist);
-
-      if (tx - half < 0 || ty - half < 0 || tx + half >= gridSize || ty + half >= gridSize) continue;
-
-      // Don't overlap any road or path tile
-      let hitsPath = false;
-      for (let dx = -half; dx <= half && !hitsPath; dx++) {
-        for (let dy = -half; dy <= half && !hitsPath; dy++) {
-          if (allPathSet.has(`${tx + dx},${ty + dy}`)) hitsPath = true;
-        }
-      }
-      if (hitsPath) continue;
-
-      // Don't overlap other buildings
-      if (placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, 1.0))) continue;
+      if (!fits(tx, ty)) continue;
 
       placedTx = tx; placedTy = ty; success = true;
       break;
@@ -281,17 +304,7 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
           const d = baseDist + ring * 1.5;
           const tx = Math.round(mid + Math.cos(a) * d);
           const ty = Math.round(mid + Math.sin(a) * d);
-          if (tx - half < 0 || ty - half < 0 || tx + half >= gridSize || ty + half >= gridSize) continue;
-          // Check roads/paths
-          let hitsPath = false;
-          for (let ddx = -half; ddx <= half && !hitsPath; ddx++) {
-            for (let ddy = -half; ddy <= half && !hitsPath; ddy++) {
-              if (allPathSet.has(`${tx + ddx},${ty + ddy}`)) hitsPath = true;
-            }
-          }
-          if (hitsPath) continue;
-          // Check other buildings
-          if (placed.some(p => rectsOverlap(tx, ty, widthT, p.tx, p.ty, p.size, 1.0))) continue;
+          if (!fits(tx, ty)) continue;
           placedTx = tx; placedTy = ty; success = true; wasFallback = true;
           break;
         }
@@ -304,48 +317,35 @@ export function placeBuildings(input: PlacementInput): PlacementResult {
       continue;
     }
 
-    // Verify: does this building overlap any road tile?
-    let roadOverlap = false;
-    for (let dx = -half; dx <= half; dx++) {
-      for (let dy = -half; dy <= half; dy++) {
-        if (allPathSet.has(`${placedTx + dx},${placedTy + dy}`)) {
-          roadOverlap = true;
-        }
-      }
-    }
-    if (roadOverlap) {
-      console.error(`[place] BUG: ${building.id} #${result.length + 1} at (${placedTx},${placedTy}) w=${widthT} OVERLAPS road tiles! fallback=${wasFallback}`);
-    }
-
     // Stamp building as wall on the grid
-    placed.push({ tx: placedTx, ty: placedTy, size: widthT });
+    placed.push({ tx: placedTx, ty: placedTy, w: widthT, d: depthT });
     const placedEntry: PlacedBuilding = { tx: placedTx, ty: placedTy, widthT, depthT, building, fallback: wasFallback };
     result.push(placedEntry);
-    stampBuilding(grid, gridSize, placedTx, placedTy, half);
-    for (let dx = -half; dx <= half; dx++) {
-      for (let dy = -half; dy <= half; dy++) {
-        buildingWalls.add(`${placedTx + dx},${placedTy + dy}`);
-      }
+    stampBuilding(grid, gridSize, placedTx, placedTy, widthT, depthT);
+    for (const [x, y] of footprintTiles(placedTx, placedTy, widthT, depthT)) {
+      buildingWalls.add(`${x},${y}`);
     }
   }
 
   // PHASE 2: Connect each building to the nearest main road via A*.
   // All buildings are stamped as walls, so paths route around them.
   for (const placedEntry of result) {
-    const half = Math.ceil(placedEntry.widthT / 2);
     const placedTx = placedEntry.tx;
     const placedTy = placedEntry.ty;
+    const [loX, hiX] = footprintSpan(placedEntry.widthT);
+    const [loY, hiY] = footprintSpan(placedEntry.depthT);
 
-    // Tag each entrance with its outward cardinal direction
+    // Tag each entrance (the tile just outside each footprint edge) with its
+    // outward cardinal direction
     const entrances: Array<{ tx: number; ty: number; odx: number; ody: number }> = [];
-    for (let dx = -half; dx <= half; dx++)
-      entrances.push({ tx: placedTx + dx, ty: placedTy - half - 1, odx: 0, ody: -1 }); // North
-    for (let dx = -half; dx <= half; dx++)
-      entrances.push({ tx: placedTx + dx, ty: placedTy + half + 1, odx: 0, ody: 1 });  // South
-    for (let dy = -half; dy <= half; dy++)
-      entrances.push({ tx: placedTx - half - 1, ty: placedTy + dy, odx: -1, ody: 0 }); // West
-    for (let dy = -half; dy <= half; dy++)
-      entrances.push({ tx: placedTx + half + 1, ty: placedTy + dy, odx: 1, ody: 0 });  // East
+    for (let dx = loX; dx <= hiX; dx++)
+      entrances.push({ tx: placedTx + dx, ty: placedTy + loY - 1, odx: 0, ody: -1 }); // North
+    for (let dx = loX; dx <= hiX; dx++)
+      entrances.push({ tx: placedTx + dx, ty: placedTy + hiY + 1, odx: 0, ody: 1 });  // South
+    for (let dy = loY; dy <= hiY; dy++)
+      entrances.push({ tx: placedTx + loX - 1, ty: placedTy + dy, odx: -1, ody: 0 }); // West
+    for (let dy = loY; dy <= hiY; dy++)
+      entrances.push({ tx: placedTx + hiX + 1, ty: placedTy + dy, odx: 1, ody: 0 });  // East
 
     // Filter: in-bounds, passable, and 3 tiles ahead (outward) are clear of
     // building walls — so the entrance doesn't face into another building.

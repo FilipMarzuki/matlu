@@ -529,6 +529,7 @@ export function selectBuildings(
   rng: () => number,
 ): ResolvedBuilding[] {
   const result: ResolvedBuilding[] = [];
+  let hierarchyApplied = false;
 
   for (const entry of BUILDINGS) {
     if (!isUnlocked(entry, purpose, tier, secondary, site, anomalies)) continue;
@@ -548,10 +549,18 @@ export function selectBuildings(
       let d = Math.round(minD + rng() * (maxD - minD));
 
       // Culture hierarchy scale: the most important building gets bigger
-      if (culture && i === 0 && result.length === 0 && entry.category === 'civic') {
+      // Applies to the first civic building selected, whatever its position
+      // in the registry (registry order isn't guaranteed).
+      if (culture && !hierarchyApplied && entry.category === 'civic') {
+        hierarchyApplied = true;
         const s = culture.hierarchyScale;
-        w = Math.round(w * s);
-        d = Math.round(d * s);
+        // Sizes are small whole numbers of iso blocks, so plain rounding
+        // swallows most scales (round(2 × 1.2) = 2). Any scale above 1 must
+        // grow the building by at least one block to be visible.
+        const scale = (n: number) =>
+          s > 1 ? Math.max(n + 1, Math.round(n * s)) : Math.max(1, Math.round(n * s));
+        w = scale(w);
+        d = scale(d);
       }
 
       result.push({

@@ -38,6 +38,7 @@
     "cap:sync": "npm run build && npx cap sync",
     "unit": "vitest run",
     "unit:story": "vitest run storytelling",
+    "unit:src": "vitest run src",
     "story:typecheck": "tsc -p storytelling/tsconfig.json",
     "dev:wiki": "npm run dev --prefix wiki",
     "dev:sites": "npm run dev --prefix wiki & npm run dev --prefix dev",

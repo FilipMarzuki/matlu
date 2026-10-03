@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { rectsOverlap, placeBuildings, type PlacementInput } from './SettlementPlacement';
+import { footprintSpan, rectsOverlap, placeBuildings, type PlacementInput } from './SettlementPlacement';
 import type { ResolvedBuilding } from './SettlementGenerator';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -16,14 +16,18 @@ const ZONE_FRACS = {
   outer:  { min: 0.65, max: 0.90 },
 };
 
+// Sizes are in iso blocks (1 block = 1 placement tile), matching
+// ResolvedBuilding.w/d. Depth defaults to width so overrides that only set
+// `w` describe a square footprint.
 function makeBuilding(overrides: Partial<ResolvedBuilding> = {}): ResolvedBuilding {
+  const w = overrides.w ?? 2;
   return {
     id: 'test-building',
     role: 'test',
     category: 'residential',
     zone: 'middle',
-    w: 32,
-    d: 32,
+    w,
+    d: overrides.d ?? w,
     heightHint: 'standard',
     placementHints: [],
     loreHook: '',
@@ -72,6 +76,29 @@ describe('rectsOverlap', () => {
     expect(rectsOverlap(5, 5, 2, 7, 5, 2, 0)).toBe(false);
     expect(rectsOverlap(5, 5, 2, 6, 5, 2, 0)).toBe(true);
   });
+
+  // Regression (#1143): footprints used to be inflated to 2·ceil(w/2)+1 tiles,
+  // so a 3-block building reserved 5×5 and settlements dropped most buildings.
+  it('a gap of 1 allows exactly one empty tile between footprints', () => {
+    // 3-wide footprints at x=0 (−1..1) and x=4 (3..5) leave tile 2 empty.
+    expect(rectsOverlap(0, 0, 3, 4, 0, 3, 1)).toBe(false);
+    expect(rectsOverlap(0, 0, 3, 3, 0, 3, 1)).toBe(true);
+  });
+
+  it('uses depth for the y axis when given', () => {
+    // 2×4 footprint at y=0 covers −2..1; a 2×2 at y=3 covers 2..3 → touching.
+    expect(rectsOverlap(0, 0, 2, 0, 3, 2, 0, 4, 2)).toBe(false);
+    expect(rectsOverlap(0, 0, 2, 0, 2, 2, 0, 4, 2)).toBe(true);
+  });
+});
+
+describe('footprintSpan', () => {
+  it('covers exactly n tiles, matching the renderer', () => {
+    expect(footprintSpan(1)).toEqual([0, 0]);
+    expect(footprintSpan(2)).toEqual([-1, 0]);
+    expect(footprintSpan(3)).toEqual([-1, 1]);
+    expect(footprintSpan(4)).toEqual([-2, 1]);
+  });
 });
 
 // ── placeBuildings — building placement ──────────────────────────────────────
@@ -85,21 +112,21 @@ describe('placeBuildings', () => {
 
   it('places all buildings — none lost', () => {
     const blds = Array.from({ length: 20 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 16, zone: i < 5 ? 'inner' : i < 12 ? 'middle' : 'outer' }));
+      makeBuilding({ id: `b-${i}`, w: 1, zone: i < 5 ? 'inner' : i < 12 ? 'middle' : 'outer' }));
     const { buildings } = placeBuildings(makeInput(blds));
     expect(buildings).toHaveLength(20);
   });
 
   it('no two buildings overlap (AABB with 1-tile gap)', () => {
     const blds = Array.from({ length: 30 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 24, zone: i < 8 ? 'inner' : i < 20 ? 'middle' : 'outer' }));
+      makeBuilding({ id: `b-${i}`, w: 2, zone: i < 8 ? 'inner' : i < 20 ? 'middle' : 'outer' }));
     const { buildings } = placeBuildings(makeInput(blds));
 
     for (let i = 0; i < buildings.length; i++) {
       for (let j = i + 1; j < buildings.length; j++) {
         const a = buildings[i];
         const b = buildings[j];
-        const overlaps = rectsOverlap(a.tx, a.ty, a.widthT, b.tx, b.ty, b.widthT, 1.0);
+        const overlaps = rectsOverlap(a.tx, a.ty, a.widthT, b.tx, b.ty, b.widthT, 1.0, a.depthT, b.depthT);
         if (overlaps) {
           expect(a.fallback && b.fallback).toBe(true);
         }
@@ -109,7 +136,7 @@ describe('placeBuildings', () => {
 
   it('is deterministic — same seed same result', () => {
     const blds = Array.from({ length: 15 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 20 }));
+      makeBuilding({ id: `b-${i}`, w: 2 }));
     const a = placeBuildings(makeInput(blds, { seed: 999 }));
     const b = placeBuildings(makeInput(blds, { seed: 999 }));
     expect(a.buildings.map(p => [p.tx, p.ty])).toEqual(b.buildings.map(p => [p.tx, p.ty]));
@@ -128,24 +155,24 @@ describe('placeBuildings', () => {
 
   it('handles the problematic seed 3206051854', () => {
     const blds = [
-      makeBuilding({ id: 'longhouse', w: 40, zone: 'inner', category: 'civic' }),
-      makeBuilding({ id: 'well', w: 10, zone: 'inner', category: 'civic' }),
-      makeBuilding({ id: 'shrine', w: 16, zone: 'inner', category: 'religious' }),
-      makeBuilding({ id: 'smithy', w: 24, zone: 'inner', category: 'industry' }),
-      makeBuilding({ id: 'inn', w: 28, zone: 'inner', category: 'commerce' }),
-      makeBuilding({ id: 'cottage-1', w: 20, zone: 'middle', category: 'residential' }),
-      makeBuilding({ id: 'cottage-2', w: 20, zone: 'middle', category: 'residential' }),
-      makeBuilding({ id: 'cottage-3', w: 20, zone: 'middle', category: 'residential' }),
-      makeBuilding({ id: 'dwelling-1', w: 26, zone: 'middle', category: 'residential' }),
-      makeBuilding({ id: 'dwelling-2', w: 26, zone: 'middle', category: 'residential' }),
-      makeBuilding({ id: 'tavern', w: 24, zone: 'middle', category: 'commerce' }),
-      makeBuilding({ id: 'workshop', w: 20, zone: 'middle', category: 'industry' }),
-      makeBuilding({ id: 'sawmill', w: 22, zone: 'outer', category: 'industry' }),
-      makeBuilding({ id: 'watchtower', w: 12, zone: 'outer', category: 'military' }),
-      makeBuilding({ id: 'barn', w: 24, zone: 'outer', category: 'infrastructure' }),
-      makeBuilding({ id: 'granary', w: 18, zone: 'inner', category: 'infrastructure' }),
-      makeBuilding({ id: 'farmstead', w: 28, zone: 'outer', category: 'residential' }),
-      makeBuilding({ id: 'storage-shed', w: 14, zone: 'outer', category: 'infrastructure' }),
+      makeBuilding({ id: 'longhouse', w: 3, zone: 'inner', category: 'civic' }),
+      makeBuilding({ id: 'well', w: 1, zone: 'inner', category: 'civic' }),
+      makeBuilding({ id: 'shrine', w: 1, zone: 'inner', category: 'religious' }),
+      makeBuilding({ id: 'smithy', w: 2, zone: 'inner', category: 'industry' }),
+      makeBuilding({ id: 'inn', w: 2, zone: 'inner', category: 'commerce' }),
+      makeBuilding({ id: 'cottage-1', w: 2, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'cottage-2', w: 2, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'cottage-3', w: 2, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'dwelling-1', w: 2, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'dwelling-2', w: 2, zone: 'middle', category: 'residential' }),
+      makeBuilding({ id: 'tavern', w: 2, zone: 'middle', category: 'commerce' }),
+      makeBuilding({ id: 'workshop', w: 2, zone: 'middle', category: 'industry' }),
+      makeBuilding({ id: 'sawmill', w: 2, zone: 'outer', category: 'industry' }),
+      makeBuilding({ id: 'watchtower', w: 1, zone: 'outer', category: 'military' }),
+      makeBuilding({ id: 'barn', w: 2, zone: 'outer', category: 'infrastructure' }),
+      makeBuilding({ id: 'granary', w: 2, zone: 'inner', category: 'infrastructure' }),
+      makeBuilding({ id: 'farmstead', w: 2, zone: 'outer', category: 'residential' }),
+      makeBuilding({ id: 'storage-shed', w: 1, zone: 'outer', category: 'infrastructure' }),
     ];
 
     const { buildings } = placeBuildings(makeInput(blds, { seed: 3206051854, radiusTiles: 8 }));
@@ -157,6 +184,7 @@ describe('placeBuildings', () => {
         if (rectsOverlap(
           buildings[i].tx, buildings[i].ty, buildings[i].widthT,
           buildings[j].tx, buildings[j].ty, buildings[j].widthT, 1.0,
+          buildings[i].depthT, buildings[j].depthT,
         )) {
           overlapCount++;
         }
@@ -167,7 +195,7 @@ describe('placeBuildings', () => {
 
   it('handles dense packing — many large buildings on small grid', () => {
     const blds = Array.from({ length: 25 }, (_, i) =>
-      makeBuilding({ id: `big-${i}`, w: 32, zone: i < 8 ? 'inner' : i < 18 ? 'middle' : 'outer' }));
+      makeBuilding({ id: `big-${i}`, w: 2, zone: i < 8 ? 'inner' : i < 18 ? 'middle' : 'outer' }));
     const { buildings } = placeBuildings(makeInput(blds, { gridSize: 20, radiusTiles: 8 }));
     expect(buildings).toHaveLength(25);
   });
@@ -186,8 +214,8 @@ describe('placeBuildings', () => {
   });
 
   it('respects zone placement — inner buildings closer to centre', () => {
-    const innerBuilding = makeBuilding({ id: 'civic', w: 16, zone: 'inner' });
-    const outerBuilding = makeBuilding({ id: 'shed', w: 16, zone: 'outer' });
+    const innerBuilding = makeBuilding({ id: 'civic', w: 1, zone: 'inner' });
+    const outerBuilding = makeBuilding({ id: 'shed', w: 1, zone: 'outer' });
     const { buildings } = placeBuildings(makeInput([innerBuilding, outerBuilding]));
 
     const mid = Math.floor(24 / 2);
@@ -261,7 +289,7 @@ describe('road generation', () => {
 
   it('buildings are placed and all connected', () => {
     const blds = Array.from({ length: 10 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 32 }));
+      makeBuilding({ id: `b-${i}`, w: 2 }));
     const { buildings, roads } = placeBuildings(makeInput(blds, { streetPattern: 'grid', radiusTiles: 8 }));
     expect(buildings).toHaveLength(10);
     // Should have main roads + connectors
@@ -275,7 +303,7 @@ describe('connector paths', () => {
   it('generates connector paths when buildings are far from roads', () => {
     // Use linear pattern (single road) + many outer buildings that may not be adjacent
     const blds = Array.from({ length: 15 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 32, zone: 'outer' }));
+      makeBuilding({ id: `b-${i}`, w: 2, zone: 'outer' }));
     const { roads } = placeBuildings(makeInput(blds, { streetPattern: 'linear', radiusTiles: 10, gridSize: 30 }));
     const mainRoads = roads.filter(r => r.main);
     const connectors = roads.filter(r => !r.main);
@@ -289,7 +317,7 @@ describe('connector paths', () => {
 
   it('generates paths even with no main roads (pattern=none)', () => {
     const blds = Array.from({ length: 5 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 32, zone: 'middle' }));
+      makeBuilding({ id: `b-${i}`, w: 2, zone: 'middle' }));
     const { roads } = placeBuildings(makeInput(blds, { streetPattern: 'none', radiusTiles: 8 }));
     // Should still have connector paths between buildings
     expect(roads.length).toBeGreaterThan(0);
@@ -298,7 +326,7 @@ describe('connector paths', () => {
 
   it('connector paths exist for buildings far from main roads', () => {
     const blds = Array.from({ length: 10 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 48, zone: i < 4 ? 'inner' : 'outer' }));
+      makeBuilding({ id: `b-${i}`, w: 3, zone: i < 4 ? 'inner' : 'outer' }));
     const { buildings, roads } = placeBuildings(
       makeInput(blds, { streetPattern: 'radial', radiusTiles: 10 }));
     // Should have connector paths (non-main) in addition to main roads
@@ -308,7 +336,7 @@ describe('connector paths', () => {
 
   it('all buildings are reachable from the road network', () => {
     const blds = Array.from({ length: 12 }, (_, i) =>
-      makeBuilding({ id: `b-${i}`, w: 32, zone: i < 4 ? 'inner' : i < 8 ? 'middle' : 'outer' }));
+      makeBuilding({ id: `b-${i}`, w: 2, zone: i < 4 ? 'inner' : i < 8 ? 'middle' : 'outer' }));
     const { buildings, roads } = placeBuildings(
       makeInput(blds, { streetPattern: 'linear', radiusTiles: 10 }));
 
@@ -334,8 +362,8 @@ describe('connector paths', () => {
 describe('building-to-building paths (phase 3)', () => {
   it('generates buildingLink tiles between two linked buildings', () => {
     // Use small w values so buildings fit in the default 24-tile grid
-    const sawmill = makeBuilding({ id: 'sawmill', w: 3, zone: 'outer', pathTo: ['lumberyard'] });
-    const lumberyard = makeBuilding({ id: 'lumberyard', w: 3, zone: 'outer' });
+    const sawmill = makeBuilding({ id: 'sawmill', w: 1, zone: 'outer', pathTo: ['lumberyard'] });
+    const lumberyard = makeBuilding({ id: 'lumberyard', w: 1, zone: 'outer' });
     const { buildings, roads } = placeBuildings(
       makeInput([sawmill, lumberyard], { streetPattern: 'grid' }),
     );
@@ -348,14 +376,14 @@ describe('building-to-building paths (phase 3)', () => {
   });
 
   it('produces no buildingLink tiles when pathTo is absent', () => {
-    const a = makeBuilding({ id: 'a', w: 3, zone: 'outer' });
-    const b = makeBuilding({ id: 'b', w: 3, zone: 'outer' });
+    const a = makeBuilding({ id: 'a', w: 1, zone: 'outer' });
+    const b = makeBuilding({ id: 'b', w: 1, zone: 'outer' });
     const { roads } = placeBuildings(makeInput([a, b], { streetPattern: 'grid' }));
     expect(roads.filter(r => r.buildingLink)).toHaveLength(0);
   });
 
   it('skips pathTo target when that building is not placed', () => {
-    const smithy = makeBuilding({ id: 'smithy', w: 3, zone: 'inner', pathTo: ['absent-building'] });
+    const smithy = makeBuilding({ id: 'smithy', w: 1, zone: 'inner', pathTo: ['absent-building'] });
     const { buildings, roads } = placeBuildings(
       makeInput([smithy], { streetPattern: 'grid' }),
     );
@@ -364,9 +392,9 @@ describe('building-to-building paths (phase 3)', () => {
   });
 
   it('connects each source to its closest target instance', () => {
-    const s = makeBuilding({ id: 'smithy', w: 3, zone: 'inner', pathTo: ['smelter'] });
-    const t1 = makeBuilding({ id: 'smelter', w: 3, zone: 'outer' });
-    const t2 = makeBuilding({ id: 'smelter', w: 3, zone: 'outer' });
+    const s = makeBuilding({ id: 'smithy', w: 1, zone: 'inner', pathTo: ['smelter'] });
+    const t1 = makeBuilding({ id: 'smelter', w: 1, zone: 'outer' });
+    const t2 = makeBuilding({ id: 'smelter', w: 1, zone: 'outer' });
     const { buildings, roads } = placeBuildings(
       makeInput([s, t1, t2], { streetPattern: 'none' }),
     );
@@ -377,8 +405,8 @@ describe('building-to-building paths (phase 3)', () => {
   });
 
   it('does not duplicate paths when only one side declares pathTo', () => {
-    const src = makeBuilding({ id: 'barracks', w: 3, zone: 'outer', pathTo: ['armory'] });
-    const dst = makeBuilding({ id: 'armory', w: 3, zone: 'outer' });
+    const src = makeBuilding({ id: 'barracks', w: 1, zone: 'outer', pathTo: ['armory'] });
+    const dst = makeBuilding({ id: 'armory', w: 1, zone: 'outer' });
     const { roads } = placeBuildings(makeInput([src, dst], { streetPattern: 'grid' }));
     const linkTiles = roads.filter(r => r.buildingLink);
     // Single directional declaration → exactly one path, not two
@@ -396,24 +424,24 @@ describe('seed 42 connectivity audit', () => {
   for (const pattern of patterns) {
     it(`all buildings connected with pattern=${pattern}`, () => {
       const blds = [
-        makeBuilding({ id: 'longhouse', w: 75, zone: 'inner', category: 'civic' }),
-        makeBuilding({ id: 'well', w: 12, zone: 'inner', category: 'civic' }),
-        makeBuilding({ id: 'shrine', w: 16, zone: 'inner', category: 'religious' }),
-        makeBuilding({ id: 'smithy', w: 40, zone: 'inner', category: 'industry' }),
-        makeBuilding({ id: 'inn', w: 52, zone: 'inner', category: 'commerce' }),
-        makeBuilding({ id: 'granary', w: 36, zone: 'inner', category: 'infrastructure' }),
-        makeBuilding({ id: 'cottage-1', w: 36, zone: 'middle', category: 'residential' }),
-        makeBuilding({ id: 'cottage-2', w: 36, zone: 'middle', category: 'residential' }),
-        makeBuilding({ id: 'cottage-3', w: 36, zone: 'middle', category: 'residential' }),
-        makeBuilding({ id: 'dwelling-1', w: 48, zone: 'middle', category: 'residential' }),
-        makeBuilding({ id: 'dwelling-2', w: 48, zone: 'middle', category: 'residential' }),
-        makeBuilding({ id: 'tavern', w: 40, zone: 'middle', category: 'commerce' }),
-        makeBuilding({ id: 'workshop', w: 36, zone: 'middle', category: 'industry' }),
-        makeBuilding({ id: 'sawmill', w: 52, zone: 'outer', category: 'industry' }),
-        makeBuilding({ id: 'watchtower', w: 22, zone: 'outer', category: 'military' }),
-        makeBuilding({ id: 'barn', w: 50, zone: 'outer', category: 'infrastructure' }),
-        makeBuilding({ id: 'farmstead', w: 58, zone: 'outer', category: 'residential' }),
-        makeBuilding({ id: 'storage-shed', w: 20, zone: 'outer', category: 'infrastructure' }),
+        makeBuilding({ id: 'longhouse', w: 5, zone: 'inner', category: 'civic' }),
+        makeBuilding({ id: 'well', w: 1, zone: 'inner', category: 'civic' }),
+        makeBuilding({ id: 'shrine', w: 1, zone: 'inner', category: 'religious' }),
+        makeBuilding({ id: 'smithy', w: 3, zone: 'inner', category: 'industry' }),
+        makeBuilding({ id: 'inn', w: 4, zone: 'inner', category: 'commerce' }),
+        makeBuilding({ id: 'granary', w: 3, zone: 'inner', category: 'infrastructure' }),
+        makeBuilding({ id: 'cottage-1', w: 3, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'cottage-2', w: 3, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'cottage-3', w: 3, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'dwelling-1', w: 3, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'dwelling-2', w: 3, zone: 'middle', category: 'residential' }),
+        makeBuilding({ id: 'tavern', w: 3, zone: 'middle', category: 'commerce' }),
+        makeBuilding({ id: 'workshop', w: 3, zone: 'middle', category: 'industry' }),
+        makeBuilding({ id: 'sawmill', w: 4, zone: 'outer', category: 'industry' }),
+        makeBuilding({ id: 'watchtower', w: 2, zone: 'outer', category: 'military' }),
+        makeBuilding({ id: 'barn', w: 4, zone: 'outer', category: 'infrastructure' }),
+        makeBuilding({ id: 'farmstead', w: 4, zone: 'outer', category: 'residential' }),
+        makeBuilding({ id: 'storage-shed', w: 2, zone: 'outer', category: 'infrastructure' }),
       ];
 
       const { buildings, roads } = placeBuildings(makeInput(blds, {

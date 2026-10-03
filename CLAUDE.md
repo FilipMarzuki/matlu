@@ -32,6 +32,8 @@ Each site has its own `package.json` and is built independently in CI.
 | `npm run dev`             | Vite dev server on **port 3000**                                                 |
 | `npm run build`           | `tsc` then `vite build` (typecheck + bundle)                                       |
 | `npm run typecheck`       | `tsc --noEmit` only                                                              |
+| `npm run unit:src`        | Vitest unit tests under `src/` (pure game logic, no browser)                     |
+| `npm run unit:story`      | Vitest unit tests for the storytelling engine (golden hashes)                    |
 | `npm run preview`         | Preview production build                                                         |
 | `npm run assets:manifest` | Regenerate `public/assets/manifest.json` from `public/assets/packs/`             |
 | `npm run assets:sprites`  | Regenerate `public/assets/sprite-manifest.json` — catalogs all sprites + wired status |
