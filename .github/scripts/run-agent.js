@@ -96,11 +96,15 @@ function renderPrompt(issue) {
     'utf8'
   );
   const num = String(issue.number);
+  // Labels decide which flow the agent follows (e.g. test-first for `systems`
+  // issues), so pass them through as a comma-separated list.
+  const labels = (issue.labels || []).map(l => l.name).join(', ') || '_(none)_';
   return template
     .replaceAll('{{issue_id}}',        num)
     .replaceAll('{{issue_id_lower}}',  num)
     .replaceAll('{{gh_issue_number}}', num)
     .replaceAll('{{title}}',           issue.title)
+    .replaceAll('{{labels}}',          labels)
     .replaceAll('{{description}}',     issue.body || '_(no description provided)_');
 }
 

@@ -22,6 +22,7 @@ The runner has already fetched the issue. Its metadata is below.
 
 - **GitHub issue #:** {{gh_issue_number}}
 - **Title:** {{title}}
+- **Labels:** {{labels}}
 
 ### Description
 
@@ -38,8 +39,9 @@ The runner has already fetched the issue. Its metadata is below.
 3. TypeScript strict mode — no `any`, no type suppressions.
 4. Follow existing patterns in the codebase (Phaser scenes, Supabase client,
    entity hierarchy, etc.).
-5. Before finishing, run `npm run typecheck` and `npm run build`. Fix any
-   errors you introduce.
+5. Before finishing, run `npm run typecheck`, `npm run build` and
+   `npm run unit:src` (Vitest unit tests under `src/`, also run in CI). Fix any
+   errors or failing tests you introduce.
 6. Do not add features, refactors, or "improvements" beyond the acceptance
    criteria.
 
@@ -71,7 +73,54 @@ gh issue close {{gh_issue_number}}
 ```
 Then exit cleanly. Do not create a branch, push, or open a PR.
 
-If clearly not shipped, continue to implementation.
+If clearly not shipped, continue to Step 1.
+
+---
+
+## Step 1 — Acceptance tests first (systems issues only)
+
+**Applies when** the Labels line above includes `systems` **and none of**
+`art`, `ui-hud`, `ui-menus`, `world`. Otherwise **skip this step** and go
+straight to implementation — visual and look-and-feel work is verified by
+screenshots, not tests.
+
+Systems issues state their acceptance criteria as **Given / When / Then**
+scenarios. Turn each one into an automated test *before* writing the code:
+
+1. Create the branch now (Wrap-up step 1 then reuses it):
+   ```bash
+   git checkout -b bender/{{issue_id_lower}}-<short-slug>
+   ```
+2. For each Given/When/Then criterion, write **one** Vitest test in the
+   location the issue names (default: a `*.test.ts` next to the module under
+   `src/`). Name the test after the criterion so the mapping is obvious, e.g.
+   `it('given a 2–4 lumber yield, rolls stay within [2, 4]', …)`.
+3. Run them and confirm they **fail for the right reason** — the function or
+   behaviour doesn't exist yet. A typo, bad import path or syntax error is not
+   a valid failure; fix the test until it fails on the missing behaviour.
+   ```bash
+   npx vitest run <path/to/test-file>
+   ```
+4. Commit the failing tests on their own:
+   ```bash
+   git add <test files>
+   git commit -m "test: acceptance tests for #{{gh_issue_number}}"
+   ```
+5. Implement until every acceptance test passes.
+
+Rules for acceptance tests:
+
+- **Never weaken, skip or delete an acceptance test to get green.** If a
+  criterion is wrong, contradictory or can't be tested without a design
+  decision, stop: apply `agent:partial` in Wrap-up step 3 and explain which
+  criterion and why in the issue comment.
+- Keep tests deterministic: inject a seeded RNG and pass time/ticks
+  explicitly. Never use `Math.random`, `Date.now` or real timers inside tests.
+- Tests must run without a browser or Phaser — test the pure logic module,
+  not the scene.
+- If the issue has no Given/When/Then criteria at all, write tests for the
+  concrete behaviour the acceptance criteria describe, and mention in the
+  issue comment that the criteria weren't in Given/When/Then form.
 
 ---
 
@@ -81,6 +130,8 @@ When implementation is complete, run the exact commands below. Do not skip
 any step. Do not ask for permission — you are in a disposable CI sandbox.
 
 ### 1. Commit and push
+
+If Step 1 already created the branch, skip the `checkout` line.
 
 ```bash
 git checkout -b bender/{{issue_id_lower}}-<short-slug>
@@ -106,13 +157,24 @@ gh pr create \
 <educational PR body per CLAUDE.md>"
 ```
 
-Capture the returned PR URL — you need it for step 4.
+**If you ran Step 1**, the PR body must include an **Acceptance tests**
+section mapping each criterion to its test, so the reviewer can check
+nothing was skipped:
+
+```markdown
+## Acceptance tests
+| Criterion | Test |
+|---|---|
+| Given …, when …, then … | `src/crafting/actions.test.ts` › "given a 2–4 lumber yield, …" |
+```
+
+Capture the returned PR URL — you need it for Wrap-up step 4.
 
 ### 3. Apply **one** outcome label on the GitHub issue
 
-**You opened a PR in Step 2 — therefore the label MUST be one of the four
+**You opened a PR in Wrap-up step 2 — therefore the label MUST be one of the four
 below. NEVER use `agent:already-shipped` here. That label is exclusively
-for Step 0 (supersession exit, no PR opened). If you reached Step 3, the
+for Step 0 (supersession exit, no PR opened). If you reached Wrap-up step 3, the
 work is shipped *by your PR* — `agent:success` is the right answer in
 the overwhelming majority of cases.**
 
@@ -134,7 +196,7 @@ Replace `agent:success` with whichever outcome applies.
 
 ### 4. Post a comment on the GitHub issue
 
-Write a comment summarising what was done and include the PR URL from step 2.
+Write a comment summarising what was done and include the PR URL from Wrap-up step 2.
 
 **If you applied `agent:wrong-interpretation`**, structure the comment to
 include these three lines so the weekly performance log can record it:
