@@ -229,6 +229,15 @@ Tasks are tracked in **GitHub Issues** (repo: FilipMarzuki/matlu).
 
 Every issue must carry exactly one `type:*` label.
 
+**Acceptance criteria — test-first (ATDD) vs exempt:**
+
+| Issue labels | How acceptance is written and verified |
+| ------------ | --------------------------------------- |
+| `systems` and none of `art`, `ui-hud`, `ui-menus`, `world` | **ATDD.** Criteria are Given/When/Then scenarios, each checkable by a unit test without a browser or Phaser. Triage appends Given/When/Then when the prose is concrete, otherwise labels `needs-refinement`. The dev agent writes one failing Vitest test per scenario before implementing. Use the **Systems (ATDD)** issue template. |
+| Anything with `art`, `ui-hud`, `ui-menus` or `world` | **Exempt.** Look-and-feel changes too often for tests to help; acceptance is a screenshot or checklist. Use the **Visual / exploration** issue template. |
+
+Templates live in `.github/ISSUE_TEMPLATE/`; the rules are enforced in `.agents/triage.md`, `.agents/per-issue.md` and `.agents/review.md`.
+
 **Workflow:**
 
 - Pick the highest-priority open issue labelled `ready` (or without a blocking label)
