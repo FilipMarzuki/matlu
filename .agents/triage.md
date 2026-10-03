@@ -15,6 +15,7 @@ Credentials: `GITHUB_TOKEN` (GitHub CLI / API, pre-authenticated via `GH_TOKEN` 
 
 - **GitHub issue #:** {{gh_issue_number}}
 - **Title:** {{title}}
+- **Labels:** {{labels}}
 
 ### Description
 
@@ -46,6 +47,12 @@ An issue is **ready** when an autonomous agent can produce a shippable PR:
 4. **No unresolved design decisions** — choices already made.
 5. **No hard external dependencies** — no missing secrets, assets, or PRs.
 6. **Not purely creative** — no lore, music, or art style decisions.
+7. **Testable criteria (systems issues only)** — see step 2.5. Issues labelled
+   `systems` and none of `art`, `ui-hud`, `ui-menus`, `world` are built
+   test-first: the dev agent turns each Given/When/Then scenario into a unit
+   test before coding. Each scenario must be checkable by a unit test **without
+   a browser or Phaser** — pure logic, seeded RNG, time passed in explicitly.
+   Visual / look-and-feel issues are exempt; never demand tests for them.
 
 ---
 
@@ -133,6 +140,44 @@ gh issue edit {{gh_issue_number}} --add-label "bug"   # (or whichever applies)
 
 > **Why this matters:** `bug` issues are automatically promoted to the front of the
 > nightly agent queue so regressions are fixed before new features are built.
+
+### 2.5. Given/When/Then check (systems issues only)
+
+**Applies when** the Labels line above includes `systems` and none of `art`,
+`ui-hud`, `ui-menus`, `world`. Otherwise skip to step 3.
+
+Look at the acceptance criteria and pick exactly one outcome:
+
+**A. Already Given/When/Then and testable** → nothing to do; go to step 3.
+
+**B. Prose, but concrete** (inputs, outputs and numbers are clear) → append a
+Given/When/Then section to the issue body, leaving the original text intact
+above it. The issue can still be `ready`.
+
+```bash
+gh issue view {{gh_issue_number}} --json body --jq .body > /tmp/body.md
+cat >> /tmp/body.md <<'EOF'
+
+## Acceptance criteria (Given/When/Then)
+_Added by triage from the criteria above. The dev agent writes one test per scenario._
+
+1. **Given** <starting state>
+   **When** <action / function call>
+   **Then** <observable result>
+EOF
+gh issue edit {{gh_issue_number}} --body-file /tmp/body.md
+```
+
+Write one scenario per distinct behaviour. Use concrete values ("2–4 lumber",
+"after 5 ticks"), never adjectives. Don't invent requirements the issue
+doesn't state; if a scenario needs a value the issue doesn't give, that's
+outcome C.
+
+**C. Can't be made testable without a design decision** (e.g. "should feel
+satisfying", "balanced", an unchosen formula or number) → the readiness label
+in step 3 is `needs-refinement`, never `ready`. In step 6, make the comment
+name the criterion and what's missing, e.g.:
+`Needs refinement — criterion "<quote>" isn't testable without deciding <what>. Systems issues need Given/When/Then criteria a unit test can check.`
 
 ### 3. Decide readiness label
 
