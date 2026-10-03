@@ -59,6 +59,14 @@ interface SimSave {
 // Stored as matlu_crafter_sim once crafterStore applies its prefix.
 const SIM_SAVE_KEY = 'matlu_sim';
 
+/**
+ * Where the sim's settlement sits. Yields whose item doesn't occur here
+ * (per item-registry.json `biomes`) are skipped (#1160). A constant for now —
+ * the storytelling engine has no biome model to derive it from, and a picker
+ * is a UI follow-up.
+ */
+const SIM_BIOME = 'forest';
+
 // Heading colours as CSS strings (theme only exposes these as 0x numbers).
 const ACCENT_TEAL = '#4dd4f0';
 const ACCENT_GOLD = '#c8922a';
@@ -150,7 +158,10 @@ export class CrafterScene extends Phaser.Scene {
     this.sources = nodes.map(n => ({
       id: n.id,
       label: n.label,
-      yields: n.yields,
+      // The registry knows where each item occurs; copy that onto the yield
+      // so resolveHarvest can gate it on SIM_BIOME without a registry lookup.
+      // Items missing from the registry get no list and drop everywhere.
+      yields: n.yields.map(y => ({ ...y, biomes: this.items.get(y.itemId)?.biomes })),
       // Respawn time stands in for "how long a trip takes" — 1 tick ≈ 20 s.
       durationTicks: Math.max(2, Math.round(n.respawnMs / 20_000)),
     }));
@@ -199,7 +210,7 @@ export class CrafterScene extends Phaser.Scene {
       recipes: this.recipes,
       initialEntries: saved?.entries,
       // Current world conditions at the moment an action resolves.
-      context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season }),
+      context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season, biome: SIM_BIOME }),
     });
   }
 
@@ -298,7 +309,7 @@ export class CrafterScene extends Phaser.Scene {
     this.panel(0, 0, DW, HEADER_H, Color.panelBgSub);
     this.text(12, 12, 'CRAFTER', Font.heading, ACCENT_GOLD);
     const yieldPct = Math.round(this.feed.yieldMultiplier * 100);
-    this.text(118, 16, `year ${this.feed.year} · ${this.feed.season} · tick ${this.tick} · yields ${yieldPct}%${this.paused ? ' · PAUSED' : ''}`, Font.body, TextColor.secondary);
+    this.text(118, 16, `year ${this.feed.year} · ${this.feed.season} · ${SIM_BIOME} · tick ${this.tick} · yields ${yieldPct}%${this.paused ? ' · PAUSED' : ''}`, Font.body, TextColor.secondary);
 
     let x = DW - 12;
     for (const [label, fn] of [
