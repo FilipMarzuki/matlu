@@ -101,6 +101,18 @@ describe('ActionQueue (#1137 acceptance)', () => {
     expect(run()).toEqual(run());
   });
 
+  // #1153 — world-engine integration: context callback feeds the multiplier in.
+  it('#1153-8. given a queue whose context returns yieldMultiplier 0, a completed harvest adds nothing and logs nothing found', () => {
+    const inventory = new Inventory({ emitter: new RecordingEmitter(), store: new MemoryStore() });
+    const queue = new ActionQueue({ inventory, rng: mulberry32(1), sources: [PINE], recipes: [PLANK], context: () => ({ yieldMultiplier: 0 }) });
+    queue.enqueueHarvest('pine');
+    const outcomes = queue.tick(PINE.durationTicks);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].items).toEqual([]);
+    expect(outcomes[0].log.some(l => /nothing found/i.test(l))).toBe(true);
+    expect(inventory.entries()).toEqual([]);
+  });
+
   it('8. src/crafting/ActionQueue.ts does not import phaser', () => {
     const src = readFileSync(join(__dirname, 'ActionQueue.ts'), 'utf8');
     expect(src).not.toMatch(/from\s+['"]phaser['"]/);

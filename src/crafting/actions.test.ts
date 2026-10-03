@@ -62,6 +62,27 @@ describe('resolveHarvest (#1135 acceptance)', () => {
     expect(lines[0]).toContain('3');
   });
 
+  // #1153 — world-engine integration: yield multiplier from the season/climate.
+  it('#1153-6. given lumber 2–4 and yieldMultiplier 0.5, 1000 seeded rolls are integers in [1, 2]', () => {
+    const rng = mulberry32(3);
+    for (let i = 0; i < 1000; i++) {
+      const qty = qtyOf(resolveHarvest([{ itemId: 'lumber', min: 2, max: 4 }], { rng, yieldMultiplier: 0.5 }).items, 'lumber');
+      expect(Number.isInteger(qty)).toBe(true);
+      expect(qty).toBeGreaterThanOrEqual(1);
+      expect(qty).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('#1153-7. given lumber 2–4 and yieldMultiplier 2, rolls are integers in [4, 8]', () => {
+    const rng = mulberry32(5);
+    for (let i = 0; i < 200; i++) {
+      const qty = qtyOf(resolveHarvest([{ itemId: 'lumber', min: 2, max: 4 }], { rng, yieldMultiplier: 2 }).items, 'lumber');
+      expect(Number.isInteger(qty)).toBe(true);
+      expect(qty).toBeGreaterThanOrEqual(4);
+      expect(qty).toBeLessThanOrEqual(8);
+    }
+  });
+
   it('5. src/crafting/actions.ts does not import phaser', () => {
     const src = readFileSync(join(__dirname, 'actions.ts'), 'utf8');
     expect(src).not.toMatch(/from\s+['"]phaser['"]/);
