@@ -144,6 +144,52 @@ describe('resolveHarvest (#1135 acceptance)', () => {
     });
   });
 
+  // #1160 — biome-gated yields: a yield only drops where its item occurs.
+  describe('#1160 biome-gated yields', () => {
+    const ore = (biomes?: string[]): ResourceNodeYield => ({ itemId: 'iron-ore', min: 2, max: 2, biomes });
+
+    it('#1160-1. given iron-ore 2–2 in [mountain, cave] resolved in forest, no items and empty log', () => {
+      const outcome = resolveHarvest([ore(['mountain', 'cave'])], { rng: mulberry32(1), biome: 'forest' });
+      expect(outcome.items).toEqual([]);
+      expect(outcome.log).toEqual([]);
+    });
+
+    it('#1160-2. given the same yield resolved in mountain, iron-ore qty 2 and log has +2 iron-ore', () => {
+      const outcome = resolveHarvest([ore(['mountain', 'cave'])], { rng: mulberry32(1), biome: 'mountain' });
+      expect(qtyOf(outcome.items, 'iron-ore')).toBe(2);
+      expect(outcome.log).toContain('+2 iron-ore');
+    });
+
+    it('#1160-3. given wood-log [forest] + iron-ore [mountain] resolved in forest, only wood-log and the rng is consulted once', () => {
+      let calls = 0;
+      const rng = () => { calls++; return 0; };
+      const outcome = resolveHarvest(
+        [
+          { itemId: 'wood-log', min: 1, max: 1, biomes: ['forest'] },
+          { itemId: 'iron-ore', min: 1, max: 1, biomes: ['mountain'] },
+        ],
+        { rng, biome: 'forest' },
+      );
+      expect(outcome.items).toEqual([{ itemId: 'wood-log', qty: 1 }]);
+      expect(calls).toBe(1);
+    });
+
+    it('#1160-4. given stone 2–2 with no biomes resolved in sea, qty 2 — unlisted yields occur everywhere', () => {
+      const outcome = resolveHarvest([{ itemId: 'stone', min: 2, max: 2 }], { rng: mulberry32(1), biome: 'sea' });
+      expect(qtyOf(outcome.items, 'stone')).toBe(2);
+    });
+
+    it("#1160-5. given salt 1–1 in ['any'] resolved in tundra, qty 1", () => {
+      const outcome = resolveHarvest([{ itemId: 'salt', min: 1, max: 1, biomes: ['any'] }], { rng: mulberry32(1), biome: 'tundra' });
+      expect(qtyOf(outcome.items, 'salt')).toBe(1);
+    });
+
+    it('#1160-6. given iron-ore [mountain] resolved with no biome in the context, qty 2 — no filtering without a biome', () => {
+      const outcome = resolveHarvest([ore(['mountain'])], { rng: mulberry32(1) });
+      expect(qtyOf(outcome.items, 'iron-ore')).toBe(2);
+    });
+  });
+
   it('5. src/crafting/actions.ts does not import phaser', () => {
     const src = readFileSync(join(__dirname, 'actions.ts'), 'utf8');
     expect(src).not.toMatch(/from\s+['"]phaser['"]/);
