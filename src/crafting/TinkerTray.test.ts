@@ -6,10 +6,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { TinkerTray, TRAY_PROGRESS_CHANGED, TRAY_DISCOVERY } from './TinkerTray';
+import { TinkerTray, TRAY_PROGRESS_CHANGED, TRAY_DISCOVERY, type TrayCombo } from './TinkerTray';
 import { MemoryStore, RecordingEmitter } from './testDoubles';
 
-const COMBOS = {
+const COMBOS: { craftingExamples: TrayCombo[] } = {
   craftingExamples: [
     {
       tray: ['material:lumber', 'concept:binding'],
