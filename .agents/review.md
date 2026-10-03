@@ -27,7 +27,7 @@ You have **3 minutes**. Do not explore the codebase open-endedly.
 ## Step 1 — Fetch PR info
 
 ```bash
-gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName
+gh pr view {{pr_number}} --json title,body,files,additions,deletions,headRefName,closingIssuesReferences
 gh pr diff {{pr_number}}
 ```
 
@@ -43,6 +43,14 @@ Check the diff against these criteria:
 - **No security issues** — no hardcoded secrets, no XSS/injection vectors
 - **TypeScript** — no `any` casts that bypass type safety, no ignored errors
 - **No unrelated changes** — diff should match the PR scope
+- **Acceptance tests (systems issues only)** — if the PR body has an
+  **Acceptance tests** section, every row must point at a test that exists in
+  the diff, and no existing test may be deleted, skipped (`.skip`, `xit`) or
+  loosened without a written reason in the PR body. For a PR that closes an
+  issue labelled `systems` (and none of `art`, `ui-hud`, `ui-menus`, `world`),
+  a missing Acceptance tests section is also a block — check the issue with
+  `gh issue view <n> --json labels,body` (one extra call, counts toward the
+  3-file budget).
 
 ### Should pass (comment but don't block)
 - **Naming** — variables/functions have clear, descriptive names
@@ -51,7 +59,8 @@ Check the diff against these criteria:
 
 ### Skip (don't review)
 - Code style / formatting — handled by tooling
-- Test coverage — no test framework in this project yet
+- Test coverage beyond the acceptance tests above — CI already runs
+  `npm run unit:src`; don't ask for extra tests on visual/UI work
 
 ---
 
