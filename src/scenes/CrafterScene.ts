@@ -32,7 +32,7 @@ const DW = 800;
 const DH = 600;
 const HEADER_H = 44;
 const PACK_Y = 440;              // top of the pack grid
-const COL = { actions: 0, queue: 240, log: 500 } as const;
+const COL = { actions: 0, queue: 280, log: 520 } as const;
 const TICK_MS = 500;             // real time per sim tick while running
 const LOG_KEEP = 200;            // lines kept in memory / saved
 const LOG_SHOW = 17;             // lines that fit in the feed panel
@@ -296,24 +296,29 @@ export class CrafterScene extends Phaser.Scene {
     this.panel(COL.actions, HEADER_H, w, PACK_Y - HEADER_H, Color.panelBg);
     this.text(COL.actions + 12, HEADER_H + 10, 'ACTIONS', Font.heading, ACCENT_TEAL);
 
+    // Two-column grids so all six sources and every reachable recipe fit
+    // without scrolling at 800×600.
+    const gap = 8;
+    const colW = (w - 24 - gap) / 2;
+    const cellX = (i: number) => COL.actions + 12 + (i % 2) * (colW + gap);
+
     let y = HEADER_H + 36;
     this.text(COL.actions + 12, y, 'Harvest', Font.label, TextColor.secondary);
     y += 20;
-    for (const src of this.sources) {
-      this.button(COL.actions + 12, y, `${src.label}  ·${src.durationTicks}t`, () => this.enqueueHarvest(src.id), { width: w - 24 });
-      y += 26;
-    }
+    this.sources.forEach((src, i) => {
+      this.button(cellX(i), y + Math.floor(i / 2) * 26, `${src.label} ·${src.durationTicks}t`, () => this.enqueueHarvest(src.id), { width: colW });
+    });
+    y += Math.ceil(this.sources.length / 2) * 26 + 8;
 
-    y += 8;
     this.text(COL.actions + 12, y, 'Craft', Font.label, TextColor.secondary);
     y += 20;
-    for (const r of this.recipes) {
-      if (y > PACK_Y - 44) break; // prototype: no scrolling yet
+    this.recipes.forEach((r, i) => {
+      const ry = y + Math.floor(i / 2) * 38;
+      if (ry > PACK_Y - 44) return; // prototype: no scrolling yet
       const can = this.queue.canCraft(r.id);
-      const needs = r.inputs.map(i => `${i.qty} ${this.name(i.item)}`).join(', ');
-      this.button(COL.actions + 12, y, `${r.name}  ·${r.timeBase}t`, () => this.enqueueCraft(r.id), { width: w - 24, disabled: !can, hint: needs });
-      y += 38;
-    }
+      const needs = r.inputs.map(inp => `${inp.qty} ${this.name(inp.item)}`).join(', ');
+      this.button(cellX(i), ry, `${r.name} ·${r.timeBase}t`, () => this.enqueueCraft(r.id), { width: colW, disabled: !can, hint: needs });
+    });
   }
 
   private renderQueue(): void {
@@ -351,9 +356,12 @@ export class CrafterScene extends Phaser.Scene {
     this.panel(COL.log, HEADER_H, w, PACK_Y - HEADER_H, Color.panelBg);
     this.text(COL.log + 12, HEADER_H + 10, 'LOG', Font.heading, ACCENT_TEAL);
     const lines = this.log.slice(-LOG_SHOW);
+    // Stack by measured height so a wrapped line pushes the rest down.
+    let y = HEADER_H + 36;
     lines.forEach((line, i) => {
       const latest = i === lines.length - 1;
-      this.text(COL.log + 12, HEADER_H + 36 + i * 21, `› ${line}`, Font.body, latest ? TextColor.primary : TextColor.secondary, w - 24);
+      const t = this.text(COL.log + 12, y, `› ${line}`, Font.body, latest ? TextColor.primary : TextColor.secondary, w - 24);
+      y += t.height + 5;
     });
   }
 
