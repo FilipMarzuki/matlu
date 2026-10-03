@@ -18,7 +18,24 @@ export interface ResourceNodeYield {
   itemId: string;
   min: number;
   max: number;
+  /**
+   * True for things that grow (berries, herbs, fibre): the season scales the
+   * roll (#1159). Stone and ore leave this unset and ignore the season.
+   */
+  seasonal?: boolean;
 }
+
+/**
+ * How much a seasonal yield gives per season (1 = normal). Only four keys
+ * on purpose — an unknown season (or none, as Core Warden passes today)
+ * counts as 1, so seasons are opt-in for whoever builds the context.
+ */
+export const SEASON_YIELD: Readonly<Record<string, number>> = {
+  spring: 1,
+  summer: 1.25,
+  autumn: 1,
+  winter: 0.25,
+};
 
 /** Everything an action may depend on besides its own definition. */
 export interface ActionContext {
@@ -30,9 +47,13 @@ export interface ActionContext {
    * at the default.
    */
   yieldMultiplier?: number;
-  // Hooks for later balancing (season/biome/tool/skill modifiers). Accepted
-  // now so callers can start passing them; not used by any resolver yet.
+  /**
+   * Current season; scales yields marked `seasonal` via SEASON_YIELD (#1159).
+   * The crafting sim passes WorldFeed's season; Core Warden passes nothing.
+   */
   season?: string;
+  // Hooks for later balancing (biome/tool/skill modifiers). Accepted now so
+  // callers can start passing them; not used by any resolver yet.
   biome?: string;
   tool?: string;
   skill?: number;
@@ -54,14 +75,21 @@ function rollInclusive(min: number, max: number, rng: () => number): number {
 }
 
 /**
- * Roll every yield once, scale by the context's yield multiplier, and drop
- * anything that rounds to zero (a bad year can leave a node with nothing).
+ * Roll every yield once, scale by the context's yield multiplier (and, for
+ * seasonal yields, by the season), and drop anything that rounds to zero —
+ * a bad year or a hard winter can leave a node with nothing.
+ *
+ * The two multipliers stack multiplicatively and the result is rounded once
+ * at the end, so 4 berries × summer 1.25 × a 0.5 climate year is
+ * round(2.5) = 3, not round(round(5) × 0.5) = 3 by luck of order.
  */
 export function resolveHarvest(yields: ResourceNodeYield[], ctx: ActionContext): ActionOutcome {
   const outcome: ActionOutcome = { items: [], log: [] };
   const multiplier = ctx.yieldMultiplier ?? 1;
+  const seasonal = (ctx.season !== undefined && SEASON_YIELD[ctx.season]) || 1;
   for (const y of yields) {
-    const qty = Math.max(0, Math.round(rollInclusive(y.min, y.max, ctx.rng) * multiplier));
+    const scale = multiplier * (y.seasonal ? seasonal : 1);
+    const qty = Math.max(0, Math.round(rollInclusive(y.min, y.max, ctx.rng) * scale));
     if (qty <= 0) continue;
     outcome.items.push({ itemId: y.itemId, qty });
     outcome.log.push(`+${qty} ${y.itemId}`);

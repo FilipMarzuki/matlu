@@ -83,6 +83,67 @@ describe('resolveHarvest (#1135 acceptance)', () => {
     }
   });
 
+  // #1159 — seasonal yields: plants give less in winter, more in summer.
+  describe('#1159 seasonal yields', () => {
+    const seasonal = (itemId: string, qty: number): ResourceNodeYield =>
+      ({ itemId, min: qty, max: qty, seasonal: true });
+
+    it('#1159-1. given seasonal berries 2–2 in winter, qty is 1 (2 × 0.25 = 0.5 rounds up)', () => {
+      const outcome = resolveHarvest([seasonal('berries', 2)], { rng: mulberry32(1), season: 'winter' });
+      expect(qtyOf(outcome.items, 'berries')).toBe(1);
+    });
+
+    it('#1159-2. given seasonal berries 1–1 in winter, berries are dropped from items and log', () => {
+      const outcome = resolveHarvest([seasonal('berries', 1)], { rng: mulberry32(1), season: 'winter' });
+      expect(outcome.items.find(i => i.itemId === 'berries')).toBeUndefined();
+      expect(outcome.log.some(line => line.includes('berries'))).toBe(false);
+    });
+
+    it('#1159-3. given seasonal berries 4–4 in summer, qty is 5 (4 × 1.25)', () => {
+      const outcome = resolveHarvest([seasonal('berries', 4)], { rng: mulberry32(1), season: 'summer' });
+      expect(qtyOf(outcome.items, 'berries')).toBe(5);
+    });
+
+    it('#1159-4. given seasonal berries 4–4 in spring and in autumn, qty is 4 both times', () => {
+      for (const season of ['spring', 'autumn']) {
+        const outcome = resolveHarvest([seasonal('berries', 4)], { rng: mulberry32(1), season });
+        expect(qtyOf(outcome.items, 'berries')).toBe(4);
+      }
+    });
+
+    it('#1159-5. given non-seasonal stone 2–2 in winter, qty is 2', () => {
+      const outcome = resolveHarvest([{ itemId: 'stone', min: 2, max: 2 }], { rng: mulberry32(1), season: 'winter' });
+      expect(qtyOf(outcome.items, 'stone')).toBe(2);
+    });
+
+    it('#1159-6. given seasonal berries 4–4 in summer with yieldMultiplier 0.5, qty is 3 (4 × 1.25 × 0.5 = 2.5 rounds up)', () => {
+      const outcome = resolveHarvest([seasonal('berries', 4)], { rng: mulberry32(1), season: 'summer', yieldMultiplier: 0.5 });
+      expect(qtyOf(outcome.items, 'berries')).toBe(3);
+    });
+
+    it('#1159-7. given seasonal berries 4–4 with no season, and with an unknown season, qty is 4 both times', () => {
+      const none = resolveHarvest([seasonal('berries', 4)], { rng: mulberry32(1) });
+      const unknown = resolveHarvest([seasonal('berries', 4)], { rng: mulberry32(1), season: 'monsoon' });
+      expect(qtyOf(none.items, 'berries')).toBe(4);
+      expect(qtyOf(unknown.items, 'berries')).toBe(4);
+    });
+
+    it('#1159-8. resource-nodes.json marks plant yields seasonal and nothing else', () => {
+      const path = join(__dirname, '..', '..', 'public', 'macro-world', 'resource-nodes.json');
+      const { nodeTypes } = JSON.parse(readFileSync(path, 'utf8')) as {
+        nodeTypes: { id: string; yields: ResourceNodeYield[] }[];
+      };
+      const plants = new Set(['plant-fiber', 'herb-green', 'berries']);
+      const minerals = new Set(['wood-log', 'stone', 'iron-ore', 'copper-ore', 'freshwater']);
+      const yields = nodeTypes.flatMap(n => n.yields.map(y => ({ node: n.id, ...y })));
+      expect(yields.length).toBeGreaterThan(0);
+      for (const y of yields) {
+        if (plants.has(y.itemId)) expect(y, `${y.node}.${y.itemId}`).toHaveProperty('seasonal', true);
+        if (minerals.has(y.itemId)) expect(y.seasonal, `${y.node}.${y.itemId}`).toBeFalsy();
+      }
+    });
+  });
+
   it('5. src/crafting/actions.ts does not import phaser', () => {
     const src = readFileSync(join(__dirname, 'actions.ts'), 'utf8');
     expect(src).not.toMatch(/from\s+['"]phaser['"]/);
