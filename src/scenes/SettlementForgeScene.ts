@@ -33,7 +33,7 @@ import {
   initSettlementData,
   type ResolvedBuilding,
 } from '../world/SettlementGenerator';
-import { placeBuildings } from '../world/SettlementPlacement';
+import { footprintSpan, placeBuildings } from '../world/SettlementPlacement';
 import type { SettlementSpec } from '../world/SettlementSpec';
 import { insertFeedback, GAME_VERSION } from '../lib/feedback';
 
@@ -586,31 +586,24 @@ export class SettlementForgeScene extends Phaser.Scene {
     /** Wall blocks below the roof line. */
     wallBlocks = 3,
   ) {
-    // isoPos gives the north apex of the tile diamond at (tx,ty).
-    // The building footprint on the grid is centred at (tx,ty) and extends
-    // half tiles in each direction. To render centred, offset the iso
-    // position by (-half, -half) in tile space.
-    const half = Math.ceil(widthTiles / 2);
-    const { x, y } = this.isoPos(tx - half, ty - half);
-    const hw = this.ISO_W / 2;
-    const hh = this.ISO_H / 2;
-
-    // Scale by full building footprint (2*half+1 tiles, matching the stamp)
-    const fullW = 2 * half + 1;
-    const fullD = 2 * half + 1;
-    const sw = hw * fullW;
-    const sh = hh * fullD;
+    // The footprint covers exactly widthTiles × depthTiles grid tiles around
+    // (tx,ty) — the same span placement reserves (footprintSpan). isoPos
+    // gives the north apex of a tile, so the four ground corners are the
+    // apexes of the footprint's corner tiles: +x runs N→E, +y runs E→S.
+    const [loX] = footprintSpan(widthTiles);
+    const [loY] = footprintSpan(depthTiles);
+    const x0 = tx + loX;
+    const y0 = ty + loY;
+    const groundN = this.isoPos(x0, y0);
+    const botE = this.isoPos(x0 + widthTiles, y0);
+    const botS = this.isoPos(x0 + widthTiles, y0 + depthTiles);
+    const botW = this.isoPos(x0, y0 + depthTiles);
 
     // Corners of the top face (elevated by heightPx)
-    const topN = { x: x,      y: y - heightPx };
-    const topE = { x: x + sw, y: y + sh - heightPx };
-    const topS = { x: x,      y: y + sh * 2 - heightPx };
-    const topW = { x: x - sw, y: y + sh - heightPx };
-
-    // Bottom corners (ground level)
-    const botE = { x: x + sw, y: y + sh };
-    const botS = { x: x,      y: y + sh * 2 };
-    const botW = { x: x - sw, y: y + sh };
+    const topN = { x: groundN.x, y: groundN.y - heightPx };
+    const topE = { x: botE.x,    y: botE.y - heightPx };
+    const topS = { x: botS.x,    y: botS.y - heightPx };
+    const topW = { x: botW.x,    y: botW.y - heightPx };
 
     // Helper to fill a quad
     const fillQuad = (c: number, a: number, p1: {x:number;y:number}, p2: {x:number;y:number}, p3: {x:number;y:number}, p4: {x:number;y:number}) => {
@@ -658,9 +651,9 @@ export class SettlementForgeScene extends Phaser.Scene {
         gfx.lineBetween(left.x, left.y, right.x, right.y);
       }
     }
-    // Vertical columns — one per tile of width (each column = 1 block wide)
-    for (let i = 1; i < widthTiles; i++) {
-      const t = i / widthTiles;
+    // Vertical columns — the E→S edge runs along depth, one column per tile
+    for (let i = 1; i < depthTiles; i++) {
+      const t = i / depthTiles;
       const top = lerp(topE, topS, t);
       const bot = lerp(botE, botS, t);
       gfx.lineBetween(top.x, top.y, bot.x, bot.y);
@@ -680,9 +673,9 @@ export class SettlementForgeScene extends Phaser.Scene {
         gfx.lineBetween(left.x, left.y, right.x, right.y);
       }
     }
-    // Vertical columns — one per tile of depth
-    for (let i = 1; i < depthTiles; i++) {
-      const t = i / depthTiles;
+    // Vertical columns — the S→W edge runs along width, one column per tile
+    for (let i = 1; i < widthTiles; i++) {
+      const t = i / widthTiles;
       const top = lerp(topS, topW, t);
       const bot = lerp(botS, botW, t);
       gfx.lineBetween(top.x, top.y, bot.x, bot.y);
@@ -942,21 +935,23 @@ export class SettlementForgeScene extends Phaser.Scene {
     // Log all buildings with footprint range + which road tiles are inside
     for (let i = 0; i < placements.length; i++) {
       const b = placements[i];
-      const bh = Math.ceil(b.widthT / 2);
+      const [loX, hiX] = footprintSpan(b.widthT);
+      const [loY, hiY] = footprintSpan(b.depthT);
       const insideRoads = roads
         .map((r, ri) => ({ ri, ...r }))
-        .filter(r => Math.abs(r.tx - b.tx) <= bh && Math.abs(r.ty - b.ty) <= bh);
+        .filter(r => r.tx >= b.tx + loX && r.tx <= b.tx + hiX && r.ty >= b.ty + loY && r.ty <= b.ty + hiY);
       if (insideRoads.length > 0) {
-        console.log(`  [B${i+1}] ${b.building.id} @(${b.tx},${b.ty}) w=${b.widthT} half=${bh} footprint=(${b.tx-bh},${b.ty-bh})→(${b.tx+bh},${b.ty+bh}) | ${insideRoads.length} road tiles INSIDE: ${insideRoads.map(r => `#${r.ri}@(${r.tx},${r.ty})`).join(', ')}`);
+        console.log(`  [B${i+1}] ${b.building.id} @(${b.tx},${b.ty}) ${b.widthT}x${b.depthT} footprint=(${b.tx+loX},${b.ty+loY})→(${b.tx+hiX},${b.ty+hiY}) | ${insideRoads.length} road tiles INSIDE: ${insideRoads.map(r => `#${r.ri}@(${r.tx},${r.ty})`).join(', ')}`);
       }
     }
 
     // Build a set of tiles occupied by building base footprints
     const baseTiles = new Set<string>();
     for (const p of placements) {
-      const bh = Math.ceil(p.widthT / 2);
-      for (let dx = -bh; dx <= bh; dx++) {
-        for (let dy = -bh; dy <= bh; dy++) {
+      const [loX, hiX] = footprintSpan(p.widthT);
+      const [loY, hiY] = footprintSpan(p.depthT);
+      for (let dx = loX; dx <= hiX; dx++) {
+        for (let dy = loY; dy <= hiY; dy++) {
           baseTiles.add(`${p.tx + dx},${p.ty + dy}`);
         }
       }

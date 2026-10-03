@@ -33,6 +33,10 @@ jobs:
 
       - run: npm run build
 
+      # Pure-logic unit tests under src/ (Vitest). Fast, no browser.
+      # storytelling/ has its own job below, so it isn't run twice.
+      - run: npm run unit:src
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 

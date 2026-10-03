@@ -42,7 +42,7 @@ import {
 import {
   getAllCultures, getAllBuildings, generateSettlement, initSettlementData,
 } from '../world/SettlementGenerator';
-import { placeBuildings } from '../world/SettlementPlacement';
+import { footprintSpan, placeBuildings } from '../world/SettlementPlacement';
 import type { SettlementSite, SettlementTier } from '../world/SettlementSpec';
 import type { EntranceSide } from '../world/SettlementPlacement';
 
@@ -263,8 +263,9 @@ export class SettlementEditorScene extends Phaser.Scene {
   private hitBuilding(tx: number, ty: number): number {
     for (let i = 0; i < this.state.buildings.length; i++) {
       const b = this.state.buildings[i];
-      const half = Math.ceil(b.widthT / 2);
-      if (Math.abs(tx - b.tx) <= half && Math.abs(ty - b.ty) <= half) return i;
+      const [loX, hiX] = footprintSpan(b.widthT);
+      const [loY, hiY] = footprintSpan(b.widthT);
+      if (tx >= b.tx + loX && tx <= b.tx + hiX && ty >= b.ty + loY && ty <= b.ty + hiY) return i;
     }
     return -1;
   }
