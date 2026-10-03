@@ -24,6 +24,12 @@ export interface ResourceNodeYield {
 export interface ActionContext {
   /** Returns a float in [0, 1), like Math.random. */
   rng: () => number;
+  /**
+   * Scales every rolled quantity (1 = normal). The crafting sim feeds the
+   * climate's harvest multiplier through here (#1153); Core Warden leaves it
+   * at the default.
+   */
+  yieldMultiplier?: number;
   // Hooks for later balancing (season/biome/tool/skill modifiers). Accepted
   // now so callers can start passing them; not used by any resolver yet.
   season?: string;
@@ -47,11 +53,15 @@ function rollInclusive(min: number, max: number, rng: () => number): number {
   return Math.floor(rng() * (max - min + 1)) + min;
 }
 
-/** Roll every yield once. Zero-quantity rolls are dropped entirely. */
+/**
+ * Roll every yield once, scale by the context's yield multiplier, and drop
+ * anything that rounds to zero (a bad year can leave a node with nothing).
+ */
 export function resolveHarvest(yields: ResourceNodeYield[], ctx: ActionContext): ActionOutcome {
   const outcome: ActionOutcome = { items: [], log: [] };
+  const multiplier = ctx.yieldMultiplier ?? 1;
   for (const y of yields) {
-    const qty = rollInclusive(y.min, y.max, ctx.rng);
+    const qty = Math.max(0, Math.round(rollInclusive(y.min, y.max, ctx.rng) * multiplier));
     if (qty <= 0) continue;
     outcome.items.push({ itemId: y.itemId, qty });
     outcome.log.push(`+${qty} ${y.itemId}`);

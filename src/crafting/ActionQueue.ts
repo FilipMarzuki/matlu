@@ -14,7 +14,7 @@
  */
 
 import type { Inventory } from './Inventory';
-import { resolveHarvest, type ResourceNodeYield, type ActionOutcome } from './actions';
+import { resolveHarvest, type ActionContext, type ResourceNodeYield, type ActionOutcome } from './actions';
 
 /** Something the player can harvest from the menu (a resource node type). */
 export interface HarvestSource {
@@ -56,6 +56,12 @@ export interface ActionQueueDeps {
   recipes: Recipe[];
   /** Restore a previously saved queue (see `entries`). */
   initialEntries?: QueuedAction[];
+  /**
+   * Called when an action resolves, to supply the current world conditions
+   * (yield multiplier, season, …). Keeps the queue ignorant of where they
+   * come from — the sim passes a WorldFeed, tests pass a literal.
+   */
+  context?: () => Partial<ActionContext>;
 }
 
 export class ActionQueue {
@@ -63,6 +69,7 @@ export class ActionQueue {
   private readonly rng: () => number;
   private readonly sources: Map<string, HarvestSource>;
   private readonly recipes: Map<string, Recipe>;
+  private readonly context: () => Partial<ActionContext>;
   private queue: QueuedAction[];
 
   constructor(deps: ActionQueueDeps) {
@@ -70,6 +77,7 @@ export class ActionQueue {
     this.rng = deps.rng;
     this.sources = new Map(deps.sources.map(s => [s.id, s]));
     this.recipes = new Map(deps.recipes.map(r => [r.id, r]));
+    this.context = deps.context ?? (() => ({}));
     // Copy so a caller mutating its own array can't corrupt the queue.
     this.queue = (deps.initialEntries ?? []).map(e => ({ ...e }));
   }
@@ -167,7 +175,9 @@ export class ActionQueue {
       const src = this.sources.get(action.target);
       // Source removed from the data since it was queued — nothing to give.
       if (!src) return { items: [], log: [`${action.label}: nothing found`] };
-      const outcome = resolveHarvest(src.yields, { rng: this.rng });
+      // The rng is ours (seeded, for reproducible runs); everything else
+      // about the world comes from the context callback.
+      const outcome = resolveHarvest(src.yields, { ...this.context(), rng: this.rng });
       if (outcome.items.length === 0) outcome.log.push(`${action.label}: nothing found`);
       return outcome;
     }
