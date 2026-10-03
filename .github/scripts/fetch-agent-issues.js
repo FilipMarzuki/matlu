@@ -2,7 +2,7 @@
 // Fetches GitHub Issues eligible for the per-issue nightly agent.
 //
 // Eligibility: open issues with "ready" label but NOT "blocked", and not
-// already targeted by an open bender/* or marvin/* PR (avoids duplicate
+// already targeted by an open bender/* PR (avoids duplicate
 // agent cycles while a PR is in flight).
 //
 // Emits a JSON array of GitHub issue numbers (e.g. [42, 43]) on stdout.
@@ -80,7 +80,7 @@ async function main() {
     );
 
     // Fetch all open PRs and build a set of issue numbers that already have an
-    // in-flight agent PR (bender/* or marvin/*). This prevents the race condition
+    // in-flight agent PR (bender/*). This prevents the race condition
     // where agent:in-progress is removed after a successful run but the PR hasn't
     // merged yet, causing the next cycle to pick the same issue again.
     const openPRs = await fetchAllPages(
@@ -89,7 +89,7 @@ async function main() {
     const issuesWithAgentPR = new Set();
     for (const pr of openPRs) {
       const branch = pr.head?.ref ?? '';
-      if (!branch.startsWith('bender/') && !branch.startsWith('marvin/')) continue;
+      if (!branch.startsWith('bender/')) continue;
       const body = pr.body ?? '';
       for (const m of body.matchAll(/\b(?:closes|fixes|resolves)\s+#(\d+)/gi)) {
         issuesWithAgentPR.add(parseInt(m[1], 10));
