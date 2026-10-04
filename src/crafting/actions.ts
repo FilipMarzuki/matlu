@@ -60,10 +60,12 @@ export interface ActionContext {
   season?: string;
   /**
    * Where the harvest happens; yields whose `biomes` don't include it are
-   * skipped (#1160). The sim passes its settlement biome; Core Warden passes
-   * nothing, so every yield is available there.
+   * skipped (#1160). A settlement sits at a biome edge, so this may be a set
+   * (#1164): a yield drops if it occurs in *any* of them. An empty set, like
+   * no biome at all, means no filtering. The sim passes its settlement
+   * biomes; Core Warden passes nothing, so every yield is available there.
    */
-  biome?: string;
+  biome?: string | string[];
   // Hooks for later balancing (tool/skill modifiers). Accepted now so
   // callers can start passing them; not used by any resolver yet.
   tool?: string;
@@ -85,10 +87,16 @@ function rollInclusive(min: number, max: number, rng: () => number): number {
   return Math.floor(rng() * (max - min + 1)) + min;
 }
 
-/** Can this yield drop in `biome`? Unlisted yields and 'any' drop everywhere. */
-function occursIn(y: ResourceNodeYield, biome: string | undefined): boolean {
+/**
+ * Can this yield drop in any of `biome`? Unlisted yields and 'any' drop
+ * everywhere; no biome (or an empty set) means the caller isn't filtering.
+ */
+function occursIn(y: ResourceNodeYield, biome: string | string[] | undefined): boolean {
   if (biome === undefined || !y.biomes) return true;
-  return y.biomes.includes(biome) || y.biomes.includes('any');
+  // Normalise the single-string form (#1160) to a set so there's one rule.
+  const here = typeof biome === 'string' ? [biome] : biome;
+  if (here.length === 0) return true;
+  return y.biomes.includes('any') || here.some(b => y.biomes!.includes(b));
 }
 
 /**
