@@ -113,6 +113,22 @@ describe('ActionQueue (#1137 acceptance)', () => {
     expect(inventory.entries()).toEqual([]);
   });
 
+  it('#1160-7. given a queue whose context returns biome forest and a source yielding only iron-ore [mountain], the completed harvest logs nothing found and the inventory is unchanged', () => {
+    const inventory = new Inventory({ emitter: new RecordingEmitter(), store: new MemoryStore() });
+    const VEIN: HarvestSource = {
+      id: 'vein',
+      label: 'Ore Vein',
+      yields: [{ itemId: 'iron-ore', min: 1, max: 1, biomes: ['mountain'] }],
+      durationTicks: 2,
+    };
+    const queue = new ActionQueue({ inventory, rng: mulberry32(1), sources: [VEIN], recipes: [], context: () => ({ biome: 'forest' }) });
+    queue.enqueueHarvest('vein');
+    const outcomes = queue.tick(2);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].log).toEqual(['Harvest Ore Vein: nothing found']);
+    expect(inventory.getQty('iron-ore')).toBe(0);
+  });
+
   it('8. src/crafting/ActionQueue.ts does not import phaser', () => {
     const src = readFileSync(join(__dirname, 'ActionQueue.ts'), 'utf8');
     expect(src).not.toMatch(/from\s+['"]phaser['"]/);

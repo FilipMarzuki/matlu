@@ -23,6 +23,12 @@ export interface ResourceNodeYield {
    * roll (#1159). Stone and ore leave this unset and ignore the season.
    */
   seasonal?: boolean;
+  /**
+   * Biomes this drop occurs in, from item-registry.json (#1160). Absent, or
+   * containing 'any', means everywhere. Only checked when the context names
+   * a biome — Core Warden doesn't yet, the sim does.
+   */
+  biomes?: string[];
 }
 
 /**
@@ -52,9 +58,14 @@ export interface ActionContext {
    * The crafting sim passes WorldFeed's season; Core Warden passes nothing.
    */
   season?: string;
-  // Hooks for later balancing (biome/tool/skill modifiers). Accepted now so
-  // callers can start passing them; not used by any resolver yet.
+  /**
+   * Where the harvest happens; yields whose `biomes` don't include it are
+   * skipped (#1160). The sim passes its settlement biome; Core Warden passes
+   * nothing, so every yield is available there.
+   */
   biome?: string;
+  // Hooks for later balancing (tool/skill modifiers). Accepted now so
+  // callers can start passing them; not used by any resolver yet.
   tool?: string;
   skill?: number;
 }
@@ -74,6 +85,12 @@ function rollInclusive(min: number, max: number, rng: () => number): number {
   return Math.floor(rng() * (max - min + 1)) + min;
 }
 
+/** Can this yield drop in `biome`? Unlisted yields and 'any' drop everywhere. */
+function occursIn(y: ResourceNodeYield, biome: string | undefined): boolean {
+  if (biome === undefined || !y.biomes) return true;
+  return y.biomes.includes(biome) || y.biomes.includes('any');
+}
+
 /**
  * Roll every yield once, scale by the context's yield multiplier (and, for
  * seasonal yields, by the season), and drop anything that rounds to zero —
@@ -88,6 +105,9 @@ export function resolveHarvest(yields: ResourceNodeYield[], ctx: ActionContext):
   const multiplier = ctx.yieldMultiplier ?? 1;
   const seasonal = (ctx.season !== undefined && SEASON_YIELD[ctx.season]) || 1;
   for (const y of yields) {
+    // Skip before rolling so a gated yield doesn't consume an rng value —
+    // keeps seeded runs identical whether or not a biome is set.
+    if (!occursIn(y, ctx.biome)) continue;
     const scale = multiplier * (y.seasonal ? seasonal : 1);
     const qty = Math.max(0, Math.round(rollInclusive(y.min, y.max, ctx.rng) * scale));
     if (qty <= 0) continue;
