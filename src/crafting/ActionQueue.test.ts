@@ -7,7 +7,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { ActionQueue, type HarvestSource, type Recipe } from './ActionQueue';
+import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from './ActionQueue';
+import { AUTOMATION_HARVEST, AUTOMATION_NONE, AUTOMATION_WORKSHOP, type Automation } from './planner';
 import { Inventory } from './Inventory';
 import { MemoryStore, RecordingEmitter } from './testDoubles';
 
@@ -151,5 +152,129 @@ describe('ActionQueue (#1137 acceptance)', () => {
   it('8. src/crafting/ActionQueue.ts does not import phaser', () => {
     const src = readFileSync(join(__dirname, 'ActionQueue.ts'), 'utf8');
     expect(src).not.toMatch(/from\s+['"]phaser['"]/);
+  });
+});
+
+/**
+ * #1185 — goal entries that expand into sub-actions at the head. Fixtures
+ * mirror planner.test.ts so the two halves agree on what "plank" needs.
+ */
+describe('goals (#1185 acceptance)', () => {
+  const G_PLANK: Recipe = { id: 'plank', name: 'Plank', inputs: [{ item: 'wood-log', qty: 2 }], output: { item: 'plank', qty: 1 }, timeBase: 3 };
+  const G_ROPE: Recipe = { id: 'rope', name: 'Rope', inputs: [{ item: 'plant-fiber', qty: 4 }], output: { item: 'rope', qty: 1 }, timeBase: 2 };
+  const G_SNARE: Recipe = { id: 'snare', name: 'Snare', inputs: [{ item: 'rope', qty: 1 }, { item: 'wood-log', qty: 1 }], output: { item: 'snare', qty: 1 }, timeBase: 3 };
+  const G_RECIPES = [G_PLANK, G_ROPE, G_SNARE];
+  const G_PINE: HarvestSource = { id: 'pine', label: 'Pine', yields: [{ itemId: 'wood-log', min: 1, max: 2 }], durationTicks: 5 };
+  const G_OAK: HarvestSource = { id: 'oak', label: 'Oak', yields: [{ itemId: 'wood-log', min: 2, max: 3 }], durationTicks: 5 };
+  const G_MEADOW: HarvestSource = { id: 'meadow', label: 'Meadow', yields: [{ itemId: 'plant-fiber', min: 1, max: 1 }], durationTicks: 2 };
+  const G_SOURCES = [G_PINE, G_OAK, G_MEADOW];
+
+  function makeGoals(seed = 42, automation: Automation = AUTOMATION_WORKSHOP, initialEntries?: QueuedAction[]) {
+    const inventory = new Inventory({ emitter: new RecordingEmitter(), store: new MemoryStore() });
+    const queue = new ActionQueue({ inventory, rng: mulberry32(seed), sources: G_SOURCES, recipes: G_RECIPES, automation, initialEntries });
+    return { inventory, queue };
+  }
+
+  it('1. given an empty inventory and enqueueGoal(plank), tick(1): head is harvest oak, then the plank goal with subStep mentioning Oak', () => {
+    const { queue } = makeGoals();
+    expect(queue.enqueueGoal('plank')).toBe(true);
+    queue.tick(1);
+    expect(queue.entries[0]).toMatchObject({ kind: 'harvest', target: 'oak', elapsed: 1 });
+    expect(queue.entries[1]).toMatchObject({ kind: 'goal', recipeId: 'plank' });
+    expect(queue.entries[1].subStep).toContain('Oak');
+  });
+
+  it('2. given the state above, ticked until the harvest completes and once more: ≥2 wood → craft plank with 2 reserved, else another oak harvest', () => {
+    for (const seed of [1, 7]) {
+      const { inventory, queue } = makeGoals(seed);
+      queue.enqueueGoal('plank');
+      queue.tick(1);
+      queue.tick(G_OAK.durationTicks - 1);
+      const wood = inventory.getQty('wood-log');
+      queue.tick(1);
+      if (wood >= 2) {
+        expect(queue.entries[0]).toMatchObject({ kind: 'craft', target: 'plank' });
+        expect(inventory.getQty('wood-log')).toBe(wood - 2);
+      } else {
+        expect(queue.entries[0]).toMatchObject({ kind: 'harvest', target: 'oak' });
+        expect(queue.entries[1]).toMatchObject({ kind: 'goal', recipeId: 'plank' });
+      }
+    }
+  });
+
+  it('3. given seed 7 (first oak roll is 2), tick(100) on a fresh plank goal: 1 plank, empty queue, outcomes = harvest then Crafted 1 Plank', () => {
+    const { inventory, queue } = makeGoals(7);
+    queue.enqueueGoal('plank');
+    const outcomes = queue.tick(100);
+    expect(inventory.getQty('plank')).toBe(1);
+    expect(inventory.getQty('wood-log')).toBe(0);
+    expect(queue.entries).toHaveLength(0);
+    expect(outcomes).toHaveLength(2);
+    expect(outcomes[0].items).toEqual([{ itemId: 'wood-log', qty: 2 }]);
+    expect(outcomes[1].log).toEqual(['Crafted 1 Plank']);
+  });
+
+  it('4. given enqueueGoal(snare) with an empty inventory, tick(1): [harvest meadow, goal rope depth 1, goal snare depth 0]', () => {
+    const { queue } = makeGoals();
+    queue.enqueueGoal('snare');
+    queue.tick(1);
+    expect(queue.entries.map(e => ({ kind: e.kind, target: e.target, depth: e.depth }))).toEqual([
+      { kind: 'harvest', target: 'meadow', depth: undefined },
+      { kind: 'goal', target: 'rope', depth: 1 },
+      { kind: 'goal', target: 'snare', depth: 0 },
+    ]);
+    expect(queue.entries[1].ancestry).toEqual(['snare']);
+  });
+
+  it('5. given enqueueGoal(snare) and tick(200): 1 snare, 0 rope, empty queue', () => {
+    const { inventory, queue } = makeGoals();
+    queue.enqueueGoal('snare');
+    queue.tick(200);
+    expect(inventory.getQty('snare')).toBe(1);
+    expect(inventory.getQty('rope')).toBe(0);
+    expect(queue.entries).toHaveLength(0);
+  });
+
+  it('6. given AUTOMATION_HARVEST and enqueueGoal(snare), tick(1): goal removed, log says blocked + rope, inventory unchanged', () => {
+    const { inventory, queue } = makeGoals(42, AUTOMATION_HARVEST);
+    expect(queue.enqueueGoal('snare')).toBe(true);
+    const outcomes = queue.tick(1);
+    expect(queue.entries).toHaveLength(0);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].items).toEqual([]);
+    expect(outcomes[0].log.join(' ')).toMatch(/blocked/);
+    expect(outcomes[0].log.join(' ')).toMatch(/rope/);
+    expect(inventory.entries()).toEqual([]);
+  });
+
+  it('7. given AUTOMATION_NONE, enqueueGoal(plank) returns false and the queue is empty', () => {
+    const { queue } = makeGoals(42, AUTOMATION_NONE);
+    expect(queue.enqueueGoal('plank')).toBe(false);
+    expect(queue.entries).toHaveLength(0);
+  });
+
+  it('8. given a goal mid-expansion, its entries restore into a new queue deep-equal and ticking continues the plan', () => {
+    const a = makeGoals(7);
+    a.queue.enqueueGoal('plank');
+    a.queue.tick(1);
+    const saved = JSON.parse(JSON.stringify(a.queue.entries)) as QueuedAction[];
+    expect(saved[1].subStep).toBeDefined();
+
+    const b = makeGoals(7, AUTOMATION_WORKSHOP, saved);
+    expect(b.queue.entries).toEqual(saved);
+    b.queue.tick(100);
+    expect(b.inventory.getQty('plank')).toBe(1);
+    expect(b.queue.entries).toHaveLength(0);
+  });
+
+  it('9. given goals plank, plank and 4 wood-log, tick(1): first is a craft reserving 2, second is still a goal', () => {
+    const { inventory, queue } = makeGoals();
+    inventory.add('wood-log', 4);
+    queue.enqueueGoal('plank');
+    queue.enqueueGoal('plank');
+    queue.tick(1);
+    expect(queue.entries[0]).toMatchObject({ kind: 'craft', target: 'plank', elapsed: 1 });
+    expect(queue.entries[1]).toMatchObject({ kind: 'goal', target: 'plank' });
+    expect(inventory.getQty('wood-log')).toBe(2);
   });
 });
