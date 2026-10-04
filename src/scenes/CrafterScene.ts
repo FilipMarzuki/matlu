@@ -20,6 +20,7 @@
 import * as Phaser from 'phaser';
 import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from '../crafting/ActionQueue';
 import { Inventory, type ResourceDef } from '../crafting/Inventory';
+import { AUTOMATION_NONE, AUTOMATION_WORKSHOP, type Automation } from '../crafting/planner';
 import { WorldFeed } from '../crafting/WorldFeed';
 import { sourcesFromMap, biomesFromMap, type NodeTypeDef } from '../crafting/mapSources';
 import { parseLdtkLevel, type LdtkLevel } from '../world/MapData';
@@ -38,7 +39,8 @@ const DW = 800;
 const DH = 600;
 const HEADER_H = 44;
 const PACK_Y = 440;              // top of the pack grid
-const COL = { actions: 0, queue: 280, log: 520 } as const;
+// Actions widened for the Craft + Make pair per recipe row (#1186).
+const COL = { actions: 0, queue: 320, log: 545 } as const;
 const TICK_MS = 500;             // real time per sim tick while running
 const LOG_KEEP = 200;            // lines kept in memory / saved
 const LOG_SHOW = 17;             // lines that fit in the feed panel
@@ -54,6 +56,16 @@ interface SimSave {
 
 // Stored as matlu_crafter_sim once crafterStore applies its prefix.
 const SIM_SAVE_KEY = 'matlu_sim';
+
+/**
+ * How much the sim does for the player when they press Make (#1186): with
+ * WORKSHOP it harvests missing inputs and crafts one level of intermediate
+ * recipes. A fixed constant for now — the character sheet (#1183) will
+ * eventually supply this from progression. AUTOMATION_NONE hides Make.
+ */
+const SIM_AUTOMATION: Automation = AUTOMATION_WORKSHOP;
+/** Width of the Make button beside each recipe's Craft button. */
+const MAKE_W = 48;
 
 /**
  * The map the sim lives on (#1171): a settlement file under
@@ -220,6 +232,7 @@ export class CrafterScene extends Phaser.Scene {
       sources: this.sources,
       recipes: this.recipes,
       initialEntries: saved?.entries,
+      automation: SIM_AUTOMATION,
       // Current world conditions at the moment an action resolves.
       context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season, biome: this.biomes }),
     });
@@ -248,6 +261,12 @@ export class CrafterScene extends Phaser.Scene {
   enqueueCraft(recipeId: string): void {
     if (this.queue.enqueueCraft(recipeId)) this.commit();
     else this.pushLog('Not enough materials.');
+  }
+
+  /** "Make" (#1186): queue a goal and let the planner work out the steps. */
+  enqueueGoal(recipeId: string): void {
+    if (this.queue.enqueueGoal(recipeId)) this.commit();
+    else this.pushLog('Cannot plan that here.');
   }
 
   /**
@@ -360,12 +379,18 @@ export class CrafterScene extends Phaser.Scene {
 
     this.text(COL.actions + 12, y, 'Craft', Font.label, TextColor.secondary);
     y += 20;
+    // Every recipe here is reachable from the map's sources (buildData
+    // filtered the rest), so Make only depends on automation being on.
+    const makeOn = SIM_AUTOMATION !== AUTOMATION_NONE;
     this.recipes.forEach((r, i) => {
       const ry = y + Math.floor(i / 2) * 38;
       if (ry > PACK_Y - 44) return; // prototype: no scrolling yet
       const can = this.queue.canCraft(r.id);
-      const needs = r.inputs.map(inp => `${inp.qty} ${this.name(inp.item)}`).join(', ');
-      this.button(cellX(i), ry, `${r.name} ·${r.timeBase}t`, () => this.enqueueCraft(r.id), { width: colW, disabled: !can, hint: needs });
+      // The craft time moved into the hint to make room for Make (#1186).
+      const needs = `${r.timeBase}t · ` + r.inputs.map(inp => `${inp.qty} ${this.name(inp.item)}`).join(', ');
+      const craftW = makeOn ? colW - MAKE_W - 4 : colW;
+      this.button(cellX(i), ry, r.name, () => this.enqueueCraft(r.id), { width: craftW, disabled: !can, hint: needs });
+      if (makeOn) this.button(cellX(i) + craftW + 4, ry, 'Make', () => this.enqueueGoal(r.id), { width: MAKE_W });
     });
   }
 
@@ -385,6 +410,13 @@ export class CrafterScene extends Phaser.Scene {
       if (y > PACK_Y - 40) return;
       const head = i === 0;
       this.text(COL.queue + 12, y, `${i + 1}. ${e.label}`, Font.label, head ? TextColor.primary : TextColor.secondary);
+      if (e.kind === 'goal') {
+        // A goal never ticks, so no bar: show what it's waiting on instead
+        // (#1186). A fresh goal has no subStep until it reaches the head.
+        this.text(COL.queue + 24, y + 17, `▸ ${e.subStep ?? 'planning…'}`, Font.small, TextColor.secondary);
+        y += 36;
+        return;
+      }
       // Progress bar: only the head action advances, the rest show empty.
       const bx = COL.queue + 12;
       const by = y + 18;
