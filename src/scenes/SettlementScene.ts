@@ -20,6 +20,7 @@ import { WORLD_TILE_SIZE } from '../lib/IsoTransform';
 import { preloadTilePacks } from '../world/TilePacks';
 import { parseLdtkLevel, entitiesOfType, intGridGet, type LdtkLevel, type IntGridLayer } from '../world/MapData';
 import { PATH_SEGMENT } from '../world/SettlementMapEmitter';
+import { overviewTexture } from '../world/MapOverview';
 
 /** Ground tile pack for cells that aren't road or building. */
 const GROUND_PACK = 'meadow';
@@ -81,6 +82,7 @@ export class SettlementScene extends Phaser.Scene {
       fontSize: '14px', color: '#ffe066', fontFamily: 'monospace',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(9999);
 
+    this.buildMinimap();
     this.buildExitButton();
     this.buildTouchJoystick();
     this.input.keyboard?.on('keydown-ESC', this.exitToMainMenu, this);
@@ -162,6 +164,20 @@ export class SettlementScene extends Phaser.Scene {
     for (let i = 1; i < p.length; i++) gfx.lineTo(p[i].x, p[i].y);
     gfx.closePath();
     gfx.fillPath();
+  }
+
+  /** Top-down minimap in the top-right corner, from the same level the iso view draws (#1177). */
+  private buildMinimap(): void {
+    const CELL_PX = 4;
+    const PAD = 12;
+    const key = `overview-${this.level.identifier}`;
+    const overview = overviewTexture(this, key, this.level, CELL_PX);
+    const w = overview.cols * CELL_PX;
+    const h = overview.rows * CELL_PX;
+    const x = this.scale.width - PAD - w;
+    const y = PAD;
+    this.add.rectangle(x - 2, y - 2, w + 4, h + 4, 0x000000, 0.6).setOrigin(0).setScrollFactor(0).setDepth(9998);
+    this.add.image(x, y, key).setOrigin(0).setScrollFactor(0).setDepth(9999);
   }
 
   private buildExitButton(): void {
