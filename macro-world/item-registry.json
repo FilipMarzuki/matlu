@@ -139,6 +139,22 @@
       ]
     },
     {
+      "id": "freshwater",
+      "name": "Freshwater",
+      "category": "raw",
+      "stackMax": 5,
+      "playerObtainable": true,
+      "icon": "item-freshwater.png",
+      "source": [
+        "gathering"
+      ],
+      "biomes": [
+        "riverbank",
+        "lake",
+        "swamp"
+      ]
+    },
+    {
       "id": "coal",
       "name": "Coal",
       "category": "raw",
