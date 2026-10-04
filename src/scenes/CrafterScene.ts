@@ -60,12 +60,14 @@ interface SimSave {
 const SIM_SAVE_KEY = 'matlu_sim';
 
 /**
- * Where the sim's settlement sits. Yields whose item doesn't occur here
- * (per item-registry.json `biomes`) are skipped (#1160). A constant for now —
- * the storytelling engine has no biome model to derive it from, and a picker
- * is a UI follow-up.
+ * Where the sim's settlement sits: at a biome edge, so a set (#1164). Yields
+ * whose item occurs in none of these (per item-registry.json `biomes`) are
+ * skipped (#1160). Forest + riverbank gives wood, plants, stone and copper;
+ * iron is deliberately absent — that's for trade to bring. A constant for
+ * now — the storytelling engine has no biome model to derive it from, and a
+ * picker is a UI follow-up.
  */
-const SIM_BIOME = 'forest';
+const SIM_BIOMES = ['forest', 'riverbank'];
 
 // Heading colours as CSS strings (theme only exposes these as 0x numbers).
 const ACCENT_TEAL = '#4dd4f0';
@@ -159,7 +161,7 @@ export class CrafterScene extends Phaser.Scene {
       id: n.id,
       label: n.label,
       // The registry knows where each item occurs; copy that onto the yield
-      // so resolveHarvest can gate it on SIM_BIOME without a registry lookup.
+      // so resolveHarvest can gate it on SIM_BIOMES without a registry lookup.
       // Items missing from the registry get no list and drop everywhere.
       yields: n.yields.map(y => ({ ...y, biomes: this.items.get(y.itemId)?.biomes })),
       // Respawn time stands in for "how long a trip takes" — 1 tick ≈ 20 s.
@@ -210,7 +212,7 @@ export class CrafterScene extends Phaser.Scene {
       recipes: this.recipes,
       initialEntries: saved?.entries,
       // Current world conditions at the moment an action resolves.
-      context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season, biome: SIM_BIOME }),
+      context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season, biome: SIM_BIOMES }),
     });
   }
 
@@ -307,9 +309,11 @@ export class CrafterScene extends Phaser.Scene {
 
   private renderHeader(): void {
     this.panel(0, 0, DW, HEADER_H, Color.panelBgSub);
-    this.text(12, 12, 'CRAFTER', Font.heading, ACCENT_GOLD);
+    // The pause marker lives in the heading, not the status line — with a
+    // multi-biome settlement the status line already runs to the buttons.
+    this.text(12, 12, this.paused ? 'PAUSED' : 'CRAFTER', Font.heading, ACCENT_GOLD);
     const yieldPct = Math.round(this.feed.yieldMultiplier * 100);
-    this.text(118, 16, `year ${this.feed.year} · ${this.feed.season} · ${SIM_BIOME} · tick ${this.tick} · yields ${yieldPct}%${this.paused ? ' · PAUSED' : ''}`, Font.body, TextColor.secondary);
+    this.text(118, 16, `year ${this.feed.year} · ${this.feed.season} · ${SIM_BIOMES.join('+')} · tick ${this.tick} · yields ${yieldPct}%`, Font.body, TextColor.secondary);
 
     let x = DW - 12;
     for (const [label, fn] of [
