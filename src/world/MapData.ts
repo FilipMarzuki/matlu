@@ -115,6 +115,12 @@ export interface LdtkLevel {
   identifier: string;
   /** Per-map scale, from the level's custom fields; DEFAULT_MAP_SCALE if absent. */
   scale: MapScale;
+  /**
+   * All level custom fields by identifier (LDtk `fieldInstances`), e.g.
+   * `biomes: string[]` written by the settlement emitter (#1178). `scale` is
+   * the typed view of two of them; everything else is read from here.
+   */
+  fields: Record<string, unknown>;
   /** World-pixel width of the level. */
   width: number;
   /** World-pixel height of the level. */
@@ -168,11 +174,23 @@ export function parseLdtkLevel(raw: any): LdtkLevel {
   return {
     identifier: String(raw?.identifier ?? 'unknown'),
     scale: parseScale(raw?.fieldInstances),
+    fields: parseFields(raw?.fieldInstances),
     width:  Number(raw?.pxWid ?? raw?.width  ?? 2400),
     height: Number(raw?.pxHei ?? raw?.height ?? 2000),
     intGrids,
     entityLayers,
   };
+}
+
+/** Level `fieldInstances` (`[{ __identifier, __value }]`) as a plain object. */
+function parseFields(fieldInstances: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!Array.isArray(fieldInstances)) return out;
+  for (const f of fieldInstances as Record<string, unknown>[]) {
+    const id = f['__identifier'] ?? f['identifier'];
+    if (typeof id === 'string') out[id] = f['__value'] ?? f['value'];
+  }
+  return out;
 }
 
 /**
@@ -206,6 +224,7 @@ export function emptyLdtkLevel(width = 2400, height = 2000, cellSize = 32): Ldtk
   return {
     identifier: 'placeholder',
     scale: { ...DEFAULT_MAP_SCALE },
+    fields: {},
     width,
     height,
     intGrids: {

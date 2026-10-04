@@ -36,6 +36,7 @@ const COLOR_ROAD_MINOR = 0x6e6250;
 const COLOR_BUILDING = 0xc8922a;
 const COLOR_BUILDING_SIDE = 0x8a6418;
 const COLOR_ENTRANCE = 0x4dd4f0;
+const COLOR_RESOURCE = 0x7fd36b;
 
 export class SettlementScene extends Phaser.Scene {
   private level!: LdtkLevel;
@@ -76,6 +77,7 @@ export class SettlementScene extends Phaser.Scene {
     this.drawGround(collision, paths);
     this.drawBuildings();
     this.drawEntrances();
+    this.drawResourceNodes();
 
     const { identifier, scale } = this.level;
     this.add.text(W / 2, 20, `${identifier} · ${scale.label} · 1 tile = ${scale.metersPerTile} m · ${n}×${n}`, {
@@ -142,6 +144,19 @@ export class SettlementScene extends Phaser.Scene {
     const gfx = this.add.graphics().setDepth(5000);
     for (const e of entrances) {
       this.diamond(gfx, e.x / WORLD_TILE_SIZE, e.y / WORLD_TILE_SIZE, COLOR_ENTRANCE, 0.6);
+    }
+  }
+
+  /** Gatherable nodes from the map file (#1178), labelled by type until real sprites land. */
+  private drawResourceNodes(): void {
+    const nodes = entitiesOfType(this.level.entityLayers.Entities ?? { identifier: 'Entities', entities: [] }, 'ResourceNode');
+    const gfx = this.add.graphics().setDepth(5000);
+    for (const nd of nodes) {
+      const tx = nd.x / WORLD_TILE_SIZE, ty = nd.y / WORLD_TILE_SIZE;
+      this.diamond(gfx, tx, ty, COLOR_RESOURCE, 0.75);
+      const { x, y } = this.isoPos(tx, ty);
+      this.add.text(x, y + ISO_H / 2, String(nd.fields.nodeType ?? '?'), { fontSize: '9px', color: '#0f2a0a', fontFamily: 'monospace' })
+        .setOrigin(0.5).setDepth(5001);
     }
   }
 

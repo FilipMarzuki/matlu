@@ -61,10 +61,16 @@ const result = placeBuildings({
   streetPattern: 'grid',
 });
 
-const map = emitSettlementMap(result, { identifier: id, gridSize, cellSize: TILE, metersPerTile: 2, label: 'settlement' });
+// Node placement gets its own seeded stream so adding a resource doesn't
+// reshuffle the buildings (placeBuildings already derives seed+7 / seed+13).
+const map = emitSettlementMap(result, {
+  identifier: id, gridSize, cellSize: TILE, metersPerTile: 2, label: 'settlement',
+  site, rng: mulberry32(seed + 29),
+});
 
 const outDir = resolve(process.cwd(), 'public/assets/maps');
 mkdirSync(outDir, { recursive: true });
 const out = resolve(outDir, `${id}.json`);
 writeFileSync(out, JSON.stringify(map, null, 2) + '\n');
-console.log(`${out}: ${result.buildings.length} buildings, ${result.roads.length} road tiles, ${gridSize}×${gridSize} cells, tier ${spec.tier}`);
+const nodeCount = map.layerInstances.flatMap(l => '__type' in l && l.__type === 'Entities' ? l.entityInstances : []).filter(e => e.__identifier === 'ResourceNode').length;
+console.log(`${out}: ${result.buildings.length} buildings, ${result.roads.length} road tiles, ${nodeCount} resource nodes, ${gridSize}×${gridSize} cells, tier ${spec.tier}`);
