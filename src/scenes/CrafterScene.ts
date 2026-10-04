@@ -21,6 +21,9 @@ import * as Phaser from 'phaser';
 import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from '../crafting/ActionQueue';
 import { Inventory, type ResourceDef } from '../crafting/Inventory';
 import { WorldFeed } from '../crafting/WorldFeed';
+import { sourcesFromMap, biomesFromMap, type NodeTypeDef } from '../crafting/mapSources';
+import { parseLdtkLevel, type LdtkLevel } from '../world/MapData';
+import { overviewTexture } from '../world/MapOverview';
 import { loadWorld } from '../../storytelling/seed.js';
 import { DEFAULT_SPEC } from '../../storytelling/world-spec.js';
 import { localStorageStore, nullEmitter, type SaveStore } from '../crafting/ports';
@@ -40,13 +43,6 @@ const TICK_MS = 500;             // real time per sim tick while running
 const LOG_KEEP = 200;            // lines kept in memory / saved
 const LOG_SHOW = 17;             // lines that fit in the feed panel
 
-/** Shape of public/macro-world/resource-nodes.json (loaded at runtime). */
-interface NodeTypeJson {
-  id: string;
-  label: string;
-  yields: { itemId: string; min: number; max: number }[];
-  respawnMs: number;
-}
 
 /** What we persist besides the inventory (which saves itself). */
 interface SimSave {
@@ -60,14 +56,22 @@ interface SimSave {
 const SIM_SAVE_KEY = 'matlu_sim';
 
 /**
- * Where the sim's settlement sits: at a biome edge, so a set (#1164). Yields
- * whose item occurs in none of these (per item-registry.json `biomes`) are
- * skipped (#1160). Forest + riverbank gives wood, plants, stone and copper;
- * iron is deliberately absent — that's for trade to bring. A constant for
- * now — the storytelling engine has no biome model to derive it from, and a
- * picker is a UI follow-up.
+ * The map the sim lives on (#1171): a settlement file under
+ * public/assets/maps/, the same one SettlementScene draws in iso. Harvest
+ * sources come from its ResourceNode entities and the biome set from its
+ * Biome layer. `?map=<id>` overrides it, so a freshly generated file can be
+ * tried without a code change.
  */
-const SIM_BIOMES = ['forest', 'riverbank'];
+const DEFAULT_MAP_ID = 'settlement-demo';
+/**
+ * Biome set used only when the map has no biome information (#1164): a
+ * settlement at a forest/river edge. Maps emitted since #1178 always have
+ * one, so this is the fallback for hand-authored files that predate it.
+ */
+const FALLBACK_BIOMES = ['forest', 'riverbank'];
+/** The "where you live" overview in the pack panel: same map, top-down (#1177). */
+const HOME_TEXTURE = 'crafter-home-overview';
+const HOME_CELL_PX = 4;
 
 // Heading colours as CSS strings (theme only exposes these as 0x numbers).
 const ACCENT_TEAL = '#4dd4f0';
@@ -108,6 +112,10 @@ export class CrafterScene extends Phaser.Scene {
   private sources: HarvestSource[] = [];
   private recipes: Recipe[] = [];
   private items = new Map<string, RegistryItem>();
+  /** The settlement map the sim reads its place from (#1171). */
+  private level!: LdtkLevel;
+  /** Where the settlement sits — from the map, else FALLBACK_BIOMES. */
+  private biomes: string[] = FALLBACK_BIOMES;
 
   private log: string[] = [];
   private tick = 0;
@@ -120,6 +128,8 @@ export class CrafterScene extends Phaser.Scene {
 
   preload(): void {
     this.load.json('resource-nodes', '/macro-world/resource-nodes.json');
+    const mapId = new URLSearchParams(window.location.search).get('map') ?? DEFAULT_MAP_ID;
+    this.load.json('sim-map', `/assets/maps/${mapId}.json`);
     // Item icons: every player-obtainable item that has one. Keyed "icon:<id>".
     for (const item of itemRegistryData.items as RegistryItem[]) {
       const path = itemIconPath(item);
@@ -156,17 +166,16 @@ export class CrafterScene extends Phaser.Scene {
   private buildData(): void {
     for (const item of itemRegistryData.items as RegistryItem[]) this.items.set(item.id, item);
 
-    const nodes = (this.cache.json.get('resource-nodes') as { nodeTypes: NodeTypeJson[] } | undefined)?.nodeTypes ?? [];
-    this.sources = nodes.map(n => ({
-      id: n.id,
-      label: n.label,
-      // The registry knows where each item occurs; copy that onto the yield
-      // so resolveHarvest can gate it on SIM_BIOMES without a registry lookup.
-      // Items missing from the registry get no list and drop everywhere.
-      yields: n.yields.map(y => ({ ...y, biomes: this.items.get(y.itemId)?.biomes })),
-      // Respawn time stands in for "how long a trip takes" — 1 tick ≈ 20 s.
-      durationTicks: Math.max(2, Math.round(n.respawnMs / 20_000)),
-    }));
+    // The map says which nodes exist here and what the land is; the
+    // registry says where each item occurs. mapSources joins the two so
+    // resolveHarvest can gate yields (#1160) without a registry lookup.
+    const nodeTypes = (this.cache.json.get('resource-nodes') as { nodeTypes: NodeTypeDef[] } | undefined)?.nodeTypes ?? [];
+    this.level = parseLdtkLevel(this.cache.json.get('sim-map'));
+    this.sources = sourcesFromMap(this.level, nodeTypes, this.items);
+    const mapBiomes = biomesFromMap(this.level);
+    this.biomes = mapBiomes.length > 0 ? mapBiomes : FALLBACK_BIOMES;
+    // Bake the top-down overview once; renderPack() places it as an Image.
+    overviewTexture(this, HOME_TEXTURE, this.level, HOME_CELL_PX);
 
     // Only offer recipes the player can actually reach from what the nodes
     // yield (directly or via other craftable items) — the rest would just be
@@ -212,7 +221,7 @@ export class CrafterScene extends Phaser.Scene {
       recipes: this.recipes,
       initialEntries: saved?.entries,
       // Current world conditions at the moment an action resolves.
-      context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season, biome: SIM_BIOMES }),
+      context: () => ({ yieldMultiplier: this.feed.yieldMultiplier, season: this.feed.season, biome: this.biomes }),
     });
   }
 
@@ -313,7 +322,10 @@ export class CrafterScene extends Phaser.Scene {
     // multi-biome settlement the status line already runs to the buttons.
     this.text(12, 12, this.paused ? 'PAUSED' : 'CRAFTER', Font.heading, ACCENT_GOLD);
     const yieldPct = Math.round(this.feed.yieldMultiplier * 100);
-    this.text(118, 16, `year ${this.feed.year} · ${this.feed.season} · ${SIM_BIOMES.join('+')} · tick ${this.tick} · yields ${yieldPct}%`, Font.body, TextColor.secondary);
+    // Two short lines beat one long one: the world line (time) and the place
+    // line (map + biomes) each stay clear of the buttons on the right.
+    this.text(118, 8, `year ${this.feed.year} · ${this.feed.season} · tick ${this.tick} · yields ${yieldPct}%`, Font.body, TextColor.secondary);
+    this.text(118, 26, `${this.level.identifier} · ${this.biomes.join(' + ')}`, Font.small, TextColor.secondary);
 
     let x = DW - 12;
     for (const [label, fn] of [
@@ -406,8 +418,18 @@ export class CrafterScene extends Phaser.Scene {
     this.text(12, PACK_Y + 10, 'PACK', Font.heading, ACCENT_TEAL);
     this.text(76, PACK_Y + 14, `${this.inventory.slotCount}/${this.inventory.maxSlots} slots`, Font.small, TextColor.secondary);
 
+    // "Where you live": the settlement map as a top-down thumbnail, bottom
+    // right. The iso scene draws this same file; here it's a menu element.
+    const home = this.textures.get(HOME_TEXTURE).getSourceImage();
+    const homeW = home.width, homeH = Math.min(home.height, DH - PACK_Y - 36);
+    const homeX = DW - 12 - homeW;
+    this.text(homeX, PACK_Y + 10, 'HOME', Font.heading, ACCENT_GOLD);
+    const img = this.add.image(homeX, PACK_Y + 32, HOME_TEXTURE).setOrigin(0);
+    if (home.height > homeH) img.setCrop(0, 0, homeW, homeH);
+    this.root.add(img);
+
     const cell = 56;
-    const perRow = Math.floor((DW - 24) / cell);
+    const perRow = Math.floor((homeX - 24) / cell);
     this.inventory.entries().forEach(([id, qty], i) => {
       const x = 12 + (i % perRow) * cell;
       const y = PACK_Y + 34 + Math.floor(i / perRow) * cell;
