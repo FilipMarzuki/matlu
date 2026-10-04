@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   nextStep, AUTOMATION_NONE, AUTOMATION_HARVEST, AUTOMATION_WORKSHOP, AUTOMATION_FULL, type Automation,
+  GUILD_RANKS, rankByName,
 } from './planner';
 import type { HarvestSource, Recipe } from './ActionQueue';
 
@@ -78,5 +79,28 @@ describe('nextStep (#1184 acceptance)', () => {
     const args: [ReturnType<typeof goal>, ReturnType<typeof inv>, Recipe[], HarvestSource[], Automation] =
       [goal('snare'), inv({ 'plant-fiber': 1 }), RECIPES, SOURCES, AUTOMATION_FULL];
     expect(nextStep(...args)).toEqual(nextStep(...args));
+  });
+});
+
+// #1195 — automation tiers are the Workshop-Towns guild ranks.
+describe('guild ranks (#1195 acceptance)', () => {
+  it('1. GUILD_RANKS has the four ranks in ascending order with the agreed capabilities', () => {
+    expect(GUILD_RANKS.map(r => r.rank)).toEqual(['apprentice', 'journeyman', 'master', 'artificer']);
+    expect(GUILD_RANKS.map(r => r.label)).toEqual(['Apprentice', 'Journeyman', 'Master', 'Artificer']);
+    const caps = GUILD_RANKS.map(({ mayHarvest, mayCraftSubgoals, maxDepth }) => ({ mayHarvest, mayCraftSubgoals, maxDepth }));
+    expect(caps).toEqual([
+      { mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 },
+      { mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 },
+      { mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 },
+      { mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity },
+    ]);
+  });
+
+  it('2. rankByName(journeyman) is the same object as GUILD_RANKS[1] and as AUTOMATION_HARVEST', () => {
+    expect(rankByName('journeyman')).toBe(GUILD_RANKS[1]);
+    expect(rankByName('journeyman')).toBe(AUTOMATION_HARVEST);
+    expect(rankByName('apprentice')).toBe(AUTOMATION_NONE);
+    expect(rankByName('master')).toBe(AUTOMATION_WORKSHOP);
+    expect(rankByName('artificer')).toBe(AUTOMATION_FULL);
   });
 });

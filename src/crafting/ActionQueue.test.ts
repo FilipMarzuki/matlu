@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { ActionQueue, type HarvestSource, type Recipe, type QueuedAction } from './ActionQueue';
-import { AUTOMATION_HARVEST, AUTOMATION_NONE, AUTOMATION_WORKSHOP, type Automation } from './planner';
+import { AUTOMATION_HARVEST, AUTOMATION_NONE, AUTOMATION_WORKSHOP, rankByName, type Automation } from './planner';
 import { Inventory } from './Inventory';
 import { MemoryStore, RecordingEmitter } from './testDoubles';
 
@@ -265,6 +265,21 @@ describe('goals (#1185 acceptance)', () => {
     b.queue.tick(100);
     expect(b.inventory.getQty('plank')).toBe(1);
     expect(b.queue.entries).toHaveLength(0);
+  });
+
+  // #1195 — ranks are compared by name, not object identity.
+  it('#1195-3. given a COPY of the apprentice rank, enqueueGoal(plank) returns false and the queue is empty', () => {
+    const { queue } = makeGoals(42, { ...rankByName('apprentice') });
+    expect(queue.enqueueGoal('plank')).toBe(false);
+    expect(queue.entries).toHaveLength(0);
+  });
+
+  it('#1195-4. given rankByName(master), enqueueGoal(plank) + tick(1) plans exactly as criterion 1', () => {
+    const { queue } = makeGoals(42, rankByName('master'));
+    expect(queue.enqueueGoal('plank')).toBe(true);
+    queue.tick(1);
+    expect(queue.entries[0]).toMatchObject({ kind: 'harvest', target: 'oak', elapsed: 1 });
+    expect(queue.entries[1]).toMatchObject({ kind: 'goal', recipeId: 'plank' });
   });
 
   it('9. given goals plank, plank and 4 wood-log, tick(1): first is a craft reserving 2, second is still a goal', () => {
