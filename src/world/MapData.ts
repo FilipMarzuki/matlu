@@ -90,12 +90,31 @@ export function entitiesOfType(layer: EntityLayer, type: string): LdtkEntity[] {
   return layer.entities.filter(e => e.identifier === type);
 }
 
+// ─── Scale ───────────────────────────────────────────────────────────────────
+
+/**
+ * What one tile *means* on this map (#1169). Each map picks its own: a
+ * settlement tile is a few metres, a region tile a day's walk. This is
+ * story metadata only — physics, cell maths and rendering never read it.
+ */
+export interface MapScale {
+  /** Real-world metres one tile stands for. */
+  metersPerTile: number;
+  /** Human label for the scale, e.g. "settlement", "region". */
+  label: string;
+}
+
+/** Scale for maps that don't declare one (every map before #1169). */
+export const DEFAULT_MAP_SCALE: Readonly<MapScale> = { metersPerTile: 1, label: 'unscaled' };
+
 // ─── Level ───────────────────────────────────────────────────────────────────
 
 /** A fully parsed LDtk level ready for runtime consumption. */
 export interface LdtkLevel {
   /** Level identifier (e.g. "Level_0"). */
   identifier: string;
+  /** Per-map scale, from the level's custom fields; DEFAULT_MAP_SCALE if absent. */
+  scale: MapScale;
   /** World-pixel width of the level. */
   width: number;
   /** World-pixel height of the level. */
@@ -148,10 +167,29 @@ export function parseLdtkLevel(raw: any): LdtkLevel {
 
   return {
     identifier: String(raw?.identifier ?? 'unknown'),
+    scale: parseScale(raw?.fieldInstances),
     width:  Number(raw?.pxWid ?? raw?.width  ?? 2400),
     height: Number(raw?.pxHei ?? raw?.height ?? 2000),
     intGrids,
     entityLayers,
+  };
+}
+
+/**
+ * Read the scale from a level's custom fields. LDtk stores level fields as
+ * `[{ __identifier, __value }]`; we look for `metersPerTile` and
+ * `scaleLabel`. Either may be missing — a map authored before #1169 has
+ * neither — so each falls back to the default independently.
+ */
+function parseScale(fieldInstances: unknown): MapScale {
+  const fields = Array.isArray(fieldInstances) ? (fieldInstances as Record<string, unknown>[]) : [];
+  const value = (id: string): unknown =>
+    fields.find(f => (f['__identifier'] ?? f['identifier']) === id)?.['__value'];
+  const meters = Number(value('metersPerTile'));
+  const label = value('scaleLabel');
+  return {
+    metersPerTile: Number.isFinite(meters) && meters > 0 ? meters : DEFAULT_MAP_SCALE.metersPerTile,
+    label: typeof label === 'string' && label.length > 0 ? label : DEFAULT_MAP_SCALE.label,
   };
 }
 
@@ -167,6 +205,7 @@ export function emptyLdtkLevel(width = 2400, height = 2000, cellSize = 32): Ldtk
   });
   return {
     identifier: 'placeholder',
+    scale: { ...DEFAULT_MAP_SCALE },
     width,
     height,
     intGrids: {
