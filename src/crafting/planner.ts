@@ -18,7 +18,17 @@
 import type { Inventory } from './Inventory';
 import type { HarvestSource, Recipe } from './ActionQueue';
 
+/**
+ * The Workshop-Towns guild ranks (#1195). Artificer: Convergence names the
+ * top one — the title is the goal, not the start.
+ */
+export type GuildRank = 'apprentice' | 'journeyman' | 'master' | 'artificer';
+
 export interface Automation {
+  /** Which guild rank grants this much automation. Compare ranks by this, not by object identity. */
+  rank: GuildRank;
+  /** Display name, e.g. "Journeyman". */
+  label: string;
   /** May push a harvest for a missing direct input. */
   mayHarvest: boolean;
   /** May push a sub-goal (craft) for a missing craftable input. */
@@ -27,14 +37,34 @@ export interface Automation {
   maxDepth: number;
 }
 
-/** You do everything by hand — goals aren't offered. */
-export const AUTOMATION_NONE: Automation = { mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 };
-/** You know where the wood is: harvests happen for you, crafting doesn't. */
-export const AUTOMATION_HARVEST: Automation = { mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 };
-/** You can plan a two-step job: one level of sub-goals. */
-export const AUTOMATION_WORKSHOP: Automation = { mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 };
-/** You run a workshop: any depth. */
-export const AUTOMATION_FULL: Automation = { mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity };
+/**
+ * Ranks in ascending order. Frozen so a scene can't accidentally promote
+ * the player by mutating a shared preset — copy one to tweak it.
+ */
+export const GUILD_RANKS: readonly Automation[] = Object.freeze([
+  /** You do everything by hand — goals aren't offered. */
+  Object.freeze({ rank: 'apprentice', label: 'Apprentice', mayHarvest: false, mayCraftSubgoals: false, maxDepth: 0 }),
+  /** You know where the wood is: harvests happen for you, crafting doesn't. */
+  Object.freeze({ rank: 'journeyman', label: 'Journeyman', mayHarvest: true, mayCraftSubgoals: false, maxDepth: 0 }),
+  /** You can plan a two-step job: one level of sub-goals. */
+  Object.freeze({ rank: 'master', label: 'Master', mayHarvest: true, mayCraftSubgoals: true, maxDepth: 1 }),
+  /** You run a workshop: any depth. */
+  Object.freeze({ rank: 'artificer', label: 'Artificer', mayHarvest: true, mayCraftSubgoals: true, maxDepth: Infinity }),
+] as Automation[]);
+
+/** The preset for a rank — the same object every call, so identity checks against the aliases below still hold. */
+export function rankByName(rank: GuildRank): Automation {
+  return GUILD_RANKS.find(r => r.rank === rank)!;
+}
+
+/** @deprecated Use `rankByName('apprentice')` / `GUILD_RANKS` (#1195). */
+export const AUTOMATION_NONE: Automation = rankByName('apprentice');
+/** @deprecated Use `rankByName('journeyman')` / `GUILD_RANKS` (#1195). */
+export const AUTOMATION_HARVEST: Automation = rankByName('journeyman');
+/** @deprecated Use `rankByName('master')` / `GUILD_RANKS` (#1195). */
+export const AUTOMATION_WORKSHOP: Automation = rankByName('master');
+/** @deprecated Use `rankByName('artificer')` / `GUILD_RANKS` (#1195). */
+export const AUTOMATION_FULL: Automation = rankByName('artificer');
 
 export type PlanStep =
   /** Every input is in the inventory: craft now. */

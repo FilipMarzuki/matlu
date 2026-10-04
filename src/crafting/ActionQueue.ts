@@ -15,7 +15,7 @@
 
 import type { Inventory } from './Inventory';
 import { resolveHarvest, type ActionContext, type ResourceNodeYield, type ActionOutcome } from './actions';
-import { nextStep, AUTOMATION_NONE, type Automation, type PlanStep } from './planner';
+import { nextStep, rankByName, type Automation, type PlanStep } from './planner';
 
 /** Something the player can harvest from the menu (a resource node type). */
 export interface HarvestSource {
@@ -100,7 +100,7 @@ export class ActionQueue {
     this.sources = new Map(deps.sources.map(s => [s.id, s]));
     this.recipes = new Map(deps.recipes.map(r => [r.id, r]));
     this.context = deps.context ?? (() => ({}));
-    this.automation = deps.automation ?? AUTOMATION_NONE;
+    this.automation = deps.automation ?? rankByName('apprentice');
     // Copy so a caller mutating its own array can't corrupt the queue.
     // `ancestry` is copied too — it's the one nested value a saved entry has.
     this.queue = (deps.initialEntries ?? []).map(e => ({ ...e, ...(e.ancestry ? { ancestry: [...e.ancestry] } : {}) }));
@@ -172,12 +172,13 @@ export class ActionQueue {
    * crafts worked out by the planner as the goal reaches the head (#1185).
    * Nothing is reserved yet — the goal reserves its own inputs the moment it
    * turns into a craft, so two queued goals can't double-spend. Returns false
-   * for an unknown recipe, or when automation is off (the UI hides the
-   * button in that case, since a goal with no automation can never expand).
+   * for an unknown recipe, or for an apprentice (the UI hides the button in
+   * that case, since a goal with no automation can never expand). Checked by
+   * rank name so a copied preset behaves like the shared one (#1195).
    */
   enqueueGoal(recipeId: string): boolean {
     const recipe = this.recipes.get(recipeId);
-    if (!recipe || this.automation === AUTOMATION_NONE) return false;
+    if (!recipe || this.automation.rank === 'apprentice') return false;
     this.queue.push(this.goalEntry(recipe, 0, []));
     return true;
   }
