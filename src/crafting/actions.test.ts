@@ -190,6 +190,43 @@ describe('resolveHarvest (#1135 acceptance)', () => {
     });
   });
 
+  // #1164 — settlement spans biomes: the context may carry a set of biomes.
+  describe('#1164 biome set', () => {
+    const y = (itemId: string, qty: number, biomes?: string[]): ResourceNodeYield => ({ itemId, min: qty, max: qty, biomes });
+    const SETTLEMENT = ['forest', 'riverbank'];
+
+    it('#1164-1. given iron-ore [mountain, cave, cliff] resolved in [forest, riverbank], no items and empty log', () => {
+      const outcome = resolveHarvest([y('iron-ore', 2, ['mountain', 'cave', 'cliff'])], { rng: mulberry32(1), biome: SETTLEMENT });
+      expect(outcome.items).toEqual([]);
+      expect(outcome.log).toEqual([]);
+    });
+
+    it('#1164-2. given copper-ore [mountain, cave, riverbank] resolved in [forest, riverbank], qty 1 — second biome matches', () => {
+      const outcome = resolveHarvest([y('copper-ore', 1, ['mountain', 'cave', 'riverbank'])], { rng: mulberry32(1), biome: SETTLEMENT });
+      expect(qtyOf(outcome.items, 'copper-ore')).toBe(1);
+    });
+
+    it('#1164-3. given wood-log [forest, plains, taiga] resolved in [forest, riverbank], qty 2 — first biome matches', () => {
+      const outcome = resolveHarvest([y('wood-log', 2, ['forest', 'plains', 'taiga'])], { rng: mulberry32(1), biome: SETTLEMENT });
+      expect(qtyOf(outcome.items, 'wood-log')).toBe(2);
+    });
+
+    it("#1164-4. given wood-log [forest] + iron-ore [mountain] resolved with the plain string 'forest', exactly wood-log — single string still works", () => {
+      const outcome = resolveHarvest([y('wood-log', 1, ['forest']), y('iron-ore', 1, ['mountain'])], { rng: mulberry32(1), biome: 'forest' });
+      expect(outcome.items).toEqual([{ itemId: 'wood-log', qty: 1 }]);
+    });
+
+    it('#1164-5. given iron-ore [mountain] resolved with biome [], qty 2 — an empty set means no filtering', () => {
+      const outcome = resolveHarvest([y('iron-ore', 2, ['mountain'])], { rng: mulberry32(1), biome: [] });
+      expect(qtyOf(outcome.items, 'iron-ore')).toBe(2);
+    });
+
+    it("#1164-6. given stone ['any'] resolved in [tundra, sea], qty 2", () => {
+      const outcome = resolveHarvest([y('stone', 2, ['any'])], { rng: mulberry32(1), biome: ['tundra', 'sea'] });
+      expect(qtyOf(outcome.items, 'stone')).toBe(2);
+    });
+  });
+
   it('5. src/crafting/actions.ts does not import phaser', () => {
     const src = readFileSync(join(__dirname, 'actions.ts'), 'utf8');
     expect(src).not.toMatch(/from\s+['"]phaser['"]/);
