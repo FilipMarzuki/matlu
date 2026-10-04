@@ -79,4 +79,12 @@ describe('overviewCells (#1177 acceptance)', () => {
     expect(o.cells.filter(c => c === 'building').length).toBe(collisionOnes);
     expect(o.cells.filter(c => c === 'spawn')).toHaveLength(1);
   });
+
+  it('#1178-7. given the regenerated settlement-demo.json, it has a Biome layer, a ResourceNode, and at least one resource overview cell', () => {
+    const raw = JSON.parse(readFileSync(join(__dirname, '..', '..', 'public', 'assets', 'maps', 'settlement-demo.json'), 'utf8'));
+    const l = parseLdtkLevel(raw);
+    expect(l.intGrids.Biome).toBeDefined();
+    expect(l.entityLayers.Entities.entities.some(e => e.identifier === 'ResourceNode')).toBe(true);
+    expect(overviewCells(l).cells.some(c => c === 'resource')).toBe(true);
+  });
 });

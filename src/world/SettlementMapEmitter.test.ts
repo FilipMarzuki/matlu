@@ -9,6 +9,7 @@ import { emitSettlementMap, type EmitOptions } from './SettlementMapEmitter';
 import { footprintSpan, type PlacedBuilding, type PlacementResult } from './SettlementPlacement';
 import { parseLdtkLevel, entitiesOfType, intGridGet } from './MapData';
 import type { ResolvedBuilding } from './SettlementGenerator';
+import { mulberry32 } from '../lib/rng';
 
 function building(id: string, w: number, d = w): ResolvedBuilding {
   return { id, role: id, category: 'residential', zone: 'middle', w, d, heightHint: 'standard', placementHints: [], loreHook: '' };
@@ -79,5 +80,84 @@ describe('emitSettlementMap (#1170 acceptance)', () => {
     expect(entrances).toHaveLength(1);
     expect({ x: entrances[0].x, y: entrances[0].y }).toEqual({ x: 0, y: 160 });
     expect(entrances[0].fields.side).toBe('w');
+  });
+
+  // #1178 — resource nodes and biome cells from the site.
+  describe('#1178 site → Biome layer + ResourceNode entities', () => {
+    const empty = (): PlacementResult => ({ buildings: [], roads: [] });
+    const withSite = (n: number, site: NonNullable<EmitOptions['site']>, seed = 1): EmitOptions =>
+      ({ ...OPTS, gridSize: n, site, rng: mulberry32(seed) });
+    const forest = (extra: Partial<NonNullable<EmitOptions['site']>> = {}) =>
+      ({ geography: 'forest' as const, adjacentResources: [], features: [], ...extra });
+    const nodes = (level: ReturnType<typeof parseLdtkLevel>) => entitiesOfType(level.entityLayers.Entities, 'ResourceNode');
+    const cellOf = (e: { x: number; y: number }) => ({ x: Math.floor(e.x / 32), y: Math.floor(e.y / 32) });
+
+    it('#1178-1. given geography forest, no features, empty 6×6 grid: Biome layer all 0 and biomes field is ["forest"]', () => {
+      const level = parseLdtkLevel(emitSettlementMap(empty(), withSite(6, forest())));
+      const biome = level.intGrids.Biome;
+      expect(biome).toBeDefined();
+      expect(biome.cols).toBe(6);
+      expect(biome.values.every(v => v === 0)).toBe(true);
+      expect(level.fields.biomes).toEqual(['forest']);
+    });
+
+    it('#1178-2. given features [river-crossing]: biomes is [forest, riverbank], some cells are 1, all on one grid edge', () => {
+      const level = parseLdtkLevel(emitSettlementMap(empty(), withSite(6, forest({ features: ['river-crossing'] }))));
+      expect(level.fields.biomes).toEqual(['forest', 'riverbank']);
+      const b = level.intGrids.Biome;
+      const ones: Array<[number, number]> = [];
+      for (let y = 0; y < b.rows; y++) for (let x = 0; x < b.cols; x++) if (intGridGet(b, x, y) === 1) ones.push([x, y]);
+      expect(ones.length).toBeGreaterThan(0);
+      const sameX = ones.every(([x]) => x === ones[0][0]);
+      const sameY = ones.every(([, y]) => y === ones[0][1]);
+      expect(sameX || sameY).toBe(true);
+      const edgeX = ones[0][0] === 0 || ones[0][0] === b.cols - 1;
+      const edgeY = ones[0][1] === 0 || ones[0][1] === b.rows - 1;
+      expect((sameX && edgeX) || (sameY && edgeY)).toBe(true);
+    });
+
+    it('#1178-3. given adjacentResources [timber] on an empty 10×10 grid: exactly 3 ResourceNode tree entities on distinct cells', () => {
+      const level = parseLdtkLevel(emitSettlementMap(empty(), withSite(10, forest({ adjacentResources: ['timber'] }))));
+      const ns = nodes(level);
+      expect(ns).toHaveLength(3);
+      expect(ns.every(n => n.fields.nodeType === 'tree')).toBe(true);
+      const cells = new Set(ns.map(n => { const c = cellOf(n); return `${c.x},${c.y}`; }));
+      expect(cells.size).toBe(3);
+    });
+
+    it('#1178-4. given timber, a 4×4 building covering (3..6, 3..6) and roads along row 0: no node on a building or road cell', () => {
+      const result: PlacementResult = {
+        buildings: [placed('hall', 5, 5, 4, 4)],
+        roads: Array.from({ length: 10 }, (_, tx) => ({ tx, ty: 0, main: true })),
+      };
+      const level = parseLdtkLevel(emitSettlementMap(result, withSite(10, forest({ adjacentResources: ['timber'] }))));
+      for (const n of nodes(level)) {
+        const { x, y } = cellOf(n);
+        expect(intGridGet(level.intGrids.Collision, x, y), `node on building at ${x},${y}`).toBe(0);
+        expect(intGridGet(level.intGrids.PathSegments, x, y), `node on road at ${x},${y}`).toBe(0);
+      }
+      expect(nodes(level)).toHaveLength(3);
+    });
+
+    it('#1178-5. given fish with nowhere wet: 0 nodes; with river-crossing: 3 water nodes, all on riverbank cells', () => {
+      const dry = parseLdtkLevel(emitSettlementMap(empty(), withSite(10, forest({ adjacentResources: ['fish'] }))));
+      expect(nodes(dry)).toHaveLength(0);
+      const wet = parseLdtkLevel(emitSettlementMap(empty(), withSite(10, forest({ adjacentResources: ['fish'], features: ['river-crossing'] }))));
+      const ns = nodes(wet);
+      expect(ns).toHaveLength(3);
+      const riverbank = (wet.fields.biomes as string[]).indexOf('riverbank');
+      for (const n of ns) {
+        expect(n.fields.nodeType).toBe('water');
+        const { x, y } = cellOf(n);
+        expect(intGridGet(wet.intGrids.Biome, x, y)).toBe(riverbank);
+      }
+    });
+
+    it('#1178-6. given the same site, result and seed, emitting twice gives deeply equal JSON', () => {
+      const site = forest({ adjacentResources: ['timber', 'stone', 'fish'], features: ['river-crossing'] });
+      const a = emitSettlementMap(empty(), { ...OPTS, site, rng: mulberry32(7) });
+      const b = emitSettlementMap(empty(), { ...OPTS, site, rng: mulberry32(7) });
+      expect(a).toEqual(b);
+    });
   });
 });

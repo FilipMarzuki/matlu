@@ -14,7 +14,7 @@
 import type * as Phaser from 'phaser';
 import { entitiesOfType, intGridGet, type LdtkLevel, type LdtkEntity } from './MapData';
 
-export type OverviewCell = 'ground' | 'blocked' | 'road' | 'building' | 'entrance' | 'spawn';
+export type OverviewCell = 'ground' | 'blocked' | 'road' | 'building' | 'resource' | 'entrance' | 'spawn';
 
 export interface MapOverview {
   cols: number;
@@ -29,6 +29,7 @@ export const OVERVIEW_COLORS: Readonly<Record<OverviewCell, number>> = {
   blocked:  0x2a2a33,
   road:     0x8a7a5a,
   building: 0xc8922a,
+  resource: 0x7fd36b,
   entrance: 0x4dd4f0,
   spawn:    0xffffff,
 };
@@ -38,7 +39,7 @@ export const OVERVIEW_COLORS: Readonly<Record<OverviewCell, number>> = {
  * visible on top of the building it sits by, an entrance on top of the
  * road it opens onto, and so on. Lower index wins.
  */
-const PRIORITY: readonly OverviewCell[] = ['spawn', 'entrance', 'building', 'road', 'blocked', 'ground'];
+const PRIORITY: readonly OverviewCell[] = ['spawn', 'entrance', 'resource', 'building', 'road', 'blocked', 'ground'];
 const rank = (c: OverviewCell) => PRIORITY.indexOf(c);
 
 /** Cells covered by an entity's pixel bounds, clamped to the grid. */
@@ -73,7 +74,9 @@ export function overviewCells(level: LdtkLevel): MapOverview {
     }
   }
 
-  const byKind: Array<[string, OverviewCell]> = [['Building', 'building'], ['Entrance', 'entrance'], ['SpawnPoint', 'spawn']];
+  const byKind: Array<[string, OverviewCell]> = [
+    ['Building', 'building'], ['ResourceNode', 'resource'], ['Entrance', 'entrance'], ['SpawnPoint', 'spawn'],
+  ];
   for (const layer of Object.values(level.entityLayers)) {
     for (const [identifier, kind] of byKind) {
       for (const e of entitiesOfType(layer, identifier)) {
