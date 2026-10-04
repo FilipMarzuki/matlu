@@ -34,6 +34,7 @@
     "worldgen:heightmap": "tsx macro-world/scripts/convert-heightmap.ts",
     "worldgen:generate": "tsx macro-world/scripts/generate-earth-map.ts",
     "worldgen:validate": "tsx macro-world/scripts/validate-earth-export.ts",
+    "map:settlement": "tsx scripts/settlement-map-generate.ts",
     "worldgen:earth": "npm run worldgen:heightmap && npm run worldgen:generate && npm run worldgen:validate",
     "cap:sync": "npm run build && npx cap sync",
     "unit": "vitest run",

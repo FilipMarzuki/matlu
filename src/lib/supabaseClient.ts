@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database.types';
 
-const url = import.meta.env.VITE_SUPABASE_URL;
+// `import.meta.env` only exists under Vite. Node scripts (tsx) that import
+// game modules transitively land here too, so read it defensively — without
+// Vite the client is simply null, the same as running with no .env.
+const env = import.meta.env ?? ({} as Record<string, string | undefined>);
+const url = env.VITE_SUPABASE_URL;
 const key =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
-  import.meta.env.VITE_SUPABASE_ANON_KEY;
+  env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+  env.VITE_SUPABASE_ANON_KEY;
 
 if (!url || !key) {
   console.warn(

@@ -102,7 +102,7 @@ export function rectsOverlap(
 }
 
 /** All [x, y] tiles covered by a w × d footprint centred on (cx, cy). */
-function footprintTiles(cx: number, cy: number, w: number, d: number): Array<[number, number]> {
+export function footprintTiles(cx: number, cy: number, w: number, d: number): Array<[number, number]> {
   const [loX, hiX] = footprintSpan(w);
   const [loY, hiY] = footprintSpan(d);
   const tiles: Array<[number, number]> = [];
