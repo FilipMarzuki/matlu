@@ -144,6 +144,34 @@ describe('resolveHarvest (#1135 acceptance)', () => {
     });
   });
 
+  // #1166 — every node yield must be a registry item, or the sim hands out
+  // nameless, un-gateable things.
+  describe('#1166 node yields resolve to registry items', () => {
+    const root = join(__dirname, '..', '..');
+    const registry = JSON.parse(readFileSync(join(root, 'macro-world', 'item-registry.json'), 'utf8')) as {
+      items: { id: string; category: string; stackMax: number; playerObtainable: boolean; source?: string[]; biomes?: string[] }[];
+    };
+    const nodes = JSON.parse(readFileSync(join(root, 'public', 'macro-world', 'resource-nodes.json'), 'utf8')) as {
+      nodeTypes: { id: string; yields: ResourceNodeYield[] }[];
+    };
+
+    it('#1166-1. every yields[].itemId across all node types is in item-registry.json', () => {
+      const ids = new Set(registry.items.map(i => i.id));
+      const missing = nodes.nodeTypes.flatMap(n => n.yields.filter(y => !ids.has(y.itemId)).map(y => `${n.id}.${y.itemId}`));
+      expect(missing).toEqual([]);
+    });
+
+    it('#1166-2. freshwater is raw, stacks to 5, player-obtainable, gathered, and found at riverbank/lake/swamp', () => {
+      const fw = registry.items.find(i => i.id === 'freshwater');
+      expect(fw).toBeDefined();
+      expect(fw!.category).toBe('raw');
+      expect(fw!.stackMax).toBe(5);
+      expect(fw!.playerObtainable).toBe(true);
+      expect(fw!.source).toContain('gathering');
+      expect(fw!.biomes).toEqual(['riverbank', 'lake', 'swamp']);
+    });
+  });
+
   // #1160 — biome-gated yields: a yield only drops where its item occurs.
   describe('#1160 biome-gated yields', () => {
     const ore = (biomes?: string[]): ResourceNodeYield => ({ itemId: 'iron-ore', min: 2, max: 2, biomes });
