@@ -101,6 +101,9 @@ a missing build-wiki/build-dev job is fine — it means those jobs weren't trigg
 
 Hold (do not merge) any PR that touches:
 - `.github/workflows/` — CI/CD changes need human review
+- A **"Second opinion (<model>)"** review (DevCycle 3b, another model family
+  via OpenRouter) with `Verdict: request-changes` — it never blocks on its own,
+  but a disagreement between reviewers is a hold for human review
 - `CLAUDE.md` — project instructions
 - `vite.config.ts` or `tsconfig.json` — build config
 - `package.json` — only hold if `dependencies` or `devDependencies` changed
