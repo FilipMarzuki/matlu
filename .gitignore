@@ -74,3 +74,4 @@ macro-world/earth-reference/
 
 # Storytelling engine saved runs (regenerable from seed)
 storytelling/runs/
+ai-runs/
