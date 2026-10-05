@@ -59,3 +59,49 @@ export function knownForecast(s: { day: number; forecast: Forecast }): { day: nu
     .filter(f => f.day > s.day)
     .sort((a, b) => a.day - b.day);
 }
+
+// ── Temperature (#1283) ─────────────────────────────────────────────────────
+
+/** The day's mean temperature: 10 °C on day 1, falling 1.2 °C a day (below freezing from day 10). */
+export const dayMean = (day: number): number => 10 - 1.2 * (day - 1);
+
+/** Clock hours of the coldest (dawn) and warmest (midday) points; night stays at the dawn level. */
+const DAWN = 6, MIDDAY = 13, DUSK = 20;
+const DAWN_DIP = -4, MIDDAY_RISE = 3;
+
+/** The daily swing: −4 at dawn, rising to +3 at midday, back to −4 by 20:00 and through the night. */
+function swing(hour: number): number {
+  if (hour >= DAWN && hour <= MIDDAY) return DAWN_DIP + (MIDDAY_RISE - DAWN_DIP) * (hour - DAWN) / (MIDDAY - DAWN);
+  if (hour > MIDDAY && hour <= DUSK) return MIDDAY_RISE + (DAWN_DIP - MIDDAY_RISE) * (hour - MIDDAY) / (DUSK - MIDDAY);
+  return DAWN_DIP;
+}
+
+/** How the weather shifts the temperature: clear nights are colder, cloudy ones milder, snow cold all day. */
+function weatherShift(w: WeatherId, night: boolean): number {
+  if (w === 'snow') return -5;
+  if (night && w === 'clear') return -3;
+  if (night && w === 'overcast') return 2;
+  return 0;
+}
+
+const isNight = (hour: number): boolean => hour < DAWN || hour >= DUSK;
+
+/** The temperature (°C) at a clock hour on a day in this weather. */
+export const tempAt = (day: number, hour: number, w: WeatherId): number => dayMean(day) + swing(hour) + weatherShift(w, isNight(hour));
+
+/** The night's temperature (what sleep has to beat). */
+export const nightTemp = (day: number, w: WeatherId): number => tempAt(day, 23, w);
+
+/** Work below freezing is heavier. */
+export const FREEZING_WORK = 1.1;
+
+/** Extra hours a water trip takes once the streams ice over. */
+export const ICE_EXTRA_HOURS = 1;
+/** Streams ice over from the first day whose mean is below freezing. */
+export const iceOn = (day: number): boolean => dayMean(day) < 0;
+
+/**
+ * A cold, broken night: shelter warmth below 0.3, plus 0.03 for every degree
+ * of frost — freezing nights need a warmer shelter.
+ */
+export const isColdNight = (warmth: number, nightTempC: number): boolean => warmth < 0.3 + 0.03 * Math.max(0, -nightTempC);
