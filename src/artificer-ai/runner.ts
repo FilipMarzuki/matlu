@@ -12,6 +12,7 @@ import { createRegion1, chooseSite, choose, runDay, type Region1State, parseItem
 import { availableChoices, type Choice } from '../artificer/winter';
 import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
 import { observe } from './observe';
+import { progressOf, type Progress } from './progress';
 import { parseDecision } from './decision';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
@@ -38,6 +39,8 @@ export interface Turn {
   /** For an invalid day: the last raw reply and what was wrong with it, for diagnosing a model or prompt. */
   reply?: string;
   errors?: string[];
+  /** Progression snapshot at the end of the turn (#1229). */
+  progress: Progress;
   /** Journal lines this turn produced. */
   journal: string[];
   /** State at the end of the turn, compactly. */
@@ -51,6 +54,8 @@ export interface RunResult {
   /** Run ended by the day cap rather than the player's own exit. */
   forced: boolean;
   usage: Usage;
+  /** Progression at the start of the run, before day 1 (#1229). */
+  start: Progress;
   final: Region1State;
 }
 
@@ -74,6 +79,8 @@ function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn[
 export async function playRun(player: Player, opts: PlayOptions = {}): Promise<RunResult> {
   const { warmth } = await import('../artificer/region1');
   let s = createRegion1({}, opts.legacy);
+  const startKnown = s.known.length;
+  const start = progressOf(s, startKnown);
   // The cap can't end a run before any exit opens, so it is at least the caravan's first day.
   const maxDays = Math.max(opts.maxDays ?? 16, s.config.calendar.caravanOpen);
   const turns: Turn[] = [];
@@ -109,7 +116,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (!parsed.ok) {
       s = runDay(s, []).state;
       notes.push(`Your reply for day ${day} was invalid twice, so the day passed with nothing done.`);
-      const t: Turn = { day, thoughts: '', site: null, exit: null, queue: [], invalid: true, reply, errors: parsed.errors, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth) };
+      const t: Turn = { day, thoughts: '', site: null, exit: null, queue: [], invalid: true, reply, errors: parsed.errors, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown) };
       turns.push(t); opts.onTurn?.(t);
       continue;
     }
@@ -122,7 +129,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (d.exit) {
       if (availableChoices(s.day, s.config.calendar).includes(d.exit)) {
         s = choose(s, d.exit);
-        const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: d.exit, queue: [], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth) };
+        const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: d.exit, queue: [], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown) };
         turns.push(t); opts.onTurn?.(t);
         break;
       }
@@ -140,10 +147,10 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     s = r.state;
     if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: null, queue, invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth) };
+    const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: null, queue, invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown) };
     turns.push(t); opts.onTurn?.(t);
   }
 
-  return { player: player.name, turns, record: summarizeRun(s, 1), forced, usage, final: s };
+  return { player: player.name, turns, record: summarizeRun(s, 1), forced, usage, start, final: s };
 }
 

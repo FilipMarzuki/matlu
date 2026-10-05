@@ -10,6 +10,7 @@ import { observe, RULES } from './observe';
 import { parseDecision } from './decision';
 import { playRun, type Player } from './runner';
 import { scriptedPlayer } from './players/scripted';
+import { aggregate, type Transcript } from './report';
 
 /** A player that replies with the given texts in order (then repeats the last). */
 const replay = (texts: string[]): Player & { seen: string[] } => {
@@ -116,5 +117,38 @@ describe('AI player harness', () => {
     const built = await playRun(replay([withBuild, json({ thoughts: 'go', site: null, exit: 'winter', queue: [] })]), { maxDays: 10 });
     expect(built.turns[0].journal.join('\n')).not.toMatch(/choose a location/);
     expect(built.turns[0].journal.join('\n')).toMatch(/Raised a .*lean-to/);
+  });
+
+  // #1229 — every turn carries a progression snapshot…
+  it('records a progress snapshot on every turn', async () => {
+    const run = await playRun(scriptedPlayer());
+    expect(run.start).toMatchObject({ day: 1, rank: 'Apprentice', crafts: 0, discoveries: 0, exploration: 0, readiness: expect.any(Number) });
+    for (const t of run.turns) expect(t.progress.day).toBe(t.exit ? t.day : t.day + 1);
+    const day1 = run.turns[0].progress;
+    expect(day1.shelter.tier).toBe(1);
+    expect(day1.crafts).toBeGreaterThanOrEqual(1);
+    expect(day1.exploration).toBeGreaterThan(0);
+    const last = run.turns.at(-1)!.progress;
+    expect(last.winterReady).toBe(true);
+    expect(last.readiness).toBe(1);
+    expect(last.stores.rations).toBeGreaterThanOrEqual(10);
+    expect(Object.keys(last.pillars).sort()).toEqual(['body', 'fuel', 'larder', 'shelter']);
+  });
+
+  // …and the report folds runs into per-model day-by-day means and first-event days.
+  it('aggregates runs per model', async () => {
+    const a = await playRun(scriptedPlayer());
+    const stub = await playRun(replay([json({ thoughts: 'stay', site: null, exit: null, queue: [{ action: 'rest', ring: 1, options: [] }] })]), { maxDays: 10 });
+    const asT = (r: typeof a, player: string): Transcript => ({ ...r, player } as unknown as Transcript);
+    const [best, worst] = aggregate([asT(a, 'scripted'), asT(a, 'scripted'), asT(stub, 'openrouter:lazy/model')]);
+    expect(best).toMatchObject({ model: 'scripted', runs: 2, outcomes: { thrive: 2 }, readyRuns: 2, readyDay: a.record.readyDay });
+    expect(best.series.readiness[0]).toBe(Math.round(a.start.readiness * 1000) / 10);
+    expect(best.series.readiness.at(-1)).toBe(100);
+    expect(best.events.shelter).toEqual({ day: 1, runs: 2 });
+    expect(best.events.ready.day).toBe(a.record.readyDay);
+    expect(best.actions.hunt).toBeGreaterThan(0);
+    expect(worst).toMatchObject({ model: 'lazy/model', runs: 1, readyRuns: 0, readyDay: null });
+    expect(worst.events.shelter).toEqual({ day: null, runs: 0 });
+    expect(worst.actions.rest).toBe(10);
   });
 });

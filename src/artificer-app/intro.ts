@@ -7,6 +7,9 @@
  */
 
 import type { Region1State } from '../artificer/region1';
+import { artificerRank, conceptRanks } from '../artificer/rank';
+
+export { artificerRank, conceptRanks, RANKS } from '../artificer/rank';
 
 /** Fresh = a brand-new Warden; carry = a new run that kept what the last one learned. */
 export type IntroKind = 'fresh' | 'carry';
@@ -22,26 +25,6 @@ export interface Beat {
   lines: string[];
   /** Show the portal behind this beat. */
   portal?: boolean;
-}
-
-/** Artificer ranks, earned through concept mastery that carries between runs. */
-export const RANKS = [
-  { name: 'Apprentice', minRanks: 0 },
-  { name: 'Journeyman', minRanks: 3 },
-  { name: 'Adept', minRanks: 6 },
-  { name: 'Master', minRanks: 10 },
-] as const;
-export type RankName = (typeof RANKS)[number]['name'];
-
-/** Total concept ranks — the "depth" of what you understand. */
-export function conceptRanks(s: Pick<Region1State, 'concepts'>): number {
-  return Object.values(s.concepts).reduce((sum, c) => sum + c.rank, 0);
-}
-
-/** The rank the voice gives you: the highest whose threshold your concept ranks meet. */
-export function artificerRank(s: Pick<Region1State, 'concepts'>): RankName {
-  const n = conceptRanks(s);
-  return [...RANKS].reverse().find(r => n >= r.minRanks)!.name;
 }
 
 const CLOSING: Beat = { kind: 'title', lines: ['SURVIVE.', 'THRIVE.', 'MASTER YOUR NEW REALITY.'] };
