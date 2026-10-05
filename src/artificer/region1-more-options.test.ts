@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, ACTIONS, queueHours, type Region1State } from './region1';
+import { createRegion1, runAction, ACTIONS, queueHours, STARTING_RECIPES, DISCOVERIES, type Region1State } from './region1';
 import { createExploration, scout, track } from './exploration';
 import { createVitals } from './vitality';
 import { newGame, enqueue, setOption, previewQueue } from '../artificer-app/controller';
@@ -12,7 +12,7 @@ import { newGame, enqueue, setOption, previewQueue } from '../artificer-app/cont
 /** Scouted near ring (game suspected), plenty of food and materials. */
 function base(over: Partial<Region1State> = {}): Region1State {
   const s = runAction(createRegion1(), 'scout');
-  return { ...s, stores: { ...s.stores, rawFood: 12, materials: 10 }, ...over };
+  return { ...s, known: [...STARTING_RECIPES, ...DISCOVERIES.map(d => d.recipe)], stores: { ...s.stores, rawFood: 12, materials: 10 }, ...over };
 }
 const tracked = (): Region1State => base({ explore: track(scout(createExploration(), 1), 1) });
 

@@ -83,6 +83,9 @@ describe('Artificer controller', () => {
     expect(deserialize(JSON.stringify({ version: 3, sim: a.sim, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: 4, sim: a.sim, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: 5, sim: a.sim, queue: [] }))).toBeNull();
+    expect(deserialize(JSON.stringify({ version: 6, sim: a.sim, queue: [] }))).toBeNull();
+    const { known: _k, ...noKnown } = a.sim;
+    expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: noKnown, queue: [] }))).toBeNull();
     // Options chosen on a queued build round-trip; malformed options don't load.
     const planned = setOption(enqueue(a, 'build'), 0, 'type', 'hut');
     expect(deserialize(serialize(planned))).toEqual(planned);
@@ -108,7 +111,8 @@ describe('Artificer controller', () => {
 
   // 7. Options live on their queue entry and change the preview.
   it('sets an option on one queued entry and previews its cost', () => {
-    const a = settle(runQueuedDay(withQueue(newGame(), ['scout', 'wood', 'wood'])), 'cave');
+    const played = settle(runQueuedDay(withQueue(newGame(), ['scout', 'wood', 'wood'])), 'cave');
+    const a = { ...played, sim: { ...played.sim, known: [...played.sim.known, 'shelter-hut'] } }; // the hut is discovered
     const q = withQueue(a, ['build', 'rest']);
     const hut = setOption(q, 0, 'type', 'hut');
     expect(hut.queue).toEqual([{ q: 'build', opts: { type: 'hut' } }, 'rest']);

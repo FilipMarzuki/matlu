@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
@@ -24,17 +24,17 @@ import { newGame, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWh
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
 const GROUPS: { title: string; ids: ActionId[] }[] = [
-  { title: 'EXPLORE', ids: ['scout', 'survey', 'track'] },
+  { title: 'EXPLORE', ids: ['scout', 'survey', 'track', 'lookout'] },
   { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'preserve'] },
   { title: 'BUILD', ids: ['build', 'coldGear'] },
   { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
-  { title: 'RECOVER', ids: ['tinker', 'rest'] },
+  { title: 'THINK & RECOVER', ids: ['study', 'tinker', 'rest'] },
 ];
 
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
-  knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️',
+  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
@@ -50,6 +50,8 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   scout: () => 'everything there at least suspected',
   survey: () => 'everything there observed → richer trips',
   track: () => 'game observed → you can hunt',
+  lookout: () => 'ring +1 level · see over the next ring',
+  study: () => 'a third of your clarity → concept insight',
   gather: (s, r) => `+${ty(s, r, 'forage', 3, 2) + bonus(s, 'gather')} raw food${fb(s, r, 'forage') ? ' +2 fiber' : ''}`,
   hunt: (s, r) => `deer +${ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game')} food & a hide · or small game`,
   water: (s, r) => `+${ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water')} water`,
@@ -174,6 +176,14 @@ function land(a: AppState): string {
   }).join('');
 }
 
+/** Names of the recipes you know (for the Tools & knowledge panel). */
+function knownList(s: AppState['sim']): string {
+  const name = (id: string): string => DISCOVERIES.find(d => d.recipe === id)?.name ?? RECIPE_NAMES[id] ?? id;
+  return s.known.map(name).join(', ');
+}
+const RECIPE_NAMES: Record<string, string> = { 'shelter-leanto': 'Lean-to', 'shelter-timber': 'Timber walls', 'cold-gear': 'Woven cold gear', 'stone-knife': 'Stone knife', bedroll: 'Bedroll' };
+const undiscovered = (s: AppState['sim']): number => DISCOVERIES.filter(d => !s.known.includes(d.recipe)).length;
+
 function warden(a: AppState): string {
   const s = a.sim;
   const st = s.stores;
@@ -207,6 +217,7 @@ function warden(a: AppState): string {
     <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>
     <div class="res">${tools || '<span class="mood" style="margin:0">No tools yet — craft some once you have materials.</span>'}</div>
     ${concepts ? `<div class="res" style="margin-top:6px">${concepts}</div>` : ''}
+    <p class="mood" style="margin:6px 0 0">Known recipes: ${esc(knownList(s))}${undiscovered(s) ? ` · ${undiscovered(s)} still to work out` : ''}</p>
     <p class="eyebrow" style="margin-top:14px">MILESTONES</p>
     <ol class="miles">${miles}</ol>
   </section>`;

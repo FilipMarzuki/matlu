@@ -4,12 +4,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, chooseSite, warmth, ACTIONS, type Region1State } from './region1';
+import { createRegion1, runAction, chooseSite, warmth, ACTIONS, STARTING_RECIPES, DISCOVERIES, type Region1State } from './region1';
+
+/** Every recipe known, so these tests are about options, not discovery. */
+const ALL_RECIPES = [...STARTING_RECIPES, ...DISCOVERIES.map(d => d.recipe)];
 
 /** Scouted, camped at the cave, with plenty of materials. */
 function camp(over: Partial<Region1State> = {}): Region1State {
   const s = chooseSite(runAction(createRegion1(), 'scout'), 'cave');
-  return { ...s, stores: { ...s.stores, materials: 20, stone: 0 }, ...over };
+  return { ...s, known: ALL_RECIPES, stores: { ...s.stores, materials: 20, stone: 0 }, ...over };
 }
 const opts = (s: Region1State, o: Record<string, string> = {}) => ACTIONS.build.options?.(s, o) ?? [];
 
