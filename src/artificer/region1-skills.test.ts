@@ -4,6 +4,7 @@
  * self-assessment). One test per Given/When/Then scenario.
  */
 
+import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, setFocus, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -16,7 +17,7 @@ import { modifiersFor } from './crafting';
 import { observe } from '../artificer-ai/observe';
 import { deserialize, serialize, newGame } from '../artificer-app/controller';
 
-const scouted = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1(), 'scout'), hoursToday: 0, ...over });
+const scouted = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1({ world: STEADY_WORLD }), 'scout'), hoursToday: 0, ...over });
 const at = (id: SkillId, level: number, s: Region1State = scouted()): Region1State => ({ ...s, skills: { ...s.skills, [id]: LEVEL_HOURS[level] } });
 const newLines = (before: Region1State, after: Region1State) => after.log.slice(before.log.length).map(l => l.text).join('\n');
 

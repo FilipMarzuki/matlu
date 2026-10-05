@@ -4,6 +4,7 @@
  * Given/When/Then scenario, plus each talent's lever.
  */
 
+import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, endDay, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -16,7 +17,7 @@ import { deserialize, serialize, newGame, newRun } from '../artificer-app/contro
 const known = (id: TalentId, tier = 1): Talent => ({ id, tier, known: true });
 /** A scouted, fresh Warden with exactly these talents (no id, so no hidden roll). */
 const warden = (talents: Talent[] = [], over: Partial<Region1State> = {}): Region1State => {
-  const s = runAction(createRegion1({}, undefined, { name: 'Test', talents }), 'scout');
+  const s = runAction(createRegion1({ world: STEADY_WORLD }, undefined, { name: 'Test', talents }), 'scout');
   return { ...s, hoursToday: 0, vitals: createVitals(), ...over };
 };
 const spent = (s: Region1State, q: Parameters<typeof runAction>[1]) => {

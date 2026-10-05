@@ -13,7 +13,7 @@
 
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
-  readinessInput, warmth, winterReady, winterOutlook, nightFuel, queueHours, queueId, survivalLockOf,
+  readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, queueHours, queueId, survivalLockOf,
   type ActionId, type Region1State,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
@@ -47,6 +47,7 @@ FOCUS
 Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises 3x as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or in the last 3 days of autumn if you're not ready.
 
 THE LAND
+Every gathering trip (gather, hunt, water, wood, quarry) has luck: it comes back empty, poor (half), ordinary or good (1.5x). The odds of the hour are shown per action ("good / fair / poor / bad odds now"): weather (rain, fog and storms spoil foraging and hunting; snow buries forage but shows the tracks; wind and storms bring down dead wood), the land's supply (scarce or bare ground is worse), your skill and techniques, and the light set them. Luck is fixed per hour, so the same trip at the same hour always comes out the same.
 Each ring's forage, game, timber, water and stone is a supply (plenty / thinning / scarce / bare) that your trips draw down and the land regrows overnight: quickly in early autumn (days 1-15), slowly in late autumn, hardly at all in winter. Yields follow the supply. Rest an overworked ring; push outward when the near one runs thin.
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
 Each ring has domains (forage, timber, stone, water, game; routes beyond home) known at a level: unknown, suspected, observed, detailed.
@@ -170,7 +171,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
       const why = blockedReason(s, id, r);
       const ringTag = def.ringed ? ` ring ${r}` : '';
       const hint = def.ringed ? landHint(s, id, r) : (CAMP_HINT[id] ?? '');
-      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${why ? ` · BLOCKED: ${why}` : ''}`);
+      const odds = tripOdds(s, id, r);
+      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}`);
     }
     const groups = def.options?.(s, {}) ?? [];
     for (const g of groups) {

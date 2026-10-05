@@ -4,6 +4,7 @@
  * you near camp, snow buries forage but shows tracks.
  */
 
+import { luckSteps } from './luck';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, endDay, queueHours, warmth, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -79,8 +80,10 @@ describe('Weather effects (#1284)', () => {
   });
 
   it('buries forage under snow, but shows the tracks', () => {
-    const food = (w: WeatherId) => runAction(warden(w), 'gather').stores.rawFood - warden(w).stores.rawFood;
-    expect(food('snow')).toBe(Math.floor(food('overcast') * 0.5));
+    // Since trip luck (#1314) snow works on the odds: two steps worse for foraging, one better for hunting.
+    const steps = (domain: 'forage' | 'game', weather: WeatherId) => luckSteps({ domain, weather, supply: 1, skillLevel: 0, technique: false, light: 1 });
+    expect(steps('forage', 'snow')).toBe(steps('forage', 'overcast') - 2);
+    expect(steps('game', 'snow')).toBe(steps('game', 'overcast') + 1);
     expect(used(warden('snow'), 'track').vigor).toBeCloseTo(used(warden('overcast'), 'track').vigor * 0.8, 5);
   });
 });
