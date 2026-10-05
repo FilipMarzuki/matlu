@@ -16,7 +16,11 @@ import type { Grade } from './crafting';
 
 /** One finished run, as the history shows it. */
 export interface RunRecord {
+  /** This character's run number (1 = their first). */
   run: number;
+  /** Whose run it was (#1242). Absent on history saved before character ids. */
+  characterId?: string;
+  characterName?: string;
   /** The day the exit was taken. */
   day: number;
   choice: EndChoice;
@@ -59,6 +63,8 @@ export function summarizeRun(s: Region1State, run: number): RunRecord {
     day: s.day,
     choice: s.outcome.choice,
     kind: s.outcome.kind,
+    characterId: s.character.id,
+    characterName: s.character.name,
     injury: s.outcome.injury ?? null,
     readyDay: ready ? ready.day : null,
     site: s.site,
@@ -80,6 +86,18 @@ export function legacyOf(s: Region1State): Legacy {
     concepts: Object.fromEntries(Object.entries(s.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => [id, p.rank])),
     skills: carriedSkills(s.skills),
   };
+}
+
+/**
+ * Can this character go on into another run, carrying what they learned (#1242)?
+ * Only a resolved run, and only if they lived: death ends the character. Knowledge
+ * never passes to anyone else.
+ */
+export const canContinue = (s: Region1State): boolean => !!s.outcome && s.outcome.kind !== 'died';
+
+/** The next run number for a character: their own runs only, never anyone else's (#1242). */
+export function runNumberFor(history: readonly RunRecord[], characterId: string): number {
+  return history.filter(r => r.characterId === characterId).length + 1;
 }
 
 /** How many past runs the history keeps. */

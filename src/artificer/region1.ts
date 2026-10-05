@@ -126,7 +126,8 @@ export interface Region1State {
 }
 
 /** A fresh save: day 1, baseline body, a couple of meals, nothing known. */
-export interface Character { name: string; portrait: string | null; traits: TraitId[]; lastStandUsed: boolean }
+/** Who the Warden is. `id` ties runs and carried knowledge to this one person (#1242). */
+export interface Character { id: string; name: string; portrait: string | null; traits: TraitId[]; lastStandUsed: boolean }
 
 export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Legacy, who: Partial<Omit<Character, 'lastStandUsed'>> = {}): Region1State {
   const traits = who.traits ?? [];
@@ -153,7 +154,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
     deprivation: { hungry: 0, thirsty: 0 },
     skills: start,
-    character: { name: who.name ?? '', portrait: who.portrait ?? null, traits: [...traits], lastStandUsed: false },
+    character: { id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, traits: [...traits], lastStandUsed: false },
     focus: null,
     log: [],
     outcome: null,

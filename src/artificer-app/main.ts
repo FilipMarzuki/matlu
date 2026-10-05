@@ -17,7 +17,7 @@ import { createRegion1, survivalLockOf, ACTIONS, SITES, BUILD_COST, DAY_HOURS, R
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
-import { bestRun, type RunRecord } from '../artificer/legacy';
+import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural } from '../artificer/skills';
@@ -26,7 +26,7 @@ import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, UNRELIABLE_BELOW, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TRAITS, TRAIT_IDS, TRAIT_COUNT, type TraitId } from '../artificer/traits';
 import { artificerRank, conceptRanks } from '../artificer/rank';
-import { newGame, newRun, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -92,7 +92,7 @@ const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
   turnedBack: { head: 'THE ROAD TURNS YOU BACK', body: 'You push into the winter stretch underprepared. The cold finds every gap; days in, you turn back carrying a lasting mark: frostbite, a permanent injury.' },
   wintered: { head: 'YOU WINTER OVER IN THE REACH', body: 'The snows close the Reach in, but your shelter holds warm, the larder lasts and the fire never dies. When thaw comes, the Reach is yours.' },
   collapsed: { head: 'YOU COLLAPSE', body: 'Worked past the end of yourself, your body simply stops. Passing traders find you days later and carry you out, barely alive. You keep what you learned — and the lesson about limits.' },
-  died: { head: 'THE REACH TAKES YOU', body: 'Without water or food the body fails faster than the will. You lie down one night and do not get up. Another Warden will come — and may know what you learned.' },
+  died: { head: 'THE REACH TAKES YOU', body: 'Without water or food the body fails faster than the will. You lie down one night and do not get up. Your story ends here — what you learned dies with you. Another Warden will have to begin again.' },
   grim: { head: 'A GRIM WINTER', body: 'You hunker down on too little. The larder runs thin, the shelter leaks heat, and the cold grinds at you week after week. You limp into spring weaker than you started.' },
 };
 
@@ -418,7 +418,7 @@ const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — 
 function pastRuns(): string {
   if (!history.length) return '<p class="mood">No finished runs yet. Take an exit when the caravan comes, and it will be recorded here.</p>';
   const best = bestRun(history);
-  return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">RUN ${r.run}</span>`
+  return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">${r.characterName ? `${esc(r.characterName)} · ` : ''}RUN ${r.run}</span>`
     + `<span class="rk k-${r.kind}">${OUTCOME_SHORT[r.kind]}${r.injury ? ' · frostbite' : ''}</span>`
     + `<span class="rd">day ${r.day}${r.readyDay ? ` · ready d${r.readyDay}` : ''} · ${r.recipes} recipes</span>${r === best ? '<span class="rb">★ BEST</span>' : ''}</li>`).join('')}</ol>`;
 }
@@ -474,8 +474,10 @@ function resolvePanel(a: AppState): string {
         <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
       </ul>` : '';
     return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
-      + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="carry" title="Your known recipes and concept ranks carry over">↻ NEW RUN — KEEP WHAT YOU LEARNED</button>`
-      + `<button class="btn" data-cmd="reset">✦ FRESH WARDEN</button></div></div>`;
+      // Only a living Warden goes on (#1242): after a death, the only way forward is someone new.
+      + `<div class="runbar" style="margin-top:12px">${canContinue(s)
+        ? `<button class="btn go" data-cmd="carry" title="The same Warden goes on: recipes, concept ranks and skills carry over">↻ ${s.character.name ? `CONTINUE AS ${esc(s.character.name.toUpperCase())}` : 'NEW RUN'} — KEEP WHAT YOU LEARNED</button>`
+        : ''}<button class="btn ${canContinue(s) ? '' : 'go'}" data-cmd="reset" title="A new person, starting from nothing">✦ ${canContinue(s) ? 'FRESH WARDEN' : 'NEW WARDEN'}</button></div></div>`;
   }
   const open = availableChoices(s.day, s.config.calendar);
   if (open.length === 0) return '';
@@ -506,7 +508,7 @@ function render(a: AppState): void {
       ${phaseChip(a)}
       <span class="spacer"></span>
       ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim)}</span></button>` : ''}
-      <span class="counter ctl">RUN <b>${(history[0]?.run ?? 0) + (a.sim.outcome ? 0 : 1)}</b></span>
+      <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (a.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
@@ -569,13 +571,13 @@ const draftValid = (): boolean => draft.name.trim().length > 0 && draft.traits.l
 function startIntro(kind: IntroKind): void {
   draft = { name: '', portrait: PORTRAITS[0].id, traits: [] };
   drawnBeat = -1;
-  intro = { beats: introBeats(kind, state.sim, (history[0]?.run ?? 0) + 1), i: 0 };
+  intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
   renderIntro();
 }
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait and traits. */
 function commitCharacter(): void {
-  state = { sim: createRegion1({}, undefined, { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits }), queue: [] };
+  state = { sim: createRegion1({}, undefined, { id: newCharacterId(), name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits }), queue: [] };
   render(state);
 }
 
@@ -695,7 +697,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
-  else if (d.cmd === 'carry') { update(newRun(state.sim)); startIntro('carry'); }
+  else if (d.cmd === 'carry' && canContinue(state.sim)) { update(newRun(state.sim)); startIntro('carry'); }
 });
 
 render(state);
