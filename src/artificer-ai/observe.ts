@@ -18,7 +18,7 @@ import {
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
-import { SKILL_IDS, LEVELS, skillLevel, toNextLevel } from '../artificer/skills';
+import { SKILL_IDS, LEVELS, perceivedLevel } from '../artificer/skills';
 import { TRAITS } from '../artificer/traits';
 import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
@@ -46,7 +46,7 @@ HOW A DAY WORKS
 You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. At night you eat 1 food and drink 1 water, then sleep; a warmer shelter recovers more. Water is critical, food less so. A night without water: Vigor and Clarity recover only 30%, and you lose 10 x (nights running without water) Condition and 8 x Clarity — three dry nights cost 60 Condition, a fourth is usually fatal. A night without food: Vigor recovers 50%, Clarity 80%, and you lose 1 x (nights running) Condition and 3 x Clarity. One missed meal doesn't stop capacity growing; no water, or two hungry nights running, does. Condition only heals on nights with both food and water. If Condition reaches 0 overnight the run ends at once: dead if you had gone 2+ nights without water or 5+ without food, otherwise found collapsed. Both are worse than a grim winter. Rations are winter stock and are never eaten now. Pushing a pool past empty costs Condition. Condition heals slowly (a few points a night) only on nights you ate and drank, slept in shelter 50%+ warm, and never pushed past empty; a light, restful day doubles it.
 
 SKILLS
-Seven skills improve by use: every hour of work trains the skill it uses (woodcraft: wood, wooden builds, shovel; foraging: gather; hunting: hunt, track, snare; stonework: quarry, stone knife, stone walls; fieldcraft: water, preserve; scouting: scout, survey, look out; handcraft: cold gear, parka, waterskin, bedroll, tinker). Levels at 6/18/36/60/90 hours: Novice, Apprentice, Journeyman, Expert, Master. Each level in a field: 6% less drain, more yield (+1 at Apprentice, +2 Expert, +3 Master), better tool use and better craft grades. Skills carry into the next run.
+Seven skills improve by use: every hour of work trains the skill it uses (woodcraft: wood, wooden builds, shovel; foraging: gather; hunting: hunt, track, snare; stonework: quarry, stone knife, stone walls; fieldcraft: water, preserve; scouting: scout, survey, look out; handcraft: cold gear, parka, waterskin, bedroll, tinker). Levels: Novice 5h, Apprentice 20h, Adept 60h, Journeyman 150h, Skilled 400h, Expert 1,000h, Veteran 3,000h, Professional 10,000h, Master, Grandmaster, and beyond human: Paragon, Mythic, Transcendent. A focused skill practises 3x faster. Higher skill in a field means lighter work, more yield, better tool use and better craft grades. You only know how good you THINK you are — beginners overrate themselves, the getting-good underrate themselves — so judge by results. Skills carry into the next run.
 
 FOCUS
 Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises twice as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or when winter is 3 days away and you're not ready.
@@ -145,8 +145,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   if (s.character.traits.length) lines.push(`TRAITS: ${s.character.traits.map(t => `${TRAITS[t].name} (${TRAITS[t].upside}; but ${TRAITS[t].cost})`).join(' · ')}${s.character.traits.includes('tough') ? (s.character.lastStandUsed ? ' — last stand used' : ' — last stand available') : ''}`);
   const lock = survivalLockOf(s);
   lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
+  // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
   const practised = SKILL_IDS.filter(id => (s.skills[id] ?? 0) > 0);
-  lines.push(`SKILLS: ${practised.length ? practised.map(id => `${id} ${LEVELS[skillLevel(s.skills, id)]}${toNextLevel(s.skills, id) ? ` (${Math.ceil(toNextLevel(s.skills, id))}h to next)` : ''}`).join(', ') : 'none yet — every hour of work trains the skill it uses'}`);
+  lines.push(`SKILLS (self-assessed — your true level may differ): ${practised.length ? practised.map(id => `${id} ${LEVELS[perceivedLevel(s.skills, id)]}`).join(', ') : 'none yet — every hour of work trains the skill it uses'}`);
 
   lines.push('');
   lines.push('THE LAND:');

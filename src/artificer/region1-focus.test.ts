@@ -36,9 +36,9 @@ describe('Focus (#1238)', () => {
     expect(runAction(focused('goal:larder'), 'wood').stores.firewood).toBe(runAction(fresh(), 'wood').stores.firewood);
   });
 
-  // 3. Skill: practice ×2.
-  it('doubles practice in a focused skill', () => {
-    expect(runAction(focused('skill:woodcraft'), 'wood').skills.woodcraft).toBe(8);
+  // 3. Skill: practice ×3 (deliberate practice, #1241; was ×2 in #1238).
+  it('triples practice in a focused skill', () => {
+    expect(runAction(focused('skill:woodcraft'), 'wood').skills.woodcraft).toBe(12);
     expect(runAction(focused('skill:woodcraft'), 'gather').skills.foraging).toBe(5);
   });
 
@@ -54,7 +54,8 @@ describe('Focus (#1238)', () => {
   // 5. Unreliable below 30 Clarity: effects halved.
   it('halves focus when the mind is frayed', () => {
     const tired = { vitals: createVitals({ clarity: 20 }) };
-    expect(runAction(focused('skill:woodcraft', tired), 'wood').skills.woodcraft).toBe(6);
+    // ×3 halved toward 1 → ×2.
+    expect(runAction(focused('skill:woodcraft', tired), 'wood').skills.woodcraft).toBe(8);
     const s = setFocus(camp({ hoursToday: 10, vitals: createVitals({ vigor: 60, clarity: 20 }) }), parseFocus('concept:joinery'));
     expect(insight(endDay(s)) - insight(s)).toBeCloseTo(1.5, 5);
   });
@@ -86,7 +87,7 @@ describe('Focus (#1238)', () => {
     const night = endDay(s); // drank tonight → thirst streak resets
     expect(survivalLockOf(night)).toBeNull();
     expect(night.log.map(l => l.text).join('\n')).toMatch(/focus returns to Woodcraft/i);
-    expect(wood({ ...night, vitals: createVitals() })).toBe(8);
+    expect(wood({ ...night, vitals: createVitals() })).toBe(12);
   });
 
   // 9. Saves: older saves have no focus.

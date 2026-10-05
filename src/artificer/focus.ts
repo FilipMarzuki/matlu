@@ -36,8 +36,8 @@ export const FOCUS_COST = 4;
 export const UNRELIABLE_BELOW = 30;
 /** Insight a focused concept gains per hour worked that day. */
 export const CONCEPT_PER_HOUR = 0.3;
-/** Practice multiplier on a focused skill. */
-export const SKILL_PRACTICE = 2;
+/** Practice multiplier on a focused skill: deliberate practice — intent matters a lot (#1241). */
+export const SKILL_PRACTICE = 3;
 /** Goal and survival work: drain multiplier and extra yield. */
 export const FOCUS_DRAIN = 0.9;
 export const FOCUS_YIELD = 1;

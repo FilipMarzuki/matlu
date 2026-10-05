@@ -26,25 +26,41 @@ Seven skills, each tied to the actions that use it:
 Rest and study use no skill. Study grows concepts instead: skills are *doing*
 and concepts are *understanding*.
 
-**Levels.** Untrained (0) → Novice → Apprentice → Journeyman → Expert →
-Master (5).
+**Levels (#1241).** There are 13 levels on an exponential curve. Early levels come fast, Professional sits at the famous 10,000 hours, there are levels above it, and the top three go past human:
 
-**Improvement by use.** Every hour of work in a skill is practice. Thresholds
-are cumulative hours: 6, 18, 36, 60 and 90. A level-up is announced in the
-journal. (Like DoD's *färdighetsförbättring*, but deterministic: the sim has
-no dice.)
+| # | Level | Hours | # | Level | Hours |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Novice | 5 | 8 | Professional | 10,000 |
+| 2 | Apprentice | 20 | 9 | Master | 25,000 |
+| 3 | Adept | 60 | 10 | Grandmaster | 60,000 (human peak) |
+| 4 | Journeyman | 150 | 11 | ✦ Paragon | 150,000 |
+| 5 | Skilled | 400 | 12 | ✦ Mythic | 400,000 |
+| 6 | Expert | 1,000 | 13 | ✦ Transcendent | 1,000,000 |
+| 7 | Veteran | 3,000 | | | |
 
-**What a level does in its field:**
+**Improvement by use, multiplied by intent.** Every hour of work is practice. A *focused* skill practises ×3, because deliberate practice matters a lot. (This is like DoD's *färdighetsförbättring*, but deterministic: the sim has no dice.)
 
-| Effect | Per level |
+**What a level does in its field.** The effects follow smooth curves, so the long range can't break the maths:
+
+| Effect | Formula |
 | --- | --- |
-| Energy | Vigor and Clarity drain × (1 − 0.06 × level); a Master spends 30% less |
-| Yield | +0 / 0 / 1 / 1 / 2 / 3 on gathering trips |
-| Tool use | the field's tool bonuses × (1 + 0.2 × level) |
-| Craft quality | +0 / 0 / 1 / 1 / 2 / 3 to the craft-grade score (the same score as bench, tools and concepts) |
+| Energy | drain × 1/(1 + 0.07 × level): 0.74 at Skilled, 0.52 at Transcendent |
+| Yield | +⌊level/2⌋ on gathering trips |
+| Tool use | the field's tool bonuses × (1 + 0.15 × level) |
+| Craft quality | +⌊level/2⌋ to the craft-grade score |
 
-**Across runs.** Skills carry into a new run at the level reached, with the
-practice beyond that level dropped. The body is new; the hands remember.
+**Self-assessment (Dunning–Kruger).** You never see your true level, only how good you *think* you are:
+
+| Stage | Practice | True level | Feels like |
+| --- | --- | --- | --- |
+| Mount Stupid | 10–25h | Novice | Adept |
+| The valley | 60–100h | Adept | Apprentice |
+| Experts | high | e.g. Professional | one level lower (Veteran) |
+| Supernatural | 150,000h | Paragon | Grandmaster |
+
+The true level drives every effect, so improvement is **felt**. A true level-up writes a line like "The axe finds the grain more easily now — woodcraft comes easier." When your own estimate drops, you get "The more you learn of woodcraft, the more you see how little you know." The AI is shown only the self-assessment too, and snapshots record both values. (Later, a Region 1.5 teacher could reveal your true level.)
+
+**Across runs.** All practice carries over. The climb to mastery spans many runs.
 
 ## 2. Traits
 

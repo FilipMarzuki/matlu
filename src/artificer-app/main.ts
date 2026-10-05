@@ -20,7 +20,7 @@ import { pillars, type PillarKey } from '../artificer/readiness';
 import { bestRun, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
-import { SKILLS, SKILL_IDS, LEVELS, LEVEL_HOURS, MAX_LEVEL, skillLevel } from '../artificer/skills';
+import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural } from '../artificer/skills';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, UNRELIABLE_BELOW, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
@@ -256,22 +256,24 @@ function wardenTab(a: AppState): string {
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
-    <section class="box"><p class="eyebrow">SKILLS — improve by doing</p>${skillsBlock(a.sim)}
+    <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;
 }
 
-/** Skills (#1236): level, a bar toward the next level, and what the skill covers. */
+/**
+ * Skills (#1236, #1241) as the Warden sees them: a *self-assessed* level and
+ * how close it feels to the next. The true level is hidden (Dunning–Kruger) —
+ * you feel it in the work instead.
+ */
 function skillsBlock(s: AppState['sim']): string {
-  return `<div class="skills">${SKILL_IDS.map(id => {
-    const lvl = skillLevel(s.skills, id);
-    const have = s.skills[id] ?? 0;
-    const from = LEVEL_HOURS[lvl], to = LEVEL_HOURS[Math.min(lvl + 1, MAX_LEVEL)];
-    const frac = lvl >= MAX_LEVEL ? 1 : (have - from) / (to - from);
-    return `<div class="skill" title="${esc(SKILLS[id].blurb)}"><span class="sn">${esc(SKILLS[id].name)}</span>`
-      + `<span class="pips">${Array.from({ length: MAX_LEVEL }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span>`
-      + `<span class="sl">${LEVELS[lvl]}</span><div class="track"><div class="fill" style="width:${pct(frac)}%"></div></div></div>`;
+  return `<p class="mood" style="margin-top:0">How good you <i>think</i> you are. The work itself tells the truth.</p><div class="skills">${SKILL_IDS.map(id => {
+    const seems = perceivedProgress(s.skills[id] ?? 0);
+    const lvl = Math.floor(seems);
+    const name = LEVELS[lvl];
+    return `<div class="skill" title="${esc(SKILLS[id].blurb)} — self-assessed"><span class="sn">${esc(SKILLS[id].name)}</span>`
+      + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div></div>`;
   }).join('')}</div>`;
 }
 

@@ -13,7 +13,7 @@
 
 import { traitEffects, traitDrain, type TraitId } from './traits';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
-import { SKILLS, LEVELS, skillFor, skillLevel, practise, drainMult, toolMult, SKILL_YIELD, SKILL_CRAFT, type SkillId, type SkillPractice } from './skills';
+import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
@@ -756,7 +756,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
 
-  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + SKILL_YIELD[lvl] + fx.yield;
+  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield;
   say(next, def.run(next, bonus, ring, opts), 'action');
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
@@ -780,7 +780,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current);
   const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain };
   const crafter = crafterOf(next);
-  const { state: c, result } = craft({ ...crafter, skillBonus: SKILL_CRAFT[lvl] + tr.craftGrade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
   next.tools = c.tools;
@@ -812,13 +812,17 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   return next;
 }
 
-/** Log hours of practice in a skill (on a cloned state), announcing a level-up (#1236). */
+/**
+ * Log hours of practice in a skill (on a cloned state) (#1236, #1241). The true
+ * level is never announced — you feel it ("comes easier"); and when your own
+ * estimate drops, you're humbled.
+ */
 function practiceSkill(next: Region1State, skill: SkillId, hours: number): void {
-  const { practice, levelUp } = practise(next.skills, skill, hours * traitEffects(next.character.traits).practice);
+  const { practice, levelUp, humbled } = practise(next.skills, skill, hours * traitEffects(next.character.traits).practice);
   next.skills = practice;
-  if (levelUp === null) return;
-  const title = LEVELS[levelUp];
-  say(next, `${SKILLS[skill].name} improved — you're now ${/^[AEIOU]/.test(title) ? 'an' : 'a'} ${title}.`, 'milestone');
+  const name = SKILLS[skill].name;
+  if (levelUp !== null) say(next, `${SKILLS[skill].felt} — ${name.toLowerCase()} comes easier.`, 'milestone');
+  if (humbled !== null) say(next, `The more you learn of ${name.toLowerCase()}, the more you see how little you know.`, 'action');
 }
 
 /**

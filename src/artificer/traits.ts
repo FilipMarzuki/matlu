@@ -51,7 +51,7 @@ export const TRAITS: Readonly<Record<TraitId, TraitDef>> = {
   quickLearner: { name: 'Quick Learner', upside: 'skills improve 50% faster', cost: 'Condition heals 30% slower', effects: { practice: 1.5, healRate: 0.7 } },
   coldBlooded: { name: 'Cold-blooded', upside: 'cold nights cost no Condition', cost: 'thirst costs 25% more', effects: { coldProof: true, thirstCost: 1.25 } },
   tough: { name: 'Tough', upside: 'once per run, you cling on at Condition 1 instead of collapsing', cost: 'Condition heals 20% slower', effects: { lastStand: true, healRate: 0.8 } },
-  keenEye: { name: 'Keen Eye', upside: 'starts a Novice scout; scouting tires you 15% less', cost: 'all other work tires the mind 5% more', effects: { startSkills: { scouting: 6 }, skillDrain: { skill: 'scouting', mult: 0.85, otherClarity: 1.05 } } },
+  keenEye: { name: 'Keen Eye', upside: 'starts a Novice scout; scouting tires you 15% less', cost: 'all other work tires the mind 5% more', effects: { startSkills: { scouting: 5 }, skillDrain: { skill: 'scouting', mult: 0.85, otherClarity: 1.05 } } },
 };
 export const TRAIT_IDS = Object.keys(TRAITS) as TraitId[];
 /** How many traits a Warden has. */

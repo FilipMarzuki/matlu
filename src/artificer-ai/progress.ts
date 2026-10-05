@@ -9,7 +9,7 @@ import { focusKey } from '../artificer/focus';
 import { pillars, isWinterReady, type PillarKey } from '../artificer/readiness';
 import { RINGS, DOMAINS, level } from '../artificer/exploration';
 import { artificerRank, conceptRanks, type RankName } from '../artificer/rank';
-import { SKILL_IDS, skillLevel } from '../artificer/skills';
+import { SKILL_IDS, skillLevel, perceivedLevel } from '../artificer/skills';
 
 export interface Progress {
   /** The day about to start (a turn's snapshot is taken after its night). */
@@ -21,9 +21,11 @@ export interface Progress {
   /** Total insight across concepts, including what's banked toward the next rank. */
   insight: number;
   recipesKnown: number;
-  /** Skill id → level (#1236), and the sum of all levels. */
+  /** Skill id → true level (#1236), and the sum of all levels. */
   skills: Record<string, number>;
   skillLevels: number;
+  /** Sum of the self-assessed levels (#1241) — compare with skillLevels for the Dunning–Kruger gap. */
+  perceivedSkillLevels: number;
   /** Recipes discovered this run (beyond what the run started with). */
   discoveries: number;
   /** Successful crafts and builds so far, and ones that came apart. */
@@ -70,6 +72,7 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
     recipesKnown: s.known.length,
     skills: Object.fromEntries(SKILL_IDS.map(id => [id, skillLevel(s.skills, id)])),
     skillLevels: SKILL_IDS.reduce((n, id) => n + skillLevel(s.skills, id), 0),
+    perceivedSkillLevels: SKILL_IDS.reduce((n, id) => n + perceivedLevel(s.skills, id), 0),
     discoveries: s.known.length - startKnown,
     crafts: count(/^(Crafted|Raised) /),
     failedCrafts: count(/came apart in your hands/),
