@@ -14,6 +14,7 @@
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
+import { clockHour, lightOver } from './clock';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
@@ -80,6 +81,8 @@ export interface LogEntry {
   day: number;
   text: string;
   kind: 'action' | 'skip' | 'milestone' | 'hardship' | 'outcome';
+  /** For work: when it started (clock hour) and the average light it had, walk included (#1280). */
+  at?: { hour: number; light: number };
 }
 
 export interface Region1Config {
@@ -225,7 +228,11 @@ function clone(s: Region1State): Region1State {
   };
 }
 
-const say = (s: Region1State, text: string, kind: LogEntry['kind']): void => { s.log.push({ day: s.day, text, kind }); };
+const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntry['at']): void => { s.log.push(at ? { day: s.day, text, kind, at } : { day: s.day, text, kind }); };
+
+/** When a piece of work starts and the light it has, from the hours already spent and how long it takes (#1280). */
+const stampFor = (s: Pick<Region1State, 'day' | 'hoursToday'>, hours: number): LogEntry['at'] =>
+  ({ hour: clockHour(s.hoursToday), light: lightOver(s.day, clockHour(s.hoursToday), hours) });
 
 // ── Derived values ──────────────────────────────────────────────────────────
 
@@ -794,6 +801,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel });
   next.vitals = t.vitals;
+  const at = stampFor(next, workHours + travel);
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
   next.today.pushedVigor ||= r.pushedVigor || t.pushedVigor;
@@ -804,7 +812,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
 
   // Talents that bring back more (Forager, Hunter's Patience, Waterfinder) — hidden ones too.
   const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0);
-  say(next, def.run(next, bonus, ring, opts), 'action');
+  say(next, def.run(next, bonus, ring, opts), 'action', at);
   // First into a ring, you may find a manual someone left behind (#1243).
   const manual = id === 'scout' ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
@@ -845,6 +853,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   // craft() doesn't report its load, so read it off the pools for nightly drift.
   next.today.loadVigor += Math.max(0, before.vigor.current - c.vitals.vigor.current);
   next.today.loadClarity += Math.max(0, before.clarity.current - c.vitals.clarity.current);
+  const at = stampFor(next, hours);
   next.hoursToday += hours;
   next.coldGear = roadworthyGear(next.tools);
 
@@ -855,9 +864,9 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     next.tier = roof ? 1 : 2;
     next.shelter = roof ? { type: roof, walls: null } : { ...next.shelter, walls: walls ?? null };
     next.shelterGrade = result.grade;
-    say(next, `Raised ${article(name)}${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action');
+    say(next, `Raised ${article(name)}${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action', at);
   } else if (result.kind === 'crafted') {
-    say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action');
+    say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action', at);
   } else if (result.kind === 'failed') {
     const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
