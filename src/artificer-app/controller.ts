@@ -20,8 +20,8 @@ export interface AppState {
 }
 
 /** Bump the version (and the key) whenever the saved shape changes incompatibly. */
-export const SAVE_VERSION = 2;
-export const SAVE_KEY = 'artificer.region1.v2';
+export const SAVE_VERSION = 3;
+export const SAVE_KEY = 'artificer.region1.v3';
 
 /** Long enough for any real plan; stops a runaway loop if the sim ever stalls. */
 const MAX_DAYS_PER_RUN = 60;
@@ -137,6 +137,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   if (!isNum(sim.day) || !isNum(sim.hoursToday) || !isObj(v) || !isPool(v.vigor) || !isPool(v.clarity) || !isNum(v.condition)) return null;
   if (!isObj(sim.stores) || !isObj(sim.knowledge) || !isObj(sim.flags) || !isObj(sim.today) || !isObj(sim.config)) return null;
   if (!Array.isArray(sim.milestones) || !Array.isArray(sim.log) || !Array.isArray(sim.tools) || !isObj(sim.concepts)) return null;
+  if (sim.shelterGrade !== null && typeof sim.shelterGrade !== 'string') return null;
 
   // The shape checks above cover what the sim reads; trust the rest.
   return { sim: sim as unknown as Region1State, queue: queue as ActionId[] };

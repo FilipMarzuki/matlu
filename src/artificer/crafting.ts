@@ -49,6 +49,11 @@ export interface CraftRecipe {
   concepts?: string[];
   /** Explicit concept-rank gate, overriding the default tier rule. */
   conceptRequires?: Record<string, number>;
+  /**
+   * Per-hour pull on the pools while crafting (negative = drain). Defaults to
+   * bench work — light on Vigor, heavier on Clarity; heavy builds override it.
+   */
+  effort?: { vigorRate: number; clarityRate: number };
 }
 
 /** The fields of a concepts.json entry the sim reads. */
@@ -378,7 +383,7 @@ export type CraftResult =
   | { kind: 'refused'; reason: string };
 
 /** Per-hour Clarity drain at the bench: fine work is mental work. */
-const craftClarityRate = (tier: number): number => -(2 + 0.75 * tier);
+const craftClarityRate = (tier: number): number => -(3 + tier);
 const CRAFT_VIGOR_RATE = -1.5;
 
 /**
@@ -400,8 +405,8 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
   const mod = modifiersFor(s.tools, 'craft', world.effects);
   next.vitals = applyActivity(next.vitals, {
     hours: recipe.timeBase * mod.timeMult,
-    vigorRate: CRAFT_VIGOR_RATE * mod.vigorMult,
-    clarityRate: craftClarityRate(recipe.tier) * mod.clarityMult,
+    vigorRate: (recipe.effort?.vigorRate ?? CRAFT_VIGOR_RATE) * mod.vigorMult,
+    clarityRate: (recipe.effort?.clarityRate ?? craftClarityRate(recipe.tier)) * mod.clarityMult,
   }).vitals;
 
   for (const i of recipe.inputs) next.inventory[i.item] = (next.inventory[i.item] ?? 0) - i.qty;

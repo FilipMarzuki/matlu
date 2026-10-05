@@ -78,6 +78,9 @@ describe('Artificer controller', () => {
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION + 1, sim: a.sim, queue: [] }))).toBeNull();
     // v1 saves (before tools existed) start fresh rather than load half-shaped.
     expect(deserialize(JSON.stringify({ version: 1, sim: a.sim, queue: [] }))).toBeNull();
+    expect(deserialize(JSON.stringify({ version: 2, sim: a.sim, queue: [] }))).toBeNull();
+    const graded = { ...a, sim: { ...a.sim, tier: 1 as const, shelterGrade: 'fine' as const } };
+    expect(deserialize(serialize(graded))).toEqual(graded);
     const { tools: _t, ...noTools } = a.sim;
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: noTools, queue: [] }))).toBeNull();
     // Tools and concepts round-trip.

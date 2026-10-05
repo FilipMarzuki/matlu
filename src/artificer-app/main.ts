@@ -49,8 +49,8 @@ const YIELD: Record<ActionId, (s: AppState['sim']) => string> = {
   water: s => `+${(s.knowledge.surveyed ? 5 : 4) + (s.site === 'river' ? 2 : 0) + bonus(s, 'water')} water`,
   wood: s => `+${(s.knowledge.surveyed ? 5 : 4) + (s.site === 'tree' ? 1 : 0)} fuel, +${s.knowledge.surveyed ? 3 : 2} mat`,
   preserve: () => '2 raw → 1 ration (×3)',
-  build: s => (s.tier < 2 ? `tier ${s.tier + 1} · ${BUILD_COST[s.tier as 0 | 1]} mat` : 'winterized'),
-  coldGear: () => 'needed to cross solo',
+  build: s => (s.tier < 2 ? `tier ${s.tier + 1} · ${BUILD_COST[s.tier as 0 | 1]} mat · grade sets warmth` : 'winterized'),
+  coldGear: () => 'needed to cross solo · crude won\'t do',
   knife: () => 'hunt −15% vigor, quicker preserving',
   snare: () => '+1 food every night',
   waterskin: () => '+1 water per trip',
@@ -146,7 +146,7 @@ function warden(a: AppState): string {
   const sites = (Object.keys(SITES) as SiteId[]).map(id =>
     `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${s.knowledge.scouted && !s.outcome ? '' : 'disabled'}>`
     + `<div class="t">${SITES[id].name.toUpperCase()}<span class="warm" style="margin-left:auto">MAX ${Math.round(SITES[id].warmth * 100)}% WARM</span></div>`
-    + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2.` : ''}</div></button>`).join('');
+    + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2${s.shelterGrade ? ` (${s.shelterGrade})` : ''} · ${Math.round(warmth(s) * 100)}% warm.` : ''}</div></button>`).join('');
   // Tool names come from the craft actions that make them (output item → action).
   const toolName = (item: string): string => (Object.values(ACTIONS).find(a => a.recipe?.output.item === item)?.recipe?.name ?? item);
   const tools = s.tools.map(t => `<span class="r tool ${t.grade}">${esc(toolName(t.item))} <b>${t.grade.toUpperCase()}</b></span>`).join('');
@@ -163,7 +163,7 @@ function warden(a: AppState): string {
     </div>
     <p class="mood">${moodLine(a)}</p>
     <p class="eyebrow" style="margin-top:14px">STORES</p>
-    <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}${s.coldGear ? '<span class="r">🧥 Cold gear</span>' : ''}</div>
+    <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}</div>
     <p class="eyebrow" style="margin-top:14px">SITE &amp; SHELTER</p>
     <div class="sites">${sites}</div>
     ${s.knowledge.scouted ? '' : '<p class="mood">Scout first to find somewhere to settle.</p>'}
