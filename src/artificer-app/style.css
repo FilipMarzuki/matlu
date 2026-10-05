@@ -329,6 +329,10 @@ body { min-height: 100vh; }
   .skill .sl { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); text-align: right; }
   .skill .track { grid-column: 1 / -1; height: 3px; background: var(--sub2); border-radius: 2px; overflow: hidden; }
   .skill .track .fill { height: 100%; background: var(--teal); }
+  .skill .techs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .tech { font-size: 10px; padding: 1px 6px; border-radius: 3px; border: 1px dashed var(--border2); color: var(--dim); }
+  .tech.known { border-style: solid; border-color: var(--gold); color: var(--gold); }
+  .tech.teacher { font-style: italic; }
 
   /* ── Character (#1239): portraits, creation form, Warden tab, header identity ── */
   .portrait { display: inline-block; flex: none; image-rendering: pixelated; border-radius: 8px; background-color: var(--sub2); background-repeat: no-repeat; border: 1px solid var(--border2); }

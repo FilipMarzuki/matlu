@@ -62,6 +62,20 @@ The true level drives every effect, so improvement is **felt**. A true level-up 
 
 **Across runs.** All practice carries over. The climb to mastery spans many runs.
 
+**Techniques (#1243).** Each level *looks like* certain things you can do: reading the grain, still hunting, smoke curing. Every skill has three. Each one is typical of a level but not locked to it, so a Warden can be lopsided, as real people are: a middling woodcutter who happens to know notching because a forester's notes taught it. Each technique gives a concrete edge: extra yield, lighter work, better grades, or easier travel.
+
+| Difficulty | How it's learned | Example |
+| --- | --- | --- |
+| Easy | alone, after 0.8× the level's hours | Reading the grain (woodcraft, Novice): about 4h |
+| Hard | alone, after 2.5× the level's hours; much sooner from a manual or teacher | Still hunting (hunting, Adept): 150h alone |
+| Taught only | never alone; a teacher or a manual must give it | Seasoning firewood, Mushroom lore, Weather sense |
+
+A teacher or a manual can teach a technique up to two levels above your true level.
+
+**The exponential climb gets lonely.** Up to Adept, practising alone is fully efficient. After that, solo practice credits less and less: 0.8 at Journeyman, 0.45 at Veteran, 0.25 at Master, 0.05 at the top. A manual in the skill gets you halfway back to full efficiency, and a teacher all the way. Knowing the techniques typical of the levels you've reached speeds the climb (×0.7 knowing none, ×1 knowing all), so an Adept who never worked out notching plateaus.
+
+**Manuals in Region 1.** A trapper's tally-book (hunting, teaches Still hunting) waits in ring 2, and a forester's notes (woodcraft, teaches Notching) in ring 3. Each is found on the first scout of its ring. Teachers come with Region 1.5's villages. Techniques carry with the character, and manuals stay behind. The WARDEN tab shows known techniques by name, and unknown ones only as a hint of how they're learned.
+
 ## 2. Traits
 
 Pick two at character creation. Each trait has an upside and a cost, and works

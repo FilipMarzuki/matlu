@@ -19,6 +19,7 @@ import {
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
 import { SKILL_IDS, LEVELS, perceivedLevel } from '../artificer/skills';
+import { techniqueById, manualById } from '../artificer/techniques';
 import { TRAITS } from '../artificer/traits';
 import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
@@ -47,9 +48,10 @@ You plan the day as a queue of actions. Each costs hours and drains Vigor (body)
 
 SKILLS
 Seven skills improve by use: every hour of work trains the skill it uses (woodcraft: wood, wooden builds, shovel; foraging: gather; hunting: hunt, track, snare; stonework: quarry, stone knife, stone walls; fieldcraft: water, preserve; scouting: scout, survey, look out; handcraft: cold gear, parka, waterskin, bedroll, tinker). Levels: Novice 5h, Apprentice 20h, Adept 60h, Journeyman 150h, Skilled 400h, Expert 1,000h, Veteran 3,000h, Professional 10,000h, Master, Grandmaster, and beyond human: Paragon, Mythic, Transcendent. A focused skill practises 3x faster. Higher skill in a field means lighter work, more yield, better tool use and better craft grades. You only know how good you THINK you are — beginners overrate themselves, the getting-good underrate themselves — so judge by results. Skills carry into the next run.
+Techniques are what a skill level looks like in practice (e.g. reading the grain, still hunting, smoke curing): each gives a concrete edge (yield, lighter work, better grades). Easy ones you work out alone with practice, hard ones take much longer alone, and some can only be taught — by a teacher or a manual found while scouting the far rings. A manual also makes practice in its skill more efficient. Past Adept, practising alone gets steadily slower; knowing the techniques of your level speeds the climb.
 
 FOCUS
-Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises twice as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or when winter is 3 days away and you're not ready.
+Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises 3x as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or when winter is 3 days away and you're not ready.
 
 THE LAND
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
@@ -148,6 +150,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).
   const practised = SKILL_IDS.filter(id => (s.skills[id] ?? 0) > 0);
   lines.push(`SKILLS (self-assessed — your true level may differ): ${practised.length ? practised.map(id => `${id} ${LEVELS[perceivedLevel(s.skills, id)]}`).join(', ') : 'none yet — every hour of work trains the skill it uses'}`);
+  const known = s.techniques.map(id => techniqueById(id)?.name).filter(Boolean);
+  lines.push(`TECHNIQUES: ${known.length ? known.join(', ') : 'none yet'}${s.manuals.length ? ` | MANUALS: ${s.manuals.map(id => manualById(id)?.name ?? id).join(', ')}` : ''}`);
 
   lines.push('');
   lines.push('THE LAND:');

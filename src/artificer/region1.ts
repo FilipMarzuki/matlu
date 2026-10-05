@@ -12,6 +12,7 @@
  */
 
 import { traitEffects, traitDrain, type TraitId } from './traits';
+import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
@@ -120,6 +121,10 @@ export interface Region1State {
   character: Character;
   /** What the mind is working on (#1238), or null. The survival lock can override it (survivalLockOf). */
   focus: Focus | null;
+  /** Techniques known (#1243) — knowledge, so it carries with the character. */
+  techniques: string[];
+  /** Manuals owned (#1243): they guide practice in their skill and teach their techniques when you're ready. */
+  manuals: string[];
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -156,6 +161,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     skills: start,
     character: { id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, traits: [...traits], lastStandUsed: false },
     focus: null,
+    techniques: [...(legacy?.techniques ?? [])],
+    manuals: [],
     log: [],
     outcome: null,
     config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS },
@@ -188,6 +195,8 @@ function clone(s: Region1State): Region1State {
     deprivation: { ...s.deprivation },
     skills: { ...s.skills },
     character: { ...s.character, traits: [...s.character.traits] },
+    techniques: [...s.techniques],
+    manuals: [...s.manuals],
     log: [...s.log],
   };
 }
@@ -553,8 +562,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   wood: {
     name: 'Gather wood', hours: 4, vigorRate: -4, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, _b, r) => {
-      const f = tripYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber');
+    // `b` (skill, tools, focus, techniques) adds to the firewood — it used to be ignored here (#1243).
+    run: (s, b, r) => {
+      const f = tripYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b;
       const m = tripYield(s.explore, r, 'timber', 2, 1);
       const note = workLand(s, r, 'timber');
       s.stores.firewood += f; s.stores.materials += m; s.flags.everWood = true;
@@ -563,8 +573,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   quarry: {
     name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, _b, r) => {
-      const n = tripYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone');
+    run: (s, b, r) => {
+      const n = tripYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b;
       const note = workLand(s, r, 'stone');
       s.stores.stone += n;
       return `Broke out ${n} stone${where(r)}.${note}`;
@@ -748,8 +758,10 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const td = traitDrain(next.character.traits, skill);
   // Focus (#1238): goal or survival work is lighter and richer; a focused skill practises faster.
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current);
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE, clarityRate: TRAVEL_CLARITY_RATE });
+  // Techniques you know (#1243): richer, lighter work — and Pathfinding eases the walk out.
+  const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain * te.drain, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain * te.drain });
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
@@ -757,8 +769,11 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
 
-  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield;
+  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield;
   say(next, def.run(next, bonus, ring, opts), 'action');
+  // First into a ring, you may find a manual someone left behind (#1243).
+  const manual = id === 'scout' ? MANUAL_BY_RING[ring] : undefined;
+  if (manual && !next.manuals.includes(manual)) findManual(next, manual);
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
   latchMilestones(next);
@@ -779,9 +794,10 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const lvl = skill ? skillLevel(next.skills, skill) : 0;
   const td = traitDrain(next.character.traits, skill);
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current);
-  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain };
+  const te = techniqueEffects(next.techniques, id, recipe.id);
+  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain * te.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain * te.drain };
   const crafter = crafterOf(next);
-  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
   next.tools = c.tools;
@@ -819,11 +835,70 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
  * estimate drops, you're humbled.
  */
 function practiceSkill(next: Region1State, skill: SkillId, hours: number): void {
-  const { practice, levelUp, humbled } = practise(next.skills, skill, hours * traitEffects(next.character.traits).practice);
+  // Credited practice (#1243): past Adept, practising alone counts for less — a manual or a
+  // teacher brings it back — and knowing the techniques typical of your level speeds the climb.
+  const lvl = skillLevel(next.skills, skill);
+  const credited = hours * traitEffects(next.character.traits).practice
+    * guidanceRate(lvl, guidanceFor(next, skill)) * techniqueFactor(next.techniques, skill, lvl);
+  const { practice, levelUp, humbled } = practise(next.skills, skill, credited);
   next.skills = practice;
   const name = SKILLS[skill].name;
   if (levelUp !== null) say(next, `${SKILLS[skill].felt} — ${name.toLowerCase()} comes easier.`, 'milestone');
   if (humbled !== null) say(next, `The more you learn of ${name.toLowerCase()}, the more you see how little you know.`, 'action');
+  learnWhatYouCan(next, skill);
+}
+
+/** The guidance you have for practising a skill: a manual for it, or nothing (teachers come with Region 1.5). */
+const guidanceFor = (s: Region1State, skill: SkillId): Guidance => (s.manuals.some(m => manualById(m)?.skill === skill) ? 'manual' : 'none');
+
+/** Work out techniques your practice has earned, and take up ones a manual offers once they're within reach. */
+function learnWhatYouCan(next: Region1State, skill: SkillId): void {
+  const lvl = skillLevel(next.skills, skill);
+  for (const t of TECHNIQUES) {
+    if (t.skill !== skill || next.techniques.includes(t.id)) continue;
+    if ((next.skills[skill] ?? 0) >= selfLearnHours(t)) {
+      next.techniques.push(t.id);
+      say(next, `You've worked out ${t.name.toLowerCase()} — ${t.how}.`, 'milestone');
+      continue;
+    }
+    const manual = next.manuals.map(manualById).find(m => m?.teaches.includes(t.id));
+    if (manual && canBeTaught(t, lvl)) {
+      next.techniques.push(t.id);
+      say(next, `From ${manual.name.toLowerCase()}: ${t.name.toLowerCase()} — ${t.how}.`, 'milestone');
+    }
+  }
+}
+
+/** Pick up a manual (on a cloned state): it guides practice from now on and teaches when you're ready. */
+function findManual(next: Region1State, id: string): void {
+  const m = manualById(id);
+  if (!m) return;
+  next.manuals.push(id);
+  say(next, `${m.found}.`, 'milestone');
+  const lvl = skillLevel(next.skills, m.skill);
+  const beyond = m.teaches.map(techniqueById).filter((t): t is Technique => !!t && !next.techniques.includes(t.id) && !canBeTaught(t, lvl));
+  if (beyond.length) say(next, `Some of it is beyond you for now — you'll come back to it as your ${SKILLS[m.skill].name.toLowerCase()} grows.`, 'action');
+  learnWhatYouCan(next, m.skill);
+}
+
+/**
+ * Learn a technique from a source (#1243). `self`: only once practice has earned it;
+ * `teacher` / `manual`: anything up to TEACH_REACH levels above your true level —
+ * which is how a Warden ends up lopsided. Region 1.5's teachers call this.
+ */
+export function learnTechnique(s: Region1State, id: string, source: 'self' | 'teacher' | 'manual'): { state: Region1State; learned: boolean; reason?: string } {
+  const t = techniqueById(id);
+  if (!t) return { state: s, learned: false, reason: 'no such technique' };
+  if (s.techniques.includes(id)) return { state: s, learned: false, reason: 'already known' };
+  const lvl = skillLevel(s.skills, t.skill);
+  if (source === 'self' && (s.skills[t.skill] ?? 0) < selfLearnHours(t)) {
+    return { state: s, learned: false, reason: t.difficulty === 'teacher' ? 'this has to be taught' : 'not enough practice yet' };
+  }
+  if (source !== 'self' && !canBeTaught(t, lvl)) return { state: s, learned: false, reason: `too far beyond your ${SKILLS[t.skill].name.toLowerCase()}` };
+  const next = clone(s);
+  next.techniques.push(id);
+  say(next, `${source === 'teacher' ? 'Taught' : source === 'manual' ? 'Learned from the page' : "You've worked out"}: ${t.name.toLowerCase()} — ${t.how}.`, 'milestone');
+  return { state: next, learned: true };
 }
 
 /**

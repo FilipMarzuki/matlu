@@ -12,7 +12,7 @@ function camp(over: Partial<Region1State> = {}): Region1State {
   return { ...s, stores: { ...s.stores, materials: 20, rawFood: 5, water: 5 }, ...over };
 }
 // The craft's own line (a skill level-up may follow it).
-const lastText = (s: Region1State): string => [...s.log].reverse().find(l => !/comes easier\.$|how little you know/.test(l.text))?.text ?? '';
+const lastText = (s: Region1State): string => [...s.log].reverse().find(l => !/comes easier\.$|how little you know|^You've worked out|^From /.test(l.text))?.text ?? '';
 
 describe('Region 1 playtest fixes (#1227)', () => {
   // Journal lines read as English: no "a" before plurals or mass nouns.

@@ -21,6 +21,7 @@ import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural } from '../artificer/skills';
+import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, UNRELIABLE_BELOW, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
@@ -256,7 +257,7 @@ function wardenTab(a: AppState): string {
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
-    <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus</p>${skillsBlock(a.sim)}
+    <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;
@@ -273,9 +274,22 @@ function skillsBlock(s: AppState['sim']): string {
     const lvl = Math.floor(seems);
     const name = LEVELS[lvl];
     return `<div class="skill" title="${esc(SKILLS[id].blurb)} — self-assessed"><span class="sn">${esc(SKILLS[id].name)}</span>`
-      + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div></div>`;
-  }).join('')}</div>`;
+      + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div>`
+      + `<div class="techs">${TECHNIQUES.filter(t => t.skill === id).map(techChip(s)).join('')}</div></div>`;
+  }).join('')}</div>${s.manuals.length ? `<p class="mood">Manuals: ${s.manuals.map(m => `<b>${esc(manualById(m)?.name ?? m)}</b>`).join(', ')} — they guide your practice and teach what's within reach.</p>` : ''}`;
 }
+
+/** How a technique (#1243) is learned, as a hint for one you don't know yet. */
+const LEARN_HINT: Record<Technique['difficulty'], string> = {
+  easy: 'comes with a little practice',
+  hard: 'slow to work out alone — a manual or teacher helps',
+  teacher: 'can only be taught',
+};
+
+/** One technique: named once known; otherwise a hint at how it's learned. Each is typical of a level, not locked to it. */
+const techChip = (s: AppState['sim']) => (t: Technique): string => s.techniques.includes(t.id)
+  ? `<span class="tech known" title="${esc(t.how)} — typical of ${LEVELS[t.level]}">${esc(t.name)}</span>`
+  : `<span class="tech ${t.difficulty}" title="Typical of ${LEVELS[t.level]}: ${LEARN_HINT[t.difficulty]}">? ${t.difficulty === 'teacher' ? 'taught only' : t.difficulty}</span>`;
 
 function vitalsBlock(a: AppState): string {
   const v = a.sim.vitals;

@@ -232,5 +232,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;
   const focus = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
-  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character, focus }, queue: queue as QueueItem[] };
+  // …and saves from before techniques/manuals (#1243) start with none.
+  const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
+  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals) }, queue: queue as QueueItem[] };
 }
