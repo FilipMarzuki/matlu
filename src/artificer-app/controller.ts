@@ -20,8 +20,8 @@ export interface AppState {
 }
 
 /** Bump the version (and the key) whenever the saved shape changes incompatibly. */
-export const SAVE_VERSION = 5;
-export const SAVE_KEY = 'artificer.region1.v5';
+export const SAVE_VERSION = 7;
+export const SAVE_KEY = 'artificer.region1.v7';
 
 /** Long enough for any real plan; stops a runaway loop if the sim ever stalls. */
 const MAX_DAYS_PER_RUN = 60;
@@ -160,7 +160,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   if (!isObj(sim)) return null;
   const v = sim.vitals;
   if (!isNum(sim.day) || !isNum(sim.hoursToday) || !isObj(v) || !isPool(v.vigor) || !isPool(v.clarity) || !isNum(v.condition)) return null;
-  if (!isObj(sim.stores) || !isObj(sim.explore) || !isObj(sim.flags) || !isObj(sim.today) || !isObj(sim.config)) return null;
+  if (!isObj(sim.stores) || typeof sim.stores.hides !== 'number' || !isObj(sim.explore) || !isObj(sim.flags) || !isObj(sim.today) || !isObj(sim.config)) return null;
+  if (!Array.isArray(sim.known) || !isObj(sim.studiedToday)) return null;
   if (!Array.isArray(sim.milestones) || !Array.isArray(sim.log) || !Array.isArray(sim.tools) || !isObj(sim.concepts)) return null;
   if (sim.shelterGrade !== null && typeof sim.shelterGrade !== 'string') return null;
 

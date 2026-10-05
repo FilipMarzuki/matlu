@@ -86,7 +86,10 @@ describe('Region 1 crafting', () => {
     const s = chooseSite(ready(), 'cave');
     const tried = runAction(s, 'shovel');
     expect(tried.tools).toEqual([]);
-    expect(tried.log.at(-1)?.text).toMatch(/tier-1 bench/);
+    // Not yet worked out — digging the footings for a roof is what teaches it (#1221)…
+    expect(tried.log.at(-1)?.text).toMatch(/haven't worked out/);
+    // …and even known, it's tier-1 work that needs the roof as a bench.
+    expect(runAction({ ...s, known: [...s.known, 'crude-shovel'] }, 'shovel').log.at(-1)?.text).toMatch(/tier-1 bench/);
 
     const roofed = runAction(s, 'build');
     expect(roofed.tier).toBe(1);

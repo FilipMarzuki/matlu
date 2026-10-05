@@ -85,6 +85,21 @@ export const survey = (e: Exploration, ring: Ring): Exploration => raise(e, ring
 /** Track: find the game — game in the ring at least observed. */
 export const track = (e: Exploration, ring: Ring): Exploration => raise(e, ring, 2, 'game');
 
+/**
+ * Climb & Look Out (design §4): from height, everything in this ring sharpens
+ * one level (up to observed), and you can see out over the next ring — its
+ * overview, routes included, becomes at least suspected.
+ */
+export function lookout(e: Exploration, ring: Ring): Exploration {
+  const next = clone(e);
+  for (const d of domainsOf(ring)) next.known[ring][d] = Math.max(next.known[ring][d], Math.min(2, level(e, ring, d) + 1));
+  if (ring < 3) {
+    const out = (ring + 1) as Ring;
+    for (const d of domainsOf(out)) next.known[out][d] = Math.max(next.known[out][d], 1);
+  }
+  return next;
+}
+
 /** Insight a trip working a domain teaches it (three trips ≈ one level). */
 export const WORK_INSIGHT = 0.35;
 /** Overview a trip spills into the ring's other domains — never past "suspected". */

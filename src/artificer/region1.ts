@@ -14,8 +14,8 @@
 import { applyActivity, driftCapacity, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
-import { createExploration, scout, survey, track, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
-import { craft, craftBlocker, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { createExploration, scout, survey, track, lookout, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import { craft, craftBlocker, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -65,6 +65,8 @@ export interface Stores {
   rations: number;
   /** Quarried stone — for stone-banked walls. */
   stone: number;
+  /** Hides from deer hunts — for waterskins and hide parkas. */
+  hides: number;
 }
 
 export interface LogEntry {
@@ -94,7 +96,11 @@ export interface Region1State {
   /** Which roof and walls were chosen (reset when you move). */
   shelter: ShelterBuild;
   /** One-way "ever did X" flags behind the first-time milestones. */
-  flags: { everWater: boolean; everFood: boolean; everWood: boolean; everHunt: boolean; everPreserve: boolean };
+  flags: { everWater: boolean; everFood: boolean; everWood: boolean; everHunt: boolean; everPreserve: boolean; everHide: boolean };
+  /** Recipe ids you know how to make (the rest are discovered — see DISCOVERIES). */
+  known: string[];
+  /** Study sessions per concept today (diminishing returns; reset each night). */
+  studiedToday: Record<string, number>;
   milestones: string[];
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
@@ -113,14 +119,16 @@ export function createRegion1(config: Partial<Region1Config> = {}): Region1State
     day: 1,
     hoursToday: 0,
     vitals: createVitals(),
-    stores: { rawFood: 2, water: 2, firewood: 0, materials: 1, rations: 0, stone: 0 },
+    stores: { rawFood: 2, water: 2, firewood: 0, materials: 1, rations: 0, stone: 0, hides: 0 },
     coldGear: false,
     explore: createExploration(),
     site: null,
     tier: 0,
     shelterGrade: null,
     shelter: { type: null, walls: null },
-    flags: { everWater: false, everFood: false, everWood: false, everHunt: false, everPreserve: false },
+    flags: { everWater: false, everFood: false, everWood: false, everHunt: false, everPreserve: false, everHide: false },
+    known: [...STARTING_RECIPES],
+    studiedToday: {},
     milestones: [],
     tools: [],
     concepts: {},
@@ -140,6 +148,8 @@ function clone(s: Region1State): Region1State {
     stores: { ...s.stores },
     shelter: { ...s.shelter },
     flags: { ...s.flags },
+    known: [...s.known],
+    studiedToday: { ...s.studiedToday },
     milestones: [...s.milestones],
     tools: [...s.tools],
     concepts: { ...s.concepts },
@@ -178,10 +188,11 @@ export type ActionId =
   | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'preserve'
   | 'build' | 'coldGear'
   | 'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel'
+  | 'lookout' | 'study'
   | 'tinker' | 'rest';
 
 /** Actions that happen out on the land, in a chosen ring. */
-export type RingActionId = 'scout' | 'survey' | 'track' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry';
+export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry';
 /**
  * A queue entry: an action, optionally aimed at a ring (`wood@2`). A bare id
  * means the near ring, so plans written before rings existed still read right.
@@ -227,7 +238,9 @@ interface ActionDef {
    * Apply the effect to (an already-cloned) state; return the journal line.
    * `bonus` is the extra yield your tools give this action.
    */
-  run: (s: Region1State, bonus: number, ring: Ring) => string;
+  run: (s: Region1State, bonus: number, ring: Ring, opts: ActionOpts) => string;
+  /** How the chosen options change the work itself (hours and per-hour pulls). */
+  variant?: (opts: ActionOpts, s?: Region1State, ring?: Ring) => { hours?: number; vigorRate?: number; clarityRate?: number };
   /** Happens out on the land: can target a ring, and pays its travel time. */
   ringed?: boolean;
   /** A craft: paid from stores and resolved by crafting.craft (its hours/rates come from there). */
@@ -272,7 +285,7 @@ const findBonus = (s: Region1State, ring: Ring, d: Domain): number => (hasFind(s
 export const REGION1_RECIPES: Readonly<Record<'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel', CraftRecipe>> = {
   knife: { id: 'stone-knife', name: 'Stone knife', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'stone-knife', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['sharpening'] },
   snare: { id: 'trap-snare', name: 'Snare', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'trap-snare', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['tension', 'leverage'] },
-  waterskin: { id: 'waterskin', name: 'Waterskin', inputs: [{ item: 'materials', qty: 1 }, { item: 'rawFood', qty: 1 }], output: { item: 'waterskin', qty: 1 }, tier: 0, station: null, timeBase: 4, concepts: ['sealing'] },
+  waterskin: { id: 'waterskin', name: 'Waterskin', inputs: [{ item: 'materials', qty: 1 }, { item: 'hides', qty: 1 }], output: { item: 'waterskin', qty: 1 }, tier: 0, station: null, timeBase: 4, concepts: ['sealing'] },
   bedroll: { id: 'bedroll', name: 'Bedroll', inputs: [{ item: 'materials', qty: 3 }], output: { item: 'bedroll', qty: 1 }, tier: 0, station: null, timeBase: 5 },
   shovel: { id: 'crude-shovel', name: 'Crude shovel', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'crude-shovel', qty: 1 }, tier: 1, station: null, timeBase: 3, concepts: ['leverage'] },
 };
@@ -334,12 +347,12 @@ function buildOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
   if (plan.fromTier === 0) {
     groups.push({
       key: 'type', label: 'Shelter type', value: isShelterType(opts.type) ? opts.type : 'leanto',
-      choices: (Object.keys(SHELTER_TYPES) as ShelterType[]).map(t => ({ value: t, label: SHELTER_TYPES[t].name, note: `${costNote(SHELTER_TYPES[t].recipe)} · holds ${Math.round(SHELTER_TYPES[t].factor * 100)}%`, blocked: null })),
+      choices: (Object.keys(SHELTER_TYPES) as ShelterType[]).map(t => ({ value: t, label: SHELTER_TYPES[t].name, note: `${costNote(SHELTER_TYPES[t].recipe)} · holds ${Math.round(SHELTER_TYPES[t].factor * 100)}%`, blocked: knows(s, SHELTER_TYPES[t].recipe) ? null : 'not yet discovered' })),
     });
   } else if (plan.fromTier === 1) {
     groups.push({
       key: 'walls', label: 'Wall material', value: isWall(opts.walls) ? opts.walls : 'timber',
-      choices: (Object.keys(WALL_TYPES) as WallMaterial[]).map(w => ({ value: w, label: WALL_TYPES[w].name, note: `${costNote(WALL_TYPES[w].recipe)} · holds ${Math.round(WALL_TYPES[w].factor * 100)}%`, blocked: null })),
+      choices: (Object.keys(WALL_TYPES) as WallMaterial[]).map(w => ({ value: w, label: WALL_TYPES[w].name, note: `${costNote(WALL_TYPES[w].recipe)} · holds ${Math.round(WALL_TYPES[w].factor * 100)}%`, blocked: knows(s, WALL_TYPES[w].recipe) ? null : 'not yet discovered' })),
     });
   }
   return groups.filter(g => g.choices.length > 1);
@@ -361,12 +374,23 @@ export const COLD_GEAR_RECIPE: CraftRecipe = {
   tier: 0, station: null, timeBase: 6, concepts: ['weaving'], effort: { vigorRate: -1.5, clarityRate: -5 },
 };
 
-const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'stone'] as const;
+const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'stone', 'hides'] as const;
 // Region 1's own item on top of the registry defaults: cold gear lets you travel in winter.
-const CRAFT_WORLD = craftWorld([], [], { ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] } });
+const CRAFT_WORLD = craftWorld([], [], { ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] }, 'hide-parka': { unlock: ['winter-travel'] } });
 
 /** Road-worthy cold gear: you have some, and it isn't crude (crude gear won't hold up on the crossing). */
-const roadworthyGear = (tools: readonly Tool[]): boolean => tools.some(t => t.item === 'cold-gear' && t.grade !== 'crude');
+const roadworthyGear = (tools: readonly Tool[]): boolean =>
+  tools.some(t => (t.item === 'cold-gear' && t.grade !== 'crude') || t.item === 'hide-parka');
+
+/** Cold gear from hides: heavier on materials you hunt for, but hide holds the cold even when the work is crude. */
+export const HIDE_PARKA_RECIPE: CraftRecipe = {
+  id: 'hide-parka', name: 'Hide parka', inputs: [{ item: 'materials', qty: 1 }, { item: 'hides', qty: 2 }], output: { item: 'hide-parka', qty: 1 },
+  tier: 0, station: null, timeBase: 6, concepts: ['sealing'], effort: { vigorRate: -1.5, clarityRate: -5 },
+};
+const coldGearRecipe = (o: ActionOpts): CraftRecipe => (o.material === 'hide' ? HIDE_PARKA_RECIPE : COLD_GEAR_RECIPE);
+
+/** An option group, offered only when it's a real choice. */
+const choiceGroup = (key: string, label: string, value: string, choices: OptionChoice[]): OptionGroup => ({ key, label, value, choices });
 
 /** View a Region 1 state as a crafter: stores are the inventory, the shelter is the bench. */
 function crafterOf(s: Region1State): CrafterState {
@@ -379,12 +403,49 @@ function crafterOf(s: Region1State): CrafterState {
   });
 }
 
+// ── Discovery (crafting design §5) ──────────────────────────────────────────
+//
+// Recipes aren't all known on day 1. A few are innate; the rest you work out
+// from what you see and find — or by studying the concept behind them.
+
+/** Recipe ids every Warden knows from the start. */
+export const STARTING_RECIPES: readonly string[] = ['shelter-leanto', 'shelter-timber', 'cold-gear', 'stone-knife', 'bedroll'];
+
+/** How each other recipe is discovered: an observation/find, or rank 1 in its concept. */
+export const DISCOVERIES: readonly { recipe: string; name: string; concept: string; trigger: (s: Region1State) => boolean; how: string }[] = [
+  { recipe: 'trap-snare', name: 'Snare', concept: 'tension', trigger: s => gameTracked(s), how: 'watching the game trails, you see how a snare would hold' },
+  { recipe: 'shelter-hut', name: 'Brush hut', concept: 'joinery', trigger: s => level(s.explore, 1, 'forage') >= 2, how: 'knowing where the brush grows thick, you can see a hut in it' },
+  { recipe: 'shelter-stone', name: 'Stone-banked walls', concept: 'joinery', trigger: s => RINGS.some(r => level(s.explore, r, 'stone') >= 2), how: 'the flat stone out there would bank a wall and hold the heat' },
+  { recipe: 'hide-parka', name: 'Hide parka', concept: 'sealing', trigger: s => s.flags.everHide, how: 'a fresh hide in your hands — it would turn the wind' },
+  { recipe: 'waterskin', name: 'Waterskin', concept: 'sealing', trigger: s => s.flags.everHide, how: 'sewn tight, a hide would carry water' },
+  { recipe: 'crude-shovel', name: 'Crude shovel', concept: 'leverage', trigger: s => s.tier >= 1, how: 'digging the footings, you wanted a blade on a pole' },
+];
+
+/** The concepts you can study, and what rank 1 in each reveals. */
+export const STUDY_CONCEPTS: readonly string[] = ['joinery', 'tension', 'sealing', 'leverage', 'sharpening', 'weaving'];
+
+export const knows = (s: Region1State, r: CraftRecipe): boolean => s.known.includes(r.id);
+const unknownRecipe = (s: Region1State, r: CraftRecipe): string | null => (knows(s, r) ? null : `you haven't worked out how to make a ${r.name.toLowerCase()} yet`);
+
+/** Learn anything newly discovered (on a cloned state), journalling each once. */
+function latchDiscoveries(s: Region1State): void {
+  for (const d of DISCOVERIES) {
+    if (s.known.includes(d.recipe)) continue;
+    const studied = (s.concepts[d.concept]?.rank ?? 0) >= 1;
+    if (!d.trigger(s) && !studied) continue;
+    s.known.push(d.recipe);
+    say(s, `Worked out: ${d.name} — ${studied && !d.trigger(s) ? `your study of ${d.concept} shows the way` : d.how}.`, 'milestone');
+  }
+}
+
 /**
  * Gate for a craft action. The extra gate goes first (a hide needs a hunt),
  * then "you already have a good one", then the crafting module's own checks.
  * A crude tool can be remade; anything sound or better is kept.
  */
 const craftGate = (r: CraftRecipe, extra?: (s: Region1State) => string | null) => (s: Region1State, _ring?: Ring): string | null => {
+  const unknown = unknownRecipe(s, r);
+  if (unknown) return unknown;
   const pre = extra?.(s) ?? null;
   if (pre) return pre;
   const owned = s.tools.find(t => t.item === r.output.item && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
@@ -429,12 +490,22 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   hunt: {
     name: 'Hunt', hours: 5, vigorRate: -4, clarityRate: -2, ringed: true,
-    gate: (s, r) => reach(s, r) ?? (level(s.explore, r, 'game') >= 2 ? null : `no game tracked${where(r) || ' nearby'} yet`),
-    run: (s, b, r) => {
-      const n = tripYield(s.explore, r, 'game', 7, 0) + b + findBonus(s, r, 'game');
+    // Deer need tracking (game observed); small game only needs to be known to be about.
+    gate: (s, r, o) => reach(s, r) ?? (o.target === 'small'
+      ? (level(s.explore, r, 'game') >= 1 ? null : `you haven't seen any game${where(r) || ' nearby'}`)
+      : (level(s.explore, r, 'game') >= 2 ? null : `no game tracked${where(r) || ' nearby'} yet`)),
+    variant: o => (o.target === 'small' ? { hours: 3, vigorRate: -2.5, clarityRate: -1.5 } : {}),
+    options: (_s, o) => [choiceGroup('target', 'Quarry', o.target ?? 'deer', [
+      { value: 'deer', label: 'Deer', note: '5h · ~7 food + a hide · needs tracking', blocked: null },
+      { value: 'small', label: 'Small game', note: '3h · ~3 food · lighter · no tracking needed', blocked: null },
+    ])],
+    run: (s, b, r, o) => {
+      const small = o.target === 'small';
+      const n = (small ? tripYield(s.explore, r, 'game', 3, 1) : tripYield(s.explore, r, 'game', 7, 0)) + b + findBonus(s, r, 'game');
       const note = workLand(s, r, 'game');
       s.stores.rawFood += n; s.flags.everFood = true; s.flags.everHunt = true;
-      return `A good hunt${where(r)} — ${n} raw food.${note}`;
+      if (!small) { s.stores.hides += 1; s.flags.everHide = true; }
+      return small ? `Snared and shot small game${where(r)} — ${n} raw food.${note}` : `A good hunt${where(r)} — ${n} raw food and a hide.${note}`;
     },
   },
   water: {
@@ -468,11 +539,17 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   preserve: {
     name: 'Preserve food', hours: 4, vigorRate: -1, clarityRate: -4.5,
     gate: s => needsScout(s) ?? (s.stores.rawFood >= 2 ? null : 'not enough raw food to preserve'),
-    run: s => {
-      // Two raw food smoke down to one ration; up to three rations a session.
-      const made = Math.min(3, Math.floor(s.stores.rawFood / 2));
+    variant: o => (o.method === 'dry' ? { hours: 2, clarityRate: -2 } : {}),
+    options: (_s, o) => [choiceGroup('method', 'Method', o.method ?? 'smoke', [
+      { value: 'smoke', label: 'Smoke', note: '4h · up to 3 rations · careful work', blocked: null },
+      { value: 'dry', label: 'Air-dry', note: '2h · up to 2 rations · easy on the mind', blocked: null },
+    ])],
+    run: (s, _b, _r, o) => {
+      // Two raw food cure down to one ration; smoking does up to three a session, drying two.
+      const dry = o.method === 'dry';
+      const made = Math.min(dry ? 2 : 3, Math.floor(s.stores.rawFood / 2));
       s.stores.rawFood -= made * 2; s.stores.rations += made; s.flags.everPreserve = true;
-      return `Smoked and salted ${made * 2} food into ${made} winter rations.`;
+      return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter rations.`;
     },
   },
   build: {
@@ -482,6 +559,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       if (!plan.site) return 'choose a location';
       if (plan.moving && !scouted(s.explore, 1)) return needsScout(s);
       if (!plan.recipe) return 'the shelter is already winterized';
+      const unknown = unknownRecipe(s, plan.recipe);
+      if (unknown) return unknown;
       // Judge materials against the camp as it would be (moving keeps your stores, resets the bench).
       return craftBlocker(crafterOf(plan.moving ? { ...s, tier: 0 } : s), plan.recipe);
     },
@@ -489,12 +568,49 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     recipeFor: (s, opts) => planBuild(s, opts).recipe,
     run: () => '',
   },
-  coldGear: { ...craftAction(COLD_GEAR_RECIPE), name: 'Craft cold gear' },
+  coldGear: {
+    ...craftAction(COLD_GEAR_RECIPE), name: 'Craft cold gear',
+    gate: (s, _r, o) => (roadworthyGear(s.tools) ? 'you already have road-worthy cold gear' : unknownRecipe(s, coldGearRecipe(o)) ?? craftBlocker(crafterOf(s), coldGearRecipe(o))),
+    recipeFor: (_s, o) => coldGearRecipe(o),
+    options: (s, o) => [choiceGroup('material', 'Material', o.material ?? 'fiber', [
+      { value: 'fiber', label: 'Woven fiber', note: `${costNote(COLD_GEAR_RECIPE)} · crude won't hold up on the road`, blocked: null },
+      { value: 'hide', label: 'Hide parka', note: `${costNote(HIDE_PARKA_RECIPE)} · holds the cold even if crude`, blocked: knows(s, HIDE_PARKA_RECIPE) ? null : 'not yet discovered' },
+    ])],
+  },
   knife: craftAction(REGION1_RECIPES.knife, needsScout),
-  snare: craftAction(REGION1_RECIPES.snare, s => (gameTracked(s) ? null : 'you need to know the game trails — track first')),
-  waterskin: craftAction(REGION1_RECIPES.waterskin, s => (s.flags.everHunt ? null : 'you need a hide — hunt first')),
+  snare: craftAction(REGION1_RECIPES.snare),
+  waterskin: craftAction(REGION1_RECIPES.waterskin, s => (s.stores.hides >= 1 ? null : 'you need a hide — hunt deer first')),
   bedroll: craftAction(REGION1_RECIPES.bedroll, needsScout),
   shovel: craftAction(REGION1_RECIPES.shovel, needsScout),
+  lookout: {
+    name: 'Climb & look out', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
+    // Camped on the hilltop, the near look-out is a short climb.
+    variant: (_o, s, ring) => (s?.site === 'hill' && ring === 1 ? { hours: 2 } : {}),
+    run: (s, _b, r) => {
+      s.explore = lookout(s.explore, r);
+      return `Climbed high${where(r)} and looked out — the ground sharpens below${r < 3 ? `, and you can see over the ${RING_NAME[(r + 1) as Ring].toLowerCase()} ring` : ''}.`;
+    },
+  },
+  study: {
+    name: 'Study', hours: 3, vigorRate: 0, clarityRate: 0,
+    gate: (s, _r, o) => studyConcept(crafterOf(s), o.concept ?? 'joinery', CRAFT_WORLD).reason ?? null,
+    options: (s, o) => [choiceGroup('concept', 'Concept', o.concept ?? 'joinery', STUDY_CONCEPTS.map(c => {
+      const reveals = DISCOVERIES.filter(d => d.concept === c && !s.known.includes(d.recipe)).map(d => d.name.toLowerCase());
+      return { value: c, label: c[0].toUpperCase() + c.slice(1), note: `rank ${s.concepts[c]?.rank ?? 0}${reveals.length ? ` · rank 1 reveals ${reveals.join(', ')}` : ''}`, blocked: null };
+    }))],
+    // Focus spends about a third of a fresh mind (crafting.study); insight grows the concept.
+    run: (s, _b, _r, o) => {
+      const concept = o.concept ?? 'joinery';
+      const before = s.vitals.clarity.current;
+      const c = { ...crafterOf(s), studiedToday: s.studiedToday };
+      const r = studyConcept(c, concept, CRAFT_WORLD);
+      s.vitals = r.state.vitals;
+      s.concepts = r.state.concepts;
+      s.studiedToday = r.state.studiedToday;
+      s.today.loadClarity += Math.max(0, before - s.vitals.clarity.current);
+      return `Studied ${concept} — ${r.gained.toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).`;
+    },
+  },
   tinker: {
     name: 'Tinker / plan', hours: 5, vigorRate: 2, clarityRate: -5.5,
     run: () => 'Worked at the bench — the body eased while the mind spent.',
@@ -527,6 +643,7 @@ export const REGION1_MILESTONES: readonly MilestoneDef<Region1State>[] = [
 
 /** Re-evaluate the ladder on a (cloned) state, journalling any new rungs. */
 function latchMilestones(s: Region1State): void {
+  latchDiscoveries(s);
   const r = evaluateMilestones(REGION1_MILESTONES, s, s.milestones);
   s.milestones = r.achieved;
   for (const id of r.newlyAchieved) {
@@ -561,7 +678,7 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   const { id, ring, opts } = parseItem(item);
   const def = ACTIONS[id];
   const recipe = s && def.recipeFor ? def.recipeFor(id === 'build' && planBuild(s, opts).moving ? { ...s, tier: 0 } : s, opts) : def.recipe;
-  return (recipe ? recipe.timeBase : def.hours) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
+  return (recipe ? recipe.timeBase : def.variant?.(opts, s, ring).hours ?? def.hours) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
 }
 
 /**
@@ -585,10 +702,11 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
 
   // Your tools make the work cheaper, quicker or richer (crafting design §2).
   const mod = modifiersFor(next.tools, id);
-  const workHours = def.hours * mod.timeMult;
+  const v = def.variant?.(opts, next, ring) ?? {};
+  const workHours = (v.hours ?? def.hours) * mod.timeMult;
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
   const travel = def.ringed ? TRAVEL_HOURS[ring] : 0;
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: def.vigorRate * mod.vigorMult, clarityRate: def.clarityRate * mod.clarityMult });
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE, clarityRate: TRAVEL_CLARITY_RATE });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
@@ -597,7 +715,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
 
-  say(next, def.run(next, mod.yieldAdd, ring), 'action');
+  say(next, def.run(next, mod.yieldAdd, ring, opts), 'action');
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   latchMilestones(next);
   return next;
@@ -682,6 +800,7 @@ export function endDay(s: Region1State): Region1State {
   next.day += 1;
   next.hoursToday = 0;
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
+  next.studiedToday = {};
   latchMilestones(next);
   return next;
 }

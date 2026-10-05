@@ -66,7 +66,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     const rested = runAction({ ...rough, vitals: createVitals() }, 'coldGear');
     expect(rested.tools.at(-1)).toEqual({ item: 'cold-gear', grade: 'sound' });
     expect(rested.coldGear).toBe(true);
-    expect(runAction(made, 'coldGear').log.at(-1)?.text).toMatch(/already have a sound cold gear/);
+    expect(runAction(made, 'coldGear').log.at(-1)?.text).toMatch(/already have road-worthy cold gear/);
 
     // On the road: crude gear turns you back where sound gear would get you across.
     const road = (s: Region1State): Region1State => {

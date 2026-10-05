@@ -206,3 +206,51 @@
 .opt.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 .opt:hover:not(:disabled) { border-color: var(--teal); }
 .opt:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── Layout pass (#1223): header chip, sticky status bar, tabs ─────────────── */
+.phase { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); border: 1px solid var(--border2); border-radius: 6px; padding: 4px 8px; }
+.phase.gold { color: var(--gold); border-color: var(--gold); }
+.phase.ice { color: var(--ice); border-color: var(--ice); }
+
+.statusbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap;
+  margin: 8px 0 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 11px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(6px);
+}
+.minis { display: flex; gap: 12px; flex-wrap: wrap; }
+.mini { display: inline-flex; align-items: center; gap: 6px; }
+.mini .ml { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--faint); }
+.mini .mt { width: 64px; height: 7px; border-radius: 4px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
+.mini .mf { display: block; height: 100%; }
+.mini .mf.fresh { background: var(--green); } .mini .mf.ok { background: var(--teal); } .mini .mf.warn { background: var(--warn); } .mini .mf.low { background: var(--danger); }
+.mini .mv { font-family: var(--display); font-size: 8px; min-width: 22px; font-variant-numeric: tabular-nums; color: var(--dim); }
+.mini .mv.low { color: var(--danger); } .mini .mv.warn { color: var(--warn); }
+.sstores { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sstores .low { color: var(--danger); }
+.shours { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--faint); margin-left: auto; }
+.shours b { color: var(--ink); font-weight: 400; }
+.statusbar .tag { font-family: var(--display); font-size: 8px; letter-spacing: 1px; padding: 3px 8px; border-radius: 6px; }
+
+.tabbar { display: flex; gap: 6px; margin: 0 0 12px; flex-wrap: wrap; }
+.tabbtn { flex: 1 1 110px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 9px; background: var(--sub); color: var(--dim); cursor: pointer; padding: 9px 10px; font-family: var(--display); font-size: 9px; letter-spacing: 2px; }
+.tabbtn:hover { border-color: var(--teal); }
+.tabbtn.on { color: var(--gold); border-color: var(--gold); background: rgba(255,224,102,.06); }
+
+/* Plan: actions beside the queue on a landscape tablet, stacked when narrow. */
+.plan { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.planside { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 64px); }
+.planside .queue ol { max-height: 52vh; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 900px) {
+  .plan, .cols { grid-template-columns: 1fr; }
+  .planside { position: static; }
+  .shours { margin-left: 0; }
+}
+.log ul.full { max-height: 70vh; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-size: 11px; color: var(--faint); }
+/* Paint the whole viewport, even when a tab is shorter than the screen. */
+html { background: var(--bg); }
+body { min-height: 100vh; }
+/* Four tabs fit across a phone. */
+@media (max-width: 520px) { .tabbtn { flex-basis: 60px; letter-spacing: 1px; padding: 9px 4px; } }
