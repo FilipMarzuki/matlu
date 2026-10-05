@@ -23,8 +23,8 @@ export type TalentId =
   | 'hardy' | 'sharp' | 'lightEater' | 'carefulHands' | 'quickLearner' | 'coldBlooded'
   | 'tough' | 'keenEye' | 'forager' | 'hunter' | 'waterfinder' | 'silverTongue';
 
-/** A talent a Warden has: which, how strong (1–4), and whether they know about it. */
-export interface Talent { id: TalentId; tier: number; known: boolean }
+/** A talent a Warden has: which, how strong (1–4), whether they know about it, and hours of growth toward the next tier (#1264). */
+export interface Talent { id: TalentId; tier: number; known: boolean; growth?: number }
 
 export const MIN_TIER = 1;
 export const MAX_TIER = 4;
@@ -203,5 +203,66 @@ export function validTalents(x: unknown): x is Talent[] {
   const ids = x.map(t => (typeof t === 'object' && t !== null ? (t as Talent).id : undefined));
   return x.every(t => typeof t === 'object' && t !== null && (t as Talent).id in TALENTS
     && Number.isInteger((t as Talent).tier) && (t as Talent).tier >= MIN_TIER && (t as Talent).tier <= MAX_TIER
-    && typeof (t as Talent).known === 'boolean') && new Set(ids).size === ids.length;
+    && typeof (t as Talent).known === 'boolean'
+    && ((t as Talent).growth === undefined || (typeof (t as Talent).growth === 'number' && (t as Talent).growth! >= 0))) && new Set(ids).size === ids.length;
 }
+
+// ── Growth (#1264) ──────────────────────────────────────────────────────────
+
+/** Hours of growth at which each tier is reached (index = tier): tier 1 from the start, then 30, 150, 600. */
+export const TIER_AT: readonly number[] = [0, 0, 30, 150, 600];
+
+/** Something that happened that a talent may grow from. */
+export type GrowthEvent =
+  | { kind: 'work'; action: ActionId; hours: number; craft?: boolean; practised?: boolean }
+  | { kind: 'night'; hungry: boolean; cold: boolean; condition: number };
+
+/** Hours a night of hardship counts as (Light Eater, Cold-blooded, Tough). */
+export const NIGHT_GROWTH = 4;
+
+/** Hours of growth an event gives one talent (see the "grows with" column in #1262). */
+export function growthFor(id: TalentId, e: GrowthEvent): number {
+  if (e.kind === 'night') {
+    if (id === 'lightEater') return e.hungry ? NIGHT_GROWTH : 0;
+    if (id === 'coldBlooded') return e.cold ? NIGHT_GROWTH : 0;
+    if (id === 'tough') return e.condition < 50 ? NIGHT_GROWTH : 0;
+    return 0;
+  }
+  const { action: a, hours: h } = e;
+  switch (id) {
+    case 'hardy': return PHYSICAL_ACTIONS.includes(a) ? h : 0;
+    case 'sharp': return a === 'study' || e.craft ? h : 0;
+    case 'carefulHands': return e.craft ? h : 0;
+    case 'quickLearner': return e.practised ? h : 0;
+    case 'keenEye': return a === 'scout' || a === 'survey' || a === 'lookout' ? h : 0;
+    case 'forager': return a === 'gather' ? h : 0;
+    case 'hunter': return a === 'hunt' || a === 'track' ? h : 0;
+    case 'waterfinder': return a === 'water' ? h : 0;
+    // Grows from talking and trading on the road (#1246, #1247).
+    default: return 0;
+  }
+}
+
+/** The tier reached at this much growth (1–4). */
+export const tierFor = (growth: number): number => TIER_AT.reduce((t, at, i) => (i >= MIN_TIER && growth >= at ? i : t), MIN_TIER);
+
+/**
+ * Grow every talent — known and hidden alike — from one event. Returns the new
+ * list and how many tiers were gained, so the caller can let the Warden feel it
+ * without saying what grew.
+ */
+export function growTalents(talents: readonly Talent[], e: GrowthEvent): { talents: Talent[]; tierUps: number } {
+  let tierUps = 0;
+  const next = talents.map(t => {
+    const add = t.tier >= MAX_TIER ? 0 : growthFor(t.id, e);
+    if (add <= 0) return t;
+    const growth = (t.growth ?? 0) + add;
+    const tier = Math.max(t.tier, tierFor(growth));
+    tierUps += tier - t.tier;
+    return { ...t, growth, tier };
+  });
+  return { talents: next, tierUps };
+}
+
+/** What a tier-up feels like: something settles, nothing is named. */
+export const TIER_UP_LINE = 'Something in you has settled; it comes easier than it did.';
