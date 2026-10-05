@@ -76,8 +76,8 @@ export function focusLabel(f: Focus | null): string {
   return f.id[0].toUpperCase() + f.id.slice(1);
 }
 
-/** 1 when the mind is clear enough to hold focus; 0.5 when frayed. */
-export const reliability = (clarity: number): number => (clarity < UNRELIABLE_BELOW ? 0.5 : 1);
+/** 1 when the mind is clear enough to hold focus; 0.5 when frayed. Willpower moves the threshold (#1256). */
+export const reliability = (clarity: number, unreliableBelow = UNRELIABLE_BELOW): number => (clarity < unreliableBelow ? 0.5 : 1);
 
 /** Move a multiplier halfway back toward 1 when focus is unreliable (×0.9 → ×0.95; ×2 → ×1.5). */
 const scaled = (mult: number, rel: number): number => 1 + (mult - 1) * rel;
@@ -86,8 +86,8 @@ const scaled = (mult: number, rel: number): number => 1 + (mult - 1) * rel;
  * What focus does to one piece of work. `locked` is the survival-lock reason
  * (or null). Yield is all-or-nothing: an unreliable focus gives no extra.
  */
-export function workEffects(focus: Focus | null, locked: string | null, action: ActionId, skill: SkillId | null, clarity: number): { drain: number; yield: number; practice: number } {
-  const rel = reliability(clarity);
+export function workEffects(focus: Focus | null, locked: string | null, action: ActionId, skill: SkillId | null, clarity: number, unreliableBelow = UNRELIABLE_BELOW): { drain: number; yield: number; practice: number } {
+  const rel = reliability(clarity, unreliableBelow);
   const none = { drain: 1, yield: 0, practice: 1 };
   if (locked) {
     return SURVIVAL_ACTIONS.includes(action) ? { drain: scaled(FOCUS_DRAIN, rel), yield: rel === 1 ? FOCUS_YIELD : 0, practice: 1 } : none;

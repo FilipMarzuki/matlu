@@ -12,6 +12,7 @@
  */
 
 import { traitEffects, traitDrain, type TraitId } from './traits';
+import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
@@ -132,7 +133,7 @@ export interface Region1State {
 
 /** A fresh save: day 1, baseline body, a couple of meals, nothing known. */
 /** Who the Warden is. `id` ties runs and carried knowledge to this one person (#1242). */
-export interface Character { id: string; name: string; portrait: string | null; traits: TraitId[]; lastStandUsed: boolean }
+export interface Character { id: string; name: string; portrait: string | null; traits: TraitId[]; lastStandUsed: boolean; /** Base stats (#1256). */ stats: Stats }
 
 export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Legacy, who: Partial<Omit<Character, 'lastStandUsed'>> = {}): Region1State {
   const traits = who.traits ?? [];
@@ -159,7 +160,8 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
     deprivation: { hungry: 0, thirsty: 0 },
     skills: start,
-    character: { id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, traits: [...traits], lastStandUsed: false },
+    // Stats (#1256): chosen at creation, or carried from this character's last run.
+    character: { id: who.id ?? '', name: who.name ?? '', portrait: who.portrait ?? null, traits: [...traits], lastStandUsed: false, stats: { ...(who.stats ?? legacy?.stats ?? DEFAULT_STATS) } },
     focus: null,
     techniques: [...(legacy?.techniques ?? [])],
     manuals: [],
@@ -194,7 +196,7 @@ function clone(s: Region1State): Region1State {
     today: { ...s.today },
     deprivation: { ...s.deprivation },
     skills: { ...s.skills },
-    character: { ...s.character, traits: [...s.character.traits] },
+    character: { ...s.character, traits: [...s.character.traits], stats: { ...s.character.stats } },
     techniques: [...s.techniques],
     manuals: [...s.manuals],
     log: [...s.log],
@@ -654,7 +656,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       s.concepts = r.state.concepts;
       s.studiedToday = r.state.studiedToday;
       s.today.loadClarity += Math.max(0, before - s.vitals.clarity.current);
-      return `Studied ${concept} — ${r.gained.toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).`;
+      // Intelligence (#1256): a sharper mind takes more from the same session.
+      const extra = r.gained * (statEffects(s.character.stats).insight - 1);
+      if (extra !== 0) addInsight(s.concepts, concept, extra, CRAFT_WORLD.concepts);
+      return `Studied ${concept} — ${(r.gained + extra).toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).`;
     },
   },
   tinker: {
@@ -756,12 +761,15 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
   const travel = def.ringed ? TRAVEL_HOURS[ring] : 0;
   const td = traitDrain(next.character.traits, skill);
+  // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
+  const se = statEffects(next.character.stats);
+  const sd = statDrain(next.character.stats, id, skill);
   // Focus (#1238): goal or survival work is lighter and richer; a focused skill practises faster.
-  const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current);
+  const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current, se.unreliableBelow);
   // Techniques you know (#1243): richer, lighter work — and Pathfinding eases the walk out.
   const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain * te.drain, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain * te.drain });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain });
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain });
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
@@ -793,11 +801,14 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const skill = skillFor(id, recipe.id);
   const lvl = skill ? skillLevel(next.skills, skill) : 0;
   const td = traitDrain(next.character.traits, skill);
-  const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current);
+  const se = statEffects(next.character.stats);
+  const sd = statDrain(next.character.stats, id, skill);
+  const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current, se.unreliableBelow);
   const te = techniqueEffects(next.techniques, id, recipe.id);
-  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain * te.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain * te.drain };
+  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain };
   const crafter = crafterOf(next);
-  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  // Intelligence (#1256) lifts — or, below average, lowers — the grade.
+  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
   next.tools = c.tools;
@@ -1014,6 +1025,7 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   const w = o.warmth;
   // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
   const tr = traitEffects(next.character.traits);
+  const se = statEffects(next.character.stats);
   const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : NEEDS.food.vigorRecovery) * tr.vigorRecovery;
   const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate ? 1 : NEEDS.food.clarityRecovery) * tr.clarityRecovery;
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
@@ -1022,13 +1034,14 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   // Going without escalates night by night — on the body (Condition) and the mind (Clarity).
   const { hungry, thirsty } = next.deprivation;
   const hc = tr.hungerCost, wc = tr.thirstCost;
-  next.vitals.condition = Math.max(0, next.vitals.condition - (NEEDS.food.condition * hungry * hc + NEEDS.water.condition * thirsty * wc));
-  next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - (NEEDS.food.clarity * hungry * hc + NEEDS.water.clarity * thirsty * wc));
+  // Constitution softens the body's losses and Willpower the mind's (#1256).
+  next.vitals.condition = Math.max(0, next.vitals.condition - (NEEDS.food.condition * hungry * hc + NEEDS.water.condition * thirsty * wc) * se.deprivationCondition);
+  next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - (NEEDS.food.clarity * hungry * hc + NEEDS.water.clarity * thirsty * wc) * se.deprivationClarity);
   // Holding a focus costs a little of the mind each night; a focused concept was turned over all day.
   if (next.focus) {
     next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - FOCUS_COST);
     if (next.focus.kind === 'concept' && !o.lockedToday) {
-      addInsight(next.concepts, next.focus.id, CONCEPT_PER_HOUR * hoursWorked * reliability(clarityAtDusk), CRAFT_WORLD.concepts);
+      addInsight(next.concepts, next.focus.id, CONCEPT_PER_HOUR * hoursWorked * reliability(clarityAtDusk, se.unreliableBelow), CRAFT_WORLD.concepts);
     }
   }
   if (o.coldNight && !tr.coldProof) {
@@ -1058,10 +1071,10 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
     pushedClarity: next.today.pushedClarity,
   };
   next.vitals = driftCapacity(next.vitals, summary);
-  // Healing, scaled by traits (Quick Learner and Tough heal slower).
+  // Healing, scaled by traits (Quick Learner and Tough heal slower) and Constitution (#1256).
   const preHeal = next.vitals.condition;
   next.vitals = recoverCondition(next.vitals, summary);
-  next.vitals.condition = preHeal + (next.vitals.condition - preHeal) * tr.healRate;
+  next.vitals.condition = Math.min(100, preHeal + (next.vitals.condition - preHeal) * tr.healRate * se.heal);
   return { ended: null };
 }
 

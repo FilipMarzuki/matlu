@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { DEFAULT_STATS } from './stats';
 import { createRegion1, runAction, chooseSite, endDay, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { skillLevel, drainMult } from './skills';
@@ -91,6 +92,6 @@ describe('Traits (#1237)', () => {
   it('keeps the character on a new run that keeps knowledge, and loads old saves without one', () => {
     const raw = JSON.parse(serialize(newGame()));
     delete raw.sim.character;
-    expect(deserialize(JSON.stringify(raw))?.sim.character).toEqual({ id: '', name: '', portrait: null, traits: [], lastStandUsed: false });
+    expect(deserialize(JSON.stringify(raw))?.sim.character).toEqual({ id: '', name: '', portrait: null, traits: [], lastStandUsed: false, stats: DEFAULT_STATS });
   });
 });
