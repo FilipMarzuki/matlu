@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, weatherName, lateFrom, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
+import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -26,7 +26,7 @@ import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vita
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
-import { createExploration, scout, survey, track, lookout, work, regrow, level, scouted, reachable, landYield, supplyFactor, hasFind, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import { createExploration, scout, survey, track, lookout, work, regrow, level, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
@@ -143,6 +143,8 @@ export interface Region1State {
   forecast: Forecast;
   /** Hours spent outside in today's rain (#1284); reset each dawn. */
   wetHours?: number;
+  /** Snow cover on the ground, 0 (bare) to 1 (deep) (#1315). Absent on saves from before it: bare. */
+  snowDepth?: number;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -330,10 +332,11 @@ export type ActionId =
   | 'build' | 'coldGear'
   | 'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel'
   | 'lookout' | 'study'
-  | 'tinker' | 'rest';
+  | 'tinker' | 'rest'
+  | 'fish';
 
 /** Actions that happen out on the land, in a chosen ring. */
-export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry';
+export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish';
 /**
  * A queue entry: an action, optionally aimed at a ring (`wood@2`). A bare id
  * means the near ring, so plans written before rings existed still read right.
@@ -429,6 +432,8 @@ function workLand(s: Region1State, ring: Ring, d: Domain): string {
  */
 const haul = (s: Region1State, ring: Ring, d: Domain, raw: number, luck = 1): number =>
   (luck === 0 ? 0 : Math.max(1, Math.round(raw * supplyFactor(s.explore, ring, d) * luck)));
+/** What an ordinary day of ice fishing brings in, near camp (#1315). */
+export const FISH_CATCH = 3;
 /** +2 from a find already made here. */
 const findBonus = (s: Region1State, ring: Ring, d: Domain): number => (hasFind(s.explore, ring, d) ? 2 : 0);
 
@@ -701,6 +706,17 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       return `Cut ${f} firewood and ${m} materials${where(r)}.${note}${dimNote(light)}`;
     },
   },
+  fish: {
+    name: 'Ice fishing', hours: 5, vigorRate: -2, clarityRate: -2.5, ringed: true,
+    // Once the lake ice is thick enough to stand on (#1315) — open all year in the flat world.
+    gate: (s, r) => reach(s, r) ?? (feelsTemperature(s) && !iceThick(s.day, s.config.calendar) ? 'the ice is too thin' : null),
+    // A slow, steady catch: modest, but the lake doesn't run out the way the land does.
+    run: (s, b, r, _o, light, luck) => {
+      const n = scaleHaul(haul(s, r, 'water', FISH_CATCH * RICHNESS[r] + b, luck), darkYieldMult('gather', light));
+      s.stores.rawFood += n; s.flags.everFood = true;
+      return n > 0 ? `Fished through the ice${where(r)} — ${n} raw food.` : `Sat over a hole in the ice${where(r)} and caught nothing.`;
+    },
+  },
   quarry: {
     name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
     run: (s, b, r, _o, light, luck) => {
@@ -867,17 +883,24 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   const def = ACTIONS[id];
   const recipe = s && def.recipeFor ? def.recipeFor(id === 'build' && planBuild(s, opts).moving ? { ...s, tier: 0 } : s, opts) : def.recipe;
   const rain = s && !recipe ? weatherHours(s.weatherToday, id) : 1;
-  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
+  // Deep snow (#1315) slows the walk out and the felling.
+  const snow = s ? snowSlowFor(s) : 1;
+  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1)) + (def.ringed ? TRAVEL_HOURS[ring] * snow : 0);
 }
 
 /**
  * Why an action can't be done right now, or null if it can: its own gate, or
- * the weather (a storm keeps you out of the far rings, #1284). Every place that
+ * the weather (a storm keeps you out of the far rings, #1284; a winter blizzard
+ * keeps you in altogether, #1315). Every place that
  * asks "is this allowed?" — the sim, the plan preview, the AI — uses this.
  */
 export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts = {}): string | null {
   const def = ACTIONS[id];
-  return def.gate?.(s, ring, opts) ?? (def.ringed && stormBars(s.weatherToday, ring) ? 'the storm makes it too dangerous to go out' : null);
+  if (def.gate) { const g = def.gate(s, ring, opts); if (g) return g; }
+  if (!def.ringed) return null;
+  // A winter blizzard keeps everyone in (#1315); an autumn storm only the far rings (#1284).
+  if (isBlizzard(s.weatherToday, s.day, s.config.calendar)) return 'a blizzard — nobody goes out in this';
+  return stormBars(s.weatherToday, ring) ? 'the storm makes it too dangerous to go out' : null;
 }
 
 /**
@@ -906,9 +929,11 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const lvl = skill ? skillLevel(next.skills, skill) : 0;
   const v = def.variant?.(opts, next, ring) ?? {};
   // Rain makes some work slower (#1284).
-  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id);
+  // Deep snow slows the felling and the walk (#1315).
+  const snow = snowSlowFor(next);
+  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1);
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
-  const travel = def.ringed ? TRAVEL_HOURS[ring] : 0;
+  const travel = def.ringed ? TRAVEL_HOURS[ring] * snow : 0;
   const td = talentDrain(next.character.talents, id);
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
@@ -1150,6 +1175,8 @@ export function endDay(s: Region1State): Region1State {
 
   // Overnight the land regrows a little, by the season — hardly at all in winter (#1304).
   next.explore = regrow(next.explore, growSeason(next.day, next.config.calendar), next.weatherToday === 'wind' || next.weatherToday === 'storm');
+  // The day's snow lies, settles or melts (#1315).
+  if (feelsTemperature(next)) next.snowDepth = nextSnowDepth(next.snowDepth ?? 0, next.weatherToday, next.day, next.config.calendar);
 
   next.day += 1;
   next.hoursToday = 0;
@@ -1275,6 +1302,8 @@ function refundOverexertion(next: Pick<Region1State, 'vitals'>, lost: number, mu
 
 /** The temperature matters in the full world; the flat world (tests) has none (#1283). */
 const feelsTemperature = (s: Pick<Region1State, 'config'>): boolean => s.config.world.weather === 'seeded';
+/** How much the snow cover slows walking and felling today (#1315): none in the flat world. */
+const snowSlowFor = (s: Pick<Region1State, 'config' | 'snowDepth'>): number => (feelsTemperature(s) ? snowSlow(s.snowDepth ?? 0) : 1);
 /** The streams are frozen hard today: water means melting snow (#1303). */
 const melting = (s: Pick<Region1State, 'config' | 'day'>): boolean => feelsTemperature(s) && meltsSnow(s.day, s.config.calendar);
 

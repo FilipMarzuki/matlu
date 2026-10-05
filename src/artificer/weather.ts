@@ -168,6 +168,34 @@ export const meltsSnow = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolea
 /** Firewood a water trip burns melting snow. */
 export const MELT_FIREWOOD = 1;
 
+// ── Snow cover, lake ice, blizzards (#1315) ──────────────────────────────────
+
+/** How much a day's snow adds to the cover (0 = bare ground, 1 = deep). A winter blizzard adds more. */
+export const SNOW_FALL = 0.15;
+export const BLIZZARD_FALL = 0.25;
+/** Clear or windy frosty days settle the cover a little; a thaw day (mean above 0 °C) melts it fast. */
+export const SNOW_SETTLE = 0.03;
+export const SNOW_MELT = 0.1;
+
+/** In winter a storm is a blizzard: nobody goes out in it. */
+export const isBlizzard = (w: WeatherId, day: number, cal: Calendar = DEFAULT_CALENDAR): boolean => w === 'storm' && seasonOf(day, cal) === 'winter';
+
+/** The snow cover after a day of this weather (pure). */
+export function nextSnowDepth(depth: number, w: WeatherId, day: number, cal: Calendar = DEFAULT_CALENDAR): number {
+  let d = depth;
+  if (w === 'snow') d += SNOW_FALL;
+  else if (isBlizzard(w, day, cal)) d += BLIZZARD_FALL;
+  else if (dayMean(day, cal) > 0) d -= SNOW_MELT;
+  else if (w === 'clear' || w === 'wind') d -= SNOW_SETTLE;
+  return Math.round(Math.min(1, Math.max(0, d)) * 1000) / 1000;
+}
+
+/** Deep snow slows the walk and wood cutting: up to half again as long. */
+export const snowSlow = (depth: number): number => 1 + 0.5 * depth;
+
+/** Lake ice thick enough to stand on and fish through: the deep cold (day mean below −5 °C, from about day 36). */
+export const iceThick = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolean => dayMean(day, cal) < MELT_BELOW;
+
 // ── Weather on the work (#1284) ─────────────────────────────────────────────
 
 /** Rain makes these slower: wet wood, slick stone, sodden forage. */

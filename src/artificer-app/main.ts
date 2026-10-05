@@ -13,8 +13,8 @@
  */
 
 import './style.css';
-import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
-import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
+import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
 import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
@@ -34,7 +34,7 @@ import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHisto
 
 const GROUPS: { title: string; ids: ActionId[] }[] = [
   { title: 'EXPLORE', ids: ['scout', 'survey', 'track', 'lookout'] },
-  { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'preserve'] },
+  { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
   { title: 'BUILD', ids: ['build', 'coldGear'] },
   { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { title: 'THINK & RECOVER', ids: ['study', 'tinker', 'rest'] },
@@ -43,7 +43,7 @@ const GROUPS: { title: string; ids: ActionId[] }[] = [
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
-  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️',
+  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
@@ -66,6 +66,7 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   water: (s, r) => `+${ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water')} water`,
   wood: (s, r) => `+${ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber')} fuel, +${ty(s, r, 'timber', 2, 1)} mat`,
   quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} stone`,
+  fish: (_s, r) => `+~${FISH_CATCH * RICHNESS[r]} raw food · once the lake ice is thick`,
   preserve: () => '2 raw → 1 ration · smoke ×3 or dry ×2',
   build: s => (s.tier < 2 ? `tier ${s.tier + 1} from ${BUILD_COST[s.tier as 0 | 1]} mat · choose site & design in the queue` : 'winterized'),
   coldGear: () => 'eases a freezing night without enough fire · fiber or hide',

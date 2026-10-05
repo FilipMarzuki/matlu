@@ -47,7 +47,7 @@ export function bandOdds(steps: number): Record<Band, number> {
 export const haulFortune = (seed: number, day: number, hour: number): number => streamFor(seed, day, `haul@${hour}`)();
 
 /** The land a gathering action works. */
-export const ACTION_DOMAIN: Readonly<Partial<Record<ActionId, Domain>>> = { gather: 'forage', hunt: 'game', water: 'water', wood: 'timber', quarry: 'stone' };
+export const ACTION_DOMAIN: Readonly<Partial<Record<ActionId, Domain>>> = { gather: 'forage', hunt: 'game', water: 'water', wood: 'timber', quarry: 'stone', fish: 'water' };
 
 /** How the weather moves the odds, per domain, with what the journal says about it. */
 export const WEATHER_STEPS: Readonly<Partial<Record<WeatherId, Partial<Record<Domain, [number, string]>>>>> = {
