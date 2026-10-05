@@ -16,7 +16,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, WEATHER, type Forecast, type WeatherId } from './weather';
+import { weatherFor, WEATHER, tempAt, nightTemp, isColdNight, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -606,6 +606,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   water: {
     name: 'Fetch water', hours: 2, vigorRate: -3, clarityRate: -0.5, ringed: true, gate: reach,
+    // Once the streams ice over you break through to the water first (#1283).
+    variant: (_o, s) => (s && feelsTemperature(s) && iceOn(s.day) ? { hours: 2 + ICE_EXTRA_HOURS } : {}),
     run: (s, b, r) => {
       const n = tripYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water');
       const note = workLand(s, r, 'water');
@@ -832,7 +834,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
   // The light the work has (#1280), and what the dark costs (#1281): heavier felling, a harder walk.
   const at = stampFor(next, workHours + travel);
-  const dw = darkWorkDrain(id, at.light), dt = darkTravelDrain(at.light);
+  const dw = darkWorkDrain(id, at.light) * coldWork(next, at.hour), dt = darkTravelDrain(at.light);
   const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt });
   next.vitals = t.vitals;
@@ -1031,7 +1033,9 @@ export function endDay(s: Region1State): Region1State {
   }
 
   const w = warmth(next);
-  const night = sleepNight(next, { warmth: w, coldNight: w < 0.3 && next.tier < 2, lockedToday: lockedToday !== null });
+  // A cold night (#1283): the frost decides how much shelter is enough. (The flat world keeps the old rule.)
+  const cold = feelsTemperature(next) ? isColdNight(w, nightTemp(next.day, next.weatherToday)) : w < 0.3 && next.tier < 2;
+  const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null });
   // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
   if (night.ended) {
     next.outcome = { choice: 'collapse', kind: night.ended, vitals: next.vitals };
@@ -1088,6 +1092,13 @@ function growFrom(next: Pick<Region1State, 'character' | 'log' | 'day'>, e: Grow
 function refundOverexertion(next: Pick<Region1State, 'vitals'>, lost: number, mult: number): void {
   if (lost > 0 && mult < 1) next.vitals.condition = Math.min(100, next.vitals.condition + lost * (1 - mult));
 }
+
+/** The temperature matters in the full world; the flat world (tests) has none (#1283). */
+const feelsTemperature = (s: Pick<Region1State, 'config'>): boolean => s.config.world.weather === 'seeded';
+
+/** Work below freezing is heavier (#1283). */
+const coldWork = (s: Pick<Region1State, 'config' | 'day' | 'weatherToday'>, hour: number): number =>
+  feelsTemperature(s) && tempAt(s.day, hour, s.weatherToday) < 0 ? FREEZING_WORK : 1;
 
 /** The weather on a day for this Warden (#1282): seeded by the character id and the day. */
 const weatherOn = (s: Pick<Region1State, 'character' | 'config'>, day: number): WeatherId =>
