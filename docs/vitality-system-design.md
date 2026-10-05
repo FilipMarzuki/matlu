@@ -26,7 +26,8 @@ recovered. This document defines that economy:
 Vigor and Clarity each start at a **standard baseline capacity** but are not
 capped there for the whole game: that capacity **grows past baseline** with
 well-recovered training and **deteriorates below it** with neglect or
-burnout, a slow progression the player shapes over a run (§1).
+burnout, a slow progression the player shapes over the life of a single
+persistent character (§1).
 
 The core idea is one unifying rule: **every activity is a per-unit-time vector
 across Vigor and Clarity.** There is no separate "action economy" and "recovery
@@ -46,7 +47,7 @@ No gameplay code is specified here — this is the model to implement against.
 |---|---|---|---|---|
 | **Vigor** | coarse bar | movement, hunting, gathering, building, hauling | food, rest, light/sedentary work, sleep | physical stamina |
 | **Clarity** | coarse bar | tinkering, surveying/reading the land, planning, quality craft | sleep, calm, safe shelter, undemanding physical work | mental freshness |
-| **Condition** | semi-hidden | *only* overexertion (time spent with a pool at empty) | slow — deep sleep + good food over days | injury / illness / burnout; the thing a run quietly loses |
+| **Condition** | semi-hidden | *only* overexertion (time spent with a pool at empty) | slow — deep sleep + good food over days | injury / illness / burnout; wears down across a long save |
 | **Will / Morale** | hidden | — (derived) | — (derived) | rate modifier, §5 |
 
 Two pools, not one, is deliberate: the interesting tension is being
@@ -91,7 +92,7 @@ set their baseline and how wide that range is — a naturally hardy Warden start
 higher and can climb further; age can lower the ceiling.
 
 So there are **three nested timescales:** **current** (seconds), the **Condition**
-reserve (days), and **capacity** (a run's long arc). The last is a quiet
+reserve (days), and **capacity** (the character's long arc across the save). The last is a quiet
 progression-or-decline the player *shapes through how they play*, not a stat
 they spend.
 
@@ -155,7 +156,9 @@ is subtracted from Condition instead.
   good food, over days. You can't grind it back in an afternoon.
 - Low Condition drags **Will** down (§5), which makes everything cost more — a
   gentle downward spiral that models exhaustion/illness without a hard failure
-  state. In a run-based game, this is how a run erodes.
+  state. On a persistent save this is how a character wears down over time — a
+  decline you must actively heal (deep rest, good food, time), not a reset you
+  wait out.
 
 ---
 
@@ -324,15 +327,16 @@ band at the moment the activity runs.
    plays out, or resolve as a lump when it completes? (The vector model supports
    both; the prototype resolves on completion for clarity of feel.)
 3. **Trait system scope** — how many traits feed Will, and are they fixed per
-   character or developed over a run?
+   character or developed over the save?
 4. **Does sleep ever fail to reset** — e.g. an unsafe site gives broken sleep
    that only partially clears Clarity? (Ties shelter Safety directly to the
    mental pool.)
 5. **Surfacing Will** — stay fully hidden, or allow optional mood flavour text?
 6. **Capacity drift** — what clock does it run on (per day, per week, per
    milestone)? How wide should the floor/ceiling be, and how fast should it move
-   so growth feels earned but decline never feels like a death spiral? Does
-   capacity reset between runs or carry over as meta-progression?
+   so growth feels earned but decline never becomes an unrecoverable death
+   spiral on a persistent save? Is deterioration always fully reversible, or can
+   neglect/age impose a permanent ceiling the player can't fully undo?
 
 ---
 
@@ -345,5 +349,10 @@ band at the moment the activity runs.
 - **Crafting / recipes** — tools and workbenches lower activity rates (§4); the
   affordance table stays beside the recipe registry.
 - **Focus mechanic** — untouched; Clarity is its fuel, not its replacement (§7).
-- **Leaderboard / runs** — Condition erosion is the slow-burn failure vector for
-  a run; worth wiring into run-end stats later.
+- **Persistence & leaderboard** — this is a **single persistent character**, so
+  capacity and Condition carry for the whole save; there is no run reset.
+  Condition erosion is slow-burn wear the player must heal, and left unchecked
+  it risks incapacitation rather than a silent restart. How the existing
+  `matlu_runs` leaderboard maps onto a persistent save (scored milestones or
+  timed challenges, rather than per-attempt scores) is a separate open
+  question.
