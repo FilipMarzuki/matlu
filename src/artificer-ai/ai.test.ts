@@ -36,7 +36,7 @@ describe('AI player harness', () => {
     expect(text).toMatch(/^DAY 1 — autumn, snow on day 13 \(12 days\)/);
     expect(text).toMatch(/STORES: food 2 · water 2/);
     expect(text).toMatch(/READINESS \(a rough guide\): not ready — larder needs/);
-    expect(text).toMatch(/WINTER OUTLOOK: 42 nights to the thaw · food 2 nights · water 2 nights · firewood no burn yet · shelter 87% short/);
+    expect(text).toMatch(/WINTER OUTLOOK: 42 nights to the thaw · food 2 nights · water 2 nights · firewood 6 nights \(91 needed to the thaw, tonight 0\) · shelter 87% short/);
     expect(text).toMatch(/- hunt ring 1 .*BLOCKED: no game tracked/);
     expect(text).toMatch(/options "target": deer/);
     expect(observe(s, ['2 queued action(s) were dropped.'])).toMatch(/NOTE: 2 queued action\(s\) were dropped\./);

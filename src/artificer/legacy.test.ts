@@ -12,7 +12,7 @@ import { summarizeRun, legacyOf, addRun, bestRun, HISTORY_CAP, type RunRecord } 
 /** A short run that learns something, then sits out the short year's winter to the thaw (day 43). */
 function finishedRun(): Region1State {
   let s = chooseSite(runAction(createRegion1({ calendar: SHORT_YEAR }), 'scout'), 'cave');
-  s = { ...s, stores: { ...s.stores, materials: 10, rawFood: 60, water: 60 } };
+  s = { ...s, stores: { ...s.stores, materials: 10, rawFood: 60, water: 60, firewood: 200 } };
   s = runDay(s, ['build', 'track']).state; // roof (→ shovel), tracking (→ snare)
   s = runDay(s, [{ q: 'study', opts: { concept: 'sealing' } }]).state; // sealing 1 (→ waterskin, hide parka)
   while (!s.outcome) s = runDay(s, ['rest']).state;

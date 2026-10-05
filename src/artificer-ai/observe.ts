@@ -13,7 +13,7 @@
 
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
-  readinessInput, warmth, winterReady, winterOutlook, queueHours, queueId, survivalLockOf,
+  readinessInput, warmth, winterReady, winterOutlook, nightFuel, queueHours, queueId, survivalLockOf,
   type ActionId, type Region1State,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
@@ -33,6 +33,7 @@ export const RULES = `You are playing "Greywind Reach", the first region of the 
 
 GOAL
 Survive the winter. You arrive alone with almost nothing on day 1. Autumn (days 1-30) is for preparing: the snow falls on day 31, and winter lasts until the thaw on day 61. Days go on as before through winter — darker, colder, harder — and you live on what you built and stored. Reach the thaw alive and the run ends graded by your Condition: hale (70+), worn (40-69) or broken (under 40). Dying or collapsing before then is the worst result. There are no exits: you can't leave Greywind Reach before spring.
+Freezing nights burn firewood: 1, plus 1 for every full 5 C of frost (a warm shelter burns up to a third less). A freezing night without enough fire costs Condition — about 8 at -5 C, 20 at -15 C, less with shelter and sound cold gear — and a few in a row kill. When the cold is deep (day mean below -5 C) the streams are frozen hard: fetching water means melting snow, 1 firewood a trip.
 A good winter needs a larder (raw food, then preserved rations, one a night), water, firewood, a warm shelter (a clear midwinter night is about -19 C; a shelter needs about 87% warmth for that not to be a cold night), and a body in good shape. The WINTER OUTLOOK line tells you how many nights your stores last.
 
 HOW A DAY WORKS
@@ -128,8 +129,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   };
   lines.push(`READINESS (a rough guide): ${winterReady(s) ? 'WINTER-READY' : 'not ready'} — ${ps.map(p => `${p.key} ${p.done ? 'OK' : 'needs'} (${pv[p.key]})`).join('; ')}`);
   const o = winterOutlook(s);
-  const nights = (n: number): string => (Number.isFinite(n) ? `${n} night${n === 1 ? '' : 's'}` : 'no burn yet');
-  lines.push(`WINTER OUTLOOK: ${o.nightsToThaw} nights to the thaw · food ${nights(o.foodDays)} · water ${nights(o.waterDays)} · firewood ${nights(o.fuelDays)} · shelter ${o.warmthMargin >= 0 ? 'warm enough' : `${Math.ceil(-o.warmthMargin * 100)}% short`} for a midwinter night`);
+  const nights = (n: number): string => `${n} night${n === 1 ? '' : 's'}`;
+  lines.push(`WINTER OUTLOOK: ${o.nightsToThaw} nights to the thaw · food ${nights(o.foodDays)} · water ${nights(o.waterDays)} · firewood ${nights(o.fuelDays)} (${o.fuelToThaw} needed to the thaw, tonight ${nightFuel(s)}) · shelter ${o.warmthMargin >= 0 ? 'warm enough' : `${Math.ceil(-o.warmthMargin * 100)}% short`} for a midwinter night`);
 
   lines.push(`CAMP: ${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
   lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => `${x.item} (${x.grade})`).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);

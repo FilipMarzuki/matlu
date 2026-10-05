@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, weatherName, tempAt, nightTemp, isColdNight, coldNightNeeds, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
+import { weatherFor, weatherName, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -280,25 +280,42 @@ export interface WinterOutlook {
   foodDays: number;
   /** Nights of water. */
   waterDays: number;
-  /** Nights of firewood at tonight's burn (Infinity while nights burn none). */
+  /** Nights the firewood lasts, at the burn of a typical night of each day ahead (capped at the thaw). */
   fuelDays: number;
+  /** Firewood the nights from tonight to the thaw will need (#1303). */
+  fuelToThaw: number;
   /** Shelter warmth less what a clear midwinter night needs not to be cold (negative: too cold). */
   warmthMargin: number;
   /** Nights left until the thaw, tonight included. */
   nightsToThaw: number;
 }
 
-/** Firewood a night in camp burns. Nights burn none yet; the deep cold's fires come in #1303. */
-export const nightFuel = (_s: Region1State): number => 0;
+/**
+ * Firewood a night in camp on `day` will burn (#1303), at today's shelter
+ * warmth. Tonight uses tonight's weather; later nights a typical one (no
+ * weather shift). None in the flat world.
+ */
+export function nightFuel(s: Region1State, day = s.day): number {
+  if (!feelsTemperature(s)) return 0;
+  const w = Math.max(0, warmth(s) - (day === s.day ? windChill(s.weatherToday) : 0));
+  return fireNeed(nightTemp(day, day === s.day ? s.weatherToday : 'wind', s.config.calendar), w);
+}
 
 export function winterOutlook(s: Region1State): WinterOutlook {
   const cal = s.config.calendar;
-  const fuel = nightFuel(s);
   const midwinter = nightTemp(cal.winterDay + MIDWINTER_AFTER, 'clear', cal);
+  // Walk the nights to the thaw: how far the woodpile goes, and what the whole winter asks.
+  let left = s.stores.firewood, fuelDays = 0, fuelToThaw = 0, lasting = true;
+  for (let d = s.day; d < cal.thawDay; d++) {
+    const need = nightFuel(s, d);
+    fuelToThaw += need;
+    if (lasting && left >= need) { left -= need; fuelDays++; } else lasting = false;
+  }
   return {
     foodDays: s.stores.rawFood + s.stores.rations,
     waterDays: s.stores.water,
-    fuelDays: fuel > 0 ? Math.floor(s.stores.firewood / fuel) : Infinity,
+    fuelDays,
+    fuelToThaw,
     warmthMargin: warmth(s) - coldNightNeeds(midwinter),
     nightsToThaw: Math.max(0, cal.thawDay - s.day),
   };
@@ -646,14 +663,18 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     },
   },
   water: {
-    name: 'Fetch water', hours: 2, vigorRate: -3, clarityRate: -0.5, ringed: true, gate: reach,
-    // Once the streams ice over you break through to the water first (#1283).
+    name: 'Fetch water', hours: 2, vigorRate: -3, clarityRate: -0.5, ringed: true,
+    // Frozen hard (#1303), the only water is snow melted over a fire.
+    gate: (s, r) => reach(s, r) ?? (melting(s) && s.stores.firewood < MELT_FIREWOOD ? 'the streams are frozen hard, and there is no firewood to melt snow' : null),
+    // Once the streams ice over you break through to the water first (#1283); frozen hard, you melt snow instead (#1303).
     variant: (_o, s) => (s && feelsTemperature(s) && iceOn(s.day, s.config.calendar) ? { hours: 2 + ICE_EXTRA_HOURS } : {}),
     run: (s, b, r) => {
       const n = tripYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water');
       const note = workLand(s, r, 'water');
+      const melt = melting(s);
+      if (melt) s.stores.firewood -= MELT_FIREWOOD;
       s.stores.water += n; s.flags.everWater = true;
-      return `Fetched ${n} water${where(r)}.${note}`;
+      return melt ? `Melted ${n} water from snow${where(r)} (${MELT_FIREWOOD} firewood).${note}` : `Fetched ${n} water${where(r)}.${note}`;
     },
   },
   wood: {
@@ -1100,12 +1121,13 @@ export function endDay(s: Region1State): Region1State {
   const cold = feelsTemperature(next)
     ? isColdNight(w, nightTemp(next.day, next.weatherToday, next.config.calendar)) || (next.weatherToday === 'rain' && next.tier === 0)
     : w < 0.3 && next.tier < 2;
-  const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null });
+  const freeze = keepFire(next, w);
+  const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null, freeze });
   // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
   if (night.ended) {
     next.outcome = { choice: 'collapse', kind: night.ended, vitals: next.vitals };
     say(next, night.ended === 'died'
-      ? deathLine(next)
+      ? night.cause === 'cold' ? 'The fire is long dead and the cold comes in. You don\'t wake. Dead of the cold.' : deathLine(next)
       : 'Your body gives out and you collapse. Traders find you days later, barely alive — this season is over.', 'outcome');
     return next;
   }
@@ -1131,6 +1153,28 @@ export function endDay(s: Region1State): Region1State {
   return next;
 }
 
+/**
+ * The night's fire (#1303): burn what the frost asks for, as far as the
+ * woodpile goes. Returns the Condition a short or missing fire will cost.
+ * Above freezing, or in the flat world, no fire is needed.
+ */
+function keepFire(next: Region1State, w: number): number {
+  if (!feelsTemperature(next)) return 0;
+  const t = nightTemp(next.day, next.weatherToday, next.config.calendar);
+  const need = fireNeed(t, w);
+  if (need === 0) return 0;
+  const burnt = Math.min(need, next.stores.firewood);
+  next.stores.firewood -= burnt;
+  if (burnt === need) {
+    say(next, `Kept the fire in through a ${Math.round(t)} °C night — ${burnt} firewood.`, 'action');
+    return 0;
+  }
+  say(next, burnt > 0
+    ? `The firewood ran out in the night (${burnt} of the ${need} it needed). The cold crept in.`
+    : `No firewood — a fireless night at ${Math.round(t)} °C.`, 'hardship');
+  return freezeLoss(t, w, next.coldGear, (need - burnt) / need);
+}
+
 /** How the thaw finds a Warden of each grade. */
 const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
   hale: 'hale, and stronger for it.',
@@ -1153,10 +1197,12 @@ export interface NightOpts {
   lockedToday: boolean;
   /** Someone else waters you tonight (the caravan's barrels, #1244): you don't go thirsty, and your own water is kept. */
   providedWater?: boolean;
+  /** Condition lost to a freezing night without enough fire (#1303). */
+  freeze?: number;
 }
 
 /** The night's verdict: null if the Warden lives to see morning; otherwise how it ended. */
-export interface NightResult { ended: null | 'died' | 'collapsed' }
+export interface NightResult { ended: null | 'died' | 'collapsed'; cause?: 'cold' }
 
 /**
  * Grow the Warden's talents from one event (#1264). A tier gained is felt —
@@ -1175,6 +1221,8 @@ function refundOverexertion(next: Pick<Region1State, 'vitals'>, lost: number, mu
 
 /** The temperature matters in the full world; the flat world (tests) has none (#1283). */
 const feelsTemperature = (s: Pick<Region1State, 'config'>): boolean => s.config.world.weather === 'seeded';
+/** The streams are frozen hard today: water means melting snow (#1303). */
+const melting = (s: Pick<Region1State, 'config' | 'day'>): boolean => feelsTemperature(s) && meltsSnow(s.day, s.config.calendar);
 
 /** Work below freezing is heavier (#1283). */
 const coldWork = (s: Pick<Region1State, 'config' | 'day' | 'weatherToday'>, hour: number): number =>
@@ -1261,6 +1309,10 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
     say('A cold, broken night — the exposure bites.', 'hardship');
   }
 
+  // A freezing night without fire (#1303) — Cold-blooded eases it too.
+  const froze = (o.freeze ?? 0) * tr.coldCost;
+  if (froze > 0) next.vitals.condition = Math.max(0, next.vitals.condition - froze);
+
   // Tough (#1237, from tier 3 since #1263): once per run, you cling on instead of going under.
   if (next.vitals.condition <= 0 && tr.lastStand && !next.character.lastStandUsed) {
     next.vitals.condition = 1;
@@ -1269,10 +1321,12 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   }
   // Condition gone (#1234): deprived, you die of it; otherwise you collapse.
   if (next.vitals.condition <= 0) {
-    return { ended: next.deprivation.thirsty >= DEATH_THIRST || next.deprivation.hungry >= DEATH_HUNGER ? 'died' : 'collapsed' };
+    if (next.deprivation.thirsty >= DEATH_THIRST || next.deprivation.hungry >= DEATH_HUNGER) return { ended: 'died' };
+    // Frozen to death: there's no being found collapsed in a winter night like that.
+    return froze > 0 ? { ended: 'died', cause: 'cold' } : { ended: 'collapsed' };
   }
   // A night of hardship survived grows the talents that meet it (#1264): hunger, cold, being worn down.
-  growFrom(next, { kind: 'night', hungry: !ate, cold: o.coldNight, condition: next.vitals.condition });
+  growFrom(next, { kind: 'night', hungry: !ate, cold: o.coldNight || froze > 0, condition: next.vitals.condition });
 
   const summary = {
     loadVigor: next.today.loadVigor,

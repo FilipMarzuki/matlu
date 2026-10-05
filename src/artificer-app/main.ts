@@ -68,7 +68,7 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} stone`,
   preserve: () => '2 raw → 1 ration · smoke ×3 or dry ×2',
   build: s => (s.tier < 2 ? `tier ${s.tier + 1} from ${BUILD_COST[s.tier as 0 | 1]} mat · choose site & design in the queue` : 'winterized'),
-  coldGear: () => 'keeps the cold out on winter work · fiber or hide',
+  coldGear: () => 'eases a freezing night without enough fire · fiber or hide',
   knife: () => 'hunt −15% vigor, quicker preserving',
   snare: () => '+1 food every night',
   waterskin: () => '+1 water per trip · takes a hide',
