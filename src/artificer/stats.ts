@@ -8,7 +8,7 @@
  *
  * Like traits, stats act only on drains, recovery, costs and bonuses — never
  * on Vigor/Clarity caps, which drift back to the baseline each night and which
- * winter readiness checks (see the note in traits.ts).
+ * winter readiness checks (caps drift back to the baseline each night).
  *
  * Unlike skills (#1241), stats are shown exactly: you know your own body and
  * mind. Pure: Region 1 and the road read `statEffects` and `statDrain`.

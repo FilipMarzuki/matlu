@@ -20,7 +20,7 @@ import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
 import { SKILL_IDS, LEVELS, perceivedLevel } from '../artificer/skills';
 import { techniqueById, manualById } from '../artificer/techniques';
-import { TRAITS } from '../artificer/traits';
+import { TALENTS } from '../artificer/talents';
 import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
 import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
@@ -144,7 +144,10 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
   if (concepts.length) lines.push(`CONCEPTS: ${concepts.join(', ')}`);
-  if (s.character.traits.length) lines.push(`TRAITS: ${s.character.traits.map(t => `${TRAITS[t].name} (${TRAITS[t].upside}; but ${TRAITS[t].cost})`).join(' · ')}${s.character.traits.includes('tough') ? (s.character.lastStandUsed ? ' — last stand used' : ' — last stand available') : ''}`);
+  // Talents (#1263): only the ones the Warden knows about — never the hidden one, nor any tier.
+  const knownTalents = s.character.talents.filter(t => t.known);
+  const hiddenCount = s.character.talents.length - knownTalents.length;
+  if (s.character.talents.length) lines.push(`TALENTS: ${knownTalents.map(t => `${TALENTS[t.id].name} (${TALENTS[t.id].blurb})`).join(' · ') || 'none known'}${hiddenCount ? ` · ${hiddenCount} hidden talent, not yet discovered` : ''}${s.character.lastStandUsed ? ' — last stand used' : ''}`);
   const lock = survivalLockOf(s);
   lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
   // Self-assessed only: the AI, like the player, never sees its true skill (#1241).

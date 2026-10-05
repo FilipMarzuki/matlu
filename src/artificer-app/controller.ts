@@ -13,7 +13,7 @@
 import { ACTIONS, DAY_HOURS, setFocus, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
 import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
-import { validTraits, type TraitId } from '../artificer/traits';
+import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
 
@@ -40,14 +40,14 @@ export function newGame(): AppState {
 
 /**
  * Start the next run. If `from` is a resolved run whose character lived, that
- * same character goes on — same id, name, portrait and traits — keeping what
+ * same character goes on — same id, name, portrait, stats and talents — keeping what
  * they learned (#1242). Otherwise (no run, unfinished, or the character died)
  * it's a new Warden with nothing carried.
  */
 export function newRun(from?: Region1State): AppState {
   if (!from || !canContinue(from)) return newGame();
   const c = from.character;
-  return { sim: createRegion1({}, legacyOf(from), { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, traits: c.traits, stats: c.stats }), queue: [] };
+  return { sim: createRegion1({}, legacyOf(from), { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [] };
 }
 
 // ── Run history (saved separately from the game, so starting over keeps it) ──
@@ -225,16 +225,22 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // The shape checks above cover what the sim reads; trust the rest.
   // …and saves from before skills (#1236) start with no practice.
   const skills = isObj(sim.skills) && Object.values(sim.skills).every(isNum) ? sim.skills as Region1State['skills'] : {};
-  // …and saves from before character creation (#1237/#1239) get an unnamed Warden with no traits.
+  // …and saves from before character creation (#1237/#1239) get an unnamed Warden with no talents.
   const ch = sim.character;
   // …and saves from before stats (#1256) get average stats. Grown stats may pass the creation max, so only the 3–18 range is checked.
   const st = isObj(ch) ? ch.stats : undefined;
   const stats: Stats = isObj(st) && STAT_IDS.every(id => Number.isInteger(st[id]) && (st[id] as number) >= 3 && (st[id] as number) <= 18)
     ? Object.fromEntries(STAT_IDS.map(id => [id, st[id] as number])) as Stats
     : { ...DEFAULT_STATS };
-  const character = isObj(ch) && typeof ch.name === 'string' && Array.isArray(ch.traits) && validTraits(ch.traits as string[])
-    ? { id: typeof ch.id === 'string' ? ch.id : '', name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, traits: ch.traits as TraitId[], lastStandUsed: ch.lastStandUsed === true, stats }
-    : { id: '', name: '', portrait: null, traits: [], lastStandUsed: false, stats };
+  // Talents (#1263): kept as saved; saves from before talents turn their two traits into known
+  // talents (the same eight names) and roll a hidden one from the character id.
+  const id = isObj(ch) && typeof ch.id === 'string' ? ch.id : '';
+  const talents = isObj(ch) && validTalents(ch.talents) ? ch.talents.map(t => ({ ...t }))
+    : isObj(ch) && Array.isArray(ch.traits) && validPick(ch.traits as string[]) ? startingTalents(ch.traits as Parameters<typeof startingTalents>[0], id)
+    : [];
+  const character = isObj(ch) && typeof ch.name === 'string'
+    ? { id, name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, talents, lastStandUsed: ch.lastStandUsed === true, stats }
+    : { id: '', name: '', portrait: null, talents: [], lastStandUsed: false, stats };
   // …and saves from before focus (#1238) have none; a stored focus is re-validated.
   const f = sim.focus;
   const focus = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;

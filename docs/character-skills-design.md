@@ -95,13 +95,26 @@ Six base stats, chosen at creation, sit under the skills. Skills say what you've
 
 **Exact, carried.** Stats are shown as they are (you know your own body), and they carry with the living character. Growth by use and wear from hardship come next (#1257).
 
-## 2. Traits
+## 2. Talents (#1262, #1263)
 
-Pick two at character creation. Each trait has an upside and a cost, and works
-through the existing levers: capacity caps, drains, deprivation costs and the
-salvage bonus. That's in line with the vitality design's plan for traits that
-shape baselines and resilience. Examples: Hardy, Sharp-minded, Light Eater,
-Careful Hands, Quick Learner, Cold-blooded. *(Separate issue.)*
+Talents replaced the traits of #1237, and they are gifts with no cost. At creation the Warden is **offered 4 of a pool of 12** and picks 2, which they know. They also have **1 hidden talent** they don't know about. The offer and the hidden roll come from a seed made from the character id, so the same Warden always gets the same ones.
+
+Every talent has a **tier, 1–4** (spark → knack → gift → mastery), that scales its effect. The tier is never shown. Talents start at tier 1, then grow quietly with use (#1264). A hidden talent works from day one and can be discovered from signs (#1265).
+
+| Talent | Effect at tier t |
+| --- | --- |
+| Hardy | physical work (wood, quarry, build, hunt, gather, water) costs 4%·t less Vigor |
+| Sharp-minded | all work costs 4%·t less Clarity |
+| Light Eater | hunger costs 12%·t less |
+| Careful Hands | craft grade +⌊t/2⌋; salvage +5%·t |
+| Quick Learner | skill practice +12%·t |
+| Cold-blooded | cold nights cost 25%·t less Condition (immune at mastery) |
+| Tough | deprivation and overexertion cost 5%·t less Condition; last stand (once per run) from tier 3 |
+| Keen Eye | scouting work costs 5%·t less; chosen at creation, starts with 5h of scouting practice |
+| Forager / Hunter's Patience / Waterfinder | gather / hunt / water yield +⌊t/2⌋ (Hunter also: tracking costs 5%·t less) |
+| Silver Tongue | on the caravan road: trust +3·t, prices 2%·t better |
+
+Old saves keep their two traits as known tier-1 talents, and get a hidden one rolled from their id. A Warden without an id (a test, or the AI runner for now) has no hidden talent. Each Warden also has one hidden **quirk**, an upside with an equal downside (#1268).
 
 ## 3. Focus
 

@@ -12,20 +12,22 @@ import { newGame, newRun, recordRun, deserializeHistory, serializeHistory } from
 
 /** A resolved run for a named Warden who knows the snare and has some woodcraft. */
 function ended(kind: OutcomeKind, id = 'w-vega'): Region1State {
-  const s = createRegion1({}, undefined, { id, name: 'Vega', portrait: 'tinkerer', traits: ['hardy', 'tough'] });
+  const s = createRegion1({}, undefined, { id, name: 'Vega', portrait: 'tinkerer', chosen: ['hardy', 'tough'] });
   const worked = { ...runAction(s, 'scout'), known: [...s.known, 'trap-snare'], skills: { woodcraft: 40 } };
   const choice = kind === 'collapsed' || kind === 'died' ? 'collapse' as const : kind === 'crossed' || kind === 'turnedBack' ? 'solo' as const : kind === 'thrive' || kind === 'ragged' ? 'caravan' as const : 'winter' as const;
   return { ...worked, outcome: { choice, kind, vitals: createVitals() } };
 }
 
 describe('Carry-over belongs to one character (#1242)', () => {
-  // 1. A character who lived goes on: same id, name, traits, knowledge.
+  // 1. A character who lived goes on: same id, name, talents, knowledge.
   it('continues a character who lived, with everything they learned', () => {
     for (const kind of ['thrive', 'ragged', 'crossed', 'wintered', 'grim', 'collapsed'] as OutcomeKind[]) {
       const from = ended(kind);
       expect(canContinue(from)).toBe(true);
       const next = newRun(from).sim;
-      expect(next.character).toMatchObject({ id: 'w-vega', name: 'Vega', portrait: 'tinkerer', traits: ['hardy', 'tough'], lastStandUsed: false });
+      expect(next.character).toMatchObject({ id: 'w-vega', name: 'Vega', portrait: 'tinkerer', lastStandUsed: false });
+      expect(next.character.talents).toEqual(from.character.talents);
+      expect(next.character.talents.filter(t => t.known).map(t => t.id)).toEqual(['hardy', 'tough']);
       expect(next.known).toContain('trap-snare');
       expect(next.skills.woodcraft).toBe(40);
     }
