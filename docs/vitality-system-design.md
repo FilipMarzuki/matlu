@@ -28,7 +28,9 @@ capped there for the whole game: that capacity **grows past baseline** with
 well-recovered training and **deteriorates below it** with neglect or
 burnout, a slow progression the player shapes over the life of a single
 persistent character within a save (a player can start a new save for a fresh
-character at baseline — §1, §11).
+character at baseline — §1, §11). Everyday decline is reversible, but a rare
+acute injury — a lost eye or leg, a chronic affliction — can mark the character
+permanently (§3).
 
 The core idea is one unifying rule: **every activity is a per-unit-time vector
 across Vigor and Clarity.** There is no separate "action economy" and "recovery
@@ -90,7 +92,8 @@ clock than the daily spend/recover loop:
 
 Capacity is clamped to a floor and ceiling, and a character's **traits / age**
 set their baseline and how wide that range is — a naturally hardy Warden starts
-higher and can climb further; age can lower the ceiling.
+higher and can climb further; age can lower the ceiling. Everyday drift is
+**reversible**, but a permanent injury can lower the ceiling for good (§3).
 
 So there are **three nested timescales:** **current** (seconds), the **Condition**
 reserve (days), and **capacity** (the character's long arc across the save). The last is a quiet
@@ -160,6 +163,30 @@ is subtracted from Condition instead.
   state. On a persistent save this is how a character wears down over time — a
   decline you must actively heal (deep rest, good food, time), not a reset you
   wait out.
+
+### Reversible decline vs. permanent injury
+
+Two very different kinds of "getting worse":
+
+- **Gradual capacity deterioration is reversible.** The slow drift below
+  baseline from neglect, atrophy, overreach or a worn-down Condition can always
+  be trained back — it just takes sustained, well-recovered living, on the same
+  slow clock that grew it. Ordinary wear is never a dead end.
+- **Acute injury can be permanent.** A discrete catastrophe — a maiming wound, a
+  crippling disease, frostbite, a bad fall — can impose a **lasting** penalty
+  that ordinary recovery never fully undoes: losing an eye, losing a leg, a
+  chronic affliction. Mechanically it **lowers a pool's maximum ceiling** (or
+  flatly taxes specific activities) rather than just its current value — a lost
+  leg caps Vigor and raises every travel/gather cost; a lost eye degrades
+  perception and the Clarity reads that depend on it.
+
+Permanent injuries are what give the persistent save real stakes: most setbacks
+you can grind back, but some **mark the character for the rest of the save.** The
+artificer angle is the counter-play — you can't regrow the leg, but you can
+**craft to mitigate** it (a prosthesis, a cane, a remedy, a corrective lens),
+clawing back *part* of what was lost without ever fully erasing it. Sources are
+acute and rare: combat (deferred — animals first, people later), environmental
+hazards, disease, and the worst overexertion.
 
 ---
 
@@ -336,8 +363,14 @@ band at the moment the activity runs.
 6. **Capacity drift** — what clock does it run on (per day, per week, per
    milestone)? How wide should the floor/ceiling be, and how fast should it move
    so growth feels earned but decline never becomes an unrecoverable death
-   spiral on a persistent save? Is deterioration always fully reversible, or can
-   neglect/age impose a permanent ceiling the player can't fully undo?
+   spiral on a persistent save? *(Resolved: everyday deterioration is reversible
+   but slow — §1, §3.)*
+7. **Permanent injury** — what's the catalogue of maiming injuries/afflictions
+   (lost eye, lost leg, chronic disease, …), and exactly how does each one bite
+   (lowered ceiling vs. per-activity tax)? How much can crafted mitigation
+   (prosthesis, remedy, corrective lens) claw back — a fixed fraction, or
+   escalating with better tools — and can it ever reach 100%? What are the acute
+   sources before combat exists (hazards, disease, extreme overexertion)?
 
 ---
 
