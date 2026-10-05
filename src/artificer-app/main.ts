@@ -17,9 +17,10 @@ import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInp
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
+import { bestRun, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
-import { newGame, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -327,6 +328,17 @@ function statusBar(a: AppState, preview: Preview): string {
   </div>`;
 }
 
+const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter' };
+
+/** The history of finished runs (newest first), with the best one marked. */
+function pastRuns(): string {
+  if (!history.length) return '<p class="mood">No finished runs yet. Take an exit when the caravan comes, and it will be recorded here.</p>';
+  const best = bestRun(history);
+  return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">RUN ${r.run}</span>`
+    + `<span class="rk k-${r.kind}">${OUTCOME_SHORT[r.kind]}${r.injury ? ' · frostbite' : ''}</span>`
+    + `<span class="rd">day ${r.day}${r.readyDay ? ` · ready d${r.readyDay}` : ''} · ${r.recipes} recipes</span>${r === best ? '<span class="rb">★ BEST</span>' : ''}</li>`).join('')}</ol>`;
+}
+
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
 type Tab = 'plan' | 'camp' | 'land' | 'progress';
@@ -359,7 +371,8 @@ function tabBody(a: AppState, preview: Preview): string {
       return `<div class="cols">
         <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}
           <p class="eyebrow" style="margin-top:16px">WINTER READINESS</p>${readiness(a)}
-          <p class="eyebrow" style="margin-top:16px">MILESTONES</p>${milesBlock(a)}</section>
+          <p class="eyebrow" style="margin-top:16px">MILESTONES</p>${milesBlock(a)}
+          <p class="eyebrow" style="margin-top:16px">PAST RUNS</p>${pastRuns()}</section>
         <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">JOURNAL</p><ul class="full">${journal(a, 200)}</ul></section>
       </div>`;
   }
@@ -369,8 +382,14 @@ function resolvePanel(a: AppState): string {
   const s = a.sim;
   if (s.outcome) {
     const o = OUTCOME[s.outcome.kind];
-    return `<div class="resolve"><h3>❄ REGION 1 COMPLETE</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>`
-      + `<button class="btn go" data-cmd="reset">↺ NEW SAVE — PLAY AGAIN</button></div>`;
+    const r = history[0];
+    const facts = r ? `<ul class="runfacts">
+        <li>Left on <b>day ${r.day}</b>${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
+        <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
+      </ul>` : '';
+    return `<div class="resolve"><h3>❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
+      + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="carry" title="Your known recipes and concept ranks carry over">↻ NEW RUN — KEEP WHAT YOU LEARNED</button>`
+      + `<button class="btn" data-cmd="reset">✦ FRESH WARDEN</button></div></div>`;
   }
   const open = availableChoices(s.day, s.config.calendar);
   if (open.length === 0) return '';
@@ -400,6 +419,7 @@ function render(a: AppState): void {
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
       ${phaseChip(a)}
       <span class="spacer"></span>
+      <span class="counter ctl">RUN <b>${(history[0]?.run ?? 0) + (a.sim.outcome ? 0 : 1)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
@@ -427,10 +447,23 @@ function save(a: AppState): void {
 
 // ── Wiring ──────────────────────────────────────────────────────────────────
 
+/** Past runs live under their own key, so a new save never erases them. */
+function loadHistory(): RunRecord[] {
+  try { return deserializeHistory(localStorage.getItem(HISTORY_KEY)); } catch { return []; }
+}
+
+function saveHistory(h: readonly RunRecord[]): void {
+  try { localStorage.setItem(HISTORY_KEY, serializeHistory(h)); } catch { /* history is a convenience; play on */ }
+}
+
 const root = document.getElementById('app') as HTMLElement;
 let state = load();
+let history = loadHistory();
 
 function update(next: AppState): void {
+  // The moment a run resolves, it goes into the history (once).
+  const h = recordRun(history, state, next);
+  if (h.length !== history.length || h[0] !== history[0]) { history = h; saveHistory(history); }
   state = next;
   save(state);
   render(state);
@@ -455,6 +488,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   else if (d.cmd === 'reset') update(newGame());
+  else if (d.cmd === 'carry') update(newRun(state.sim));
 });
 
 render(state);

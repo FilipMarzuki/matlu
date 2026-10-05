@@ -12,6 +12,7 @@
 
 import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
+import { summarizeRun, legacyOf, addRun, type RunRecord } from '../artificer/legacy';
 
 export interface AppState {
   sim: Region1State;
@@ -28,6 +29,43 @@ const MAX_DAYS_PER_RUN = 60;
 
 export function newGame(): AppState {
   return { sim: createRegion1(), queue: [] };
+}
+
+/**
+ * Start the next run. Given a resolved run, the new Warden keeps what that
+ * one learned (recipes, concept ranks); without one it's a fresh start.
+ */
+export function newRun(from?: Region1State): AppState {
+  return { sim: from?.outcome ? createRegion1({}, legacyOf(from)) : createRegion1(), queue: [] };
+}
+
+// ── Run history (saved separately from the game, so starting over keeps it) ──
+
+export const HISTORY_KEY = 'artificer.history.v1';
+
+/**
+ * Record a run once it has resolved. Calling it again for the same resolved
+ * run is a no-op, so the page can call it after every update.
+ */
+export function recordRun(history: readonly RunRecord[], before: AppState, after: AppState): RunRecord[] {
+  if (!after.sim.outcome || before.sim.outcome) return [...history];
+  const run = (history[0]?.run ?? 0) + 1;
+  return addRun(history, summarizeRun(after.sim, run));
+}
+
+export function serializeHistory(h: readonly RunRecord[]): string {
+  return JSON.stringify({ version: 1, runs: h });
+}
+
+/** Parse saved history; anything malformed is simply an empty history. */
+export function deserializeHistory(raw: string | null | undefined): RunRecord[] {
+  if (!raw) return [];
+  try {
+    const data: unknown = JSON.parse(raw);
+    if (!isObj(data) || data.version !== 1 || !Array.isArray(data.runs)) return [];
+    const ok = data.runs.every(r => isObj(r) && isNum(r.run) && isNum(r.day) && typeof r.kind === 'string' && typeof r.choice === 'string' && Array.isArray(r.tools));
+    return ok ? (data.runs as RunRecord[]) : [];
+  } catch { return []; }
 }
 
 export function enqueue(a: AppState, id: QueueItem): AppState {

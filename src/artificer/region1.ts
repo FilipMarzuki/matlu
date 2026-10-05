@@ -15,6 +15,7 @@ import { applyActivity, driftCapacity, createVitals, type Vitals } from './vital
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
 import { createExploration, scout, survey, track, lookout, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import type { Legacy } from './legacy';
 import { craft, craftBlocker, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
@@ -114,7 +115,7 @@ export interface Region1State {
 }
 
 /** A fresh save: day 1, baseline body, a couple of meals, nothing known. */
-export function createRegion1(config: Partial<Region1Config> = {}): Region1State {
+export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Legacy): Region1State {
   const s: Region1State = {
     day: 1,
     hoursToday: 0,
@@ -137,6 +138,14 @@ export function createRegion1(config: Partial<Region1Config> = {}): Region1State
     outcome: null,
     config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS },
   };
+  // A new run that keeps what the last Warden learned: recipes and concept
+  // ranks carry over (insight starts again); body, stores and land don't.
+  if (legacy) {
+    for (const r of legacy.known) if (!s.known.includes(r)) s.known.push(r);
+    for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };
+    const ranks = Object.entries(legacy.concepts).map(([id, r]) => `${id} ${r}`).join(', ');
+    say(s, `You carry what you learned: ${s.known.length} recipes${ranks ? ` and ${ranks}` : ''}.`, 'milestone');
+  }
   return s;
 }
 
