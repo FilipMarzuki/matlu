@@ -4,14 +4,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, runDay, endDay, chooseSite, choose, warmth, type Region1State } from './region1';
+import { fastForward } from './test-helpers';
+import { createRegion1, runAction, runDay, endDay, chooseSite, choose, warmth, type Region1State, NEEDS } from './region1';
 import { BASELINE } from './vitality';
 import { scouted, level } from './exploration';
 
 /** Pass idle days (empty queue) until `day`. */
 function advanceTo(s: Region1State, day: number): Region1State {
   let st = s;
-  while (st.day < day) st = runDay(st, []).state;
+  st = fastForward(st, day, []);
   return st;
 }
 
@@ -83,8 +84,8 @@ describe('Region 1 sim', () => {
     expect(fed.stores.water).toBe(worked.stores.water - 1);
     // WHEN the same day ends with no food
     const hungry = endDay({ ...worked, stores: { ...worked.stores, rawFood: 0 } });
-    // THEN they lose Condition and recover less overnight
-    expect(hungry.vitals.condition).toBe(fed.vitals.condition - 6);
+    // THEN they lose Condition and recover less overnight (a first hungry night is mild; #1233 escalates it)
+    expect(hungry.vitals.condition).toBe(fed.vitals.condition - NEEDS.food.condition);
     expect(hungry.vitals.vigor.current).toBeLessThan(fed.vitals.vigor.current);
     expect(hungry.log.some(l => l.kind === 'hardship' && /Hungry/.test(l.text))).toBe(true);
   });

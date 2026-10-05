@@ -10,7 +10,8 @@
  */
 
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
-import type { Choice, Injury, OutcomeKind } from './winter';
+import type { EndChoice, Injury, OutcomeKind } from './winter';
+import { carriedSkills, type SkillPractice } from './skills';
 import type { Grade } from './crafting';
 
 /** One finished run, as the history shows it. */
@@ -18,7 +19,7 @@ export interface RunRecord {
   run: number;
   /** The day the exit was taken. */
   day: number;
-  choice: Choice;
+  choice: EndChoice;
   kind: OutcomeKind;
   injury: Injury | null;
   /** The day the Warden first became winter-ready, or null if never. */
@@ -41,6 +42,8 @@ export interface Legacy {
   known: string[];
   /** Concept id → rank (insight starts again from 0). */
   concepts: Record<string, number>;
+  /** Skill practice at each skill's reached level (#1236). Optional so older legacies still load. */
+  skills?: SkillPractice;
 }
 
 /** Summarise a resolved run. Throws on a run still in progress — there's nothing to record yet. */
@@ -75,6 +78,7 @@ export function legacyOf(s: Region1State): Legacy {
   return {
     known: [...s.known],
     concepts: Object.fromEntries(Object.entries(s.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => [id, p.rank])),
+    skills: carriedSkills(s.skills),
   };
 }
 
@@ -87,7 +91,7 @@ export function addRun(history: readonly RunRecord[], rec: RunRecord): RunRecord
 }
 
 /** How good each outcome is, for picking a best run. */
-export const OUTCOME_RANK: Readonly<Record<OutcomeKind, number>> = { thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0 };
+export const OUTCOME_RANK: Readonly<Record<OutcomeKind, number>> = { thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0, collapsed: -1, died: -2 };
 
 /** The best run so far (ties go to the earlier run — you got there first). */
 export function bestRun(history: readonly RunRecord[]): RunRecord | null {

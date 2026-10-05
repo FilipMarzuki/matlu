@@ -2,11 +2,13 @@
  * Let an AI play the Artificer (#1226).
  *
  *   npm run ai:play -- --player claude      [--model claude-opus-5-5] [--effort medium]
- *   npm run ai:play -- --player openrouter  [--model google/gemini-2.5-pro]
+ *   npm run ai:play -- --player openrouter  [--model google/gemini-3.8-flash]
  *   npm run ai:play -- --player scripted                (no API key needed)
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
  *   options: --runs N (default 1) --max-days N (default 16) --carry (each run keeps the last run's knowledge)
  *            --out DIR (default ai-runs) --quiet
+ *            --traits hardy,tough (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye)
+ *            --budget USD (stop the batch once actual spend reaches this; OpenRouter reports real cost)
  *
  * Writes one JSON transcript per run to --out and prints a summary table.
  */
@@ -19,6 +21,7 @@ import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
 import { legacyOf } from '../src/artificer/legacy';
+import { validTraits, TRAIT_COUNT, TRAIT_IDS, type TraitId } from '../src/artificer/traits';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -31,6 +34,10 @@ const out = flag('out') ?? 'ai-runs';
 const quiet = has('quiet');
 
 const seed = Number(flag('seed') ?? 1);
+const traits = (flag('traits') ?? '').split(',').map(t => t.trim()).filter(Boolean);
+if (!validTraits(traits)) { console.error(`--traits needs exactly ${TRAIT_COUNT} of: ${TRAIT_IDS.join(', ')}`); process.exit(1); }
+const budget = flag('budget') !== undefined ? Number(flag('budget')) : Infinity;
+const usd = (x: number | null): string => (x === null ? 'cost unknown' : `$${x < 0.01 && x > 0 ? x.toFixed(4) : x.toFixed(3)}`);
 
 function makePlayer(n: number): Player {
   if (which === 'claude') return claudePlayer({ model: flag('model'), effort: flag('effort') as Effort | undefined });
@@ -49,6 +56,7 @@ async function main(): Promise<void> {
   const results: RunResult[] = [];
   const crashes: string[] = [];
   const violations: string[] = [];
+  let spent = 0;
   let carry: RunResult | undefined;
   for (let n = 1; n <= runs; n++) {
     const player = makePlayer(n); // fresh conversation per run
@@ -58,6 +66,7 @@ async function main(): Promise<void> {
       result = await playRun(player, {
       maxDays,
       legacy: has('carry') && carry ? legacyOf(carry.final) : undefined,
+      traits: traits as TraitId[],
       onTurn: t => {
         if (quiet) return;
         const head = t.exit ? `EXIT → ${t.exit}` : t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : queueText(t.queue);
@@ -72,13 +81,15 @@ async function main(): Promise<void> {
       crashes.push(`run ${n} (${player.name}): ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
       continue;
     }
+    spent += result.usage.cost ?? 0;
     for (const t of result.turns) if (t.violations) violations.push(`run ${n} day ${t.day}: ${t.violations.join('; ')}`);
     carry = result;
     results.push(result);
     const file = join(out, `${new Date().toISOString().replace(/[:.]/g, '-')}-${which}${which === 'random' ? `-${flag('mode') ?? 'legal'}` : ''}-run${n}.json`);
     const { final: _final, ...saved } = result;
     writeFileSync(file, JSON.stringify(saved, null, 2));
-    if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'}${result.forced ? ' [day cap]' : ''} · transcript ${file}`);
+    if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'}${result.forced ? ' [day cap]' : ''} · ${usd(result.usage.cost)} · transcript ${file}`);
+    if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }
 
   console.log('\nSUMMARY');
@@ -91,8 +102,10 @@ async function main(): Promise<void> {
     console.log(`  winter-ready in ${ready.length}/${results.length}${ready.length ? `, mean day ${(ready.reduce((n, r) => n + r.record.readyDay!, 0) / ready.length).toFixed(1)}` : ''}`);
   } else for (const [i, r] of results.entries()) {
     const u = r.usage;
-    console.log(`  run ${i + 1}: ${r.record.kind.padEnd(10)} day ${String(r.record.day).padStart(2)} · ready ${r.record.readyDay ?? '—'} · invalid days ${r.turns.filter(t => t.invalid).length} · tokens in ${u.input} (cache read ${u.cacheRead}, write ${u.cacheWrite}) out ${u.output}`);
+    console.log(`  run ${i + 1}: ${r.record.kind.padEnd(10)} day ${String(r.record.day).padStart(2)} · ready ${r.record.readyDay ?? '—'} · invalid days ${r.turns.filter(t => t.invalid).length} · tokens in ${u.input} (cache read ${u.cacheRead}, write ${u.cacheWrite}) out ${u.output} · ${usd(u.cost)}`);
   }
+  const known = results.filter(r => r.usage.cost !== null);
+  if (known.length) console.log(`  spend: $${spent.toFixed(3)} total · $${(spent / known.length).toFixed(3)} per game${known.length < results.length ? ` (${results.length - known.length} run(s) didn't report cost)` : ''}`);
   if (crashes.length) { console.log(`\nCRASHES (${crashes.length}):`); for (const c of crashes) console.log(`  ${c}`); }
   if (violations.length) { console.log(`\nINVARIANT VIOLATIONS (${violations.length}):`); for (const v of violations.slice(0, 40)) console.log(`  ${v}`); }
   if (crashes.length || violations.length) process.exitCode = 1;

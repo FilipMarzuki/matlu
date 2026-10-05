@@ -83,6 +83,7 @@
   .r { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); font-size: 12px; }
   .r b { font-variant-numeric: tabular-nums; color: var(--gold); }
   .r.low b { color: var(--danger); }
+  .r .streak, .sstores .streak { font-style: normal; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--danger); border: 1px solid var(--danger); border-radius: 5px; padding: 1px 5px; }
 
   /* Milestones — a ladder of first-time wins that guides the player and breaks
      the big winter-ready goal into legible steps. */
@@ -317,3 +318,50 @@ body { min-height: 100vh; }
     .intro .portal { animation: none; transition: none; }
     .intro .beat p { animation: none !important; opacity: 1; }
   }
+
+  /* Skills (#1236): name, level pips, level name, progress to the next level */
+  .skills { display: grid; gap: 6px; }
+  .skill { display: grid; grid-template-columns: minmax(84px, 1fr) auto minmax(76px, auto); align-items: center; gap: 4px 10px; font-size: 12px; }
+  .skill .sn { color: var(--ink); }
+  .skill .pips { display: inline-flex; gap: 3px; }
+  .skill .pips i { width: 8px; height: 8px; border-radius: 2px; background: var(--border2); }
+  .skill .pips i.on { background: var(--gold); }
+  .skill .sl { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); text-align: right; }
+  .skill .track { grid-column: 1 / -1; height: 3px; background: var(--sub2); border-radius: 2px; overflow: hidden; }
+  .skill .track .fill { height: 100%; background: var(--teal); }
+
+  /* ── Character (#1239): portraits, creation form, Warden tab, header identity ── */
+  .portrait { display: inline-block; flex: none; image-rendering: pixelated; border-radius: 8px; background-color: var(--sub2); background-repeat: no-repeat; border: 1px solid var(--border2); }
+  .portrait.blank { display: inline-grid; place-items: center; color: var(--faint); font-family: var(--display); }
+
+  .intro .beat.create { max-width: min(720px, 100%); width: 100%; max-height: calc(100vh - 140px); overflow-y: auto; padding-block: 8px; }
+  .create { display: grid; gap: 8px; text-align: left; margin-top: 10px; animation: line-in .6s ease .5s both; cursor: default; }
+  .clabel { margin: 8px 0 0; font-family: var(--display); font-size: 9px; letter-spacing: 2px; color: var(--teal); }
+  .clabel span { color: var(--dim); }
+  .cname { font: 600 18px var(--body); color: var(--ink); background: var(--sub); border: 1px solid var(--border2); border-radius: 9px; padding: 10px 12px; width: 100%; }
+  .cname:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .pchoices { display: flex; flex-wrap: wrap; gap: 10px; }
+  .pchoice { display: grid; justify-items: center; gap: 4px; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 11px var(--body); cursor: pointer; }
+  .pchoice[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+  .tchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 8px; }
+  .tchoice, .trait { display: grid; gap: 2px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px/1.35 var(--body); }
+  .tchoice { cursor: pointer; }
+  .tchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+  .tchoice b, .trait b { font-family: var(--display); font-size: 10px; letter-spacing: 1px; color: var(--gold); font-weight: 400; }
+  .tchoice .up, .trait .up { color: var(--green); }
+  .tchoice .cost, .trait .cost { color: var(--warn); }
+  .trait .note { color: var(--dim); font-size: 11px; }
+  .intro .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .idcard { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .wname { margin: 2px 0; font: 700 22px var(--display); color: var(--ink); letter-spacing: 1px; overflow-wrap: anywhere; }
+  .wrank { margin: 0; font-family: var(--display); font-size: 10px; letter-spacing: 1px; color: var(--teal); }
+  .wrank span { color: var(--dim); font-family: var(--body); letter-spacing: 0; }
+  .traits { display: grid; gap: 8px; }
+  .concepts { margin: 0; padding-left: 18px; font-size: 12.5px; }
+  .concepts span { color: var(--dim); }
+  .who { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 12px var(--body); cursor: pointer; }
+  .who b { color: var(--ink); }
+  .who .portrait { border-radius: 50%; }
+  /* Re-drawing the same intro screen (a creation pick) shows it as-is, without replaying the fade-in. */
+  .intro.settled .beat p, .intro.settled .create { animation: none !important; opacity: 1; filter: none; translate: none; }

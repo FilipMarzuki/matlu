@@ -12,12 +12,17 @@ import { createRegion1, chooseSite, choose, runDay, type Region1State, parseItem
 import { availableChoices, type Choice } from '../artificer/winter';
 import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
 import { observe } from './observe';
+import type { TraitId } from '../artificer/traits';
 import { progressOf, type Progress } from './progress';
 import { invariantViolations } from './invariants';
 import { parseDecision } from './decision';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
-export interface Usage { input: number; output: number; cacheRead: number; cacheWrite: number }
+export interface Usage {
+  input: number; output: number; cacheRead: number; cacheWrite: number;
+  /** Actual billed USD, summed over the run's calls; null when the player doesn't report it (#1231). */
+  cost: number | null;
+}
 
 /**
  * Anything that can play: given the next user message (an observation, or a
@@ -66,6 +71,8 @@ export interface PlayOptions {
   /** Stop and winter over if the player hasn't left by this day. */
   maxDays?: number;
   legacy?: Legacy;
+  /** Traits for the Warden (#1237); none by default. */
+  traits?: TraitId[];
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
 }
@@ -81,13 +88,13 @@ function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn[
 /** Play one Region 1 run with `player`. */
 export async function playRun(player: Player, opts: PlayOptions = {}): Promise<RunResult> {
   const { warmth } = await import('../artificer/region1');
-  let s = createRegion1({}, opts.legacy);
+  let s = createRegion1({}, opts.legacy, { name: player.name, traits: opts.traits ?? [] });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   // The cap can't end a run before any exit opens, so it is at least the caravan's first day.
   const maxDays = Math.max(opts.maxDays ?? 16, s.config.calendar.caravanOpen);
   const turns: Turn[] = [];
-  const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
   let forced = false;
 
@@ -97,6 +104,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     usage.output += r.usage?.output ?? 0;
     usage.cacheRead += r.usage?.cacheRead ?? 0;
     usage.cacheWrite += r.usage?.cacheWrite ?? 0;
+    // Unknown stays unknown: one call without a cost doesn't turn a known total into a guess.
+    if (r.usage?.cost !== undefined && r.usage.cost !== null) usage.cost = (usage.cost ?? 0) + r.usage.cost;
     return r.text;
   };
 

@@ -13,14 +13,18 @@
  */
 
 import './style.css';
-import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
 import { bestRun, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
-import { introBeats, type Beat, type IntroKind } from './intro';
+import { SKILLS, SKILL_IDS, LEVELS, LEVEL_HOURS, MAX_LEVEL, skillLevel } from '../artificer/skills';
+import { introBeats, fillName, type Beat, type IntroKind } from './intro';
+import { PORTRAITS, portraitById, portraitStyle } from './portraits';
+import { TRAITS, TRAIT_IDS, TRAIT_COUNT, type TraitId } from '../artificer/traits';
+import { artificerRank, conceptRanks } from '../artificer/rank';
 import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
@@ -86,6 +90,8 @@ const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
   crossed: { head: 'YOU STRIKE OUT ALONE', body: 'Cold gear cinched, rations packed, a route in your head — you walk out into the white. It is brutal and slow, but you make it through on what you built, beholden to no one.' },
   turnedBack: { head: 'THE ROAD TURNS YOU BACK', body: 'You push into the winter stretch underprepared. The cold finds every gap; days in, you turn back carrying a lasting mark: frostbite, a permanent injury.' },
   wintered: { head: 'YOU WINTER OVER IN THE REACH', body: 'The snows close the Reach in, but your shelter holds warm, the larder lasts and the fire never dies. When thaw comes, the Reach is yours.' },
+  collapsed: { head: 'YOU COLLAPSE', body: 'Worked past the end of yourself, your body simply stops. Passing traders find you days later and carry you out, barely alive. You keep what you learned — and the lesson about limits.' },
+  died: { head: 'THE REACH TAKES YOU', body: 'Without water or food the body fails faster than the will. You lie down one night and do not get up. Another Warden will come — and may know what you learned.' },
   grim: { head: 'A GRIM WINTER', body: 'You hunker down on too little. The larder runs thin, the shelter leaks heat, and the cold grinds at you week after week. You limp into spring weaker than you started.' },
 };
 
@@ -201,7 +207,45 @@ const storeChip = (icon: string, label: string, n: number, low = false): string 
 
 function storesRow(s: AppState['sim']): string {
   const st = s.stores;
-  return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1)}${storeChip('💧', 'Water', st.water, st.water < 1)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
+  // A running hunger/thirst streak shows on the chip: the next night without costs more (#1233).
+  const streak = (n: number, word: string): string => (n ? ` <span class="streak">${word} ×${n}</span>` : '');
+  return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1).replace('</span>', `${streak(s.deprivation.hungry, 'HUNGRY')}</span>`)}${storeChip('💧', 'Water', st.water, st.water < 1).replace('</span>', `${streak(s.deprivation.thirsty, 'THIRSTY')}</span>`)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
+}
+
+/** A portrait frame (or a blank silhouette for an unnamed quick-start Warden). */
+function portraitEl(id: string | null, size: number, cls = ''): string {
+  const p = portraitById(id);
+  return p ? `<span class="portrait ${cls}" role="img" aria-label="${esc(p.label)}" style="${portraitStyle(p, size)}"></span>` : `<span class="portrait blank ${cls}" style="width:${size}px;height:${size}px" aria-hidden="true">?</span>`;
+}
+
+/** The Warden tab (#1239): who you are — portrait, name, rank, traits, skills, concepts. */
+function wardenTab(a: AppState): string {
+  const c = a.sim.character;
+  const traits = c.traits.length
+    ? c.traits.map(t => `<div class="trait"><b>${esc(TRAITS[t].name)}</b><span class="up">+ ${esc(TRAITS[t].upside)}</span><span class="cost">− ${esc(TRAITS[t].cost)}</span>${t === 'tough' ? `<span class="note">${c.lastStandUsed ? 'last stand used this run' : 'last stand ready'}</span>` : ''}</div>`).join('')
+    : '<p class="mood">No traits — a quick-start Warden. Start a fresh Warden to choose two.</p>';
+  const concepts = Object.entries(a.sim.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0);
+  return `<div class="cols">
+    <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
+      <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
+      <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
+    <section class="box"><p class="eyebrow">SKILLS — improve by doing</p>${skillsBlock(a.sim)}
+      <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
+      ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
+  </div>`;
+}
+
+/** Skills (#1236): level, a bar toward the next level, and what the skill covers. */
+function skillsBlock(s: AppState['sim']): string {
+  return `<div class="skills">${SKILL_IDS.map(id => {
+    const lvl = skillLevel(s.skills, id);
+    const have = s.skills[id] ?? 0;
+    const from = LEVEL_HOURS[lvl], to = LEVEL_HOURS[Math.min(lvl + 1, MAX_LEVEL)];
+    const frac = lvl >= MAX_LEVEL ? 1 : (have - from) / (to - from);
+    return `<div class="skill" title="${esc(SKILLS[id].blurb)}"><span class="sn">${esc(SKILLS[id].name)}</span>`
+      + `<span class="pips">${Array.from({ length: MAX_LEVEL }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span>`
+      + `<span class="sl">${LEVELS[lvl]}</span><div class="track"><div class="fill" style="width:${pct(frac)}%"></div></div></div>`;
+  }).join('')}</div>`;
 }
 
 function vitalsBlock(a: AppState): string {
@@ -332,13 +376,13 @@ function statusBar(a: AppState, preview: Preview): string {
   const ready = winterReady(s);
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
-    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
+    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
     <span class="shours">TODAY <b>${todayHours(a, preview)}/${DAY_HOURS}H</b></span>
     <span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>
   </div>`;
 }
 
-const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter' };
+const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
 
 /** The history of finished runs (newest first), with the best one marked. */
 function pastRuns(): string {
@@ -351,9 +395,9 @@ function pastRuns(): string {
 
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
-type Tab = 'plan' | 'camp' | 'land' | 'progress';
+type Tab = 'plan' | 'camp' | 'land' | 'warden' | 'progress';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'progress', label: 'PROGRESS' },
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
 ];
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 let tab: Tab = (() => { try { const t = localStorage.getItem('artificer.tab'); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
@@ -377,6 +421,8 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'land':
       return `<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${land(a)}${LAND_LEGEND}
         <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>`;
+    case 'warden':
+      return wardenTab(a);
     case 'progress':
       return `<div class="cols">
         <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}
@@ -394,10 +440,10 @@ function resolvePanel(a: AppState): string {
     const o = OUTCOME[s.outcome.kind];
     const r = history[0];
     const facts = r ? `<ul class="runfacts">
-        <li>Left on <b>day ${r.day}</b>${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
+        <li>${r.choice === 'collapse' ? 'Ended' : 'Left'} on <b>day ${r.day}</b>${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
         <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
       </ul>` : '';
-    return `<div class="resolve"><h3>❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
+    return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
       + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="carry" title="Your known recipes and concept ranks carry over">↻ NEW RUN — KEEP WHAT YOU LEARNED</button>`
       + `<button class="btn" data-cmd="reset">✦ FRESH WARDEN</button></div></div>`;
   }
@@ -429,6 +475,7 @@ function render(a: AppState): void {
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
       ${phaseChip(a)}
       <span class="spacer"></span>
+      ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim)}</span></button>` : ''}
       <span class="counter ctl">RUN <b>${(history[0]?.run ?? 0) + (a.sim.outcome ? 0 : 1)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
@@ -436,7 +483,8 @@ function render(a: AppState): void {
     </header>
     ${fresh || showHelp ? `<p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
       <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
-      and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind). Scout first, then push outward —
+      and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
+      Each night you eat and drink: <b>water is critical</b> — a few dry nights wreck body and mind — while <b>food</b> can be skipped for a while at a slower cost. Every night in a row without either hurts more. Scout first, then push outward —
       working the land teaches you its detail. A caravan passes just before the snow: ride out with it, brave the crossing alone, or winter over.
       Progress saves in this browser.</p>` : ''}
     ${statusBar(a, preview)}
@@ -484,9 +532,21 @@ introEl.setAttribute('aria-label', 'Arrival');
 introEl.hidden = true;
 document.body.appendChild(introEl);
 
+/** What the player is choosing on the creation screen (#1239). */
+let draft: { name: string; portrait: string; traits: TraitId[] } = { name: '', portrait: PORTRAITS[0].id, traits: [] };
+const draftValid = (): boolean => draft.name.trim().length > 0 && draft.traits.length === TRAIT_COUNT;
+
 function startIntro(kind: IntroKind): void {
+  draft = { name: '', portrait: PORTRAITS[0].id, traits: [] };
+  drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, (history[0]?.run ?? 0) + 1), i: 0 };
   renderIntro();
+}
+
+/** Leaving the creation screen: the Warden is made with the chosen name, portrait and traits. */
+function commitCharacter(): void {
+  state = { sim: createRegion1({}, undefined, { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits }), queue: [] };
+  render(state);
 }
 
 function endIntro(): void {
@@ -499,16 +559,23 @@ function endIntro(): void {
 
 function advanceIntro(): void {
   if (!intro) return;
+  if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }
 
+/** The beat last drawn: re-drawing the same beat (a creation pick) must not replay its fade-in. */
+let drawnBeat = -1;
+
 function renderIntro(): void {
   if (!intro) return;
   const b = intro.beats[intro.i];
+  introEl.classList.toggle('settled', drawnBeat === intro.i);
+  drawnBeat = intro.i;
   const last = intro.i === intro.beats.length - 1;
   // Each line fades in after the one before (--n drives the CSS animation delay).
-  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(l)}</p>`).join('');
+  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name))}</p>`).join('')
+    + (b.kind === 'create' ? createForm() : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   introEl.hidden = false;
   introEl.innerHTML = `
@@ -518,20 +585,55 @@ function renderIntro(): void {
       <span class="dots" aria-hidden="true">${dots}</span>
       <span class="spacer"></span>
       ${last ? '' : '<button class="pill" data-intro="skip">SKIP ›</button>'}
-      <button class="btn go" data-intro="next">${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
+      <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
     </div>`;
-  introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
+  // On the creation screen, start in the name field (unless a name is already typed).
+  if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
+  else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
 }
 
-// Tap anywhere to advance (the tablet path); Skip ends it at once.
+/** The creation form: name, portrait, two traits. Choices live in `draft` until Continue. */
+function createForm(): string {
+  const portraits = PORTRAITS.map(p => `<button class="pchoice" data-portrait="${p.id}" aria-pressed="${draft.portrait === p.id}">${portraitEl(p.id, 64)}<span>${esc(p.label)}</span></button>`).join('');
+  const traits = TRAIT_IDS.map(t => `<button class="tchoice" data-trait="${t}" aria-pressed="${draft.traits.includes(t)}"><b>${esc(TRAITS[t].name)}</b><span class="up">+ ${esc(TRAITS[t].upside)}</span><span class="cost">− ${esc(TRAITS[t].cost)}</span></button>`).join('');
+  return `<form class="create" onsubmit="return false">
+    <label class="clabel" for="wname">NAME</label>
+    <input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}">
+    <p class="clabel">PORTRAIT</p><div class="pchoices">${portraits}</div>
+    <p class="clabel">TRAITS — choose ${TRAIT_COUNT} <span>(${draft.traits.length}/${TRAIT_COUNT})</span></p><div class="tchoices">${traits}</div>
+  </form>`;
+}
+
+// Tap anywhere to advance (the tablet path); Skip ends it at once. On the creation
+// screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
-  const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-intro]');
-  if (btn?.dataset.intro === 'skip') endIntro(); else advanceIntro();
+  const el = e.target as HTMLElement;
+  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-trait]');
+  const creating = intro?.beats[intro.i].kind === 'create';
+  if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
+  if (btn?.dataset.trait) {
+    const t = btn.dataset.trait as TraitId;
+    // Toggle; picking a third replaces the earliest pick.
+    draft.traits = draft.traits.includes(t) ? draft.traits.filter(x => x !== t) : [...draft.traits, t].slice(-TRAIT_COUNT);
+    renderIntro(); return;
+  }
+  if (btn?.dataset.intro === 'skip') endIntro();
+  else if (btn?.dataset.intro === 'next' || !creating) { if (!el.closest('.create')) advanceIntro(); }
+});
+// Typing a name updates the draft without re-rendering (which would steal focus).
+introEl.addEventListener('input', e => {
+  const input = e.target as HTMLInputElement;
+  if (input.id !== 'wname') return;
+  draft.name = input.value;
+  const next = introEl.querySelector<HTMLButtonElement>('[data-intro="next"]');
+  if (next) next.disabled = !draftValid();
 });
 document.addEventListener('keydown', e => {
   if (!intro) return;
+  const typing = (e.target as HTMLElement).tagName === 'INPUT';
   if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
-  else if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); advanceIntro(); }
+  else if (e.key === 'Enter') { e.preventDefault(); advanceIntro(); }
+  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && intro.beats[intro.i].kind !== 'create') { e.preventDefault(); advanceIntro(); }
 });
 
 function update(next: AppState): void {

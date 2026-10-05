@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { fastForward } from './test-helpers';
 import { createRegion1, runAction, chooseSite, choose, runDay, warmth, winterReady, REGION1_MILESTONES, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { DEFAULT_CALENDAR } from './winter';
@@ -33,7 +34,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     expect(failed.tier).toBe(0);
     expect(failed.shelterGrade).toBeNull();
     expect(failed.stores.materials).toBe(17);
-    expect(failed.log.at(-1)).toMatchObject({ kind: 'hardship' });
+    expect(failed.log.some(l => l.kind === 'hardship' && /came apart/.test(l.text))).toBe(true);
 
     // A steady-but-not-sharp mind in the field makes crude work.
     const steady = runAction(camp('cave', { vitals: createVitals({ clarity: 60 }) }), 'build');
@@ -61,7 +62,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     const rough = runAction(camp('cave', { vitals: createVitals({ clarity: 60 }) }), 'coldGear');
     expect(rough.tools).toEqual([{ item: 'cold-gear', grade: 'crude' }]);
     expect(rough.coldGear).toBe(false);
-    expect(rough.log.at(-1)?.text).toMatch(/won't hold up/);
+    expect(rough.log.some(l => /won't hold up/.test(l.text))).toBe(true);
     // Crude gear can be remade; sound gear is kept.
     const rested = runAction({ ...rough, vitals: createVitals() }, 'coldGear');
     expect(rested.tools.at(-1)).toEqual({ item: 'cold-gear', grade: 'sound' });
@@ -71,7 +72,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     // On the road: crude gear turns you back where sound gear would get you across.
     const road = (s: Region1State): Region1State => {
       let st = { ...s, stores: { ...s.stores, rations: 8 } };
-      while (st.day < DEFAULT_CALENDAR.caravanOpen) st = runDay(st, ['rest']).state;
+      st = fastForward(st, DEFAULT_CALENDAR.caravanOpen);
       // …and they've seen the pass out through the distant hills.
       return { ...st, explore: scout(st.explore, 3), vitals: { ...st.vitals, condition: 90, vigor: { ...st.vitals.vigor, cap: 100 } } };
     };

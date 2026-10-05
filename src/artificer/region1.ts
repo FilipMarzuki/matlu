@@ -11,6 +11,8 @@
  * frontend, a test, or Core Warden can all drive it identically.
  */
 
+import { traitEffects, traitDrain, type TraitId } from './traits';
+import { SKILLS, LEVELS, skillFor, skillLevel, practise, drainMult, toolMult, SKILL_YIELD, SKILL_CRAFT, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
@@ -109,13 +111,25 @@ export interface Region1State {
   concepts: Record<string, ConceptProgress>;
   /** Running totals for today, fed to nightly capacity drift. */
   today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean };
+  /** Nights in a row without food / without water (#1233); each night without costs more. */
+  deprivation: { hungry: number; thirsty: number };
+  /** Practice hours per skill (#1236); levels come from these. */
+  skills: SkillPractice;
+  /** Who the Warden is (#1237, #1239): name, portrait, two traits, and whether Tough's last stand is spent. */
+  character: Character;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
 }
 
 /** A fresh save: day 1, baseline body, a couple of meals, nothing known. */
-export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Legacy): Region1State {
+export interface Character { name: string; portrait: string | null; traits: TraitId[]; lastStandUsed: boolean }
+
+export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Legacy, who: Partial<Omit<Character, 'lastStandUsed'>> = {}): Region1State {
+  const traits = who.traits ?? [];
+  // Skills a Warden starts with: what a past run taught (legacy) and what a trait brings, whichever is more.
+  const start: SkillPractice = { ...(legacy?.skills ?? {}) };
+  for (const [k, h] of Object.entries(traitEffects(traits).startSkills ?? {}) as [SkillId, number][]) start[k] = Math.max(start[k] ?? 0, h);
   const s: Region1State = {
     day: 1,
     hoursToday: 0,
@@ -134,6 +148,9 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     tools: [],
     concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
+    deprivation: { hungry: 0, thirsty: 0 },
+    skills: start,
+    character: { name: who.name ?? '', portrait: who.portrait ?? null, traits: [...traits], lastStandUsed: false },
     log: [],
     outcome: null,
     config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS },
@@ -163,6 +180,9 @@ function clone(s: Region1State): Region1State {
     tools: [...s.tools],
     concepts: { ...s.concepts },
     today: { ...s.today },
+    deprivation: { ...s.deprivation },
+    skills: { ...s.skills },
+    character: { ...s.character, traits: [...s.character.traits] },
     log: [...s.log],
   };
 }
@@ -711,13 +731,17 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
   if (recipe) return runCraft(next, id, recipe);
 
-  // Your tools make the work cheaper, quicker or richer (crafting design §2).
+  // Your tools make the work cheaper, quicker or richer (crafting design §2) —
+  // and your skill in the field makes it cheaper still, richer, and gets more from the tools (#1236).
   const mod = modifiersFor(next.tools, id);
+  const skill = skillFor(id);
+  const lvl = skill ? skillLevel(next.skills, skill) : 0;
   const v = def.variant?.(opts, next, ring) ?? {};
   const workHours = (v.hours ?? def.hours) * mod.timeMult;
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
   const travel = def.ringed ? TRAVEL_HOURS[ring] : 0;
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult });
+  const td = traitDrain(next.character.traits, skill);
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE, clarityRate: TRAVEL_CLARITY_RATE });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
@@ -726,20 +750,30 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
 
-  say(next, def.run(next, mod.yieldAdd, ring, opts), 'action');
+  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + SKILL_YIELD[lvl];
+  say(next, def.run(next, bonus, ring, opts), 'action');
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
+  if (skill) practiceSkill(next, skill, workHours);
   latchMilestones(next);
   return next;
 }
 
 /** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */
-function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region1State {
+function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Region1State {
   const before = next.vitals;
+  const tr = traitEffects(next.character.traits);
+  // Careful Hands takes longer over the work (#1237).
+  const recipe = tr.craftTime === 1 ? baseRecipe : { ...baseRecipe, timeBase: baseRecipe.timeBase * tr.craftTime };
   const hours = recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult;
   // Tools that serve this action (a shovel for building) lighten the craft's own effort.
   const mod = modifiersFor(next.tools, id);
-  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult, clarityRate: recipe.effort.clarityRate * mod.clarityMult };
-  const { state: c, result } = craft(crafterOf(next), { ...recipe, effort }, CRAFT_WORLD);
+  // Skill in the craft's field lightens the work and lifts the grade (#1236).
+  const skill = skillFor(id, recipe.id);
+  const lvl = skill ? skillLevel(next.skills, skill) : 0;
+  const td = traitDrain(next.character.traits, skill);
+  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity };
+  const crafter = crafterOf(next);
+  const { state: c, result } = craft({ ...crafter, skillBonus: SKILL_CRAFT[lvl] + tr.craftGrade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
   next.tools = c.tools;
@@ -765,16 +799,45 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
     const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
   }
+  // Even a failed attempt is practice (refused crafts never got this far).
+  if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours);
   latchMilestones(next);
   return next;
 }
+
+/** Log hours of practice in a skill (on a cloned state), announcing a level-up (#1236). */
+function practiceSkill(next: Region1State, skill: SkillId, hours: number): void {
+  const { practice, levelUp } = practise(next.skills, skill, hours * traitEffects(next.character.traits).practice);
+  next.skills = practice;
+  if (levelUp === null) return;
+  const title = LEVELS[levelUp];
+  say(next, `${SKILLS[skill].name} improved — you're now ${/^[AEIOU]/.test(title) ? 'an' : 'a'} ${title}.`, 'milestone');
+}
+
+/**
+ * Food & water (#1233), tuned to feel real: water is critical (four nights without
+ * kills from full health), food can be skipped for a while (slow wear), and
+ * both fog the mind. Per night without, Condition and Clarity drop by the value
+ * × the nights in a row; sleep recovery is scaled by the factors (both missing:
+ * the losses add, the factors multiply).
+ */
+export const NEEDS = {
+  water: { condition: 10, clarity: 8, vigorRecovery: 0.3, clarityRecovery: 0.3 },
+  food: { condition: 1, clarity: 3, vigorRecovery: 0.5, clarityRecovery: 0.8 },
+} as const;
+
+/** A collapse is death when this deprived: nights in a row without water / without food (#1234). */
+export const DEATH_THIRST = 2;
+export const DEATH_HUNGER = 5;
+
+const ordinal = (n: number): string => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 
 /** "a " for a countable thing; nothing for plurals and mass nouns ("timber walls", "cold gear"). */
 const article = (name: string): string => (/s$|gear$/.test(name) ? '' : 'a ');
 
 /**
- * End the day: eat and drink (going without costs Condition and weakens
- * recovery), sleep (recovery scales with shelter warmth), a cold night bites,
+ * End the day: eat and drink (each is needed to recover; going without
+ * costs Condition, more each night in a row), sleep (recovery scales with shelter warmth), a cold night bites,
  * then capacity drifts on how the day was lived and a good night heals a
  * little Condition.
  */
@@ -788,31 +851,66 @@ export function endDay(s: Region1State): Region1State {
     say(next, 'The snare line caught something — 1 raw food.', 'action');
   }
 
-  let ate = true;
-  if (next.stores.rawFood > 0) next.stores.rawFood -= 1; else { ate = false; say(next, 'Hungry — no food today.', 'hardship'); }
-  if (next.stores.water > 0) next.stores.water -= 1; else { ate = false; say(next, 'Thirsty — no water today.', 'hardship'); }
+  // Food and water are separate needs, and both are needed to recover (#1233).
+  const ate = next.stores.rawFood > 0;
+  const drank = next.stores.water > 0;
+  if (ate) next.stores.rawFood -= 1;
+  if (drank) next.stores.water -= 1;
+  next.deprivation = { hungry: ate ? 0 : next.deprivation.hungry + 1, thirsty: drank ? 0 : next.deprivation.thirsty + 1 };
+  const running = (n: number): string => (n > 1 ? ` (${ordinal(n)} night running)` : '');
+  if (!ate) say(next, `Hungry — no food${running(next.deprivation.hungry)}.`, 'hardship');
+  if (!drank) say(next, `Thirsty — no water${running(next.deprivation.thirsty)}.`, 'hardship');
 
   const w = warmth(next);
-  const fed = ate ? 1 : 0.4;
+  // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
+  const tr = traitEffects(next.character.traits);
+  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : NEEDS.food.vigorRecovery) * tr.vigorRecovery;
+  const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate ? 1 : NEEDS.food.clarityRecovery) * tr.clarityRecovery;
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
   const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;
-  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * fed, clarityRate: 5 * fed, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
-  if (!ate) next.vitals.condition = Math.max(0, next.vitals.condition - 6);
-  if (w < 0.3 && next.tier < 2) {
+  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * vigorFactor, clarityRate: 5 * clarityFactor, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
+  // Going without escalates night by night — on the body (Condition) and the mind (Clarity).
+  const { hungry, thirsty } = next.deprivation;
+  const hc = tr.hungerCost, wc = tr.thirstCost;
+  next.vitals.condition = Math.max(0, next.vitals.condition - (NEEDS.food.condition * hungry * hc + NEEDS.water.condition * thirsty * wc));
+  next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - (NEEDS.food.clarity * hungry * hc + NEEDS.water.clarity * thirsty * wc));
+  if (w < 0.3 && next.tier < 2 && !tr.coldProof) {
     next.vitals.condition = Math.max(0, next.vitals.condition - 4);
     say(next, 'A cold, broken night — the exposure bites.', 'hardship');
+  }
+
+  // Tough (#1237): once per run, you cling on instead of going under.
+  if (next.vitals.condition <= 0 && tr.lastStand && !next.character.lastStandUsed) {
+    next.vitals.condition = 1;
+    next.character.lastStandUsed = true;
+    say(next, 'Everything in you says stop. You refuse. You wake, somehow — Condition 1. That was your one reprieve.', 'hardship');
+  }
+  // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
+  if (next.vitals.condition <= 0) {
+    const { hungry: h, thirsty: t } = next.deprivation;
+    const cause = t >= DEATH_THIRST ? 'thirst' : h >= DEATH_HUNGER ? 'starvation' : null;
+    next.outcome = { choice: 'collapse', kind: cause ? 'died' : 'collapsed', vitals: next.vitals };
+    say(next, cause
+      ? `You lie down in the night and don't get up. Dead of ${cause} (${cause === 'thirst' ? `${t} nights without water` : `${h} nights without food`}).`
+      : 'Your body gives out and you collapse. Traders find you days later, barely alive — this season is over.', 'outcome');
+    return next;
   }
 
   const summary = {
     loadVigor: next.today.loadVigor,
     loadClarity: next.today.loadClarity,
     ate,
+    drank,
+    hungryNights: next.deprivation.hungry,
     shelterWarmth: w,
     pushedVigor: next.today.pushedVigor,
     pushedClarity: next.today.pushedClarity,
   };
   next.vitals = driftCapacity(next.vitals, summary);
+  // Healing, scaled by traits (Quick Learner and Tough heal slower).
+  const preHeal = next.vitals.condition;
   next.vitals = recoverCondition(next.vitals, summary);
+  next.vitals.condition = preHeal + (next.vitals.condition - preHeal) * tr.healRate;
 
   next.day += 1;
   next.hoursToday = 0;

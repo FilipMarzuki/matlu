@@ -306,6 +306,8 @@ export interface CrafterState {
   studiedToday: Record<string, number>;
   /** Salvage from traits/abilities ("careful hands"), added to the concept part. */
   salvageBonus: number;
+  /** The crafter's skill in this craft's field, added to the grade score (#1236). */
+  skillBonus?: number;
 }
 
 /** The data the craft rules look things up in. Defaults suit Region 1. */
@@ -399,7 +401,7 @@ export function craft(s: CrafterState, recipe: CraftRecipe, world: CraftWorld = 
 
   const next = clone(s);
   const rank = bestConceptRank(s, recipe);
-  const grade = craftGrade({ band: clarityBand(s.vitals), benchTier: s.bench.tier, tools: toolBonus(s.tools, world.effects), conceptRank: rank, recipeTier: recipe.tier });
+  const grade = craftGrade({ band: clarityBand(s.vitals), benchTier: s.bench.tier, tools: toolBonus(s.tools, world.effects) + (s.skillBonus ?? 0), conceptRank: rank, recipeTier: recipe.tier });
 
   // The session's cost — your tools can make bench work itself cheaper.
   const mod = modifiersFor(s.tools, 'craft', world.effects);

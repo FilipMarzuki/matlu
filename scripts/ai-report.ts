@@ -3,6 +3,7 @@
  *
  *   npm run ai:report                       # every transcript under ai-runs/
  *   npm run ai:report -- --in ai-runs/batch3 --out ai-runs/batch3/report.html
+ *   npm run ai:report -- --md summary.md     # also write a short Markdown summary (used by the nightly workflow)
  *
  * Writes one self-contained HTML page (data inlined, no network) and prints a
  * short text summary. Transcripts from before #1229 (no `start` snapshot) are
@@ -36,17 +37,61 @@ for (const f of walk(inDir)) {
 }
 if (!transcripts.length) { console.error(`No transcripts with progress snapshots under ${inDir} (${skipped} older or unreadable).`); process.exit(1); }
 
+// Transcripts from before #1231 have no recorded cost. Estimate it from their tokens at today's
+// OpenRouter prices (marked as estimates); offline, they just stay unknown.
+await estimateMissingCosts(transcripts);
 const models = aggregate(transcripts);
 
 // ── Text summary ──
 console.log(`\n${transcripts.length} runs, ${models.length} models${skipped ? ` (${skipped} older transcripts skipped)` : ''}\n`);
 for (const m of models) {
   const out = Object.entries(m.outcomes).map(([k, n]) => `${k} ${n}`).join(', ');
-  console.log(`  ${m.model.padEnd(34)} ${out.padEnd(22)} ready ${m.readyDay ?? '—'} (${m.readyRuns}/${m.runs}) · ranks ${m.series.conceptRanks.at(-1)} · recipes ${m.series.recipesKnown.at(-1)} · crafts ${m.series.crafts.at(-1)}`);
+  const cost = m.cost.perGame === null ? 'cost —' : `$${m.cost.perGame.toFixed(3)}/game${m.cost.estimated ? ' (est.)' : ''}`;
+  console.log(`  ${m.model.padEnd(34)} ${out.padEnd(22)} ${cost.padEnd(20)} ready ${m.readyDay ?? '—'} (${m.readyRuns}/${m.runs}) · ranks ${m.series.conceptRanks.at(-1)} · recipes ${m.series.recipesKnown.at(-1)} · crafts ${m.series.crafts.at(-1)}`);
 }
 
+const spend = models.reduce((n, m) => n + (m.cost.total ?? 0), 0);
+console.log(`\n  total spend: $${spend.toFixed(2)}${models.some(m => m.cost.estimated) ? ' (includes estimates for runs recorded before cost tracking)' : ''}`);
 writeFileSync(outFile, page(models, transcripts.length));
+const mdFile = opt('md', '');
+if (mdFile) writeFileSync(mdFile, markdown(models, transcripts.length, spend));
 console.log(`\nreport → ${outFile}`);
+
+/** A compact Markdown summary: outcomes, readiness, key progression and spend per model. */
+function markdown(models: ModelSummary[], runs: number, spend: number): string {
+  const money = (x: number | null): string => (x === null ? '—' : `$${x.toFixed(3)}`);
+  const pct = (m: ModelSummary): string => `${Math.round(100 * (m.outcomes.thrive ?? 0) / m.runs)}%`;
+  const last = (m: ModelSummary, k: keyof ModelSummary['series']): string => String(m.series[k].filter(v => v !== null).at(-1) ?? '—');
+  const rows = models.map(m => `| ${m.model} | ${m.runs} | ${pct(m)} | ${m.readyDay ?? 'never'} | ${last(m, 'conceptRanks')} | ${last(m, 'recipesKnown')} | ${last(m, 'crafts')} | ${m.invalidDays} | ${money(m.cost.perGame)} |`);
+  return [
+    `### Artificer AI playtest — ${runs} runs, ${models.length} players, $${spend.toFixed(2)} spent`,
+    '',
+    '| Player | Runs | Thrive | Ready (day) | Concept ranks | Recipes | Crafts | Invalid days | $/game |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    ...rows,
+    '',
+    'End-of-run values are means over runs. The full report (charts, milestone days, action mix) is in the `ai-playtest` artifact.',
+    '',
+  ].join('\n');
+}
+
+async function estimateMissingCosts(ts: Transcript[]): Promise<void> {
+  const missing = ts.filter(t => typeof t.usage.cost !== 'number' && t.player.startsWith('openrouter:'));
+  for (const t of ts) if (typeof t.usage.cost !== 'number' && /^(scripted|random:)/.test(t.player)) t.usage.cost = 0;
+  if (!missing.length) return;
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(10000) });
+    const { data } = await res.json() as { data: { id: string; pricing: { prompt: string; completion: string; input_cache_read?: string } }[] };
+    const price = new Map(data.map(m => [m.id, m.pricing]));
+    for (const t of missing) {
+      const p = price.get(t.player.slice('openrouter:'.length));
+      if (!p) continue;
+      const pin = Number(p.prompt), pout = Number(p.completion), pcache = Number(p.input_cache_read ?? p.prompt);
+      t.usage.cost = (t.usage.input - t.usage.cacheRead) * pin + t.usage.cacheRead * pcache + t.usage.output * pout;
+      t.usage.costEstimated = true;
+    }
+  } catch { /* offline: costs stay unknown */ }
+}
 
 // ── The page ──
 
@@ -159,7 +204,10 @@ const sw = m => m.dash
   : '<span class="sw" style="background:' + m.c + '"></span>';
 const short = m => m.model.split('/').pop();
 
-document.getElementById('meta').textContent = D.runs + ' runs · ' + models.length + ' models · generated ' + D.generated;
+// Money: cents precision, "est." when built from tokens × today's price rather than the billed amount.
+function money(x, est) { if (x === null || x === undefined) return '<span class="na">—</span>'; return (x === 0 ? '$0' : x < 0.01 ? '$' + x.toFixed(4) : '$' + x.toFixed(3)) + (est ? ' <span class="na">est.</span>' : ''); }
+const spend = models.reduce((n, m) => n + (m.cost.total || 0), 0);
+document.getElementById('meta').textContent = D.runs + ' runs · ' + models.length + ' models · total AI spend $' + spend.toFixed(2) + (models.some(m => m.cost.estimated) ? ' (partly estimated)' : '') + ' · generated ' + D.generated;
 
 function legend() {
   const el = document.getElementById('legend');
@@ -172,13 +220,15 @@ document.getElementById('legend').addEventListener('click', e => {
 });
 
 function outcomes() {
-  const kinds = ['thrive', 'crossed', 'wintered', 'ragged', 'turnedBack', 'grim'].filter(k => models.some(m => m.outcomes[k]));
+  const kinds = ['thrive', 'crossed', 'wintered', 'ragged', 'turnedBack', 'grim', 'collapsed', 'died'].filter(k => models.some(m => m.outcomes[k]));
   document.getElementById('outcomes').innerHTML =
-    '<thead><tr><th>Model</th><th>Runs</th>' + kinds.map(k => '<th>' + k + '</th>').join('') + '<th>Ready (day)</th><th>Invalid days</th><th>Tokens in</th><th>Cached</th><th>Tokens out</th></tr></thead><tbody>' +
+    '<thead><tr><th>Model</th><th>Runs</th>' + kinds.map(k => '<th>' + k + '</th>').join('') + '<th>Ready (day)</th><th>Invalid days</th><th>Cost / game</th><th>Cost / thrive</th><th>Spend</th><th>Tokens in</th><th>Cached</th><th>Tokens out</th></tr></thead><tbody>' +
     models.map(m => '<tr><td><span style="display:inline-flex;vertical-align:-1px;margin-right:6px">' + sw(m) + '</span>' + esc(m.model) + '</td><td>' + m.runs + '</td>' +
-      kinds.map(k => '<td class="' + (k === 'thrive' && m.outcomes[k] ? 'good' : (k === 'ragged' || k === 'grim' || k === 'turnedBack') && m.outcomes[k] ? 'bad' : '') + '">' + (m.outcomes[k] || '<span class="na">0</span>') + '</td>').join('') +
+      kinds.map(k => '<td class="' + (k === 'thrive' && m.outcomes[k] ? 'good' : (k === 'ragged' || k === 'grim' || k === 'turnedBack' || k === 'collapsed' || k === 'died') && m.outcomes[k] ? 'bad' : '') + '">' + (m.outcomes[k] || '<span class="na">0</span>') + '</td>').join('') +
       '<td>' + (m.readyDay ?? '<span class="na">never</span>') + (m.readyRuns && m.readyRuns < m.runs ? ' <span class="na">(' + m.readyRuns + '/' + m.runs + ')</span>' : '') + '</td>' +
-      '<td>' + m.invalidDays + '</td><td>' + m.tokens.input.toLocaleString() + '</td><td>' + Math.round(100 * m.tokens.cacheRead / Math.max(1, m.tokens.input)) + '%</td><td>' + m.tokens.output.toLocaleString() + '</td></tr>').join('') + '</tbody>';
+      '<td>' + m.invalidDays + '</td>' +
+      '<td>' + money(m.cost.perGame, m.cost.estimated) + '</td><td>' + (m.cost.perThrive === null ? '<span class="na">' + (m.cost.perGame === null ? '—' : 'no thrive') + '</span>' : money(m.cost.perThrive, m.cost.estimated)) + '</td><td>' + money(m.cost.total, m.cost.estimated) + '</td>' +
+      '<td>' + m.tokens.input.toLocaleString() + '</td><td>' + Math.round(100 * m.tokens.cacheRead / Math.max(1, m.tokens.input)) + '%</td><td>' + m.tokens.output.toLocaleString() + '</td></tr>').join('') + '</tbody>';
 }
 
 // Four gridline steps on a "nice" scale: whole-number steps (1, 2, 5 × 10ⁿ) so counts never get 0.3 ticks.

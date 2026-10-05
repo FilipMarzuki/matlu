@@ -100,7 +100,7 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
       const site = !s.site && rand() < (mode === 'legal' ? (scouted(s.explore, 1) ? 0.6 : 0) : 0.2) ? pick(SITE_IDS) : null;
       // Plan the legal day from where it will actually start: on the newly claimed site.
       const queue = exit ? [] : mode === 'legal' ? legalDay(site ? chooseSite(s, site) : s) : uniformDay(s);
-      return { text: JSON.stringify({ thoughts: `random (${mode})`, site, exit, queue }) };
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, site, exit, queue }), usage: { cost: 0 } };
     },
   };
 }

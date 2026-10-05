@@ -11,7 +11,8 @@ function camp(over: Partial<Region1State> = {}): Region1State {
   const s = chooseSite(runAction(createRegion1(), 'scout'), 'cave');
   return { ...s, stores: { ...s.stores, materials: 20, rawFood: 5, water: 5 }, ...over };
 }
-const lastText = (s: Region1State): string => s.log.at(-1)?.text ?? '';
+// The craft's own line (a skill level-up may follow it).
+const lastText = (s: Region1State): string => [...s.log].reverse().find(l => !/improved — you're now/.test(l.text))?.text ?? '';
 
 describe('Region 1 playtest fixes (#1227)', () => {
   // Journal lines read as English: no "a" before plurals or mass nouns.

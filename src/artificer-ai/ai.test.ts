@@ -4,7 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, runDay } from '../artificer/region1';
+import { fastForward } from '../artificer/test-helpers';
+import { createRegion1, runAction } from '../artificer/region1';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
 import { observe, RULES } from './observe';
 import { parseDecision } from './decision';
@@ -12,6 +13,7 @@ import { playRun, type Player } from './runner';
 import { scriptedPlayer } from './players/scripted';
 import { aggregate, type Transcript } from './report';
 import { randomPlayer } from './players/random';
+import { ROSTER, DROPPED, DEFAULT_OPENROUTER_MODEL } from './roster';
 
 /** A player that replies with the given texts in order (then repeats the last). */
 const replay = (texts: string[]): Player & { seen: string[] } => {
@@ -35,7 +37,7 @@ describe('AI player harness', () => {
     expect(observe(s, ['2 queued action(s) were dropped.'])).toMatch(/NOTE: 2 queued action\(s\) were dropped\./);
 
     let late = s;
-    while (late.day < DEFAULT_CALENDAR.caravanOpen) late = runDay(late, ['rest']).state;
+    late = fastForward(late, DEFAULT_CALENDAR.caravanOpen);
     expect(observe(late)).toMatch(/EXITS OPEN: caravan, solo, winter\. If taken today: caravan → ragged, solo → turnedBack, winter → grim\. Solo crossing prepared: no/);
     // The rules are static (cacheable) and describe the response contract.
     expect(RULES).toMatch(/Reply with ONLY a JSON object/);
@@ -66,7 +68,8 @@ describe('AI player harness', () => {
   it('plays a run: applies decisions, retries invalid replies, ends at an exit or the cap', async () => {
     // Day 1: invalid, then a valid correction; day 2: invalid twice (day passes); then rest until day 10 and leave.
     const day1 = json({ thoughts: 'look around', site: null, exit: null, queue: [{ action: 'scout', ring: 1, options: [] }, { action: 'wood', ring: 1, options: [] }] });
-    const rest = json({ thoughts: 'wait', site: null, exit: null, queue: [{ action: 'rest', ring: 1, options: [] }] });
+    // Waiting out the calendar still means fetching water and foraging — a Warden who only rests dies (#1234).
+    const rest = json({ thoughts: 'wait', site: null, exit: null, queue: [{ action: 'water', ring: 1, options: [] }, { action: 'gather', ring: 1, options: [] }, { action: 'rest', ring: 1, options: [] }] });
     const leave = json({ thoughts: 'go', site: null, exit: 'winter', queue: [] });
     const texts = ['oops', day1, 'still bad', 'bad again', ...Array(7).fill(rest), leave];
     const p = replay(texts);
@@ -93,6 +96,11 @@ describe('AI player harness', () => {
     expect(stubborn.forced).toBe(true);
     expect(stubborn.record.choice).toBe('winter');
     expect(stubborn.record.day).toBe(14);
+
+    // …and one that truly does nothing dies of thirst long before the caravan.
+    const idle = await playRun(replay([json({ thoughts: 'nothing', site: null, exit: null, queue: [] })]));
+    expect(idle.record).toMatchObject({ kind: 'died', choice: 'collapse' });
+    expect(idle.record.day).toBeLessThan(DEFAULT_CALENDAR.caravanOpen);
   });
 
   // 4. The scripted baseline is winter-ready before the caravan and thrives, every time.
@@ -139,7 +147,7 @@ describe('AI player harness', () => {
   // …and the report folds runs into per-model day-by-day means and first-event days.
   it('aggregates runs per model', async () => {
     const a = await playRun(scriptedPlayer());
-    const stub = await playRun(replay([json({ thoughts: 'stay', site: null, exit: null, queue: [{ action: 'rest', ring: 1, options: [] }] })]), { maxDays: 10 });
+    const stub = await playRun(replay([json({ thoughts: 'stay', site: null, exit: null, queue: [{ action: 'water', ring: 1, options: [] }, { action: 'gather', ring: 1, options: [] }, { action: 'rest', ring: 1, options: [] }] })]), { maxDays: 10 });
     const asT = (r: typeof a, player: string): Transcript => ({ ...r, player } as unknown as Transcript);
     const [best, worst] = aggregate([asT(a, 'scripted'), asT(a, 'scripted'), asT(stub, 'openrouter:lazy/model')]);
     expect(best).toMatchObject({ model: 'scripted', runs: 2, outcomes: { thrive: 2 }, readyRuns: 2, readyDay: a.record.readyDay });
@@ -182,5 +190,32 @@ describe('AI player harness', () => {
     const p = progressOf({ ...s, stores: { ...s.stores, rations: 12, firewood: 15 } }, s.known.length);
     expect(p.pillars.body).toBeLessThan(1);
     expect(p.readiness).toBeLessThan(1);
+  });
+
+  // #1231 — the run adds up the actual cost each call reports; unknown stays unknown, local play is free.
+  it('totals the cost of a run and summarises spend per model', async () => {
+    const reply = json({ thoughts: 'rest', site: null, exit: null, queue: [{ action: 'rest', ring: 1, options: [] }] });
+    const priced: Player = { name: 'openrouter:paid/model', async decide() { return { text: reply, usage: { input: 10, output: 2, cost: 0.001 } }; } };
+    const unpriced: Player = { name: 'openrouter:mystery/model', async decide() { return { text: reply }; } };
+    const paid = await playRun(priced, { maxDays: 10 });
+    expect(paid.usage.cost).toBeCloseTo(0.001 * paid.turns.length, 10);
+    expect((await playRun(unpriced, { maxDays: 10 })).usage.cost).toBeNull();
+    const free = await playRun(scriptedPlayer());
+    expect(free.usage.cost).toBe(0);
+
+    const asT = (r: typeof paid, player: string): Transcript => ({ ...r, player } as unknown as Transcript);
+    const old = asT(await playRun(unpriced, { maxDays: 10 }), 'openrouter:old/model');
+    const byModel = Object.fromEntries(aggregate([asT(paid, 'openrouter:paid/model'), asT(paid, 'openrouter:paid/model'), asT(free, 'scripted'), old]).map(m => [m.model, m.cost]));
+    expect(byModel['paid/model']).toEqual({ perGame: Math.round(paid.usage.cost! * 1e4) / 1e4, total: Math.round(2 * paid.usage.cost! * 1e4) / 1e4, perThrive: null, estimated: false });
+    expect(byModel.scripted).toMatchObject({ perGame: 0, total: 0, perThrive: 0 });
+    expect(byModel['old/model']).toEqual({ perGame: null, total: null, perThrive: null, estimated: false });
+  });
+
+  // The roster keeps dropped models (Gemini Pro: cost; Mistral Large: overkill) from creeping back in.
+  it('keeps dropped models out of the roster and the default', () => {
+    const dropped = new Set(DROPPED.map(d => d.model));
+    expect(ROSTER.filter(r => dropped.has(r.model))).toEqual([]);
+    expect(dropped.has(DEFAULT_OPENROUTER_MODEL)).toBe(false);
+    expect(ROSTER.every(r => r.perGame > 0 && r.perGame < 0.2)).toBe(true);
   });
 });

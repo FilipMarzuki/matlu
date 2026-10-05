@@ -10,6 +10,7 @@
 
 import { RULES } from '../observe';
 import { DECISION_SCHEMA } from '../decision';
+import { DEFAULT_OPENROUTER_MODEL } from '../roster';
 import type { Player } from '../runner';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -24,7 +25,7 @@ export interface OpenRouterPlayerOptions {
 }
 
 export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
-  const model = opts.model ?? process.env.AI_PLAY_OPENROUTER_MODEL ?? 'google/gemini-2.5-pro';
+  const model = opts.model ?? process.env.AI_PLAY_OPENROUTER_MODEL ?? DEFAULT_OPENROUTER_MODEL;
   const apiKey = opts.apiKey ?? process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
   const useSchema = opts.schema ?? true;
@@ -46,6 +47,8 @@ export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
         body: JSON.stringify({
           model,
           messages: anthropic ? withCacheBreakpoints(messages) : messages,
+          // Usage accounting: the response then carries the actual billed cost in USD (#1231).
+          usage: { include: true },
           ...(useSchema ? { response_format: { type: 'json_schema', json_schema: { name: 'decision', strict: true, schema: DECISION_SCHEMA } } } : {}),
         }),
       });
@@ -53,13 +56,13 @@ export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
       if (!res.ok) throw new Error(`OpenRouter → ${res.status}: ${await res.text()}`);
       const data = await res.json() as {
         choices?: { message?: { content?: string } }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } };
+        usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; prompt_tokens_details?: { cached_tokens?: number } };
       };
       const text = data.choices?.[0]?.message?.content ?? '';
       messages.push({ role: 'assistant', content: text });
       return {
         text,
-        usage: { input: data.usage?.prompt_tokens ?? 0, output: data.usage?.completion_tokens ?? 0, cacheRead: data.usage?.prompt_tokens_details?.cached_tokens ?? 0 },
+        usage: { input: data.usage?.prompt_tokens ?? 0, output: data.usage?.completion_tokens ?? 0, cacheRead: data.usage?.prompt_tokens_details?.cached_tokens ?? 0, cost: data.usage?.cost ?? null },
       };
     },
   };

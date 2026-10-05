@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { supplied } from '../artificer/test-helpers';
 import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
 import { scouted } from '../artificer/exploration';
@@ -59,7 +60,7 @@ describe('Artificer controller', () => {
     let a = settle(runQueuedDay(withQueue(newGame(), ['scout'])), 'cave');
     expect(a.sim.site).toBe('cave');
     expect(() => takeExit(a, 'caravan')).toThrow(/not available/);
-    while (a.sim.day < DEFAULT_CALENDAR.caravanOpen) a = runQueuedDay(a);
+    while (a.sim.day < DEFAULT_CALENDAR.caravanOpen) { expect(a.sim.outcome).toBeNull(); a = runQueuedDay({ ...a, sim: supplied(a.sim) }); }
     const left = takeExit(enqueue(a, 'rest'), 'winter');
     expect(left.sim.outcome?.choice).toBe('winter');
     expect(left.queue).toEqual([]);
@@ -126,7 +127,7 @@ describe('Artificer controller', () => {
   // 8. (#1224) A run is recorded once when it resolves; history saves separately and survives bad data.
   it('records finished runs and starts the next one', () => {
     let a = settle(runQueuedDay(withQueue(newGame(), ['scout', 'track'])), 'cave');
-    while (a.sim.day < DEFAULT_CALENDAR.caravanOpen) a = runQueuedDay(a);
+    while (a.sim.day < DEFAULT_CALENDAR.caravanOpen) { expect(a.sim.outcome).toBeNull(); a = runQueuedDay({ ...a, sim: supplied(a.sim) }); }
     const done = takeExit(a, 'winter');
 
     let h = recordRun([], a, done);

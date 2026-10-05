@@ -4,7 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, chooseSite, runDay, choose, routeKnown, queueHours, parseQueueId, type Region1State } from './region1';
+import { fastForward } from './test-helpers';
+import { createRegion1, runAction, chooseSite, choose, routeKnown, queueHours, parseQueueId, type Region1State } from './region1';
 import { level, scouted, survey, track, scout, createExploration } from './exploration';
 import { DEFAULT_CALENDAR } from './winter';
 
@@ -60,7 +61,7 @@ describe('Region 1 exploration rings', () => {
   it('requires the pass for the solo crossing', () => {
     let s = chooseSite(scoutedNear(), 'cave');
     s = { ...s, coldGear: true, stores: { ...s.stores, rations: 10 } };
-    while (s.day < DEFAULT_CALENDAR.caravanOpen) s = runDay(s, ['rest']).state;
+    s = fastForward(s, DEFAULT_CALENDAR.caravanOpen);
     s = { ...s, vitals: { ...s.vitals, condition: 90, vigor: { ...s.vitals.vigor, cap: 100 } } };
     expect(routeKnown(s)).toBe(false);
     expect(choose(s, 'solo').outcome?.kind).toBe('turnedBack');

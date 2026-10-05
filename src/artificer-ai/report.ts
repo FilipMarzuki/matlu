@@ -14,7 +14,7 @@ export interface Transcript {
   start: Progress;
   turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit: string | null; progress: Progress }[];
   record: { kind: string; choice: string; day: number; readyDay: number | null };
-  usage: { input: number; output: number; cacheRead: number };
+  usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
 }
 
 /** Day-by-day numbers worth plotting. Each reads one value off a snapshot. */
@@ -23,6 +23,7 @@ export const METRICS = {
   conceptRanks: { label: 'Concept ranks', unit: '', of: (p: Progress) => p.conceptRanks },
   insight: { label: 'Insight (total)', unit: '', of: (p: Progress) => p.insight },
   recipesKnown: { label: 'Recipes known', unit: '', of: (p: Progress) => p.recipesKnown },
+  skillLevels: { label: 'Skill levels (sum of 7)', unit: '', of: (p: Progress) => p.skillLevels ?? 0 },
   crafts: { label: 'Crafts & builds made', unit: '', of: (p: Progress) => p.crafts },
   exploration: { label: 'Exploration (sum of levels)', unit: '', of: (p: Progress) => p.exploration },
   rations: { label: 'Rations', unit: '', of: (p: Progress) => p.stores.rations },
@@ -61,6 +62,8 @@ export interface ModelSummary {
   readyRuns: number;
   invalidDays: number;
   tokens: { input: number; output: number; cacheRead: number };
+  /** USD (#1231): mean per game, total, and per thriving run — null when no run reported a cost. */
+  cost: { perGame: number | null; total: number | null; perThrive: number | null; estimated: boolean };
   /** metric → mean value at the end of day d (index 0 = before day 1), over runs still going that day. */
   series: Record<MetricKey, (number | null)[]>;
   /** event → mean first day, and how many runs reached it. */
@@ -120,9 +123,24 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
         output: Math.round(mean(runs.map(r => r.usage.output))!),
         cacheRead: Math.round(mean(runs.map(r => r.usage.cacheRead))!),
       },
+      cost: costOf(runs),
       series,
       events,
       actions,
     };
   }).sort((a, b) => (b.outcomes.thrive ?? 0) / b.runs - (a.outcomes.thrive ?? 0) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
+}
+
+function costOf(runs: readonly Transcript[]): ModelSummary['cost'] {
+  const known = runs.filter(r => typeof r.usage.cost === 'number');
+  if (!known.length) return { perGame: null, total: null, perThrive: null, estimated: false };
+  const total = known.reduce((n, r) => n + (r.usage.cost as number), 0);
+  const thrives = known.filter(r => r.record.kind === 'thrive').length;
+  const r4 = (x: number): number => Math.round(x * 10000) / 10000;
+  return {
+    perGame: r4(total / known.length),
+    total: r4(total),
+    perThrive: thrives ? r4(total / thrives) : null,
+    estimated: known.some(r => r.usage.costEstimated),
+  };
 }

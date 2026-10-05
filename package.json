@@ -42,6 +42,7 @@
     "unit:src": "vitest run src",
     "ai:play": "tsx scripts/ai-play.ts",
     "ai:report": "tsx scripts/ai-report.ts",
+    "ai:bench": "tsx scripts/ai-bench.ts",
     "story:typecheck": "tsc -p storytelling/tsconfig.json",
     "dev:wiki": "npm run dev --prefix wiki",
     "dev:sites": "npm run dev --prefix wiki & npm run dev --prefix dev",

@@ -21,7 +21,8 @@ export type IntroKind = 'fresh' | 'carry';
  * - `title`: the closing card.
  */
 export interface Beat {
-  kind: 'narration' | 'voice' | 'title';
+  /** `create`: the character-creation screen (name, portrait, traits) — #1239. */
+  kind: 'narration' | 'voice' | 'title' | 'create';
   lines: string[];
   /** Show the portal behind this beat. */
   portal?: boolean;
@@ -42,6 +43,7 @@ export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
         kind: 'voice',
         lines: [
           '⟨ RETURNING ARTIFICER — CYCLE ' + run + ' ⟩',
+          ...(s.character.name ? [`Welcome back, ${s.character.name}.`] : []),
           `Knowledge retained: ${s.known.length} recipes${ranks ? `, ${ranks} concept rank${ranks === 1 ? '' : 's'}` : ''}.`,
           `RANK: ${rank}`,
           `Winter arrives in ${daysToSnow} days.`,
@@ -56,7 +58,11 @@ export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
     { kind: 'narration', lines: ['Cold stone under your hands.', 'Wind with no smell. A sky the colour of an old bruise.'] },
     { kind: 'voice', lines: ['⟨ ARRIVAL DETECTED ⟩', 'Scanning…', 'Crafting knowledge exceeds threshold.'] },
     { kind: 'voice', lines: ['CLASS DESIGNATED: ARTIFICER', `RANK: ${rank}`] },
-    { kind: 'voice', lines: ['Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`] },
+    { kind: 'create', lines: ['IDENTIFY YOURSELF, ARTIFICER.'] },
+    { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`] },
     CLOSING,
   ];
 }
+
+/** Put the Warden's name into a line ("{name}"); an unnamed Warden is just "Artificer". */
+export const fillName = (line: string, name: string): string => line.replace(/\{name\}/g, name.trim() || 'Artificer');
