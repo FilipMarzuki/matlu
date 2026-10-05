@@ -27,7 +27,8 @@ Vigor and Clarity each start at a **standard baseline capacity** but are not
 capped there for the whole game: that capacity **grows past baseline** with
 well-recovered training and **deteriorates below it** with neglect or
 burnout, a slow progression the player shapes over the life of a single
-persistent character (§1).
+persistent character within a save (a player can start a new save for a fresh
+character at baseline — §1, §11).
 
 The core idea is one unifying rule: **every activity is a per-unit-time vector
 across Vigor and Clarity.** There is no separate "action economy" and "recovery
@@ -349,10 +350,13 @@ band at the moment the activity runs.
 - **Crafting / recipes** — tools and workbenches lower activity rates (§4); the
   affordance table stays beside the recipe registry.
 - **Focus mechanic** — untouched; Clarity is its fuel, not its replacement (§7).
-- **Persistence & leaderboard** — this is a **single persistent character**, so
-  capacity and Condition carry for the whole save; there is no run reset.
-  Condition erosion is slow-burn wear the player must heal, and left unchecked
-  it risks incapacitation rather than a silent restart. How the existing
-  `matlu_runs` leaderboard maps onto a persistent save (scored milestones or
-  timed challenges, rather than per-attempt scores) is a separate open
-  question.
+- **Saves & leaderboard** — persistence is **per save**: within a save there is
+  one continuous character whose capacity and Condition carry throughout, with
+  no reset. A player can **start a new save**, which begins a fresh character at
+  the standard baseline; saves are independent, with no automatic carryover
+  between them (cross-save carryover would be an optional meta-progression
+  choice, not the default). This also reconciles the existing `matlu_runs`
+  leaderboard: an entry can key on a **save/character** — its milestones,
+  survival time, or a scored challenge — rather than on a short roguelike
+  attempt. Condition erosion is slow-burn wear the player must heal; left
+  unchecked it risks incapacitation rather than a silent restart.
