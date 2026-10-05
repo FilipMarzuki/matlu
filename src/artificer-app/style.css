@@ -168,3 +168,9 @@
 .act .y .gate { color: var(--warn); }
 .log li.skip { color: var(--faint); }
 .resolve .btn { margin-top: 12px; }
+
+/* Tools carry their grade; concepts their rank. */
+.r.tool b { font-family: var(--display); font-size: 7px; letter-spacing: .5px; }
+.r.tool.crude b { color: var(--warn); } .r.tool.sound b { color: var(--teal); }
+.r.tool.fine b { color: var(--green); } .r.tool.masterwork b { color: var(--gold); }
+.r.concept { font-size: 11px; color: var(--dim); } .r.concept b { color: var(--ice); }

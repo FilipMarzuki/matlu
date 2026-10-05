@@ -14,6 +14,7 @@
 import { applyActivity, driftCapacity, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
+import { craft, craftBlocker, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, type CraftRecipe, type CrafterState, type ConceptProgress, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -74,6 +75,10 @@ export interface Region1State {
   /** One-way "ever did X" flags behind the first-time milestones. */
   flags: { everWater: boolean; everFood: boolean; everWood: boolean; everHunt: boolean; everPreserve: boolean };
   milestones: string[];
+  /** Crafted items that carry effects (src/artificer/crafting.ts). */
+  tools: Tool[];
+  /** Concept ranks and insight, earned by crafting. */
+  concepts: Record<string, ConceptProgress>;
   /** Running totals for today, fed to nightly capacity drift. */
   today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean };
   log: LogEntry[];
@@ -94,6 +99,8 @@ export function createRegion1(config: Partial<Region1Config> = {}): Region1State
     tier: 0,
     flags: { everWater: false, everFood: false, everWood: false, everHunt: false, everPreserve: false },
     milestones: [],
+    tools: [],
+    concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
     log: [],
     outcome: null,
@@ -111,6 +118,8 @@ function clone(s: Region1State): Region1State {
     knowledge: { ...s.knowledge },
     flags: { ...s.flags },
     milestones: [...s.milestones],
+    tools: [...s.tools],
+    concepts: { ...s.concepts },
     today: { ...s.today },
     log: [...s.log],
   };
@@ -137,6 +146,7 @@ export type ActionId =
   | 'scout' | 'survey' | 'track'
   | 'gather' | 'hunt' | 'water' | 'wood' | 'preserve'
   | 'build' | 'coldGear'
+  | 'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel'
   | 'tinker' | 'rest';
 
 interface ActionDef {
@@ -147,13 +157,66 @@ interface ActionDef {
   clarityRate: number;
   /** Why the action can't be done right now, or null if it can. */
   gate?: (s: Region1State) => string | null;
-  /** Apply the effect to (an already-cloned) state; return the journal line. */
-  run: (s: Region1State) => string;
+  /**
+   * Apply the effect to (an already-cloned) state; return the journal line.
+   * `bonus` is the extra yield your tools give this action.
+   */
+  run: (s: Region1State, bonus: number) => string;
+  /** A craft: paid from stores and resolved by crafting.craft (its hours/rates come from there). */
+  recipe?: CraftRecipe;
 }
 
 const needsScout = (s: Region1State): string | null => (s.knowledge.scouted ? null : "you don't know where to look yet — scout first");
 /** Surveyed land gives richer returns. */
 const y = (s: Region1State, surveyed: number, base: number): number => (s.knowledge.surveyed ? surveyed : base);
+
+// ── Crafting (src/artificer/crafting.ts) ────────────────────────────────────
+//
+// Region 1 has no item-level inventory yet, so its crafts are paid in its own
+// store units (mostly "materials") and output real registry items. The
+// crafting module does the rest: grade, failure + salvage, concept insight.
+
+/** Region 1's craftable tools, as CraftRecipes whose inputs are Store keys. */
+export const REGION1_RECIPES: Readonly<Record<'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel', CraftRecipe>> = {
+  knife: { id: 'stone-knife', name: 'Stone knife', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'stone-knife', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['sharpening'] },
+  snare: { id: 'trap-snare', name: 'Snare', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'trap-snare', qty: 1 }, tier: 0, station: null, timeBase: 3, concepts: ['tension', 'leverage'] },
+  waterskin: { id: 'waterskin', name: 'Waterskin', inputs: [{ item: 'materials', qty: 1 }, { item: 'rawFood', qty: 1 }], output: { item: 'waterskin', qty: 1 }, tier: 0, station: null, timeBase: 4, concepts: ['sealing'] },
+  bedroll: { id: 'bedroll', name: 'Bedroll', inputs: [{ item: 'materials', qty: 3 }], output: { item: 'bedroll', qty: 1 }, tier: 0, station: null, timeBase: 5 },
+  shovel: { id: 'crude-shovel', name: 'Crude shovel', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'crude-shovel', qty: 1 }, tier: 1, station: null, timeBase: 3, concepts: ['leverage'] },
+};
+
+const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations'] as const;
+const CRAFT_WORLD = craftWorld();
+
+/** View a Region 1 state as a crafter: stores are the inventory, the shelter is the bench. */
+function crafterOf(s: Region1State): CrafterState {
+  return createCrafter(s.vitals, {
+    inventory: { ...s.stores },
+    tools: s.tools,
+    concepts: s.concepts,
+    // Region 1's shelter is the first workbench (crafting design §6–7).
+    bench: { tier: s.tier >= 1 ? 1 : 0, stations: [] },
+  });
+}
+
+/**
+ * Gate for a craft action. The extra gate goes first (a hide needs a hunt),
+ * then "you already have a good one", then the crafting module's own checks.
+ * A crude tool can be remade; anything sound or better is kept.
+ */
+const craftGate = (r: CraftRecipe, extra?: (s: Region1State) => string | null) => (s: Region1State): string | null => {
+  const pre = extra?.(s) ?? null;
+  if (pre) return pre;
+  const owned = s.tools.find(t => t.item === r.output.item && GRADES.indexOf(t.grade) >= GRADES.indexOf('sound'));
+  if (owned) return `you already have a ${owned.grade} ${r.name.toLowerCase()}`;
+  return craftBlocker(crafterOf(s), r);
+};
+
+/** One craft definition for the ACTIONS table: its gate and costs come from the recipe. */
+const craftAction = (r: CraftRecipe, extra?: (s: Region1State) => string | null): ActionDef => ({
+  name: `Craft ${r.name.toLowerCase()}`, hours: r.timeBase, vigorRate: 0, clarityRate: 0,
+  gate: craftGate(r, extra), recipe: r, run: () => '',
+});
 
 export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   scout: {
@@ -170,16 +233,16 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   gather: {
     name: 'Gather food', hours: 5, vigorRate: -3.5, clarityRate: -1, gate: needsScout,
-    run: s => { const n = y(s, 5, 3); s.stores.rawFood += n; s.flags.everFood = true; return `Gathered ${n} raw food.`; },
+    run: (s, b) => { const n = y(s, 5, 3) + b; s.stores.rawFood += n; s.flags.everFood = true; return `Gathered ${n} raw food.`; },
   },
   hunt: {
     name: 'Hunt', hours: 5, vigorRate: -4, clarityRate: -2,
     gate: s => (s.knowledge.tracked ? null : 'no game tracked yet'),
-    run: s => { s.stores.rawFood += 7; s.flags.everFood = true; s.flags.everHunt = true; return 'A good hunt — 7 raw food.'; },
+    run: (s, b) => { s.stores.rawFood += 7 + b; s.flags.everFood = true; s.flags.everHunt = true; return `A good hunt — ${7 + b} raw food.`; },
   },
   water: {
     name: 'Fetch water', hours: 2, vigorRate: -3, clarityRate: -0.5, gate: needsScout,
-    run: s => { const n = y(s, 5, 4) + (s.site === 'river' ? 2 : 0); s.stores.water += n; s.flags.everWater = true; return `Fetched ${n} water.`; },
+    run: (s, b) => { const n = y(s, 5, 4) + (s.site === 'river' ? 2 : 0) + b; s.stores.water += n; s.flags.everWater = true; return `Fetched ${n} water.`; },
   },
   wood: {
     name: 'Gather wood', hours: 4, vigorRate: -4, clarityRate: -1, gate: needsScout,
@@ -219,6 +282,11 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     gate: s => (s.coldGear ? 'you already have cold gear' : s.stores.materials >= 3 ? null : 'need 3 materials'),
     run: s => { s.stores.materials -= 3; s.coldGear = true; return 'Stitched cold-weather gear — you could brave the road now.'; },
   },
+  knife: craftAction(REGION1_RECIPES.knife, needsScout),
+  snare: craftAction(REGION1_RECIPES.snare, s => (s.knowledge.tracked ? null : 'you need to know the game trails — track first')),
+  waterskin: craftAction(REGION1_RECIPES.waterskin, s => (s.flags.everHunt ? null : 'you need a hide — hunt first')),
+  bedroll: craftAction(REGION1_RECIPES.bedroll, needsScout),
+  shovel: craftAction(REGION1_RECIPES.shovel, needsScout),
   tinker: {
     name: 'Tinker / plan', hours: 5, vigorRate: 2, clarityRate: -4.5,
     run: () => 'Worked at the bench — the body eased while the mind spent.',
@@ -284,17 +352,46 @@ export function runAction(s: Region1State, id: ActionId): Region1State {
   const def = ACTIONS[id];
   const refused = def.gate?.(next) ?? null;
   if (refused) { say(next, `${def.name}: skipped — ${refused}.`, 'skip'); return next; }
+  if (def.recipe) return runCraft(next, def.recipe);
 
-  const r = applyActivity(next.vitals, { hours: def.hours, vigorRate: def.vigorRate, clarityRate: def.clarityRate });
+  // Your tools make the work cheaper, quicker or richer (crafting design §2).
+  const mod = modifiersFor(next.tools, id);
+  const hours = def.hours * mod.timeMult;
+  const r = applyActivity(next.vitals, { hours, vigorRate: def.vigorRate * mod.vigorMult, clarityRate: def.clarityRate * mod.clarityMult });
   next.vitals = r.vitals;
   next.today.loadVigor += r.loadVigor;
   next.today.loadClarity += r.loadClarity;
   next.today.pushedVigor ||= r.pushedVigor;
   next.today.pushedClarity ||= r.pushedClarity;
-  next.hoursToday += def.hours;
+  next.hoursToday += hours;
 
-  say(next, def.run(next), 'action');
+  say(next, def.run(next, mod.yieldAdd), 'action');
   if (r.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
+  latchMilestones(next);
+  return next;
+}
+
+/** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */
+function runCraft(next: Region1State, recipe: CraftRecipe): Region1State {
+  const before = next.vitals;
+  const { state: c, result } = craft(crafterOf(next), recipe, CRAFT_WORLD);
+  next.vitals = c.vitals;
+  for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
+  next.tools = c.tools;
+  next.concepts = c.concepts;
+
+  // craft() doesn't report its load, so read it off the pools for nightly drift.
+  next.today.loadVigor += Math.max(0, before.vigor.current - c.vitals.vigor.current);
+  next.today.loadClarity += Math.max(0, before.clarity.current - c.vitals.clarity.current);
+  next.hoursToday += recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult;
+
+  const name = recipe.name.toLowerCase();
+  if (result.kind === 'crafted') {
+    say(next, `Crafted a ${result.grade} ${name}.`, 'action');
+  } else if (result.kind === 'failed') {
+    const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
+    say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
+  }
   latchMilestones(next);
   return next;
 }
@@ -308,13 +405,21 @@ export function endDay(s: Region1State): Region1State {
   const next = clone(s);
   if (next.outcome) return next;
 
+  // A set snare line brings in a little food overnight (before supper).
+  if (capabilities(next.tools).has('snare-line')) {
+    next.stores.rawFood += 1;
+    say(next, 'The snare line caught something — 1 raw food.', 'action');
+  }
+
   let ate = true;
   if (next.stores.rawFood > 0) next.stores.rawFood -= 1; else { ate = false; say(next, 'Hungry — no food today.', 'hardship'); }
   if (next.stores.water > 0) next.stores.water -= 1; else { ate = false; say(next, 'Thirsty — no water today.', 'hardship'); }
 
   const w = warmth(next);
   const fed = ate ? 1 : 0.4;
-  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * fed, clarityRate: 5 * fed, sleep: true }, { shelterWarmth: w }).vitals;
+  // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
+  const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;
+  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * fed, clarityRate: 5 * fed, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
   if (!ate) next.vitals.condition = Math.max(0, next.vitals.condition - 6);
   if (w < 0.3 && next.tier < 2) {
     next.vitals.condition = Math.max(0, next.vitals.condition - 4);
