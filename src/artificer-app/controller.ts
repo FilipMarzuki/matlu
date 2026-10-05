@@ -16,6 +16,7 @@ import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunReco
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
+import { FULL_WORLD, validWorld } from '../artificer/world';
 
 export interface AppState {
   sim: Region1State;
@@ -246,5 +247,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const focus = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
   // …and saves from before techniques/manuals (#1243) start with none.
   const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
-  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals) }, queue: queue as QueueItem[] };
+  // …and saves from before the living world (#1279) play the full world.
+  const cfg = sim.config as Record<string, unknown>;
+  const config = { ...(cfg as unknown as Region1State['config']), world: validWorld(cfg.world) ? { ...cfg.world } : { ...FULL_WORLD } };
+  return { sim: { ...(sim as unknown as Region1State), config, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals) }, queue: queue as QueueItem[] };
 }
