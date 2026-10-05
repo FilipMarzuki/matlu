@@ -11,6 +11,7 @@
 
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
 import type { EndChoice, Injury, OutcomeKind } from './winter';
+import type { Stats } from './stats';
 import { carriedSkills, type SkillPractice } from './skills';
 import type { Grade } from './crafting';
 
@@ -50,6 +51,8 @@ export interface Legacy {
   skills?: SkillPractice;
   /** Techniques known (#1243). Manuals don't carry — they're possessions, left behind. */
   techniques?: string[];
+  /** Base stats (#1256). Optional so older legacies still load. */
+  stats?: Stats;
 }
 
 /** Summarise a resolved run. Throws on a run still in progress — there's nothing to record yet. */
@@ -88,6 +91,7 @@ export function legacyOf(s: Region1State): Legacy {
     concepts: Object.fromEntries(Object.entries(s.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => [id, p.rank])),
     skills: carriedSkills(s.skills),
     techniques: [...s.techniques],
+    stats: { ...s.character.stats },
   };
 }
 

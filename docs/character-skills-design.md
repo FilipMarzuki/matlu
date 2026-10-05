@@ -76,6 +76,25 @@ A teacher or a manual can teach a technique up to two levels above your true lev
 
 **Manuals in Region 1.** A trapper's tally-book (hunting, teaches Still hunting) waits in ring 2, and a forester's notes (woodcraft, teaches Notching) in ring 3. Each is found on the first scout of its ring. Teachers come with Region 1.5's villages. Techniques carry with the character, and manuals stay behind. The WARDEN tab shows known techniques by name, and unknown ones only as a hint of how they're learned.
 
+## 1b. Stats (#1255, #1256)
+
+Six base stats, chosen at creation, sit under the skills. Skills say what you've practised; stats say what you're built for. Scores run 3–18 (10 is average), and every effect works off d = score − 10:
+
+| Stat | Effect per point of d |
+| --- | --- |
+| Strength | heavy work (wood, quarry, build) costs 3% less Vigor |
+| Constitution | hunger and thirst cost 3% less Condition; healing is 3% faster |
+| Agility | hunting, tracking, scouting, handcraft and walking out cost 3% less |
+| Intelligence | study gives 5% more insight; craft grade +⌊d/3⌋ toward zero (+1 at 13, −1 at 7) |
+| Willpower | all work costs 2% less Clarity; deprivation 3% less Clarity; focus is unreliable below 30 − 2d Clarity |
+| Charisma | on the caravan road: people start with d more trust, and prices are 2% better per point |
+
+**Point-buy.** Every stat starts at 10, and there are 6 points to spend. Raising costs 1 point per step up to 13 and 2 per step for 14 and 15 (the creation maximum). Lowering, down to 7, refunds 1 per step. For example, STR 13 + INT 13 is 6 points, and CON 15 costs 7, so it needs a sacrifice such as CHA 9.
+
+**Levers, not caps.** Like traits, stats only scale drains, recovery, costs and bonuses. They never move the Vigor or Clarity caps, which drift back to the baseline each night and which winter readiness checks.
+
+**Exact, carried.** Stats are shown as they are (you know your own body), and they carry with the living character. Growth by use and wear from hardship come next (#1257).
+
 ## 2. Traits
 
 Pick two at character creation. Each trait has an upside and a cost, and works
