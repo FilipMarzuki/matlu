@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, DAY_HOURS, setFocus, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, blockedReason, DAY_HOURS, setFocus, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
 import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
@@ -174,7 +174,7 @@ export function previewQueue(a: AppState): QueuePreview {
     dayOffset.push(day);
     before.push(projected);
     const { id, ring, opts } = parseItem(item);
-    const reason = ACTIONS[id].gate?.(projected, ring, opts) ?? null;
+    const reason = blockedReason(projected, id, ring, opts);
     warnings.push(reason);
     // A refused action costs no time in the sim, so it costs none here either.
     if (!reason) hours += queueHours(item, projected);
