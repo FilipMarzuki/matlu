@@ -13,6 +13,7 @@
 
 import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
+import { FULL_WORLD, type WorldConfig } from './world';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
@@ -84,6 +85,8 @@ export interface LogEntry {
 export interface Region1Config {
   calendar: Calendar;
   thresholds: ReadinessThresholds;
+  /** Which parts of the living world are on (#1279): the full world in play, the flat world for isolated tests. */
+  world: WorldConfig;
 }
 
 export interface Region1State {
@@ -186,7 +189,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     manuals: [],
     log: [],
     outcome: null,
-    config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS },
+    config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS, world: { ...(config.world ?? FULL_WORLD) } },
   };
   // A new run that keeps what the last Warden learned: recipes and concept
   // ranks carry over (insight starts again); body, stores and land don't.
