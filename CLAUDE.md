@@ -41,6 +41,9 @@ Each site has its own `package.json` and is built independently in CI.
 | `npm run pixellab:queue`  | Regenerate `pixellab-queue.json` from current sprite state                       |
 | `npm run pixellab:burn`   | Run PixelLab burn pipeline (generate → poll → download → commit)                 |
 | `npm run pixellab:burn:dry` | Dry-run burn — logs actions without calling API                                |
+| `npm run ai:play`         | Let an AI (or scripted/random baseline) play Artificer Region 1; transcripts → `ai-runs/` |
+| `npm run ai:bench`        | Play the model roster (`src/artificer-ai/roster.ts`); prints cost estimate, `--budget` cap |
+| `npm run ai:report`       | Build the cross-model progression + cost report from `ai-runs/` transcripts |
 | `npm run worldgen:earth`  | Full Earth map pipeline: heightmap → Azgaar import/export → validate             |
 | `npm run worldgen:heightmap` | Download + convert Earth heightmap to PNG                                     |
 | `npm run worldgen:generate`  | Playwright: import heightmap into Azgaar FMG, export .map + JSON             |
@@ -384,4 +387,5 @@ Most agent workflows run as GitHub Actions cron jobs. Each spawns a single Claud
 | Weekly Release Notes | after Weekly Engineering Stats | `.agents/release-notes.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Writes release notes from merged PRs, posts to Notion |
 | Agent Performance Log | after Weekly Release Notes | `.agents/agent-perf-log.md` | `NOTION_API_KEY`, `GITHUB_TOKEN` | Queries GitHub Issues for agent:* outcome labels, creates weekly summary child page in Notion "Agent Performance Log" |
 | **Sprite Credit Burn** | **manual only** (`workflow_dispatch`) | `.agents/sprite-credit-burn.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Runs `npm run pixellab:queue` then `npm run pixellab:burn` — the Node.js burn script handles all PixelLab generation via HTTP API. Commits after each entity; stops when credits run out. Run before the 9th of the month. |
+| **Artificer AI playtest** | `15 23 * * *` (only if the Artificer sim changed that day) | scripts (`ai-bench.ts`, `ai-report.ts`) | `OPENROUTER_API_KEY`; vars `AI_BENCH_BUDGET` (default 1), `AI_BENCH_MIN_CHANGES` (default 1) | Skips ($0) unless commits in the last 24h touched `src/artificer*/`. Otherwise plays random baselines + the model roster (~$0.40), posts a summary on the run page, uploads the report + transcripts as the `ai-playtest` artifact |
 | **Wildlife Species** | nightly (after Dev Agent) | `.agents/wildlife-species.md` | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`, `PIXELLAB_API_KEY` | One pipeline step per session for the next wildlife species. State tracked in `wildlife-pipeline-state.json`. Character creation requires human approval before animations are queued. ~48 credits per species. |

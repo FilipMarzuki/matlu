@@ -3,6 +3,7 @@
  *
  *   npm run ai:report                       # every transcript under ai-runs/
  *   npm run ai:report -- --in ai-runs/batch3 --out ai-runs/batch3/report.html
+ *   npm run ai:report -- --md summary.md     # also write a short Markdown summary (used by the nightly workflow)
  *
  * Writes one self-contained HTML page (data inlined, no network) and prints a
  * short text summary. Transcripts from before #1229 (no `start` snapshot) are
@@ -52,7 +53,27 @@ for (const m of models) {
 const spend = models.reduce((n, m) => n + (m.cost.total ?? 0), 0);
 console.log(`\n  total spend: $${spend.toFixed(2)}${models.some(m => m.cost.estimated) ? ' (includes estimates for runs recorded before cost tracking)' : ''}`);
 writeFileSync(outFile, page(models, transcripts.length));
+const mdFile = opt('md', '');
+if (mdFile) writeFileSync(mdFile, markdown(models, transcripts.length, spend));
 console.log(`\nreport → ${outFile}`);
+
+/** A compact Markdown summary: outcomes, readiness, key progression and spend per model. */
+function markdown(models: ModelSummary[], runs: number, spend: number): string {
+  const money = (x: number | null): string => (x === null ? '—' : `$${x.toFixed(3)}`);
+  const pct = (m: ModelSummary): string => `${Math.round(100 * (m.outcomes.thrive ?? 0) / m.runs)}%`;
+  const last = (m: ModelSummary, k: keyof ModelSummary['series']): string => String(m.series[k].filter(v => v !== null).at(-1) ?? '—');
+  const rows = models.map(m => `| ${m.model} | ${m.runs} | ${pct(m)} | ${m.readyDay ?? 'never'} | ${last(m, 'conceptRanks')} | ${last(m, 'recipesKnown')} | ${last(m, 'crafts')} | ${m.invalidDays} | ${money(m.cost.perGame)} |`);
+  return [
+    `### Artificer AI playtest — ${runs} runs, ${models.length} players, $${spend.toFixed(2)} spent`,
+    '',
+    '| Player | Runs | Thrive | Ready (day) | Concept ranks | Recipes | Crafts | Invalid days | $/game |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    ...rows,
+    '',
+    'End-of-run values are means over runs. The full report (charts, milestone days, action mix) is in the `ai-playtest` artifact.',
+    '',
+  ].join('\n');
+}
 
 async function estimateMissingCosts(ts: Transcript[]): Promise<void> {
   const missing = ts.filter(t => typeof t.usage.cost !== 'number' && t.player.startsWith('openrouter:'));
