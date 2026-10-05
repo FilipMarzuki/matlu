@@ -16,6 +16,8 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
+import { weatherFor, WEATHER, type Forecast, type WeatherId } from './weather';
+import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
@@ -133,6 +135,10 @@ export interface Region1State {
   techniques: string[];
   /** Manuals owned (#1243): they guide practice in their skill and teach their techniques when you're ready. */
   manuals: string[];
+  /** Today's weather (#1282) — a fixed seeded schedule per character. */
+  weatherToday: WeatherId;
+  /** What the Warden knows of the coming days' weather (#1282): from a look-out or Weather sense. */
+  forecast: Forecast;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -191,10 +197,14 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     focus: null,
     techniques: [...(legacy?.techniques ?? [])],
     manuals: [],
+    weatherToday: 'clear',
+    forecast: {},
     log: [],
     outcome: null,
     config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS, world: { ...(config.world ?? FULL_WORLD) } },
   };
+  // Today's weather, and what Weather sense tells of the next two days (#1282).
+  dawnWeather(s);
   // A new run that keeps what the last Warden learned: recipes and concept
   // ranks carry over (insight starts again); body, stores and land don't.
   if (legacy) {
@@ -225,6 +235,7 @@ function clone(s: Region1State): Region1State {
     character: { ...s.character, talents: s.character.talents.map(t => ({ ...t })), stats: { ...s.character.stats } },
     techniques: [...s.techniques],
     manuals: [...s.manuals],
+    forecast: { ...s.forecast },
     log: [...s.log],
   };
 }
@@ -678,7 +689,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     run: (s, _b, r, _o, light) => {
       if (tooDarkToSee('lookout', light)) return tooDark(r);
       s.explore = lookout(s.explore, r);
-      return `Climbed high${where(r)} and looked out — the ground sharpens below${r < 3 ? `, and you can see over the ${RING_NAME[(r + 1) as Ring].toLowerCase()} ring` : ''}.`;
+      // From up high you can read tomorrow's sky (#1282).
+      const tomorrow = foresee(s, s.day + 1);
+      return `Climbed high${where(r)} and looked out — the ground sharpens below${r < 3 ? `, and you can see over the ${RING_NAME[(r + 1) as Ring].toLowerCase()} ring` : ''}.${s.config.world.weather === 'seeded' ? ` Tomorrow looks like ${WEATHER[tomorrow].name.toLowerCase()}.` : ''}`;
     },
   },
   study: {
@@ -1032,6 +1045,7 @@ export function endDay(s: Region1State): Region1State {
   next.hoursToday = 0;
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
   next.studiedToday = {};
+  dawnWeather(next);
   // Tell the player when survival takes over the mind, and when it lets go.
   const lockedNow = survivalLockOf(next);
   if (lockedNow && !lockedToday) say(next, `Survival takes over your thoughts — ${lockedNow}. Your focus will have to wait.`, 'hardship');
@@ -1073,6 +1087,28 @@ function growFrom(next: Pick<Region1State, 'character' | 'log' | 'day'>, e: Grow
 /** Give back the share of overexertion's Condition cost that a talent spares (Tough, #1263). */
 function refundOverexertion(next: Pick<Region1State, 'vitals'>, lost: number, mult: number): void {
   if (lost > 0 && mult < 1) next.vitals.condition = Math.min(100, next.vitals.condition + lost * (1 - mult));
+}
+
+/** The weather on a day for this Warden (#1282): seeded by the character id and the day. */
+const weatherOn = (s: Pick<Region1State, 'character' | 'config'>, day: number): WeatherId =>
+  weatherFor(seedOf(s.character.id), day, s.config.world);
+
+/** Learn a coming day's weather (a look-out, or Weather sense). */
+function foresee(s: Pick<Region1State, 'character' | 'config' | 'forecast'>, day: number): WeatherId {
+  const w = weatherOn(s, day);
+  s.forecast[day] = w;
+  return w;
+}
+
+/**
+ * A new day's weather (#1282): set today's, forget forecasts for days that have
+ * come, let Weather sense read the next two days, and note the morning's sky.
+ */
+function dawnWeather(s: Region1State): void {
+  s.weatherToday = weatherOn(s, s.day);
+  for (const d of Object.keys(s.forecast)) if (Number(d) <= s.day) delete s.forecast[Number(d)];
+  if (s.techniques.includes('weather')) { foresee(s, s.day + 1); foresee(s, s.day + 2); }
+  if (s.config.world.weather === 'seeded') say(s, `Morning: ${WEATHER[s.weatherToday].name.toLowerCase()}.`, 'action');
 }
 
 /** The death line for a Warden who died of deprivation in the night. */
