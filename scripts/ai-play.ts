@@ -7,6 +7,7 @@
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
  *   options: --runs N (default 1) --max-days N (default 16) --carry (each run keeps the last run's knowledge)
  *            --out DIR (default ai-runs) --quiet
+ *            --traits hardy,tough (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye)
  *            --budget USD (stop the batch once actual spend reaches this; OpenRouter reports real cost)
  *
  * Writes one JSON transcript per run to --out and prints a summary table.
@@ -20,6 +21,7 @@ import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
 import { legacyOf } from '../src/artificer/legacy';
+import { validTraits, TRAIT_COUNT, TRAIT_IDS, type TraitId } from '../src/artificer/traits';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -32,6 +34,8 @@ const out = flag('out') ?? 'ai-runs';
 const quiet = has('quiet');
 
 const seed = Number(flag('seed') ?? 1);
+const traits = (flag('traits') ?? '').split(',').map(t => t.trim()).filter(Boolean);
+if (!validTraits(traits)) { console.error(`--traits needs exactly ${TRAIT_COUNT} of: ${TRAIT_IDS.join(', ')}`); process.exit(1); }
 const budget = flag('budget') !== undefined ? Number(flag('budget')) : Infinity;
 const usd = (x: number | null): string => (x === null ? 'cost unknown' : `$${x < 0.01 && x > 0 ? x.toFixed(4) : x.toFixed(3)}`);
 
@@ -62,6 +66,7 @@ async function main(): Promise<void> {
       result = await playRun(player, {
       maxDays,
       legacy: has('carry') && carry ? legacyOf(carry.final) : undefined,
+      traits: traits as TraitId[],
       onTurn: t => {
         if (quiet) return;
         const head = t.exit ? `EXIT → ${t.exit}` : t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : queueText(t.queue);

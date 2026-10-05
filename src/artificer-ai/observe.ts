@@ -19,6 +19,7 @@ import {
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
 import { SKILL_IDS, LEVELS, skillLevel, toNextLevel } from '../artificer/skills';
+import { TRAITS } from '../artificer/traits';
 import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
 import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 
@@ -136,6 +137,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
   if (concepts.length) lines.push(`CONCEPTS: ${concepts.join(', ')}`);
+  if (s.character.traits.length) lines.push(`TRAITS: ${s.character.traits.map(t => `${TRAITS[t].name} (${TRAITS[t].upside}; but ${TRAITS[t].cost})`).join(' · ')}${s.character.traits.includes('tough') ? (s.character.lastStandUsed ? ' — last stand used' : ' — last stand available') : ''}`);
   const practised = SKILL_IDS.filter(id => (s.skills[id] ?? 0) > 0);
   lines.push(`SKILLS: ${practised.length ? practised.map(id => `${id} ${LEVELS[skillLevel(s.skills, id)]}${toNextLevel(s.skills, id) ? ` (${Math.ceil(toNextLevel(s.skills, id))}h to next)` : ''}`).join(', ') : 'none yet — every hour of work trains the skill it uses'}`);
 

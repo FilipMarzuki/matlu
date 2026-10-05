@@ -13,6 +13,7 @@
 import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
 import { summarizeRun, legacyOf, addRun, type RunRecord } from '../artificer/legacy';
+import { validTraits, type TraitId } from '../artificer/traits';
 
 export interface AppState {
   sim: Region1State;
@@ -36,7 +37,8 @@ export function newGame(): AppState {
  * one learned (recipes, concept ranks); without one it's a fresh start.
  */
 export function newRun(from?: Region1State): AppState {
-  return { sim: from?.outcome ? createRegion1({}, legacyOf(from)) : createRegion1(), queue: [] };
+  // A returning Warden is the same person: name, portrait and traits come along with the knowledge.
+  return { sim: from?.outcome ? createRegion1({}, legacyOf(from), { name: from.character.name, portrait: from.character.portrait, traits: from.character.traits }) : createRegion1(), queue: [] };
 }
 
 // ── Run history (saved separately from the game, so starting over keeps it) ──
@@ -210,5 +212,10 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // The shape checks above cover what the sim reads; trust the rest.
   // …and saves from before skills (#1236) start with no practice.
   const skills = isObj(sim.skills) && Object.values(sim.skills).every(isNum) ? sim.skills as Region1State['skills'] : {};
-  return { sim: { ...(sim as unknown as Region1State), deprivation, skills }, queue: queue as QueueItem[] };
+  // …and saves from before character creation (#1237/#1239) get an unnamed Warden with no traits.
+  const ch = sim.character;
+  const character = isObj(ch) && typeof ch.name === 'string' && Array.isArray(ch.traits) && validTraits(ch.traits as string[])
+    ? { name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, traits: ch.traits as TraitId[], lastStandUsed: ch.lastStandUsed === true }
+    : { name: '', portrait: null, traits: [], lastStandUsed: false };
+  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character }, queue: queue as QueueItem[] };
 }
