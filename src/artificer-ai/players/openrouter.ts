@@ -46,6 +46,8 @@ export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
         body: JSON.stringify({
           model,
           messages: anthropic ? withCacheBreakpoints(messages) : messages,
+          // Usage accounting: the response then carries the actual billed cost in USD (#1231).
+          usage: { include: true },
           ...(useSchema ? { response_format: { type: 'json_schema', json_schema: { name: 'decision', strict: true, schema: DECISION_SCHEMA } } } : {}),
         }),
       });
@@ -53,13 +55,13 @@ export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
       if (!res.ok) throw new Error(`OpenRouter → ${res.status}: ${await res.text()}`);
       const data = await res.json() as {
         choices?: { message?: { content?: string } }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } };
+        usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; prompt_tokens_details?: { cached_tokens?: number } };
       };
       const text = data.choices?.[0]?.message?.content ?? '';
       messages.push({ role: 'assistant', content: text });
       return {
         text,
-        usage: { input: data.usage?.prompt_tokens ?? 0, output: data.usage?.completion_tokens ?? 0, cacheRead: data.usage?.prompt_tokens_details?.cached_tokens ?? 0 },
+        usage: { input: data.usage?.prompt_tokens ?? 0, output: data.usage?.completion_tokens ?? 0, cacheRead: data.usage?.prompt_tokens_details?.cached_tokens ?? 0, cost: data.usage?.cost ?? null },
       };
     },
   };

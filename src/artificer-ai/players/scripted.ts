@@ -32,6 +32,6 @@ export const scriptedPlayer = (): Player => ({
     const exits = availableChoices(s.day, s.config.calendar);
     const exit = exits.length ? (winterReady(s) && exits.includes('caravan') ? 'caravan' : 'winter') : null;
     const queue = exit ? [] : (PLAN[s.day - 1] ?? [a('rest')]);
-    return { text: JSON.stringify({ thoughts: exit ? `Leaving: ${exit}.` : `Day ${s.day} of the plan.`, site: null, exit, queue }) };
+    return { text: JSON.stringify({ thoughts: exit ? `Leaving: ${exit}.` : `Day ${s.day} of the plan.`, site: null, exit, queue }), usage: { cost: 0 } };
   },
 });

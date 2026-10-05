@@ -17,7 +17,11 @@ import { invariantViolations } from './invariants';
 import { parseDecision } from './decision';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
-export interface Usage { input: number; output: number; cacheRead: number; cacheWrite: number }
+export interface Usage {
+  input: number; output: number; cacheRead: number; cacheWrite: number;
+  /** Actual billed USD, summed over the run's calls; null when the player doesn't report it (#1231). */
+  cost: number | null;
+}
 
 /**
  * Anything that can play: given the next user message (an observation, or a
@@ -87,7 +91,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // The cap can't end a run before any exit opens, so it is at least the caravan's first day.
   const maxDays = Math.max(opts.maxDays ?? 16, s.config.calendar.caravanOpen);
   const turns: Turn[] = [];
-  const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
   let forced = false;
 
@@ -97,6 +101,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     usage.output += r.usage?.output ?? 0;
     usage.cacheRead += r.usage?.cacheRead ?? 0;
     usage.cacheWrite += r.usage?.cacheWrite ?? 0;
+    // Unknown stays unknown: one call without a cost doesn't turn a known total into a guess.
+    if (r.usage?.cost !== undefined && r.usage.cost !== null) usage.cost = (usage.cost ?? 0) + r.usage.cost;
     return r.text;
   };
 

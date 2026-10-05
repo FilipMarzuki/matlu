@@ -183,4 +183,23 @@ describe('AI player harness', () => {
     expect(p.pillars.body).toBeLessThan(1);
     expect(p.readiness).toBeLessThan(1);
   });
+
+  // #1231 — the run adds up the actual cost each call reports; unknown stays unknown, local play is free.
+  it('totals the cost of a run and summarises spend per model', async () => {
+    const reply = json({ thoughts: 'rest', site: null, exit: null, queue: [{ action: 'rest', ring: 1, options: [] }] });
+    const priced: Player = { name: 'openrouter:paid/model', async decide() { return { text: reply, usage: { input: 10, output: 2, cost: 0.001 } }; } };
+    const unpriced: Player = { name: 'openrouter:mystery/model', async decide() { return { text: reply }; } };
+    const paid = await playRun(priced, { maxDays: 10 });
+    expect(paid.usage.cost).toBeCloseTo(0.001 * paid.turns.length, 10);
+    expect((await playRun(unpriced, { maxDays: 10 })).usage.cost).toBeNull();
+    const free = await playRun(scriptedPlayer());
+    expect(free.usage.cost).toBe(0);
+
+    const asT = (r: typeof paid, player: string): Transcript => ({ ...r, player } as unknown as Transcript);
+    const old = asT(await playRun(unpriced, { maxDays: 10 }), 'openrouter:old/model');
+    const byModel = Object.fromEntries(aggregate([asT(paid, 'openrouter:paid/model'), asT(paid, 'openrouter:paid/model'), asT(free, 'scripted'), old]).map(m => [m.model, m.cost]));
+    expect(byModel['paid/model']).toEqual({ perGame: Math.round(paid.usage.cost! * 1e4) / 1e4, total: Math.round(2 * paid.usage.cost! * 1e4) / 1e4, perThrive: null, estimated: false });
+    expect(byModel.scripted).toMatchObject({ perGame: 0, total: 0, perThrive: 0 });
+    expect(byModel['old/model']).toEqual({ perGame: null, total: null, perThrive: null, estimated: false });
+  });
 });
