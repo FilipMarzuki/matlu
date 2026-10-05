@@ -15,13 +15,13 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { playRun, type Player, type RunResult } from '../src/artificer-ai/runner';
+import { playRun, aiCharacterId, type Player, type RunResult } from '../src/artificer-ai/runner';
 import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
 import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
 import { legacyOf, canContinue } from '../src/artificer/legacy';
-import { validPick, TALENT_PICKS, TALENT_IDS, type TalentId } from '../src/artificer/talents';
+import { validPick, TALENT_PICKS, TALENT_IDS, talentOffer, seedOf, pickRandomFromOffer, type TalentId } from '../src/artificer/talents';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -61,13 +61,23 @@ async function main(): Promise<void> {
   for (let n = 1; n <= runs; n++) {
     const player = makePlayer(n); // fresh conversation per run
     if (!quiet) console.log(`\n▶ Run ${n}/${runs} — ${player.name}`);
+    // Each run is its own Warden (#1267) — unless --carry continues the last one who lived.
+    const continuing = has('carry') && carry && canContinue(carry.final);
+    const characterId = continuing ? carry!.final.character.id : aiCharacterId(player.name, `s${seed}-r${n}`);
+    // The random baseline picks a random pair from its offer (seeded); others ask for --talents, else take the first two.
+    const wanted = which === 'random' && !talents.length ? pickRandomFromOffer(talentOffer(seedOf(characterId)), seed + n - 1) : talents as TalentId[];
+    if (!quiet && !continuing) {
+      const offer = talentOffer(seedOf(characterId));
+      if (talents.length && !talents.every(t => offer.includes(t as TalentId))) console.log(`  (--talents ${talents.join(',')} not both offered — offer was ${offer.join(', ')}; taking the first two)`);
+    }
     let result: RunResult;
     try {
       result = await playRun(player, {
       maxDays,
       // Same rule as the game (#1242): only a character who lived goes on with what they learned.
-      legacy: has('carry') && carry && canContinue(carry.final) ? legacyOf(carry.final) : undefined,
-      talents: talents as TalentId[],
+      legacy: continuing ? legacyOf(carry!.final) : undefined,
+      characterId,
+      talents: wanted,
       onTurn: t => {
         if (quiet) return;
         const head = t.exit ? `EXIT → ${t.exit}` : t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : queueText(t.queue);

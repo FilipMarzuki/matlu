@@ -13,7 +13,7 @@ import { availableChoices, type Choice } from '../artificer/winter';
 import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
 import { observe } from './observe';
 import { parseFocus } from '../artificer/focus';
-import type { TalentId } from '../artificer/talents';
+import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
 import { progressOf, type Progress } from './progress';
 import { invariantViolations } from './invariants';
 import { parseDecision } from './decision';
@@ -72,7 +72,13 @@ export interface PlayOptions {
   /** Stop and winter over if the player hasn't left by this day. */
   maxDays?: number;
   legacy?: Legacy;
-  /** Talents the Warden picked (#1263); none by default. (No id, so no hidden talent — #1267 adds that.) */
+  /**
+   * The Warden's character id (#1267). It seeds the talent offer and the hidden
+   * talent, exactly as for a person. Defaults to one made from the player's name;
+   * pass the previous run's id to carry on as the same character.
+   */
+  characterId?: string;
+  /** Talents the player wants (#1263) — taken only if both were offered, else the first two offered. */
   talents?: TalentId[];
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
@@ -86,10 +92,17 @@ function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn[
   };
 }
 
+/** A stable character id for an AI player: the same name gives the same Warden (and the same talents). */
+export const aiCharacterId = (name: string, salt = ''): string => `ai-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}${salt ? `-${salt}` : ''}`;
+
 /** Play one Region 1 run with `player`. */
 export async function playRun(player: Player, opts: PlayOptions = {}): Promise<RunResult> {
   const { warmth } = await import('../artificer/region1');
-  let s = createRegion1({}, opts.legacy, { name: player.name, chosen: opts.talents ?? [] });
+  // AI players play exactly like people (#1267): a character id, two talents from the seeded
+  // offer, and a hidden one. (Carrying on, the legacy's talents win and the pick is ignored.)
+  const id = opts.characterId ?? aiCharacterId(player.name);
+  const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
+  let s = createRegion1({}, opts.legacy, { id, name: player.name, chosen });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   // The cap can't end a run before any exit opens, so it is at least the caravan's first day.
