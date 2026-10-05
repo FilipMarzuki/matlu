@@ -184,50 +184,61 @@ function knownList(s: AppState['sim']): string {
 const RECIPE_NAMES: Record<string, string> = { 'shelter-leanto': 'Lean-to', 'shelter-timber': 'Timber walls', 'cold-gear': 'Woven cold gear', 'stone-knife': 'Stone knife', bedroll: 'Bedroll' };
 const undiscovered = (s: AppState['sim']): number => DISCOVERIES.filter(d => !s.known.includes(d.recipe)).length;
 
-function warden(a: AppState): string {
-  const s = a.sim;
+// ── Blocks (each tab is composed from these) ────────────────────────────────
+
+const storeChip = (icon: string, label: string, n: number, low = false): string => `<span class="r ${low ? 'low' : ''}">${icon} ${label} <b>${n}</b></span>`;
+
+function storesRow(s: AppState['sim']): string {
   const st = s.stores;
-  const r = (icon: string, label: string, n: number, low = false): string => `<span class="r ${low ? 'low' : ''}">${icon} ${label} <b>${n}</b></span>`;
+  return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1)}${storeChip('💧', 'Water', st.water, st.water < 1)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
+}
+
+function vitalsBlock(a: AppState): string {
+  const v = a.sim.vitals;
+  return `<div class="vitals">${poolRow('VIGOR', v.vigor)}${poolRow('CLARITY', v.clarity)}
+      <div class="vital"><span class="vn">RESERVE</span><div class="track"><div class="fill ${band(v.condition / 100)}" style="width:${pct(v.condition / 100)}%"></div></div><span class="vs ${band(v.condition / 100)}">${Math.round(v.condition)}%</span></div>
+    </div><p class="mood">${moodLine(a)}</p>`;
+}
+
+function sitesBlock(a: AppState): string {
+  const s = a.sim;
   const sites = (Object.keys(SITES) as SiteId[]).map(id =>
     `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${scouted(s.explore, 1) && !s.outcome ? '' : 'disabled'}>`
     + `<div class="t">${SITES[id].name.toUpperCase()}<span class="warm" style="margin-left:auto">MAX ${Math.round(SITES[id].warmth * 100)}% WARM</span></div>`
     + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2${s.shelterGrade ? ` (${s.shelterGrade})` : ''} · ${Math.round(warmth(s) * 100)}% warm.` : ''}</div></button>`).join('');
+  return `<div class="sites">${sites}</div>${scouted(s.explore, 1) ? '<p class="mood">Pick camp here, or choose a location on a queued build.</p>' : '<p class="mood">Scout first to find somewhere to settle.</p>'}`;
+}
+
+function toolsBlock(a: AppState): string {
+  const s = a.sim;
   // Tool names come from the craft actions that make them (output item → action).
-  const toolName = (item: string): string => (item === HIDE_PARKA_RECIPE.output.item ? HIDE_PARKA_RECIPE.name : Object.values(ACTIONS).find(a => a.recipe?.output.item === item)?.recipe?.name ?? item);
+  const toolName = (item: string): string => (item === HIDE_PARKA_RECIPE.output.item ? HIDE_PARKA_RECIPE.name : Object.values(ACTIONS).find(x => x.recipe?.output.item === item)?.recipe?.name ?? item);
   const tools = s.tools.map(t => `<span class="r tool ${t.grade}">${esc(toolName(t.item))} <b>${t.grade.toUpperCase()}</b></span>`).join('');
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0)
     .map(([id, p]) => `<span class="r concept">${esc(id)} <b>R${p.rank}</b></span>`).join('');
-  const miles = REGION1_MILESTONES.map(m => {
-    const done = s.milestones.includes(m.id);
-    return `<li class="${done ? 'done' : ''}"><span class="mk">${done ? '✓' : '·'}</span><span class="mn">${esc(m.name.toUpperCase())}</span></li>`;
-  }).join('');
-  return `<section class="box" aria-label="Warden and stores">
-    <p class="eyebrow">THE WARDEN</p>
-    <div class="vitals">${poolRow('VIGOR', s.vitals.vigor)}${poolRow('CLARITY', s.vitals.clarity)}
-      <div class="vital"><span class="vn">RESERVE</span><div class="track"><div class="fill ${band(s.vitals.condition / 100)}" style="width:${pct(s.vitals.condition / 100)}%"></div></div><span class="vs ${band(s.vitals.condition / 100)}">${Math.round(s.vitals.condition)}%</span></div>
-    </div>
-    <p class="mood">${moodLine(a)}</p>
-    <p class="eyebrow" style="margin-top:14px">STORES</p>
-    <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}${r('⛰️', 'Stone', st.stone)}${r('🦌', 'Hides', st.hides)}</div>
-    <p class="eyebrow" style="margin-top:14px">SITE &amp; SHELTER</p>
-    <div class="sites">${sites}</div>
-    ${scouted(s.explore, 1) ? '' : '<p class="mood">Scout first to find somewhere to settle.</p>'}
-    <p class="eyebrow" style="margin-top:14px">THE LAND</p>
-    ${land(a)}
-    <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>
-    <div class="res">${tools || '<span class="mood" style="margin:0">No tools yet — craft some once you have materials.</span>'}</div>
+  return `<div class="res">${tools || '<span class="mood" style="margin:0">No tools yet — craft some once you have materials.</span>'}</div>
     ${concepts ? `<div class="res" style="margin-top:6px">${concepts}</div>` : ''}
-    <p class="mood" style="margin:6px 0 0">Known recipes: ${esc(knownList(s))}${undiscovered(s) ? ` · ${undiscovered(s)} still to work out` : ''}</p>
-    <p class="eyebrow" style="margin-top:14px">MILESTONES</p>
-    <ol class="miles">${miles}</ol>
-  </section>`;
+    <p class="mood" style="margin:6px 0 0">Known recipes: ${esc(knownList(s))}${undiscovered(s) ? ` · ${undiscovered(s)} still to work out` : ''}</p>`;
 }
 
-function planner(a: AppState): string {
-  const s = a.sim;
-  const preview = previewQueue(a);
-  const resolved = s.outcome !== null;
+function milesBlock(a: AppState): string {
+  return `<ol class="miles">${REGION1_MILESTONES.map(m => {
+    const done = a.sim.milestones.includes(m.id);
+    return `<li class="${done ? 'done' : ''}"><span class="mk">${done ? '✓' : '·'}</span><span class="mn">${esc(m.name.toUpperCase())}</span></li>`;
+  }).join('')}</ol>`;
+}
 
+function journal(a: AppState, limit: number): string {
+  return [...a.sim.log].reverse().slice(0, limit).map((l: LogEntry) => {
+    const cls = l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
+    return `<li class="${cls}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
+  }).join('') || '<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. Scout before anything else — you don\'t yet know where food, water or wood are.</li>';
+}
+
+type Preview = ReturnType<typeof previewQueue>;
+
+function paletteBlock(a: AppState, preview: Preview): string {
+  const resolved = a.sim.outcome !== null;
   // Gates are judged against the state *after* the queue so far, so you can
   // plan "scout, then gather" in one go. Blocked actions stay clickable (a
   // skipped action costs nothing) but are dashed and say why.
@@ -237,17 +248,25 @@ function planner(a: AppState): string {
     return `<button class="ringtab ${focusRing === r ? 'on' : ''} ${open ? '' : 'locked'}" data-ring="${r}" title="${open ? '' : 'Scout the ring inside it first'}">`
       + `${RING_NAME[r].toUpperCase()}<span>${TRAVEL_HOURS[r] ? `+${TRAVEL_HOURS[r]}h travel` : 'home ground'}</span></button>`;
   }).join('')}</div>`;
-  const palette = tabs + GROUPS.map(g => `<div class="group"><h4>${g.title}${g.title === 'EXPLORE' || g.title === 'PROVISION' ? ` <span class="ringnote">· ${RING_NAME[focusRing].toLowerCase()} ring</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
+  return tabs + GROUPS.map(g => `<div class="group"><h4>${g.title}${g.title === 'EXPLORE' || g.title === 'PROVISION' ? ` <span class="ringnote">· ${RING_NAME[focusRing].toLowerCase()} ring</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
     const r: Ring = def.ringed ? focusRing : 1;
     const q = queueId(id, r);
     const why = def.gate?.(preview.projected, r, {}) ?? null;
     const spends = [def.vigorRate < 0 ? 'vigor' : '', def.clarityRate < 0 ? 'clarity' : ''].filter(Boolean).join(' + ') || 'restores';
     return `<button class="act ${why ? 'soft' : ''}" data-q="${q}" ${resolved ? 'disabled' : ''} title="${why ? esc(`Would be skipped: ${why}`) : ''}">`
-      + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${queueHours(q)}H</span></div>`
+      + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${queueHours(q, preview.projected)}H</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span> · <span class="vc">${spends}</span>`}</div></button>`;
   }).join('')}</div></div>`).join('');
+}
 
+/** Today's planned hours (only entries that would run today and not be skipped). */
+const todayHours = (a: AppState, preview: Preview): number =>
+  a.queue.reduce((h, item, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(item, preview.before[i]) : 0), a.sim.hoursToday);
+
+function queueBlock(a: AppState, preview: Preview): string {
+  const s = a.sim;
+  const resolved = s.outcome !== null;
   const items = a.queue.map((item, i) => {
     const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
@@ -267,29 +286,83 @@ function planner(a: AppState): string {
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
       + `<span class="meta">${queueHours(item, preview.before[i])}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${menu}</li>`;
   }).join('');
-  const todayHours = a.queue.reduce((h, item, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(item, preview.before[i]) : 0), s.hoursToday);
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
-
-  const log = [...s.log].reverse().slice(0, 80).map((l: LogEntry) => {
-    const cls = l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
-    return `<li class="${cls}"><span class="d">D${l.day}</span>${esc(l.text)}</li>`;
-  }).join('') || '<li style="color:var(--faint);font-style:italic">Day 1 in the Reach. Scout before anything else — you don\'t yet know where food, water or wood are.</li>';
-
-  return `<section class="box" aria-label="The day's plan">
-    <p class="eyebrow">PLAN THE DAY — build a queue, then run it</p>
-    ${palette}
-    <div class="queue">
+  return `<div class="queue">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">THE QUEUE</p>
-      <ol>${items || `<li class="empty">Empty — click actions above to plan. A day is ${DAY_HOURS} waking hours; the queue spills into the next day and you sleep between.</li>`}</ol>
-      <div class="qtot"><span>Today <b>${todayHours} / ${DAY_HOURS}h</b></span><span>Spans <b>${days}</b> day${days === 1 ? '' : 's'}</span></div>
+      <ol>${items || `<li class="empty">Empty — tap actions to plan. A day is ${DAY_HOURS} waking hours; the queue spills into the next day and you sleep between.</li>`}</ol>
+      <div class="qtot"><span>Today <b>${todayHours(a, preview)} / ${DAY_HOURS}h</b></span><span>Spans <b>${days}</b> day${days === 1 ? '' : 's'}</span></div>
       <div class="runbar">
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${a.queue.length ? '▶ RUN THE DAY' : '☾ PASS THE DAY'}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>⏭ RUN WHOLE QUEUE</button>
         <button class="btn" data-cmd="clear" ${a.queue.length ? '' : 'disabled'}>CLEAR</button>
       </div>
-    </div>
-    <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">JOURNAL</p><ul>${log}</ul></div>
-  </section>`;
+    </div>`;
+}
+
+/** Where we are in the season, in a few words (for the header chip). */
+function phaseChip(a: AppState): string {
+  const cal = a.sim.config.calendar;
+  const d = a.sim.day;
+  const ph = phaseOf(d, cal);
+  if (ph === 'prep') { const n = cal.caravanOpen - d; return `<span class="phase">AUTUMN · CARAVAN IN ${n} DAY${n === 1 ? '' : 'S'}</span>`; }
+  if (ph === 'caravan') return `<span class="phase gold">CARAVAN HERE · UNTIL DAY ${cal.caravanClose}</span>`;
+  if (ph === 'postCaravan') return '<span class="phase">CARAVAN GONE</span>';
+  return '<span class="phase ice">WINTER</span>';
+}
+
+/** Always-visible summary: body, key stores, today's hours, readiness. */
+function statusBar(a: AppState, preview: Preview): string {
+  const s = a.sim;
+  const mini = (label: string, cur: number, cap: number, max: number): string => {
+    const b = band(cap > 0 ? cur / cap : 0);
+    return `<span class="mini"><span class="ml">${label}</span><span class="mt"><span class="mf ${b}" style="width:${pct(cur / max)}%"></span></span><span class="mv ${b}">${Math.round(cur)}</span></span>`;
+  };
+  const st = s.stores;
+  const ready = winterReady(s);
+  return `<div class="statusbar">
+    <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
+    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
+    <span class="shours">TODAY <b>${todayHours(a, preview)}/${DAY_HOURS}H</b></span>
+    <span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>
+  </div>`;
+}
+
+const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
+
+type Tab = 'plan' | 'camp' | 'land' | 'progress';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'progress', label: 'PROGRESS' },
+];
+/** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
+let tab: Tab = (() => { try { const t = localStorage.getItem('artificer.tab'); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
+let showHelp = false;
+
+function tabBody(a: AppState, preview: Preview): string {
+  switch (tab) {
+    case 'plan':
+      return `<div class="plan">
+        <section class="box"><p class="eyebrow">ACTIONS — tap to add to the queue</p>${paletteBlock(a, preview)}</section>
+        <section class="box planside">${queueBlock(a, preview)}
+          <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">LATEST</p><ul>${journal(a, 6)}</ul></div></section>
+      </div>`;
+    case 'camp':
+      return `<div class="cols">
+        <section class="box"><p class="eyebrow">THE WARDEN</p>${vitalsBlock(a)}
+          <p class="eyebrow" style="margin-top:14px">STORES</p>${storesRow(a.sim)}
+          <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</section>
+        <section class="box"><p class="eyebrow">SITE &amp; SHELTER</p>${sitesBlock(a)}</section>
+      </div>`;
+    case 'land':
+      return `<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${land(a)}${LAND_LEGEND}
+        <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>`;
+    case 'progress':
+      return `<div class="cols">
+        <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}
+          <p class="eyebrow" style="margin-top:16px">WINTER READINESS</p>${readiness(a)}
+          <p class="eyebrow" style="margin-top:16px">MILESTONES</p>${milesBlock(a)}</section>
+        <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">JOURNAL</p><ul class="full">${journal(a, 200)}</ul></section>
+      </div>`;
+  }
 }
 
 function resolvePanel(a: AppState): string {
@@ -320,25 +393,26 @@ function resolvePanel(a: AppState): string {
 }
 
 function render(a: AppState): void {
+  const preview = previewQueue(a);
+  const fresh = a.sim.log.length === 0;
   root.innerHTML = `
     <header>
-      <h1>❄ GREYWIND <span class="mark">REACH</span> — REGION 1</h1>
+      <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
+      ${phaseChip(a)}
       <span class="spacer"></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
+      <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
     </header>
-    <p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
+    ${fresh || showHelp ? `<p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
       <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
-      and run it. A caravan passes just before the snow — then ride out with it, brave the crossing alone, or winter over.</p>
-    <div class="strip">
-      <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}</section>
-      <section class="box"><p class="eyebrow">WINTER READINESS</p>${readiness(a)}</section>
-    </div>
+      and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind). Scout first, then push outward —
+      working the land teaches you its detail. A caravan passes just before the snow: ride out with it, brave the crossing alone, or winter over.
+      Progress saves in this browser.</p>` : ''}
+    ${statusBar(a, preview)}
     ${resolvePanel(a)}
-    <main>${warden(a)}${planner(a)}</main>
-    <footer><b>The queue is the game.</b> Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
-      Scout first, then push outward: the near ring runs thin as you work it, and working any patch teaches you its detail. Sleep recovers more in a warmer shelter. Eat and drink daily or you fade.
-      <b>Preserve</b> raw food into rations — that's the winter larder, not today's meals. Progress saves in this browser.</footer>`;
+    <nav class="tabbar" role="tablist">${TABS.map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}</button>`).join('')}</nav>
+    ${tabBody(a, preview)}`;
 }
 
 // ── Save / load (browser storage can be missing or blocked — never fatal) ───
@@ -367,7 +441,9 @@ root.addEventListener('click', e => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
   const d = el.dataset;
-  if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
+  if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
+  else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
+  else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   else if (d.q) update(enqueue(state, d.q as QueueId));
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
