@@ -10,7 +10,7 @@ import { createRoad, endRoadDay, runRoadAction, runRoadDay, ROUTE, ROAD_DAYS, ty
 
 /** A Region 1 run that left with the caravan, `thrive` or `ragged`, for a Warden with some history. */
 function leftWithCaravan(kind: 'thrive' | 'ragged', condition = 90): Region1State {
-  const s = createRegion1({}, undefined, { id: 'w-vega', name: 'Vega', portrait: 'tinkerer', traits: ['hardy', 'tough'] });
+  const s = createRegion1({}, undefined, { id: 'w-vega', name: 'Vega', portrait: 'tinkerer', chosen: ['hardy', 'tough'] });
   const vitals = createVitals({ vigor: 60, clarity: 70, condition });
   return {
     ...s,
@@ -112,7 +112,7 @@ describe('The caravan road (#1244)', () => {
   // 6. Survival rules still apply: starvation kills, as in Region 1.
   it('kills a starving Warden on the road', () => {
     const s = createRoad(leftWithCaravan('thrive'));
-    const starving = { ...at(s, travelLeg, 1, { rawFood: 0 }), deprivation: { hungry: 4, thirsty: 0 }, vitals: createVitals({ condition: 5 }), character: { ...s.character, traits: [] } };
+    const starving = { ...at(s, travelLeg, 1, { rawFood: 0 }), deprivation: { hungry: 4, thirsty: 0 }, vitals: createVitals({ condition: 5 }), character: { ...s.character, talents: [] } };
     const dead = endRoadDay(starving);
     expect(dead.outcome).toMatchObject({ kind: 'died' });
     expect(lastLine(dead)).toMatch(/starvation/);

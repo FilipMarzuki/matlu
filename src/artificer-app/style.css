@@ -383,6 +383,7 @@ body { min-height: 100vh; }
   .wrank { margin: 0; font-family: var(--display); font-size: 10px; letter-spacing: 1px; color: var(--teal); }
   .wrank span { color: var(--dim); font-family: var(--body); letter-spacing: 0; }
   .traits { display: grid; gap: 8px; }
+  .trait.hidden { border-style: dashed; background: transparent; }
   .concepts { margin: 0; padding-left: 18px; font-size: 12.5px; }
   .concepts span { color: var(--dim); }
   .who { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border-radius: 999px; border: 1px solid var(--border); background: var(--sub); color: var(--dim); font: 12px var(--body); cursor: pointer; }

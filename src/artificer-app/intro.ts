@@ -21,7 +21,7 @@ export type IntroKind = 'fresh' | 'carry';
  * - `title`: the closing card.
  */
 export interface Beat {
-  /** `create`: the character-creation screen (name, portrait, traits) — #1239. */
+  /** `create`: the character-creation screen (name, portrait, talents, stats) — #1239, #1258, #1263. */
   kind: 'narration' | 'voice' | 'title' | 'create';
   lines: string[];
   /** Show the portal behind this beat. */

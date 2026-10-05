@@ -25,7 +25,7 @@ import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques'
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
 import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
-import { TRAITS, TRAIT_IDS, TRAIT_COUNT, type TraitId } from '../artificer/traits';
+import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
@@ -248,19 +248,22 @@ function focusBlock(s: AppState['sim']): string {
     <div class="fchips" style="margin-top:6px">${chip('none', 'No focus', 'free your mind (saves the Clarity)')}</div>`;
 }
 
-/** The Warden tab (#1239): who you are — portrait, name, rank, traits, skills, concepts. */
+/** The Warden tab (#1239): who you are — portrait, name, rank, focus, stats, talents, skills, concepts. */
 function wardenTab(a: AppState): string {
   const c = a.sim.character;
-  const traits = c.traits.length
-    ? c.traits.map(t => `<div class="trait"><b>${esc(TRAITS[t].name)}</b><span class="up">+ ${esc(TRAITS[t].upside)}</span><span class="cost">− ${esc(TRAITS[t].cost)}</span>${t === 'tough' ? `<span class="note">${c.lastStandUsed ? 'last stand used this run' : 'last stand ready'}</span>` : ''}</div>`).join('')
-    : '<p class="mood">No traits — a quick-start Warden. Start a fresh Warden to choose two.</p>';
+  // Talents (#1263): the known ones by name; a hidden one only as a hint that it exists. Tiers are never shown.
+  const hidden = c.talents.filter(t => !t.known).length;
+  const talents = c.talents.length
+    ? c.talents.filter(t => t.known).map(t => `<div class="trait"><b>${esc(TALENTS[t.id].name)}</b><span class="up">+ ${esc(TALENTS[t.id].blurb)}</span>${t.id === 'tough' && c.lastStandUsed ? '<span class="note">last stand used this run</span>' : ''}</div>`).join('')
+      + (hidden ? '<div class="trait hidden"><b>A hidden gift</b><span class="note">Something in you not yet known. Watch for signs.</span></div>' : '')
+    : '<p class="mood">No talents — a quick-start Warden. Start a fresh Warden to choose two.</p>';
   const concepts = Object.entries(a.sim.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0);
   return `<div class="cols">
     <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">STATS — what you're built for</p>${statsBlock(c.stats)}
-      <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
+      <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div></section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
@@ -589,19 +592,20 @@ introEl.hidden = true;
 document.body.appendChild(introEl);
 
 /** What the player is choosing on the creation screen (#1239). */
-let draft: { name: string; portrait: string; traits: TraitId[]; stats: Stats } = { name: '', portrait: PORTRAITS[0].id, traits: [], stats: { ...DEFAULT_STATS } };
-const draftValid = (): boolean => draft.name.trim().length > 0 && draft.traits.length === TRAIT_COUNT;
+// The draft carries the new Warden's id from the start: the talents on offer are seeded by it (#1263).
+let draft: { id: string; name: string; portrait: string; talents: TalentId[]; stats: Stats } = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS } };
+const draftValid = (): boolean => draft.name.trim().length > 0 && draft.talents.length === TALENT_PICKS;
 
 function startIntro(kind: IntroKind): void {
-  draft = { name: '', portrait: PORTRAITS[0].id, traits: [], stats: { ...DEFAULT_STATS } };
+  draft = { id: newCharacterId(), name: '', portrait: PORTRAITS[0].id, talents: [], stats: { ...DEFAULT_STATS } };
   drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
   renderIntro();
 }
 
-/** Leaving the creation screen: the Warden is made with the chosen name, portrait and traits. */
+/** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
-  state = { sim: createRegion1({}, undefined, { id: newCharacterId(), name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
+  state = { sim: createRegion1({}, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
   render(state);
 }
 
@@ -652,15 +656,17 @@ function renderIntro(): void {
   else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
 }
 
-/** The creation form: name, portrait, two traits. Choices live in `draft` until Continue. */
+/** The creation form: name, portrait, two of four offered talents, stats. Choices live in `draft` until Continue. */
 function createForm(): string {
   const portraits = PORTRAITS.map(p => `<button class="pchoice" data-portrait="${p.id}" aria-pressed="${draft.portrait === p.id}">${portraitEl(p.id, 64)}<span>${esc(p.label)}</span></button>`).join('');
-  const traits = TRAIT_IDS.map(t => `<button class="tchoice" data-trait="${t}" aria-pressed="${draft.traits.includes(t)}"><b>${esc(TRAITS[t].name)}</b><span class="up">+ ${esc(TRAITS[t].upside)}</span><span class="cost">− ${esc(TRAITS[t].cost)}</span></button>`).join('');
+  const offer = talentOffer(seedOf(draft.id));
+  const talents = offer.map(t => `<button class="tchoice" data-talent="${t}" aria-pressed="${draft.talents.includes(t)}"><b>${esc(TALENTS[t].name)}</b><span class="up">+ ${esc(TALENTS[t].blurb)}</span></button>`).join('');
   return `<form class="create" onsubmit="return false">
     <label class="clabel" for="wname">NAME</label>
     <input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}">
     <p class="clabel">PORTRAIT</p><div class="pchoices">${portraits}</div>
-    <p class="clabel">TRAITS — choose ${TRAIT_COUNT} <span>(${draft.traits.length}/${TRAIT_COUNT})</span></p><div class="tchoices">${traits}</div>
+    <p class="clabel">TALENTS — choose ${TALENT_PICKS} <span>(${draft.talents.length}/${TALENT_PICKS})</span></p><div class="tchoices">${talents}</div>
+    <p class="mood" style="margin:0">…and something else in you, not yet known.</p>
     ${statsForm()}
   </form>`;
 }
@@ -688,7 +694,7 @@ function statsForm(): string {
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-trait], [data-stat]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-talent], [data-stat]');
   const creating = intro?.beats[intro.i].kind === 'create';
   if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
   if (btn?.dataset.stat) {
@@ -698,10 +704,10 @@ introEl.addEventListener('click', e => {
     if (up ? canRaise(draft.stats, id) : canLower(draft.stats, id)) draft.stats = { ...draft.stats, [id]: draft.stats[id] + (up ? 1 : -1) };
     renderIntro(); return;
   }
-  if (btn?.dataset.trait) {
-    const t = btn.dataset.trait as TraitId;
+  if (btn?.dataset.talent) {
+    const t = btn.dataset.talent as TalentId;
     // Toggle; picking a third replaces the earliest pick.
-    draft.traits = draft.traits.includes(t) ? draft.traits.filter(x => x !== t) : [...draft.traits, t].slice(-TRAIT_COUNT);
+    draft.talents = draft.talents.includes(t) ? draft.talents.filter(x => x !== t) : [...draft.talents, t].slice(-TALENT_PICKS);
     renderIntro(); return;
   }
   if (btn?.dataset.intro === 'skip') endIntro();
