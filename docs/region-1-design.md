@@ -64,6 +64,24 @@ By the end a well-played Warden enters winter **at or above baseline** — the
 reward for good preparation is that you meet the cold stronger than you arrived
 (capacity model, vitality §1).
 
+### Milestones — a first-win ladder
+
+Because Region 1 is the tutorial, the winter-ready goal is scaffolded by a
+**ladder of milestones** — discrete first-time wins that light up as the player
+hits them, breaking the abstract goal into legible steps and quietly teaching
+the order of operations:
+
+*get your bearings* (scout) → *stake a claim* (choose a site) → *water secured*
+→ *first forage* → *fire & timber* → *a roof overhead* (raise a shelter) →
+*read the tracks* → *first catch* (hunt) → *the larder begins* (preserve) →
+*winterized* → *larder stocked* / *fuel laid in* → **winter-ready**.
+
+Early rungs are "first time you do X" (guidance); the later ones are the
+readiness thresholds themselves (shelter winter-warm, larder/fuel full). The
+ladder is a teaching aid and a progress readout, not a hard gate — the player
+can tackle steps in any order, and the milestones simply celebrate and signpost.
+(Prototyped in the *Greywind Reach* slice.)
+
 ---
 
 ## 3. The clock: winter is the deadline
