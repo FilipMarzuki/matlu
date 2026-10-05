@@ -14,6 +14,7 @@
 
 import './style.css';
 import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, type ActionId, type LogEntry, type SiteId } from '../artificer/region1';
+import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
@@ -24,27 +25,37 @@ import { newGame, enqueue, dequeueAt, clearQueue, runQueuedDay, runWholeQueue, s
 const GROUPS: { title: string; ids: ActionId[] }[] = [
   { title: 'EXPLORE', ids: ['scout', 'survey', 'track'] },
   { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'preserve'] },
-  { title: 'BUILD & CRAFT', ids: ['build', 'coldGear'] },
+  { title: 'BUILD', ids: ['build', 'coldGear'] },
+  { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { title: 'RECOVER', ids: ['tinker', 'rest'] },
 ];
 
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
+  knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️',
 };
+
+/** Extra yield your tools give an action (shown in the hint). */
+const bonus = (s: AppState['sim'], id: ActionId): number => modifiersFor(s.tools, id).yieldAdd;
 
 /** One-line "what you get" per action. Numbers mirror region1.ts yields. */
 const YIELD: Record<ActionId, (s: AppState['sim']) => string> = {
   scout: () => 'reveals the land',
   survey: () => 'richer yields',
   track: () => 'enables hunting',
-  gather: s => `+${s.knowledge.surveyed ? 5 : 3} raw food`,
-  hunt: () => '+7 raw food',
-  water: s => `+${(s.knowledge.surveyed ? 5 : 4) + (s.site === 'river' ? 2 : 0)} water`,
+  gather: s => `+${(s.knowledge.surveyed ? 5 : 3) + bonus(s, 'gather')} raw food`,
+  hunt: s => `+${7 + bonus(s, 'hunt')} raw food`,
+  water: s => `+${(s.knowledge.surveyed ? 5 : 4) + (s.site === 'river' ? 2 : 0) + bonus(s, 'water')} water`,
   wood: s => `+${(s.knowledge.surveyed ? 5 : 4) + (s.site === 'tree' ? 1 : 0)} fuel, +${s.knowledge.surveyed ? 3 : 2} mat`,
   preserve: () => '2 raw → 1 ration (×3)',
   build: s => (s.tier < 2 ? `tier ${s.tier + 1} · ${BUILD_COST[s.tier as 0 | 1]} mat` : 'winterized'),
   coldGear: () => 'needed to cross solo',
+  knife: () => 'hunt −15% vigor, quicker preserving',
+  snare: () => '+1 food every night',
+  waterskin: () => '+1 water per trip',
+  bedroll: () => '+6 clarity overnight',
+  shovel: () => 'build −20% vigor · needs a roof',
   tinker: () => 'rests body, spends mind',
   rest: () => 'recovers a little',
 };
@@ -136,6 +147,11 @@ function warden(a: AppState): string {
     `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${s.knowledge.scouted && !s.outcome ? '' : 'disabled'}>`
     + `<div class="t">${SITES[id].name.toUpperCase()}<span class="warm" style="margin-left:auto">MAX ${Math.round(SITES[id].warmth * 100)}% WARM</span></div>`
     + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2.` : ''}</div></button>`).join('');
+  // Tool names come from the craft actions that make them (output item → action).
+  const toolName = (item: string): string => (Object.values(ACTIONS).find(a => a.recipe?.output.item === item)?.recipe?.name ?? item);
+  const tools = s.tools.map(t => `<span class="r tool ${t.grade}">${esc(toolName(t.item))} <b>${t.grade.toUpperCase()}</b></span>`).join('');
+  const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0)
+    .map(([id, p]) => `<span class="r concept">${esc(id)} <b>R${p.rank}</b></span>`).join('');
   const miles = REGION1_MILESTONES.map(m => {
     const done = s.milestones.includes(m.id);
     return `<li class="${done ? 'done' : ''}"><span class="mk">${done ? '✓' : '·'}</span><span class="mn">${esc(m.name.toUpperCase())}</span></li>`;
@@ -151,6 +167,9 @@ function warden(a: AppState): string {
     <p class="eyebrow" style="margin-top:14px">SITE &amp; SHELTER</p>
     <div class="sites">${sites}</div>
     ${s.knowledge.scouted ? '' : '<p class="mood">Scout first to find somewhere to settle.</p>'}
+    <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>
+    <div class="res">${tools || '<span class="mood" style="margin:0">No tools yet — craft some once you have materials.</span>'}</div>
+    ${concepts ? `<div class="res" style="margin-top:6px">${concepts}</div>` : ''}
     <p class="eyebrow" style="margin-top:14px">MILESTONES</p>
     <ol class="miles">${miles}</ol>
   </section>`;

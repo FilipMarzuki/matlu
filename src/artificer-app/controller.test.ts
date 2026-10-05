@@ -76,6 +76,13 @@ describe('Artificer controller', () => {
     expect(deserialize('')).toBeNull();
     expect(deserialize('{not json')).toBeNull();
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION + 1, sim: a.sim, queue: [] }))).toBeNull();
+    // v1 saves (before tools existed) start fresh rather than load half-shaped.
+    expect(deserialize(JSON.stringify({ version: 1, sim: a.sim, queue: [] }))).toBeNull();
+    const { tools: _t, ...noTools } = a.sim;
+    expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: noTools, queue: [] }))).toBeNull();
+    // Tools and concepts round-trip.
+    const crafted = { ...a, sim: { ...a.sim, tools: [{ item: 'stone-knife', grade: 'fine' as const }], concepts: { sharpening: { rank: 1, insight: 2 } } } };
+    expect(deserialize(serialize(crafted))).toEqual(crafted);
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: ['fly'] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: { ...a.sim, vitals: null }, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: { ...a.sim, day: 'one' }, queue: [] }))).toBeNull();

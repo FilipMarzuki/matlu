@@ -116,7 +116,8 @@ export const DEFAULT_EFFECTS: Readonly<Record<string, ItemEffects>> = {
   'skinning-knife': { actionCost: [{ action: 'preserve', pool: 'clarity', mult: 0.8 }], yield: [{ action: 'hunt', add: 2 }], craftBonus: 1 },
   'trap-snare': { yield: [{ action: 'gather', add: 1 }], unlock: ['snare-line'] },
   'waterskin': { yield: [{ action: 'water', add: 1 }], unlock: ['carry-water'] },
-  'bedroll': { cap: [{ pool: 'clarity', add: 4 }] },
+  // A bedroll is a better night's sleep: extra Clarity recovered overnight.
+  'bedroll': { yield: [{ action: 'sleep', add: 6 }] },
   'crude-shovel': { actionCost: [{ action: 'build', pool: 'vigor', mult: 0.8 }] },
   'fishing-rod': { yield: [{ action: 'gather', add: 1 }], unlock: ['fish'] },
   'pouch': { actionCost: [{ action: 'gather', pool: 'time', mult: 0.9 }] },
