@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
-import { fastForward } from './test-helpers';
+import { fastForward, SHORT_YEAR } from './test-helpers';
 import { createRegion1, runAction, runDay, endDay, chooseSite, choose, warmth, type Region1State, NEEDS } from './region1';
 import { BASELINE } from './vitality';
 import { scouted, level } from './exploration';
@@ -116,7 +116,7 @@ describe('Region 1 sim', () => {
 
   // 6. Exits only when the calendar allows.
   it('only allows an exit when the calendar opens it', () => {
-    const fresh = createRegion1({ world: FLAT_WORLD });
+    const fresh = createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR });
     // WHEN they try to leave on day 1
     expect(() => choose(fresh, 'caravan')).toThrow(/not available/);
     // WHEN the caravan has arrived

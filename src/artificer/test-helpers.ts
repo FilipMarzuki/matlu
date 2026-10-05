@@ -7,6 +7,7 @@
  */
 
 import { runDay, type QueueItem, type Region1State } from './region1';
+import type { Calendar } from './winter';
 
 /** At least `n` food and water in store. */
 export const supplied = (s: Region1State, n = 2): Region1State =>
@@ -23,3 +24,11 @@ export function fastForward(s: Region1State, day: number, queue: readonly QueueI
   }
   return s;
 }
+
+/**
+ * The old 13-day year (caravan days 10–12, snow on day 13), for tests of the
+ * short game written before the 60-day year (#1301). The season curves
+ * compress to fit it, so day 10 is near freezing as it always was. Winter
+ * becomes playable in #1302, and the balance tests move to the full year in #1306.
+ */
+export const SHORT_YEAR: Calendar = { caravanOpen: 10, caravanClose: 12, winterDay: 13, thawDay: 43 };

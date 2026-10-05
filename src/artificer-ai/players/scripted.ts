@@ -28,6 +28,17 @@ const PLAN: Entry[][] = [
   [a('scout', 3), a('water'), a('rest')],
 ];
 
+/**
+ * After the plan, until the caravan (day 28 since the 60-day year, #1301):
+ * keep hunting, smoking and fetching, and keep the woodpile up for the cold
+ * nights. Winter becomes playable in #1302; the plan is rebuilt for it in #1309.
+ */
+const ROUTINE: Entry[][] = [
+  [a('hunt'), a('preserve'), a('water')],
+  [a('wood'), a('hunt'), a('preserve')],
+  [a('water'), a('wood'), a('rest')],
+];
+
 /** Would today's weather waste or bar this action? (Fog blinds scouting; a storm bars the far rings — #1284.) */
 const spoiled = (e: Entry, s: Region1State): boolean => blindInFog(s.weatherToday, e.action as never) || stormBars(s.weatherToday, e.ring);
 
@@ -53,7 +64,7 @@ export const scriptedPlayer = (): Player => {
       const exit = exits.length ? (winterReady(s) && exits.includes('caravan') ? 'caravan' : 'winter') : null;
       let queue: Entry[] = [];
       if (!exit) {
-        const today = remaining.shift() ?? [a('rest')];
+        const today = remaining.shift() ?? [...ROUTINE[s.day % ROUTINE.length]];
         queue = today.map(e => (spoiled(e, s) ? a('wood') : e));
         // Short of materials for today's build (bad weather cost a trip)? Cut more wood first — a trip per missing unit, two at most.
         const short = /needs (\d+) materials \(have (\d+)\)/.exec(blockedReason(s, 'build', 1) ?? '');

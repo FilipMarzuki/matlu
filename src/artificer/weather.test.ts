@@ -17,7 +17,7 @@ const warden = (id = 'w-vega', over: Partial<Region1State> = {}): Region1State =
 const lines = (s: Region1State) => s.log.map(l => l.text).join('\n');
 
 describe('Weather (#1282)', () => {
-  // 1. Seeded per character and day, with the season's odds; no snow before day 9.
+  // 1. Seeded per character and day, with the season's odds; no snow before day 20.
   it('rolls the same weather for the same Warden and day, with seasonal odds', () => {
     const seed = seedOf('w-vega');
     for (let d = 1; d <= 13; d++) expect(weatherFor(seed, d, FULL_WORLD)).toBe(weatherFor(seed, d, FULL_WORLD));
@@ -27,13 +27,12 @@ describe('Weather (#1282)', () => {
       for (let i = 0; i < 5000; i++) { const w = weatherFor(seedOf(`w-${i}`), day, FULL_WORLD); counts[w] = (counts[w] ?? 0) + 1; }
       return counts;
     };
-    for (const day of [3, 11]) {
+    for (const day of [3, 22]) {
       const counts = share(day);
       for (const id of WEATHER_IDS) expect(Math.abs((counts[id] ?? 0) / 50 - oddsFor(day)[id])).toBeLessThanOrEqual(3);
     }
-    for (let d = 1; d <= 8; d++) expect(Object.keys(share(d))).not.toContain('snow');
-    expect(Object.values(oddsFor(3)).reduce((a, b) => a + b, 0)).toBe(100);
-    expect(Object.values(oddsFor(11)).reduce((a, b) => a + b, 0)).toBe(100);
+    for (const d of [1, 8, 15, 19]) expect(Object.keys(share(d))).not.toContain('snow');
+    for (const d of [3, 17, 22, 40]) expect(Object.values(oddsFor(d)).reduce((a, b) => a + b, 0)).toBe(100);
     expect(WEATHER.snow.name).toBe('Early snow');
   });
 

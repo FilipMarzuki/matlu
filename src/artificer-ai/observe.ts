@@ -37,8 +37,8 @@ You arrive alone with almost nothing and winter is coming. Get winter-ready befo
 - Shelter: warmth 60%+ (site potential x how far the build has come x build quality).
 - Fuel: 12+ firewood.
 - Body & mind: Vigor and Clarity capacity at 100+ and Condition 70+.
-A caravan camps nearby on days 10-12; winter arrives on day 13. From day 10 you may take an exit:
-- caravan (days 10-12 only): leave with traders. Winter-ready = thrive; otherwise ragged.
+A caravan camps nearby on days 28-30; winter arrives on day 31. From day 28 you may take an exit:
+- caravan (days 28-30 only): leave with traders. Winter-ready = thrive; otherwise ragged.
 - solo: cross the winter road alone. Needs road-worthy cold gear, 6+ rations, Condition 60+, Vigor capacity 95+, AND the pass seen in the distant ring. Unprepared = turned back with permanent frostbite.
 - winter: stay. Winter-ready = wintered well; otherwise a grim winter.
 Best outcomes: thrive (caravan while winter-ready), then crossed or wintered. Worst: collapsing, or dying.
@@ -189,7 +189,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     const ifTaken = exits.map(c => `${c} → ${resolveOutcome(c, { ready: winterReady(s), canCross, vitals: v }).kind}`).join(', ');
     lines.push(`EXITS OPEN: ${exits.join(', ')}. If taken today: ${ifTaken}. Solo crossing prepared: ${canCross ? 'yes' : `no (needs road-worthy cold gear, ${CROSSING_NEEDS.rations}+ rations, condition ${CROSSING_NEEDS.condition}+, vigor capacity ${CROSSING_NEEDS.vigorCap}+, pass seen)`}.`);
   } else {
-    lines.push('EXITS: none yet (from day 10).');
+    lines.push(`EXITS: none yet (from day ${cal.caravanOpen}).`);
   }
 
   const done = REGION1_MILESTONES.filter(m => s.milestones.includes(m.id)).map(m => m.name);

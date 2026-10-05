@@ -17,7 +17,7 @@ describe('Winter', () => {
     expect(phaseOf(cal.caravanOpen)).toBe('caravan');
     expect(phaseOf(cal.caravanClose)).toBe('caravan');
     // A calendar with a gap between the caravan leaving and the snow:
-    const gap = { caravanOpen: 10, caravanClose: 11, winterDay: 14 };
+    const gap = { caravanOpen: 10, caravanClose: 11, winterDay: 14, thawDay: 44 };
     expect(phaseOf(12, gap)).toBe('postCaravan');
     expect(phaseOf(cal.winterDay)).toBe('winter');
     expect(phaseOf(40)).toBe('winter');

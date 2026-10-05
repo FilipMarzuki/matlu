@@ -3,8 +3,9 @@
  *
  * Each day has one weather, rolled from the Warden's seed and the day — a fixed
  * schedule per character, so a run replays exactly but can't be predicted in
- * play. The odds shift with the season: from day 9 storms and wind are likelier
- * and early snow can fall. A look-out shows tomorrow; the Weather sense
+ * play. The odds follow the season (#1301): early autumn is mild; late autumn
+ * (from day 16) brings more wind and storms, and early snow from day 20; in
+ * winter snow is the commonest weather and a storm is a blizzard. A look-out shows tomorrow; the Weather sense
  * technique (#1243) gives tomorrow and the day after, every morning.
  *
  * This module only says *what* the weather is. Its effects on temperature
@@ -14,34 +15,55 @@
 import { streamFor } from './rng';
 import type { WeatherId, WorldConfig } from './world';
 import type { ActionId } from './region1';
+import { DEFAULT_CALENDAR, seasonCurve, seasonOf, type Calendar } from './winter';
 
 export type { WeatherId } from './world';
 
-export const WEATHER: Readonly<Record<WeatherId, { name: string; early: number; late: number }>> = {
-  clear: { name: 'Clear', early: 30, late: 20 },
-  overcast: { name: 'Overcast', early: 30, late: 25 },
-  rain: { name: 'Rain', early: 20, late: 20 },
-  fog: { name: 'Fog', early: 10, late: 10 },
-  wind: { name: 'Wind', early: 7, late: 10 },
-  storm: { name: 'Storm', early: 3, late: 5 },
-  snow: { name: 'Early snow', early: 0, late: 10 },
+/**
+ * Each weather's odds (percent) in the three weather seasons, and its name in
+ * winter when that differs: snow is no longer early, and a storm is a blizzard.
+ */
+export const WEATHER: Readonly<Record<WeatherId, { name: string; winterName?: string; early: number; late: number; winter: number }>> = {
+  clear: { name: 'Clear', early: 30, late: 20, winter: 20 },
+  overcast: { name: 'Overcast', early: 30, late: 25, winter: 20 },
+  rain: { name: 'Rain', early: 20, late: 20, winter: 0 },
+  fog: { name: 'Fog', early: 10, late: 10, winter: 5 },
+  wind: { name: 'Wind', early: 7, late: 10, winter: 12 },
+  storm: { name: 'Storm', winterName: 'Blizzard', early: 3, late: 5, winter: 8 },
+  snow: { name: 'Early snow', winterName: 'Snow', early: 0, late: 10, winter: 35 },
 };
 export const WEATHER_IDS = Object.keys(WEATHER) as WeatherId[];
 
-/** The first day the late-autumn odds apply (and snow can fall). */
-export const LATE_SEASON_FROM = 9;
+/** The first day of late autumn: halfway to the snow (day 16). */
+export const lateFrom = (cal: Calendar): number => Math.ceil(cal.winterDay / 2);
+/** The first day early snow can fall: 11 days before winter (day 20), never before late autumn. */
+export const snowFrom = (cal: Calendar): number => Math.max(lateFrom(cal), cal.winterDay - 11);
 
-/** The odds (in percent, summing to 100) of each weather on a given day. */
-export function oddsFor(day: number): Record<WeatherId, number> {
-  const late = day >= LATE_SEASON_FROM;
-  return Object.fromEntries(WEATHER_IDS.map(id => [id, late ? WEATHER[id].late : WEATHER[id].early])) as Record<WeatherId, number>;
+/**
+ * The odds (in percent, summing to 100) of each weather on a given day. In
+ * late autumn before snow can fall, its share goes to cloud and rain.
+ */
+export function oddsFor(day: number, cal: Calendar = DEFAULT_CALENDAR): Record<WeatherId, number> {
+  if (seasonOf(day, cal) !== 'autumn') return Object.fromEntries(WEATHER_IDS.map(id => [id, WEATHER[id].winter])) as Record<WeatherId, number>;
+  if (day < lateFrom(cal)) return Object.fromEntries(WEATHER_IDS.map(id => [id, WEATHER[id].early])) as Record<WeatherId, number>;
+  const odds = Object.fromEntries(WEATHER_IDS.map(id => [id, WEATHER[id].late])) as Record<WeatherId, number>;
+  if (day < snowFrom(cal)) {
+    odds.overcast += odds.snow / 2;
+    odds.rain += odds.snow / 2;
+    odds.snow = 0;
+  }
+  return odds;
 }
 
+/** What the weather is called on a day: snow and storms take their winter names once winter comes. */
+export const weatherName = (w: WeatherId, day: number, cal: Calendar = DEFAULT_CALENDAR): string =>
+  (seasonOf(day, cal) === 'autumn' ? WEATHER[w].name : WEATHER[w].winterName ?? WEATHER[w].name);
+
 /** The weather on a day for a Warden's seed. In the flat world (tests) it's always the world's fixed weather. */
-export function weatherFor(seed: number, day: number, world: Pick<WorldConfig, 'weather'>): WeatherId {
+export function weatherFor(seed: number, day: number, world: Pick<WorldConfig, 'weather'>, cal: Calendar = DEFAULT_CALENDAR): WeatherId {
   if (world.weather !== 'seeded') return world.weather;
   const u = streamFor(seed, day, 'weather')() * 100;
-  const odds = oddsFor(day);
+  const odds = oddsFor(day, cal);
   let acc = 0;
   for (const id of WEATHER_IDS) {
     acc += odds[id];
@@ -63,8 +85,11 @@ export function knownForecast(s: { day: number; forecast: Forecast }): { day: nu
 
 // ── Temperature (#1283) ─────────────────────────────────────────────────────
 
-/** The day's mean temperature: 10 °C on day 1, falling 1.2 °C a day (below freezing from day 10). */
-export const dayMean = (day: number): number => 10 - 1.2 * (day - 1);
+/** The mean temperature (°C) on day 1, the last day of autumn, midwinter and the last day of winter. */
+export const MEAN_TEMP: readonly [number, number, number, number] = [10, -2, -12, -4];
+
+/** The day's mean temperature: 10 °C on day 1, −2 °C as autumn ends, −12 °C at midwinter, −4 °C before the thaw. */
+export const dayMean = (day: number, cal: Calendar = DEFAULT_CALENDAR): number => seasonCurve(day, cal, MEAN_TEMP);
 
 /** Clock hours of the coldest (dawn) and warmest (midday) points; night stays at the dawn level. */
 const DAWN = 6, MIDDAY = 13, DUSK = 20;
@@ -88,10 +113,11 @@ function weatherShift(w: WeatherId, night: boolean): number {
 const isNight = (hour: number): boolean => hour < DAWN || hour >= DUSK;
 
 /** The temperature (°C) at a clock hour on a day in this weather. */
-export const tempAt = (day: number, hour: number, w: WeatherId): number => dayMean(day) + swing(hour) + weatherShift(w, isNight(hour));
+export const tempAt = (day: number, hour: number, w: WeatherId, cal: Calendar = DEFAULT_CALENDAR): number =>
+  dayMean(day, cal) + swing(hour) + weatherShift(w, isNight(hour));
 
 /** The night's temperature (what sleep has to beat). */
-export const nightTemp = (day: number, w: WeatherId): number => tempAt(day, 23, w);
+export const nightTemp = (day: number, w: WeatherId, cal: Calendar = DEFAULT_CALENDAR): number => tempAt(day, 23, w, cal);
 
 /** Work below freezing is heavier. */
 export const FREEZING_WORK = 1.1;
@@ -99,7 +125,7 @@ export const FREEZING_WORK = 1.1;
 /** Extra hours a water trip takes once the streams ice over. */
 export const ICE_EXTRA_HOURS = 1;
 /** Streams ice over from the first day whose mean is below freezing. */
-export const iceOn = (day: number): boolean => dayMean(day) < 0;
+export const iceOn = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolean => dayMean(day, cal) < 0;
 
 /**
  * A cold, broken night: shelter warmth below 0.3, plus 0.03 for every degree

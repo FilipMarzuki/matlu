@@ -4,18 +4,18 @@
  * src/artificer-app/controller.test.ts.
  */
 
+import { SHORT_YEAR } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, runDay, chooseSite, choose, STARTING_RECIPES, type Region1State } from './region1';
 import { summarizeRun, legacyOf, addRun, bestRun, HISTORY_CAP, type RunRecord } from './legacy';
-import { DEFAULT_CALENDAR } from './winter';
 
 /** A short run that learns something, then winters over badly on day 10. */
 function finishedRun(): Region1State {
-  let s = chooseSite(runAction(createRegion1(), 'scout'), 'cave');
+  let s = chooseSite(runAction(createRegion1({ calendar: SHORT_YEAR }), 'scout'), 'cave');
   s = { ...s, stores: { ...s.stores, materials: 10, rawFood: 30, water: 30 } };
   s = runDay(s, ['build', 'track']).state; // roof (→ shovel), tracking (→ snare)
   s = runDay(s, [{ q: 'study', opts: { concept: 'sealing' } }]).state; // sealing 1 (→ waterskin, hide parka)
-  while (s.day < DEFAULT_CALENDAR.caravanOpen) s = runDay(s, ['rest']).state;
+  while (s.day < SHORT_YEAR.caravanOpen) s = runDay(s, ['rest']).state;
   return choose(s, 'winter');
 }
 

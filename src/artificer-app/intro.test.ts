@@ -14,7 +14,7 @@ describe('Arrival intro', () => {
     expect(all).toMatch(/Crafting knowledge exceeds threshold/);
     expect(all).toMatch(/CLASS DESIGNATED: ARTIFICER/);
     expect(all).toMatch(/RANK: APPRENTICE/);
-    expect(all).toMatch(/Winter arrives in 12 days/);
+    expect(all).toMatch(/Winter arrives in 30 days/);
     expect(beats.at(-1)).toEqual({ kind: 'title', lines: ['SURVIVE.', 'THRIVE.', 'MASTER YOUR NEW REALITY.'] });
     // Character creation (#1239) comes right after the designation, and the voice then uses the name.
     const create = beats.findIndex(b => b.kind === 'create');
