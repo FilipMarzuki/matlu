@@ -134,6 +134,40 @@ export const iceOn = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolean =>
 export const coldNightNeeds = (nightTempC: number): number => 0.3 + 0.03 * Math.max(0, -nightTempC);
 export const isColdNight = (warmth: number, nightTempC: number): boolean => warmth < coldNightNeeds(nightTempC);
 
+// ── Winter nights (#1303) ───────────────────────────────────────────────────
+
+/** How much less firewood a warm shelter burns: a 90%-warm hut burns about a third less. */
+export const FIRE_SAVING = 0.37;
+
+/**
+ * Firewood a night's fire burns (#1303): none on a night above freezing;
+ * otherwise 1, plus 1 for every full 5 °C of frost — less in a warm shelter,
+ * but never under 1.
+ */
+export function fireNeed(nightTempC: number, warmth: number): number {
+  if (nightTempC >= 0) return 0;
+  const base = 1 + Math.floor(-nightTempC / 5);
+  return Math.max(1, Math.round(base * (1 - FIRE_SAVING * warmth)));
+}
+
+/**
+ * Condition a freezing night without enough fire costs (#1303): about 8 at
+ * −5 °C and 20 at −15 °C with no shelter and no fire, eased by shelter warmth
+ * and sound cold gear, and scaled by how much of the fire was missing (0–1).
+ * Several such nights kill.
+ */
+export function freezeLoss(nightTempC: number, warmth: number, coldGear: boolean, missing: number): number {
+  if (nightTempC >= 0 || missing <= 0) return 0;
+  return (2 + 1.2 * -nightTempC) * (1 - 0.6 * warmth) * (coldGear ? 0.7 : 1) * Math.min(1, missing);
+}
+
+/** Once the cold is this deep (day mean, °C), the streams are frozen hard and water means melting snow. */
+export const MELT_BELOW = -5;
+/** Streams frozen hard: water is melted snow, which costs firewood (#1303). */
+export const meltsSnow = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolean => dayMean(day, cal) < MELT_BELOW;
+/** Firewood a water trip burns melting snow. */
+export const MELT_FIREWOOD = 1;
+
 // ── Weather on the work (#1284) ─────────────────────────────────────────────
 
 /** Rain makes these slower: wet wood, slick stone, sodden forage. */

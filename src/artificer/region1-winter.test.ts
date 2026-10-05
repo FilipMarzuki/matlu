@@ -70,8 +70,9 @@ describe('Winter is played (#1302)', () => {
     const o = winterOutlook(s);
     expect(o.foodDays).toBe(12);
     expect(o.waterDays).toBe(3);
-    // Nights burn no firewood until #1303.
-    expect(o.fuelDays).toBe(Infinity);
+    // The flat world needs no fire (#1303), so the woodpile lasts to the thaw.
+    expect(o.fuelDays).toBe(thawDay - 40);
+    expect(o.fuelToThaw).toBe(0);
     expect(o.warmthMargin).toBeCloseTo(warmth(s) - coldNightNeeds(nightTemp(winterDay + 14, 'clear')), 10);
     expect(o.nightsToThaw).toBe(thawDay - 40);
     // The rates are the nights' own: raw food first, then a ration.
