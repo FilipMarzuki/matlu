@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createExploration, scout, survey, track, work, level, scouted, reachable, tripYield, depletion, hasFind, domainsOf, DEPLETION_FLOOR, DEPLETION_PER_TRIP, TRAVEL_HOURS, RICHNESS } from './exploration';
+import { createExploration, scout, survey, track, work, level, scouted, reachable, tripYield, supplyFactor, hasFind, domainsOf, SUPPLY_FLOOR, SUPPLY_DRAW, TRAVEL_HOURS, RICHNESS } from './exploration';
 
 describe('Exploration rings', () => {
   // 1. Scout → suspected, survey → observed, track → game observed; never past detailed.
@@ -55,17 +55,18 @@ describe('Exploration rings', () => {
     expect(level(far, 2, 'timber')).toBe(1); // 4 × 0.35
   });
 
-  // 3. Depletion lowers yields to a floor; outer rings are richer but cost travel.
-  it('depletes worked land and rewards pushing outward', () => {
+  // 3. A drawn-down supply lowers yields to a floor (#1304); outer rings are richer but cost travel.
+  it('lowers yields with supply and rewards pushing outward', () => {
     let e = survey(scout(createExploration(), 1), 1); // forage observed
     expect(tripYield(e, 1, 'forage', 3, 2)).toBe(5); // base 3 + 2 per level above suspected
 
-    for (let i = 0; i < 6; i++) e = { ...e, worked: { ...e.worked, 1: { ...e.worked[1], forage: e.worked[1].forage + 1 } } };
-    expect(depletion(e, 1, 'forage')).toBeCloseTo(1 - 6 * DEPLETION_PER_TRIP);
-    expect(tripYield(e, 1, 'forage', 3, 2)).toBe(Math.round(5 * (1 - 6 * DEPLETION_PER_TRIP)));
+    // Six trips' worth drawn down (set directly: working the land would also teach it, raising the base).
+    e = { ...e, supply: { ...e.supply, 1: { ...e.supply[1], forage: 1 - 6 * SUPPLY_DRAW.forage } } };
+    expect(supplyFactor(e, 1, 'forage')).toBeCloseTo(1 - 6 * SUPPLY_DRAW.forage);
+    expect(tripYield(e, 1, 'forage', 3, 2)).toBe(Math.round(5 * (1 - 6 * SUPPLY_DRAW.forage)));
     expect(tripYield(e, 1, 'forage', 3, 2)).toBeLessThan(5);
-    e = { ...e, worked: { ...e.worked, 1: { ...e.worked[1], forage: 40 } } };
-    expect(depletion(e, 1, 'forage')).toBe(DEPLETION_FLOOR);
+    e = { ...e, supply: { ...e.supply, 1: { ...e.supply[1], forage: 0.05 } } };
+    expect(supplyFactor(e, 1, 'forage')).toBe(SUPPLY_FLOOR);
 
     // Unknown land yields half; outer rings scale up.
     const fresh = createExploration();

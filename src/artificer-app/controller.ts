@@ -17,6 +17,7 @@ import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
 import { FULL_WORLD, validWorld } from '../artificer/world';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
+import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 
 export interface AppState {
@@ -248,9 +249,12 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const cal = cfg.calendar as Region1State['config']['calendar'];
   const calendar = isNum(cal.thawDay) ? { ...cal } : { ...cal, thawDay: cal.winterDay + 30 };
   const config = { ...(cfg as unknown as Region1State['config']), calendar, world: validWorld(cfg.world) ? { ...cfg.world } : { ...FULL_WORLD } };
+  // …and saves from before land supply (#1304) get it from their trip counts.
+  const ex = sim.explore as Record<string, unknown>;
+  const explore = isObj(ex.supply) ? { ...(ex as unknown as Region1State['explore']) } : { ...(ex as unknown as Region1State['explore']), supply: supplyFromWorked(ex.worked as Region1State['explore']['worked']) };
   // …and saves from before weather (#1282) get today's weather and no forecast.
   const day = isNum(sim.day) ? sim.day : 1;
   const weatherToday = WEATHER_IDS.includes(sim.weatherToday as never) ? sim.weatherToday as Region1State['weatherToday'] : weatherFor(seedOf(character.id), day, config.world, config.calendar);
   const forecast = isObj(sim.forecast) && Object.values(sim.forecast).every(w => WEATHER_IDS.includes(w as never)) ? { ...(sim.forecast as Region1State['forecast']) } : {};
-  return { sim: { ...(sim as unknown as Region1State), config, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
+  return { sim: { ...(sim as unknown as Region1State), config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
 }
