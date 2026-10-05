@@ -120,6 +120,40 @@ returns once its tags hit their cap, so the player is pushed to diversify.
 **These verbs are a starting proposal** — see open questions §8 on whether
 Scout/Survey should merge.
 
+### Exploration range — concentric day-radius layers
+
+Exploration isn't only *what kind* of thing you look for (the verbs above) but
+*how far out* you look. Think of the region as **concentric rings measured in
+travel time from your position / base:**
+
+- the **1-day radius** (there and back in a day),
+- the **2-day radius**, the **3-day radius**, and so on.
+
+You can fully work a nearer ring before the farther ones are reachable, and each
+outer ring **costs more** (the action spends the travel time to get there and
+back, so its Vigor/Clarity and day cost scale with the ring) and **reveals more
+distant things:** far resources, candidate sites beyond the immediate area, the
+roads and passes out, and the first hints of **neighbouring regions** (the
+`adjacent` tag).
+
+This layers cleanly onto everything above:
+
+- **Each ring is its own fog to lift.** A tag carries not just confidence but a
+  *distance band*; the near ring resolves first and cheapest, the far rings stay
+  `???` until you can afford the trip.
+- **Range is a capability, like precision.** Early on you can only work the
+  1-day ring; reaching farther takes conditioning (capacity/Condition buffer to
+  spend on the round trip), better gear, or a forward camp. So the map grows
+  outward as the Warden grows — and a far ring explored from a *forward camp*
+  costs from there, rewarding setting one up.
+- **It gives exploration a natural arc.** Settle the near ring (home, food,
+  water), then push a ring out for better resources and the routes onward — the
+  same push that, in Region 1, uncovers the crossing out of the Reach (route
+  knowledge for the solo exit) and the neighbours beyond it.
+
+Open: the exact ring count and spacing, whether rings are literal distance or an
+abstract "reach" stat, and how forward camps bank progress in an outer ring.
+
 ---
 
 ## 5. Site / shelter rating
