@@ -20,6 +20,7 @@ import { pillars, type PillarKey } from '../artificer/readiness';
 import { bestRun, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
+import { introBeats, type Beat, type IntroKind } from './intro';
 import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
@@ -437,8 +438,9 @@ function render(a: AppState): void {
 
 // ── Save / load (browser storage can be missing or blocked — never fatal) ───
 
-function load(): AppState {
-  try { return deserialize(localStorage.getItem(SAVE_KEY)) ?? newGame(); } catch { return newGame(); }
+/** The saved game, or null when there is none (or it can't be read) — a first visit. */
+function loadSaved(): AppState | null {
+  try { return deserialize(localStorage.getItem(SAVE_KEY)); } catch { return null; }
 }
 
 function save(a: AppState): void {
@@ -457,8 +459,71 @@ function saveHistory(h: readonly RunRecord[]): void {
 }
 
 const root = document.getElementById('app') as HTMLElement;
-let state = load();
+const saved = loadSaved();
+let state = saved ?? newGame();
 let history = loadHistory();
+
+// ── Arrival intro (#1228) ───────────────────────────────────────────────────
+// A separate overlay element, so the game renders (and stays usable) underneath
+// and render() — which rewrites #app wholesale — never wipes the intro.
+
+let intro: { beats: Beat[]; i: number } | null = null;
+const introEl = document.createElement('div');
+introEl.className = 'intro';
+introEl.setAttribute('role', 'dialog');
+introEl.setAttribute('aria-label', 'Arrival');
+introEl.hidden = true;
+document.body.appendChild(introEl);
+
+function startIntro(kind: IntroKind): void {
+  intro = { beats: introBeats(kind, state.sim, (history[0]?.run ?? 0) + 1), i: 0 };
+  renderIntro();
+}
+
+function endIntro(): void {
+  intro = null;
+  introEl.hidden = true;
+  introEl.innerHTML = '';
+  // Persist now, so a reload after the intro doesn't play it again.
+  save(state);
+}
+
+function advanceIntro(): void {
+  if (!intro) return;
+  if (intro.i >= intro.beats.length - 1) endIntro();
+  else { intro.i += 1; renderIntro(); }
+}
+
+function renderIntro(): void {
+  if (!intro) return;
+  const b = intro.beats[intro.i];
+  const last = intro.i === intro.beats.length - 1;
+  // Each line fades in after the one before (--n drives the CSS animation delay).
+  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(l)}</p>`).join('');
+  const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
+  introEl.hidden = false;
+  introEl.innerHTML = `
+    <div class="portal ${b.portal ? 'open' : ''}" aria-hidden="true"></div>
+    <div class="beat ${b.kind}" aria-live="polite">${lines}</div>
+    <div class="introbar">
+      <span class="dots" aria-hidden="true">${dots}</span>
+      <span class="spacer"></span>
+      ${last ? '' : '<button class="pill" data-intro="skip">SKIP ›</button>'}
+      <button class="btn go" data-intro="next">${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
+    </div>`;
+  introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
+}
+
+// Tap anywhere to advance (the tablet path); Skip ends it at once.
+introEl.addEventListener('click', e => {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-intro]');
+  if (btn?.dataset.intro === 'skip') endIntro(); else advanceIntro();
+});
+document.addEventListener('keydown', e => {
+  if (!intro) return;
+  if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
+  else if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); advanceIntro(); }
+});
 
 function update(next: AppState): void {
   // The moment a run resolves, it goes into the history (once).
@@ -487,8 +552,9 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'day') update(runQueuedDay(state));
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
-  else if (d.cmd === 'reset') update(newGame());
-  else if (d.cmd === 'carry') update(newRun(state.sim));
+  else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
+  else if (d.cmd === 'carry') { update(newRun(state.sim)); startIntro('carry'); }
 });
 
 render(state);
+if (!saved) startIntro('fresh');
