@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { newGame, enqueue, dequeueAt, clearQueue, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
+import { scouted } from '../artificer/exploration';
 
 const withQueue = (a: AppState, ids: Parameters<typeof enqueue>[1][]): AppState => ids.reduce(enqueue, a);
 
@@ -28,7 +29,7 @@ describe('Artificer controller', () => {
     // scout 4h + 3×wood 12h → the 3rd wood starts at 12h (< 14) and finishes; water waits
     expect(r.queue).toEqual(['water']);
     expect(r.sim.day).toBe(2);
-    expect(r.sim.knowledge.scouted).toBe(true);
+    expect(scouted(r.sim.explore, 1)).toBe(true);
   });
 
   // 3. Running the whole queue drains it across days.
@@ -43,11 +44,11 @@ describe('Artificer controller', () => {
 
   // 4. The preview splits days like runDay and flags skips against the plan so far.
   it('previews day splits and warns about actions that would be skipped', () => {
-    const a = withQueue(newGame(), ['gather', 'scout', 'gather', 'wood', 'wood']);
+    const a = withQueue(newGame(), ['hunt', 'scout', 'gather', 'wood', 'wood']);
     const p = previewQueue(a);
-    // gather is refused (no hours), scout 4, gather 5 → 9, wood → 13, next wood still starts today
+    // hunt is refused (no hours), scout 4, gather 5 → 9, wood → 13, next wood still starts today
     expect(p.dayOffset).toEqual([0, 0, 0, 0, 0]);
-    expect(p.warnings[0]).toMatch(/scout first/);
+    expect(p.warnings[0]).toMatch(/no game tracked/);
     expect(p.warnings.slice(1)).toEqual([null, null, null, null]);
     expect(withQueue(a, ['water']).queue.length).toBe(6);
     expect(previewQueue(withQueue(a, ['water'])).dayOffset[5]).toBe(1);
@@ -79,6 +80,14 @@ describe('Artificer controller', () => {
     // v1 saves (before tools existed) start fresh rather than load half-shaped.
     expect(deserialize(JSON.stringify({ version: 1, sim: a.sim, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: 2, sim: a.sim, queue: [] }))).toBeNull();
+    expect(deserialize(JSON.stringify({ version: 3, sim: a.sim, queue: [] }))).toBeNull();
+    // Ring-aimed queue entries round-trip; nonsense rings or rings on camp actions don't load.
+    const roaming = withQueue(a, ['wood@2', 'scout@3']);
+    expect(deserialize(serialize(roaming))).toEqual(roaming);
+    expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: ['wood@5'] }))).toBeNull();
+    expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: ['rest@2'] }))).toBeNull();
+    const { explore: _e, ...noMap } = a.sim;
+    expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: noMap, queue: [] }))).toBeNull();
     const graded = { ...a, sim: { ...a.sim, tier: 1 as const, shelterGrade: 'fine' as const } };
     expect(deserialize(serialize(graded))).toEqual(graded);
     const { tools: _t, ...noTools } = a.sim;

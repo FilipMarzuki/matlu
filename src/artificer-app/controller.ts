@@ -10,18 +10,18 @@
  * and the browser storage.
  */
 
-import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, type ActionId, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, queueHours, type QueueId, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
 
 export interface AppState {
   sim: Region1State;
   /** The player's plan: runs in order, spilling over day boundaries. */
-  queue: ActionId[];
+  queue: QueueId[];
 }
 
 /** Bump the version (and the key) whenever the saved shape changes incompatibly. */
-export const SAVE_VERSION = 3;
-export const SAVE_KEY = 'artificer.region1.v3';
+export const SAVE_VERSION = 4;
+export const SAVE_KEY = 'artificer.region1.v4';
 
 /** Long enough for any real plan; stops a runaway loop if the sim ever stalls. */
 const MAX_DAYS_PER_RUN = 60;
@@ -30,7 +30,7 @@ export function newGame(): AppState {
   return { sim: createRegion1(), queue: [] };
 }
 
-export function enqueue(a: AppState, id: ActionId): AppState {
+export function enqueue(a: AppState, id: QueueId): AppState {
   if (a.sim.outcome) return a;
   return { ...a, queue: [...a.queue, id] };
 }
@@ -97,14 +97,15 @@ export function previewQueue(a: AppState): QueuePreview {
   let hours = a.sim.hoursToday;
   let day = 0;
   let projected = a.sim;
-  for (const id of a.queue) {
+  for (const q of a.queue) {
     if (hours >= DAY_HOURS) { day += 1; hours = 0; }
     dayOffset.push(day);
-    const reason = ACTIONS[id].gate?.(projected) ?? null;
+    const { id, ring } = parseQueueId(q);
+    const reason = ACTIONS[id].gate?.(projected, ring) ?? null;
     warnings.push(reason);
     // A refused action costs no time in the sim, so it costs none here either.
-    if (!reason) hours += ACTIONS[id].hours;
-    projected = runAction(projected, id);
+    if (!reason) hours += queueHours(q);
+    projected = runAction(projected, q);
   }
   return { dayOffset, warnings, projected };
 }
@@ -131,14 +132,19 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   if (!isObj(data) || data.version !== SAVE_VERSION) return null;
 
   const { sim, queue } = data;
-  if (!Array.isArray(queue) || !queue.every(q => typeof q === 'string' && q in ACTIONS)) return null;
+  const validQ = (q: unknown): boolean => {
+    if (typeof q !== 'string') return false;
+    const { id, ring } = parseQueueId(q as QueueId);
+    return id in ACTIONS && [1, 2, 3].includes(ring) && (ring === 1 || ACTIONS[id].ringed === true);
+  };
+  if (!Array.isArray(queue) || !queue.every(validQ)) return null;
   if (!isObj(sim)) return null;
   const v = sim.vitals;
   if (!isNum(sim.day) || !isNum(sim.hoursToday) || !isObj(v) || !isPool(v.vigor) || !isPool(v.clarity) || !isNum(v.condition)) return null;
-  if (!isObj(sim.stores) || !isObj(sim.knowledge) || !isObj(sim.flags) || !isObj(sim.today) || !isObj(sim.config)) return null;
+  if (!isObj(sim.stores) || !isObj(sim.explore) || !isObj(sim.flags) || !isObj(sim.today) || !isObj(sim.config)) return null;
   if (!Array.isArray(sim.milestones) || !Array.isArray(sim.log) || !Array.isArray(sim.tools) || !isObj(sim.concepts)) return null;
   if (sim.shelterGrade !== null && typeof sim.shelterGrade !== 'string') return null;
 
   // The shape checks above cover what the sim reads; trust the rest.
-  return { sim: sim as unknown as Region1State, queue: queue as ActionId[] };
+  return { sim: sim as unknown as Region1State, queue: queue as QueueId[] };
 }

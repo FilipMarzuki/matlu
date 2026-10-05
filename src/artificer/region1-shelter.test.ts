@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, choose, runDay, warmth, winterReady, REGION1_MILESTONES, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { DEFAULT_CALENDAR } from './winter';
+import { scout } from './exploration';
 
 /** Scouted, settled at `site`, with plenty of materials. */
 function camp(site: 'cave' | 'tree' = 'cave', over: Partial<Region1State> = {}): Region1State {
@@ -71,7 +72,8 @@ describe('Region 1 shelter & cold gear crafts', () => {
     const road = (s: Region1State): Region1State => {
       let st = { ...s, stores: { ...s.stores, rations: 8 } };
       while (st.day < DEFAULT_CALENDAR.caravanOpen) st = runDay(st, ['rest']).state;
-      return { ...st, vitals: { ...st.vitals, condition: 90, vigor: { ...st.vitals.vigor, cap: 100 } } };
+      // …and they've seen the pass out through the distant hills.
+      return { ...st, explore: scout(st.explore, 3), vitals: { ...st.vitals, condition: 90, vigor: { ...st.vitals.vigor, cap: 100 } } };
     };
     expect(choose(road(made), 'solo').outcome?.kind).toBe('crossed');
     expect(choose(road(rough), 'solo').outcome?.kind).toBe('turnedBack');
@@ -92,7 +94,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     const plan = [
       ['wood', 'wood', 'knife'], ['build', 'track', 'water'], ['hunt', 'hunt', 'water'],
       ['wood', 'wood', 'snare'], ['wood', 'preserve', 'preserve'], ['wood', 'build'],
-      ['hunt', 'preserve', 'preserve'], ['hunt', 'preserve', 'water'], ['hunt', 'preserve', 'rest'],
+      ['hunt', 'hunt', 'preserve'], ['scout@2', 'hunt', 'preserve'], ['hunt', 'preserve', 'rest'],
     ] as const;
     for (const day of plan) {
       const r = runDay(s, day);

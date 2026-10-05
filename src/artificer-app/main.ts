@@ -13,7 +13,8 @@
  */
 
 import './style.css';
-import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, type ActionId, type LogEntry, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseQueueId, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
@@ -24,7 +25,7 @@ import { newGame, enqueue, dequeueAt, clearQueue, runQueuedDay, runWholeQueue, s
 
 const GROUPS: { title: string; ids: ActionId[] }[] = [
   { title: 'EXPLORE', ids: ['scout', 'survey', 'track'] },
-  { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'preserve'] },
+  { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'preserve'] },
   { title: 'BUILD', ids: ['build', 'coldGear'] },
   { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
   { title: 'RECOVER', ids: ['tinker', 'rest'] },
@@ -32,22 +33,28 @@ const GROUPS: { title: string; ids: ActionId[] }[] = [
 
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
-  wood: '🪵', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
+  wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
   knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
 const bonus = (s: AppState['sim'], id: ActionId): number => modifiersFor(s.tools, id).yieldAdd;
 
-/** One-line "what you get" per action. Numbers mirror region1.ts yields. */
-const YIELD: Record<ActionId, (s: AppState['sim']) => string> = {
-  scout: () => 'reveals the land',
-  survey: () => 'richer yields',
-  track: () => 'enables hunting',
-  gather: s => `+${(s.knowledge.surveyed ? 5 : 3) + bonus(s, 'gather')} raw food`,
-  hunt: s => `+${7 + bonus(s, 'hunt')} raw food`,
-  water: s => `+${(s.knowledge.surveyed ? 5 : 4) + (s.site === 'river' ? 2 : 0) + bonus(s, 'water')} water`,
-  wood: s => `+${(s.knowledge.surveyed ? 5 : 4) + (s.site === 'tree' ? 1 : 0)} fuel, +${s.knowledge.surveyed ? 3 : 2} mat`,
+/** +2 if you've made the find in this ring × domain. */
+const fb = (s: AppState['sim'], r: Ring, d: Domain): number => (hasFind(s.explore, r, d) ? 2 : 0);
+/** Shorthand: this trip's yield from what you know of the ring (mirrors region1.ts). */
+const ty = (s: AppState['sim'], r: Ring, d: Domain, base: number, per: number): number => tripYield(s.explore, r, d, base, per);
+
+/** One-line "what you get" per action, in the chosen ring. Numbers mirror region1.ts yields. */
+const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
+  scout: () => 'everything there at least suspected',
+  survey: () => 'everything there observed → richer trips',
+  track: () => 'game observed → you can hunt',
+  gather: (s, r) => `+${ty(s, r, 'forage', 3, 2) + bonus(s, 'gather')} raw food${fb(s, r, 'forage') ? ' +2 fiber' : ''}`,
+  hunt: (s, r) => `+${ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game')} raw food`,
+  water: (s, r) => `+${ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water')} water`,
+  wood: (s, r) => `+${ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber')} fuel, +${ty(s, r, 'timber', 2, 1)} mat`,
+  quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} materials`,
   preserve: () => '2 raw → 1 ration (×3)',
   build: s => (s.tier < 2 ? `tier ${s.tier + 1} · ${BUILD_COST[s.tier as 0 | 1]} mat · grade sets warmth` : 'winterized'),
   coldGear: () => 'needed to cross solo · crude won\'t do',
@@ -139,12 +146,37 @@ function readiness(a: AppState): string {
     + `<span style="color:var(--dim);font-family:var(--body);font-size:11px;letter-spacing:0">${ready ? 'You could winter over here, or leave in good shape.' : 'Keep laying in stores and warming the shelter.'}</span></div>`;
 }
 
+/** Which ring the palette's land actions aim at (UI-only; not saved). */
+let focusRing: Ring = 1;
+
+const DOMAIN_LABEL: Record<Domain, string> = { forage: 'Forage', timber: 'Timber', stone: 'Stone', water: 'Water', game: 'Game', routes: 'Routes' };
+
+/**
+ * What you know of the land, ring by ring, as confidence chips (design §3):
+ * ??? unknown · ~suspected · observed · detailed — plus the finds you've made.
+ */
+function land(a: AppState): string {
+  const e = a.sim.explore;
+  return RINGS.map(r => {
+    const head = `<div class="ringhead">${RING_NAME[r].toUpperCase()} <span>${TRAVEL_HOURS[r] ? `+${TRAVEL_HOURS[r]}h` : 'home'}</span></div>`;
+    if (!reachable(e, r) && domainsOf(r).every(d => level(e, r, d) === 0)) return `${head}<p class="mood" style="margin:0 0 6px">Out of reach — know the ring inside it first.</p>`;
+    const chips = domainsOf(r).map(d => {
+      const lv = level(e, r, d);
+      const label = lv === 0 ? '???' : lv === 1 ? `~${DOMAIN_LABEL[d]}` : DOMAIN_LABEL[d];
+      return `<span class="chip l${lv}" title="${DOMAIN_LABEL[d]}: ${LEVEL_NAME[lv]}${e.worked[r][d] ? ` · worked ${e.worked[r][d]}×` : ''}">${label}</span>`;
+    }).join('');
+    const finds = domainsOf(r).filter(d => hasFind(e, r, d)).map(d => `<span class="chip find">★ ${FINDS[d]?.name}</span>`).join('');
+    const pass = r === 3 && routeKnown(a.sim) ? '<span class="chip find">★ The pass</span>' : '';
+    return `${head}<div class="res">${chips}${finds}${pass}</div>`;
+  }).join('');
+}
+
 function warden(a: AppState): string {
   const s = a.sim;
   const st = s.stores;
   const r = (icon: string, label: string, n: number, low = false): string => `<span class="r ${low ? 'low' : ''}">${icon} ${label} <b>${n}</b></span>`;
   const sites = (Object.keys(SITES) as SiteId[]).map(id =>
-    `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${s.knowledge.scouted && !s.outcome ? '' : 'disabled'}>`
+    `<button class="siteopt ${s.site === id ? 'chosen' : ''}" data-site="${id}" ${scouted(s.explore, 1) && !s.outcome ? '' : 'disabled'}>`
     + `<div class="t">${SITES[id].name.toUpperCase()}<span class="warm" style="margin-left:auto">MAX ${Math.round(SITES[id].warmth * 100)}% WARM</span></div>`
     + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2${s.shelterGrade ? ` (${s.shelterGrade})` : ''} · ${Math.round(warmth(s) * 100)}% warm.` : ''}</div></button>`).join('');
   // Tool names come from the craft actions that make them (output item → action).
@@ -166,7 +198,9 @@ function warden(a: AppState): string {
     <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}</div>
     <p class="eyebrow" style="margin-top:14px">SITE &amp; SHELTER</p>
     <div class="sites">${sites}</div>
-    ${s.knowledge.scouted ? '' : '<p class="mood">Scout first to find somewhere to settle.</p>'}
+    ${scouted(s.explore, 1) ? '' : '<p class="mood">Scout first to find somewhere to settle.</p>'}
+    <p class="eyebrow" style="margin-top:14px">THE LAND</p>
+    ${land(a)}
     <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>
     <div class="res">${tools || '<span class="mood" style="margin:0">No tools yet — craft some once you have materials.</span>'}</div>
     ${concepts ? `<div class="res" style="margin-top:6px">${concepts}</div>` : ''}
@@ -183,24 +217,33 @@ function planner(a: AppState): string {
   // Gates are judged against the state *after* the queue so far, so you can
   // plan "scout, then gather" in one go. Blocked actions stay clickable (a
   // skipped action costs nothing) but are dashed and say why.
-  const palette = GROUPS.map(g => `<div class="group"><h4>${g.title}</h4><div class="acts">${g.ids.map(id => {
+  // Land actions go to the ring picked in the tabs; everything else happens at camp.
+  const tabs = `<div class="rings">${RINGS.map(r => {
+    const open = reachable(preview.projected.explore, r);
+    return `<button class="ringtab ${focusRing === r ? 'on' : ''} ${open ? '' : 'locked'}" data-ring="${r}" title="${open ? '' : 'Scout the ring inside it first'}">`
+      + `${RING_NAME[r].toUpperCase()}<span>${TRAVEL_HOURS[r] ? `+${TRAVEL_HOURS[r]}h travel` : 'home ground'}</span></button>`;
+  }).join('')}</div>`;
+  const palette = tabs + GROUPS.map(g => `<div class="group"><h4>${g.title}${g.title === 'EXPLORE' || g.title === 'PROVISION' ? ` <span class="ringnote">· ${RING_NAME[focusRing].toLowerCase()} ring</span>` : ''}</h4><div class="acts">${g.ids.map(id => {
     const def = ACTIONS[id];
-    const why = def.gate?.(preview.projected) ?? null;
+    const r: Ring = def.ringed ? focusRing : 1;
+    const q = queueId(id, r);
+    const why = def.gate?.(preview.projected, r) ?? null;
     const spends = [def.vigorRate < 0 ? 'vigor' : '', def.clarityRate < 0 ? 'clarity' : ''].filter(Boolean).join(' + ') || 'restores';
-    return `<button class="act ${why ? 'soft' : ''}" data-q="${id}" ${resolved ? 'disabled' : ''} title="${why ? esc(`Would be skipped: ${why}`) : ''}">`
-      + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${def.hours}H</span></div>`
-      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected)}</span> · <span class="vc">${spends}</span>`}</div></button>`;
+    return `<button class="act ${why ? 'soft' : ''}" data-q="${q}" ${resolved ? 'disabled' : ''} title="${why ? esc(`Would be skipped: ${why}`) : ''}">`
+      + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${queueHours(q)}H</span></div>`
+      + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span> · <span class="vc">${spends}</span>`}</div></button>`;
   }).join('')}</div></div>`).join('');
 
-  const items = a.queue.map((id, i) => {
+  const items = a.queue.map((q, i) => {
+    const { id, ring } = parseQueueId(q);
     const d = preview.dayOffset[i];
     const why = preview.warnings[i];
     return `<li class="${why ? 'skip' : ''}"><span class="dayn">${d === 0 ? 'TODAY' : `DAY ${s.day + d}`}</span>`
-      + `<span class="n">${ICON[id]} ${ACTIONS[id].name.toUpperCase()}</span>`
+      + `<span class="n">${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` <span class="ringtag">${RING_NAME[ring].toUpperCase()}</span>` : ''}</span>`
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
-      + `<span class="meta">${ACTIONS[id].hours}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></li>`;
+      + `<span class="meta">${queueHours(q)}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></li>`;
   }).join('');
-  const todayHours = a.queue.reduce((h, id, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? ACTIONS[id].hours : 0), s.hoursToday);
+  const todayHours = a.queue.reduce((h, q, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(q) : 0), s.hoursToday);
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
 
   const log = [...s.log].reverse().slice(0, 80).map((l: LogEntry) => {
@@ -270,7 +313,7 @@ function render(a: AppState): void {
     ${resolvePanel(a)}
     <main>${warden(a)}${planner(a)}</main>
     <footer><b>The queue is the game.</b> Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
-      Scout first; Survey for better yields. Sleep recovers more in a warmer shelter. Eat and drink daily or you fade.
+      Scout first, then push outward: the near ring runs thin as you work it, and working any patch teaches you its detail. Sleep recovers more in a warmer shelter. Eat and drink daily or you fade.
       <b>Preserve</b> raw food into rations — that's the winter larder, not today's meals. Progress saves in this browser.</footer>`;
 }
 
@@ -300,7 +343,8 @@ root.addEventListener('click', e => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('button');
   if (!el || (el as HTMLButtonElement).disabled) return;
   const d = el.dataset;
-  if (d.q) update(enqueue(state, d.q as ActionId));
+  if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
+  else if (d.q) update(enqueue(state, d.q as QueueId));
   else if (d.x !== undefined) update(dequeueAt(state, Number(d.x)));
   else if (d.site) update(settle(state, d.site as SiteId));
   else if (d.exit) update(takeExit(state, d.exit as Choice));
