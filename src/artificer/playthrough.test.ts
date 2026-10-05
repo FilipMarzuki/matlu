@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { fastForward } from './test-helpers';
 import { createRegion1, runAction, chooseSite, runDay, choose, winterReady, REGION1_MILESTONES, type QueueId, type Region1State } from './region1';
 import { BASELINE } from './vitality';
 import { DEFAULT_CALENDAR, PENALTY } from './winter';
@@ -46,7 +47,7 @@ function playGood(): Region1State {
 /** A neglectful player: looks around once, then mostly sits about. */
 function playNeglect(): Region1State {
   let s = runAction(createRegion1(), 'scout');
-  while (s.day < DEFAULT_CALENDAR.caravanOpen) s = runDay(s, ['rest', 'rest']).state;
+  s = fastForward(s, DEFAULT_CALENDAR.caravanOpen, ['rest', 'rest']);
   return s;
 }
 
@@ -92,7 +93,7 @@ describe('Region 1 playthrough (headless e2e)', () => {
   // 4. The caravan can't be boarded once its window has closed.
   it('refuses the caravan after its window closes, leaving solo and winter', () => {
     let s = playGood();
-    while (s.day <= DEFAULT_CALENDAR.caravanClose) s = runDay(s, ['rest']).state;
+    s = fastForward(s, DEFAULT_CALENDAR.caravanClose + 1);
     expect(() => choose(s, 'caravan')).toThrow(/not available/);
     expect(choose(s, 'winter').outcome?.kind).toBeDefined();
     expect(choose(s, 'solo').outcome?.kind).toBeDefined();

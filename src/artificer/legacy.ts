@@ -10,7 +10,7 @@
  */
 
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
-import type { Choice, Injury, OutcomeKind } from './winter';
+import type { EndChoice, Injury, OutcomeKind } from './winter';
 import type { Grade } from './crafting';
 
 /** One finished run, as the history shows it. */
@@ -18,7 +18,7 @@ export interface RunRecord {
   run: number;
   /** The day the exit was taken. */
   day: number;
-  choice: Choice;
+  choice: EndChoice;
   kind: OutcomeKind;
   injury: Injury | null;
   /** The day the Warden first became winter-ready, or null if never. */
@@ -87,7 +87,7 @@ export function addRun(history: readonly RunRecord[], rec: RunRecord): RunRecord
 }
 
 /** How good each outcome is, for picking a best run. */
-export const OUTCOME_RANK: Readonly<Record<OutcomeKind, number>> = { thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0 };
+export const OUTCOME_RANK: Readonly<Record<OutcomeKind, number>> = { thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0, collapsed: -1, died: -2 };
 
 /** The best run so far (ties go to the earlier run — you got there first). */
 export function bestRun(history: readonly RunRecord[]): RunRecord | null {

@@ -220,11 +220,11 @@ document.getElementById('legend').addEventListener('click', e => {
 });
 
 function outcomes() {
-  const kinds = ['thrive', 'crossed', 'wintered', 'ragged', 'turnedBack', 'grim'].filter(k => models.some(m => m.outcomes[k]));
+  const kinds = ['thrive', 'crossed', 'wintered', 'ragged', 'turnedBack', 'grim', 'collapsed', 'died'].filter(k => models.some(m => m.outcomes[k]));
   document.getElementById('outcomes').innerHTML =
     '<thead><tr><th>Model</th><th>Runs</th>' + kinds.map(k => '<th>' + k + '</th>').join('') + '<th>Ready (day)</th><th>Invalid days</th><th>Cost / game</th><th>Cost / thrive</th><th>Spend</th><th>Tokens in</th><th>Cached</th><th>Tokens out</th></tr></thead><tbody>' +
     models.map(m => '<tr><td><span style="display:inline-flex;vertical-align:-1px;margin-right:6px">' + sw(m) + '</span>' + esc(m.model) + '</td><td>' + m.runs + '</td>' +
-      kinds.map(k => '<td class="' + (k === 'thrive' && m.outcomes[k] ? 'good' : (k === 'ragged' || k === 'grim' || k === 'turnedBack') && m.outcomes[k] ? 'bad' : '') + '">' + (m.outcomes[k] || '<span class="na">0</span>') + '</td>').join('') +
+      kinds.map(k => '<td class="' + (k === 'thrive' && m.outcomes[k] ? 'good' : (k === 'ragged' || k === 'grim' || k === 'turnedBack' || k === 'collapsed' || k === 'died') && m.outcomes[k] ? 'bad' : '') + '">' + (m.outcomes[k] || '<span class="na">0</span>') + '</td>').join('') +
       '<td>' + (m.readyDay ?? '<span class="na">never</span>') + (m.readyRuns && m.readyRuns < m.runs ? ' <span class="na">(' + m.readyRuns + '/' + m.runs + ')</span>' : '') + '</td>' +
       '<td>' + m.invalidDays + '</td>' +
       '<td>' + money(m.cost.perGame, m.cost.estimated) + '</td><td>' + (m.cost.perThrive === null ? '<span class="na">' + (m.cost.perGame === null ? '—' : 'no thrive') + '</span>' : money(m.cost.perThrive, m.cost.estimated)) + '</td><td>' + money(m.cost.total, m.cost.estimated) + '</td>' +

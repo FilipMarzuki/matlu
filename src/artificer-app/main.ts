@@ -86,6 +86,8 @@ const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
   crossed: { head: 'YOU STRIKE OUT ALONE', body: 'Cold gear cinched, rations packed, a route in your head — you walk out into the white. It is brutal and slow, but you make it through on what you built, beholden to no one.' },
   turnedBack: { head: 'THE ROAD TURNS YOU BACK', body: 'You push into the winter stretch underprepared. The cold finds every gap; days in, you turn back carrying a lasting mark: frostbite, a permanent injury.' },
   wintered: { head: 'YOU WINTER OVER IN THE REACH', body: 'The snows close the Reach in, but your shelter holds warm, the larder lasts and the fire never dies. When thaw comes, the Reach is yours.' },
+  collapsed: { head: 'YOU COLLAPSE', body: 'Worked past the end of yourself, your body simply stops. Passing traders find you days later and carry you out, barely alive. You keep what you learned — and the lesson about limits.' },
+  died: { head: 'THE REACH TAKES YOU', body: 'Without water or food the body fails faster than the will. You lie down one night and do not get up. Another Warden will come — and may know what you learned.' },
   grim: { head: 'A GRIM WINTER', body: 'You hunker down on too little. The larder runs thin, the shelter leaks heat, and the cold grinds at you week after week. You limp into spring weaker than you started.' },
 };
 
@@ -340,7 +342,7 @@ function statusBar(a: AppState, preview: Preview): string {
   </div>`;
 }
 
-const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter' };
+const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
 
 /** The history of finished runs (newest first), with the best one marked. */
 function pastRuns(): string {
@@ -396,10 +398,10 @@ function resolvePanel(a: AppState): string {
     const o = OUTCOME[s.outcome.kind];
     const r = history[0];
     const facts = r ? `<ul class="runfacts">
-        <li>Left on <b>day ${r.day}</b>${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
+        <li>${r.choice === 'collapse' ? 'Ended' : 'Left'} on <b>day ${r.day}</b>${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
         <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
       </ul>` : '';
-    return `<div class="resolve"><h3>❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
+    return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
       + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="carry" title="Your known recipes and concept ranks carry over">↻ NEW RUN — KEEP WHAT YOU LEARNED</button>`
       + `<button class="btn" data-cmd="reset">✦ FRESH WARDEN</button></div></div>`;
   }

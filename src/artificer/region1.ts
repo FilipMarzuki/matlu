@@ -774,16 +774,20 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
 }
 
 /**
- * Food & water (#1233), tuned to feel real: water is critical (a few nights
- * without is near-fatal), food can be skipped for a while (slow wear), and
+ * Food & water (#1233), tuned to feel real: water is critical (four nights without
+ * kills from full health), food can be skipped for a while (slow wear), and
  * both fog the mind. Per night without, Condition and Clarity drop by the value
  * × the nights in a row; sleep recovery is scaled by the factors (both missing:
  * the losses add, the factors multiply).
  */
 export const NEEDS = {
-  water: { condition: 8, clarity: 8, vigorRecovery: 0.3, clarityRecovery: 0.3 },
+  water: { condition: 10, clarity: 8, vigorRecovery: 0.3, clarityRecovery: 0.3 },
   food: { condition: 1, clarity: 3, vigorRecovery: 0.5, clarityRecovery: 0.8 },
 } as const;
+
+/** A collapse is death when this deprived: nights in a row without water / without food (#1234). */
+export const DEATH_THIRST = 2;
+export const DEATH_HUNGER = 5;
 
 const ordinal = (n: number): string => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 
@@ -830,6 +834,17 @@ export function endDay(s: Region1State): Region1State {
   if (w < 0.3 && next.tier < 2) {
     next.vitals.condition = Math.max(0, next.vitals.condition - 4);
     say(next, 'A cold, broken night — the exposure bites.', 'hardship');
+  }
+
+  // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
+  if (next.vitals.condition <= 0) {
+    const { hungry: h, thirsty: t } = next.deprivation;
+    const cause = t >= DEATH_THIRST ? 'thirst' : h >= DEATH_HUNGER ? 'starvation' : null;
+    next.outcome = { choice: 'collapse', kind: cause ? 'died' : 'collapsed', vitals: next.vitals };
+    say(next, cause
+      ? `You lie down in the night and don't get up. Dead of ${cause} (${cause === 'thirst' ? `${t} nights without water` : `${h} nights without food`}).`
+      : 'Your body gives out and you collapse. Traders find you days later, barely alive — this season is over.', 'outcome');
+    return next;
   }
 
   const summary = {

@@ -57,7 +57,9 @@ export function crossingPrepared(i: CrossingInput): boolean {
     && i.vitals.vigor.cap >= CROSSING_NEEDS.vigorCap;
 }
 
-export type OutcomeKind = 'thrive' | 'ragged' | 'crossed' | 'turnedBack' | 'wintered' | 'grim';
+export type OutcomeKind = 'thrive' | 'ragged' | 'crossed' | 'turnedBack' | 'wintered' | 'grim' | 'collapsed' | 'died';
+/** How a run ended: one of the exits, or a collapse when Condition gave out (#1234). */
+export type EndChoice = Choice | 'collapse';
 export type Injury = 'frostbite';
 
 export interface OutcomeInput {
@@ -69,7 +71,7 @@ export interface OutcomeInput {
 }
 
 export interface Outcome {
-  choice: Choice;
+  choice: EndChoice;
   kind: OutcomeKind;
   /** The Warden as they come out the other side (persists in the save). */
   vitals: Vitals;

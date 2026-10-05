@@ -49,12 +49,12 @@ describe('Food and water (#1233)', () => {
     expect(neither.clarity).toBeCloseTo(full.clarity * 0.24, 4);
   });
 
-  // 3. Thirst: −8 × streak Condition and −8 × streak Clarity; drinking resets.
+  // 3. Thirst: −10 × streak Condition and −8 × streak Clarity; drinking resets.
   it('escalates thirst fast, on body and mind, and drinking resets it', () => {
     let s = camp(10, 0);
     const cond: number[] = [];
     for (let i = 0; i < 3; i++) { const b = s.vitals.condition; s = nights(s, 1, true, false); cond.push(b - s.vitals.condition); }
-    expect(cond).toEqual([8, 16, 24]);
+    expect(cond).toEqual([10, 20, 30]);
     expect(s.deprivation.thirsty).toBe(3);
     expect(s.log.map(l => l.text).join('\n')).toMatch(/Thirsty — no water \(3rd night running\)/);
     s = nights(s, 1, true, true);
@@ -86,7 +86,7 @@ describe('Food and water (#1233)', () => {
   it('makes water far more critical than food', () => {
     const dry = 90 - nights(camp(5, 0), 3, true, false).vitals.condition;
     const hungry = 90 - nights(camp(0, 5), 3, false, true).vitals.condition;
-    expect(dry).toBe(48);
+    expect(dry).toBe(60);
     expect(hungry).toBe(6);
     expect(dry).toBeGreaterThan(5 * hungry);
   });

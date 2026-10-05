@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { fastForward } from './test-helpers';
 import { createRegion1, runAction, chooseSite, choose, runDay, warmth, winterReady, REGION1_MILESTONES, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { DEFAULT_CALENDAR } from './winter';
@@ -71,7 +72,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     // On the road: crude gear turns you back where sound gear would get you across.
     const road = (s: Region1State): Region1State => {
       let st = { ...s, stores: { ...s.stores, rations: 8 } };
-      while (st.day < DEFAULT_CALENDAR.caravanOpen) st = runDay(st, ['rest']).state;
+      st = fastForward(st, DEFAULT_CALENDAR.caravanOpen);
       // …and they've seen the pass out through the distant hills.
       return { ...st, explore: scout(st.explore, 3), vitals: { ...st.vitals, condition: 90, vigor: { ...st.vitals.vigor, cap: 100 } } };
     };

@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { fastForward } from './test-helpers';
 import { createRegion1, runAction, runDay, endDay, chooseSite, choose, warmth, type Region1State, NEEDS } from './region1';
 import { BASELINE } from './vitality';
 import { scouted, level } from './exploration';
@@ -11,7 +12,7 @@ import { scouted, level } from './exploration';
 /** Pass idle days (empty queue) until `day`. */
 function advanceTo(s: Region1State, day: number): Region1State {
   let st = s;
-  while (st.day < day) st = runDay(st, []).state;
+  st = fastForward(st, day, []);
   return st;
 }
 
