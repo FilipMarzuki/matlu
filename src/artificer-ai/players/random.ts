@@ -15,7 +15,7 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
-import { ACTIONS, SITES, DAY_HOURS, runAction, chooseSite, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
+import { ACTIONS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import { availableChoices } from '../../artificer/winter';
 import type { Player } from '../runner';
@@ -79,7 +79,7 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
       for (const id of ACTION_IDS) {
         for (const ring of ACTIONS[id].ringed ? [1, 2, 3] : [1]) {
           const o = randomOpts(s, id, true);
-          if ((ACTIONS[id].gate?.(s, ring as 1 | 2 | 3, o) ?? null) === null) options.push({ id, ring, o });
+          if (blockedReason(s, id, ring as 1 | 2 | 3, o) === null) options.push({ id, ring, o });
         }
       }
       if (!options.length) break;

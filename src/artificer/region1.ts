@@ -16,7 +16,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, WEATHER, tempAt, nightTemp, isColdNight, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, type Forecast, type WeatherId } from './weather';
+import { weatherFor, WEATHER, tempAt, nightTemp, isColdNight, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -139,6 +139,8 @@ export interface Region1State {
   weatherToday: WeatherId;
   /** What the Warden knows of the coming days' weather (#1282): from a look-out or Weather sense. */
   forecast: Forecast;
+  /** Hours spent outside in today's rain (#1284); reset each dawn. */
+  wetHours?: number;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -350,6 +352,8 @@ export const routeKnown = (s: Region1State): boolean => level(s.explore, 3, 'rou
 const where = (ring: Ring): string => (ring === 1 ? '' : ` in the ${RING_NAME[ring].toLowerCase()} ring`);
 /** Looking at the land in the dark teaches nothing (#1281). */
 const tooDark = (ring: Ring): string => `Too dark to make anything out${where(ring)} — the hours pass and you learn nothing.`;
+/** Fog hides the land (#1284). */
+const fogged = (ring: Ring): string => `Fog lies thick${where(ring)} — you can't see past your own hand, and learn nothing.`;
 /** A note when poor light cost part of the haul (#1281). */
 const dimNote = (light: number): string => (light < 1 ? (light < 0.5 ? ' Most of it lost to the dark.' : ' The light was failing.') : '');
 
@@ -555,6 +559,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     name: 'Scout', hours: 4, vigorRate: -3.5, clarityRate: -1, ringed: true, gate: reach,
     run: (s, _b, r, _o, light) => {
       if (tooDarkToSee('scout', light)) return tooDark(r);
+      if (blindInFog(s.weatherToday, 'scout')) return fogged(r);
       s.explore = scout(s.explore, r);
       return r === 1 ? 'Scouted the near ground — you can see where food, water, wood and stone lie.'
         : r === 2 ? 'Pushed out to the far ring — new forage and timber, and paths leading on.'
@@ -565,6 +570,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     name: 'Survey', hours: 7, vigorRate: -2, clarityRate: -5, ringed: true, gate: reach,
     run: (s, _b, r, _o, light) => {
       if (tooDarkToSee('survey', light)) return tooDark(r);
+      if (blindInFog(s.weatherToday, 'survey')) return fogged(r);
       s.explore = survey(s.explore, r); return `Surveyed carefully${where(r)} — every trip there yields more now.`;
     },
   },
@@ -577,7 +583,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     run: (s, b, r, _o, light) => {
       const blind = level(s.explore, r, 'forage') === 0;
       // In poor light you miss most of what's there (#1281).
-      const n = scaleHaul(tripYield(s.explore, r, 'forage', 3, 2) + b, darkYieldMult('gather', light));
+      const n = scaleHaul(tripYield(s.explore, r, 'forage', 3, 2) + b, darkYieldMult('gather', light) * weatherYield(s.weatherToday, 'gather'));
       const note = workLand(s, r, 'forage');
       const fiber = findBonus(s, r, 'forage');
       s.stores.rawFood += n; s.stores.materials += fiber; s.flags.everFood = true;
@@ -717,7 +723,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const extra = r.gained * (statEffects(s.character.stats).insight - 1);
       if (extra !== 0) addInsight(s.concepts, concept, extra, CRAFT_WORLD.concepts);
       // At night you read and reckon by firelight — or strain in the dark (#1281).
-      const night = nightWork(light, s.stores.firewood, 3);
+      const night = nightWork(light, s.stores.firewood, 3, windFire(s.weatherToday));
       const strain = Math.max(0, before - s.vitals.clarity.current) * (night.clarity - 1);
       s.stores.firewood -= night.fire;
       s.vitals.clarity.current = Math.max(0, s.vitals.clarity.current - strain);
@@ -792,7 +798,18 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   const { id, ring, opts } = parseItem(item);
   const def = ACTIONS[id];
   const recipe = s && def.recipeFor ? def.recipeFor(id === 'build' && planBuild(s, opts).moving ? { ...s, tier: 0 } : s, opts) : def.recipe;
-  return (recipe ? recipe.timeBase : def.variant?.(opts, s, ring).hours ?? def.hours) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
+  const rain = s && !recipe ? weatherHours(s.weatherToday, id) : 1;
+  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
+}
+
+/**
+ * Why an action can't be done right now, or null if it can: its own gate, or
+ * the weather (a storm keeps you out of the far rings, #1284). Every place that
+ * asks "is this allowed?" — the sim, the plan preview, the AI — uses this.
+ */
+export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts = {}): string | null {
+  const def = ACTIONS[id];
+  return def.gate?.(s, ring, opts) ?? (def.ringed && stormBars(s.weatherToday, ring) ? 'the storm makes it too dangerous to go out' : null);
 }
 
 /**
@@ -804,7 +821,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   if (next.outcome) return next;
   const { id, ring, opts } = parseItem(item);
   const def = ACTIONS[id];
-  const refused = def.gate?.(next, ring, opts) ?? null;
+  const refused = blockedReason(next, id, ring, opts);
   if (refused) { say(next, `${def.name}${where(ring)}: skipped — ${refused}.`, 'skip'); return next; }
   // Building somewhere new moves camp first; the build then starts there from scratch.
   if (id === 'build') {
@@ -820,7 +837,8 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const skill = skillFor(id);
   const lvl = skill ? skillLevel(next.skills, skill) : 0;
   const v = def.variant?.(opts, next, ring) ?? {};
-  const workHours = (v.hours ?? def.hours) * mod.timeMult;
+  // Rain makes some work slower (#1284).
+  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id);
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
   const travel = def.ringed ? TRAVEL_HOURS[ring] : 0;
   const td = talentDrain(next.character.talents, id);
@@ -834,8 +852,9 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
   // The light the work has (#1280), and what the dark costs (#1281): heavier felling, a harder walk.
   const at = stampFor(next, workHours + travel);
-  const dw = darkWorkDrain(id, at.light) * coldWork(next, at.hour), dt = darkTravelDrain(at.light);
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain });
+  const wd = weatherDrain(next.weatherToday, id, !!def.ringed, ring);
+  const dw = darkWorkDrain(id, at.light) * coldWork(next, at.hour) * wd, dt = darkTravelDrain(at.light);
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
@@ -843,6 +862,8 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedVigor ||= r.pushedVigor || t.pushedVigor;
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
+  // Out in the rain, you get soaked (#1284).
+  if (def.ringed && next.weatherToday === 'rain') next.wetHours = (next.wetHours ?? 0) + workHours + travel;
   // Tough (#1263): pushing past empty costs less Condition — give back the part it spares.
   refundOverexertion(next, r.conditionLost + t.conditionLost, tf.overexertCondition);
 
@@ -850,7 +871,7 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0);
   say(next, def.run(next, bonus, ring, opts, at.light), 'action', at);
   // First into a ring, you may find a manual someone left behind (#1243).
-  const manual = id === 'scout' && !tooDarkToSee('scout', at.light) ? MANUAL_BY_RING[ring] : undefined;
+  const manual = id === 'scout' && !tooDarkToSee('scout', at.light) && !blindInFog(next.weatherToday, 'scout') ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
@@ -880,7 +901,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const crafter = crafterOf(next);
   // At night, close work needs firelight — or goes worse in the dark (#1281).
   const at = stampFor(next, hours);
-  const night = nightWork(at.light, next.stores.firewood, hours);
+  const night = nightWork(at.light, next.stores.firewood, hours, windFire(next.weatherToday));
   // Intelligence (#1256) lifts — or, below average, lowers — the grade.
   const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
@@ -1032,9 +1053,18 @@ export function endDay(s: Region1State): Region1State {
     say(next, 'The snare line caught something — 1 raw food.', 'action');
   }
 
-  const w = warmth(next);
-  // A cold night (#1283): the frost decides how much shelter is enough. (The flat world keeps the old rule.)
-  const cold = feelsTemperature(next) ? isColdNight(w, nightTemp(next.day, next.weatherToday)) : w < 0.3 && next.tier < 2;
+  // Wet through after hours in the rain (#1284): a miserable evening.
+  if (next.weatherToday === 'rain' && (next.wetHours ?? 0) >= WET_HOURS) {
+    next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - WET_CLARITY);
+    say(next, 'Wet through and miserable after a day out in the rain.', 'hardship');
+  }
+  // Wind strips warmth from the night (#1284).
+  const w = Math.max(0, warmth(next) - windChill(next.weatherToday));
+  // A cold night (#1283): the frost decides how much shelter is enough — and rain with no roof is always cold (#1284).
+  // (The flat world keeps the old rule.)
+  const cold = feelsTemperature(next)
+    ? isColdNight(w, nightTemp(next.day, next.weatherToday)) || (next.weatherToday === 'rain' && next.tier === 0)
+    : w < 0.3 && next.tier < 2;
   const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null });
   // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
   if (night.ended) {
@@ -1117,6 +1147,7 @@ function foresee(s: Pick<Region1State, 'character' | 'config' | 'forecast'>, day
  */
 function dawnWeather(s: Region1State): void {
   s.weatherToday = weatherOn(s, s.day);
+  s.wetHours = 0;
   for (const d of Object.keys(s.forecast)) if (Number(d) <= s.day) delete s.forecast[Number(d)];
   if (s.techniques.includes('weather')) { foresee(s, s.day + 1); foresee(s, s.day + 2); }
   if (s.config.world.weather === 'seeded') say(s, `Morning: ${WEATHER[s.weatherToday].name.toLowerCase()}.`, 'action');

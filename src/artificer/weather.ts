@@ -13,6 +13,7 @@
 
 import { streamFor } from './rng';
 import type { WeatherId, WorldConfig } from './world';
+import type { ActionId } from './region1';
 
 export type { WeatherId } from './world';
 
@@ -105,3 +106,35 @@ export const iceOn = (day: number): boolean => dayMean(day) < 0;
  * of frost — freezing nights need a warmer shelter.
  */
 export const isColdNight = (warmth: number, nightTempC: number): boolean => warmth < 0.3 + 0.03 * Math.max(0, -nightTempC);
+
+// ── Weather on the work (#1284) ─────────────────────────────────────────────
+
+/** Rain makes these slower: wet wood, slick stone, sodden forage. */
+const RAIN_SLOW: readonly ActionId[] = ['gather', 'wood', 'quarry'];
+/** How much longer work takes in this weather. */
+export const weatherHours = (w: WeatherId, action: ActionId): number => (w === 'rain' && RAIN_SLOW.includes(action) ? 1.25 : 1);
+
+/** Fog hides the land: scouting and surveying learn nothing. */
+export const blindInFog = (w: WeatherId, action: ActionId): boolean => w === 'fog' && (action === 'scout' || action === 'survey');
+
+/** A storm keeps you out of the far rings. */
+export const stormBars = (w: WeatherId, ring: number): boolean => w === 'storm' && ring >= 2;
+
+/** Drain on outdoor work in this weather: a storm batters near work; snow shows the tracks. */
+export function weatherDrain(w: WeatherId, action: ActionId, ringed: boolean, ring: number): number {
+  if (w === 'storm' && ringed && ring === 1) return 1.3;
+  if (w === 'snow' && action === 'track') return 0.8;
+  return 1;
+}
+
+/** How much of a haul the weather leaves you: snow buries forage. */
+export const weatherYield = (w: WeatherId, action: ActionId): number => (w === 'snow' && action === 'gather' ? 0.5 : 1);
+
+/** Wind strips warmth from a night's shelter. */
+export const windChill = (w: WeatherId): number => (w === 'wind' ? 0.1 : 0);
+/** Wind feeds a fire: one more firewood. */
+export const windFire = (w: WeatherId): number => (w === 'wind' ? 1 : 0);
+
+/** Hours outside in the rain before you're wet through, and what it costs the mind at dusk. */
+export const WET_HOURS = 4;
+export const WET_CLARITY = 3;

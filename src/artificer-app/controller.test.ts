@@ -8,13 +8,17 @@ import { supplied } from '../artificer/test-helpers';
 import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
 import { scouted } from '../artificer/exploration';
+import { createRegion1 } from '../artificer/region1';
+import { FLAT_WORLD } from '../artificer/world';
 
+/** A new game in the flat world: a fresh game's random character id would otherwise roll random weather (fog blinds a scout, #1284). */
+const flatGame = (): AppState => ({ ...newGame(), sim: createRegion1({ world: FLAT_WORLD }, undefined, { id: 'w-controller' }) });
 const withQueue = (a: AppState, ids: Parameters<typeof enqueue>[1][]): AppState => ids.reduce(enqueue, a);
 
 describe('Artificer controller', () => {
   // 1. Queue editing is pure.
   it('adds, removes and clears queued actions without mutating', () => {
-    const a = newGame();
+    const a = flatGame();
     const q = withQueue(a, ['scout', 'water', 'wood']);
     expect(q.queue).toEqual(['scout', 'water', 'wood']);
     expect(dequeueAt(q, 1).queue).toEqual(['scout', 'wood']);
@@ -25,7 +29,7 @@ describe('Artificer controller', () => {
 
   // 2. Running a day runs what fits and keeps the rest.
   it('runs one day of the queue and carries the remainder', () => {
-    const a = withQueue(newGame(), ['scout', 'wood', 'wood', 'wood', 'water']);
+    const a = withQueue(flatGame(), ['scout', 'wood', 'wood', 'wood', 'water']);
     const r = runQueuedDay(a);
     // scout 4h + 3×wood 12h → the 3rd wood starts at 12h (< 14) and finishes; water waits
     expect(r.queue).toEqual(['water']);
@@ -35,7 +39,7 @@ describe('Artificer controller', () => {
 
   // 3. Running the whole queue drains it across days.
   it('drains a multi-day queue', () => {
-    const a = withQueue(newGame(), ['scout', 'wood', 'wood', 'wood', 'water', 'wood', 'wood']);
+    const a = withQueue(flatGame(), ['scout', 'wood', 'wood', 'wood', 'water', 'wood', 'wood']);
     const r = runWholeQueue(a);
     expect(r.queue).toEqual([]);
     expect(r.sim.day).toBe(3);
@@ -45,7 +49,7 @@ describe('Artificer controller', () => {
 
   // 4. The preview splits days like runDay and flags skips against the plan so far.
   it('previews day splits and warns about actions that would be skipped', () => {
-    const a = withQueue(newGame(), ['hunt', 'scout', 'gather', 'wood', 'wood']);
+    const a = withQueue(flatGame(), ['hunt', 'scout', 'gather', 'wood', 'wood']);
     const p = previewQueue(a);
     // hunt is refused (no hours), scout 4, gather 5 → 9, wood → 13, next wood still starts today
     expect(p.dayOffset).toEqual([0, 0, 0, 0, 0]);
@@ -57,7 +61,7 @@ describe('Artificer controller', () => {
 
   // 5. Sites and exits go through the sim; exits stay calendar-gated and clear the plan.
   it('settles a site and only takes exits the calendar has opened', () => {
-    let a = settle(runQueuedDay(withQueue(newGame(), ['scout'])), 'cave');
+    let a = settle(runQueuedDay(withQueue(flatGame(), ['scout'])), 'cave');
     expect(a.sim.site).toBe('cave');
     expect(() => takeExit(a, 'caravan')).toThrow(/not available/);
     while (a.sim.day < DEFAULT_CALENDAR.caravanOpen) { expect(a.sim.outcome).toBeNull(); a = runQueuedDay({ ...a, sim: supplied(a.sim) }); }
@@ -71,7 +75,7 @@ describe('Artificer controller', () => {
 
   // 6. Saves round-trip; anything malformed or stale is rejected (never throws).
   it('round-trips a save and rejects corrupt or wrong-version data', () => {
-    const a = runQueuedDay(withQueue(newGame(), ['scout', 'water', 'wood', 'wood', 'gather']));
+    const a = runQueuedDay(withQueue(flatGame(), ['scout', 'water', 'wood', 'wood', 'gather']));
     expect(deserialize(serialize(a))).toEqual(a);
 
     expect(deserialize(null)).toBeNull();
@@ -112,7 +116,7 @@ describe('Artificer controller', () => {
 
   // 7. Options live on their queue entry and change the preview.
   it('sets an option on one queued entry and previews its cost', () => {
-    const played = settle(runQueuedDay(withQueue(newGame(), ['scout', 'wood', 'wood'])), 'cave');
+    const played = settle(runQueuedDay(withQueue(flatGame(), ['scout', 'wood', 'wood'])), 'cave');
     const a = { ...played, sim: { ...played.sim, known: [...played.sim.known, 'shelter-hut'] } }; // the hut is discovered
     const q = withQueue(a, ['build', 'rest']);
     const hut = setOption(q, 0, 'type', 'hut');
@@ -126,7 +130,7 @@ describe('Artificer controller', () => {
 
   // 8. (#1224) A run is recorded once when it resolves; history saves separately and survives bad data.
   it('records finished runs and starts the next one', () => {
-    let a = settle(runQueuedDay(withQueue(newGame(), ['scout', 'track'])), 'cave');
+    let a = settle(runQueuedDay(withQueue(flatGame(), ['scout', 'track'])), 'cave');
     while (a.sim.day < DEFAULT_CALENDAR.caravanOpen) { expect(a.sim.outcome).toBeNull(); a = runQueuedDay({ ...a, sim: supplied(a.sim) }); }
     const done = takeExit(a, 'winter');
 

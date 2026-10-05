@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { createRegion1, survivalLockOf, ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
@@ -363,7 +363,7 @@ function paletteBlock(a: AppState, preview: Preview): string {
     const def = ACTIONS[id];
     const r: Ring = def.ringed ? focusRing : 1;
     const q = queueId(id, r);
-    const why = def.gate?.(preview.projected, r, {}) ?? null;
+    const why = blockedReason(preview.projected, id, r);
     const spends = [def.vigorRate < 0 ? 'vigor' : '', def.clarityRate < 0 ? 'clarity' : ''].filter(Boolean).join(' + ') || 'restores';
     return `<button class="act ${why ? 'soft' : ''}" data-q="${q}" ${resolved ? 'disabled' : ''} title="${why ? esc(`Would be skipped: ${why}`) : ''}">`
       + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${queueHours(q, preview.projected)}H</span></div>`

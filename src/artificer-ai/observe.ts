@@ -12,7 +12,7 @@
  */
 
 import {
-  ACTIONS, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
+  ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, routeKnown, queueHours, queueId, survivalLockOf,
   type ActionId, type Region1State,
 } from '../artificer/region1';
@@ -171,7 +171,7 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     const def = ACTIONS[id];
     const rings: Ring[] = def.ringed ? RINGS.filter(r => reachable(s.explore, r)) : [1];
     for (const r of rings) {
-      const why = def.gate?.(s, r, {}) ?? null;
+      const why = blockedReason(s, id, r);
       const ringTag = def.ringed ? ` ring ${r}` : '';
       const hint = def.ringed ? landHint(s, id, r) : (CAMP_HINT[id] ?? '');
       lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${why ? ` · BLOCKED: ${why}` : ''}`);

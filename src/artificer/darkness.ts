@@ -44,9 +44,10 @@ export const firelightCost = (hours: number): number => Math.ceil(hours / 4);
  * Close work (crafting, study) at night: by firelight it costs a little more
  * of the mind; without a fire, much more, and crafts come out a grade worse.
  */
-export function nightWork(light: number, firewood: number, hours: number): { fire: number; clarity: number; grade: number } {
+export function nightWork(light: number, firewood: number, hours: number, extraFire = 0): { fire: number; clarity: number; grade: number } {
   if (light >= SEE_BELOW) return { fire: 0, clarity: 1, grade: 0 };
-  const fire = firelightCost(hours);
+  // `extraFire`: wind feeds the flames (#1284).
+  const fire = firelightCost(hours) + extraFire;
   return firewood >= fire ? { fire, clarity: 1.2, grade: 0 } : { fire: 0, clarity: 1.5, grade: -1 };
 }
 
