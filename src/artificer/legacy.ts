@@ -11,6 +11,7 @@
 
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
 import type { EndChoice, Injury, OutcomeKind } from './winter';
+import { carriedSkills, type SkillPractice } from './skills';
 import type { Grade } from './crafting';
 
 /** One finished run, as the history shows it. */
@@ -41,6 +42,8 @@ export interface Legacy {
   known: string[];
   /** Concept id → rank (insight starts again from 0). */
   concepts: Record<string, number>;
+  /** Skill practice at each skill's reached level (#1236). Optional so older legacies still load. */
+  skills?: SkillPractice;
 }
 
 /** Summarise a resolved run. Throws on a run still in progress — there's nothing to record yet. */
@@ -75,6 +78,7 @@ export function legacyOf(s: Region1State): Legacy {
   return {
     known: [...s.known],
     concepts: Object.fromEntries(Object.entries(s.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => [id, p.rank])),
+    skills: carriedSkills(s.skills),
   };
 }
 

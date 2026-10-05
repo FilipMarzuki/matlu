@@ -34,7 +34,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     expect(failed.tier).toBe(0);
     expect(failed.shelterGrade).toBeNull();
     expect(failed.stores.materials).toBe(17);
-    expect(failed.log.at(-1)).toMatchObject({ kind: 'hardship' });
+    expect(failed.log.some(l => l.kind === 'hardship' && /came apart/.test(l.text))).toBe(true);
 
     // A steady-but-not-sharp mind in the field makes crude work.
     const steady = runAction(camp('cave', { vitals: createVitals({ clarity: 60 }) }), 'build');
@@ -62,7 +62,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     const rough = runAction(camp('cave', { vitals: createVitals({ clarity: 60 }) }), 'coldGear');
     expect(rough.tools).toEqual([{ item: 'cold-gear', grade: 'crude' }]);
     expect(rough.coldGear).toBe(false);
-    expect(rough.log.at(-1)?.text).toMatch(/won't hold up/);
+    expect(rough.log.some(l => /won't hold up/.test(l.text))).toBe(true);
     // Crude gear can be remade; sound gear is kept.
     const rested = runAction({ ...rough, vitals: createVitals() }, 'coldGear');
     expect(rested.tools.at(-1)).toEqual({ item: 'cold-gear', grade: 'sound' });

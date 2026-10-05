@@ -8,6 +8,7 @@ import { warmth, readinessInput, type Region1State } from '../artificer/region1'
 import { pillars, isWinterReady, type PillarKey } from '../artificer/readiness';
 import { RINGS, DOMAINS, level } from '../artificer/exploration';
 import { artificerRank, conceptRanks, type RankName } from '../artificer/rank';
+import { SKILL_IDS, skillLevel } from '../artificer/skills';
 
 export interface Progress {
   /** The day about to start (a turn's snapshot is taken after its night). */
@@ -19,6 +20,9 @@ export interface Progress {
   /** Total insight across concepts, including what's banked toward the next rank. */
   insight: number;
   recipesKnown: number;
+  /** Skill id → level (#1236), and the sum of all levels. */
+  skills: Record<string, number>;
+  skillLevels: number;
   /** Recipes discovered this run (beyond what the run started with). */
   discoveries: number;
   /** Successful crafts and builds so far, and ones that came apart. */
@@ -60,6 +64,8 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
     conceptRanks: conceptRanks(s),
     insight: r1(Object.values(s.concepts).reduce((n, c) => n + c.insight, 0)),
     recipesKnown: s.known.length,
+    skills: Object.fromEntries(SKILL_IDS.map(id => [id, skillLevel(s.skills, id)])),
+    skillLevels: SKILL_IDS.reduce((n, id) => n + skillLevel(s.skills, id), 0),
     discoveries: s.known.length - startKnown,
     crafts: count(/^(Crafted|Raised) /),
     failedCrafts: count(/came apart in your hands/),

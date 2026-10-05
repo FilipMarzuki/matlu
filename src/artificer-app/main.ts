@@ -20,6 +20,7 @@ import { pillars, type PillarKey } from '../artificer/readiness';
 import { bestRun, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
+import { SKILLS, SKILL_IDS, LEVELS, LEVEL_HOURS, MAX_LEVEL, skillLevel } from '../artificer/skills';
 import { introBeats, type Beat, type IntroKind } from './intro';
 import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
@@ -208,6 +209,19 @@ function storesRow(s: AppState['sim']): string {
   return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1).replace('</span>', `${streak(s.deprivation.hungry, 'HUNGRY')}</span>`)}${storeChip('💧', 'Water', st.water, st.water < 1).replace('</span>', `${streak(s.deprivation.thirsty, 'THIRSTY')}</span>`)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
 }
 
+/** Skills (#1236): level, a bar toward the next level, and what the skill covers. */
+function skillsBlock(s: AppState['sim']): string {
+  return `<div class="skills">${SKILL_IDS.map(id => {
+    const lvl = skillLevel(s.skills, id);
+    const have = s.skills[id] ?? 0;
+    const from = LEVEL_HOURS[lvl], to = LEVEL_HOURS[Math.min(lvl + 1, MAX_LEVEL)];
+    const frac = lvl >= MAX_LEVEL ? 1 : (have - from) / (to - from);
+    return `<div class="skill" title="${esc(SKILLS[id].blurb)}"><span class="sn">${esc(SKILLS[id].name)}</span>`
+      + `<span class="pips">${Array.from({ length: MAX_LEVEL }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span>`
+      + `<span class="sl">${LEVELS[lvl]}</span><div class="track"><div class="fill" style="width:${pct(frac)}%"></div></div></div>`;
+  }).join('')}</div>`;
+}
+
 function vitalsBlock(a: AppState): string {
   const v = a.sim.vitals;
   return `<div class="vitals">${poolRow('VIGOR', v.vigor)}${poolRow('CLARITY', v.clarity)}
@@ -375,6 +389,7 @@ function tabBody(a: AppState, preview: Preview): string {
       return `<div class="cols">
         <section class="box"><p class="eyebrow">THE WARDEN</p>${vitalsBlock(a)}
           <p class="eyebrow" style="margin-top:14px">STORES</p>${storesRow(a.sim)}
+          <p class="eyebrow" style="margin-top:14px">SKILLS</p>${skillsBlock(a.sim)}
           <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</section>
         <section class="box"><p class="eyebrow">SITE &amp; SHELTER</p>${sitesBlock(a)}</section>
       </div>`;

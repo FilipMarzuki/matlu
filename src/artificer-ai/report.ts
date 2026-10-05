@@ -23,6 +23,7 @@ export const METRICS = {
   conceptRanks: { label: 'Concept ranks', unit: '', of: (p: Progress) => p.conceptRanks },
   insight: { label: 'Insight (total)', unit: '', of: (p: Progress) => p.insight },
   recipesKnown: { label: 'Recipes known', unit: '', of: (p: Progress) => p.recipesKnown },
+  skillLevels: { label: 'Skill levels (sum of 7)', unit: '', of: (p: Progress) => p.skillLevels ?? 0 },
   crafts: { label: 'Crafts & builds made', unit: '', of: (p: Progress) => p.crafts },
   exploration: { label: 'Exploration (sum of levels)', unit: '', of: (p: Progress) => p.exploration },
   rations: { label: 'Rations', unit: '', of: (p: Progress) => p.stores.rations },

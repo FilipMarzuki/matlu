@@ -318,3 +318,14 @@ body { min-height: 100vh; }
     .intro .portal { animation: none; transition: none; }
     .intro .beat p { animation: none !important; opacity: 1; }
   }
+
+  /* Skills (#1236): name, level pips, level name, progress to the next level */
+  .skills { display: grid; gap: 6px; }
+  .skill { display: grid; grid-template-columns: minmax(84px, 1fr) auto minmax(76px, auto); align-items: center; gap: 4px 10px; font-size: 12px; }
+  .skill .sn { color: var(--ink); }
+  .skill .pips { display: inline-flex; gap: 3px; }
+  .skill .pips i { width: 8px; height: 8px; border-radius: 2px; background: var(--border2); }
+  .skill .pips i.on { background: var(--gold); }
+  .skill .sl { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); text-align: right; }
+  .skill .track { grid-column: 1 / -1; height: 3px; background: var(--sub2); border-radius: 2px; overflow: hidden; }
+  .skill .track .fill { height: 100%; background: var(--teal); }

@@ -208,5 +208,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const deprivation = isObj(d) && isNum(d.hungry) && isNum(d.thirsty) ? { hungry: d.hungry, thirsty: d.thirsty } : { hungry: 0, thirsty: 0 };
 
   // The shape checks above cover what the sim reads; trust the rest.
-  return { sim: { ...(sim as unknown as Region1State), deprivation }, queue: queue as QueueItem[] };
+  // …and saves from before skills (#1236) start with no practice.
+  const skills = isObj(sim.skills) && Object.values(sim.skills).every(isNum) ? sim.skills as Region1State['skills'] : {};
+  return { sim: { ...(sim as unknown as Region1State), deprivation, skills }, queue: queue as QueueItem[] };
 }
