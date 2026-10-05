@@ -933,8 +933,6 @@ export function endDay(s: Region1State): Region1State {
   if (next.outcome) return next;
   // The day as it was lived, for focus (#1238): was the mind locked, how clear was it, how long did it work.
   const lockedToday = survivalLockOf(next);
-  const clarityAtDusk = next.vitals.clarity.current;
-  const hoursWorked = next.hoursToday;
 
   // A set snare line brings in a little food overnight (before supper).
   if (capabilities(next.tools).has('snare-line')) {
@@ -942,17 +940,78 @@ export function endDay(s: Region1State): Region1State {
     say(next, 'The snare line caught something — 1 raw food.', 'action');
   }
 
+  const w = warmth(next);
+  const night = sleepNight(next, { warmth: w, coldNight: w < 0.3 && next.tier < 2, lockedToday: lockedToday !== null });
+  // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
+  if (night.ended) {
+    next.outcome = { choice: 'collapse', kind: night.ended, vitals: next.vitals };
+    say(next, night.ended === 'died'
+      ? deathLine(next)
+      : 'Your body gives out and you collapse. Traders find you days later, barely alive — this season is over.', 'outcome');
+    return next;
+  }
+
+  next.day += 1;
+  next.hoursToday = 0;
+  next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
+  next.studiedToday = {};
+  // Tell the player when survival takes over the mind, and when it lets go.
+  const lockedNow = survivalLockOf(next);
+  if (lockedNow && !lockedToday) say(next, `Survival takes over your thoughts — ${lockedNow}. Your focus will have to wait.`, 'hardship');
+  if (!lockedNow && lockedToday && next.focus) say(next, `The pressure eases — your focus returns to ${focusLabel(next.focus)}.`, 'milestone');
+  latchMilestones(next);
+  return next;
+}
+
+/**
+ * What a night needs from a Warden — shared by Region 1 and the caravan road
+ * (#1244), so survival works the same wherever you sleep.
+ */
+export type Sleeper = Pick<Region1State, 'day' | 'hoursToday' | 'vitals' | 'stores' | 'tools' | 'concepts' | 'today' | 'deprivation' | 'character' | 'focus' | 'log'>;
+
+export interface NightOpts {
+  /** Shelter warmth for the night, 0–1. */
+  warmth: number;
+  /** A cold, broken night: exposure costs Condition (unless the Warden is cold-proof). */
+  coldNight: boolean;
+  /** The mind was locked to survival today, so a focused concept wasn't worked on. */
+  lockedToday: boolean;
+  /** Someone else waters you tonight (the caravan's barrels, #1244): you don't go thirsty, and your own water is kept. */
+  providedWater?: boolean;
+}
+
+/** The night's verdict: null if the Warden lives to see morning; otherwise how it ended. */
+export interface NightResult { ended: null | 'died' | 'collapsed' }
+
+/** The death line for a Warden who died of deprivation in the night. */
+export function deathLine(s: Pick<Region1State, 'deprivation'>): string {
+  const { hungry: h, thirsty: t } = s.deprivation;
+  const thirst = t >= DEATH_THIRST;
+  return `You lie down in the night and don't get up. Dead of ${thirst ? 'thirst' : 'starvation'} (${thirst ? `${t} nights without water` : `${h} nights without food`}).`;
+}
+
+/**
+ * One night, on a cloned state (mutated in place): eat and drink (each is needed to recover; going without
+ * costs Condition, more each night in a row), sleep (recovery scales with warmth), a cold night bites,
+ * then — if you wake — capacity drifts on how the day was lived and a good night heals a little Condition.
+ * The day counter is the caller's to advance.
+ */
+export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
+  const clarityAtDusk = next.vitals.clarity.current;
+  const hoursWorked = next.hoursToday;
+  const say = (text: string, kind: LogEntry['kind']): void => { next.log.push({ day: next.day, text, kind }); };
+
   // Food and water are separate needs, and both are needed to recover (#1233).
   const ate = next.stores.rawFood > 0;
-  const drank = next.stores.water > 0;
+  const drank = o.providedWater || next.stores.water > 0;
   if (ate) next.stores.rawFood -= 1;
-  if (drank) next.stores.water -= 1;
+  if (drank && !o.providedWater) next.stores.water -= 1;
   next.deprivation = { hungry: ate ? 0 : next.deprivation.hungry + 1, thirsty: drank ? 0 : next.deprivation.thirsty + 1 };
   const running = (n: number): string => (n > 1 ? ` (${ordinal(n)} night running)` : '');
-  if (!ate) say(next, `Hungry — no food${running(next.deprivation.hungry)}.`, 'hardship');
-  if (!drank) say(next, `Thirsty — no water${running(next.deprivation.thirsty)}.`, 'hardship');
+  if (!ate) say(`Hungry — no food${running(next.deprivation.hungry)}.`, 'hardship');
+  if (!drank) say(`Thirsty — no water${running(next.deprivation.thirsty)}.`, 'hardship');
 
-  const w = warmth(next);
+  const w = o.warmth;
   // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
   const tr = traitEffects(next.character.traits);
   const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : NEEDS.food.vigorRecovery) * tr.vigorRecovery;
@@ -968,30 +1027,24 @@ export function endDay(s: Region1State): Region1State {
   // Holding a focus costs a little of the mind each night; a focused concept was turned over all day.
   if (next.focus) {
     next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - FOCUS_COST);
-    if (next.focus.kind === 'concept' && !lockedToday) {
+    if (next.focus.kind === 'concept' && !o.lockedToday) {
       addInsight(next.concepts, next.focus.id, CONCEPT_PER_HOUR * hoursWorked * reliability(clarityAtDusk), CRAFT_WORLD.concepts);
     }
   }
-  if (w < 0.3 && next.tier < 2 && !tr.coldProof) {
+  if (o.coldNight && !tr.coldProof) {
     next.vitals.condition = Math.max(0, next.vitals.condition - 4);
-    say(next, 'A cold, broken night — the exposure bites.', 'hardship');
+    say('A cold, broken night — the exposure bites.', 'hardship');
   }
 
   // Tough (#1237): once per run, you cling on instead of going under.
   if (next.vitals.condition <= 0 && tr.lastStand && !next.character.lastStandUsed) {
     next.vitals.condition = 1;
     next.character.lastStandUsed = true;
-    say(next, 'Everything in you says stop. You refuse. You wake, somehow — Condition 1. That was your one reprieve.', 'hardship');
+    say('Everything in you says stop. You refuse. You wake, somehow — Condition 1. That was your one reprieve.', 'hardship');
   }
-  // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
+  // Condition gone (#1234): deprived, you die of it; otherwise you collapse.
   if (next.vitals.condition <= 0) {
-    const { hungry: h, thirsty: t } = next.deprivation;
-    const cause = t >= DEATH_THIRST ? 'thirst' : h >= DEATH_HUNGER ? 'starvation' : null;
-    next.outcome = { choice: 'collapse', kind: cause ? 'died' : 'collapsed', vitals: next.vitals };
-    say(next, cause
-      ? `You lie down in the night and don't get up. Dead of ${cause} (${cause === 'thirst' ? `${t} nights without water` : `${h} nights without food`}).`
-      : 'Your body gives out and you collapse. Traders find you days later, barely alive — this season is over.', 'outcome');
-    return next;
+    return { ended: next.deprivation.thirsty >= DEATH_THIRST || next.deprivation.hungry >= DEATH_HUNGER ? 'died' : 'collapsed' };
   }
 
   const summary = {
@@ -1009,17 +1062,7 @@ export function endDay(s: Region1State): Region1State {
   const preHeal = next.vitals.condition;
   next.vitals = recoverCondition(next.vitals, summary);
   next.vitals.condition = preHeal + (next.vitals.condition - preHeal) * tr.healRate;
-
-  next.day += 1;
-  next.hoursToday = 0;
-  next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
-  next.studiedToday = {};
-  // Tell the player when survival takes over the mind, and when it lets go.
-  const lockedNow = survivalLockOf(next);
-  if (lockedNow && !lockedToday) say(next, `Survival takes over your thoughts — ${lockedNow}. Your focus will have to wait.`, 'hardship');
-  if (!lockedNow && lockedToday && next.focus) say(next, `The pressure eases — your focus returns to ${focusLabel(next.focus)}.`, 'milestone');
-  latchMilestones(next);
-  return next;
+  return { ended: null };
 }
 
 /** Set (or clear, with null) what the mind is working on (#1238). Free: it costs no hours. */
