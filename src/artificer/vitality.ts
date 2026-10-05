@@ -81,8 +81,11 @@ export interface DaySummary {
   loadClarity: number;
   /** Did the character eat today? */
   ate: boolean;
-  /** Did the character drink today? Food and water are both needed to recover (#1233). Default true. */
+  /** Did the character drink today? Water is needed to recover at all (#1233). Default true. */
   drank?: boolean;
+  /** Nights in a row without food, including this one. One missed meal still lets a body train; two don't.
+   *  Unknown (undefined) with `ate: false` counts as not recovered, the conservative reading. */
+  hungryNights?: number;
   /** 0..1 warmth of where they slept (drives Clarity recovery/conditioning). */
   shelterWarmth: number;
   pushedVigor?: boolean;
@@ -194,15 +197,15 @@ export function driftCapacity(v: Vitals, day: DaySummary): Vitals {
     pool.cap = clamp(pool.cap + (target - pool.cap) * CAP_LERP, CAP_FLOOR, CAP_CEIL);
     pool.current = Math.min(pool.current, pool.cap);
   };
-  // A body or mind only recovers from hard work when fed AND watered (#1233);
-  // the mind also needs somewhere warm to sleep.
-  const nourished = isNourished(day);
-  drift(next.vigor, day.loadVigor, nourished, day.pushedVigor ?? false);
-  drift(next.clarity, day.loadClarity, nourished && day.shelterWarmth >= 0.5, day.pushedClarity ?? false);
+  // Hard work only builds a body or mind that has water and isn't starving (#1233): a
+  // single missed meal is fine, a second night hungry isn't. The mind also needs a warm sleep.
+  const fuelled = (day.drank ?? true) && (day.ate || (day.hungryNights ?? 2) <= 1);
+  drift(next.vigor, day.loadVigor, fuelled, day.pushedVigor ?? false);
+  drift(next.clarity, day.loadClarity, fuelled && day.shelterWarmth >= 0.5, day.pushedClarity ?? false);
   return next;
 }
 
-/** Fed and watered: both needs met (#1233). */
+/** Fed and watered: both needs met tonight (#1233) — what healing Condition takes. */
 export const isNourished = (day: Pick<DaySummary, 'ate' | 'drank'>): boolean => day.ate && (day.drank ?? true);
 
 /** Shelter warmth needed for a night to count as "real rest" for Condition. */

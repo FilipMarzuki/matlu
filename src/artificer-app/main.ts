@@ -439,7 +439,7 @@ function render(a: AppState): void {
     ${fresh || showHelp ? `<p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
       <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
       and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
-      Each night you need <b>both food and water</b> to recover body and mind — and every night in a row without either hurts more. Scout first, then push outward —
+      Each night you eat and drink: <b>water is critical</b> — a few dry nights wreck body and mind — while <b>food</b> can be skipped for a while at a slower cost. Every night in a row without either hurts more. Scout first, then push outward —
       working the land teaches you its detail. A caravan passes just before the snow: ride out with it, brave the crossing alone, or winter over.
       Progress saves in this browser.</p>` : ''}
     ${statusBar(a, preview)}

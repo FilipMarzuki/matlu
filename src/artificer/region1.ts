@@ -773,12 +773,17 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
   return next;
 }
 
-/** Sleep recovery with one need unmet (food or water), and with both unmet (#1233). */
-export const NEED_ONE_MISSING = 0.4;
-export const NEED_BOTH_MISSING = 0.15;
-/** Condition lost per night without food / water, times the nights in a row (#1233). */
-export const HUNGER_COST = 3;
-export const THIRST_COST = 6;
+/**
+ * Food & water (#1233), tuned to feel real: water is critical (a few nights
+ * without is near-fatal), food can be skipped for a while (slow wear), and
+ * both fog the mind. Per night without, Condition and Clarity drop by the value
+ * × the nights in a row; sleep recovery is scaled by the factors (both missing:
+ * the losses add, the factors multiply).
+ */
+export const NEEDS = {
+  water: { condition: 8, clarity: 8, vigorRecovery: 0.3, clarityRecovery: 0.3 },
+  food: { condition: 1, clarity: 3, vigorRecovery: 0.5, clarityRecovery: 0.8 },
+} as const;
 
 const ordinal = (n: number): string => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 
@@ -812,14 +817,16 @@ export function endDay(s: Region1State): Region1State {
   if (!drank) say(next, `Thirsty — no water${running(next.deprivation.thirsty)}.`, 'hardship');
 
   const w = warmth(next);
-  // Sleep restores body and mind in full only when fed and watered; one need unmet guts it, both nearly stops it.
-  const nourishment = ate && drank ? 1 : ate || drank ? NEED_ONE_MISSING : NEED_BOTH_MISSING;
+  // Sleep restores body and mind in full only when fed and watered; each unmet need scales it down.
+  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : NEEDS.food.vigorRecovery);
+  const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate ? 1 : NEEDS.food.clarityRecovery);
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
   const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;
-  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * nourishment, clarityRate: 5 * nourishment, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
-  // Going without escalates: each night in a row costs more, and thirst bites twice as hard as hunger.
-  const deprivationLoss = HUNGER_COST * next.deprivation.hungry + THIRST_COST * next.deprivation.thirsty;
-  next.vitals.condition = Math.max(0, next.vitals.condition - deprivationLoss);
+  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * vigorFactor, clarityRate: 5 * clarityFactor, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
+  // Going without escalates night by night — on the body (Condition) and the mind (Clarity).
+  const { hungry, thirsty } = next.deprivation;
+  next.vitals.condition = Math.max(0, next.vitals.condition - NEEDS.food.condition * hungry - NEEDS.water.condition * thirsty);
+  next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - NEEDS.food.clarity * hungry - NEEDS.water.clarity * thirsty);
   if (w < 0.3 && next.tier < 2) {
     next.vitals.condition = Math.max(0, next.vitals.condition - 4);
     say(next, 'A cold, broken night — the exposure bites.', 'hardship');
@@ -830,6 +837,7 @@ export function endDay(s: Region1State): Region1State {
     loadClarity: next.today.loadClarity,
     ate,
     drank,
+    hungryNights: next.deprivation.hungry,
     shelterWarmth: w,
     pushedVigor: next.today.pushedVigor,
     pushedClarity: next.today.pushedClarity,
