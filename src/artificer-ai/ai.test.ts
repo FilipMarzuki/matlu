@@ -12,6 +12,7 @@ import { playRun, type Player } from './runner';
 import { scriptedPlayer } from './players/scripted';
 import { aggregate, type Transcript } from './report';
 import { randomPlayer } from './players/random';
+import { ROSTER, DROPPED, DEFAULT_OPENROUTER_MODEL } from './roster';
 
 /** A player that replies with the given texts in order (then repeats the last). */
 const replay = (texts: string[]): Player & { seen: string[] } => {
@@ -201,5 +202,13 @@ describe('AI player harness', () => {
     expect(byModel['paid/model']).toEqual({ perGame: Math.round(paid.usage.cost! * 1e4) / 1e4, total: Math.round(2 * paid.usage.cost! * 1e4) / 1e4, perThrive: null, estimated: false });
     expect(byModel.scripted).toMatchObject({ perGame: 0, total: 0, perThrive: 0 });
     expect(byModel['old/model']).toEqual({ perGame: null, total: null, perThrive: null, estimated: false });
+  });
+
+  // The roster keeps dropped models (Gemini Pro: cost; Mistral Large: overkill) from creeping back in.
+  it('keeps dropped models out of the roster and the default', () => {
+    const dropped = new Set(DROPPED.map(d => d.model));
+    expect(ROSTER.filter(r => dropped.has(r.model))).toEqual([]);
+    expect(dropped.has(DEFAULT_OPENROUTER_MODEL)).toBe(false);
+    expect(ROSTER.every(r => r.perGame > 0 && r.perGame < 0.2)).toBe(true);
   });
 });

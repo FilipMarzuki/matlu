@@ -10,6 +10,7 @@
 
 import { RULES } from '../observe';
 import { DECISION_SCHEMA } from '../decision';
+import { DEFAULT_OPENROUTER_MODEL } from '../roster';
 import type { Player } from '../runner';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -24,7 +25,7 @@ export interface OpenRouterPlayerOptions {
 }
 
 export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
-  const model = opts.model ?? process.env.AI_PLAY_OPENROUTER_MODEL ?? 'google/gemini-2.5-pro';
+  const model = opts.model ?? process.env.AI_PLAY_OPENROUTER_MODEL ?? DEFAULT_OPENROUTER_MODEL;
   const apiKey = opts.apiKey ?? process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
   const useSchema = opts.schema ?? true;
