@@ -79,7 +79,20 @@ export const scriptedPlayer = (): Player => {
           if (swap >= 0) remaining[swap] = [e, ...remaining[swap].filter((_x, i, d) => i !== d.findIndex(y => y.action === 'wood'))];
         }
       }
-      return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site: null, queue }), usage: { cost: 0 } };
+      // Bad luck can cost the first roof (#1314): until there's a shelter, claim the cave and put one up first —
+      // cutting the wood for it if the materials are short.
+      let site: string | null = null;
+      if (s.day > 1 && s.tier === 0 && scouted(s.explore, 1)) {
+        if (!s.site) site = 'cave';
+        if (!queue.some(e => e.action === 'build')) {
+          // The roof takes the day; the plan waits a day rather than losing steps it depends on.
+          const short = /needs (\d+) materials/.test(blockedReason(s.site ? s : { ...s, site: 'cave' }, 'build', 1) ?? '');
+          // (Entries the weather spoiled were already moved to later days.)
+          remaining.unshift(today.filter(e => !spoiled(e, s)));
+          queue = [...(short ? [a('wood'), a('wood')] : []), a('build', 1, site ? { site } : {})];
+        }
+      }
+      return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site, queue }), usage: { cost: 0 } };
     },
   };
 };

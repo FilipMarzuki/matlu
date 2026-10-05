@@ -17,14 +17,15 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, weatherName, lateFrom, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
+import { weatherFor, weatherName, lateFrom, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
-import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
+import { SKILLS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
+import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, scouted, reachable, landYield, supplyFactor, hasFind, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
@@ -379,7 +380,8 @@ interface ActionDef {
    * `bonus` is the extra yield your tools give this action; `light` is the
    * average light the work had (#1281, 1 by day — darkness costs haul and sight).
    */
-  run: (s: Region1State, bonus: number, ring: Ring, opts: ActionOpts, light: number) => string;
+  /** `luck`: the trip's haul multiplier from its luck band (#1314) — 1 for an ordinary trip, and for work that isn't a haul. */
+  run: (s: Region1State, bonus: number, ring: Ring, opts: ActionOpts, light: number, luck: number) => string;
   /** How the chosen options change the work itself (hours and per-hour pulls). */
   variant?: (opts: ActionOpts, s?: Region1State, ring?: Ring) => { hours?: number; vigorRate?: number; clarityRate?: number };
   /** Happens out on the land: can target a ring, and pays its travel time. */
@@ -421,10 +423,12 @@ function workLand(s: Region1State, ring: Ring, d: Domain): string {
 }
 /**
  * A trip's haul (#1304): what the ground and the Warden bring together, taken
- * at the land's supply. Rounded, and never nothing — a stripped patch still
- * gives a little.
+ * at the land's supply, then by the trip's luck (#1314). Rounded; the land
+ * alone never gives nothing — a stripped patch still gives a little — but bad
+ * luck can.
  */
-const haul = (s: Region1State, ring: Ring, d: Domain, raw: number): number => Math.max(1, Math.round(raw * supplyFactor(s.explore, ring, d)));
+const haul = (s: Region1State, ring: Ring, d: Domain, raw: number, luck = 1): number =>
+  (luck === 0 ? 0 : Math.max(1, Math.round(raw * supplyFactor(s.explore, ring, d) * luck)));
 /** +2 from a find already made here. */
 const findBonus = (s: Region1State, ring: Ring, d: Domain): number => (hasFind(s.explore, ring, d) ? 2 : 0);
 
@@ -638,10 +642,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   gather: {
     name: 'Gather food', hours: 5, vigorRate: -3.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, b, r, _o, light) => {
+    run: (s, b, r, _o, light, luck) => {
       const blind = level(s.explore, r, 'forage') === 0;
       // In poor light you miss most of what's there (#1281).
-      const n = scaleHaul(haul(s, r, 'forage', landYield(s.explore, r, 'forage', 3, 2) + b), darkYieldMult('gather', light) * weatherYield(s.weatherToday, 'gather'));
+      const n = scaleHaul(haul(s, r, 'forage', landYield(s.explore, r, 'forage', 3, 2) + b, luck), darkYieldMult('gather', light));
       const note = workLand(s, r, 'forage');
       const fiber = findBonus(s, r, 'forage');
       s.stores.rawFood += n; s.stores.materials += fiber; s.flags.everFood = true;
@@ -659,13 +663,15 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       { value: 'deer', label: 'Deer', note: '5h · ~7 food + a hide · needs tracking', blocked: null },
       { value: 'small', label: 'Small game', note: '3h · ~3 food · lighter · no tracking needed', blocked: null },
     ])],
-    run: (s, b, r, o) => {
+    run: (s, b, r, o, _light, luck) => {
       const small = o.target === 'small';
-      const n = haul(s, r, 'game', (small ? landYield(s.explore, r, 'game', 3, 1) : landYield(s.explore, r, 'game', 7, 0)) + b + findBonus(s, r, 'game'));
+      const n = haul(s, r, 'game', (small ? landYield(s.explore, r, 'game', 3, 1) : landYield(s.explore, r, 'game', 7, 0)) + b + findBonus(s, r, 'game'), luck);
       const note = workLand(s, r, 'game');
       s.stores.rawFood += n; s.flags.everFood = true; s.flags.everHunt = true;
-      if (!small) { s.stores.hides += 1; s.flags.everHide = true; }
-      return small ? `Took small game${where(r)} — ${n} raw food.${note}` : `A good hunt${where(r)} — ${n} raw food and a hide.${note}`;
+      // An empty hunt brings no deer down, so no hide either.
+      if (!small && n > 0) { s.stores.hides += 1; s.flags.everHide = true; }
+      if (n === 0) return `Hunted ${small ? 'small game' : 'deer'}${where(r)} and took nothing.${note}`;
+      return small ? `Took small game${where(r)} — ${n} raw food.${note}` : `Brought down a deer${where(r)} — ${n} raw food and a hide.${note}`;
     },
   },
   water: {
@@ -674,8 +680,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     gate: (s, r) => reach(s, r) ?? (melting(s) && s.stores.firewood < MELT_FIREWOOD ? 'the streams are frozen hard, and there is no firewood to melt snow' : null),
     // Once the streams ice over you break through to the water first (#1283); frozen hard, you melt snow instead (#1303).
     variant: (_o, s) => (s && feelsTemperature(s) && iceOn(s.day, s.config.calendar) ? { hours: 2 + ICE_EXTRA_HOURS } : {}),
-    run: (s, b, r) => {
-      const n = haul(s, r, 'water', landYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water'));
+    run: (s, b, r, _o, _light, luck) => {
+      const n = haul(s, r, 'water', landYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water'), luck);
       const note = workLand(s, r, 'water');
       const melt = melting(s);
       if (melt) s.stores.firewood -= MELT_FIREWOOD;
@@ -686,10 +692,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   wood: {
     name: 'Gather wood', hours: 4, vigorRate: -4, clarityRate: -1, ringed: true, gate: reach,
     // `b` (skill, tools, focus, techniques) adds to the firewood — it used to be ignored here (#1243).
-    run: (s, b, r, _o, light) => {
+    run: (s, b, r, _o, light, luck) => {
       const dim = darkYieldMult('wood', light);
-      const f = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b), dim);
-      const m = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 2, 1)), dim);
+      const f = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b, luck), dim);
+      const m = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 2, 1), luck), dim);
       const note = workLand(s, r, 'timber');
       s.stores.firewood += f; s.stores.materials += m; s.flags.everWood = true;
       return `Cut ${f} firewood and ${m} materials${where(r)}.${note}${dimNote(light)}`;
@@ -697,8 +703,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   quarry: {
     name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, b, r, _o, light) => {
-      const n = scaleHaul(haul(s, r, 'stone', landYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b), darkYieldMult('quarry', light));
+    run: (s, b, r, _o, light, luck) => {
+      const n = scaleHaul(haul(s, r, 'stone', landYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b, luck), darkYieldMult('quarry', light));
       const note = workLand(s, r, 'stone');
       s.stores.stone += n;
       return `Broke out ${n} stone${where(r)}.${note}${dimNote(light)}`;
@@ -931,7 +937,11 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
 
   // Talents that bring back more (Forager, Hunter's Patience, Waterfinder) — hidden ones too.
   const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0);
-  say(next, def.run(next, bonus, ring, opts, at.light), 'action', at);
+  // A gathering trip rolls its luck (#1314): the fortune of its starting hour, with weather, supply, skill and light setting the odds.
+  const luck = tripLuck(next, id, ring, at, lvl, te.yield > 0 || te.drain < 1);
+  say(next, def.run(next, bonus, ring, opts, at.light, luck ? BAND_MULT[luck.band] : 1), 'action', at);
+  const luckLine = luck && bandLine(luck.band, luck.shifts);
+  if (luckLine) say(next, luckLine, luck!.band === 'good' ? 'action' : 'hardship', at);
   // First into a ring, you may find a manual someone left behind (#1243).
   const manual = id === 'scout' && !tooDarkToSee('scout', at.light) && !blindInFog(next.weatherToday, 'scout') ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
@@ -1188,6 +1198,35 @@ function keepFire(next: Region1State, w: number): number {
 export function growSeason(day: number, cal: Calendar): GrowSeason {
   if (seasonOf(day, cal) !== 'autumn') return 'winter';
   return day < lateFrom(cal) ? 'early' : 'late';
+}
+
+/**
+ * A gathering trip's luck (#1314): its band and the shifts that set the odds.
+ * Null for work that isn't a haul, and when the world has luck off (the flat world: every trip ordinary).
+ */
+function tripLuck(s: Region1State, id: ActionId, ring: Ring, at: { hour: number; light: number }, skillLevel: number, technique: boolean): { band: Band; shifts: Shift[] } | null {
+  const domain = ACTION_DOMAIN[id];
+  if (!domain || s.config.world.luck === false) return null;
+  const shifts = luckShifts({ domain, weather: s.weatherToday, supply: s.explore.supply[ring][domain], skillLevel, technique, light: at.light });
+  const steps = shifts.reduce((n, x) => n + x.steps, 0);
+  return { band: bandFor(haulFortune(seedOf(s.character.id), s.day, at.hour), steps), shifts };
+}
+
+/**
+ * The odds a gathering trip would have now, in a word (#1314) — for the player
+ * and the AI. Uses the skill the Warden *thinks* they have (#1241), so the
+ * odds never give the true level away; null for work that isn't a haul.
+ */
+export function tripOdds(s: Region1State, id: ActionId, ring: Ring): 'good' | 'fair' | 'poor' | 'bad' | null {
+  const domain = ACTION_DOMAIN[id];
+  if (!domain || s.config.world.luck === false) return null;
+  const skill = skillFor(id);
+  const te = techniqueEffects(s.techniques, id, undefined, true);
+  const light = s.config.world.darkness ? lightOver(s.day, clockHour(s.hoursToday), queueHours(queueId(id, ring), s), s.config.calendar) : 1;
+  return oddsWord(luckSteps({
+    domain, weather: s.weatherToday, supply: s.explore.supply[ring][domain],
+    skillLevel: skill ? perceivedLevel(s.skills, skill) : 0, technique: te.yield > 0 || te.drain < 1, light,
+  }));
 }
 
 /** How the thaw finds a Warden of each grade. */

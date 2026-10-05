@@ -4,6 +4,7 @@
  * Given/When/Then scenario.
  */
 
+import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, runDay, chooseSite, queueHours, warmth, winterOutlook, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -16,7 +17,8 @@ import { nightTemp, dayMean, fireNeed, freezeLoss, meltsSnow, type WeatherId } f
  * `camp` gives them a walled cave (90% warm); otherwise they sleep in the open.
  */
 function warden(day: number, weather: WeatherId, over: Partial<Region1State> = {}, opts: { camp?: boolean; flat?: boolean } = {}): Region1State {
-  let s = runAction(createRegion1(opts.flat ? { world: FLAT_WORLD } : {}), 'scout');
+  // Luck off (#1314): these tests weigh firewood and water, not the luck of the hour.
+  let s = runAction(createRegion1({ world: opts.flat ? FLAT_WORLD : STEADY_WORLD }), 'scout');
   if (opts.camp) s = { ...chooseSite(s, 'cave'), tier: 2, shelterGrade: 'sound', shelter: { type: 'leanto', walls: 'timber' } };
   return { ...s, day, hoursToday: 0, weatherToday: weather, vitals: createVitals(), stores: { ...s.stores, rawFood: 9, water: 9, firewood: 10 }, ...over };
 }

@@ -8,6 +8,7 @@
 
 import { runDay, type QueueItem, type Region1State } from './region1';
 import type { Calendar } from './winter';
+import { FULL_WORLD, type WorldConfig } from './world';
 
 /** At least `n` food and water in store. */
 export const supplied = (s: Region1State, n = 2): Region1State =>
@@ -32,3 +33,10 @@ export function fastForward(s: Region1State, day: number, queue: readonly QueueI
  * balance tests move to the full year in #1306.
  */
 export const SHORT_YEAR: Calendar = { winterDay: 13, thawDay: 43 };
+
+/**
+ * The full world — darkness, weather, the cold — with trip luck off (#1314),
+ * for tests that compare exact hauls (a bonus of +1, a talent's extra food)
+ * and would otherwise be measuring the luck of the hour.
+ */
+export const STEADY_WORLD: WorldConfig = { ...FULL_WORLD, luck: false };

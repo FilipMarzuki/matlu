@@ -188,8 +188,6 @@ export function weatherDrain(w: WeatherId, action: ActionId, ringed: boolean, ri
   return 1;
 }
 
-/** How much of a haul the weather leaves you: snow buries forage. */
-export const weatherYield = (w: WeatherId, action: ActionId): number => (w === 'snow' && action === 'gather' ? 0.5 : 1);
 
 /** Wind strips warmth from a night's shelter. */
 export const windChill = (w: WeatherId): number => (w === 'wind' ? 0.1 : 0);

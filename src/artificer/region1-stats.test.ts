@@ -4,6 +4,7 @@
  * per Given/When/Then scenario.
  */
 
+import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, setFocus, sleepNight, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -17,7 +18,7 @@ import { deserialize, serialize, newGame, newRun } from '../artificer-app/contro
 const spread = (s: Partial<Stats>): Stats => ({ ...DEFAULT_STATS, ...s });
 /** A scouted Warden, fresh, with the given stats and no traits. */
 const warden = (s: Partial<Stats> = {}, over: Partial<Region1State> = {}): Region1State => {
-  const base = runAction(createRegion1({}, undefined, { stats: spread(s) }), 'scout');
+  const base = runAction(createRegion1({ world: STEADY_WORLD }, undefined, { stats: spread(s) }), 'scout');
   return { ...base, hoursToday: 0, vitals: createVitals(), ...over };
 };
 const vigorUsed = (s: Region1State, item: Parameters<typeof runAction>[1]) => s.vitals.vigor.current - runAction(s, item).vitals.vigor.current;

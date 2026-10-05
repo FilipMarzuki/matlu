@@ -3,6 +3,7 @@
  * it), teachers and manuals, and harder solo progress at high levels.
  */
 
+import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, learnTechnique, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -11,7 +12,7 @@ import { LEVEL_HOURS, skillLevel } from './skills';
 import { observe } from '../artificer-ai/observe';
 import { techniqueById, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor } from './techniques';
 
-const scouted = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1(), 'scout'), hoursToday: 0, vitals: createVitals(), ...over });
+const scouted = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1({ world: STEADY_WORLD }), 'scout'), hoursToday: 0, vitals: createVitals(), ...over });
 const lines = (before: Region1State, after: Region1State) => after.log.slice(before.log.length).map(l => l.text).join('\n');
 
 describe('Techniques, teachers and manuals (#1243)', () => {
@@ -70,7 +71,7 @@ describe('Techniques, teachers and manuals (#1243)', () => {
 
   // 7. Manuals: found on first scouting the far ring; taught when within reach.
   it('finds a manual that teaches when you are ready', () => {
-    const near = { ...runAction(createRegion1(), 'scout'), hoursToday: 0, vitals: createVitals() };
+    const near = { ...runAction(createRegion1({ world: STEADY_WORLD }), 'scout'), hoursToday: 0, vitals: createVitals() };
     const far = runAction(near, 'scout@2');
     expect(far.manuals).toContain('tally-book');
     expect(lines(near, far)).toMatch(/trapper's tally-book/);

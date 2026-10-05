@@ -3,6 +3,7 @@
  * on, locked to Survival under pressure. One test per Given/When/Then scenario.
  */
 
+import { STEADY_WORLD } from './test-helpers';
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, endDay, setFocus, survivalLockOf, type Region1State } from './region1';
 import { createVitals } from './vitality';
@@ -10,7 +11,7 @@ import { parseFocus, FOCUS_COST } from './focus';
 import { deserialize, serialize, newGame } from '../artificer-app/controller';
 
 const insight = (s: Region1State, c = 'joinery') => s.concepts[c]?.insight ?? 0;
-const fresh = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1(), 'scout'), hoursToday: 0, vitals: createVitals(), ...over });
+const fresh = (over: Partial<Region1State> = {}): Region1State => ({ ...runAction(createRegion1({ world: STEADY_WORLD }), 'scout'), hoursToday: 0, vitals: createVitals(), ...over });
 const focused = (key: string, over: Partial<Region1State> = {}) => setFocus(fresh(over), parseFocus(key));
 /** A roofed, fed and watered camp at nightfall. */
 function camp(over: Partial<Region1State> = {}): Region1State {
