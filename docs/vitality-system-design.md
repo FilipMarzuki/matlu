@@ -23,6 +23,11 @@ recovered. This document defines that economy:
 - **Will / Morale** — a hidden derived modifier (not a bar, not spent) that
   quietly makes everything cheaper or costlier.
 
+Vigor and Clarity each start at a **standard baseline capacity** but are not
+capped there for the whole game: that capacity **grows past baseline** with
+well-recovered training and **deteriorates below it** with neglect or
+burnout, a slow progression the player shapes over a run (§1).
+
 The core idea is one unifying rule: **every activity is a per-unit-time vector
 across Vigor and Clarity.** There is no separate "action economy" and "recovery
 economy" — spending and recovering are the same mechanism with different signs.
@@ -50,10 +55,45 @@ to tinker) or the reverse. A single "energy" bar collapses that choice.
 
 ### Coarse bands
 
-Each pool is read as a state, never a number (precision is unlockable — §6):
+Each pool is read as a state, never a number (precision is unlockable — §6).
+The bands read **relative to current capacity** — "Fresh" means topped up *for
+you now*, whatever your capacity happens to be:
 
 - **Vigor:** Fresh → Winded → Tired → Spent
 - **Clarity:** Sharp → Foggy → Frayed → Burnt out
+
+### Baseline, growth & deterioration (capacity)
+
+Each pool has **two layers on different timescales:**
+
+- **Current** — the moment-to-moment value the bar shows, spent and recovered by
+  activities (§2).
+- **Capacity** — the ceiling the current value refills up to. You **start at a
+  standard baseline** (the "normal" amount), but capacity is **not fixed:** it
+  drifts slowly over the long run, so you can **grow past the baseline or
+  deteriorate below it.**
+
+Capacity moves toward a target set by *how you've been living*, on a far slower
+clock than the daily spend/recover loop:
+
+- **Growth (above baseline)** comes from **stress + recovery** — demanding work
+  that you then feed and sleep off. Train the body with hard, well-recovered
+  days and Vigor capacity climbs; keep the mind working at a sustainable pace
+  and Clarity capacity climbs. (Supercompensation, essentially.)
+- **Deterioration (below baseline)** comes from the opposite extremes:
+  **neglect / atrophy** (a pool left unused drifts back down toward and below
+  baseline), **overreach** (chronic stress *without* recovery — grinding past
+  empty, poor sleep, going unfed — burns capacity down), injury/illness, and
+  sustained low **Condition**, which drags both capacities with it.
+
+Capacity is clamped to a floor and ceiling, and a character's **traits / age**
+set their baseline and how wide that range is — a naturally hardy Warden starts
+higher and can climb further; age can lower the ceiling.
+
+So there are **three nested timescales:** **current** (seconds), the **Condition**
+reserve (days), and **capacity** (a run's long arc). The last is a quiet
+progression-or-decline the player *shapes through how they play*, not a stat
+they spend.
 
 ---
 
@@ -178,6 +218,13 @@ Consistent with the region system's instruments idea:
   progression that flips the region/site ratings from words to numbers.
 - **Condition** stays the faintest readout — a thin reserve bar, numeric only
   with instruments.
+- **Capacity is legible on the bar itself.** Each pool bar is drawn on a fixed
+  scale (0 → max possible), with two marks: a **baseline mark** at the standard
+  starting amount, and a **capacity mark** at your current ceiling. The fill is
+  your current value. Growth shows as the capacity mark sitting *right* of
+  baseline; deterioration as it sitting *left*. This lets the player see
+  long-term conditioning at a glance without a number, and numbers
+  (`current / capacity`) appear with instruments.
 
 ---
 
@@ -211,10 +258,31 @@ This system is spice, not a survival-sim chore. The levers:
 Illustrative, not final:
 
 ```ts
+interface Pool {
+  current: number;    // moment-to-moment value, 0..cap
+  cap: number;        // capacity — the ceiling; drifts over the long run
+}
 interface Vitals {
-  vigor: number;      // 0..100, shown coarse
-  clarity: number;    // 0..100, shown coarse
+  vigor: Pool;        // shown coarse, with baseline + capacity marks
+  clarity: Pool;      // shown coarse, with baseline + capacity marks
   condition: number;  // 0..100, reserve, semi-hidden
+}
+const BASELINE = 100;                 // the "standard" starting capacity
+const CAP_FLOOR = 50, CAP_CEIL = 150; // trait/age narrow or shift this range
+
+// Capacity drifts once per long period (e.g. per sleep/day), toward a target
+// set by the period's load-vs-recovery balance. Hard-but-recovered → up;
+// grind-without-recovery, neglect or chronic low condition → down.
+function driftCap(p: Pool, load: number, recovered: number, condition: number) {
+  const trained = load > STIMULUS && recovered >= load * RECOVERY_RATIO;
+  let target = BASELINE
+    + (trained ? TRAIN_BONUS : 0)       // supercompensation
+    - (load > STIMULUS && !trained ? OVERREACH : 0) // grind w/o recovery
+    - (load < ATROPHY_FLOOR ? ATROPHY : 0)          // unused → waste
+    - (condition < 40 ? WORN : 0);                  // reserve drags cap
+  target = clamp(target, CAP_FLOOR, CAP_CEIL);
+  p.cap += (target - p.cap) * CAP_LERP; // slow approach, never a jump
+  p.current = Math.min(p.current, p.cap);
 }
 
 interface Activity {
@@ -261,6 +329,10 @@ band at the moment the activity runs.
    that only partially clears Clarity? (Ties shelter Safety directly to the
    mental pool.)
 5. **Surfacing Will** — stay fully hidden, or allow optional mood flavour text?
+6. **Capacity drift** — what clock does it run on (per day, per week, per
+   milestone)? How wide should the floor/ceiling be, and how fast should it move
+   so growth feels earned but decline never feels like a death spiral? Does
+   capacity reset between runs or carry over as meta-progression?
 
 ---
 
