@@ -20,7 +20,7 @@ import { scriptedPlayer } from '../src/artificer-ai/players/scripted';
 import { claudePlayer, type Effort } from '../src/artificer-ai/players/claude';
 import { openRouterPlayer } from '../src/artificer-ai/players/openrouter';
 import { randomPlayer, type RandomMode } from '../src/artificer-ai/players/random';
-import { legacyOf } from '../src/artificer/legacy';
+import { legacyOf, canContinue } from '../src/artificer/legacy';
 import { validTraits, TRAIT_COUNT, TRAIT_IDS, type TraitId } from '../src/artificer/traits';
 
 const args = process.argv.slice(2);
@@ -65,7 +65,8 @@ async function main(): Promise<void> {
     try {
       result = await playRun(player, {
       maxDays,
-      legacy: has('carry') && carry ? legacyOf(carry.final) : undefined,
+      // Same rule as the game (#1242): only a character who lived goes on with what they learned.
+      legacy: has('carry') && carry && canContinue(carry.final) ? legacyOf(carry.final) : undefined,
       traits: traits as TraitId[],
       onTurn: t => {
         if (quiet) return;

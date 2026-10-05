@@ -26,25 +26,55 @@ Seven skills, each tied to the actions that use it:
 Rest and study use no skill. Study grows concepts instead: skills are *doing*
 and concepts are *understanding*.
 
-**Levels.** Untrained (0) → Novice → Apprentice → Journeyman → Expert →
-Master (5).
+**Levels (#1241).** There are 13 levels on an exponential curve. Early levels come fast, Professional sits at the famous 10,000 hours, there are levels above it, and the top three go past human:
 
-**Improvement by use.** Every hour of work in a skill is practice. Thresholds
-are cumulative hours: 6, 18, 36, 60 and 90. A level-up is announced in the
-journal. (Like DoD's *färdighetsförbättring*, but deterministic: the sim has
-no dice.)
+| # | Level | Hours | # | Level | Hours |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Novice | 5 | 8 | Professional | 10,000 |
+| 2 | Apprentice | 20 | 9 | Master | 25,000 |
+| 3 | Adept | 60 | 10 | Grandmaster | 60,000 (human peak) |
+| 4 | Journeyman | 150 | 11 | ✦ Paragon | 150,000 |
+| 5 | Skilled | 400 | 12 | ✦ Mythic | 400,000 |
+| 6 | Expert | 1,000 | 13 | ✦ Transcendent | 1,000,000 |
+| 7 | Veteran | 3,000 | | | |
 
-**What a level does in its field:**
+**Improvement by use, multiplied by intent.** Every hour of work is practice. A *focused* skill practises ×3, because deliberate practice matters a lot. (This is like DoD's *färdighetsförbättring*, but deterministic: the sim has no dice.)
 
-| Effect | Per level |
+**What a level does in its field.** The effects follow smooth curves, so the long range can't break the maths:
+
+| Effect | Formula |
 | --- | --- |
-| Energy | Vigor and Clarity drain × (1 − 0.06 × level); a Master spends 30% less |
-| Yield | +0 / 0 / 1 / 1 / 2 / 3 on gathering trips |
-| Tool use | the field's tool bonuses × (1 + 0.2 × level) |
-| Craft quality | +0 / 0 / 1 / 1 / 2 / 3 to the craft-grade score (the same score as bench, tools and concepts) |
+| Energy | drain × 1/(1 + 0.07 × level): 0.74 at Skilled, 0.52 at Transcendent |
+| Yield | +⌊level/2⌋ on gathering trips |
+| Tool use | the field's tool bonuses × (1 + 0.15 × level) |
+| Craft quality | +⌊level/2⌋ to the craft-grade score |
 
-**Across runs.** Skills carry into a new run at the level reached, with the
-practice beyond that level dropped. The body is new; the hands remember.
+**Self-assessment (Dunning–Kruger).** You never see your true level, only how good you *think* you are:
+
+| Stage | Practice | True level | Feels like |
+| --- | --- | --- | --- |
+| Mount Stupid | 10–25h | Novice | Adept |
+| The valley | 60–100h | Adept | Apprentice |
+| Experts | high | e.g. Professional | one level lower (Veteran) |
+| Supernatural | 150,000h | Paragon | Grandmaster |
+
+The true level drives every effect, so improvement is **felt**. A true level-up writes a line like "The axe finds the grain more easily now — woodcraft comes easier." When your own estimate drops, you get "The more you learn of woodcraft, the more you see how little you know." The AI is shown only the self-assessment too, and snapshots record both values. (Later, a Region 1.5 teacher could reveal your true level.)
+
+**Across runs.** All practice carries over. The climb to mastery spans many runs.
+
+**Techniques (#1243).** Each level *looks like* certain things you can do: reading the grain, still hunting, smoke curing. Every skill has three. Each one is typical of a level but not locked to it, so a Warden can be lopsided, as real people are: a middling woodcutter who happens to know notching because a forester's notes taught it. Each technique gives a concrete edge: extra yield, lighter work, better grades, or easier travel.
+
+| Difficulty | How it's learned | Example |
+| --- | --- | --- |
+| Easy | alone, after 0.8× the level's hours | Reading the grain (woodcraft, Novice): about 4h |
+| Hard | alone, after 2.5× the level's hours; much sooner from a manual or teacher | Still hunting (hunting, Adept): 150h alone |
+| Taught only | never alone; a teacher or a manual must give it | Seasoning firewood, Mushroom lore, Weather sense |
+
+A teacher or a manual can teach a technique up to two levels above your true level.
+
+**The exponential climb gets lonely.** Up to Adept, practising alone is fully efficient. After that, solo practice credits less and less: 0.8 at Journeyman, 0.45 at Veteran, 0.25 at Master, 0.05 at the top. A manual in the skill gets you halfway back to full efficiency, and a teacher all the way. Knowing the techniques typical of the levels you've reached speeds the climb (×0.7 knowing none, ×1 knowing all), so an Adept who never worked out notching plateaus.
+
+**Manuals in Region 1.** A trapper's tally-book (hunting, teaches Still hunting) waits in ring 2, and a forester's notes (woodcraft, teaches Notching) in ring 3. Each is found on the first scout of its ring. Teachers come with Region 1.5's villages. Techniques carry with the character, and manuals stay behind. The WARDEN tab shows known techniques by name, and unknown ones only as a hint of how they're learned.
 
 ## 2. Traits
 

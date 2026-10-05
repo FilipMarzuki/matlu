@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, endDay, type Region1State } from './region1';
 import { createVitals } from './vitality';
-import { summarizeRun, bestRun, legacyOf, type RunRecord } from './legacy';
+import { summarizeRun, bestRun, canContinue, type RunRecord } from './legacy';
 
 function camp(over: Partial<Region1State> = {}): Region1State {
   let s = chooseSite(runAction(createRegion1(), 'scout'), 'cave');
@@ -37,7 +37,7 @@ describe('Collapse and death (#1234)', () => {
     expect(s.outcome).toBeNull();
   });
 
-  it('ranks death below collapse below a grim winter, and still carries knowledge', () => {
+  it('ranks death below collapse below a grim winter, and ends the character (#1242)', () => {
     let s = camp({ vitals: createVitals({ condition: 10 }), known: [...camp().known, 'snare'] });
     s = endDay({ ...s, stores: { ...s.stores, water: 0 }, deprivation: { hungry: 0, thirsty: 1 } });
     expect(s.outcome?.kind).toBe('died');
@@ -47,6 +47,7 @@ describe('Collapse and death (#1234)', () => {
     const collapsed = { ...rec, run: 3, kind: 'collapsed' } as RunRecord;
     expect(bestRun([rec, collapsed])?.kind).toBe('collapsed');
     expect(bestRun([rec, collapsed, grim])?.kind).toBe('grim');
-    expect(legacyOf(s).known).toContain('snare');
+    // Death ends the character: nothing can be carried on from it (#1242).
+    expect(canContinue(s)).toBe(false);
   });
 });

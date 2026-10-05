@@ -321,7 +321,7 @@ body { min-height: 100vh; }
 
   /* Skills (#1236): name, level pips, level name, progress to the next level */
   .skills { display: grid; gap: 6px; }
-  .skill { display: grid; grid-template-columns: minmax(84px, 1fr) auto minmax(76px, auto); align-items: center; gap: 4px 10px; font-size: 12px; }
+  .skill { display: grid; grid-template-columns: minmax(84px, 1fr) minmax(96px, auto); align-items: center; gap: 4px 10px; font-size: 12px; }
   .skill .sn { color: var(--ink); }
   .skill .pips { display: inline-flex; gap: 3px; }
   .skill .pips i { width: 8px; height: 8px; border-radius: 2px; background: var(--border2); }
@@ -329,6 +329,10 @@ body { min-height: 100vh; }
   .skill .sl { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); text-align: right; }
   .skill .track { grid-column: 1 / -1; height: 3px; background: var(--sub2); border-radius: 2px; overflow: hidden; }
   .skill .track .fill { height: 100%; background: var(--teal); }
+  .skill .techs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .tech { font-size: 10px; padding: 1px 6px; border-radius: 3px; border: 1px dashed var(--border2); color: var(--dim); }
+  .tech.known { border-style: solid; border-color: var(--gold); color: var(--gold); }
+  .tech.teacher { font-style: italic; }
 
   /* ── Character (#1239): portraits, creation form, Warden tab, header identity ── */
   .portrait { display: inline-block; flex: none; image-rendering: pixelated; border-radius: 8px; background-color: var(--sub2); background-repeat: no-repeat; border: 1px solid var(--border2); }
@@ -365,3 +369,19 @@ body { min-height: 100vh; }
   .who .portrait { border-radius: 50%; }
   /* Re-drawing the same intro screen (a creation pick) shows it as-is, without replaying the fade-in. */
   .intro.settled .beat p, .intro.settled .create { animation: none !important; opacity: 1; filter: none; translate: none; }
+
+  /* ── Focus (#1238): status chip, picker chips, lock banner ── */
+  .focuschip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--teal); background: rgba(77,212,240,.07); color: var(--dim); font-family: var(--display); font-size: 8px; letter-spacing: 1px; cursor: pointer; }
+  .focuschip b { color: var(--teal); font-weight: 400; font-size: 9px; }
+  .focuschip span { color: var(--warn); font-family: var(--body); font-size: 10px; letter-spacing: 0; }
+  .focuschip.none { border-color: var(--border); background: var(--sub); }
+  .focuschip.none b { color: var(--dim); }
+  .focuschip.locked { border-color: var(--danger); background: rgba(255,90,90,.08); }
+  .focuschip.locked b { color: var(--danger); }
+  .fgroup { margin: 8px 0 4px; font-family: var(--display); font-size: 8px; letter-spacing: 2px; color: var(--faint); }
+  .fchips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fchip { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px var(--body); cursor: pointer; }
+  .fchip:hover { border-color: var(--teal); }
+  .fchip[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+  .lockbanner { margin: 0 0 8px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--danger); background: rgba(255,90,90,.08); color: var(--ink); font-size: 12px; }
+  .skill .sl.super { color: #c9a8ff; text-shadow: 0 0 8px rgba(160,120,255,.6); }

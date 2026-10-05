@@ -13,19 +13,21 @@
  */
 
 import './style.css';
-import { createRegion1, ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, survivalLockOf, ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
-import { bestRun, type RunRecord } from '../artificer/legacy';
+import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
-import { SKILLS, SKILL_IDS, LEVELS, LEVEL_HOURS, MAX_LEVEL, skillLevel } from '../artificer/skills';
+import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural } from '../artificer/skills';
+import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
+import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, UNRELIABLE_BELOW, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TRAITS, TRAIT_IDS, TRAIT_COUNT, type TraitId } from '../artificer/traits';
 import { artificerRank, conceptRanks } from '../artificer/rank';
-import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -91,7 +93,7 @@ const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
   turnedBack: { head: 'THE ROAD TURNS YOU BACK', body: 'You push into the winter stretch underprepared. The cold finds every gap; days in, you turn back carrying a lasting mark: frostbite, a permanent injury.' },
   wintered: { head: 'YOU WINTER OVER IN THE REACH', body: 'The snows close the Reach in, but your shelter holds warm, the larder lasts and the fire never dies. When thaw comes, the Reach is yours.' },
   collapsed: { head: 'YOU COLLAPSE', body: 'Worked past the end of yourself, your body simply stops. Passing traders find you days later and carry you out, barely alive. You keep what you learned — and the lesson about limits.' },
-  died: { head: 'THE REACH TAKES YOU', body: 'Without water or food the body fails faster than the will. You lie down one night and do not get up. Another Warden will come — and may know what you learned.' },
+  died: { head: 'THE REACH TAKES YOU', body: 'Without water or food the body fails faster than the will. You lie down one night and do not get up. Your story ends here — what you learned dies with you. Another Warden will have to begin again.' },
   grim: { head: 'A GRIM WINTER', body: 'You hunker down on too little. The larder runs thin, the shelter leaks heat, and the cold grinds at you week after week. You limp into spring weaker than you started.' },
 };
 
@@ -218,6 +220,31 @@ function portraitEl(id: string | null, size: number, cls = ''): string {
   return p ? `<span class="portrait ${cls}" role="img" aria-label="${esc(p.label)}" style="${portraitStyle(p, size)}"></span>` : `<span class="portrait blank ${cls}" style="width:${size}px;height:${size}px" aria-hidden="true">?</span>`;
 }
 
+/** Status-bar focus chip (#1238): the focus, or SURVIVAL in red with the reason when locked. Opens the Warden tab. */
+function focusChip(s: AppState['sim']): string {
+  const lock = survivalLockOf(s);
+  if (lock) return `<button class="focuschip locked" data-tab="warden" title="Survival has taken over your thoughts">FOCUS <b>SURVIVAL</b> <span>${esc(lock)}</span></button>`;
+  const frayed = s.focus && s.vitals.clarity.current < UNRELIABLE_BELOW;
+  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${frayed ? 'Clarity under 30 — focus is unreliable' : 'What your mind is working on'}">FOCUS <b>${esc(focusLabel(s.focus))}</b>${frayed ? ' <span>frayed</span>' : ''}</button>`;
+}
+
+/** The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. */
+function focusBlock(s: AppState['sim']): string {
+  const lock = survivalLockOf(s);
+  const cur = focusKey(s.focus);
+  const chip = (key: string, label: string, note: string) =>
+    `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
+  const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
+  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, 'practises twice as fast')).join('');
+  const concepts = FOCUS_CONCEPTS.map(c => chip(`concept:${c}`, c[0].toUpperCase() + c.slice(1), `${CONCEPT_PER_HOUR} insight per hour you work`)).join('');
+  return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. Water, food, wood and shelter work goes better; learning waits until it passes.</p>` : ''}
+    <p class="mood" style="margin-top:0">One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${UNRELIABLE_BELOW} Clarity it's halved.</p>
+    <p class="fgroup">GOAL</p><div class="fchips">${goals}</div>
+    <p class="fgroup">SKILL</p><div class="fchips">${skills}</div>
+    <p class="fgroup">CONCEPT</p><div class="fchips">${concepts}</div>
+    <div class="fchips" style="margin-top:6px">${chip('none', 'No focus', 'free your mind (saves the Clarity)')}</div>`;
+}
+
 /** The Warden tab (#1239): who you are — portrait, name, rank, traits, skills, concepts. */
 function wardenTab(a: AppState): string {
   const c = a.sim.character;
@@ -228,25 +255,41 @@ function wardenTab(a: AppState): string {
   return `<div class="cols">
     <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
+      <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
-    <section class="box"><p class="eyebrow">SKILLS — improve by doing</p>${skillsBlock(a.sim)}
+    <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;
 }
 
-/** Skills (#1236): level, a bar toward the next level, and what the skill covers. */
+/**
+ * Skills (#1236, #1241) as the Warden sees them: a *self-assessed* level and
+ * how close it feels to the next. The true level is hidden (Dunning–Kruger) —
+ * you feel it in the work instead.
+ */
 function skillsBlock(s: AppState['sim']): string {
-  return `<div class="skills">${SKILL_IDS.map(id => {
-    const lvl = skillLevel(s.skills, id);
-    const have = s.skills[id] ?? 0;
-    const from = LEVEL_HOURS[lvl], to = LEVEL_HOURS[Math.min(lvl + 1, MAX_LEVEL)];
-    const frac = lvl >= MAX_LEVEL ? 1 : (have - from) / (to - from);
-    return `<div class="skill" title="${esc(SKILLS[id].blurb)}"><span class="sn">${esc(SKILLS[id].name)}</span>`
-      + `<span class="pips">${Array.from({ length: MAX_LEVEL }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span>`
-      + `<span class="sl">${LEVELS[lvl]}</span><div class="track"><div class="fill" style="width:${pct(frac)}%"></div></div></div>`;
-  }).join('')}</div>`;
+  return `<p class="mood" style="margin-top:0">How good you <i>think</i> you are. The work itself tells the truth.</p><div class="skills">${SKILL_IDS.map(id => {
+    const seems = perceivedProgress(s.skills[id] ?? 0);
+    const lvl = Math.floor(seems);
+    const name = LEVELS[lvl];
+    return `<div class="skill" title="${esc(SKILLS[id].blurb)} — self-assessed"><span class="sn">${esc(SKILLS[id].name)}</span>`
+      + `<span class="sl ${isSupernatural(lvl) ? 'super' : ''}">${isSupernatural(lvl) ? '✦ ' : ''}${name}</span><div class="track"><div class="fill" style="width:${pct(lvl >= MAX_LEVEL ? 1 : seems - lvl)}%"></div></div>`
+      + `<div class="techs">${TECHNIQUES.filter(t => t.skill === id).map(techChip(s)).join('')}</div></div>`;
+  }).join('')}</div>${s.manuals.length ? `<p class="mood">Manuals: ${s.manuals.map(m => `<b>${esc(manualById(m)?.name ?? m)}</b>`).join(', ')} — they guide your practice and teach what's within reach.</p>` : ''}`;
 }
+
+/** How a technique (#1243) is learned, as a hint for one you don't know yet. */
+const LEARN_HINT: Record<Technique['difficulty'], string> = {
+  easy: 'comes with a little practice',
+  hard: 'slow to work out alone — a manual or teacher helps',
+  teacher: 'can only be taught',
+};
+
+/** One technique: named once known; otherwise a hint at how it's learned. Each is typical of a level, not locked to it. */
+const techChip = (s: AppState['sim']) => (t: Technique): string => s.techniques.includes(t.id)
+  ? `<span class="tech known" title="${esc(t.how)} — typical of ${LEVELS[t.level]}">${esc(t.name)}</span>`
+  : `<span class="tech ${t.difficulty}" title="Typical of ${LEVELS[t.level]}: ${LEARN_HINT[t.difficulty]}">? ${t.difficulty === 'teacher' ? 'taught only' : t.difficulty}</span>`;
 
 function vitalsBlock(a: AppState): string {
   const v = a.sim.vitals;
@@ -377,6 +420,7 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
+    ${focusChip(s)}
     <span class="shours">TODAY <b>${todayHours(a, preview)}/${DAY_HOURS}H</b></span>
     <span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>
   </div>`;
@@ -388,7 +432,7 @@ const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — 
 function pastRuns(): string {
   if (!history.length) return '<p class="mood">No finished runs yet. Take an exit when the caravan comes, and it will be recorded here.</p>';
   const best = bestRun(history);
-  return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">RUN ${r.run}</span>`
+  return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">${r.characterName ? `${esc(r.characterName)} · ` : ''}RUN ${r.run}</span>`
     + `<span class="rk k-${r.kind}">${OUTCOME_SHORT[r.kind]}${r.injury ? ' · frostbite' : ''}</span>`
     + `<span class="rd">day ${r.day}${r.readyDay ? ` · ready d${r.readyDay}` : ''} · ${r.recipes} recipes</span>${r === best ? '<span class="rb">★ BEST</span>' : ''}</li>`).join('')}</ol>`;
 }
@@ -444,8 +488,10 @@ function resolvePanel(a: AppState): string {
         <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
       </ul>` : '';
     return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
-      + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="carry" title="Your known recipes and concept ranks carry over">↻ NEW RUN — KEEP WHAT YOU LEARNED</button>`
-      + `<button class="btn" data-cmd="reset">✦ FRESH WARDEN</button></div></div>`;
+      // Only a living Warden goes on (#1242): after a death, the only way forward is someone new.
+      + `<div class="runbar" style="margin-top:12px">${canContinue(s)
+        ? `<button class="btn go" data-cmd="carry" title="The same Warden goes on: recipes, concept ranks and skills carry over">↻ ${s.character.name ? `CONTINUE AS ${esc(s.character.name.toUpperCase())}` : 'NEW RUN'} — KEEP WHAT YOU LEARNED</button>`
+        : ''}<button class="btn ${canContinue(s) ? '' : 'go'}" data-cmd="reset" title="A new person, starting from nothing">✦ ${canContinue(s) ? 'FRESH WARDEN' : 'NEW WARDEN'}</button></div></div>`;
   }
   const open = availableChoices(s.day, s.config.calendar);
   if (open.length === 0) return '';
@@ -476,7 +522,7 @@ function render(a: AppState): void {
       ${phaseChip(a)}
       <span class="spacer"></span>
       ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim)}</span></button>` : ''}
-      <span class="counter ctl">RUN <b>${(history[0]?.run ?? 0) + (a.sim.outcome ? 0 : 1)}</b></span>
+      <span class="counter ctl">RUN <b>${runNumberFor(history, a.sim.character.id) - (a.sim.outcome ? 1 : 0)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
@@ -539,13 +585,13 @@ const draftValid = (): boolean => draft.name.trim().length > 0 && draft.traits.l
 function startIntro(kind: IntroKind): void {
   draft = { name: '', portrait: PORTRAITS[0].id, traits: [] };
   drawnBeat = -1;
-  intro = { beats: introBeats(kind, state.sim, (history[0]?.run ?? 0) + 1), i: 0 };
+  intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
   renderIntro();
 }
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait and traits. */
 function commitCharacter(): void {
-  state = { sim: createRegion1({}, undefined, { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits }), queue: [] };
+  state = { sim: createRegion1({}, undefined, { id: newCharacterId(), name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits }), queue: [] };
   render(state);
 }
 
@@ -653,6 +699,7 @@ root.addEventListener('click', e => {
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
+  else if (d.focus) update(chooseFocus(state, parseFocus(d.focus)));
   else if (d.q) update(enqueue(state, d.q as QueueId));
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).
@@ -664,7 +711,7 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
-  else if (d.cmd === 'carry') { update(newRun(state.sim)); startIntro('carry'); }
+  else if (d.cmd === 'carry' && canContinue(state.sim)) { update(newRun(state.sim)); startIntro('carry'); }
 });
 
 render(state);

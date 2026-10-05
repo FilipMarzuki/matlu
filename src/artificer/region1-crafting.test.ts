@@ -65,8 +65,8 @@ describe('Region 1 crafting', () => {
     const r = runAction(s, 'bedroll');
     expect(r.tools).toEqual([]);
     expect(r.stores.materials).toBe(7);
-    expect(r.log.at(-1)).toMatchObject({ kind: 'hardship' });
-    expect(r.log.at(-1)?.text).toMatch(/materials wasted/);
+    // (A skill line — "comes easier" — may follow: even a failed attempt is practice.)
+    expect(r.log.some(l => l.kind === 'hardship' && /materials wasted/.test(l.text))).toBe(true);
   });
 
   // 4. Overnight: the snare brings food, the bedroll more Clarity.

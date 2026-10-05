@@ -10,10 +10,11 @@
  * and the browser storage.
  */
 
-import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, DAY_HOURS, setFocus, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
-import { summarizeRun, legacyOf, addRun, type RunRecord } from '../artificer/legacy';
+import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { validTraits, type TraitId } from '../artificer/traits';
+import { parseFocus, type Focus } from '../artificer/focus';
 
 export interface AppState {
   sim: Region1State;
@@ -28,17 +29,24 @@ export const SAVE_KEY = 'artificer.region1.v7';
 /** Long enough for any real plan; stops a runaway loop if the sim ever stalls. */
 const MAX_DAYS_PER_RUN = 60;
 
+/** A fresh character id. App-level (not in the sim) because it needs randomness; the sim stays deterministic. */
+export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+/** A brand-new Warden: a new character, knowing nothing. */
 export function newGame(): AppState {
-  return { sim: createRegion1(), queue: [] };
+  return { sim: createRegion1({}, undefined, { id: newCharacterId() }), queue: [] };
 }
 
 /**
- * Start the next run. Given a resolved run, the new Warden keeps what that
- * one learned (recipes, concept ranks); without one it's a fresh start.
+ * Start the next run. If `from` is a resolved run whose character lived, that
+ * same character goes on — same id, name, portrait and traits — keeping what
+ * they learned (#1242). Otherwise (no run, unfinished, or the character died)
+ * it's a new Warden with nothing carried.
  */
 export function newRun(from?: Region1State): AppState {
-  // A returning Warden is the same person: name, portrait and traits come along with the knowledge.
-  return { sim: from?.outcome ? createRegion1({}, legacyOf(from), { name: from.character.name, portrait: from.character.portrait, traits: from.character.traits }) : createRegion1(), queue: [] };
+  if (!from || !canContinue(from)) return newGame();
+  const c = from.character;
+  return { sim: createRegion1({}, legacyOf(from), { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, traits: c.traits }), queue: [] };
 }
 
 // ── Run history (saved separately from the game, so starting over keeps it) ──
@@ -51,8 +59,7 @@ export const HISTORY_KEY = 'artificer.history.v1';
  */
 export function recordRun(history: readonly RunRecord[], before: AppState, after: AppState): RunRecord[] {
   if (!after.sim.outcome || before.sim.outcome) return [...history];
-  const run = (history[0]?.run ?? 0) + 1;
-  return addRun(history, summarizeRun(after.sim, run));
+  return addRun(history, summarizeRun(after.sim, runNumberFor(history, after.sim.character.id)));
 }
 
 export function serializeHistory(h: readonly RunRecord[]): string {
@@ -111,6 +118,11 @@ export function runWholeQueue(a: AppState): AppState {
     s = runQueuedDay(s);
   }
   return s;
+}
+
+/** Set (or clear) the Warden's focus (#1238). Free: no hours, no queue entry. */
+export function chooseFocus(a: AppState, focus: Focus | null): AppState {
+  return { ...a, sim: setFocus(a.sim, focus) };
 }
 
 export function settle(a: AppState, site: SiteId): AppState {
@@ -215,7 +227,12 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // …and saves from before character creation (#1237/#1239) get an unnamed Warden with no traits.
   const ch = sim.character;
   const character = isObj(ch) && typeof ch.name === 'string' && Array.isArray(ch.traits) && validTraits(ch.traits as string[])
-    ? { name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, traits: ch.traits as TraitId[], lastStandUsed: ch.lastStandUsed === true }
-    : { name: '', portrait: null, traits: [], lastStandUsed: false };
-  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character }, queue: queue as QueueItem[] };
+    ? { id: typeof ch.id === 'string' ? ch.id : '', name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, traits: ch.traits as TraitId[], lastStandUsed: ch.lastStandUsed === true }
+    : { id: '', name: '', portrait: null, traits: [], lastStandUsed: false };
+  // …and saves from before focus (#1238) have none; a stored focus is re-validated.
+  const f = sim.focus;
+  const focus = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
+  // …and saves from before techniques/manuals (#1243) start with none.
+  const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
+  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals) }, queue: queue as QueueItem[] };
 }

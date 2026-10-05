@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, chooseSite, endDay, type Region1State } from './region1';
 import { createVitals } from './vitality';
-import { skillLevel } from './skills';
+import { skillLevel, drainMult } from './skills';
 import { validTraits, type TraitId } from './traits';
 import { deserialize, serialize, newGame } from '../artificer-app/controller';
 
@@ -83,14 +83,14 @@ describe('Traits (#1237)', () => {
   it('Keen Eye: starts a Novice scout who scouts cheaply, other work taxes the mind', () => {
     expect(skillLevel(warden(['keenEye']).skills, 'scouting')).toBe(1);
     const fresh = (t: TraitId[]) => ({ ...warden(t), vitals: createVitals() });
-    // Scouting drain: Novice level (×0.94) and the trait (×0.85).
-    expect(spent(fresh(['keenEye']), 'scout').vigor).toBeCloseTo(spent(fresh([]), 'scout').vigor * 0.94 * 0.85, 5);
+    // Scouting drain: Novice level (drainMult(1)) and the trait (×0.85).
+    expect(spent(fresh(['keenEye']), 'scout').vigor).toBeCloseTo(spent(fresh([]), 'scout').vigor * drainMult(1) * 0.85, 5);
     expect(spent(scouted(['keenEye']), 'wood').clarity).toBeCloseTo(spent(scouted(), 'wood').clarity * 1.05, 5);
   });
 
   it('keeps the character on a new run that keeps knowledge, and loads old saves without one', () => {
     const raw = JSON.parse(serialize(newGame()));
     delete raw.sim.character;
-    expect(deserialize(JSON.stringify(raw))?.sim.character).toEqual({ name: '', portrait: null, traits: [], lastStandUsed: false });
+    expect(deserialize(JSON.stringify(raw))?.sim.character).toEqual({ id: '', name: '', portrait: null, traits: [], lastStandUsed: false });
   });
 });

@@ -270,7 +270,7 @@ export function conceptOpen(concepts: Readonly<Record<string, ConceptProgress>>,
  * Add insight to one concept (on an already-cloned map), ranking up through as
  * many thresholds as it covers. Locked or maxed concepts gain nothing.
  */
-function addInsight(concepts: Record<string, ConceptProgress>, id: string, amount: number, defs: Readonly<Record<string, ConceptDef>>): void {
+export function addInsight(concepts: Record<string, ConceptProgress>, id: string, amount: number, defs: Readonly<Record<string, ConceptDef>>): void {
   const def = defs[id];
   const maxRank = def?.ranks ?? 3;
   if (!conceptOpen(concepts, def)) return;

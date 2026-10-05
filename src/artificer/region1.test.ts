@@ -68,8 +68,9 @@ describe('Region 1 sim', () => {
     const r = runDay(day2, ['wood', 'wood', 'wood', 'wood', 'wood']);
     // THEN four ran (the 4th started at 12h, before the limit), one carries over
     expect(r.remaining).toEqual(['wood']);
-    // 4 + 4 + 3 (the stand thins) + 4 (now observed from working it, but thinner still)
-    expect(r.state.stores.firewood).toBe(15);
+    // 4 + 4 + 3 (the stand thins) + 4 (now observed from working it, but thinner still) = 15,
+    // + 1 on each of trips 2–4: the first trip's practice works out Reading the grain (#1243).
+    expect(r.state.stores.firewood).toBe(18);
     expect(r.state.day).toBe(3);
     expect(r.state.hoursToday).toBe(0);
     expect(day2.day).toBe(2); // pure
