@@ -8,10 +8,11 @@
  */
 
 import { scouted } from '../artificer/exploration';
-import { createRegion1, chooseSite, choose, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, createRegion1, chooseSite, choose, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { availableChoices, type Choice } from '../artificer/winter';
 import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
 import { observe } from './observe';
+import { parseFocus } from '../artificer/focus';
 import type { TraitId } from '../artificer/traits';
 import { progressOf, type Progress } from './progress';
 import { invariantViolations } from './invariants';
@@ -134,6 +135,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     }
 
     const d = parsed.decision;
+    if (d.focus) s = setFocus(s, parseFocus(d.focus));
     // A site can only be claimed once ring 1 is scouted. A day-1 plan of "scout, then settle" is
     // reasonable, so when the land isn't scouted yet the claim waits until after the day's queue.
     const deferSite = !!d.site && d.site !== s.site && !scouted(s.explore, 1);

@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { fastForward } from '../artificer/test-helpers';
-import { createRegion1, runAction } from '../artificer/region1';
+import { createRegion1, runAction, setFocus } from '../artificer/region1';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
 import { observe, RULES } from './observe';
 import { parseDecision } from './decision';
@@ -217,5 +217,16 @@ describe('AI player harness', () => {
     expect(ROSTER.filter(r => dropped.has(r.model))).toEqual([]);
     expect(dropped.has(DEFAULT_OPENROUTER_MODEL)).toBe(false);
     expect(ROSTER.every(r => r.perGame > 0 && r.perGame < 0.2)).toBe(true);
+  });
+
+  // #1238 — the AI sets its focus in the reply; null keeps it; bad values are explained.
+  it('lets the AI choose a focus', async () => {
+    const day = (focus: string | null) => json({ thoughts: 'x', focus, site: null, exit: null, queue: [{ action: 'water', ring: 1, options: [] }, { action: 'gather', ring: 1, options: [] }] });
+    const run = await playRun(replay([day('goal:larder'), day(null), json({ thoughts: 'go', focus: null, site: null, exit: 'winter', queue: [] })]), { maxDays: 10 });
+    expect(run.final.focus).toEqual({ kind: 'goal', id: 'larder' });
+    const bad = parseDecision(json({ thoughts: '', focus: 'goal:fame', site: null, exit: null, queue: [] }));
+    expect(bad.ok).toBe(false);
+    expect(!bad.ok && bad.errors[0]).toMatch(/focus must be one of/);
+    expect(observe(setFocus(runAction(createRegion1(), 'scout'), { kind: 'skill', id: 'hunting' }))).toMatch(/FOCUS: skill:hunting/);
   });
 });

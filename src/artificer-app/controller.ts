@@ -10,10 +10,11 @@
  * and the browser storage.
  */
 
-import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, DAY_HOURS, setFocus, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
 import { summarizeRun, legacyOf, addRun, type RunRecord } from '../artificer/legacy';
 import { validTraits, type TraitId } from '../artificer/traits';
+import { parseFocus, type Focus } from '../artificer/focus';
 
 export interface AppState {
   sim: Region1State;
@@ -111,6 +112,11 @@ export function runWholeQueue(a: AppState): AppState {
     s = runQueuedDay(s);
   }
   return s;
+}
+
+/** Set (or clear) the Warden's focus (#1238). Free: no hours, no queue entry. */
+export function chooseFocus(a: AppState, focus: Focus | null): AppState {
+  return { ...a, sim: setFocus(a.sim, focus) };
 }
 
 export function settle(a: AppState, site: SiteId): AppState {
@@ -217,5 +223,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const character = isObj(ch) && typeof ch.name === 'string' && Array.isArray(ch.traits) && validTraits(ch.traits as string[])
     ? { name: ch.name, portrait: typeof ch.portrait === 'string' ? ch.portrait : null, traits: ch.traits as TraitId[], lastStandUsed: ch.lastStandUsed === true }
     : { name: '', portrait: null, traits: [], lastStandUsed: false };
-  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character }, queue: queue as QueueItem[] };
+  // …and saves from before focus (#1238) have none; a stored focus is re-validated.
+  const f = sim.focus;
+  const focus = isObj(f) && typeof f.kind === 'string' && typeof f.id === 'string' ? parseFocus(`${f.kind}:${f.id}`) : null;
+  return { sim: { ...(sim as unknown as Region1State), deprivation, skills, character, focus }, queue: queue as QueueItem[] };
 }

@@ -13,13 +13,14 @@
 
 import {
   ACTIONS, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
-  readinessInput, warmth, winterReady, routeKnown, queueHours, queueId,
+  readinessInput, warmth, winterReady, routeKnown, queueHours, queueId, survivalLockOf,
   type ActionId, type Region1State,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
 import { SKILL_IDS, LEVELS, skillLevel, toNextLevel } from '../artificer/skills';
 import { TRAITS } from '../artificer/traits';
+import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
 import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 
@@ -47,6 +48,9 @@ You plan the day as a queue of actions. Each costs hours and drains Vigor (body)
 SKILLS
 Seven skills improve by use: every hour of work trains the skill it uses (woodcraft: wood, wooden builds, shovel; foraging: gather; hunting: hunt, track, snare; stonework: quarry, stone knife, stone walls; fieldcraft: water, preserve; scouting: scout, survey, look out; handcraft: cold gear, parka, waterskin, bedroll, tinker). Levels at 6/18/36/60/90 hours: Novice, Apprentice, Journeyman, Expert, Master. Each level in a field: 6% less drain, more yield (+1 at Apprentice, +2 Expert, +3 Master), better tool use and better craft grades. Skills carry into the next run.
 
+FOCUS
+Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises twice as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or when winter is 3 days away and you're not ready.
+
 THE LAND
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
 Each ring has domains (forage, timber, stone, water, game; routes beyond home) known at a level: unknown, suspected, observed, detailed.
@@ -64,6 +68,7 @@ Each turn you get an observation. Reply with ONLY a JSON object, no prose, match
   "thoughts": string (one or two sentences: your plan for today),
   "site": "cave" | "tree" | "river" | "hill" | null (settle or move camp before the day; null = no change),
   "exit": "caravan" | "solo" | "winter" | null (take an exit now instead of playing the day; only when listed as open),
+  "focus": "concept:<name>" | "goal:shelter|larder|explore" | "skill:<name>" | "none" | null (what your mind works on; null = keep),
   "queue": [ { "action": string, "ring": 1 | 2 | 3, "options": [ { "key": string, "value": string } ] } ]
 }
 Use action ids exactly as listed. "ring" matters only for land actions (use 1 otherwise). "options" lets you pick choices shown for an action (e.g. {"key":"target","value":"small"} for hunt); use [] for defaults. Moving camp (site) after building abandons the shelter.`;
@@ -138,6 +143,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
   if (concepts.length) lines.push(`CONCEPTS: ${concepts.join(', ')}`);
   if (s.character.traits.length) lines.push(`TRAITS: ${s.character.traits.map(t => `${TRAITS[t].name} (${TRAITS[t].upside}; but ${TRAITS[t].cost})`).join(' · ')}${s.character.traits.includes('tough') ? (s.character.lastStandUsed ? ' — last stand used' : ' — last stand available') : ''}`);
+  const lock = survivalLockOf(s);
+  lines.push(`FOCUS: ${focusKey(s.focus)}${lock ? ` — LOCKED TO SURVIVAL (${lock}): survival actions +1 yield and lighter, focused learning paused` : ''}${s.vitals.clarity.current < UNRELIABLE_BELOW ? ' — unreliable (Clarity under 30: effects halved)' : ''}`);
   const practised = SKILL_IDS.filter(id => (s.skills[id] ?? 0) > 0);
   lines.push(`SKILLS: ${practised.length ? practised.map(id => `${id} ${LEVELS[skillLevel(s.skills, id)]}${toNextLevel(s.skills, id) ? ` (${Math.ceil(toNextLevel(s.skills, id))}h to next)` : ''}`).join(', ') : 'none yet — every hour of work trains the skill it uses'}`);
 

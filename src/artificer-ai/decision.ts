@@ -10,9 +10,12 @@
 
 import { ACTIONS, SITES, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
+import { FOCUS_KEYS } from '../artificer/focus';
 
 export interface Decision {
   thoughts: string;
+  /** A focus key ("goal:larder", "skill:hunting", "concept:joinery", "none"), or null to keep the current one (#1238). */
+  focus?: string | null;
   site: SiteId | null;
   exit: Choice | null;
   queue: QueueItem[];
@@ -26,9 +29,10 @@ const EXITS: Choice[] = ['caravan', 'solo', 'winter'];
 export const DECISION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['thoughts', 'site', 'exit', 'queue'],
+  required: ['thoughts', 'focus', 'site', 'exit', 'queue'],
   properties: {
     thoughts: { type: 'string', description: "One or two sentences: today's plan." },
+    focus: { anyOf: [{ type: 'string', enum: FOCUS_KEYS }, { type: 'null' }], description: 'Set what your mind works on (e.g. "goal:larder"), "none" to clear, or null to keep it.' },
     site: { anyOf: [{ type: 'string', enum: SITE_IDS }, { type: 'null' }], description: 'Settle or move camp before the day, or null.' },
     exit: { anyOf: [{ type: 'string', enum: EXITS }, { type: 'null' }], description: 'Take an exit now (only when open), or null.' },
     queue: {
@@ -80,6 +84,11 @@ export function parseDecision(text: string): ParseResult {
   const errors: string[] = [];
 
   const thoughts = typeof o.thoughts === 'string' ? o.thoughts : '';
+  let focus: string | null = null;
+  if (o.focus !== null && o.focus !== undefined) {
+    if (typeof o.focus === 'string' && FOCUS_KEYS.includes(o.focus)) focus = o.focus;
+    else errors.push(`focus must be one of ${FOCUS_KEYS.join(', ')} or null`);
+  }
   let site: SiteId | null = null;
   if (o.site !== null && o.site !== undefined) {
     if (typeof o.site === 'string' && (SITE_IDS as string[]).includes(o.site)) site = o.site as SiteId;
@@ -116,5 +125,5 @@ export function parseDecision(text: string): ParseResult {
     queue.push(Object.keys(opts).length ? { q, opts } : q);
   });
 
-  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, site, exit, queue } };
+  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), site, exit, queue } };
 }

@@ -50,6 +50,7 @@ export const EVENTS = {
   fuel: { label: 'Fuel pillar done', test: (p: Progress) => p.pillars.fuel >= 1 },
   shelterPillar: { label: 'Shelter pillar done', test: (p: Progress) => p.pillars.shelter >= 1 },
   ready: { label: 'Winter-ready', test: (p: Progress) => p.winterReady },
+  locked: { label: 'First survival lock', test: (p: Progress) => !!p.locked },
 } as const;
 export type EventKey = keyof typeof EVENTS;
 

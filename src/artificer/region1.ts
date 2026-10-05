@@ -12,13 +12,14 @@
  */
 
 import { traitEffects, traitDrain, type TraitId } from './traits';
+import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, LEVELS, skillFor, skillLevel, practise, drainMult, toolMult, SKILL_YIELD, SKILL_CRAFT, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
 import { createExploration, scout, survey, track, lookout, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
-import { craft, craftBlocker, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
+import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -117,6 +118,8 @@ export interface Region1State {
   skills: SkillPractice;
   /** Who the Warden is (#1237, #1239): name, portrait, two traits, and whether Tough's last stand is spent. */
   character: Character;
+  /** What the mind is working on (#1238), or null. The survival lock can override it (survivalLockOf). */
+  focus: Focus | null;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -151,6 +154,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     deprivation: { hungry: 0, thirsty: 0 },
     skills: start,
     character: { name: who.name ?? '', portrait: who.portrait ?? null, traits: [...traits], lastStandUsed: false },
+    focus: null,
     log: [],
     outcome: null,
     config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS },
@@ -741,7 +745,9 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
   const travel = def.ringed ? TRAVEL_HOURS[ring] : 0;
   const td = traitDrain(next.character.traits, skill);
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity });
+  // Focus (#1238): goal or survival work is lighter and richer; a focused skill practises faster.
+  const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current);
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain });
   const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE, clarityRate: TRAVEL_CLARITY_RATE });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
@@ -750,10 +756,10 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   next.today.pushedClarity ||= r.pushedClarity || t.pushedClarity;
   next.hoursToday += workHours + travel;
 
-  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + SKILL_YIELD[lvl];
+  const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + SKILL_YIELD[lvl] + fx.yield;
   say(next, def.run(next, bonus, ring, opts), 'action');
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
-  if (skill) practiceSkill(next, skill, workHours);
+  if (skill) practiceSkill(next, skill, workHours * fx.practice);
   latchMilestones(next);
   return next;
 }
@@ -771,7 +777,8 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const skill = skillFor(id, recipe.id);
   const lvl = skill ? skillLevel(next.skills, skill) : 0;
   const td = traitDrain(next.character.traits, skill);
-  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity };
+  const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current);
+  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * fx.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * fx.drain };
   const crafter = crafterOf(next);
   const { state: c, result } = craft({ ...crafter, skillBonus: SKILL_CRAFT[lvl] + tr.craftGrade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
@@ -800,7 +807,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
   }
   // Even a failed attempt is practice (refused crafts never got this far).
-  if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours);
+  if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
   latchMilestones(next);
   return next;
 }
@@ -844,6 +851,10 @@ const article = (name: string): string => (/s$|gear$/.test(name) ? '' : 'a ');
 export function endDay(s: Region1State): Region1State {
   const next = clone(s);
   if (next.outcome) return next;
+  // The day as it was lived, for focus (#1238): was the mind locked, how clear was it, how long did it work.
+  const lockedToday = survivalLockOf(next);
+  const clarityAtDusk = next.vitals.clarity.current;
+  const hoursWorked = next.hoursToday;
 
   // A set snare line brings in a little food overnight (before supper).
   if (capabilities(next.tools).has('snare-line')) {
@@ -874,6 +885,13 @@ export function endDay(s: Region1State): Region1State {
   const hc = tr.hungerCost, wc = tr.thirstCost;
   next.vitals.condition = Math.max(0, next.vitals.condition - (NEEDS.food.condition * hungry * hc + NEEDS.water.condition * thirsty * wc));
   next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - (NEEDS.food.clarity * hungry * hc + NEEDS.water.clarity * thirsty * wc));
+  // Holding a focus costs a little of the mind each night; a focused concept was turned over all day.
+  if (next.focus) {
+    next.vitals.clarity.current = Math.max(0, next.vitals.clarity.current - FOCUS_COST);
+    if (next.focus.kind === 'concept' && !lockedToday) {
+      addInsight(next.concepts, next.focus.id, CONCEPT_PER_HOUR * hoursWorked * reliability(clarityAtDusk), CRAFT_WORLD.concepts);
+    }
+  }
   if (w < 0.3 && next.tier < 2 && !tr.coldProof) {
     next.vitals.condition = Math.max(0, next.vitals.condition - 4);
     say(next, 'A cold, broken night — the exposure bites.', 'hardship');
@@ -916,8 +934,30 @@ export function endDay(s: Region1State): Region1State {
   next.hoursToday = 0;
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
   next.studiedToday = {};
+  // Tell the player when survival takes over the mind, and when it lets go.
+  const lockedNow = survivalLockOf(next);
+  if (lockedNow && !lockedToday) say(next, `Survival takes over your thoughts — ${lockedNow}. Your focus will have to wait.`, 'hardship');
+  if (!lockedNow && lockedToday && next.focus) say(next, `The pressure eases — your focus returns to ${focusLabel(next.focus)}.`, 'milestone');
   latchMilestones(next);
   return next;
+}
+
+/** Set (or clear, with null) what the mind is working on (#1238). Free: it costs no hours. */
+export function setFocus(s: Region1State, focus: Focus | null): Region1State {
+  const next = clone(s);
+  next.focus = focus;
+  return next;
+}
+
+/** Why the mind is locked to survival right now, or null (#1238). */
+export function survivalLockOf(s: Region1State): string | null {
+  return survivalLock({
+    thirsty: s.deprivation.thirsty,
+    hungry: s.deprivation.hungry,
+    condition: s.vitals.condition,
+    daysToWinter: s.config.calendar.winterDay - s.day,
+    winterReady: winterReady(s),
+  });
 }
 
 /**

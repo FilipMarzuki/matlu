@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { createRegion1, ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, survivalLockOf, ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
@@ -23,9 +23,10 @@ import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, LEVEL_HOURS, MAX_LEVEL, skillLevel } from '../artificer/skills';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
+import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, UNRELIABLE_BELOW, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TRAITS, TRAIT_IDS, TRAIT_COUNT, type TraitId } from '../artificer/traits';
 import { artificerRank, conceptRanks } from '../artificer/rank';
-import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, newRun, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -218,6 +219,31 @@ function portraitEl(id: string | null, size: number, cls = ''): string {
   return p ? `<span class="portrait ${cls}" role="img" aria-label="${esc(p.label)}" style="${portraitStyle(p, size)}"></span>` : `<span class="portrait blank ${cls}" style="width:${size}px;height:${size}px" aria-hidden="true">?</span>`;
 }
 
+/** Status-bar focus chip (#1238): the focus, or SURVIVAL in red with the reason when locked. Opens the Warden tab. */
+function focusChip(s: AppState['sim']): string {
+  const lock = survivalLockOf(s);
+  if (lock) return `<button class="focuschip locked" data-tab="warden" title="Survival has taken over your thoughts">FOCUS <b>SURVIVAL</b> <span>${esc(lock)}</span></button>`;
+  const frayed = s.focus && s.vitals.clarity.current < UNRELIABLE_BELOW;
+  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${frayed ? 'Clarity under 30 — focus is unreliable' : 'What your mind is working on'}">FOCUS <b>${esc(focusLabel(s.focus))}</b>${frayed ? ' <span>frayed</span>' : ''}</button>`;
+}
+
+/** The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. */
+function focusBlock(s: AppState['sim']): string {
+  const lock = survivalLockOf(s);
+  const cur = focusKey(s.focus);
+  const chip = (key: string, label: string, note: string) =>
+    `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
+  const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
+  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, 'practises twice as fast')).join('');
+  const concepts = FOCUS_CONCEPTS.map(c => chip(`concept:${c}`, c[0].toUpperCase() + c.slice(1), `${CONCEPT_PER_HOUR} insight per hour you work`)).join('');
+  return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. Water, food, wood and shelter work goes better; learning waits until it passes.</p>` : ''}
+    <p class="mood" style="margin-top:0">One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${UNRELIABLE_BELOW} Clarity it's halved.</p>
+    <p class="fgroup">GOAL</p><div class="fchips">${goals}</div>
+    <p class="fgroup">SKILL</p><div class="fchips">${skills}</div>
+    <p class="fgroup">CONCEPT</p><div class="fchips">${concepts}</div>
+    <div class="fchips" style="margin-top:6px">${chip('none', 'No focus', 'free your mind (saves the Clarity)')}</div>`;
+}
+
 /** The Warden tab (#1239): who you are — portrait, name, rank, traits, skills, concepts. */
 function wardenTab(a: AppState): string {
   const c = a.sim.character;
@@ -228,6 +254,7 @@ function wardenTab(a: AppState): string {
   return `<div class="cols">
     <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
+      <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
@@ -377,6 +404,7 @@ function statusBar(a: AppState, preview: Preview): string {
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
+    ${focusChip(s)}
     <span class="shours">TODAY <b>${todayHours(a, preview)}/${DAY_HOURS}H</b></span>
     <span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>
   </div>`;
@@ -653,6 +681,7 @@ root.addEventListener('click', e => {
   if (d.tab) { tab = d.tab as Tab; try { localStorage.setItem('artificer.tab', tab); } catch { /* per-browser convenience only */ } render(state); }
   else if (d.cmd === 'help') { showHelp = !showHelp; render(state); }
   else if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
+  else if (d.focus) update(chooseFocus(state, parseFocus(d.focus)));
   else if (d.q) update(enqueue(state, d.q as QueueId));
   else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
   // Keep the menu open while choosing (it may have opened only because a choice was missing).

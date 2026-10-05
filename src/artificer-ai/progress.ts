@@ -4,7 +4,8 @@
  * models. Pure: a snapshot is read off the sim state, nothing more.
  */
 
-import { warmth, readinessInput, type Region1State } from '../artificer/region1';
+import { warmth, readinessInput, survivalLockOf, type Region1State } from '../artificer/region1';
+import { focusKey } from '../artificer/focus';
 import { pillars, isWinterReady, type PillarKey } from '../artificer/readiness';
 import { RINGS, DOMAINS, level } from '../artificer/exploration';
 import { artificerRank, conceptRanks, type RankName } from '../artificer/rank';
@@ -42,6 +43,9 @@ export interface Progress {
   readiness: number;
   winterReady: boolean;
   milestones: number;
+  /** The chosen focus key and the survival-lock reason, if any (#1238). */
+  focus: string;
+  locked: string | null;
   /** Times the Warden pushed past empty so far (each costs Condition). */
   overexertions: number;
 }
@@ -86,5 +90,7 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
     winterReady: isWinterReady(readinessInput(s)),
     milestones: s.milestones.length,
     overexertions: count(/^Pushed past empty/),
+    focus: focusKey(s.focus),
+    locked: survivalLockOf(s),
   };
 }
