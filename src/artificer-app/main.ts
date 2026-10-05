@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
@@ -21,7 +21,10 @@ import { bestRun, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, LEVEL_HOURS, MAX_LEVEL, skillLevel } from '../artificer/skills';
-import { introBeats, type Beat, type IntroKind } from './intro';
+import { introBeats, fillName, type Beat, type IntroKind } from './intro';
+import { PORTRAITS, portraitById, portraitStyle } from './portraits';
+import { TRAITS, TRAIT_IDS, TRAIT_COUNT, type TraitId } from '../artificer/traits';
+import { artificerRank, conceptRanks } from '../artificer/rank';
 import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
@@ -209,6 +212,29 @@ function storesRow(s: AppState['sim']): string {
   return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1).replace('</span>', `${streak(s.deprivation.hungry, 'HUNGRY')}</span>`)}${storeChip('💧', 'Water', st.water, st.water < 1).replace('</span>', `${streak(s.deprivation.thirsty, 'THIRSTY')}</span>`)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
 }
 
+/** A portrait frame (or a blank silhouette for an unnamed quick-start Warden). */
+function portraitEl(id: string | null, size: number, cls = ''): string {
+  const p = portraitById(id);
+  return p ? `<span class="portrait ${cls}" role="img" aria-label="${esc(p.label)}" style="${portraitStyle(p, size)}"></span>` : `<span class="portrait blank ${cls}" style="width:${size}px;height:${size}px" aria-hidden="true">?</span>`;
+}
+
+/** The Warden tab (#1239): who you are — portrait, name, rank, traits, skills, concepts. */
+function wardenTab(a: AppState): string {
+  const c = a.sim.character;
+  const traits = c.traits.length
+    ? c.traits.map(t => `<div class="trait"><b>${esc(TRAITS[t].name)}</b><span class="up">+ ${esc(TRAITS[t].upside)}</span><span class="cost">− ${esc(TRAITS[t].cost)}</span>${t === 'tough' ? `<span class="note">${c.lastStandUsed ? 'last stand used this run' : 'last stand ready'}</span>` : ''}</div>`).join('')
+    : '<p class="mood">No traits — a quick-start Warden. Start a fresh Warden to choose two.</p>';
+  const concepts = Object.entries(a.sim.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0);
+  return `<div class="cols">
+    <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
+      <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
+      <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
+    <section class="box"><p class="eyebrow">SKILLS — improve by doing</p>${skillsBlock(a.sim)}
+      <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
+      ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
+  </div>`;
+}
+
 /** Skills (#1236): level, a bar toward the next level, and what the skill covers. */
 function skillsBlock(s: AppState['sim']): string {
   return `<div class="skills">${SKILL_IDS.map(id => {
@@ -369,9 +395,9 @@ function pastRuns(): string {
 
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
-type Tab = 'plan' | 'camp' | 'land' | 'progress';
+type Tab = 'plan' | 'camp' | 'land' | 'warden' | 'progress';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'progress', label: 'PROGRESS' },
+  { id: 'plan', label: 'PLAN' }, { id: 'camp', label: 'CAMP' }, { id: 'land', label: 'LAND' }, { id: 'warden', label: 'WARDEN' }, { id: 'progress', label: 'PROGRESS' },
 ];
 /** The open tab — a per-browser convenience, so storage failures just mean "Plan". */
 let tab: Tab = (() => { try { const t = localStorage.getItem('artificer.tab'); return (TABS.some(x => x.id === t) ? t : 'plan') as Tab; } catch { return 'plan'; } })();
@@ -389,13 +415,14 @@ function tabBody(a: AppState, preview: Preview): string {
       return `<div class="cols">
         <section class="box"><p class="eyebrow">THE WARDEN</p>${vitalsBlock(a)}
           <p class="eyebrow" style="margin-top:14px">STORES</p>${storesRow(a.sim)}
-          <p class="eyebrow" style="margin-top:14px">SKILLS</p>${skillsBlock(a.sim)}
           <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</section>
         <section class="box"><p class="eyebrow">SITE &amp; SHELTER</p>${sitesBlock(a)}</section>
       </div>`;
     case 'land':
       return `<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${land(a)}${LAND_LEGEND}
         <p class="mood">Scout for the overview, survey to firm it up, and work the land for the detail. The near ring runs thin as you work it; push outward for richer ground.</p></section>`;
+    case 'warden':
+      return wardenTab(a);
     case 'progress':
       return `<div class="cols">
         <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}
@@ -448,6 +475,7 @@ function render(a: AppState): void {
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
       ${phaseChip(a)}
       <span class="spacer"></span>
+      ${a.sim.character.name ? `<button class="who" data-tab="warden" title="Your Warden">${portraitEl(a.sim.character.portrait, 26)}<span><b>${esc(a.sim.character.name)}</b> · ${artificerRank(a.sim)}</span></button>` : ''}
       <span class="counter ctl">RUN <b>${(history[0]?.run ?? 0) + (a.sim.outcome ? 0 : 1)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
@@ -504,9 +532,21 @@ introEl.setAttribute('aria-label', 'Arrival');
 introEl.hidden = true;
 document.body.appendChild(introEl);
 
+/** What the player is choosing on the creation screen (#1239). */
+let draft: { name: string; portrait: string; traits: TraitId[] } = { name: '', portrait: PORTRAITS[0].id, traits: [] };
+const draftValid = (): boolean => draft.name.trim().length > 0 && draft.traits.length === TRAIT_COUNT;
+
 function startIntro(kind: IntroKind): void {
+  draft = { name: '', portrait: PORTRAITS[0].id, traits: [] };
+  drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, (history[0]?.run ?? 0) + 1), i: 0 };
   renderIntro();
+}
+
+/** Leaving the creation screen: the Warden is made with the chosen name, portrait and traits. */
+function commitCharacter(): void {
+  state = { sim: createRegion1({}, undefined, { name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits }), queue: [] };
+  render(state);
 }
 
 function endIntro(): void {
@@ -519,16 +559,23 @@ function endIntro(): void {
 
 function advanceIntro(): void {
   if (!intro) return;
+  if (intro.beats[intro.i].kind === 'create') { if (!draftValid()) return; commitCharacter(); }
   if (intro.i >= intro.beats.length - 1) endIntro();
   else { intro.i += 1; renderIntro(); }
 }
 
+/** The beat last drawn: re-drawing the same beat (a creation pick) must not replay its fade-in. */
+let drawnBeat = -1;
+
 function renderIntro(): void {
   if (!intro) return;
   const b = intro.beats[intro.i];
+  introEl.classList.toggle('settled', drawnBeat === intro.i);
+  drawnBeat = intro.i;
   const last = intro.i === intro.beats.length - 1;
   // Each line fades in after the one before (--n drives the CSS animation delay).
-  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(l)}</p>`).join('');
+  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name))}</p>`).join('')
+    + (b.kind === 'create' ? createForm() : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
   introEl.hidden = false;
   introEl.innerHTML = `
@@ -538,20 +585,55 @@ function renderIntro(): void {
       <span class="dots" aria-hidden="true">${dots}</span>
       <span class="spacer"></span>
       ${last ? '' : '<button class="pill" data-intro="skip">SKIP ›</button>'}
-      <button class="btn go" data-intro="next">${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
+      <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
     </div>`;
-  introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
+  // On the creation screen, start in the name field (unless a name is already typed).
+  if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
+  else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
 }
 
-// Tap anywhere to advance (the tablet path); Skip ends it at once.
+/** The creation form: name, portrait, two traits. Choices live in `draft` until Continue. */
+function createForm(): string {
+  const portraits = PORTRAITS.map(p => `<button class="pchoice" data-portrait="${p.id}" aria-pressed="${draft.portrait === p.id}">${portraitEl(p.id, 64)}<span>${esc(p.label)}</span></button>`).join('');
+  const traits = TRAIT_IDS.map(t => `<button class="tchoice" data-trait="${t}" aria-pressed="${draft.traits.includes(t)}"><b>${esc(TRAITS[t].name)}</b><span class="up">+ ${esc(TRAITS[t].upside)}</span><span class="cost">− ${esc(TRAITS[t].cost)}</span></button>`).join('');
+  return `<form class="create" onsubmit="return false">
+    <label class="clabel" for="wname">NAME</label>
+    <input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}">
+    <p class="clabel">PORTRAIT</p><div class="pchoices">${portraits}</div>
+    <p class="clabel">TRAITS — choose ${TRAIT_COUNT} <span>(${draft.traits.length}/${TRAIT_COUNT})</span></p><div class="tchoices">${traits}</div>
+  </form>`;
+}
+
+// Tap anywhere to advance (the tablet path); Skip ends it at once. On the creation
+// screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
-  const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-intro]');
-  if (btn?.dataset.intro === 'skip') endIntro(); else advanceIntro();
+  const el = e.target as HTMLElement;
+  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-trait]');
+  const creating = intro?.beats[intro.i].kind === 'create';
+  if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
+  if (btn?.dataset.trait) {
+    const t = btn.dataset.trait as TraitId;
+    // Toggle; picking a third replaces the earliest pick.
+    draft.traits = draft.traits.includes(t) ? draft.traits.filter(x => x !== t) : [...draft.traits, t].slice(-TRAIT_COUNT);
+    renderIntro(); return;
+  }
+  if (btn?.dataset.intro === 'skip') endIntro();
+  else if (btn?.dataset.intro === 'next' || !creating) { if (!el.closest('.create')) advanceIntro(); }
+});
+// Typing a name updates the draft without re-rendering (which would steal focus).
+introEl.addEventListener('input', e => {
+  const input = e.target as HTMLInputElement;
+  if (input.id !== 'wname') return;
+  draft.name = input.value;
+  const next = introEl.querySelector<HTMLButtonElement>('[data-intro="next"]');
+  if (next) next.disabled = !draftValid();
 });
 document.addEventListener('keydown', e => {
   if (!intro) return;
+  const typing = (e.target as HTMLElement).tagName === 'INPUT';
   if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
-  else if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); advanceIntro(); }
+  else if (e.key === 'Enter') { e.preventDefault(); advanceIntro(); }
+  else if (!typing && (e.key === ' ' || e.key === 'ArrowRight') && intro.beats[intro.i].kind !== 'create') { e.preventDefault(); advanceIntro(); }
 });
 
 function update(next: AppState): void {

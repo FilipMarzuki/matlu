@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { createRegion1 } from '../artificer/region1';
-import { introBeats, artificerRank, conceptRanks } from './intro';
+import { introBeats, artificerRank, conceptRanks, fillName } from './intro';
 
 describe('Arrival intro', () => {
   it('designates a fresh Warden as an Apprentice Artificer and closes on the motto', () => {
@@ -16,6 +16,11 @@ describe('Arrival intro', () => {
     expect(all).toMatch(/RANK: APPRENTICE/);
     expect(all).toMatch(/Winter arrives in 12 days/);
     expect(beats.at(-1)).toEqual({ kind: 'title', lines: ['SURVIVE.', 'THRIVE.', 'MASTER YOUR NEW REALITY.'] });
+    // Character creation (#1239) comes right after the designation, and the voice then uses the name.
+    const create = beats.findIndex(b => b.kind === 'create');
+    expect(beats[create - 1].lines[0]).toBe('CLASS DESIGNATED: ARTIFICER');
+    expect(fillName(beats[create + 1].lines[0], 'Vega')).toBe('Registered: Vega.');
+    expect(fillName(beats[create + 1].lines[0], '  ')).toBe('Registered: Artificer.');
   });
 
   it('greets a returning Warden with what they kept, and ranks them by concept mastery', () => {
@@ -28,6 +33,10 @@ describe('Arrival intro', () => {
     expect(all).toMatch(/RETURNING ARTIFICER — CYCLE 3/);
     expect(all).toMatch(/3 concept ranks/);
     expect(all).toMatch(/RANK: JOURNEYMAN/);
+    // A returning Warden is the same person: no creation screen, greeted by name.
+    expect(beats.some(b => b.kind === 'create')).toBe(false);
+    const named = introBeats('carry', createRegion1({}, undefined, { name: 'Vega' }), 2).flatMap(b => b.lines).join('\n');
+    expect(named).toMatch(/Welcome back, Vega\./);
   });
 
   it('climbs Apprentice → Journeyman → Adept → Master', () => {
