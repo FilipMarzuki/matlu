@@ -17,6 +17,8 @@ import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
 import { FULL_WORLD, validWorld } from '../artificer/world';
+import { WEATHER_IDS, weatherFor } from '../artificer/weather';
+import { seedOf } from '../artificer/rng';
 
 export interface AppState {
   sim: Region1State;
@@ -250,5 +252,9 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // …and saves from before the living world (#1279) play the full world.
   const cfg = sim.config as Record<string, unknown>;
   const config = { ...(cfg as unknown as Region1State['config']), world: validWorld(cfg.world) ? { ...cfg.world } : { ...FULL_WORLD } };
-  return { sim: { ...(sim as unknown as Region1State), config, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals) }, queue: queue as QueueItem[] };
+  // …and saves from before weather (#1282) get today's weather and no forecast.
+  const day = isNum(sim.day) ? sim.day : 1;
+  const weatherToday = WEATHER_IDS.includes(sim.weatherToday as never) ? sim.weatherToday as Region1State['weatherToday'] : weatherFor(seedOf(character.id), day, config.world);
+  const forecast = isObj(sim.forecast) && Object.values(sim.forecast).every(w => WEATHER_IDS.includes(w as never)) ? { ...(sim.forecast as Region1State['forecast']) } : {};
+  return { sim: { ...(sim as unknown as Region1State), config, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
 }
