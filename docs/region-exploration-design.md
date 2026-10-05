@@ -151,8 +151,32 @@ This layers cleanly onto everything above:
   same push that, in Region 1, uncovers the crossing out of the Reach (route
   knowledge for the solo exit) and the neighbours beyond it.
 
+### Range is shaped by how you travel
+
+The rings above are a **walker's** map — roughly circular, overland, slow. The
+mode of travel redraws them:
+
+- **On foot** — the default: even rings, blocked or slowed by terrain (a ridge,
+  a marsh, deep snow costs extra), reaching inland as readily as anywhere.
+- **By boat** — a different map entirely. A day's reach **stretches along rivers
+  and coastline and across open water**, putting islands, far shores and
+  downstream regions inside a single-day band that no walker could touch — while
+  adding *nothing* inland. Water becomes a fast lane and a barrier both: the
+  same strait that's a day's sail is impassable on foot.
+- Later modes (a mount, a cart, a frozen river you can cross in winter but not in
+  thaw) each warp the rings their own way.
+
+So **what's reachable depends on what you can craft and where you settle.** A
+coastal or riverbank base plus a built boat explodes the explorable map along the
+water; an inland base keeps you to the walker's rings until you find another
+mode. This is the same thread as Region 1's **sail exit** (settle the coast,
+build a boat, and the crossing — and a whole different set of neighbours — opens
+by water instead of by the winter road).
+
 Open: the exact ring count and spacing, whether rings are literal distance or an
-abstract "reach" stat, and how forward camps bank progress in an outer ring.
+abstract "reach" stat, how forward camps bank progress in an outer ring, and how
+many travel modes exist and how each reshapes reach (and its upkeep/risk — a boat
+needs water and has its own weather).
 
 ---
 
