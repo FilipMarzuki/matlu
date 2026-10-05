@@ -13,7 +13,7 @@
  */
 
 import './style.css';
-import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
@@ -51,16 +51,16 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   survey: () => 'everything there observed → richer trips',
   track: () => 'game observed → you can hunt',
   gather: (s, r) => `+${ty(s, r, 'forage', 3, 2) + bonus(s, 'gather')} raw food${fb(s, r, 'forage') ? ' +2 fiber' : ''}`,
-  hunt: (s, r) => `+${ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game')} raw food`,
+  hunt: (s, r) => `deer +${ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game')} food & a hide · or small game`,
   water: (s, r) => `+${ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water')} water`,
   wood: (s, r) => `+${ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber')} fuel, +${ty(s, r, 'timber', 2, 1)} mat`,
   quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} stone`,
-  preserve: () => '2 raw → 1 ration (×3)',
+  preserve: () => '2 raw → 1 ration · smoke ×3 or dry ×2',
   build: s => (s.tier < 2 ? `tier ${s.tier + 1} from ${BUILD_COST[s.tier as 0 | 1]} mat · choose site & design in the queue` : 'winterized'),
-  coldGear: () => 'needed to cross solo · crude won\'t do',
+  coldGear: () => 'needed to cross solo · fiber or hide',
   knife: () => 'hunt −15% vigor, quicker preserving',
   snare: () => '+1 food every night',
-  waterskin: () => '+1 water per trip',
+  waterskin: () => '+1 water per trip · takes a hide',
   bedroll: () => '+6 clarity overnight',
   shovel: () => 'build −20% vigor · needs a roof',
   tinker: () => 'rests body, spends mind',
@@ -183,7 +183,7 @@ function warden(a: AppState): string {
     + `<div class="t">${SITES[id].name.toUpperCase()}<span class="warm" style="margin-left:auto">MAX ${Math.round(SITES[id].warmth * 100)}% WARM</span></div>`
     + `<div class="d">${SITE_NOTE[id]}${s.site === id ? ` Shelter tier ${s.tier}/2${s.shelterGrade ? ` (${s.shelterGrade})` : ''} · ${Math.round(warmth(s) * 100)}% warm.` : ''}</div></button>`).join('');
   // Tool names come from the craft actions that make them (output item → action).
-  const toolName = (item: string): string => (Object.values(ACTIONS).find(a => a.recipe?.output.item === item)?.recipe?.name ?? item);
+  const toolName = (item: string): string => (item === HIDE_PARKA_RECIPE.output.item ? HIDE_PARKA_RECIPE.name : Object.values(ACTIONS).find(a => a.recipe?.output.item === item)?.recipe?.name ?? item);
   const tools = s.tools.map(t => `<span class="r tool ${t.grade}">${esc(toolName(t.item))} <b>${t.grade.toUpperCase()}</b></span>`).join('');
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0)
     .map(([id, p]) => `<span class="r concept">${esc(id)} <b>R${p.rank}</b></span>`).join('');
@@ -198,7 +198,7 @@ function warden(a: AppState): string {
     </div>
     <p class="mood">${moodLine(a)}</p>
     <p class="eyebrow" style="margin-top:14px">STORES</p>
-    <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}${r('⛰️', 'Stone', st.stone)}</div>
+    <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}${r('⛰️', 'Stone', st.stone)}${r('🦌', 'Hides', st.hides)}</div>
     <p class="eyebrow" style="margin-top:14px">SITE &amp; SHELTER</p>
     <div class="sites">${sites}</div>
     ${scouted(s.explore, 1) ? '' : '<p class="mood">Scout first to find somewhere to settle.</p>'}

@@ -82,6 +82,7 @@ describe('Artificer controller', () => {
     expect(deserialize(JSON.stringify({ version: 2, sim: a.sim, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: 3, sim: a.sim, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: 4, sim: a.sim, queue: [] }))).toBeNull();
+    expect(deserialize(JSON.stringify({ version: 5, sim: a.sim, queue: [] }))).toBeNull();
     // Options chosen on a queued build round-trip; malformed options don't load.
     const planned = setOption(enqueue(a, 'build'), 0, 'type', 'hut');
     expect(deserialize(serialize(planned))).toEqual(planned);
