@@ -10,18 +10,18 @@
  * and the browser storage.
  */
 
-import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, type ActionId, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, DAY_HOURS, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import type { Choice } from '../artificer/winter';
 
 export interface AppState {
   sim: Region1State;
   /** The player's plan: runs in order, spilling over day boundaries. */
-  queue: ActionId[];
+  queue: QueueItem[];
 }
 
 /** Bump the version (and the key) whenever the saved shape changes incompatibly. */
-export const SAVE_VERSION = 3;
-export const SAVE_KEY = 'artificer.region1.v3';
+export const SAVE_VERSION = 5;
+export const SAVE_KEY = 'artificer.region1.v5';
 
 /** Long enough for any real plan; stops a runaway loop if the sim ever stalls. */
 const MAX_DAYS_PER_RUN = 60;
@@ -30,7 +30,7 @@ export function newGame(): AppState {
   return { sim: createRegion1(), queue: [] };
 }
 
-export function enqueue(a: AppState, id: ActionId): AppState {
+export function enqueue(a: AppState, id: QueueItem): AppState {
   if (a.sim.outcome) return a;
   return { ...a, queue: [...a.queue, id] };
 }
@@ -38,6 +38,19 @@ export function enqueue(a: AppState, id: ActionId): AppState {
 export function dequeueAt(a: AppState, index: number): AppState {
   if (index < 0 || index >= a.queue.length) return a;
   return { ...a, queue: a.queue.filter((_, i) => i !== index) };
+}
+
+/**
+ * Choose an option on one queued action (e.g. the location of a build). The
+ * entry becomes `{ q, opts }`; other entries are untouched.
+ */
+export function setOption(a: AppState, index: number, key: string, value: string): AppState {
+  if (index < 0 || index >= a.queue.length) return a;
+  const { opts } = parseItem(a.queue[index]);
+  const item = a.queue[index];
+  const q = typeof item === 'string' ? item : item.q;
+  const queue = a.queue.map((it, i) => (i === index ? { q, opts: { ...opts, [key]: value } } : it));
+  return { ...a, queue };
 }
 
 export function clearQueue(a: AppState): AppState {
@@ -85,6 +98,8 @@ export interface QueuePreview {
   warnings: (string | null)[];
   /** The state after every queued action has run (no nights in between). */
   projected: Region1State;
+  /** The state each entry would run in — what its options are judged against. */
+  before: Region1State[];
 }
 
 /**
@@ -97,16 +112,19 @@ export function previewQueue(a: AppState): QueuePreview {
   let hours = a.sim.hoursToday;
   let day = 0;
   let projected = a.sim;
-  for (const id of a.queue) {
+  const before: Region1State[] = [];
+  for (const item of a.queue) {
     if (hours >= DAY_HOURS) { day += 1; hours = 0; }
     dayOffset.push(day);
-    const reason = ACTIONS[id].gate?.(projected) ?? null;
+    before.push(projected);
+    const { id, ring, opts } = parseItem(item);
+    const reason = ACTIONS[id].gate?.(projected, ring, opts) ?? null;
     warnings.push(reason);
     // A refused action costs no time in the sim, so it costs none here either.
-    if (!reason) hours += ACTIONS[id].hours;
-    projected = runAction(projected, id);
+    if (!reason) hours += queueHours(item, projected);
+    projected = runAction(projected, item);
   }
-  return { dayOffset, warnings, projected };
+  return { dayOffset, warnings, projected, before };
 }
 
 // ── Save / load ─────────────────────────────────────────────────────────────
@@ -131,14 +149,21 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   if (!isObj(data) || data.version !== SAVE_VERSION) return null;
 
   const { sim, queue } = data;
-  if (!Array.isArray(queue) || !queue.every(q => typeof q === 'string' && q in ACTIONS)) return null;
+  const validQ = (item: unknown): boolean => {
+    const q = isObj(item) ? item.q : item;
+    if (isObj(item) && (!isObj(item.opts) || !Object.values(item.opts).every(v => typeof v === 'string'))) return false;
+    if (typeof q !== 'string') return false;
+    const { id, ring } = parseQueueId(q as QueueId);
+    return id in ACTIONS && [1, 2, 3].includes(ring) && (ring === 1 || ACTIONS[id].ringed === true);
+  };
+  if (!Array.isArray(queue) || !queue.every(validQ)) return null;
   if (!isObj(sim)) return null;
   const v = sim.vitals;
   if (!isNum(sim.day) || !isNum(sim.hoursToday) || !isObj(v) || !isPool(v.vigor) || !isPool(v.clarity) || !isNum(v.condition)) return null;
-  if (!isObj(sim.stores) || !isObj(sim.knowledge) || !isObj(sim.flags) || !isObj(sim.today) || !isObj(sim.config)) return null;
+  if (!isObj(sim.stores) || !isObj(sim.explore) || !isObj(sim.flags) || !isObj(sim.today) || !isObj(sim.config)) return null;
   if (!Array.isArray(sim.milestones) || !Array.isArray(sim.log) || !Array.isArray(sim.tools) || !isObj(sim.concepts)) return null;
   if (sim.shelterGrade !== null && typeof sim.shelterGrade !== 'string') return null;
 
   // The shape checks above cover what the sim reads; trust the rest.
-  return { sim: sim as unknown as Region1State, queue: queue as ActionId[] };
+  return { sim: sim as unknown as Region1State, queue: queue as QueueItem[] };
 }

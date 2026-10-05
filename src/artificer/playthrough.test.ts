@@ -10,12 +10,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, chooseSite, runDay, choose, winterReady, REGION1_MILESTONES, type ActionId, type Region1State } from './region1';
+import { createRegion1, runAction, chooseSite, runDay, choose, winterReady, REGION1_MILESTONES, type QueueId, type Region1State } from './region1';
 import { BASELINE } from './vitality';
 import { DEFAULT_CALENDAR, PENALTY } from './winter';
 
-/** A careful player: cave on day 1, a roof the first night, then stock up. */
-const GOOD_PLAN: ActionId[][] = [
+/**
+ * A careful player: cave on day 1, a roof the first night, then stock up —
+ * and once the near ring runs thin, push out (day 8) and find the pass (day 9).
+ */
+const GOOD_PLAN: QueueId[][] = [
   ['wood', 'build'],                 // day 1 (after scouting + claiming the cave)
   ['survey', 'track', 'water'],      // day 2 — richer yields, find the game
   ['hunt', 'hunt', 'water'],         // day 3
@@ -23,8 +26,8 @@ const GOOD_PLAN: ActionId[][] = [
   ['build', 'hunt'],                 // day 5 — winterize the shelter
   ['hunt', 'preserve', 'preserve'],  // day 6
   ['wood', 'coldGear', 'hunt'],      // day 7 — gear for the road, just in case
-  ['hunt', 'preserve', 'preserve'],  // day 8
-  ['hunt', 'rest', 'water'],         // day 9
+  ['scout@2', 'hunt', 'preserve'],   // day 8 — push out to the far ring
+  ['scout@3', 'water', 'rest'],      // day 9 — the distant hills: glimpse the pass out
 ];
 
 /** Play the careful run up to the caravan's arrival (day 10). */

@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { createRegion1, runAction, endDay, chooseSite, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import type { Tool } from './crafting';
+import { createExploration, scout, track } from './exploration';
 
 /** Scouted, with a pile of materials and whatever else the test needs. */
 function ready(over: Partial<Region1State> = {}): Region1State {
@@ -40,7 +41,7 @@ describe('Region 1 crafting', () => {
 
   // 2. Tools make the actions they serve cheaper or richer.
   it('applies tool effects to the actions they serve', () => {
-    const base = ready({ knowledge: { scouted: true, surveyed: false, tracked: true } });
+    const base = ready({ explore: track(scout(createExploration(), 1), 1) });
     const knife: Tool[] = [{ item: 'stone-knife', grade: 'sound' }];
 
     const plain = runAction(base, 'hunt');

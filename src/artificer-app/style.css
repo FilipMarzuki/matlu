@@ -117,8 +117,8 @@
   .act .y .yield { color: var(--green); } .act .y .vc { color: var(--warn); }
 
   .queue { background: var(--sub2); border: 1px solid var(--border2); border-radius: 11px; padding: 11px; }
-  .queue ol { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 210px; overflow-y: auto; }
-  .queue li { display: flex; align-items: center; gap: 8px; background: var(--sub); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; }
+  .queue ol { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 480px; overflow-y: auto; }
+  .queue li { display: flex; flex-direction: column; align-items: stretch; gap: 0; background: var(--sub); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; }
   .queue li .n { font-family: var(--display); font-size: 8px; color: var(--ink); }
   .queue li .meta { margin-left: auto; color: var(--faint); font-size: 10px; font-variant-numeric: tabular-nums; }
   .queue li .x { cursor: pointer; color: var(--faint); border: none; background: none; font-size: 14px; padding: 0 2px; }
@@ -174,3 +174,35 @@
 .r.tool.crude b { color: var(--warn); } .r.tool.sound b { color: var(--teal); }
 .r.tool.fine b { color: var(--green); } .r.tool.masterwork b { color: var(--gold); }
 .r.concept { font-size: 11px; color: var(--dim); } .r.concept b { color: var(--ice); }
+
+/* Exploration rings: palette tabs + the land map's confidence chips (design §3). */
+.rings { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.ringtab { flex: 1 1 110px; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); color: var(--dim); cursor: pointer; padding: 7px 9px; font-family: var(--display); font-size: 8px; letter-spacing: 1px; text-align: left; }
+.ringtab span { display: block; font-family: var(--body); font-size: 10px; letter-spacing: 0; color: var(--faint); margin-top: 2px; }
+.ringtab.on { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.ringtab.locked { opacity: .5; }
+.ringnote { color: var(--teal); letter-spacing: .5px; }
+.ringtag { font-size: 7px; color: var(--teal); border: 1px solid var(--teal); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+.ringhead { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--dim); margin: 8px 0 4px; }
+.ringhead span { color: var(--faint); margin-left: 4px; }
+.chip { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 7px; font-size: 11px; border: 1px solid var(--border); background: var(--sub); }
+.chip.l0 { color: var(--faint); }
+.chip.l1 { color: var(--dim); border-style: dashed; font-style: italic; }
+.chip.l2 { color: var(--ink); }
+.chip.l3 { color: var(--ice); border-color: var(--ice); }
+.chip.find { color: var(--gold); border-color: var(--gold); }
+
+/* Queue entries: a row, plus an expandable options menu (choose site, design, materials). */
+.queue li .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.queue li.expanded { border-color: var(--teal); }
+.queue .tog { border: none; background: none; color: var(--teal); cursor: pointer; font-size: 12px; padding: 0 2px; }
+.queue .chosen { color: var(--dim); font-size: 10.5px; }
+.opts { display: flex; flex-direction: column; gap: 8px; padding: 9px 2px 4px 22px; }
+.optlabel { display: block; font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--faint); margin-bottom: 4px; }
+.optchoices { display: flex; flex-wrap: wrap; gap: 6px; }
+.opt { flex: 1 1 130px; text-align: left; border: 1px solid var(--border); border-radius: 8px; background: var(--sub2); color: var(--ink); cursor: pointer; padding: 6px 8px; font-family: inherit; }
+.opt b { display: block; font-family: var(--display); font-size: 8px; letter-spacing: .5px; font-weight: 400; }
+.opt span { display: block; color: var(--dim); font-size: 10px; margin-top: 2px; }
+.opt.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.opt:hover:not(:disabled) { border-color: var(--teal); }
+.opt:disabled { opacity: .45; cursor: not-allowed; }
