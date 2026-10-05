@@ -124,10 +124,13 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       // Multi-page: the game (index.html) plus a standalone crafting testbed
-      // (crafting.html → src/crafting.ts) that ships without the rest of the game.
+      // (crafting.html → src/crafting.ts) that ships without the rest of the game,
+      // and the Artificer web frontend (artificer.html → src/artificer-app/), a
+      // plain-DOM page over the headless sim core.
       input: {
         main: resolve(__dirname, 'index.html'),
         crafting: resolve(__dirname, 'crafting.html'),
+        artificer: resolve(__dirname, 'artificer.html'),
       },
     },
   },
