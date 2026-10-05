@@ -11,7 +11,7 @@
  * frontend, a test, or Core Warden can all drive it identically.
  */
 
-import { applyActivity, driftCapacity, createVitals, type Vitals } from './vitality';
+import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
 import { createExploration, scout, survey, track, lookout, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
@@ -514,7 +514,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const note = workLand(s, r, 'game');
       s.stores.rawFood += n; s.flags.everFood = true; s.flags.everHunt = true;
       if (!small) { s.stores.hides += 1; s.flags.everHide = true; }
-      return small ? `Snared and shot small game${where(r)} — ${n} raw food.${note}` : `A good hunt${where(r)} — ${n} raw food and a hide.${note}`;
+      return small ? `Took small game${where(r)} — ${n} raw food.${note}` : `A good hunt${where(r)} — ${n} raw food and a hide.${note}`;
     },
   },
   water: {
@@ -558,7 +558,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const dry = o.method === 'dry';
       const made = Math.min(dry ? 2 : 3, Math.floor(s.stores.rawFood / 2));
       s.stores.rawFood -= made * 2; s.stores.rations += made; s.flags.everPreserve = true;
-      return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter rations.`;
+      return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter ration${made === 1 ? '' : 's'}.`;
     },
   },
   build: {
@@ -756,9 +756,9 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
     next.tier = roof ? 1 : 2;
     next.shelter = roof ? { type: roof, walls: null } : { ...next.shelter, walls: walls ?? null };
     next.shelterGrade = result.grade;
-    say(next, `Raised a ${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action');
+    say(next, `Raised ${article(name)}${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action');
   } else if (result.kind === 'crafted') {
-    say(next, `Crafted a ${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action');
+    say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action');
   } else if (result.kind === 'failed') {
     const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
@@ -767,10 +767,14 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
   return next;
 }
 
+/** "a " for a countable thing; nothing for plurals and mass nouns ("timber walls", "cold gear"). */
+const article = (name: string): string => (/s$|gear$/.test(name) ? '' : 'a ');
+
 /**
  * End the day: eat and drink (going without costs Condition and weakens
  * recovery), sleep (recovery scales with shelter warmth), a cold night bites,
- * then capacity drifts on how the day was lived.
+ * then capacity drifts on how the day was lived and a good night heals a
+ * little Condition.
  */
 export function endDay(s: Region1State): Region1State {
   const next = clone(s);
@@ -797,14 +801,16 @@ export function endDay(s: Region1State): Region1State {
     say(next, 'A cold, broken night — the exposure bites.', 'hardship');
   }
 
-  next.vitals = driftCapacity(next.vitals, {
+  const summary = {
     loadVigor: next.today.loadVigor,
     loadClarity: next.today.loadClarity,
     ate,
     shelterWarmth: w,
     pushedVigor: next.today.pushedVigor,
     pushedClarity: next.today.pushedClarity,
-  });
+  };
+  next.vitals = driftCapacity(next.vitals, summary);
+  next.vitals = recoverCondition(next.vitals, summary);
 
   next.day += 1;
   next.hoursToday = 0;

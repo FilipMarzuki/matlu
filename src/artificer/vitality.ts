@@ -9,8 +9,9 @@
  * Model (see docs/vitality-system-design.md):
  *   - Two spendable pools, Vigor (body) and Clarity (mind), each a
  *     { current, cap } — the bar you spend, under a capacity that drifts.
- *   - A slow Condition reserve (0..100) that you never spend directly; it only
- *     erodes when you push a pool past empty (the soft-fail).
+ *   - A slow Condition reserve (0..100) that you never spend directly; it
+ *     erodes when you push a pool past empty (the soft-fail) and heals slowly
+ *     on good nights (see {@link recoverCondition}).
  *   - A hidden morale (0..1), derived from Condition and how full the pools are,
  *     that quietly makes drains cost more or less.
  *
@@ -35,7 +36,7 @@ export interface Pool {
 export interface Vitals {
   vigor: Pool;
   clarity: Pool;
-  /** The slow reserve, 0..100. Only overexertion touches it. */
+  /** The slow reserve, 0..100. Overexertion and hardship wear it; good nights heal it slowly. */
   condition: number;
 }
 
@@ -195,4 +196,23 @@ export function driftCapacity(v: Vitals, day: DaySummary): Vitals {
   drift(next.vigor, day.loadVigor, day.ate, day.pushedVigor ?? false);
   drift(next.clarity, day.loadClarity, day.shelterWarmth >= 0.5, day.pushedClarity ?? false);
   return next;
+}
+
+/** Shelter warmth needed for a night to count as "real rest" for Condition. */
+export const HEAL_WARMTH = 0.5;
+
+/**
+ * Nightly Condition healing (pure). Per the design (docs/vitality-system-design.md §3)
+ * Condition "recovers slowly, only through real rest: deep sleep in shelter, good food,
+ * over days". So a night heals only if the character ate and drank, slept somewhere at
+ * least {@link HEAL_WARMTH} warm, and didn't push past empty that day. Warmer shelter
+ * heals more, and a light day (little load — e.g. a rest day) doubles it, so taking it
+ * easy is a real lever. A few points a night: you can't grind it back in an afternoon.
+ */
+export function recoverCondition(v: Vitals, day: DaySummary): Vitals {
+  const pushed = (day.pushedVigor ?? false) || (day.pushedClarity ?? false);
+  if (!day.ate || pushed || day.shelterWarmth < HEAL_WARMTH) return v;
+  const light = day.loadVigor + day.loadClarity < STIMULUS;
+  const gain = (2 + 4 * day.shelterWarmth) * (light ? 2 : 1);
+  return { ...clone(v), condition: clamp(v.condition + gain, 0, 100) };
 }

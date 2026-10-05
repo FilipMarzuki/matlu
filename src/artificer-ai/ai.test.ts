@@ -34,7 +34,7 @@ describe('AI player harness', () => {
 
     let late = s;
     while (late.day < DEFAULT_CALENDAR.caravanOpen) late = runDay(late, ['rest']).state;
-    expect(observe(late)).toMatch(/EXITS OPEN: caravan, solo, winter\. Solo crossing prepared: no/);
+    expect(observe(late)).toMatch(/EXITS OPEN: caravan, solo, winter\. If taken today: caravan → ragged, solo → turnedBack, winter → grim\. Solo crossing prepared: no/);
     // The rules are static (cacheable) and describe the response contract.
     expect(RULES).toMatch(/Reply with ONLY a JSON object/);
     expect(RULES).not.toMatch(/\$\{/);
@@ -101,5 +101,20 @@ describe('AI player harness', () => {
     expect(a.turns.some(t => t.invalid)).toBe(false);
     const b = await playRun(scriptedPlayer());
     expect(b.record).toEqual(a.record);
+  });
+
+  // #1227 — "scout, then settle" on day 1 must work: the site claim waits for the queue.
+  it('defers a site claim until the near ring is scouted', async () => {
+    const day1 = json({ thoughts: 'scout then settle', site: 'cave', exit: null, queue: [{ action: 'scout', ring: 1, options: [] }] });
+    const run = await playRun(replay([day1, json({ thoughts: 'go', site: null, exit: 'winter', queue: [] })]), { maxDays: 10 });
+    expect(run.turns[0].journal.join('\n')).not.toMatch(/Can't stake a claim/);
+    expect(run.turns[0].journal.join('\n')).toMatch(/Chose the cave/);
+
+    // …and a build queued in that same day settles on the chosen site.
+    const withBuild = json({ thoughts: 'scout, cut, build', site: 'cave', exit: null, queue: [
+      { action: 'scout', ring: 1, options: [] }, { action: 'wood', ring: 1, options: [] }, { action: 'build', ring: 1, options: [] }] });
+    const built = await playRun(replay([withBuild, json({ thoughts: 'go', site: null, exit: 'winter', queue: [] })]), { maxDays: 10 });
+    expect(built.turns[0].journal.join('\n')).not.toMatch(/choose a location/);
+    expect(built.turns[0].journal.join('\n')).toMatch(/Raised a .*lean-to/);
   });
 });

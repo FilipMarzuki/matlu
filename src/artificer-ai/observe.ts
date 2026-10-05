@@ -17,7 +17,7 @@ import {
   type ActionId, type Region1State,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
-import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS } from '../artificer/winter';
+import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
 import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 
 /**
@@ -39,7 +39,7 @@ A caravan camps nearby on days 10-12; winter arrives on day 13. From day 10 you 
 Best outcomes: thrive (caravan while winter-ready), then crossed or wintered.
 
 HOW A DAY WORKS
-You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. At night you eat 1 food and drink 1 water (going without costs Condition and recovery), then sleep; a warmer shelter recovers more. Pushing a pool past empty costs Condition.
+You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. At night you eat 1 food and drink 1 water (going without costs Condition and recovery), then sleep; a warmer shelter recovers more. Pushing a pool past empty costs Condition. Condition heals slowly (a few points a night) only on nights you ate and drank, slept in shelter 50%+ warm, and never pushed past empty; a light, restful day doubles it.
 
 THE LAND
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
@@ -157,7 +157,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push('');
   if (exits.length) {
     const canCross = routeKnown(s) && crossingPrepared({ coldGear: s.coldGear, rations: st.rations, vitals: v });
-    lines.push(`EXITS OPEN: ${exits.join(', ')}. Solo crossing prepared: ${canCross ? 'yes' : `no (needs road-worthy cold gear, ${CROSSING_NEEDS.rations}+ rations, condition ${CROSSING_NEEDS.condition}+, vigor capacity ${CROSSING_NEEDS.vigorCap}+, pass seen)`}.`);
+    // Spell out what each exit would give today: models misread "caravan = thrive" as unconditional.
+    const ifTaken = exits.map(c => `${c} → ${resolveOutcome(c, { ready: winterReady(s), canCross, vitals: v }).kind}`).join(', ');
+    lines.push(`EXITS OPEN: ${exits.join(', ')}. If taken today: ${ifTaken}. Solo crossing prepared: ${canCross ? 'yes' : `no (needs road-worthy cold gear, ${CROSSING_NEEDS.rations}+ rations, condition ${CROSSING_NEEDS.condition}+, vigor capacity ${CROSSING_NEEDS.vigorCap}+, pass seen)`}.`);
   } else {
     lines.push('EXITS: none yet (from day 10).');
   }

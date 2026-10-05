@@ -7,7 +7,8 @@
  * `parseDecision`, whoever made it.
  */
 
-import { createRegion1, chooseSite, choose, runDay, type Region1State, type QueueItem, type SiteId } from '../artificer/region1';
+import { scouted } from '../artificer/exploration';
+import { createRegion1, chooseSite, choose, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import { availableChoices, type Choice } from '../artificer/winter';
 import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
 import { observe } from './observe';
@@ -114,7 +115,10 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     }
 
     const d = parsed.decision;
-    if (d.site && d.site !== s.site) s = chooseSite(s, d.site);
+    // A site can only be claimed once ring 1 is scouted. A day-1 plan of "scout, then settle" is
+    // reasonable, so when the land isn't scouted yet the claim waits until after the day's queue.
+    const deferSite = !!d.site && d.site !== s.site && !scouted(s.explore, 1);
+    if (d.site && d.site !== s.site && !deferSite) s = chooseSite(s, d.site);
     if (d.exit) {
       if (availableChoices(s.day, s.config.calendar).includes(d.exit)) {
         s = choose(s, d.exit);
@@ -124,12 +128,22 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
       }
       notes.push(`The ${d.exit} exit was not open on day ${day}; the day was played instead.`);
     }
-    const r = runDay(s, d.queue);
+    // A build later in that same day still needs to know where: hand it the chosen site
+    // (Build takes a `site` option, which claims the ground once the land is scouted).
+    const queue = deferSite && d.site
+      ? d.queue.map(item => {
+        const { id, opts } = parseItem(item);
+        return id === 'build' && !opts.site ? { q: typeof item === 'string' ? item : item.q, opts: { ...opts, site: d.site! } } : item;
+      })
+      : d.queue;
+    const r = runDay(s, queue);
     s = r.state;
+    if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: null, queue: d.queue, invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth) };
+    const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: null, queue, invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth) };
     turns.push(t); opts.onTurn?.(t);
   }
 
   return { player: player.name, turns, record: summarizeRun(s, 1), forced, usage, final: s };
 }
+
