@@ -36,11 +36,18 @@ export const SITES: Readonly<Record<SiteId, { name: string; warmth: number }>> =
   hill: { name: 'Hilltop', warmth: 0.2 },
 };
 
-/** How much of a site's warmth each build tier realises (none / lean-to / winterized). */
-const TIER_FACTOR = [0.3, 0.65, 1] as const;
-/** Materials to raise the shelter to tier 1, then tier 2. */
+/** How much of a site's warmth an unbuilt camp realises (a fire and a windbreak). */
+const OPEN_CAMP_FACTOR = 0.3;
+/** Materials for the default builds: a lean-to (tier 1), then timber walls (tier 2). */
 export const BUILD_COST = [3, 5] as const;
 export type Tier = 0 | 1 | 2;
+
+/** The first stage of a shelter: what kind of roof you raise. */
+export type ShelterType = 'leanto' | 'hut';
+/** The second stage: what you winterize it with. */
+export type WallMaterial = 'timber' | 'stone';
+/** The design choices behind the shelter at the current site. */
+export interface ShelterBuild { type: ShelterType | null; walls: WallMaterial | null }
 /**
  * How well the shelter was built scales its warmth (capped at fully warm): a
  * crude lean-to leaks, a fine one holds heat. Keyed by the latest build's grade.
@@ -56,6 +63,8 @@ export interface Stores {
   materials: number;
   /** Preserved food — the winter larder (not today's meals). */
   rations: number;
+  /** Quarried stone — for stone-banked walls. */
+  stone: number;
 }
 
 export interface LogEntry {
@@ -82,6 +91,8 @@ export interface Region1State {
   tier: Tier;
   /** Grade of the latest shelter build (null before the first). */
   shelterGrade: Grade | null;
+  /** Which roof and walls were chosen (reset when you move). */
+  shelter: ShelterBuild;
   /** One-way "ever did X" flags behind the first-time milestones. */
   flags: { everWater: boolean; everFood: boolean; everWood: boolean; everHunt: boolean; everPreserve: boolean };
   milestones: string[];
@@ -102,12 +113,13 @@ export function createRegion1(config: Partial<Region1Config> = {}): Region1State
     day: 1,
     hoursToday: 0,
     vitals: createVitals(),
-    stores: { rawFood: 2, water: 2, firewood: 0, materials: 1, rations: 0 },
+    stores: { rawFood: 2, water: 2, firewood: 0, materials: 1, rations: 0, stone: 0 },
     coldGear: false,
     explore: createExploration(),
     site: null,
     tier: 0,
     shelterGrade: null,
+    shelter: { type: null, walls: null },
     flags: { everWater: false, everFood: false, everWood: false, everHunt: false, everPreserve: false },
     milestones: [],
     tools: [],
@@ -126,6 +138,7 @@ function clone(s: Region1State): Region1State {
     ...s,
     vitals: { vigor: { ...s.vitals.vigor }, clarity: { ...s.vitals.clarity }, condition: s.vitals.condition },
     stores: { ...s.stores },
+    shelter: { ...s.shelter },
     flags: { ...s.flags },
     milestones: [...s.milestones],
     tools: [...s.tools],
@@ -139,10 +152,17 @@ const say = (s: Region1State, text: string, kind: LogEntry['kind']): void => { s
 
 // ── Derived values ──────────────────────────────────────────────────────────
 
-/** Shelter warmth, 0..1 = site potential × how far the build has come. */
+/** How much of the site's warmth the shelter as built realises. */
+function shelterFactor(s: Region1State): number {
+  if (s.tier === 0) return OPEN_CAMP_FACTOR;
+  if (s.tier === 1) return SHELTER_TYPES[s.shelter.type ?? 'leanto'].factor;
+  return WALL_TYPES[s.shelter.walls ?? 'timber'].factor;
+}
+
+/** Shelter warmth, 0..1 = site potential × the design built × how well it was built. */
 export function warmth(s: Region1State): number {
   if (!s.site) return 0;
-  return Math.min(1, SITES[s.site].warmth * TIER_FACTOR[s.tier] * GRADE_WARMTH[s.shelterGrade ?? 'sound']);
+  return Math.min(1, SITES[s.site].warmth * shelterFactor(s) * GRADE_WARMTH[s.shelterGrade ?? 'sound']);
 }
 
 export function readinessInput(s: Region1State): ReadinessInput {
@@ -174,6 +194,22 @@ export function parseQueueId(q: QueueId): { id: ActionId; ring: Ring } {
   return { id, ring: (r ? Number(r) : 1) as Ring };
 }
 
+/** Choices made for one queued action (e.g. `{ site: 'tree', type: 'hut' }`). */
+export type ActionOpts = Readonly<Record<string, string>>;
+/** A queue entry with its chosen options. A plain QueueId means "defaults". */
+export type QueueItem = QueueId | { q: QueueId; opts: ActionOpts };
+
+/** Split any queue item into action, ring and options. */
+export function parseItem(item: QueueItem): { id: ActionId; ring: Ring; opts: ActionOpts } {
+  const q = typeof item === 'string' ? item : item.q;
+  return { ...parseQueueId(q), opts: typeof item === 'string' ? {} : item.opts };
+}
+
+/** One choice inside an option group, with why it's unavailable (or null). */
+export interface OptionChoice { value: string; label: string; note: string; blocked: string | null }
+/** A decision an action needs: only groups with a real choice are offered. */
+export interface OptionGroup { key: string; label: string; value: string | null; choices: OptionChoice[] }
+
 /** Build a queue entry (ring 1 stays bare). */
 export const queueId = (id: ActionId, ring: Ring = 1): QueueId => (ring === 1 || !ACTIONS[id].ringed ? id : (`${id}@${ring}` as QueueId));
 
@@ -183,8 +219,10 @@ interface ActionDef {
   /** Per-hour pull on each pool (negative = drain). */
   vigorRate: number;
   clarityRate: number;
-  /** Why the action can't be done right now (in this ring), or null if it can. */
-  gate?: (s: Region1State, ring: Ring) => string | null;
+  /** Why the action can't be done right now (in this ring, with these choices), or null if it can. */
+  gate?: (s: Region1State, ring: Ring, opts: ActionOpts) => string | null;
+  /** Decisions this action offers, given the state it would run in and what's chosen so far. */
+  options?: (s: Region1State, opts: ActionOpts) => OptionGroup[];
   /**
    * Apply the effect to (an already-cloned) state; return the journal line.
    * `bonus` is the extra yield your tools give this action.
@@ -194,8 +232,8 @@ interface ActionDef {
   ringed?: boolean;
   /** A craft: paid from stores and resolved by crafting.craft (its hours/rates come from there). */
   recipe?: CraftRecipe;
-  /** A craft whose recipe depends on the state (each shelter tier is its own build). */
-  recipeFor?: (s: Region1State) => CraftRecipe | null;
+  /** A craft whose recipe depends on the state and choices (each shelter stage and design is its own build). */
+  recipeFor?: (s: Region1State, opts: ActionOpts) => CraftRecipe | null;
 }
 
 const needsScout = (s: Region1State): string | null => (scouted(s.explore, 1) ? null : "you don't know the land yet — scout first");
@@ -239,14 +277,83 @@ export const REGION1_RECIPES: Readonly<Record<'knife' | 'snare' | 'waterskin' | 
   shovel: { id: 'crude-shovel', name: 'Crude shovel', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'crude-shovel', qty: 1 }, tier: 1, station: null, timeBase: 3, concepts: ['leverage'] },
 };
 
+const shelterRecipe = (id: string, name: string, tier: number, inputs: CraftRecipe['inputs'], timeBase: number, vigorRate = -3.5): CraftRecipe =>
+  ({ id, name, inputs, output: { item: id, qty: 1 }, tier, station: null, timeBase, concepts: ['joinery'], effort: { vigorRate, clarityRate: -1.5 } });
+
 /**
- * The two shelter builds. Same effort as the old fixed action (heavy on the
- * body); raising it to tier 2 is a tier-1 recipe, so it needs the roof first.
+ * First stage: the roof. A lean-to is quick and cheap; a brush hut costs more
+ * and holds more heat. Both are tier-0 work (you can raise them in the field).
  */
-export const SHELTER_RECIPES: readonly [CraftRecipe, CraftRecipe] = [
-  { id: 'shelter-1', name: 'Lean-to', inputs: [{ item: 'materials', qty: BUILD_COST[0] }], output: { item: 'shelter-1', qty: 1 }, tier: 0, station: null, timeBase: 8, concepts: ['joinery'], effort: { vigorRate: -3.5, clarityRate: -1.5 } },
-  { id: 'shelter-2', name: 'Winterized shelter', inputs: [{ item: 'materials', qty: BUILD_COST[1] }], output: { item: 'shelter-2', qty: 1 }, tier: 1, station: null, timeBase: 8, concepts: ['joinery'], effort: { vigorRate: -3.5, clarityRate: -1.5 } },
-];
+export const SHELTER_TYPES: Readonly<Record<ShelterType, { name: string; factor: number; recipe: CraftRecipe }>> = {
+  leanto: { name: 'Lean-to', factor: 0.65, recipe: shelterRecipe('shelter-leanto', 'Lean-to', 0, [{ item: 'materials', qty: BUILD_COST[0] }], 8) },
+  hut: { name: 'Brush hut', factor: 0.75, recipe: shelterRecipe('shelter-hut', 'Brush hut', 0, [{ item: 'materials', qty: 5 }], 11) },
+};
+
+/**
+ * Second stage: winterizing. Stone banked against the walls stores the fire's
+ * heat; it needs quarried stone and a heavier day. Tier-1 work: needs the roof.
+ */
+export const WALL_TYPES: Readonly<Record<WallMaterial, { name: string; factor: number; recipe: CraftRecipe }>> = {
+  timber: { name: 'Timber walls', factor: 1, recipe: shelterRecipe('shelter-timber', 'Timber walls', 1, [{ item: 'materials', qty: BUILD_COST[1] }], 8) },
+  stone: { name: 'Stone-banked walls', factor: 1.1, recipe: shelterRecipe('shelter-stone', 'Stone-banked walls', 1, [{ item: 'materials', qty: 2 }, { item: 'stone', qty: 4 }], 10, -4) },
+};
+
+const isShelterType = (v: string | undefined): v is ShelterType => v === 'leanto' || v === 'hut';
+const isWall = (v: string | undefined): v is WallMaterial => v === 'timber' || v === 'stone';
+const isSite = (v: string | undefined): v is SiteId => v !== undefined && v in SITES;
+
+/**
+ * Where and what a build would make, given the choices: the target site
+ * (defaults to camp), the tier it starts from there (0 if it means moving),
+ * and the recipe for the next stage.
+ */
+export function planBuild(s: Region1State, opts: ActionOpts): { site: SiteId | null; moving: boolean; fromTier: Tier; recipe: CraftRecipe | null } {
+  const site = isSite(opts.site) ? opts.site : s.site;
+  const moving = site !== null && site !== s.site;
+  const fromTier: Tier = moving ? 0 : s.tier;
+  const recipe = fromTier === 0 ? SHELTER_TYPES[isShelterType(opts.type) ? opts.type : 'leanto'].recipe
+    : fromTier === 1 ? WALL_TYPES[isWall(opts.walls) ? opts.walls : 'timber'].recipe : null;
+  return { site, moving, fromTier, recipe };
+}
+
+const costNote = (r: CraftRecipe): string => `${r.inputs.map(i => `${i.qty} ${i.item}`).join(' + ')} · ${r.timeBase}h`;
+
+/** Build shelter's decisions: where, and (per stage) what kind. Only real choices are returned. */
+function buildOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
+  const plan = planBuild(s, opts);
+  const groups: OptionGroup[] = [];
+  const knowsLand = scouted(s.explore, 1);
+  groups.push({
+    key: 'site', label: 'Location', value: plan.site,
+    choices: (Object.keys(SITES) as SiteId[]).map(id => ({
+      value: id, label: SITES[id].name,
+      note: `up to ${Math.round(SITES[id].warmth * 100)}% warm${s.site && id !== s.site && s.tier > 0 ? ' · leaves your shelter behind' : id === s.site ? ' · your camp' : ''}`,
+      blocked: knowsLand ? null : 'scout first',
+    })),
+  });
+  if (plan.fromTier === 0) {
+    groups.push({
+      key: 'type', label: 'Shelter type', value: isShelterType(opts.type) ? opts.type : 'leanto',
+      choices: (Object.keys(SHELTER_TYPES) as ShelterType[]).map(t => ({ value: t, label: SHELTER_TYPES[t].name, note: `${costNote(SHELTER_TYPES[t].recipe)} · holds ${Math.round(SHELTER_TYPES[t].factor * 100)}%`, blocked: null })),
+    });
+  } else if (plan.fromTier === 1) {
+    groups.push({
+      key: 'walls', label: 'Wall material', value: isWall(opts.walls) ? opts.walls : 'timber',
+      choices: (Object.keys(WALL_TYPES) as WallMaterial[]).map(w => ({ value: w, label: WALL_TYPES[w].name, note: `${costNote(WALL_TYPES[w].recipe)} · holds ${Math.round(WALL_TYPES[w].factor * 100)}%`, blocked: null })),
+    });
+  }
+  return groups.filter(g => g.choices.length > 1);
+}
+
+/** Leave the current shelter and settle at `site` (on an already-cloned state). */
+function moveCamp(next: Region1State, site: SiteId): void {
+  const moved = next.site !== null && next.tier > 0;
+  next.site = site;
+  next.tier = 0;
+  next.shelterGrade = null;
+  next.shelter = { type: null, walls: null };
+  say(next, `Chose the ${SITES[site].name.toLowerCase()} as your ground${moved ? ' — the old shelter is left behind' : ''}.`, 'action');
+}
 
 /** Cold-weather gear: fine work for the mind. A graded tool that unlocks winter travel. */
 export const COLD_GEAR_RECIPE: CraftRecipe = {
@@ -254,7 +361,7 @@ export const COLD_GEAR_RECIPE: CraftRecipe = {
   tier: 0, station: null, timeBase: 6, concepts: ['weaving'], effort: { vigorRate: -1.5, clarityRate: -5 },
 };
 
-const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations'] as const;
+const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'stone'] as const;
 // Region 1's own item on top of the registry defaults: cold gear lets you travel in winter.
 const CRAFT_WORLD = craftWorld([], [], { ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] } });
 
@@ -352,10 +459,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   quarry: {
     name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
     run: (s, _b, r) => {
-      const m = tripYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone');
+      const n = tripYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone');
       const note = workLand(s, r, 'stone');
-      s.stores.materials += m;
-      return `Broke out ${m} materials of stone${where(r)}.${note}`;
+      s.stores.stone += n;
+      return `Broke out ${n} stone${where(r)}.${note}`;
     },
   },
   preserve: {
@@ -370,13 +477,16 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   build: {
     name: 'Build shelter', hours: 8, vigorRate: -3.5, clarityRate: -1.5,
-    gate: s => {
-      if (!s.site) return 'choose a site first';
-      if (s.tier >= 2) return 'the shelter is already winterized';
-      // The guard above rules out tier 2, but TS can't narrow a tuple index from it.
-      return craftBlocker(crafterOf(s), SHELTER_RECIPES[s.tier as 0 | 1]);
+    gate: (s, _r, opts) => {
+      const plan = planBuild(s, opts);
+      if (!plan.site) return 'choose a location';
+      if (plan.moving && !scouted(s.explore, 1)) return needsScout(s);
+      if (!plan.recipe) return 'the shelter is already winterized';
+      // Judge materials against the camp as it would be (moving keeps your stores, resets the bench).
+      return craftBlocker(crafterOf(plan.moving ? { ...s, tier: 0 } : s), plan.recipe);
     },
-    recipeFor: s => (s.tier < 2 ? SHELTER_RECIPES[s.tier as 0 | 1] : null),
+    options: buildOptions,
+    recipeFor: (s, opts) => planBuild(s, opts).recipe,
     run: () => '',
   },
   coldGear: { ...craftAction(COLD_GEAR_RECIPE), name: 'Craft cold gear' },
@@ -433,11 +543,7 @@ export function chooseSite(s: Region1State, site: SiteId): Region1State {
   if (next.outcome) return next;
   if (!scouted(next.explore, 1)) { say(next, `Can't stake a claim yet: ${needsScout(next)}.`, 'skip'); return next; }
   if (next.site === site) return next;
-  const moved = next.site !== null && next.tier > 0;
-  next.site = site;
-  next.tier = 0;
-  next.shelterGrade = null;
-  say(next, `Chose the ${SITES[site].name.toLowerCase()} as your ground${moved ? ' — the old shelter is left behind' : ''}.`, 'action');
+  moveCamp(next, site);
   latchMilestones(next);
   return next;
 }
@@ -446,24 +552,35 @@ export function chooseSite(s: Region1State, site: SiteId): Region1State {
 const TRAVEL_VIGOR_RATE = -3;
 const TRAVEL_CLARITY_RATE = -0.5;
 
-/** Hours a queue entry will take (its work plus any travel) — for planning previews. */
-export function queueHours(q: QueueId): number {
-  const { id, ring } = parseQueueId(q);
-  return ACTIONS[id].hours + (ACTIONS[id].ringed ? TRAVEL_HOURS[ring] : 0);
+/**
+ * Hours a queue entry will take (its work plus any travel) — for planning
+ * previews. Pass the state it would run in to account for choices whose cost
+ * depends on it (a brush hut takes longer than a lean-to).
+ */
+export function queueHours(item: QueueItem, s?: Region1State): number {
+  const { id, ring, opts } = parseItem(item);
+  const def = ACTIONS[id];
+  const recipe = s && def.recipeFor ? def.recipeFor(id === 'build' && planBuild(s, opts).moving ? { ...s, tier: 0 } : s, opts) : def.recipe;
+  return (recipe ? recipe.timeBase : def.hours) + (def.ringed ? TRAVEL_HOURS[ring] : 0);
 }
 
 /**
  * Do one action now. A refused action (gate not met) costs nothing — it simply
  * doesn't happen — and is journalled as a skip.
  */
-export function runAction(s: Region1State, q: QueueId): Region1State {
+export function runAction(s: Region1State, item: QueueItem): Region1State {
   const next = clone(s);
   if (next.outcome) return next;
-  const { id, ring } = parseQueueId(q);
+  const { id, ring, opts } = parseItem(item);
   const def = ACTIONS[id];
-  const refused = def.gate?.(next, ring) ?? null;
+  const refused = def.gate?.(next, ring, opts) ?? null;
   if (refused) { say(next, `${def.name}${where(ring)}: skipped — ${refused}.`, 'skip'); return next; }
-  const recipe = def.recipeFor?.(next) ?? def.recipe;
+  // Building somewhere new moves camp first; the build then starts there from scratch.
+  if (id === 'build') {
+    const plan = planBuild(next, opts);
+    if (plan.moving && plan.site) moveCamp(next, plan.site);
+  }
+  const recipe = def.recipeFor?.(next, opts) ?? def.recipe;
   if (recipe) return runCraft(next, id, recipe);
 
   // Your tools make the work cheaper, quicker or richer (crafting design §2).
@@ -506,11 +623,13 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
   next.coldGear = roadworthyGear(next.tools);
 
   const name = recipe.name.toLowerCase();
-  const shelter = SHELTER_RECIPES.indexOf(recipe);
-  if (result.kind === 'crafted' && shelter >= 0) {
-    next.tier = (shelter + 1) as Tier;
+  const roof = (Object.keys(SHELTER_TYPES) as ShelterType[]).find(t => SHELTER_TYPES[t].recipe.id === recipe.id);
+  const walls = (Object.keys(WALL_TYPES) as WallMaterial[]).find(w => WALL_TYPES[w].recipe.id === recipe.id);
+  if (result.kind === 'crafted' && (roof || walls)) {
+    next.tier = roof ? 1 : 2;
+    next.shelter = roof ? { type: roof, walls: null } : { ...next.shelter, walls: walls ?? null };
     next.shelterGrade = result.grade;
-    say(next, `Raised the shelter to tier ${next.tier} (${result.grade} work) — ${Math.round(warmth(next) * 100)}% warm.`, 'action');
+    say(next, `Raised a ${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action');
   } else if (result.kind === 'crafted') {
     say(next, `Crafted a ${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action');
   } else if (result.kind === 'failed') {
@@ -573,12 +692,12 @@ export function endDay(s: Region1State): Region1State {
  * then the day ends. Returns the new state and the unrun remainder, which
  * carries into tomorrow.
  */
-export function runDay(s: Region1State, queue: readonly QueueId[]): { state: Region1State; remaining: QueueId[] } {
+export function runDay(s: Region1State, queue: readonly QueueItem[]): { state: Region1State; remaining: QueueItem[] } {
   if (s.outcome) return { state: s, remaining: [...queue] };
   let state = s;
   const remaining = [...queue];
   while (remaining.length > 0 && state.hoursToday < DAY_HOURS) {
-    state = runAction(state, remaining.shift() as QueueId);
+    state = runAction(state, remaining.shift() as QueueItem);
   }
   return { state: endDay(state), remaining };
 }

@@ -13,13 +13,13 @@
  */
 
 import './style.css';
-import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseQueueId, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
-import { newGame, enqueue, dequeueAt, clearQueue, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -54,9 +54,9 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   hunt: (s, r) => `+${ty(s, r, 'game', 7, 0) + bonus(s, 'hunt') + fb(s, r, 'game')} raw food`,
   water: (s, r) => `+${ty(s, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + bonus(s, 'water') + fb(s, r, 'water')} water`,
   wood: (s, r) => `+${ty(s, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + fb(s, r, 'timber')} fuel, +${ty(s, r, 'timber', 2, 1)} mat`,
-  quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} materials`,
+  quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} stone`,
   preserve: () => '2 raw → 1 ration (×3)',
-  build: s => (s.tier < 2 ? `tier ${s.tier + 1} · ${BUILD_COST[s.tier as 0 | 1]} mat · grade sets warmth` : 'winterized'),
+  build: s => (s.tier < 2 ? `tier ${s.tier + 1} from ${BUILD_COST[s.tier as 0 | 1]} mat · choose site & design in the queue` : 'winterized'),
   coldGear: () => 'needed to cross solo · crude won\'t do',
   knife: () => 'hunt −15% vigor, quicker preserving',
   snare: () => '+1 food every night',
@@ -146,6 +146,9 @@ function readiness(a: AppState): string {
     + `<span style="color:var(--dim);font-family:var(--body);font-size:11px;letter-spacing:0">${ready ? 'You could winter over here, or leave in good shape.' : 'Keep laying in stores and warming the shelter.'}</span></div>`;
 }
 
+/** Queue entries whose options menu is open (UI-only; reset when the queue shifts). */
+const expanded = new Set<number>();
+
 /** Which ring the palette's land actions aim at (UI-only; not saved). */
 let focusRing: Ring = 1;
 
@@ -195,7 +198,7 @@ function warden(a: AppState): string {
     </div>
     <p class="mood">${moodLine(a)}</p>
     <p class="eyebrow" style="margin-top:14px">STORES</p>
-    <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}</div>
+    <div class="res">${r('🍖', 'Food', st.rawFood, st.rawFood < 1)}${r('💧', 'Water', st.water, st.water < 1)}${r('🪵', 'Fuel', st.firewood)}${r('🪨', 'Mat', st.materials)}${r('🧂', 'Rations', st.rations)}${r('⛰️', 'Stone', st.stone)}</div>
     <p class="eyebrow" style="margin-top:14px">SITE &amp; SHELTER</p>
     <div class="sites">${sites}</div>
     ${scouted(s.explore, 1) ? '' : '<p class="mood">Scout first to find somewhere to settle.</p>'}
@@ -227,23 +230,33 @@ function planner(a: AppState): string {
     const def = ACTIONS[id];
     const r: Ring = def.ringed ? focusRing : 1;
     const q = queueId(id, r);
-    const why = def.gate?.(preview.projected, r) ?? null;
+    const why = def.gate?.(preview.projected, r, {}) ?? null;
     const spends = [def.vigorRate < 0 ? 'vigor' : '', def.clarityRate < 0 ? 'clarity' : ''].filter(Boolean).join(' + ') || 'restores';
     return `<button class="act ${why ? 'soft' : ''}" data-q="${q}" ${resolved ? 'disabled' : ''} title="${why ? esc(`Would be skipped: ${why}`) : ''}">`
       + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${queueHours(q)}H</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span> · <span class="vc">${spends}</span>`}</div></button>`;
   }).join('')}</div></div>`).join('');
 
-  const items = a.queue.map((q, i) => {
-    const { id, ring } = parseQueueId(q);
+  const items = a.queue.map((item, i) => {
+    const { id, ring, opts } = parseItem(item);
     const d = preview.dayOffset[i];
     const why = preview.warnings[i];
-    return `<li class="${why ? 'skip' : ''}"><span class="dayn">${d === 0 ? 'TODAY' : `DAY ${s.day + d}`}</span>`
+    // Options are judged against the state this entry would run in (after the ones before it).
+    const groups = ACTIONS[id].options?.(preview.before[i], opts) ?? [];
+    const needsChoice = groups.some(g => g.value === null);
+    const open = groups.length > 0 && (expanded.has(i) || needsChoice);
+    const chosen = groups.map(g => g.choices.find(c => c.value === g.value)?.label).filter(Boolean).join(' · ');
+    const toggle = groups.length ? `<button class="tog" data-toggle="${i}" aria-expanded="${open}" aria-label="Options">${open ? '▾' : '▸'}</button>` : '';
+    const menu = open ? `<div class="opts">${groups.map(g => `<div class="optgroup"><span class="optlabel">${esc(g.label.toUpperCase())}</span><div class="optchoices">${g.choices.map(c =>
+      `<button class="opt ${g.value === c.value ? 'on' : ''}" data-opt="${i}|${g.key}|${c.value}" ${c.blocked ? 'disabled' : ''} title="${esc(c.blocked ?? c.note)}">`
+      + `<b>${esc(c.label)}</b><span>${esc(c.blocked ?? c.note)}</span></button>`).join('')}</div></div>`).join('')}</div>` : '';
+    return `<li class="${why ? 'skip' : ''} ${open ? 'expanded' : ''}"><div class="row">${toggle}<span class="dayn">${d === 0 ? 'TODAY' : `DAY ${s.day + d}`}</span>`
       + `<span class="n">${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` <span class="ringtag">${RING_NAME[ring].toUpperCase()}</span>` : ''}</span>`
+      + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
-      + `<span class="meta">${queueHours(q)}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></li>`;
+      + `<span class="meta">${queueHours(item, preview.before[i])}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${menu}</li>`;
   }).join('');
-  const todayHours = a.queue.reduce((h, q, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(q) : 0), s.hoursToday);
+  const todayHours = a.queue.reduce((h, item, i) => h + (preview.dayOffset[i] === 0 && !preview.warnings[i] ? queueHours(item, preview.before[i]) : 0), s.hoursToday);
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
 
   const log = [...s.log].reverse().slice(0, 80).map((l: LogEntry) => {
@@ -345,7 +358,10 @@ root.addEventListener('click', e => {
   const d = el.dataset;
   if (d.ring) { focusRing = Number(d.ring) as Ring; render(state); }
   else if (d.q) update(enqueue(state, d.q as QueueId));
-  else if (d.x !== undefined) update(dequeueAt(state, Number(d.x)));
+  else if (d.toggle !== undefined) { const i = Number(d.toggle); if (expanded.has(i)) expanded.delete(i); else expanded.add(i); render(state); }
+  // Keep the menu open while choosing (it may have opened only because a choice was missing).
+  else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
+  else if (d.x !== undefined) { expanded.clear(); update(dequeueAt(state, Number(d.x))); }
   else if (d.site) update(settle(state, d.site as SiteId));
   else if (d.exit) update(takeExit(state, d.exit as Choice));
   else if (d.cmd === 'day') update(runQueuedDay(state));

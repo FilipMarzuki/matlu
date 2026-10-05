@@ -43,7 +43,7 @@ describe('Region 1 exploration rings', () => {
     for (let i = 0; i < 3; i++) q = runAction({ ...q, hoursToday: 0 }, 'quarry');
     expect(level(q.explore, 1, 'stone')).toBe(3);
     expect(q.log.some(l => /found a flint seam/.test(l.text))).toBe(true);
-    expect(q.stores.materials).toBeGreaterThan(scoutedNear().stores.materials + 6);
+    expect(q.stores.stone).toBeGreaterThan(6); // quarrying fills the stone store
   });
 
   // 4c. The near ring runs thin as you work it.

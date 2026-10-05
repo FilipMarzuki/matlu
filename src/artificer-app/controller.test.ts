@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { newGame, enqueue, dequeueAt, clearQueue, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
+import { newGame, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
 import { scouted } from '../artificer/exploration';
 
@@ -81,6 +81,11 @@ describe('Artificer controller', () => {
     expect(deserialize(JSON.stringify({ version: 1, sim: a.sim, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: 2, sim: a.sim, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: 3, sim: a.sim, queue: [] }))).toBeNull();
+    expect(deserialize(JSON.stringify({ version: 4, sim: a.sim, queue: [] }))).toBeNull();
+    // Options chosen on a queued build round-trip; malformed options don't load.
+    const planned = setOption(enqueue(a, 'build'), 0, 'type', 'hut');
+    expect(deserialize(serialize(planned))).toEqual(planned);
+    expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: [{ q: 'build', opts: { type: 3 } }] }))).toBeNull();
     // Ring-aimed queue entries round-trip; nonsense rings or rings on camp actions don't load.
     const roaming = withQueue(a, ['wood@2', 'scout@3']);
     expect(deserialize(serialize(roaming))).toEqual(roaming);
@@ -98,5 +103,18 @@ describe('Artificer controller', () => {
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: ['fly'] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: { ...a.sim, vitals: null }, queue: [] }))).toBeNull();
     expect(deserialize(JSON.stringify({ version: SAVE_VERSION, sim: { ...a.sim, day: 'one' }, queue: [] }))).toBeNull();
+  });
+
+  // 7. Options live on their queue entry and change the preview.
+  it('sets an option on one queued entry and previews its cost', () => {
+    const a = settle(runQueuedDay(withQueue(newGame(), ['scout', 'wood', 'wood'])), 'cave');
+    const q = withQueue(a, ['build', 'rest']);
+    const hut = setOption(q, 0, 'type', 'hut');
+    expect(hut.queue).toEqual([{ q: 'build', opts: { type: 'hut' } }, 'rest']);
+    expect(setOption(hut, 0, 'site', 'tree').queue[0]).toEqual({ q: 'build', opts: { type: 'hut', site: 'tree' } });
+    expect(setOption(q, 7, 'type', 'hut')).toBe(q); // out of range: no-op
+    // The preview runs the chosen design: a hut is 11h against the lean-to's 8h.
+    expect(previewQueue(hut).projected.shelter.type).toBe('hut');
+    expect(previewQueue(q).projected.shelter.type).toBe('leanto');
   });
 });
