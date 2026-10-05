@@ -8,6 +8,7 @@ import {
   createVitals,
   applyActivity,
   driftCapacity,
+  recoverCondition,
   morale,
   BASELINE,
   CAP_FLOOR,
@@ -120,5 +121,26 @@ describe('Vitality', () => {
     const fed = applyActivity(createVitals({ vigor: 50 }), { hours: 1, vigorFlat: 20 });
     // THEN Vigor rose by the meal's flat value
     expect(fed.vitals.vigor.current).toBe(70);
+  });
+
+  // #1227 — Condition heals slowly, only on real rest (design doc §3); it never
+  // recovered before, so one overworked day could lock a run out of readiness.
+  it('heals Condition on a good night, never on a hard one', () => {
+    const worn = createVitals({ condition: 57 });
+    const good: DaySummary = { loadVigor: 20, loadClarity: 20, ate: true, shelterWarmth: 0.9 };
+    // GIVEN fed, warm and not pushed THEN Condition rises a few points
+    const healed = recoverCondition(worn, good).condition;
+    expect(healed).toBeGreaterThan(57);
+    expect(healed).toBeLessThan(65);
+    // AND a light (rest) day heals more
+    expect(recoverCondition(worn, { ...good, loadVigor: 4, loadClarity: 4 }).condition).toBeGreaterThan(healed);
+    // AND warmer shelter heals more than barely-adequate shelter
+    expect(recoverCondition(worn, { ...good, shelterWarmth: 0.5 }).condition).toBeLessThan(healed);
+    // BUT hungry, cold, or pushed past empty heals nothing
+    expect(recoverCondition(worn, { ...good, ate: false }).condition).toBe(57);
+    expect(recoverCondition(worn, { ...good, shelterWarmth: 0.3 }).condition).toBe(57);
+    expect(recoverCondition(worn, { ...good, pushedVigor: true }).condition).toBe(57);
+    // AND it never passes 100
+    expect(recoverCondition(createVitals({ condition: 99 }), good).condition).toBe(100);
   });
 });

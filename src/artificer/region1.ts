@@ -11,10 +11,11 @@
  * frontend, a test, or Core Warden can all drive it identically.
  */
 
-import { applyActivity, driftCapacity, createVitals, type Vitals } from './vitality';
+import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
 import { createExploration, scout, survey, track, lookout, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import type { Legacy } from './legacy';
 import { craft, craftBlocker, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
@@ -114,7 +115,7 @@ export interface Region1State {
 }
 
 /** A fresh save: day 1, baseline body, a couple of meals, nothing known. */
-export function createRegion1(config: Partial<Region1Config> = {}): Region1State {
+export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Legacy): Region1State {
   const s: Region1State = {
     day: 1,
     hoursToday: 0,
@@ -137,6 +138,14 @@ export function createRegion1(config: Partial<Region1Config> = {}): Region1State
     outcome: null,
     config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS },
   };
+  // A new run that keeps what the last Warden learned: recipes and concept
+  // ranks carry over (insight starts again); body, stores and land don't.
+  if (legacy) {
+    for (const r of legacy.known) if (!s.known.includes(r)) s.known.push(r);
+    for (const [id, rank] of Object.entries(legacy.concepts)) s.concepts[id] = { rank, insight: 0 };
+    const ranks = Object.entries(legacy.concepts).map(([id, r]) => `${id} ${r}`).join(', ');
+    say(s, `You carry what you learned: ${s.known.length} recipes${ranks ? ` and ${ranks}` : ''}.`, 'milestone');
+  }
   return s;
 }
 
@@ -505,7 +514,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const note = workLand(s, r, 'game');
       s.stores.rawFood += n; s.flags.everFood = true; s.flags.everHunt = true;
       if (!small) { s.stores.hides += 1; s.flags.everHide = true; }
-      return small ? `Snared and shot small game${where(r)} — ${n} raw food.${note}` : `A good hunt${where(r)} — ${n} raw food and a hide.${note}`;
+      return small ? `Took small game${where(r)} — ${n} raw food.${note}` : `A good hunt${where(r)} — ${n} raw food and a hide.${note}`;
     },
   },
   water: {
@@ -549,7 +558,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       const dry = o.method === 'dry';
       const made = Math.min(dry ? 2 : 3, Math.floor(s.stores.rawFood / 2));
       s.stores.rawFood -= made * 2; s.stores.rations += made; s.flags.everPreserve = true;
-      return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter rations.`;
+      return `${dry ? 'Air-dried' : 'Smoked and salted'} ${made * 2} food into ${made} winter ration${made === 1 ? '' : 's'}.`;
     },
   },
   build: {
@@ -583,7 +592,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   bedroll: craftAction(REGION1_RECIPES.bedroll, needsScout),
   shovel: craftAction(REGION1_RECIPES.shovel, needsScout),
   lookout: {
-    name: 'Climb & look out', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
+    // You look out over ground you've scouted; without that it would stand in for scouting two rings at once.
+    name: 'Climb & look out', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true,
+    gate: (s, r) => reach(s, r) ?? (scouted(s.explore, r) ? null : `scout the ${RING_NAME[r].toLowerCase()} ring first`),
     // Camped on the hilltop, the near look-out is a short climb.
     variant: (_o, s, ring) => (s?.site === 'hill' && ring === 1 ? { hours: 2 } : {}),
     run: (s, _b, r) => {
@@ -747,9 +758,9 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
     next.tier = roof ? 1 : 2;
     next.shelter = roof ? { type: roof, walls: null } : { ...next.shelter, walls: walls ?? null };
     next.shelterGrade = result.grade;
-    say(next, `Raised a ${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action');
+    say(next, `Raised ${article(name)}${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action');
   } else if (result.kind === 'crafted') {
-    say(next, `Crafted a ${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action');
+    say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action');
   } else if (result.kind === 'failed') {
     const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
@@ -758,10 +769,14 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
   return next;
 }
 
+/** "a " for a countable thing; nothing for plurals and mass nouns ("timber walls", "cold gear"). */
+const article = (name: string): string => (/s$|gear$/.test(name) ? '' : 'a ');
+
 /**
  * End the day: eat and drink (going without costs Condition and weakens
  * recovery), sleep (recovery scales with shelter warmth), a cold night bites,
- * then capacity drifts on how the day was lived.
+ * then capacity drifts on how the day was lived and a good night heals a
+ * little Condition.
  */
 export function endDay(s: Region1State): Region1State {
   const next = clone(s);
@@ -788,14 +803,16 @@ export function endDay(s: Region1State): Region1State {
     say(next, 'A cold, broken night — the exposure bites.', 'hardship');
   }
 
-  next.vitals = driftCapacity(next.vitals, {
+  const summary = {
     loadVigor: next.today.loadVigor,
     loadClarity: next.today.loadClarity,
     ate,
     shelterWarmth: w,
     pushedVigor: next.today.pushedVigor,
     pushedClarity: next.today.pushedClarity,
-  });
+  };
+  next.vitals = driftCapacity(next.vitals, summary);
+  next.vitals = recoverCondition(next.vitals, summary);
 
   next.day += 1;
   next.hoursToday = 0;

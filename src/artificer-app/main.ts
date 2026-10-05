@@ -17,9 +17,11 @@ import { ACTIONS, SITES, BUILD_COST, DAY_HOURS, REGION1_MILESTONES, readinessInp
 import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
+import { bestRun, type RunRecord } from '../artificer/legacy';
 import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
-import { newGame, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { introBeats, type Beat, type IntroKind } from './intro';
+import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -130,14 +132,23 @@ function timeline(a: AppState): string {
     + `<div class="tl-legend"><span><b>Autumn</b> — prep time</span><span><b>Caravan</b> — days ${cal.caravanOpen}–${cal.caravanClose}</span><span><b>Winter</b> — day ${cal.winterDay}+</span></div>`;
 }
 
+/** The body pillar's status: Condition when all is well, otherwise the check that's failing. */
+function bodyStatus(v: AppState['sim']['vitals'], minCondition: number): string {
+  const fl = (x: number): number => Math.floor(x + 1e-9);
+  if (v.vigor.cap < BASELINE) return `VIG CAP ${fl(v.vigor.cap)} / ${BASELINE}`;
+  if (v.clarity.cap < BASELINE) return `CLA CAP ${fl(v.clarity.cap)} / ${BASELINE}`;
+  return `COND ${fl(v.condition)}${v.condition < minCondition ? ` / ${minCondition}` : ''}`;
+}
+
 function readiness(a: AppState): string {
   const s = a.sim;
   const t = s.config.thresholds;
   const status: Record<PillarKey, string> = {
     larder: `${s.stores.rations} / ${t.larder}`,
-    shelter: `${Math.round(warmth(s) * 100)}% / ${Math.round(t.warmth * 100)}%`,
+    // Round down, so a value just under a threshold never displays as meeting it (#1230).
+    shelter: `${Math.floor(warmth(s) * 100)}% / ${Math.round(t.warmth * 100)}%`,
     fuel: `${s.stores.firewood} / ${t.fuel}`,
-    body: `COND ${Math.round(s.vitals.condition)}`,
+    body: bodyStatus(s.vitals, t.condition),
   };
   const rows = pillars(readinessInput(s), t).map(p =>
     `<div class="pillar"><span class="pn">${PILLAR_NAME[p.key]}</span>`
@@ -327,6 +338,17 @@ function statusBar(a: AppState, preview: Preview): string {
   </div>`;
 }
 
+const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter' };
+
+/** The history of finished runs (newest first), with the best one marked. */
+function pastRuns(): string {
+  if (!history.length) return '<p class="mood">No finished runs yet. Take an exit when the caravan comes, and it will be recorded here.</p>';
+  const best = bestRun(history);
+  return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">RUN ${r.run}</span>`
+    + `<span class="rk k-${r.kind}">${OUTCOME_SHORT[r.kind]}${r.injury ? ' · frostbite' : ''}</span>`
+    + `<span class="rd">day ${r.day}${r.readyDay ? ` · ready d${r.readyDay}` : ''} · ${r.recipes} recipes</span>${r === best ? '<span class="rb">★ BEST</span>' : ''}</li>`).join('')}</ol>`;
+}
+
 const LAND_LEGEND = `<div class="legend"><span class="chip l0">???</span> unknown <span class="chip l1">~suspected</span> scouted <span class="chip l2">observed</span> surveyed <span class="chip l3">detailed</span> from working it <span class="chip find">★ find</span> +2 on those trips</div>`;
 
 type Tab = 'plan' | 'camp' | 'land' | 'progress';
@@ -359,7 +381,8 @@ function tabBody(a: AppState, preview: Preview): string {
       return `<div class="cols">
         <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}
           <p class="eyebrow" style="margin-top:16px">WINTER READINESS</p>${readiness(a)}
-          <p class="eyebrow" style="margin-top:16px">MILESTONES</p>${milesBlock(a)}</section>
+          <p class="eyebrow" style="margin-top:16px">MILESTONES</p>${milesBlock(a)}
+          <p class="eyebrow" style="margin-top:16px">PAST RUNS</p>${pastRuns()}</section>
         <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">JOURNAL</p><ul class="full">${journal(a, 200)}</ul></section>
       </div>`;
   }
@@ -369,8 +392,14 @@ function resolvePanel(a: AppState): string {
   const s = a.sim;
   if (s.outcome) {
     const o = OUTCOME[s.outcome.kind];
-    return `<div class="resolve"><h3>❄ REGION 1 COMPLETE</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>`
-      + `<button class="btn go" data-cmd="reset">↺ NEW SAVE — PLAY AGAIN</button></div>`;
+    const r = history[0];
+    const facts = r ? `<ul class="runfacts">
+        <li>Left on <b>day ${r.day}</b>${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
+        <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
+      </ul>` : '';
+    return `<div class="resolve"><h3>❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
+      + `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="carry" title="Your known recipes and concept ranks carry over">↻ NEW RUN — KEEP WHAT YOU LEARNED</button>`
+      + `<button class="btn" data-cmd="reset">✦ FRESH WARDEN</button></div></div>`;
   }
   const open = availableChoices(s.day, s.config.calendar);
   if (open.length === 0) return '';
@@ -400,6 +429,7 @@ function render(a: AppState): void {
       <h1>❄ GREYWIND <span class="mark">REACH</span></h1>
       ${phaseChip(a)}
       <span class="spacer"></span>
+      <span class="counter ctl">RUN <b>${(history[0]?.run ?? 0) + (a.sim.outcome ? 0 : 1)}</b></span>
       <span class="counter ctl">DAY <b>${a.sim.day}</b></span>
       <span class="ctl"><button class="pill" data-cmd="help" aria-pressed="${showHelp}">?</button></span>
       <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
@@ -417,8 +447,9 @@ function render(a: AppState): void {
 
 // ── Save / load (browser storage can be missing or blocked — never fatal) ───
 
-function load(): AppState {
-  try { return deserialize(localStorage.getItem(SAVE_KEY)) ?? newGame(); } catch { return newGame(); }
+/** The saved game, or null when there is none (or it can't be read) — a first visit. */
+function loadSaved(): AppState | null {
+  try { return deserialize(localStorage.getItem(SAVE_KEY)); } catch { return null; }
 }
 
 function save(a: AppState): void {
@@ -427,10 +458,86 @@ function save(a: AppState): void {
 
 // ── Wiring ──────────────────────────────────────────────────────────────────
 
+/** Past runs live under their own key, so a new save never erases them. */
+function loadHistory(): RunRecord[] {
+  try { return deserializeHistory(localStorage.getItem(HISTORY_KEY)); } catch { return []; }
+}
+
+function saveHistory(h: readonly RunRecord[]): void {
+  try { localStorage.setItem(HISTORY_KEY, serializeHistory(h)); } catch { /* history is a convenience; play on */ }
+}
+
 const root = document.getElementById('app') as HTMLElement;
-let state = load();
+const saved = loadSaved();
+let state = saved ?? newGame();
+let history = loadHistory();
+
+// ── Arrival intro (#1228) ───────────────────────────────────────────────────
+// A separate overlay element, so the game renders (and stays usable) underneath
+// and render() — which rewrites #app wholesale — never wipes the intro.
+
+let intro: { beats: Beat[]; i: number } | null = null;
+const introEl = document.createElement('div');
+introEl.className = 'intro';
+introEl.setAttribute('role', 'dialog');
+introEl.setAttribute('aria-label', 'Arrival');
+introEl.hidden = true;
+document.body.appendChild(introEl);
+
+function startIntro(kind: IntroKind): void {
+  intro = { beats: introBeats(kind, state.sim, (history[0]?.run ?? 0) + 1), i: 0 };
+  renderIntro();
+}
+
+function endIntro(): void {
+  intro = null;
+  introEl.hidden = true;
+  introEl.innerHTML = '';
+  // Persist now, so a reload after the intro doesn't play it again.
+  save(state);
+}
+
+function advanceIntro(): void {
+  if (!intro) return;
+  if (intro.i >= intro.beats.length - 1) endIntro();
+  else { intro.i += 1; renderIntro(); }
+}
+
+function renderIntro(): void {
+  if (!intro) return;
+  const b = intro.beats[intro.i];
+  const last = intro.i === intro.beats.length - 1;
+  // Each line fades in after the one before (--n drives the CSS animation delay).
+  const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(l)}</p>`).join('');
+  const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
+  introEl.hidden = false;
+  introEl.innerHTML = `
+    <div class="portal ${b.portal ? 'open' : ''}" aria-hidden="true"></div>
+    <div class="beat ${b.kind}" aria-live="polite">${lines}</div>
+    <div class="introbar">
+      <span class="dots" aria-hidden="true">${dots}</span>
+      <span class="spacer"></span>
+      ${last ? '' : '<button class="pill" data-intro="skip">SKIP ›</button>'}
+      <button class="btn go" data-intro="next">${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
+    </div>`;
+  introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
+}
+
+// Tap anywhere to advance (the tablet path); Skip ends it at once.
+introEl.addEventListener('click', e => {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-intro]');
+  if (btn?.dataset.intro === 'skip') endIntro(); else advanceIntro();
+});
+document.addEventListener('keydown', e => {
+  if (!intro) return;
+  if (e.key === 'Escape') { e.preventDefault(); endIntro(); }
+  else if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); advanceIntro(); }
+});
 
 function update(next: AppState): void {
+  // The moment a run resolves, it goes into the history (once).
+  const h = recordRun(history, state, next);
+  if (h.length !== history.length || h[0] !== history[0]) { history = h; saveHistory(history); }
   state = next;
   save(state);
   render(state);
@@ -454,7 +561,9 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'day') update(runQueuedDay(state));
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
-  else if (d.cmd === 'reset') update(newGame());
+  else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
+  else if (d.cmd === 'carry') { update(newRun(state.sim)); startIntro('carry'); }
 });
 
 render(state);
+if (!saved) startIntro('fresh');

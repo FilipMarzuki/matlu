@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { newGame, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
+import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
 import { scouted } from '../artificer/exploration';
 
@@ -121,5 +121,31 @@ describe('Artificer controller', () => {
     // The preview runs the chosen design: a hut is 11h against the lean-to's 8h.
     expect(previewQueue(hut).projected.shelter.type).toBe('hut');
     expect(previewQueue(q).projected.shelter.type).toBe('leanto');
+  });
+
+  // 8. (#1224) A run is recorded once when it resolves; history saves separately and survives bad data.
+  it('records finished runs and starts the next one', () => {
+    let a = settle(runQueuedDay(withQueue(newGame(), ['scout', 'track'])), 'cave');
+    while (a.sim.day < DEFAULT_CALENDAR.caravanOpen) a = runQueuedDay(a);
+    const done = takeExit(a, 'winter');
+
+    let h = recordRun([], a, done);
+    expect(h).toHaveLength(1);
+    expect(h[0]).toMatchObject({ run: 1, kind: 'grim', choice: 'winter' });
+    expect(recordRun(h, done, done)).toHaveLength(1); // already resolved before: no double record
+    expect(recordRun(h, a, a)).toHaveLength(1); // not resolved: nothing to record
+
+    // The next run keeps what was learned (the snare, from tracking); a fresh one doesn't.
+    const kept = newRun(done.sim);
+    expect(kept.sim.known).toContain('trap-snare');
+    expect(newRun().sim.known).not.toContain('trap-snare');
+    expect(newRun(a.sim).sim.known).not.toContain('trap-snare'); // an unfinished run carries nothing
+
+    h = recordRun(h, a, done);
+    expect(h.map(r => r.run)).toEqual([2, 1]);
+    expect(deserializeHistory(serializeHistory(h))).toEqual(h);
+    expect(deserializeHistory(null)).toEqual([]);
+    expect(deserializeHistory('{oops')).toEqual([]);
+    expect(deserializeHistory(JSON.stringify({ version: 1, runs: [{ run: 'x' }] }))).toEqual([]);
   });
 });
