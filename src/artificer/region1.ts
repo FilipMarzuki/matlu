@@ -17,8 +17,8 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
-import { seedOf } from './rng';
+import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
+import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
@@ -885,21 +885,24 @@ export function queueHours(item: QueueItem, s?: Region1State): number {
   const rain = s && !recipe ? weatherHours(s.weatherToday, id) : 1;
   // Deep snow (#1315) slows the walk out and the felling.
   const snow = s ? snowSlowFor(s) : 1;
-  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1)) + (def.ringed ? TRAVEL_HOURS[ring] * snow : 0);
+  // A blizzard slows everything out there (#1315).
+  const storm = s && inBlizzard(s, id) ? BLIZZARD_HOURS : 1;
+  return (recipe ? recipe.timeBase : (def.variant?.(opts, s, ring).hours ?? def.hours) * rain * (id === 'wood' ? snow : 1) * storm) + (def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0);
 }
 
 /**
  * Why an action can't be done right now, or null if it can: its own gate, or
- * the weather (a storm keeps you out of the far rings, #1284; a winter blizzard
- * keeps you in altogether, #1315). Every place that
+ * the weather (a storm keeps you out of the far rings, #1284). A blizzard
+ * refuses nothing; it's a danger, not a wall (#1315). Every place that
  * asks "is this allowed?" — the sim, the plan preview, the AI — uses this.
  */
 export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: ActionOpts = {}): string | null {
   const def = ACTIONS[id];
   if (def.gate) { const g = def.gate(s, ring, opts); if (g) return g; }
   if (!def.ringed) return null;
-  // A winter blizzard keeps everyone in (#1315); an autumn storm only the far rings (#1284).
-  if (isBlizzard(s.weatherToday, s.day, s.config.calendar)) return 'a blizzard — nobody goes out in this';
+  // An autumn storm keeps you out of the far rings (#1284). A winter blizzard doesn't refuse you —
+  // you can go out in it, and it may well kill you (#1315; see `dangerOf`).
+  if (isBlizzard(s.weatherToday, s.day, s.config.calendar)) return null;
   return stormBars(s.weatherToday, ring) ? 'the storm makes it too dangerous to go out' : null;
 }
 
@@ -931,9 +934,11 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   // Rain makes some work slower (#1284).
   // Deep snow slows the felling and the walk (#1315).
   const snow = snowSlowFor(next);
-  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1);
+  // …and a blizzard slows everything out there (#1315).
+  const storm = inBlizzard(next, id) ? BLIZZARD_HOURS : 1;
+  const workHours = (v.hours ?? def.hours) * mod.timeMult * weatherHours(next.weatherToday, id) * (id === 'wood' ? snow : 1) * storm;
   // Outer rings cost the walk there and back: hard on the legs, easy on the mind.
-  const travel = def.ringed ? TRAVEL_HOURS[ring] * snow : 0;
+  const travel = def.ringed ? TRAVEL_HOURS[ring] * snow * storm : 0;
   const td = talentDrain(next.character.talents, id);
   const tf = talentEffects(next.character.talents);
   // Stats (#1256): Strength for heavy work, Agility for nimble work and the walk, Willpower for the mind.
@@ -964,9 +969,23 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0);
   // A gathering trip rolls its luck (#1314): the fortune of its starting hour, with weather, supply, skill and light setting the odds.
   const luck = tripLuck(next, id, ring, at, lvl, te.yield > 0 || te.drain < 1);
-  say(next, def.run(next, bonus, ring, opts, at.light, luck ? BAND_MULT[luck.band] : 1), 'action', at);
-  const luckLine = luck && bandLine(luck.band, luck.shifts);
+  // Out in a blizzard (#1315): the white decides how you come back — if you do.
+  const exposure = inBlizzard(next, id) ? exposureFor(streamFor(seedOf(next.character.id), next.day, `blizzard@${at.hour}`)(), (next.coldGear ? 1 : 0) - (ring - 1)) : null;
+  if (exposure === 'killed') {
+    next.vitals.condition = 0;
+    next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
+    say(next, `You went out into the blizzard${where(ring)} and lost the way back. They find you at the thaw.`, 'outcome', at);
+    return next;
+  }
+  const lost = exposure === 'lost';
+  say(next, def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1), 'action', at);
+  const luckLine = !lost && luck && bandLine(luck.band, luck.shifts);
   if (luckLine) say(next, luckLine, luck!.band === 'good' ? 'action' : 'hardship', at);
+  if (exposure) {
+    next.vitals.condition = Math.max(0, next.vitals.condition - EXPOSURE_COST[exposure] * talentEffects(next.character.talents).coldCost);
+    say(next, exposure === 'lost' ? 'Lost in the white for hours — you dropped everything you carried to find the way home.'
+      : exposure === 'frostbitten' ? 'The blizzard bit deep: frostbitten fingers, a face that burns.' : 'A rough few hours in the blizzard, but you came back.', 'hardship', at);
+  }
   // First into a ring, you may find a manual someone left behind (#1243).
   const manual = id === 'scout' && !tooDarkToSee('scout', at.light) && !blindInFog(next.weatherToday, 'scout') ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
@@ -1234,9 +1253,23 @@ export function growSeason(day: number, cal: Calendar): GrowSeason {
 function tripLuck(s: Region1State, id: ActionId, ring: Ring, at: { hour: number; light: number }, skillLevel: number, technique: boolean): { band: Band; shifts: Shift[] } | null {
   const domain = ACTION_DOMAIN[id];
   if (!domain || s.config.world.luck === false) return null;
-  const shifts = luckShifts({ domain, weather: s.weatherToday, supply: s.explore.supply[ring][domain], skillLevel, technique, light: at.light });
+  const shifts = luckShifts({ domain, weather: s.weatherToday, supply: s.explore.supply[ring][domain], skillLevel, technique, light: at.light, blizzard: inBlizzard(s, id) });
   const steps = shifts.reduce((n, x) => n + x.steps, 0);
   return { band: bandFor(haulFortune(seedOf(s.character.id), s.day, at.hour), steps), shifts };
+}
+
+/** Out in a winter blizzard today, on ringed work (#1315). Never in the flat world. */
+const inBlizzard = (s: Region1State, id: ActionId): boolean =>
+  !!ACTIONS[id].ringed && feelsTemperature(s) && isBlizzard(s.weatherToday, s.day, s.config.calendar);
+
+/**
+ * A warning about a dangerous trip, or null (#1315). Only a Warden sharp enough
+ * to read the danger (Intelligence 12+) is warned; anyone else just sees the
+ * snow. The same for a person and an AI.
+ */
+export function dangerOf(s: Region1State, id: ActionId, ring: Ring): string | null {
+  if (!inBlizzard(s, id) || s.character.stats.int < DANGER_SENSE_INT) return null;
+  return ring > 1 ? 'a blizzard, and a long way out — you may not come back' : 'a blizzard — out in this you could freeze, or never come back';
 }
 
 /**
@@ -1252,7 +1285,7 @@ export function tripOdds(s: Region1State, id: ActionId, ring: Ring): 'good' | 'f
   const light = s.config.world.darkness ? lightOver(s.day, clockHour(s.hoursToday), queueHours(queueId(id, ring), s), s.config.calendar) : 1;
   return oddsWord(luckSteps({
     domain, weather: s.weatherToday, supply: s.explore.supply[ring][domain],
-    skillLevel: skill ? perceivedLevel(s.skills, skill) : 0, technique: te.yield > 0 || te.drain < 1, light,
+    skillLevel: skill ? perceivedLevel(s.skills, skill) : 0, technique: te.yield > 0 || te.drain < 1, light, blizzard: inBlizzard(s, id),
   }));
 }
 

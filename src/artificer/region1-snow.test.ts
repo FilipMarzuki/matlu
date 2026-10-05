@@ -1,15 +1,19 @@
 /**
  * Acceptance tests for #1315 — winter on the land: snow cover that slows the
  * walk and the felling, ice fishing once the lake ice is thick, and blizzard
- * days that keep everyone in. One test per Given/When/Then scenario.
+ * days you can go out in, at your peril. One test per Given/When/Then scenario.
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, runDay, queueHours, blockedReason, chooseSite, type Region1State } from './region1';
+import { createRegion1, runAction, runDay, queueHours, blockedReason, chooseSite, dangerOf, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { FLAT_WORLD } from './world';
 import { STEADY_WORLD } from './test-helpers';
-import { nextSnowDepth, iceThick, isBlizzard, snowSlow } from './weather';
+import { nextSnowDepth, iceThick, isBlizzard, snowSlow, exposureFor, type Exposure } from './weather';
+import { streamFor, seedOf } from './rng';
+import { DEFAULT_STATS } from './stats';
+import { previewQueue } from '../artificer-app/controller';
+import { observe } from '../artificer-ai/observe';
 import type { WeatherId } from './world';
 
 /** A scouted Warden in a walled cave on `day`, stocked for a few days (full world, luck off). */
@@ -51,20 +55,63 @@ describe('Winter on the land (#1315)', () => {
     expect(fished.log.map(l => l.text).join('\n')).toMatch(/Fished through the ice/);
   });
 
-  // 3. A blizzard refuses every ringed action; camp work goes on.
-  it('keeps everyone in during a blizzard', () => {
+  // 3. A blizzard refuses nothing — but going out is slow, poor and dangerous; a sharp mind is warned.
+  it('lets you go out into a blizzard, at your peril', () => {
     const s = warden(40, 'storm');
     expect(isBlizzard('storm', 40)).toBe(true);
-    for (const id of ['gather', 'water', 'wood', 'fish', 'scout'] as const) expect(blockedReason(s, id, 1)).toMatch(/blizzard/);
-    expect(runAction(s, 'gather').stores.rawFood).toBe(s.stores.rawFood);
-    expect(blockedReason(s, 'coldGear', 1)).toBeNull();
-    expect(blockedReason(s, 'study', 1, { concept: 'joinery' })).toBeNull();
-    expect(blockedReason(s, 'rest', 1)).toBeNull();
-    // An autumn storm still only bars the far rings (#1284).
+    for (const id of ['gather', 'water', 'wood', 'fish', 'scout'] as const) expect(blockedReason(s, id, 1)).toBeNull();
+    // Everything out there takes half again as long.
+    expect(queueHours('gather', s)).toBeCloseTo(queueHours('gather', { ...s, weatherToday: 'overcast' }) * 1.5, 10);
+    // Exposure at even odds: 5% killed, 20% lost, 35% frostbitten, 40% rough.
+    const share = (steps: number) => {
+      const n: Record<string, number> = {};
+      for (let i = 0; i < 1000; i++) { const e = exposureFor((i + 0.5) / 1000, steps); n[e] = (n[e] ?? 0) + 1; }
+      return n;
+    };
+    expect(share(0)).toEqual({ killed: 50, lost: 200, frostbitten: 350, rough: 400 });
+    expect(share(1).killed ?? 0).toBe(0); // sound cold gear: a step safer
+    expect(share(-2).killed).toBe(250); // the distant ring: two steps worse
+    // In play, by the hour's fortune: rough, frostbitten, lost (haul and all), or dead.
+    const out = (e: Exposure) => {
+      let i = 0;
+      while (exposureFor(streamFor(seedOf(`w-${i}`), 40, 'blizzard@12')(), 0) !== e) i++;
+      const w = { ...warden(40, 'storm'), hoursToday: 6, character: { ...warden(40, 'storm').character, id: `w-${i}` } };
+      return { before: w, after: runAction(w, 'gather') };
+    };
+    const rough = out('rough');
+    expect(rough.after.vitals.condition).toBe(100 - 5);
+    expect(rough.after.stores.rawFood).toBeGreaterThan(rough.before.stores.rawFood);
+    const bitten = out('frostbitten');
+    expect(bitten.after.vitals.condition).toBe(100 - 15);
+    const lost = out('lost');
+    expect(lost.after.vitals.condition).toBe(100 - 30);
+    expect(lost.after.stores.rawFood).toBe(lost.before.stores.rawFood);
+    expect(lost.after.log.map(l => l.text).join('\n')).toMatch(/Lost in the white/);
+    const killed = out('killed');
+    expect(killed.after.outcome).toMatchObject({ kind: 'died' });
+    expect(killed.after.log.at(-1)?.text).toMatch(/lost the way back/);
+    // Camp work is safe.
+    expect(runAction(s, 'rest').vitals.condition).toBe(100);
+    // An autumn storm still bars the far rings (#1284).
     const autumn = warden(20, 'storm');
     expect(isBlizzard('storm', 20)).toBe(false);
     expect(blockedReason(autumn, 'gather', 1)).toBeNull();
     expect(blockedReason({ ...autumn, explore: { ...autumn.explore, known: { ...autumn.explore.known, 1: { ...autumn.explore.known[1], forage: 1, timber: 1, stone: 1, water: 1, game: 1 } } } }, 'gather', 2)).toMatch(/storm/);
+  });
+
+  // 3b. Only a sharp mind (Intelligence 12+) is warned of the danger — person or AI alike.
+  it('warns a Warden with Intelligence 12+ of the blizzard', () => {
+    const sharp = { ...warden(40, 'storm'), character: { ...warden(40, 'storm').character, stats: { ...DEFAULT_STATS, int: 12 } } };
+    const plain = warden(40, 'storm');
+    expect(dangerOf(sharp, 'gather', 1)).toMatch(/blizzard/);
+    expect(dangerOf(sharp, 'gather', 3)).toMatch(/may not come back/);
+    expect(dangerOf(plain, 'gather', 1)).toBeNull();
+    expect(dangerOf(sharp, 'rest', 1)).toBeNull();
+    expect(dangerOf({ ...sharp, weatherToday: 'overcast' }, 'gather', 1)).toBeNull();
+    expect(previewQueue({ sim: sharp, queue: ['gather', 'rest'] }).dangers).toEqual([dangerOf(sharp, 'gather', 1), null]);
+    expect(previewQueue({ sim: plain, queue: ['gather'] }).dangers).toEqual([null]);
+    expect(observe(sharp)).toMatch(/- gather ring 1 .*DANGER: a blizzard/);
+    expect(observe(plain)).not.toMatch(/DANGER/);
   });
 
   // 4. The flat world: no snow cover, and fishing is open.

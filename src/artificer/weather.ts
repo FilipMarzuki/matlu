@@ -190,6 +190,29 @@ export function nextSnowDepth(depth: number, w: WeatherId, day: number, cal: Cal
   return Math.round(Math.min(1, Math.max(0, d)) * 1000) / 1000;
 }
 
+/** Out in a blizzard everything takes half again as long: wading, feeling for the way. */
+export const BLIZZARD_HOURS = 1.5;
+
+/** What a trip out into a blizzard does to you (#1315). */
+export type Exposure = 'rough' | 'frostbitten' | 'lost' | 'killed';
+/** Condition each exposure costs; `lost` also loses the haul, `killed` ends the run. */
+export const EXPOSURE_COST: Readonly<Record<Exposure, number>> = { rough: 5, frostbitten: 15, lost: 30, killed: Infinity };
+
+/**
+ * How a blizzard trip goes, from a fortune fixed for its starting hour: at
+ * even odds 5% you don't come back, 20% you're lost in the white, 35% you're
+ * frostbitten and 40% it's merely rough. Each step (positive = safer) moves
+ * ten points: sound cold gear is a step safer, each ring further out a step
+ * worse.
+ */
+export function exposureFor(u: number, steps: number): Exposure {
+  const x = Math.min(0.9999, Math.max(0, u + 0.1 * steps));
+  return x < 0.05 ? 'killed' : x < 0.25 ? 'lost' : x < 0.6 ? 'frostbitten' : 'rough';
+}
+
+/** Intelligence at which a Warden sees the danger for what it is, and is warned (#1315). */
+export const DANGER_SENSE_INT = 12;
+
 /** Deep snow slows the walk and wood cutting: up to half again as long. */
 export const snowSlow = (depth: number): number => 1 + 0.5 * depth;
 

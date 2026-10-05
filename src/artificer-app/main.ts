@@ -398,6 +398,7 @@ function queueBlock(a: AppState, preview: Preview): string {
       + `<span class="n">${ICON[id]} ${ACTIONS[id].name.toUpperCase()}${ring > 1 ? ` <span class="ringtag">${RING_NAME[ring].toUpperCase()}</span>` : ''}</span>`
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
+      + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
       + `<span class="meta">${queueHours(item, preview.before[i])}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;

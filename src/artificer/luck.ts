@@ -74,6 +74,8 @@ export interface LuckInput {
   technique: boolean;
   /** The light the work has (#1280), 0..1. */
   light: number;
+  /** Out in a winter blizzard (#1315): everything is buried, whatever the domain. */
+  blizzard?: boolean;
 }
 
 /** One reason the odds moved. */
@@ -88,7 +90,7 @@ export const SKILL_STEPS_AT = { one: 3, two: 5 };
  */
 export function luckShifts(i: LuckInput): Shift[] {
   const out: Shift[] = [];
-  const w = WEATHER_STEPS[i.weather]?.[i.domain];
+  const w = i.blizzard ? ([-2, 'the blizzard had buried everything'] as [number, string]) : WEATHER_STEPS[i.weather]?.[i.domain];
   if (w) out.push({ steps: w[0], why: w[1] });
   const word = supplyWord(i.supply);
   if (word === 'scarce') out.push({ steps: -1, why: 'the ground there is picked over' });
