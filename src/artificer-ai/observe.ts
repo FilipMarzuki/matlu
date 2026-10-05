@@ -13,7 +13,7 @@
 
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
-  readinessInput, warmth, winterReady, routeKnown, queueHours, queueId, survivalLockOf,
+  readinessInput, warmth, winterReady, winterOutlook, queueHours, queueId, survivalLockOf,
   type ActionId, type Region1State,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
@@ -22,7 +22,7 @@ import { SKILL_IDS, LEVELS, perceivedLevel } from '../artificer/skills';
 import { techniqueById, manualById } from '../artificer/techniques';
 import { TALENTS } from '../artificer/talents';
 import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
-import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
+import { seasonOf } from '../artificer/winter';
 import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 
 /**
@@ -32,26 +32,18 @@ import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, re
 export const RULES = `You are playing "Greywind Reach", the first region of the Artificer: a survival-crafting game played one day at a time.
 
 GOAL
-You arrive alone with almost nothing and winter is coming. Get winter-ready before the snow:
-- Larder: 10+ rations (preserved food — not today's meals).
-- Shelter: warmth 60%+ (site potential x how far the build has come x build quality).
-- Fuel: 12+ firewood.
-- Body & mind: Vigor and Clarity capacity at 100+ and Condition 70+.
-A caravan camps nearby on days 28-30; winter arrives on day 31. From day 28 you may take an exit:
-- caravan (days 28-30 only): leave with traders. Winter-ready = thrive; otherwise ragged.
-- solo: cross the winter road alone. Needs road-worthy cold gear, 6+ rations, Condition 60+, Vigor capacity 95+, AND the pass seen in the distant ring. Unprepared = turned back with permanent frostbite.
-- winter: stay. Winter-ready = wintered well; otherwise a grim winter.
-Best outcomes: thrive (caravan while winter-ready), then crossed or wintered. Worst: collapsing, or dying.
+Survive the winter. You arrive alone with almost nothing on day 1. Autumn (days 1-30) is for preparing: the snow falls on day 31, and winter lasts until the thaw on day 61. Days go on as before through winter — darker, colder, harder — and you live on what you built and stored. Reach the thaw alive and the run ends graded by your Condition: hale (70+), worn (40-69) or broken (under 40). Dying or collapsing before then is the worst result. There are no exits: you can't leave Greywind Reach before spring.
+A good winter needs a larder (raw food, then preserved rations, one a night), water, firewood, a warm shelter (a clear midwinter night is about -19 C; a shelter needs about 87% warmth for that not to be a cold night), and a body in good shape. The WINTER OUTLOOK line tells you how many nights your stores last.
 
 HOW A DAY WORKS
-You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. At night you eat 1 food and drink 1 water, then sleep; a warmer shelter recovers more. Water is critical, food less so. A night without water: Vigor and Clarity recover only 30%, and you lose 10 x (nights running without water) Condition and 8 x Clarity — three dry nights cost 60 Condition, a fourth is usually fatal. A night without food: Vigor recovers 50%, Clarity 80%, and you lose 1 x (nights running) Condition and 3 x Clarity. One missed meal doesn't stop capacity growing; no water, or two hungry nights running, does. Condition only heals on nights with both food and water. If Condition reaches 0 overnight the run ends at once: dead if you had gone 2+ nights without water or 5+ without food, otherwise found collapsed. Both are worse than a grim winter. Rations are winter stock and are never eaten now. Pushing a pool past empty costs Condition. Condition heals slowly (a few points a night) only on nights you ate and drank, slept in shelter 50%+ warm, and never pushed past empty; a light, restful day doubles it.
+You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. At night you eat 1 food and drink 1 water, then sleep; a warmer shelter recovers more. Water is critical, food less so. A night without water: Vigor and Clarity recover only 30%, and you lose 10 x (nights running without water) Condition and 8 x Clarity — three dry nights cost 60 Condition, a fourth is usually fatal. A night without food: Vigor recovers 50%, Clarity 80%, and you lose 1 x (nights running) Condition and 3 x Clarity. One missed meal doesn't stop capacity growing; no water, or two hungry nights running, does. Condition only heals on nights with both food and water. If Condition reaches 0 overnight the run ends at once: dead if you had gone 2+ nights without water or 5+ without food, otherwise found collapsed. Both are worse than a grim winter. Rations (preserved food) are eaten only when there's no raw food left. Pushing a pool past empty costs Condition. Condition heals slowly (a few points a night) only on nights you ate and drank, slept in shelter 50%+ warm, and never pushed past empty; a light, restful day doubles it.
 
 SKILLS
 Seven skills improve by use: every hour of work trains the skill it uses (woodcraft: wood, wooden builds, shovel; foraging: gather; hunting: hunt, track, snare; stonework: quarry, stone knife, stone walls; fieldcraft: water, preserve; scouting: scout, survey, look out; handcraft: cold gear, parka, waterskin, bedroll, tinker). Levels: Novice 5h, Apprentice 20h, Adept 60h, Journeyman 150h, Skilled 400h, Expert 1,000h, Veteran 3,000h, Professional 10,000h, Master, Grandmaster, and beyond human: Paragon, Mythic, Transcendent. A focused skill practises 3x faster. Higher skill in a field means lighter work, more yield, better tool use and better craft grades. You only know how good you THINK you are — beginners overrate themselves, the getting-good underrate themselves — so judge by results. Skills carry into the next run.
 Techniques are what a skill level looks like in practice (e.g. reading the grain, still hunting, smoke curing): each gives a concrete edge (yield, lighter work, better grades). Easy ones you work out alone with practice, hard ones take much longer alone, and some can only be taught — by a teacher or a manual found while scouting the far rings. A manual also makes practice in its skill more efficient. Past Adept, practising alone gets steadily slower; knowing the techniques of your level speeds the climb.
 
 FOCUS
-Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises 3x as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or when winter is 3 days away and you're not ready.
+Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises 3x as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or in the last 3 days of autumn if you're not ready.
 
 THE LAND
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
@@ -62,14 +54,13 @@ Each ring has domains (forage, timber, stone, water, game; routes beyond home) k
 - Every trip depletes that ring's domain a little, so the near ring runs thin; push outward.
 
 CRAFTING
-Crafts (build, coldGear, knife, snare, waterskin, bedroll, shovel) are graded crude / sound / fine / masterwork by how clear your head is (Clarity), your bench (a roofed shelter is a tier-1 bench) and your tools. Crafting while foggy can fail and waste materials. Many recipes must first be discovered (by observation, finds, or the study action). Crude cold gear won't do for the solo crossing; a hide parka holds even when crude.
+Crafts (build, coldGear, knife, snare, waterskin, bedroll, shovel) are graded crude / sound / fine / masterwork by how clear your head is (Clarity), your bench (a roofed shelter is a tier-1 bench) and your tools. Crafting while foggy can fail and waste materials. Many recipes must first be discovered (by observation, finds, or the study action). Crude cold gear won't hold up through a winter; a hide parka holds even when crude.
 
 RESPONDING
 Each turn you get an observation. Reply with ONLY a JSON object, no prose, matching:
 {
   "thoughts": string (one or two sentences: your plan for today),
   "site": "cave" | "tree" | "river" | "hill" | null (settle or move camp before the day; null = no change),
-  "exit": "caravan" | "solo" | "winter" | null (take an exit now instead of playing the day; only when listed as open),
   "focus": "concept:<name>" | "goal:shelter|larder|explore" | "skill:<name>" | "none" | null (what your mind works on; null = keep),
   "queue": [ { "action": string, "ring": 1 | 2 | 3, "options": [ { "key": string, "value": string } ] } ]
 }
@@ -100,7 +91,7 @@ function landHint(s: Region1State, id: ActionId, r: Ring): string {
 const CAMP_HINT: Partial<Record<ActionId, string>> = {
   preserve: '2 raw food -> 1 ration (smoke: up to 3; dry: up to 2)',
   build: 'next shelter stage (see options)',
-  coldGear: 'cold gear for the solo crossing',
+  coldGear: 'cold gear for the winter',
   knife: 'hunt -15% vigor, quicker preserving',
   snare: '+1 food every night',
   waterskin: '+1 water per trip',
@@ -111,16 +102,15 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   rest: 'recovers a little',
 };
 
-/** Render the full per-day observation. `notes` carries harness feedback (dropped entries, a closed exit…). */
+/** Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…). */
 export function observe(s: Region1State, notes: readonly string[] = []): string {
   const cal = s.config.calendar;
-  const ph = phaseOf(s.day, cal);
-  const exits = availableChoices(s.day, cal);
+  const season = seasonOf(s.day, cal);
   const v = s.vitals;
   const st = s.stores;
   const lines: string[] = [];
 
-  lines.push(`DAY ${s.day} — ${ph === 'prep' ? `autumn, caravan arrives day ${cal.caravanOpen}` : ph === 'caravan' ? `caravan here until day ${cal.caravanClose}` : ph === 'postCaravan' ? 'caravan gone' : 'winter'}. Winter day ${cal.winterDay}.`);
+  lines.push(`DAY ${s.day} — ${season === 'autumn' ? `autumn, snow on day ${cal.winterDay} (${cal.winterDay - s.day} days)` : `winter, thaw on day ${cal.thawDay} (${cal.thawDay - s.day} days)`}.`);
   lines.push(`Hours used today: ${s.hoursToday}/${DAY_HOURS}.`);
   for (const n of notes) lines.push(`NOTE: ${n}`);
   lines.push('');
@@ -136,10 +126,13 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     larder: `${st.rations}/${t.larder} rations`, shelter: `${Math.floor(warmth(s) * 100)}%/${pct(t.warmth)} warmth`,
     fuel: `${st.firewood}/${t.fuel} firewood`, body: `vigor capacity ${fl(v.vigor.cap)}/${BASELINE}, clarity capacity ${fl(v.clarity.cap)}/${BASELINE}, condition ${fl(v.condition)}/${t.condition}`,
   };
-  lines.push(`READINESS: ${winterReady(s) ? 'WINTER-READY' : 'not ready'} — ${ps.map(p => `${p.key} ${p.done ? 'OK' : 'needs'} (${pv[p.key]})`).join('; ')}`);
+  lines.push(`READINESS (a rough guide): ${winterReady(s) ? 'WINTER-READY' : 'not ready'} — ${ps.map(p => `${p.key} ${p.done ? 'OK' : 'needs'} (${pv[p.key]})`).join('; ')}`);
+  const o = winterOutlook(s);
+  const nights = (n: number): string => (Number.isFinite(n) ? `${n} night${n === 1 ? '' : 's'}` : 'no burn yet');
+  lines.push(`WINTER OUTLOOK: ${o.nightsToThaw} nights to the thaw · food ${nights(o.foodDays)} · water ${nights(o.waterDays)} · firewood ${nights(o.fuelDays)} · shelter ${o.warmthMargin >= 0 ? 'warm enough' : `${Math.ceil(-o.warmthMargin * 100)}% short`} for a midwinter night`);
 
   lines.push(`CAMP: ${s.site ? `${SITES[s.site].name} (max ${pct(SITES[s.site].warmth)}), shelter tier ${s.tier}/2${s.shelterGrade ? ` ${s.shelterGrade}` : ''}${s.shelter.type ? ` ${s.shelter.type}` : ''}${s.shelter.walls ? ` + ${s.shelter.walls} walls` : ''}` : 'none yet'}. Sites: ${(Object.keys(SITES) as (keyof typeof SITES)[]).map(k => `${k} ${pct(SITES[k].warmth)}`).join(', ')}. First shelter stage costs ${BUILD_COST[0]} materials.`);
-  lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => `${x.item} (${x.grade})`).join(', ') : 'none'} · cold gear road-worthy: ${s.coldGear ? 'yes' : 'no'} · pass seen: ${routeKnown(s) ? 'yes' : 'no'}`);
+  lines.push(`TOOLS: ${s.tools.length ? s.tools.map(x => `${x.item} (${x.grade})`).join(', ') : 'none'} · sound cold gear: ${s.coldGear ? 'yes' : 'no'}`);
   const undiscovered = DISCOVERIES.filter(d => !s.known.includes(d.recipe)).map(d => `${d.name} (${d.concept})`);
   lines.push(`RECIPES KNOWN: ${s.known.join(', ')}${undiscovered.length ? ` · not yet: ${undiscovered.join(', ')}` : ''}`);
   const concepts = Object.entries(s.concepts).filter(([, p]) => p.rank > 0 || p.insight > 0).map(([id, p]) => `${id} rank ${p.rank}`);
@@ -183,15 +176,6 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   }
 
   lines.push('');
-  if (exits.length) {
-    const canCross = routeKnown(s) && crossingPrepared({ coldGear: s.coldGear, rations: st.rations, vitals: v });
-    // Spell out what each exit would give today: models misread "caravan = thrive" as unconditional.
-    const ifTaken = exits.map(c => `${c} → ${resolveOutcome(c, { ready: winterReady(s), canCross, vitals: v }).kind}`).join(', ');
-    lines.push(`EXITS OPEN: ${exits.join(', ')}. If taken today: ${ifTaken}. Solo crossing prepared: ${canCross ? 'yes' : `no (needs road-worthy cold gear, ${CROSSING_NEEDS.rations}+ rations, condition ${CROSSING_NEEDS.condition}+, vigor capacity ${CROSSING_NEEDS.vigorCap}+, pass seen)`}.`);
-  } else {
-    lines.push(`EXITS: none yet (from day ${cal.caravanOpen}).`);
-  }
-
   const done = REGION1_MILESTONES.filter(m => s.milestones.includes(m.id)).map(m => m.name);
   lines.push(`MILESTONES: ${done.length}/${REGION1_MILESTONES.length}${done.length ? ` (${done.join(', ')})` : ''}`);
 

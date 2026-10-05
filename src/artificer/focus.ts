@@ -47,7 +47,8 @@ export function survivalLock(i: { thirsty: number; hungry: number; condition: nu
   if (i.thirsty >= 1) return 'thirsty';
   if (i.hungry >= 2) return 'starving';
   if (i.condition < 40) return 'worn down';
-  if (i.daysToWinter <= 3 && !i.winterReady) return 'winter is close';
+  // The last three days of autumn (#1302) — once the snow falls, it's simply winter.
+  if (i.daysToWinter >= 1 && i.daysToWinter <= 3 && !i.winterReady) return 'winter is close';
   return null;
 }
 

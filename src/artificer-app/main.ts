@@ -18,7 +18,7 @@ import { RINGS, RING_NAME, TRAVEL_HOURS, FINDS, LEVEL_NAME, domainsOf, level, re
 import { modifiersFor } from '../artificer/crafting';
 import { pillars, type PillarKey } from '../artificer/readiness';
 import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
-import { availableChoices, crossingPrepared, phaseOf, CROSSING_NEEDS, type Choice, type OutcomeKind } from '../artificer/winter';
+import { seasonOf, type OutcomeKind } from '../artificer/winter';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural } from '../artificer/skills';
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
@@ -28,7 +28,7 @@ import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLab
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
-import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -68,7 +68,7 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   quarry: (s, r) => `+${ty(s, r, 'stone', 3, 1) + fb(s, r, 'stone')} stone`,
   preserve: () => '2 raw → 1 ration · smoke ×3 or dry ×2',
   build: s => (s.tier < 2 ? `tier ${s.tier + 1} from ${BUILD_COST[s.tier as 0 | 1]} mat · choose site & design in the queue` : 'winterized'),
-  coldGear: () => 'needed to cross solo · fiber or hide',
+  coldGear: () => 'keeps the cold out on winter work · fiber or hide',
   knife: () => 'hunt −15% vigor, quicker preserving',
   snare: () => '+1 food every night',
   waterskin: () => '+1 water per trip · takes a hide',
@@ -88,6 +88,7 @@ const SITE_NOTE: Record<SiteId, string> = {
 };
 
 const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
+  survived: { head: 'YOU MADE IT TO THE THAW', body: 'The ice breaks on the streams and the light comes back. Whatever the winter took from you, you are still here — and the Reach knows your name.' },
   thrive: { head: 'YOU RIDE OUT WITH THE CARAVAN', body: 'You climb aboard rested and provisioned, trading surplus rations for a corner of the wagon and word of the road ahead. Region 2 opens already half-known to you.' },
   ragged: { head: 'YOU SCRAMBLE ABOARD THE CARAVAN', body: 'You leave a half-built camp behind. The traders share what they can, but you spend the first leg recovering. You reach the next region alive — just thin.' },
   crossed: { head: 'YOU STRIKE OUT ALONE', body: 'Cold gear cinched, rations packed, a route in your head — you walk out into the white. It is brutal and slow, but you make it through on what you built, beholden to no one.' },
@@ -127,18 +128,17 @@ function moodLine(a: AppState): string {
 
 function timeline(a: AppState): string {
   const cal = a.sim.config.calendar;
-  const last = cal.winterDay + 3;
+  const last = cal.thawDay;
   // Day d sits at the left edge of its slot; slots are 1/last wide.
   const x = (d: number): number => ((d - 1) / last) * 100;
   return `<div class="timeline">`
     + `<div class="season autumn" style="width:${x(cal.winterDay)}%"></div>`
     + `<div class="season winter" style="width:${100 - x(cal.winterDay)}%"></div>`
-    + `<div class="van" style="left:${x(cal.caravanOpen)}%;width:${x(cal.caravanClose + 1) - x(cal.caravanOpen)}%"></div>`
     + `<span class="lbl" style="left:0">AUTUMN</span>`
-    + `<span class="lbl" style="left:${x(cal.caravanOpen)}%">CARAVAN</span>`
     + `<span class="lbl" style="left:${x(cal.winterDay)}%">WINTER</span>`
+    + `<span class="lbl" style="left:${x(cal.thawDay) - 8}%">THAW</span>`
     + `<div class="today" style="left:${Math.min(99.5, x(a.sim.day + 0.5))}%"></div></div>`
-    + `<div class="tl-legend"><span><b>Autumn</b> — prep time</span><span><b>Caravan</b> — days ${cal.caravanOpen}–${cal.caravanClose}</span><span><b>Winter</b> — day ${cal.winterDay}+</span></div>`;
+    + `<div class="tl-legend"><span><b>Autumn</b> — prepare, days 1–${cal.winterDay - 1}</span><span><b>Winter</b> — survive, days ${cal.winterDay}–${cal.thawDay - 1}</span><span><b>Thaw</b> — day ${cal.thawDay}</span></div>`;
 }
 
 /** The body pillar's status: Condition when all is well, otherwise the check that's failing. */
@@ -414,11 +414,10 @@ function queueBlock(a: AppState, preview: Preview): string {
 function phaseChip(a: AppState): string {
   const cal = a.sim.config.calendar;
   const d = a.sim.day;
-  const ph = phaseOf(d, cal);
-  if (ph === 'prep') { const n = cal.caravanOpen - d; return `<span class="phase">AUTUMN · CARAVAN IN ${n} DAY${n === 1 ? '' : 'S'}</span>`; }
-  if (ph === 'caravan') return `<span class="phase gold">CARAVAN HERE · UNTIL DAY ${cal.caravanClose}</span>`;
-  if (ph === 'postCaravan') return '<span class="phase">CARAVAN GONE</span>';
-  return '<span class="phase ice">WINTER</span>';
+  if (seasonOf(d, cal) === 'autumn') { const n = cal.winterDay - d; return `<span class="phase">AUTUMN · SNOW IN ${n} DAY${n === 1 ? '' : 'S'}</span>`; }
+  if (seasonOf(d, cal) === 'thaw') return '<span class="phase gold">THE THAW</span>';
+  const n = cal.thawDay - d;
+  return `<span class="phase ice">WINTER · THAW IN ${n} DAY${n === 1 ? '' : 'S'}</span>`;
 }
 
 /** Always-visible summary: body, key stores, today's hours, readiness. */
@@ -439,14 +438,14 @@ function statusBar(a: AppState, preview: Preview): string {
   </div>`;
 }
 
-const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
+const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { survived: 'Survived the winter', thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
 
 /** The history of finished runs (newest first), with the best one marked. */
 function pastRuns(): string {
-  if (!history.length) return '<p class="mood">No finished runs yet. Take an exit when the caravan comes, and it will be recorded here.</p>';
+  if (!history.length) return '<p class="mood">No finished runs yet. Live through the winter to the thaw, and it will be recorded here.</p>';
   const best = bestRun(history);
   return `<ol class="runs">${history.map(r => `<li class="${r === best ? 'best' : ''}"><span class="rn">${r.characterName ? `${esc(r.characterName)} · ` : ''}RUN ${r.run}</span>`
-    + `<span class="rk k-${r.kind}">${OUTCOME_SHORT[r.kind]}${r.injury ? ' · frostbite' : ''}</span>`
+    + `<span class="rk k-${r.kind}">${OUTCOME_SHORT[r.kind]}${r.grade ? ` — ${r.grade}` : ''}${r.injury ? ' · frostbite' : ''}</span>`
     + `<span class="rd">day ${r.day}${r.readyDay ? ` · ready d${r.readyDay}` : ''} · ${r.recipes} recipes</span>${r === best ? '<span class="rb">★ BEST</span>' : ''}</li>`).join('')}</ol>`;
 }
 
@@ -497,7 +496,7 @@ function resolvePanel(a: AppState): string {
     const o = OUTCOME[s.outcome.kind];
     const r = history[0];
     const facts = r ? `<ul class="runfacts">
-        <li>${r.choice === 'collapse' ? 'Ended' : 'Left'} on <b>day ${r.day}</b>${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
+        <li>${r.choice === 'thaw' ? 'Reached the thaw' : r.choice === 'collapse' ? 'Ended' : 'Left'} on <b>day ${r.day}</b>${r.grade ? ` — <b>${r.grade}</b>` : ''}${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
         <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
       </ul>` : '';
     return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
@@ -506,24 +505,7 @@ function resolvePanel(a: AppState): string {
         ? `<button class="btn go" data-cmd="carry" title="The same Warden goes on: recipes, concept ranks and skills carry over">↻ ${s.character.name ? `CONTINUE AS ${esc(s.character.name.toUpperCase())}` : 'NEW RUN'} — KEEP WHAT YOU LEARNED</button>`
         : ''}<button class="btn ${canContinue(s) ? '' : 'go'}" data-cmd="reset" title="A new person, starting from nothing">✦ ${canContinue(s) ? 'FRESH WARDEN' : 'NEW WARDEN'}</button></div></div>`;
   }
-  const open = availableChoices(s.day, s.config.calendar);
-  if (open.length === 0) return '';
-
-  const ready = winterReady(s);
-  const canCross = crossingPrepared({ coldGear: s.coldGear, rations: s.stores.rations, vitals: s.vitals });
-  const card: Record<Choice, string> = {
-    caravan: `<button class="choice" data-exit="caravan"><div class="t">🐂 RIDE OUT WITH THE CARAVAN</div><div class="d">The easy door. Travel on with help${ready ? ' — and goods to trade' : ''}.</div><div class="req ${ready ? 'met' : 'unmet'}">${ready ? 'you leave strong' : 'you can still board, but ragged'}</div></button>`,
-    solo: `<button class="choice" data-exit="solo"><div class="t">🎒 BRAVE THE CROSSING ALONE</div><div class="d">Walk out across the winter stretch. No help, no dependence.</div><div class="req ${canCross ? 'met' : 'unmet'}">cold gear · ${CROSSING_NEEDS.rations}+ rations · condition ${CROSSING_NEEDS.condition}+ · vigor cap ${CROSSING_NEEDS.vigorCap}+ — ${canCross ? "you're prepared" : 'not yet prepared'}</div></button>`,
-    winter: `<button class="choice" data-exit="winter"><div class="t">🏠 HUNKER DOWN &amp; WINTER OVER</div><div class="d">Outlast the cold in the home you've made.</div><div class="req ${ready ? 'met' : 'unmet'}">${ready ? 'winter-ready' : 'not winter-ready — this will hurt'}</div></button>`,
-  };
-  const snow = phaseOf(s.day, s.config.calendar) === 'winter';
-  const title = snow ? 'THE SNOW HAS COME' : open.includes('caravan') ? 'A CARAVAN CRESTS THE RIDGE' : 'THE CARAVAN HAS MOVED ON';
-  const blurb = snow
-    ? 'The first real snow is falling. Keep going a day at a time, or commit.'
-    : open.includes('caravan')
-      ? `Traders bound for the lowlands, camped until day ${s.config.calendar.caravanClose}. They'll take you — or strike out alone, or stay and winter over. You can keep preparing first.`
-      : 'Now it is the road alone, or wintering here.';
-  return `<div class="resolve ${snow ? 'ice' : ''}"><h3>${title}</h3><p>${blurb}</p><div class="choices">${open.map(c => card[c]).join('')}</div></div>`;
+  return '';
 }
 
 function render(a: AppState): void {
@@ -544,7 +526,7 @@ function render(a: AppState): void {
       <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
       and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
       Each night you eat and drink: <b>water is critical</b> — a few dry nights wreck body and mind — while <b>food</b> can be skipped for a while at a slower cost. Every night in a row without either hurts more. Scout first, then push outward —
-      working the land teaches you its detail. A caravan passes just before the snow: ride out with it, brave the crossing alone, or winter over.
+      working the land teaches you its detail. The snow comes on day ${a.sim.config.calendar.winterDay}, and there is no way out until spring: <b>live through the winter to the thaw</b>.
       Progress saves in this browser.</p>` : ''}
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
@@ -753,7 +735,6 @@ root.addEventListener('click', e => {
   else if (d.opt) { const [i, key, value] = d.opt.split('|'); expanded.add(Number(i)); update(setOption(state, Number(i), key, value)); }
   else if (d.x !== undefined) { expanded.clear(); update(dequeueAt(state, Number(d.x))); }
   else if (d.site) update(settle(state, d.site as SiteId));
-  else if (d.exit) update(takeExit(state, d.exit as Choice));
   else if (d.cmd === 'day') update(runQueuedDay(state));
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));

@@ -5,10 +5,9 @@
  * testing the harness without an API key.
  */
 
-import { winterReady, blockedReason, queueHours, queueId, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
+import { blockedReason, queueHours, queueId, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
 import { scouted, type Ring } from '../../artificer/exploration';
 import { blindInFog, stormBars } from '../../artificer/weather';
-import { availableChoices } from '../../artificer/winter';
 import type { Player } from '../runner';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
@@ -29,9 +28,9 @@ const PLAN: Entry[][] = [
 ];
 
 /**
- * After the plan, until the caravan (day 28 since the 60-day year, #1301):
- * keep hunting, smoking and fetching, and keep the woodpile up for the cold
- * nights. Winter becomes playable in #1302; the plan is rebuilt for it in #1309.
+ * After the plan, through the rest of autumn and the winter (#1302): keep
+ * hunting, smoking and fetching, and keep the woodpile up for the cold nights.
+ * The plan is rebuilt for winter proper in #1309.
  */
 const ROUTINE: Entry[][] = [
   [a('hunt'), a('preserve'), a('water')],
@@ -60,32 +59,27 @@ export const scriptedPlayer = (): Player => {
   return {
     name: 'scripted',
     async decide(_message, s) {
-      const exits = availableChoices(s.day, s.config.calendar);
-      const exit = exits.length ? (winterReady(s) && exits.includes('caravan') ? 'caravan' : 'winter') : null;
-      let queue: Entry[] = [];
-      if (!exit) {
-        const today = remaining.shift() ?? [...ROUTINE[s.day % ROUTINE.length]];
-        queue = today.map(e => (spoiled(e, s) ? a('wood') : e));
-        // Short of materials for today's build (bad weather cost a trip)? Cut more wood first — a trip per missing unit, two at most.
-        const short = /needs (\d+) materials \(have (\d+)\)/.exec(blockedReason(s, 'build', 1) ?? '');
-        if (short && queue.some(e => e.action === 'build' && !e.options.length)) {
-          queue = [...Array(Math.min(2, Number(short[1]) - Number(short[2]))).fill(a('wood')), ...queue];
-        }
-        if (!scouted(s.explore, 1) && today.some(e => e.action === 'scout' && spoiled(e, s))) {
-          // Fog before the first scout: no camp can be staked, so the whole day waits while the Warden lays in wood and water.
-          remaining.unshift(today);
-          queue = [a('wood'), a('wood'), a('water')];
-        } else {
-          for (const e of today.filter(x => spoiled(x, s))) {
-            const room = remaining.findIndex(day => dayHours([...day, e], s) <= DAY_HOURS);
-            if (room >= 0) { remaining[room] = [e, ...remaining[room]]; continue; }
-            // No day has room: swap it for a later wood trip, since today's slot already went to wood.
-            const swap = remaining.findIndex(day => day.some(x => x.action === 'wood'));
-            if (swap >= 0) remaining[swap] = [e, ...remaining[swap].filter((_x, i, d) => i !== d.findIndex(y => y.action === 'wood'))];
-          }
+      const today = remaining.shift() ?? [...ROUTINE[s.day % ROUTINE.length]];
+      let queue = today.map(e => (spoiled(e, s) ? a('wood') : e));
+      // Short of materials for today's build (bad weather cost a trip)? Cut more wood first — a trip per missing unit, two at most.
+      const short = /needs (\d+) materials \(have (\d+)\)/.exec(blockedReason(s, 'build', 1) ?? '');
+      if (short && queue.some(e => e.action === 'build' && !e.options.length)) {
+        queue = [...Array(Math.min(2, Number(short[1]) - Number(short[2]))).fill(a('wood')), ...queue];
+      }
+      if (!scouted(s.explore, 1) && today.some(e => e.action === 'scout' && spoiled(e, s))) {
+        // Fog before the first scout: no camp can be staked, so the whole day waits while the Warden lays in wood and water.
+        remaining.unshift(today);
+        queue = [a('wood'), a('wood'), a('water')];
+      } else {
+        for (const e of today.filter(x => spoiled(x, s))) {
+          const room = remaining.findIndex(day => dayHours([...day, e], s) <= DAY_HOURS);
+          if (room >= 0) { remaining[room] = [e, ...remaining[room]]; continue; }
+          // No day has room: swap it for a later wood trip, since today's slot already went to wood.
+          const swap = remaining.findIndex(day => day.some(x => x.action === 'wood'));
+          if (swap >= 0) remaining[swap] = [e, ...remaining[swap].filter((_x, i, d) => i !== d.findIndex(y => y.action === 'wood'))];
         }
       }
-      return { text: JSON.stringify({ thoughts: exit ? `Leaving: ${exit}.` : `Day ${s.day} of the plan.`, site: null, exit, queue }), usage: { cost: 0 } };
+      return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site: null, queue }), usage: { cost: 0 } };
     },
   };
 };

@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
 import { fastForward, SHORT_YEAR } from './test-helpers';
-import { createRegion1, runAction, runDay, endDay, chooseSite, choose, warmth, type Region1State, NEEDS } from './region1';
+import { createRegion1, runAction, runDay, endDay, chooseSite, warmth, type Region1State, NEEDS } from './region1';
 import { BASELINE } from './vitality';
 import { scouted, level } from './exploration';
 
@@ -114,17 +114,13 @@ describe('Region 1 sim', () => {
     expect(warmth(s)).toBeCloseTo(0.21);
   });
 
-  // 6. Exits only when the calendar allows.
-  it('only allows an exit when the calendar opens it', () => {
+  // 6. No exits (#1302): the region resolves at the thaw, and then accepts no more work.
+  it('resolves at the thaw, and accepts no more work after', () => {
     const fresh = createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR });
-    // WHEN they try to leave on day 1
-    expect(() => choose(fresh, 'caravan')).toThrow(/not available/);
-    // WHEN the caravan has arrived
-    const day10 = advanceTo(fresh, 10);
-    const left = choose(day10, 'caravan');
-    expect(left.outcome?.choice).toBe('caravan');
-    // AND once resolved, the region accepts no more exits or work
-    expect(() => choose(left, 'winter')).toThrow(/already resolved/);
-    expect(runAction(left, 'rest')).toEqual(left);
+    const done = { ...advanceTo(fresh, 5), day: SHORT_YEAR.thawDay - 1 };
+    expect(done.outcome).toBeNull();
+    const thawed = runDay({ ...done, stores: { ...done.stores, rawFood: 2, water: 2 } }, []).state;
+    expect(thawed.outcome?.choice).toBe('thaw');
+    expect(runAction(thawed, 'rest')).toEqual(thawed);
   });
 });

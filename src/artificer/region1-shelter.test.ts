@@ -7,10 +7,9 @@
 import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
-import { fastForward, SHORT_YEAR } from './test-helpers';
-import { createRegion1, runAction, chooseSite, choose, runDay, warmth, winterReady, REGION1_MILESTONES, type Region1State } from './region1';
+import { SHORT_YEAR } from './test-helpers';
+import { createRegion1, runAction, chooseSite, runDay, warmth, winterReady, REGION1_MILESTONES, type Region1State } from './region1';
 import { createVitals } from './vitality';
-import { scout } from './exploration';
 
 /** Scouted, settled at `site`, with plenty of materials. */
 function camp(site: 'cave' | 'tree' = 'cave', over: Partial<Region1State> = {}): Region1State {
@@ -54,8 +53,8 @@ describe('Region 1 shelter & cold gear crafts', () => {
     expect(moved.shelterGrade).toBeNull();
   });
 
-  // 3. Cold gear is a graded tool; crude gear doesn't make the crossing.
-  it('makes cold gear a graded tool, and crude gear unfit for the road', () => {
+  // 3. Cold gear is a graded tool; crude gear can be remade.
+  it('makes cold gear a graded tool, and crude gear worth remaking', () => {
     const made = runAction(camp(), 'coldGear');
     expect(made.tools).toEqual([{ item: 'cold-gear', grade: 'sound' }]);
     expect(made.coldGear).toBe(true);
@@ -68,17 +67,8 @@ describe('Region 1 shelter & cold gear crafts', () => {
     const rested = runAction({ ...rough, vitals: createVitals() }, 'coldGear');
     expect(rested.tools.at(-1)).toEqual({ item: 'cold-gear', grade: 'sound' });
     expect(rested.coldGear).toBe(true);
-    expect(runAction(made, 'coldGear').log.at(-1)?.text).toMatch(/already have road-worthy cold gear/);
+    expect(runAction(made, 'coldGear').log.at(-1)?.text).toMatch(/already have sound cold gear/);
 
-    // On the road: crude gear turns you back where sound gear would get you across.
-    const road = (s: Region1State): Region1State => {
-      let st = { ...s, stores: { ...s.stores, rations: 8 } };
-      st = fastForward(st, SHORT_YEAR.caravanOpen);
-      // …and they've seen the pass out through the distant hills.
-      return { ...st, explore: scout(st.explore, 3), vitals: { ...st.vitals, condition: 90, vigor: { ...st.vitals.vigor, cap: 100 } } };
-    };
-    expect(choose(road(made), 'solo').outcome?.kind).toBe('crossed');
-    expect(choose(road(rough), 'solo').outcome?.kind).toBe('turnedBack');
   });
 
   // 4. A shovel lightens the build.
@@ -90,8 +80,8 @@ describe('Region 1 shelter & cold gear crafts', () => {
     expect(dug.vitals.vigor.current).toBeGreaterThan(plain.vitals.vigor.current);
   });
 
-  // 5. A tools-first plan also gets there before the caravan (second balance canary).
-  it('gets a tools-first player winter-ready before the caravan', () => {
+  // 5. A tools-first plan also gets winter-ready in nine days (second balance canary).
+  it('gets a tools-first player winter-ready in nine days', () => {
     let s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout'), 'cave');
     const plan = [
       ['wood', 'wood', 'knife'], ['build', 'track', 'water'], ['hunt', 'hunt', 'water'],
@@ -103,7 +93,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
       expect(r.remaining).toEqual([]);
       s = r.state;
     }
-    expect(s.day).toBe(SHORT_YEAR.caravanOpen);
+    expect(s.day).toBe(10);
     expect(winterReady(s)).toBe(true);
     expect(s.milestones).toEqual(REGION1_MILESTONES.map(m => m.id));
     expect(s.tools.map(t => t.item)).toEqual(['stone-knife', 'trap-snare']);

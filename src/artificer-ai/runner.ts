@@ -1,6 +1,6 @@
 /**
  * The AI play loop (#1226): observe → decide → apply → repeat, one decision
- * per game day, until the player takes an exit.
+ * per game day, until the thaw — or until the Warden's body gives out (#1302).
  *
  * Pure apart from awaiting the player, so it runs the same with a real model,
  * a scripted bot or a test double. Every decision goes through
@@ -8,8 +8,8 @@
  */
 
 import { scouted } from '../artificer/exploration';
-import { setFocus, createRegion1, chooseSite, choose, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
-import { availableChoices, type Calendar, type Choice } from '../artificer/winter';
+import { setFocus, createRegion1, chooseSite, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import type { Calendar } from '../artificer/winter';
 import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
 import { observe } from './observe';
 import { parseFocus } from '../artificer/focus';
@@ -39,7 +39,6 @@ export interface Turn {
   day: number;
   thoughts: string;
   site: SiteId | null;
-  exit: Choice | null;
   queue: QueueItem[];
   /** True when the reply stayed invalid after the retry and the day was passed. */
   invalid: boolean;
@@ -60,8 +59,6 @@ export interface RunResult {
   player: string;
   turns: Turn[];
   record: RunRecord;
-  /** Run ended by the day cap rather than the player's own exit. */
-  forced: boolean;
   usage: Usage;
   /** Progression at the start of the run, before day 1 (#1229). */
   start: Progress;
@@ -69,8 +66,6 @@ export interface RunResult {
 }
 
 export interface PlayOptions {
-  /** Stop and winter over if the player hasn't left by this day. */
-  maxDays?: number;
   legacy?: Legacy;
   /**
    * The Warden's character id (#1267). It seeds the talent offer and the hidden
@@ -107,12 +102,9 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   let s = createRegion1(opts.calendar ? { calendar: opts.calendar } : {}, opts.legacy, { id, name: player.name, chosen });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
-  // The cap can't end a run before any exit opens, so it is at least the caravan's first day.
-  const maxDays = Math.max(opts.maxDays ?? 16, s.config.calendar.caravanOpen);
   const turns: Turn[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
-  let forced = false;
 
   const ask = async (message: string): Promise<string> => {
     const r = await player.decide(message, s);
@@ -126,12 +118,6 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   };
 
   while (!s.outcome) {
-    if (s.day > maxDays) {
-      // A player that never leaves winters over, so every run ends in a recorded outcome.
-      if (availableChoices(s.day, s.config.calendar).includes('winter')) s = choose(s, 'winter');
-      forced = true;
-      break;
-    }
     const day = s.day;
     const logStart = s.log.length;
     let reply = await ask(observe(s, notes));
@@ -144,7 +130,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (!parsed.ok) {
       s = runDay(s, []).state;
       notes.push(`Your reply for day ${day} was invalid twice, so the day passed with nothing done.`);
-      const t: Turn = { day, thoughts: '', site: null, exit: null, queue: [], invalid: true, reply, errors: parsed.errors, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
+      const t: Turn = { day, thoughts: '', site: null, queue: [], invalid: true, reply, errors: parsed.errors, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
       turns.push(t); opts.onTurn?.(t);
       continue;
     }
@@ -155,15 +141,6 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     // reasonable, so when the land isn't scouted yet the claim waits until after the day's queue.
     const deferSite = !!d.site && d.site !== s.site && !scouted(s.explore, 1);
     if (d.site && d.site !== s.site && !deferSite) s = chooseSite(s, d.site);
-    if (d.exit) {
-      if (availableChoices(s.day, s.config.calendar).includes(d.exit)) {
-        s = choose(s, d.exit);
-        const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: d.exit, queue: [], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
-        turns.push(t); opts.onTurn?.(t);
-        break;
-      }
-      notes.push(`The ${d.exit} exit was not open on day ${day}; the day was played instead.`);
-    }
     // A build later in that same day still needs to know where: hand it the chosen site
     // (Build takes a `site` option, which claims the ground once the land is scouted).
     const queue = deferSite && d.site
@@ -176,11 +153,11 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     s = r.state;
     if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t: Turn = { day, thoughts: d.thoughts, site: d.site, exit: null, queue, invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
+    const t: Turn = { day, thoughts: d.thoughts, site: d.site, queue, invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
     turns.push(t); opts.onTurn?.(t);
   }
 
-  return { player: player.name, turns, record: summarizeRun(s, 1), forced, usage, start, final: s };
+  return { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s };
 }
 
 /** `{ violations }` only when something is broken, so clean transcripts stay clean. */

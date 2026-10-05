@@ -6,17 +6,17 @@
 
 import { SHORT_YEAR } from './test-helpers';
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, runDay, chooseSite, choose, STARTING_RECIPES, type Region1State } from './region1';
+import { createRegion1, runAction, runDay, chooseSite, STARTING_RECIPES, type Region1State } from './region1';
 import { summarizeRun, legacyOf, addRun, bestRun, HISTORY_CAP, type RunRecord } from './legacy';
 
-/** A short run that learns something, then winters over badly on day 10. */
+/** A short run that learns something, then sits out the short year's winter to the thaw (day 43). */
 function finishedRun(): Region1State {
   let s = chooseSite(runAction(createRegion1({ calendar: SHORT_YEAR }), 'scout'), 'cave');
-  s = { ...s, stores: { ...s.stores, materials: 10, rawFood: 30, water: 30 } };
+  s = { ...s, stores: { ...s.stores, materials: 10, rawFood: 60, water: 60 } };
   s = runDay(s, ['build', 'track']).state; // roof (→ shovel), tracking (→ snare)
   s = runDay(s, [{ q: 'study', opts: { concept: 'sealing' } }]).state; // sealing 1 (→ waterskin, hide parka)
-  while (s.day < SHORT_YEAR.caravanOpen) s = runDay(s, ['rest']).state;
-  return choose(s, 'winter');
+  while (!s.outcome) s = runDay(s, ['rest']).state;
+  return s;
 }
 
 const rec = (run: number, kind: RunRecord['kind']): RunRecord => ({
@@ -29,7 +29,7 @@ describe('Run history & legacy', () => {
   it('summarises a finished run', () => {
     const s = finishedRun();
     const r = summarizeRun(s, 3);
-    expect(r).toMatchObject({ run: 3, day: 10, choice: 'winter', kind: 'grim', injury: null, readyDay: null, site: 'cave', tier: 1, shelterType: 'leanto' });
+    expect(r).toMatchObject({ run: 3, day: SHORT_YEAR.thawDay, choice: 'thaw', kind: 'survived', injury: null, readyDay: null, site: 'cave', tier: 1, shelterType: 'leanto' });
     expect(r.recipes).toBe(s.known.length);
     expect(r.milestones).toBe(s.milestones.length);
     expect(r.topConcept).toEqual({ id: 'sealing', rank: 1 });

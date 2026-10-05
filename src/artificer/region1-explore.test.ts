@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { fastForward, SHORT_YEAR } from './test-helpers';
-import { createRegion1, runAction, chooseSite, choose, routeKnown, queueHours, parseQueueId, type Region1State } from './region1';
+import { createRegion1, runAction, chooseSite, routeKnown, queueHours, parseQueueId, type Region1State } from './region1';
 import { level, scouted, survey, track, scout, createExploration } from './exploration';
 
 const scoutedNear = (): Region1State => runAction(createRegion1(), 'scout');
@@ -56,16 +55,10 @@ describe('Region 1 exploration rings', () => {
     expect(s.explore.worked[1].game).toBe(6);
   });
 
-  // 5. The solo crossing needs the pass seen in the distant hills.
-  it('requires the pass for the solo crossing', () => {
-    let s = chooseSite(runAction(createRegion1({ calendar: SHORT_YEAR }), 'scout'), 'cave');
-    s = { ...s, coldGear: true, stores: { ...s.stores, rations: 10 } };
-    s = fastForward(s, SHORT_YEAR.caravanOpen);
-    s = { ...s, vitals: { ...s.vitals, condition: 90, vigor: { ...s.vitals.vigor, cap: 100 } } };
+  // 5. The pass out shows only from the distant hills.
+  it('reveals the pass only once the distant ring is scouted', () => {
+    const s = chooseSite(runAction(createRegion1(), 'scout'), 'cave');
     expect(routeKnown(s)).toBe(false);
-    expect(choose(s, 'solo').outcome?.kind).toBe('turnedBack');
-    const seen = { ...s, explore: scout(scout(s.explore, 2), 3) };
-    expect(routeKnown(seen)).toBe(true);
-    expect(choose(seen, 'solo').outcome?.kind).toBe('crossed');
+    expect(routeKnown({ ...s, explore: scout(scout(s.explore, 2), 3) })).toBe(true);
   });
 });

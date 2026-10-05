@@ -10,8 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, blockedReason, DAY_HOURS, setFocus, chooseSite, choose, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
-import type { Choice } from '../artificer/winter';
+import { ACTIONS, blockedReason, DAY_HOURS, setFocus, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
@@ -112,7 +111,8 @@ export function clearQueue(a: AppState): AppState {
 export function runQueuedDay(a: AppState): AppState {
   if (a.sim.outcome) return a;
   const r = runDay(a.sim, a.queue);
-  return { sim: r.state, queue: r.remaining };
+  // A run that ends tonight (the thaw, or the body giving out) leaves nothing to plan.
+  return { sim: r.state, queue: r.state.outcome ? [] : r.remaining };
 }
 
 /** Run day after day until the queue is empty (or the region resolves). */
@@ -133,13 +133,6 @@ export function settle(a: AppState, site: SiteId): AppState {
   return { ...a, sim: chooseSite(a.sim, site) };
 }
 
-/**
- * Take an exit. Throws (via the sim) if the calendar hasn't opened it — the
- * UI only offers open exits, so a throw here means a bug, not a player error.
- */
-export function takeExit(a: AppState, choice: Choice): AppState {
-  return { sim: choose(a.sim, choice), queue: [] };
-}
 
 // ── Planning previews ───────────────────────────────────────────────────────
 

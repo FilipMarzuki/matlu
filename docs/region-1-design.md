@@ -12,11 +12,16 @@
 
 Region 1 is the game's opening region **and** its hidden tutorial. The Warden
 arrives alone and with nothing in a fully fogged **Greywind Reach**, and
-**winter is coming.** The goal is not to run down a timer but to **be ready for
-it** — a winterized shelter, a stocked larder, fuel for warmth, and a sound body
-and mind to enter the cold on. A **caravan passes through just before the snow**;
-by then the player chooses how to leave — or whether to let it pass and winter
-over in the home they've prepared.
+**winter is coming.** The goal is to **survive it**: thirty days of autumn to
+build a winterized shelter, a stocked larder, fuel for warmth and a sound body
+and mind — then thirty days of winter, played day by day, living on what you
+laid by, until the thaw. A caravan comes up the valley in spring and takes the
+survivors on (#1307).
+
+> **Revised by epic #1310 (#1301, #1302).** The first draft ended Region 1 at an
+> autumn exit — a caravan before the snow, a solo crossing, or wintering over
+> resolved in one step. Now winter is played, the goal is to be alive at the
+> thaw, and there are no autumn exits. §3–§7 below describe the current design.
 
 The region teaches every core system in order (fog → exploration → site rating →
 shelter → the Vigor/Clarity loop → Condition → first crafting → a light brush
@@ -54,11 +59,13 @@ ahead* rather than live hand-to-mouth:
 | **Warmth & fuel** | Firewood / a hearth / cold-weather gear to keep Clarity recovering through the freeze | gathering, crafting, the warmth gate on recovery |
 | **A sound body & mind** | Vigor & Clarity capacity at/above baseline, Condition **Sound**, to *enter* winter on | the vitality loop, recovery, capacity growth |
 
-**Win state: winter-ready** — larder stocked to a threshold, shelter winterized,
-fuel in, body & mind sound. That readiness check naturally sequences the whole
-loop: explore → choose a site → build → secure *and store* food/water → lay in
-fuel → settle the recover rhythm. The proof, if you stay, is **making it through
-the first hard stretch of winter** on what you laid by.
+**Winter-ready** — larder stocked to a threshold, shelter winterized, fuel in,
+body & mind sound — is a milestone and a rough guide, not the win. It sequences
+the loop: explore → choose a site → build → secure *and store* food/water → lay
+in fuel → settle the recover rhythm. The **winter outlook** (#1302) turns it into
+plain numbers: nights of food, water and firewood at the rates the nights use,
+and how the shelter stands against a midwinter night. **The win is the winter
+itself**: being alive at the thaw.
 
 By the end a well-played Warden enters winter **at or above baseline** — the
 reward for good preparation is that you meet the cold stronger than you arrived
@@ -84,113 +91,67 @@ can tackle steps in any order, and the milestones simply celebrate and signpost.
 
 ---
 
-## 3. The clock: winter is the deadline
+## 3. The year: 30 days of autumn, 30 of winter (#1301)
 
-Winter itself is the deadline, and the **caravan passes just before it sets in**
-(~Day 8–12) — the last easy way out before the snow. A window, not a hard wall:
+| Days | Season | Daylight | Mean temperature |
+|---|---|---|---|
+| 1–30 | Autumn — prepare | 11½ h → 8 h | 10 °C → −2 °C |
+| 31–60 | Winter — survive | 8 h → 6 h (midwinter, day 45) → 7½ h | −2 °C → −12 °C → −4 °C |
+| 61 | The thaw — the run ends | | |
 
-- **Winter-ready before the caravan** → you meet it prepared, with surplus goods
-  to trade, and choose freely: leave with it, leave solo, or let it pass and
-  winter over in a base you've made warm.
-- **Still scrambling when it comes** → you can still board or cross, but ragged:
-  lower capacity, maybe nursing an injury, nothing to trade — and no larder to
-  fall back on if you then try to stay.
-- **The first cold snap is winter's leading edge**, and the exposure test. A bad
-  shelter site (exposed Hilltop) risks **frostbite** — a gentle first taste of
-  the permanent-injury stakes (vitality §3); a warm, well-sited shelter shrugs it
-  off. This is where the site-rating and fuel choices finally bite.
+Weather follows the season: early autumn is mild; late autumn (from day 16)
+brings wind and storms, with early snow from day 20; in winter snow is the
+commonest weather and a storm is a blizzard. Streams ice over once the mean
+drops below freezing. The last three days of autumn press the mind toward
+survival if you're not ready.
 
 ---
 
-## 4. The two exits
+## 4. Winter is played (#1302)
 
-Region 1 has two ways out, teaching two different lessons. Neither is a hard
-wall — the solo path is **costly, not blocked**.
-
-### 4a. The caravan — the assisted door
-
-A traveller/caravan passing through, bound for a settlement (Mistheim — ties to
-the cultures/settlement layer). It is the **easy, safe exit**: hand-off to
-Region 2 with help. Interacting with it is non-combat and offers:
-
-- **Tag along** — travel with them; fast, safe; your conditioning carries
-  (persistent save), and they can hand you a leg-up: a tool, a companion, or
-  **partial intel on Region 2** (arrive less fogged).
-- **Trade** — your first use of the crafting economy: sell crafted goods for
-  supplies or next-region knowledge, whether or not you board.
-
-### 4b. Solo overland / sea crossing — the hard door
-
-A prepared Warden can always **walk or sail out** alone. The distance is long
-enough — a **winter stretch** — that it demands real **nomad-survival
-capability** first. Hard but not impossible: prepare and you make it; don't and
-you turn back or get hurt. This is the "cost" that replaces a hard lock.
-
-Leaving the fixed outpost behind means sustaining the vitality loop **on the
-move** — a travel variant of everything learned so far (see §6).
-
-The **sail** variant opens if the player settled the coast/riverbank and built
-or found a boat: a different route with its own hazards (weather at sea), tied to
-the site they chose.
+There are **no exits** in autumn. The snow falls on day 31 and the days go on —
+the same daily queue, darker and colder. You live on the larder (raw food
+first, then preserved rations, one a night), your water, your fuel and your
+shelter. Winter's own rules come in parts: nights against the deep cold and
+melting snow for water (#1303), snow cover, scarce game, ice fishing and
+blizzard days (#1304), rationing and cabin fever (#1305).
 
 ---
 
-## 5. The ending branch — wander or root
+## 5. The ending: alive at the thaw
 
-The exit is the first expression of the persistent, player-authored world, and a
-reusable template for *every* future region boundary:
+The run ends on the morning of **day 61**, graded by how the Warden came
+through:
 
-1. **Leave with the caravan** — assisted; help in hand; the Reach outpost becomes
-   a claimable node you could return to.
-2. **Leave solo** — the hard crossing (§4b); no help, but no dependence; you
-   arrive in Region 2 on your own terms (and your own supplies).
-3. **Let it pass and winter over** — stay and ride out the cold in the home
-   you've prepared, then keep building the Reach into a real base. Only viable if
-   you're genuinely winter-ready (§2); the caravan leaves a gift / a contact / a
-   rumor, and the world opens differently: you're a settled artificer others may
-   come *to*. Wintering over successfully is itself the proof of preparation.
+| Grade | Condition at the thaw |
+|---|---|
+| **Hale** | 70+ and no lasting injury |
+| **Worn** | 40–69 |
+| **Broken** | below 40, or a lasting injury |
 
-All three carry the same persistent character forward (vitality §11). The
-recurring question of the game becomes **"wander or root?"** — framed here as
-*flee the winter with help, brave it alone on the road, or hunker down and
-outlast it.*
+Surviving ranks above every old exit in the run history. A survivor goes on:
+the **spring caravan** comes up the thawing valley and takes them onto the road
+to Mistheim (Region 1.5, #1307) — arriving thriving if hale, ragged otherwise.
 
 ---
 
-## 6. Nomad survival — the travel variant of the vitality loop
+## 6. Nomad survival — later
 
-The solo exit (and later long-distance travel) runs the Vigor/Clarity loop
-**without a fixed shelter**. It's the same economy with the supports removed, so
-Region 1 is where the player must have *built* these first:
-
-| Need | On a fixed base | On the road (nomad) |
-|---|---|---|
-| **Shelter** | A built outpost → deep sleep | **Portable** tent/lean-to you carry → thinner sleep, slower Clarity recovery |
-| **Food / water** | Repeatable local source | **Preserved** rations + water you stockpiled (crafting: smoking/drying/salting, waterskins) |
-| **Warmth** | The site breaks the weather | **Crafted cold-weather gear** cuts exposure drain & frostbite risk |
-| **Recovery** | Full nightly reset | Partial — so you must **leave with a capacity/Condition buffer** and spend it down over the crossing |
-| **Direction** | n/a | **Route knowledge** — scout/Lookout the region edge to reveal the pass/road/coast; an unknown route is harder |
-
-This is why **stability-first matters even for the solo path**: the crossing
-spends a buffer you can only build by getting established. It also seeds a
-reusable "expedition" mode for later regions.
+The draft's solo crossing (the vitality loop on the move: portable shelter,
+preserved rations, cold gear, route knowledge) is gone from Region 1. The idea
+stays for later long-distance travel and expedition modes; the pass glimpsed
+from the distant hills (`routeKnown`) is kept as a find for that.
 
 ---
 
-## 7. Failure & soft-fail
+## 7. Failure
 
-Consistent with the no-hard-death persistent save:
-
-- **Miss the caravan window** → it moves on; you're not stranded forever, but
-  your easy exit is gone: winter is now either braved solo on the road or waited
-  out in place, both on whatever you managed to lay in. Not a game-over.
-- **Attempt the crossing underprepared** → you turn back having spent Vigor/
-  Clarity and Condition, possibly with a **cold injury** (permanent, vitality
-  §3) — a real setback, never a restart.
-- **Winter over underprepared** (thin larder, cold shelter, no fuel) → the cold
-  grinds you down: Condition erodes, capacity drifts below baseline, frostbite
-  risk climbs. You survive, but limp out of winter weaker — the pressure is
-  economic and bodily, not a fail screen.
+- **The body gives out before the thaw** — Condition reaches 0: dead of thirst
+  or hunger, or found collapsed. Death ends the character; a collapse ends the
+  run (vitality §3, #1234).
+- **Coming through badly** — a thin larder, a cold shelter or no fuel grinds
+  Condition down through the winter; you may still reach the thaw, but *worn* or
+  *broken*.
 
 ---
 
@@ -218,9 +179,8 @@ Consistent with the no-hard-death persistent save:
    N rations (how many?), a shelter at/above some warmth tier, X units of fuel,
    capacity ≥ baseline on both pools, Condition ≥ Sound — and is it a hard
    checklist or a soft score?
-2. **Window & winter length** — are Day 8–12 (caravan) and the winter that
-   follows the right pacing for a ~first-hour tutorial? How long is winter itself
-   if you stay, and does it have its own internal beats (deep-freeze, thaw)?
+2. ~~**Window & winter length**~~ — settled by epic #1310: 30 days of autumn,
+   30 of winter with a midwinter low, the thaw on day 61 (§3–§5).
 3. **Arrival hook** — washed up / exiled / waking? This sets tone and whether the
    Warden has *any* starting kit.
 4. **Caravan generosity** — how much of a leg-up (tool? companion? Region-2
