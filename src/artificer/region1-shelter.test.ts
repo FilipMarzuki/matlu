@@ -7,15 +7,14 @@
 import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
-import { fastForward } from './test-helpers';
+import { fastForward, SHORT_YEAR } from './test-helpers';
 import { createRegion1, runAction, chooseSite, choose, runDay, warmth, winterReady, REGION1_MILESTONES, type Region1State } from './region1';
 import { createVitals } from './vitality';
-import { DEFAULT_CALENDAR } from './winter';
 import { scout } from './exploration';
 
 /** Scouted, settled at `site`, with plenty of materials. */
 function camp(site: 'cave' | 'tree' = 'cave', over: Partial<Region1State> = {}): Region1State {
-  const s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD }), 'scout'), site);
+  const s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout'), site);
   return { ...s, stores: { ...s.stores, materials: 20 }, ...over };
 }
 
@@ -74,7 +73,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
     // On the road: crude gear turns you back where sound gear would get you across.
     const road = (s: Region1State): Region1State => {
       let st = { ...s, stores: { ...s.stores, rations: 8 } };
-      st = fastForward(st, DEFAULT_CALENDAR.caravanOpen);
+      st = fastForward(st, SHORT_YEAR.caravanOpen);
       // …and they've seen the pass out through the distant hills.
       return { ...st, explore: scout(st.explore, 3), vitals: { ...st.vitals, condition: 90, vigor: { ...st.vitals.vigor, cap: 100 } } };
     };
@@ -93,7 +92,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
 
   // 5. A tools-first plan also gets there before the caravan (second balance canary).
   it('gets a tools-first player winter-ready before the caravan', () => {
-    let s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD }), 'scout'), 'cave');
+    let s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout'), 'cave');
     const plan = [
       ['wood', 'wood', 'knife'], ['build', 'track', 'water'], ['hunt', 'hunt', 'water'],
       ['wood', 'wood', 'snare'], ['wood', 'preserve', 'preserve'], ['wood', 'build'],
@@ -104,7 +103,7 @@ describe('Region 1 shelter & cold gear crafts', () => {
       expect(r.remaining).toEqual([]);
       s = r.state;
     }
-    expect(s.day).toBe(DEFAULT_CALENDAR.caravanOpen);
+    expect(s.day).toBe(SHORT_YEAR.caravanOpen);
     expect(winterReady(s)).toBe(true);
     expect(s.milestones).toEqual(REGION1_MILESTONES.map(m => m.id));
     expect(s.tools.map(t => t.item)).toEqual(['stone-knife', 'trap-snare']);

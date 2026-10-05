@@ -12,10 +12,10 @@
 import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
-import { fastForward } from './test-helpers';
+import { fastForward, SHORT_YEAR } from './test-helpers';
 import { createRegion1, runAction, chooseSite, runDay, choose, winterReady, REGION1_MILESTONES, type QueueId, type Region1State } from './region1';
 import { BASELINE } from './vitality';
-import { DEFAULT_CALENDAR, PENALTY } from './winter';
+import { PENALTY } from './winter';
 
 /**
  * A careful player: cave on day 1, a roof the first night, then stock up —
@@ -35,7 +35,7 @@ const GOOD_PLAN: QueueId[][] = [
 
 /** Play the careful run up to the caravan's arrival (day 10). */
 function playGood(): Region1State {
-  let s = createRegion1({ world: FLAT_WORLD });
+  let s = createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR });
   s = runAction(s, 'scout');
   s = chooseSite(s, 'cave');
   for (const day of GOOD_PLAN) {
@@ -48,8 +48,8 @@ function playGood(): Region1State {
 
 /** A neglectful player: looks around once, then mostly sits about. */
 function playNeglect(): Region1State {
-  let s = runAction(createRegion1({ world: FLAT_WORLD }), 'scout');
-  s = fastForward(s, DEFAULT_CALENDAR.caravanOpen, ['rest', 'rest']);
+  let s = runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout');
+  s = fastForward(s, SHORT_YEAR.caravanOpen, ['rest', 'rest']);
   return s;
 }
 
@@ -57,7 +57,7 @@ describe('Region 1 playthrough (headless e2e)', () => {
   // 1. A good run is winter-ready before the caravan and climbs the whole ladder.
   it('gets a careful player winter-ready before the caravan, with every milestone', () => {
     const s = playGood();
-    expect(s.day).toBe(DEFAULT_CALENDAR.caravanOpen);
+    expect(s.day).toBe(SHORT_YEAR.caravanOpen);
     expect(winterReady(s)).toBe(true);
     expect(s.milestones).toEqual(REGION1_MILESTONES.map(m => m.id));
     // They also came out stronger than they arrived, and never went hungry.
@@ -95,7 +95,7 @@ describe('Region 1 playthrough (headless e2e)', () => {
   // 4. The caravan can't be boarded once its window has closed.
   it('refuses the caravan after its window closes, leaving solo and winter', () => {
     let s = playGood();
-    s = fastForward(s, DEFAULT_CALENDAR.caravanClose + 1);
+    s = fastForward(s, SHORT_YEAR.caravanClose + 1);
     expect(() => choose(s, 'caravan')).toThrow(/not available/);
     expect(choose(s, 'winter').outcome?.kind).toBeDefined();
     expect(choose(s, 'solo').outcome?.kind).toBeDefined();

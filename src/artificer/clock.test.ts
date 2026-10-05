@@ -23,11 +23,12 @@ describe('Clock and daylight (#1280)', () => {
     expect(lightAt(1, 5)).toBe(0);
   });
 
-  // 2. Day 13: 8:30 to 15:30 — seven hours of daylight.
-  it('shrinks daylight to seven hours by day 13', () => {
-    expect(sunrise(13)).toBe(8.5);
-    expect(sunset(13)).toBe(15.5);
-    expect(sunset(13) - sunrise(13)).toBe(7);
+  // 2. Daylight follows the year (#1301): about 8 hours as autumn ends, 6 at midwinter.
+  it('shrinks daylight to about eight hours by the end of autumn', () => {
+    expect(sunset(30) - sunrise(30)).toBeCloseTo(8, 10);
+    // A third of the light lost comes off the morning, two thirds off the evening.
+    expect(sunrise(30)).toBeCloseTo(7 + 3.5 / 3, 10);
+    expect(sunset(30)).toBeCloseTo(18.5 - 7 / 3, 10);
   });
 
   // 3. A span's light is its average. 06:00–10:00 on day 1: an hour of dawn twilight (06–07), then three of day.

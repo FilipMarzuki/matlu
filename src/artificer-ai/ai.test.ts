@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { fastForward } from '../artificer/test-helpers';
+import { fastForward, SHORT_YEAR } from '../artificer/test-helpers';
 import { createRegion1, runAction, setFocus } from '../artificer/region1';
 import { DEFAULT_CALENDAR } from '../artificer/winter';
 import { observe, RULES } from './observe';
@@ -26,7 +26,9 @@ const json = (o: unknown): string => JSON.stringify(o);
 describe('AI player harness', () => {
   // 1. The observation carries what a player needs.
   it('observes the state as text', () => {
-    const s = runAction(createRegion1(), 'scout');
+    expect(observe(runAction(createRegion1(), 'scout'))).toMatch(new RegExp(`^DAY 1 — autumn, caravan arrives day ${DEFAULT_CALENDAR.caravanOpen}`));
+    // The rest of this test plays the short year (#1301), so the caravan comes on day 10.
+    const s = runAction(createRegion1({ calendar: SHORT_YEAR }), 'scout');
     const text = observe(s);
     expect(text).toMatch(/^DAY 1 — autumn, caravan arrives day 10/);
     expect(text).toMatch(/STORES: food 2 · water 2/);
@@ -37,7 +39,7 @@ describe('AI player harness', () => {
     expect(observe(s, ['2 queued action(s) were dropped.'])).toMatch(/NOTE: 2 queued action\(s\) were dropped\./);
 
     let late = s;
-    late = fastForward(late, DEFAULT_CALENDAR.caravanOpen);
+    late = fastForward(late, SHORT_YEAR.caravanOpen);
     expect(observe(late)).toMatch(/EXITS OPEN: caravan, solo, winter\. If taken today: caravan → ragged, solo → turnedBack, winter → grim\. Solo crossing prepared: no/);
     // The rules are static (cacheable) and describe the response contract.
     expect(RULES).toMatch(/Reply with ONLY a JSON object/);
@@ -73,7 +75,7 @@ describe('AI player harness', () => {
     const leave = json({ thoughts: 'go', site: null, exit: 'winter', queue: [] });
     const texts = ['oops', day1, 'still bad', 'bad again', ...Array(7).fill(rest), leave];
     const p = replay(texts);
-    const r = await playRun(p);
+    const r = await playRun(p, { calendar: SHORT_YEAR });
     expect(r.turns[0]).toMatchObject({ day: 1, invalid: false, thoughts: 'look around', queue: ['scout', 'wood'] });
     expect(p.seen[1]).toMatch(/Your reply was invalid/);
     expect(r.turns[1]).toMatchObject({ day: 2, invalid: true });
@@ -84,29 +86,29 @@ describe('AI player harness', () => {
 
     // An exit asked for too early is noted and the day is played instead.
     const early = replay([json({ thoughts: '', site: null, exit: 'caravan', queue: [{ action: 'scout', ring: 1, options: [] }] }), rest]);
-    const e = await playRun(early, { maxDays: 3 });
+    const e = await playRun(early, { maxDays: 3, calendar: SHORT_YEAR });
     expect(early.seen[1]).toMatch(/NOTE: The caravan exit was not open on day 1/);
     expect(e.turns[0].queue).toEqual(['scout']);
     // (A cap below the caravan's day is raised to it: the run still ends in a real exit.)
-    expect(e.record.day).toBe(DEFAULT_CALENDAR.caravanOpen + 1);
+    expect(e.record.day).toBe(SHORT_YEAR.caravanOpen + 1);
     expect(e.forced).toBe(true);
 
     // A player that never leaves is wintered over at the cap.
-    const stubborn = await playRun(replay([rest]), { maxDays: 13 });
+    const stubborn = await playRun(replay([rest]), { maxDays: 13, calendar: SHORT_YEAR });
     expect(stubborn.forced).toBe(true);
     expect(stubborn.record.choice).toBe('winter');
     expect(stubborn.record.day).toBe(14);
 
     // …and one that truly does nothing dies of thirst long before the caravan.
-    const idle = await playRun(replay([json({ thoughts: 'nothing', site: null, exit: null, queue: [] })]));
+    const idle = await playRun(replay([json({ thoughts: 'nothing', site: null, exit: null, queue: [] })]), { calendar: SHORT_YEAR });
     expect(idle.record).toMatchObject({ kind: 'died', choice: 'collapse' });
-    expect(idle.record.day).toBeLessThan(DEFAULT_CALENDAR.caravanOpen);
+    expect(idle.record.day).toBeLessThan(SHORT_YEAR.caravanOpen);
   });
 
   // 4. The scripted baseline is winter-ready before the caravan and thrives, every time.
   it('has a scripted baseline that thrives', async () => {
     const a = await playRun(scriptedPlayer());
-    expect(a.record).toMatchObject({ kind: 'thrive', choice: 'caravan', day: 10 });
+    expect(a.record).toMatchObject({ kind: 'thrive', choice: 'caravan', day: DEFAULT_CALENDAR.caravanOpen });
     expect(a.record.readyDay).toBeLessThan(DEFAULT_CALENDAR.caravanOpen);
     expect(a.turns.some(t => t.invalid)).toBe(false);
     const b = await playRun(scriptedPlayer());
@@ -116,14 +118,14 @@ describe('AI player harness', () => {
   // #1227 — "scout, then settle" on day 1 must work: the site claim waits for the queue.
   it('defers a site claim until the near ring is scouted', async () => {
     const day1 = json({ thoughts: 'scout then settle', site: 'cave', exit: null, queue: [{ action: 'scout', ring: 1, options: [] }] });
-    const run = await playRun(replay([day1, json({ thoughts: 'go', site: null, exit: 'winter', queue: [] })]), { maxDays: 10 });
+    const run = await playRun(replay([day1, json({ thoughts: 'go', site: null, exit: 'winter', queue: [] })]), { maxDays: 10, calendar: SHORT_YEAR });
     expect(run.turns[0].journal.join('\n')).not.toMatch(/Can't stake a claim/);
     expect(run.turns[0].journal.join('\n')).toMatch(/Chose the cave/);
 
     // …and a build queued in that same day settles on the chosen site.
     const withBuild = json({ thoughts: 'scout, cut, build', site: 'cave', exit: null, queue: [
       { action: 'scout', ring: 1, options: [] }, { action: 'wood', ring: 1, options: [] }, { action: 'build', ring: 1, options: [] }] });
-    const built = await playRun(replay([withBuild, json({ thoughts: 'go', site: null, exit: 'winter', queue: [] })]), { maxDays: 10 });
+    const built = await playRun(replay([withBuild, json({ thoughts: 'go', site: null, exit: 'winter', queue: [] })]), { maxDays: 10, calendar: SHORT_YEAR });
     expect(built.turns[0].journal.join('\n')).not.toMatch(/choose a location/);
     expect(built.turns[0].journal.join('\n')).toMatch(/Raised a .*lean-to/);
   });
@@ -147,7 +149,7 @@ describe('AI player harness', () => {
   // …and the report folds runs into per-model day-by-day means and first-event days.
   it('aggregates runs per model', async () => {
     const a = await playRun(scriptedPlayer());
-    const stub = await playRun(replay([json({ thoughts: 'stay', site: null, exit: null, queue: [{ action: 'water', ring: 1, options: [] }, { action: 'gather', ring: 1, options: [] }, { action: 'rest', ring: 1, options: [] }] })]), { maxDays: 10 });
+    const stub = await playRun(replay([json({ thoughts: 'stay', site: null, exit: null, queue: [{ action: 'water', ring: 1, options: [] }, { action: 'gather', ring: 1, options: [] }, { action: 'rest', ring: 1, options: [] }] })]), { maxDays: 10, calendar: SHORT_YEAR });
     const asT = (r: typeof a, player: string): Transcript => ({ ...r, player } as unknown as Transcript);
     const [best, worst] = aggregate([asT(a, 'scripted'), asT(a, 'scripted'), asT(stub, 'openrouter:lazy/model')]);
     expect(best).toMatchObject({ model: 'scripted', runs: 2, outcomes: { thrive: 2 }, readyRuns: 2, readyDay: a.record.readyDay });
@@ -197,14 +199,14 @@ describe('AI player harness', () => {
     const reply = json({ thoughts: 'rest', site: null, exit: null, queue: [{ action: 'rest', ring: 1, options: [] }] });
     const priced: Player = { name: 'openrouter:paid/model', async decide() { return { text: reply, usage: { input: 10, output: 2, cost: 0.001 } }; } };
     const unpriced: Player = { name: 'openrouter:mystery/model', async decide() { return { text: reply }; } };
-    const paid = await playRun(priced, { maxDays: 10 });
+    const paid = await playRun(priced, { maxDays: 10, calendar: SHORT_YEAR });
     expect(paid.usage.cost).toBeCloseTo(0.001 * paid.turns.length, 10);
-    expect((await playRun(unpriced, { maxDays: 10 })).usage.cost).toBeNull();
+    expect((await playRun(unpriced, { maxDays: 10, calendar: SHORT_YEAR })).usage.cost).toBeNull();
     const free = await playRun(scriptedPlayer());
     expect(free.usage.cost).toBe(0);
 
     const asT = (r: typeof paid, player: string): Transcript => ({ ...r, player } as unknown as Transcript);
-    const old = asT(await playRun(unpriced, { maxDays: 10 }), 'openrouter:old/model');
+    const old = asT(await playRun(unpriced, { maxDays: 10, calendar: SHORT_YEAR }), 'openrouter:old/model');
     const byModel = Object.fromEntries(aggregate([asT(paid, 'openrouter:paid/model'), asT(paid, 'openrouter:paid/model'), asT(free, 'scripted'), old]).map(m => [m.model, m.cost]));
     expect(byModel['paid/model']).toEqual({ perGame: Math.round(paid.usage.cost! * 1e4) / 1e4, total: Math.round(2 * paid.usage.cost! * 1e4) / 1e4, perThrive: null, estimated: false });
     expect(byModel.scripted).toMatchObject({ perGame: 0, total: 0, perThrive: 0 });
@@ -222,7 +224,7 @@ describe('AI player harness', () => {
   // #1238 — the AI sets its focus in the reply; null keeps it; bad values are explained.
   it('lets the AI choose a focus', async () => {
     const day = (focus: string | null) => json({ thoughts: 'x', focus, site: null, exit: null, queue: [{ action: 'water', ring: 1, options: [] }, { action: 'gather', ring: 1, options: [] }] });
-    const run = await playRun(replay([day('goal:larder'), day(null), json({ thoughts: 'go', focus: null, site: null, exit: 'winter', queue: [] })]), { maxDays: 10 });
+    const run = await playRun(replay([day('goal:larder'), day(null), json({ thoughts: 'go', focus: null, site: null, exit: 'winter', queue: [] })]), { maxDays: 10, calendar: SHORT_YEAR });
     expect(run.final.focus).toEqual({ kind: 'goal', id: 'larder' });
     const bad = parseDecision(json({ thoughts: '', focus: 'goal:fame', site: null, exit: null, queue: [] }));
     expect(bad.ok).toBe(false);

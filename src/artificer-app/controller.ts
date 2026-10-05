@@ -251,10 +251,13 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const strings = (x: unknown): string[] => (Array.isArray(x) && x.every(v => typeof v === 'string') ? [...x] : []);
   // …and saves from before the living world (#1279) play the full world.
   const cfg = sim.config as Record<string, unknown>;
-  const config = { ...(cfg as unknown as Region1State['config']), world: validWorld(cfg.world) ? { ...cfg.world } : { ...FULL_WORLD } };
+  // …and saves from before the 60-day year (#1301) keep their calendar, with a 30-day winter after it.
+  const cal = cfg.calendar as Region1State['config']['calendar'];
+  const calendar = isNum(cal.thawDay) ? { ...cal } : { ...cal, thawDay: cal.winterDay + 30 };
+  const config = { ...(cfg as unknown as Region1State['config']), calendar, world: validWorld(cfg.world) ? { ...cfg.world } : { ...FULL_WORLD } };
   // …and saves from before weather (#1282) get today's weather and no forecast.
   const day = isNum(sim.day) ? sim.day : 1;
-  const weatherToday = WEATHER_IDS.includes(sim.weatherToday as never) ? sim.weatherToday as Region1State['weatherToday'] : weatherFor(seedOf(character.id), day, config.world);
+  const weatherToday = WEATHER_IDS.includes(sim.weatherToday as never) ? sim.weatherToday as Region1State['weatherToday'] : weatherFor(seedOf(character.id), day, config.world, config.calendar);
   const forecast = isObj(sim.forecast) && Object.values(sim.forecast).every(w => WEATHER_IDS.includes(w as never)) ? { ...(sim.forecast as Region1State['forecast']) } : {};
   return { sim: { ...(sim as unknown as Region1State), config, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
 }

@@ -18,9 +18,43 @@ export interface Calendar {
   caravanClose: number;
   /** The snow arrives. */
   winterDay: number;
+  /** The thaw: winter is over (#1301). */
+  thawDay: number;
 }
 
-export const DEFAULT_CALENDAR: Calendar = { caravanOpen: 10, caravanClose: 12, winterDay: 13 };
+/**
+ * The 60-day year (#1301, epic #1310): autumn on days 1–30, snow on day 31,
+ * the thaw on day 61. Until winter is played (#1302) the caravan still offers
+ * the old exits, on the last three days of autumn.
+ */
+export const DEFAULT_CALENDAR: Calendar = { caravanOpen: 28, caravanClose: 30, winterDay: 31, thawDay: 61 };
+
+// ── Seasons (#1301) ─────────────────────────────────────────────────────────
+
+export type Season = 'autumn' | 'winter' | 'thaw';
+
+/** Which season a day falls in. */
+export function seasonOf(day: number, cal: Calendar = DEFAULT_CALENDAR): Season {
+  if (day < cal.winterDay) return 'autumn';
+  return day < cal.thawDay ? 'winter' : 'thaw';
+}
+
+/** Midwinter — the shortest, coldest days — comes this many days after the first snow. */
+export const MIDWINTER_AFTER = 14;
+
+/**
+ * A value that follows the year: given its level on day 1, the last day of
+ * autumn, midwinter and the last day of winter, it runs in straight lines
+ * between them (and carries on the last slope past the thaw). Daylight and
+ * temperature are both shaped this way, so they stretch with the calendar.
+ */
+export function seasonCurve(day: number, cal: Calendar, levels: readonly [number, number, number, number]): number {
+  const days = [1, cal.winterDay - 1, cal.winterDay + MIDWINTER_AFTER, cal.thawDay - 1];
+  let seg = 0;
+  while (seg < days.length - 2 && day > days[seg + 1]) seg++;
+  const [d0, d1] = [days[seg], days[seg + 1]];
+  return levels[seg] + (levels[seg + 1] - levels[seg]) * (day - d0) / (d1 - d0);
+}
 
 export type Phase = 'prep' | 'caravan' | 'postCaravan' | 'winter';
 export type Choice = 'caravan' | 'solo' | 'winter';

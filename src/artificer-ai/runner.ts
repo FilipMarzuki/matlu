@@ -9,7 +9,7 @@
 
 import { scouted } from '../artificer/exploration';
 import { setFocus, createRegion1, chooseSite, choose, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
-import { availableChoices, type Choice } from '../artificer/winter';
+import { availableChoices, type Calendar, type Choice } from '../artificer/winter';
 import { summarizeRun, type Legacy, type RunRecord } from '../artificer/legacy';
 import { observe } from './observe';
 import { parseFocus } from '../artificer/focus';
@@ -80,6 +80,8 @@ export interface PlayOptions {
   characterId?: string;
   /** Talents the player wants (#1263) — taken only if both were offered, else the first two offered. */
   talents?: TalentId[];
+  /** The year's calendar — the default 60-day year, or a short one for tests (#1301). */
+  calendar?: Calendar;
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
 }
@@ -102,7 +104,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // offer, and a hidden one. (Carrying on, the legacy's talents win and the pick is ignored.)
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1({}, opts.legacy, { id, name: player.name, chosen });
+  let s = createRegion1(opts.calendar ? { calendar: opts.calendar } : {}, opts.legacy, { id, name: player.name, chosen });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   // The cap can't end a run before any exit opens, so it is at least the caravan's first day.

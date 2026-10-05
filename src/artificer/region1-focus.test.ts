@@ -75,7 +75,7 @@ describe('Focus (#1238)', () => {
     expect(survivalLockOf(camp({ deprivation: { hungry: 2, thirsty: 0 } }))).toBe('starving');
     expect(survivalLockOf(camp({ deprivation: { hungry: 1, thirsty: 0 } }))).toBeNull();
     expect(survivalLockOf(camp({ vitals: createVitals({ condition: 39 }) }))).toBe('worn down');
-    expect(survivalLockOf(camp({ day: 10 }))).toBe('winter is close');
+    expect(survivalLockOf(camp({ day: 28 }))).toBe('winter is close');
     expect(survivalLockOf(camp({ day: 9 }))).toBeNull();
   });
 

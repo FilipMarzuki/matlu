@@ -16,7 +16,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, WEATHER, tempAt, nightTemp, isColdNight, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
+import { weatherFor, weatherName, tempAt, nightTemp, isColdNight, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -246,7 +246,7 @@ const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntr
 
 /** When a piece of work starts and the light it has, from the hours already spent and how long it takes (#1280). */
 const stampFor = (s: Pick<Region1State, 'day' | 'hoursToday' | 'config'>, hours: number): { hour: number; light: number } =>
-  ({ hour: clockHour(s.hoursToday), light: s.config.world.darkness ? lightOver(s.day, clockHour(s.hoursToday), hours) : 1 });
+  ({ hour: clockHour(s.hoursToday), light: s.config.world.darkness ? lightOver(s.day, clockHour(s.hoursToday), hours, s.config.calendar) : 1 });
 
 // ── Derived values ──────────────────────────────────────────────────────────
 
@@ -613,7 +613,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   water: {
     name: 'Fetch water', hours: 2, vigorRate: -3, clarityRate: -0.5, ringed: true, gate: reach,
     // Once the streams ice over you break through to the water first (#1283).
-    variant: (_o, s) => (s && feelsTemperature(s) && iceOn(s.day) ? { hours: 2 + ICE_EXTRA_HOURS } : {}),
+    variant: (_o, s) => (s && feelsTemperature(s) && iceOn(s.day, s.config.calendar) ? { hours: 2 + ICE_EXTRA_HOURS } : {}),
     run: (s, b, r) => {
       const n = tripYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water');
       const note = workLand(s, r, 'water');
@@ -699,7 +699,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       s.explore = lookout(s.explore, r);
       // From up high you can read tomorrow's sky (#1282).
       const tomorrow = foresee(s, s.day + 1);
-      return `Climbed high${where(r)} and looked out — the ground sharpens below${r < 3 ? `, and you can see over the ${RING_NAME[(r + 1) as Ring].toLowerCase()} ring` : ''}.${s.config.world.weather === 'seeded' ? ` Tomorrow looks like ${WEATHER[tomorrow].name.toLowerCase()}.` : ''}`;
+      return `Climbed high${where(r)} and looked out — the ground sharpens below${r < 3 ? `, and you can see over the ${RING_NAME[(r + 1) as Ring].toLowerCase()} ring` : ''}.${s.config.world.weather === 'seeded' ? ` Tomorrow looks like ${weatherName(tomorrow, s.day + 1, s.config.calendar).toLowerCase()}.` : ''}`;
     },
   },
   study: {
@@ -1063,7 +1063,7 @@ export function endDay(s: Region1State): Region1State {
   // A cold night (#1283): the frost decides how much shelter is enough — and rain with no roof is always cold (#1284).
   // (The flat world keeps the old rule.)
   const cold = feelsTemperature(next)
-    ? isColdNight(w, nightTemp(next.day, next.weatherToday)) || (next.weatherToday === 'rain' && next.tier === 0)
+    ? isColdNight(w, nightTemp(next.day, next.weatherToday, next.config.calendar)) || (next.weatherToday === 'rain' && next.tier === 0)
     : w < 0.3 && next.tier < 2;
   const night = sleepNight(next, { warmth: w, coldNight: cold, lockedToday: lockedToday !== null });
   // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
@@ -1128,11 +1128,11 @@ const feelsTemperature = (s: Pick<Region1State, 'config'>): boolean => s.config.
 
 /** Work below freezing is heavier (#1283). */
 const coldWork = (s: Pick<Region1State, 'config' | 'day' | 'weatherToday'>, hour: number): number =>
-  feelsTemperature(s) && tempAt(s.day, hour, s.weatherToday) < 0 ? FREEZING_WORK : 1;
+  feelsTemperature(s) && tempAt(s.day, hour, s.weatherToday, s.config.calendar) < 0 ? FREEZING_WORK : 1;
 
 /** The weather on a day for this Warden (#1282): seeded by the character id and the day. */
 const weatherOn = (s: Pick<Region1State, 'character' | 'config'>, day: number): WeatherId =>
-  weatherFor(seedOf(s.character.id), day, s.config.world);
+  weatherFor(seedOf(s.character.id), day, s.config.world, s.config.calendar);
 
 /** Learn a coming day's weather (a look-out, or Weather sense). */
 function foresee(s: Pick<Region1State, 'character' | 'config' | 'forecast'>, day: number): WeatherId {
@@ -1150,7 +1150,7 @@ function dawnWeather(s: Region1State): void {
   s.wetHours = 0;
   for (const d of Object.keys(s.forecast)) if (Number(d) <= s.day) delete s.forecast[Number(d)];
   if (s.techniques.includes('weather')) { foresee(s, s.day + 1); foresee(s, s.day + 2); }
-  if (s.config.world.weather === 'seeded') say(s, `Morning: ${WEATHER[s.weatherToday].name.toLowerCase()}.`, 'action');
+  if (s.config.world.weather === 'seeded') say(s, `Morning: ${weatherName(s.weatherToday, s.day, s.config.calendar).toLowerCase()}.`, 'action');
 }
 
 /** The death line for a Warden who died of deprivation in the night. */
