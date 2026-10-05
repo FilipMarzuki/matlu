@@ -14,7 +14,7 @@
 import { applyActivity, driftCapacity, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
-import { craft, craftBlocker, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, type CraftRecipe, type CrafterState, type ConceptProgress, type Tool } from './crafting';
+import { craft, craftBlocker, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
 /** Waking hours you can queue in a day; the queue spills into the next. */
 export const DAY_HOURS = 14;
@@ -40,6 +40,11 @@ const TIER_FACTOR = [0.3, 0.65, 1] as const;
 /** Materials to raise the shelter to tier 1, then tier 2. */
 export const BUILD_COST = [3, 5] as const;
 export type Tier = 0 | 1 | 2;
+/**
+ * How well the shelter was built scales its warmth (capped at fully warm): a
+ * crude lean-to leaks, a fine one holds heat. Keyed by the latest build's grade.
+ */
+export const GRADE_WARMTH: Readonly<Record<Grade, number>> = { crude: 0.85, sound: 1, fine: 1.1, masterwork: 1.2 };
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -68,10 +73,13 @@ export interface Region1State {
   hoursToday: number;
   vitals: Vitals;
   stores: Stores;
+  /** Road-worthy (not crude) cold gear — derived from the cold-gear tool after each craft. */
   coldGear: boolean;
   knowledge: { scouted: boolean; surveyed: boolean; tracked: boolean };
   site: SiteId | null;
   tier: Tier;
+  /** Grade of the latest shelter build (null before the first). */
+  shelterGrade: Grade | null;
   /** One-way "ever did X" flags behind the first-time milestones. */
   flags: { everWater: boolean; everFood: boolean; everWood: boolean; everHunt: boolean; everPreserve: boolean };
   milestones: string[];
@@ -97,6 +105,7 @@ export function createRegion1(config: Partial<Region1Config> = {}): Region1State
     knowledge: { scouted: false, surveyed: false, tracked: false },
     site: null,
     tier: 0,
+    shelterGrade: null,
     flags: { everWater: false, everFood: false, everWood: false, everHunt: false, everPreserve: false },
     milestones: [],
     tools: [],
@@ -131,7 +140,8 @@ const say = (s: Region1State, text: string, kind: LogEntry['kind']): void => { s
 
 /** Shelter warmth, 0..1 = site potential × how far the build has come. */
 export function warmth(s: Region1State): number {
-  return s.site ? SITES[s.site].warmth * TIER_FACTOR[s.tier] : 0;
+  if (!s.site) return 0;
+  return Math.min(1, SITES[s.site].warmth * TIER_FACTOR[s.tier] * GRADE_WARMTH[s.shelterGrade ?? 'sound']);
 }
 
 export function readinessInput(s: Region1State): ReadinessInput {
@@ -164,6 +174,8 @@ interface ActionDef {
   run: (s: Region1State, bonus: number) => string;
   /** A craft: paid from stores and resolved by crafting.craft (its hours/rates come from there). */
   recipe?: CraftRecipe;
+  /** A craft whose recipe depends on the state (each shelter tier is its own build). */
+  recipeFor?: (s: Region1State) => CraftRecipe | null;
 }
 
 const needsScout = (s: Region1State): string | null => (s.knowledge.scouted ? null : "you don't know where to look yet — scout first");
@@ -185,8 +197,27 @@ export const REGION1_RECIPES: Readonly<Record<'knife' | 'snare' | 'waterskin' | 
   shovel: { id: 'crude-shovel', name: 'Crude shovel', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'crude-shovel', qty: 1 }, tier: 1, station: null, timeBase: 3, concepts: ['leverage'] },
 };
 
+/**
+ * The two shelter builds. Same effort as the old fixed action (heavy on the
+ * body); raising it to tier 2 is a tier-1 recipe, so it needs the roof first.
+ */
+export const SHELTER_RECIPES: readonly [CraftRecipe, CraftRecipe] = [
+  { id: 'shelter-1', name: 'Lean-to', inputs: [{ item: 'materials', qty: BUILD_COST[0] }], output: { item: 'shelter-1', qty: 1 }, tier: 0, station: null, timeBase: 8, concepts: ['joinery'], effort: { vigorRate: -3.5, clarityRate: -1.5 } },
+  { id: 'shelter-2', name: 'Winterized shelter', inputs: [{ item: 'materials', qty: BUILD_COST[1] }], output: { item: 'shelter-2', qty: 1 }, tier: 1, station: null, timeBase: 8, concepts: ['joinery'], effort: { vigorRate: -3.5, clarityRate: -1.5 } },
+];
+
+/** Cold-weather gear: fine work for the mind. A graded tool that unlocks winter travel. */
+export const COLD_GEAR_RECIPE: CraftRecipe = {
+  id: 'cold-gear', name: 'Cold gear', inputs: [{ item: 'materials', qty: 3 }], output: { item: 'cold-gear', qty: 1 },
+  tier: 0, station: null, timeBase: 6, concepts: ['weaving'], effort: { vigorRate: -1.5, clarityRate: -5 },
+};
+
 const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations'] as const;
-const CRAFT_WORLD = craftWorld();
+// Region 1's own item on top of the registry defaults: cold gear lets you travel in winter.
+const CRAFT_WORLD = craftWorld([], [], { ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] } });
+
+/** Road-worthy cold gear: you have some, and it isn't crude (crude gear won't hold up on the crossing). */
+const roadworthyGear = (tools: readonly Tool[]): boolean => tools.some(t => t.item === 'cold-gear' && t.grade !== 'crude');
 
 /** View a Region 1 state as a crafter: stores are the inventory, the shelter is the bench. */
 function crafterOf(s: Region1State): CrafterState {
@@ -224,7 +255,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     run: s => { s.knowledge.scouted = true; return 'Scouted the Reach — you can see where food, water and wood lie.'; },
   },
   survey: {
-    name: 'Survey', hours: 7, vigorRate: -2, clarityRate: -4, gate: needsScout,
+    name: 'Survey', hours: 7, vigorRate: -2, clarityRate: -5, gate: needsScout,
     run: s => { s.knowledge.surveyed = true; return 'Surveyed carefully — every trip yields more now.'; },
   },
   track: {
@@ -253,7 +284,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     },
   },
   preserve: {
-    name: 'Preserve food', hours: 4, vigorRate: -1, clarityRate: -3.5,
+    name: 'Preserve food', hours: 4, vigorRate: -1, clarityRate: -4.5,
     gate: s => needsScout(s) ?? (s.stores.rawFood >= 2 ? null : 'not enough raw food to preserve'),
     run: s => {
       // Two raw food smoke down to one ration; up to three rations a session.
@@ -268,27 +299,19 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       if (!s.site) return 'choose a site first';
       if (s.tier >= 2) return 'the shelter is already winterized';
       // The guard above rules out tier 2, but TS can't narrow a tuple index from it.
-      const need = BUILD_COST[s.tier as 0 | 1];
-      return s.stores.materials >= need ? null : `need ${need} materials (have ${s.stores.materials})`;
+      return craftBlocker(crafterOf(s), SHELTER_RECIPES[s.tier as 0 | 1]);
     },
-    run: s => {
-      s.stores.materials -= BUILD_COST[s.tier as 0 | 1];
-      s.tier = (s.tier + 1) as Tier;
-      return `Raised the shelter to tier ${s.tier} — ${Math.round(warmth(s) * 100)}% warm.`;
-    },
+    recipeFor: s => (s.tier < 2 ? SHELTER_RECIPES[s.tier as 0 | 1] : null),
+    run: () => '',
   },
-  coldGear: {
-    name: 'Craft cold gear', hours: 6, vigorRate: -1.5, clarityRate: -4,
-    gate: s => (s.coldGear ? 'you already have cold gear' : s.stores.materials >= 3 ? null : 'need 3 materials'),
-    run: s => { s.stores.materials -= 3; s.coldGear = true; return 'Stitched cold-weather gear — you could brave the road now.'; },
-  },
+  coldGear: { ...craftAction(COLD_GEAR_RECIPE), name: 'Craft cold gear' },
   knife: craftAction(REGION1_RECIPES.knife, needsScout),
   snare: craftAction(REGION1_RECIPES.snare, s => (s.knowledge.tracked ? null : 'you need to know the game trails — track first')),
   waterskin: craftAction(REGION1_RECIPES.waterskin, s => (s.flags.everHunt ? null : 'you need a hide — hunt first')),
   bedroll: craftAction(REGION1_RECIPES.bedroll, needsScout),
   shovel: craftAction(REGION1_RECIPES.shovel, needsScout),
   tinker: {
-    name: 'Tinker / plan', hours: 5, vigorRate: 2, clarityRate: -4.5,
+    name: 'Tinker / plan', hours: 5, vigorRate: 2, clarityRate: -5.5,
     run: () => 'Worked at the bench — the body eased while the mind spent.',
   },
   rest: {
@@ -337,6 +360,7 @@ export function chooseSite(s: Region1State, site: SiteId): Region1State {
   const moved = next.site !== null && next.tier > 0;
   next.site = site;
   next.tier = 0;
+  next.shelterGrade = null;
   say(next, `Chose the ${SITES[site].name.toLowerCase()} as your ground${moved ? ' — the old shelter is left behind' : ''}.`, 'action');
   latchMilestones(next);
   return next;
@@ -352,7 +376,8 @@ export function runAction(s: Region1State, id: ActionId): Region1State {
   const def = ACTIONS[id];
   const refused = def.gate?.(next) ?? null;
   if (refused) { say(next, `${def.name}: skipped — ${refused}.`, 'skip'); return next; }
-  if (def.recipe) return runCraft(next, def.recipe);
+  const recipe = def.recipeFor?.(next) ?? def.recipe;
+  if (recipe) return runCraft(next, id, recipe);
 
   // Your tools make the work cheaper, quicker or richer (crafting design §2).
   const mod = modifiersFor(next.tools, id);
@@ -372,9 +397,13 @@ export function runAction(s: Region1State, id: ActionId): Region1State {
 }
 
 /** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */
-function runCraft(next: Region1State, recipe: CraftRecipe): Region1State {
+function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region1State {
   const before = next.vitals;
-  const { state: c, result } = craft(crafterOf(next), recipe, CRAFT_WORLD);
+  const hours = recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult;
+  // Tools that serve this action (a shovel for building) lighten the craft's own effort.
+  const mod = modifiersFor(next.tools, id);
+  const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult, clarityRate: recipe.effort.clarityRate * mod.clarityMult };
+  const { state: c, result } = craft(crafterOf(next), { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
   next.tools = c.tools;
@@ -383,11 +412,17 @@ function runCraft(next: Region1State, recipe: CraftRecipe): Region1State {
   // craft() doesn't report its load, so read it off the pools for nightly drift.
   next.today.loadVigor += Math.max(0, before.vigor.current - c.vitals.vigor.current);
   next.today.loadClarity += Math.max(0, before.clarity.current - c.vitals.clarity.current);
-  next.hoursToday += recipe.timeBase * modifiersFor(next.tools, 'craft').timeMult;
+  next.hoursToday += hours;
+  next.coldGear = roadworthyGear(next.tools);
 
   const name = recipe.name.toLowerCase();
-  if (result.kind === 'crafted') {
-    say(next, `Crafted a ${result.grade} ${name}.`, 'action');
+  const shelter = SHELTER_RECIPES.indexOf(recipe);
+  if (result.kind === 'crafted' && shelter >= 0) {
+    next.tier = (shelter + 1) as Tier;
+    next.shelterGrade = result.grade;
+    say(next, `Raised the shelter to tier ${next.tier} (${result.grade} work) — ${Math.round(warmth(next) * 100)}% warm.`, 'action');
+  } else if (result.kind === 'crafted') {
+    say(next, `Crafted a ${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action');
   } else if (result.kind === 'failed') {
     const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
