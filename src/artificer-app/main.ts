@@ -24,8 +24,9 @@ import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
 import { introBeats, fillName, type Beat, type IntroKind } from './intro';
 import { PORTRAITS, portraitById, portraitStyle } from './portraits';
-import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, UNRELIABLE_BELOW, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
+import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLabel, focusKey, parseFocus } from '../artificer/focus';
 import { TRAITS, TRAIT_IDS, TRAIT_COUNT, type TraitId } from '../artificer/traits';
+import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
 import { newGame, newRun, newCharacterId, chooseFocus, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
@@ -224,8 +225,10 @@ function portraitEl(id: string | null, size: number, cls = ''): string {
 function focusChip(s: AppState['sim']): string {
   const lock = survivalLockOf(s);
   if (lock) return `<button class="focuschip locked" data-tab="warden" title="Survival has taken over your thoughts">FOCUS <b>SURVIVAL</b> <span>${esc(lock)}</span></button>`;
-  const frayed = s.focus && s.vitals.clarity.current < UNRELIABLE_BELOW;
-  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${frayed ? 'Clarity under 30 — focus is unreliable' : 'What your mind is working on'}">FOCUS <b>${esc(focusLabel(s.focus))}</b>${frayed ? ' <span>frayed</span>' : ''}</button>`;
+  // Willpower moves the line where focus frays (#1256).
+  const below = statEffects(s.character.stats).unreliableBelow;
+  const frayed = s.focus && s.vitals.clarity.current < below;
+  return `<button class="focuschip ${s.focus ? '' : 'none'}" data-tab="warden" title="${frayed ? `Clarity under ${below} — focus is unreliable` : 'What your mind is working on'}">FOCUS <b>${esc(focusLabel(s.focus))}</b>${frayed ? ' <span>frayed</span>' : ''}</button>`;
 }
 
 /** The focus picker (#1238): goals, skills, concepts; the lock banner when survival overrides. */
@@ -235,10 +238,10 @@ function focusBlock(s: AppState['sim']): string {
   const chip = (key: string, label: string, note: string) =>
     `<button class="fchip" data-focus="${key}" aria-pressed="${cur === key}" title="${esc(note)}">${esc(label)}</button>`;
   const goals = GOAL_IDS.map(g => chip(`goal:${g}`, GOALS[g].name, `${GOALS[g].actions.join(', ')}: +1 yield, 10% lighter`)).join('');
-  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, 'practises twice as fast')).join('');
+  const skills = SKILL_IDS.map(k => chip(`skill:${k}`, SKILLS[k].name, 'practises 3x as fast')).join('');
   const concepts = FOCUS_CONCEPTS.map(c => chip(`concept:${c}`, c[0].toUpperCase() + c.slice(1), `${CONCEPT_PER_HOUR} insight per hour you work`)).join('');
   return `${lock ? `<p class="lockbanner">⚠ SURVIVAL HAS TAKEN OVER — ${esc(lock)}. Water, food, wood and shelter work goes better; learning waits until it passes.</p>` : ''}
-    <p class="mood" style="margin-top:0">One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${UNRELIABLE_BELOW} Clarity it's halved.</p>
+    <p class="mood" style="margin-top:0">One thing at a time. Costs ${FOCUS_COST} Clarity a night; below ${statEffects(s.character.stats).unreliableBelow} Clarity it's halved.</p>
     <p class="fgroup">GOAL</p><div class="fchips">${goals}</div>
     <p class="fgroup">SKILL</p><div class="fchips">${skills}</div>
     <p class="fgroup">CONCEPT</p><div class="fchips">${concepts}</div>
@@ -256,11 +259,18 @@ function wardenTab(a: AppState): string {
     <section class="box"><div class="idcard">${portraitEl(c.portrait, 120)}<div><p class="eyebrow">ARTIFICER</p><h2 class="wname">${esc(c.name || 'Unnamed Warden')}</h2>
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
+      <p class="eyebrow" style="margin-top:16px">STATS — what you're built for</p>${statsBlock(c.stats)}
       <p class="eyebrow" style="margin-top:16px">TRAITS</p><div class="traits">${traits}</div></section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;
+}
+
+/** Stats (#1256, #1258), shown exactly — unlike skills, you know your own body and mind. */
+function statsBlock(st: Stats): string {
+  return `<div class="statgrid">${STAT_IDS.map(id => `<div class="stat ${st[id] > 10 ? 'hi' : st[id] < 10 ? 'lo' : ''}" title="${esc(STATS[id].blurb)}">`
+    + `<span class="sk">${STATS[id].short}</span><span class="sv">${st[id]}</span><span class="sd">${esc(statNote(id, st[id]))}</span></div>`).join('')}</div>`;
 }
 
 /**
@@ -579,11 +589,11 @@ introEl.hidden = true;
 document.body.appendChild(introEl);
 
 /** What the player is choosing on the creation screen (#1239). */
-let draft: { name: string; portrait: string; traits: TraitId[] } = { name: '', portrait: PORTRAITS[0].id, traits: [] };
+let draft: { name: string; portrait: string; traits: TraitId[]; stats: Stats } = { name: '', portrait: PORTRAITS[0].id, traits: [], stats: { ...DEFAULT_STATS } };
 const draftValid = (): boolean => draft.name.trim().length > 0 && draft.traits.length === TRAIT_COUNT;
 
 function startIntro(kind: IntroKind): void {
-  draft = { name: '', portrait: PORTRAITS[0].id, traits: [] };
+  draft = { name: '', portrait: PORTRAITS[0].id, traits: [], stats: { ...DEFAULT_STATS } };
   drawnBeat = -1;
   intro = { beats: introBeats(kind, state.sim, runNumberFor(history, state.sim.character.id)), i: 0 };
   renderIntro();
@@ -591,7 +601,7 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait and traits. */
 function commitCharacter(): void {
-  state = { sim: createRegion1({}, undefined, { id: newCharacterId(), name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits }), queue: [] };
+  state = { sim: createRegion1({}, undefined, { id: newCharacterId(), name: draft.name.trim().slice(0, 24), portrait: draft.portrait, traits: draft.traits, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
   render(state);
 }
 
@@ -623,6 +633,8 @@ function renderIntro(): void {
   const lines = b.lines.map((l, n) => `<p style="--n:${n}">${esc(fillName(l, state.sim.character.name))}</p>`).join('')
     + (b.kind === 'create' ? createForm() : '');
   const dots = intro.beats.map((_, n) => `<i class="${n === intro!.i ? 'on' : n < intro!.i ? 'past' : ''}"></i>`).join('');
+  // A pick re-draws the beat; keep the form scrolled where it was (the stats sit below the fold on a phone).
+  const scrolled = introEl.querySelector('.beat')?.scrollTop ?? 0;
   introEl.hidden = false;
   introEl.innerHTML = `
     <div class="portal ${b.portal ? 'open' : ''}" aria-hidden="true"></div>
@@ -633,6 +645,8 @@ function renderIntro(): void {
       ${last ? '' : '<button class="pill" data-intro="skip">SKIP ›</button>'}
       <button class="btn go" data-intro="next" ${b.kind === 'create' && !draftValid() ? 'disabled' : ''}>${last ? 'BEGIN ▸' : 'CONTINUE ▸'}</button>
     </div>`;
+  const beatEl = introEl.querySelector('.beat');
+  if (beatEl && drawnBeat === intro.i) beatEl.scrollTop = scrolled;
   // On the creation screen, start in the name field (unless a name is already typed).
   if (b.kind === 'create' && !draft.name) introEl.querySelector<HTMLInputElement>('#wname')?.focus();
   else introEl.querySelector<HTMLButtonElement>('[data-intro="next"]')?.focus();
@@ -647,16 +661,43 @@ function createForm(): string {
     <input id="wname" class="cname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="What are you called?" value="${esc(draft.name)}">
     <p class="clabel">PORTRAIT</p><div class="pchoices">${portraits}</div>
     <p class="clabel">TRAITS — choose ${TRAIT_COUNT} <span>(${draft.traits.length}/${TRAIT_COUNT})</span></p><div class="tchoices">${traits}</div>
+    ${statsForm()}
   </form>`;
+}
+
+/**
+ * The stats step (#1258): point-buy over the six stats. Every stat starts at 10
+ * with 6 points to spend; steps above 13 cost 2. All 10s is a valid Warden, so
+ * this never blocks BEGIN — unspent points just get a nudge.
+ */
+function statsForm(): string {
+  const left = pointsLeft(draft.stats);
+  const rows = STAT_IDS.map(id => {
+    const v = draft.stats[id];
+    const dear = v >= 13 && v < 15 ? ' dear' : '';
+    return `<div class="srow"><div class="sname"><b>${esc(STATS[id].name)}</b><span>${esc(STATS[id].blurb)}</span><span class="snote ${v > 10 ? 'up' : v < 10 ? 'cost' : ''}">${esc(statNote(id, v))}</span></div>`
+      + `<div class="sstep"><button type="button" class="pill" data-stat="${id}" data-delta="-1" aria-label="Lower ${esc(STATS[id].name)}" ${canLower(draft.stats, id) ? '' : 'disabled'}>−</button>`
+      + `<span class="sval">${v}</span>`
+      + `<button type="button" class="pill${dear}" data-stat="${id}" data-delta="1" aria-label="Raise ${esc(STATS[id].name)} (costs ${raiseCost(v)})" title="${v >= 13 ? 'costs 2 points' : 'costs 1 point'}" ${canRaise(draft.stats, id) ? '' : 'disabled'}>+</button></div></div>`;
+  }).join('');
+  return `<p class="clabel">STATS — spend ${POINT_BUDGET} points <span>(${left} left${left > 0 ? ' · unspent points are wasted' : ''}) · above 13 costs 2 · lower one to 7 to buy more</span></p>
+    <div class="schoices">${rows}</div>`;
 }
 
 // Tap anywhere to advance (the tablet path); Skip ends it at once. On the creation
 // screen only its own controls act, so a stray tap can't skip past your choices.
 introEl.addEventListener('click', e => {
   const el = e.target as HTMLElement;
-  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-trait]');
+  const btn = el.closest<HTMLElement>('[data-intro], [data-portrait], [data-trait], [data-stat]');
   const creating = intro?.beats[intro.i].kind === 'create';
   if (btn?.dataset.portrait) { draft.portrait = btn.dataset.portrait; renderIntro(); return; }
+  if (btn?.dataset.stat) {
+    // A step up or down, only if point-buy allows it (the buttons are disabled otherwise, but check anyway).
+    const id = btn.dataset.stat as StatId;
+    const up = btn.dataset.delta === '1';
+    if (up ? canRaise(draft.stats, id) : canLower(draft.stats, id)) draft.stats = { ...draft.stats, [id]: draft.stats[id] + (up ? 1 : -1) };
+    renderIntro(); return;
+  }
   if (btn?.dataset.trait) {
     const t = btn.dataset.trait as TraitId;
     // Toggle; picking a third replaces the earliest pick.

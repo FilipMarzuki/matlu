@@ -350,6 +350,27 @@ body { min-height: 100vh; }
   .tchoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 8px; }
   .tchoice, .trait { display: grid; gap: 2px; text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); font: 12px/1.35 var(--body); }
   .tchoice { cursor: pointer; }
+  /* Stats step (#1258): one row per stat — name, what it does, − score +. */
+  .schoices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 8px; }
+  .srow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); }
+  .sname { display: grid; gap: 1px; flex: 1; min-width: 0; font: 12px/1.35 var(--body); color: var(--ink); }
+  .sname span { color: var(--dim); }
+  .sname .snote { font-size: 11px; }
+  .sname .snote.up { color: var(--green); }
+  .sname .snote.cost { color: var(--warn); }
+  .sstep { display: flex; align-items: center; gap: 6px; }
+  .sstep .pill { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; font: 600 16px/1 var(--body); letter-spacing: 0; }
+  .sstep .pill.dear { border-color: var(--gold); }
+  .sstep .pill:disabled { opacity: .35; cursor: default; }
+  .sval { font: 600 18px var(--display); color: var(--gold); min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
+  /* WARDEN tab stats. */
+  .statgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 6px; }
+  .stat { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 0 8px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); }
+  .stat .sk { font-family: var(--display); font-size: 9px; letter-spacing: 1px; color: var(--teal); }
+  .stat .sv { font: 600 16px var(--display); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  .stat.hi .sv { color: var(--gold); }
+  .stat.lo .sv { color: var(--dim); }
+  .stat .sd { grid-column: 1 / -1; font-size: 10px; color: var(--dim); }
   .tchoice[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
   .tchoice b, .trait b { font-family: var(--display); font-size: 10px; letter-spacing: 1px; color: var(--gold); font-weight: 400; }
   .tchoice .up, .trait .up { color: var(--green); }

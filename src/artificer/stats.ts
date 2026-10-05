@@ -124,3 +124,31 @@ export function statDrain(s: Stats, action: ActionId, skill: SkillId | null): { 
     clarity: e.clarityDrain * agile,
   };
 }
+
+// ── Creation helpers (#1258) ────────────────────────────────────────────────
+
+/** Can this stat go up one step at creation (under the max, and affordable)? */
+export const canRaise = (s: Stats, id: StatId): boolean =>
+  s[id] < CREATION_MAX && scoreCost(s[id] + 1) - scoreCost(s[id]) <= pointsLeft(s);
+/** Can this stat go down one step at creation (above the minimum)? */
+export const canLower = (s: Stats, id: StatId): boolean => s[id] > CREATION_MIN;
+/** Points the next step up would cost (1, or 2 above 13). */
+export const raiseCost = (score: number): number => scoreCost(score + 1) - scoreCost(score);
+
+/** A signed whole number: "+3", "−9" (a real minus sign), "±0". */
+const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0');
+
+/** What a score does, in a few words, for the creation screen and the WARDEN tab. */
+export function statNote(id: StatId, score: number): string {
+  const d = score - 10;
+  const e = statEffects({ ...DEFAULT_STATS, [id]: score });
+  if (d === 0) return 'average';
+  switch (id) {
+    case 'str': return `heavy work ${signed(-3 * d)}% Vigor`;
+    case 'con': return `hunger & thirst ${signed(-3 * d)}% Condition · healing ${signed(3 * d)}%`;
+    case 'agi': return `nimble work & walking ${signed(-3 * d)}% effort`;
+    case 'int': return `study ${signed(5 * d)}% insight${e.craftGrade ? ` · craft grade ${signed(e.craftGrade)}` : ''}`;
+    case 'wil': return `mind strain ${signed(-2 * d)}% · focus holds to ${e.unreliableBelow} Clarity`;
+    case 'cha': return `trust ${signed(d)} · prices ${signed(-2 * d)}% (on the road)`;
+  }
+}
