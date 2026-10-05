@@ -12,7 +12,7 @@ import type { Progress } from './progress';
 export interface Transcript {
   player: string;
   start: Progress;
-  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit: string | null; progress: Progress }[];
+  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress }[];
   record: { kind: string; choice: string; day: number; readyDay: number | null };
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
 }
@@ -65,7 +65,7 @@ export interface ModelSummary {
   invalidDays: number;
   tokens: { input: number; output: number; cacheRead: number };
   /** USD (#1231): mean per game, total, and per thriving run — null when no run reported a cost. */
-  cost: { perGame: number | null; total: number | null; perThrive: number | null; estimated: boolean };
+  cost: { perGame: number | null; total: number | null; perWin: number | null; estimated: boolean };
   /** metric → mean value at the end of day d (index 0 = before day 1), over runs still going that day. */
   series: Record<MetricKey, (number | null)[]>;
   /** event → mean first day, and how many runs reached it. */
@@ -130,19 +130,27 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       events,
       actions,
     };
-  }).sort((a, b) => (b.outcomes.thrive ?? 0) / b.runs - (a.outcomes.thrive ?? 0) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
+  }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
 }
+
+/**
+ * A win: surviving the winter to the thaw (#1302), or — in transcripts from
+ * before winter was played — thriving with the caravan.
+ */
+export const WIN_KINDS: readonly string[] = ['survived', 'thrive'];
+/** Wins among a model's outcome counts. */
+export const wins = (outcomes: Readonly<Record<string, number>>): number => WIN_KINDS.reduce((n, k) => n + (outcomes[k] ?? 0), 0);
 
 function costOf(runs: readonly Transcript[]): ModelSummary['cost'] {
   const known = runs.filter(r => typeof r.usage.cost === 'number');
-  if (!known.length) return { perGame: null, total: null, perThrive: null, estimated: false };
+  if (!known.length) return { perGame: null, total: null, perWin: null, estimated: false };
   const total = known.reduce((n, r) => n + (r.usage.cost as number), 0);
-  const thrives = known.filter(r => r.record.kind === 'thrive').length;
+  const won = known.filter(r => WIN_KINDS.includes(r.record.kind)).length;
   const r4 = (x: number): number => Math.round(x * 10000) / 10000;
   return {
     perGame: r4(total / known.length),
     total: r4(total),
-    perThrive: thrives ? r4(total / thrives) : null,
+    perWin: won ? r4(total / won) : null,
     estimated: known.some(r => r.usage.costEstimated),
   };
 }

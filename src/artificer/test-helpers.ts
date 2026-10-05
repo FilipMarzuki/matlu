@@ -2,7 +2,7 @@
  * Shared test helpers. Not imported by game code.
  *
  * Since #1233/#1234 a Warden who does nothing dies of thirst within days, so
- * tests that fast-forward the calendar (to reach the caravan, winter, …) keep
+ * tests that fast-forward the calendar (to reach the snow, the thaw, …) keep
  * the stores topped up — they're testing the calendar, not survival.
  */
 
@@ -26,9 +26,9 @@ export function fastForward(s: Region1State, day: number, queue: readonly QueueI
 }
 
 /**
- * The old 13-day year (caravan days 10–12, snow on day 13), for tests of the
+ * The old 13-day autumn (snow on day 13, the thaw 30 days later), for tests of the
  * short game written before the 60-day year (#1301). The season curves
- * compress to fit it, so day 10 is near freezing as it always was. Winter
- * becomes playable in #1302, and the balance tests move to the full year in #1306.
+ * compress to fit it, so day 10 is near freezing as it always was. The
+ * balance tests move to the full year in #1306.
  */
-export const SHORT_YEAR: Calendar = { caravanOpen: 10, caravanClose: 12, winterDay: 13, thawDay: 43 };
+export const SHORT_YEAR: Calendar = { winterDay: 13, thawDay: 43 };

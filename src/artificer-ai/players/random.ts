@@ -17,7 +17,6 @@
 
 import { ACTIONS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
-import { availableChoices } from '../../artificer/winter';
 import type { Player } from '../runner';
 
 export type RandomMode = 'uniform' | 'legal';
@@ -37,8 +36,6 @@ export function rng(seed: number): () => number {
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
 const ACTION_IDS = Object.keys(ACTIONS) as ActionId[];
 const SITE_IDS = Object.keys(SITES) as SiteId[];
-/** Chance each day, once exits open, of taking one (else keep playing until the day cap). */
-const EXIT_CHANCE = 0.35;
 
 export interface RandomPlayerOptions {
   mode?: RandomMode;
@@ -94,13 +91,11 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
   return {
     name: `random:${mode}`,
     async decide(_message, s) {
-      const exits = availableChoices(s.day, s.config.calendar);
-      const exit = exits.length && rand() < EXIT_CHANCE ? pick(exits) : null;
       // Legal claims a site only once the land is scouted; uniform tries whenever.
       const site = !s.site && rand() < (mode === 'legal' ? (scouted(s.explore, 1) ? 0.6 : 0) : 0.2) ? pick(SITE_IDS) : null;
       // Plan the legal day from where it will actually start: on the newly claimed site.
-      const queue = exit ? [] : mode === 'legal' ? legalDay(site ? chooseSite(s, site) : s) : uniformDay(s);
-      return { text: JSON.stringify({ thoughts: `random (${mode})`, site, exit, queue }), usage: { cost: 0 } };
+      const queue = mode === 'legal' ? legalDay(site ? chooseSite(s, site) : s) : uniformDay(s);
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, site, queue }), usage: { cost: 0 } };
     },
   };
 }

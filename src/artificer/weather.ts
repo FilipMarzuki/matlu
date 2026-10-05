@@ -129,9 +129,10 @@ export const iceOn = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolean =>
 
 /**
  * A cold, broken night: shelter warmth below 0.3, plus 0.03 for every degree
- * of frost — freezing nights need a warmer shelter.
+ * of frost — freezing nights need a warmer shelter. `coldNightNeeds` is that line.
  */
-export const isColdNight = (warmth: number, nightTempC: number): boolean => warmth < 0.3 + 0.03 * Math.max(0, -nightTempC);
+export const coldNightNeeds = (nightTempC: number): number => 0.3 + 0.03 * Math.max(0, -nightTempC);
+export const isColdNight = (warmth: number, nightTempC: number): boolean => warmth < coldNightNeeds(nightTempC);
 
 // ── Weather on the work (#1284) ─────────────────────────────────────────────
 

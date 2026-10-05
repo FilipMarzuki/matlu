@@ -5,13 +5,15 @@
 
 import { describe, it, expect } from 'vitest';
 import { supplied, SHORT_YEAR } from '../artificer/test-helpers';
-import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, takeExit, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
+import { newGame, newRun, recordRun, serializeHistory, deserializeHistory, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_VERSION, type AppState } from './controller';
 import { scouted } from '../artificer/exploration';
 import { createRegion1 } from '../artificer/region1';
 import { FLAT_WORLD } from '../artificer/world';
 
 /** A new game in the flat world: a fresh game's random character id would otherwise roll random weather (fog blinds a scout, #1284). */
 const flatGame = (): AppState => ({ ...newGame(), sim: createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }, undefined, { id: 'w-controller' }) });
+/** The same game on the last night of winter, fed and watered. */
+const lastNight = (a: AppState): AppState => ({ ...a, sim: { ...supplied(a.sim), day: SHORT_YEAR.thawDay - 1 } });
 const withQueue = (a: AppState, ids: Parameters<typeof enqueue>[1][]): AppState => ids.reduce(enqueue, a);
 
 describe('Artificer controller', () => {
@@ -58,14 +60,12 @@ describe('Artificer controller', () => {
     expect(previewQueue(withQueue(a, ['water'])).dayOffset[5]).toBe(1);
   });
 
-  // 5. Sites and exits go through the sim; exits stay calendar-gated and clear the plan.
-  it('settles a site and only takes exits the calendar has opened', () => {
-    let a = settle(runQueuedDay(withQueue(flatGame(), ['scout'])), 'cave');
+  // 5. Sites go through the sim; the run ends at the thaw (#1302), which clears the plan.
+  it('settles a site, and ends the run at the thaw', () => {
+    const a = settle(runQueuedDay(withQueue(flatGame(), ['scout'])), 'cave');
     expect(a.sim.site).toBe('cave');
-    expect(() => takeExit(a, 'caravan')).toThrow(/not available/);
-    while (a.sim.day < SHORT_YEAR.caravanOpen) { expect(a.sim.outcome).toBeNull(); a = runQueuedDay({ ...a, sim: supplied(a.sim) }); }
-    const left = takeExit(enqueue(a, 'rest'), 'winter');
-    expect(left.sim.outcome?.choice).toBe('winter');
+    const left = runQueuedDay(withQueue(lastNight(a), ['rest', 'rest', 'rest', 'rest', 'rest', 'rest']));
+    expect(left.sim.outcome).toMatchObject({ choice: 'thaw', kind: 'survived' });
     expect(left.queue).toEqual([]);
     // Once resolved, the queue can't grow and days don't run.
     expect(enqueue(left, 'rest')).toBe(left);
@@ -129,13 +129,12 @@ describe('Artificer controller', () => {
 
   // 8. (#1224) A run is recorded once when it resolves; history saves separately and survives bad data.
   it('records finished runs and starts the next one', () => {
-    let a = settle(runQueuedDay(withQueue(flatGame(), ['scout', 'track'])), 'cave');
-    while (a.sim.day < SHORT_YEAR.caravanOpen) { expect(a.sim.outcome).toBeNull(); a = runQueuedDay({ ...a, sim: supplied(a.sim) }); }
-    const done = takeExit(a, 'winter');
+    const a = settle(runQueuedDay(withQueue(flatGame(), ['scout', 'track'])), 'cave');
+    const done = runQueuedDay(lastNight(a));
 
     let h = recordRun([], a, done);
     expect(h).toHaveLength(1);
-    expect(h[0]).toMatchObject({ run: 1, kind: 'grim', choice: 'winter' });
+    expect(h[0]).toMatchObject({ run: 1, kind: 'survived', choice: 'thaw' });
     expect(recordRun(h, done, done)).toHaveLength(1); // already resolved before: no double record
     expect(recordRun(h, a, a)).toHaveLength(1); // not resolved: nothing to record
 

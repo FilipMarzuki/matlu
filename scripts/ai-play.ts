@@ -5,7 +5,7 @@
  *   npm run ai:play -- --player openrouter  [--model google/gemini-3.8-flash]
  *   npm run ai:play -- --player scripted                (no API key needed)
  *   npm run ai:play -- --player random --mode legal|uniform --runs 200 [--seed 1]   (baselines, no API key)
- *   options: --runs N (default 1) --max-days N (default 16) --carry (each run keeps the last run's knowledge)
+ *   options: --runs N (default 1) --carry (each run keeps the last run's knowledge)
  *            --out DIR (default ai-runs) --quiet
  *            --talents hardy,forager (two of: hardy sharp lightEater carefulHands quickLearner coldBlooded tough keenEye forager hunter waterfinder silverTongue)
  *            --budget USD (stop the batch once actual spend reaches this; OpenRouter reports real cost)
@@ -29,7 +29,6 @@ const has = (name: string): boolean => args.includes(`--${name}`);
 
 const which = flag('player') ?? 'scripted';
 const runs = Number(flag('runs') ?? 1);
-const maxDays = Number(flag('max-days') ?? 16);
 const out = flag('out') ?? 'ai-runs';
 const quiet = has('quiet');
 
@@ -73,14 +72,13 @@ async function main(): Promise<void> {
     let result: RunResult;
     try {
       result = await playRun(player, {
-      maxDays,
       // Same rule as the game (#1242): only a character who lived goes on with what they learned.
       legacy: continuing ? legacyOf(carry!.final) : undefined,
       characterId,
       talents: wanted,
       onTurn: t => {
         if (quiet) return;
-        const head = t.exit ? `EXIT → ${t.exit}` : t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : queueText(t.queue);
+        const head = t.invalid ? `invalid reply — day passed (${t.errors?.[0] ?? 'no reply'})` : queueText(t.queue);
         console.log(`  D${String(t.day).padStart(2)} ${head}${t.site ? `  [camp: ${t.site}]` : ''}`);
         if (t.thoughts) console.log(`      “${t.thoughts}”`);
         if (t.violations) console.log(`      ⚠ invariants: ${t.violations.join('; ')}`);
@@ -99,7 +97,7 @@ async function main(): Promise<void> {
     const file = join(out, `${new Date().toISOString().replace(/[:.]/g, '-')}-${which}${which === 'random' ? `-${flag('mode') ?? 'legal'}` : ''}-run${n}.json`);
     const { final: _final, ...saved } = result;
     writeFileSync(file, JSON.stringify(saved, null, 2));
-    if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'}${result.forced ? ' [day cap]' : ''} · ${usd(result.usage.cost)} · transcript ${file}`);
+    if (!quiet) console.log(`  → ${result.record.kind} (${result.record.choice}) on day ${result.record.day}${result.record.grade ? ` (${result.record.grade})` : ''}${result.record.readyDay ? `, winter-ready day ${result.record.readyDay}` : ', never winter-ready'} · ${usd(result.usage.cost)} · transcript ${file}`);
     if (spent >= budget && n < runs) { console.log(`\n■ Budget $${budget} reached ($${spent.toFixed(3)} spent) — stopping after run ${n}/${runs}.`); break; }
   }
 

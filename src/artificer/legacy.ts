@@ -2,7 +2,7 @@
  * Legacy — the record of past runs, and what a Warden carries into the next
  * one (#1224). Part of the artificer sim core: pure, no Phaser, no storage.
  *
- * A run ends when Region 1 resolves (an exit is taken). Its summary goes into
+ * A run ends when Region 1 resolves (the thaw, or the body giving out). Its summary goes into
  * a short history, and the player can start again either fresh or *keeping
  * what they learned*: the recipes they worked out and the concepts they
  * ranked up. The body, stores, land and tools always start over — knowledge
@@ -10,7 +10,7 @@
  */
 
 import type { Region1State, SiteId, ShelterType, WallMaterial } from './region1';
-import type { EndChoice, Injury, OutcomeKind } from './winter';
+import type { EndChoice, Grade as WinterGrade, Injury, OutcomeKind } from './winter';
 import type { Stats } from './stats';
 import type { Talent } from './talents';
 import { carriedSkills, type SkillPractice } from './skills';
@@ -23,10 +23,12 @@ export interface RunRecord {
   /** Whose run it was (#1242). Absent on history saved before character ids. */
   characterId?: string;
   characterName?: string;
-  /** The day the exit was taken. */
+  /** The day the run ended: the thaw, the day the body gave out, or (old records) the day of the exit. */
   day: number;
   choice: EndChoice;
   kind: OutcomeKind;
+  /** How the Warden came through the winter (#1302), for a survived run. Absent on older records. */
+  grade?: WinterGrade;
   injury: Injury | null;
   /** The day the Warden first became winter-ready, or null if never. */
   readyDay: number | null;
@@ -71,6 +73,7 @@ export function summarizeRun(s: Region1State, run: number): RunRecord {
     day: s.day,
     choice: s.outcome.choice,
     kind: s.outcome.kind,
+    ...(s.outcome.grade ? { grade: s.outcome.grade } : {}),
     characterId: s.character.id,
     characterName: s.character.name,
     injury: s.outcome.injury ?? null,
@@ -119,14 +122,18 @@ export function addRun(history: readonly RunRecord[], rec: RunRecord): RunRecord
   return [rec, ...history].slice(0, HISTORY_CAP);
 }
 
-/** How good each outcome is, for picking a best run. */
-export const OUTCOME_RANK: Readonly<Record<OutcomeKind, number>> = { thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0, collapsed: -1, died: -2 };
+/** How good each outcome is, for picking a best run. Surviving the winter beats any of the old exits. */
+export const OUTCOME_RANK: Readonly<Record<OutcomeKind, number>> = { survived: 6, thrive: 5, crossed: 4, wintered: 4, ragged: 2, turnedBack: 1, grim: 0, collapsed: -1, died: -2 };
+
+/** A run's rank: its outcome, and for a survived winter how well (hale over worn over broken). */
+export const runRank = (r: Pick<RunRecord, 'kind' | 'grade'>): number =>
+  OUTCOME_RANK[r.kind] + (r.grade === 'hale' ? 0.2 : r.grade === 'worn' ? 0.1 : 0);
 
 /** The best run so far (ties go to the earlier run — you got there first). */
 export function bestRun(history: readonly RunRecord[]): RunRecord | null {
   let best: RunRecord | null = null;
   for (const r of history) {
-    if (!best || OUTCOME_RANK[r.kind] > OUTCOME_RANK[best.kind] || (OUTCOME_RANK[r.kind] === OUTCOME_RANK[best.kind] && r.run < best.run)) best = r;
+    if (!best || runRank(r) > runRank(best) || (runRank(r) === runRank(best) && r.run < best.run)) best = r;
   }
   return best;
 }

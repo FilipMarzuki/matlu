@@ -71,7 +71,7 @@ describe('More action options', () => {
     expect(parka.coldGear).toBe(true); // crude fiber gear would not be
     expect(runAction(rough, 'coldGear').coldGear).toBe(false);
     // And once you have road-worthy gear, you don't make more.
-    expect(runAction(parka, 'coldGear').log.at(-1)?.text).toMatch(/already have road-worthy cold gear/);
+    expect(runAction(parka, 'coldGear').log.at(-1)?.text).toMatch(/already have sound cold gear/);
 
     // The waterskin takes a hide now.
     expect(runAction(noHides, 'waterskin').log.at(-1)?.text).toMatch(/need a hide/);

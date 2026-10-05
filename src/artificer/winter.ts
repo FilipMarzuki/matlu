@@ -1,33 +1,25 @@
 /**
- * Winter — the season clock, the caravan window, and how each exit resolves
- * (#1206). Part of the artificer sim core: pure, deterministic, no Phaser.
+ * Winter — the season clock and how a Region 1 run ends (#1206, #1302).
+ * Part of the artificer sim core: pure, deterministic, no Phaser.
  * See docs/region-1-design.md §3–§5 and §7.
  *
- * Winter is the deadline. A caravan passes just before it; then the Warden
- * chooses: ride out with it, brave the crossing alone, or winter over. None of
- * the exits is a hard fail — an unprepared choice costs Condition and capacity
- * (and, on the road, a permanent injury), never the save.
+ * Surviving the winter is the goal (epic #1310). Autumn is for preparing; the
+ * snow falls on day 31 and the days go on under winter rules; the run ends at
+ * the thaw (day 61), graded by how the Warden came through — or earlier, if
+ * the body gives out. There are no exits: the caravan comes in spring (#1307).
  */
 
-import { CAP_FLOOR, type Vitals } from './vitality';
+import type { Vitals } from './vitality';
 
 export interface Calendar {
-  /** First day the caravan is camped nearby. */
-  caravanOpen: number;
-  /** Last day you can still board it. */
-  caravanClose: number;
-  /** The snow arrives. */
+  /** The snow arrives: winter begins. */
   winterDay: number;
-  /** The thaw: winter is over (#1301). */
+  /** The thaw: winter is over, and so is Region 1 (#1301). */
   thawDay: number;
 }
 
-/**
- * The 60-day year (#1301, epic #1310): autumn on days 1–30, snow on day 31,
- * the thaw on day 61. Until winter is played (#1302) the caravan still offers
- * the old exits, on the last three days of autumn.
- */
-export const DEFAULT_CALENDAR: Calendar = { caravanOpen: 28, caravanClose: 30, winterDay: 31, thawDay: 61 };
+/** The 60-day year (#1301, epic #1310): autumn on days 1–30, snow on day 31, the thaw on day 61. */
+export const DEFAULT_CALENDAR: Calendar = { winterDay: 31, thawDay: 61 };
 
 // ── Seasons (#1301) ─────────────────────────────────────────────────────────
 
@@ -56,99 +48,42 @@ export function seasonCurve(day: number, cal: Calendar, levels: readonly [number
   return levels[seg] + (levels[seg + 1] - levels[seg]) * (day - d0) / (d1 - d0);
 }
 
-export type Phase = 'prep' | 'caravan' | 'postCaravan' | 'winter';
+/**
+ * The old autumn exits (#1206). Region 1 no longer offers them (#1302); the
+ * names stay for run records from before, and for the caravan road until it
+ * starts from the thaw (#1307).
+ */
 export type Choice = 'caravan' | 'solo' | 'winter';
 
-export function phaseOf(day: number, cal: Calendar = DEFAULT_CALENDAR): Phase {
-  if (day < cal.caravanOpen) return 'prep';
-  if (day <= cal.caravanClose) return 'caravan';
-  if (day < cal.winterDay) return 'postCaravan';
-  return 'winter';
-}
+/** How a Warden came through the winter (#1302). */
+export type Grade = 'hale' | 'worn' | 'broken';
 
-/** Which exits are open on a given day (none while you're still preparing). */
-export function availableChoices(day: number, cal: Calendar = DEFAULT_CALENDAR): Choice[] {
-  switch (phaseOf(day, cal)) {
-    case 'prep': return [];
-    case 'caravan': return ['caravan', 'solo', 'winter'];
-    default: return ['solo', 'winter'];
-  }
-}
-
-/** What the solo crossing demands (region-1 §6, "nomad survival"). */
-export interface CrossingInput {
-  coldGear: boolean;
-  rations: number;
-  vitals: Vitals;
-}
-
-export const CROSSING_NEEDS = { rations: 6, condition: 60, vigorCap: 95 };
-
-export function crossingPrepared(i: CrossingInput): boolean {
-  return i.coldGear
-    && i.rations >= CROSSING_NEEDS.rations
-    && i.vitals.condition >= CROSSING_NEEDS.condition
-    && i.vitals.vigor.cap >= CROSSING_NEEDS.vigorCap;
-}
-
-export type OutcomeKind = 'thrive' | 'ragged' | 'crossed' | 'turnedBack' | 'wintered' | 'grim' | 'collapsed' | 'died';
-/** How a run ended: one of the exits, or a collapse when Condition gave out (#1234). */
-export type EndChoice = Choice | 'collapse';
+/**
+ * How a run ended. `survived` is the goal (graded); `died` and `collapsed`
+ * are the body giving out. The rest are the old exits' outcomes, kept so old
+ * run records still load.
+ */
+export type OutcomeKind = 'survived' | 'thrive' | 'ragged' | 'crossed' | 'turnedBack' | 'wintered' | 'grim' | 'collapsed' | 'died';
+/** What ended it: the thaw, a collapse when Condition gave out (#1234), or an old exit. */
+export type EndChoice = 'thaw' | 'collapse' | Choice;
 export type Injury = 'frostbite';
-
-export interface OutcomeInput {
-  /** All four readiness pillars met. */
-  ready: boolean;
-  /** {@link crossingPrepared} for the solo road. */
-  canCross: boolean;
-  vitals: Vitals;
-}
 
 export interface Outcome {
   choice: EndChoice;
   kind: OutcomeKind;
+  /** How well the Warden came through, for `survived`. */
+  grade?: Grade;
   /** The Warden as they come out the other side (persists in the save). */
   vitals: Vitals;
   /** A permanent injury picked up on the way, if any. */
   injury?: Injury;
 }
 
-/** Penalties for the unprepared exits. Capacity losses never go below the floor. */
-export const PENALTY = {
-  frostbite: { vigorCap: 10, clarityCap: 6 },
-  grim: { condition: 25, vigorCap: 12, clarityCap: 12 },
-};
+/** Condition at the thaw for each grade. */
+export const GRADE_AT = { hale: 70, worn: 40 };
 
-const lowerCap = (v: Vitals, pool: 'vigor' | 'clarity', by: number): void => {
-  const p = v[pool];
-  p.cap = Math.max(CAP_FLOOR, p.cap - by);
-  p.current = Math.min(p.current, p.cap);
-};
-
-/**
- * Resolve an exit (pure). Validity — is this exit open today? — is the
- * caller's job via {@link availableChoices}.
- */
-export function resolveOutcome(choice: Choice, input: OutcomeInput): Outcome {
-  const v: Vitals = { vigor: { ...input.vitals.vigor }, clarity: { ...input.vitals.clarity }, condition: input.vitals.condition };
-
-  if (choice === 'caravan') {
-    return { choice, kind: input.ready ? 'thrive' : 'ragged', vitals: v };
-  }
-
-  if (choice === 'solo') {
-    if (input.canCross) return { choice, kind: 'crossed', vitals: v };
-    // Underprepared on the winter road: you turn back, and the cold leaves a
-    // mark that ordinary recovery never undoes (vitality §3).
-    lowerCap(v, 'vigor', PENALTY.frostbite.vigorCap);
-    lowerCap(v, 'clarity', PENALTY.frostbite.clarityCap);
-    return { choice, kind: 'turnedBack', vitals: v, injury: 'frostbite' };
-  }
-
-  // Winter over.
-  if (input.ready) return { choice, kind: 'wintered', vitals: v };
-  v.condition = Math.max(0, v.condition - PENALTY.grim.condition);
-  lowerCap(v, 'vigor', PENALTY.grim.vigorCap);
-  lowerCap(v, 'clarity', PENALTY.grim.clarityCap);
-  return { choice, kind: 'grim', vitals: v };
+/** The grade at the thaw: hale at Condition 70+ with no lasting injury, worn at 40–69, broken below 40 or with a lasting injury. */
+export function gradeOf(condition: number, injured = false): Grade {
+  if (injured || condition < GRADE_AT.worn) return 'broken';
+  return condition >= GRADE_AT.hale ? 'hale' : 'worn';
 }

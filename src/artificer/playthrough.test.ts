@@ -2,7 +2,8 @@
  * Acceptance tests for #1208 — the headless Region 1 end-to-end playthrough.
  *
  * Whole runs scripted through the real sim (no browser, no Phaser): a careful
- * player who prepares for winter, and a neglectful one who doesn't. One test
+ * player who prepares for winter and lives through it (#1302), and a
+ * neglectful one who doesn't. The short year (snow on day 13) keeps them quick. One test
  * per Given/When/Then criterion (1–5) in the issue.
  *
  * The "good" plan below was found by playing the sim and is a useful balance
@@ -13,9 +14,8 @@ import { describe, it, expect } from 'vitest';
 // These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
 import { FLAT_WORLD } from './world';
 import { fastForward, SHORT_YEAR } from './test-helpers';
-import { createRegion1, runAction, chooseSite, runDay, choose, winterReady, REGION1_MILESTONES, type QueueId, type Region1State } from './region1';
+import { createRegion1, runAction, chooseSite, runDay, winterReady, REGION1_MILESTONES, type QueueId, type Region1State } from './region1';
 import { BASELINE } from './vitality';
-import { PENALTY } from './winter';
 
 /**
  * A careful player: cave on day 1, a roof the first night, then stock up —
@@ -33,7 +33,7 @@ const GOOD_PLAN: QueueId[][] = [
   ['scout@3', 'water', 'rest'],      // day 9 — the distant hills: glimpse the pass out
 ];
 
-/** Play the careful run up to the caravan's arrival (day 10). */
+/** Play the careful run through its nine-day plan, to day 10. */
 function playGood(): Region1State {
   let s = createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR });
   s = runAction(s, 'scout');
@@ -46,18 +46,31 @@ function playGood(): Region1State {
   return s;
 }
 
+/** Through the winter: hunt and fetch, smoke what's spare, keep the woodpile up — until the thaw. */
+const WINTER_ROUTINE: QueueId[][] = [
+  ['hunt', 'water', 'preserve'],
+  ['wood', 'hunt', 'water'],
+  ['gather', 'water', 'rest'],
+];
+
+function playWinter(from: Region1State): Region1State {
+  let s = from;
+  while (!s.outcome) s = runDay(s, WINTER_ROUTINE[s.day % WINTER_ROUTINE.length]).state;
+  return s;
+}
+
 /** A neglectful player: looks around once, then mostly sits about. */
 function playNeglect(): Region1State {
   let s = runAction(createRegion1({ world: FLAT_WORLD, calendar: SHORT_YEAR }), 'scout');
-  s = fastForward(s, SHORT_YEAR.caravanOpen, ['rest', 'rest']);
+  s = fastForward(s, 10, ['rest', 'rest']);
   return s;
 }
 
 describe('Region 1 playthrough (headless e2e)', () => {
-  // 1. A good run is winter-ready before the caravan and climbs the whole ladder.
-  it('gets a careful player winter-ready before the caravan, with every milestone', () => {
+  // 1. A good run is winter-ready well before the snow and climbs the whole ladder.
+  it('gets a careful player winter-ready before the snow, with every milestone', () => {
     const s = playGood();
-    expect(s.day).toBe(SHORT_YEAR.caravanOpen);
+    expect(s.day).toBe(10);
     expect(winterReady(s)).toBe(true);
     expect(s.milestones).toEqual(REGION1_MILESTONES.map(m => m.id));
     // They also came out stronger than they arrived, and never went hungry.
@@ -66,44 +79,25 @@ describe('Region 1 playthrough (headless e2e)', () => {
     expect(s.log.some(l => /Hungry|Thirsty/.test(l.text))).toBe(false);
   });
 
-  // 2. From that run, each exit resolves as designed.
-  it('resolves each exit for the careful player', () => {
-    const s = playGood();
-    expect(choose(s, 'caravan').outcome?.kind).toBe('thrive');
-    expect(choose(s, 'solo').outcome?.kind).toBe('crossed');
-    expect(choose(s, 'winter').outcome?.kind).toBe('wintered');
-    expect(choose(s, 'solo').outcome?.injury).toBeUndefined();
+  // 2. The careful player keeps it up through the winter (#1302) and comes out hale at the thaw.
+  it('carries the careful player through the winter to the thaw', () => {
+    const s = playWinter(playGood());
+    expect(s.outcome).toMatchObject({ choice: 'thaw', kind: 'survived', grade: 'hale' });
+    expect(s.day).toBe(SHORT_YEAR.thawDay);
   });
 
-  // 3. A neglectful run arrives unready; wintering is grim, the road turns them back.
-  it('leaves a neglectful player unready, with grim and frostbitten exits', () => {
-    const s = playNeglect();
+  // 3. A neglectful run arrives unready, and sitting about through the winter kills them.
+  it('leaves a neglectful player unready, and the winter ends them', () => {
+    let s = playNeglect();
     expect(winterReady(s)).toBe(false);
-
-    const wintered = choose(s, 'winter');
-    expect(wintered.outcome?.kind).toBe('grim');
-    expect(wintered.vitals.vigor.cap).toBeLessThan(s.vitals.vigor.cap);
-
-    const road = choose(s, 'solo');
-    expect(road.outcome?.kind).toBe('turnedBack');
-    expect(road.outcome?.injury).toBe('frostbite');
-    expect(road.vitals.vigor.cap).toBe(Math.max(50, s.vitals.vigor.cap - PENALTY.frostbite.vigorCap));
-
-    expect(choose(s, 'caravan').outcome?.kind).toBe('ragged');
-  });
-
-  // 4. The caravan can't be boarded once its window has closed.
-  it('refuses the caravan after its window closes, leaving solo and winter', () => {
-    let s = playGood();
-    s = fastForward(s, SHORT_YEAR.caravanClose + 1);
-    expect(() => choose(s, 'caravan')).toThrow(/not available/);
-    expect(choose(s, 'winter').outcome?.kind).toBeDefined();
-    expect(choose(s, 'solo').outcome?.kind).toBeDefined();
+    while (!s.outcome) s = runDay(s, ['rest', 'rest']).state;
+    expect(['died', 'collapsed']).toContain(s.outcome.kind);
+    expect(s.day).toBeLessThan(SHORT_YEAR.thawDay);
   });
 
   // 5. Deterministic: same script, same result.
   it('is deterministic — the same script yields an identical state', () => {
     expect(playGood()).toEqual(playGood());
-    expect(choose(playGood(), 'caravan')).toEqual(choose(playGood(), 'caravan'));
+    expect(playWinter(playGood())).toEqual(playWinter(playGood()));
   });
 });

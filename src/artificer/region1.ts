@@ -3,8 +3,9 @@
  *
  * Composes the sim-core modules into the Region 1 game: you arrive with almost
  * nothing, winter is coming, and you plan each day as a queue of actions to lay
- * in a larder, winterize a shelter, stock fuel and stay sound — then take an
- * exit when the caravan comes (docs/region-1-design.md).
+ * in a larder, winterize a shelter, stock fuel and stay sound — then live
+ * through the winter on what you built, until the thaw (#1302,
+ * docs/region-1-design.md).
  *
  * Same discipline as the rest of src/artificer: pure functions that return a
  * new state, deterministic (no randomness yet), no Phaser imports. A DOM
@@ -16,14 +17,14 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, weatherName, tempAt, nightTemp, isColdNight, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
+import { weatherFor, weatherName, tempAt, nightTemp, isColdNight, coldNightNeeds, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
-import { availableChoices, crossingPrepared, resolveOutcome, DEFAULT_CALENDAR, type Calendar, type Choice, type Outcome } from './winter';
+import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
 import { createExploration, scout, survey, track, lookout, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
@@ -269,6 +270,40 @@ export function readinessInput(s: Region1State): ReadinessInput {
 
 export const winterReady = (s: Region1State): boolean => isWinterReady(readinessInput(s), s.config.thresholds);
 
+/**
+ * The winter outlook (#1302): advice, not a gate. How many nights the stores
+ * last at the rates the nights actually use, and how the shelter stands
+ * against a midwinter night. Winter itself is the test.
+ */
+export interface WinterOutlook {
+  /** Nights of food (raw food first, then rations — one a night). */
+  foodDays: number;
+  /** Nights of water. */
+  waterDays: number;
+  /** Nights of firewood at tonight's burn (Infinity while nights burn none). */
+  fuelDays: number;
+  /** Shelter warmth less what a clear midwinter night needs not to be cold (negative: too cold). */
+  warmthMargin: number;
+  /** Nights left until the thaw, tonight included. */
+  nightsToThaw: number;
+}
+
+/** Firewood a night in camp burns. Nights burn none yet; the deep cold's fires come in #1303. */
+export const nightFuel = (_s: Region1State): number => 0;
+
+export function winterOutlook(s: Region1State): WinterOutlook {
+  const cal = s.config.calendar;
+  const fuel = nightFuel(s);
+  const midwinter = nightTemp(cal.winterDay + MIDWINTER_AFTER, 'clear', cal);
+  return {
+    foodDays: s.stores.rawFood + s.stores.rations,
+    waterDays: s.stores.water,
+    fuelDays: fuel > 0 ? Math.floor(s.stores.firewood / fuel) : Infinity,
+    warmthMargin: warmth(s) - coldNightNeeds(midwinter),
+    nightsToThaw: Math.max(0, cal.thawDay - s.day),
+  };
+}
+
 // ── Actions ─────────────────────────────────────────────────────────────────
 
 export type ActionId =
@@ -346,7 +381,7 @@ const reach = (s: Region1State, ring: Ring): string | null =>
 
 /** Game you've tracked (observed) in any ring. */
 export const gameTracked = (s: Region1State): boolean => RINGS.some(r => level(s.explore, r, 'game') >= 2);
-/** You've seen the pass out through the distant hills — the solo crossing needs it. */
+/** You've seen the pass out through the distant hills — the way on, come spring. */
 export const routeKnown = (s: Region1State): boolean => level(s.explore, 3, 'routes') >= 1;
 
 const where = (ring: Ring): string => (ring === 1 ? '' : ` in the ${RING_NAME[ring].toLowerCase()} ring`);
@@ -473,7 +508,7 @@ const STORE_KEYS = ['rawFood', 'water', 'firewood', 'materials', 'rations', 'sto
 // Region 1's own item on top of the registry defaults: cold gear lets you travel in winter.
 const CRAFT_WORLD = craftWorld([], [], { ...DEFAULT_EFFECTS, 'cold-gear': { unlock: ['winter-travel'] }, 'hide-parka': { unlock: ['winter-travel'] } });
 
-/** Road-worthy cold gear: you have some, and it isn't crude (crude gear won't hold up on the crossing). */
+/** Sound cold gear: you have some, and it isn't crude (crude gear won't hold up through a winter). */
 const roadworthyGear = (tools: readonly Tool[]): boolean =>
   tools.some(t => (t.item === 'cold-gear' && t.grade !== 'crude') || t.item === 'hide-parka');
 
@@ -676,10 +711,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   coldGear: {
     ...craftAction(COLD_GEAR_RECIPE), name: 'Craft cold gear',
-    gate: (s, _r, o) => (roadworthyGear(s.tools) ? 'you already have road-worthy cold gear' : unknownRecipe(s, coldGearRecipe(o)) ?? craftBlocker(crafterOf(s), coldGearRecipe(o))),
+    gate: (s, _r, o) => (roadworthyGear(s.tools) ? 'you already have sound cold gear' : unknownRecipe(s, coldGearRecipe(o)) ?? craftBlocker(crafterOf(s), coldGearRecipe(o))),
     recipeFor: (_s, o) => coldGearRecipe(o),
     options: (s, o) => [choiceGroup('material', 'Material', o.material ?? 'fiber', [
-      { value: 'fiber', label: 'Woven fiber', note: `${costNote(COLD_GEAR_RECIPE)} · crude won't hold up on the road`, blocked: null },
+      { value: 'fiber', label: 'Woven fiber', note: `${costNote(COLD_GEAR_RECIPE)} · crude won't hold up through a winter`, blocked: null },
       { value: 'hide', label: 'Hide parka', note: `${costNote(HIDE_PARKA_RECIPE)} · holds the cold even if crude`, blocked: knows(s, HIDE_PARKA_RECIPE) ? null : 'not yet discovered' },
     ])],
   },
@@ -930,7 +965,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     next.shelterGrade = result.grade;
     say(next, `Raised ${article(name)}${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action', at);
   } else if (result.kind === 'crafted') {
-    say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' You could brave the road now.' : " Crude — it won't hold up on the crossing.") : ''}`, 'action', at);
+    say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' Good gear for the winter.' : " Crude — it won't hold up through a winter.") : ''}`, 'action', at);
   } else if (result.kind === 'failed') {
     const back = result.salvaged.map(b => `${b.qty} ${b.item}`).join(', ');
     say(next, `The ${name} came apart in your hands — materials wasted${back ? ` (salvaged ${back})` : ''}. Too foggy for fine work.`, 'hardship');
@@ -1079,6 +1114,14 @@ export function endDay(s: Region1State): Region1State {
   next.hoursToday = 0;
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
   next.studiedToday = {};
+  // The thaw (#1302): the Warden made it through, graded by how they came out of it.
+  if (seasonOf(next.day, next.config.calendar) === 'thaw') {
+    const grade = gradeOf(next.vitals.condition);
+    next.outcome = { choice: 'thaw', kind: 'survived', grade, vitals: next.vitals };
+    say(next, `The ice breaks on the streams. You made it through the winter — ${GRADE_LINE[grade]}`, 'outcome');
+    return next;
+  }
+  if (next.day === next.config.calendar.winterDay) say(next, 'Snow in the night, and it stays. Winter has come — hold on until the thaw.', 'milestone');
   dawnWeather(next);
   // Tell the player when survival takes over the mind, and when it lets go.
   const lockedNow = survivalLockOf(next);
@@ -1087,6 +1130,13 @@ export function endDay(s: Region1State): Region1State {
   latchMilestones(next);
   return next;
 }
+
+/** How the thaw finds a Warden of each grade. */
+const GRADE_LINE: Readonly<Record<'hale' | 'worn' | 'broken', string>> = {
+  hale: 'hale, and stronger for it.',
+  worn: 'worn thin, but standing.',
+  broken: 'barely. It will be a long time before you are right.',
+};
 
 /**
  * What a night needs from a Warden — shared by Region 1 and the caravan road
@@ -1172,9 +1222,11 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   const say = (text: string, kind: LogEntry['kind']): void => { next.log.push({ day: next.day, text, kind }); };
 
   // Food and water are separate needs, and both are needed to recover (#1233).
-  const ate = next.stores.rawFood > 0;
+  // Fresh food first; when it's gone, the winter larder (#1302).
+  const ate = next.stores.rawFood > 0 || next.stores.rations > 0;
   const drank = o.providedWater || next.stores.water > 0;
-  if (ate) next.stores.rawFood -= 1;
+  if (next.stores.rawFood > 0) next.stores.rawFood -= 1;
+  else if (ate) next.stores.rations -= 1;
   if (drank && !o.providedWater) next.stores.water -= 1;
   next.deprivation = { hungry: ate ? 0 : next.deprivation.hungry + 1, thirsty: drank ? 0 : next.deprivation.thirsty + 1 };
   const running = (n: number): string => (n > 1 ? ` (${ordinal(n)} night running)` : '');
@@ -1274,23 +1326,3 @@ export function runDay(s: Region1State, queue: readonly QueueItem[]): { state: R
   return { state: endDay(state), remaining };
 }
 
-/**
- * Take an exit. Throws if that exit isn't open today (no exits while
- * preparing; the caravan only during its window) or the region is resolved.
- */
-export function choose(s: Region1State, choice: Choice): Region1State {
-  if (s.outcome) throw new Error('Region 1 is already resolved');
-  const open = availableChoices(s.day, s.config.calendar);
-  if (!open.includes(choice)) throw new Error(`exit "${choice}" is not available on day ${s.day}`);
-  const next = clone(s);
-  const outcome = resolveOutcome(choice, {
-    ready: winterReady(next),
-    // The road out also needs a route: you must have seen the pass in the distant hills.
-    canCross: routeKnown(next) && crossingPrepared({ coldGear: next.coldGear, rations: next.stores.rations, vitals: next.vitals }),
-    vitals: next.vitals,
-  });
-  next.outcome = outcome;
-  next.vitals = outcome.vitals;
-  say(next, `Region 1 resolved: ${choice} → ${outcome.kind}${outcome.injury ? ` (${outcome.injury})` : ''}.`, 'outcome');
-  return next;
-}

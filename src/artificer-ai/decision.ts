@@ -9,7 +9,6 @@
  */
 
 import { ACTIONS, SITES, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
-import type { Choice } from '../artificer/winter';
 import { FOCUS_KEYS } from '../artificer/focus';
 
 export interface Decision {
@@ -17,24 +16,21 @@ export interface Decision {
   /** A focus key ("goal:larder", "skill:hunting", "concept:joinery", "none"), or null to keep the current one (#1238). */
   focus?: string | null;
   site: SiteId | null;
-  exit: Choice | null;
   queue: QueueItem[];
 }
 
 const ACTION_IDS = Object.keys(ACTIONS) as ActionId[];
 const SITE_IDS = Object.keys(SITES) as SiteId[];
-const EXITS: Choice[] = ['caravan', 'solo', 'winter'];
 
 /** JSON Schema for one decision (strict-mode friendly). */
 export const DECISION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['thoughts', 'focus', 'site', 'exit', 'queue'],
+  required: ['thoughts', 'focus', 'site', 'queue'],
   properties: {
     thoughts: { type: 'string', description: "One or two sentences: today's plan." },
     focus: { anyOf: [{ type: 'string', enum: FOCUS_KEYS }, { type: 'null' }], description: 'Set what your mind works on (e.g. "goal:larder"), "none" to clear, or null to keep it.' },
     site: { anyOf: [{ type: 'string', enum: SITE_IDS }, { type: 'null' }], description: 'Settle or move camp before the day, or null.' },
-    exit: { anyOf: [{ type: 'string', enum: EXITS }, { type: 'null' }], description: 'Take an exit now (only when open), or null.' },
     queue: {
       type: 'array',
       description: "The day's actions in order.",
@@ -94,11 +90,8 @@ export function parseDecision(text: string): ParseResult {
     if (typeof o.site === 'string' && (SITE_IDS as string[]).includes(o.site)) site = o.site as SiteId;
     else errors.push(`site must be one of ${SITE_IDS.join(', ')} or null`);
   }
-  let exit: Choice | null = null;
-  if (o.exit !== null && o.exit !== undefined) {
-    if (typeof o.exit === 'string' && (EXITS as string[]).includes(o.exit)) exit = o.exit as Choice;
-    else errors.push(`exit must be one of ${EXITS.join(', ')} or null`);
-  }
+  // There are no exits since winter is played (#1302): asking for one is a mistake worth telling the player about.
+  if (o.exit !== null && o.exit !== undefined) errors.push('there are no exits — survive the winter until the thaw (leave "exit" out)');
 
   const queue: QueueItem[] = [];
   if (!Array.isArray(o.queue)) errors.push('queue must be an array');
@@ -125,5 +118,5 @@ export function parseDecision(text: string): ParseResult {
     queue.push(Object.keys(opts).length ? { q, opts } : q);
   });
 
-  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), site, exit, queue } };
+  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), site, queue } };
 }

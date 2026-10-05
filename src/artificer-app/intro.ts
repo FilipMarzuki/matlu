@@ -47,6 +47,7 @@ export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
           `Knowledge retained: ${s.known.length} recipes${ranks ? `, ${ranks} concept rank${ranks === 1 ? '' : 's'}` : ''}.`,
           `RANK: ${rank}`,
           `Winter arrives in ${daysToSnow} days.`,
+          'Survive it until the thaw.',
         ],
       },
       CLOSING,
@@ -59,7 +60,7 @@ export function introBeats(kind: IntroKind, s: Region1State, run = 1): Beat[] {
     { kind: 'voice', lines: ['⟨ ARRIVAL DETECTED ⟩', 'Scanning…', 'Crafting knowledge exceeds threshold.'] },
     { kind: 'voice', lines: ['CLASS DESIGNATED: ARTIFICER', `RANK: ${rank}`] },
     { kind: 'create', lines: ['IDENTIFY YOURSELF, ARTIFICER.'] },
-    { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`] },
+    { kind: 'voice', lines: ['Registered: {name}.', 'Region: Greywind Reach.', `Winter arrives in ${daysToSnow} days.`, 'Survive it until the thaw.'] },
     CLOSING,
   ];
 }
