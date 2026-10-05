@@ -10,6 +10,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+// These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
+import { FLAT_WORLD } from './world';
 import { fastForward } from './test-helpers';
 import { createRegion1, runAction, chooseSite, runDay, choose, winterReady, REGION1_MILESTONES, type QueueId, type Region1State } from './region1';
 import { BASELINE } from './vitality';
@@ -33,7 +35,7 @@ const GOOD_PLAN: QueueId[][] = [
 
 /** Play the careful run up to the caravan's arrival (day 10). */
 function playGood(): Region1State {
-  let s = createRegion1();
+  let s = createRegion1({ world: FLAT_WORLD });
   s = runAction(s, 'scout');
   s = chooseSite(s, 'cave');
   for (const day of GOOD_PLAN) {
@@ -46,7 +48,7 @@ function playGood(): Region1State {
 
 /** A neglectful player: looks around once, then mostly sits about. */
 function playNeglect(): Region1State {
-  let s = runAction(createRegion1(), 'scout');
+  let s = runAction(createRegion1({ world: FLAT_WORLD }), 'scout');
   s = fastForward(s, DEFAULT_CALENDAR.caravanOpen, ['rest', 'rest']);
   return s;
 }

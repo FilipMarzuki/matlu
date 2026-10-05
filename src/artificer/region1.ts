@@ -15,6 +15,7 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
+import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
@@ -231,8 +232,8 @@ function clone(s: Region1State): Region1State {
 const say = (s: Region1State, text: string, kind: LogEntry['kind'], at?: LogEntry['at']): void => { s.log.push(at ? { day: s.day, text, kind, at } : { day: s.day, text, kind }); };
 
 /** When a piece of work starts and the light it has, from the hours already spent and how long it takes (#1280). */
-const stampFor = (s: Pick<Region1State, 'day' | 'hoursToday'>, hours: number): LogEntry['at'] =>
-  ({ hour: clockHour(s.hoursToday), light: lightOver(s.day, clockHour(s.hoursToday), hours) });
+const stampFor = (s: Pick<Region1State, 'day' | 'hoursToday' | 'config'>, hours: number): { hour: number; light: number } =>
+  ({ hour: clockHour(s.hoursToday), light: s.config.world.darkness ? lightOver(s.day, clockHour(s.hoursToday), hours) : 1 });
 
 // ── Derived values ──────────────────────────────────────────────────────────
 
@@ -310,9 +311,10 @@ interface ActionDef {
   options?: (s: Region1State, opts: ActionOpts) => OptionGroup[];
   /**
    * Apply the effect to (an already-cloned) state; return the journal line.
-   * `bonus` is the extra yield your tools give this action.
+   * `bonus` is the extra yield your tools give this action; `light` is the
+   * average light the work had (#1281, 1 by day — darkness costs haul and sight).
    */
-  run: (s: Region1State, bonus: number, ring: Ring, opts: ActionOpts) => string;
+  run: (s: Region1State, bonus: number, ring: Ring, opts: ActionOpts, light: number) => string;
   /** How the chosen options change the work itself (hours and per-hour pulls). */
   variant?: (opts: ActionOpts, s?: Region1State, ring?: Ring) => { hours?: number; vigorRate?: number; clarityRate?: number };
   /** Happens out on the land: can target a ring, and pays its travel time. */
@@ -335,6 +337,10 @@ export const gameTracked = (s: Region1State): boolean => RINGS.some(r => level(s
 export const routeKnown = (s: Region1State): boolean => level(s.explore, 3, 'routes') >= 1;
 
 const where = (ring: Ring): string => (ring === 1 ? '' : ` in the ${RING_NAME[ring].toLowerCase()} ring`);
+/** Looking at the land in the dark teaches nothing (#1281). */
+const tooDark = (ring: Ring): string => `Too dark to make anything out${where(ring)} — the hours pass and you learn nothing.`;
+/** A note when poor light cost part of the haul (#1281). */
+const dimNote = (light: number): string => (light < 1 ? (light < 0.5 ? ' Most of it lost to the dark.' : ' The light was failing.') : '');
 
 /**
  * Work a domain on (an already-cloned) state: it teaches you the ground and
@@ -536,7 +542,8 @@ const craftAction = (r: CraftRecipe, extra?: (s: Region1State) => string | null)
 export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   scout: {
     name: 'Scout', hours: 4, vigorRate: -3.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, _b, r) => {
+    run: (s, _b, r, _o, light) => {
+      if (tooDarkToSee('scout', light)) return tooDark(r);
       s.explore = scout(s.explore, r);
       return r === 1 ? 'Scouted the near ground — you can see where food, water, wood and stone lie.'
         : r === 2 ? 'Pushed out to the far ring — new forage and timber, and paths leading on.'
@@ -545,7 +552,10 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   survey: {
     name: 'Survey', hours: 7, vigorRate: -2, clarityRate: -5, ringed: true, gate: reach,
-    run: (s, _b, r) => { s.explore = survey(s.explore, r); return `Surveyed carefully${where(r)} — every trip there yields more now.`; },
+    run: (s, _b, r, _o, light) => {
+      if (tooDarkToSee('survey', light)) return tooDark(r);
+      s.explore = survey(s.explore, r); return `Surveyed carefully${where(r)} — every trip there yields more now.`;
+    },
   },
   track: {
     name: 'Track', hours: 4, vigorRate: -3, clarityRate: -2.5, ringed: true, gate: reach,
@@ -553,13 +563,14 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   },
   gather: {
     name: 'Gather food', hours: 5, vigorRate: -3.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, b, r) => {
+    run: (s, b, r, _o, light) => {
       const blind = level(s.explore, r, 'forage') === 0;
-      const n = tripYield(s.explore, r, 'forage', 3, 2) + b;
+      // In poor light you miss most of what's there (#1281).
+      const n = scaleHaul(tripYield(s.explore, r, 'forage', 3, 2) + b, darkYieldMult('gather', light));
       const note = workLand(s, r, 'forage');
       const fiber = findBonus(s, r, 'forage');
       s.stores.rawFood += n; s.stores.materials += fiber; s.flags.everFood = true;
-      return `${blind ? 'Wandered, not knowing where to look — gathered' : 'Gathered'} ${n} raw food${fiber ? ` and ${fiber} fiber` : ''}${where(r)}.${note}`;
+      return `${blind ? 'Wandered, not knowing where to look — gathered' : 'Gathered'} ${n} raw food${fiber ? ` and ${fiber} fiber` : ''}${where(r)}.${note}${dimNote(light)}`;
     },
   },
   hunt: {
@@ -594,21 +605,22 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   wood: {
     name: 'Gather wood', hours: 4, vigorRate: -4, clarityRate: -1, ringed: true, gate: reach,
     // `b` (skill, tools, focus, techniques) adds to the firewood — it used to be ignored here (#1243).
-    run: (s, b, r) => {
-      const f = tripYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b;
-      const m = tripYield(s.explore, r, 'timber', 2, 1);
+    run: (s, b, r, _o, light) => {
+      const dim = darkYieldMult('wood', light);
+      const f = scaleHaul(tripYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b, dim);
+      const m = scaleHaul(tripYield(s.explore, r, 'timber', 2, 1), dim);
       const note = workLand(s, r, 'timber');
       s.stores.firewood += f; s.stores.materials += m; s.flags.everWood = true;
-      return `Cut ${f} firewood and ${m} materials${where(r)}.${note}`;
+      return `Cut ${f} firewood and ${m} materials${where(r)}.${note}${dimNote(light)}`;
     },
   },
   quarry: {
     name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
-    run: (s, b, r) => {
-      const n = tripYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b;
+    run: (s, b, r, _o, light) => {
+      const n = scaleHaul(tripYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b, darkYieldMult('quarry', light));
       const note = workLand(s, r, 'stone');
       s.stores.stone += n;
-      return `Broke out ${n} stone${where(r)}.${note}`;
+      return `Broke out ${n} stone${where(r)}.${note}${dimNote(light)}`;
     },
   },
   preserve: {
@@ -663,7 +675,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     gate: (s, r) => reach(s, r) ?? (scouted(s.explore, r) ? null : `scout the ${RING_NAME[r].toLowerCase()} ring first`),
     // Camped on the hilltop, the near look-out is a short climb.
     variant: (_o, s, ring) => (s?.site === 'hill' && ring === 1 ? { hours: 2 } : {}),
-    run: (s, _b, r) => {
+    run: (s, _b, r, _o, light) => {
+      if (tooDarkToSee('lookout', light)) return tooDark(r);
       s.explore = lookout(s.explore, r);
       return `Climbed high${where(r)} and looked out — the ground sharpens below${r < 3 ? `, and you can see over the ${RING_NAME[(r + 1) as Ring].toLowerCase()} ring` : ''}.`;
     },
@@ -676,7 +689,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       return { value: c, label: c[0].toUpperCase() + c.slice(1), note: `rank ${s.concepts[c]?.rank ?? 0}${reveals.length ? ` · rank 1 reveals ${reveals.join(', ')}` : ''}`, blocked: null };
     }))],
     // Focus spends about a third of a fresh mind (crafting.study); insight grows the concept.
-    run: (s, _b, _r, o) => {
+    run: (s, _b, _r, o, light) => {
       const concept = o.concept ?? 'joinery';
       const before = s.vitals.clarity.current;
       const c = { ...crafterOf(s), studiedToday: s.studiedToday };
@@ -688,7 +701,13 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       // Intelligence (#1256): a sharper mind takes more from the same session.
       const extra = r.gained * (statEffects(s.character.stats).insight - 1);
       if (extra !== 0) addInsight(s.concepts, concept, extra, CRAFT_WORLD.concepts);
-      return `Studied ${concept} — ${(r.gained + extra).toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).`;
+      // At night you read and reckon by firelight — or strain in the dark (#1281).
+      const night = nightWork(light, s.stores.firewood, 3);
+      const strain = Math.max(0, before - s.vitals.clarity.current) * (night.clarity - 1);
+      s.stores.firewood -= night.fire;
+      s.vitals.clarity.current = Math.max(0, s.vitals.clarity.current - strain);
+      s.today.loadClarity += strain;
+      return `Studied ${concept} — ${(r.gained + extra).toFixed(1)} insight (rank ${s.concepts[concept]?.rank ?? 0}).${night.fire ? ' By firelight.' : night.clarity > 1 ? ' Straining in the dark.' : ''}`;
     },
   },
   tinker: {
@@ -798,10 +817,12 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   const fx = workEffects(next.focus, survivalLockOf(next), id, skill, next.vitals.clarity.current, se.unreliableBelow);
   // Techniques you know (#1243): richer, lighter work — and Pathfinding eases the walk out.
   const te = techniqueEffects(next.techniques, id, undefined, def.ringed);
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel });
-  next.vitals = t.vitals;
+  // The light the work has (#1280), and what the dark costs (#1281): heavier felling, a harder walk.
   const at = stampFor(next, workHours + travel);
+  const dw = darkWorkDrain(id, at.light), dt = darkTravelDrain(at.light);
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain });
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt });
+  next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
   next.today.pushedVigor ||= r.pushedVigor || t.pushedVigor;
@@ -812,9 +833,9 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
 
   // Talents that bring back more (Forager, Hunter's Patience, Waterfinder) — hidden ones too.
   const bonus = Math.round(mod.yieldAdd * toolMult(lvl)) + yieldBonus(lvl) + fx.yield + te.yield + (tf.yield[id] ?? 0);
-  say(next, def.run(next, bonus, ring, opts), 'action', at);
+  say(next, def.run(next, bonus, ring, opts, at.light), 'action', at);
   // First into a ring, you may find a manual someone left behind (#1243).
-  const manual = id === 'scout' ? MANUAL_BY_RING[ring] : undefined;
+  const manual = id === 'scout' && !tooDarkToSee('scout', at.light) ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
@@ -842,18 +863,25 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   const te = techniqueEffects(next.techniques, id, recipe.id);
   const effort = recipe.effort && { vigorRate: recipe.effort.vigorRate * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain, clarityRate: recipe.effort.clarityRate * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain };
   const crafter = crafterOf(next);
+  // At night, close work needs firelight — or goes worse in the dark (#1281).
+  const at = stampFor(next, hours);
+  const night = nightWork(at.light, next.stores.firewood, hours);
   // Intelligence (#1256) lifts — or, below average, lowers — the grade.
-  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
+  const { state: c, result } = craft({ ...crafter, skillBonus: craftBonus(lvl) + tr.craftGrade + te.grade + se.craftGrade + night.grade, salvageBonus: crafter.salvageBonus + tr.salvage }, { ...recipe, effort }, CRAFT_WORLD);
   next.vitals = c.vitals;
+  if (result.kind !== 'refused' && night.clarity > 1) {
+    const strain = Math.max(0, before.clarity.current - c.vitals.clarity.current) * (night.clarity - 1);
+    next.vitals = { ...next.vitals, clarity: { ...next.vitals.clarity, current: Math.max(0, next.vitals.clarity.current - strain) } };
+  }
   refundOverexertion(next, Math.max(0, before.condition - c.vitals.condition), tr.overexertCondition);
   for (const k of STORE_KEYS) next.stores[k] = c.inventory[k] ?? 0;
+  if (result.kind !== 'refused') next.stores.firewood = Math.max(0, next.stores.firewood - night.fire);
   next.tools = c.tools;
   next.concepts = c.concepts;
 
   // craft() doesn't report its load, so read it off the pools for nightly drift.
   next.today.loadVigor += Math.max(0, before.vigor.current - c.vitals.vigor.current);
-  next.today.loadClarity += Math.max(0, before.clarity.current - c.vitals.clarity.current);
-  const at = stampFor(next, hours);
+  next.today.loadClarity += Math.max(0, before.clarity.current - next.vitals.clarity.current);
   next.hoursToday += hours;
   next.coldGear = roadworthyGear(next.tools);
 
