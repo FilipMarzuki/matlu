@@ -4,6 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+// These check exact numbers and long plans written for an evenly lit day, so they play the flat world (#1281).
+import { FLAT_WORLD } from './world';
 import { fastForward } from './test-helpers';
 import { createRegion1, runAction, runDay, endDay, chooseSite, choose, warmth, type Region1State, NEEDS } from './region1';
 import { BASELINE } from './vitality';
@@ -20,7 +22,7 @@ describe('Region 1 sim', () => {
   // 1. Fresh start; gated actions refused (at no cost); blind foraging still teaches.
   it('starts on day 1 at baseline with nothing known, refusing gated work', () => {
     // GIVEN a new save
-    const fresh = createRegion1();
+    const fresh = createRegion1({ world: FLAT_WORLD });
     expect(fresh.day).toBe(1);
     expect(fresh.vitals.vigor.cap).toBe(BASELINE);
     expect(fresh.vitals.vigor.current).toBe(BASELINE);
@@ -44,7 +46,7 @@ describe('Region 1 sim', () => {
 
   // 2. Running an action spends hours + Vigor/Clarity and applies its effect.
   it('spends hours and body on an action and applies its effect', () => {
-    const fresh = createRegion1();
+    const fresh = createRegion1({ world: FLAT_WORLD });
     // WHEN they scout
     const looked = runAction(fresh, 'scout');
     expect(scouted(looked.explore, 1)).toBe(true);
@@ -62,7 +64,7 @@ describe('Region 1 sim', () => {
 
   // 3. runDay stops at 14 waking hours, returns the remainder, advances the day.
   it('runs a queue until the day is spent, returning the remainder', () => {
-    const day2 = runDay(createRegion1(), ['scout']).state;
+    const day2 = runDay(createRegion1({ world: FLAT_WORLD }), ['scout']).state;
     expect(day2.day).toBe(2);
     // WHEN five 4-hour wood trips are queued (20h > 14h)
     const r = runDay(day2, ['wood', 'wood', 'wood', 'wood', 'wood']);
@@ -78,7 +80,7 @@ describe('Region 1 sim', () => {
 
   // 4. End of day eats & drinks; going without costs Condition and weakens recovery.
   it('consumes food and water at night; going hungry costs Condition and recovery', () => {
-    const worked = runAction(createRegion1(), 'scout');
+    const worked = runAction(createRegion1({ world: FLAT_WORLD }), 'scout');
     // WHEN the day ends with food and water in store
     const fed = endDay(worked);
     expect(fed.stores.rawFood).toBe(worked.stores.rawFood - 1);
@@ -94,9 +96,9 @@ describe('Region 1 sim', () => {
   // 5. Warmth = site × build tier; changing site resets the build.
   it('derives shelter warmth from site and tier, and resets the build on moving', () => {
     // GIVEN no scouting yet, a site can't be claimed
-    expect(chooseSite(createRegion1(), 'cave').site).toBeNull();
+    expect(chooseSite(createRegion1({ world: FLAT_WORLD }), 'cave').site).toBeNull();
 
-    let s = chooseSite(runAction(createRegion1(), 'scout'), 'cave');
+    let s = chooseSite(runAction(createRegion1({ world: FLAT_WORLD }), 'scout'), 'cave');
     expect(warmth(s)).toBeCloseTo(0.27);
     s = { ...s, stores: { ...s.stores, materials: 20 } };
     s = runAction(s, 'build');
@@ -114,7 +116,7 @@ describe('Region 1 sim', () => {
 
   // 6. Exits only when the calendar allows.
   it('only allows an exit when the calendar opens it', () => {
-    const fresh = createRegion1();
+    const fresh = createRegion1({ world: FLAT_WORLD });
     // WHEN they try to leave on day 1
     expect(() => choose(fresh, 'caravan')).toThrow(/not available/);
     // WHEN the caravan has arrived
