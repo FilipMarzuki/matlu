@@ -201,7 +201,9 @@ const storeChip = (icon: string, label: string, n: number, low = false): string 
 
 function storesRow(s: AppState['sim']): string {
   const st = s.stores;
-  return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1)}${storeChip('💧', 'Water', st.water, st.water < 1)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
+  // A running hunger/thirst streak shows on the chip: the next night without costs more (#1233).
+  const streak = (n: number, word: string): string => (n ? ` <span class="streak">${word} ×${n}</span>` : '');
+  return `<div class="res">${storeChip('🍖', 'Food', st.rawFood, st.rawFood < 1).replace('</span>', `${streak(s.deprivation.hungry, 'HUNGRY')}</span>`)}${storeChip('💧', 'Water', st.water, st.water < 1).replace('</span>', `${streak(s.deprivation.thirsty, 'THIRSTY')}</span>`)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('⛰️', 'Stone', st.stone)}${storeChip('🦌', 'Hides', st.hides)}</div>`;
 }
 
 function vitalsBlock(a: AppState): string {
@@ -332,7 +334,7 @@ function statusBar(a: AppState, preview: Preview): string {
   const ready = winterReady(s);
   return `<div class="statusbar">
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
-    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
+    <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
     <span class="shours">TODAY <b>${todayHours(a, preview)}/${DAY_HOURS}H</b></span>
     <span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>
   </div>`;
@@ -436,7 +438,8 @@ function render(a: AppState): void {
     </header>
     ${fresh || showHelp ? `<p class="lede">You arrive alone with almost nothing, and <b>winter is coming</b>. Lay in a <b>larder</b>, build a
       <b>winter-proof shelter</b>, stock <b>fuel</b> and keep body &amp; mind sound. Plan each day as a <b>queue of actions</b>
-      and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind). Scout first, then push outward —
+      and run it. Each action costs <b>hours</b> and spends <b>Vigor</b> (body) / <b>Clarity</b> (mind).
+      Each night you need <b>both food and water</b> to recover body and mind — and every night in a row without either hurts more. Scout first, then push outward —
       working the land teaches you its detail. A caravan passes just before the snow: ride out with it, brave the crossing alone, or winter over.
       Progress saves in this browser.</p>` : ''}
     ${statusBar(a, preview)}

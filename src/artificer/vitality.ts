@@ -79,8 +79,10 @@ export interface ActivityResult {
 export interface DaySummary {
   loadVigor: number;
   loadClarity: number;
-  /** Did the character eat enough today? (drives Vigor recovery/conditioning) */
+  /** Did the character eat today? */
   ate: boolean;
+  /** Did the character drink today? Food and water are both needed to recover (#1233). Default true. */
+  drank?: boolean;
   /** 0..1 warmth of where they slept (drives Clarity recovery/conditioning). */
   shelterWarmth: number;
   pushedVigor?: boolean;
@@ -192,11 +194,16 @@ export function driftCapacity(v: Vitals, day: DaySummary): Vitals {
     pool.cap = clamp(pool.cap + (target - pool.cap) * CAP_LERP, CAP_FLOOR, CAP_CEIL);
     pool.current = Math.min(pool.current, pool.cap);
   };
-  // Vigor is "recovered" by eating; Clarity by sleeping somewhere warm.
-  drift(next.vigor, day.loadVigor, day.ate, day.pushedVigor ?? false);
-  drift(next.clarity, day.loadClarity, day.shelterWarmth >= 0.5, day.pushedClarity ?? false);
+  // A body or mind only recovers from hard work when fed AND watered (#1233);
+  // the mind also needs somewhere warm to sleep.
+  const nourished = isNourished(day);
+  drift(next.vigor, day.loadVigor, nourished, day.pushedVigor ?? false);
+  drift(next.clarity, day.loadClarity, nourished && day.shelterWarmth >= 0.5, day.pushedClarity ?? false);
   return next;
 }
+
+/** Fed and watered: both needs met (#1233). */
+export const isNourished = (day: Pick<DaySummary, 'ate' | 'drank'>): boolean => day.ate && (day.drank ?? true);
 
 /** Shelter warmth needed for a night to count as "real rest" for Condition. */
 export const HEAL_WARMTH = 0.5;
@@ -211,7 +218,7 @@ export const HEAL_WARMTH = 0.5;
  */
 export function recoverCondition(v: Vitals, day: DaySummary): Vitals {
   const pushed = (day.pushedVigor ?? false) || (day.pushedClarity ?? false);
-  if (!day.ate || pushed || day.shelterWarmth < HEAL_WARMTH) return v;
+  if (!isNourished(day) || pushed || day.shelterWarmth < HEAL_WARMTH) return v;
   const light = day.loadVigor + day.loadClarity < STIMULUS;
   const gain = (2 + 4 * day.shelterWarmth) * (light ? 2 : 1);
   return { ...clone(v), condition: clamp(v.condition + gain, 0, 100) };

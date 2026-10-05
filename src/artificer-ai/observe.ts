@@ -40,7 +40,7 @@ A caravan camps nearby on days 10-12; winter arrives on day 13. From day 10 you 
 Best outcomes: thrive (caravan while winter-ready), then crossed or wintered.
 
 HOW A DAY WORKS
-You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. At night you eat 1 food and drink 1 water (going without costs Condition and recovery), then sleep; a warmer shelter recovers more. Pushing a pool past empty costs Condition. Condition heals slowly (a few points a night) only on nights you ate and drank, slept in shelter 50%+ warm, and never pushed past empty; a light, restful day doubles it.
+You plan the day as a queue of actions. Each costs hours and drains Vigor (body) and/or Clarity (mind). A day has 14 waking hours; an action starts only if hours remain, so the last one may run past 14. Unrun actions are dropped — plan one day at a time. At night you eat 1 food and drink 1 water, then sleep; a warmer shelter recovers more. You need BOTH: missing one cuts the night's Vigor and Clarity recovery to 40%, missing both to 15%, and stops capacity from growing. Going without also costs Condition, more each night in a row: hunger 3 x nights running, thirst 6 x nights running. Rations are winter stock and are never eaten now. Pushing a pool past empty costs Condition. Condition heals slowly (a few points a night) only on nights you ate and drank, slept in shelter 50%+ warm, and never pushed past empty; a light, restful day doubles it.
 
 THE LAND
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
@@ -114,6 +114,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push('');
   // Capacities and Condition round DOWN: 99.6 shown as "100" read as meeting a 100 threshold it doesn't (#1230).
   lines.push(`VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100`);
+  const dep = s.deprivation;
+  if (dep.hungry || dep.thirsty) lines.push(`DEPRIVATION: ${[dep.hungry ? `${dep.hungry} night(s) without food` : '', dep.thirsty ? `${dep.thirsty} night(s) without water` : ''].filter(Boolean).join(', ')} — another night without costs more Condition.`);
   lines.push(`STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · stone ${st.stone} · hides ${st.hides}`);
 
   const t = s.config.thresholds;

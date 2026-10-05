@@ -83,6 +83,7 @@
   .r { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--sub); font-size: 12px; }
   .r b { font-variant-numeric: tabular-nums; color: var(--gold); }
   .r.low b { color: var(--danger); }
+  .r .streak, .sstores .streak { font-style: normal; font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--danger); border: 1px solid var(--danger); border-radius: 5px; padding: 1px 5px; }
 
   /* Milestones — a ladder of first-time wins that guides the player and breaks
      the big winter-ready goal into legible steps. */

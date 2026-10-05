@@ -203,6 +203,10 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   if (!Array.isArray(sim.milestones) || !Array.isArray(sim.log) || !Array.isArray(sim.tools) || !isObj(sim.concepts)) return null;
   if (sim.shelterGrade !== null && typeof sim.shelterGrade !== 'string') return null;
 
+  // Saves from before food/water streaks (#1233) start with none, rather than being thrown away.
+  const d = sim.deprivation;
+  const deprivation = isObj(d) && isNum(d.hungry) && isNum(d.thirsty) ? { hungry: d.hungry, thirsty: d.thirsty } : { hungry: 0, thirsty: 0 };
+
   // The shape checks above cover what the sim reads; trust the rest.
-  return { sim: sim as unknown as Region1State, queue: queue as QueueItem[] };
+  return { sim: { ...(sim as unknown as Region1State), deprivation }, queue: queue as QueueItem[] };
 }

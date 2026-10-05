@@ -109,6 +109,8 @@ export interface Region1State {
   concepts: Record<string, ConceptProgress>;
   /** Running totals for today, fed to nightly capacity drift. */
   today: { loadVigor: number; loadClarity: number; pushedVigor: boolean; pushedClarity: boolean };
+  /** Nights in a row without food / without water (#1233); each night without costs more. */
+  deprivation: { hungry: number; thirsty: number };
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -134,6 +136,7 @@ export function createRegion1(config: Partial<Region1Config> = {}, legacy?: Lega
     tools: [],
     concepts: {},
     today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false },
+    deprivation: { hungry: 0, thirsty: 0 },
     log: [],
     outcome: null,
     config: { calendar: config.calendar ?? DEFAULT_CALENDAR, thresholds: config.thresholds ?? DEFAULT_THRESHOLDS },
@@ -163,6 +166,7 @@ function clone(s: Region1State): Region1State {
     tools: [...s.tools],
     concepts: { ...s.concepts },
     today: { ...s.today },
+    deprivation: { ...s.deprivation },
     log: [...s.log],
   };
 }
@@ -769,12 +773,21 @@ function runCraft(next: Region1State, id: ActionId, recipe: CraftRecipe): Region
   return next;
 }
 
+/** Sleep recovery with one need unmet (food or water), and with both unmet (#1233). */
+export const NEED_ONE_MISSING = 0.4;
+export const NEED_BOTH_MISSING = 0.15;
+/** Condition lost per night without food / water, times the nights in a row (#1233). */
+export const HUNGER_COST = 3;
+export const THIRST_COST = 6;
+
+const ordinal = (n: number): string => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+
 /** "a " for a countable thing; nothing for plurals and mass nouns ("timber walls", "cold gear"). */
 const article = (name: string): string => (/s$|gear$/.test(name) ? '' : 'a ');
 
 /**
- * End the day: eat and drink (going without costs Condition and weakens
- * recovery), sleep (recovery scales with shelter warmth), a cold night bites,
+ * End the day: eat and drink (each is needed to recover; going without
+ * costs Condition, more each night in a row), sleep (recovery scales with shelter warmth), a cold night bites,
  * then capacity drifts on how the day was lived and a good night heals a
  * little Condition.
  */
@@ -788,16 +801,25 @@ export function endDay(s: Region1State): Region1State {
     say(next, 'The snare line caught something — 1 raw food.', 'action');
   }
 
-  let ate = true;
-  if (next.stores.rawFood > 0) next.stores.rawFood -= 1; else { ate = false; say(next, 'Hungry — no food today.', 'hardship'); }
-  if (next.stores.water > 0) next.stores.water -= 1; else { ate = false; say(next, 'Thirsty — no water today.', 'hardship'); }
+  // Food and water are separate needs, and both are needed to recover (#1233).
+  const ate = next.stores.rawFood > 0;
+  const drank = next.stores.water > 0;
+  if (ate) next.stores.rawFood -= 1;
+  if (drank) next.stores.water -= 1;
+  next.deprivation = { hungry: ate ? 0 : next.deprivation.hungry + 1, thirsty: drank ? 0 : next.deprivation.thirsty + 1 };
+  const running = (n: number): string => (n > 1 ? ` (${ordinal(n)} night running)` : '');
+  if (!ate) say(next, `Hungry — no food${running(next.deprivation.hungry)}.`, 'hardship');
+  if (!drank) say(next, `Thirsty — no water${running(next.deprivation.thirsty)}.`, 'hardship');
 
   const w = warmth(next);
-  const fed = ate ? 1 : 0.4;
+  // Sleep restores body and mind in full only when fed and watered; one need unmet guts it, both nearly stops it.
+  const nourishment = ate && drank ? 1 : ate || drank ? NEED_ONE_MISSING : NEED_BOTH_MISSING;
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
   const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;
-  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * fed, clarityRate: 5 * fed, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
-  if (!ate) next.vitals.condition = Math.max(0, next.vitals.condition - 6);
+  next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * nourishment, clarityRate: 5 * nourishment, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
+  // Going without escalates: each night in a row costs more, and thirst bites twice as hard as hunger.
+  const deprivationLoss = HUNGER_COST * next.deprivation.hungry + THIRST_COST * next.deprivation.thirsty;
+  next.vitals.condition = Math.max(0, next.vitals.condition - deprivationLoss);
   if (w < 0.3 && next.tier < 2) {
     next.vitals.condition = Math.max(0, next.vitals.condition - 4);
     say(next, 'A cold, broken night — the exposure bites.', 'hardship');
@@ -807,6 +829,7 @@ export function endDay(s: Region1State): Region1State {
     loadVigor: next.today.loadVigor,
     loadClarity: next.today.loadClarity,
     ate,
+    drank,
     shelterWarmth: w,
     pushedVigor: next.today.pushedVigor,
     pushedClarity: next.today.pushedClarity,
