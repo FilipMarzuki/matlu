@@ -11,7 +11,7 @@
  * frontend, a test, or Core Warden can all drive it identically.
  */
 
-import { talentEffects, talentDrain, startingTalents, startingPractice, type Talent, type TalentId } from './talents';
+import { talentEffects, talentDrain, startingTalents, startingPractice, growTalents, TIER_UP_LINE, type GrowthEvent, type Talent, type TalentId } from './talents';
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -807,6 +807,8 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
   if (r.conditionLost + t.conditionLost > 3) say(next, 'Pushed past empty — it cost your health.', 'hardship');
   if (skill) practiceSkill(next, skill, workHours * fx.practice);
+  // Talents grow quietly from the work that uses them (#1264) — hidden ones too.
+  growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
   latchMilestones(next);
   return next;
 }
@@ -859,6 +861,7 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
   }
   // Even a failed attempt is practice (refused crafts never got this far).
   if (skill && result.kind !== 'refused') practiceSkill(next, skill, hours * fx.practice);
+  if (result.kind !== 'refused') growFrom(next, { kind: 'work', action: id, hours, craft: true, practised: skill !== null });
   latchMilestones(next);
   return next;
 }
@@ -1017,6 +1020,16 @@ export interface NightOpts {
 /** The night's verdict: null if the Warden lives to see morning; otherwise how it ended. */
 export interface NightResult { ended: null | 'died' | 'collapsed' }
 
+/**
+ * Grow the Warden's talents from one event (#1264). A tier gained is felt —
+ * one line, naming neither the talent nor the tier.
+ */
+function growFrom(next: Pick<Region1State, 'character' | 'log' | 'day'>, e: GrowthEvent): void {
+  const { talents, tierUps } = growTalents(next.character.talents, e);
+  next.character.talents = talents;
+  if (tierUps > 0) next.log.push({ day: next.day, text: TIER_UP_LINE, kind: 'milestone' });
+}
+
 /** Give back the share of overexertion's Condition cost that a talent spares (Tough, #1263). */
 function refundOverexertion(next: Pick<Region1State, 'vitals'>, lost: number, mult: number): void {
   if (lost > 0 && mult < 1) next.vitals.condition = Math.min(100, next.vitals.condition + lost * (1 - mult));
@@ -1088,6 +1101,8 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   if (next.vitals.condition <= 0) {
     return { ended: next.deprivation.thirsty >= DEATH_THIRST || next.deprivation.hungry >= DEATH_HUNGER ? 'died' : 'collapsed' };
   }
+  // A night of hardship survived grows the talents that meet it (#1264): hunger, cold, being worn down.
+  growFrom(next, { kind: 'night', hungry: !ate, cold: o.coldNight, condition: next.vitals.condition });
 
   const summary = {
     loadVigor: next.today.loadVigor,
