@@ -132,14 +132,23 @@ function timeline(a: AppState): string {
     + `<div class="tl-legend"><span><b>Autumn</b> — prep time</span><span><b>Caravan</b> — days ${cal.caravanOpen}–${cal.caravanClose}</span><span><b>Winter</b> — day ${cal.winterDay}+</span></div>`;
 }
 
+/** The body pillar's status: Condition when all is well, otherwise the check that's failing. */
+function bodyStatus(v: AppState['sim']['vitals'], minCondition: number): string {
+  const fl = (x: number): number => Math.floor(x + 1e-9);
+  if (v.vigor.cap < BASELINE) return `VIG CAP ${fl(v.vigor.cap)} / ${BASELINE}`;
+  if (v.clarity.cap < BASELINE) return `CLA CAP ${fl(v.clarity.cap)} / ${BASELINE}`;
+  return `COND ${fl(v.condition)}${v.condition < minCondition ? ` / ${minCondition}` : ''}`;
+}
+
 function readiness(a: AppState): string {
   const s = a.sim;
   const t = s.config.thresholds;
   const status: Record<PillarKey, string> = {
     larder: `${s.stores.rations} / ${t.larder}`,
-    shelter: `${Math.round(warmth(s) * 100)}% / ${Math.round(t.warmth * 100)}%`,
+    // Round down, so a value just under a threshold never displays as meeting it (#1230).
+    shelter: `${Math.floor(warmth(s) * 100)}% / ${Math.round(t.warmth * 100)}%`,
     fuel: `${s.stores.firewood} / ${t.fuel}`,
-    body: `COND ${Math.round(s.vitals.condition)}`,
+    body: bodyStatus(s.vitals, t.condition),
   };
   const rows = pillars(readinessInput(s), t).map(p =>
     `<div class="pillar"><span class="pn">${PILLAR_NAME[p.key]}</span>`

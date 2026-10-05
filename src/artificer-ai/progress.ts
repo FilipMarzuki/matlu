@@ -74,8 +74,9 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
       clarity: Math.round(s.vitals.clarity.current), clarityCap: Math.round(s.vitals.clarity.cap),
       condition: Math.round(s.vitals.condition),
     },
-    pillars: Object.fromEntries(ps.map(p => [p.key, r2(p.progress)])) as Record<PillarKey, number>,
-    readiness: r2(ps.reduce((n, p) => n + p.progress, 0) / ps.length),
+    // A pillar reads 1 only when it's actually done — rounding 0.996 up to 1 hid an unmet threshold.
+    pillars: Object.fromEntries(ps.map(p => [p.key, p.done ? 1 : Math.min(0.99, r2(p.progress))])) as Record<PillarKey, number>,
+    readiness: ps.every(p => p.done) ? 1 : Math.min(0.99, r2(ps.reduce((n, p) => n + p.progress, 0) / ps.length)),
     winterReady: isWinterReady(readinessInput(s)),
     milestones: s.milestones.length,
     overexertions: count(/^Pushed past empty/),

@@ -11,6 +11,7 @@ import { parseDecision } from './decision';
 import { playRun, type Player } from './runner';
 import { scriptedPlayer } from './players/scripted';
 import { aggregate, type Transcript } from './report';
+import { randomPlayer } from './players/random';
 
 /** A player that replies with the given texts in order (then repeats the last). */
 const replay = (texts: string[]): Player & { seen: string[] } => {
@@ -150,5 +151,36 @@ describe('AI player harness', () => {
     expect(worst).toMatchObject({ model: 'lazy/model', runs: 1, readyRuns: 0, readyDay: null });
     expect(worst.events.shelter).toEqual({ day: null, runs: 0 });
     expect(worst.actions.rest).toBe(10);
+  });
+
+  // Random baselines: seeded (so they repeat), legal ones only queue possible actions,
+  // and many runs double as a fuzz test — no crash, no broken invariant.
+  it('runs seeded random baselines without breaking the sim', async () => {
+    const a = await playRun(randomPlayer({ mode: 'legal', seed: 7 }));
+    const b = await playRun(randomPlayer({ mode: 'legal', seed: 7 }));
+    expect(b.record).toEqual(a.record);
+    expect(b.turns.map(t => t.queue)).toEqual(a.turns.map(t => t.queue));
+    expect(a.turns.some(t => t.invalid)).toBe(false);
+    expect(a.turns.flatMap(t => t.journal).some(l => /skipped/.test(l))).toBe(false);
+    for (let seed = 1; seed <= 40; seed++) {
+      for (const mode of ['legal', 'uniform'] as const) {
+        const run = await playRun(randomPlayer({ mode, seed }));
+        expect(run.turns.flatMap(t => t.violations ?? [])).toEqual([]);
+        expect(run.final.outcome).not.toBeNull();
+      }
+    }
+  });
+
+  // A value just under a threshold must never display as meeting it.
+  it('rounds readiness values down so an unmet threshold never reads as met', async () => {
+    const { createVitals } = await import('../artificer/vitality');
+    const { progressOf } = await import('./progress');
+    const base = runAction(createRegion1(), 'scout');
+    const s = { ...base, vitals: { ...createVitals({ condition: 80 }), vigor: { current: 50, cap: 99.6 } } };
+    expect(observe(s)).toMatch(/Vigor 50\/99 /);
+    expect(observe(s)).toMatch(/body needs \(vigor capacity 99\/100/);
+    const p = progressOf({ ...s, stores: { ...s.stores, rations: 12, firewood: 15 } }, s.known.length);
+    expect(p.pillars.body).toBeLessThan(1);
+    expect(p.readiness).toBeLessThan(1);
   });
 });

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, chooseSite, endDay, type Region1State } from './region1';
+import { createRegion1, runAction, chooseSite, endDay, ACTIONS, type Region1State } from './region1';
 import { createVitals } from './vitality';
 
 function camp(over: Partial<Region1State> = {}): Region1State {
@@ -42,5 +42,14 @@ describe('Region 1 playtest fixes (#1227)', () => {
     const worn = { ...walled, vitals: createVitals({ condition: 57 }), today: { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false } };
     const night = endDay(worn);
     expect(night.vitals.condition).toBeGreaterThan(57);
+  });
+
+  // Found by the random baseline: a look-out from unscouted ground scouted two rings at once.
+  it('needs the ring scouted before you can look out over it', () => {
+    const fresh = createRegion1();
+    expect(ACTIONS.lookout.gate?.(fresh, 1, {})).toMatch(/scout the near ring first/);
+    const scoutedNear = runAction(fresh, 'scout');
+    expect(ACTIONS.lookout.gate?.(scoutedNear, 1, {})).toBeNull();
+    expect(ACTIONS.lookout.gate?.(scoutedNear, 2, {})).toMatch(/scout the far ring first/);
   });
 });

@@ -592,7 +592,9 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   bedroll: craftAction(REGION1_RECIPES.bedroll, needsScout),
   shovel: craftAction(REGION1_RECIPES.shovel, needsScout),
   lookout: {
-    name: 'Climb & look out', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
+    // You look out over ground you've scouted; without that it would stand in for scouting two rings at once.
+    name: 'Climb & look out', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true,
+    gate: (s, r) => reach(s, r) ?? (scouted(s.explore, r) ? null : `scout the ${RING_NAME[r].toLowerCase()} ring first`),
     // Camped on the hilltop, the near look-out is a short climb.
     variant: (_o, s, ring) => (s?.site === 'hill' && ring === 1 ? { hours: 2 } : {}),
     run: (s, _b, r) => {

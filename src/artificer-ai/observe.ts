@@ -17,6 +17,7 @@ import {
   type ActionId, type Region1State,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
+import { BASELINE } from '../artificer/vitality';
 import { availableChoices, crossingPrepared, phaseOf, resolveOutcome, CROSSING_NEEDS } from '../artificer/winter';
 import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
 
@@ -63,6 +64,7 @@ Each turn you get an observation. Reply with ONLY a JSON object, no prose, match
 Use action ids exactly as listed. "ring" matters only for land actions (use 1 otherwise). "options" lets you pick choices shown for an action (e.g. {"key":"target","value":"small"} for hunt); use [] for defaults. Moving camp (site) after building abandons the shelter.`;
 
 const pct = (x: number): string => `${Math.round(x * 100)}%`;
+const fl = (x: number): number => Math.floor(x + 1e-9);
 const r0 = (x: number): number => Math.round(x);
 
 /** One-line yield hint per land action in a ring (same numbers the sim uses). */
@@ -110,14 +112,15 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push(`Hours used today: ${s.hoursToday}/${DAY_HOURS}.`);
   for (const n of notes) lines.push(`NOTE: ${n}`);
   lines.push('');
-  lines.push(`VITALS: Vigor ${r0(v.vigor.current)}/${r0(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${r0(v.clarity.cap)} · Condition ${r0(v.condition)}/100`);
+  // Capacities and Condition round DOWN: 99.6 shown as "100" read as meeting a 100 threshold it doesn't (#1230).
+  lines.push(`VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100`);
   lines.push(`STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · stone ${st.stone} · hides ${st.hides}`);
 
   const t = s.config.thresholds;
   const ps = pillars(readinessInput(s), t);
   const pv: Record<string, string> = {
-    larder: `${st.rations}/${t.larder} rations`, shelter: `${pct(warmth(s))}/${pct(t.warmth)} warmth`,
-    fuel: `${st.firewood}/${t.fuel} firewood`, body: `capacity ${r0(v.vigor.cap)}/${r0(v.clarity.cap)}, condition ${r0(v.condition)}/${t.condition}`,
+    larder: `${st.rations}/${t.larder} rations`, shelter: `${Math.floor(warmth(s) * 100)}%/${pct(t.warmth)} warmth`,
+    fuel: `${st.firewood}/${t.fuel} firewood`, body: `vigor capacity ${fl(v.vigor.cap)}/${BASELINE}, clarity capacity ${fl(v.clarity.cap)}/${BASELINE}, condition ${fl(v.condition)}/${t.condition}`,
   };
   lines.push(`READINESS: ${winterReady(s) ? 'WINTER-READY' : 'not ready'} — ${ps.map(p => `${p.key} ${p.done ? 'OK' : 'needs'} (${pv[p.key]})`).join('; ')}`);
 

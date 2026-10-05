@@ -67,16 +67,17 @@ function page(models: ModelSummary[], runs: number): string {
   --bg: #f6f5f1; --panel: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #8a887f; --rule: #e4e2dc; --grid: #ecebe6;
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
   --good: #1f7a3a; --bad: #b3261e;
+  --b1: #3d3c39; --b2: #7a786f; --b3: #a9a79e;
   --display: "Silkscreen", "Courier New", monospace; --body: "Chakra Petch", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0d0e1a; --panel: #161829; --ink: #f0f0e8; --ink2: #b9bccb; --muted: #7c8098; --rule: #2a2c3e; --grid: #22243a;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-  --good: #88e09a; --bad: #ff8a80; color-scheme: dark; } }
+  --good: #88e09a; --bad: #ff8a80; --b1: #e4e2d8; --b2: #a6a49a; --b3: #74726a; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #0d0e1a; --panel: #161829; --ink: #f0f0e8; --ink2: #b9bccb; --muted: #7c8098; --rule: #2a2c3e; --grid: #22243a;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
-  --good: #88e09a; --bad: #ff8a80; color-scheme: dark; }
+  --good: #88e09a; --bad: #ff8a80; --b1: #e4e2d8; --b2: #a6a49a; --b3: #74726a; color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); }
 .wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 48px; padding-inline: 16px; }
@@ -89,6 +90,8 @@ h2 { font: 700 12px var(--display); letter-spacing: 2px; color: var(--ink2); mar
 .legend button[aria-pressed="false"] { opacity: .45; }
 .legend button[aria-pressed="false"] .sw { background: transparent !important; outline: 2px solid var(--muted); outline-offset: -2px; }
 .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+/* Dashed baseline swatches are tiny SVGs: keep the chart SVG sizing off them. */
+svg.sw, .card .tip svg.sw { width: 12px; height: 12px; display: inline-block; overflow: visible; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; }
 .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 12px 14px 10px; min-width: 0; position: relative; }
 .card h3 { font: 600 13px var(--body); margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; }
@@ -100,10 +103,11 @@ h2 { font: 700 12px var(--display); letter-spacing: 2px; color: var(--ink2); mar
 .card .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .card .xhair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
 .card .dot { stroke: var(--panel); stroke-width: 2; }
-.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); min-width: 150px; z-index: 3; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.18); min-width: 170px; z-index: 3; }
 .tip b { display: block; font-weight: 600; margin-bottom: 2px; }
 .tip div { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
-.tip div span:nth-child(2) { flex: 1; color: var(--ink2); }
+.tip .nm { flex: 1; color: var(--ink2); white-space: nowrap; }
+.tip .vl { padding-left: 10px; }
 .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--panel); }
 table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--rule); white-space: nowrap; }
@@ -137,19 +141,29 @@ td.good { color: var(--good); font-weight: 600; } td.bad { color: var(--bad); }
 </div>
 <script>
 const D = ${json};
-const SLOTS = 8;
-const color = i => 'var(--s' + ((i % SLOTS) + 1) + ')';
+// AI models take the categorical slots in order; baselines (scripted, random) are a different kind of
+// series, drawn in neutral greys with dash patterns so they never borrow — or cycle — a model's colour.
+const BASE = { 'scripted': { c: 'var(--b1)', dash: '6 3' }, 'random:legal': { c: 'var(--b2)', dash: '2 3' }, 'random:uniform': { c: 'var(--b3)', dash: '1 4' } };
+const isBase = m => m.model in BASE;
 const esc = t => String(t).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const fmt = v => v === null || v === undefined ? '—' : (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
 const hidden = new Set();
-const models = D.models.map((m, i) => ({ ...m, i }));   // colour follows the model, never its rank or visibility
+let slot = 0;   // colour follows the model, never its rank or visibility
+const models = D.models.map(m => {
+  if (isBase(m)) return { ...m, c: BASE[m.model].c, dash: BASE[m.model].dash };
+  const c = slot < 8 ? 'var(--s' + (++slot) + ')' : 'var(--muted)';   // a 9th AI model folds to muted, never a cycled hue
+  return { ...m, c, dash: null };
+});
+const sw = m => m.dash
+  ? '<svg class="sw" viewBox="0 0 12 12" aria-hidden="true"><line x1="0" y1="6" x2="12" y2="6" stroke="' + m.c + '" stroke-width="2.5" stroke-dasharray="' + (m.dash === '6 3' ? '4 2' : m.dash === '2 3' ? '2 2' : '1 3') + '"/></svg>'
+  : '<span class="sw" style="background:' + m.c + '"></span>';
 const short = m => m.model.split('/').pop();
 
 document.getElementById('meta').textContent = D.runs + ' runs · ' + models.length + ' models · generated ' + D.generated;
 
 function legend() {
   const el = document.getElementById('legend');
-  el.innerHTML = models.map(m => '<button aria-pressed="' + !hidden.has(m.model) + '" data-m="' + esc(m.model) + '"><span class="sw" style="background:' + color(m.i) + '"></span>' + esc(short(m)) + '</button>').join('');
+  el.innerHTML = models.map(m => '<button aria-pressed="' + !hidden.has(m.model) + '" data-m="' + esc(m.model) + '">' + sw(m) + esc(isBase(m) ? m.model + ' (baseline)' : short(m)) + '</button>').join('');
 }
 document.getElementById('legend').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -161,7 +175,7 @@ function outcomes() {
   const kinds = ['thrive', 'crossed', 'wintered', 'ragged', 'turnedBack', 'grim'].filter(k => models.some(m => m.outcomes[k]));
   document.getElementById('outcomes').innerHTML =
     '<thead><tr><th>Model</th><th>Runs</th>' + kinds.map(k => '<th>' + k + '</th>').join('') + '<th>Ready (day)</th><th>Invalid days</th><th>Tokens in</th><th>Cached</th><th>Tokens out</th></tr></thead><tbody>' +
-    models.map(m => '<tr><td><span class="sw" style="display:inline-block;vertical-align:-1px;margin-right:6px;background:' + color(m.i) + '"></span>' + esc(m.model) + '</td><td>' + m.runs + '</td>' +
+    models.map(m => '<tr><td><span style="display:inline-flex;vertical-align:-1px;margin-right:6px">' + sw(m) + '</span>' + esc(m.model) + '</td><td>' + m.runs + '</td>' +
       kinds.map(k => '<td class="' + (k === 'thrive' && m.outcomes[k] ? 'good' : (k === 'ragged' || k === 'grim' || k === 'turnedBack') && m.outcomes[k] ? 'bad' : '') + '">' + (m.outcomes[k] || '<span class="na">0</span>') + '</td>').join('') +
       '<td>' + (m.readyDay ?? '<span class="na">never</span>') + (m.readyRuns && m.readyRuns < m.runs ? ' <span class="na">(' + m.readyRuns + '/' + m.runs + ')</span>' : '') + '</td>' +
       '<td>' + m.invalidDays + '</td><td>' + m.tokens.input.toLocaleString() + '</td><td>' + Math.round(100 * m.tokens.cacheRead / Math.max(1, m.tokens.input)) + '%</td><td>' + m.tokens.output.toLocaleString() + '</td></tr>').join('') + '</tbody>';
@@ -189,7 +203,7 @@ function charts() {
     const xt = Array.from({ length: days + 1 }, (_, d) => d).filter(d => days <= 12 || d % 2 === 0);
     const lines = shown.map(m => {
       const pts = m.series[k].map((v, d) => v === null ? null : x(d).toFixed(1) + ',' + y(v).toFixed(1)).filter(Boolean);
-      return '<polyline class="line" style="stroke:' + color(m.i) + '" points="' + pts.join(' ') + '"/>';
+      return '<polyline class="line" style="stroke:' + m.c + (m.dash ? ';stroke-dasharray:' + m.dash : '') + '" points="' + pts.join(' ') + '"/>';
     }).join('');
     const svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(meta.label) + ' by day, per model" data-k="' + k + '" data-days="' + days + '" data-max="' + max + '">' +
       ticks.map(t => '<line class="gridline" x1="' + L + '" x2="' + (W - R) + '" y1="' + y(t) + '" y2="' + y(t) + '"/><text x="' + (L - 6) + '" y="' + (y(t) + 3) + '" text-anchor="end">' + fmt(t) + meta.unit + '</text>').join('') +
@@ -218,9 +232,9 @@ function hover(e) {
   const x = L + (W - L - R) * d / days, y = v => T + (H - T - B) * (1 - v / max);
   const rows = models.filter(m => !hidden.has(m.model) && m.series[k][d] !== null && m.series[k][d] !== undefined).sort((a, b) => b.series[k][d] - a.series[k][d]);
   svg.querySelector('.hover').innerHTML = '<line class="xhair" x1="' + x + '" x2="' + x + '" y1="' + T + '" y2="' + (H - B) + '"/>' +
-    rows.map(m => '<circle class="dot" r="4.5" cx="' + x + '" cy="' + y(m.series[k][d]) + '" style="fill:' + color(m.i) + '"/>').join('');
+    rows.map(m => '<circle class="dot" r="4.5" cx="' + x + '" cy="' + y(m.series[k][d]) + '" style="fill:' + m.c + '"/>').join('');
   const card = svg.closest('.card'); card.appendChild(tip);
-  tip.innerHTML = '<b>' + (d === 0 ? 'Start' : 'End of day ' + d) + '</b>' + (rows.length ? rows.map(m => '<div><span class="sw" style="background:' + color(m.i) + '"></span><span>' + esc(short(m)) + '</span><span>' + fmt(m.series[k][d]) + D.metrics[k].unit + '</span></div>').join('') : '<div>no runs this long</div>');
+  tip.innerHTML = '<b>' + (d === 0 ? 'Start' : 'End of day ' + d) + '</b>' + (rows.length ? rows.map(m => '<div>' + sw(m) + '<span class="nm">' + esc(short(m)) + '</span><span class="vl">' + fmt(m.series[k][d]) + D.metrics[k].unit + '</span></div>').join('') : '<div>no runs this long</div>');
   tip.hidden = false;
   const cr = card.getBoundingClientRect(), left = e.clientX - cr.left;
   tip.style.top = '36px';
