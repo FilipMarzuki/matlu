@@ -266,3 +266,19 @@ export function growTalents(talents: readonly Talent[], e: GrowthEvent): { talen
 
 /** What a tier-up feels like: something settles, nothing is named. */
 export const TIER_UP_LINE = 'Something in you has settled; it comes easier than it did.';
+
+// ── Picking from an offer (AI parity, #1267) ────────────────────────────────
+
+/**
+ * The two talents a player takes from their offer: the requested pair if both
+ * were offered, otherwise the first two offered. AI players go through this so
+ * they can never pick outside their offer — the same rule a person plays by.
+ */
+export function chooseFromOffer(offer: readonly TalentId[], requested: readonly TalentId[] = []): TalentId[] {
+  return requested.length === TALENT_PICKS && requested.every(id => offer.includes(id)) && new Set(requested).size === TALENT_PICKS
+    ? [...requested]
+    : offer.slice(0, TALENT_PICKS);
+}
+
+/** A seeded random pick of two from an offer (the random baseline's choice). */
+export const pickRandomFromOffer = (offer: readonly TalentId[], seed: number): TalentId[] => shuffled(offer, seed).slice(0, TALENT_PICKS);
