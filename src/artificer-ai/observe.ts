@@ -23,7 +23,7 @@ import { techniqueById, manualById } from '../artificer/techniques';
 import { TALENTS } from '../artificer/talents';
 import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { seasonOf } from '../artificer/winter';
-import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, type Domain, type Ring } from '../artificer/exploration';
+import { RINGS, RING_NAME, TRAVEL_HOURS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
 /**
  * The rules and the response contract. Static on purpose: it goes in the
@@ -47,6 +47,7 @@ FOCUS
 Your mind works on one thing, set with "focus" in your reply (null keeps it, "none" clears it). concept:<name> — that concept gains 0.3 insight per hour you work each day. goal:shelter|larder|explore — matching actions (shelter: build, wood; larder: hunt, gather, preserve; explore: scout, survey, lookout, track) yield +1 and drain 10% less. skill:<name> — that skill practises 3x as fast. A focus costs 4 Clarity a night and is halved below 30 Clarity. It locks to SURVIVAL (water, gather, hunt, wood, build, preserve get the bonus; learning pauses) after a night without water, 2+ without food, Condition under 40, or in the last 3 days of autumn if you're not ready.
 
 THE LAND
+Each ring's forage, game, timber, water and stone is a supply (plenty / thinning / scarce / bare) that your trips draw down and the land regrows overnight: quickly in early autumn (days 1-15), slowly in late autumn, hardly at all in winter. Yields follow the supply. Rest an overworked ring; push outward when the near one runs thin.
 Three rings around camp: near (home), far (+3h travel), distant (+6h travel). Outer rings are richer (x1.5, x2). A ring is reachable once the ring inside it is scouted.
 Each ring has domains (forage, timber, stone, water, game; routes beyond home) known at a level: unknown, suspected, observed, detailed.
 - scout: everything in that ring at least suspected. survey: at least observed (richer trips). track: game observed (you can hunt deer there).
@@ -154,7 +155,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   lines.push('THE LAND:');
   for (const r of RINGS) {
     const open = reachable(s.explore, r);
-    const known = domainsOf(r).map(d => `${d} ${LEVEL_NAME[level(s.explore, r, d)]}${s.explore.worked[r][d] ? ` (worked ${s.explore.worked[r][d]}x)` : ''}`).join(', ');
+    // Supply (#1304): what the land still holds — trips draw it down, the season regrows it.
+    const known = domainsOf(r).map(d => `${d} ${LEVEL_NAME[level(s.explore, r, d)]}${d === 'routes' ? '' : ` · ${supplyWord(s.explore.supply[r][d])}`}`).join(', ');
     const finds = domainsOf(r).filter(d => hasFind(s.explore, r, d)).map(d => FINDS[d]?.name).join(', ');
     lines.push(`- ring ${r} ${RING_NAME[r].toLowerCase()} (+${TRAVEL_HOURS[r]}h travel)${open ? '' : ' [not reachable yet]'}: ${known}${finds ? ` · finds: ${finds}` : ''}`);
   }

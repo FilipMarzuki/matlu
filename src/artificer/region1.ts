@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { weatherFor, weatherName, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
+import { weatherFor, weatherName, lateFrom, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, weatherYield, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
@@ -25,7 +25,7 @@ import { SKILLS, skillFor, skillLevel, practise, drainMult, toolMult, yieldBonus
 import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
-import { createExploration, scout, survey, track, lookout, work, level, scouted, reachable, tripYield, hasFind, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import { createExploration, scout, survey, track, lookout, work, regrow, level, scouted, reachable, landYield, supplyFactor, hasFind, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
@@ -411,7 +411,7 @@ const dimNote = (light: number): string => (light < 1 ? (light < 0.5 ? ' Most of
 
 /**
  * Work a domain on (an already-cloned) state: it teaches you the ground and
- * depletes it. Returns a journal suffix for any find.
+ * draws down its supply (#1304). Returns a journal suffix for any find.
  */
 function workLand(s: Region1State, ring: Ring, d: Domain): string {
   const w = work(s.explore, ring, d);
@@ -419,6 +419,12 @@ function workLand(s: Region1State, ring: Ring, d: Domain): string {
   const f = w.found ? FINDS[w.found] : undefined;
   return f ? ` You know this ground well now — found a ${f.name.toLowerCase()} (${f.note}).` : '';
 }
+/**
+ * A trip's haul (#1304): what the ground and the Warden bring together, taken
+ * at the land's supply. Rounded, and never nothing — a stripped patch still
+ * gives a little.
+ */
+const haul = (s: Region1State, ring: Ring, d: Domain, raw: number): number => Math.max(1, Math.round(raw * supplyFactor(s.explore, ring, d)));
 /** +2 from a find already made here. */
 const findBonus = (s: Region1State, ring: Ring, d: Domain): number => (hasFind(s.explore, ring, d) ? 2 : 0);
 
@@ -635,7 +641,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     run: (s, b, r, _o, light) => {
       const blind = level(s.explore, r, 'forage') === 0;
       // In poor light you miss most of what's there (#1281).
-      const n = scaleHaul(tripYield(s.explore, r, 'forage', 3, 2) + b, darkYieldMult('gather', light) * weatherYield(s.weatherToday, 'gather'));
+      const n = scaleHaul(haul(s, r, 'forage', landYield(s.explore, r, 'forage', 3, 2) + b), darkYieldMult('gather', light) * weatherYield(s.weatherToday, 'gather'));
       const note = workLand(s, r, 'forage');
       const fiber = findBonus(s, r, 'forage');
       s.stores.rawFood += n; s.stores.materials += fiber; s.flags.everFood = true;
@@ -655,7 +661,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     ])],
     run: (s, b, r, o) => {
       const small = o.target === 'small';
-      const n = (small ? tripYield(s.explore, r, 'game', 3, 1) : tripYield(s.explore, r, 'game', 7, 0)) + b + findBonus(s, r, 'game');
+      const n = haul(s, r, 'game', (small ? landYield(s.explore, r, 'game', 3, 1) : landYield(s.explore, r, 'game', 7, 0)) + b + findBonus(s, r, 'game'));
       const note = workLand(s, r, 'game');
       s.stores.rawFood += n; s.flags.everFood = true; s.flags.everHunt = true;
       if (!small) { s.stores.hides += 1; s.flags.everHide = true; }
@@ -669,7 +675,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     // Once the streams ice over you break through to the water first (#1283); frozen hard, you melt snow instead (#1303).
     variant: (_o, s) => (s && feelsTemperature(s) && iceOn(s.day, s.config.calendar) ? { hours: 2 + ICE_EXTRA_HOURS } : {}),
     run: (s, b, r) => {
-      const n = tripYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water');
+      const n = haul(s, r, 'water', landYield(s.explore, r, 'water', 4, 1) + (s.site === 'river' && r === 1 ? 2 : 0) + b + findBonus(s, r, 'water'));
       const note = workLand(s, r, 'water');
       const melt = melting(s);
       if (melt) s.stores.firewood -= MELT_FIREWOOD;
@@ -682,8 +688,8 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
     // `b` (skill, tools, focus, techniques) adds to the firewood — it used to be ignored here (#1243).
     run: (s, b, r, _o, light) => {
       const dim = darkYieldMult('wood', light);
-      const f = scaleHaul(tripYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b, dim);
-      const m = scaleHaul(tripYield(s.explore, r, 'timber', 2, 1), dim);
+      const f = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 4, 1) + (s.site === 'tree' && r === 1 ? 1 : 0) + findBonus(s, r, 'timber') + b), dim);
+      const m = scaleHaul(haul(s, r, 'timber', landYield(s.explore, r, 'timber', 2, 1)), dim);
       const note = workLand(s, r, 'timber');
       s.stores.firewood += f; s.stores.materials += m; s.flags.everWood = true;
       return `Cut ${f} firewood and ${m} materials${where(r)}.${note}${dimNote(light)}`;
@@ -692,7 +698,7 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
   quarry: {
     name: 'Quarry stone', hours: 5, vigorRate: -4.5, clarityRate: -1, ringed: true, gate: reach,
     run: (s, b, r, _o, light) => {
-      const n = scaleHaul(tripYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b, darkYieldMult('quarry', light));
+      const n = scaleHaul(haul(s, r, 'stone', landYield(s.explore, r, 'stone', 3, 1) + findBonus(s, r, 'stone') + b), darkYieldMult('quarry', light));
       const note = workLand(s, r, 'stone');
       s.stores.stone += n;
       return `Broke out ${n} stone${where(r)}.${note}${dimNote(light)}`;
@@ -1132,6 +1138,9 @@ export function endDay(s: Region1State): Region1State {
     return next;
   }
 
+  // Overnight the land regrows a little, by the season — hardly at all in winter (#1304).
+  next.explore = regrow(next.explore, growSeason(next.day, next.config.calendar), next.weatherToday === 'wind' || next.weatherToday === 'storm');
+
   next.day += 1;
   next.hoursToday = 0;
   next.today = { loadVigor: 0, loadClarity: 0, pushedVigor: false, pushedClarity: false };
@@ -1173,6 +1182,12 @@ function keepFire(next: Region1State, w: number): number {
     ? `The firewood ran out in the night (${burnt} of the ${need} it needed). The cold crept in.`
     : `No firewood — a fireless night at ${Math.round(t)} °C.`, 'hardship');
   return freezeLoss(t, w, next.coldGear, (need - burnt) / need);
+}
+
+/** The season the land regrows by on a day (#1304): early autumn, late autumn, or winter. */
+export function growSeason(day: number, cal: Calendar): GrowSeason {
+  if (seasonOf(day, cal) !== 'autumn') return 'winter';
+  return day < lateFrom(cal) ? 'early' : 'late';
 }
 
 /** How the thaw finds a Warden of each grade. */

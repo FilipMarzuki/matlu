@@ -35,24 +35,30 @@ type Grid = Record<Ring, Record<Domain, number>>;
 export interface Exploration {
   /** Knowledge progress per ring × domain, 0..3 (floor = Level). */
   known: Grid;
-  /** Trips made into each ring × domain — drives depletion. */
+  /** Trips made into each ring × domain. */
   worked: Grid;
+  /**
+   * What the land holds, per ring × domain, 0..1 (#1304): trips draw it down
+   * and the season regrows it overnight. Yields follow it.
+   */
+  supply: Grid;
   /** Find ids earned by reaching "detailed", as `${ring}:${domain}`. */
   finds: string[];
 }
 
-const zeroGrid = (): Grid => {
-  const row = (): Record<Domain, number> => ({ forage: 0, timber: 0, stone: 0, water: 0, game: 0, routes: 0 });
+const grid = (v: number): Grid => {
+  const row = (): Record<Domain, number> => ({ forage: v, timber: v, stone: v, water: v, game: v, routes: v });
   return { 1: row(), 2: row(), 3: row() };
 };
+const zeroGrid = (): Grid => grid(0);
 
 export function createExploration(): Exploration {
-  return { known: zeroGrid(), worked: zeroGrid(), finds: [] };
+  return { known: zeroGrid(), worked: zeroGrid(), supply: grid(1), finds: [] };
 }
 
+const copy = (x: Grid): Grid => ({ 1: { ...x[1] }, 2: { ...x[2] }, 3: { ...x[3] } });
 function clone(e: Exploration): Exploration {
-  const g = (x: Grid): Grid => ({ 1: { ...x[1] }, 2: { ...x[2] }, 3: { ...x[3] } });
-  return { known: g(e.known), worked: g(e.worked), finds: [...e.finds] };
+  return { known: copy(e.known), worked: copy(e.worked), supply: copy(e.supply), finds: [...e.finds] };
 }
 
 export function level(e: Exploration, ring: Ring, d: Domain): Level {
@@ -119,12 +125,13 @@ export const hasFind = (e: Exploration, ring: Ring, d: Domain): boolean => e.fin
 
 /**
  * One trip working a domain in a ring (pure): it teaches that domain, spills a
- * little overview into the rest of the ring, and depletes it. Returns the new
- * state and any find made on this trip.
+ * little overview into the rest of the ring, and draws down its supply.
+ * Returns the new state and any find made on this trip.
  */
 export function work(e: Exploration, ring: Ring, d: Domain): { exploration: Exploration; found: Domain | null } {
   const next = clone(e);
   next.worked[ring][d] += 1;
+  next.supply[ring][d] = Math.max(0, round3(next.supply[ring][d] - SUPPLY_DRAW[d]));
   next.known[ring][d] = Math.min(3, next.known[ring][d] + WORK_INSIGHT);
   for (const o of domainsOf(ring)) {
     if (o !== d) next.known[ring][o] = Math.max(next.known[ring][o], Math.min(1, next.known[ring][o] + SPILL_INSIGHT));
@@ -143,24 +150,73 @@ export function work(e: Exploration, ring: Ring, d: Domain): { exploration: Expl
 export const TRAVEL_HOURS: Readonly<Record<Ring, number>> = { 1: 0, 2: 3, 3: 6 };
 /** How much richer an untouched outer ring is. */
 export const RICHNESS: Readonly<Record<Ring, number>> = { 1: 1, 2: 1.5, 3: 2 };
-/** Each trip takes this share off future yields in that ring × domain… */
-export const DEPLETION_PER_TRIP = 0.07;
-/** …down to this floor (the land recovers enough to keep giving something). */
-export const DEPLETION_FLOOR = 0.5;
+// ── Supply (#1304) ──────────────────────────────────────────────────────────
 
-export function depletion(e: Exploration, ring: Ring, d: Domain): number {
-  return Math.max(DEPLETION_FLOOR, 1 - DEPLETION_PER_TRIP * e.worked[ring][d]);
+/** Supply kept to three decimals, so draws and regrowth add up exactly. */
+const round3 = (x: number): number => Math.round(x * 1000) / 1000;
+
+/** What one trip takes out of a domain's supply: stone is plentiful, water barely notices you. */
+export const SUPPLY_DRAW: Readonly<Record<Domain, number>> = { forage: 0.07, game: 0.07, timber: 0.07, stone: 0.03, water: 0.01, routes: 0 };
+
+/** Yields never fall below this share, however stripped the ground: there's always a little. */
+export const SUPPLY_FLOOR = 0.25;
+
+/** The yield factor for a domain's supply. */
+export const supplyFactor = (e: Exploration, ring: Ring, d: Domain): number => Math.max(SUPPLY_FLOOR, e.supply[ring][d]);
+
+/** The seasons the land regrows by: early autumn, late autumn, winter. */
+export type GrowSeason = 'early' | 'late' | 'winter';
+
+/** Overnight regrowth per domain and season. Water always refills; stone never grows back. */
+export const REGROWTH: Readonly<Record<GrowSeason, Readonly<Record<Domain, number>>>> = {
+  early: { forage: 0.05, game: 0.04, timber: 0.02, stone: 0, water: 1, routes: 0 },
+  late: { forage: 0.02, game: 0.03, timber: 0.02, stone: 0, water: 1, routes: 0 },
+  winter: { forage: 0, game: 0.01, timber: 0.01, stone: 0, water: 1, routes: 0 },
+};
+/** After wind or a storm, timber regrows this much overnight (blown-down wood), whatever the season. */
+export const WINDFALL = 0.05;
+
+/** One night's regrowth across the land (pure). `windfall`: the day was windy or stormy. */
+export function regrow(e: Exploration, season: GrowSeason, windfall = false): Exploration {
+  const next = clone(e);
+  for (const r of RINGS) {
+    for (const d of domainsOf(r)) {
+      const g = d === 'timber' && windfall ? Math.max(WINDFALL, REGROWTH[season].timber) : REGROWTH[season][d];
+      next.supply[r][d] = Math.min(1, round3(next.supply[r][d] + g));
+    }
+  }
+  return next;
 }
+
+/** Supply in words, for the player and the AI. */
+export function supplyWord(x: number): 'plenty' | 'thinning' | 'scarce' | 'bare' {
+  return x >= 0.75 ? 'plenty' : x >= 0.5 ? 'thinning' : x >= 0.25 ? 'scarce' : 'bare';
+}
+
+/** Supply for a save from before #1304, from its trip counts: the old depletion curve (7% a trip, floor 0.5). */
+export const supplyFromWorked = (worked: Grid): Grid => {
+  const out = grid(1);
+  for (const r of RINGS) for (const d of DOMAINS) out[r][d] = Math.max(0.5, round3(1 - 0.07 * worked[r][d]));
+  return out;
+};
 
 /** Foraging somewhere you don't know yet — wandering, not knowing where to look. */
 export const UNKNOWN_YIELD = 0.5;
 
 /**
  * A trip's yield (rounded): `base + perLevel × (level − 1)`, halved when the
- * domain is still unknown, then scaled by the ring's richness and depletion.
+ * domain is still unknown, then scaled by the ring's richness and its supply (#1304).
  */
 export function tripYield(e: Exploration, ring: Ring, d: Domain, base: number, perLevel: number): number {
+  return Math.round(landYield(e, ring, d, base, perLevel) * supplyFactor(e, ring, d));
+}
+
+/**
+ * What the ground gives a trip before supply (unrounded): `base + perLevel ×
+ * (level − 1)`, halved when unknown, scaled by the ring's richness. A haul adds
+ * the Warden's own bonuses to this, then takes the supply on the whole (#1304).
+ */
+export function landYield(e: Exploration, ring: Ring, d: Domain, base: number, perLevel: number): number {
   const lv = level(e, ring, d);
-  const raw = lv === 0 ? base * UNKNOWN_YIELD : base + perLevel * (lv - 1);
-  return Math.round(raw * RICHNESS[ring] * depletion(e, ring, d));
+  return (lv === 0 ? base * UNKNOWN_YIELD : base + perLevel * (lv - 1)) * RICHNESS[ring];
 }
