@@ -8,13 +8,15 @@
  * without schema enforcement can still drift.
  */
 
-import { ACTIONS, SITES, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, EATING_PLANS, type EatingPlan, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
 import { FOCUS_KEYS } from '../artificer/focus';
 
 export interface Decision {
   thoughts: string;
   /** A focus key ("goal:larder", "skill:hunting", "concept:joinery", "none"), or null to keep the current one (#1238). */
   focus?: string | null;
+  /** How to eat from tonight (#1305): "full", "half" or "none"; null or absent keeps it. */
+  eating?: EatingPlan | null;
   site: SiteId | null;
   queue: QueueItem[];
 }
@@ -26,10 +28,11 @@ const SITE_IDS = Object.keys(SITES) as SiteId[];
 export const DECISION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['thoughts', 'focus', 'site', 'queue'],
+  required: ['thoughts', 'focus', 'eating', 'site', 'queue'],
   properties: {
     thoughts: { type: 'string', description: "One or two sentences: today's plan." },
     focus: { anyOf: [{ type: 'string', enum: FOCUS_KEYS }, { type: 'null' }], description: 'Set what your mind works on (e.g. "goal:larder"), "none" to clear, or null to keep it.' },
+    eating: { anyOf: [{ type: 'string', enum: EATING_PLANS }, { type: 'null' }], description: 'How to eat from tonight: "full", "half" (every other night) or "none" (fast), or null to keep it.' },
     site: { anyOf: [{ type: 'string', enum: SITE_IDS }, { type: 'null' }], description: 'Settle or move camp before the day, or null.' },
     queue: {
       type: 'array',
@@ -80,6 +83,11 @@ export function parseDecision(text: string): ParseResult {
   const errors: string[] = [];
 
   const thoughts = typeof o.thoughts === 'string' ? o.thoughts : '';
+  let eating: EatingPlan | null = null;
+  if (o.eating !== null && o.eating !== undefined) {
+    if (typeof o.eating === 'string' && (EATING_PLANS as string[]).includes(o.eating)) eating = o.eating as EatingPlan;
+    else errors.push(`eating must be one of ${EATING_PLANS.join(', ')} or null`);
+  }
   let focus: string | null = null;
   if (o.focus !== null && o.focus !== undefined) {
     if (typeof o.focus === 'string' && FOCUS_KEYS.includes(o.focus)) focus = o.focus;
@@ -118,5 +126,5 @@ export function parseDecision(text: string): ParseResult {
     queue.push(Object.keys(opts).length ? { q, opts } : q);
   });
 
-  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), site, queue } };
+  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), ...(eating ? { eating } : {}), site, queue } };
 }

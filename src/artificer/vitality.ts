@@ -90,6 +90,9 @@ export interface DaySummary {
   shelterWarmth: number;
   pushedVigor?: boolean;
   pushedClarity?: boolean;
+  /** Extra pull on tonight's capacity targets (#1305): lean rations on Vigor, cabin fever on Clarity. Negative lowers. */
+  vigorTarget?: number;
+  clarityTarget?: number;
 }
 
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
@@ -186,9 +189,9 @@ export function applyActivity(v: Vitals, a: Activity, opts: ApplyOpts = {}): Act
  */
 export function driftCapacity(v: Vitals, day: DaySummary): Vitals {
   const next = clone(v);
-  const drift = (pool: Pool, load: number, recovered: boolean, pushed: boolean) => {
+  const drift = (pool: Pool, load: number, recovered: boolean, pushed: boolean, extra: number) => {
     const trained = load >= STIMULUS && recovered && !pushed;
-    let target = BASELINE
+    let target = BASELINE + extra
       + (trained ? 14 : 0)
       - (load >= STIMULUS && !recovered ? 10 : 0)
       - (load < 6 ? 6 : 0)
@@ -200,8 +203,8 @@ export function driftCapacity(v: Vitals, day: DaySummary): Vitals {
   // Hard work only builds a body or mind that has water and isn't starving (#1233): a
   // single missed meal is fine, a second night hungry isn't. The mind also needs a warm sleep.
   const fuelled = (day.drank ?? true) && (day.ate || (day.hungryNights ?? 2) <= 1);
-  drift(next.vigor, day.loadVigor, fuelled, day.pushedVigor ?? false);
-  drift(next.clarity, day.loadClarity, fuelled && day.shelterWarmth >= 0.5, day.pushedClarity ?? false);
+  drift(next.vigor, day.loadVigor, fuelled, day.pushedVigor ?? false, day.vigorTarget ?? 0);
+  drift(next.clarity, day.loadClarity, fuelled && day.shelterWarmth >= 0.5, day.pushedClarity ?? false, day.clarityTarget ?? 0);
   return next;
 }
 

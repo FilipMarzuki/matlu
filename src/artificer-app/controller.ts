@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, blockedReason, dangerOf, DAY_HOURS, setFocus, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, blockedReason, dangerOf, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
@@ -128,6 +128,11 @@ export function runWholeQueue(a: AppState): AppState {
 /** Set (or clear) the Warden's focus (#1238). Free: no hours, no queue entry. */
 export function chooseFocus(a: AppState, focus: Focus | null): AppState {
   return { ...a, sim: setFocus(a.sim, focus) };
+}
+
+/** Set how the Warden eats (#1305). */
+export function chooseEating(a: AppState, plan: EatingPlan): AppState {
+  return { ...a, sim: setEating(a.sim, plan) };
 }
 
 export function settle(a: AppState, site: SiteId): AppState {
@@ -260,5 +265,7 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const day = isNum(sim.day) ? sim.day : 1;
   const weatherToday = WEATHER_IDS.includes(sim.weatherToday as never) ? sim.weatherToday as Region1State['weatherToday'] : weatherFor(seedOf(character.id), day, config.world, config.calendar);
   const forecast = isObj(sim.forecast) && Object.values(sim.forecast).every(w => WEATHER_IDS.includes(w as never)) ? { ...(sim.forecast as Region1State['forecast']) } : {};
-  return { sim: { ...(sim as unknown as Region1State), config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
+  // …and an eating plan that isn't one of the three (or none at all, before #1305) means full rations.
+  const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;
+  return { sim: { ...(sim as unknown as Region1State), eating, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
 }
