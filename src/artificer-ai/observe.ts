@@ -157,6 +157,8 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
 
   lines.push(`DAY ${s.day} — ${season === 'autumn' ? `autumn, snow on day ${cal.winterDay} (${cal.winterDay - s.day} days)` : `winter, thaw on day ${cal.thawDay} (${cal.thawDay - s.day} days)`}.`);
   lines.push(`Hours used today: ${s.hoursToday}/${DAY_HOURS}.`);
+  // Learned planning (#1350): until the first level-up, one action per reply.
+  if (!s.canPlan) lines.push("PLANNING: not yet — you take things one at a time. Put ONE action in the queue (only the first runs); you'll be asked again after it. An empty queue ends the day. The first time a skill levels up, you'll be able to plan whole days.");
   for (const n of notes) lines.push(`NOTE: ${n}`);
   lines.push('');
   // Capacities and Condition round DOWN: 99.6 shown as "100" read as meeting a 100 threshold it doesn't (#1230).

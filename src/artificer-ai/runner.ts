@@ -8,7 +8,7 @@
  */
 
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, createRegion1, chooseSite, runDay, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, setEating, createRegion1, chooseSite, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, runRoadDay, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
@@ -114,6 +114,8 @@ export interface PlayOptions {
   maxDays?: number;
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
+  /** Whether planning is learned (#1350), as for a person — the default — or open from day 1. */
+  planning?: 'learned' | 'open';
   /**
    * Ride on from the thaw (#1251): a run that survives plays the caravan road to Mistheim.
    * Off by default — it adds ~18 calls a run, so the nightly roster opts in when its budget allows.
@@ -121,6 +123,9 @@ export interface PlayOptions {
   road?: boolean;
   onRoadTurn?: (t: RoadTurn) => void;
 }
+
+/** How many single actions a locked day asks for before it ends anyway (#1350). */
+const LOCKED_ASKS = 10;
 
 function snapshot(s: Region1State, warmthOf: (s: Region1State) => number): Turn['after'] {
   return {
@@ -140,7 +145,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // offer, and a hidden one. (Carrying on, the legacy's talents win and the pick is ignored.)
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1(opts.calendar ? { calendar: opts.calendar } : {}, opts.legacy, { id, name: player.name, chosen });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned' }, opts.legacy, { id, name: player.name, chosen });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   const turns: Turn[] = [];
@@ -162,6 +167,43 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   while (!s.outcome && s.day <= maxDays) {
     const day = s.day;
     const logStart = s.log.length;
+    // One thing at a time until planning is learned (#1350): run the first action of each reply
+    // and ask again, until the player ends the day (an empty queue) or the hours run out.
+    // Actions taken one at a time today before planning opened (#1350), kept for the turn's record.
+    let stepped: QueueItem[] = [];
+    if (!s.canPlan) {
+      const done: QueueItem[] = [];
+      stepped = done;
+      let thoughts = '', invalid = false, lastReply = '', errors: string[] | undefined;
+      for (let asks = 0; asks < LOCKED_ASKS && !s.outcome && s.day === day && !s.canPlan; asks++) {
+        lastReply = await ask(observe(s, notes));
+        notes = [];
+        let p = parseDecision(lastReply);
+        if (!p.ok) {
+          lastReply = await ask(`Your reply was invalid:\n- ${p.errors.join('\n- ')}\nReply again with only the JSON object for day ${day}.`);
+          p = parseDecision(lastReply);
+        }
+        if (!p.ok) { invalid = true; errors = p.errors; s = runDay(s, []).state; notes.push(`Your reply for day ${day} was invalid twice, so the day ended.`); break; }
+        const d = p.decision;
+        thoughts = d.thoughts || thoughts;
+        if (d.focus) s = setFocus(s, parseFocus(d.focus));
+        if (d.eating) s = setEating(s, d.eating);
+        const first = d.queue[0];
+        if (!first) { s = runDay(s, []).state; break; }
+        if (d.queue.length > 1) notes.push('Only your first action ran: you take things one at a time until you learn to plan ahead. You will be asked again.');
+        s = runAction(s, first);
+        done.push(first);
+        if (d.site && d.site !== s.site && scouted(s.explore, 1)) s = chooseSite(s, d.site);
+        if (s.hoursToday >= DAY_HOURS) { s = runDay(s, []).state; break; }
+      }
+      if (!s.outcome && s.day === day && !s.canPlan) s = runDay(s, []).state; // asked enough: the day ends
+      if (s.outcome || s.day !== day) {
+        const t: Turn = { day, thoughts, site: s.site, queue: done, invalid, ...(invalid ? { reply: lastReply, errors } : {}), journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
+        turns.push(t); opts.onTurn?.(t);
+        continue;
+      }
+      // Planning opened mid-day: the rest of today is planned as usual, below.
+    }
     let reply = await ask(observe(s, notes));
     let parsed = parseDecision(reply);
     notes = [];
@@ -196,7 +238,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     s = r.state;
     if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t: Turn = { day, thoughts: d.thoughts, site: d.site, queue, invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
+    const t: Turn = { day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
     turns.push(t); opts.onTurn?.(t);
   }
 
