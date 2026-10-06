@@ -85,3 +85,28 @@ export function leftLine(left: Haul): string | null {
   const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
   return `You leave ${list} behind — too much to carry.`;
 }
+
+// ── Overload (#1292) ────────────────────────────────────────────────────────────
+
+/** How much longer the walk takes at overload ratio `r`: 30% more per unit over comfortable. */
+export const overloadSlow = (r: number): number => 1 + 0.3 * Math.max(0, r - 1);
+/** How much more Vigor the laden walk costs in all: 60% more per unit over comfortable. */
+export const overloadDrain = (r: number): number => 1 + 0.6 * Math.max(0, r - 1);
+/** How much likelier a fall or a strain is at `r` (for accidents, #1285): 150% more per unit over comfortable. */
+export const overloadRisk = (r: number): number => 1 + 1.5 * Math.max(0, r - 1);
+
+/**
+ * What a laden walk adds (pure): `hours` walked unladen at `vigorRate` (a
+ * negative drain per hour) become `overloadSlow(r)` times as long and cost
+ * `overloadDrain(r)` times the Vigor in all. Nothing at or under comfortable.
+ */
+export function overloadWalk(r: number, hours: number, vigorRate: number): { extraHours: number; extraVigor: number } {
+  if (r <= 1 || hours <= 0) return { extraHours: 0, extraVigor: 0 };
+  return { extraHours: hours * (overloadSlow(r) - 1), extraVigor: hours * vigorRate * (overloadDrain(r) - 1) };
+}
+
+/** How the load felt, for the journal: null when it was comfortable. */
+export function overloadWord(r: number): string | null {
+  if (r <= 1) return null;
+  return r <= 1.5 ? 'with a heavy load' : r <= 2 ? 'staggering under the load' : 'barely able to carry it';
+}
