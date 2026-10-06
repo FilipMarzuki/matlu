@@ -17,6 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
+import { fitHaul, gearOf, leftLine, type Haul } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
@@ -997,7 +998,10 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
     return next;
   }
   const lost = exposure === 'lost';
+  const before = { ...next.stores };
   say(next, def.run(next, bonus, ring, opts, at.light, lost ? 0 : luck ? BAND_MULT[luck.band] : 1), 'action', at);
+  // What you can carry home (#1291): a trip's haul is what it added to the stores, and what won't fit stays out there.
+  if (def.ringed && next.config.world.carrying !== false) carryHome(next, before, at);
   const luckLine = !lost && luck && bandLine(luck.band, luck.shifts);
   if (luckLine) say(next, luckLine, luck!.band === 'good' ? 'action' : 'hardship', at);
   if (exposure) {
@@ -1014,6 +1018,16 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   growFrom(next, { kind: 'work', action: id, hours: workHours, practised: skill !== null });
   latchMilestones(next);
   return next;
+}
+
+/** Fit a trip's haul to what the Warden can carry (#1291), leaving the rest behind — with a journal line saying what. */
+function carryHome(next: Region1State, before: Stores, at: LogEntry['at']): void {
+  const haul: Haul = {};
+  for (const k of STORE_KEYS) { const gained = next.stores[k] - before[k]; if (gained > 0) haul[k] = gained; }
+  const { left } = fitHaul(haul, gearOf(next.tools), next.character.stats);
+  for (const k of STORE_KEYS) next.stores[k] -= left[k] ?? 0;
+  const line = leftLine(left);
+  if (line) say(next, line, 'hardship', at);
 }
 
 /** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */

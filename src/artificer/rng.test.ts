@@ -58,8 +58,8 @@ describe('Seeded randomness (#1279)', () => {
     expect(createRegion1().config.world).toEqual(FULL_WORLD);
     const flat = createRegion1({ world: FLAT_WORLD });
     expect(flat.config.world).toEqual(FLAT_WORLD);
-    expect(FLAT_WORLD).toEqual({ darkness: false, weather: 'clear', accidents: false, luck: false });
-    expect(FULL_WORLD).toEqual({ darkness: true, weather: 'seeded', accidents: true, luck: true });
+    expect(FLAT_WORLD).toEqual({ darkness: false, weather: 'clear', accidents: false, luck: false, carrying: false });
+    expect(FULL_WORLD).toEqual({ darkness: true, weather: 'seeded', accidents: true, luck: true, carrying: true });
     const saved = deserialize(serialize({ sim: flat, queue: [] }));
     expect(saved?.sim.config.world).toEqual(FLAT_WORLD);
     const raw = JSON.parse(serialize(newGame()));
