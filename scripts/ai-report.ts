@@ -51,6 +51,22 @@ for (const m of models) {
   console.log(`  ${''.padEnd(34)} ${survivalLine(m)}`);
   if (m.road) console.log(`  ${''.padEnd(34)} ${roadLine(m)}`);
   if (m.encounters.perRun) console.log(`  ${''.padEnd(34)} ${encounterLine(m)}`);
+  const fl = frightLine(m);
+  if (fl) console.log(`  ${''.padEnd(34)} ${fl}`);
+}
+
+/** Fear in a line (#1365): panics and overrides, spooks and fearful nights per run, fears gained and faded. */
+function frightLine(m: ModelSummary): string {
+  const f = m.fright;
+  const fears = (x: Record<string, number>) => Object.entries(x).map(([id, n]) => `${id.slice(5)} ${n}`).join(', ');
+  const parts = [
+    f.shaken || f.panicked ? `encounters shaken ${f.shaken}, panicked ${f.panicked}${f.overrides ? ` (${f.overrides} overridden)` : ''}` : '',
+    f.spooks ? `spooks ${f.spooks}/run` : '',
+    f.uneasyNights || f.sleeplessNights ? `fearful nights ${f.uneasyNights} uneasy + ${f.sleeplessNights} sleepless /run` : '',
+    Object.keys(f.fearsGained).length ? `fears gained: ${fears(f.fearsGained)}` : '',
+    Object.keys(f.fearsLost).length ? `faded: ${fears(f.fearsLost)}` : '',
+  ].filter(Boolean);
+  return parts.length ? `fear — ${parts.join(' · ')}` : '';
 }
 
 /** Encounters in a line (#1348): how many a run, what was chosen by kind, and which ones killed. */
