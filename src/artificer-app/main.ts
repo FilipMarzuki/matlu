@@ -38,13 +38,14 @@ const GROUPS: { title: string; ids: ActionId[] }[] = [
   { title: 'PROVISION', ids: ['gather', 'hunt', 'water', 'wood', 'quarry', 'fish', 'preserve'] },
   { title: 'BUILD', ids: ['build', 'coldPit', 'coldGear'] },
   { title: 'CRAFT TOOLS', ids: ['knife', 'snare', 'waterskin', 'bedroll', 'shovel'] },
+  { title: 'CARRYING GEAR', ids: ['basket', 'backpack', 'harness', 'sled'] },
   { title: 'THINK & RECOVER', ids: ['study', 'tinker', 'rest'] },
 ];
 
 const ICON: Record<ActionId, string> = {
   scout: '🥾', survey: '📐', track: '🐾', gather: '🌿', hunt: '🏹', water: '💧',
   wood: '🪵', quarry: '⛰️', preserve: '🧂', build: '⛺', coldGear: '🧥', tinker: '🛠️', rest: '☕',
-  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊',
+  lookout: '🔭', study: '📖', knife: '🔪', snare: '🪤', waterskin: '🫗', bedroll: '🛏️', shovel: '⛏️', fish: '🎣', coldPit: '🧊', basket: '🧺', backpack: '🎒', harness: '🪢', sled: '🛷',
 };
 
 /** Extra yield your tools give an action (shown in the hint). */
@@ -77,6 +78,10 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   waterskin: () => '+1 water per trip · takes a hide',
   bedroll: () => '+6 clarity overnight',
   shovel: () => 'build −20% vigor · needs a roof',
+  basket: () => 'food & materials easier to carry · 2 mat',
+  backpack: () => 'every load easier to carry · a hide + 2 mat',
+  harness: () => 'wood, stone & hides easier to carry · a hide + 1 mat',
+  sled: () => 'drag stone, wood & hides — half the bulk on snow or level ground · 5 mat',
   tinker: () => 'rests body, spends mind',
   rest: () => 'recovers a little',
 };

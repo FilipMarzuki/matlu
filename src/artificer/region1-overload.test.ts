@@ -37,7 +37,7 @@ describe('Overload (#1292)', () => {
     const weakStart = farWarden(1);
     const weak = runAction(weakStart, 'gather@2');
     const food = weak.stores.rawFood - weakStart.stores.rawFood;
-    const r = overloadRatio({ rawFood: food }, {}, str(1));
+    const r = overloadRatio({ rawFood: food }, undefined, str(1));
     expect(r).toBeGreaterThan(1);
     const extra = overloadWalk(r, TRAVEL_HOURS[2] / 2, -1).extraHours;
     expect(weak.hoursToday - strong.hoursToday).toBeCloseTo(extra, 10);
