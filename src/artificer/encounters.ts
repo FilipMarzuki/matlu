@@ -22,6 +22,7 @@ import type { Stats, StatId } from './stats';
 import type { Talent, TalentId } from './talents';
 import { skillLevel, type SkillId, type SkillPractice } from './skills';
 import { streamFor } from './rng';
+import { SHAKEN_PENALTY, type PanicState, type Threat } from './panic';
 
 export type EncounterKind = 'animal' | 'find' | 'person';
 
@@ -70,6 +71,8 @@ export interface EncounterOption {
   /** Base chance of success, 0–1. */
   odds: number;
   mods?: OddsMods;
+  /** Needs a clear head (#1360): fine judgement, talking, stalking. Shaken, it goes one odds word worse. */
+  careful?: boolean;
   success: Effect;
   /** Between success and failure: half the misses land here, if given. */
   mixed?: Effect;
@@ -88,11 +91,22 @@ export interface EncounterTemplate {
   dark?: boolean;
   /** Relative weight among the encounters that fit. */
   weight: number;
+  /** The danger it truly holds, 0–4 (#1360). What it *looks* like is panic.ts's `perceivedThreat`. */
+  threat: Threat;
+  /** What kind of danger it is (`animal`, `heights`, `person`…) — what fears attach to (#1362). */
+  tags: readonly string[];
+  /** The skill whose mastery makes it look smaller. */
+  field?: SkillId;
   options: readonly EncounterOption[];
 }
 
 /** An encounter waiting for your choice. */
-export interface PendingEncounter { id: string; day: number; hour: number; ring: Ring; action: string }
+export interface PendingEncounter {
+  id: string; day: number; hour: number; ring: Ring; action: string;
+  /** How it looked, and how you stood, when it opened (#1360). Absent (an older save) reads as calm. */
+  perceived?: Threat;
+  state?: PanicState;
+}
 
 /** The odds in words: what a person (and the AI) is told. */
 export type OddsWord = 'safe' | 'likely' | 'risky' | 'desperate';
@@ -104,7 +118,7 @@ export const DARK_ENCOUNTER = 1.5;
 /** The first templates: a gentle one and a deadly one, enough to exercise the engine. */
 export const ENCOUNTERS: readonly EncounterTemplate[] = [
   {
-    id: 'fox-at-the-treeline', kind: 'animal', weight: 3,
+    id: 'fox-at-the-treeline', kind: 'animal', weight: 3, threat: 1, tags: ['animal'], field: 'hunting',
     text: 'A fox stops at the treeline and looks straight at you, a hare hanging from its jaws.',
     options: [
       { id: 'watch', label: 'Stand still and watch', odds: 1, success: { text: 'It weighs you up, then trots off into the trees. You learn something about where the hares run.' }, fail: { text: 'It is gone before you blink.' } },
@@ -112,17 +126,17 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
         success: { text: 'It drops the hare and bolts. Supper.', stores: { rawFood: 2 } },
         mixed: { text: 'You get close enough to scare it, and no closer.', vigor: -6 },
         fail: { text: 'You go down hard on the roots, and the fox is long gone.', condition: -6, vigor: -6 } },
-      { id: 'stalk', label: 'Follow it home', requires: { skill: { id: 'hunting', level: 3 } }, odds: 0.75, mods: { talents: { hunter: 0.15 } },
+      { id: 'stalk', label: 'Follow it home', requires: { skill: { id: 'hunting', level: 3 } }, odds: 0.75, careful: true, mods: { talents: { hunter: 0.15 } },
         success: { text: 'It leads you to a warren no one has touched.', stores: { rawFood: 3 }, hours: 1 },
         fail: { text: 'It doubles back and loses you in the brush.', hours: 1 } },
     ],
   },
   {
-    id: 'crumbling-ledge', kind: 'find', weight: 1, rings: [2, 3],
+    id: 'crumbling-ledge', kind: 'find', weight: 1, rings: [2, 3], threat: 2, tags: ['heights'], field: 'scouting',
     text: 'Below a crumbling ledge, something glints — an old pack, wedged in the rocks.',
     options: [
       { id: 'leave', label: 'Leave it', odds: 1, success: { text: 'Whatever it was, it stays there.' }, fail: { text: 'Whatever it was, it stays there.' } },
-      { id: 'go-around', label: 'Go the long way round to it', odds: 0.8, cost: { hours: 2 }, mods: { skills: { scouting: 0.04 } },
+      { id: 'go-around', label: 'Go the long way round to it', odds: 0.8, cost: { hours: 2 }, careful: true, mods: { skills: { scouting: 0.04 } },
         success: { text: 'An old trapper\'s pack: cord, a little salt, good leather.', stores: { materials: 3, hides: 1 } },
         fail: { text: 'There is no way down from this side. Two hours for nothing.' } },
       { id: 'climb-down', label: 'Climb straight down', odds: 0.6, mods: { stats: { agi: 0.05, str: 0.02 } },
@@ -141,6 +155,8 @@ export interface Encounterer {
   tools: readonly Tool[];
   skills: SkillPractice;
   character: { stats: Stats; talents: readonly Talent[] };
+  /** The encounter in front of you, with how you stand (#1360): a shaken mind makes careful options harder. */
+  pending?: PendingEncounter | null;
 }
 
 /** Why you can't choose an option, or null if you can. */
@@ -156,16 +172,33 @@ export function unmet(w: Encounterer, o: EncounterOption): string | null {
   return null;
 }
 
-/** An option's chance of success for this Warden, 0.02–0.98 (1 stays 1: a sure thing is sure). */
+/**
+ * An option's chance of success for this Warden, 0.02–0.98 (1 stays 1: a sure thing is sure).
+ * Shaken or worse (#1360), a careful option loses one odds word.
+ */
 export function chanceOf(w: Encounterer, o: EncounterOption): number {
   if (o.odds >= 1) return 1;
+  const rattled = o.careful && (w.pending?.state === 'shaken' || w.pending?.state === 'panicked');
   const m = o.mods ?? {};
   let p = o.odds;
   for (const [id, per] of Object.entries(m.stats ?? {})) p += (per ?? 0) * (w.character.stats[id as StatId] - 10);
   for (const [id, per] of Object.entries(m.skills ?? {})) p += (per ?? 0) * skillLevel(w.skills, id as SkillId);
   for (const [id, add] of Object.entries(m.talents ?? {})) if (w.character.talents.some(t => t.id === id)) p += add ?? 0;
   for (const [id, add] of Object.entries(m.tools ?? {})) if (w.tools.some(t => t.item === id)) p += add;
-  return Math.max(0.02, Math.min(0.98, p));
+  p = Math.max(0.02, Math.min(0.98, p));
+  return rattled ? shakenChance(p) : p;
+}
+
+/** Where each odds word starts. */
+const WORD_FLOOR: Readonly<Record<OddsWord, number>> = { safe: 0.95, likely: 0.7, risky: 0.4, desperate: 0 };
+
+/**
+ * A careful option, shaken (#1360): at least SHAKEN_PENALTY worse, and always at least one odds
+ * word worse — "likely" becomes "risky" — since the word is what the Warden sees.
+ */
+function shakenChance(p: number): number {
+  const floor = WORD_FLOOR[oddsWord(p)];
+  return Math.max(0.02, Math.min(p - SHAKEN_PENALTY, floor > 0 ? floor - 0.05 : p - SHAKEN_PENALTY));
 }
 
 /** The odds as words. */
