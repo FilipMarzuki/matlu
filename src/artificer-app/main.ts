@@ -94,8 +94,8 @@ const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
   crossed: { head: 'YOU STRIKE OUT ALONE', body: 'Cold gear cinched, rations packed, a route in your head — you walk out into the white. It is brutal and slow, but you make it through on what you built, beholden to no one.' },
   turnedBack: { head: 'THE ROAD TURNS YOU BACK', body: 'You push into the winter stretch underprepared. The cold finds every gap; days in, you turn back carrying a lasting mark: frostbite, a permanent injury.' },
   wintered: { head: 'YOU WINTER OVER IN THE REACH', body: 'The snows close the Reach in, but your shelter holds warm, the larder lasts and the fire never dies. When thaw comes, the Reach is yours.' },
-  collapsed: { head: 'YOU COLLAPSE', body: 'Worked past the end of yourself, your body simply stops. Passing traders find you days later and carry you out, barely alive. You keep what you learned — and the lesson about limits.' },
-  died: { head: 'THE REACH TAKES YOU', body: 'Without water or food the body fails faster than the will. You lie down one night and do not get up. Your story ends here — what you learned dies with you. Another Warden will have to begin again.' },
+  collapsed: { head: 'THE CARAVAN FINDS YOU', body: 'Worked past the end of yourself, your body simply stops — days before the thaw. The spring caravan, coming up the valley, finds you and carries you out, barely alive. You keep what you learned — and the lesson about limits.' },
+  died: { head: 'THE REACH TAKES YOU', body: 'The Reach does not forgive: thirst, hunger, the cold, or a collapse with no one near but the wild. Your story ends here — what you learned dies with you. Another Warden will have to begin again.' },
   grim: { head: 'A GRIM WINTER', body: 'You hunker down on too little. The larder runs thin, the shelter leaks heat, and the cold grinds at you week after week. You limp into spring weaker than you started.' },
 };
 

@@ -25,8 +25,8 @@ describe('Collapse and death (#1234)', () => {
     expect(s.log.at(-1)?.text).toMatch(/thirst/i);
   });
 
-  it('ends a worn-out but fed and watered Warden as collapsed, not dead', () => {
-    const s = endDay(camp({ vitals: createVitals({ condition: 0 }), stores: { ...camp().stores, rawFood: 5, water: 5 } }));
+  it('ends a worn-out but fed and watered Warden as collapsed, not dead — when the caravan is near to find them (#1323)', () => {
+    const s = endDay(camp({ day: 59, vitals: createVitals({ condition: 0 }), stores: { ...camp().stores, rawFood: 5, water: 5, firewood: 30 } }));
     expect(s.outcome).toMatchObject({ kind: 'collapsed', choice: 'collapse' });
     expect(s.log.at(-1)?.text).toMatch(/collapse/i);
   });
