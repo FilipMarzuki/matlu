@@ -128,3 +128,71 @@ export function readThreat(w: Perceiver, t: Threatening, ambient = 0): { perceiv
   const nerve = nerveOf(w);
   return { perceived, nerve, state: panicState(perceived, nerve) };
 }
+
+// ── The environment (#1367) ─────────────────────────────────────────────────
+//
+// The dark is frightening on its own, before anything appears in it: a whiteout, the distant
+// ring at dusk, a winter night in a lean-to with the fire burning low. The environment has its
+// own **ambient threat**, read against the same nerve. It can shake you on the land (the work
+// wears the mind), spook you off it, keep you awake at night — and it makes anything you meet
+// in it look worse (`perceivedThreat`'s `ambient`).
+
+/** Light below which it is dusk, and below which it is full dark. */
+export const DUSK_LIGHT = 0.5, DARK_LIGHT = 0.15;
+/** A camp lived in this many days feels like home. */
+export const HOME_DAYS = 10;
+/** Shaken out on the land: the stretch drains this much more Clarity. */
+export const UNEASE_CLARITY = 1.15;
+/** Panicked on the land: the chance of a spook, by margin (2, then 3 or more). */
+export const SPOOK_CHANCE: Readonly<Record<2 | 3, number>> = { 2: 0.5, 3: 0.9 };
+/** A fearful night: what's left of Clarity (and Vigor) recovery — shaken, then panicked. */
+export const UNEASY_NIGHT = { clarity: 0.8, vigor: 1 } as const;
+export const SLEEPLESS_NIGHT = { clarity: 0.5, vigor: 0.8 } as const;
+/** Calm dark nights or trips before a fear of the dark fades. */
+export const DARK_FADES = 5;
+
+/** What the weather adds: fog and storms +1, a blizzard +2. */
+const weatherThreat = (weather: string, blizzard: boolean): number => (blizzard ? 2 : weather === 'fog' || weather === 'storm' ? 1 : 0);
+
+/** A stretch of land work (#1367): the light, the weather, how far out, the season, and how well you know the ground. */
+export interface LandScene { light: number; weather: string; blizzard: boolean; ring: 1 | 2 | 3; winter: boolean; knownGround: boolean }
+/** Ambient threat out on the land, 0–4. */
+export function landAmbient(x: LandScene): Threat {
+  let a = x.light < DARK_LIGHT ? 2 : x.light < DUSK_LIGHT ? 1 : 0;
+  a += weatherThreat(x.weather, x.blizzard);
+  if (x.ring === 3) a += 1; // alone, hours from the fire
+  if (x.winter && x.light < DUSK_LIGHT) a += 1; // the wolves are out
+  if (x.knownGround) a -= 1;
+  return clamp(a);
+}
+
+/** A night at camp (#1367): the weather, the season, the shelter and fire, and how long you've lived here. */
+export interface NightScene { weather: string; blizzard: boolean; winter: boolean; sheltered: boolean; fire: boolean; fireKeptWarm: boolean; campDays: number }
+/** Ambient threat of a night, 0–4. A tier-2 shelter with the fire kept in is the oldest comfort. */
+export function nightAmbient(x: NightScene): Threat {
+  let a = weatherThreat(x.weather, x.blizzard);
+  if (x.winter) a += 1;
+  if (!x.sheltered) a += 1;
+  if (!x.fire) a += 1;
+  if (x.campDays >= HOME_DAYS) a -= 1;
+  if (x.fireKeptWarm) a -= 1;
+  return clamp(a);
+}
+
+/**
+ * How the environment's threat sits with this Warden: temperament moves it (reckless −1, jumpy
+ * +1), a fear of the dark adds 1 in the dark, and nerve (Steady included) decides the state.
+ */
+export function frightOf(w: Perceiver, ambient: number, dark: boolean): { perceived: Threat; nerve: number; state: PanicState } {
+  const quirks = w.character.quirks ?? [];
+  let p = ambient;
+  if (quirks.some(q => q.id === 'reckless')) p -= 1;
+  if (quirks.some(q => q.id === 'jumpy')) p += 1;
+  if (dark && quirks.some(q => q.id === fearId('dark'))) p += 1;
+  const perceived = clamp(p);
+  const nerve = nerveOf(w);
+  return { perceived, nerve, state: panicState(perceived, nerve) };
+}
+
+/** The chance a panicked stretch on the land ends in a spook. */
+export const spookChance = (margin: number): number => (margin >= 3 ? SPOOK_CHANCE[3] : margin >= 2 ? SPOOK_CHANCE[2] : 0);
