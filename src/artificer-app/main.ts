@@ -13,12 +13,13 @@
  */
 
 import './style.css';
-import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, readinessInput, warmth, winterReady, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
-import { pillars, type PillarKey } from '../artificer/readiness';
 import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
-import { seasonOf, type OutcomeKind } from '../artificer/winter';
+import { seasonOf, MIDWINTER_AFTER, type Grade, type OutcomeKind } from '../artificer/winter';
+import { daylightHours } from '../artificer/clock';
+import { dayMean, nightTemp, coldNightNeeds, isBlizzard, weatherName, BLIZZARD_HOURS, type WeatherId } from '../artificer/weather';
 import { BASELINE, CAP_CEIL, morale, type Pool } from '../artificer/vitality';
 import { SKILLS, SKILL_IDS, LEVELS, MAX_LEVEL, perceivedProgress, isSupernatural } from '../artificer/skills';
 import { TECHNIQUES, manualById, type Technique } from '../artificer/techniques';
@@ -79,8 +80,6 @@ const YIELD: Record<ActionId, (s: AppState['sim'], r: Ring) => string> = {
   rest: () => 'recovers a little',
 };
 
-const PILLAR_NAME: Record<PillarKey, string> = { larder: 'LARDER', shelter: 'SHELTER', fuel: 'FUEL', body: 'BODY & MIND' };
-
 const SITE_NOTE: Record<SiteId, string> = {
   cave: 'Dry rock at your back. The warmest ground.',
   tree: 'Windbreak and wood close by (+1 fuel per trip).',
@@ -104,6 +103,8 @@ const OUTCOME: Record<OutcomeKind, { head: string; body: string }> = {
 
 /** Escape text for innerHTML — sim text is ours today, but a save could be edited. */
 const esc = (t: string | number): string => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+/** Hours for display: snow and blizzards stretch work into fractions, so show at most one decimal. */
+const hrs = (h: number): string => String(Math.round(h * 10) / 10);
 const pct = (x: number): number => Math.max(0, Math.min(100, x * 100));
 const band = (ratio: number): string => (ratio > 0.75 ? 'fresh' : ratio > 0.45 ? 'ok' : ratio > 0.2 ? 'warn' : 'low');
 
@@ -142,31 +143,73 @@ function timeline(a: AppState): string {
     + `<div class="tl-legend"><span><b>Autumn</b> — prepare, days 1–${cal.winterDay - 1}</span><span><b>Winter</b> — survive, days ${cal.winterDay}–${cal.thawDay - 1}</span><span><b>Thaw</b> — day ${cal.thawDay}</span></div>`;
 }
 
-/** The body pillar's status: Condition when all is well, otherwise the check that's failing. */
-function bodyStatus(v: AppState['sim']['vitals'], minCondition: number): string {
-  const fl = (x: number): number => Math.floor(x + 1e-9);
-  if (v.vigor.cap < BASELINE) return `VIG CAP ${fl(v.vigor.cap)} / ${BASELINE}`;
-  if (v.clarity.cap < BASELINE) return `CLA CAP ${fl(v.clarity.cap)} / ${BASELINE}`;
-  return `COND ${fl(v.condition)}${v.condition < minCondition ? ` / ${minCondition}` : ''}`;
+const WEATHER_ICON: Record<WeatherId, string> = { clear: '☀', overcast: '☁', rain: '🌧', fog: '🌫', wind: '🌬', storm: '⛈', snow: '❄' };
+
+/**
+ * The season strip (#1308): one bar per day from day 1 to the thaw, its
+ * height the day's daylight — so the shortening days are something you see —
+ * coloured by season, with the first snow and midwinter marked. Under it,
+ * today: the weather, the light, the cold and the snow cover.
+ */
+function seasonStrip(a: AppState): string {
+  const s = a.sim;
+  const cal = s.config.calendar;
+  const days = cal.thawDay - 1;
+  const midwinter = cal.winterDay + MIDWINTER_AFTER;
+  const bars = Array.from({ length: days }, (_, i) => {
+    const d = i + 1;
+    const cls = [seasonOf(d, cal), d < s.day ? 'past' : d === s.day ? 'now' : '', d === cal.winterDay || d === midwinter ? 'mark' : ''].join(' ');
+    // Daylight runs about 6–11.5 hours; scale it so midwinter's short days still show.
+    return `<i class="${cls}" style="height:${Math.round(25 + 75 * Math.min(1, (daylightHours(d, cal) - 5) / 7))}%" title="Day ${d} · ${daylightHours(d, cal).toFixed(1)}h of light"></i>`;
+  }).join('');
+  // Markers sit over the centre of their day's bar.
+  const at = (d: number): string => `left:${(((d - 0.5) / days) * 100).toFixed(2)}%`;
+  const marks = `<span class="sm" style="${at(cal.winterDay)}">FIRST SNOW</span><span class="sm" style="${at(midwinter)}">MIDWINTER</span><span class="sm end">THAW ▸</span>`;
+  const seeded = s.config.world.weather === 'seeded';
+  const blizzard = seeded && isBlizzard(s.weatherToday, s.day, cal);
+  const today = [
+    seeded ? `<span class="wx ${blizzard ? 'danger' : ''}">${WEATHER_ICON[s.weatherToday]} ${esc(weatherName(s.weatherToday, s.day, cal))}</span>` : '',
+    `<span>☼ ${daylightHours(s.day, cal).toFixed(1)}h light</span>`,
+    seeded ? `<span>${Math.round(dayMean(s.day, cal))}°C</span>` : '',
+    seeded && (s.snowDepth ?? 0) > 0 ? `<span>snow cover ${Math.round((s.snowDepth ?? 0) * 100)}%</span>` : '',
+  ].filter(Boolean).join('');
+  return `<div class="seasonstrip" aria-label="The season, day by day"><div class="bars">${bars}</div><div class="marks">${marks}</div>`
+    + `<div class="today">${today}</div>`
+    + (blizzard ? `<p class="lockbanner">❄ A BLIZZARD — work out on the land takes ${BLIZZARD_HOURS}× as long, and the white is no place to be. Camp work is safe.</p>` : '')
+    + '</div>';
 }
 
-function readiness(a: AppState): string {
+/** The nights the outlook measures against: the rest of the winter (all of it, while it's still autumn). */
+const outlookNights = (s: AppState['sim']): number => Math.min(winterOutlook(s).nightsToThaw, s.config.calendar.thawDay - s.config.calendar.winterDay);
+
+/** What falls short of the thaw, in plain words (empty when nothing does). */
+function outlookWarnings(s: AppState['sim']): string[] {
+  const o = winterOutlook(s);
+  const need = outlookNights(s);
+  const out: string[] = [];
+  if (need === 0) return out; // the thaw: nothing left to last
+  if (o.foodDays < need) out.push(`Food lasts ${o.foodDays} night${o.foodDays === 1 ? '' : 's'} — ${need - o.foodDays} short of the thaw.`);
+  if (o.fuelDays < need) out.push(`Firewood lasts ${o.fuelDays} night${o.fuelDays === 1 ? '' : 's'} — about ${Math.max(0, o.fuelToThaw - s.stores.firewood)} more wood to see the winter out.`);
+  if (o.warmthMargin < 0) out.push('The shelter is too cold for a clear midwinter night, even with the fire in. Walls, bedding or cold gear.');
+  return out;
+}
+
+/** The winter outlook (#1308): food, fuel and warmth against the nights to the thaw. Replaces the readiness pillars. */
+function outlookBlock(a: AppState): string {
   const s = a.sim;
-  const t = s.config.thresholds;
-  const status: Record<PillarKey, string> = {
-    larder: `${s.stores.rations} / ${t.larder}`,
-    // Round down, so a value just under a threshold never displays as meeting it (#1230).
-    shelter: `${Math.floor(warmth(s) * 100)}% / ${Math.round(t.warmth * 100)}%`,
-    fuel: `${s.stores.firewood} / ${t.fuel}`,
-    body: bodyStatus(s.vitals, t.condition),
-  };
-  const rows = pillars(readinessInput(s), t).map(p =>
-    `<div class="pillar"><span class="pn">${PILLAR_NAME[p.key]}</span>`
-    + `<div class="track"><div class="fill ${p.done ? 'done' : ''}" style="width:${pct(p.progress)}%"></div></div>`
-    + `<span class="st ${p.done ? 'done' : ''}">${status[p.key]}</span></div>`).join('');
-  const ready = winterReady(s);
-  return rows + `<div class="verdict-row"><span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>`
-    + `<span style="color:var(--dim);font-family:var(--body);font-size:11px;letter-spacing:0">${ready ? 'You could winter over here, or leave in good shape.' : 'Keep laying in stores and warming the shelter.'}</span></div>`;
+  const cal = s.config.calendar;
+  const o = winterOutlook(s);
+  const need = outlookNights(s);
+  const warmNeed = coldNightNeeds(nightTemp(cal.winterDay + MIDWINTER_AFTER, 'clear', cal));
+  const row = (name: string, progress: number, status: string, ok: boolean): string =>
+    `<div class="pillar"><span class="pn">${name}</span><div class="track"><div class="fill ${ok ? 'done' : 'short'}" style="width:${pct(progress)}%"></div></div><span class="st ${ok ? 'done' : 'short'}">${status}</span></div>`;
+  const warnings = outlookWarnings(s);
+  return row('FOOD', need ? o.foodDays / need : 1, `${o.foodDays} / ${need} NIGHTS`, o.foodDays >= need)
+    + row('FUEL', need ? o.fuelDays / need : 1, `${o.fuelDays} / ${need} NIGHTS`, o.fuelDays >= need)
+    // Warmth is judged against the year's hardest kind of night: clear, at midwinter.
+    + row('WARMTH', (warmth(s) + FIRE_WARMTH) / warmNeed, `${Math.floor((warmth(s) + FIRE_WARMTH) * 100)}% / ${Math.ceil(warmNeed * 100)}%`, o.warmthMargin >= 0)
+    + `<p class="mood" style="margin:6px 0 0">Water: ${o.waterDays} night${o.waterDays === 1 ? '' : 's'} in hand — fetch it as you go.</p>`
+    + (warnings.length ? `<ul class="warnlist">${warnings.map(w => `<li>⚠ ${esc(w)}</li>`).join('')}</ul>` : `<p class="mood ok">Enough laid by to reach the thaw, if nothing goes wrong.</p>`);
 }
 
 /** Queue entries whose options menu is open (UI-only; reset when the queue shifts). */
@@ -377,7 +420,7 @@ function paletteBlock(a: AppState, preview: Preview): string {
     const why = blockedReason(preview.projected, id, r);
     const spends = [def.vigorRate < 0 ? 'vigor' : '', def.clarityRate < 0 ? 'clarity' : ''].filter(Boolean).join(' + ') || 'restores';
     return `<button class="act ${why ? 'soft' : ''}" data-q="${q}" ${resolved ? 'disabled' : ''} title="${why ? esc(`Would be skipped: ${why}`) : ''}">`
-      + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${queueHours(q, preview.projected)}H</span></div>`
+      + `<div class="t">${ICON[id]} ${def.name.toUpperCase()}<span class="h">${hrs(queueHours(q, preview.projected))}H</span></div>`
       + `<div class="y">${why ? `<span class="gate">${esc(why)}</span>` : `<span class="yield">${YIELD[id](preview.projected, r)}</span> · <span class="vc">${spends}</span>`}</div></button>`;
   }).join('')}</div></div>`).join('');
 }
@@ -407,13 +450,13 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
       + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
-      + `<span class="meta">${queueHours(item, preview.before[i])}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${menu}</li>`;
+      + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   return `<div class="queue">
       <p class="eyebrow" style="color:var(--gold);margin-bottom:8px">THE QUEUE</p>
       <ol>${items || `<li class="empty">Empty — tap actions to plan. A day is ${DAY_HOURS} waking hours; the queue spills into the next day and you sleep between.</li>`}</ol>
-      <div class="qtot"><span>Today <b>${todayHours(a, preview)} / ${DAY_HOURS}h</b></span><span>Spans <b>${days}</b> day${days === 1 ? '' : 's'}</span></div>
+      <div class="qtot"><span>Today <b>${hrs(todayHours(a, preview))} / ${DAY_HOURS}h</b></span><span>Spans <b>${days}</b> day${days === 1 ? '' : 's'}</span></div>
       <div class="runbar">
         <button class="btn go" data-cmd="day" ${resolved ? 'disabled' : ''}>${a.queue.length ? '▶ RUN THE DAY' : '☾ PASS THE DAY'}</button>
         <button class="btn" data-cmd="all" ${resolved || !a.queue.length ? 'disabled' : ''}>⏭ RUN WHOLE QUEUE</button>
@@ -445,9 +488,18 @@ function statusBar(a: AppState, preview: Preview): string {
     <div class="minis">${mini('VIG', s.vitals.vigor.current, s.vitals.vigor.cap, CAP_CEIL)}${mini('CLA', s.vitals.clarity.current, s.vitals.clarity.cap, CAP_CEIL)}${mini('RES', s.vitals.condition, 100, 100)}</div>
     <div class="sstores"><span class="${st.rawFood < 1 ? 'low' : ''}">🍖${st.rawFood}${a.sim.deprivation.hungry ? ` <i class="streak" title="Nights in a row without food">HUNGRY ×${a.sim.deprivation.hungry}</i>` : ''}</span><span class="${st.water < 1 ? 'low' : ''}">💧${st.water}${a.sim.deprivation.thirsty ? ` <i class="streak" title="Nights in a row without water">THIRSTY ×${a.sim.deprivation.thirsty}</i>` : ''}</span><span>🪵${st.firewood}</span><span>🪨${st.materials}</span><span>🧂${st.rations}</span></div>
     ${focusChip(s)}${eatingChip(s)}
-    <span class="shours">TODAY <b>${todayHours(a, preview)}/${DAY_HOURS}H</b></span>
-    <span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>
+    <span class="shours">TODAY <b>${hrs(todayHours(a, preview))}/${DAY_HOURS}H</b></span>
+    ${outlookTag(s, ready)}
   </div>`;
+}
+
+/** The status bar's verdict: readiness through the autumn; once the snow is down, whether what's laid by reaches the thaw. */
+function outlookTag(s: AppState['sim'], ready: boolean): string {
+  const season = seasonOf(s.day, s.config.calendar);
+  if (season === 'thaw') return '';
+  if (season === 'autumn') return `<span class="tag ${ready ? 'yes' : 'no'}">${ready ? 'WINTER-READY' : 'NOT READY'}</span>`;
+  const short = outlookWarnings(s).length;
+  return `<button class="tag ${short ? 'no' : 'yes'}" data-tab="progress" title="The winter outlook">${short ? 'FALLING SHORT' : 'HOLDING'}</button>`;
 }
 
 const OUTCOME_SHORT: Record<RunRecord['kind'], string> = { survived: 'Survived the winter', thrive: 'Thrived — caravan', ragged: 'Ragged — caravan', crossed: 'Crossed alone', turnedBack: 'Turned back', wintered: 'Wintered well', grim: 'Grim winter', collapsed: 'Collapsed', died: 'Died' };
@@ -474,7 +526,7 @@ let showHelp = false;
 function tabBody(a: AppState, preview: Preview): string {
   switch (tab) {
     case 'plan':
-      return `<div class="plan">
+      return `<section class="box seasonbox">${seasonStrip(a)}</section><div class="plan">
         <section class="box"><p class="eyebrow">ACTIONS — tap to add to the queue</p>${paletteBlock(a, preview)}</section>
         <section class="box planside">${queueBlock(a, preview)}
           <div class="log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">LATEST</p><ul>${journal(a, 6)}</ul></div></section>
@@ -484,7 +536,7 @@ function tabBody(a: AppState, preview: Preview): string {
         <section class="box"><p class="eyebrow">THE WARDEN</p>${vitalsBlock(a)}
           <p class="eyebrow" style="margin-top:14px">STORES</p>${storesRow(a.sim)}
           <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</section>
-        <section class="box"><p class="eyebrow">SITE &amp; SHELTER</p>${sitesBlock(a)}</section>
+        <section class="box camp-scene"><p class="eyebrow">SITE &amp; SHELTER</p>${sitesBlock(a)}</section>
       </div>`;
     case 'land':
       return `<section class="box"><p class="eyebrow">THE LAND — what you know, ring by ring</p>${land(a)}${LAND_LEGEND}
@@ -494,12 +546,48 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'progress':
       return `<div class="cols">
         <section class="box"><p class="eyebrow ice">THE SEASON</p>${timeline(a)}
-          <p class="eyebrow" style="margin-top:16px">WINTER READINESS</p>${readiness(a)}
+          <p class="eyebrow" style="margin-top:16px">WINTER OUTLOOK</p>${outlookBlock(a)}
           <p class="eyebrow" style="margin-top:16px">MILESTONES</p>${milesBlock(a)}
           <p class="eyebrow" style="margin-top:16px">PAST RUNS</p>${pastRuns()}</section>
         <section class="box log"><p class="eyebrow" style="color:var(--faint);margin-bottom:7px">JOURNAL</p><ul class="full">${journal(a, 200)}</ul></section>
       </div>`;
   }
+}
+
+/** How the thaw finds a Warden of each grade, for the summary's headline. */
+const THAW_HEAD: Record<Grade, string> = { hale: 'HALE — STRONGER FOR IT', worn: 'WORN THIN, BUT STANDING', broken: 'BROKEN, BUT ALIVE' };
+
+/**
+ * The winter's worst nights, from the journal: the winter days with the most
+ * hardship, worst first (ties go to the earlier night), with what went wrong.
+ */
+function worstNights(s: AppState['sim'], n = 3): { day: number; lines: string[] }[] {
+  const byDay = new Map<number, string[]>();
+  for (const l of s.log) {
+    // Work lines carry their hour (`at`); what's left is the evening and the night — the cold, hunger and thirst.
+    if (l.kind !== 'hardship' || l.at || seasonOf(l.day, s.config.calendar) !== 'winter') continue;
+    byDay.set(l.day, [...(byDay.get(l.day) ?? []), l.text]);
+  }
+  return [...byDay].map(([day, lines]) => ({ day, lines })).sort((x, y) => y.lines.length - x.lines.length || x.day - y.day).slice(0, n);
+}
+
+/**
+ * The thaw summary (#1308): how you came through, what was left, the winter's
+ * worst nights, and the spring caravan — whose road opens with Region 1.5 (#1250).
+ */
+function thawSummary(a: AppState): string {
+  const s = a.sim;
+  const grade = s.outcome?.grade ?? 'worn';
+  const st = s.stores;
+  const worst = worstNights(s);
+  return `<div class="thaw"><p class="eyebrow ice">THE THAW — DAY ${s.day}</p><span class="grade g-${grade}">${THAW_HEAD[grade]}</span>
+    <p class="mood" style="margin:6px 0 10px">Condition ${Math.round(s.vitals.condition)}% coming out of it.</p>
+    <p class="fgroup">WHAT WAS LEFT</p><div class="res">${storeChip('🍖', 'Food', st.rawFood)}${storeChip('🧂', 'Rations', st.rations)}${storeChip('💧', 'Water', st.water)}${storeChip('🪵', 'Fuel', st.firewood)}${storeChip('🪨', 'Mat', st.materials)}</div>
+    <p class="fgroup" style="margin-top:12px">THE WORST NIGHTS</p>${worst.length
+      ? `<ul class="worst">${worst.map(w => `<li><span class="d">D${w.day}</span>${w.lines.map(esc).join(' ')}</li>`).join('')}</ul>`
+      : '<p class="mood" style="margin:0">Not one hard night all winter.</p>'}
+    <div class="runbar" style="margin-top:12px"><button class="btn go" disabled title="The road to Mistheim opens with Region 1.5">🛞 RIDE WITH THE SPRING CARAVAN</button>
+      <span class="mood" style="margin:0">The caravan waits in the valley — the road itself is still being built.</span></div></div>`;
 }
 
 function resolvePanel(a: AppState): string {
@@ -511,7 +599,7 @@ function resolvePanel(a: AppState): string {
         <li>${r.choice === 'thaw' ? 'Reached the thaw' : r.choice === 'collapse' ? 'Ended' : 'Left'} on <b>day ${r.day}</b>${r.grade ? ` — <b>${r.grade}</b>` : ''}${r.readyDay ? ` · winter-ready on <b>day ${r.readyDay}</b>` : ' · never winter-ready'}</li>
         <li>${r.site ? `${esc(SITES[r.site].name)}, shelter tier ${r.tier}${r.shelterGrade ? ` (${r.shelterGrade})` : ''}` : 'No camp'} · ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'} · ${r.recipes} recipes · ${r.milestones} milestones</li>
       </ul>` : '';
-    return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${facts}`
+    return `<div class="resolve"><h3>${s.outcome.choice === 'collapse' ? `✝ RUN ${r?.run ?? ''} ENDED` : `❄ REGION 1 COMPLETE — RUN ${r?.run ?? ''}`}</h3><div class="outcome"><span class="head">${o.head}</span>${o.body}</div>${s.outcome.kind === 'survived' ? thawSummary(a) : ''}${facts}`
       // Only a living Warden goes on (#1242): after a death, the only way forward is someone new.
       + `<div class="runbar" style="margin-top:12px">${canContinue(s)
         ? `<button class="btn go" data-cmd="carry" title="The same Warden goes on: recipes, concept ranks and skills carry over">↻ ${s.character.name ? `CONTINUE AS ${esc(s.character.name.toUpperCase())}` : 'NEW RUN'} — KEEP WHAT YOU LEARNED</button>`
@@ -522,6 +610,10 @@ function resolvePanel(a: AppState): string {
 
 function render(a: AppState): void {
   const preview = previewQueue(a);
+  // The winter look (#1308): the panels frost over as the snow deepens.
+  const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';
+  root.classList.toggle('winter', winter);
+  root.style.setProperty('--snow', String(winter ? Math.max(0.25, a.sim.snowDepth ?? 0) : 0));
   const fresh = a.sim.log.length === 0;
   root.innerHTML = `
     <header>

@@ -408,3 +408,42 @@ body { min-height: 100vh; }
   .fchip[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
   .lockbanner { margin: 0 0 8px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--danger); background: rgba(255,90,90,.08); color: var(--ink); font-size: 12px; }
   .skill .sl.super { color: #c9a8ff; text-shadow: 0 0 8px rgba(160,120,255,.6); }
+
+/* Season strip, winter outlook and thaw summary (#1308) */
+.seasonbox { margin-bottom: 14px; padding-block: 10px; }
+.seasonstrip .bars { display: flex; align-items: flex-end; gap: 1px; height: 34px; }
+.seasonstrip .bars i { flex: 1 1 0; min-width: 0; border-radius: 1px 1px 0 0; background: rgba(200,146,42,.55); }
+.seasonstrip .bars i.winter { background: rgba(159,216,255,.6); }
+.seasonstrip .bars i.past { opacity: .3; }
+.seasonstrip .bars i.mark { box-shadow: 0 0 0 1px var(--ink) inset; }
+.seasonstrip .bars i.now { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+.seasonstrip .marks { position: relative; height: 14px; }
+.seasonstrip .sm { position: absolute; top: 2px; transform: translateX(-50%); font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--dim); white-space: nowrap; }
+.seasonstrip .today { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.seasonstrip .wx { color: var(--ink); font-weight: 600; }
+.seasonstrip .wx.danger { color: var(--danger); }
+.seasonstrip .lockbanner { margin: 8px 0 0; }
+.pillar .fill.short { background: var(--warn); }
+.pillar .st.short { color: var(--warn); }
+.warnlist { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; color: var(--warn); font-size: 12px; }
+.mood.ok { color: var(--green); }
+button.tag { cursor: pointer; background: transparent; font: inherit; }
+.thaw { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.thaw .grade { display: inline-block; font-family: var(--display); font-size: 11px; letter-spacing: 1px; padding: 4px 9px; border-radius: 6px; border: 1px solid currentColor; }
+.thaw .g-hale { color: var(--green); } .thaw .g-worn { color: var(--gold); } .thaw .g-broken { color: var(--warn); }
+.thaw .worst { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; color: var(--warn); }
+.thaw .worst .d { font-family: var(--display); font-size: 8px; color: var(--faint); margin-right: 8px; }
+.thaw .runbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+/* The winter look: panels frost over with the snow cover; the camp scene gets falling snow. */
+#app.winter .box { background-image: linear-gradient(180deg, rgba(220,238,255,calc(var(--snow, 0) * .09)), transparent 70%); border-color: rgba(159,216,255,calc(.15 + var(--snow, 0) * .25)); }
+#app.winter .camp-scene {
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1px 1px at 38% 62%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1.5px 1.5px at 66% 30%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1px 1px at 84% 74%, rgba(255,255,255,.6), transparent),
+    linear-gradient(0deg, rgba(235,245,255,calc(var(--snow, 0) * .16)), transparent 45%);
+  background-size: 90px 90px, 70px 70px, 110px 110px, 80px 80px, 100% 100%;
+}
+.seasonstrip .sm.end { right: 0; transform: none; color: var(--gold); }
