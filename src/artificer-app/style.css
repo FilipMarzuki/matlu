@@ -164,6 +164,7 @@
 /* Frontend additions over the prototype */
 .queue li.skip { border-color: rgba(255,170,51,.5); }
 .queue li .why { color: var(--warn); font-size: 10px; }
+.queue li .why.danger { font-weight: 700; }
 .queue li .dayn { font-family: var(--display); font-size: 7px; color: var(--teal); min-width: 34px; }
 .act.soft { border-style: dashed; }
 .act .y .gate { color: var(--warn); }

@@ -7,7 +7,7 @@
 
 import { blockedReason, queueHours, queueId, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
 import { scouted, type Ring } from '../../artificer/exploration';
-import { blindInFog, stormBars } from '../../artificer/weather';
+import { blindInFog, stormBars, isBlizzard } from '../../artificer/weather';
 import type { Player } from '../runner';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
@@ -60,6 +60,11 @@ export const scriptedPlayer = (): Player => {
     name: 'scripted',
     async decide(_message, s) {
       const today = remaining.shift() ?? [...ROUTINE[s.day % ROUTINE.length]];
+      // A winter blizzard keeps everyone in (#1315): the day's plan waits, and the Warden rests by the fire.
+      if (isBlizzard(s.weatherToday, s.day, s.config.calendar)) {
+        remaining.unshift(today);
+        return { text: JSON.stringify({ thoughts: 'A blizzard — staying in.', site: null, queue: [a('rest'), a('rest')] }), usage: { cost: 0 } };
+      }
       let queue = today.map(e => (spoiled(e, s) ? a('wood') : e));
       // Short of materials for today's build (bad weather cost a trip)? Cut more wood first — a trip per missing unit, two at most.
       const short = /needs (\d+) materials \(have (\d+)\)/.exec(blockedReason(s, 'build', 1) ?? '');

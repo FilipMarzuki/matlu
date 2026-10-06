@@ -168,6 +168,57 @@ export const meltsSnow = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolea
 /** Firewood a water trip burns melting snow. */
 export const MELT_FIREWOOD = 1;
 
+// ── Snow cover, lake ice, blizzards (#1315) ──────────────────────────────────
+
+/** How much a day's snow adds to the cover (0 = bare ground, 1 = deep). A winter blizzard adds more. */
+export const SNOW_FALL = 0.15;
+export const BLIZZARD_FALL = 0.25;
+/** Clear or windy frosty days settle the cover a little; a thaw day (mean above 0 °C) melts it fast. */
+export const SNOW_SETTLE = 0.03;
+export const SNOW_MELT = 0.1;
+
+/** In winter a storm is a blizzard: nobody goes out in it. */
+export const isBlizzard = (w: WeatherId, day: number, cal: Calendar = DEFAULT_CALENDAR): boolean => w === 'storm' && seasonOf(day, cal) === 'winter';
+
+/** The snow cover after a day of this weather (pure). */
+export function nextSnowDepth(depth: number, w: WeatherId, day: number, cal: Calendar = DEFAULT_CALENDAR): number {
+  let d = depth;
+  if (w === 'snow') d += SNOW_FALL;
+  else if (isBlizzard(w, day, cal)) d += BLIZZARD_FALL;
+  else if (dayMean(day, cal) > 0) d -= SNOW_MELT;
+  else if (w === 'clear' || w === 'wind') d -= SNOW_SETTLE;
+  return Math.round(Math.min(1, Math.max(0, d)) * 1000) / 1000;
+}
+
+/** Out in a blizzard everything takes half again as long: wading, feeling for the way. */
+export const BLIZZARD_HOURS = 1.5;
+
+/** What a trip out into a blizzard does to you (#1315). */
+export type Exposure = 'rough' | 'frostbitten' | 'lost' | 'killed';
+/** Condition each exposure costs; `lost` also loses the haul, `killed` ends the run. */
+export const EXPOSURE_COST: Readonly<Record<Exposure, number>> = { rough: 5, frostbitten: 15, lost: 30, killed: Infinity };
+
+/**
+ * How a blizzard trip goes, from a fortune fixed for its starting hour: at
+ * even odds 5% you don't come back, 20% you're lost in the white, 35% you're
+ * frostbitten and 40% it's merely rough. Each step (positive = safer) moves
+ * ten points: sound cold gear is a step safer, each ring further out a step
+ * worse.
+ */
+export function exposureFor(u: number, steps: number): Exposure {
+  const x = Math.min(0.9999, Math.max(0, u + 0.1 * steps));
+  return x < 0.05 ? 'killed' : x < 0.25 ? 'lost' : x < 0.6 ? 'frostbitten' : 'rough';
+}
+
+/** Intelligence at which a Warden sees the danger for what it is, and is warned (#1315). */
+export const DANGER_SENSE_INT = 12;
+
+/** Deep snow slows the walk and wood cutting: up to half again as long. */
+export const snowSlow = (depth: number): number => 1 + 0.5 * depth;
+
+/** Lake ice thick enough to stand on and fish through: the deep cold (day mean below −5 °C, from about day 36). */
+export const iceThick = (day: number, cal: Calendar = DEFAULT_CALENDAR): boolean => dayMean(day, cal) < MELT_BELOW;
+
 // ── Weather on the work (#1284) ─────────────────────────────────────────────
 
 /** Rain makes these slower: wet wood, slick stone, sodden forage. */
