@@ -19,7 +19,7 @@
  * (a `deliver` instead resolves on arrival at the next village).
  *
  * Pure data plus pure helpers; road.ts holds the state and runs the actions.
- * Text is placeholder until the lore pass (#1253).
+ * Quest text was written with the villages in the lore pass (#1253).
  */
 
 import { GRADES, type ConceptProgress, type Grade, type Tool } from './crafting';
@@ -110,8 +110,8 @@ export const QUESTS: readonly QuestTemplate[] = [
   }),
   q({
     id: 'sm-shore', giver: 'sm-yrsa', village: 'saltmere', title: 'Scout the mere shore',
-    offer: 'Something has been taking the nets on the far shore. Walk it and tell me what you see.',
-    thanks: 'Otter sign, not wolves. That I can live with.',
+    offer: 'The birds have left the north end of the mere. Walk the shore and tell me what you see — and don\'t drink there, however clear it looks.',
+    thanks: 'No tracks for a mile, and the water as still as glass. I will tell Gunnar. He will not be surprised.',
     needs: { kind: 'scout', hours: 4, walk: 2 }, reward: { marks: 6 },
   }),
   // ── Kestrel Gate ──

@@ -25,7 +25,7 @@ import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
-import { ROUTE, ROAD_DAYS, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
+import { ROUTE, ROAD_DAYS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
@@ -304,6 +304,11 @@ export function observeRoad(r: RoadState, notes: readonly string[] = []): string
     }
   }
 
+  if (!village) {
+    lines.push('');
+    lines.push('ON THE WAGON WITH YOU (id · role · trust) — talk to pass the road; trade, quests and lessons wait for the next village:');
+    for (const p of peopleHere(r)) lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${(r.told[p.id] ?? 0) < p.lore.length ? 'has more to tell' : 'has told you all they know'}`);
+  }
   if (village) {
     lines.push('');
     lines.push('PEOPLE HERE (id · role · trust · what they have for you):');
