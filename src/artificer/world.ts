@@ -21,10 +21,15 @@ export interface WorldConfig {
   luck?: boolean;
   /** What a trip can carry home is limited (#1291). Absent counts as on (saves from before it). */
   carrying?: boolean;
+  /**
+   * Encounters can pause the day (#1343). Off in the full world until the encounter screen
+   * (#1347) and the AI harness (#1348) can answer one; tests and later issues switch it on.
+   */
+  encounters?: boolean;
 }
 
-export const FULL_WORLD: Readonly<WorldConfig> = { darkness: true, weather: 'seeded', accidents: true, luck: true, carrying: true };
-export const FLAT_WORLD: Readonly<WorldConfig> = { darkness: false, weather: 'clear', accidents: false, luck: false, carrying: false };
+export const FULL_WORLD: Readonly<WorldConfig> = { darkness: true, weather: 'seeded', accidents: true, luck: true, carrying: true, encounters: false };
+export const FLAT_WORLD: Readonly<WorldConfig> = { darkness: false, weather: 'clear', accidents: false, luck: false, carrying: false, encounters: false };
 
 const WEATHERS: readonly string[] = ['clear', 'overcast', 'rain', 'fog', 'wind', 'storm', 'snow'];
 
@@ -32,5 +37,5 @@ const WEATHERS: readonly string[] = ['clear', 'overcast', 'rain', 'fog', 'wind',
 export function validWorld(x: unknown): x is WorldConfig {
   if (typeof x !== 'object' || x === null) return false;
   const w = x as Record<string, unknown>;
-  return typeof w.darkness === 'boolean' && typeof w.accidents === 'boolean' && (w.luck === undefined || typeof w.luck === 'boolean') && (w.carrying === undefined || typeof w.carrying === 'boolean') && (w.weather === 'seeded' || WEATHERS.includes(w.weather as string));
+  return typeof w.darkness === 'boolean' && typeof w.accidents === 'boolean' && (w.luck === undefined || typeof w.luck === 'boolean') && (w.carrying === undefined || typeof w.carrying === 'boolean') && (w.encounters === undefined || typeof w.encounters === 'boolean') && (w.weather === 'seeded' || WEATHERS.includes(w.weather as string));
 }

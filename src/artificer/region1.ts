@@ -23,9 +23,10 @@ import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
 import { survivalLock, workEffects, reliability, focusLabel, FOCUS_COST, CONCEPT_PER_HOUR, type Focus } from './focus';
 import { SKILLS, SKILL_IDS, skillFor, skillLevel, perceivedLevel, practise, drainMult, toolMult, yieldBonus, craftBonus, type SkillId, type SkillPractice } from './skills';
-import { applyActivity, driftCapacity, recoverCondition, createVitals, type Vitals } from './vitality';
+import { applyActivity, driftCapacity, recoverCondition, createVitals, type Pool, type Vitals } from './vitality';
 import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDef, type ReadinessInput, type ReadinessThresholds } from './readiness';
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
+import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, type PendingEncounter } from './encounters';
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
 import { createExploration, scout, survey, track, lookout, work, regrow, level, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
@@ -141,6 +142,10 @@ export interface Region1State {
    * first time a skill's true level rises and they catch themselves thinking a step ahead.
    */
   canPlan: boolean;
+  /** An encounter waiting for your choice (#1343): the day is paused until you make it. */
+  pending?: PendingEncounter | null;
+  /** The last day an encounter happened — at most one a day. */
+  encounterDay?: number;
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -978,7 +983,60 @@ export function blockedReason(s: Region1State, id: ActionId, ring: Ring, opts: A
  * Do one action now. A refused action (gate not met) costs nothing — it simply
  * doesn't happen — and is journalled as a skip.
  */
+/**
+ * Run one action now. While an encounter waits for your choice (#1343), nothing runs; after
+ * land work, an encounter may happen and pause the day.
+ */
 export function runAction(s: Region1State, item: QueueItem): Region1State {
+  if (s.pending) return s;
+  const next = runActionCore(s, item);
+  maybeEncounter(s, next, item);
+  return next;
+}
+
+/** After a stretch of land work that ran, roll for an encounter (#1343), and pause the day if one comes. */
+function maybeEncounter(before: Region1State, next: Region1State, item: QueueItem): void {
+  const { id, ring } = parseItem(item);
+  const hours = next.hoursToday - before.hoursToday;
+  if (next.outcome || !next.config.world.encounters || !ACTIONS[id].ringed || hours <= 0 || next.encounterDay === next.day) return;
+  const at = stampFor(before, hours);
+  const t = encounterFor(seedOf(next.character.id), next.day, at.hour, ring, seasonOf(next.day, next.config.calendar), at.light < 0.5);
+  if (!t) return;
+  next.pending = { id: t.id, day: next.day, hour: at.hour, ring, action: id };
+  next.encounterDay = next.day;
+  say(next, t.text, 'hardship', at);
+}
+
+/**
+ * Make your choice in a waiting encounter (#1343): pay its cost, roll the seeded outcome, apply
+ * it, and free the day. An option you can't take is refused with the reason. Death ends the run,
+ * and the journal says what killed you.
+ */
+export function chooseOption(s: Region1State, optionId: string): Region1State {
+  if (!s.pending) return s;
+  const t = encounterById(s.pending.id);
+  const o = t?.options.find(x => x.id === optionId);
+  const next = clone(s);
+  if (!t || !o) { say(next, `Choice: skipped — there's no "${optionId}" here.`, 'skip'); return next; }
+  const why = unmet(next, o);
+  if (why) { say(next, `${o.label}: skipped — ${why}.`, 'skip'); return next; }
+  for (const [k, n] of Object.entries(o.cost?.stores ?? {})) next.stores[k as keyof Stores] -= n ?? 0;
+  const { tier, effect } = rollOutcome(seedOf(next.character.id), s.pending, o, chanceOf(next, o));
+  const v = next.vitals;
+  const pool = (p: Pool, d = 0): Pool => ({ ...p, current: Math.max(0, Math.min(p.cap, p.current + d)) });
+  next.vitals = { vigor: pool(v.vigor, effect.vigor), clarity: pool(v.clarity, effect.clarity), condition: Math.max(0, Math.min(100, v.condition + (effect.condition ?? 0))) };
+  for (const [k, n] of Object.entries(effect.stores ?? {})) next.stores[k as keyof Stores] = Math.max(0, next.stores[k as keyof Stores] + (n ?? 0));
+  next.hoursToday += (o.cost?.hours ?? 0) + (effect.hours ?? 0);
+  next.pending = null;
+  say(next, `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
+  if (next.vitals.condition <= 0) {
+    next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
+    say(next, `Killed by ${effect.killedBy ?? 'what you met out there'}.`, 'outcome');
+  }
+  return next;
+}
+
+function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const next = clone(s);
   if (next.outcome) return next;
   const { id, ring, opts } = parseItem(item);
@@ -1788,16 +1846,19 @@ export function survivalLockOf(s: Region1State): string | null {
 export const PLANNING_UNLOCKED = 'Halfway through the work you catch yourself already thinking about the next job, and the one after. You can plan ahead now.';
 
 export function runDay(s: Region1State, queue: readonly QueueItem[]): { state: Region1State; remaining: QueueItem[] } {
-  if (s.outcome) return { state: s, remaining: [...queue] };
+  // A waiting encounter (#1343) holds the day: nothing runs, and the night doesn't come, until you choose.
+  if (s.outcome || s.pending) return { state: s, remaining: [...queue] };
   let state = s;
   const remaining = [...queue];
   // One thing at a time until planning is learned (#1350): only the first action runs today.
   if (!s.canPlan && remaining.length) {
     state = runAction(state, remaining.shift() as QueueItem);
-    return { state: endDay(state), remaining };
+    return { state: state.pending ? state : endDay(state), remaining };
   }
   while (remaining.length > 0 && state.hoursToday < DAY_HOURS) {
     state = runAction(state, remaining.shift() as QueueItem);
+    // An encounter pauses the day where it happened: the rest of the queue waits.
+    if (state.pending) return { state, remaining };
   }
   return { state: endDay(state), remaining };
 }
