@@ -12,7 +12,7 @@
 
 import { ACTIONS, SITES, blockedReason, dangerOf, tripLoad, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, summarizeRoad, legacyOf, legacyOfRoad, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
-import { createRoad, runRoadDay, type RoadActionId, type RoadState } from '../artificer/road';
+import { createRoad, endRoadDay, runRoadAction, runRoadDay, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
@@ -74,6 +74,22 @@ export const currentRun = (a: AppState): Region1State | RoadState => (a.stage ==
 export function rideCaravan(a: AppState): AppState {
   if (a.stage === 'road' || a.sim.outcome?.kind !== 'survived') return a;
   return { ...a, stage: 'road', road: createRoad(a.sim), queue: [] };
+}
+
+/**
+ * Do one thing on the road now (#1252) — the road screen acts as you tap, rather than
+ * queueing: a talk, a sale, a lesson. Anything the sim can't do is skipped (and the
+ * journal says why) without spending hours.
+ */
+export function roadAct(a: AppState, id: RoadActionId): AppState {
+  if (a.stage !== 'road' || !a.road || a.road.outcome) return a;
+  return { ...a, road: runRoadAction(a.road, id) };
+}
+
+/** End the road day (#1252): the night, then the caravan's next move. */
+export function roadEndDay(a: AppState): AppState {
+  if (a.stage !== 'road' || !a.road || a.road.outcome) return a;
+  return { ...a, road: endRoadDay(a.road) };
 }
 
 /** Run one day on the road: these actions as far as the hours go, then the night and the caravan's next move. */
