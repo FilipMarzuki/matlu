@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, EXHAUSTED_AT, EXHAUSTED_DRAIN, type Haul } from './load';
+import { fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
@@ -1073,6 +1073,54 @@ function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], ring:
   next.today.pushedVigor ||= w.pushedVigor;
   next.hoursToday += extraHours;
   say(next, `Walked home ${overloadWord(r)} (${Math.round(extraHours * 60)} min slower).`, r > 1.5 ? 'hardship' : 'action', at);
+}
+
+/** What a trip would bring home and what it's like to carry (#1296), for the queue preview. */
+export interface TripLoad {
+  /** The haul as found, before anything is left behind. */
+  haul: Haul;
+  /** What's left behind, if it's too much to carry. */
+  left: Haul;
+  /** Bulk of what's carried, and the Warden's max and comfortable loads. */
+  cumbersome: number;
+  max: number;
+  comfortable: number;
+  /** Overload ratio of what's carried (#1292): over 1 is heavy. */
+  ratio: number;
+  /** Carrying gear (or a waterskin) not yet owned that would make this load lighter, best first. */
+  wouldHelp: (GearItem | 'waterskin')[];
+  /** Whether there's a walk home to carry it on (#1292): the near ring has none, so overload costs nothing there. */
+  walk: boolean;
+}
+
+/**
+ * What a ringed trip from `s` would bring home (#1296): run it with carrying off to see the haul as
+ * found (the same seeded luck as the real run), then fit it as the real run will. Null for camp work,
+ * the flat world, or a trip that brings nothing.
+ */
+export function tripLoad(s: Region1State, item: QueueItem): TripLoad | null {
+  const { id, ring } = parseItem(item);
+  if (!ACTIONS[id].ringed || s.config.world.carrying === false) return null;
+  const free = runAction({ ...s, config: { ...s.config, world: { ...s.config.world, carrying: false } } }, item);
+  const haul: Haul = {};
+  for (const k of STORE_KEYS) { const g = free.stores[k] - s.stores[k]; if (g > 0) haul[k] = g; }
+  if (!Object.keys(haul).length) return null;
+  const ctx = { ring, snow: (s.snowDepth ?? 0) > 0 || s.weatherToday === 'snow' };
+  const stats = s.character.stats;
+  const fit = (tools: Region1State['tools']) => {
+    const gear = bestGear(tools, ctx, haul, stats);
+    const { carried, left } = fitHaul(haul, gear, stats);
+    return { carried, left, gear, bulk: cumbersome(carried, gear), ratio: overloadRatio(carried, gear, stats) };
+  };
+  const now = fit(s.tools);
+  // Gear you don't have that would ease this load: it brings more home, or carries it lighter.
+  const carriedWeight = (h: Haul): number => (Object.keys(h) as (keyof Haul)[]).reduce((n, k) => n + (h[k] ?? 0), 0);
+  const wouldHelp = (['waterskin', ...GEAR_ITEMS] as const).filter(g => !s.tools.some(t => t.item === g))
+    .map(g => ({ g, f: fit([...s.tools, { item: g, grade: 'sound' }]) }))
+    .filter(({ f }) => carriedWeight(f.carried) > carriedWeight(now.carried) || (now.ratio > 1 && f.ratio < now.ratio - 0.05))
+    .sort((a, b) => a.f.ratio - b.f.ratio)
+    .map(({ g }) => g);
+  return { haul, left: now.left, cumbersome: now.bulk, max: maxLoad(stats), comfortable: comfortableLoad(stats), ratio: now.ratio, wouldHelp, walk: TRAVEL_HOURS[ring] > 0 };
 }
 
 /** Run a craft through the crafting module and fold the result back into Region 1 (on a cloned state). */
