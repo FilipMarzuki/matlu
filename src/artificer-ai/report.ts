@@ -12,7 +12,7 @@ import type { Progress, RoadProgress } from './progress';
 export interface Transcript {
   player: string;
   start: Progress;
-  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[] }[];
+  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[]; encounters?: { id: string; kind: string; choice: string; died?: boolean; forced?: boolean }[] }[];
   record: { kind: string; choice: string; day: number; readyDay: number | null; grade?: string };
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
   /** The caravan road, for a run that rode on (#1251). */
@@ -143,6 +143,35 @@ export interface ModelSummary {
   survival: Survival;
   /** The caravan road (#1251), over runs that rode on; null when none did. */
   road: RoadSummary | null;
+  /** Encounters met out on the land (#1348). */
+  encounters: EncounterSummary;
+}
+
+/** How a model handles encounters (#1348). */
+export interface EncounterSummary {
+  /** Mean encounters met per run. */
+  perRun: number;
+  /** Encounter kind → option id → how often it was chosen (totals over all runs). */
+  choices: Record<string, Record<string, number>>;
+  /** Encounter id → how many runs it ended. */
+  deaths: Record<string, number>;
+  /** Choices that fell back to the safest option because no valid one came back. */
+  forced: number;
+}
+
+/** Count encounters, choices by kind and deaths by encounter over a model's runs (#1348). */
+export function encounterSummaryOf(runs: readonly Transcript[]): EncounterSummary {
+  const choices: Record<string, Record<string, number>> = {};
+  const deaths: Record<string, number> = {};
+  let met = 0, forced = 0;
+  for (const r of runs) for (const t of r.turns) for (const e of t.encounters ?? []) {
+    met++;
+    if (e.forced) forced++;
+    const byKind = (choices[e.kind] ??= {});
+    byKind[e.choice] = (byKind[e.choice] ?? 0) + 1;
+    if (e.died) deaths[e.id] = (deaths[e.id] ?? 0) + 1;
+  }
+  return { perRun: runs.length ? round(met / runs.length, 2)! : 0, choices, deaths, forced };
 }
 
 /** How a model fares against the winter (#1309). */
@@ -162,6 +191,7 @@ export interface Survival {
 /** What ended a run, from its last journal lines. */
 export function deathCause(journal: readonly string[]): string {
   const text = journal.join('\n');
+  if (/Killed by /.test(text)) return 'encounter';
   if (/Dead of thirst/.test(text)) return 'thirst';
   if (/Dead of starvation/.test(text)) return 'starvation';
   if (/Dead of the cold/.test(text)) return 'cold';
@@ -259,6 +289,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       actions,
       survival: survivalOf(runs),
       road: roadSummaryOf(runs),
+      encounters: encounterSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
 }

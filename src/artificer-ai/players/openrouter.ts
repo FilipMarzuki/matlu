@@ -9,7 +9,7 @@
  */
 
 import { RULES } from '../observe';
-import { DECISION_SCHEMA, ROAD_DECISION_SCHEMA } from '../decision';
+import { DECISION_SCHEMA, ROAD_DECISION_SCHEMA, ENCOUNTER_DECISION_SCHEMA } from '../decision';
 import { DEFAULT_OPENROUTER_MODEL } from '../roster';
 import type { Player } from '../runner';
 
@@ -69,6 +69,7 @@ export function openRouterPlayer(opts: OpenRouterPlayerOptions = {}): Player {
     name: `openrouter:${model}`,
     decide: message => send(message, 'decision', DECISION_SCHEMA),
     decideRoad: message => send(message, 'road_decision', ROAD_DECISION_SCHEMA),
+    decideEncounter: message => send(message, 'encounter_decision', ENCOUNTER_DECISION_SCHEMA),
   };
 }
 

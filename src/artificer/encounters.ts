@@ -178,6 +178,23 @@ export function optionsFor(w: Encounterer, t: EncounterTemplate): { option: Enco
   return t.options.map(option => ({ option, unmet: unmet(w, option), odds: oddsWord(chanceOf(w, option)) }));
 }
 
+/** What an option costs, as one number for breaking ties: its hours plus the goods it uses. */
+export const costOf = (o: EncounterOption): number =>
+  (o.cost?.hours ?? 0) + Object.values(o.cost?.stores ?? {}).reduce<number>((n, x) => n + (x ?? 0), 0);
+
+/**
+ * The safest option you can take (#1348): the best odds, ties going to the cheapest. What a
+ * careful player picks, and what the AI harness falls back on when a reply never names a valid
+ * choice. Every encounter has a sure, free option, so there is always one.
+ */
+export function safestOption(w: Encounterer, t: EncounterTemplate): EncounterOption {
+  const open = t.options.filter(o => !unmet(w, o));
+  return open.reduce((best, o) => {
+    const d = chanceOf(w, o) - chanceOf(w, best);
+    return d > 0 || (d === 0 && costOf(o) < costOf(best)) ? o : best;
+  }, open[0] ?? t.options[0]);
+}
+
 /**
  * Does an encounter happen on this trip? A seeded roll for the day and hour against the ring's
  * chance (×1.5 in the dark), then a seeded, weighted pick among the encounters that fit.

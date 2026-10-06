@@ -36,6 +36,8 @@ export function invariantViolations(s: Region1State): string[] {
   }
   num('strain', s.strain ?? 0);
   if (s.coldPitAt && !(s.coldPitAt in SITES)) out.push(`cold pit at unknown site ${s.coldPitAt}`);
+  // Encounters (#1348): a turn never ends with one still waiting for a choice.
+  if (s.pending) out.push(`encounter ${s.pending.id} still waiting at the end of the turn`);
   return out;
 }
 

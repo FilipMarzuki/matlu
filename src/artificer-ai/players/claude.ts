@@ -7,7 +7,8 @@
  * - The rules are the system prompt, marked for prompt caching; a top-level
  *   cache breakpoint also caches the growing conversation.
  * - Structured output: the reply must match DECISION_SCHEMA — or, on the caravan
- *   road (#1251), ROAD_DECISION_SCHEMA, in the same conversation.
+ *   road (#1251), ROAD_DECISION_SCHEMA, and in an encounter (#1348),
+ *   ENCOUNTER_DECISION_SCHEMA — all in the same conversation.
  * - Adaptive thinking with an explicit effort (Claude Opus 5.5 defaults to
  *   medium; we set it so a model swap doesn't silently change it).
  * - Safety-classifier declines are handled: `fallbacks: "default"` lets the
@@ -19,7 +20,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { RULES } from '../observe';
-import { DECISION_SCHEMA, ROAD_DECISION_SCHEMA } from '../decision';
+import { DECISION_SCHEMA, ROAD_DECISION_SCHEMA, ENCOUNTER_DECISION_SCHEMA } from '../decision';
 import type { Player } from '../runner';
 
 export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -68,6 +69,7 @@ export function claudePlayer(opts: ClaudePlayerOptions = {}): Player {
     name: `claude:${model}:${effort}`,
     decide: message => send(message, DECISION_SCHEMA as unknown as Record<string, unknown>),
     decideRoad: message => send(message, ROAD_DECISION_SCHEMA as unknown as Record<string, unknown>),
+    decideEncounter: message => send(message, ENCOUNTER_DECISION_SCHEMA as unknown as Record<string, unknown>),
   };
 }
 

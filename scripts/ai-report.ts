@@ -50,6 +50,15 @@ for (const m of models) {
   console.log(`  ${m.model.padEnd(34)} ${out.padEnd(22)} ${cost.padEnd(20)} ready ${m.readyDay ?? '—'} (${m.readyRuns}/${m.runs}) · ranks ${m.series.conceptRanks.at(-1)} · recipes ${m.series.recipesKnown.at(-1)} · crafts ${m.series.crafts.at(-1)}`);
   console.log(`  ${''.padEnd(34)} ${survivalLine(m)}`);
   if (m.road) console.log(`  ${''.padEnd(34)} ${roadLine(m)}`);
+  if (m.encounters.perRun) console.log(`  ${''.padEnd(34)} ${encounterLine(m)}`);
+}
+
+/** Encounters in a line (#1348): how many a run, what was chosen by kind, and which ones killed. */
+function encounterLine(m: ModelSummary): string {
+  const e = m.encounters;
+  const choices = Object.entries(e.choices).map(([kind, by]) => `${kind}: ${Object.entries(by).map(([c, n]) => `${c} ${n}`).join(', ')}`).join(' · ');
+  const deaths = Object.entries(e.deaths).map(([id, n]) => `${id} ${n}`).join(', ');
+  return `encounters ${e.perRun}/run — ${choices}${deaths ? ` · killed by: ${deaths}` : ''}${e.forced ? ` · ${e.forced} forced` : ''}`;
 }
 
 /** The road in a line (#1251): how the runs that rode on ended, and what they came away with. */

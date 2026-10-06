@@ -169,3 +169,38 @@ export function parseRoadDecision(text: string): { ok: true; decision: RoadDecis
   });
   return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', actions } };
 }
+
+// ── Encounters (#1348) ──────────────────────────────────────────────────────
+
+/** A reply to an encounter that paused the day: which option to take. */
+export interface EncounterDecision { thoughts: string; choice: string }
+
+/** JSON Schema for an encounter reply (strict-mode friendly). */
+export const ENCOUNTER_DECISION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['thoughts', 'choice'],
+  properties: {
+    thoughts: { type: 'string', description: 'One sentence: why this choice.' },
+    choice: { type: 'string', description: 'The id of one available option, exactly as listed.' },
+  },
+} as const;
+
+/**
+ * Validate an encounter reply against the options on offer (`unmet` is why one can't be taken,
+ * or null). Never throws: an unknown or unavailable choice comes back as an error the model can
+ * be shown, naming the options it can take.
+ */
+export function parseEncounterDecision(text: string, options: readonly { id: string; unmet: string | null }[]): { ok: true; decision: EncounterDecision } | { ok: false; errors: string[] } {
+  let raw: unknown;
+  try { raw = extractJson(text); } catch (e) { return { ok: false, errors: [`reply is not valid JSON (${(e as Error).message})`] }; }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { ok: false, errors: ['reply must be a JSON object'] };
+  const o = raw as Record<string, unknown>;
+  const open = options.filter(x => !x.unmet).map(x => x.id);
+  const listed = `choose one of: ${open.join(', ')}`;
+  if (typeof o.choice !== 'string') return { ok: false, errors: [`"choice" must be an option id — ${listed}`] };
+  const picked = options.find(x => x.id === o.choice);
+  if (!picked) return { ok: false, errors: [`"${o.choice}" is not an option here — ${listed}`] };
+  if (picked.unmet) return { ok: false, errors: [`"${o.choice}" isn't open to you (${picked.unmet}) — ${listed}`] };
+  return { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', choice: o.choice } };
+}

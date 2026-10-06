@@ -28,6 +28,7 @@ import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, 
 import { ROUTE, ROAD_DAYS, ROAD_CRAFTS, WAGON_CRAFT_HOURS, HELP_HOURS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
 import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
+import { encounterById, optionsFor, type EncounterOption } from '../artificer/encounters';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
@@ -66,6 +67,9 @@ Each ring has domains (forage, timber, stone, water, game; routes beyond home) k
 CRAFTING
 Crafts (build, coldPit, coldGear, knife, snare, waterskin, bedroll, shovel, basket, backpack, harness, sled) are graded crude / sound / fine / masterwork by how clear your head is (Clarity), your bench (a roofed shelter is a tier-1 bench) and your tools. Crafting while foggy can fail and waste materials. Many recipes must first be discovered (by observation, finds, or the study action). Crude cold gear won't hold up through a winter; a hide parka holds even when crude.
 
+ENCOUNTERS
+Out on the land (more often in the far rings, and in the dark) you may meet something: an animal, a find, a person. At most one a day. It pauses the day, and you choose what to do from the options shown. Each option says what it costs and needs, and its odds in words: safe (nothing can go wrong), likely, risky, desperate. Odds follow your stats, skills, talents and tools. The outcome is fixed for that encounter and choice. Some failures hurt badly; a few can kill. After your choice the rest of the day runs.
+
 RESPONDING
 Each turn you get an observation. Reply with ONLY a JSON object, no prose, matching:
 {
@@ -75,7 +79,8 @@ Each turn you get an observation. Reply with ONLY a JSON object, no prose, match
   "eating": "full" | "half" | "none" | null (how you eat from tonight; null = keep),
   "queue": [ { "action": string, "ring": 1 | 2 | 3, "options": [ { "key": string, "value": string } ] } ]
 }
-Use action ids exactly as listed. "ring" matters only for land actions (use 1 otherwise). "options" lets you pick choices shown for an action (e.g. {"key":"target","value":"small"} for hunt); use [] for defaults. Moving camp (site) after building abandons the shelter.`;
+Use action ids exactly as listed. "ring" matters only for land actions (use 1 otherwise). "options" lets you pick choices shown for an action (e.g. {"key":"target","value":"small"} for hunt); use [] for defaults. Moving camp (site) after building abandons the shelter.
+When an encounter pauses the day, reply instead with ONLY {"thoughts": string, "choice": "<option id>"}.`;
 
 const pct = (x: number): string => `${Math.round(x * 100)}%`;
 const fl = (x: number): number => Math.floor(x + 1e-9);
@@ -275,6 +280,39 @@ const questNeeds = (q: QuestTemplate): string => {
 };
 const questReward = (q: QuestTemplate): string =>
   [`${q.reward.marks} marks`, q.reward.item && `${q.reward.item.qty} ${q.reward.item.item}`, q.reward.recipe && `the ${q.reward.recipe} recipe`].filter(Boolean).join(', ');
+
+/** What an option asks of you, in a few words: its hours and the goods it uses. */
+function optionCost(o: EncounterOption): string {
+  const parts = Object.entries(o.cost?.stores ?? {}).map(([k, n]) => `${n} ${k === 'rawFood' ? 'food' : k}`);
+  if (o.cost?.hours) parts.push(`${o.cost.hours}h`);
+  return parts.join(', ');
+}
+
+/**
+ * Render a pending encounter (#1348): where and when, what you see, how you stand, and each
+ * option with its cost, then its odds in words — or what it needs, when you can't take it.
+ * Empty when nothing is waiting.
+ */
+export function observeEncounter(s: Region1State, notes: readonly string[] = []): string {
+  const p = s.pending;
+  const t = p ? encounterById(p.id) : undefined;
+  if (!p || !t) return '';
+  const v = s.vitals, st = s.stores;
+  const lines = [
+    `ENCOUNTER — day ${p.day}, ${String(Math.floor(p.hour) % 24).padStart(2, '0')}:00, ring ${p.ring} ${RING_NAME[p.ring].toLowerCase()}, while out to ${ACTIONS[p.action as ActionId]?.name.toLowerCase() ?? p.action}. The day is paused until you choose.`,
+    ...notes.map(n => `NOTE: ${n}`),
+    t.text,
+    `VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100 · hours used today ${s.hoursToday}/${DAY_HOURS}`,
+    `STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · hides ${st.hides}`,
+    'OPTIONS (id: what you do — cost — odds):',
+    ...optionsFor(s, t).map(({ option, unmet, odds }) => {
+      const cost = optionCost(option);
+      return `- ${option.id}: ${option.label}${cost ? ` — costs ${cost}` : ''} — ${unmet ? `NOT AVAILABLE (${unmet})` : odds}`;
+    }),
+    'Reply with ONLY {"thoughts": "<one sentence>", "choice": "<option id>"}.',
+  ];
+  return lines.join('\n');
+}
 
 /** Render a road day's observation (#1251). `notes` carries harness feedback, as in Region 1. */
 export function observeRoad(r: RoadState, notes: readonly string[] = []): string {
