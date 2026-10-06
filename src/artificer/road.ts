@@ -20,7 +20,7 @@
 
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
-import { peopleOf, personById, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
+import { peopleOf, personById, TRAVELLERS, MISTHEIM_ARRIVAL, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
 import { survivalLock } from './focus';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
@@ -39,7 +39,7 @@ export type Leg =
 
 /**
  * Three villages (staying 3 / 3 / 4 days), two travel days before each and two
- * more to Mistheim. Names are placeholders until the lore pass (#1253).
+ * more to Mistheim. The villages are written up in villages.ts (#1253).
  */
 export const ROUTE: readonly Leg[] = [
   { kind: 'travel', days: 2, to: 'Hollowford' },
@@ -147,6 +147,9 @@ export function createRoad(from: Region1State): RoadState {
     log: [],
     outcome: null,
   };
+  // The caravan's own people (#1253) ride with you from the start; they know you as well as anyone in the first village will.
+  const met = startingTrust(s.arrival, statEffects(s.character.stats).trust, 0);
+  for (const t of TRAVELLERS) s.trust[t.id] = s.contacts.includes(t.id) ? Math.max(met, CONTACT_TRUST) : met;
   say(s, `You climb onto the last wagon as Greywind Reach falls behind, the valley green with ${ROAD_SEASON}. Mistheim is ${ROAD_DAYS} days down the road.`, 'milestone');
   if (ragged) say(s, "The winter took a lot out of you. It'll be days on the wagon before you're right.", 'hardship');
   return s;
@@ -205,6 +208,9 @@ export type RoadActionId = 'rest' | 'wait' | `talk:${string}` | `sell:${string}`
 /** The village you're in, or null on the wagon. */
 export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
 
+/** Who you can talk to now: the village's people, or on the wagon your fellow travellers (#1253). */
+export const peopleHere = (s: RoadState): readonly Person[] => (villageOf(s) ? peopleOf(villageOf(s)) : TRAVELLERS);
+
 /** Open a village (#1246): everyone you meet starts at the arrival's trust, your Charisma, and the word that travelled ahead. */
 function openVillage(s: RoadState, id: string): void {
   const start = startingTrust(s.arrival, statEffects(s.character.stats).trust, s.word);
@@ -224,7 +230,7 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   if (id.startsWith('talk:')) {
     // Talk to someone here (#1246): only people in this village, and it takes a couple of hours.
     const pid = id.slice(5);
-    const person = peopleOf(villageOf(next)).find(p => p.id === pid);
+    const person = peopleHere(next).find(p => p.id === pid);
     if (!person) { say(next, `Talk: skipped — there's no one called ${pid} here.`, 'skip'); return next; }
     const r = talk(person, next.trust[pid] ?? 0, next.told[pid] ?? 0, next.idleTalks[pid] ?? 0);
     next.trust[pid] = r.trust;
@@ -547,7 +553,7 @@ export function endRoadDay(s: RoadState): RoadState {
   if (next.leg === ROUTE.length - 1) {
     next.legDay = leg.days;
     next.outcome = { kind: 'arrived', vitals: next.vitals };
-    say(next, "The road ends at Mistheim's gates. You made it.", 'outcome');
+    say(next, MISTHEIM_ARRIVAL, 'outcome');
     return next;
   }
   next.leg += 1;

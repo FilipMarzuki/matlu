@@ -10,7 +10,7 @@ import { scouted, type Ring } from '../../artificer/exploration';
 import { blindInFog, stormBars, isBlizzard, iceThick } from '../../artificer/weather';
 import { seasonOf } from '../../artificer/winter';
 import type { Player } from '../runner';
-import { daysLeftOnLeg, lessonFee, questsHere, tradeTerms, villageOf, ROAD_DAYS, ROUTE, type RoadActionId, type RoadState } from '../../artificer/road';
+import { daysLeftOnLeg, peopleHere, lessonFee, questsHere, tradeTerms, villageOf, ROAD_DAYS, ROUTE, type RoadActionId, type RoadState } from '../../artificer/road';
 import { canComplete, QUESTS } from '../../artificer/quests';
 import { peopleOf } from '../../artificer/villages';
 import { buyPrice } from '../../artificer/trade';
@@ -154,7 +154,8 @@ const QUEST_ORDER: Readonly<Record<string, number>> = { fetch: 0, craft: 0, repa
  */
 export function scriptedRoadDay(r: RoadState): RoadActionId[] {
   const village = villageOf(r);
-  if (!village) return ['rest'];
+  // On the wagon: hear out the fellow travellers (#1253), then rest.
+  if (!village) return [...peopleHere(r).filter(p => (r.told[p.id] ?? 0) < p.lore.length).map(p => `talk:${p.id}` as const), 'rest'];
   const out: RoadActionId[] = [];
   const offered = questsHere(r);
   for (const q of offered) out.push(`accept:${q.id}`);

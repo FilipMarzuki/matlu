@@ -7,7 +7,7 @@
  * happens at once and the hours tick on, and "End the day" sleeps and moves the caravan.
  */
 
-import { ROUTE, ROAD_DAYS, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
+import { ROUTE, ROAD_DAYS, peopleHere, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
 import { peopleOf, personById, VILLAGES, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS, FRIEND_LESSON, CONTACT_TRUST, type Person, type Role } from '../artificer/villages';
 import { questById, canComplete, OFFER_TRUST, QUESTS, type QuestTemplate } from '../artificer/quests';
 import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS, FRIEND_TRUST, WANTED } from '../artificer/trade';
@@ -20,7 +20,7 @@ const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}
 /** What the road screen remembers between redraws: which villager's sheet is open. */
 export interface RoadUi { person: string | null }
 
-const ROLE_ICON: Readonly<Record<Role, string>> = { trader: '⚖️', teacher: '📖', healer: '🌿', elder: '🕯️', smith: '⚒️', hunter: '🏹' };
+const ROLE_ICON: Readonly<Record<Role, string>> = { trader: '⚖️', teacher: '📖', healer: '🌿', elder: '🕯️', smith: '⚒️', hunter: '🏹', caravaneer: '🛞', tinker: '🔧' };
 /** Store goods by their screen names. */
 const GOOD_NAME: Readonly<Record<string, string>> = { rawFood: 'food', water: 'water', firewood: 'firewood', materials: 'materials', rations: 'rations', stone: 'stone', hides: 'hides' };
 const itemName = (id: string): string => GOOD_NAME[id] ?? id.replace(/-/g, ' ');
@@ -85,22 +85,27 @@ export function lastNews(r: RoadState): string {
 
 // ── The wagon ───────────────────────────────────────────────────────────────
 
-/** A travel day: rest on the wagon, and see plainly what has to wait for the next village. */
-function wagonView(r: RoadState): string {
+/** A travel day: your fellow travellers, rest, and plainly what has to wait for the next village. */
+function wagonView(r: RoadState, ui: RoadUi): string {
   const leg = legOf(r);
   const to = leg.kind === 'travel' ? leg.to : '';
+  const travellers = peopleHere(r);
+  const open = travellers.find(p => p.id === ui.person) ?? null;
   return `<div class="cols">
     <section class="box wagon"><p class="eyebrow">ON THE WAGON</p>
       <div class="wagonart" aria-hidden="true">🐂🐂 🛞━━🛞 <span>⛺</span> 🛞━━🛞</div>
       <p class="mood">The caravan rolls on towards ${esc(to)}. The barrels water everyone on the road; the nights are mild.</p>
-      <div class="runbar">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div>
+      <p class="fgroup">FELLOW TRAVELLERS — TAP TO TALK</p>
+      <div class="people">${travellers.map(p => personCard(r, p, p === open)).join('')}</div>
+      <div class="runbar" style="margin-top:12px">${act(r, 'rest', '☕ REST A WHILE', 0)}<button class="btn go" data-cmd="roadday">☾ END THE DAY</button></div>
+      ${open ? personSheet(r, open) : ''}
     </section>
     <section class="box"><p class="eyebrow">NOT FROM THE WAGON</p>
       <ul class="cant">
         <li>⚖️ <b>Trading</b> — every village has a trader.</li>
         <li>❗ <b>Quests</b> — people ask for help once they trust you.</li>
         <li>📖 <b>Lessons</b> and <b>appraisals</b> — teachers live in the villages.</li>
-        <li>💬 <b>Talking</b> to villagers — wait for ${esc(to)}.</li>
+        <li>💬 <b>Villagers</b> — only your fellow travellers ride with you until ${esc(to)}.</li>
       </ul>
       ${questLog(r, true)}
     </section></div>`;
@@ -120,7 +125,7 @@ function personCard(r: RoadState, p: Person, open: boolean): string {
   const trades = !!tradeTerms(r) && tradeTerms(r)!.trader === p.id;
   const icons = [lore && '<span title="Has more to tell">📜</span>', quest && '<span title="Has a quest for you">❗</span>', p.teaches && `<span title="Teaches ${esc(p.teaches.skill)}">🎓</span>`, trades && '<span title="Trades">⚖️</span>'].filter(Boolean).join('');
   return `<button class="pcard ${open ? 'on' : ''}" data-person="${esc(p.id)}" aria-expanded="${open}">
-    ${badge(p)}<span class="pinfo"><b>${esc(p.name)}</b><span class="prole">${esc(p.role)} · ${esc(cultureName(p.culture))}</span>
+    ${badge(p)}<span class="pinfo"><b>${esc(p.name)}</b><span class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))}</span>
     <span class="tbar" title="Trust ${trust}/100"><span style="width:${trust}%" class="${trust >= CONTACT_TRUST ? 'friend' : ''}"></span></span><span class="tnum">trust ${trust}${r.contacts.includes(p.id) ? ' · remembers you' : ''}</span></span>
     <span class="picons">${icons}</span></button>`;
 }
@@ -198,7 +203,7 @@ function lessonPanel(r: RoadState, p: Person): string {
 function personSheet(r: RoadState, p: Person): string {
   const told = r.told[p.id] ?? 0;
   const isTrader = tradeTerms(r)?.trader === p.id;
-  return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(cultureName(p.culture))} · trust ${Math.round(r.trust[p.id] ?? 0)}</p></div>
+  return `<section class="box sheet"><div class="sheethead">${badge(p, 56)}<div><h3>${esc(p.name)}</h3><p class="prole">${esc(p.role)} · ${esc(p.people)} · ${esc(cultureName(p.culture))} · trust ${Math.round(r.trust[p.id] ?? 0)}</p><p class="mood" style="margin:2px 0 0">${esc(p.personality)}</p></div>
     <button class="pill" data-person="${esc(p.id)}" aria-label="Close">✕</button></div>
     <div class="sheetpart"><p class="mood">${told < p.lore.length ? 'They have more to tell, as they come to trust you.' : 'They have told you all they know — but time together still builds trust.'}</p>${act(r, `talk:${p.id}`, '💬 TALK', TALK_HOURS)}</div>
     ${questBlock(r, p)}${isTrader ? tradePanel(r) : ''}${lessonPanel(r, p)}</section>`;
@@ -243,7 +248,7 @@ export function questLog(r: RoadState, compact = false): string {
 // ── The screen ──────────────────────────────────────────────────────────────
 
 /** The road tab: the wagon on a travel day, the village otherwise. */
-export const roadView = (r: RoadState, ui: RoadUi): string => (villageOf(r) ? villageView(r, ui) : wagonView(r));
+export const roadView = (r: RoadState, ui: RoadUi): string => (villageOf(r) ? villageView(r, ui) : wagonView(r, ui));
 
 /** Arrival (or the end on the road): how it went, and what the Warden carries on with. */
 export function roadEnd(r: RoadState): string {
