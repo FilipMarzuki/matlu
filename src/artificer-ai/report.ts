@@ -12,8 +12,8 @@ import type { Progress } from './progress';
 export interface Transcript {
   player: string;
   start: Progress;
-  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress }[];
-  record: { kind: string; choice: string; day: number; readyDay: number | null };
+  turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[] }[];
+  record: { kind: string; choice: string; day: number; readyDay: number | null; grade?: string };
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
 }
 
@@ -72,6 +72,65 @@ export interface ModelSummary {
   events: Record<EventKey, { day: number | null; runs: number }>;
   /** Action id → how often it was queued, per run. */
   actions: Record<string, number>;
+  /** Surviving the winter (#1309). */
+  survival: Survival;
+}
+
+/** How a model fares against the winter (#1309). */
+export interface Survival {
+  /** Share of runs that reached the thaw, 0..1. */
+  rate: number;
+  /** Survivors by grade. */
+  grades: Record<'hale' | 'worn' | 'broken', number>;
+  /** Median day the run ended, over runs that didn't reach the thaw (null when all did). */
+  deathDay: number | null;
+  /** What ended the runs that didn't make it. */
+  deaths: Record<string, number>;
+  /** The hard nights, by cause, per run. */
+  nights: Record<string, number>;
+}
+
+/** What ended a run, from its last journal lines. */
+export function deathCause(journal: readonly string[]): string {
+  const text = journal.join('\n');
+  if (/Dead of thirst/.test(text)) return 'thirst';
+  if (/Dead of starvation/.test(text)) return 'starvation';
+  if (/Dead of the cold/.test(text)) return 'cold';
+  if (/lost the way back/.test(text)) return 'blizzard';
+  if (/wolves find you|bear finds you/.test(text)) return 'collapse (animals)';
+  if (/collapse/i.test(text)) return 'collapse (found)';
+  return 'other';
+}
+
+/** The night hardships worth counting, and how to spot each in the journal. */
+export const NIGHT_CAUSES: Readonly<Record<string, RegExp>> = {
+  cold: /cold, broken night|fireless night|frost bites|freezing/i,
+  hunger: /^Hungry/,
+  thirst: /^Thirsty/,
+  lean: /lean night/,
+  'cabin fever': /^Cabin fever/,
+};
+
+const median = (xs: number[]): number | null => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+function survivalOf(runs: readonly Transcript[]): Survival {
+  const survived = runs.filter(r => r.record.kind === 'survived');
+  const grades = { hale: 0, worn: 0, broken: 0 };
+  for (const r of survived) if (r.record.grade && r.record.grade in grades) grades[r.record.grade as keyof typeof grades]++;
+  const lost = runs.filter(r => r.record.kind === 'died' || r.record.kind === 'collapsed');
+  const deaths: Record<string, number> = {};
+  for (const r of lost) { const c = deathCause(r.turns.at(-1)?.journal ?? []); deaths[c] = (deaths[c] ?? 0) + 1; }
+  const nights: Record<string, number> = {};
+  for (const r of runs) for (const t of r.turns) for (const line of t.journal ?? []) {
+    for (const [cause, re] of Object.entries(NIGHT_CAUSES)) if (re.test(line)) nights[cause] = (nights[cause] ?? 0) + 1 / runs.length;
+  }
+  for (const k of Object.keys(nights)) nights[k] = round(nights[k])!;
+  return { rate: runs.length ? survived.length / runs.length : 0, grades, deathDay: median(lost.map(r => r.record.day)), deaths, nights };
 }
 
 const mean = (xs: number[]): number | null => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -129,6 +188,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       series,
       events,
       actions,
+      survival: survivalOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
 }

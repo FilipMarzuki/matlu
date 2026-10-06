@@ -77,6 +77,11 @@ export interface PlayOptions {
   talents?: TalentId[];
   /** The year's calendar — the default 60-day year, or a short one for tests (#1301). */
   calendar?: Calendar;
+  /**
+   * A safety stop, in days (#1309): the run ends at the thaw anyway (day 61), so this only
+   * catches a sim that never resolves — and throws, rather than loop forever. Defaults to the thaw day.
+   */
+  maxDays?: number;
   /** Called after every turn (for live progress printing). */
   onTurn?: (t: Turn) => void;
 }
@@ -117,7 +122,8 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     return r.text;
   };
 
-  while (!s.outcome) {
+  const maxDays = opts.maxDays ?? s.config.calendar.thawDay;
+  while (!s.outcome && s.day <= maxDays) {
     const day = s.day;
     const logStart = s.log.length;
     let reply = await ask(observe(s, notes));
@@ -158,6 +164,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     turns.push(t); opts.onTurn?.(t);
   }
 
+  if (!s.outcome) throw new Error(`the run did not resolve by day ${maxDays} — the sim should always end at the thaw`);
   return { player: player.name, turns, record: summarizeRun(s, 1), usage, start, final: s };
 }
 

@@ -5,9 +5,10 @@
  * testing the harness without an API key.
  */
 
-import { blockedReason, queueHours, queueId, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
+import { blockedReason, queueHours, queueId, winterOutlook, DAY_HOURS, type ActionId, type Region1State } from '../../artificer/region1';
 import { scouted, type Ring } from '../../artificer/exploration';
-import { blindInFog, stormBars, isBlizzard } from '../../artificer/weather';
+import { blindInFog, stormBars, isBlizzard, iceThick } from '../../artificer/weather';
+import { seasonOf } from '../../artificer/winter';
 import type { Player } from '../runner';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
@@ -28,15 +29,43 @@ const PLAN: Entry[][] = [
 ];
 
 /**
- * After the plan, through the rest of autumn and the winter (#1302): keep
- * hunting, smoking and fetching, and keep the woodpile up for the cold nights.
- * The plan is rebuilt for winter proper in #1309.
+ * After the plan, through the rest of autumn (#1302): keep hunting, smoking
+ * and fetching, and keep the woodpile up for the cold nights to come.
  */
 const ROUTINE: Entry[][] = [
   [a('hunt'), a('preserve'), a('water')],
   [a('wood'), a('hunt'), a('preserve')],
   [a('water'), a('wood'), a('rest')],
 ];
+
+/**
+ * The winter routine (#1309): keep the fire fed first, fish once the lake ice
+ * holds (hunt until then), fetch water, and smoke what's spare. Short days, so
+ * three near-camp jobs a day.
+ */
+const WINTER: Entry[][] = [
+  [a('wood'), a('fish'), a('water')],
+  [a('hunt'), a('preserve'), a('wood')],
+  [a('wood'), a('water'), a('fish')],
+];
+
+/** A blizzard day stays in (#1315) — and spends it on a craft that helps, if there are materials for one. */
+function blizzardDay(s: Region1State): Entry[] {
+  const craft = (['snare', 'bedroll'] as const).find(id => blockedReason(s, id, 1) === null);
+  return craft ? [a(craft), a('rest')] : [a('rest'), a('rest')];
+}
+
+/** The day's routine once the plan is done: autumn's, or winter's (fishing only once the ice is thick). */
+function routineDay(s: Region1State): Entry[] {
+  if (seasonOf(s.day, s.config.calendar) !== 'winter') return [...ROUTINE[s.day % ROUTINE.length]];
+  return WINTER[s.day % WINTER.length].map(e => (e.action === 'fish' && !iceThick(s.day, s.config.calendar) ? a('hunt') : e));
+}
+
+/** Half rations when the food won't reach the thaw at a meal a night; full again once it will (#1305). */
+const eatingFor = (s: Region1State): 'full' | 'half' => {
+  const o = winterOutlook(s);
+  return seasonOf(s.day, s.config.calendar) === 'winter' && o.foodDays < o.nightsToThaw ? 'half' : 'full';
+};
 
 /** Would today's weather waste or bar this action? (Fog blinds scouting; a storm bars the far rings — #1284.) */
 const spoiled = (e: Entry, s: Region1State): boolean => blindInFog(s.weatherToday, e.action as never) || stormBars(s.weatherToday, e.ring);
@@ -59,11 +88,12 @@ export const scriptedPlayer = (): Player => {
   return {
     name: 'scripted',
     async decide(_message, s) {
-      const today = remaining.shift() ?? [...ROUTINE[s.day % ROUTINE.length]];
+      const today = remaining.shift() ?? routineDay(s);
+      const eating = eatingFor(s);
       // A winter blizzard keeps everyone in (#1315): the day's plan waits, and the Warden rests by the fire.
       if (isBlizzard(s.weatherToday, s.day, s.config.calendar)) {
         remaining.unshift(today);
-        return { text: JSON.stringify({ thoughts: 'A blizzard — staying in.', site: null, queue: [a('rest'), a('rest')] }), usage: { cost: 0 } };
+        return { text: JSON.stringify({ thoughts: 'A blizzard — staying in.', site: null, eating, queue: blizzardDay(s) }), usage: { cost: 0 } };
       }
       let queue = today.map(e => (spoiled(e, s) ? a('wood') : e));
       // Short of materials for today's build (bad weather cost a trip)? Cut more wood first — a trip per missing unit, two at most.
@@ -97,7 +127,7 @@ export const scriptedPlayer = (): Player => {
           queue = [...(short ? [a('wood'), a('wood')] : []), a('build', 1, site ? { site } : {})];
         }
       }
-      return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site, queue }), usage: { cost: 0 } };
+      return { text: JSON.stringify({ thoughts: `Day ${s.day} of the plan.`, site, eating, queue }), usage: { cost: 0 } };
     },
   };
 };
