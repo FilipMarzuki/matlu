@@ -11,7 +11,8 @@
  */
 
 import { ACTIONS, SITES, blockedReason, dangerOf, tripLoad, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
-import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
+import { summarizeRun, summarizeRoad, legacyOf, legacyOfRoad, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
+import { createRoad, runRoadDay, type RoadActionId, type RoadState } from '../artificer/road';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
 import { DEFAULT_STATS, STAT_IDS, type Stats } from '../artificer/stats';
@@ -21,9 +22,14 @@ import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
 
 export interface AppState {
+  /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
   sim: Region1State;
   /** The player's plan: runs in order, spilling over day boundaries. */
   queue: QueueItem[];
+  /** Where the run is (#1250): in the Reach, or on the caravan road after the thaw. Absent means the Reach. */
+  stage?: 'reach' | 'road';
+  /** The road sim, once the Warden rides with the caravan (#1250). */
+  road?: RoadState;
 }
 
 /** Bump the version (and the key) whenever the saved shape changes incompatibly. */
@@ -38,7 +44,7 @@ export const newCharacterId = (): string => `w-${Date.now().toString(36)}-${Math
 
 /** A brand-new Warden: a new character, knowing nothing. */
 export function newGame(): AppState {
-  return { sim: createRegion1({}, undefined, { id: newCharacterId() }), queue: [] };
+  return { sim: createRegion1({}, undefined, { id: newCharacterId() }), queue: [], stage: 'reach' };
 }
 
 /**
@@ -47,10 +53,33 @@ export function newGame(): AppState {
  * they learned (#1242). Otherwise (no run, unfinished, or the character died)
  * it's a new Warden with nothing carried.
  */
-export function newRun(from?: Region1State): AppState {
+export function newRun(from?: Region1State | RoadState): AppState {
   if (!from || !canContinue(from)) return newGame();
   const c = from.character;
-  return { sim: createRegion1({}, legacyOf(from), { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [] };
+  // A run that rode the road carries its marks and contacts too (#1250).
+  const legacy = 'leg' in from ? legacyOfRoad(from) : legacyOf(from);
+  return { sim: createRegion1({}, legacy, { id: c.id || newCharacterId(), name: c.name, portrait: c.portrait, talents: c.talents, stats: c.stats }), queue: [], stage: 'reach' };
+}
+
+/** Where the run ended up: the road once it has begun, else the Reach. What `newRun` and `canContinue` look at. */
+export const currentRun = (a: AppState): Region1State | RoadState => (a.stage === 'road' && a.road ? a.road : a.sim);
+
+// ── The caravan road (#1250) ────────────────────────────────────────────────
+
+/**
+ * Ride with the spring caravan (#1307): a run that survived to the thaw goes on
+ * down the road instead of ending. Refused for any other ending — the dead and
+ * the collapsed take no road — and for a run already on it.
+ */
+export function rideCaravan(a: AppState): AppState {
+  if (a.stage === 'road' || a.sim.outcome?.kind !== 'survived') return a;
+  return { ...a, stage: 'road', road: createRoad(a.sim), queue: [] };
+}
+
+/** Run one day on the road: these actions as far as the hours go, then the night and the caravan's next move. */
+export function runRoadQueuedDay(a: AppState, actions: readonly RoadActionId[] = []): AppState {
+  if (a.stage !== 'road' || !a.road || a.road.outcome) return a;
+  return { ...a, road: runRoadDay(a.road, actions).state };
 }
 
 // ── Run history (saved separately from the game, so starting over keeps it) ──
@@ -62,6 +91,18 @@ export const HISTORY_KEY = 'artificer.history.v1';
  * run is a no-op, so the page can call it after every update.
  */
 export function recordRun(history: readonly RunRecord[], before: AppState, after: AppState): RunRecord[] {
+  if (after.stage === 'road' && after.road) {
+    // The road resolving finishes the run that survived the thaw (#1250): its record replaces
+    // that run's thaw record (same run number), or is added if there wasn't one.
+    if (!after.road.outcome || (before.stage === 'road' && before.road?.outcome)) return [...history];
+    const id = after.sim.character.id;
+    const thaw = history.findIndex(r => r.characterId === id && r.kind === 'survived' && r.day === after.sim.day && r.stage !== 'road');
+    if (thaw >= 0) {
+      const rec = summarizeRoad(after.road, after.sim, history[thaw].run);
+      return history.map((r, i) => (i === thaw ? rec : r));
+    }
+    return addRun(history, summarizeRoad(after.road, after.sim, runNumberFor(history, id)));
+  }
   if (!after.sim.outcome || before.sim.outcome) return [...history];
   return addRun(history, summarizeRun(after.sim, runNumberFor(history, after.sim.character.id)));
 }
@@ -82,7 +123,7 @@ export function deserializeHistory(raw: string | null | undefined): RunRecord[] 
 }
 
 export function enqueue(a: AppState, id: QueueItem): AppState {
-  if (a.sim.outcome) return a;
+  if (a.sim.outcome || a.stage === 'road') return a;
   return { ...a, queue: [...a.queue, id] };
 }
 
@@ -113,7 +154,7 @@ export function runQueuedDay(a: AppState): AppState {
   if (a.sim.outcome) return a;
   const r = runDay(a.sim, a.queue);
   // A run that ends tonight (the thaw, or the body giving out) leaves nothing to plan.
-  return { sim: r.state, queue: r.state.outcome ? [] : r.remaining };
+  return { ...a, sim: r.state, queue: r.state.outcome ? [] : r.remaining };
 }
 
 /** Run day after day until the queue is empty (or the region resolves). */
@@ -194,7 +235,26 @@ export function previewQueue(a: AppState): QueuePreview {
 // ── Save / load ─────────────────────────────────────────────────────────────
 
 export function serialize(a: AppState): string {
-  return JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: a.queue });
+  return JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: a.queue, stage: a.stage ?? 'reach', ...(a.road ? { road: a.road } : {}) });
+}
+
+/**
+ * Parse a saved road (#1250), filling in fields a later Region 1.5 issue added. Null when
+ * it isn't one — the same shape checks as the Reach: what the sim reads, then trust the rest.
+ */
+function parseRoad(x: unknown): RoadState | null {
+  if (!isObj(x)) return null;
+  const v = x.vitals;
+  if (!isNum(x.day) || !isNum(x.hoursToday) || !isNum(x.leg) || !isNum(x.legDay) || !isObj(v) || !isPool(v.vigor) || !isPool(v.clarity) || !isNum(v.condition)) return null;
+  if (!isObj(x.stores) || !Array.isArray(x.tools) || !Array.isArray(x.log) || !isObj(x.trust) || !isObj(x.character)) return null;
+  const obj = (y: unknown) => (isObj(y) ? y : {});
+  const strs = (y: unknown): string[] => (Array.isArray(y) && y.every(z => typeof z === 'string') ? [...y] : []);
+  return {
+    ...(x as unknown as RoadState),
+    told: obj(x.told) as RoadState['told'], idleTalks: obj(x.idleTalks) as RoadState['idleTalks'], word: isNum(x.word) ? x.word : 0,
+    marks: isNum(x.marks) ? x.marks : 0, contacts: strs(x.contacts), quests: obj(x.quests) as RoadState['quests'],
+    discovery: obj(x.discovery) as RoadState['discovery'], appraised: strs(x.appraised),
+  };
 }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
@@ -228,6 +288,9 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   if (!Array.isArray(sim.known) || !isObj(sim.studiedToday)) return null;
   if (!Array.isArray(sim.milestones) || !Array.isArray(sim.log) || !Array.isArray(sim.tools) || !isObj(sim.concepts)) return null;
   if (sim.shelterGrade !== null && typeof sim.shelterGrade !== 'string') return null;
+  // The road (#1250): saves from before Region 1.5 have no stage, and load in the Reach.
+  const road = data.stage === 'road' ? parseRoad(data.road) : null;
+  if (data.stage === 'road' && !road) return null;
 
   // Saves from before food/water streaks (#1233) start with none, rather than being thrown away.
   const d = sim.deprivation;
@@ -274,5 +337,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const eating = EATING_PLANS.includes(sim.eating as EatingPlan) ? sim.eating as EatingPlan : undefined;
   // …and a cold pit only at a real site (#1295); none before it.
   const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;
-  return { sim: { ...(sim as unknown as Region1State), eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[] };
+  return { sim: { ...(sim as unknown as Region1State), eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}) };
 }

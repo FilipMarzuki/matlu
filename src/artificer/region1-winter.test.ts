@@ -93,7 +93,9 @@ describe('Winter is played (#1302)', () => {
     // Surviving the winter outranks every old exit.
     const survived = { ...old, run: 2, day: thawDay, choice: 'thaw', kind: 'survived', grade: 'worn' } as RunRecord;
     expect(bestRun([old, survived])).toBe(survived);
-    expect(Math.max(...Object.values(OUTCOME_RANK))).toBe(OUTCOME_RANK.survived);
+    // Surviving the winter beats every Reach ending; only reaching Mistheim on the road (#1250) ranks higher.
+    expect(Math.max(...Object.entries(OUTCOME_RANK).filter(([k]) => k !== 'arrived').map(([, v]) => v))).toBe(OUTCOME_RANK.survived);
+    expect(OUTCOME_RANK.arrived).toBeGreaterThan(OUTCOME_RANK.survived);
   });
 
   // 6. The first snow is marked, and the run goes on.

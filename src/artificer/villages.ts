@@ -146,6 +146,9 @@ export const TALK_HOURS = 2;
 export const TALK_TRUST = 5, TALK_TRUST_TOLD = 2;
 export const MAX_TRUST = 100;
 
+/** Trust at which someone on the road becomes a contact who remembers you next time (#1250). */
+export const CONTACT_TRUST = 50;
+
 /** A lesson (#1249) takes this long, and costs this many marks — free once the teacher's trust reaches FRIEND_LESSON. */
 export const LESSON_HOURS = 4, LESSON_FEE = 6, FRIEND_LESSON = 40;
 /** Insight a concept lesson gives. */

@@ -20,7 +20,7 @@
 
 import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
-import { peopleOf, personById, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
+import { peopleOf, personById, startingTrust, wordFrom, talk, TALK_HOURS, APPRAISE_HOURS, CONTACT_TRUST, FRIEND_LESSON, LESSON_FEE, LESSON_HOURS, LESSON_INSIGHT, type Person } from './villages';
 import { survivalLock } from './focus';
 import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
 import { GRADES, addInsight, type Grade } from './crafting';
@@ -90,8 +90,10 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   idleTalks: Record<string, number>;
   /** The word that travels ahead of you (#1246): added to the next village's starting trust. */
   word: number;
-  /** Caravan scrip (#1247): what you've sold for, and what you buy with. */
+  /** Caravan scrip (#1247): what you've sold for, and what you buy with. Carried from an earlier road (#1250). */
   marks: number;
+  /** People who trusted you on an earlier road (#1250): they start at CONTACT_TRUST when you meet them again. */
+  contacts: string[];
   /** Quests taken (#1248), by id: active until done, failed or expired. */
   quests: Record<string, QuestStatus>;
   /** How recipes learned on the road were come by (#1249): a teacher's lesson, or a quest's reward. */
@@ -137,7 +139,8 @@ export function createRoad(from: Region1State): RoadState {
     told: {},
     idleTalks: {},
     word: 0,
-    marks: 0,
+    marks: from.marks ?? 0,
+    contacts: [...(from.contacts ?? [])],
     quests: {},
     discovery: {},
     appraised: [],
@@ -169,6 +172,7 @@ function clone(s: RoadState): RoadState {
     idleTalks: { ...s.idleTalks },
     quests: { ...s.quests },
     discovery: { ...s.discovery },
+    contacts: [...s.contacts],
     appraised: [...s.appraised],
     log: [...s.log],
   };
@@ -204,7 +208,8 @@ export const villageOf = (s: RoadState): string | null => { const l = legOf(s); 
 /** Open a village (#1246): everyone you meet starts at the arrival's trust, your Charisma, and the word that travelled ahead. */
 function openVillage(s: RoadState, id: string): void {
   const start = startingTrust(s.arrival, statEffects(s.character.stats).trust, s.word);
-  for (const p of peopleOf(id)) if (s.trust[p.id] === undefined) s.trust[p.id] = start;
+  // Someone who came to trust you on an earlier road remembers you (#1250).
+  for (const p of peopleOf(id)) if (s.trust[p.id] === undefined) s.trust[p.id] = s.contacts.includes(p.id) ? Math.max(start, CONTACT_TRUST) : start;
 }
 
 /** Leave a village (#1246): word of how they took to you travels to the next. */
