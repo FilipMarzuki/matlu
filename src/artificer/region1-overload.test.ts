@@ -44,6 +44,9 @@ describe('Overload (#1292)', () => {
     expect(weak.vitals.vigor.current).toBeLessThan(strong.vitals.vigor.current);
     expect(lines(weak)).toMatch(/Walked home (with a heavy load|staggering under the load|barely able to carry it)/);
     expect(lines(strong)).not.toMatch(/Walked home/);
+    // …and the overloaded hours build strain (#1293).
+    expect(weak.strain ?? 0).toBeCloseTo((r - 1) * (TRAVEL_HOURS[2] / 2 + extra), 10);
+    expect(strong.strain ?? 0).toBe(0);
   });
 
   // 2. At or under a comfortable load: no change.

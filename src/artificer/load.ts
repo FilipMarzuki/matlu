@@ -180,3 +180,14 @@ export function overloadWord(r: number): string | null {
   if (r <= 1) return null;
   return r <= 1.5 ? 'with a heavy load' : r <= 2 ? 'staggering under the load' : 'barely able to carry it';
 }
+
+// ── Strain (#1293) ──────────────────────────────────────────────────────────────
+
+/** Strain from carrying overloaded for `hours` at ratio `r`: (r − 1) per hour, none at a comfortable load. */
+export const strainFrom = (r: number, hours: number): number => Math.max(0, r - 1) * Math.max(0, hours);
+/** The share of the night's Vigor recovery that strain leaves: 10% less per point, never below half. */
+export const strainRecovery = (strain: number): number => 1 - Math.min(0.5, 0.1 * Math.max(0, strain));
+/** Waking with this much strain (after the night halves it), the Warden is exhausted for the day. */
+export const EXHAUSTED_AT = 3;
+/** An exhausted day's work drains this much more. */
+export const EXHAUSTED_DRAIN = 1.15;
