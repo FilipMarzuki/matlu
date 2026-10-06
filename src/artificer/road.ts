@@ -22,6 +22,8 @@ import { applyActivity, type Vitals } from './vitality';
 import { statEffects } from './stats';
 import { peopleOf, startingTrust, wordFrom, talk, TALK_HOURS } from './villages';
 import { survivalLock } from './focus';
+import { buyPrice, isGood, parseLot, sellPrice, traderAmong, KIND_OF, SALE_TRUST, TRADER_STOCK, TRADE_HOURS, type Terms } from './trade';
+import { GRADES, type Grade } from './crafting';
 import { ACTIONS, DAY_HOURS, deathLine, sleepNight, type LogEntry, type Region1State, type Sleeper } from './region1';
 
 // ── The route ───────────────────────────────────────────────────────────────
@@ -84,6 +86,8 @@ export interface RoadState extends Sleeper, Pick<Region1State, 'skills' | 'techn
   idleTalks: Record<string, number>;
   /** The word that travels ahead of you (#1246): added to the next village's starting trust. */
   word: number;
+  /** Caravan scrip (#1247): what you've sold for, and what you buy with. */
+  marks: number;
   log: LogEntry[];
   outcome: RoadOutcome | null;
 }
@@ -123,6 +127,7 @@ export function createRoad(from: Region1State): RoadState {
     told: {},
     idleTalks: {},
     word: 0,
+    marks: 0,
     log: [],
     outcome: null,
   };
@@ -167,8 +172,13 @@ export const roadLockOf = (s: RoadState): string | null =>
 
 // ── Actions ─────────────────────────────────────────────────────────────────
 
-/** What you can do on the road so far: rest, let the day pass, or talk to someone in the village (#1246). Trade, quests and teachers come in #1247–#1249. */
-export type RoadActionId = 'rest' | 'wait' | `talk:${string}`;
+/**
+ * What you can do on the road so far: rest, let the day pass, talk to someone
+ * in the village (#1246), or trade with its trader (#1247) — `sell:<item>`,
+ * `sell:<item>:<qty|grade>`, `buy:<good>`, `buy:<good>:<qty>`. Quests and
+ * teachers come in #1248–#1249.
+ */
+export type RoadActionId = 'rest' | 'wait' | `talk:${string}` | `sell:${string}` | `buy:${string}`;
 
 /** The village you're in, or null on the wagon. */
 export const villageOf = (s: RoadState): string | null => { const l = legOf(s); return l.kind === 'village' ? l.id : null; };
@@ -204,6 +214,7 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
     say(next, r.line, 'action');
     return next;
   }
+  if (id.startsWith('sell:') || id.startsWith('buy:')) return trade(next, id);
   if (id === 'wait') {
     // Let the day pass: no work, no strain.
     next.hoursToday = DAY_HOURS;
@@ -219,6 +230,65 @@ export function runRoadAction(s: RoadState, id: RoadActionId): RoadState {
   next.today.loadClarity += r.loadClarity;
   next.hoursToday += def.hours;
   say(next, 'Sat a while and let the ache settle.', 'action');
+  return next;
+}
+
+/** The terms the village trader offers you right now (#1247), or null when no one here is trading. */
+export function tradeTerms(s: RoadState): (Terms & { trader: string; name: string; sells: readonly string[] }) | null {
+  const trader = traderAmong(peopleOf(villageOf(s)));
+  if (!trader) return null;
+  const stock = TRADER_STOCK[trader.id];
+  return { trader: trader.id, name: trader.name, wants: stock.wants, sells: stock.sells, trust: s.trust[trader.id] ?? 0, priceFactor: statEffects(s.character.stats).priceFactor };
+}
+
+/** Which copy of a tool a sale takes: the grade asked for, or else your worst (you keep the best). */
+function copyToSell(s: RoadState, item: string, grade: Grade | null): number {
+  let at = -1;
+  s.tools.forEach((t, i) => {
+    if (t.item !== item || (grade && t.grade !== grade)) return;
+    if (at < 0 || GRADES.indexOf(t.grade) < GRADES.indexOf(s.tools[at].grade)) at = i;
+  });
+  return at;
+}
+
+/**
+ * One sale or purchase with the village trader (#1247). A rejected trade
+ * (no trader, nothing to sell, not enough marks) costs no hours.
+ */
+function trade(next: RoadState, id: string): RoadState {
+  const selling = id.startsWith('sell:');
+  const verb = selling ? 'Sell' : 'Buy';
+  const terms = tradeTerms(next);
+  if (!terms) { say(next, `${verb}: skipped — No one here is trading.`, 'skip'); return next; }
+  const lot = parseLot(id.slice(selling ? 5 : 4));
+  if (selling) {
+    let grade: Grade = 'sound', qty = lot.qty;
+    if (isGood(lot.item)) {
+      if (next.stores[lot.item] < qty) { say(next, `Sell: skipped — you don't have ${qty} ${lot.item}.`, 'skip'); return next; }
+      next.stores[lot.item] -= qty;
+    } else {
+      const at = copyToSell(next, lot.item, lot.grade);
+      if (at < 0 || KIND_OF[lot.item] === undefined) { say(next, `Sell: skipped — you have no ${lot.grade ? `${lot.grade} ` : ''}${lot.item} to sell.`, 'skip'); return next; }
+      grade = next.tools[at].grade;
+      qty = 1;
+      next.tools.splice(at, 1);
+    }
+    const price = sellPrice(lot.item, grade, qty, terms);
+    next.marks += price;
+    next.trust[terms.trader] = Math.min(100, terms.trust + SALE_TRUST);
+    say(next, `Sold ${qty > 1 ? `${qty} ` : ''}${isGood(lot.item) ? lot.item : `${grade} ${lot.item}`} to ${terms.name} for ${price} marks.`, 'action');
+  } else {
+    if (!isGood(lot.item) || !terms.sells.includes(lot.item)) { say(next, `Buy: skipped — ${terms.name} doesn't sell ${lot.item}.`, 'skip'); return next; }
+    const price = buyPrice(lot.item, lot.qty, terms);
+    if (next.marks < price) { say(next, `Buy: skipped — ${lot.qty} ${lot.item} costs ${price} marks; you have ${next.marks}.`, 'skip'); return next; }
+    next.marks -= price;
+    next.stores[lot.item] += lot.qty;
+    say(next, `Bought ${lot.qty} ${lot.item} from ${terms.name} for ${price} marks.`, 'action');
+  }
+  const a = applyActivity(next.vitals, { hours: TRADE_HOURS, vigorRate: 0, clarityRate: -1 });
+  next.vitals = a.vitals;
+  next.today.loadClarity += a.loadClarity;
+  next.hoursToday += TRADE_HOURS;
   return next;
 }
 
