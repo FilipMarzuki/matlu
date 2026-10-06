@@ -14,7 +14,7 @@
 import {
   ACTIONS, blockedReason, SITES, DAY_HOURS, REGION1_MILESTONES, DISCOVERIES, BUILD_COST,
   readinessInput, warmth, winterReady, winterOutlook, nightFuel, tripOdds, dangerOf, FISH_CATCH, CABIN_FEVER_FROM, queueHours, queueId, survivalLockOf,
-  type ActionId, type Region1State,
+  tripLoad, coldCapacity, spoilage, type ActionId, type Region1State, type TripLoad,
 } from '../artificer/region1';
 import { pillars } from '../artificer/readiness';
 import { BASELINE } from '../artificer/vitality';
@@ -23,6 +23,8 @@ import { techniqueById, manualById } from '../artificer/techniques';
 import { TALENTS } from '../artificer/talents';
 import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { seasonOf } from '../artificer/winter';
+import { nightTemp } from '../artificer/weather';
+import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
 /**
@@ -113,6 +115,34 @@ const CAMP_HINT: Partial<Record<ActionId, string>> = {
   rest: 'recovers a little',
 };
 
+const haulWords = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(k => (h[k] ?? 0) > 0).map(k => `${h[k]} ${k}`).join(', ');
+
+/** A trip's expected load in words (#1297) — the same as the queue preview a person sees (#1296). */
+export function loadWords(l: TripLoad): string {
+  const left = haulWords(l.left);
+  const how = left ? `too much to carry: leaves ${left} behind` : l.ratio <= 1 ? 'comfortable' : !l.walk ? 'heavy, but camp is close' : l.ratio <= 1.5 ? 'heavy' : l.ratio <= 2 ? 'staggering' : 'barely able to carry it';
+  const help = l.wouldHelp.length && (left || (l.ratio > 1 && l.walk)) ? `; a ${l.wouldHelp[0]} would help` : '';
+  return `load ${how} (brings ~${haulWords(l.haul)}, bulk ${Math.round(l.cumbersome)}/${Math.round(l.max)})${help}`;
+}
+
+/** The LOAD line (#1297): what you can carry, your gear, and strain. */
+function loadLine(s: Region1State): string {
+  const st = s.character.stats;
+  const gear = s.tools.filter(t => (GEAR_ITEMS as readonly string[]).includes(t.item)).map(t => `${t.item} (${t.grade})`);
+  const strain = s.strain ?? 0;
+  const state = s.today.exhausted ? `EXHAUSTED today — all work drains ${Math.round((EXHAUSTED_DRAIN - 1) * 100)}% more`
+    : strain > 0.05 ? `strain ${strain.toFixed(1)} (tonight's Vigor recovery −${Math.round((1 - strainRecovery(strain)) * 100)}%)` : 'no strain';
+  return `LOAD: max ${maxLoad(st)} stones · comfortable ${Math.round(comfortableLoad(st))} · carrying gear: ${gear.length ? gear.join(', ') : 'none'} · ${state}`;
+}
+
+/** The COLD STORAGE line (#1297): raw food kept cold vs exposed, and tonight's spoilage. Only where it spoils. */
+function coldLine(s: Region1State): string | null {
+  if (s.config.world.weather !== 'seeded') return null;
+  const t = nightTemp(s.day, s.weatherToday, s.config.calendar);
+  const sp = spoilage(s.stores.rawFood, coldCapacity(s, t), t);
+  return `COLD STORAGE: ${sp.kept} raw food kept cold (capacity ${coldCapacity(s, t)}${s.site && s.coldPitAt === s.site ? ', cold pit' : ', no cold pit'}) · ${sp.exposed} exposed · ${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}`;
+}
+
 /** Render the full per-day observation. `notes` carries harness feedback (dropped entries, an invalid reply…). */
 export function observe(s: Region1State, notes: readonly string[] = []): string {
   const cal = s.config.calendar;
@@ -131,6 +161,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
   if (dep.hungry || dep.thirsty) lines.push(`DEPRIVATION: ${[dep.hungry ? `${dep.hungry} night(s) without food` : '', dep.thirsty ? `${dep.thirsty} night(s) without water` : ''].filter(Boolean).join(', ')} — another night without costs more Condition.`);
   lines.push(`EATING: ${s.eating ?? 'full'} rations${(s.cabinDays ?? 0) > 0 ? ` · ${s.cabinDays} day(s) cooped up${(s.cabinDays ?? 0) >= CABIN_FEVER_FROM ? ' — cabin fever' : ''}` : ''}`);
   lines.push(`STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · stone ${st.stone} · hides ${st.hides}`);
+  const cold = coldLine(s);
+  if (cold) lines.push(cold);
+  if (s.config.world.carrying !== false) lines.push(loadLine(s));
 
   const t = s.config.thresholds;
   const ps = pillars(readinessInput(s), t);
@@ -182,7 +215,9 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
       const hint = def.ringed ? landHint(s, id, r) : (CAMP_HINT[id] ?? '');
       const odds = tripOdds(s, id, r);
       const danger = why ? null : dangerOf(s, id, r);
-      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}`);
+      // What the trip would bring home and how heavy it is (#1297) — as the queue preview shows a person.
+      const load = why ? null : tripLoad(s, queueId(id, r));
+      lines.push(`- ${id}${ringTag} · ${queueHours(queueId(id, r), s)}h · ${hint}${odds ? ` · ${odds} odds now` : ''}${why ? ` · BLOCKED: ${why}` : ''}${danger ? ` · DANGER: ${danger}` : ''}${load ? ` · ${loadWords(load)}` : ''}`);
     }
     const groups = def.options?.(s, {}) ?? [];
     for (const g of groups) {

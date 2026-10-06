@@ -35,6 +35,11 @@ export const METRICS = {
   vigorCap: { label: 'Vigor capacity', unit: '', of: (p: Progress) => p.vitals.vigorCap },
   milestones: { label: 'Milestones', unit: '', of: (p: Progress) => p.milestones },
   overexertions: { label: 'Times pushed past empty', unit: '', of: (p: Progress) => p.overexertions },
+  // Carrying (#1297): totals so far, so the curve's steps show the day it happened.
+  leftStones: { label: 'Stones left behind (total)', unit: '', of: (p: Progress) => p.carry?.leftStones ?? 0 },
+  overloadedHours: { label: 'Hours walked overloaded (total)', unit: '', of: (p: Progress) => p.carry?.overloadedHours ?? 0 },
+  spoiled: { label: 'Raw food spoiled (total)', unit: '', of: (p: Progress) => p.carry?.spoiled ?? 0 },
+  strain: { label: 'Strain', unit: '', of: (p: Progress) => p.carry?.strain ?? 0 },
 } as const;
 export type MetricKey = keyof typeof METRICS;
 

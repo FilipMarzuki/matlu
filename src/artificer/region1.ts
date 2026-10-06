@@ -17,7 +17,7 @@ import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
-import { fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
+import { rawWeight, fitHaul, bestGear, leftLine, overloadRatio, overloadWalk, overloadWord, strainFrom, strainRecovery, cumbersome, maxLoad, comfortableLoad, EXHAUSTED_AT, EXHAUSTED_DRAIN, GEAR_ITEMS, type Haul, type GearItem } from './load';
 import { weatherFor, weatherName, lateFrom, isBlizzard, nextSnowDepth, snowSlow, iceThick, exposureFor, EXPOSURE_COST, BLIZZARD_HOURS, DANGER_SENSE_INT, tempAt, nightTemp, isColdNight, coldNightNeeds, fireNeed, freezeLoss, meltsSnow, MELT_FIREWOOD, iceOn, FREEZING_WORK, ICE_EXTRA_HOURS, weatherHours, blindInFog, stormBars, weatherDrain, windChill, windFire, WET_HOURS, WET_CLARITY, type Forecast, type WeatherId } from './weather';
 import { seedOf, streamFor } from './rng';
 import { TECHNIQUES, MANUAL_BY_RING, techniqueById, manualById, techniqueEffects, selfLearnHours, canBeTaught, guidanceRate, techniqueFactor, type Guidance, type Technique } from './techniques';
@@ -69,6 +69,13 @@ export interface ShelterBuild { type: ShelterType | null; walls: WallMaterial | 
 export const GRADE_WARMTH: Readonly<Record<Grade, number>> = { crude: 0.85, sound: 1, fine: 1.1, masterwork: 1.2 };
 
 // ── State ───────────────────────────────────────────────────────────────────
+
+/** The carrying life in numbers (#1297), for the AI report and the invariants. */
+export interface CarryTally { leftStones: number; overloadedHours: number; spoiled: number; heaviest: number }
+const addTally = (s: Region1State, add: Partial<CarryTally>): void => {
+  const t = s.tally ?? { leftStones: 0, overloadedHours: 0, spoiled: 0, heaviest: 0 };
+  s.tally = { leftStones: t.leftStones + (add.leftStones ?? 0), overloadedHours: t.overloadedHours + (add.overloadedHours ?? 0), spoiled: t.spoiled + (add.spoiled ?? 0), heaviest: Math.max(t.heaviest, add.heaviest ?? 0) };
+};
 
 export interface Stores {
   rawFood: number;
@@ -151,6 +158,8 @@ export interface Region1State {
   eating?: EatingPlan;
   /** Days in a row cooped up — not out on the land, no study or craft (#1305). */
   cabinDays?: number;
+  /** Running totals of the carrying life (#1297): stones left behind, hours walked overloaded, raw food spoiled, and the heaviest raw load ever carried. Absent: none yet. */
+  tally?: CarryTally;
   /** Strain from carrying overloaded (#1293): spoils the night's recovery, halves each night. Absent: none. */
   strain?: number;
   /** Where a cold pit was dug (#1295): it keeps raw food cold at that site only. Absent: none. */
@@ -1061,11 +1070,13 @@ function carryHome(next: Region1State, before: Stores, at: LogEntry['at'], ring:
   for (const k of STORE_KEYS) next.stores[k] -= left[k] ?? 0;
   const line = leftLine(left);
   if (line) say(next, line, 'hardship', at);
+  addTally(next, { leftStones: rawWeight(left), heaviest: rawWeight(carried) });
   const r = overloadRatio(carried, gear, next.character.stats);
   const { extraHours, extraVigor } = overloadWalk(r, homeHours, walkRate);
   if (extraHours <= 0) return;
   // Every overloaded hour builds strain (#1293), which the nights work off.
   next.strain = (next.strain ?? 0) + strainFrom(r, homeHours + extraHours);
+  addTally(next, { overloadedHours: homeHours + extraHours });
   // The extra time and drain go on as one more stretch of walking (the rate covers both: drain ÷ hours).
   const w = applyActivity(next.vitals, { hours: extraHours, vigorRate: extraVigor / extraHours, clarityRate: 0 });
   next.vitals = w.vitals;
@@ -1381,6 +1392,7 @@ export function endDay(s: Region1State): Region1State {
     const { spoiled } = spoilage(next.stores.rawFood, coldCapacity(next, t), t);
     if (spoiled > 0) {
       next.stores.rawFood -= spoiled;
+      addTally(next, { spoiled });
       say(next, `${spoiled} raw food went bad.`, 'hardship');
     }
   }

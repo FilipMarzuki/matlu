@@ -50,6 +50,8 @@ export interface Progress {
   locked: string | null;
   /** Times the Warden pushed past empty so far (each costs Condition). */
   overexertions: number;
+  /** Carrying so far (#1297): stones left behind, hours walked overloaded, raw food spoiled — and strain now. */
+  carry?: { leftStones: number; overloadedHours: number; spoiled: number; strain: number };
 }
 
 const r1 = (x: number): number => Math.round(x * 10) / 10;
@@ -95,5 +97,6 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
     overexertions: count(/^Pushed past empty/),
     focus: focusKey(s.focus),
     locked: survivalLockOf(s),
+    carry: { leftStones: r1(s.tally?.leftStones ?? 0), overloadedHours: r1(s.tally?.overloadedHours ?? 0), spoiled: s.tally?.spoiled ?? 0, strain: r1(s.strain ?? 0) },
   };
 }
