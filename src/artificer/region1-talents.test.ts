@@ -135,8 +135,11 @@ describe('Talents (#1263)', () => {
 
   it('Cold-blooded: cold nights cost 25%·t less (immune at mastery)', () => {
     const cold = (t: Talent[]) => nightCondition({ ...warden(t), stores: { ...warden(t).stores, rawFood: 5, water: 5 }, vitals: createVitals({ condition: 60 }) });
-    expect(cold([known('coldBlooded', 2)]) - cold([])).toBeCloseTo(4 * 0.5, 5);
-    expect(cold([known('coldBlooded', 4)]) - cold([])).toBeCloseTo(4, 5);
+    // The cold night's whole cost (its base and its shortfall, #1306), cut by 25%·t.
+    const cost = -cold([]);
+    expect(cost).toBeGreaterThan(0);
+    expect(cold([known('coldBlooded', 2)]) - cold([])).toBeCloseTo(cost * 0.5, 5);
+    expect(cold([known('coldBlooded', 4)]) - cold([])).toBeCloseTo(cost, 5);
   });
 
   it('Keen Eye: a Novice scout whose scouting is lighter, with no cost elsewhere', () => {

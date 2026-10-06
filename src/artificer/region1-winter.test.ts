@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createRegion1, runAction, runDay, chooseSite, winterOutlook, survivalLockOf, warmth, type Region1State } from './region1';
+import { createRegion1, runAction, runDay, chooseSite, winterOutlook, FIRE_WARMTH, survivalLockOf, warmth, type Region1State } from './region1';
 import { createVitals } from './vitality';
 import { FLAT_WORLD } from './world';
 import { DEFAULT_CALENDAR, gradeOf } from './winter';
@@ -73,7 +73,7 @@ describe('Winter is played (#1302)', () => {
     // The flat world needs no fire (#1303), so the woodpile lasts to the thaw.
     expect(o.fuelDays).toBe(thawDay - 40);
     expect(o.fuelToThaw).toBe(0);
-    expect(o.warmthMargin).toBeCloseTo(warmth(s) - coldNightNeeds(nightTemp(winterDay + 14, 'clear')), 10);
+    expect(o.warmthMargin).toBeCloseTo(warmth(s) + FIRE_WARMTH - coldNightNeeds(nightTemp(winterDay + 14, 'clear')), 10);
     expect(o.nightsToThaw).toBe(thawDay - 40);
     // The rates are the nights' own: raw food first, then a ration.
     const night = runDay({ ...s, stores: { ...s.stores, rawFood: 0, rations: 2 } }, ['rest']).state;

@@ -3,6 +3,7 @@
  * here are the scripted baseline or scripted test doubles.
  */
 
+import { FLAT_WORLD } from '../artificer/world';
 import { describe, it, expect } from 'vitest';
 import { fastForward, SHORT_YEAR } from '../artificer/test-helpers';
 import { createRegion1, runAction, setFocus } from '../artificer/region1';
@@ -36,12 +37,13 @@ describe('AI player harness', () => {
     expect(text).toMatch(/^DAY 1 — autumn, snow on day 13 \(12 days\)/);
     expect(text).toMatch(/STORES: food 2 · water 2/);
     expect(text).toMatch(/READINESS \(a rough guide\): not ready — larder needs/);
-    expect(text).toMatch(/WINTER OUTLOOK: 42 nights to the thaw · food 2 nights · water 2 nights · firewood 6 nights \(91 needed to the thaw, tonight 0\) · shelter 87% short/);
+    expect(text).toMatch(/WINTER OUTLOOK: 42 nights to the thaw · food 2 nights · water 2 nights · firewood 6 nights \(91 needed to the thaw, tonight 0\) · shelter 72% short/);
     expect(text).toMatch(/- hunt ring 1 .*BLOCKED: no game tracked/);
     expect(text).toMatch(/options "target": deer/);
     expect(observe(s, ['2 queued action(s) were dropped.'])).toMatch(/NOTE: 2 queued action\(s\) were dropped\./);
 
-    const late = fastForward(s, SHORT_YEAR.winterDay);
+    // (Flat world: an unsheltered Warden in the full world doesn't last to the snow any more, #1306.)
+    const late = fastForward(runAction(createRegion1({ calendar: SHORT_YEAR, world: FLAT_WORLD }), 'scout'), SHORT_YEAR.winterDay);
     expect(observe(late)).toMatch(/^DAY 13 — winter, thaw on day 43 \(30 days\)/);
     expect(observe(late)).not.toMatch(/EXIT/);
     expect(RULES).toMatch(/There are no exits/);
