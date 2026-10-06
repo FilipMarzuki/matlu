@@ -13,9 +13,10 @@
  */
 
 import './style.css';
-import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, coldPitHolds, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
+import { createRegion1, survivalLockOf, ACTIONS, blockedReason, SITES, BUILD_COST, FISH_CATCH, DAY_HOURS, REGION1_MILESTONES, warmth, winterReady, winterOutlook, FIRE_WARMTH, coldPitHolds, coldCapacity, spoilage, type TripLoad, routeKnown, parseItem, HIDE_PARKA_RECIPE, DISCOVERIES, queueId, queueHours, type ActionId, type QueueId, type LogEntry, type SiteId } from '../artificer/region1';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, FINDS, LEVEL_NAME, domainsOf, level, reachable, scouted, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 import { modifiersFor } from '../artificer/crafting';
+import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type GearItem, type Haul } from '../artificer/load';
 import { bestRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { seasonOf, MIDWINTER_AFTER, type Grade, type OutcomeKind } from '../artificer/winter';
 import { daylightHours } from '../artificer/clock';
@@ -260,6 +261,56 @@ const undiscovered = (s: AppState['sim']): number => DISCOVERIES.filter(d => !s.
 
 const storeChip = (icon: string, label: string, n: number, low = false): string => `<span class="r ${low ? 'low' : ''}">${icon} ${label} <b>${n}</b></span>`;
 
+// ── Carrying (#1296) ────────────────────────────────────────────────────────
+
+const GEAR_NAME: Record<GearItem | 'waterskin', string> = { basket: 'basket', backpack: 'backpack', harness: 'harness', sled: 'sled', waterskin: 'waterskin' };
+const HAUL_NAME: Record<keyof Haul, string> = { rawFood: 'food', rations: 'rations', water: 'water', firewood: 'fuel', materials: 'mat', stone: 'stone', hides: 'hide' };
+const haulText = (h: Haul): string => (Object.keys(h) as (keyof Haul)[]).filter(k => (h[k] ?? 0) > 0).map(k => `${h[k]} ${HAUL_NAME[k]}`).join(', ');
+
+/**
+ * A trip's load bar (#1296): the fill is the bulk of what's carried, the end of the bar is the max you
+ * can lift (a hard line), and a tick marks the comfortable load. Green comfortable, amber heavy, red staggering.
+ */
+function loadBar(l: TripLoad): string {
+  const left = haulText(l.left);
+  // Overload costs only on a walk home (#1292): near camp, a heavy load is just heavy.
+  const word = left ? `too much to carry — ${left} left behind` : l.ratio <= 1 ? 'comfortable' : !l.walk ? 'heavy, but camp is close' : l.ratio <= 1.5 ? 'heavy' : l.ratio <= 2 ? 'staggering' : 'barely able to carry it';
+  const cls = left ? 'over' : l.ratio <= 1 || !l.walk ? 'ok' : l.ratio <= 1.5 ? 'heavy' : 'stagger';
+  const help = l.wouldHelp.length && (left || (l.ratio > 1 && l.walk)) ? ` · a ${GEAR_NAME[l.wouldHelp[0]]} would make this easier` : '';
+  return `<div class="loadrow ${cls}" title="Bulk ${Math.round(l.cumbersome)} of ${Math.round(l.max)} stones (comfortable ${Math.round(l.comfortable)})">`
+    + `<span class="lhaul">↩ ${esc(haulText(l.haul))}</span>`
+    + `<span class="lbar"><span class="lfill" style="width:${pct(l.cumbersome / l.max)}%"></span><span class="lcomf" style="left:${pct(l.comfortable / l.max)}%"></span></span>`
+    + `<span class="lword">${esc(word)}${esc(help)}</span></div>`;
+}
+
+/** The WARDEN tab's carrying panel (#1296): what you can lift, your gear, and how strained you are. */
+function carryingBlock(s: AppState['sim']): string {
+  const st = s.character.stats;
+  const gear = s.tools.filter(t => (GEAR_ITEMS as readonly string[]).includes(t.item));
+  const chips = gear.length ? gear.map(t => `<span class="r tool ${t.grade}">${esc(GEAR_NAME[t.item as GearItem])} <b>${t.grade.toUpperCase()}</b></span>`).join('')
+    : '<span class="mood" style="margin:0">No carrying gear — a basket, backpack, harness or sled would make loads easier.</span>';
+  const strain = s.strain ?? 0;
+  const status = s.today.exhausted ? `<p class="lockbanner">EXHAUSTED — your back aches from yesterday's loads. All work drains ${Math.round((EXHAUSTED_DRAIN - 1) * 100)}% more today.</p>`
+    : strain >= 0.5 ? `<p class="mood warn">Aching back — strain ${strain.toFixed(1)}. Tonight's recovery ${Math.round((1 - strainRecovery(strain)) * 100)}% less; a night's rest halves it.</p>`
+      : '<p class="mood ok">No strain — fresh for a heavy haul.</p>';
+  return `<div class="carrystats"><span>MAX <b>${maxLoad(st)}</b> stones</span><span>COMFORTABLE <b>${Math.round(comfortableLoad(st))}</b></span></div>
+    <div class="res" style="margin-top:6px">${chips}</div>${status}`;
+}
+
+/** The CAMP tab's cold storage (#1296): raw food kept cold or exposed, and what tonight will cost. */
+function coldBlock(s: AppState['sim']): string {
+  if (s.config.world.weather !== 'seeded') return '';
+  const t = nightTemp(s.day, s.weatherToday, s.config.calendar);
+  const cap = coldCapacity(s, t);
+  const sp = spoilage(s.stores.rawFood, cap, t);
+  const pit = s.site && s.coldPitAt === s.site ? `a cold pit (${coldPitHolds(s.site)})` : null;
+  const snow = cap - (pit ? coldPitHolds(s.site) : 0) > 0 ? `the snow (${cap - (pit ? coldPitHolds(s.site) : 0)})` : null;
+  const where = [pit, snow].filter(Boolean).join(' and ') || 'nothing — dig a cold pit';
+  return `<div class="coldrow"><span>🧊 Kept cold <b>${sp.kept}</b> / ${cap}</span><span>Exposed <b>${sp.exposed}</b></span>`
+    + `<span class="${sp.spoiled ? 'warn' : 'ok'}">${sp.spoiled ? `${sp.spoiled} will go bad tonight` : 'nothing will spoil tonight'}</span></div>`
+    + `<p class="mood" style="margin:4px 0 0">Cold storage: ${where}. Rations never spoil.</p>`;
+}
+
 function storesRow(s: AppState['sim']): string {
   const st = s.stores;
   // A running hunger/thirst streak shows on the chip: the next night without costs more (#1233).
@@ -323,6 +374,7 @@ function wardenTab(a: AppState): string {
       <p class="wrank">RANK: ${artificerRank(a.sim).toUpperCase()} <span>· ${conceptRanks(a.sim)} concept rank${conceptRanks(a.sim) === 1 ? '' : 's'}</span></p></div></div>
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">STATS — what you're built for</p>${statsBlock(c.stats)}
+      <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div></section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
@@ -456,7 +508,7 @@ function queueBlock(a: AppState, preview: Preview): string {
       + (chosen && !open ? `<span class="chosen">${esc(chosen)}</span>` : '')
       + (why ? `<span class="why">skips: ${esc(why)}</span>` : '')
       + (preview.dangers[i] ? `<span class="why danger">⚠ ${esc(preview.dangers[i]!)}</span>` : '')
-      + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${menu}</li>`;
+      + `<span class="meta">${hrs(queueHours(item, preview.before[i]))}h</span><button class="x" data-x="${i}" aria-label="Remove">×</button></div>${preview.loads[i] ? loadBar(preview.loads[i]!) : ''}${menu}</li>`;
   }).join('');
   const days = a.queue.length ? (preview.dayOffset.at(-1) ?? 0) + 1 : 0;
   return `<div class="queue">
@@ -540,7 +592,7 @@ function tabBody(a: AppState, preview: Preview): string {
     case 'camp':
       return `<div class="cols">
         <section class="box"><p class="eyebrow">THE WARDEN</p>${vitalsBlock(a)}
-          <p class="eyebrow" style="margin-top:14px">STORES</p>${storesRow(a.sim)}
+          <p class="eyebrow" style="margin-top:14px">STORES</p>${storesRow(a.sim)}${coldBlock(a.sim)}
           <p class="eyebrow" style="margin-top:14px">TOOLS &amp; KNOWLEDGE</p>${toolsBlock(a)}</section>
         <section class="box camp-scene"><p class="eyebrow">SITE &amp; SHELTER</p>${sitesBlock(a)}</section>
       </div>`;

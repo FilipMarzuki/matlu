@@ -10,7 +10,7 @@
  * and the browser storage.
  */
 
-import { ACTIONS, SITES, blockedReason, dangerOf, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
+import { ACTIONS, SITES, blockedReason, dangerOf, tripLoad, type TripLoad, DAY_HOURS, setFocus, setEating, EATING_PLANS, type EatingPlan, chooseSite, createRegion1, runAction, runDay, parseQueueId, parseItem, queueHours, type QueueId, type QueueItem, type Region1State, type SiteId } from '../artificer/region1';
 import { summarizeRun, legacyOf, addRun, canContinue, runNumberFor, type RunRecord } from '../artificer/legacy';
 import { startingTalents, validPick, validTalents } from '../artificer/talents';
 import { parseFocus, type Focus } from '../artificer/focus';
@@ -151,6 +151,8 @@ export interface QueuePreview {
    * ignores the nightly meal, so it can miss a skip caused by eating.
    */
   warnings: (string | null)[];
+  /** What each ringed trip would bring home and how heavy it is to carry (#1296); null for camp work. */
+  loads: (TripLoad | null)[];
   /** A danger the Warden can see coming (a blizzard, with Intelligence 12+, #1315) — or null. The action still runs. */
   dangers: (string | null)[];
   /** The state after every queued action has run (no nights in between). */
@@ -167,6 +169,7 @@ export function previewQueue(a: AppState): QueuePreview {
   const dayOffset: number[] = [];
   const warnings: (string | null)[] = [];
   const dangers: (string | null)[] = [];
+  const loads: (TripLoad | null)[] = [];
   let hours = a.sim.hoursToday;
   let day = 0;
   let projected = a.sim;
@@ -179,11 +182,13 @@ export function previewQueue(a: AppState): QueuePreview {
     const reason = blockedReason(projected, id, ring, opts);
     warnings.push(reason);
     dangers.push(reason ? null : dangerOf(projected, id, ring));
+    // What the trip would bring home, and how heavy it is to carry (#1296).
+    loads.push(reason ? null : tripLoad(projected, item));
     // A refused action costs no time in the sim, so it costs none here either.
     if (!reason) hours += queueHours(item, projected);
     projected = runAction(projected, item);
   }
-  return { dayOffset, warnings, dangers, projected, before };
+  return { dayOffset, warnings, dangers, loads, projected, before };
 }
 
 // ── Save / load ─────────────────────────────────────────────────────────────
