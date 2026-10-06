@@ -10,6 +10,7 @@ import { pillars, isWinterReady, type PillarKey } from '../artificer/readiness';
 import { RINGS, DOMAINS, level } from '../artificer/exploration';
 import { artificerRank, conceptRanks, type RankName } from '../artificer/rank';
 import { SKILL_IDS, skillLevel, perceivedLevel } from '../artificer/skills';
+import { villageOf, type RoadState } from '../artificer/road';
 
 export interface Progress {
   /** The day about to start (a turn's snapshot is taken after its night). */
@@ -98,5 +99,48 @@ export function progressOf(s: Region1State, startKnown: number): Progress {
     focus: focusKey(s.focus),
     locked: survivalLockOf(s),
     carry: { leftStones: r1(s.tally?.leftStones ?? 0), overloadedHours: r1(s.tally?.overloadedHours ?? 0), spoiled: s.tally?.spoiled ?? 0, strain: r1(s.strain ?? 0) },
+  };
+}
+
+// ── The road (#1251) ────────────────────────────────────────────────────────
+
+/** A road day's progression: what the caravan road grows — marks, trust, quests, techniques, lore. */
+export interface RoadProgress {
+  /** The road day about to start. */
+  day: number;
+  /** Index into ROUTE, and the village you're in (null on the wagon). */
+  leg: number;
+  village: string | null;
+  marks: number;
+  /** Sum of trust over everyone met. */
+  totalTrust: number;
+  peopleMet: number;
+  questsDone: number;
+  questsFailed: number;
+  techniques: number;
+  /** Lore lines heard, over everyone. */
+  loreHeard: number;
+  recipesKnown: number;
+  vitals: { vigor: number; clarity: number; condition: number };
+  stores: { rawFood: number; water: number };
+}
+
+/** Snapshot a road state. */
+export function roadProgressOf(r: RoadState): RoadProgress {
+  const quests = Object.values(r.quests);
+  return {
+    day: r.day,
+    leg: r.leg,
+    village: villageOf(r),
+    marks: r.marks,
+    totalTrust: Math.round(Object.values(r.trust).reduce((n, t) => n + t, 0) * 10) / 10,
+    peopleMet: Object.keys(r.trust).length,
+    questsDone: quests.filter(q => q === 'done').length,
+    questsFailed: quests.filter(q => q === 'failed' || q === 'expired').length,
+    techniques: r.techniques.length,
+    loreHeard: Object.values(r.told).reduce((n, t) => n + t, 0),
+    recipesKnown: r.known.length,
+    vitals: { vigor: Math.round(r.vitals.vigor.current), clarity: Math.round(r.vitals.clarity.current), condition: Math.round(r.vitals.condition) },
+    stores: { rawFood: r.stores.rawFood, water: r.stores.water },
   };
 }

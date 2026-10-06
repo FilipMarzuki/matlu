@@ -6,7 +6,7 @@
  * Pure — the CLI (scripts/ai-report.ts) reads the files and renders the result.
  */
 
-import type { Progress } from './progress';
+import type { Progress, RoadProgress } from './progress';
 
 /** The parts of a saved transcript the report reads (see scripts/ai-play.ts). */
 export interface Transcript {
@@ -15,6 +15,68 @@ export interface Transcript {
   turns: { day: number; queue: (string | { q: string })[]; invalid: boolean; exit?: string | null; progress: Progress; journal?: string[] }[];
   record: { kind: string; choice: string; day: number; readyDay: number | null; grade?: string };
   usage: { input: number; output: number; cacheRead: number; cost?: number | null; costEstimated?: boolean };
+  /** The caravan road, for a run that rode on (#1251). */
+  road?: {
+    start: RoadProgress;
+    turns: { day: number; actions: string[]; invalid: boolean; progress: RoadProgress; journal?: string[] }[];
+    record: { kind: string; road?: { villages: string[]; quests: number; marks: number } };
+  };
+}
+
+/** Road-day numbers worth plotting (#1251). */
+export const ROAD_METRICS = {
+  marks: { label: 'Marks', unit: '', of: (p: RoadProgress) => p.marks },
+  totalTrust: { label: 'Trust (sum over people met)', unit: '', of: (p: RoadProgress) => p.totalTrust },
+  questsDone: { label: 'Quests done', unit: '', of: (p: RoadProgress) => p.questsDone },
+  techniques: { label: 'Techniques known', unit: '', of: (p: RoadProgress) => p.techniques },
+  loreHeard: { label: 'Lore lines heard', unit: '', of: (p: RoadProgress) => p.loreHeard },
+  condition: { label: 'Condition', unit: '', of: (p: RoadProgress) => p.vitals.condition },
+} as const;
+export type RoadMetricKey = keyof typeof ROAD_METRICS;
+
+/** How a model plays the road (#1251), over its runs that rode on. */
+export interface RoadSummary {
+  runs: number;
+  outcomes: Record<string, number>;
+  /** Means at the end of the road. */
+  marks: number | null;
+  quests: number | null;
+  trust: number | null;
+  invalidDays: number;
+  /** metric → mean at the end of road day d (index 0 = boarding). */
+  series: Record<RoadMetricKey, (number | null)[]>;
+  /** Road action kind (talk, sell, …) → how often it was chosen, per run. */
+  actions: Record<string, number>;
+}
+
+/** Summarise the runs that rode the road, or null when none did. */
+export function roadSummaryOf(runs: readonly Transcript[]): RoadSummary | null {
+  const rode = runs.filter(r => r.road);
+  if (!rode.length) return null;
+  const timelines = rode.map(r => [r.road!.start, ...r.road!.turns.map(t => t.progress)]);
+  const days = Math.max(...timelines.map(t => t.length));
+  const series = Object.fromEntries((Object.keys(ROAD_METRICS) as RoadMetricKey[]).map(k => [k,
+    Array.from({ length: days }, (_, d) => round(mean(timelines.filter(t => t[d]).map(t => ROAD_METRICS[k].of(t[d]))))),
+  ])) as Record<RoadMetricKey, (number | null)[]>;
+  const outcomes: Record<string, number> = {};
+  for (const r of rode) outcomes[r.road!.record.kind] = (outcomes[r.road!.record.kind] ?? 0) + 1;
+  const last = (r: Transcript): RoadProgress => r.road!.turns.at(-1)?.progress ?? r.road!.start;
+  const actions: Record<string, number> = {};
+  for (const r of rode) for (const t of r.road!.turns) for (const a of t.actions) {
+    const kind = a.split(':')[0];
+    actions[kind] = (actions[kind] ?? 0) + 1 / rode.length;
+  }
+  for (const k of Object.keys(actions)) actions[k] = round(actions[k])!;
+  return {
+    runs: rode.length,
+    outcomes,
+    marks: round(mean(rode.map(r => last(r).marks))),
+    quests: round(mean(rode.map(r => last(r).questsDone))),
+    trust: round(mean(rode.map(r => last(r).totalTrust))),
+    invalidDays: rode.reduce((n, r) => n + r.road!.turns.filter(t => t.invalid).length, 0),
+    series,
+    actions,
+  };
 }
 
 /** Day-by-day numbers worth plotting. Each reads one value off a snapshot. */
@@ -79,6 +141,8 @@ export interface ModelSummary {
   actions: Record<string, number>;
   /** Surviving the winter (#1309). */
   survival: Survival;
+  /** The caravan road (#1251), over runs that rode on; null when none did. */
+  road: RoadSummary | null;
 }
 
 /** How a model fares against the winter (#1309). */
@@ -194,6 +258,7 @@ export function aggregate(transcripts: readonly Transcript[]): ModelSummary[] {
       events,
       actions,
       survival: survivalOf(runs),
+      road: roadSummaryOf(runs),
     };
   }).sort((a, b) => wins(b.outcomes) / b.runs - wins(a.outcomes) / a.runs || (a.readyDay ?? 99) - (b.readyDay ?? 99));
 }

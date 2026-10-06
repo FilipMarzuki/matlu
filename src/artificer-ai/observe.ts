@@ -25,6 +25,10 @@ import { focusKey, UNRELIABLE_BELOW } from '../artificer/focus';
 import { seasonOf } from '../artificer/winter';
 import { nightTemp } from '../artificer/weather';
 import { maxLoad, comfortableLoad, strainRecovery, GEAR_ITEMS, EXHAUSTED_DRAIN, type Haul } from '../artificer/load';
+import { ROUTE, ROAD_DAYS, legOf, daysLeftOnLeg, villageOf, questsHere, tradeTerms, lessonFee, type RoadState } from '../artificer/road';
+import { peopleOf, personById, TALK_HOURS, LESSON_HOURS, APPRAISE_HOURS } from '../artificer/villages';
+import { questById, canComplete, type QuestTemplate } from '../artificer/quests';
+import { sellPrice, buyPrice, isGood, KIND_OF, TRADE_HOURS } from '../artificer/trade';
 import { RINGS, RING_NAME, TRAVEL_HOURS, RICHNESS, LEVEL_NAME, FINDS, domainsOf, level, reachable, tripYield, hasFind, supplyWord, type Domain, type Ring } from '../artificer/exploration';
 
 /**
@@ -234,6 +238,110 @@ export function observe(s: Region1State, notes: readonly string[] = []): string 
     lines.push('');
     lines.push('JOURNAL (latest):');
     for (const l of yesterday.slice(-14)) lines.push(`- D${l.day} ${l.text}`);
+  }
+  return lines.join('\n');
+}
+
+// ── The road (#1251) ────────────────────────────────────────────────────────
+
+/**
+ * The road's rules, sent once as the first road message (the Region 1 rules stay the
+ * system prompt, so the cached prefix is untouched). Static, like RULES.
+ */
+export const ROAD_RULES = `THE CARAVAN ROAD — you survived the winter. The spring caravan carries you to Mistheim: travel days on the wagon, and stays of a few days in three villages (Hollowford, Saltmere, Kestrel Gate). The caravan keeps its own schedule — it moves on whether you're ready or not.
+
+Each day: choose road actions in order; they run until the day's 16 hours are spent, then you sleep. On the wagon the caravan waters you; in a village you drink your own water. Food comes from your stores every night as before. Nights on the road are never cold.
+
+PEOPLE: each villager has a role and a trust in you (0–100). Talking (${TALK_HOURS}h) raises trust and, as trust allows, they share what they know. Trust 50+ makes someone a contact who remembers you next time.
+TRADE: one currency, marks. Each village has a trader. "sell:<item>" sells one (a tool, or a store good); "sell:<item>:<n>" sells n of a good; "sell:<tool>:<grade>" picks which copy. "buy:<good>:<n>" buys n. Grade sets the price; a trader pays half again for what they want; trust 50+ gets a friend's rate. ${TRADE_HOURS}h each.
+QUESTS: people who trust you (15+) ask for help. "accept:<quest>" (no time) then "complete:<quest>" once you can: bring goods, hand over a well-made item, repair (needs a concept rank), scout, or deliver to the next village (completes on arrival). A quest pays marks and a lot of trust; one left open when the caravan leaves is lost, and trust with it.
+TEACHERS: "learn:<teacher>:<technique|recipe|concept>" (${LESSON_HOURS}h, a fee in marks — free for a friend, trust 40+); a technique too far beyond your true skill is refused. "appraise:<teacher>" (${APPRAISE_HOURS}h, once per village) tells you your true level in their skill. While a teacher of a skill is in the village, practice in it counts in full.
+ALSO: "rest" (a few hours' rest), "wait" (let the day pass).
+
+Reply with ONLY a JSON object: {"thoughts": "<one or two sentences>", "actions": ["<action id>", ...]}. An action the sim can't do is skipped and the journal says why.`;
+
+const questNeeds = (q: QuestTemplate): string => {
+  const n = q.needs;
+  switch (n.kind) {
+    case 'fetch': return `bring ${n.qty} ${n.item}`;
+    case 'craft': return `hand over a ${n.grade} or better ${n.item}`;
+    case 'repair': return `repair: ${n.concept} rank ${n.rank}, ${n.hours}h`;
+    case 'scout': return `scout: ${n.hours}h out + ${n.walk}h walking${n.minScouting ? `, scouting ${n.minScouting}+` : ''}`;
+    case 'deliver': return `carry ${n.qty} ${n.item} (handed to you) to ${personById(n.recipient)?.name ?? n.recipient} in ${n.to}`;
+  }
+};
+const questReward = (q: QuestTemplate): string =>
+  [`${q.reward.marks} marks`, q.reward.item && `${q.reward.item.qty} ${q.reward.item.item}`, q.reward.recipe && `the ${q.reward.recipe} recipe`].filter(Boolean).join(', ');
+
+/** Render a road day's observation (#1251). `notes` carries harness feedback, as in Region 1. */
+export function observeRoad(r: RoadState, notes: readonly string[] = []): string {
+  const lines: string[] = [];
+  const leg = legOf(r);
+  const left = daysLeftOnLeg(r);
+  const village = villageOf(r);
+  const next = ROUTE.slice(r.leg + 1).find(l => l.kind === 'village');
+  lines.push(`ROAD DAY ${r.day} of ${ROAD_DAYS} — ${leg.kind === 'village' ? `in ${leg.name}; the caravan leaves ${left === 1 ? 'tomorrow at dawn' : `in ${left} days`}` : `on the wagon to ${leg.to} (${left} day${left === 1 ? '' : 's'})`}${next && leg.kind === 'village' ? `; next: ${next.kind === 'village' ? next.name : ''}` : ''}.`);
+  lines.push(`Hours used today: ${r.hoursToday}/${DAY_HOURS}.`);
+  for (const n of notes) lines.push(`NOTE: ${n}`);
+  lines.push('');
+  const v = r.vitals, st = r.stores;
+  lines.push(`VITALS: Vigor ${r0(v.vigor.current)}/${fl(v.vigor.cap)} · Clarity ${r0(v.clarity.current)}/${fl(v.clarity.cap)} · Condition ${fl(v.condition)}/100`);
+  lines.push(`STORES: food ${st.rawFood} · water ${st.water} · firewood ${st.firewood} · materials ${st.materials} · rations ${st.rations} · stone ${st.stone} · hides ${st.hides}`);
+  lines.push(`MARKS: ${r.marks}`);
+  lines.push(`TOOLS: ${r.tools.length ? r.tools.map(x => `${x.item} (${x.grade})`).join(', ') : 'none'}`);
+  const concepts = Object.entries(r.concepts).filter(([, p]) => p.rank > 0).map(([id, p]) => `${id} rank ${p.rank}`);
+  lines.push(`CONCEPTS: ${concepts.length ? concepts.join(', ') : 'none ranked'} · TECHNIQUES: ${r.techniques.map(id => techniqueById(id)?.name ?? id).join(', ') || 'none'}`);
+  const practised = SKILL_IDS.filter(id => (r.skills[id] ?? 0) > 0);
+  lines.push(`SKILLS (self-assessed): ${practised.length ? practised.map(id => `${id} ${LEVELS[perceivedLevel(r.skills, id)]}`).join(', ') : 'none'}`);
+
+  const active = Object.entries(r.quests).filter(([, st]) => st === 'active').map(([id]) => questById(id)!).filter(Boolean);
+  if (active.length) {
+    lines.push('');
+    lines.push('YOUR QUESTS:');
+    for (const q of active) {
+      const why = canComplete(q, r);
+      lines.push(`- ${q.id} "${q.title}" for ${personById(q.giver)?.name} — ${questNeeds(q)} · ${q.needs.kind === 'deliver' ? 'completes on arrival' : q.village !== village ? `back in ${q.village}` : why ? `not yet: ${why}` : 'ready to complete'}`);
+    }
+  }
+
+  if (village) {
+    lines.push('');
+    lines.push('PEOPLE HERE (id · role · trust · what they have for you):');
+    for (const p of peopleOf(village)) {
+      const told = r.told[p.id] ?? 0;
+      const more = told < p.lore.length ? 'has more to tell' : 'has told you all they know';
+      const quest = questsHere(r).find(q => q.giver === p.id);
+      const extras = [more, p.teaches && `teaches ${p.teaches.skill}`, quest && `offers quest ${quest.id}`].filter(Boolean).join(' · ');
+      lines.push(`- ${p.id} · ${p.name}, ${p.role} · trust ${Math.round(r.trust[p.id] ?? 0)} · ${extras}`);
+    }
+    const offered = questsHere(r);
+    if (offered.length) {
+      lines.push('');
+      lines.push('QUESTS ON OFFER:');
+      for (const q of offered) lines.push(`- ${q.id} "${q.title}" from ${personById(q.giver)?.name} — ${questNeeds(q)} · reward ${questReward(q)}`);
+    }
+    const t = tradeTerms(r);
+    if (t) {
+      lines.push('');
+      lines.push(`TRADER: ${t.trader} (${t.name}) wants ${t.wants.join(' and ')} goods (pays ×1.5) · trust ${Math.round(t.trust)}${t.trust >= 50 ? ' (friend’s rate)' : ''}`);
+      lines.push(`  sells (marks each): ${t.sells.map(g => `${g} ${buyPrice(g as never, 1, t)}`).join(' · ')}`);
+      const goods = Object.entries(r.stores).filter(([k, n]) => n > 0 && isGood(k)).map(([k]) => `${k} ${sellPrice(k, 'sound', 1, t)}`);
+      const tools = r.tools.filter(x => KIND_OF[x.item]).map(x => `${x.item} (${x.grade}) ${sellPrice(x.item, x.grade, 1, t)}`);
+      lines.push(`  would pay you: ${[...goods, ...tools].join(' · ') || 'nothing — you have nothing to sell'}`);
+    } else lines.push('No one here is trading.');
+    for (const p of peopleOf(village).filter(x => x.teaches)) {
+      const tt = p.teaches!;
+      const fee = lessonFee(r, p.id);
+      const techs = tt.techniques.map(id => `${id}${r.techniques.includes(id) ? ' (known)' : ''}`).join(', ');
+      lines.push(`TEACHER ${p.id} (${p.name}, ${tt.skill}) — lesson ${fee ? `${fee} marks` : 'free (friend)'}: techniques ${techs}${tt.recipes.length ? ` · recipes ${tt.recipes.map(x => `${x}${r.known.includes(x) ? ' (known)' : ''}`).join(', ')}` : ''}${tt.concept ? ` · concept ${tt.concept}` : ''}${r.appraised.includes(p.id) ? ' · has appraised you this stay' : ''}`);
+    }
+  }
+
+  const recent = r.log.filter(l => l.day >= r.day - 1);
+  if (recent.length) {
+    lines.push('');
+    lines.push('JOURNAL (latest):');
+    for (const l of recent.slice(-14)) lines.push(`- D${l.day} ${l.text}`);
   }
   return lines.join('\n');
 }

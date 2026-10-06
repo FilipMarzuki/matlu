@@ -10,6 +10,7 @@
 
 import { ACTIONS, SITES, EATING_PLANS, type EatingPlan, type ActionId, type QueueId, type QueueItem, type SiteId } from '../artificer/region1';
 import { FOCUS_KEYS } from '../artificer/focus';
+import type { RoadActionId } from '../artificer/road';
 
 export interface Decision {
   thoughts: string;
@@ -127,4 +128,44 @@ export function parseDecision(text: string): ParseResult {
   });
 
   return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts, ...(focus ? { focus } : {}), ...(eating ? { eating } : {}), site, queue } };
+}
+
+// ── The road (#1251) ────────────────────────────────────────────────────────
+
+/** One road day's decision: what to do, in order, as road action ids. */
+export interface RoadDecision { thoughts: string; actions: RoadActionId[] }
+
+/** The shapes a road action can take (validated before the sim sees it; the sim then explains what it can't do). */
+const ROAD_ACTION = /^(rest|wait|(talk|accept|complete|appraise):[\w-]+|(sell|buy):[\w-]+(:[\w-]+)?|learn:[\w-]+:[\w-]+)$/;
+
+/** JSON Schema for a road day (strict-mode friendly). */
+export const ROAD_DECISION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['thoughts', 'actions'],
+  properties: {
+    thoughts: { type: 'string', description: "One or two sentences: today's plan." },
+    actions: {
+      type: 'array',
+      description: 'Road actions in order, e.g. "talk:hf-maren", "sell:cold-gear", "buy:rawFood:3", "accept:hf-forge-wood", "complete:hf-forge-wood", "learn:hf-orrin:seasoning", "appraise:hf-orrin", "rest", "wait".',
+      items: { type: 'string' },
+    },
+  },
+} as const;
+
+/** Validate a road reply. Never throws: what's wrong comes back as errors the model can be shown. */
+export function parseRoadDecision(text: string): { ok: true; decision: RoadDecision } | { ok: false; errors: string[] } {
+  let raw: unknown;
+  try { raw = extractJson(text); } catch (e) { return { ok: false, errors: [`reply is not valid JSON (${(e as Error).message})`] }; }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return { ok: false, errors: ['reply must be a JSON object'] };
+  const o = raw as Record<string, unknown>;
+  const errors: string[] = [];
+  const actions: RoadActionId[] = [];
+  if (o.queue !== undefined && o.actions === undefined) errors.push('on the road, reply with "actions" (a list of road action ids), not "queue"');
+  else if (!Array.isArray(o.actions)) errors.push('actions must be an array of strings');
+  else o.actions.forEach((a, i) => {
+    if (typeof a !== 'string' || !ROAD_ACTION.test(a)) errors.push(`actions[${i}] "${String(a)}" is not a road action (rest, wait, talk:<person>, sell:<item>[:<qty|grade>], buy:<good>[:<qty>], accept:<quest>, complete:<quest>, learn:<teacher>:<thing>, appraise:<teacher>)`);
+    else actions.push(a as RoadActionId);
+  });
+  return errors.length ? { ok: false, errors } : { ok: true, decision: { thoughts: typeof o.thoughts === 'string' ? o.thoughts : '', actions } };
 }
