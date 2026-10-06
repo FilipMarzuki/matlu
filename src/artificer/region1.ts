@@ -16,6 +16,7 @@ import { talentEffects, talentDrain, startingTalents, startingPractice, growTale
 import { DEFAULT_STATS, statEffects, statDrain, type Stats } from './stats';
 import { FULL_WORLD, type WorldConfig } from './world';
 import { startingQuirks, reveal, hasQuirk, fearId, isFear, QUIRKS, FEAR_OF, FEAR_FADES, STOIC_CRASH, type Quirk } from './quirks';
+import { landAmbient, nightAmbient, frightOf, spookChance, DUSK_LIGHT, UNEASE_CLARITY, UNEASY_NIGHT, SLEEPLESS_NIGHT, DARK_FADES, type PanicState, type Response as PanicResponse } from './panic';
 import { readThreat, responseOf, overrideChance, RESPONSE_QUIRK, SHAKEN_CLARITY, FREEZE_HOURS, CRASH_VIGOR, CRASH_CLARITY, SHAKING_GRADE, SHAKING_SLEEP, INSTINCT_LINE } from './panic';
 import { clockHour, lightOver } from './clock';
 import { darkYieldMult, darkWorkDrain, darkTravelDrain, tooDarkToSee, nightWork, scaleHaul } from './darkness';
@@ -30,7 +31,7 @@ import { isWinterReady, evaluateMilestones, DEFAULT_THRESHOLDS, type MilestoneDe
 import { gradeOf, seasonOf, MIDWINTER_AFTER, DEFAULT_CALENDAR, type Calendar, type Outcome } from './winter';
 import { encounterFor, encounterById, unmet, chanceOf, rollOutcome, type PendingEncounter } from './encounters';
 import { ACTION_DOMAIN, BAND_MULT, bandFor, bandLine, haulFortune, luckShifts, luckSteps, oddsWord, type Band, type Shift } from './luck';
-import { createExploration, scout, survey, track, lookout, work, regrow, level, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
+import { createExploration, scout, survey, track, lookout, work, regrow, level, domainsOf, scouted, reachable, landYield, supplyFactor, hasFind, RICHNESS, type GrowSeason, RINGS, RING_NAME, TRAVEL_HOURS, FINDS, type Domain, type Exploration, type Ring } from './exploration';
 import type { Legacy } from './legacy';
 import { craft, craftBlocker, addInsight, study as studyConcept, craftWorld, createCrafter, capabilities, modifiersFor, GRADES, DEFAULT_EFFECTS, type CraftRecipe, type CraftResult, type CrafterState, type ConceptProgress, type Grade, type Tool } from './crafting';
 
@@ -150,6 +151,8 @@ export interface Region1State {
   encounterDay?: number;
   /** Encounters met and survived, by template id (#1360): the more often, the smaller they look. Carries across runs. */
   met?: Record<string, number>;
+  /** The day you settled the current camp (#1367): a camp lived in long enough feels like home at night. */
+  siteDay?: number;
   /** Crafted items that carry effects (src/artificer/crafting.ts). */
   tools: Tool[];
   /** Concept ranks and insight, earned by crafting. */
@@ -591,6 +594,7 @@ function buildOptions(s: Region1State, opts: ActionOpts): OptionGroup[] {
 function moveCamp(next: Region1State, site: SiteId): void {
   const moved = next.site !== null && next.tier > 0;
   next.site = site;
+  next.siteDay = next.day;
   next.tier = 0;
   next.shelterGrade = null;
   next.shelter = { type: null, walls: null };
@@ -1007,6 +1011,85 @@ export function runAction(s: Region1State, item: QueueItem): Region1State {
   return next;
 }
 
+/**
+ * The crash after a panic (#1361): the adrenaline drains away and leaves you wrung out and
+ * shaking. Stoic (#1362) halves it; Surge (#1363) spares the body's Vigor.
+ */
+function crash(next: Region1State, at?: ReturnType<typeof stampFor>): void {
+  const stoic = hasQuirk(next, 'stoic') ? STOIC_CRASH : 1;
+  const surged = talentEffects(next.character.talents).crashVigor;
+  const pool = (q: Pool, d: number): Pool => ({ ...q, current: Math.max(0, Math.min(q.cap, q.current + d)) });
+  next.vitals = { ...next.vitals, vigor: pool(next.vitals.vigor, -CRASH_VIGOR * stoic * surged), clarity: pool(next.vitals.clarity, -CRASH_CLARITY * stoic) };
+  next.today = { ...next.today, shaking: true };
+  say(next, 'Afterwards the strength drains out of you all at once, and your hands won\'t stop shaking.', 'hardship', at);
+  if (stoic < 1) revealQuirk(next, 'stoic', at);
+}
+
+/** A fear of `tag` (#1362), if you don't have one yet — with the moment it took hold. */
+function gainFear(next: Region1State, tag: string, at?: ReturnType<typeof stampFor>): void {
+  if (hasQuirk(next, fearId(tag))) return;
+  next.character = { ...next.character, quirks: [...(next.character.quirks ?? []), { id: fearId(tag), known: true, faced: 0 }] };
+  const words = FEAR_OF[tag] ?? tag;
+  say(next, `Something in you won't forget this. ${words.charAt(0).toUpperCase()}${words.slice(1)} will frighten you now.`, 'hardship', at);
+}
+
+/** Facing something you fear and coming through it calmly (#1362): `fades` times, and the fear is gone. */
+function faceFear(next: Region1State, tags: readonly string[], fades: number, at?: ReturnType<typeof stampFor>): void {
+  for (const q of next.character.quirks ?? []) {
+    if (!isFear(q.id) || !tags.includes(q.id.slice(5))) continue;
+    const faced = (q.faced ?? 0) + 1;
+    next.character = { ...next.character, quirks: faced >= fades
+      ? next.character.quirks!.filter(x => x.id !== q.id)
+      : next.character.quirks!.map(x => (x.id === q.id ? { ...x, faced } : x)) };
+    const words = FEAR_OF[q.id.slice(5)] ?? q.id.slice(5);
+    if (faced >= fades) say(next, `You notice ${words} ${words.endsWith('s') ? 'don\'t' : 'doesn\'t'} frighten you the way ${words.endsWith('s') ? 'they' : 'it'} did.`, 'milestone', at);
+  }
+}
+
+/** The environment's threat out on the land at this light (#1367), and how it sits with you. Null when the world has no fear in it. */
+function landFright(s: Region1State, ring: Ring, light: number): (ReturnType<typeof frightOf> & { ambient: number }) | null {
+  if (!s.config.world.encounters) return null;
+  const ambient = landAmbient({
+    light, weather: s.weatherToday ?? 'clear', blizzard: isBlizzard(s.weatherToday, s.day, s.config.calendar), ring,
+    winter: seasonOf(s.day, s.config.calendar) === 'winter', knownGround: domainsOf(ring).every(d => level(s.explore, ring, d) >= 3),
+  });
+  return { ...frightOf(s, ambient, light < DUSK_LIGHT), ambient };
+}
+
+/** What a spook makes you do (#1367), by panic response: the journal line. */
+const SPOOK_LINE: Readonly<Record<PanicResponse, string>> = {
+  flight: 'Something moved out there, and you ran for camp — dropping half of what you carried.',
+  freeze: 'You froze where you stood, every sense straining, until it passed. Hours gone, and nothing to show for them.',
+  fight: 'Every nerve says go home. You push on regardless, jaw set.',
+  fawn: 'You leave a little food on a stone for whatever is out there, and go home with what you can carry.',
+};
+
+/**
+ * Frightened on the land (#1367). Coming through it grows the nerve. Panicked, a seeded roll for
+ * the hour may spook you, and your panic response decides what that means: a runner bolts home
+ * (half the haul dropped, the work cut short), a freezer loses two hours and comes back with
+ * nothing, a fighter pushes on (#1285's accidents will bite harder), an appeaser leaves food and
+ * goes home. A spook is a panic: the crash follows, your response shows itself, and in the dark
+ * it may leave a fear of it.
+ */
+function landPanic(next: Region1State, fright: { perceived: number; nerve: number; state: PanicState }, before: Stores, workHours: number, at: ReturnType<typeof stampFor>): void {
+  growFrom(next, { kind: 'fright', panicked: fright.state === 'panicked' });
+  if (fright.state !== 'panicked') return;
+  if (streamFor(seedOf(next.character.id), next.day, `spook@${at.hour}`)() >= spookChance(fright.perceived - fright.nerve)) return;
+  const instinct = responseOf(next);
+  const drop = (keep: (gained: number) => number): void => {
+    for (const k of STORE_KEYS) { const gained = next.stores[k] - before[k]; if (gained > 0) next.stores[k] = before[k] + keep(gained); }
+  };
+  if (instinct === 'flight' || instinct === 'fawn') { drop(g => Math.floor(g / 2)); next.hoursToday = Math.max(0, next.hoursToday - workHours / 2); }
+  if (instinct === 'fawn' && next.stores.rawFood > 0) next.stores.rawFood -= 1;
+  if (instinct === 'freeze') { drop(() => 0); next.hoursToday += FREEZE_HOURS; }
+  say(next, SPOOK_LINE[instinct], 'hardship', at);
+  const quirk = next.character.quirks?.find(q => RESPONSE_QUIRK[q.id]);
+  if (quirk) revealQuirk(next, quirk.id, at);
+  crash(next, at);
+  if (at.light < DUSK_LIGHT) gainFear(next, 'dark', at);
+}
+
 /** Make a quirk known (#1362), with its line in the journal — once. */
 function revealQuirk(next: Region1State, id: string, at?: ReturnType<typeof stampFor>): void {
   const r = reveal(next.character.quirks, id);
@@ -1032,7 +1115,8 @@ function maybeEncounter(before: Region1State, next: Region1State, item: QueueIte
   const t = encounterFor(seedOf(next.character.id), next.day, at.hour, ring, seasonOf(next.day, next.config.calendar), at.light < 0.5);
   if (!t) return;
   // How it looks, and whether you can hold (#1360). Shaken, the fright itself costs some Clarity.
-  const read = readThreat(next, t);
+  // The hour's own threat (#1367): met in the dark or a storm, anything looks worse.
+  const read = readThreat(next, t, landFright(next, ring, at.light)?.ambient ?? 0);
   // A temperament shows itself the first time it changes how you stand (#1362).
   for (const id of ['reckless', 'jumpy'] as const) {
     if (!hasQuirk(next, id) || next.character.quirks!.find(q => q.id === id)!.known) continue;
@@ -1087,34 +1171,12 @@ export function chooseOption(s: Region1State, optionId: string): Region1State {
   next.pending = null;
   say(next, froze ? effect.text : `${o.label}: ${effect.text}`, tier === 'fail' ? 'hardship' : 'action');
   // The crash after a panic (#1361): the adrenaline drains away and leaves you wrung out and shaking.
-  if (p.state === 'panicked') {
-    // Stoic (#1362): it passes quicker.
-    const stoic = hasQuirk(next, 'stoic') ? STOIC_CRASH : 1;
-    // Surge (#1363): the body that surged doesn't pay for it in Vigor.
-    const surged = talentEffects(next.character.talents).crashVigor;
-    next.vitals = { ...next.vitals, vigor: pool(next.vitals.vigor, -CRASH_VIGOR * stoic * surged), clarity: pool(next.vitals.clarity, -CRASH_CLARITY * stoic) };
-    next.today = { ...next.today, shaking: true };
-    say(next, 'Afterwards the strength drains out of you all at once, and your hands won\'t stop shaking.', 'hardship');
-    if (stoic < 1) revealQuirk(next, 'stoic');
-  }
+  if (p.state === 'panicked') crash(next);
   // Coming through a fright grows the nerve (#1363): Steady from any, Surge from panic.
   if (p.state && p.state !== 'calm' && !next.outcome) growFrom(next, { kind: 'fright', panicked: p.state === 'panicked' });
   // Fears (#1362): a panic that ends badly leaves one; facing its kind calmly, again and again, fades it.
-  const tag = t.tags[0];
-  if (p.state === 'panicked' && tier === 'fail' && tag && !hasQuirk(next, fearId(tag))) {
-    next.character = { ...next.character, quirks: [...(next.character.quirks ?? []), { id: fearId(tag), known: true, faced: 0 }] };
-    say(next, `Something in you won't forget this. ${FEAR_OF[tag] ? FEAR_OF[tag].charAt(0).toUpperCase() + FEAR_OF[tag].slice(1) : tag} will frighten you now.`, 'hardship');
-  } else if (p.state !== 'panicked' && tier !== 'fail') {
-    for (const q of next.character.quirks ?? []) {
-      if (!isFear(q.id) || !t.tags.includes(q.id.slice(5))) continue;
-      const faced = (q.faced ?? 0) + 1;
-      const words = FEAR_OF[q.id.slice(5)] ?? q.id.slice(5);
-      next.character = { ...next.character, quirks: faced >= FEAR_FADES
-        ? next.character.quirks!.filter(x => x.id !== q.id)
-        : next.character.quirks!.map(x => (x.id === q.id ? { ...x, faced } : x)) };
-      if (faced >= FEAR_FADES) say(next, `You notice ${words} don't frighten you the way they did.`, 'milestone');
-    }
-  }
+  if (p.state === 'panicked' && tier === 'fail' && t.tags[0]) gainFear(next, t.tags[0]);
+  else if (p.state !== 'panicked' && tier !== 'fail') faceFear(next, t.tags, FEAR_FADES);
   if (next.vitals.condition <= 0) {
     next.outcome = { choice: 'collapse', kind: 'died', vitals: next.vitals };
     say(next, `Killed by ${effect.killedBy ?? 'what you met out there'}.`, 'outcome');
@@ -1169,8 +1231,11 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
   const dw = darkWorkDrain(id, at.light) * coldWork(next, at.hour) * wd, dt = darkTravelDrain(at.light);
   // Exhausted from yesterday's loads (#1293): everything drains more today.
   const ex = next.today.exhausted ? EXHAUSTED_DRAIN : 1;
-  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex });
-  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex });
+  // The dark, the weather, the distance (#1367): how frightening this stretch is. Uneasy, the work wears the mind.
+  const fright = def.ringed ? landFright(next, ring, at.light) : null;
+  const uneasy = fright && fright.state !== 'calm' ? UNEASE_CLARITY : 1;
+  const r = applyActivity(next.vitals, { hours: workHours, vigorRate: (v.vigorRate ?? def.vigorRate) * mod.vigorMult * drainMult(lvl) * td.vigor * sd.vigor * fx.drain * te.drain * dw * ex, clarityRate: (v.clarityRate ?? def.clarityRate) * mod.clarityMult * drainMult(lvl) * td.clarity * sd.clarity * fx.drain * te.drain * wd * ex * uneasy });
+  const t = applyActivity(r.vitals, { hours: travel, vigorRate: TRAVEL_VIGOR_RATE * te.travelDrain * se.travel * dt * ex, clarityRate: TRAVEL_CLARITY_RATE * te.travelDrain * se.travel * dt * ex * uneasy });
   next.vitals = t.vitals;
   next.today.loadVigor += r.loadVigor + t.loadVigor;
   next.today.loadClarity += r.loadClarity + t.loadClarity;
@@ -1209,6 +1274,10 @@ function runActionCore(s: Region1State, item: QueueItem): Region1State {
     say(next, exposure === 'lost' ? 'Lost in the white for hours — you dropped everything you carried to find the way home.'
       : exposure === 'frostbitten' ? 'The blizzard bit deep: frostbitten fingers, a face that burns.' : 'A rough few hours in the blizzard, but you came back.', 'hardship', at);
   }
+  // Frightened out there (#1367): coming through grows the nerve, and a panic may spook you off the land.
+  // A calm stretch in the dark is one more step towards not fearing it.
+  if (fright && fright.state !== 'calm') landPanic(next, fright, before, workHours, at);
+  else if (fright && at.light < DUSK_LIGHT) faceFear(next, ['dark'], DARK_FADES, at);
   // First into a ring, you may find a manual someone left behind (#1243).
   const manual = id === 'scout' && !tooDarkToSee('scout', at.light) && !blindInFog(next.weatherToday, 'scout') ? MANUAL_BY_RING[ring] : undefined;
   if (manual && !next.manuals.includes(manual)) findManual(next, manual);
@@ -1549,7 +1618,20 @@ export function endDay(s: Region1State): Region1State {
   if (next.cabinDays === CABIN_FEVER_FROM) say(next, 'Cabin fever — too many days inside these walls. Your thoughts go round in circles.', 'hardship');
   // How far short of tonight's frost the shelter falls (#1306): a deep shortfall bites harder.
   const coldShortfall = cold && feelsTemperature(next) ? Math.max(0, coldNightNeeds(nightTemp(next.day, next.weatherToday, next.config.calendar)) - w) : 0;
-  const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays });
+  // How frightening the night is (#1367): the weather, the season, the shelter and the fire — read against your nerve.
+  const nightFright = next.config.world.encounters ? frightOf(next, nightAmbient({
+    weather: next.weatherToday ?? 'clear', blizzard: isBlizzard(next.weatherToday, next.day, next.config.calendar), winter: seasonOf(next.day, next.config.calendar) === 'winter',
+    // A fire burns if it was kept in through the frost — or, on a night that asked for none, if there's wood for one.
+    sheltered: next.tier > 0, fire: fire.kept || (fire.freeze === 0 && next.stores.firewood > 0),
+    fireKeptWarm: fire.kept && next.tier >= 2, campDays: next.site && next.siteDay !== undefined ? next.day - next.siteDay : 0,
+  }), true) : null;
+  const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays, fright: nightFright?.state });
+  // After a fearful night (#1367): coming through grows the nerve; a sleepless one can leave a fear of the dark; calm ones fade it.
+  if (nightFright && !night.ended) {
+    if (nightFright.state !== 'calm') growFrom(next, { kind: 'fright', panicked: nightFright.state === 'panicked' });
+    if (nightFright.state === 'panicked') gainFear(next, 'dark');
+    else if (nightFright.state === 'calm') faceFear(next, ['dark'], DARK_FADES);
+  }
   // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you collapse — and out here,
   // only the spring caravan could find you in time (#1323). Anywhere else, the animals find you first.
   if (night.ended) {
@@ -1745,6 +1827,8 @@ export interface NightOpts {
   eating?: EatingPlan;
   /** Days in a row cooped up, today included (#1305): cabin fever pulls the Clarity cap down. */
   cabinDays?: number;
+  /** How frightening the night was for you (#1367): shaken, you lie awake; panicked, you hardly sleep. */
+  fright?: PanicState;
 }
 
 /** The night's verdict: null if the Warden lives to see morning; otherwise how it ended. */
@@ -1842,9 +1926,13 @@ export function sleepNight(next: Sleeper, o: NightOpts): NightResult {
   const se = statEffects(next.character.stats);
   // Strain from yesterday's loads (#1293) spoils the body's recovery: 10% per point, at most half.
   const strained = next.strain ?? 0;
+  // A fearful night (#1367): lying awake listening — or hardly sleeping at all.
+  const fear = o.fright === 'panicked' ? SLEEPLESS_NIGHT : o.fright === 'shaken' ? UNEASY_NIGHT : { clarity: 1, vigor: 1 };
   // A panic today (#1361) means a poor night: you keep waking with your heart going.
-  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : lean ? LEAN_VIGOR_RECOVERY : NEEDS.food.vigorRecovery) * strainRecovery(strained) * (next.today.shaking ? SHAKING_SLEEP : 1);
-  const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate || lean ? 1 : NEEDS.food.clarityRecovery);
+  const vigorFactor = (drank ? 1 : NEEDS.water.vigorRecovery) * (ate ? 1 : lean ? LEAN_VIGOR_RECOVERY : NEEDS.food.vigorRecovery) * strainRecovery(strained) * (next.today.shaking ? SHAKING_SLEEP : 1) * fear.vigor;
+  if (o.fright === 'shaken') say('You lie awake a long time, listening to the dark.', 'hardship');
+  if (o.fright === 'panicked') say('A sleepless night: every sound out there is something coming.', 'hardship');
+  const clarityFactor = (drank ? 1 : NEEDS.water.clarityRecovery) * (ate || lean ? 1 : NEEDS.food.clarityRecovery) * fear.clarity;
   // Bedding (a "sleep" yield) is a flat Clarity bonus on top of the night's recovery.
   const bedding = modifiersFor(next.tools, 'sleep').yieldAdd;
   next.vitals = applyActivity(next.vitals, { hours: 8, vigorRate: 4.25 * vigorFactor, clarityRate: 5 * clarityFactor, clarityFlat: bedding, sleep: true }, { shelterWarmth: w }).vitals;
