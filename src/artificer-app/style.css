@@ -463,3 +463,99 @@ button.tag { cursor: pointer; background: transparent; font: inherit; }
 .coldrow { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .coldrow b { color: var(--ice); }
 .coldrow .warn { color: var(--warn); } .coldrow .ok { color: var(--green); }
+
+/* The caravan road (#1252): route strip, wagon, villagers, trade, lessons, quest log */
+.route { margin-bottom: 14px; }
+.routeline { position: relative; height: 54px; margin: 6px 18px 0; }
+.rl-track, .rl-done { position: absolute; top: 14px; left: 0; height: 4px; border-radius: 2px; }
+.rl-track { right: 0; background: var(--sub2); border: 1px solid var(--border); }
+.rl-done { background: linear-gradient(90deg, var(--amber), var(--gold)); transition: width .4s; }
+.rl-stop { position: absolute; top: 9px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.rl-stop .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--sub); border: 2px solid var(--border2); }
+.rl-stop.past .dot { background: var(--amber); border-color: var(--gold); }
+.rl-stop.here .dot { background: var(--gold); border-color: var(--ink); box-shadow: 0 0 8px var(--gold); }
+.rl-stop .nm { font-family: var(--display); font-size: 7px; letter-spacing: .5px; color: var(--dim); white-space: nowrap; }
+.rl-stop.here .nm { color: var(--gold); }
+.rl-stop:first-of-type .nm { transform: translateX(30%); }
+.rl-stop:last-of-type .nm { transform: translateX(-30%); }
+.rl-wagon { position: absolute; top: -10px; transform: translateX(-50%); font-size: 18px; transition: left .4s; filter: drop-shadow(0 0 4px rgba(255,224,102,.5)); }
+.deadline { margin: 4px 0 0; font-family: var(--display); font-size: 9px; letter-spacing: 1px; color: var(--gold); }
+.deadline.urgent { color: var(--warn); }
+@media (max-width: 520px) { .rl-stop .nm { font-size: 6px; max-width: 58px; white-space: normal; text-align: center; } .routeline { margin-inline: 10px; } }
+
+.rstatus { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin-bottom: 10px; }
+.rbars { display: grid; gap: 4px; flex: 1 1 260px; min-width: 0; }
+.rbar { display: grid; grid-template-columns: 74px 1fr 30px; align-items: center; gap: 8px; }
+.rbar .rk { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--dim); }
+.rbar .track { height: 8px; border-radius: 4px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; }
+.rbar .fill { display: block; height: 100%; }
+.rbar .fill.vig { background: var(--amber); } .rbar .fill.cla { background: var(--teal); } .rbar .fill.con { background: var(--green); }
+.rbar .rv { font-size: 11px; color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+.rstatus .res { flex: 1 1 260px; }
+.news { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--teal); background: var(--sub); border-radius: 0 8px 8px 0; font-size: 12.5px; color: var(--ink); }
+.news.skip { border-left-color: var(--warn); color: var(--dim); }
+.news.milestone, .news.outcome { border-left-color: var(--gold); }
+.news.hardship { border-left-color: var(--danger); }
+
+.btn .h { color: var(--faint); margin-left: 4px; }
+.wagonart { font-size: 26px; letter-spacing: 2px; margin: 4px 0 6px; white-space: nowrap; overflow: hidden; }
+.cant { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: 12.5px; color: var(--dim); }
+.cant b { color: var(--ink); }
+
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; }
+.pcard { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--sub); color: var(--ink); cursor: pointer; font-family: var(--body); }
+.pcard:hover { border-color: var(--teal); }
+.pcard.on { border-color: var(--gold); background: rgba(255,224,102,.06); }
+.pinfo { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.pinfo b { font-size: 13px; }
+.prole { font-size: 11px; color: var(--dim); text-transform: capitalize; margin: 0; }
+.tbar { display: block; height: 6px; border-radius: 3px; background: var(--sub2); border: 1px solid var(--border); overflow: hidden; margin-top: 3px; }
+.tbar span { display: block; height: 100%; background: var(--teal); }
+.tbar span.friend { background: var(--gold); }
+.tnum { font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.picons { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.vbadge { position: relative; display: inline-grid; place-items: center; border-radius: 9px; border: 2px solid var(--border2); font-family: var(--display); font-size: 16px; color: var(--ink); background: var(--sub2); flex: none; }
+.vbadge i { position: absolute; right: -6px; bottom: -6px; font-style: normal; font-size: 13px; }
+.vbadge.r-trader { border-color: var(--gold); background: rgba(255,224,102,.10); }
+.vbadge.r-teacher { border-color: var(--teal); background: rgba(77,212,240,.10); }
+.vbadge.r-healer { border-color: var(--green); background: rgba(136,255,136,.08); }
+.vbadge.r-elder { border-color: var(--ice); background: rgba(159,216,255,.08); }
+.vbadge.r-smith { border-color: var(--amber); background: rgba(200,146,42,.12); }
+.vbadge.r-hunter { border-color: var(--warn); background: rgba(255,170,51,.08); }
+
+.sheet { margin-top: 12px; }
+.sheethead { display: flex; gap: 12px; align-items: center; }
+.sheethead > div { flex: 1 1 auto; min-width: 0; }
+.sheethead h3 { margin: 0; font-family: var(--display); font-size: 13px; color: var(--gold); letter-spacing: 1px; }
+.sheetpart { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.sheetpart .mood { margin: 0; }
+.say { margin: 0; font-size: 12.5px; color: var(--ink); font-style: italic; }
+.warn { color: var(--warn); } .ok { color: var(--green); }
+.tcols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; width: 100%; }
+@media (max-width: 640px) { .tcols { grid-template-columns: 1fr; } }
+.tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.tlist li { display: grid; grid-template-columns: minmax(0, 1fr) 34px auto auto; gap: 6px; align-items: center; font-size: 12px; }
+.tlist .it { min-width: 0; text-transform: capitalize; }
+.tlist .q { color: var(--faint); }
+.tlist .pr { color: var(--gold); font-variant-numeric: tabular-nums; text-align: right; font-family: var(--display); font-size: 9px; }
+.tlist .pr::after { content: ' m'; color: var(--faint); }
+.tlist .btn { padding: 5px 8px; font-size: 8px; }
+.want { font-family: var(--display); font-size: 7px; letter-spacing: 1px; color: var(--green); border: 1px solid var(--green); border-radius: 4px; padding: 0 3px; text-transform: uppercase; }
+.g { font-family: var(--display); font-size: 7px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); }
+.g.g-fine, .g.g-masterwork { color: var(--gold); } .g.g-crude { color: var(--faint); }
+.lessons { display: flex; flex-wrap: wrap; gap: 6px; }
+.lessons .btn { text-transform: capitalize; }
+.chip.known { color: var(--green); border-color: rgba(136,255,136,.4); }
+
+.qlog { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.qlog li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--sub); font-size: 12.5px; }
+.qlog .qwho { color: var(--faint); font-size: 11px; }
+.qlog .need { color: var(--dim); }
+.qlog .due { font-family: var(--display); font-size: 8px; letter-spacing: 1px; color: var(--gold); }
+.qlog.done li { flex-direction: row; gap: 8px; opacity: .75; }
+
+.arrive { border-color: var(--gold); margin-bottom: 12px; }
+.arrive.died, .arrive.collapsed { border-color: var(--danger); }
+.arrive .eyebrow { color: var(--gold); font-size: 11px; }
+.contacts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; }
+.contacts span { color: var(--dim); text-transform: capitalize; }

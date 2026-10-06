@@ -30,7 +30,10 @@ import { GOALS, GOAL_IDS, FOCUS_CONCEPTS, FOCUS_COST, CONCEPT_PER_HOUR, focusLab
 import { TALENTS, TALENT_PICKS, talentOffer, seedOf, type TalentId } from '../artificer/talents';
 import { STATS, STAT_IDS, DEFAULT_STATS, POINT_BUDGET, canRaise, canLower, raiseCost, pointsLeft, statNote, statEffects, validStats, type Stats, type StatId } from '../artificer/stats';
 import { artificerRank, conceptRanks } from '../artificer/rank';
-import { newGame, newRun, currentRun, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
+import { personById, CONTACT_TRUST } from '../artificer/villages';
+import { ROAD_DAYS, type RoadState } from '../artificer/road';
+import { newGame, newRun, currentRun, rideCaravan, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -375,11 +378,21 @@ function wardenTab(a: AppState): string {
       <p class="eyebrow" style="margin-top:16px">FOCUS</p>${focusBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">STATS — what you're built for</p>${statsBlock(c.stats)}
       <p class="eyebrow" style="margin-top:16px">CARRYING — what a trip can bring home</p>${carryingBlock(a.sim)}
-      <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div></section>
+      <p class="eyebrow" style="margin-top:16px">TALENTS</p><div class="traits">${talents}</div>${roadKeepsBlock(a)}</section>
     <section class="box"><p class="eyebrow">SKILLS — improve by doing, faster with focus; techniques come by practice or teaching</p>${skillsBlock(a.sim)}
       <p class="eyebrow" style="margin-top:16px">CONCEPTS — deepen by study and craft</p>
       ${concepts.length ? `<ul class="concepts">${concepts.map(([id, p]) => `<li><b>${esc(id[0].toUpperCase() + id.slice(1))}</b> rank ${p.rank} <span>· ${p.insight.toFixed(1)} insight</span></li>`).join('')}</ul>` : '<p class="mood">Nothing studied yet. Study a concept, or craft, to start.</p>'}</section>
   </div>`;
+}
+
+/** Marks and contacts (#1252): what the road earned, and what carries to the next road. */
+function roadKeepsBlock(a: AppState): string {
+  const marks = a.road?.marks ?? a.sim.marks ?? 0;
+  const contacts = a.road ? [...new Set([...a.road.contacts, ...Object.entries(a.road.trust).filter(([, t]) => t >= CONTACT_TRUST).map(([id]) => id)])] : a.sim.contacts ?? [];
+  if (!a.road && !marks && !contacts.length) return '';
+  return `<p class="eyebrow" style="margin-top:16px">THE ROAD — marks &amp; contacts</p>
+    <div class="res"><span class="chip">🪙&nbsp;<b>${marks}</b>&nbsp;marks</span></div>
+    ${contacts.length ? `<ul class="contacts">${contacts.map(id => { const p = personById(id); return `<li><b>${esc(p?.name ?? id)}</b> <span>${esc(p?.role ?? '')} · trust ${Math.round(a.road?.trust[id] ?? CONTACT_TRUST)}</span></li>`; }).join('')}</ul>` : `<p class="mood">No contacts yet — anyone whose trust in you reaches ${CONTACT_TRUST} will remember you.</p>`}`;
 }
 
 /** Stats (#1256, #1258), shown exactly — unlike skills, you know your own body and mind. */
@@ -644,8 +657,8 @@ function thawSummary(a: AppState): string {
     <p class="fgroup" style="margin-top:12px">THE WORST NIGHTS</p>${worst.length
       ? `<ul class="worst">${worst.map(w => `<li><span class="d">D${w.day}</span>${w.lines.map(esc).join(' ')}</li>`).join('')}</ul>`
       : '<p class="mood" style="margin:0">Not one hard night all winter.</p>'}
-    <div class="runbar" style="margin-top:12px"><button class="btn go" disabled title="The road to Mistheim opens with Region 1.5">🛞 RIDE WITH THE SPRING CARAVAN</button>
-      <span class="mood" style="margin:0">The caravan waits in the valley — the road itself is still being built.</span></div></div>`;
+    <div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="ride" title="Ride on to Mistheim with the caravan (#1252)">🛞 RIDE WITH THE SPRING CARAVAN</button>
+      <span class="mood" style="margin:0">The caravan waits in the valley: three villages, then Mistheim.</span></div></div>`;
 }
 
 function resolvePanel(a: AppState): string {
@@ -667,6 +680,7 @@ function resolvePanel(a: AppState): string {
 }
 
 function render(a: AppState): void {
+  if (a.stage === 'road' && a.road) { renderRoad(a, a.road); return; }
   const preview = previewQueue(a);
   // The winter look (#1308): the panels frost over as the snow deepens.
   const winter = seasonOf(a.sim.day, a.sim.config.calendar) === 'winter';
@@ -694,6 +708,53 @@ function render(a: AppState): void {
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${TABS.map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}</button>`).join('')}</nav>
     ${tabBody(a, preview)}`;
+}
+
+// ── The caravan road (#1252) ────────────────────────────────────────────────
+
+type RoadTab = 'road' | 'quests' | 'warden' | 'journal';
+const ROAD_TABS: { id: RoadTab; label: string }[] = [{ id: 'road', label: 'ROAD' }, { id: 'quests', label: 'QUESTS' }, { id: 'warden', label: 'WARDEN' }, { id: 'journal', label: 'JOURNAL' }];
+let roadTab: RoadTab = 'road';
+const roadUi: RoadUi = { person: null };
+
+/**
+ * The Warden on the road, in Region 1's shape — so the Warden tab shows what the road
+ * changed (skills, techniques, recipes, the body) without a second copy of that tab.
+ */
+const wardenOnRoad = (a: AppState, r: RoadState): AppState => ({
+  ...a, sim: { ...a.sim, vitals: r.vitals, stores: r.stores, tools: r.tools, concepts: r.concepts, character: r.character, skills: r.skills, techniques: r.techniques, manuals: r.manuals, known: r.known, focus: r.focus },
+});
+
+function roadJournal(r: RoadState, limit: number): string {
+  return [...r.log].reverse().slice(0, limit).map(l => {
+    const cls = l.kind === 'hardship' ? 'bad' : l.kind === 'milestone' || l.kind === 'outcome' ? 'good' : l.kind === 'skip' ? 'skip' : '';
+    return `<li class="${cls}"><span class="d">R${l.day}</span>${esc(l.text)}</li>`;
+  }).join('');
+}
+
+function renderRoad(a: AppState, r: RoadState): void {
+  root.classList.remove('winter');
+  root.style.setProperty('--snow', '0');
+  const body = roadTab === 'quests' ? `<section class="box">${questLog(r)}</section>`
+    : roadTab === 'warden' ? wardenTab(wardenOnRoad(a, r))
+    : roadTab === 'journal' ? `<section class="box"><p class="eyebrow">JOURNAL — THE ROAD</p><div class="log" style="border:0;margin:0;padding:0"><ul style="max-height:none">${roadJournal(r, 200)}</ul></div></section>`
+    : r.outcome ? `<section class="box"><p class="eyebrow">THE LAST OF THE ROAD</p><div class="log" style="border:0;margin:0;padding:0"><ul>${roadJournal(r, 12)}</ul></div></section>` : roadView(r, roadUi);
+  const end = r.outcome ? `${roadEnd(r)}<div class="runbar" style="margin:12px 0">${canContinue(r)
+    ? `<button class="btn go" data-cmd="carry">↻ CONTINUE AS ${esc((r.character.name || 'YOUR WARDEN').toUpperCase())} — KEEP WHAT YOU LEARNED</button>` : ''}<button class="btn ${canContinue(r) ? '' : 'go'}" data-cmd="reset">✦ ${canContinue(r) ? 'FRESH WARDEN' : 'NEW WARDEN'}</button></div>` : '';
+  root.innerHTML = `
+    <header>
+      <h1>🛞 THE CARAVAN <span class="mark">ROAD</span></h1>
+      <span class="spacer"></span>
+      ${r.character.name ? `<button class="who" data-rtab="warden" title="Your Warden">${portraitEl(r.character.portrait, 26)}<span><b>${esc(r.character.name)}</b> · ${artificerRank(wardenOnRoad(a, r).sim)}</span></button>` : ''}
+      <span class="counter ctl">MARKS <b>${r.marks}</b></span>
+      <span class="counter ctl">ROAD DAY <b>${Math.min(r.day, ROAD_DAYS)}</b></span>
+      <span class="ctl"><button class="pill" data-cmd="reset">↺ NEW SAVE</button></span>
+    </header>
+    ${routeStrip(r)}
+    ${end}
+    ${r.outcome ? '' : `${roadStatus(r)}${lastNews(r)}`}
+    <nav class="tabbar" role="tablist">${ROAD_TABS.map(t => `<button class="tabbtn ${roadTab === t.id ? 'on' : ''}" role="tab" aria-selected="${roadTab === t.id}" data-rtab="${t.id}">${t.label}</button>`).join('')}</nav>
+    ${body}`;
 }
 
 // ── Save / load (browser storage can be missing or blocked — never fatal) ───
@@ -902,6 +963,12 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
+  // The caravan road (#1252): ride on, act, end the day, open a villager's sheet, switch tabs.
+  else if (d.cmd === 'ride') { roadTab = 'road'; roadUi.person = null; update(rideCaravan(state)); }
+  else if (d.road) update(roadAct(state, d.road as Parameters<typeof roadAct>[1]));
+  else if (d.cmd === 'roadday') { roadUi.person = null; update(roadEndDay(state)); }
+  else if (d.person) { roadUi.person = roadUi.person === d.person ? null : d.person; render(state); }
+  else if (d.rtab) { roadTab = d.rtab as RoadTab; render(state); }
   else if (d.cmd === 'carry' && canContinue(currentRun(state))) { update(newRun(currentRun(state))); startIntro('carry'); }
 });
 

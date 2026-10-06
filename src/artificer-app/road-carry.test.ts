@@ -10,7 +10,7 @@ import { createVitals } from '../artificer/vitality';
 import { canContinue, legacyOfRoad, CONTACT_TRUST, type RunRecord } from '../artificer/legacy';
 import { createRoad, endRoadDay, ROUTE, type RoadState } from '../artificer/road';
 import type { OutcomeKind } from '../artificer/winter';
-import { currentRun, deserialize, newGame, newRun, recordRun, rideCaravan, runRoadQueuedDay, serialize, type AppState } from './controller';
+import { currentRun, deserialize, newGame, newRun, recordRun, rideCaravan, roadAct, roadEndDay, runRoadQueuedDay, serialize, type AppState } from './controller';
 
 /** A Region 1 run that ended `kind` at the thaw (or earlier), well stocked for the road. */
 function ended(kind: OutcomeKind = 'survived'): Region1State {
@@ -117,5 +117,19 @@ describe('The road in the game (#1250)', () => {
     // An unfinished run can't ride either.
     const unfinished = app({ ...ended(), outcome: null });
     expect(rideCaravan(unfinished)).toBe(unfinished);
+  });
+
+  // The road screen (#1252) acts as you tap: one action now, or the end of the day.
+  it('acts one road action at a time, and ends the day on its own', () => {
+    let a = rideCaravan(app(ended()));
+    while (a.road!.leg < hollowford) a = roadEndDay(a);
+    const talked = roadAct(a, 'talk:hf-maren');
+    expect(talked.road!.hoursToday).toBe(a.road!.hoursToday + 2);
+    expect(talked.road!.day).toBe(a.road!.day);
+    expect(roadEndDay(talked).road!.day).toBe(a.road!.day + 1);
+    // Nothing happens outside the road.
+    const reach = app(ended());
+    expect(roadAct(reach, 'rest')).toBe(reach);
+    expect(roadEndDay(reach)).toBe(reach);
   });
 });
