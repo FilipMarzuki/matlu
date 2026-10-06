@@ -20,6 +20,7 @@ import { FULL_WORLD, validWorld, type WorldConfig } from '../artificer/world';
 import { WEATHER_IDS, weatherFor } from '../artificer/weather';
 import { supplyFromWorked } from '../artificer/exploration';
 import { seedOf } from '../artificer/rng';
+import { openMeeting, chooseInMeeting, boardingOf, MEETING_STEPS, type Meeting } from '../artificer/caravan-meeting';
 
 export interface AppState {
   /** The Region 1 run — kept once the road begins, since the run's record starts from it. */
@@ -30,6 +31,10 @@ export interface AppState {
   stage?: 'reach' | 'road';
   /** The road sim, once the Warden rides with the caravan (#1250). */
   road?: RoadState;
+  /** Meeting the caravan at the thaw (#1356): the dialogue, while it's open and until you board or watch them go. */
+  meeting?: Meeting;
+  /** You let the caravan pass (#1356): no road this run. */
+  stayed?: boolean;
 }
 
 /** The world a new game plays: everything on, encounters included (#1347). Older saves keep the world they were made with. */
@@ -76,8 +81,30 @@ export const currentRun = (a: AppState): Region1State | RoadState => (a.stage ==
  * the collapsed take no road — and for a run already on it.
  */
 export function rideCaravan(a: AppState): AppState {
-  if (a.stage === 'road' || a.sim.outcome?.kind !== 'survived') return a;
-  return { ...a, stage: 'road', road: createRoad(a.sim), queue: [] };
+  if (a.stage === 'road' || a.sim.outcome?.kind !== 'survived' || a.stayed) return a;
+  // After a meeting (#1356), the road starts from what was agreed; only once it ended on the wagon.
+  if (a.meeting && !boardingOf(a.meeting)) return a;
+  const { meeting: _done, ...rest } = a;
+  return { ...rest, stage: 'road', road: createRoad(a.sim, a.meeting ? boardingOf(a.meeting)! : undefined), queue: [] };
+}
+
+/** Meet the caravan at the thaw (#1356): open the dialogue with Bodil. Only once, and only for a Warden who survived. */
+export function meetCaravan(a: AppState): AppState {
+  if (a.stage === 'road' || a.sim.outcome?.kind !== 'survived' || a.meeting || a.stayed) return a;
+  return { ...a, meeting: openMeeting(a.sim) };
+}
+
+/** Answer in the meeting (#1356). The meeting stays open after it ends, so the screen can show how it went. */
+export function meetingChoose(a: AppState, optionId: string): AppState {
+  if (!a.meeting || a.meeting.ended) return a;
+  return { ...a, meeting: chooseInMeeting(a.sim, a.meeting, optionId) };
+}
+
+/** Watch the caravan go (#1356): the meeting ended with you staying behind, and the run ends at the thaw. */
+export function stayBehind(a: AppState): AppState {
+  if (a.meeting?.ended !== 'stay') return a;
+  const { meeting: _done, ...rest } = a;
+  return { ...rest, stayed: true };
 }
 
 /**
@@ -292,7 +319,7 @@ export function previewQueue(a: AppState): QueuePreview {
 // ── Save / load ─────────────────────────────────────────────────────────────
 
 export function serialize(a: AppState): string {
-  return JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: a.queue, stage: a.stage ?? 'reach', ...(a.road ? { road: a.road } : {}) });
+  return JSON.stringify({ version: SAVE_VERSION, sim: a.sim, queue: a.queue, stage: a.stage ?? 'reach', ...(a.road ? { road: a.road } : {}), ...(a.meeting ? { meeting: a.meeting } : {}), ...(a.stayed ? { stayed: true } : {}) });
 }
 
 /**
@@ -313,6 +340,11 @@ function parseRoad(x: unknown): RoadState | null {
     discovery: obj(x.discovery) as RoadState['discovery'], appraised: strs(x.appraised),
   };
 }
+
+/** A saved meeting (#1356): the fields the screen and the boarding read. */
+const isMeeting = (x: unknown): x is Meeting =>
+  isObj(x) && typeof x.step === 'string' && x.step in MEETING_STEPS && (x.ended === null || x.ended === 'board' || x.ended === 'stay')
+  && Array.isArray(x.lines) && isObj(x.trust) && isObj(x.paid) && isObj(x.paid.stores) && isNum(x.paid.marks) && isNum(x.owesHelp);
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
 const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
@@ -348,6 +380,8 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   // The road (#1250): saves from before Region 1.5 have no stage, and load in the Reach.
   const road = data.stage === 'road' ? parseRoad(data.road) : null;
   if (data.stage === 'road' && !road) return null;
+  // The caravan meeting (#1356): a malformed one is dropped, and the meeting simply starts again.
+  const meeting = !road && isMeeting(data.meeting) ? data.meeting : null;
 
   // Saves from before food/water streaks (#1233) start with none, rather than being thrown away.
   const d = sim.deprivation;
@@ -396,5 +430,5 @@ export function deserialize(raw: string | null | undefined): AppState | null {
   const coldPitAt = typeof sim.coldPitAt === 'string' && sim.coldPitAt in SITES ? sim.coldPitAt as Region1State['site'] : undefined;
   // …and saves from before learned planning (#1350) can plan: nobody loses their queue mid-run.
   const canPlan = typeof sim.canPlan === 'boolean' ? sim.canPlan : true;
-  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}) };
+  return { sim: { ...(sim as unknown as Region1State), canPlan, eating, coldPitAt, config, explore, deprivation, skills, character, focus, techniques: strings(sim.techniques), manuals: strings(sim.manuals), weatherToday, forecast }, queue: queue as QueueItem[], stage: road ? 'road' : 'reach', ...(road ? { road } : {}), ...(meeting ? { meeting } : {}), ...(!road && data.stayed === true ? { stayed: true } : {}) };
 }

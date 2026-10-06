@@ -95,7 +95,8 @@ function wagonView(r: RoadState, ui: RoadUi): string {
     <section class="box wagon"><p class="eyebrow">ON THE WAGON</p>
       <div class="wagonart" aria-hidden="true">🐂🐂 🛞━━🛞 <span>⛺</span> 🛞━━🛞</div>
       <p class="mood">The caravan rolls on towards ${esc(to)}. The barrels water everyone on the road; the nights are mild.</p>
-      <p class="fgroup">FELLOW TRAVELLERS — TAP TO TALK</p>
+      ${r.owesHelp ? `<p class="owed">🐂 You owe Bodil <b>${r.owesHelp} day${r.owesHelp === 1 ? '' : 's'}' help</b> for your passage — before ${esc(to === 'Hollowford' ? 'Hollowford' : 'the next village')}. Help drive &amp; pitch camp below.</p>` : ''}
+      <p class="fgroup">FELLOW TRAVELLERS — TAP TO TALK${tradeTerms(r) ? ' OR TRADE' : ''}</p>
       <div class="people">${travellers.map(p => personCard(r, p, p === open)).join('')}</div>
       ${open ? personSheet(r, open) : ''}
       ${handsFree(r, true)}
@@ -104,7 +105,7 @@ function wagonView(r: RoadState, ui: RoadUi): string {
     <section class="box"><p class="eyebrow">NOT FROM THE WAGON</p>
       <ul class="cant">
         <li>🪓 <b>Gathering, felling, building, scouting</b> — the wagon keeps rolling.</li>
-        <li>⚖️ <b>Trading</b> — every village has a trader.</li>
+        <li>⚖️ <b>Village trade</b> — on the wagon only ${esc(tradeTerms(r)?.name ?? 'the merchant')} trades; every village has its own trader.</li>
         <li>❗ <b>Quests</b> — people ask for help once they trust you.</li>
         <li>📖 <b>Lessons</b> and <b>appraisals</b> — teachers live in the villages.</li>
         <li>💬 <b>Villagers</b> — only your fellow travellers ride with you until ${esc(to)}.</li>
@@ -125,7 +126,7 @@ function handsFree(r: RoadState, onWagon: boolean): string {
 }
 
 /** A villager's mark: a portrait-sized badge, their role's colour and icon. */
-const badge = (p: Person, size = 44): string =>
+export const badge = (p: Person, size = 44): string =>
   `<span class="vbadge r-${p.role}" style="width:${size}px;height:${size}px" aria-hidden="true"><span>${esc(p.name[0])}</span><i>${ROLE_ICON[p.role]}</i></span>`;
 
 /** One person's card: name, role, culture, trust, and what they have for you. Tap to open their sheet. */

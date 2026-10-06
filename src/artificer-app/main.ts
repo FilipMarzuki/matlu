@@ -34,8 +34,9 @@ import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type Roa
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
 import { encounterModal, type EncounterAfter } from './encounter-view';
+import { meetingModal } from './caravan-view';
 import { encounterById } from '../artificer/encounters';
-import { choose, carryOn, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { choose, carryOn, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, meetCaravan, meetingChoose, stayBehind, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -679,8 +680,10 @@ function thawSummary(a: AppState): string {
     <p class="fgroup" style="margin-top:12px">THE WORST NIGHTS</p>${worst.length
       ? `<ul class="worst">${worst.map(w => `<li><span class="d">D${w.day}</span>${w.lines.map(esc).join(' ')}</li>`).join('')}</ul>`
       : '<p class="mood" style="margin:0">Not one hard night all winter.</p>'}
-    <div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="ride" title="Ride on to Mistheim with the caravan (#1252)">🛞 RIDE WITH THE SPRING CARAVAN</button>
-      <span class="mood" style="margin:0">The caravan waits in the valley: three villages, then Mistheim.</span></div></div>`;
+    ${a.stayed
+      ? '<p class="mood" style="margin-top:12px">You let the caravan go on without you. The Reach is yours alone again.</p>'
+      : `<div class="runbar" style="margin-top:12px"><button class="btn go" data-cmd="meet" title="The spring caravan has come up the valley (#1356)">🛞 MEET THE CARAVAN</button>
+      <span class="mood" style="margin:0">Wagons in the valley: three villages, then Mistheim — if they'll take you.</span></div>`}</div>`;
 }
 
 function resolvePanel(a: AppState): string {
@@ -730,7 +733,8 @@ function render(a: AppState): void {
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${TABS.map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}</button>`).join('')}</nav>
     ${tabBody(a, preview)}
-    ${encounterModal(a.sim, encounterAfter, a.queue.length)}`;
+    ${encounterModal(a.sim, encounterAfter, a.queue.length)}
+    ${meetingModal(a.sim, a.meeting)}`;
 }
 
 /** The encounter just answered (#1347), shown in the modal until you carry on. */
@@ -1004,7 +1008,11 @@ root.addEventListener('click', e => {
   }
   else if (d.cmd === 'carryon') { encounterAfter = null; update(carryOn(state)); }
   // The caravan road (#1252): ride on, act, end the day, open a villager's sheet, switch tabs.
-  else if (d.cmd === 'ride') { roadTab = 'road'; roadUi.person = null; update(rideCaravan(state)); }
+  // Meeting the caravan (#1356): open the dialogue, answer, then climb aboard or watch them go.
+  else if (d.cmd === 'meet') update(meetCaravan(state));
+  else if (d.meet) update(meetingChoose(state, d.meet));
+  else if (d.cmd === 'stay') update(stayBehind(state));
+  else if (d.cmd === 'board' || d.cmd === 'ride') { roadTab = 'road'; roadUi.person = null; update(rideCaravan(state)); }
   else if (d.road) update(roadAct(state, d.road as Parameters<typeof roadAct>[1]));
   else if (d.cmd === 'roadday') { roadUi.person = null; update(roadEndDay(state)); }
   else if (d.person) { roadUi.person = roadUi.person === d.person ? null : d.person; render(state); }
