@@ -33,7 +33,9 @@ import { artificerRank, conceptRanks } from '../artificer/rank';
 import { roadView, routeStrip, roadStatus, lastNews, questLog, roadEnd, type RoadUi } from './road-view';
 import { personById, CONTACT_TRUST } from '../artificer/villages';
 import { ROAD_DAYS, type RoadState } from '../artificer/road';
-import { act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
+import { encounterModal, type EncounterAfter } from './encounter-view';
+import { encounterById } from '../artificer/encounters';
+import { choose, carryOn, GAME_WORLD, act, endTheDay, queueLocked, newGame, newRun, currentRun, rideCaravan, roadAct, roadEndDay, newCharacterId, chooseFocus, chooseEating, recordRun, serializeHistory, deserializeHistory, HISTORY_KEY, enqueue, dequeueAt, clearQueue, setOption, runQueuedDay, runWholeQueue, settle, previewQueue, serialize, deserialize, SAVE_KEY, type AppState } from './controller';
 
 // ── Presentation-only data (wording lives here, rules live in the sim) ──────
 
@@ -727,8 +729,12 @@ function render(a: AppState): void {
     ${statusBar(a, preview)}
     ${resolvePanel(a)}
     <nav class="tabbar" role="tablist">${TABS.map(t => `<button class="tabbtn ${tab === t.id ? 'on' : ''}" role="tab" aria-selected="${tab === t.id}" data-tab="${t.id}">${t.label}</button>`).join('')}</nav>
-    ${tabBody(a, preview)}`;
+    ${tabBody(a, preview)}
+    ${encounterModal(a.sim, encounterAfter, a.queue.length)}`;
 }
+
+/** The encounter just answered (#1347), shown in the modal until you carry on. */
+let encounterAfter: EncounterAfter | null = null;
 
 // ── The caravan road (#1252) ────────────────────────────────────────────────
 
@@ -830,7 +836,7 @@ function startIntro(kind: IntroKind): void {
 
 /** Leaving the creation screen: the Warden is made with the chosen name, portrait, talents and stats (a hidden talent is rolled from the id). */
 function commitCharacter(): void {
-  state = { sim: createRegion1({ planning: 'learned' }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
+  state = { sim: createRegion1({ planning: 'learned', world: GAME_WORLD }, undefined, { id: draft.id, name: draft.name.trim().slice(0, 24), portrait: draft.portrait, chosen: draft.talents, stats: validStats(draft.stats) ? draft.stats : { ...DEFAULT_STATS } }), queue: [] };
   render(state);
 }
 
@@ -985,6 +991,18 @@ root.addEventListener('click', e => {
   else if (d.cmd === 'all') update(runWholeQueue(state));
   else if (d.cmd === 'clear') update(clearQueue(state));
   else if (d.cmd === 'reset') { update(newGame()); startIntro('fresh'); }
+  // Encounters (#1347): choose an option, then carry on with the day.
+  else if (d.choose) {
+    const p = state.sim.pending, t = p && encounterById(p.id);
+    const opt = t?.options.find(o => o.id === d.choose);
+    const next = choose(state, d.choose);
+    if (t && opt && !next.sim.pending) {
+      const fresh = next.sim.log.slice(state.sim.log.length).map(l => l.text);
+      encounterAfter = { kind: t.kind, scene: t.text, choice: opt.label, text: fresh.map(l => l.startsWith(`${opt.label}: `) ? l.slice(opt.label.length + 2) : l), died: !!next.sim.outcome };
+    }
+    update(next);
+  }
+  else if (d.cmd === 'carryon') { encounterAfter = null; update(carryOn(state)); }
   // The caravan road (#1252): ride on, act, end the day, open a villager's sheet, switch tabs.
   else if (d.cmd === 'ride') { roadTab = 'road'; roadUi.person = null; update(rideCaravan(state)); }
   else if (d.road) update(roadAct(state, d.road as Parameters<typeof roadAct>[1]));
