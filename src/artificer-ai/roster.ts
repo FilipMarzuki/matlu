@@ -19,8 +19,6 @@ export interface RosterEntry {
 export const ROSTER: readonly RosterEntry[] = [
   { model: 'openai/gpt-6.1-sol', perGame: 0.057, note: 'fastest to winter-ready (day 6)' },
   { model: 'anthropic/claude-haiku-4.5', perGame: 0.04, note: 'cheap, quick, thrives' },
-  { model: 'anthropic/claude-sonnet-5.5', perGame: 0.15, note: 'the priciest kept; careful play' },
-  { model: 'google/gemini-3.8-flash', perGame: 0.1, note: 'thrives; heavier reasoning output' },
   { model: 'deepseek/deepseek-v4-pro', perGame: 0.013, note: 'cheapest, but ~8–9 min a game' },
   { model: 'meta-llama/llama-4-maverick', perGame: 0.02, note: 'cheap and terse; overworks — finds balance edges' },
 ];
@@ -30,6 +28,9 @@ export const DROPPED: readonly { model: string; why: string }[] = [
   { model: 'google/gemini-3.1-pro-preview', why: '$0.37/game (~20k reasoning tokens), no better than the rest' },
   { model: 'google/gemini-2.5-pro', why: '$0.34/game, no better than the rest' },
   { model: 'mistralai/mistral-large-2512', why: 'overkill for this, and rate-limited upstream' },
+  // Whole-year games (#1309) cost ~6× a 10-day one; these two alone were most of a night's spend (#1326).
+  { model: 'anthropic/claude-sonnet-5.5', why: '~$0.90 a whole-year game: over half the nightly $1 budget on its own' },
+  { model: 'google/gemini-3.8-flash', why: '~$0.60 a whole-year game (heavy reasoning output); the roster fits $1 without it' },
 ];
 
 /** How many days `perGame` was measured over, and how many a game lasts now (to the thaw). */
@@ -53,4 +54,4 @@ export function budgetAdvice(roster: readonly RosterEntry[], runs: number, budge
 }
 
 /** The default when a single OpenRouter model is wanted and none is named. */
-export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.8-flash';
+export const DEFAULT_OPENROUTER_MODEL = 'anthropic/claude-haiku-4.5';

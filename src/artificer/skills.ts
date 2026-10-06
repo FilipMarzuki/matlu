@@ -71,7 +71,7 @@ const ACTION_SKILL: Partial<Record<ActionId, SkillId>> = {
 };
 const RECIPE_SKILL: Readonly<Record<string, SkillId>> = {
   'shelter-leanto': 'woodcraft', 'shelter-hut': 'woodcraft', 'shelter-timber': 'woodcraft', 'crude-shovel': 'woodcraft',
-  'shelter-stone': 'stonework', 'stone-knife': 'stonework',
+  'shelter-stone': 'stonework', 'stone-knife': 'stonework', 'cold-pit': 'stonework',
   'trap-snare': 'hunting',
   'cold-gear': 'handcraft', 'hide-parka': 'handcraft', waterskin: 'handcraft', bedroll: 'handcraft',
 };

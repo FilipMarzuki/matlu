@@ -116,6 +116,12 @@ shelter. Winter's own rules come in parts: nights against the deep cold and
 melting snow for water (#1303), snow cover, scarce game, ice fishing and
 blizzard days (#1304), rationing and cabin fever (#1305).
 
+Fresh food doesn't keep (#1295). Each night a fifth of the raw food not kept
+cold goes bad — half that on nights at 2 °C or below, none at −5 °C or below —
+so autumn's hunts have to be smoked or dried into rations, or kept cold. A
+**cold pit** (4 stone, 2 materials) keeps 8 raw food at its camp, 12 at the
+river; in winter the snow keeps 6 more. Rations never spoil.
+
 ---
 
 ## 5. The ending: alive at the thaw

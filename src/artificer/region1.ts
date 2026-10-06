@@ -150,6 +150,8 @@ export interface Region1State {
   eating?: EatingPlan;
   /** Days in a row cooped up — not out on the land, no study or craft (#1305). */
   cabinDays?: number;
+  /** Where a cold pit was dug (#1295): it keeps raw food cold at that site only. Absent: none. */
+  coldPitAt?: SiteId | null;
   log: LogEntry[];
   outcome: Outcome | null;
   config: Region1Config;
@@ -338,7 +340,7 @@ export type ActionId =
   | 'knife' | 'snare' | 'waterskin' | 'bedroll' | 'shovel'
   | 'lookout' | 'study'
   | 'tinker' | 'rest'
-  | 'fish';
+  | 'fish' | 'coldPit';
 
 /** Actions that happen out on the land, in a chosen ring. */
 export type RingActionId = 'scout' | 'survey' | 'track' | 'lookout' | 'gather' | 'hunt' | 'water' | 'wood' | 'quarry' | 'fish';
@@ -456,6 +458,9 @@ export const REGION1_RECIPES: Readonly<Record<'knife' | 'snare' | 'waterskin' | 
   bedroll: { id: 'bedroll', name: 'Bedroll', inputs: [{ item: 'materials', qty: 3 }], output: { item: 'bedroll', qty: 1 }, tier: 0, station: null, timeBase: 5 },
   shovel: { id: 'crude-shovel', name: 'Crude shovel', inputs: [{ item: 'materials', qty: 2 }], output: { item: 'crude-shovel', qty: 1 }, tier: 1, station: null, timeBase: 3, concepts: ['leverage'] },
 };
+
+/** The cold pit (#1295): a stone-lined pit that keeps raw food from spoiling. Dug at camp, it stays there. */
+export const COLD_PIT_RECIPE: CraftRecipe = { id: 'cold-pit', name: 'Cold pit', inputs: [{ item: 'stone', qty: 4 }, { item: 'materials', qty: 2 }], output: { item: 'cold-pit', qty: 1 }, tier: 0, station: null, timeBase: 4 };
 
 const shelterRecipe = (id: string, name: string, tier: number, inputs: CraftRecipe['inputs'], timeBase: number, vigorRate = -3.5): CraftRecipe =>
   ({ id, name, inputs, output: { item: id, qty: 1 }, tier, station: null, timeBase, concepts: ['joinery'], effort: { vigorRate, clarityRate: -1.5 } });
@@ -773,6 +778,11 @@ export const ACTIONS: Readonly<Record<ActionId, ActionDef>> = {
       { value: 'hide', label: 'Hide parka', note: `${costNote(HIDE_PARKA_RECIPE)} · holds the cold even if crude`, blocked: knows(s, HIDE_PARKA_RECIPE) ? null : 'not yet discovered' },
     ])],
   },
+  coldPit: {
+    ...craftAction(COLD_PIT_RECIPE), name: 'Dig a cold pit',
+    // Anyone can dig a pit and line it with stone: no recipe to discover. It belongs to the camp, not the Warden.
+    gate: s => (!s.site ? 'make camp first' : s.coldPitAt === s.site ? 'there is already a cold pit here' : craftBlocker(crafterOf(s), COLD_PIT_RECIPE)),
+  },
   knife: craftAction(REGION1_RECIPES.knife, needsScout),
   snare: craftAction(REGION1_RECIPES.snare),
   waterskin: craftAction(REGION1_RECIPES.waterskin, s => (s.stores.hides >= 1 ? null : 'you need a hide — hunt deer first')),
@@ -1054,6 +1064,11 @@ function runCraft(next: Region1State, id: ActionId, baseRecipe: CraftRecipe): Re
     next.shelter = roof ? { type: roof, walls: null } : { ...next.shelter, walls: walls ?? null };
     next.shelterGrade = result.grade;
     say(next, `Raised ${article(name)}${result.grade} ${name} — tier ${next.tier}, ${Math.round(warmth(next) * 100)}% warm.`, 'action', at);
+  } else if (result.kind === 'crafted' && recipe.id === COLD_PIT_RECIPE.id) {
+    // The pit is part of the camp, not something you carry.
+    next.tools = next.tools.filter(t => t.item !== COLD_PIT_RECIPE.output.item);
+    next.coldPitAt = next.site;
+    say(next, `Dug a cold pit and lined it with stone — it keeps ${coldPitHolds(next.site)} raw food cold.`, 'action', at);
   } else if (result.kind === 'crafted') {
     say(next, `Crafted ${article(name)}${result.grade} ${name}.${id === 'coldGear' ? (next.coldGear ? ' Good gear for the winter.' : " Crude — it won't hold up through a winter.") : ''}`, 'action', at);
   } else if (result.kind === 'failed') {
@@ -1153,6 +1168,34 @@ export const NEEDS = {
   food: { condition: 1, clarity: 3, vigorRecovery: 0.5, clarityRecovery: 0.8 },
 } as const;
 
+// ── Spoilage and cold storage (#1295) ─────────────────────────────────────────
+
+/** Raw food a cold pit keeps: 8, or 12 at the river, where the water runs cold past it. */
+export const coldPitHolds = (site: SiteId | null): number => (site === 'river' ? 12 : 8);
+/** Raw food the snow keeps, once winter has come and while the nights stay at or below 2 °C. */
+export const SNOW_CACHE = 6;
+
+/** Raw food kept cold tonight, at night temperature `t`: the pit at this camp, and the snow in winter. */
+export function coldCapacity(s: Pick<Region1State, 'site' | 'coldPitAt' | 'day' | 'config'>, t: number): number {
+  const pit = s.site && s.coldPitAt === s.site ? coldPitHolds(s.site) : 0;
+  const snow = seasonOf(s.day, s.config.calendar) === 'winter' && t <= 2 ? SNOW_CACHE : 0;
+  return pit + snow;
+}
+
+/** The share of exposed raw food that spoils in a night at `t` °C: a fifth when mild, half that near freezing, none in a hard frost. */
+export const spoilRate = (t: number): number => (t <= -5 ? 0 : t <= 2 ? 0.1 : 0.2);
+
+/**
+ * One night's spoilage (pure): cold storage takes what it can hold, and of the
+ * rest a share goes bad, rounded up. Rations — smoked or dried — never spoil.
+ */
+export function spoilage(rawFood: number, capacity: number, t: number): { kept: number; exposed: number; spoiled: number } {
+  const kept = Math.min(rawFood, capacity);
+  const exposed = rawFood - kept;
+  // (The epsilon keeps 20% of 10 at 2 rather than float noise rounding it up to 3; max keeps a zero from going -0.)
+  return { kept, exposed, spoiled: Math.max(0, Math.ceil(exposed * spoilRate(t) - 1e-9)) };
+}
+
 /** Days before the thaw within which the spring caravan is near enough to find a collapsed Warden (#1323). */
 export const RESCUE_WITHIN = 3;
 
@@ -1222,6 +1265,16 @@ export function endDay(s: Region1State): Region1State {
           ? 'Your body gives out and you collapse in the snow. No one comes into the Reach in winter — the wolves find you first.'
           : 'Your body gives out and you collapse. No one passes this way — a bear finds you first.', 'outcome');
     return next;
+  }
+
+  // Fresh food spoils (#1295): what the cold pit and the snow don't keep goes off, faster on a mild night.
+  if (feelsTemperature(next)) {
+    const t = nightTemp(next.day, next.weatherToday, next.config.calendar);
+    const { spoiled } = spoilage(next.stores.rawFood, coldCapacity(next, t), t);
+    if (spoiled > 0) {
+      next.stores.rawFood -= spoiled;
+      say(next, `${spoiled} raw food went bad.`, 'hardship');
+    }
   }
 
   // Overnight the land regrows a little, by the season — hardly at all in winter (#1304).
