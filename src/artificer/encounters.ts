@@ -24,6 +24,7 @@ import { skillLevel, type SkillId, type SkillPractice } from './skills';
 import { streamFor } from './rng';
 import { ADRENALINE, SHAKEN_PENALTY, type PanicState, type Response, type Threat } from './panic';
 import { JUMPY_FLIGHT, type Quirk } from './quirks';
+import { talentEffects } from './talents';
 
 export type EncounterKind = 'animal' | 'find' | 'person';
 
@@ -194,7 +195,8 @@ export function chanceOf(w: Encounterer, o: EncounterOption): number {
   const m = o.mods ?? {};
   let p = o.odds;
   // Adrenaline (#1361): shaken or panicked, the body is stronger and faster for a moment.
-  const surge = w.pending?.state === 'shaken' || w.pending?.state === 'panicked' ? ADRENALINE : 0;
+  // Surge (#1363) doubles it.
+  const surge = w.pending?.state === 'shaken' || w.pending?.state === 'panicked' ? ADRENALINE * talentEffects(w.character.talents).adrenaline : 0;
   for (const [id, per] of Object.entries(m.stats ?? {})) p += (per ?? 0) * (w.character.stats[id as StatId] - 10 + (id === 'str' || id === 'agi' ? surge : 0));
   for (const [id, per] of Object.entries(m.skills ?? {})) p += (per ?? 0) * skillLevel(w.skills, id as SkillId);
   for (const [id, add] of Object.entries(m.talents ?? {})) if (w.character.talents.some(t => t.id === id)) p += add ?? 0;

@@ -22,7 +22,9 @@ import { seedOf, shuffled } from './rng';
 
 export type TalentId =
   | 'hardy' | 'sharp' | 'lightEater' | 'carefulHands' | 'quickLearner' | 'coldBlooded'
-  | 'tough' | 'keenEye' | 'forager' | 'hunter' | 'waterfinder' | 'silverTongue';
+  | 'tough' | 'keenEye' | 'forager' | 'hunter' | 'waterfinder' | 'silverTongue'
+  // The nerve (#1363): holding when others shake, and fear that makes you faster.
+  | 'steady' | 'surge';
 
 /** A talent a Warden has: which, how strong (1–4), whether they know about it, and hours of growth toward the next tier (#1264). */
 export interface Talent { id: TalentId; tier: number; known: boolean; growth?: number }
@@ -58,6 +60,8 @@ export const TALENTS: Readonly<Record<TalentId, TalentDef>> = {
   hunter: { name: "Hunter's Patience", blurb: 'hunts bring back more, and tracking tires you less' },
   waterfinder: { name: 'Waterfinder', blurb: 'water trips bring back more' },
   silverTongue: { name: 'Silver Tongue', blurb: 'people warm to you and deal fairer (on the caravan road)' },
+  steady: { name: 'Steady', blurb: 'your hands stay still when everyone else\'s shake' },
+  surge: { name: 'Surge', blurb: 'fear makes you faster, not smaller — and the shaking after costs you less' },
 };
 export const TALENT_IDS = Object.keys(TALENTS) as TalentId[];
 
@@ -93,6 +97,16 @@ export interface TalentEffects {
   trust: number;
   /** On the road: multiplies what you pay (Silver Tongue, #1247). */
   priceFactor: number;
+  /** Added to nerve (Steady, #1363). */
+  nerve: number;
+  /** Multiplies adrenaline's lift (Surge). */
+  adrenaline: number;
+  /** Multiplies the crash's Vigor cost (Surge: none). */
+  crashVigor: number;
+  /** You read danger truly: the unknown doesn't loom (Keen Eye). */
+  readsTrue: boolean;
+  /** Encounters with these tags look this much smaller (Hunter's Patience: animals −1). */
+  calmAround: Partial<Record<string, number>>;
 }
 
 const clampTier = (t: number): number => Math.min(MAX_TIER, Math.max(MIN_TIER, Math.round(t)));
@@ -102,7 +116,7 @@ export function talentEffects(talents: readonly Talent[]): TalentEffects {
   const e: TalentEffects = {
     physicalVigor: 1, clarityDrain: 1, actionDrain: {}, yield: {}, hungerCost: 1, coldCost: 1,
     deprivationCondition: 1, overexertCondition: 1, lastStand: false, practice: 1, craftGrade: 0, salvage: 0,
-    startSkills: {}, trust: 0, priceFactor: 1,
+    startSkills: {}, trust: 0, priceFactor: 1, nerve: 0, adrenaline: 1, crashVigor: 1, readsTrue: false, calmAround: {},
   };
   const drain = (a: ActionId, m: number) => { e.actionDrain[a] = (e.actionDrain[a] ?? 1) * m; };
   const more = (a: ActionId, n: number) => { if (n) e.yield[a] = (e.yield[a] ?? 0) + n; };
@@ -120,11 +134,13 @@ export function talentEffects(talents: readonly Talent[]): TalentEffects {
         e.overexertCondition *= 1 - 0.05 * t;
         e.lastStand ||= t >= 3;
         break;
-      case 'keenEye': for (const a of ['scout', 'survey', 'lookout'] as const) drain(a, 1 - 0.05 * t); break;
+      case 'keenEye': for (const a of ['scout', 'survey', 'lookout'] as const) drain(a, 1 - 0.05 * t); e.readsTrue = true; break;
       case 'forager': more('gather', Math.floor(t / 2)); break;
-      case 'hunter': more('hunt', Math.floor(t / 2)); drain('track', 1 - 0.05 * t); break;
+      case 'hunter': more('hunt', Math.floor(t / 2)); drain('track', 1 - 0.05 * t); e.calmAround.animal = (e.calmAround.animal ?? 0) + 1; break;
       case 'waterfinder': more('water', Math.floor(t / 2)); break;
       case 'silverTongue': e.trust += 3 * t; e.priceFactor *= 1 - 0.02 * t; break;
+      case 'steady': e.nerve += t >= 3 ? 2 : 1; break;
+      case 'surge': e.adrenaline *= 2; e.crashVigor = 0; break;
     }
   }
   return e;
@@ -186,13 +202,17 @@ export const TIER_AT: readonly number[] = [0, 0, 30, 150, 600];
 /** Something that happened that a talent may grow from. */
 export type GrowthEvent =
   | { kind: 'work'; action: ActionId; hours: number; craft?: boolean; practised?: boolean }
-  | { kind: 'night'; hungry: boolean; cold: boolean; condition: number; strained?: boolean };
+  | { kind: 'night'; hungry: boolean; cold: boolean; condition: number; strained?: boolean }
+  /** Facing something frightening (#1363): shaken or panicked, and you came through it. */
+  | { kind: 'fright'; panicked: boolean };
 
 /** Hours a night of hardship counts as (Light Eater, Cold-blooded, Tough). */
 export const NIGHT_GROWTH = 4;
 
 /** Hours of growth an event gives one talent (see the "grows with" column in #1262). */
 export function growthFor(id: TalentId, e: GrowthEvent): number {
+  // The nerve grows from being frightened and coming through (#1363): Steady from any fright, Surge from panic.
+  if (e.kind === 'fright') return id === 'steady' ? NIGHT_GROWTH : id === 'surge' && e.panicked ? NIGHT_GROWTH : 0;
   if (e.kind === 'night') {
     if (id === 'lightEater') return e.hungry ? NIGHT_GROWTH : 0;
     if (id === 'coldBlooded') return e.cold ? NIGHT_GROWTH : 0;

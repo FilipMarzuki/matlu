@@ -42,7 +42,7 @@ describe('Talents (#1263)', () => {
     expect(a.every(id => TALENT_IDS.includes(id))).toBe(true);
     const offers = new Set(Array.from({ length: 10 }, (_, i) => talentOffer(seedOf(`w-${i}`)).join()));
     expect(offers.size).toBeGreaterThan(1);
-    expect(TALENT_IDS).toHaveLength(12);
+    expect(TALENT_IDS).toHaveLength(14); // 12, plus Steady and Surge (#1363)
   });
 
   // 2. Two chosen (known) + one hidden (unknown, not one of the chosen), the same every time.

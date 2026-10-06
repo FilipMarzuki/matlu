@@ -27,14 +27,15 @@ describe('Seeded randomness (#1279)', () => {
     }
   });
 
-  // 2. Moving the generator changed nothing for talents (values recorded before the move).
+  // 2. Moving the generator changed nothing for talents (values recorded before the move;
+  // rebaselined when Steady and Surge joined the pool, #1363 — the pool is the input, the shuffle unchanged).
   it('keeps talent offers and hidden talents exactly as before', () => {
     const offer = talentOffer(seedOf('w-vega'));
     expect(seedOf('w-vega')).toBe(1484636892);
-    expect(offer).toEqual(['coldBlooded', 'sharp', 'keenEye', 'hunter']);
+    expect(offer).toEqual(['forager', 'keenEye', 'surge', 'coldBlooded']);
     expect(hiddenTalent(seedOf('w-vega'), offer.slice(0, 2))).toBe('quickLearner');
-    expect(pickRandomFromOffer(offer, 7)).toEqual(['keenEye', 'sharp']);
-    expect(talentOffer(seedOf('ai-scripted-s1-r1'))).toEqual(['silverTongue', 'coldBlooded', 'sharp', 'waterfinder']);
+    expect(pickRandomFromOffer(offer, 7)).toEqual(['surge', 'keenEye']);
+    expect(talentOffer(seedOf('ai-scripted-s1-r1'))).toEqual(['keenEye', 'sharp', 'tough', 'surge']);
   });
 
   // 3. Fortune is fixed in time: a pure function of seed, day and hour — never of what you did.
