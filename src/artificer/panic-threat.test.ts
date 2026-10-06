@@ -60,9 +60,9 @@ describe('Real and perceived threat, nerve (#1360)', () => {
     expect(chanceOf(at('shaken'), goAround)).toBeLessThanOrEqual(chanceOf(at('calm'), goAround) - SHAKEN_PENALTY);
     expect(optionsFor(at('calm'), ledge).find(o => o.option.id === 'go-around')!.odds).toBe('likely');
     expect(optionsFor(at('shaken'), ledge).find(o => o.option.id === 'go-around')!.odds).toBe('risky');
-    // Options that aren't careful don't care.
+    // Options that aren't careful aren't made harder — a physical one even gets adrenaline's help (#1361).
     const climb = ledge.options.find(o => o.id === 'climb-down')!;
-    expect(chanceOf(at('shaken'), climb)).toBe(chanceOf(at('calm'), climb));
+    expect(chanceOf(at('shaken'), climb)).toBeGreaterThanOrEqual(chanceOf(at('calm'), climb));
     // When an encounter opens on a shaken Warden, it costs Clarity and says so.
     const opened = openEncounter(warden({ vitals: createVitals({ clarity: 25 }) }));
     expect(opened.pending!.state).not.toBe('calm');

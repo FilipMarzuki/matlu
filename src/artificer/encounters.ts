@@ -22,7 +22,7 @@ import type { Stats, StatId } from './stats';
 import type { Talent, TalentId } from './talents';
 import { skillLevel, type SkillId, type SkillPractice } from './skills';
 import { streamFor } from './rng';
-import { SHAKEN_PENALTY, type PanicState, type Threat } from './panic';
+import { ADRENALINE, SHAKEN_PENALTY, type PanicState, type Response, type Threat } from './panic';
 
 export type EncounterKind = 'animal' | 'find' | 'person';
 
@@ -71,8 +71,10 @@ export interface EncounterOption {
   /** Base chance of success, 0–1. */
   odds: number;
   mods?: OddsMods;
-  /** Needs a clear head (#1360): fine judgement, talking, stalking. Shaken, it goes one odds word worse. */
+  /** Needs a clear head (#1360): fine judgement, talking, stalking. Shaken, it goes one odds word worse; panicked, it's closed. */
   careful?: boolean;
+  /** Which panic response this option is (#1361): what instinct reaches for when it takes over. */
+  response?: Response;
   success: Effect;
   /** Between success and failure: half the misses land here, if given. */
   mixed?: Effect;
@@ -97,6 +99,8 @@ export interface EncounterTemplate {
   tags: readonly string[];
   /** The skill whose mastery makes it look smaller. */
   field?: SkillId;
+  /** What happens if you freeze (#1361): you lose hours, and the danger decides. */
+  freeze: Effect;
   options: readonly EncounterOption[];
 }
 
@@ -106,6 +110,8 @@ export interface PendingEncounter {
   /** How it looked, and how you stood, when it opened (#1360). Absent (an older save) reads as calm. */
   perceived?: Threat;
   state?: PanicState;
+  /** Perceived threat minus nerve, when it opened: how far past holding you were (#1361). */
+  margin?: number;
 }
 
 /** The odds in words: what a person (and the AI) is told. */
@@ -120,9 +126,11 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
   {
     id: 'fox-at-the-treeline', kind: 'animal', weight: 3, threat: 1, tags: ['animal'], field: 'hunting',
     text: 'A fox stops at the treeline and looks straight at you, a hare hanging from its jaws.',
+    freeze: { text: 'You stand rooted to the spot. The fox looks at you for a long moment, then trots off with its hare.' },
     options: [
-      { id: 'watch', label: 'Stand still and watch', odds: 1, success: { text: 'It weighs you up, then trots off into the trees. You learn something about where the hares run.' }, fail: { text: 'It is gone before you blink.' } },
-      { id: 'chase', label: 'Chase it for the hare', odds: 0.35, mods: { stats: { agi: 0.04 } },
+      { id: 'back-away', label: 'Back away slowly', odds: 1, response: 'flight', success: { text: 'You back off until the trees close between you.' }, fail: { text: 'You back off until the trees close between you.' } },
+      { id: 'watch', label: 'Stand still and watch', odds: 1, response: 'freeze', success: { text: 'It weighs you up, then trots off into the trees. You learn something about where the hares run.' }, fail: { text: 'It is gone before you blink.' } },
+      { id: 'chase', label: 'Chase it for the hare', odds: 0.35, response: 'fight', mods: { stats: { agi: 0.04 } },
         success: { text: 'It drops the hare and bolts. Supper.', stores: { rawFood: 2 } },
         mixed: { text: 'You get close enough to scare it, and no closer.', vigor: -6 },
         fail: { text: 'You go down hard on the roots, and the fox is long gone.', condition: -6, vigor: -6 } },
@@ -134,12 +142,13 @@ export const ENCOUNTERS: readonly EncounterTemplate[] = [
   {
     id: 'crumbling-ledge', kind: 'find', weight: 1, rings: [2, 3], threat: 2, tags: ['heights'], field: 'scouting',
     text: 'Below a crumbling ledge, something glints — an old pack, wedged in the rocks.',
+    freeze: { text: 'You stand frozen at the edge, staring down, until the fear drains out of your legs and you can step back.' },
     options: [
-      { id: 'leave', label: 'Leave it', odds: 1, success: { text: 'Whatever it was, it stays there.' }, fail: { text: 'Whatever it was, it stays there.' } },
+      { id: 'leave', label: 'Leave it', odds: 1, response: 'flight', success: { text: 'Whatever it was, it stays there.' }, fail: { text: 'Whatever it was, it stays there.' } },
       { id: 'go-around', label: 'Go the long way round to it', odds: 0.8, cost: { hours: 2 }, careful: true, mods: { skills: { scouting: 0.04 } },
         success: { text: 'An old trapper\'s pack: cord, a little salt, good leather.', stores: { materials: 3, hides: 1 } },
         fail: { text: 'There is no way down from this side. Two hours for nothing.' } },
-      { id: 'climb-down', label: 'Climb straight down', odds: 0.6, mods: { stats: { agi: 0.05, str: 0.02 } },
+      { id: 'climb-down', label: 'Climb straight down', odds: 0.6, response: 'fight', mods: { stats: { agi: 0.05, str: 0.02 } },
         success: { text: 'Quick and clean. An old trapper\'s pack: cord, a little salt, good leather.', stores: { materials: 3, hides: 1 } },
         mixed: { text: 'You slide the last stretch and land badly, but you have the pack.', condition: -12, stores: { materials: 3, hides: 1 } },
         fail: { text: 'The ledge gives way.', condition: -60, killedBy: 'a fall from a crumbling ledge' } },
@@ -161,6 +170,8 @@ export interface Encounterer {
 
 /** Why you can't choose an option, or null if you can. */
 export function unmet(w: Encounterer, o: EncounterOption): string | null {
+  // Tunnel vision (#1361): panicked, fine judgement is gone.
+  if (o.careful && w.pending?.state === 'panicked') return "you can't think straight";
   const r = o.requires;
   const needs: Partial<Record<keyof Stores, number>> = { ...(r?.stores ?? {}) };
   for (const [k, n] of Object.entries(o.cost?.stores ?? {})) needs[k as keyof Stores] = Math.max(needs[k as keyof Stores] ?? 0, n ?? 0);
@@ -181,7 +192,9 @@ export function chanceOf(w: Encounterer, o: EncounterOption): number {
   const rattled = o.careful && (w.pending?.state === 'shaken' || w.pending?.state === 'panicked');
   const m = o.mods ?? {};
   let p = o.odds;
-  for (const [id, per] of Object.entries(m.stats ?? {})) p += (per ?? 0) * (w.character.stats[id as StatId] - 10);
+  // Adrenaline (#1361): shaken or panicked, the body is stronger and faster for a moment.
+  const surge = w.pending?.state === 'shaken' || w.pending?.state === 'panicked' ? ADRENALINE : 0;
+  for (const [id, per] of Object.entries(m.stats ?? {})) p += (per ?? 0) * (w.character.stats[id as StatId] - 10 + (id === 'str' || id === 'agi' ? surge : 0));
   for (const [id, per] of Object.entries(m.skills ?? {})) p += (per ?? 0) * skillLevel(w.skills, id as SkillId);
   for (const [id, add] of Object.entries(m.talents ?? {})) if (w.character.talents.some(t => t.id === id)) p += add ?? 0;
   for (const [id, add] of Object.entries(m.tools ?? {})) if (w.tools.some(t => t.item === id)) p += add;
