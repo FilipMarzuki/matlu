@@ -147,8 +147,10 @@ from the distant hills (`routeKnown`) is kept as a find for that.
 ## 7. Failure
 
 - **The body gives out before the thaw** — Condition reaches 0: dead of thirst
-  or hunger, or found collapsed. Death ends the character; a collapse ends the
-  run (vitality §3, #1234).
+  or hunger, or collapsed. Out in the Reach no one comes by: a collapse is death
+  too — a bear in autumn, wolves in winter — unless the spring caravan is within
+  3 days and its traders find you (#1323). Death ends the character; being found
+  ends only the run (vitality §3, #1234).
 - **Coming through badly** — a thin larder, a cold shelter or no fuel grinds
   Condition down through the winter; you may still reach the thaw, but *worn* or
   *broken*.

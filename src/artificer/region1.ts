@@ -1153,6 +1153,12 @@ export const NEEDS = {
   food: { condition: 1, clarity: 3, vigorRecovery: 0.5, clarityRecovery: 0.8 },
 } as const;
 
+/** Days before the thaw within which the spring caravan is near enough to find a collapsed Warden (#1323). */
+export const RESCUE_WITHIN = 3;
+
+/** Whether someone could find a Warden who collapses on the night of `day`: only the spring caravan, when it's close (#1323). */
+export const rescuable = (day: number, cal: Calendar): boolean => cal.thawDay - day <= RESCUE_WITHIN;
+
 /** A collapse is death when this deprived: nights in a row without water / without food (#1234). */
 export const DEATH_THIRST = 2;
 export const DEATH_HUNGER = 5;
@@ -1203,12 +1209,18 @@ export function endDay(s: Region1State): Region1State {
   // How far short of tonight's frost the shelter falls (#1306): a deep shortfall bites harder.
   const coldShortfall = cold && feelsTemperature(next) ? Math.max(0, coldNightNeeds(nightTemp(next.day, next.weatherToday, next.config.calendar)) - w) : 0;
   const night = sleepNight(next, { warmth: w, coldNight: cold, coldShortfall, lockedToday: lockedToday !== null, freeze, eating: next.eating, cabinDays: next.cabinDays });
-  // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you're found collapsed.
+  // Condition gone: the run ends (#1234). Deprived, you die of it; otherwise you collapse — and out here,
+  // only the spring caravan could find you in time (#1323). Anywhere else, the animals find you first.
   if (night.ended) {
-    next.outcome = { choice: 'collapse', kind: night.ended, vitals: next.vitals };
+    const found = night.ended === 'collapsed' && rescuable(next.day, next.config.calendar);
+    const kind = night.ended === 'collapsed' && !found ? 'died' : night.ended;
+    next.outcome = { choice: 'collapse', kind, vitals: next.vitals };
     say(next, night.ended === 'died'
       ? night.cause === 'cold' ? 'The fire is long dead and the cold comes in. You don\'t wake. Dead of the cold.' : deathLine(next)
-      : 'Your body gives out and you collapse. Traders find you days later, barely alive — this season is over.', 'outcome');
+      : found ? 'Your body gives out and you collapse. The caravan\'s traders, coming up the thawing valley, find you barely alive — this season is over.'
+        : seasonOf(next.day, next.config.calendar) === 'winter'
+          ? 'Your body gives out and you collapse in the snow. No one comes into the Reach in winter — the wolves find you first.'
+          : 'Your body gives out and you collapse. No one passes this way — a bear finds you first.', 'outcome');
     return next;
   }
 
