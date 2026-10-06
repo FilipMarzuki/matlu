@@ -8,16 +8,18 @@
  */
 
 import { scouted } from '../artificer/exploration';
-import { setFocus, setEating, createRegion1, chooseSite, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { setFocus, setEating, createRegion1, chooseSite, chooseOption, runDay, runAction, DAY_HOURS, type Region1State, parseItem, type QueueItem, type SiteId } from '../artificer/region1';
+import { FULL_WORLD } from '../artificer/world';
+import { encounterById, optionsFor, safestOption, chanceOf, oddsWord, type EncounterKind, type OddsWord } from '../artificer/encounters';
 import type { Calendar } from '../artificer/winter';
 import { summarizeRun, summarizeRoad, type Legacy, type RunRecord } from '../artificer/legacy';
 import { createRoad, runRoadDay, ROAD_DAYS, type RoadActionId, type RoadState } from '../artificer/road';
-import { observe, observeRoad, ROAD_RULES } from './observe';
+import { observe, observeRoad, observeEncounter, ROAD_RULES } from './observe';
 import { parseFocus } from '../artificer/focus';
 import { talentOffer, seedOf, chooseFromOffer, type TalentId } from '../artificer/talents';
 import { progressOf, roadProgressOf, type Progress, type RoadProgress } from './progress';
 import { invariantViolations, roadInvariantViolations } from './invariants';
-import { parseDecision, parseRoadDecision } from './decision';
+import { parseDecision, parseRoadDecision, parseEncounterDecision } from './decision';
 
 /** Token usage a model player reports per call (all optional; summed per run). */
 export interface Usage {
@@ -39,6 +41,29 @@ export interface Player {
    * a player without it ends the run at the thaw, as before the road existed.
    */
   decideRoad?(message: string, state: RoadState): Promise<{ text: string; usage?: Partial<Usage> }>;
+  /**
+   * Choose in an encounter that paused the day (#1348), replying `{thoughts, choice}`. Optional:
+   * a player without it always takes the safest option.
+   */
+  decideEncounter?(message: string, state: Region1State): Promise<{ text: string; usage?: Partial<Usage> }>;
+}
+
+/** One encounter met during a turn (#1348), and what came of it. */
+export interface EncounterChoice {
+  id: string;
+  kind: EncounterKind;
+  choice: string;
+  /** The odds of the chosen option, in words, as the player saw them. */
+  odds: OddsWord;
+  /** What happened, from the journal. */
+  result: string;
+  /** The choice killed the Warden. */
+  died?: boolean;
+  /** No valid choice came back (twice, or the player can't choose), so the safest was taken. */
+  forced?: boolean;
+  /** For a forced choice: the last raw reply and what was wrong with it. */
+  reply?: string;
+  errors?: string[];
 }
 
 /** One road day (#1251). */
@@ -77,6 +102,8 @@ export interface Turn {
   violations?: string[];
   /** Progression snapshot at the end of the turn (#1229). */
   progress: Progress;
+  /** Encounters met this turn and the choices made (#1348). */
+  encounters?: EncounterChoice[];
   /** Journal lines this turn produced. */
   journal: string[];
   /** State at the end of the turn, compactly. */
@@ -122,6 +149,11 @@ export interface PlayOptions {
    */
   road?: boolean;
   onRoadTurn?: (t: RoadTurn) => void;
+  /**
+   * Meet encounters out on the land (#1348), as people do in the app. On by default, so the
+   * playtests stay a fair picture of the game; off gives the world the sim tests use.
+   */
+  encounters?: boolean;
 }
 
 /** How many single actions a locked day asks for before it ends anyway (#1350). */
@@ -145,15 +177,15 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
   // offer, and a hidden one. (Carrying on, the legacy's talents win and the pick is ignored.)
   const id = opts.characterId ?? aiCharacterId(player.name);
   const chosen = chooseFromOffer(talentOffer(seedOf(id)), opts.talents ?? []);
-  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned' }, opts.legacy, { id, name: player.name, chosen });
+  let s = createRegion1({ ...(opts.calendar ? { calendar: opts.calendar } : {}), planning: opts.planning ?? 'learned', world: { ...FULL_WORLD, encounters: opts.encounters ?? true } }, opts.legacy, { id, name: player.name, chosen });
   const startKnown = s.known.length;
   const start = progressOf(s, startKnown);
   const turns: Turn[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: null };
   let notes: string[] = [];
 
-  const ask = async (message: string): Promise<string> => {
-    const r = await player.decide(message, s);
+  const ask = async (message: string, decide = player.decide.bind(player)): Promise<string> => {
+    const r = await decide(message, s);
     usage.input += r.usage?.input ?? 0;
     usage.output += r.usage?.output ?? 0;
     usage.cacheRead += r.usage?.cacheRead ?? 0;
@@ -161,6 +193,56 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     // Unknown stays unknown: one call without a cost doesn't turn a known total into a guess.
     if (r.usage?.cost !== undefined && r.usage.cost !== null) usage.cost = (usage.cost ?? 0) + r.usage.cost;
     return r.text;
+  };
+
+  // Encounters met this turn (#1348), and every one ever resolved, to catch one resolved twice.
+  let met: EncounterChoice[] = [];
+  let twice: string[] = [];
+  const resolved = new Set<string>();
+  /**
+   * An encounter paused the day (#1348): show it to the player, apply the choice, and leave the
+   * day ready to go on. An invalid choice is explained back once; after that — or for a player
+   * that can't choose — the safest available option is taken, and the encounter is marked.
+   */
+  const settle = async (): Promise<void> => {
+    while (s.pending && !s.outcome) {
+      const p = s.pending;
+      const t = encounterById(p.id);
+      if (!t) { s = { ...s, pending: null }; continue; } // an unknown encounter (an old save): let the day go on
+      const offered = optionsFor(s, t).map(o => ({ id: o.option.id, unmet: o.unmet }));
+      let choice: string | null = null, reply = '', errors: string[] | undefined;
+      if (player.decideEncounter) {
+        const decideEncounter = player.decideEncounter.bind(player);
+        reply = await ask(observeEncounter(s), decideEncounter);
+        let e = parseEncounterDecision(reply, offered);
+        if (!e.ok) {
+          reply = await ask(`Your choice was invalid:\n- ${e.errors.join('\n- ')}\nReply again with only the JSON object {"thoughts", "choice"}.`, decideEncounter);
+          e = parseEncounterDecision(reply, offered);
+        }
+        if (e.ok) choice = e.decision.choice; else errors = e.errors;
+      }
+      const forced = choice === null;
+      const option = forced ? safestOption(s, t) : t.options.find(o => o.id === choice)!;
+      const odds = oddsWord(chanceOf(s, option));
+      const key = `${p.id}@${p.day}`;
+      const logStart = s.log.length;
+      s = chooseOption(s, option.id);
+      if (forced && player.decideEncounter) notes.push(`You never named a valid choice in the encounter on day ${p.day}, so you took the safest: ${option.label}.`);
+      met.push({
+        id: p.id, kind: t.kind, choice: option.id, odds, result: s.log.slice(logStart).map(l => l.text).join(' '),
+        ...(s.outcome?.kind === 'died' ? { died: true } : {}),
+        ...(forced ? { forced: true, ...(player.decideEncounter ? { reply, errors } : {}) } : {}),
+      });
+      if (resolved.has(key)) twice.push(`encounter ${key} resolved twice`);
+      resolved.add(key);
+    }
+  };
+  /** Close a turn: attach the encounters met during it, and flag one resolved twice. */
+  const close = (t: Turn): Turn => {
+    const out = met.length ? { ...t, encounters: met } : t;
+    const v = twice;
+    met = []; twice = [];
+    return v.length ? { ...out, violations: [...(out.violations ?? []), ...v] } : out;
   };
 
   const maxDays = opts.maxDays ?? s.config.calendar.thawDay;
@@ -193,12 +275,14 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
         if (d.queue.length > 1) notes.push('Only your first action ran: you take things one at a time until you learn to plan ahead. You will be asked again.');
         s = runAction(s, first);
         done.push(first);
+        await settle();
+        if (s.outcome) break;
         if (d.site && d.site !== s.site && scouted(s.explore, 1)) s = chooseSite(s, d.site);
         if (s.hoursToday >= DAY_HOURS) { s = runDay(s, []).state; break; }
       }
       if (!s.outcome && s.day === day && !s.canPlan) s = runDay(s, []).state; // asked enough: the day ends
       if (s.outcome || s.day !== day) {
-        const t: Turn = { day, thoughts, site: s.site, queue: done, invalid, ...(invalid ? { reply: lastReply, errors } : {}), journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
+        const t = close({ day, thoughts, site: s.site, queue: done, invalid, ...(invalid ? { reply: lastReply, errors } : {}), journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
         turns.push(t); opts.onTurn?.(t);
         continue;
       }
@@ -214,7 +298,7 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
     if (!parsed.ok) {
       s = runDay(s, []).state;
       notes.push(`Your reply for day ${day} was invalid twice, so the day passed with nothing done.`);
-      const t: Turn = { day, thoughts: '', site: null, queue: [], invalid: true, reply, errors: parsed.errors, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
+      const t = close({ day, thoughts: '', site: null, queue: [], invalid: true, reply, errors: parsed.errors, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
       turns.push(t); opts.onTurn?.(t);
       continue;
     }
@@ -234,11 +318,18 @@ export async function playRun(player: Player, opts: PlayOptions = {}): Promise<R
         return id === 'build' && !opts.site ? { q: typeof item === 'string' ? item : item.q, opts: { ...opts, site: d.site! } } : item;
       })
       : d.queue;
-    const r = runDay(s, queue);
+    let r = runDay(s, queue);
     s = r.state;
+    // An encounter paused the day (#1348): choose, then the rest of the queue runs.
+    while (s.pending && !s.outcome) {
+      await settle();
+      if (s.outcome) break;
+      r = runDay(s, r.remaining);
+      s = r.state;
+    }
     if (deferSite && d.site && d.site !== s.site) s = chooseSite(s, d.site);
     if (r.remaining.length) notes.push(`${r.remaining.length} queued action(s) didn't fit in day ${day} and were dropped.`);
-    const t: Turn = { day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) };
+    const t = close({ day, thoughts: d.thoughts, site: d.site, queue: [...stepped, ...queue], invalid: false, journal: s.log.slice(logStart).map(l => l.text), after: snapshot(s, warmth), progress: progressOf(s, startKnown), ...broken(s) });
     turns.push(t); opts.onTurn?.(t);
   }
 

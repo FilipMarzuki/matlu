@@ -16,6 +16,7 @@ import { peopleOf } from '../../artificer/villages';
 import { buyPrice } from '../../artificer/trade';
 import { canBeTaught, techniqueById } from '../../artificer/techniques';
 import { skillLevel } from '../../artificer/skills';
+import { encounterById, safestOption } from '../../artificer/encounters';
 
 type Entry = { action: string; ring: number; options: { key: string; value: string }[] };
 const a = (action: string, ring = 1, options: Record<string, string> = {}): Entry =>
@@ -162,6 +163,11 @@ const scriptedPlanner = (): Player => {
     },
     async decideRoad(_message, r) {
       return { text: JSON.stringify({ thoughts: `Road day ${r.day}.`, actions: scriptedRoadDay(r) }), usage: { cost: 0 } };
+    },
+    // An encounter (#1348): the best odds, ties going to the cheapest — never a gamble it can avoid.
+    async decideEncounter(_message, s) {
+      const t = s.pending ? encounterById(s.pending.id) : undefined;
+      return { text: JSON.stringify({ thoughts: 'The safest way through.', choice: t ? safestOption(s, t).id : '' }), usage: { cost: 0 } };
     },
   };
 };

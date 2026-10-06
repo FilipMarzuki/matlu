@@ -15,13 +15,14 @@
  * and runner, and a run of hundreds of them doubles as a fuzz test of the sim.
  */
 
-import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
+import { ACTIONS, STUDY_CONCEPTS, blockedReason, SITES, DAY_HOURS, runAction, chooseSite, chooseOption, type ActionId, type ActionOpts, type QueueId, type Region1State, type SiteId } from '../../artificer/region1';
 import { scouted } from '../../artificer/exploration';
 import type { Player } from '../runner';
 import { villageOf, ROAD_CRAFTS, type RoadActionId, type RoadState } from '../../artificer/road';
 import { peopleOf, VILLAGES } from '../../artificer/villages';
 import { QUESTS } from '../../artificer/quests';
 import { BASE_VALUE, isGood } from '../../artificer/trade';
+import { encounterById, unmet } from '../../artificer/encounters';
 
 export type RandomMode = 'uniform' | 'legal';
 
@@ -88,6 +89,8 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
       day.push(toEntry(c.id, c.ring, c.o));
       const q = (c.ring === 1 ? c.id : `${c.id}@${c.ring}`) as QueueId;
       s = runAction(s, Object.keys(c.o).length ? { q, opts: c.o } : q);
+      // An encounter would pause the real day (#1348); the plan just assumes it gets through it.
+      if (s.pending) s = chooseOption(s, encounterOption(s));
     }
     return day;
   }
@@ -114,8 +117,19 @@ export function randomPlayer(opts: RandomPlayerOptions = {}): Player {
     return Array.from({ length: 1 + Math.floor(rand() * 5) }, () => pick(options));
   }
 
+  /** Any option open to you in a waiting encounter (#1348); `uniform` picks among every one. */
+  function encounterOption(s: Region1State): string {
+    const t = s.pending ? encounterById(s.pending.id) : undefined;
+    if (!t) return '';
+    const open = mode === 'legal' ? t.options.filter(o => !unmet(s, o)) : t.options;
+    return pick(open.length ? open : t.options).id;
+  }
+
   return {
     name: `random:${mode}`,
+    async decideEncounter(_message, s) {
+      return { text: JSON.stringify({ thoughts: `random (${mode})`, choice: encounterOption(s) }), usage: { cost: 0 } };
+    },
     async decideRoad(_message, r) {
       return { text: JSON.stringify({ thoughts: `random road (${mode})`, actions: roadDay(r) }), usage: { cost: 0 } };
     },
